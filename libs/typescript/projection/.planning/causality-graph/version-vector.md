@@ -4,10 +4,11 @@ The concurrency-detection read model the HLC total order structurally erases —
 
 ## [1]-[INDEX]
 
-Three clusters:
+Four clusters:
 - `[2]-[VERSION_VECTOR]` owns `VectorOrderKind`, `CausalVerdict`, `vectorOrder`, `vectorJoin`, `dominates`, `skewVerdict`, and the `causalStore` concurrency fold.
 - `[3]-[ORIGIN_CURSOR]` owns `OriginCursor`, the `origin`-keyed `highest-sequence` cursor the changefeed projects, and the `vectorOf`/`bandOf` selectors `causalStore` reads.
 - `[4]-[CRDT_SEMILATTICE]` owns the `CrdtOpWire` join-semilattice decode arm — `crdtContext` feeding `vectorJoin` off the `write` op and the `add`/`remove` observed-tags feeding the OR-set `tagVerdict` under the `convergence/convergence-law#CONVERGENCE_LAW` delivery-order independence.
+- `[5]-[MERKLE_RECONCILE]` is the forward stub for the `dominates`-driven `MerkleRangeWire` range-digest handshake — named on the same vector algebra, its fence body gated on the C# wire decode and the causal stable prefix.
 
 ## [2]-[VERSION_VECTOR]
 
@@ -143,12 +144,12 @@ const bandOf =
 
 - Owner: the `CrdtOpWire` join-semilattice decode arm — `crdtContext`, the `write`-op causal-context reader projecting the `CrdtOpWire.write.context` `Record<string, bigint>` into the same `VersionVectorWire` `vectorJoin` and `vectorOrder` read; `tagVerdict`, the add-wins observed-remove OR-set verdict over the `add`/`remove` observed-tags; `crdtMerge`, the `Match.discriminatorsExhaustive` op dispatch that folds each `CrdtOpWire` arm into the held `CrdtSemilatticeCell` under the join-semilattice least-upper-bound; and `crdtStore`, the `keyed-fold#KEYED_FOLD` fold that decodes the `crdt` column-family `OpLogEntryWire.payload` into the per-field convergent state beside the `causalStore` verdict.
 - Cases: the `crdt` column-family op carries the C#-owned `CrdtOpWire` 10-arm union on the `OpLogEntryWire.payload` slot — `set`/`write`/`add`/`remove`/`increment`/`insertAfter`/`delete`/`maintain`/`beat`/`leave` — decoded once at `interchange/codecs/decode-rail#TS_PROJECTION` off the MessagePack `[MessagePack.Union]` integer tag into the `op`-discriminated TS union the C# `version-control#TS_PROJECTION` declares. The `write` op feeds its `context` version vector into `vectorJoin` so a multi-value register write advances the held convergence vector by the least upper bound, and `vectorOrder` over two `write` contexts surfaces the `Concurrent` verdict a concurrent multi-value write carries. The `add` op installs its `(tagOrigin, tagLogical)` tag and the `remove` op erases only its observed `observedTags`, so a concurrent add and remove of the same element resolve add-wins by tag-set difference under `tagVerdict` — the OR-set convergence the C# `Crdt.OrSet` arm proves, mirrored on the wire vocabulary. The `increment` op folds the per-origin `delta` into the PN-counter slot map, the `insertAfter`/`delete` ops fold the RGA element by its `(origin, logical)` id, the `beat`/`leave` ops fold the `EphemeralMap` presence delta per origin by the flat `(physicalTicks, logical)` stamp the wire arm carries (the same two halves the C# `Hlc.Physical.ToUnixTimeTicks()`/`Logical` pair emits, never the `OpLogEntryWire.physical` ISO-8601 projection), and `maintain` compacts every field below the `quiescent` horizon. `Match.discriminatorsExhaustive` over the `op` key breaks the build when a new arm lands rather than silently dropping it, mirroring the C# `Crdt.Apply` total switch.
-- Packages: `effect` for `Data.TaggedEnum`, `HashMap`, `HashSet`, `Match`, `Option`, `Stream`, `SubscriptionRef`, `Effect`, and `Scope`; `fast-check` and `@effect/vitest` ground the `convergence/convergence-law#CONVERGENCE_LAW` harness over the join-semilattice merge.
+- Packages: `effect` for `Data.TaggedEnum`, `HashMap`, `HashSet`, `SortedMap`, `Match`, `Option`, `Order`, `Stream`, `SubscriptionRef`, `Effect`, and `Scope`; `fast-check` and `@effect/vitest` ground the `convergence/convergence-law#CONVERGENCE_LAW` harness over the join-semilattice merge. The RGA sequence is not a linear `cells` array re-scanned per insert and delete — it is an `effect` `SortedMap` keyed by the dense `(predecessor, id)` order position, so an `insertAfter` is one O(log n) `SortedMap.set` at its order key, a `delete` is one O(log n) `SortedMap.set` re-writing the cell to a tombstone at its order key, and the in-order replay is the `SortedMap.entries` ordered traversal — replacing the `[...seq, ...]` append and the `seq.map` linear tombstone scan, the flat-code surface sprawl the density floor names.
 - Growth: a new replicated type lands as one `CrdtOpWire` arm decoded at the decode-rail plus one `crdtMerge` match arm plus one `CrdtSemilatticeCell` field, breaking the `Match.discriminatorsExhaustive` dispatch at compile time; the convergence-law harness gates admission with the version-vector least-upper-bound oracle, never a parallel merge surface.
-- Boundary: the fold authors no op arm the wire does not carry — every arm decodes the C#-owned `CrdtOpWire` union verbatim and re-mints nothing, the second mint being the named cross-language drift defect; the `write` context is the same `VersionVectorWire` shape `[2]-[VERSION_VECTOR]` reads so the convergence-detection read model is one vector algebra over the commit vector, the cursor vector, and the op causal context; the OR-set, PN-counter, RGA, and `EphemeralMap` folds carry the join-semilattice least-upper-bound so any permutation of any partition of the op multiset applied any number of times converges to identical state — the `convergence/convergence-law#CONVERGENCE_LAW` delivery-order independence the scalar fold passes, extended over the join-semilattice arm; the `set` arm reconstructs the LWW register the `lww-merge#LWW_MERGE` scalar fold owns, so this fold tags the causal verdict and folds the convergent field while the scalar fold owns the live cell, never re-deciding the held write; the domain dials no transport.
+- Boundary: the fold authors no op arm the wire does not carry — every arm decodes the C#-owned `CrdtOpWire` union verbatim and re-mints nothing, the second mint being the named cross-language drift defect; the `write` context is the same `VersionVectorWire` shape `[2]-[VERSION_VECTOR]` reads so the convergence-detection read model is one vector algebra over the commit vector, the cursor vector, and the op causal context; the OR-set, PN-counter, RGA, and `EphemeralMap` folds carry the join-semilattice least-upper-bound so any permutation of any partition of the op multiset applied any number of times converges to identical state — the `convergence/convergence-law#CONVERGENCE_LAW` delivery-order independence the scalar fold passes, extended over the join-semilattice arm; the RGA `SortedMap` is keyed by the dense order position so two peers folding divergent insert order materialize the identical ordered sequence through `SortedMap.entries`, the persistent structure sharing under `set` so reconnect-replay re-inserts identically; the `set` arm reconstructs the LWW register the `lww-merge#LWW_MERGE` scalar fold owns, so this fold tags the causal verdict and folds the convergent field while the scalar fold owns the live cell, never re-deciding the held write; the domain dials no transport.
 
 ```ts contract
-import { Data, Effect, HashMap, HashSet, Match, Option, Scope, Stream, SubscriptionRef } from "effect";
+import { Data, Effect, HashMap, HashSet, Match, Option, Order, Scope, SortedMap, Stream, SubscriptionRef } from "effect";
 import type { CrdtOpWire, OpLogEntryWire, VersionVectorWire } from "@rasm/interchange";
 import { keyedFold } from "../fold-core/keyed-fold";
 import type { StreamPolicy } from "../fold-core/stream-policy";
@@ -158,6 +159,16 @@ type Stamp = { readonly physicalTicks: bigint; readonly logical: bigint };
 const keyHex = (key: Uint8Array): string => Array.from(key, (b) => b.toString(16).padStart(2, "0")).join("");
 
 const elementKey = (origin: string, logical: bigint): string => `${origin}:${logical}`;
+
+interface RgaOrderKey {
+  readonly after: string;
+  readonly id: string;
+}
+
+const RgaOrder: Order.Order<RgaOrderKey> = Order.combine(
+  Order.mapInput(Order.string, (k: RgaOrderKey) => k.after),
+  Order.mapInput(Order.string, (k: RgaOrderKey) => k.id),
+);
 
 const stampAfter = (a: Stamp, b: Stamp): boolean =>
   a.physicalTicks !== b.physicalTicks ? a.physicalTicks > b.physicalTicks : a.logical > b.logical;
@@ -171,7 +182,7 @@ type CrdtField = Data.TaggedEnum<{
   readonly MvRegister: { readonly values: ReadonlyArray<{ readonly value: Uint8Array; readonly context: VersionVectorWire; readonly stamp: Stamp }> };
   readonly OrSet: { readonly live: HashMap.HashMap<string, HashSet.HashSet<string>>; readonly tombstoned: HashSet.HashSet<string> };
   readonly PnCounter: { readonly positive: HashMap.HashMap<string, bigint>; readonly negative: HashMap.HashMap<string, bigint> };
-  readonly RgaSequence: { readonly cells: ReadonlyArray<{ readonly id: string; readonly after: string; readonly value: Uint8Array; readonly tombstone: boolean }> };
+  readonly RgaSequence: { readonly cells: SortedMap.SortedMap<RgaOrderKey, { readonly value: Uint8Array; readonly tombstone: boolean }> };
   readonly EphemeralMap: { readonly live: HashMap.HashMap<string, { readonly state: Uint8Array; readonly stamp: Stamp }> };
 }>;
 const CrdtField = Data.taggedEnum<CrdtField>();
@@ -254,17 +265,22 @@ const crdtMerge = (cell: CrdtSemilatticeCell, op: CrdtOpWire): CrdtSemilatticeCe
           : CrdtField.PnCounter({ positive: counter.positive, negative: HashMap.modifyAt(counter.negative, inc.origin, (h) => Option.some(Option.getOrElse(h, () => 0n) - inc.delta)) }));
       },
       insertAfter: (ins) => {
-        const held = fieldOf(cell, ins.field, CrdtField.RgaSequence({ cells: [] }));
-        const seq = CrdtField.$is("RgaSequence")(held) ? held.cells : [];
-        return setField(cell, ins.field, CrdtField.RgaSequence({
-          cells: [...seq, { id: elementKey(ins.idOrigin, ins.idLogical), after: elementKey(ins.predOrigin, ins.predLogical), value: ins.value, tombstone: false }],
-        }));
+        const held = fieldOf(cell, ins.field, CrdtField.RgaSequence({ cells: SortedMap.empty(RgaOrder) }));
+        const seq = CrdtField.$is("RgaSequence")(held) ? held.cells : SortedMap.empty<RgaOrderKey, { readonly value: Uint8Array; readonly tombstone: boolean }>(RgaOrder);
+        const key: RgaOrderKey = { after: elementKey(ins.predOrigin, ins.predLogical), id: elementKey(ins.idOrigin, ins.idLogical) };
+        return setField(cell, ins.field, CrdtField.RgaSequence({ cells: SortedMap.set(seq, key, { value: ins.value, tombstone: false }) }));
       },
       delete: (del) => {
-        const held = fieldOf(cell, del.field, CrdtField.RgaSequence({ cells: [] }));
-        const seq = CrdtField.$is("RgaSequence")(held) ? held.cells : [];
+        const held = fieldOf(cell, del.field, CrdtField.RgaSequence({ cells: SortedMap.empty(RgaOrder) }));
+        const seq = CrdtField.$is("RgaSequence")(held) ? held.cells : SortedMap.empty<RgaOrderKey, { readonly value: Uint8Array; readonly tombstone: boolean }>(RgaOrder);
         const id = elementKey(del.idOrigin, del.idLogical);
-        return setField(cell, del.field, CrdtField.RgaSequence({ cells: seq.map((c) => (c.id === id ? { ...c, tombstone: true } : c)) }));
+        const target = Array.from(SortedMap.keys(seq)).find((k) => k.id === id);
+        return setField(cell, del.field, CrdtField.RgaSequence({
+          cells: Option.match(Option.fromNullable(target), {
+            onNone: () => seq,
+            onSome: (k) => SortedMap.set(seq, k, { value: Option.getOrElse(Option.map(SortedMap.get(seq, k), (c) => c.value), () => new Uint8Array(0)), tombstone: true }),
+          }),
+        }));
       },
       beat: (beat) => {
         const stamp = { physicalTicks: beat.physicalTicks, logical: beat.logical };
@@ -308,6 +324,15 @@ const crdtStore = (
     policy,
   );
 ```
+
+## [5]-[MERKLE_RECONCILE]
+
+- Owner: `MerkleRangeWire` digest handshake — a `dominates`-driven range-digest comparison that names the divergent slice between a reconnecting peer's retained stable prefix and a peer range, and `rangeReconcile`, the set-difference handshake folding only the divergent slice rather than re-scanning the whole changefeed through `stream-policy#STREAM_POLICY`. The reconciliation unit is the `causal-delivery/stability-frontier#STABILITY_FRONTIER` causally-settled prefix, never the unbounded op-log.
+- Cases: a reconnecting browser peer compares its retained-prefix range digest against the peer's; where the digests differ the `dominates` algebra over the two `VersionVectorWire` range endpoints names the divergent slice, and `rangeReconcile` pulls only that slice — bounding reconnect cost to the divergent range rather than a full re-fold. The handshake lands as ONE `dominates`-driven `MerkleRangeWire` digest comparison on the same vector algebra `[2]-[VERSION_VECTOR]` owns, never a parallel ordering surface.
+- Packages: `effect` for `HashMap`, `SortedMap`, and `Order`, reading the `[2]-[VERSION_VECTOR]` `dominates` predicate already owned — no second comparison surface.
+- Boundary: the reconciliation reads the `causal-delivery/stability-frontier#STABILITY_FRONTIER` stable prefix as the unit and the `[2]-[VERSION_VECTOR]` `dominates` algebra as the comparison, minting no second ordering; the `MerkleRangeWire` shape arrives decode-admitted from `csharp:Rasm.Persistence/versioning/version-control#TS_PROJECTION`, re-validated nowhere.
+
+[BLOCKED-GATED] — the fence body is not authored. Two preconditions gate it: (1) the `MerkleRangeWire` shape must arrive decode-admitted on the `libs/typescript/interchange` decode rail from `csharp:Rasm.Persistence/versioning/version-control#TS_PROJECTION` — confirmed absent from the rail today, present only in this folder's forward-notes; (2) the `causal-delivery/stability-frontier#STABILITY_FRONTIER` causal stable prefix must land as the reconciliation unit. The `[2]-[VERSION_VECTOR]` Growth bullet already anticipates this handshake verbatim. Close-condition: author the `dominates`-driven digest-comparison fence once both the C# wire decode and the causal stability frontier land; until then this stays an OPEN idea card with no executable fence.
 
 ```mermaid
 flowchart LR

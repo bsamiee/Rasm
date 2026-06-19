@@ -36,8 +36,8 @@ Rasm.AppHost/
 │   └── registry.md
 ├── agent/               The bidirectional agent surface over the capability registry: the MCP-server projection (descriptor-to-AIFunction tools/resources/prompts, brokered dry-run dispatch, sampling, elicitation, SSE-resumable streaming), the MCP-client federation that folds external servers' tools into the one registry as brokered descriptors, and the in-process reasoning runtime (IChatClient function-calling, embedding-ranked intent discovery, replayable transcript).
 │   ├── mcp-projection.md
-│   ├── tool-federation.md       (planned — consumes external MCP servers, folding peer tools/resources/prompts; T-AGENT-TOOL-FEDERATION)
-│   └── reasoning-runtime.md     (planned — in-process agent loop + model governance: metered/cached/replayable IChatClient middleware; T-AGENT-REASONING-RUNTIME, T-GENAI-MODEL-GOVERNANCE)
+│   ├── tool-federation.md       Consumes external MCP servers, folding peer tools/resources/prompts/templates into the one registry as brokered descriptors and draining peer resource-update subscriptions into the live-wire lane.
+│   └── reasoning-runtime.md     In-process agent loop + model governance: IChatClient function-calling over the brokered CommandAIFunction, embedding-ranked ByIntent discovery, replayable transcript, and the metered/cached/traced middleware fold.
 ├── sandbox/             Capability-brokered plugin isolation (wasmtime-dotnet WASM component-model + process), no-ambient-authority grant handles, per-plugin quota/kill/quarantine, fail-closed supply-chain attestation gate, and the seven-kind solver-plugin contract with canonical-representation negotiation.
 │   ├── sandbox-host.md
 │   └── solver-plugin.md

@@ -68,6 +68,9 @@
 
 [LOCAL_ADMISSION]:
 - `UseStore` is the customization seam; create one store per logical domain area (distinct `dbName` + `storeName` pairs) to prevent key collisions and allow independent `clear` calls
+- `LocalPersistence` owns the one sanctioned `idb-keyval` site: a frozen `Record<StoreDomain, UseStore>` table maps each `StoreDomain` (`snapshot`/`offline-queue`/`auth-flow`/`viewpoint-cache`) to its own `createStore(\`rasm-${domain}\`, domain)` named store, so a `snapshot` `clear` never evicts the `offline-queue` and IndexedDB transaction isolation holds per domain. A per-domain `createStore` call scattered at a consumer, a key-prefix convention in one flat `keyval` object store, or a hand-rolled `idb-keyval` call outside the `StoreDomain` table is the named flat-store defect.
+- The offline-queue drain is one atomic `entries`-then-`clear` over the `offline-queue` store (the full ordered queue cursor-read, then the store emptied), never a per-element `get`/`del` loop a mid-drain crash can half-apply; `enqueue` rides `update` (read-modify-write in one `readwrite` transaction), never a get-then-set race.
+- The Schema-encoded `lastGood` snapshot composes a custom `KeyValueStore.make` adapter over the `snapshot` `UseStore` so the `@effect/platform` `KeyValueStore` abstraction survives over IndexedDB; the `@effect/platform-browser` `BrowserKeyValueStore` `layerLocalStorage`/`layerSessionStorage` surface backs NO domain here — it exposes no IndexedDB layer, so it is never the backing store for a durable domain.
 - All key parameters accept the full `IDBValidKey` union (`string | number | Date | ArrayBufferView | ArrayBuffer | IDBValidKey[]`); string keys are the conventional usage
 - `get<T>` returns `T | undefined`; callers must handle the undefined case — the store does not distinguish between a missing key and a key explicitly set to `undefined`
 

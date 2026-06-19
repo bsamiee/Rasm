@@ -38,7 +38,7 @@ The execute entry dispatches a recipe by name over an `ifcopenshell.file` and a 
 | :-----: | :-------------------------------------------------------- | :------------------------- | :-------------------------------------------- |
 |   [1]   | `ifcpatch.execute({"input","file","recipe","arguments"})` | recipe name plus args dict | run a named recipe, return the patched output |
 |   [2]   | `ifcpatch.write(output, filepath)`                        | recipe output plus path    | serialize the patched model or product        |
-|   [3]   | `ifcpatch.extract_patcher(recipe)`                        | recipe name                | resolve the `Patcher` class for a recipe      |
+|   [3]   | `ifcpatch.extract_docs(recipe, ...)`                      | recipe name                | extract a recipe's docstring and argument spec |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

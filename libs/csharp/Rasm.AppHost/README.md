@@ -16,7 +16,7 @@ The design pages under `.planning/`, grouped by sub-domain.
 - provisioning: [provisioning-and-update](.planning/provisioning/provisioning-and-update.md)
 - companion: [companion-sidecar](.planning/companion/companion-sidecar.md)
 - capability: [registry](.planning/capability/registry.md)
-- agent: [mcp-projection](.planning/agent/mcp-projection.md)
+- agent: [mcp-projection](.planning/agent/mcp-projection.md), [tool-federation](.planning/agent/tool-federation.md), [reasoning-runtime](.planning/agent/reasoning-runtime.md)
 - sandbox: [sandbox-host](.planning/sandbox/sandbox-host.md), [solver-plugin](.planning/sandbox/solver-plugin.md)
 - live-wire: [live-wire](.planning/live-wire/live-wire.md)
 - determinism: [determinism-and-replay](.planning/determinism/determinism-and-replay.md)

@@ -46,7 +46,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 [ENTRYPOINT_SCOPE]: registration (`small_gicp.align`)
 - rail: scan-processing
 
-`align` is overloaded on the target shape and returns a `RegistrationResult`; `registration_type` is one of `ICP`, `PLANE_ICP`, `GICP`, `VGICP`. All overloads share `init_T_target_source=eye(4)`, `max_correspondence_distance=1.0`, `num_threads=1`, `max_iterations=20`, `rotation_epsilon`, `translation_epsilon`, and `verbose`.
+`align` is overloaded on the target shape and returns a `RegistrationResult`; `registration_type` is one of `ICP`, `PLANE_ICP`, `GICP`, `VGICP`. The raw-array overload additionally carries `voxel_resolution=1.0` and `downsampling_resolution=0.25` (it preprocesses internally). All overloads share `init_T_target_source=eye(4)`, `max_correspondence_distance=1.0`, `num_threads=1`, `max_iterations=20`, `rotation_epsilon`, `translation_epsilon`, and `verbose`.
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                      |
 | :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------ |

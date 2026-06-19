@@ -69,10 +69,14 @@ public static class ProfileCatalogue {
     static readonly ProfileStandard IguStandard = new("eu", StandardJointThicknessMm: 0.0, Authority: "EN 1279");
 
     static readonly Seq<GlazingRow> GlazingRows = Seq(
-        new GlazingRow("glazing.double-4-16-4",     "double", "warm-edge",        4.0, 16.0, "argon"),
-        new GlazingRow("glazing.double-6-12-6",     "double", "warm-edge",        6.0, 12.0, "argon"),
-        new GlazingRow("glazing.double-4-12-4-alu", "double", "cold-edge-aluminum", 4.0, 12.0, "air"),
-        new GlazingRow("glazing.triple-4-16-4-16-4","triple", "warm-edge",        4.0, 16.0, "krypton"));
+        new GlazingRow("glazing.double-4-16-4",       "double", "warm-edge",          4.0, 16.0, "argon"),
+        new GlazingRow("glazing.double-6-12-6",       "double", "warm-edge",          6.0, 12.0, "argon"),
+        new GlazingRow("glazing.double-4-20-4",       "double", "warm-edge",          4.0, 20.0, "argon"),
+        new GlazingRow("glazing.double-6-16-6-lowe",  "double", "warm-edge",          6.0, 16.0, "argon"),
+        new GlazingRow("glazing.double-4-12-4-alu",   "double", "cold-edge-aluminum", 4.0, 12.0, "air"),
+        new GlazingRow("glazing.double-66.2-16-4-lam","double", "warm-edge",          6.4, 16.0, "argon"),
+        new GlazingRow("glazing.triple-4-16-4-16-4",  "triple", "warm-edge",          4.0, 16.0, "krypton"),
+        new GlazingRow("glazing.triple-4-12-4-12-4",  "triple", "warm-edge",          4.0, 12.0, "argon"));
 
     static Fin<GlazingShape> GlazingOf(GlazingRow r, Context context, Op key) =>
         from pane in key.AcceptValidated<PositiveMagnitude>(candidate: r.PaneMm)
@@ -92,5 +96,6 @@ public static class ProfileCatalogue {
 
 ## [3]-[RESEARCH]
 
-- [GLAZING_ROW_TRANSCRIPTION]: the standard IGU builds carry the 4 mm/6 mm pane glass, the 12/16 mm warm-edge or 20 mm cavity, and the double `4-16-4` (24 mm overall) / triple `4-16-4-16-4` configurations with argon/krypton gas fill; the four rows are the realized seed and the remaining pane thicknesses, low-E coatings, and laminated/tempered pane variants are pure `GlazingRow` data additions, each one row, never a new type. The overall unit thickness is the pane-count times pane plus cavity-count times cavity, the `IfcMaterialLayerSet` pane-cavity-pane stack the wire shape.
+- [GLAZING_ROW_TRANSCRIPTION]: REALIZED — the standard EN 1279 IGU builds carry the 4 mm/6 mm pane glass, the 6.4 mm laminated (66.2) safety pane, the 12/16/20 mm cavity, and the double `4-16-4` (24 mm overall) / triple `4-16-4-16-4` configurations with argon/krypton/air gas fill plus the low-E coated double; the catalogue carries the double argon/air/low-E/laminated and triple argon/krypton builds keyed `glazing.<designation>`, the remaining pane thicknesses, low-E coating tiers, and electrochromic/vacuum (VIG) variants one further `GlazingRow` data addition, each one row, never a new type. The overall unit thickness is the pane-count times pane plus cavity-count times cavity, the `IfcMaterialLayerSet` pane-cavity-pane stack the wire shape.
+- [IFCPROFILEDEF_GLAZING_ALIGNMENT]: glazing is the one family that is an `IfcMaterialLayerSet` rather than an `IfcProfileDef` profile — the `GlazingSection.ToLayerSet` bridge resolves the IGU to the `construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet` (pane / cavity / pane), so a glazing unit round-trips to IFC 4.3 as the `IfcMaterialLayerSet` the layer-set assignment owner serializes (`IfcMaterialLayer.LayerThickness` per pane/cavity, `IfcMaterialLayer.IsVentilated` false for the sealed cavity), the `SpacerType` edge-seal a `Pset_` thermal-bridge property on the element rather than a profile column, the laminated pane a two-`MaterialLayer` sub-stack within the pane thickness. The `ToUnit` rectangle projection serves only the catalogue keying and the frame-rebate module the host overrides; the wire shape is the layer set, not a rectangle profile. The probe is the per-coating `IfcSurfaceStyle`/low-E emissivity mapping at the `Rasm.Bim` boundary.
 - [GLAZING_THERMAL_RECEIPT]: the IGU U-value and the spacer thermal-bridge psi-value drive the energy-model design; the per-cavity gas conductivity and the low-E coating emissivity are `GlazingSection`/`SpacerType` column growth, never a parallel section owner — the pane/spacer/cavity columns and the `SpacerType.PsiWmK` already carry the thermal receipt the `assembly#MATERIAL_ASSIGNMENT` `LayerSet` and the energy seam read. The cavity gas crosses the appearance wire as the `liquid.water` `MaterialId` proxy until a transparent-gas appearance row lands; the structural/thermal layer thickness crosses the IFC wire as the `IfcMaterialLayer.LayerThickness`.

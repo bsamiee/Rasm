@@ -158,7 +158,7 @@ public enum Handedness : byte { Right = 0, Left = 1 }
 
 public enum StepProtocol : byte { None = 0, Ap203 = 203, Ap214 = 214, Ap242 = 242 }
 
-public static class FrameNormalization {
+public static partial class FrameNormalization {
     public static void Canonicalize(InterchangeFormat format, Span<float> vertices, int stride) {
         if (format.IsCanonicalFrame) {
             return;

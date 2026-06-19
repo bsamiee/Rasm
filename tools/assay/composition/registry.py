@@ -875,10 +875,11 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.PROVISION, "doctor", provision_rail.doctor, ProvisionParams, "Diagnose local Docker, Colima, paths, and ports."),
     Bind(Claim.PROVISION, "ports", provision_rail.ports, ProvisionParams, "Show configured provisioning ports and current listeners."),
     Bind(Claim.PROVISION, "inventory", provision_rail.inventory, ProvisionParams, "Show owned provisioning resources and Docker diagnostics."),
-    Bind(Claim.PROVISION, "extensions", provision_rail.extensions, ProvisionParams, "Show provisioning extension targets."),
-    Bind(Claim.PROVISION, "plan", provision_rail.plan, ProvisionParams, "Render provisioning compose plan without writing assets."),
-    Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Report redacted provisioning connection metadata."),
-    Bind(Claim.PROVISION, "verify", provision_rail.verify, ProvisionParams, "Create required extensions and verify provisioning probes."),
+Bind(Claim.PROVISION, "extensions", provision_rail.extensions, ProvisionParams, "Show provisioning extension targets."),
+Bind(Claim.PROVISION, "plan", provision_rail.plan, ProvisionParams, "Render provisioning compose plan without writing assets."),
+Bind(Claim.PROVISION, "env", provision_rail.env, ProvisionParams, "Report redacted provisioning connection metadata."),
+Bind(Claim.PROVISION, "check", provision_rail.check, ProvisionParams, "Read provisioning evidence and local runtime probes."),
+Bind(Claim.PROVISION, "apply", provision_rail.apply, ProvisionParams, "Create admitted provisioning extensions."),
 )
 
 

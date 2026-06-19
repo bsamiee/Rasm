@@ -17,8 +17,10 @@ The design pages, grouped by sub-domain in build order — the fold core every o
 - [convergence/presence](.planning/convergence/presence.md): the `ConflictPresenceStore` and the ephemeral-TTL presence row.
 - [convergence/convergence-law](.planning/convergence/convergence-law.md): the `fast-check` permutation law proving cross-peer strong eventual consistency.
 - [causality-graph/version-vector](.planning/causality-graph/version-vector.md): the `VectorOrderKind` partial order and the skew-fused `concurrent-uncertain` verdict.
-- [causal-delivery/causal-buffer](.planning/causal-delivery/causal-buffer.md): the `CausalBuffer` dependency-gated release and the `stabilityFrontier` `SortedSet`-cursor meet.
-- [temporal-query/as-of-query](.planning/temporal-query/as-of-query.md): the `AsOf` coordinate, the `asOfQuery` `reconstructAt` projection, and the two-coordinate diff.
+- [causal-delivery/causal-buffer](.planning/causal-delivery/causal-buffer.md): the `CausalBuffer` dependency-gated release, the `DeliveryVerdict` Held/Released dispatch, and the `causalDelivery` keyed-fold constructor.
+- [causal-delivery/stability-frontier](.planning/causal-delivery/stability-frontier.md): the `stabilityFrontier` `SortedSet`-of-cursors greatest-lower-bound meet naming the causally-settled horizon.
+- [temporal-query/as-of-query](.planning/temporal-query/as-of-query.md): the `AsOf` coordinate (Version/EventTime/Stable) and the `asOfQuery` `reconstructAt` projection.
+- [temporal-query/as-of-diff](.planning/temporal-query/as-of-diff.md): the `asOfDiff` two-coordinate snapshot diff the conflict inspector reads.
 - [envelope/receipt-envelope](.planning/envelope/receipt-envelope.md): the `ReceiptEnvelopeCarrier` payload-bound `Schema` factory.
 - [evidence/evidence-correlation](.planning/evidence/evidence-correlation.md): the `EvidenceProjection` store and content-keyed evidence correlation.
 - [availability/availability-gate](.planning/availability/availability-gate.md): the `AvailabilityStore` read gate the gateway dials against.

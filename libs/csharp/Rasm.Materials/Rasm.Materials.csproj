@@ -5,6 +5,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Color Spectral">

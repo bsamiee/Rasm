@@ -1,12 +1,12 @@
 # [COMPUTE_UNION]
 
-One twenty-one-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
+One twenty-two-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                        |
 | :-----: | :--------------- | :------------------------------------------------------------ |
-|   [1]   | RECEIPT_UNION    | Twenty-one-case fact union; one wire context; sink-port emission |
+|   [1]   | RECEIPT_UNION    | Twenty-two-case fact union; one wire context; sink-port emission |
 |   [2]   | FOLD_PROJECTIONS | Operational views derive as folds over the fact stream        |
 |   [3]   | WIRE_STAMPS      | NodaTime-protobuf bridges own the temporal wire edge          |
 |   [4]   | BENCHMARK_CLAIMS | Fingerprint-gated claim rows decide performance routes        |
@@ -15,13 +15,13 @@ One twenty-one-case `ComputeReceipt` union is the package's only fact vocabulary
 ## [2]-[RECEIPT_UNION]
 
 - Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
-- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict · factorization · generate · discretization · solve · optimization · sweep · clash · twin
+- Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict · factorization · generate · discretization · solve · optimization · sweep · clash · twin · uncertainty
 - Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
 - Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, the ambient `TenantContext.Current` threads into `Send` so the envelope `Tenant` field partitions evidence by the boot-minted tenancy primitive AppHost owns — Compute reads `TenantContext` as settled vocabulary and never re-mints it, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony; `ComputeWireContext` joins the suite Strict resolver merge so the polymorphic `kind` discriminator round-trips through one shared `JsonSerializerOptions`, every Thinktecture spine field crosses as its key scalar through the merged Thinktecture resolver, and the union deserializes back to the exact case with `Seq<string>` collections intact — `UnmappedMemberHandling.Disallow` rejects any drifted field at the consuming edge rather than dropping it.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free and the envelope is the sole cross-process causal carrier.
 - Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface.
-- Boundary: receipts are process-local and HLC-correlated, never globally shared — the envelope stamp is the only cross-process causal primitive; a generic IReceipt/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms; the `Conflict` case is the receipt complement of the wire fault projection, carrying retry-owner and contract-checksum evidence; the `Factorization` case carries the numeric-lane dense and sparse solve evidence (provider, decomposition kind, dimensions, nnz, storage format) and the `Generate` case the generative-run evidence (model checksum, EP, model type, token count, tokens-per-second, `GuidanceKind` dimension, constrained-token count, tool-call count) — a `SolveReceipt`, `GenerationReceipt`, or `BatchReceipt` standalone type is the rejected form, a batch result is a `Seq<ComputeReceipt>` under one correlation tag and an `Embed` run rides the `Generate` family slot; the `Discretization`/`Solve`/`Optimization`/`Sweep`/`Clash`/`Twin` cases carry the solver lane evidence (mesh algorithm + element + node/element counts + worst-element quality; physics + method + DOF count + iteration count + residual + converged flag; optimizer + generation/evaluation/surrogate-hit counts + front size + hypervolume; grid-point + completed + front/dominated split; index kind + candidate + hard/clearance counts; signal id + predicted-versus-measured residual + anomaly flag + control delta) — a `MeshReceipt`, `OptimizerReceipt`, `ClashReceipt`, or `TwinReceipt` standalone type is the rejected form, every solver outcome rides the one union under its correlation; `TensorRun.Partitions` carries the `ParallelHelper` partition count so a partitioned kernel is operator-attributable on the existing receipt; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
+- Boundary: receipts are process-local and HLC-correlated, never globally shared — the envelope stamp is the only cross-process causal primitive; a generic IReceipt/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms; the `Conflict` case is the receipt complement of the wire fault projection, carrying retry-owner and contract-checksum evidence; the `Factorization` case carries the numeric-lane dense and sparse solve evidence (provider, decomposition kind, dimensions, nnz, storage format) and the `Generate` case the generative-run evidence (model checksum, EP, model type, token count, tokens-per-second, `GuidanceKind` dimension, constrained-token count, tool-call count) — a `SolveReceipt`, `GenerationReceipt`, or `BatchReceipt` standalone type is the rejected form, a batch result is a `Seq<ComputeReceipt>` under one correlation tag and an `Embed` run rides the `Generate` family slot; the `Discretization`/`Solve`/`Optimization`/`Sweep`/`Clash`/`Twin`/`Uncertainty` cases carry the solver lane evidence (mesh algorithm + element + node/element counts + worst-element quality; physics + method + DOF count + iteration count + residual + converged flag; optimizer + generation/evaluation/surrogate-hit counts + front size + hypervolume; grid-point + completed + front/dominated split; index kind + candidate + hard/clearance counts; signal id + predicted-versus-measured residual + anomaly flag + control delta; uncertainty-method + sample count + response mean/variance + the failure-probability `pf` and reliability index `β`) — a `MeshReceipt`, `OptimizerReceipt`, `ClashReceipt`, `TwinReceipt`, or `UncertaintyReceipt` standalone type is the rejected form, every solver outcome rides the one union under its correlation, and the `Uncertainty` case is the forward-UQ/reliability complement of the deterministic `Optimization`/`Sweep` cases — the `solver/uncertainty#UNCERTAINTY_LANE` `Propagate` fold emits it once at the sink edge, the Sobol total-effect vector crosses as a `Seq<double>` collection member exactly like the `Selection` evaluated/rejected sequences, and the result body is content-keyed so its Strict-resolver round-trip is a golden-bytes fixture; `TensorRun.Partitions` carries the `ParallelHelper` partition count so a partitioned kernel is operator-attributable on the existing receipt; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -47,6 +47,7 @@ One twenty-one-case `ComputeReceipt` union is the package's only fact vocabulary
 [JsonDerivedType(typeof(Sweep), "sweep")]
 [JsonDerivedType(typeof(Clash), "clash")]
 [JsonDerivedType(typeof(Twin), "twin")]
+[JsonDerivedType(typeof(Uncertainty), "uncertainty")]
 public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanFormattable {
     private ComputeReceipt() { }
 
@@ -101,6 +102,8 @@ public abstract partial record ComputeReceipt : ISpanFormattable, IUtf8SpanForma
     public sealed record Clash(string IndexKind, int Candidates, int HardClashes, int ClearanceViolations, int TotalPairs) : ComputeReceipt;
 
     public sealed record Twin(string SignalId, double Predicted, double Measured, double Residual, bool Anomaly, double ControlDelta) : ComputeReceipt;
+
+    public sealed record Uncertainty(string Method, int Samples, double Mean, double Variance, Seq<double> Quantiles, Seq<double> SobolTotal, double FailureProbability, double ReliabilityIndex) : ComputeReceipt;
 
     public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
 
@@ -330,7 +333,7 @@ type ComputeReceiptKind =
   | "selection" | "tensor-run" | "model-load" | "warmup" | "model-run" | "remote-call"
   | "stream-segment" | "allocation" | "cache" | "unit-projection" | "backpressure" | "drain" | "conflict"
   | "factorization" | "generate"
-  | "discretization" | "solve" | "optimization" | "sweep" | "clash" | "twin";
+  | "discretization" | "solve" | "optimization" | "sweep" | "clash" | "twin" | "uncertainty";
 
 interface ComputeReceiptSpineWire { kind: ComputeReceiptKind; correlation: string; lane: string; substrate: string; allocationClass: string; elapsed: string; }
 
@@ -376,10 +379,12 @@ interface ClashWire extends ComputeReceiptSpineWire { kind: "clash"; indexKind: 
 
 interface TwinWire extends ComputeReceiptSpineWire { kind: "twin"; signalId: string; predicted: number; measured: number; residual: number; anomaly: boolean; controlDelta: number; }
 
+interface UncertaintyWire extends ComputeReceiptSpineWire { kind: "uncertainty"; method: string; samples: number; mean: number; variance: number; quantiles: number[]; sobolTotal: number[]; failureProbability: number; reliabilityIndex: number; }
+
 type ComputeReceiptWire =
   | SelectionWire | TensorRunWire | ModelLoadWire | WarmupWire | ModelRunWire | RemoteCallWire | StreamSegmentWire
   | AllocationWire | CacheWire | UnitProjectionWire | BackpressureWire | DrainWire | ConflictWire | FactorizationWire | GenerateWire
-  | DiscretizationWire | SolveWire | OptimizationWire | SweepWire | ClashWire | TwinWire;
+  | DiscretizationWire | SolveWire | OptimizationWire | SweepWire | ClashWire | TwinWire | UncertaintyWire;
 
 type ComputeReceiptEnvelopeWire = ReceiptEnvelopeWire<ComputeReceiptWire>;
 

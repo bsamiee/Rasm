@@ -4,7 +4,9 @@ The watermark-driven retention and compaction rule across every keyed map — `F
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[FRONTIER_GC]` owns `Frontier`, `advanceFrontier`, `finalizeBelow`, the `Reclaimable` retention vocabulary, and the `frontierGc` compaction fold.
+Two clusters:
+- `[2]-[FRONTIER_GC]` owns `Frontier`, `advanceFrontier`, `finalizeBelow`, the `Reclaimable` retention vocabulary, and the `frontierGc` compaction fold.
+- `[3]-[SOURCE_WIRING]` owns the three reclaimable projections (`windowReclaimable`, `tombstoneReclaimable`, `presenceReclaimable`) and `reclaimableFeed`, the one merged stream every owning fold contributes its event-time row to.
 
 ## [2]-[FRONTIER_GC]
 
@@ -74,6 +76,55 @@ const frontierGc = <K>(
   );
 ```
 
-## [3]-[RESEARCH]
+## [3]-[SOURCE_WIRING]
+
+- Owner: `windowReclaimable`, the projection of a `standing-query/window-fold#WINDOW_FOLD` `WindowCell` into a `WindowBucket` row carrying the bucket start and the cell mark; `tombstoneReclaimable`, the projection of a `convergence/lww-merge#LWW_MERGE` delete into a `Tombstone` row carrying the delete `eventNanos`; `presenceReclaimable`, the projection of a `convergence/presence#PRESENCE` row into a `PresenceRow` carrying the `expiresAt` nanos; and `reclaimableFeed`, the `Stream.merge` of the three projected sources into the one keyed `{ key, row, mark }` stream `frontierGc` folds. The three TTL sources contribute to one frontier rule rather than each carrying a per-row `expiresAt` scan in its owning fold.
+- Cases: each owning fold projects its event time into the shared `Reclaimable` vocabulary at the wire — the window bucket through its `WindowCell.mark`, the tombstone through the delete entry's `eventNanos` (the key can never re-live past the horizon, so the tombstone is reclaimable), the presence row through its `expiresAt` parsed to nanos — and `reclaimableFeed` merges them so the `frontierGc` fold advances one `Frontier` with the maximum watermark across all three and `finalizeBelow` evicts every below-horizon cell of any kind in one `trim` pass. A new reclaimable source is one projection plus one `Stream.merge` arm, never a parallel GC fold.
+- Packages: `effect` for `Stream` (the `merge` of the three projected sources) and `Duration`.
+- Growth: a new reclaimable source lands as one projection into the `Reclaimable` vocabulary and one `Stream.merge` arm on `reclaimableFeed`; the `frontierGc` fold and the `finalizeBelow` predicate are unchanged.
+- Boundary: each projection reads its owning fold's already-decoded event time, never re-validating; the merge is at the read-model tier so the three TTL scans the owning folds carry today collapse into one frontier rule; the presence and tombstone TTL unify here rather than per-row `expiresAt` scans in `presence#PRESENCE` and `lww-merge#LWW_MERGE`.
+
+```ts contract
+import { Duration, Stream } from "effect";
+import type { OpLogEntryWire, PresenceRowWire } from "@rasm/interchange";
+import { eventNanos, type Watermark } from "../standing-query/watermark";
+
+interface ReclaimableRow<K> {
+  readonly key: K;
+  readonly row: Reclaimable;
+  readonly mark: Watermark;
+}
+
+const windowReclaimable = (cells: Stream.Stream<{ readonly bucket: bigint; readonly mark: Watermark }>): Stream.Stream<ReclaimableRow<bigint>> =>
+  cells.pipe(Stream.map((cell) => ({ key: cell.bucket, row: Reclaimable.WindowBucket({ bucketStart: cell.bucket }), mark: cell.mark })));
+
+const tombstoneReclaimable = (deletes: Stream.Stream<{ readonly entry: OpLogEntryWire; readonly mark: Watermark }>): Stream.Stream<ReclaimableRow<string>> =>
+  deletes.pipe(
+    Stream.map(({ entry, mark }) => {
+      const at = eventNanos(entry);
+      return { key: `${entry.entityKind}:${entry.entityKey}`, row: Reclaimable.Tombstone({ deletedAt: at }), mark };
+    }),
+  );
+
+const presenceReclaimable = (rows: Stream.Stream<{ readonly row: PresenceRowWire; readonly mark: Watermark }>): Stream.Stream<ReclaimableRow<string>> =>
+  rows.pipe(
+    Stream.map(({ row, mark }) => {
+      const ms = Date.parse(row.expiresAt);
+      return { key: `${row.actor}@${row.entityKey}`, row: Reclaimable.PresenceRow({ expiresAtNanos: (Number.isNaN(ms) ? 0n : BigInt(ms)) * 1_000_000n }), mark };
+    }),
+  );
+
+const reclaimableFeed = (
+  windows: Stream.Stream<{ readonly bucket: bigint; readonly mark: Watermark }>,
+  deletes: Stream.Stream<{ readonly entry: OpLogEntryWire; readonly mark: Watermark }>,
+  presence: Stream.Stream<{ readonly row: PresenceRowWire; readonly mark: Watermark }>,
+): Stream.Stream<ReclaimableRow<bigint | string>> =>
+  Stream.merge(windowReclaimable(windows), Stream.merge(tombstoneReclaimable(deletes), presenceReclaimable(presence)));
+```
+
+The merged feed is keyed `bigint | string` because the window bucket keys on its `eventNanos` start while the tombstone and presence rows key on their string identity; `frontierGc` folds the union key into one `GcState` map so a single `finalizeBelow` pass evicts a window bucket, a convergence tombstone, and a presence row in the same trim — the per-source `Duration` horizons all read the one `allowedLateness` the frontier subtracts.
+
+## [4]-[RESEARCH]
 
 - [FRONTIER_REPRESENTATION]: the scalar `finalizedNanos` horizon is the bounded-memory representation until the `window-fold#WINDOW_FOLD` differential-dataflow re-founding lands the `@electric-sql/d2ts` `Antichain` frontier; the multi-dimensional antichain replaces the scalar horizon as one `Frontier` representation swap, the `finalizeBelow` predicate reading `Antichain` dominance through the version-vector `causality-graph/version-vector#VERSION_VECTOR` `dominates` algebra rather than a scalar `<` — the `d2ts` catalog admission already landed, so this is blocked on the dataflow re-founding alone [BLOCKED on `window-fold#WINDOW_FOLD` d2ts re-founding].
+- [CAUSAL_FINALIZE]: once `causal-delivery/stability-frontier#STABILITY_FRONTIER` lands the `SortedSet`-cursor greatest-lower-bound meet, `advanceFrontier` gains a second input arm reading the causally-settled horizon so `finalizeBelow` evicts by causal stability as well as event-time watermark — a cell is reclaimable when it is below both the event-time frontier and the causal stable prefix, so a causally-pending op is never finalized early. The stability frontier is the input this fold reads to finalize causally; the meet owner is the `causal-delivery` `SortedSet` cluster, read here, never re-derived [BLOCKED on `causal-delivery/stability-frontier#STABILITY_FRONTIER`].

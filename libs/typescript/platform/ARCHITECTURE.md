@@ -15,9 +15,11 @@ platform/
 ├── connectivity/                         # the single online/offline connectivity edge
 │   └── connectivity                      # the online/offline cell, the redial edge, and the native SyncManager wake, read by >=4 concerns
 ├── capabilities/                         # the single browser permission/host-capability grant edge
-│   └── browser-capability                # the one Permissions-backed CapabilityKind axis, the per-kind PermissionState cell, and the storage-persist quota grant feeding capability-rank
+│   ├── browser-capability                # the one Permissions-backed CapabilityKind axis, the per-kind PermissionState cell, and the storage-persist quota grant feeding capability-rank
+│   └── permission-grant-fold             # the PermissionStatus.change -> PermissionState fold over scopedEventStream patching the per-kind cell
 ├── realtime/                             # the single bidirectional socket transport modality
-│   └── socket-transport                  # the one BrowserSocket duplex Channel, the decoded inbound frame stream, and the WebTransport/socket growth seam
+│   ├── socket-transport                  # the one BrowserSocket duplex Channel, the decoded inbound frame stream, and the outbound write over the one scoped resource
+│   └── transport-modality                # the closed TransportModality Data.TaggedEnum (WebSocket/WebTransport) growth axis under the reused StreamPolicy reconnect
 ├── identity-session/                     # the browser credential lifecycle
 │   └── auth-session                      # OIDC PKCE acquisition + redirect-continuity round-trip, the session fold, silent refresh, revocation, and tokenHeader
 ├── runtime-config/                       # the single typed env boundary

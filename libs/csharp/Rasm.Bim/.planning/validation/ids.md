@@ -22,12 +22,14 @@ public partial record IdsFacet {
     partial record Entity(IfcClass Class, Option<string> PredefinedType);
     partial record Attribute(string Name, Option<string> Value);
     partial record Property(string SetName, string Name, Option<string> Value, Option<string> DataType);
-    partial record Classification(Classification System, Option<ClassificationCode> Code);
+    partial record Classification(global::Rasm.Bim.Classification System, Option<ClassificationCode> Code);
     partial record Material(Option<string> Value);
     partial record PartOf(IfcClass Class, AssemblyRelKind Relation);
 
     public ElementPredicate ToPredicate() => this.Switch(
-        entity:         static f => (ElementPredicate)new ElementPredicate.ByClass(f.Class),
+        entity:         static f => f.PredefinedType.Match(
+                                        Some: value => (ElementPredicate)new ElementPredicate.ByPredefinedType(f.Class, PredefinedType.Create(value)),
+                                        None: () => new ElementPredicate.ByClass(f.Class)),
         attribute:      static f => new ElementPredicate.ByProperty("", f.Name, f.Value.IfNone("")),
         property:       static f => new ElementPredicate.ByProperty(f.SetName, f.Name, f.Value.IfNone("")),
         classification: static f => f.Code.Match(

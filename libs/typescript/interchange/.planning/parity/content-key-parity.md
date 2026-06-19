@@ -54,13 +54,14 @@ const contentKeyParity: ContentKeyParity = {
 - Cases: the snapshot-header fingerprint crosses through the `codecs/decode-rail.md` `decodeSnapshotHeader` `getBigUint64(0, false)` big-endian read (the `littleEndian: false` flag load-bearing); the op-log `logical`/`sequence` bigints cross through the reused `snapshotDecoder` `Decoder({ useBigInt64: true })` mapping the MessagePack 64-bit integers to bigint. The round-trip asserts the decoded bigint equals the canonical two-half composition `(physicalHigh << 32n) | logicalLow` order, so a half-swap that reads the logical half into the physical slot is caught before it corrupts the convergence order.
 - Entry: `roundTrip(low, high)` composes the two 32-bit halves into the canonical bigint and asserts the `getBigUint64(_, false)` read of the big-endian-written 8-byte buffer returns the identical bigint, so the `false` endianness flag and the half order are both asserted against the C# write order in one pass. The reference two-half stamp is the DESIGN-PIN corpus row [6] `HLC_TWO_HALF`; until that row is pinned the binding carries the round-trip ALGEBRA but no frozen reference stamp, so the algebra is settled and only the cross-runtime byte-equality against a producer-frozen stamp stays gated.
 - Packages: `@msgpack/msgpack` `Decoder({ useBigInt64: true })` for the MessagePack bigint mapping; `effect` for the assertion fold; the `DataView` `getBigUint64`/`setBigUint64` is the BCL inbox big-endian read the snapshot-header decode already carries.
-- Growth: the frozen `HLC_TWO_HALF` reference stamp lands as one `HLC_REFERENCE` row the binding asserts against the moment `csharp:Rasm.AppHost/ports/runtime-ports#HLC_FANIN` pins it; zero second HLC encoding notion.
+- Growth: the frozen `HLC_TWO_HALF` reference stamp lands as one `HLC_REFERENCE` row the binding asserts against the moment `csharp:Rasm.AppHost/ports/runtime-ports#HLC_FANIN` pins it; the `assertsReference` leg is one `bytesEqual` assertion over the big-endian-written 8-byte buffer against that frozen row — zero algebra change, the `compose`/`roundTrip` algebra already settled; zero second HLC encoding notion.
 - Boundary: the binding asserts the C#-owned half order and NEVER re-mints an HLC encoding — the two-half order is the producer's, transcribed when the corpus row freezes it; the `getBigUint64(_, false)` big-endian flag is the one read order the snapshot header and the parity binding both use, never a little-endian read beside it; the `physical` ISO-8601 instant the `projection` event-time fold reads is the C#-owned HLC physical half against `csharp:Rasm.Persistence/sync/collaboration#TS_PROJECTION` (`physical: string`), distinct from the `logical` bigint half this binding asserts; the harness DRIVER that grades the round-trip against the frozen stamp is the `typescript:testing/` corpus consumer, never duplicated here.
 
 ```ts contract
 interface HlcTwoHalfParity {
   readonly compose: (physicalHalf: bigint, logicalHalf: bigint) => bigint;
   readonly roundTrip: (physicalHalf: bigint, logicalHalf: bigint) => boolean;
+  readonly assertsReference: (physicalHalf: bigint, logicalHalf: bigint, reference: Uint8Array) => boolean;
 }
 
 const hlcTwoHalfParity: HlcTwoHalfParity = {
@@ -71,8 +72,16 @@ const hlcTwoHalfParity: HlcTwoHalfParity = {
     view.setBigUint64(0, composed, false);
     return view.getBigUint64(0, false) === composed;
   },
+  assertsReference: (physicalHalf, logicalHalf, reference) => {
+    const composed = (physicalHalf << 32n) | (logicalHalf & 0xffffffffn);
+    const view = new DataView(new ArrayBuffer(8));
+    view.setBigUint64(0, composed, false);
+    return bytesEqual(new Uint8Array(view.buffer), reference);
+  },
 };
 ```
+
+The `HLC_REFERENCE` frozen-stamp row is the gated leg: it carries the producer-frozen two-half stamp bytes the moment `csharp:Rasm/Geometry/topology/reconciliation#ONE_WIRE_FIXTURE_CORPUS` row [6] `HLC_TWO_HALF` pins them through `csharp:Rasm.AppHost/ports/runtime-ports#HLC_FANIN`. Until that pin freezes the byte-deriving input, the row carries no literal — `assertsReference` is the settled assertion shape and `compose`/`roundTrip` the settled algebra, but the cross-runtime byte-equality against the frozen stamp stays HOST/UPSTREAM-gated; no fabricated stamp stands in for the unpinned fixture (the rejected form). The row lands as one `HLC_REFERENCE` literal beside `CANONICAL_REFERENCE` the moment the producer pins the two-half bytes, with zero algebra change.
 
 ## [4]-[RESEARCH]
 

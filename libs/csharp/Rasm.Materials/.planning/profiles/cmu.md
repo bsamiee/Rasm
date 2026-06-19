@@ -71,11 +71,15 @@ public static class ProfileCatalogue {
     static readonly ProfileStandard AstmC90 = new("us", StandardJointThicknessMm: 9.5, Authority: "ASTM C90");
 
     static readonly Seq<CmuRow> AstmRows = Seq(
+        new CmuRow("cmu.4in-hollow",   90.0, 190.0, 390.0, 19.0, 19.0, 2, true),
         new CmuRow("cmu.6in-hollow",  140.0, 190.0, 390.0, 25.0, 19.0, 2, true),
         new CmuRow("cmu.8in-hollow",  190.0, 190.0, 390.0, 32.0, 19.0, 2, true),
         new CmuRow("cmu.10in-hollow", 240.0, 190.0, 390.0, 32.0, 19.0, 2, true),
         new CmuRow("cmu.12in-hollow", 290.0, 190.0, 390.0, 32.0, 19.0, 3, true),
-        new CmuRow("cmu.8in-solid",   190.0, 190.0, 390.0, 95.0, 19.0, 0, false));
+        new CmuRow("cmu.4in-solid",    90.0, 190.0, 390.0, 45.0, 19.0, 0, false),
+        new CmuRow("cmu.8in-solid",   190.0, 190.0, 390.0, 95.0, 19.0, 0, false),
+        new CmuRow("cmu.8in-splitface", 190.0, 190.0, 390.0, 32.0, 19.0, 2, true),
+        new CmuRow("cmu.8in-halfhigh", 190.0, 90.0, 390.0, 32.0, 19.0, 2, true));
 
     static Fin<CmuShape> CmuOf(CmuRow r, Context context, Op key) =>
         from w in key.AcceptValidated<PositiveMagnitude>(candidate: r.WMm)
@@ -97,5 +101,6 @@ public static class ProfileCatalogue {
 
 ## [3]-[RESEARCH]
 
-- [CMU_ROW_TRANSCRIPTION]: the ASTM C90 standard carries the hollow/solid load-bearing concrete-masonry-unit grades with the actual 190×190×390 mm 8-inch module, the minimum face-shell thickness by nominal width (19 mm at 3/4 in, 25 mm at 6 in, 32 mm at 8 in and above), and the 19 mm minimum web thickness; the five rows are the realized seed and the remaining nominal widths and the splitface/ground-face architectural finishes are pure `CmuRow` data additions, each one row, never a new type. The raw `CmuRow` carries plain doubles and admits once through `CmuOf` into the kernel value-objects so the catalogue seed validates every column.
+- [CMU_ROW_TRANSCRIPTION]: REALIZED — the ASTM C90 standard carries the hollow/solid load-bearing concrete-masonry-unit grades with the actual 190×190×390 mm 8-inch module, the minimum face-shell thickness by nominal width (19 mm at 4 in, 25 mm at 6 in, 32 mm at 8 in and above), and the 19 mm minimum web thickness; the catalogue carries the 4/6/8/10/12-inch hollow nominal widths, the 4/8-inch solid grades, the 190-mm splitface architectural unit, and the 90-mm half-high unit, the full standard nominal-width set keyed `cmu.<designation>`, a new architectural finish (ground-face, scored, ribbed) or metric A-series unit one further `CmuRow` data addition, never a new type. The raw `CmuRow` carries plain doubles and admits once through `CmuOf` into the kernel value-objects so the catalogue seed validates every column, a non-positive dimension dropping the row through `Choose` rather than seeding a degenerate `Profile`.
+- [IFCPROFILEDEF_CMU_ALIGNMENT]: the cmu family is the `IfcRectangleProfileDef` rectangle subtype on the `IfcProfileDef` wire — the outer 190×390 mm face is the `XDim`/`YDim` rectangle and the hollow-unit cell voids cross as the `Coring` void fraction the `ToCoring` net-area bridge derives, never a per-cell `IfcArbitraryProfileDefWithVoids` here; a CMU member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` carrying the rectangle profile plus the `Coring` receipt, the splitface/ground-face finish a surface-style on the element rather than a profile variant. The probe is the per-finish surface-style mapping at the `Rasm.Bim` boundary, the rectangle profile the realized base case.
 - [CMU_CELL_GEOMETRY]: the `CmuSection.NetAreaMm2` net-area solid fraction drives the `ToCoring` void-class bridge and the structural net-section design; a precise per-cell taper geometry (the cell draft for de-molding) is a `CmuSection` column growth, never a parallel section owner — the face-shell/web/cell-count columns already carry the net-area receipt the masonry course algebra and the `IfcRectangleProfileDef` wire read. The hollow-unit cell voids cross the IFC wire as the rectangle outer profile plus the `Coring` void fraction, never a per-cell profile.

@@ -1,6 +1,6 @@
 # [PY_DATA_API_XARRAY]
 
-`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, dask-backed chunking, and netCDF/Zarr IO. Study plans address axes by dimension name through `sel`/`isel` rather than position, and `chunk` opts an array into the lazy dask path.
+`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, dask-backed chunking, and netCDF/Zarr IO. It is the canonical owner surface for the `field-dataset` CF labelled-field dataset: the `FieldDataset` owner addresses CF coordinates by dimension name through `sel`/`isel`, reads and writes CF field cubes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr` over the netcdf4/h5netcdf/zarr engines, and `chunk` opts a cube into the lazy dask path. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`; it is not a `<3.15` gated dist (source-build/pure-Python, cp315-available), so there is no subprocess seam.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -8,13 +8,13 @@
 - package: `xarray`
 - import: `import xarray as xr`
 - owner: `data`
-- rail: arrays
-- capability: labelled n-dimensional arrays — named dimensions, coordinate indexes, dataset grouping, label-based selection, hierarchical `DataTree`, and a dask-backed lazy/chunked path
+- rail: field-dataset
+- capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped and resampled reductions, interpolation, hierarchical `DataTree`, netCDF/Zarr IO over the netcdf4/h5netcdf/zarr engines, and a dask-backed lazy/chunked path
 
 ## [2]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: labelled-array owners
-- rail: arrays
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]             | [ROLE]              | [CAPABILITY]                            |
 | :-----: | :------------------- | :------------------ | :-------------------------------------- |
@@ -26,7 +26,7 @@
 |   [6]   | `xarray.Index`       | index protocol      | custom coordinate index backend         |
 
 [PUBLIC_TYPE_SCOPE]: shared array members
-- rail: arrays
+- rail: field-dataset
 - members carry across `DataArray` and `Dataset` except where noted
 
 | [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                  |
@@ -43,7 +43,7 @@
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IO and construction
-- rail: arrays
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                          | [FAMILY]     | [RETURNS]   |
 | :-----: | :----------------------------------------------------------------- | :----------- | :---------- |
@@ -57,7 +57,7 @@
 |   [8]   | `decode_cf(obj, decode_times=True, mask_and_scale=True)`           | construction | `Dataset`   |
 
 [ENTRYPOINT_SCOPE]: combination and computation
-- rail: arrays
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                                                               | [FAMILY]     | [RETURNS]              |
 | :-----: | :------------------------------------------------------------------------------------------------------ | :----------- | :--------------------- |
@@ -79,16 +79,16 @@
 ## [4]-[IMPLEMENTATION_LAW]
 
 [NAMING_TOPOLOGY]:
-- An admitted `ndarray` is wrapped in a `DataArray`/`Dataset` carrying study dimension names and coordinate labels; the axis record is consumed by study plans.
-- Label-based `sel`/`isel` address study axes by name; free-dimension evidence is captured from the dimension set rather than positional indices.
-- `chunk` opts an array into the dask-backed lazy path; `compute`/`load`/`persist` materialise it, and `unify_chunks`/`map_blocks` operate over the chunked graph.
-- `apply_ufunc` is the boundary for arbitrary NumPy-style functions over labelled arrays; `input_core_dims`/`output_core_dims` declare the broadcasting contract.
-- IO flows through `open_dataset`/`open_zarr`/`open_datatree` at the boundary; named axes are study evidence, not wire vocabulary.
+- A CF field cube is a `Dataset` of `DataArray`s carrying CF dimension names, coordinate labels, and CF metadata (`units`/`standard_name`/`grid_mapping`); `open_dataset(engine=)`/`open_mfdataset`/`open_zarr` materialise it, `decode_cf` applies the CF mask/scale/time decode, and the `FieldDataset` owner keys the cube by one runtime `ContentIdentity`.
+- Label-based `sel`/`isel` address CF coordinates by name (`FieldSelection.Sel`/`Isel`); `interp` is the CF-aware interpolation arm and `groupby`/`groupby_bins`/`resample` the grouped/binned/resampled reductions, each a `FieldSelection` case rather than a sibling method.
+- `chunk` opts a cube into the dask-backed lazy path; `compute`/`load`/`persist` materialise it, and `unify_chunks`/`map_blocks` operate over the chunked graph.
+- `apply_ufunc` is the boundary for arbitrary NumPy-style functions over labelled cubes; `input_core_dims`/`output_core_dims` declare the broadcasting contract.
+- IO flows through `open_dataset`/`open_zarr`/`open_datatree` at the boundary and `to_netcdf`/`to_zarr` at egress; the `FieldDataset` egress materialises to the same content-keyed `pyarrow`/Zarr surface the `tensor`/`columnar` owners speak.
 
 ## [5]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `xarray`
-- Owns: labelled named-axis arrays, coordinate indexes, hierarchical `DataTree`, and free-dimension evidence for the array rail
-- Accept: an admitted array wrapped with study dimension names and coordinate labels, label selection via `sel`/`isel`, the dask path via `chunk`
-- Reject: positional-only axis handling where names exist, wrapper-renames of label selection, and treating axes as wire vocabulary
+- Owns: the CF labelled-field cube for the `field-dataset` owner — labelled named-axis arrays, coordinate indexes, CF-aware selection/grouping/resampling/interpolation, netCDF/Zarr IO over netcdf4/h5netcdf/zarr, hierarchical `DataTree`, and the dask lazy path
+- Accept: `open_dataset(engine=)`/`open_zarr` reads and `to_netcdf`/`to_zarr` writes bound function-local under `# noqa: PLC0415`, `decode_cf` for CF metadata, `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample` as `FieldSelection` cases, the dask path via `chunk`
+- Reject: a module-level xarray import (banned), positional-only axis handling where CF names exist, wrapper-renames of label selection, a second labelled-array store inside `tensor`, and treating CF coordinates as wire vocabulary

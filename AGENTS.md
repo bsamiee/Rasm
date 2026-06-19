@@ -72,7 +72,7 @@ Artifact paths emitted by Assay envelopes and bridge `reportDir` are authoritati
 
 Bridge verification proof is `EvidenceCertificate` plus reviewed `ReferenceEvidence`. MCP exploration may discover invariants, but proof starts only after promotion into typed `[RhinoScenario]` sources and certificate-backed `bridge verify`.
 
-Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through zero-arity Assay `provision` verbs and reads sanitized `ProvisionRun` evidence from `report.detail`; direct `rasm-provision`, `forge-scientific-env`, direct database shells, cleanup, diagnostic JSON, Docker/Compose, port, and credential work are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
+Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through zero-arity Assay `provision` verbs and reads sanitized `ProvisionRun` evidence from `report.detail`; direct `forge-provision`, `forge-scientific-env`, direct database shells, cleanup, diagnostic JSON, Docker/Compose, port, and credential work are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
 
 ## [7]-[DOCUMENTATION]
 

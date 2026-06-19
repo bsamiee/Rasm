@@ -358,11 +358,11 @@ public sealed record ObjectResidence(
 - Owner: `ArtifactSyncFeed` — the cloud-hub seam threading the content-address object key plus a managed durable op-log row so a blob written once is fetched by any peer; `ObjectTransferFact` is the transfer-telemetry record.
 - Cases: a put appends one `OpLogEntry`-shaped row keyed by content-key so a peer's changefeed cursor advances past the write; a fetch-by-content-key reads the object the row points to; the integrity fact stream carries the Crc32-per-frame and XxHash128 whole-artifact identity.
 - Entry: `public static IO<Unit> Announce(ObjectResidence residence, Func<UInt128, IO<Unit>> appendOpLog)` — `IO` appends the durable op-log row after the seal so the announce is write-once and the peer fetch is content-keyed.
-- Auto: the content-key object key is the whole-artifact XxHash128 identity so a write-once blob is fetched by content from any peer; the durable op-log row is the existing `collaboration#OPLOG_CHANGEFEED` transport (store-assigned `Sequence`, HLC-stamped) so the feed rides one changefeed, never a second sync engine; the transfer fact stream rides the `ReceiptSinkPort` under `store.object.*`.
+- Auto: the content-key object key is the whole-artifact XxHash128 identity so a write-once blob is fetched by content from any peer; the durable op-log row is the existing `collaboration#OPLOG_CHANGEFEED` transport (store-assigned `Sequence`, HLC-stamped) so the feed rides one changefeed, never a second sync engine; `Announce` brackets the `appendOpLog` under one producer `Activity` so the appended op-log row's `OpLog.Stamp` captures the originating span into the `OpLogEntry.TraceContext` slot, realizing the `ONE_DISTRIBUTED_TRACE` seam on the announce face — a blob announced under an active solve span carries that parent so the cross-runtime fetch joins the originating trace; the transfer fact stream rides the `ReceiptSinkPort` under `store.object.*`.
 - Receipt: `ObjectTransferFact` — kind (`store.object.transfer.part`/`store.object.transfer.abort`/`store.object.fetch.hit`), provider, content-key, bytes, part index, elapsed `Duration`, `Instant`, `CorrelationId`.
 - Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one fact kind per new transfer event; zero new surface.
-- Boundary: the cloud-sync-hub topology is the cloud face of the `Cloud object-store sync hub` concert concept — it rides the settled `BlobRemote` and the settled `collaboration#OPLOG_CHANGEFEED` op-log, never a second sync engine or a parallel transfer manifest; the HLC stamp stays the causal primitive owned at `collaboration#OPLOG_CHANGEFEED`; a second durable-queue substrate is the rejected form; the frame integrity facts (`Crc32`-per-frame, `XxHash128` whole-artifact) are owned at `#ARTIFACT_FRAMES` and surfaced here as fact rows, never re-declared.
+- Boundary: the cloud-sync-hub topology is the cloud face of the `Cloud object-store sync hub` concert concept — it rides the settled `BlobRemote` and the settled `collaboration#OPLOG_CHANGEFEED` op-log, never a second sync engine or a parallel transfer manifest; the HLC stamp stays the causal primitive owned at `collaboration#OPLOG_CHANGEFEED`; a second durable-queue substrate is the rejected form; the frame integrity facts (`Crc32`-per-frame, `XxHash128` whole-artifact) are owned at `#ARTIFACT_FRAMES` and surfaced here as fact rows, never re-declared; the trace seam is `Announce`-only — the fetch leg is consumer-owned, so the announce span the producer starts is the sole trace-context emission point and Persistence reads `Activity.Current` through `System.Diagnostics.DiagnosticSource`, never minting the propagator (AppHost owns the `CORRELATION_SPINE`).
 
 ```csharp signature
 public sealed record ObjectTransferFact(
@@ -380,8 +380,13 @@ public sealed record ObjectTransferFact(
 }
 
 public static class ArtifactSyncFeed {
+    private static readonly ActivitySource Source = new("Rasm.Persistence.ObjectStore");
+
     public static IO<Unit> Announce(ObjectResidence residence, Func<UInt128, IO<Unit>> appendOpLog) =>
-        appendOpLog(residence.Descriptor.ContentKey);
+        IO.lift(() => Source.StartActivity("artifact-sync.announce", ActivityKind.Producer))
+            .Bracket(
+                use: _ => appendOpLog(residence.Descriptor.ContentKey),
+                release: static span => IO.lift(() => { span?.Dispose(); return unit; }));
 
     public static IO<Stream> Fetch(ObjectStore provider, ObjectClient client, UInt128 contentKey, Func<ObjectTransferFact, IO<Unit>> sink, ClockPolicy clocks) =>
         from mark in IO.lift(clocks.Mark)

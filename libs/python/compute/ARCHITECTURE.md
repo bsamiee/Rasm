@@ -16,10 +16,10 @@ compute/
 │   └── differential.md         #   DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
 ├── differentiation/            # the one VJP/Jacobian/sensitivity owner over the JAX family
 │   └── sensitivity.md          #   Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
-├── optimization/               # [QUEUED gap] the offline-optimization sub-domain: differentiable design, constrained/discrete programs, certified convex programs — no page yet, three TASKLOG tasks author it
-│   ├── design                  #   [queued] DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading the implicit-adjoint gradient
-│   ├── program                 #   [queued] ProgramIntent — linear/integer/global/constrained/assignment math programs over scipy.optimize folding one OptimizeResult receipt
-│   └── convex                  #   [queued] ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding the dual-certificate proof of optimality
+├── optimization/               # the offline-optimization sub-domain: three sibling owners discriminated by problem structure — differentiable design, constrained/discrete programs, certified convex programs
+│   ├── design.md               #   DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading the implicit-adjoint gradient
+│   ├── program.md              #   ProgramIntent — linear/integer/global/constrained/assignment math programs over scipy.optimize folding one OptimizeResult receipt
+│   └── convex.md               #   ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding the dual-certificate proof of optimality
 ├── validated_numerics/         # certified-enclosure interval and ball arithmetic
 │   └── enclosure.md            #   IntervalNumerics — Arb ball / mpmath interval / numpy outward-rounding floor ladder
 ├── signal/                     # classical digital signal processing and multiresolution analysis

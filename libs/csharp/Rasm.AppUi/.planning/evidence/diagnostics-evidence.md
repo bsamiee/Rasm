@@ -170,14 +170,14 @@ public static class Captures {
 
 ## [5]-[HEADLESS_DERIVATION]
 
-- Owner: `EvidenceKeyPolicy` ordinal accessor; `ProofCheck` — the eight-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface.
+- Owner: `EvidenceKeyPolicy` ordinal accessor; `ProofCheck` — the eight-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface; `RenderHashLane` — the `key@scale×gamut` render-hash cell; `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators and `Verify.XunitV3` FrameHash equality.
 - Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak, pointer-walk, drag-drop — the two input-proof rows drive the headless synthetic-input verbs.
 - Entry: `public static Seq<ProofSpec> Derive(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe)` — every headless catalog row crossed with every check and every variant-density cell.
 - Auto: derived specs execute on the shared `HeadlessUnitTestSession` through `GetOrStartForAssembly` once per assembly and `Dispatch` per spec, so every spec runs on the one UI thread without a per-spec session boot, and `[AvaloniaFact]` dispatch under the xunit.v3 MTP runner rides the same session; `FakeTimeProvider` time travel fills the headless row's virtual-time slot; `Replay` drives the journal through the one remote-invocation route on the frozen deck, so journal replay, deep links, and interactive execution seal the same receipt family; the snapshot store rehydrates screen state before the first journal entry, so replay is deterministic end to end; the pointer-walk and drag-drop checks drive synthetic input on the session top-level through `HeadlessWindowExtensions.MouseDown(this TopLevel, Point, MouseButton, RawInputModifiers)`/`MouseMove(this TopLevel, Point, RawInputModifiers)`/`MouseUp(this TopLevel, Point, MouseButton, RawInputModifiers)`/`MouseWheel(this TopLevel, Point, Vector, RawInputModifiers)` between `ForceRenderTimerTick` advances, the drag-drop check driving `DragDrop(this TopLevel, Point, RawDragEventType, IDataTransfer, DragDropEffects, RawInputModifiers)` (void return) in the load-bearing `DragEnter` → `DragOver` → `Drop` sequence (`RawDragEventType` from `Avalonia.Input.Raw`) because a `DragOver` without a prior `DragEnter` seeds no drop context and raises no routed handler, the resulting effect read from `DragEventArgs.DragEffects` inside the handler and never a return value, so a pointer-interaction or drop-target proof is a deterministic frame sequence and never wall-time hover timing.
 - Receipt: every executed spec seals its `EvidenceReceipt` through the union — disposal-leak audits ride the Disposal case and render checks ride the Render case.
-- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one check row sweeps every headless screen and one grid cell sweeps every check; zero new surface.
-- Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; the engine owns execution and capture while sibling audit folds declare their own row shapes over it; the render-hash and capture lanes run on the Skia render-proof builder the surface-hosts headless row binds (`UseSkia` then `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` then `SetupWithoutStarting`) because `HeadlessUnitTestSession.StartNew` force-applies `UseHeadlessDrawing = true` and never `UseSkia`, so a frame captured under the session alone is the stub-drawing form, while the activation, focus-walk, pointer-walk, drag-drop, and disposal-leak checks ride the shared `HeadlessUnitTestSession` where stub drawing is acceptable; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
+- Packages: Avalonia.Headless, Avalonia.Headless.XUnit, Avalonia.Skia, Verify.XunitV3, CsCheck (testkit), Microsoft.Extensions.TimeProvider.Testing (FakeTimeProvider), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: one check row sweeps every headless screen, one grid cell sweeps every check, and one `RenderHashLane` cell sweeps every key×scale×gamut combination; zero new surface.
+- Boundary: the derivation engine deletes hand-written per-screen smoke specs — a bespoke screen spec beside the engine is the named defect; the engine owns execution and capture while sibling audit folds declare their own row shapes over it; the proof spec is a law-matrix fence — `ProofLaw.FrameHashEquality` seals one `key@scale×gamut` cell through `Captures.Shot` then `Verifier.Verify` so a render-hash regression attributes to the exact cell, `ProofLaw.DeterministicCapture` is the CsCheck property that two captures of one lane hash identically (a debounce or animation that smuggles wall time fails it), `ProofLaw.ReplayDeterminism` replays the journal twice under `FakeTimeProvider.SetUtcNow(UnixEpoch)` and `Verifier.Verify`-equals the two payload-digest seqs, and `ProofLaw.ProofMatrix` is the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form; the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed `XxHash128`-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the render-hash and capture lanes run on the Skia render-proof builder the surface-hosts headless row binds (`UseSkia` then `UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })` then `SetupWithoutStarting`) because `HeadlessUnitTestSession.StartNew` force-applies `UseHeadlessDrawing = true` and never `UseSkia`, so a frame captured under the session alone is the stub-drawing form, while the activation, focus-walk, pointer-walk, drag-drop, and disposal-leak checks ride the shared `HeadlessUnitTestSession` where stub drawing is acceptable; host-bound screens exit the matrix structurally through the catalog's headless lane, never through skipped specs.
 
 ```csharp signature
 public sealed class EvidenceKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -225,6 +225,53 @@ public static class ProofEngine {
 
     public static IO<Seq<CommandReceipt>> Replay(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal) =>
         journal.TraverseM(entry => deck.Invoke(entry.Key, entry.Payload)).As();
+}
+```
+
+```csharp signature
+public readonly record struct RenderHashLane(string Key, double Scale, string Gamut, int Ticks) {
+    public string Cell => $"{Key}@{Scale}x{Gamut}";
+
+    public CaptureRow Row(Func<double, Func<IO<Unit>>, IO<SKImage>> grab, Func<SurfaceHost, bool> surface) =>
+        new(Cell, surface, Scale, Ticks, grab);
+}
+
+public static class ProofLaw {
+    public static readonly Seq<RenderHashLane> RenderHashGrid = toSeq(
+        from key in Seq("viewport", "custom-tile", "drafting-sheet")
+        from scale in Seq(1.0, 2.0)
+        from gamut in Seq(ColorPolicy.Display.Key, ColorPolicy.DisplayP3.Key, ColorPolicy.Rec2020.Key)
+        select new RenderHashLane(key, scale, gamut, Ticks: 1));
+
+    public static async Task FrameHashEquality(VisualRuntime runtime, RenderHashLane lane, Func<double, Func<IO<Unit>>, IO<SKImage>> grab, Func<SurfaceHost, bool> surface) {
+        RenderReceipt receipt = await Captures.Shot(runtime, lane.Row(grab, surface)).RunAsync();
+        await Verifier.Verify(new { lane.Cell, receipt.FrameHash, receipt.ColorSpace })
+            .UseTextForParameters(lane.Cell);
+    }
+
+    public static Gen<RenderHashLane> LaneGen =>
+        from key in Gen.OneOfConst("viewport", "custom-tile", "drafting-sheet")
+        from scale in Gen.OneOfConst(1.0, 2.0)
+        from gamut in Gen.OneOfConst(ColorPolicy.Display.Key, ColorPolicy.DisplayP3.Key, ColorPolicy.Rec2020.Key)
+        select new RenderHashLane(key, scale, gamut, 1);
+
+    public static void DeterministicCapture(VisualRuntime runtime, Func<double, Func<IO<Unit>>, IO<SKImage>> grab, Func<SurfaceHost, bool> surface) =>
+        LaneGen.Sample(lane => {
+            RenderReceipt first = Captures.Shot(runtime, lane.Row(grab, surface)).Run();
+            RenderReceipt second = Captures.Shot(runtime, lane.Row(grab, surface)).Run();
+            return first.FrameHash == second.FrameHash;
+        });
+
+    public static IO<Seq<EvidenceReceipt>> ProofMatrix(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe) =>
+        ProofEngine.Derive(catalog, grid, probe).TraverseM(ProofEngine.Dispatch).As();
+
+    public static async Task ReplayDeterminism(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal, FakeTimeProvider time) {
+        time.SetUtcNow(DateTimeOffset.UnixEpoch);
+        Seq<CommandReceipt> first = await ProofEngine.Replay(deck, journal).RunAsync();
+        time.SetUtcNow(DateTimeOffset.UnixEpoch);
+        Seq<CommandReceipt> second = await ProofEngine.Replay(deck, journal).RunAsync();
+        await Verifier.Verify(first.Map(static r => r.PayloadDigest).Zip(second.Map(static r => r.PayloadDigest)));
+    }
 }
 ```
 
@@ -337,13 +384,14 @@ public static class DevLoop {
 
 ## [7]-[PERF_BUDGET]
 
-- Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PerfSample` the folded telemetry observation; `QualityVerdict` the one degrade verdict; `PerfBudget` the declarative quality governor.
+- Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PerfSample` the folded telemetry observation; `QualityVerdict` the one degrade verdict; `PerfBudget` the declarative quality governor; `GpuTimingPass` the per-pass timestamp-query writer; `PipelineStat` the pipeline-statistics row; `GpuTimeline` the measured-vs-projected per-pass GPU projection feeding the verdict.
 - Cases: `QualityTier` = ultra, high, balanced, conservative, floor — ultra runs the full pass list and motion catalog, floor runs the `Composite`-only fallback with reduced motion and the tightest residency watermark.
 - Entry: `public static QualityVerdict Govern(PerfBudget governor, PerfSample sample)` — folds one telemetry sample into a quality verdict degrading render passes, the residency watermark, and the motion tokens together; the governor reads the existing evidence receipt envelopes and the `FrameBudget`/`ResidencyBudget` instruments, never a second meter.
 - Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; `Govern` compares the sample against the budget thresholds and selects the lowest `QualityTier` whose budget the sample holds, so a frame-budget breach steps the tier down deterministically and a recovered budget steps it up under a hysteresis band so the tier never oscillates per frame; the verdict carries the degraded pass mask (path-trace samples capped, sim volume dropped to isosurface, the meshlet LOD pixel-threshold raised), the residency watermark factor, and the motion reduce flag so one verdict degrades the three owners together; the governor degrades deterministically so the render-hash lanes stay attributable under a budget breach — a given tier produces a given pass list.
-- Receipt: `QualityVerdict` rides the evidence stream as a `Render`-family fact carrying the active tier and the degrade mask so a tier transition is attributable; the verdict folds the tier-transition count onto the governor instrument.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new quality grade is one `QualityTier` row carrying its pass-mask and watermark column; a new degrade axis is one `QualityVerdict` field; zero new surface.
+- Profiler: `GpuTimingPass` writes a `Silk.NET.WebGPU` `QueryType.Timestamp` query at each render-graph pass boundary through `CommandEncoderWriteTimestamp` (api-silk-webgpu.md 126), resolves the `QuerySet` to a read buffer through `CommandEncoderResolveQuerySet` (127), and retires the resolve through the non-blocking `Wgpu.DevicePoll` (api-silk-webgpu-wgpu.md 39) so the per-pass figure becomes resolved GPU nanoseconds, never a blocking fence; a `QueryType.PipelineStatistics` set (128) captures the vertices-shaded, primitives-culled, and fragment-invocations as a `PipelineStat` frozen-column Fold so a slow pass attributes to a bottleneck not just a duration; `GpuTimeline` correlates the measured GPU seq against the projected CPU seq keyed by the frame ordinal so a projection-vs-measurement divergence is itself attributable evidence — ONE evidence-receipt projection riding the `Render`-family `FrameReceipt`, the per-pass GPU figure MIGRATING the existing `viewport-pipeline.md#RENDER_GRAPH` `FrameReceipt` GPU `Duration` from the encoder-projected accumulated cost to the resolved nanoseconds (deepen the receipt, never fork it), so the governor degrades the genuinely-overrunning pass on measured cost.
+- Receipt: `QualityVerdict` rides the evidence stream as a `Render`-family fact carrying the active tier and the degrade mask so a tier transition is attributable; the verdict folds the tier-transition count onto the governor instrument; `GpuTimeline` rides the same `Render`-family fact so the measured per-pass GPU seq is one projection beside the verdict, never a second telemetry surface.
+- Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new quality grade is one `QualityTier` row carrying its pass-mask and watermark column; a new degrade axis is one `QualityVerdict` field; a new profiled pass is one `GpuTimingPass` timestamp-query pair; a new pipeline-statistic is one `PipelineStat` column; zero new surface.
 - Boundary: the governor is the one adaptive-quality owner — the per-owner frame/VRAM/layout-elapsed instruments are enforced locally today with no cross-owner governor, and the `PerfBudget` folds that evidence telemetry back into one quality policy so a second meter or a per-pass ad-hoc throttle is the deleted form; the governor consumes the settled `viewport-pipeline.md#RENDER_GRAPH` `FrameReceipt`, the `viewport-pipeline.md#RESIDENCY_BUDGET` evict and prefetch instruments, the `motion-tokens.md#REDUCED_MOTION` switch, and the `evidence/diagnostics-evidence.md#DEV_LOOP` HUD samples, and emits one `QualityVerdict` that degrades render passes (the pass mask the render graph reads at frame head), the residency watermark (the factor the `ResidencyBudget` scales its watermark by), and the motion tokens (the reduce flag the `ReducedMotion.Observe` swaps) together — the governor consumes evidence and emits one quality verdict, never a second meter; the tier transition rides a hysteresis band so the tier degrades deterministically and the render-hash lane pins a tier so a budget-breach frame is reproducible; the verdict is the only quality authority so a per-pass throttle, a per-screen quality flag, or a second residency watermark owner is the rejected form.
 
 ```csharp signature
@@ -396,6 +444,50 @@ public sealed record PerfBudget(FrameBudget Budget, double HysteresisFraction, Q
         QualityTier.Ranked(rank).Match(
             Some: tier => QualityVerdict.Of(tier, at),
             None: () => QualityVerdict.Of(QualityTier.Floor, at));
+}
+```
+
+```csharp signature
+public readonly record struct PipelineStat(string Pass, long VerticesShaded, long PrimitivesCulled, long FragmentInvocations);
+
+public readonly record struct PassTiming(string Pass, int QueryIndex, Duration Projected, Option<Duration> Measured) {
+    public Duration Resolved => Measured.IfNone(Projected);
+
+    public bool Diverged(double fraction) =>
+        Measured.Match(
+            Some: gpu => Math.Abs((gpu - Projected).ToTimeSpan().TotalNanoseconds) > Projected.ToTimeSpan().TotalNanoseconds * fraction,
+            None: () => false);
+}
+
+public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) {
+    public Seq<PassTiming> Plan(Seq<(string Pass, Duration Projected)> projected) =>
+        PassBoundaries.Map((pass, index) =>
+            new PassTiming(pass, index, projected.Find(p => p.Pass == pass).Map(static p => p.Projected).IfNone(Duration.Zero), None));
+
+    public Seq<PassTiming> Resolve(Seq<PassTiming> planned, ReadOnlyMemory<ulong> resolvedTicks) =>
+        planned.Map(timing =>
+            timing.QueryIndex + 1 < resolvedTicks.Length
+                ? timing with { Measured = Some(Duration.FromNanoseconds(
+                    (resolvedTicks.Span[timing.QueryIndex + 1] - resolvedTicks.Span[timing.QueryIndex]) * PeriodNs)) }
+                : timing);
+}
+
+public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<PipelineStat> Stats) {
+    public const string Kind = "gpu-timeline";
+    public const string DivergenceInstrument = "rasm.appui.evidence.gpu-projection-divergence";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, DivergenceInstrument);
+
+    public Duration MeasuredGpu => Passes.Fold(Duration.Zero, static (acc, pass) => acc + pass.Resolved);
+
+    public Seq<PassTiming> Divergent(double fraction) => Passes.Filter(pass => pass.Diverged(fraction));
+
+    public FrameReceipt Migrate(FrameReceipt receipt) =>
+        receipt with {
+            Gpu = MeasuredGpu,
+            Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)),
+        };
 }
 ```
 

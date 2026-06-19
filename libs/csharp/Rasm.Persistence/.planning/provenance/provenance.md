@@ -118,13 +118,13 @@ public static class Provenance {
 ## [3]-[ATTESTED_LEDGER]
 
 - Owner: `AttestedEntry` the hash-chained ledger row; `LedgerHead` the chain-head proof; `AttestedLedger` the static surface owning the chain-append fold, the head-digest computation, the chain verification, and the redaction-preserving entry projection; `TransparencyProof` the RFC 9162 Merkle transparency-log surface owning the leaf/node digest, the `InclusionProof` for one entry, the `ConsistencyProof` between two `LedgerHead` seals, and the detached-signed `HeadSeal` an external auditor verifies in O(log n) without replaying the chain.
-- Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || Classification || AuditCategory)`, so the head digest attests every prior entry; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction; `TransparencyProof` builds a Merkle tree over the `AttestedEntry` leaf digests so an `InclusionProof` proves one entry was logged in O(log n), a `ConsistencyProof` proves the new tree extends the old append-only between two `HeadSeal` sizes, and the `HeadSeal` binds an `ECDsa` detached signature over the periodic `(Root, At)` so non-repudiation attaches to the signed seal, not the tree.
+- Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || ProviderFingerprint || Classification || AuditCategory)`, so the head digest attests every prior entry and a graduated-surrogate entry's `(checksum, OrtEpDevice)` provider fingerprint is bound into the chain; a non-graduation row carries `ProviderFingerprint = None` folding the zero term so the digest term is uniform; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction; `TransparencyProof` builds a Merkle tree over the `AttestedEntry` leaf digests so an `InclusionProof` proves one entry was logged in O(log n), a `ConsistencyProof` proves the new tree extends the old append-only between two `HeadSeal` sizes, and the `HeadSeal` binds an `ECDsa` detached signature over the periodic `(Root, At)` so non-repudiation attaches to the signed seal, not the tree.
 - Entry: `public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory, DataClassification classification)` — pure chain-append linking the prior head digest into the new entry over the op content key, audit category, and classification; `public static Fin<LedgerHead> Verify(Seq<AttestedEntry> chain, LedgerHead start)` recomputes every digest and aborts on the first break.
-- Auto: every op-log row plus its bound pgaudit category (`AuditBinding.Bind`) appends one `AttestedEntry` whose digest chains the prior digest, so the head digest is a tamper-evident proof of the whole history — a single altered prior row breaks every subsequent digest and `Verify` names the first break; the chain rides the op-log so it carries no second store; redaction is preserving — a redacted entry keeps its original `Digest` (computed over the pre-redaction content key) and replaces the payload reference with the `ExportProof` content hash so the chain still verifies and an auditor proves the row existed without seeing the redacted content; the head digest is periodically sealed as a content-addressed snapshot (`Snapshots.ContentAddress`) so an external witness anchors the chain.
+- Auto: every op-log row plus its bound pgaudit category (`AuditBinding.Bind`) appends one `AttestedEntry` whose digest chains the prior digest, so the head digest is a tamper-evident proof of the whole history — a single altered prior row breaks every subsequent digest and `Verify` names the first break; the chain rides the op-log so it carries no second store; a graduated offline-science surrogate enters as one `AttestedEntry` keyed by its `ContentIdentity` carrying the `(checksum, OrtEpDevice)` provider fingerprint in the dedicated `ProviderFingerprint` field, so the `ONE_GRADUATION_EVIDENCE` `HandoffAxis` result chains into the tamper-evident ledger and the determinism closure (`AppHost/determinism/determinism-and-replay#EVENT_LOG`) references one durable content key, the surrogate ONNX bytes residing on the `cache/indexes#ARTIFACT_BLOB_INDEX` `GraduationAsset` row; a re-import re-verifies the fingerprint at admission so a provider-divergent fit is caught before inference; redaction is preserving — a redacted entry keeps its original `Digest` (computed over the pre-redaction content key) and replaces the payload reference with the `ExportProof` content hash so the chain still verifies and an auditor proves the row existed without seeing the redacted content; the head digest is periodically sealed as a content-addressed snapshot (`Snapshots.ContentAddress`) so an external witness anchors the chain.
 - Receipt: an append rides `store.ledger.append` carrying the new head digest; a verification rides `store.ledger.verify` carrying the verified count or the first break index; a redaction-preserving projection rides the settled `ExportProof`.
 - Packages: System.IO.Hashing, System.Security.Cryptography (BCL inbox), NodaTime, LanguageExt.Core, Microsoft.Extensions.Compliance.Redaction, Rasm.AppHost (project), BCL inbox.
-- Growth: a new attestation field is one term in the digest tuple; a new seal cadence is one schedule policy value; the transparency log is a projection over the existing `AttestedEntry` rows so an inclusion or consistency proof is one `TransparencyProof` fold, never a second ledger store; zero new surface — a separate Merkle-tree audit store, a blockchain ledger, or a second tamper-evident log is the deleted form because the chain is one hash-chained projection over the op-log and the pgaudit binding, the Merkle tree is one projection over the same leaf digests, and the head digest plus the detached-signed seal is the one external proof; the existing pgaudit/legal-hold/RLS/CDC machinery (`redaction-retention`, `server-tier`) stays the substrate and this owner adds the hash-chain attestation, the lineage scoping, and the RFC 9162 transparency proof net-new.
-- Boundary: the chain is hash-linked so tamper-evidence is structural — `Digest_n = XxHash128(Digest_{n-1} || ContentKey || Classification || AuditCategory)` so altering any entry invalidates every later digest and `Verify` returns the first break index, never a silent pass; the Merkle node hash stays `XxHash128` for tamper-evidence (the `0x00` leaf-prefix and `0x01` node-prefix domain-separate the RFC 9162 tree so a leaf digest can never collide with an interior node) while the `HeadSeal` `ECDsa` detached signature is the only cryptographic surface — so the non-repudiation claim attaches to the signed seal, not the tree, and a cryptographic-signature claim on the chain digests themselves is the named defect; `TransparencyProof.Prove` emits an `InclusionProof` whose `AuditPath` an auditor walks in O(log n) to recompute the `Root` without the chain, `Consistent` emits a `ConsistencyProof` so a split-history attack surfaces as a failed extension proof between two `HeadSeal` sizes, and the support-bundle export carries the proof through `retention/redaction-retention.md#EXPORT_PROOF` as a self-verifying artifact rather than a server-trusted digest, never a second ledger store; the redaction-preserving leaf keeps its pre-redaction `Digest` and folds the `RedactedPayloadProof` content hash into the `LeafDigest` so an inclusion proof still verifies after a redaction, matching the existing chain invariant; external non-repudiation rides the periodic detached-signed `HeadSeal` (its `Root` is the Merkle root and its `At` rides `Snapshots.ContentAddress` as the content-addressed head-seal anchor) an outside witness anchors; redaction is preserving — a redacted entry keeps its pre-redaction digest and swaps the payload reference for the `ExportProof` content hash, so the chain verifies after redaction and the redacted row's existence and classification stay provable while its content is erased; the pgaudit category per entry comes from the settled `AuditBinding.Bind` (`redaction-retention#AUDIT_BINDING`) so the attested ledger and the server-side audit log carry the same category; legal hold reads the lineage subtree (`#CAUSAL_DAG`) so a held entry's whole derivation chain is retained; the chain rides the op-log changefeed so it converges across peers and a fork in the chain (two entries claiming the same prior digest) is a typed conflict the merge surfaces, never a silent overwrite.
+- Growth: a new attestation field is one term in the digest tuple AND one matching `AttestedEntry` field AND one symmetric write in both `Append` and `Recompute` (a one-sided edit breaks `Verify` on the first entry); the `ProviderFingerprint` graduation term is exactly this — a dedicated `Option<UInt128>` field plus the digest term plus the symmetric buffer growth, never the live `RedactedPayloadProof` slot whose reuse would collide with redaction and corrupt the leaf digest; extending the digest tuple is a FORWARD-ONLY ledger format epoch with a genesis-anchored re-seal, never a retroactive rewrite of existing attested entries; a new seal cadence is one schedule policy value; the transparency log is a projection over the existing `AttestedEntry` rows so an inclusion or consistency proof is one `TransparencyProof` fold, never a second ledger store; zero new surface — a separate Merkle-tree audit store, a blockchain ledger, a sibling graduation-evidence record, or a second tamper-evident log is the deleted form because the chain is one hash-chained projection over the op-log and the pgaudit binding, the Merkle tree is one projection over the same leaf digests, and the head digest plus the detached-signed seal is the one external proof; the existing pgaudit/legal-hold/RLS/CDC machinery (`redaction-retention`, `server-tier`) stays the substrate and this owner adds the hash-chain attestation, the lineage scoping, the RFC 9162 transparency proof, and the graduation-evidence chaining net-new.
+- Boundary: the chain is hash-linked so tamper-evidence is structural — `Digest_n = XxHash128(Digest_{n-1} || ContentKey || ProviderFingerprint || Classification || AuditCategory)` so altering any entry invalidates every later digest and `Verify` returns the first break index, never a silent pass; the `ProviderFingerprint` term is a DEDICATED `Option<UInt128>` field folding `UInt128.Zero` when `None`, never the live `RedactedPayloadProof` slot — reusing that slot would collide with redaction (a redacted graduation entry would overwrite the fingerprint and corrupt the `LeafDigest`); the digest extension grows the `Append`/`Recompute` `stackalloc byte[80]` buffer (16 prior digest + 16 content key + 16 fingerprint + the UTF8 `classification|category` tail) and BOTH `Append` and `Recompute` write the identical tuple layout or `Verify` breaks on the first entry; the tuple-term addition is a FORWARD-ONLY format epoch with a genesis-anchored re-seal, never a retroactive rewrite — existing attested entries keep their original digests under the prior epoch and the new epoch chains forward from a re-sealed `LedgerHead`; the Merkle node hash stays `XxHash128` for tamper-evidence (the `0x00` leaf-prefix and `0x01` node-prefix domain-separate the RFC 9162 tree so a leaf digest can never collide with an interior node) while the `HeadSeal` `ECDsa` detached signature is the only cryptographic surface — so the non-repudiation claim attaches to the signed seal, not the tree, and a cryptographic-signature claim on the chain digests themselves is the named defect; `TransparencyProof.Prove` emits an `InclusionProof` whose `AuditPath` an auditor walks in O(log n) to recompute the `Root` without the chain, `Consistent` emits a `ConsistencyProof` so a split-history attack surfaces as a failed extension proof between two `HeadSeal` sizes, and the support-bundle export carries the proof through `retention/redaction-retention.md#EXPORT_PROOF` as a self-verifying artifact rather than a server-trusted digest, never a second ledger store; the redaction-preserving leaf keeps its pre-redaction `Digest` and folds the `RedactedPayloadProof` content hash into the `LeafDigest` so an inclusion proof still verifies after a redaction, matching the existing chain invariant; external non-repudiation rides the periodic detached-signed `HeadSeal` (its `Root` is the Merkle root and its `At` rides `Snapshots.ContentAddress` as the content-addressed head-seal anchor) an outside witness anchors; redaction is preserving — a redacted entry keeps its pre-redaction digest and swaps the payload reference for the `ExportProof` content hash, so the chain verifies after redaction and the redacted row's existence and classification stay provable while its content is erased; the pgaudit category per entry comes from the settled `AuditBinding.Bind` (`redaction-retention#AUDIT_BINDING`) so the attested ledger and the server-side audit log carry the same category; legal hold reads the lineage subtree (`#CAUSAL_DAG`) so a held entry's whole derivation chain is retained; the chain rides the op-log changefeed so it converges across peers and a fork in the chain (two entries claiming the same prior digest) is a typed conflict the merge surfaces, never a silent overwrite.
 
 ```csharp signature
 public readonly record struct AttestedEntry(
@@ -134,6 +134,7 @@ public readonly record struct AttestedEntry(
     UInt128 Digest,
     DataClassification Classification,
     string AuditCategory,
+    Option<UInt128> ProviderFingerprint,
     Option<UInt128> RedactedPayloadProof,
     Instant At);
 
@@ -142,15 +143,16 @@ public readonly record struct LedgerHead(long Sequence, UInt128 Digest, Instant 
 public static class AttestedLedger {
     public static readonly LedgerHead Genesis = new(0L, UInt128.Zero, Instant.MinValue);
 
-    public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory, DataClassification classification) {
-        Span<byte> tuple = stackalloc byte[64];
+    public static AttestedEntry Append(LedgerHead head, OpLogEntry op, string auditCategory, DataClassification classification, Option<UInt128> providerFingerprint = default) {
+        Span<byte> tuple = stackalloc byte[80];
         BinaryPrimitives.WriteUInt128LittleEndian(tuple, head.Digest);
         BinaryPrimitives.WriteUInt128LittleEndian(tuple[16..], op.ContentKey);
-        var written = 32 + Encoding.UTF8.GetBytes($"{classification.Key}|{auditCategory}", tuple[32..]);
+        BinaryPrimitives.WriteUInt128LittleEndian(tuple[32..], providerFingerprint.IfNone(UInt128.Zero));
+        var written = 48 + Encoding.UTF8.GetBytes($"{classification.Key}|{auditCategory}", tuple[48..]);
         return new AttestedEntry(
             head.Sequence + 1L, op.ContentKey, head.Digest,
             XxHash128.HashToUInt128(tuple[..written]),
-            classification, auditCategory, None, op.Physical);
+            classification, auditCategory, providerFingerprint, None, op.Physical);
     }
 
     public static AttestedEntry Redact(AttestedEntry entry, ExportProof proof) =>
@@ -172,10 +174,11 @@ public static class AttestedLedger {
                         : Fin.Succ(new LedgerHead(entry.Sequence, entry.Digest, entry.At))));
 
     private static UInt128 Recompute(LedgerHead head, AttestedEntry entry) {
-        Span<byte> tuple = stackalloc byte[64];
+        Span<byte> tuple = stackalloc byte[80];
         BinaryPrimitives.WriteUInt128LittleEndian(tuple, head.Digest);
         BinaryPrimitives.WriteUInt128LittleEndian(tuple[16..], entry.ContentKey);
-        var written = 32 + Encoding.UTF8.GetBytes($"{entry.Classification.Key}|{entry.AuditCategory}", tuple[32..]);
+        BinaryPrimitives.WriteUInt128LittleEndian(tuple[32..], entry.ProviderFingerprint.IfNone(UInt128.Zero));
+        var written = 48 + Encoding.UTF8.GetBytes($"{entry.Classification.Key}|{entry.AuditCategory}", tuple[48..]);
         return XxHash128.HashToUInt128(tuple[..written]);
     }
 }
@@ -300,8 +303,9 @@ public static class TransparencyProof {
 
 | [INDEX] | [POLICY]            | [VALUE]                          | [BINDING]                                       |
 | :-----: | :------------------ | :------------------------------- | :---------------------------------------------- |
-|   [1]   | digest algorithm    | `XxHash128` tamper-evidence       | non-cryptographic; signature claim is rejected  |
+|   [1]   | digest algorithm    | `XxHash128(prior‖content‖fingerprint‖class‖category)` | non-cryptographic; signature claim is rejected; `stackalloc byte[80]` symmetric in `Append`/`Recompute` |
 |   [2]   | seal cadence        | content-addressed snapshot seal   | external-witness anchor on the schedule lease   |
+|   [8]   | graduation evidence | `ProviderFingerprint` dedicated `Option<UInt128>` | `(checksum, OrtEpDevice)` bound into the digest term, never the `RedactedPayloadProof` slot; forward-only format epoch with genesis re-seal |
 |   [3]   | audit category      | `AuditBinding.Bind` result        | one category vocabulary, never a second         |
 |   [4]   | merkle tree         | `XxHash128` `0x00`/`0x01`-prefixed | RFC 9162 leaf/node domain separation; `TransparencyProof.Root` |
 |   [5]   | inclusion proof     | O(log n) `AuditPath` recompute    | one entry proven without the chain; export-bundle artifact |
@@ -310,14 +314,14 @@ public static class TransparencyProof {
 
 ## [4]-[LINEAGE_CDC]
 
-- Owner: `CdcScope` the lineage-filter scope; `CdcEnvelope` the redaction-aware change record; `LineageCdc` the static surface owning the lineage-scoped CDC filter, the redaction-preserving payload projection, and the per-consumer feed fold.
+- Owner: `CdcScope` the lineage-filter scope; `CdcEnvelope` the redaction-aware change record carrying the originating `TraceContext` slot beside `Redacted` so a lineage-CDC row inherits the span the op was committed under; `LineageCdc` the static surface owning the lineage-scoped CDC filter, the redaction-preserving payload projection, and the per-consumer feed fold.
 - Cases: a scope filters the changefeed to a lineage subtree (every entity derived from a root), to a classification ceiling, and to a tenant; the feed projects each in-scope change with its payload redacted to the consumer's classification authority.
 - Entry: `public static IO<Seq<CdcEnvelope>> Feed(CdcScope scope, Func<SyncCursor, Seq<OpLogEntry>> changefeed, Func<UInt128, LineageSlice> lineage, Func<OpLogEntry, DataClassification, IO<ReadOnlyMemory<byte>>> redact)` — folds the changefeed past the cursor, filters to the lineage scope and classification ceiling, and projects each in-scope change with its payload redacted.
 - Auto: lineage-filtered CDC is the changefeed restricted to a derivation subtree — a consumer subscribes to a root entity and receives only changes to entities the lineage DAG derives from it, so a multi-tenant or discipline-scoped consumer never sees out-of-scope rows; the filter composes the lineage slice (`#CAUSAL_DAG`) so the scope is the forward slice of the root; redaction is preserving — a change whose classification exceeds the consumer's authority emits with its payload redacted through the settled `ExportProof`/`RedactorKind` so the change's existence and metadata stay visible while its content is masked, never a silent drop; the feed rides the op-log cursor so it is the same changefeed the sync transport drains, scoped per consumer.
 - Receipt: a feed rides `store.cdc.feed` carrying the in-scope count, the redacted count, and the advanced cursor.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Microsoft.Extensions.Compliance.Redaction, Rasm.AppHost (project), BCL inbox.
 - Growth: a new scope dimension is one column on `CdcScope`; a new redaction policy is one `RedactorKind` row (owned at AppHost); zero new surface — a per-consumer CDC trigger, a second change-data-capture pipeline, or a row-level filter table is the deleted form because the feed is the one changefeed scoped by the lineage slice and the classification ceiling, and redaction rides the settled export-proof redactor.
-- Boundary: lineage-scoped CDC is the changefeed filtered by the forward lineage slice so a consumer receives exactly its derivation subtree — a coarse table-level CDC or an unscoped firehose is the deleted form; the classification ceiling is the consumer's authority so an out-of-authority change emits redaction-preserving (existence and metadata visible, content masked) rather than dropped, because a silent drop hides that a change occurred and a redaction-preserving feed proves a change occurred while protecting its content; redaction routes through the settled `redaction-retention#EXPORT_PROOF` redactor resolution (`RedactorKind.Hmac` join-preserving, `RedactorKind.None` pass-through, unmapped fail-closed by erasure) so the CDC and the support-bundle export share one redactor, never a second masking path; the feed rides the op-log cursor (`SyncCursor`) so it is the same changefeed the sync transport drains and a consumer's cursor advances exactly past its in-scope changes; tenant scope composes the RLS predicate (`provisioning#TENANCY_RLS`) so a per-tenant CDC feed is RLS-scoped at the source, and the lineage scope refines within the tenant.
+- Boundary: lineage-scoped CDC is the changefeed filtered by the forward lineage slice so a consumer receives exactly its derivation subtree — a coarse table-level CDC or an unscoped firehose is the deleted form; the classification ceiling is the consumer's authority so an out-of-authority change emits redaction-preserving (existence and metadata visible, content masked) rather than dropped, because a silent drop hides that a change occurred and a redaction-preserving feed proves a change occurred while protecting its content; redaction routes through the settled `redaction-retention#EXPORT_PROOF` redactor resolution (`RedactorKind.Hmac` join-preserving, `RedactorKind.None` pass-through, unmapped fail-closed by erasure) so the CDC and the support-bundle export share one redactor, never a second masking path; the feed rides the op-log cursor (`SyncCursor`) so it is the same changefeed the sync transport drains and a consumer's cursor advances exactly past its in-scope changes; tenant scope composes the RLS predicate (`provisioning#TENANCY_RLS`) so a per-tenant CDC feed is RLS-scoped at the source, and the lineage scope refines within the tenant; the `CdcEnvelope` carries the originating `OpLogEntry.Trace` W3C trace-context unchanged through the `Feed` projection so a lineage-CDC consumer extract-and-continues the same span the op was committed under — realizing the `ONE_DISTRIBUTED_TRACE` seam on the CDC face — never minting a second tracer, and an op committed under no span carries `TraceContext.Empty`.
 
 ```csharp signature
 public sealed record CdcScope(
@@ -334,6 +338,7 @@ public readonly record struct CdcEnvelope(
     UInt128 ContentKey,
     ReadOnlyMemory<byte> Payload,
     bool Redacted,
+    TraceContext Trace,
     DataClassification Classification,
     Instant At);
 
@@ -350,7 +355,7 @@ public static class LineageCdc {
             .TraverseM(entry => redact(entry, scope.ClassificationCeiling).Map(projection =>
                 new CdcEnvelope(
                     entry.Sequence, entry.EntityKind, entry.EntityKey, entry.Kind, entry.ContentKey,
-                    projection.Bytes, projection.Redacted, projection.Effective, entry.Physical)))
+                    projection.Bytes, projection.Redacted, entry.Trace, projection.Effective, entry.Physical)))
             .As();
     }
 
@@ -370,7 +375,7 @@ public static class LineageCdc {
 - Owner: `ProvEdgeWire`, `ProvNodeKind`, `LineageSliceWire`, `LineageDirectionKind`, `AttestedEntryWire`, `LedgerHeadWire`, `CdcEnvelopeWire` — the provenance wire surface the audit dashboard and lineage explorer decode.
 - Packages: BCL inbox.
 - Growth: a new wire payload is one interface decoded through the same options, zero new surface.
-- Boundary: content keys and digests cross as 16-byte binary; instants cross as ISO-8601 extended strings; 64-bit sequences decode as bigint under useBigInt64; the `ProvEdge` discriminator crosses as the W3C-PROV relation name and reconstructs as the literal union; the `CdcEnvelopeWire` carries the `redacted` flag so the explorer renders a redaction-preserving change distinctly; the `AttestedEntryWire` carries the prior and current digests so the explorer verifies a chain segment client-side.
+- Boundary: content keys and digests cross as 16-byte binary; instants cross as ISO-8601 extended strings; 64-bit sequences decode as bigint under useBigInt64; the `ProvEdge` discriminator crosses as the W3C-PROV relation name and reconstructs as the literal union; the `CdcEnvelopeWire` carries the `redacted` flag so the explorer renders a redaction-preserving change distinctly and an APPEND-ONLY optional `trace` slot (16-byte `traceparent` + opaque `tracestate`) beside it so a lineage-CDC consumer extract-and-continues the originating span, the slot's optionality preserving the existing field sequence; the `AttestedEntryWire` carries the prior and current digests so the explorer verifies a chain segment client-side, plus the optional `providerFingerprint` so a graduated-surrogate entry surfaces its `(checksum, OrtEpDevice)` binding distinctly from a redaction.
 
 ```ts contract
 type ProvNodeKind = "Agent" | "Activity" | "Entity";
@@ -400,6 +405,7 @@ interface AttestedEntryWire {
   digest: Uint8Array;
   classification: string;
   auditCategory: string;
+  providerFingerprint: Uint8Array | null;
   redactedPayloadProof: Uint8Array | null;
   at: string;
 }
@@ -418,6 +424,7 @@ interface CdcEnvelopeWire {
   contentKey: Uint8Array;
   payload: Uint8Array;
   redacted: boolean;
+  trace?: { traceparent: Uint8Array; tracestate: Uint8Array };
   classification: string;
   at: string;
 }

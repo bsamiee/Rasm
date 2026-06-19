@@ -269,7 +269,7 @@ public static class VisualCodec {
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
 - Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; one `FlowBlock` case extends the flow-block owner and one `BreakRule` value extends the break policy column; one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; zero new surface.
-- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with a `Text` block's `Draw` delegate composing the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster and the block's `Height` advance derives from the shaped run's `SKShaper.Result` `Width` and the role-row line box, never a per-glyph placement loop, and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; Office export is the `OfficeExport.Emit` rail over the `OfficeSpec` — XLSX, PPTX, and DOCX targets carry typed `OfficeSheet` content (tables, charts projecting the `ChartSeriesSpec` points, images as `SKImage` tiles, rich text as `FlowBlock` runs) with embedded font faces packed into the OOXML part so a report renders identically off-machine, and the deterministic pagination reuses the `FlowFold` break algebra so a DOCX page break matches the PDF page break — a hand-laid-out report and a per-format report builder are the deleted forms; the Office payload writes through the OpenXML writer surface whose exact `SpreadsheetDocument`/`PresentationDocument`/`WordprocessingDocument` part-graph and font-embedding member set resolve under OFFICE_OPENXML against the admitted OpenXML package, so the Office fence is complete and SPIKE-gated on the writer while the `SKDocument` PDF and the codec axis ship today; the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner and the receipt rides the `RenderReceipt` family as kind office.
+- Boundary: `FlowBlock` is the budgeted export-flow owner (DENSITY_BAR row 30), `HeaderFooterBand` its companion band member, and `BreakRule` a `POLICY_VALUES` column on `VisualExportSpec` — the document-pagination concern resolves through these without minting a surface beside the destination owners; Paged, Flow, and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging, content-to-page flow, and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; the `FlowFold` consumes a `Seq<FlowBlock>` under the spec's `BreakRule` column and emits the same precomposed `Func<SKCanvas, Fin<Unit>>` page folds the explicit-pages path already carries — each page draws the `HeaderFooterBand` first, then the block run the break rule fits, with a `Text` block's `Draw` delegate composing the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster and the block's `Height` advance derives from the shaped run's `SKShaper.Result` `Width` and the role-row line box, never a per-glyph placement loop, and chart snapshots entering as `SKImage` tiles; vector content enters pages as picture content so vectors and text survive rather than rasterizing; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; Office export is the `OfficeExport.Emit` rail over the `OfficeSpec` — XLSX, PPTX, and DOCX targets carry typed `OfficeSheet` content (tables, charts projecting the `ChartSeriesSpec` points, images as `SKImage` tiles, rich text as `FlowBlock` runs) with embedded font faces packed into the OOXML part so a report renders identically off-machine, and the deterministic pagination reuses the `FlowFold` break algebra so a DOCX page break matches the PDF page break — a hand-laid-out report and a per-format report builder are the deleted forms; the Office payload writes through the OpenXML writer bodies — XLSX through `SpreadsheetDocument.Create`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`, DOCX through `WordprocessingDocument.Create`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`, both delivering through the typed part-graph factory and never a raw ZIP/XML write (the `api-drafting-export.md` RAIL_LAW reject) — so the XLSX and DOCX arms transcribe now beside the `SKDocument` PDF and the codec axis; the PPTX slide part-graph (`PresentationDocument`/`PresentationPart`/`SlidePart`/`SlideLayoutPart` chain) and the cell-style/run-formatting member spellings are the residual OFFICE_OPENXML surface; the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner and the receipt rides the `RenderReceipt` family as kind office, the embedded-font part packed through `FontTablePart.GetStream` so a report renders identically off-machine.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -365,7 +365,7 @@ public abstract partial record OfficeSheet {
 public static class OfficeExport {
     public const string Kind = "office";
 
-    public static readonly Error WriterUnavailable = Error.New("visuals/office-writer-unavailable: no OpenXML writer admitted; deterministic pagination is fence-complete and SPIKE-gated under OFFICE_OPENXML");
+    public static readonly Error PresentationUnsupported = Error.New("visuals/office-pptx: the PPTX slide part-graph member spellings resolve under OFFICE_OPENXML");
 
     public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
         from mark in IO.lift(runtime.Clocks.Mark)
@@ -376,7 +376,80 @@ public static class OfficeExport {
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static IO<byte[]> Write(OfficeSpec spec) => IO.fail<byte[]>(WriterUnavailable);
+    static IO<byte[]> Write(OfficeSpec spec) =>
+        spec.Format.Key switch {
+            "xlsx" => IO.lift(() => WriteXlsx(spec)),
+            "docx" => IO.lift(() => WriteDocx(spec)),
+            _ => IO.fail<byte[]>(PresentationUnsupported),
+        };
+
+    static byte[] WriteXlsx(OfficeSpec spec) {
+        using MemoryStream sink = new();
+        using (SpreadsheetDocument doc = SpreadsheetDocument.Create(sink, SpreadsheetDocumentType.Workbook)) {
+            WorkbookPart workbook = doc.AddWorkbookPart();
+            workbook.Workbook = new Workbook();
+            Sheets sheets = workbook.Workbook.AppendChild(new Sheets());
+            spec.Sheets.Iter((sheet, index) => {
+                WorksheetPart part = workbook.AddNewPart<WorksheetPart>();
+                SheetData data = new();
+                Rows(sheet).Iter(row => data.Append(row));
+                part.Worksheet = new Worksheet(data);
+                sheets.Append(new Sheet { Id = workbook.GetIdOfPart(part), SheetId = (uint)(index + 1), Name = SheetName(sheet) });
+            });
+            EmbedFonts(workbook, spec.EmbeddedFonts);
+            workbook.Workbook.Save();
+        }
+        return sink.ToArray();
+    }
+
+    static byte[] WriteDocx(OfficeSpec spec) {
+        using MemoryStream sink = new();
+        using (WordprocessingDocument doc = WordprocessingDocument.Create(sink, WordprocessingDocumentType.Document)) {
+            MainDocumentPart main = doc.AddMainDocumentPart();
+            Body body = new();
+            spec.Sheets.Iter(sheet => Paragraphs(sheet).Iter(p => body.Append(p)));
+            main.Document = new Document(body);
+            main.Document.Save();
+        }
+        return sink.ToArray();
+    }
+
+    static Seq<Row> Rows(OfficeSheet sheet) =>
+        sheet switch {
+            OfficeSheet.Table table => table.Rows.Map(cells => {
+                Row row = new();
+                cells.Iter(value => row.Append(new Cell { DataType = CellValues.String, CellValue = new CellValue(value) }));
+                return row;
+            }),
+            OfficeSheet.Chart chart => chart.Points.Map(point => {
+                Row row = new();
+                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.X) });
+                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.Y) });
+                return row;
+            }),
+            _ => Seq<Row>(),
+        };
+
+    static Seq<Paragraph> Paragraphs(OfficeSheet sheet) =>
+        sheet switch {
+            OfficeSheet.Table table => table.Rows.Map(cells =>
+                new Paragraph(new Run(new Text(string.Join('\t', cells))))),
+            OfficeSheet.RichText rich => rich.Blocks.Bind(block => block switch {
+                FlowBlock.Text => Seq1(new Paragraph(new Run(new Text(string.Empty) { Space = SpaceProcessingModeValues.Preserve }))),
+                _ => Seq<Paragraph>(),
+            }),
+            _ => Seq<Paragraph>(),
+        };
+
+    static string SheetName(OfficeSheet sheet) =>
+        sheet.Switch(table: static t => t.Name, chart: static c => c.Name, image: static i => i.Name, richText: static r => r.Name);
+
+    static void EmbedFonts(WorkbookPart workbook, Seq<(string FontFamily, ReadOnlyMemory<byte> Face)> fonts) =>
+        fonts.Iter(font => {
+            FontTablePart part = workbook.AddNewPart<FontTablePart>();
+            using Stream stream = part.GetStream();
+            stream.Write(font.Face.Span);
+        });
 
     static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
         destination.Switch(
@@ -433,5 +506,5 @@ public static class VisualExport {
 ## [7]-[RESEARCH]
 
 - [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics through the confirmed `SKShaper.Result` `Clusters` and `Width` surface, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.
-- [OFFICE_OPENXML]: the OpenXML writer surface for the XLSX/PPTX/DOCX emit — the `SpreadsheetDocument`/`PresentationDocument`/`WordprocessingDocument` part-graph construction, the sheet/slide/body content insertion, the embedded-font part packing, and the deterministic-ordering knobs that make the OOXML byte-stream reproducible, resolved at implementation against the admitted OpenXML package; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, and the `FlowFold`-shared pagination are settled, the OpenXML part-graph member set is the unverified surface and the package admission lands the writer pin.
+- [OFFICE_OPENXML]: the XLSX (`SpreadsheetDocument`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`/`Sheets`/`Sheet`) and DOCX (`WordprocessingDocument`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`) writer bodies transcribe now against the catalogued `DocumentFormat.OpenXml` 3.5.1 part-graph factory (`.api/api-drafting-export.md`); the residual surface is the PPTX slide part-graph (`PresentationDocument.Create(Stream, PresentationDocumentType.Presentation)` then the `PresentationPart`/`SlidePart`/`SlideLayoutPart`/`SlideMasterPart` chain insertion the spreadsheet/word roots do not share), the cell-style and run-formatting member spellings (`CellFormats`/`RunProperties` numbering for a styled report), and the deterministic-ordering knobs (`OpenSettings`/relationship-id ordering) that make the OOXML byte-stream byte-reproducible across runs — these resolve at implementation against the installed OpenXML surface; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, the `FlowFold`-shared pagination, and the `FontTablePart` embedded-font packing are settled.
 - [ICC_TONEMAP]: the `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` ICC-profile parse returning a tagged color space, the `SKColorFilter.CreateTable(byte[])` 256-entry LUT-filter arity the `ToneMap.Filter` builds, and the `SKImageInfo.WithColorSpace` ICC round-trip preservation resolve at implementation against the installed SkiaSharp 3 surface; the `ColorPolicy.FromIcc` fence, the `ToneMap` curve operators, and the reproject paint binding are settled, the exact `CreateIcc`/`CreateTable` member shapes are the unverified surface.

@@ -116,16 +116,17 @@
 
 [ENTRYPOINT_SCOPE]: `groupBy` aggregate functions
 - rail: stream / dataflow
+- access: the aggregate functions are NOT root-level exports — they are reached through the `groupByOperators` namespace (`groupByOperators.sum`, `groupByOperators.avg`, …); only `groupBy` and `groupByOperators` are barrelled from `operators/index`.
 
-| [INDEX] | [SURFACE]                    | [PRODUCES]                     | [CAPABILITY]        |
-| :-----: | :--------------------------- | :----------------------------- | :------------------ |
-|   [1]   | `sum<T>(valueExtractor?)`    | `AggregateFunction<T, number>` | numeric sum         |
-|   [2]   | `count<T>()`                 | `AggregateFunction<T, number>` | element count       |
-|   [3]   | `avg<T>(valueExtractor?)`    | `AggregateFunction<T, number>` | arithmetic mean     |
-|   [4]   | `min<T>(valueExtractor?)`    | `AggregateFunction<T, number>` | minimum value       |
-|   [5]   | `max<T>(valueExtractor?)`    | `AggregateFunction<T, number>` | maximum value       |
-|   [6]   | `median<T>(valueExtractor?)` | `AggregateFunction<T, number>` | middle value        |
-|   [7]   | `mode<T>(valueExtractor?)`   | `AggregateFunction<T, number>` | most-frequent value |
+| [INDEX] | [SURFACE]                                     | [PRODUCES]                                            | [CAPABILITY]        |
+| :-----: | :-------------------------------------------- | :--------------------------------------------------- | :------------------ |
+|   [1]   | `groupByOperators.sum<T>(valueExtractor?)`    | `AggregateFunction<T, number, number>`               | numeric sum         |
+|   [2]   | `groupByOperators.count<T>()`                 | `AggregateFunction<T, number, number>`               | element count       |
+|   [3]   | `groupByOperators.avg<T>(valueExtractor?)`    | `AggregateFunction<T, number, { sum; count }>`       | arithmetic mean     |
+|   [4]   | `groupByOperators.min<T>(valueExtractor?)`    | `AggregateFunction<T, number, number>`               | minimum value       |
+|   [5]   | `groupByOperators.max<T>(valueExtractor?)`    | `AggregateFunction<T, number, number>`               | maximum value       |
+|   [6]   | `groupByOperators.median<T>(valueExtractor?)` | `AggregateFunction<T, number, number[]>`             | median candidates   |
+|   [7]   | `groupByOperators.mode<T>(valueExtractor?)`   | `AggregateFunction<T, number, Map<number, number>>`  | frequency map       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

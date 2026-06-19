@@ -209,6 +209,41 @@ interface McpToolWire {
 
 The `CapabilitySdkLive` fold lands with `CAPABILITY_SDK_CODEGEN`. The codegen plugin must emit `CapabilityClient` as one `createClient(CommandService, transport)` row over the SAME shared `WireTransport` (never a second transport, never a hand-written client) carrying three generated members: `discover()` returning the `DiscoveryResultWire[]` catalog, `invoke(descriptor, arguments)` returning the `CapabilityCommandReceiptWire`, and a per-descriptor argument-schema accessor binding the C# `JsonSchemaExporter` schema one-per-descriptor (identical digest across all three SDK targets) so `mcpTools.inputSchema` is the descriptor's real generated argument contract, never a hand-built `{type:"object"}` stub. `catalog`/`invoke` decode the generated reply through `Schema.decodeUnknown(DiscoveryResultWire)`/`(CapabilityCommandReceiptWire)` mapping the `ParseError` through `faultDetailRail.fromConnect`; `mcpTools` projects the catalog rows with no schema field on `DiscoveryResultWire` because that is the C# catalog shape verbatim. The member spellings (`discover`, `invoke`, the schema accessor) resolve against the emitted `capabilities_pb.ts` `.d.ts` before the fold is transcribed, never asserted from this page.
 
+The `CapabilitySdkLive` `Effect.Service` design fence below is the realization SHAPE the obligation admits — the `invoke`-by-descriptor polymorphic dispatch, the `catalog`/`mcpTools` decode-and-project folds, and the one `createClient` row over the shared transport. It is GATED on the absent `protoc-gen-capability-es` plugin: the three `CapabilityClient` member spellings (`discover`, `invoke`, `argumentSchema`) carry the obligated names this page fixes and resolve against the emitted `capabilities_pb.ts` `.d.ts` the runtime-action plugin emits post-approval, captured then in `.api/protoc-gen-capability-es.md`. No live call here asserts an unverified generated member; the fence is the obligation the plugin satisfies, not a confirmed binding.
+
+```ts contract
+// --- [SERVICES] ----------------------------------------------------------------------
+class CapabilitySdkLive extends Effect.Service<CapabilitySdkLive>()("@rasm/ts/interchange/CapabilitySdk", {
+  effect: Effect.gen(function* () {
+    const { transport } = yield* WireTransportLive;
+    // CommandService + CapabilityClient land from the generated `capabilities_pb.ts`;
+    // member spellings resolve against the emitted `.d.ts` (see `.api/protoc-gen-capability-es.md`).
+    const client = createClient(CommandService, transport);
+    const catalog = Effect.tryPromise({ try: () => client.discover(), catch: faultDetailRail.fromConnect }).pipe(
+      Effect.flatMap((rows) => Effect.forEach(rows, (row) => Schema.decodeUnknown(DiscoveryResultWire)(row))),
+      Effect.mapError(faultDetailRail.fromConnect),
+    );
+    const invoke = (descriptor: string, args: Record<string, unknown>): Effect.Effect<CapabilityCommandReceiptWire, FaultDetail> =>
+      Effect.tryPromise({ try: () => client.invoke(descriptor, args), catch: faultDetailRail.fromConnect }).pipe(
+        Effect.flatMap((reply) => Schema.decodeUnknown(CapabilityCommandReceiptWire)(reply)),
+        Effect.mapError(faultDetailRail.fromConnect),
+      );
+    const mcpTools = catalog.pipe(
+      Effect.map((rows) =>
+        rows.map((row): McpToolWire => ({
+          name: row.descriptor,
+          description: row.surface,
+          effect: row.effect,
+          idempotency: row.idempotency,
+          inputSchema: client.argumentSchema(row.descriptor),
+        })),
+      ),
+    );
+    return { catalog, invoke, mcpTools } satisfies CapabilitySdk;
+  }),
+}) {}
+```
+
 ## [4]-[TS_PROJECTION]
 
 - Owner: the proto service-shape and transport-capability projection the transport derives — `MethodShape<K extends StreamKind, I extends string, O extends string>` keying every browser-dialable verb inside its service-shape alias, and the `TransportCapabilityWire` gating the per-protocol method set.

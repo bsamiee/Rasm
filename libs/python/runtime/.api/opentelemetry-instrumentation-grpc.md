@@ -71,7 +71,7 @@
 - explicit wiring: when the serve leg builds its own server, pass `aio_server_interceptor(tracer_provider, filter_)` into `grpc.aio.server(interceptors=[...])` instead of global patching; the async server leg is the runtime default, the sync legs cover blocking call sites.
 - provider law: `tracer_provider` defaults to the global OTel provider resolved through `opentelemetry-api`; the SDK provider is installed at startup, never inside library code.
 - filter law: trace selection is a composed `filters` predicate (`all_of`/`any_of`/`negate` over `method_*`/`service_*`/`health_check`); `health_check()` negated is the canonical way to suppress noisy liveness RPCs.
-- hook law: `request_hook`/`response_hook` enrich client spans with request/response detail; they receive `(span, request)` and run inside the active span scope, never blocking.
+- hook law: `request_hook`/`response_hook` enrich client spans only and run inside the active span scope, never blocking; `request_hook(span, request)` receives the outbound message, while `response_hook(span, payload)` receives the awaited unary status-details string (`call.details()`, empty on OK) on the unary legs and the streamed response message per yield on the streaming legs — the gRPC status code is set by the interceptor itself as the `rpc.grpc.status_code` attribute, not passed to the hook.
 
 [LOCAL_ADMISSION]:
 - the serve leg admits `aio_server_interceptor` on its `grpc.aio` server; `GrpcAioInstrumentorServer` is the global fallback when the server is constructed outside runtime control.

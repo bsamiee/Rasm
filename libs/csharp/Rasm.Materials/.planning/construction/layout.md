@@ -12,9 +12,9 @@ One cluster: `[2]-[ASSEMBLY_FOLD]` owns the `LayoutRun` parameterized run, the `
 - Cases: one `LayoutRun` shape — `Profile` + `BondName` + `RunPath` + height + `JointPolicy` + `MaterialAssignment` + `Seq<Opening>` + `Seq<Corner>` + `SpecialShape` + `Option<double>` pier width; the `LayoutStage` axis (straight-run · opening · corner · arch · pier) names the realized condition stages the `Courses` dispatch selects; one `Layout` fold producing the `Seq<Element>` placement stream.
 - Entry: `public static Fin<Layout> Resolve(LayoutRun run, Op key)` — the host-neutral layout fold: validate the run, resolve joints, compute the course count, fold each course's template into a station-stepped `Seq<Element>` skipping opening-interrupted placements and closing corners, then stack the `LayerSet` plies by cumulative `NormalOffsetMm`; `Fin<T>` aborts on a generated bond (`ProfileFault.Bond` via `BondName.Course`), a degenerate path (`ConstructionFault.Path`), an unsupported arch voussoir (`ConstructionFault.Course`), or a non-positive joint (`ConstructionFault.Joint`).
 - Packages: Rasm (project — scalar geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: opening subtraction, corner/closure conditions, arch placement (`ArchCourses`/`Voussoirs`), and pier solving (`PierClosure`) are each one realized fold stage the resolve composes; a new condition is one `LayoutStage` row binding one stage arm, a new joint rule one `JointPolicy` column; the family axis grows at `profile#PROFILE_OWNER`, so a CMU/timber/glazing run is the SAME `Resolve` fold over a different `Profile` — never a per-family layout method. A `LayerSet` buildup resolves through the same fold reading `assembly#MATERIAL_ASSIGNMENT` `LayerSet.TotalThickness` and the per-layer `NormalOffsetMm` cumulative offset, never a second layout owner.
+- Growth: opening subtraction, corner/closure conditions, arch placement (`ArchCourses`/`Voussoirs`), and pier solving (`PierClosure`) are each one realized fold stage the resolve composes; a new condition is one `LayoutStage` row binding one stage arm, a new joint rule one `JointPolicy` column, a new opening-jamb detailing one `EdgeCut` row, a new corner multi-leaf reconciliation one `Corner.Leaves` value — column/row growth on the existing condition records, never a re-architecture; the family axis grows at `profile#PROFILE_OWNER`, so a CMU/timber/glazing run is the SAME `Resolve` fold over a different `Profile` — never a per-family layout method. A `LayerSet` buildup resolves through the same fold reading `assembly#MATERIAL_ASSIGNMENT` `LayerSet.TotalThickness` and the per-layer `NormalOffsetMm` cumulative offset, never a second layout owner.
 - Law: `StationStep`/`StepCursor`/`Voussoirs`/`PierClosure` are the page's `[EXPRESSION_SPINE]` kernel exemptions — the `StepCursor` `yield` enumerator advances the station cursor by the fixed coursing pitch across the bounded once-per-course pass and the arch/pier stages run their bounded `Enumerable.Range` projection, these carrying the only statements on the page; the per-course `Map`/`Filter` projection, the `Courses`/`StepCourse`/`StackLayers` `Fin` fold, the `LayerOffset` cumulative-thickness `Fold`, and every other surface are expression-bodied, and the course/ply concatenation is the immutable `Seq` `Fold`/`Bind`, never a mutable placement-list accumulation.
-- Boundary: `Resolve` is the ONE layout fold — a per-family `Layout` is the deleted form; it composes the `masonry#PROFILE_FAMILY` `BondName.Course` template (a generated bond rails through that owner's `Fin`, never re-interpreted here) and the `assembly#ELEMENT_MODEL` `RunPath` length/angle algebra; the course fold is immutable — each course projects a station-stepped `Seq<Element>` and the layout is the `Fold` concatenation, never a mutable placement-list accumulation; `JointPolicy` resolves head/bed joints once from the `Profile.Standard` coordinating thickness with an explicit override, so a joint literal never scatters; opening subtraction is the `Opening.Interrupts` station/elevation predicate the `StationStep` `Filter` skips so a window/door void drops the interrupted units; corner closure reads the `Corner.At` station match and substitutes the `ClosureRule.Closer` cut at the turn so a return wall closes with a queen/king closer rather than a degenerate overlap; arch placement is the `Voussoirs` station-normalized fold over a `RunPath.Arc` sweep placing each wedge as a `Soldier`-oriented unit at its arc station (gated to masonry/solid profiles, an unsupported voussoir railing `ConstructionFault.Course`); pier solving is the `PierClosure` alternating stretcher/header course fold over a pier width; the `LayerSet` buildup folds each ply at its cumulative `NormalOffsetMm` through `StackLayers`, re-tagging each ply's `MaterialId` so a wall buildup is a stacked placement stream the host materializes ply-by-ply; the resolved `Layout` is portable data (a `Seq<Element>` of scalar `Placement` tuples) the host boundary materializes and the appearance engine shades — every stage is a `ConstructionFault`-railed extension of the one fold, never a placeholder.
+- Boundary: `Resolve` is the ONE layout fold — a per-family `Layout` is the deleted form; it composes the `masonry#PROFILE_FAMILY` `BondName.Course` template (a generated bond rails through that owner's `Fin`, never re-interpreted here) and the `assembly#ELEMENT_MODEL` `RunPath` length/angle algebra; the course fold is immutable — each course projects a station-stepped `Seq<Element>` and the layout is the `Fold` concatenation, never a mutable placement-list accumulation; `JointPolicy` resolves head/bed joints once from the `Profile.Standard` coordinating thickness with an explicit override, so a joint literal never scatters; opening subtraction is the `Opening.Interrupts` station/elevation predicate the `StationStep` `Filter` skips so a window/door void drops the interrupted units, and the `Opening.JambCut` `EdgeCut` resolves the per-course jamb detailing (`Toothed` alternating whole/three-quarter for a bonded return, `Straight` a flush half-bat, `Quoined` an alternating whole/half quoin) through `JambDetailCut` so the reveal courses read the requested edge detail rather than a flush cut; corner closure reads the `Corner.At` station match and `Corner.Reconcile(course)` substitutes the `ClosureRule.Closer` cut for a single-leaf return or the multi-leaf course-alternating closer for a `Leaves > 1` bonded corner so a return wall closes with a queen/king closer or a reconciled multi-leaf bond rather than a degenerate overlap, the `CornerOrClosingCut` resolving corner-reconcile before opening-jamb before the closing bat in one order; arch placement is the `Voussoirs` station-normalized fold over a `RunPath.Arc` sweep placing each wedge as a `Soldier`-oriented unit at its arc station (gated to masonry/solid profiles, an unsupported voussoir railing `ConstructionFault.Course`); pier solving is the `PierClosure` alternating stretcher/header course fold over a pier width; the `LayerSet` buildup folds each ply at its cumulative `NormalOffsetMm` through `StackLayers`, re-tagging each ply's `MaterialId` so a wall buildup is a stacked placement stream the host materializes ply-by-ply; the resolved `Layout` is portable data (a `Seq<Element>` of scalar `Placement` tuples) the host boundary materializes and the appearance engine shades — every stage is a `ConstructionFault`-railed extension of the one fold, never a placeholder.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -24,13 +24,36 @@ public readonly record struct JointPolicy(Option<double> HeadJointMm, Option<dou
         (HeadJointMm.IfNone(profile.Standard.StandardJointThicknessMm), BedJointMm.IfNone(profile.Standard.StandardJointThicknessMm));
 }
 
-public readonly record struct Opening(double StationMm, double WidthMm, double SillElevationMm, double HeadElevationMm) {
+public readonly record struct Opening(double StationMm, double WidthMm, double SillElevationMm, double HeadElevationMm, EdgeCut JambCut) {
+    public static Opening Of(double stationMm, double widthMm, double sillMm, double headMm) =>
+        new(stationMm, widthMm, sillMm, headMm, EdgeCut.Toothed);
+
     public bool Interrupts(double stationMm, double elevationMm) =>
         stationMm >= StationMm && stationMm < StationMm + WidthMm && elevationMm >= SillElevationMm && elevationMm < HeadElevationMm;
+
+    public bool OnJamb(double stationMm, double pitchMm) =>
+        Math.Abs(stationMm - StationMm) < pitchMm * 0.5 || Math.Abs(stationMm - (StationMm + WidthMm)) < pitchMm * 0.5;
+
+    public Cut JambDetailCut(int course) => JambCut.Resolve(course);
 }
 
-public readonly record struct Corner(double StationMm, double TurnDegrees, ClosureRule Closure) {
+[SmartEnum<string>]
+public sealed partial class EdgeCut {
+    public static readonly EdgeCut Toothed = new("toothed", static course => (course & 1) == 0 ? Cut.Whole : Cut.ThreeQuarter);
+    public static readonly EdgeCut Straight = new("straight", static _ => Cut.Half);
+    public static readonly EdgeCut Quoined  = new("quoined", static course => (course & 1) == 0 ? Cut.Whole : Cut.Half);
+
+    [UseDelegateFromConstructor]
+    public partial Cut Resolve(int course);
+}
+
+public readonly record struct Corner(double StationMm, double TurnDegrees, ClosureRule Closure, int Leaves = 1) {
     public bool At(double stationMm, double pitchMm) => Math.Abs(stationMm - StationMm) < pitchMm * 0.5;
+
+    public Cut Reconcile(int course) =>
+        Leaves <= 1
+            ? Closure.Closer
+            : (course % Math.Max(2, Leaves)) == 0 ? Closure.Closer : Cut.Half;
 }
 
 [SmartEnum<string>]
@@ -103,7 +126,7 @@ public static class ConstructionLayout {
             .Filter(step => !run.Openings.Exists(o => o.Interrupts(step.StationMm + unitLengthMm * 0.5, elevationMm + courseHeightMm * 0.5)))
             .Map(step => {
                 Orientation orientation = template.Sequence[step.Sequence % span];
-                Cut cut = CornerOrClosingCut(run, step.StationMm, unitLengthMm, headJointMm, lengthMm, pitchMm);
+                Cut cut = CornerOrClosingCut(run, step.StationMm, course, unitLengthMm, headJointMm, lengthMm, pitchMm);
                 double runMm = unitLengthMm * cut.LengthFraction * FootprintRun(orientation);
                 double riseMm = courseHeightMm * FootprintRise(orientation);
                 return new Element(
@@ -123,10 +146,12 @@ public static class ConstructionLayout {
     }
 
     // --- [OPENING_CORNER_STAGE]
-    static Cut CornerOrClosingCut(LayoutRun run, double stationMm, double unitLengthMm, double headJointMm, double lengthMm, double pitchMm) =>
+    static Cut CornerOrClosingCut(LayoutRun run, double stationMm, int course, double unitLengthMm, double headJointMm, double lengthMm, double pitchMm) =>
         run.Corners.Find(c => c.At(stationMm, pitchMm)).Match(
-            Some: corner => corner.Closure.Closer,
-            None: () => ClosingCut(stationMm, unitLengthMm, headJointMm, lengthMm));
+            Some: corner => corner.Reconcile(course),
+            None: () => run.Openings.Find(o => o.OnJamb(stationMm + unitLengthMm * 0.5, pitchMm)).Match(
+                Some: opening => opening.JambDetailCut(course),
+                None: () => ClosingCut(stationMm, unitLengthMm, headJointMm, lengthMm)));
 
     // --- [ARCH_STAGE]
     static Fin<Seq<Element>> ArchCourses(LayoutRun run, int voussoirCount, Op key) =>
@@ -180,7 +205,7 @@ public static class ConstructionLayout {
             : Fin.Succ(buildup.Plies.Bind(ply =>
                 elements.Map(e => e with {
                     Placement = e.Placement with { NormalOffsetMm = ply.OffsetMm },
-                    Assignment = MaterialAssignment.ProfileSet(ply.Material, e.Profile).IfFail(run.Assignment) })));
+                    Assignment = MaterialAssignment.ProfileSet(ply.Material, e.Profile, key).IfFail(run.Assignment) })));
 
     static IEnumerable<(int Sequence, double StationMm)> StepCursor(double offsetStationMm, double pitchMm, double lengthMm) {
         double cursorMm = offsetStationMm - Math.Ceiling(offsetStationMm / pitchMm) * pitchMm;
@@ -214,6 +239,6 @@ public static class ConstructionLayout {
 
 ## [3]-[RESEARCH]
 
-- [LAYOUT_STAGE_DEPTH_FILL]: REALIZED — opening subtraction (the `Opening.Interrupts` station/elevation predicate the `StationStep` `Filter` skips), corner closure (the `Corner.At` station match substituting the `ClosureRule.Closer` cut), arch placement (the `Voussoirs` station-normalized fold over `RunPath.Arc`), pier solving (the `PierClosure` alternating-course fold), and the `LayerSet` cumulative-thickness `NormalOffsetMm` per-ply offset (`LayerOffset`/`StackLayers`) are realized fold stages of the one `Resolve`, each a `ConstructionFault`-railed extension over the immutable projected `Seq<Element>`, never a parallel placement method. The remaining calibration is the per-region edge-cut-request detailing depth and the multi-leaf corner bond reconciliation, column growth on `Opening`/`Corner`, not a re-architecture.
+- [LAYOUT_STAGE_DEPTH_FILL]: REALIZED — opening subtraction (the `Opening.Interrupts` station/elevation predicate the `StationStep` `Filter` skips), corner closure (the `Corner.At` station match), arch placement (the `Voussoirs` station-normalized fold over `RunPath.Arc`), pier solving (the `PierClosure` alternating-course fold), and the `LayerSet` cumulative-thickness `NormalOffsetMm` per-ply offset (`LayerOffset`/`StackLayers`) are realized fold stages of the one `Resolve`, each a `ConstructionFault`-railed extension over the immutable projected `Seq<Element>`, never a parallel placement method. The per-region edge-cut detailing and the multi-leaf corner-bond reconciliation are REALIZED as column growth on the condition records, not a re-architecture: the `Opening.JambCut` `EdgeCut` `[SmartEnum]` (toothed/straight/quoined) drives the per-course jamb cut through `JambDetailCut` so an opening reveal reads a toothed-and-quoined return rather than a flush straight cut, and the `Corner.Leaves` count drives the multi-leaf bond reconciliation through `Reconcile` so a two-leaf corner alternates the closer course by course, both threading the SAME immutable `StepCursor` and re-folding the projected `Seq<Element>` through the one `CornerOrClosingCut` resolution order (corner reconcile, then opening jamb, then closing bat) — no mutable accumulation, no second fold.
 - [ARCH_PLACEMENT_CONSTRAINT]: REALIZED for the masonry/solid voussoir case — the `Voussoirs` fold turns a `RunPath.Arc` sweep into a station-stepped `Seq<Element>` of `Soldier`-oriented wedge units at each arc station via `RunPathAlgebra.AngleAt`, gated to masonry/solid profiles (a cored/hollow or non-masonry arch rails `ConstructionFault.Course`). The remaining probe is the source-backed voussoir taper geometry (the BS/TN wedge-angle detailing the host materializes from the per-unit `PathAngleDegrees`) and the keystone special-shape, a `SpecialShape.Voussoir` column the placement carries, not a parallel placement owner.
 - [HOST_MATERIALIZATION_SEAM]: the resolved `Layout` is portable scalar data; the host boundary at the app root turns each `Placement` station/elevation/path-angle tuple into a `Rhino.Geometry` transform — this owner never holds a host geometry type, the materialization is the consumer's concern at the host edge, keeping the construction model wire-portable.

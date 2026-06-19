@@ -138,6 +138,25 @@
 |   [6]   | `PresentationDocumentType`   | document type  | PPT format enum   |
 |   [7]   | `OpenXmlPackage`             | package base   | package root base |
 
+[PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml part and content-element family
+- rail: drafting
+- namespace: `DocumentFormat.OpenXml.Packaging` (parts), `DocumentFormat.OpenXml.Spreadsheet`, `DocumentFormat.OpenXml.Wordprocessing`
+
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]          | [RAIL]                                 |
+| :-----: | :--------------------------- | :--------------------- | :------------------------------------- |
+|   [1]   | `WorkbookPart`               | part                   | xlsx workbook part (AddWorkbookPart)   |
+|   [2]   | `WorksheetPart`              | part                   | xlsx sheet part (AddNewPart)           |
+|   [3]   | `MainDocumentPart`           | part                   | docx body part (AddMainDocumentPart)   |
+|   [4]   | `FontTablePart`              | part                   | embedded-font part (GetStream)         |
+|   [5]   | `Workbook` / `Sheets`        | content element        | xlsx workbook + sheet registry         |
+|   [6]   | `Sheet`                      | content element        | sheet registry entry (Id/SheetId/Name) |
+|   [7]   | `Worksheet` / `SheetData`    | content element        | xlsx sheet body + row container        |
+|   [8]   | `Row` / `Cell`               | content element        | xlsx row + cell                        |
+|   [9]   | `CellValue` / `CellValues`   | content element + enum | cell value + data-type enum            |
+|  [10]   | `Document` / `Body`          | content element        | docx document + body                   |
+|  [11]   | `Paragraph` / `Run` / `Text` | content element        | docx paragraph/run/text run            |
+|  [12]   | `SpaceProcessingModeValues`  | enum                   | run-text whitespace preservation       |
+
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ACadSharp read and write operations
@@ -192,11 +211,25 @@
 |  [11]   | `Open(string, isEditable)`                   | `PresentationDocument`   | open pptx        |
 |  [12]   | `Save` / `Dispose`                           | `OpenXmlPackage`         | commit and close |
 
+[ENTRYPOINT_SCOPE]: OpenXml part-add and content-build operations
+- rail: drafting
+
+| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]                 | [RAIL]                |
+| :-----: | :--------------------------------------------------- | :----------------------------- | :-------------------- |
+|   [1]   | `AddWorkbookPart()`                                  | `SpreadsheetDocument`          | workbook part create  |
+|   [2]   | `AddNewPart<WorksheetPart>()`                        | `WorkbookPart`                 | sheet part create     |
+|   [3]   | `GetIdOfPart(part)`                                  | `WorkbookPart`                 | relationship-id query |
+|   [4]   | `AddMainDocumentPart()`                              | `WordprocessingDocument`       | docx body part create |
+|   [5]   | `AddNewPart<FontTablePart>()` / `GetStream()`        | `WorkbookPart`/`FontTablePart` | embedded-font pack    |
+|   [6]   | `AppendChild(element)` / `Append(elements)`          | content element                | child-element insert  |
+|   [7]   | `part.Workbook` / `part.Worksheet` / `part.Document` | part                           | root-element assign   |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [DRAFTING_TOPOLOGY]:
 - `ACadSharp`: 706 types across 35 namespaces; `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
-- `netDxf`: 365 types across 10 namespaces; `DxfDocument` is the document root with static `Load` factory and instance `Save`; read/write is self-contained through `DxfDocument.Load`/`Save`
+- `netDxf`: 365 types across 10 namespaces; `DxfDocument` is the document root with static `Load` factory and instance `Save`; read/write is self-contained through `DxfDocument.Load`/`Save`; `DxfDocument(Header.DxfVersion)` selects the output version, geometry points are `netDxf.Vector2`/`Vector3`, `netDxf.Entities.Line`/`MText` are the line and text entities, and `netDxf.Tables.Layer`/`Linetype` (with the `Linetype.Continuous`/`Dashed` singletons) carry the layer structure
+- `ACadSharp` geometry points are `CSMath.XYZ`, entity layers attach through the entity `Layer` property bound to a `Layer` table entry (`LineType.Continuous`/`Dashed` linetype singletons), `MText` carries `Value`/`InsertPoint`/`Height`, and the document `Entities`/`Layers` collections take typed entities through `Add`
 - `DocumentFormat.OpenXml`: 5210 types across 140 namespaces; `Packaging` owns the three document roots; `Wordprocessing`, `Spreadsheet`, and `Presentation` namespaces supply the open content element trees
 
 [LOCAL_ADMISSION]:
@@ -204,6 +237,7 @@
 - `DocumentFormat.OpenXml` package documents are disposable; every open or create path pairs with `Save`/`Dispose` or a `using` scope.
 - Entity construction flows through the entity type constructor, then collection `Add`; never bypass typed entity APIs with raw group-code writes.
 - Configuration objects (`DwgReaderConfiguration`, `DxfWriterConfiguration`) scope read/write posture; pass them at construction, not post-hoc.
+- OOXML part-graph construction flows root-first: `Create(Stream, type)` mints the package, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, the part's root element (`Workbook`/`Document`) is assigned, child parts (`WorksheetPart` via `AddNewPart`, `FontTablePart` for embedded faces) attach under it, content elements (`Sheets`/`Sheet`/`SheetData`/`Row`/`Cell`, `Body`/`Paragraph`/`Run`/`Text`) append through `Append`/`AppendChild`, and `Save` on the root element plus the `using` package dispose commits the byte stream; `GetIdOfPart` supplies the relationship id a `Sheet` registry entry binds, never a hand-written `rId`.
 
 [RAIL_LAW]:
 - Package: `ACadSharp` — owns DWG/DXF CAD format read/write

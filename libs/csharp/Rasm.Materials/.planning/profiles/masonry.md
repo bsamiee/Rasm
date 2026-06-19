@@ -121,11 +121,11 @@ public readonly record struct MasonryRow(string Designation, double WMm, double 
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class ProfileCatalogue {
     static readonly Seq<MasonryRow> RegionalRows = Seq(
-        new MasonryRow("masonry.us-modular",   92.0,  57.0,  194.0, 67.0,  9.5,  "us",  "ASTM C216", Coring.Cored3Hole),
+        new MasonryRow("masonry.us-modular",   92.0,  57.0,  194.0, 67.0,  9.5,  "us",  "ASTM C216",   Coring.Cored3Hole),
         new MasonryRow("masonry.uk-standard",  102.5, 65.0,  215.0, 75.0,  10.0, "uk",  "BS EN 771-1", Coring.Perforated10Cell),
-        new MasonryRow("masonry.din-nf",       115.0, 71.0,  240.0, 83.5,  12.5, "din", "DIN 105", Coring.None),
-        new MasonryRow("masonry.au-standard",  110.0, 76.0,  230.0, 86.0,  10.0, "au",  "AS 4773", Coring.Cored3Hole),
-        new MasonryRow("masonry.is-standard",  100.0, 70.0,  200.0, 80.0,  10.0, "is",  "IS 1077", Coring.None));
+        new MasonryRow("masonry.din-nf",       115.0, 71.0,  240.0, 83.5,  12.5, "din", "DIN 105",     Coring.None),
+        new MasonryRow("masonry.au-standard",  110.0, 76.0,  230.0, 86.0,  10.0, "au",  "AS 4773",     Coring.Cored3Hole),
+        new MasonryRow("masonry.is-standard",  100.0, 70.0,  200.0, 80.0,  10.0, "is",  "IS 1077",     Coring.None));
 
     static Fin<(ProfileId Id, Profile Profile)> MasonryOf(MasonryRow r, Context context, Op key) =>
         from unit in ProfileUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, context, key)

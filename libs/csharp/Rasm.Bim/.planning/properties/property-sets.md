@@ -37,18 +37,18 @@ public enum QuantityKind : byte { Length = 0, Area = 1, Volume = 2, Weight = 3, 
 [KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
 [KeyMemberComparer<InterchangeKeyPolicy, string>]
 public sealed partial class PropertyKey {
-    public static readonly PropertyKey WallCommon = new("Pset_WallCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey SlabCommon = new("Pset_SlabCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey BeamCommon = new("Pset_BeamCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey ColumnCommon = new("Pset_ColumnCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey DoorCommon = new("Pset_DoorCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey WindowCommon = new("Pset_WindowCommon", IfcDomain.Building, TemplateKind.Property);
-    public static readonly PropertyKey SpaceCommon = new("Pset_SpaceCommon", IfcDomain.Spatial, TemplateKind.Property);
-    public static readonly PropertyKey WallBaseQuantities = new("Qto_WallBaseQuantities", IfcDomain.Building, TemplateKind.Quantity);
-    public static readonly PropertyKey SlabBaseQuantities = new("Qto_SlabBaseQuantities", IfcDomain.Building, TemplateKind.Quantity);
-    public static readonly PropertyKey BeamBaseQuantities = new("Qto_BeamBaseQuantities", IfcDomain.Building, TemplateKind.Quantity);
-    public static readonly PropertyKey ColumnBaseQuantities = new("Qto_ColumnBaseQuantities", IfcDomain.Building, TemplateKind.Quantity);
-    public static readonly PropertyKey SpaceBaseQuantities = new("Qto_SpaceBaseQuantities", IfcDomain.Spatial, TemplateKind.Quantity);
+    public static readonly PropertyKey WallCommon = new("Pset_WallCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey SlabCommon = new("Pset_SlabCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey BeamCommon = new("Pset_BeamCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey ColumnCommon = new("Pset_ColumnCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey DoorCommon = new("Pset_DoorCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey WindowCommon = new("Pset_WindowCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey SpaceCommon = new("Pset_SpaceCommon", IfcDomain.Architecture, TemplateKind.Property);
+    public static readonly PropertyKey WallBaseQuantities = new("Qto_WallBaseQuantities", IfcDomain.Architecture, TemplateKind.Quantity);
+    public static readonly PropertyKey SlabBaseQuantities = new("Qto_SlabBaseQuantities", IfcDomain.Architecture, TemplateKind.Quantity);
+    public static readonly PropertyKey BeamBaseQuantities = new("Qto_BeamBaseQuantities", IfcDomain.Architecture, TemplateKind.Quantity);
+    public static readonly PropertyKey ColumnBaseQuantities = new("Qto_ColumnBaseQuantities", IfcDomain.Architecture, TemplateKind.Quantity);
+    public static readonly PropertyKey SpaceBaseQuantities = new("Qto_SpaceBaseQuantities", IfcDomain.Architecture, TemplateKind.Quantity);
 
     public IfcDomain Domain { get; }
     public TemplateKind Kind { get; }

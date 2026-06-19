@@ -56,6 +56,7 @@ The `cones` argument is an ordered list of cone objects whose total dimension ma
 |   [5]   | `DefaultSolution.s`        | attribute                                              | primal slack vector                       |
 |   [6]   | `DefaultSolution.status`   | attribute -> `SolverStatus`                            | termination status                        |
 |   [7]   | `DefaultSolution.obj_val`  | attribute                                              | primal objective value                    |
+|   [8]   | `DefaultSolution.obj_val_dual` | attribute                                          | dual objective value (gap = primal − dual)|
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -49,14 +49,14 @@ class DatasetRef(Struct, frozen=True):
 
 ## [3]-[SCAN]
 
-- Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `ColumnarEgress` the typed Arrow/Parquet/IPC export; `QueryReceipt` the one typed fault/receipt fold over scan plus transform plus egress.
-- Cases: `ScanPlan` cases `PolarsLazy(projection, predicate)` (Polars `LazyFrame`/`scan_*`/`collect`) · `DuckDb(sql, projection)` (DuckDB relational API) · `ArrowDataset(predicate, columns)` (PyArrow `dataset.Scanner`, the predicate a pre-built `pyarrow.dataset.Expression` policy value the body never re-parses from a string), matched by `match`/`case`, each binding the engine that owns it.
+- Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `WindowFunction` the analytical window-verb row carrying its `DuckDBPyRelation` window spelling; `ColumnarEgress` the typed Arrow/Parquet/IPC export; `QueryReceipt` the one typed fault/receipt fold over scan plus transform plus egress.
+- Cases: `ScanPlan` cases `PolarsLazy(projection, predicate)` (Polars `LazyFrame`/`scan_*`/`collect`) · `DuckDb(sql, projection)` (DuckDB relational API) · `ArrowDataset(predicate, columns)` (PyArrow `dataset.Scanner`, the predicate a pre-built `pyarrow.dataset.Expression` policy value the body never re-parses from a string) · `RemoteGlob(glob, predicate, partition_keys)` (DuckDB `read_parquet(file_glob)` over a request-scoped connection that self-loads the `httpfs` extension and Hive-partition-prunes by the predicate) · `Window(partitions, order, functions)` (the `DuckDBPyRelation` analytical window-function projection over the `WindowFunction` verb rows), matched by `match`/`case` closed by `assert_never`, each binding the engine that owns it.
 - Entry: `execute(plan, dataset)` runs the plan and returns a `RuntimeRail[pyarrow.Table]` over the Arrow C Data Interface (zero-copy); `ColumnarEgress.write` emits Arrow/Parquet/IPC keyed by `ContentIdentity`; `QueryReceipt.of` folds the engine/source/columns/predicate-count/row-count/content-key.
-- Auto: the Polars path selects the lazy reader off `dataset.kind` through one in-arm `scan` table (`scan_csv`/`scan_parquet`/`scan_ipc`/`scan_delta`), then runs `.select(projection).filter(predicate).collect(engine="streaming")` — the reader is the dataset kind, never a hardcoded format; the DuckDB path runs the relational API over `duckdb.connect`; the PyArrow path runs `dataset(source).scanner(columns, filter).to_table()` with a pre-built `Expression` predicate; remote sourcing rides ADBC where the source is a connection (ConnectorX rides the `<3.15` gated band, never a module-top import). `polars` is on `banned-module-level-imports`, so the reader table builds inside the polars arm under `# noqa: PLC0415`. `engine="streaming"` is the streaming spelling, never the `collect(streaming=True)` flag.
+- Auto: the Polars path selects the lazy reader off `dataset.kind` through one in-arm `scan` table (`scan_csv`/`scan_parquet`/`scan_ipc`/`scan_delta`), then runs `.select(projection).filter(predicate).collect(engine="streaming")` — the reader is the dataset kind, never a hardcoded format; the DuckDB path runs the relational API over `duckdb.connect`; the PyArrow path runs `dataset(source).scanner(columns, filter).to_table()` with a pre-built `Expression` predicate; the `RemoteGlob` path opens a request-scoped `duckdb.connect()`, runs `INSTALL httpfs; LOAD httpfs` once on that connection (the per-connection extension-load pattern the `geospatial` `SpatialEngine` establishes for `spatial`/`h3`, never a pre-loaded extension — httpfs is NOT loaded on a sibling path), `read_parquet(glob)` against the remote glob with the predicate pushed into the relational filter so only the partition files the predicate touches are pulled, and `register_filesystem(dataset.ref.path.fs)` registers the `fsspec` `AbstractFileSystem` the `ResourceRef` `UPath` resolves (the `s3`/`gcs` credentials baked into the `storage_options` the runtime `roots#RESOURCE` `ResourceRoot.admit` resolves through `url_to_fs`) so the `s3`/`gcs` glob authenticates through the one runtime-owned filesystem, never a second credential owner and never the `http`/`ssh` `TransportResource` (which fetches generic artifacts, not a cloud-store filesystem); the `Window` path builds the `row_number`/`rank`/`lag`/`first_value`/… projection from the `WindowFunction` rows over the partition/order spec, never ten enumerated arms; remote sourcing rides ADBC where the source is a connection (ConnectorX rides the `<3.15` gated band, never a module-top import). `polars` is on `banned-module-level-imports`, so the reader table builds inside the polars arm under `# noqa: PLC0415`. `engine="streaming"` is the streaming spelling, never the `collect(streaming=True)` flag. The DuckDB connection stays request-scoped via `duckdb.connect()`, never a module global.
 - Receipt: the scan contributes an emitted-phase `Receipt.of` row through `ReceiptContributor` and produces a `QueryReceipt` keyed by `ContentIdentity` over the egress bytes, never a generic receipt.
-- Packages: `polars` (`scan_parquet`/`LazyFrame.collect`), `duckdb` (`connect`/relational API), `pyarrow` (`dataset`/`Scanner`/`Table`), `adbc-driver-manager`, `connectorx`, `deltalake`, runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`).
-- Growth: a new engine is one `ScanPlan` case; a new egress format is one `ColumnarEgress` branch; zero new surface.
-- Boundary: no durable query rails, no global DuckDB connection; a generic receipt abstraction and a per-engine egress class family are the deleted forms.
+- Packages: `polars` (`scan_parquet`/`LazyFrame.collect`), `duckdb` (`connect`/relational API/`read_parquet(file_glob)`/`install_extension`/`load_extension`/`register_filesystem`/the `DuckDBPyRelation` window-function family `row_number`/`rank`/`dense_rank`/`lag`/`lead`/`first_value`/`last_value`/`n_tile`/`cume_dist`/`percent_rank`), `pyarrow` (`dataset`/`Scanner`/`Table`), `adbc-driver-manager`, `connectorx`, `deltalake`, runtime (`RuntimeRail`/`ContentIdentity`/`ReceiptContributor`/`ResourceRef` — the `RemoteGlob` arm registers the `ResourceRef.path.fs` `fsspec` filesystem the runtime `roots#RESOURCE` owner resolves).
+- Growth: a new engine is one `ScanPlan` case; a new remote source is one `ScanPlan` case; a new window verb is one `WindowFunction` row; a new egress format is one `ColumnarEgress` branch; zero new surface.
+- Boundary: no durable query rails, no global DuckDB connection; a generic receipt abstraction, a per-engine egress class family, a `scan_remote`/`scan_glob`/`window_rank` method family, a second SQL engine or second transport owner, and a pre-loaded-httpfs assumption are the deleted forms.
 
 ```python signature
 import duckdb
@@ -64,6 +64,7 @@ import pyarrow as pa
 import pyarrow.dataset as pads
 import pyarrow.feather as paf
 import pyarrow.parquet as papq
+from enum import StrEnum
 from typing import Literal, assert_never
 
 from expression import case, tag, tagged_union
@@ -74,12 +75,30 @@ from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
 
+class WindowFunction(StrEnum):
+    ROW_NUMBER = "row_number"
+    RANK = "rank"
+    DENSE_RANK = "dense_rank"
+    LAG = "lag"
+    LEAD = "lead"
+    FIRST_VALUE = "first_value"
+    LAST_VALUE = "last_value"
+    N_TILE = "n_tile"
+    CUME_DIST = "cume_dist"
+    PERCENT_RANK = "percent_rank"
+
+    def projection(self, alias: str, over: str, *, args: str = "") -> str:
+        return f"{self.value}({args}) {over} AS {alias}"
+
+
 @tagged_union(frozen=True)
 class ScanPlan:
-    tag: Literal["polars_lazy", "duckdb", "arrow_dataset"] = tag()
+    tag: Literal["polars_lazy", "duckdb", "arrow_dataset", "remote_glob", "window"] = tag()
     polars_lazy: tuple[tuple[str, ...], str] = case()
     duckdb: tuple[str, tuple[str, ...]] = case()
     arrow_dataset: tuple[pads.Expression | None, tuple[str, ...]] = case()
+    remote_glob: tuple[str, str, tuple[str, ...]] = case()
+    window: tuple[tuple[str, ...], tuple[str, ...], tuple[tuple[WindowFunction, str], ...]] = case()
 
     @staticmethod
     def PolarsLazy(projection: tuple[str, ...], predicate: str) -> "ScanPlan":
@@ -92,6 +111,14 @@ class ScanPlan:
     @staticmethod
     def ArrowDataset(predicate: pads.Expression | None, columns: tuple[str, ...]) -> "ScanPlan":
         return ScanPlan(arrow_dataset=(predicate, columns))
+
+    @staticmethod
+    def RemoteGlob(glob: str, predicate: str = "", partition_keys: tuple[str, ...] = ()) -> "ScanPlan":
+        return ScanPlan(remote_glob=(glob, predicate, partition_keys))
+
+    @staticmethod
+    def Window(partitions: tuple[str, ...], order: tuple[str, ...], functions: tuple[tuple[WindowFunction, str], ...]) -> "ScanPlan":
+        return ScanPlan(window=(partitions, order, functions))
 
 
 @tagged_union(frozen=True)
@@ -177,6 +204,18 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
             return rel.to_arrow_table()
         case ScanPlan(tag="arrow_dataset", arrow_dataset=(predicate, columns)):
             return pads.dataset(source).scanner(columns=list(columns) or None, filter=predicate).to_table()
+        case ScanPlan(tag="remote_glob", remote_glob=(glob, predicate, _partition_keys)):
+            con = duckdb.connect()
+            con.install_extension("httpfs")
+            con.load_extension("httpfs")
+            con.register_filesystem(dataset.ref.path.fs)
+            rel = con.read_parquet(glob)
+            rel = rel.filter(predicate) if predicate else rel
+            return rel.to_arrow_table()
+        case ScanPlan(tag="window", window=(partitions, order, functions)):
+            over = f"OVER (PARTITION BY {', '.join(partitions)} ORDER BY {', '.join(order)})"
+            projection = ", ".join(verb.projection(alias, over) for verb, alias in functions)
+            return duckdb.connect().sql(f"SELECT *, {projection} FROM read_parquet('{source}')").to_arrow_table()
         case unreachable:
             assert_never(unreachable)
 ```

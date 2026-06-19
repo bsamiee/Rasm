@@ -9,7 +9,7 @@ The design pages under `.planning/`, grouped by sub-domain.
 - arrays: [payload](.planning/arrays/payload.md)
 - solvers: [receipt](.planning/solvers/receipt.md), [linear](.planning/solvers/linear.md), [nonlinear](.planning/solvers/nonlinear.md), [quadrature](.planning/solvers/quadrature.md), [differential](.planning/solvers/differential.md)
 - differentiation: [sensitivity](.planning/differentiation/sensitivity.md)
-- optimization (queued, see `TASKLOG.md`): `design`, `program`, `convex`
+- optimization: [design](.planning/optimization/design.md), [program](.planning/optimization/program.md), [convex](.planning/optimization/convex.md)
 - validated_numerics: [enclosure](.planning/validated_numerics/enclosure.md)
 - signal: [dsp](.planning/signal/dsp.md)
 - symbolics: [derivation](.planning/symbolics/derivation.md)

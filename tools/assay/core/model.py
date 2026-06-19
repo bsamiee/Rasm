@@ -592,12 +592,13 @@ class PackageRun(Detail, frozen=True, tag="package"):
 
 
 class ProvisionRun(Detail, frozen=True, tag="provision"):
-    """Forge provisioning evidence projected from rasm-provision JSON."""
+    """Forge provisioning evidence projected from forge-provision JSON."""
 
     verb: str = ""
     json: bool = False
     schema_version: int = 0
     ok: bool = True
+    warnings: tuple[str, ...] = ()
     error: tuple[tuple[str, str], ...] = ()
     auth_mode: str = ""
     auth_risk: str = ""

@@ -34,6 +34,7 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 - namespace: `SharpGLTF`
 - asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
 - rail: geometry
+- consumer: transitive-only — pulled by `SharpGLTF.Toolkit` (`packages.lock.json` Toolkit→Runtime 1.0.6), explicitly version-pinned in the central manifest for central control, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page. The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface (this catalogue's Runtime scope: scene template + `*Instance` types + the `IMeshDecoder`/`IMeshPrimitiveDecoder` decode contracts) is the `Rasm.Bim` glTF-import owner reached at `interchange/codecs#TESSELLATION_BRIDGE` — the two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core` (the raw glTF-extension write surface `interchange/codecs.md` composes) and `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path) are direct Compute consumers.
 
 ## [2]-[PUBLIC_TYPES]
 

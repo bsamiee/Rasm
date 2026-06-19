@@ -122,6 +122,11 @@
 - Use `DefaultClient()` when `PULUMI_ACCESS_TOKEN` and the default base URL apply; pass an explicit `Configuration` for token rotation or non-default endpoints.
 - `openAndReadEnvironment` is the standard path for runtime config/secret injection; `readOpenEnvironmentProperty` is for targeted single-key reads.
 
+[RUNTIME_RESOLUTION]:
+- Consumed deploy-time by `provisioning/contract#PROVISIONING` and RUNTIME-side by the `secrets/secret-store#SECRET_STORE` `SecretStore` `EscEnv` arm — the same `EscApi` session flow resolves secrets at runtime as at deploy-time, so the two MEET at the one `ConfigProvider` boundary.
+- The runtime read is the `openAndReadEnvironment(orgName, projectName, envName)` convenience (open + read in one call) when the whole environment resolves at once, or `openEnvironment` → capture `OpenEnvironment.id` → `readOpenEnvironmentProperty(…, sessionID, property)` for a single targeted key; the resolved `Value.secret`-marked properties carry into `Config.redacted` so the secret never enters a span or log.
+- A rotation is a new ESC revision; the `SecretStore` `LeasedSecret` cache invalidates its lease on the `SubscriptionRef.changes` edge and re-runs `openAndReadEnvironment` to re-resolve, never a process restart.
+
 [RAIL_LAW]:
 - Package: `@pulumi/esc-sdk`
 - Owns: ESC environment lifecycle, session-based secret resolution, revision and tag management

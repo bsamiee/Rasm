@@ -85,12 +85,12 @@
 |   [5]   | `McpClientOptions`                     | class         | client configuration root                 |
 |   [6]   | `McpClientHandlers`                    | class         | client notification handler registry      |
 |   [7]   | `IClientTransport`                     | interface     | session-transport factory contract        |
-|   [8]   | `HttpClientTransport`                  | class         | HTTP/SSE client transport                 |
-|   [9]   | `StdioClientTransport`                 | class         | stdio client transport                    |
-|  [10]   | `SseClientSessionTransport`            | class         | SSE session transport                     |
-|  [11]   | `StdioClientTransportOptions`          | class         | stdio transport configuration             |
-|  [12]   | `HttpClientTransportOptions`           | class         | HTTP transport configuration              |
-|  [13]   | `StreamableHttpClientSessionTransport` | class         | streamable HTTP session transport         |
+|   [8]   | `HttpClientTransport`                  | sealed class  | `IClientTransport`; HTTP transport selecting streamable-vs-SSE by `HttpClientTransportOptions.TransportMode` |
+|   [9]   | `StdioClientTransport`                 | sealed class  | `IClientTransport`; stdio client transport |
+|  [10]   | `StreamClientTransport`                | sealed class  | `IClientTransport`; paired-stream client transport (the third public implementor; declared in the `ModelContextProtocol.Protocol` namespace, ctor `(Stream serverInput, Stream serverOutput, ILoggerFactory?)`) |
+|  [11]   | `StdioClientTransportOptions`          | class         | stdio transport configuration (`required string Command`, `Arguments`, `Name`) |
+|  [12]   | `HttpClientTransportOptions`           | class         | HTTP transport configuration (`required Uri Endpoint`, `HttpTransportMode TransportMode`, `Name`) |
+|  [13]   | `HttpTransportMode`                    | enum          | `AutoDetect`/`StreamableHttp`/`Sse` — `HttpClientTransport` connect-time mode selecting the SDK-internal streamable/SSE session transport |
 |  [14]   | `ClientTransportClosedException`       | class         | transport-closed typed failure            |
 
 [PUBLIC_TYPE_SCOPE]: DI and builder — `Microsoft.Extensions.DependencyInjection` (in `ModelContextProtocol`)
@@ -140,6 +140,7 @@
 |  [11]   | `AddMcp(this AuthenticationBuilder, ...)`                             | auth            | registers MCP authentication scheme           |
 |  [12]   | `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)`       | static factory  | adopts an `AIFunction` as a programmatic tool |
 |  [13]   | `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`         | static factory  | builds a tool from a delegate                 |
+|  [14]   | `WithStdioServerTransport(this IMcpServerBuilder)`                    | builder fluent  | mounts the stdio transport (host `ModelContextProtocol` package, NOT `.Core`) |
 
 [ENTRYPOINT_SCOPE]: client construction
 - rail: mcp-protocol
@@ -149,12 +150,13 @@
 |   [1]   | `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)` | static factory | constructs and initializes `McpClient` |
 |   [2]   | `McpClient.ResumeSessionAsync(IClientTransport, ResumeClientSessionOptions, ...)` | static factory | resumes a detached session             |
 |   [3]   | `McpClient.ListToolsAsync(RequestOptions?, CT)`                                   | session call   | enumerates server tools                |
-|   [4]   | `McpClient.CallToolAsync(name, args, RequestOptions?)`                            | session call   | invokes named server tool              |
+|   [4]   | `McpClient.CallToolAsync(string toolName, IReadOnlyDictionary<string,object?>? args, IProgress<ProgressNotificationValue>? progress, RequestOptions?, CT)` | session call | invokes named server tool; returns `ValueTask<CallToolResult>`. The `IProgress` positional precedes `RequestOptions?`, so callers pass `progress`/`options`/`cancellationToken` by name |
 |   [5]   | `McpClient.ListPromptsAsync(RequestOptions?, CT)`                                 | session call   | enumerates server prompts              |
 |   [6]   | `McpClient.GetPromptAsync(name, args, RequestOptions?)`                           | session call   | retrieves prompt content               |
 |   [7]   | `McpClient.ListResourcesAsync(RequestOptions?, CT)`                               | session call   | enumerates server resources            |
-|   [8]   | `McpClient.SubscribeToResourceAsync(uri, CT)`                                     | session call   | subscribes to resource update events   |
-|   [9]   | `McpClientTool.InvokeAsync(args, CT)`                                             | tool call      | `AIFunction` contract invocation       |
+|   [8]   | `McpClient.SubscribeToResourceAsync(string uri, RequestOptions?, CT)` / `SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams,CancellationToken,ValueTask> handler, RequestOptions?, CT)` | session call | subscribes to resource update events; the base overload returns `Task`, the per-uri handler overload registers the update handler at subscribe and returns `Task<IAsyncDisposable>` (`handler` precedes `RequestOptions?`, pass `options`/`cancellationToken` by name) |
+|   [9]   | `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)`                       | session call   | enumerates server resource templates; returns `ValueTask<IList<McpClientResourceTemplate>>` (the `McpClientResourceTemplate` type [4] carries `UriTemplate`) |
+|  [10]   | `McpClientTool.InvokeAsync(args, CT)`                                             | tool call      | `AIFunction` contract invocation       |
 
 [ENTRYPOINT_SCOPE]: server options surface
 - rail: mcp-protocol
@@ -169,6 +171,31 @@
 |   [6]   | `McpServerOptions.ToolCollection`        | option property | `McpServerPrimitiveCollection<McpServerTool>`   |
 |   [7]   | `McpServerOptions.PromptCollection`      | option property | `McpServerPrimitiveCollection<McpServerPrompt>` |
 |   [8]   | `McpServerOptions.ResourceCollection`    | option property | `McpServerResourceCollection`                   |
+|   [9]   | `McpServerOptions.TaskStore`             | option property | `IMcpTaskStore?` backing out-of-band task results; default `InMemoryMcpTaskStore` when polling is enabled |
+|  [10]   | `McpServerOptions.SendTaskStatusNotifications` | option property | `bool` — emit `notifications/tasks/status` as a long-running task advances |
+
+[ENTRYPOINT_SCOPE]: server session long-running verbs — `ModelContextProtocol.Server` (`McpServer`)
+- rail: mcp-protocol
+
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
+| :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------- |
+|   [1]   | `McpServer.SampleAsync(CreateMessageRequestParams, CT)`                              | server→client  | server-initiated LLM sampling; returns `ValueTask<CreateMessageResult>`     |
+|   [2]   | `McpServer.SampleAsync(IEnumerable<ChatMessage>, ChatOptions?, JsonSerializerOptions?, CT)` | server→client | `IChatClient`-shaped sampling overload; returns `Task<ChatResponse>`        |
+|   [3]   | `McpServer.AsSamplingChatClient(JsonSerializerOptions?)`                             | bridge         | adapts server sampling to an `IChatClient`; returns `IChatClient`           |
+|   [4]   | `McpServer.ElicitAsync(ElicitRequestParams, CT)`                                     | server→client  | structured mid-call input request; returns `ValueTask<ElicitResult>`       |
+|   [5]   | `McpServer.ElicitAsync<T>(string message, RequestOptions?, CT)`                      | server→client  | typed elicitation; returns `ValueTask<ElicitResult<T>>` bound to a generated schema |
+|   [6]   | `McpServer.GetTaskAsync(string taskId, CT)`                                          | task poll      | returns `ValueTask<McpTask>` carrying current task status (also `GetTaskAsync(string, string? sessionId, CT)` → `Task<McpTask?>`) |
+|   [7]   | `McpServer.GetTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`         | task poll      | returns `ValueTask<T?>` decoding the stored task-result payload             |
+|   [8]   | `McpServer.WaitForTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`     | task await     | awaits terminal status; returns `ValueTask<(McpTask Task, T? Result)>`     |
+|   [9]   | `McpServer.PollTaskUntilCompleteAsync(string taskId, CT)`                            | task poll      | drives the poll loop to a terminal status; returns `ValueTask<McpTask>` (also `PollTaskUntilCompleteAsync(string, RequestOptions?, CT)`) |
+
+[PUBLIC_TYPE_SCOPE]: request-context surface — `ModelContextProtocol.Server`
+- rail: mcp-protocol
+
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]                                                                            |
+| :-----: | :------------------ | :------------- | :-------------------------------------------------------------------------------------- |
+|   [1]   | `MessageContext`    | base class     | declares `.Server` (`McpServer`), `.Services` (`IServiceProvider?`), `.User` (`ClaimsPrincipal?`), `.Items` (`IDictionary<object,object>?`) |
+|   [2]   | `RequestContext<T>` | sealed class   | `MessageContext` inheritor adding `.Params` (`T?`), `.MatchedPrimitive`, `.JsonRpcRequest`, and `EnablePollingAsync(TimeSpan, CT)`; constructed from `(McpServer, JsonRpcRequest, T)` |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
@@ -178,7 +205,10 @@
 - tool integration: `McpClientTool : AIFunction` — client-side tools surface as `AIFunction` instances
 - primitive base: `McpServerTool`, `McpServerPrompt`, `McpServerResource` all implement `IMcpServerPrimitive`
 - attribute discovery: `[McpServerTool]` on public methods drives reflection-based tool registration
-- task persistence: `IMcpTaskStore` / `InMemoryMcpTaskStore` back the out-of-band task-result protocol
+- task persistence: `IMcpTaskStore` / `InMemoryMcpTaskStore` back the out-of-band task-result protocol; `McpServerOptions.TaskStore` wires the store and `SendTaskStatusNotifications` toggles `notifications/tasks/status`
+- request context: `MessageContext` is the declaring owner of `.Server`/`.Services`/`.User`/`.Items`; `RequestContext<T> : MessageContext` adds `.Params`/`.MatchedPrimitive`/`.JsonRpcRequest`/`EnablePollingAsync(TimeSpan, CT)` and arrives through the `(McpServer, JsonRpcRequest, T)` ctor — never read `.Server` as a direct `RequestContext<T>` property, it is inherited from `MessageContext`
+- server long-running verbs: `McpServer.SampleAsync` / `AsSamplingChatClient` / `ElicitAsync` / `ElicitAsync<T>` / `GetTaskAsync` / `GetTaskResultAsync<T>` / `WaitForTaskResultAsync<T>` / `PollTaskUntilCompleteAsync` are `McpServer` session members; `AsSamplingChatClient` is the SDK server-sampling-to-`IChatClient` bridge declared on `McpServer` (host/Core), NOT an `Microsoft.Extensions.AI` member, and is filed here, never in `api-extensions-ai.md`
+- stdio transport attribution: `WithStdioServerTransport(IMcpServerBuilder)` is declared on `Microsoft.Extensions.DependencyInjection.McpServerBuilderExtensions` in the **host `ModelContextProtocol`** package beside `WithTools`/`WithPrompts`/`WithResources`, NOT in `ModelContextProtocol.Core`; the `StdioServerTransport`/`StreamServerTransport` types are Core, the builder shortcut is host-package
 
 [LOCAL_ADMISSION]:
 - DI registration entry: `services.AddMcpServer()` returns `IMcpServerBuilder`; `WithHttpTransport()` attaches HTTP/SSE
@@ -186,9 +216,11 @@
 - Auth extension: `authBuilder.AddMcp()` registers scheme; `McpAuthenticationHandler` implements token exchange
 - Client construction: `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)` is the sole construction point; `ResumeSessionAsync` resumes a detached session
 - JSON options: `McpJsonUtilities.DefaultOptions` carries the canonical `JsonSerializerOptions`; use it at boundaries
+- long-running task admission: `McpServerOptions.TaskStore` + `SendTaskStatusNotifications` arm the out-of-band task protocol; a tool method opts a request into polling through `RequestContext<T>.EnablePollingAsync(interval, ct)`, and a client drives the result through `McpServer.GetTaskAsync`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`
+- server-initiated legs: `SampleAsync` (server→client LLM sampling) and `ElicitAsync`/`ElicitAsync<T>` (mid-call structured input) require a stateful session — over HTTP they force `HttpServerTransportOptions.Stateless = false`; `AsSamplingChatClient(JsonSerializerOptions?)` projects the sampling leg as an `IChatClient` the in-process reasoning loop reuses
 
 [RAIL_LAW]:
 - Package: `ModelContextProtocol.Core` + `ModelContextProtocol` + `ModelContextProtocol.AspNetCore`
-- Owns: MCP session, server primitives, client tools, transport selection, DI registration, HTTP hosting
-- Accept: session-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`
-- Reject: hand-rolled JSON-RPC framing, out-of-session protocol message construction
+- Owns: MCP session, server primitives, client tools, transport selection, DI registration, HTTP hosting, the server long-running task/sampling/elicitation session surface
+- Accept: session-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`; long-running calls through `RequestContext<T>.EnablePollingAsync` + the `McpServer` task verbs
+- Reject: hand-rolled JSON-RPC framing, out-of-session protocol message construction, reading `.Server`/`.Services`/`.User`/`.Items` as direct `RequestContext<T>` members (they are inherited from `MessageContext`), filing `AsSamplingChatClient` under the MEAI catalogue

@@ -11,7 +11,7 @@ The design pages under `.planning/`, grouped by sub-domain.
 - context: [admission](.planning/context/admission.md)
 - resources: [roots](.planning/resources/roots.md)
 - concurrency: [lanes](.planning/concurrency/lanes.md)
-- observability: [receipts](.planning/observability/receipts.md), [metrics](.planning/observability/metrics.md)
+- observability: [receipts](.planning/observability/receipts.md), [metrics](.planning/observability/metrics.md), [telemetry](.planning/observability/telemetry.md)
 - server: [serve](.planning/server/serve.md)
 - evidence: [evidence](.planning/evidence/evidence.md)
 
@@ -20,6 +20,7 @@ The design pages under `.planning/`, grouped by sub-domain.
 Every external library the folder uses, planned or implemented. Versions live in the one root manifest; this list carries no pin. The gRPC stack splits by provenance: the `grpc.aio` runtime leg (`grpcio`, `protobuf`) resolves transitively on the cp315 core through `specklepy`, so the `ServerHost` serve leg sits on the core; only `grpcio-tools` (the `protoc` codegen compiler) is companion-lane-only on the Forge `<'3.13'` interpreter (python312) and is NOT declared in the cp315 `pyproject.toml`. Two rows ride the `python_version<'3.15'` companion band with no cp315 wheel synced: `xxhash` (content-identity digest) and `lz4` (the op-log `Lz4BlockArray` decompression at `server/serve#CRDT_DECODE`); the MessagePack op-log decode through `msgspec.msgpack` is cp315-clean and the LZ4 decompression is the single install-gated leg. Every other row is a cp315-clean manifest dependency.
 
 - pydantic-settings
+- keyring
 - xxhash
 - lz4
 - stamina

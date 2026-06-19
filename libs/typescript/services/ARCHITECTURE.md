@@ -19,18 +19,21 @@ services/
 ├── persistence/                    # the single sql-pg PgClient + Migrator boundary and the entity-model registry
 │   ├── store-boundary.md           # the one PgClient/Migrator boundary + the ~15-entity one-Model.Class-per-entity registry
 │   ├── tenancy.md                  # the multi-tenant RLS axis over the app.current_tenant GUC + the purge handler family
-│   ├── work-and-signals.md         # jobs/DLQ, event-journal, notifications, the asset-export codec axis, the feature-flag buckets
-│   └── reactive-query.md           # the read-side ReactiveQuery owner: SqlClient.reactive over the @effect/experimental Reactivity key-scoped invalidation, entity-keyed query re-run as a Stream (planned)
+│   ├── work-and-signals.md         # jobs/DLQ, event-journal, notifications, the feature-flag buckets (the asset-export codec fan-out now owned by object-store)
+│   ├── reactive-query.md           # the read-side ReactiveQuery owner: SqlClient.reactive over the @effect/experimental Reactivity key-scoped invalidation, entity-keyed query re-run as a Stream
+│   └── idempotency-ledger.md       # the cross-surface exactly-once IdempotencyLedger Model.Class + the ClaimOrReplay claim-state fold, serving outbox/entity/session beyond the per-surface SaveResult.Duplicate/idempotencyKey primitives
 ├── hybrid-search/                  # first-class fused retrieval distinct from raw persistence
-│   └── fused-rank.md               # the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank owner + the post-fusion rerank stage
+│   ├── fused-rank.md               # the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank owner + the post-fusion rerank stage
+│   └── embedding-lifecycle.md      # the EmbeddingProfile migration + the EmbeddingModel.makeDataLoader batch-embed orchestration feeding the fused-rank vector arm (profiles only the pgvector column, never the gated BM25 index)
 ├── messaging/                      # the internal TS-to-TS RPC surface and the addressable-actor modality
 │   ├── internal-rpc.md             # the one RpcGroup + the WorkflowProxy projection over the durable workflows
-│   └── entity.md                   # the addressable Entity actor — single-writer-per-key placement, ClusterSchema.Persisted, EntityProxy projection, the CRDT op-log decode boundary, plus the DeliverAt per-key delayed-delivery and the EntityResource restart-surviving per-key resource modality rows
-├── observability/                  # the SLO/error-budget read model — the node analog of platform/web-vitals (planned)
-│   └── slo-budget.md               # the closed Objective vocabulary + the multi-window multi-burn-rate fold over the @effect/sql-pg signal series + the AlertRoute over the outbox DeliverySink + the @effect/opentelemetry reader
-├── secrets/                        # the runtime secret-resolution and rotation owner the whole node tier reads (planned)
-│   └── secret-store.md             # the one SecretStore Effect.Service over ConfigProvider + the SecretRef provider axis + the TTL-leased rotation-invalidated cache + the audit receipt
-├── object-store/                   # the first-class blob/object-store tier, collapsing the scattered S3 presign (planned)
+│   ├── entity.md                   # the addressable Entity actor — single-writer-per-key placement, ClusterSchema.Persisted, EntityProxy projection, the CRDT op-log decode boundary, plus the DeliverAt per-key delayed-delivery and the EntityResource restart-surviving per-key resource modality rows
+│   └── quota-governor.md           # the per-tenant aggregate-backpressure QuotaGovernor Entity placement over the @effect/experimental RateLimiter, above the per-key @effect/workflow DurableRateLimiter
+├── observability/                  # the SLO/error-budget read model — the node analog of platform/web-vitals
+│   └── slo-budget.md               # the closed Objective vocabulary + the multi-window multi-burn-rate fold over the @effect/sql-pg signal series + the AlertRoute over the outbox DeliverySink + the @opentelemetry/sdk-metrics + @opentelemetry/sdk-trace-node reader + the @effect/cluster ClusterMetrics five-gauge saturation source
+├── secrets/                        # the runtime secret-resolution and rotation owner the whole node tier reads
+│   └── secret-store.md             # the one SecretStore Effect.Service over ConfigProvider + the SecretRef provider axis (EscEnv/Doppler/Static settled, AwsSecretsManager gated) + the TTL-leased rotation-invalidated cache + the audit receipt
+├── object-store/                   # the first-class blob/object-store tier, collapsing the scattered S3 presign
 │   └── object-store.md             # the one ObjectStore Effect.Service over @effect-aws/client-s3 + the ObjectKey content-addressed brand + the PresignGrant verb axis + the lifecycle policy rows + the asset-codec fan-out
 ├── runtime-backplane/              # the runner placement and durable-scheduling substrate beneath the cluster
 │   └── backplane.md                # the four-row runner backplane + the snowflake id source + cluster singletons + shard-pinned cron
@@ -41,7 +44,7 @@ services/
     └── transactional-outbox.md     # the same-txn Outbox Model.Class + the FOR UPDATE SKIP LOCKED relay + the LISTEN/NOTIFY wake + the DeliverySink tagged axis, logical-replication as the push variant
 ```
 
-The `agent/` sub-domain is the one `./agent` subpath closure — three pages: `agent-runtime` (the composed `DurableAgent`, since no stock `DurableAgent` primitive exists in `@effect/ai`/`@effect/workflow`), `mcp-transport` (decodes the C# `mcp-projection#TS_PROJECTION` MCP wire shapes into an `@effect/ai` `Toolkit` and an SSE progress fold), and `session-actors` (the agent conversation as a single-writer-per-session `Entity`). `messaging/` now holds two pages — the request-driven `internal-rpc` proxy and the addressable-`Entity` actor modality `entity`. `eventing/` holds its first page — the transactional-outbox owner closing the atomic-publish gap `persistence/work-and-signals#WORK_AND_SIGNALS` `EventJournal`/`Notifications` lack.
+The `agent/` sub-domain is the one `./agent` subpath closure — three pages: `agent-runtime` (the composed `DurableAgent`, since no stock `DurableAgent` primitive exists in `@effect/ai`/`@effect/workflow`), `mcp-transport` (decodes the C# `mcp-projection#TS_PROJECTION` MCP wire shapes into an `@effect/ai` `Toolkit` and an SSE progress fold), and `session-actors` (the agent conversation as a single-writer-per-session `Entity`, holding its `Chat` resource through the `messaging/entity#ENTITY` `EntityResource` ROW). `persistence/` holds four pages — the write-side `store-boundary`, the `tenancy` RLS axis, the durable `work-and-signals`, the read-side `reactive-query`, and the cross-surface `idempotency-ledger`. `hybrid-search/` holds two — the `fused-rank` retrieval owner and the `embedding-lifecycle` migration/batch-embed orchestration feeding its vector arm. `messaging/` holds three pages — the request-driven `internal-rpc` proxy, the addressable-`Entity` actor modality `entity` (carrying the `DeliverAt` and `EntityResource` per-key modality ROWs), and the per-tenant `quota-governor` Entity placement. `observability/`, `secrets/`, and `object-store/` each hold their one flat-module page. `eventing/` holds its first page — the transactional-outbox owner closing the atomic-publish gap `persistence/work-and-signals#WORK_AND_SIGNALS` `EventJournal`/`Notifications` lack.
 
 ## [2]-[FLAT_SOURCE_NOTE]
 

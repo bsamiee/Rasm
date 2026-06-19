@@ -123,6 +123,24 @@
 |   [4]   | `createFileRegistry(proto, resolve)`    | file registry    | `FileRegistry` from single proto + resolver |
 |   [5]   | `createFileRegistry(...registries)`     | file registry    | merged `FileRegistry` from registries       |
 
+[ENTRYPOINT_SCOPE]: descriptor reflection walk
+- rail: wire
+
+The descriptor-evolution gate (`evolution/descriptor-gate.md`) reads the descriptor surface through these iteration accessors and the `@bufbuild/protobuf/reflect` `nestedTypes` walker; `registry.files` is the file roster a `createFileRegistry(set)` yields, and every member below is a read-only property of the immutable descriptor interfaces.
+
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]   | [RAIL]                                                                  |
+| :-----: | :--------------------------------- | :--------------- | :--------------------------------------------------------------------- |
+|   [1]   | `registry.files`                   | file roster      | iterable of `DescFile` the registry resolved                           |
+|   [2]   | `nestedTypes(file)`                | recursive walker | `@bufbuild/protobuf/reflect`; yields `type.kind` message/enum/extension/service |
+|   [3]   | `file.messages` / `message.typeName` | message roster | top-level `DescMessage` iterable; fully qualified name                  |
+|   [4]   | `message.fields` / `field.name`    | field roster     | declaration-order `DescField` iterable; source field name              |
+|   [5]   | `field.number` / `field.localName` | field identity   | proto field number; ECMAScript-safe accessor name                      |
+|   [6]   | `field.fieldKind` / `field.listKind` | field kind     | `scalar`/`enum`/`message`/`list`/`map`; `list`-arm element kind         |
+|   [7]   | `file.enums` / `enum.values`       | enum roster      | `DescEnum` iterable; `DescEnumValue` iterable with `value.name`         |
+|   [8]   | `file.services` / `service.methods` | service roster  | `DescService` iterable; `DescMethod` iterable with `method.name`        |
+|   [9]   | `method.methodKind` / `method.input` / `method.output` | method shape | `unary`/`server_streaming`/…; input and output `DescMessage` |
+|  [10]   | `reflect(schema, message)`         | message reflect  | `@bufbuild/protobuf/reflect`; `reflected.fields`, `clear(field)`, `getOption` |
+
 [ENTRYPOINT_SCOPE]: well-known-type helpers (`@bufbuild/protobuf/wkt`)
 - rail: wire
 
@@ -137,8 +155,17 @@
 [DESCRIPTOR_TOPOLOGY]:
 - descriptor objects are immutable read-only interfaces; `DescField` is a discriminated union on `fieldKind`: `"scalar"`, `"message"`, `"enum"`, `"list"`, `"map"`
 - `DescMessage.field` maps `localName` (ECMAScript-safe) to `DescField`; `DescService.method` maps `localName` to `DescMethod`
+- `DescMessage` also exposes `fields` (declaration-order iterable), `typeName`, and the nested rosters; `DescField` carries `name`, `number`, `localName`, `fieldKind`, and the `list`-arm `listKind`; `DescMethod` carries `methodKind`, `input`, and `output` as `DescMessage` references; `DescEnum` carries `values` of `DescEnumValue` with `name`
+- `nestedTypes(file)` from `@bufbuild/protobuf/reflect` recursively walks a `DescFile` yielding `type.kind` of `"message" | "enum" | "extension" | "service"`, the one walker that visits nested messages and enums without a per-level recursion
 - generated code (from `protoc-gen-es`) produces `GenMessage<RuntimeShape>` objects that extend `DescMessage` and bind `MessageShape<Desc>` to the concrete class
 - `SupportedEdition` covers `EDITION_PROTO2`, `EDITION_PROTO3`, `EDITION_2023`, `EDITION_2024`; no other editions are accepted at runtime
+
+[DESCRIPTOR_DIFF_GAP]:
+- Resolved spellings (grounded against the `@bufbuild/protobuf` v2 descriptor source): `FileRegistry.files` is `Iterable<DescFile>` (not an array — materialize before `Array` combinators); `nestedTypes(file)` yields `Iterable<DescMessage | DescEnum | DescExtension | DescService>` discriminated on `kind`; `field.jsonName` is on the `DescField` common base; `field.oneof` (`DescOneof | undefined`) is carried ONLY on the singular `scalar`/`enum`/`message` arms, NOT on `list`/`map` — narrow on `fieldKind` before access; `message.oneofs` is `DescOneof[]` and `oneof.fields` is `DescField[]`; `enum.values` is `DescEnumValue[]` with `value.name`/`value.number`; `method.input`/`method.output` are `DescMessage` with `typeName`.
+- Reserved ranges live on the raw proto, NOT a top-level descriptor member: `message.proto.reservedRange` is `DescriptorProto_ReservedRange[]` with `start: number` (inclusive) and `end: number` (exclusive) — there is NO `message.reservedRanges` accessor and NO `range.from`/`range.to`.
+- Packed posture has no direct mirror of the C# `FieldDescriptor.IsPacked`: read `field.proto.options?.packed` against the raw `FieldDescriptorProto` (a repeated scalar defaults packed unless `options.packed === false`).
+- Disk gap: the `@bufbuild/protobuf@2.12.0` pnpm store entry is a content-less stub on disk, so these spellings are source-grounded but not yet re-confirmed against the materialized `.d.ts`.
+- Close when: the descriptor `.d.ts` is materialized in `node_modules`, or the emitted `src/gen/descriptor_pb.ts` confirms the spellings, at `surfaceRowsOf` transcription-lock.
 
 [LOCAL_ADMISSION]:
 - `create(schema, init?)` is the single message instantiation entry; never `new MessageClass()` — the generated class is the descriptor, not a constructor.

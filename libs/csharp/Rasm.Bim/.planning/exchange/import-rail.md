@@ -11,7 +11,7 @@ The foreign-bytes ingest rail: one `BimIo` import fold over the `format-axis#FOR
 
 - Owner: `BimIo` — the import fold over `InterchangeFormat`, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the STL/3MF/OBJ/PLY mesh-text arm that faults until its reader package catalogues, the in-process semantic IFC/IFC5 ingest through GeometryGym over `DatabaseIfc`/`Extract<T>`, and the AP242/native-companion two-hop route; `ImportedGeometry` the decoded mesh-scene carrier, `IfcSemanticModel` the IFC model-graph projection.
 - Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` for the managed glTF and mesh-text path; `BimIo.ImportIfc(...)` for the in-process IFC/IFC5 semantic graph — `Fin<T>` aborts on a codec reject (`faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each lowered with `.ToError()`, the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package exception onto `BimFault.ModelRejected` at the boundary so domain code never sees the SharpGLTF `ModelException` or the GeometryGym parse fault.
-- Auto: binary GLB decode lands through `ModelRoot.ParseGLB(ArraySegment<byte>)` and text `.gltf` decode through `ReadContext.ReadTextSchema2(Stream)` then `model.LogicalMeshes.Decode()` projecting `IMeshDecoder<Material>` primitives to `ImportedGeometry` vertex and index spans with zero intermediate file; the IFC semantic path constructs a `DatabaseIfc` over the bytes through `DatabaseIfc.ParseString`/`ReadXMLDoc`/`ReadJSON` by the row's format, narrows `db.Project`, and folds `db.Project.Extract<T>()` collecting spatial hierarchy (`IfcSpatialStructureElement`), products (`IfcProduct`), property sets (`IfcPropertySet`), quantities (`IfcElementQuantity`), materials (`IfcRelAssociatesMaterial`), classification associations (`IfcRelAssociatesClassification`), type objects (`IfcTypeObject`), and decomposition relationships (`IfcRelDecomposes`) into the `IfcSemanticModel` graph — never tessellated BRep.
+- Auto: binary GLB decode lands through `ModelRoot.ParseGLB(ArraySegment<byte>)` and text `.gltf` decode through `ReadContext.ReadTextSchema2(Stream)` then `model.LogicalMeshes.Decode()` projecting `IMeshDecoder<Material>` primitives to `ImportedGeometry` vertex and index spans with zero intermediate file; the IFC semantic path constructs a `DatabaseIfc` over the bytes through `DatabaseIfc.ParseString`/`ReadXMLDoc`/`ReadJSON` by the row's format, narrows `db.Project`, and folds `db.Project.Extract<T>()` collecting spatial hierarchy (`IfcSpatialStructureElement`), products (`IfcProduct`, splitting the predefined-type token through `ParserIfc.IdentifyIfcClass(name, out predefinedConstant)` and carrying the `IfcObject.ObjectType` user-defined fallback), property sets (`IfcPropertySet`), quantities (`IfcElementQuantity`), materials (`IfcRelAssociatesMaterial`), classification associations (`IfcRelAssociatesClassification`), type objects (`IfcTypeObject`, widened to carry the type-bound `HasPropertySets` property family, the type materials, and the `IfcTypeProduct.RepresentationMaps` instanced-geometry content key the `model/elements#BIM_TYPE` `BimType` reads), grouping/zone overlays (`IfcGroup`/`IfcZone`/`IfcSpatialZone` with their `IsGroupedBy` `IfcRelAssignsToGroup` member sets the `zoning/grouping#ZONE_GRAPH` overlay folds), the map-conversion projection (`IfcGeometricRepresentationContext.HasCoordinateOperation` → `IfcMapConversion`/`IfcProjectedCRS` the `georeferencing/coordinate-reference#GEO_REFERENCE` `Project` reads), and decomposition relationships (`IfcRelDecomposes`) into the `IfcSemanticModel` graph — never tessellated BRep.
 - Receipt: the `ModelLoad` receipt case carries the format key, codec key, source byte count, and elapsed for a managed mesh import; an IFC semantic ingest stamps the schema version (`db.Release`), the model-view (`db.ModelView`), and the extracted-entity counts; emission rides the sink port at the composition edge.
 - Packages: SharpGLTF.Core, SharpGLTF.Toolkit, SharpGLTF.Runtime, GeometryGymIFC_Core, NodaTime, LanguageExt.Core, Rasm
 - Growth: a new managed import is one codec arm on the import fold keyed by the `InterchangeFormat.Codec` row; a new extracted IFC entity family is one `Extract<T>` projection on `IfcSemanticModel`; a new STEP application protocol is one `InterchangeFormat` row carrying its `StepProtocol` discriminant — the `step-iso10303` codec reads the protocol column to select the entity-instance vocabulary version so a single STEP reader spans all three without a per-protocol codec.
@@ -37,16 +37,25 @@ public sealed record IfcSemanticModel(
     Seq<IfcSemanticModel.MaterialRow> Materials,
     Seq<IfcSemanticModel.ClassificationRow> Classifications,
     Seq<IfcSemanticModel.TypeRow> Types,
+    Seq<IfcSemanticModel.ZoneRow> Zones,
     Seq<AssemblyRel> Decomposition,
+    Option<IfcSemanticModel.MapConversionRow> MapConversion,
     double Tolerance,
     Instant At) {
     public sealed record SpatialNode(string GlobalId, string EntityType, string Name, string LongName, Seq<string> ContainedGlobalIds);
-    public sealed record ProductRow(string GlobalId, string EntityType, string Name, string Tag, Option<string> TypeGlobalId);
+    public sealed record ProductRow(string GlobalId, string EntityType, string Name, string Tag, string PredefinedType, string ObjectType, Option<string> TypeGlobalId);
     public sealed record PropertyRow(string OwnerGlobalId, string SetName, string PropertyName, string Value);
     public sealed record QuantityRow(string OwnerGlobalId, string SetName, string QuantityName, double Value, string Unit);
     public sealed record MaterialRow(string OwnerGlobalId, string MaterialName);
     public sealed record ClassificationRow(string OwnerGlobalId, string System, string Code, string DictionaryClassUri);
-    public sealed record TypeRow(string GlobalId, string EntityType, string Name);
+    public sealed record TypeRow(
+        string GlobalId, string EntityType, string Name, string PredefinedType,
+        Seq<IfcSemanticModel.PropertyRow> Properties, Seq<IfcSemanticModel.MaterialRow> Materials, Option<UInt128> RepresentationMapKey);
+    public sealed record ZoneRow(string GlobalId, string EntityType, string Name, string PredefinedType, Seq<string> AssignedGlobalIds);
+    public sealed record MapConversionRow(
+        double Eastings, double Northings, double OrthogonalHeight,
+        double XAxisAbscissa, double XAxisOrdinate, double Scale,
+        string SourceCrsName, string TargetCrsName, string GeodeticDatum, string MapProjection, string MapZone);
 }
 
 public static partial class BimIo {
@@ -115,22 +124,26 @@ public static partial class BimIo {
 
     static IfcSemanticModel Semantic(DatabaseIfc db, Instant at) {
         var project = db.Project;
+        var properties = project.Extract<IfcPropertySet>().AsIterable()
+            .SelectMany(static ps => ps.HasProperties.Values.OfType<IfcPropertySingleValue>()
+                .Select(pv => new IfcSemanticModel.PropertyRow(ps.GlobalId, ps.Name ?? "", pv.Name ?? "", pv.NominalValue?.ValueString ?? ""))).ToSeq();
+        var materials = project.Extract<IfcRelAssociatesMaterial>().AsIterable()
+            .Map(static r => new IfcSemanticModel.MaterialRow(r.GlobalId, (r.RelatingMaterial as IfcMaterial)?.Name ?? "")).ToSeq();
         return new IfcSemanticModel(
             db.Release, db.ModelView,
             project.Extract<IfcSpatialStructureElement>().AsIterable()
                 .Map(static s => new IfcSemanticModel.SpatialNode(s.GlobalId, s.GetType().Name, s.Name ?? "", s.LongName ?? "",
                     s.Extract<IfcProduct>().AsIterable().Map(static p => p.GlobalId).ToSeq())).ToSeq(),
             project.Extract<IfcProduct>().AsIterable()
-                .Map(static p => new IfcSemanticModel.ProductRow(p.GlobalId, p.GetType().Name, p.Name ?? "", (p as IfcElement)?.Tag ?? "",
-                    Optional((p as IfcObject)?.IsTypedBy.FirstOrDefault()?.RelatingType?.GlobalId))).ToSeq(),
-            project.Extract<IfcPropertySet>().AsIterable()
-                .SelectMany(static ps => ps.HasProperties.Values.OfType<IfcPropertySingleValue>()
-                    .Select(pv => new IfcSemanticModel.PropertyRow(ps.GlobalId, ps.Name ?? "", pv.Name ?? "", pv.NominalValue?.ValueString ?? ""))).ToSeq(),
+                .Map(static p => new IfcSemanticModel.ProductRow(
+                    p.GlobalId, ParserIfc.IdentifyIfcClass(p.GetType().Name, out var predefined), p.Name ?? "", (p as IfcElement)?.Tag ?? "",
+                    predefined ?? "", (p as IfcObject)?.ObjectType ?? "",
+                    Optional((p as IfcObject)?.IsTypedBy?.RelatingType?.GlobalId))).ToSeq(),
+            properties,
             project.Extract<IfcElementQuantity>().AsIterable()
                 .SelectMany(static eq => eq.Quantities.Values.OfType<IfcPhysicalSimpleQuantity>()
-                    .Select(q => new IfcSemanticModel.QuantityRow(eq.GlobalId, eq.Name ?? "", q.Name ?? "", q.SimpleValue, q.Unit?.ToString() ?? ""))).ToSeq(),
-            project.Extract<IfcRelAssociatesMaterial>().AsIterable()
-                .Map(static r => new IfcSemanticModel.MaterialRow(r.GlobalId, (r.RelatingMaterial as IfcMaterial)?.Name ?? "")).ToSeq(),
+                    .Select(q => new IfcSemanticModel.QuantityRow(eq.GlobalId, eq.Name ?? "", q.Name ?? "", q.MeasureValue?.Measure ?? 0d, q.Unit?.ToString() ?? ""))).ToSeq(),
+            materials,
             project.Extract<IfcRelAssociatesClassification>().AsIterable()
                 .SelectMany(static r => r.RelatedObjects.Select(o => (o.GlobalId, reference: r.RelatingClassification as IfcClassificationReference)))
                 .Where(static pair => pair.reference is not null)
@@ -140,11 +153,36 @@ public static partial class BimIo {
                     pair.reference.Identification ?? "",
                     pair.reference.Location ?? "")).ToSeq(),
             project.Extract<IfcTypeObject>().AsIterable()
-                .Map(static t => new IfcSemanticModel.TypeRow(t.GlobalId, t.GetType().Name, t.Name ?? "")).ToSeq(),
+                .Map(t => new IfcSemanticModel.TypeRow(
+                    t.GlobalId, ParserIfc.IdentifyIfcClass(t.GetType().Name, out var typePredefined), t.Name ?? "", typePredefined ?? "",
+                    properties.Filter(p => t.HasPropertySets.Any(ps => ps.GlobalId == p.OwnerGlobalId)),
+                    materials.Filter(m => m.OwnerGlobalId == t.GlobalId),
+                    Optional((t as IfcTypeProduct)?.RepresentationMaps?.FirstOrDefault())
+                        .Map(map => InterchangeIdentity.Key("ifc-repmap", Encoding.UTF8.GetBytes(map.StringSTEP()), db.Tolerance, db.Tolerance, db.ToleranceAngleRadians)))).ToSeq(),
+            project.Extract<IfcGroup>().AsIterable()
+                .Map(static g => new IfcSemanticModel.ZoneRow(
+                    g.GlobalId, g.GetType().Name, g.Name ?? "",
+                    g is IfcSpatialZone spatialZone ? spatialZone.PredefinedType.ToString() : "",
+                    g.IsGroupedBy.SelectMany(static rel => rel.RelatedObjects.Select(static o => o.GlobalId)).ToSeq())).ToSeq(),
             project.Extract<IfcRelAggregates>().AsIterable()
                 .Map(static r => (AssemblyRel)new AssemblyRel.Aggregates(r.RelatingObject.GlobalId, r.RelatedObjects.Select(static o => o.GlobalId).ToSeq())).ToSeq(),
+            MapConversion(project),
             db.Tolerance, at);
     }
+
+    static Option<IfcSemanticModel.MapConversionRow> MapConversion(IfcProject project) =>
+        Optional(project.RepresentationContexts
+                .OfType<IfcGeometricRepresentationContext>()
+                .Select(static ctx => ctx.HasCoordinateOperation as IfcMapConversion)
+                .FirstOrDefault(static conversion => conversion is not null))
+            .Map(static conversion => new IfcSemanticModel.MapConversionRow(
+                conversion.Eastings, conversion.Northings, conversion.OrthogonalHeight,
+                conversion.XAxisAbscissa, conversion.XAxisOrdinate, conversion.Scale == 0.0 ? 1.0 : conversion.Scale,
+                (conversion.SourceCRS as IfcCoordinateReferenceSystem)?.Name ?? "",
+                (conversion.TargetCRS as IfcProjectedCRS)?.Name ?? "",
+                (conversion.TargetCRS as IfcProjectedCRS)?.GeodeticDatum ?? "",
+                (conversion.TargetCRS as IfcProjectedCRS)?.MapProjection ?? "",
+                (conversion.TargetCRS as IfcProjectedCRS)?.MapZone ?? ""));
 
     static DatabaseIfc Database(InterchangeFormat format, ReadOnlyMemory<byte> bytes) =>
         format == InterchangeFormat.IfcJson ? JsonDatabase(bytes)
@@ -237,13 +275,13 @@ public static partial class BimIo {
             ReleaseVersion.IFC4X3_ADD2, ModelView.Ifc4Reference,
             Seq<IfcSemanticModel.SpatialNode>(),
             objects.Map(static data => new IfcSemanticModel.ProductRow(
-                data.applicationId ?? data.id ?? "", data.speckle_type, data.name, "", Option<string>.None)),
+                data.applicationId ?? data.id ?? "", data.speckle_type, data.name, "", "", "", Option<string>.None)),
             objects.Bind(static data => data.properties
                 .Select(pair => new IfcSemanticModel.PropertyRow(data.applicationId ?? data.id ?? "", data.speckle_type, pair.Key, pair.Value?.ToString() ?? ""))
                 .ToSeq()),
             Seq<IfcSemanticModel.QuantityRow>(), Seq<IfcSemanticModel.MaterialRow>(),
             Seq<IfcSemanticModel.ClassificationRow>(), Seq<IfcSemanticModel.TypeRow>(),
-            Seq<AssemblyRel>(), 1e-6, at);
+            Seq<IfcSemanticModel.ZoneRow>(), Seq<AssemblyRel>(), Option<IfcSemanticModel.MapConversionRow>.None, 1e-6, at);
     }
 }
 ```

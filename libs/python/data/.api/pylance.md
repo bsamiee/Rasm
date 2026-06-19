@@ -53,7 +53,7 @@
 ## [4]-[IMPLEMENTATION_LAW]
 
 [LANCE_TOPOLOGY]:
-- versioning: each write appends a new version; `lance.dataset(uri, version=N)` opens a specific snapshot; `asof` resolves the latest version before a timestamp
+- versioning: each write appends a new version; `lance.dataset(uri, version=N)` opens a specific snapshot; `asof` resolves the latest version before a timestamp; `LanceDataset.versions()` lists the full version history, and the scalar current-version integer the `lakehouse/table.md` `_lance_receipt` reads (`lance.dataset(uri).version`) is RESEARCH-pending — the catalogue lists only the plural `versions()`, so the scalar `LanceDataset.version` property stays unconfirmed until `assay api` reflection against the live `pylance` abi3 distribution captures it. The lakehouse `[LANCE_VERSION]` arm flips from RESEARCH to settled with zero design change once reflection confirms the scalar accessor.
 - Arrow native: all I/O passes Arrow `RecordBatch` or `Table`; `to_table` materializes; `to_batches` streams
 - mode: `write_dataset` `mode` values are `"create"`, `"overwrite"`, `"append"`, and `"merge_insert"`
 - index: `create_index` supports `index_type` values `"IVF_PQ"`, `"IVF_HNSW_PQ"`, and `"BTREE"`; `metric` values include `"L2"`, `"cosine"`, `"dot"`

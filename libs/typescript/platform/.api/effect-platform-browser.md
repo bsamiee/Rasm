@@ -105,6 +105,12 @@ Provides the `Socket.WebSocketConstructor` tag backed by `globalThis.WebSocket`.
 `layerWebSocket`: it supplies only the constructor, letting downstream code build sockets to
 dynamic URLs. Override to inject a polyfilled or instrumented WebSocket constructor.
 
+### [BROWSER_SOCKET_MODALITY_LAW]
+
+- `layerWebSocket(url, { closeCodeIsError? })` is the SINGLE-URL duplex `Socket.Socket` layer: a host owner binding one fixed socket endpoint provides this layer directly and reads/writes the duplex `Socket` (the inbound frame `Stream` and the outbound write share one connection). The `closeCodeIsError` predicate classifies which close codes surface as a `Socket` error versus a clean close.
+- `layerWebSocketConstructor` is the DYNAMIC-URL form: it supplies the `Socket.WebSocketConstructor` tag, so a `TransportModality` owner that resolves its socket url from `RuntimeConfig` at construction time (or re-dials a fresh url per reconnect) composes the constructor and builds the `Socket` per-connection, rather than baking the url into a single `layerWebSocket`. The duplex `Socket` is the effect `Channel` bidirectional primitive — one connection carries both the decoded inbound frame stream and the outbound write half.
+- The `effect` `Channel`/`Socket` duplex primitive is the bidirectional frame seam: the inbound `Socket` read side folds through `Schema.decodeUnknown` exactly as the SSE/wire ingress does, and the outbound write rides the same scoped resource — never a second ad-hoc `globalThis.WebSocket` constructed outside the owner.
+
 ---
 
 ## [BrowserStream]
@@ -467,6 +473,58 @@ export declare const layer: Layer.Layer<Permissions>;
 
 Production layer over `navigator.permissions`.
 
+### PermissionStatus.change (native EventTarget note)
+
+```typescript
+// DOM lib (not an @effect surface)
+interface PermissionStatus extends EventTarget {
+  readonly name: string;
+  readonly state: "granted" | "denied" | "prompt";
+  onchange: ((this: PermissionStatus, ev: Event) => unknown) | null;
+}
+```
+
+The `PermissionStatus` returned by `Permissions.query` is a DOM `EventTarget` whose `change`
+event fires when the host-side grant flips (a user revokes a previously granted permission, or a
+prompt resolves). `PermissionStatus` is absent from `WindowEventMap`, so
+`BrowserStream.fromEventListenerWindow` does not reach it; the `change` ingress rides the
+`scoped-event-stream` `scopedEventStream` generic listener bridge over the `PermissionStatus`
+target. The `state` field re-read after each `change` is the live grant value the
+`BrowserCapability` per-kind cell folds. There is no `@effect` binding for this ingress.
+
+---
+
+## [3]-[STORAGE_MANAGER] (native)
+
+`navigator.storage` (the `StorageManager`) has no `@effect/platform-browser` surface — the two
+calls below are confined to the `capabilities/browser-capability` owner.
+
+### persist
+
+```typescript
+// DOM lib (not an @effect surface)
+interface StorageManager {
+  persist(): Promise<boolean>;
+  persisted(): Promise<boolean>;
+  estimate(): Promise<StorageEstimate>;
+}
+interface StorageEstimate {
+  quota?: number;
+  usage?: number;
+  usageDetails?: Record<string, number>;
+}
+```
+
+`navigator.storage.persist()` requests durable (eviction-resistant) storage for the origin and
+resolves to whether durability was granted — the `persistent-storage` grant the
+`BrowserCapability` persistent-storage ceremony folds and `LocalPersistence` reads before relying
+on durable IndexedDB quota; `persisted()` reads the current durability without prompting;
+`estimate()` resolves the `{ quota, usage }` figures the offline cache reads for headroom. All
+three are `Promise`-returning native calls lifted through `Effect.tryPromise`. `Notification`
+`requestPermission()` (`Promise<NotificationPermission>` where `NotificationPermission` is
+`"granted" | "denied" | "default"`) is the sibling native grant ceremony for the `notifications`
+kind, equally confined to that owner.
+
 ---
 
 ## [4]-[IMPLEMENTATION_LAW]
@@ -480,3 +538,4 @@ Production layer over `navigator.permissions`.
 [LOCAL_ADMISSION]:
 - `@effect/platform-browser` satisfies `HttpClient`, `Socket`, `Socket.WebSocketConstructor`, `Worker.WorkerManager`, `PlatformWorker`, `Spawner`, `WorkerRunner.PlatformRunner`, and `KeyValueStore` with browser-DOM drivers, and adds three browser-only tags: `Clipboard`, `Geolocation`, `Permissions`.
 - Layers are consumed at `CompositionRoot`; no local wrapper re-exports these — planning owners reference namespace-qualified symbols directly.
+- The `Clipboard`/`Geolocation`/`Permissions` capsules and the native `navigator.storage.persist`/`estimate`/`Notification.requestPermission` grant ceremonies compose only inside `capabilities/browser-capability` behind the one `CapabilityKind` axis; a native `navigator.notification`/`navigator.clipboard`/`navigator.storage`/`navigator.permissions` call at any other owner is the named ungated-native-call defect.

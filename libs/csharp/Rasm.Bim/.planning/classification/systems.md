@@ -52,33 +52,43 @@ public sealed record ClassificationRef(string ElementGlobalId, Classification Sy
 
 - Owner: `BsddResolution` the live bSDD dictionary class/property resolution over Compute's transport, keyed on the `Classification.DictionaryUri` and the code, degrading to the row's local code-shape policy when the service is unreachable so ingest never blocks on the dictionary.
 - Entry: `BsddResolution.Resolve(Classification system, ClassificationCode code, BsddPort port)` resolves the dictionary class shape and the bSDD class-to-property mapping over Compute's transport — `Fin<T>` returns the resolved `BsddClass` evidence on a live hit, and on a service-unreachable miss degrades to the row's local code-shape policy validating the code shape in-process (never a fault on degradation, the local policy is the fallback) so `Classification.Classify` composes the resolution after the local `ClassificationCode.TryCreate` admission; a malformed published-class shape the dictionary returns routes `faults#FAULT_BAND` `BimFault.CodecReject` lowered with `.ToError()`.
-- Auto: `Resolve` builds the dictionary-class request URI from `Classification.DictionaryUri` plus the code, issues it over the injected `BsddPort` (the Compute transport seam), and projects the bSDD class response into the `BsddClass` evidence carrying the class name, the published code shape, and the class-to-property definitions that feed the `properties/property-sets#PROPERTY_SETS` `PropertyKey` template; a transport miss degrades to `LocalShape` validating the code against the row's local code-shape regex so a new standard becomes a dictionary-URI row, not a hardcoded code-shape table that drifts; the memoization keyed by dictionary URI rides Compute's transport, never a `Rasm.Persistence` reference.
+- Auto: `Resolve` builds the dictionary-class request URI from `Classification.DictionaryUri` plus the code, issues it over the injected `BsddPort` (the Compute transport seam), and projects the bSDD `BsddClassResponse` (`Code`/`Name`/`ClassType`/`Uri`/`Definition` + `ClassProperties`) into the `BsddClass` evidence through `BsddClass.Of`, each `ClassProperty` (`PropertyCode`/`DataType`/`PropertySet`/`PredefinedValue`/`IsRequired`) feeding the `properties/property-sets#PROPERTY_SETS` `PropertyKey` template; a transport miss degrades to `LocalShape` validating the code against the row's local code-shape regex so a new standard becomes a dictionary-URI row, not a hardcoded code-shape table that drifts; the memoization keyed by dictionary URI rides Compute's transport, never a `Rasm.Persistence` reference.
 - Receipt: the `BsddClass` is the authoritative classification evidence shared by `classification`, `properties`, and `validation`; the bSDD class-to-property mapping feeds the `properties/property-sets#PROPERTY_SETS` owner and the IDS Classification facet directly so a new dictionary is one URI row across all three.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
 - Growth: a new bSDD dictionary is one `Classification` row carrying its `DictionaryUri`; the live lookup is the same `BsddPort` transport seam; the degradation is the row's local code-shape policy; never a per-system classifier and never a `Rasm.Persistence` reference.
 - Boundary: the bSDD dictionary is the authoritative live source resolved through the dictionary URI — a second hardcoded code-shape table that drifts from the dictionary is the rejected form, the local code-shape policy is the unreachable-degradation fallback only; the live fetch rides the `csharp:Compute/remote/channels#TRANSPORT_AXIS` transport injected as `BsddPort` and a transport minted here is the named seam violation; `Rasm.Bim` is AEC-domain and depends strictly upward, so the memoization rides Compute's transport and a durable cache is the calling app-platform's concern at the seam, never a `Rasm.Persistence` reference; the resolution degrades to the local policy on a service miss so ingest never blocks on the dictionary, and a fault on degradation is the named defect — only a malformed published-class shape faults.
 
 ```csharp signature
-public sealed record BsddClass(string Name, string CodeShape, Seq<BsddProperty> Properties);
+public sealed record BsddClass(string Code, string Name, string ClassType, string Definition, string Uri, Seq<BsddProperty> Properties) {
+    public static BsddClass Of(BsddClassResponse response) =>
+        new(response.Code, response.Name, response.ClassType, response.Definition ?? "", response.Uri,
+            (response.ClassProperties ?? []).ToSeq().Map(static p =>
+                new BsddProperty(p.PropertyCode ?? p.Code, p.Name, p.DataType ?? "", p.PropertySet ?? "", p.PredefinedValue ?? "", p.IsRequired)));
+}
 
-public sealed record BsddProperty(string Name, string DataType, string PropertySet);
+public sealed record BsddProperty(string Code, string Name, string DataType, string PropertySet, string PredefinedValue, bool IsRequired);
+
+public sealed record BsddClassResponse(
+    string Code, string Name, string ClassType, string Uri, string? Definition, BsddClassResponse.ClassProperty[]? ClassProperties) {
+    public sealed record ClassProperty(string Code, string Name, string? PropertyCode, string? DataType, string? PropertySet, string? PredefinedValue, bool IsRequired);
+}
 
 public interface BsddPort {
-    Fin<BsddClass> Fetch(string dictionaryClassUri);
+    Fin<BsddClassResponse> Fetch(string dictionaryClassUri);
 }
 
 public static class BsddResolution {
     public static Fin<BsddClass> Resolve(Classification system, ClassificationCode code, BsddPort port) {
         string classUri = $"{system.DictionaryUri}/class/{code.Value}";
-        return port.Fetch(classUri).BindFail(_ => Fin.Succ(LocalShape(system, code)));
+        return port.Fetch(classUri).Map(BsddClass.Of).BindFail(_ => Fin.Succ(LocalShape(system, code)));
     }
 
     static BsddClass LocalShape(Classification system, ClassificationCode code) =>
-        new($"{system.Title}:{code.Value}", system.CodeShape, Seq<BsddProperty>());
+        new(code.Value, $"{system.Title}:{code.Value}", "Class", "", $"{system.DictionaryUri}/class/{code.Value}", Seq<BsddProperty>());
 }
 ```
 
 ## [4]-[RESEARCH]
 
-- [BSDD_SERVICE_CONTRACT]: the bSDD RESTful/GraphQL dictionary class and property lookup wire member spellings — the `GET /api/Class` / `GET /api/Dictionary` REST resource shape and the GraphQL class/property query, the published-class JSON projection (`name`/`code`/`classType`/`classProperties`), and the dictionary-URI-to-class resolution — ground against the live bSDD service contract (ISO 12006-3/23386/23387, 300+ dictionaries) at the cross-folder Compute-transport alignment; the bSDD service is an EXTERNAL live HTTP/GraphQL surface with no decompiled assembly, so the `BsddPort.Fetch` response projection into `BsddClass` confirms against the published bSDD API specification before the wire-member projection is final, and the `BsddPort` transport binding rides the `csharp:Compute/remote/channels#TRANSPORT_AXIS` transport injected at the composition edge, never a transport minted here.
+- [BSDD_SERVICE_CONTRACT]: the bSDD RESTful dictionary class/property lookup response shape is GROUNDED against the published buildingSMART bSDD API contract — the `GET /api/Class/v1` resource returns the `BsddClassResponse` (`Code`/`Name`/`ClassType`/`Uri`/`Definition` plus the `ClassProperties` array), each `ClassProperty` carrying `Code`/`Name`/`PropertyCode`/`DataType`/`PropertySet`/`PredefinedValue`/`IsRequired` (the `ClassType` constrained to `Class`/`Material`/`GroupOfProperties`/`AlternativeUse`, the `PropertySet` naming the IFC Pset placement), the `GET /api/Dictionary/v1` resource enumerating available dictionaries, and `GET /api/SearchInDictionary/v1` the class search — so the `BsddPort.Fetch` response projection into `BsddClass` via `BsddClass.Of` matches the real wire members. The LIVE-WIRE leg (the in-process transport that issues the request and streams the response) stays gated on the `csharp:Compute/remote/channels#TRANSPORT_AXIS` transport alignment — the `BsddPort` transport binding rides the injected Compute transport at the composition edge, never a transport minted here — and the in-process degradation to the row's local code-shape policy (`LocalShape`) is the verified settled present-tense fallback so ingest never blocks on the unreachable service.
 - [CLASSIFICATION_ROUNDTRIP]: the `IfcRelAssociatesClassification`/`IfcClassificationReference` round-trip member spellings confirm against the GeometryGym entity surface so a classified element re-authors its classification association on export; the import-side extract reads `RelatedObjects`, `RelatingClassification`, `ReferencedSource`, `Identification`, and `Location`, whose spellings confirm against the GeometryGym `IfcClassificationReference`/`IfcExternalReference` surface before the `exchange/import-rail#IMPORT_RAIL` `ClassificationRow` projection is final.

@@ -1,6 +1,6 @@
 # [PY_DATA_API_NETCDF4]
 
-`netCDF4` supplies Python bindings to the Unidata netCDF-4 C library — hierarchical group/dimension/variable containers, CF-compliant time conversion, multi-file dataset aggregation, compression filters, and chunking controls — for the data tensor-store climate/geophysical loading rail.
+`netCDF4` supplies Python bindings to the Unidata netCDF-4 C library — hierarchical group/dimension/variable containers, CF-compliant time conversion, multi-file dataset aggregation, compression filters, and chunking controls. It is the `FieldDataset` CF reader engine — the first consumer of the admitted-but-previously-unconsumed `netcdf4` — bound through `xarray.open_dataset(engine="netcdf4")` and reachable directly for low-level CF metadata, dimension/variable creation, and CF time conversion.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -8,13 +8,13 @@
 - package: `netCDF4`
 - import: `netCDF4`
 - owner: `data`
-- rail: netcdf-io
-- capability: netCDF-4/HDF5 file I/O via C extension — hierarchical groups, CF-compliant time conversion, multi-file aggregation, compression filters, and chunking controls
+- rail: field-dataset
+- capability: the `FieldDataset` CF reader engine — netCDF-4/HDF5 file I/O via C extension — hierarchical groups, CF-compliant time conversion, multi-file aggregation, compression filters, and chunking controls
 
 ## [2]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and group containers
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [ROLE]                                                       |
 | :-----: | :---------- | :------------ | :----------------------------------------------------------- |
@@ -24,7 +24,7 @@
 |   [4]   | `MFTime`    | class         | time-axis wrapper for multi-file CF time decoding            |
 
 [PUBLIC_TYPE_SCOPE]: dimension and variable
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [ROLE]                                        |
 | :-----: | :---------- | :------------ | :-------------------------------------------- |
@@ -32,7 +32,7 @@
 |   [2]   | `Variable`  | class         | n-D data array with attributes, masks, scales |
 
 [PUBLIC_TYPE_SCOPE]: compound and custom types
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [ROLE]                                   |
 | :-----: | :------------------------------- | :------------ | :--------------------------------------- |
@@ -42,7 +42,7 @@
 |   [4]   | `NetCDF4MissingFeatureException` | exception     | raised when HDF5/netCDF-4 feature absent |
 
 [PUBLIC_TYPE_SCOPE]: Dataset members
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]      | [KIND]   | [ROLE]                                             |
 | :-----: | :------------ | :------- | :------------------------------------------------- |
@@ -60,7 +60,7 @@
 |  [12]   | `path`        | property | slash-separated path to this group                 |
 
 [PUBLIC_TYPE_SCOPE]: Variable members
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SYMBOL]      | [KIND]   | [ROLE]                                           |
 | :-----: | :------------ | :------- | :----------------------------------------------- |
@@ -78,7 +78,7 @@
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Dataset lifecycle
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :-------------------------------------------------------------------------- | :------------- | :--------------------------- |
@@ -91,7 +91,7 @@
 |   [7]   | `Dataset.tocdl(coordvars=False, data=False, outfile=None)`                  | export         | dump CDL text representation |
 
 [ENTRYPOINT_SCOPE]: structure creation
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------ |
@@ -103,7 +103,7 @@
 |   [6]   | `Dataset.createVLType(datatype, datatype_name)`                                                                                                                                                                                                                                                                                                                           | create type    | register vlen type                          |
 
 [ENTRYPOINT_SCOPE]: attribute and rename operations
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                        |
 | :-----: | :---------------------------------------------- | :------------- | :---------------------------- |
@@ -120,7 +120,7 @@
 |  [11]   | `Dataset.get_variables_by_attributes(**kwargs)` | query          | filter variables by attribute |
 
 [ENTRYPOINT_SCOPE]: Variable operations
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :---------------------------------------------------------------------- | :------------- | :--------------------------------- |
@@ -135,7 +135,7 @@
 |   [9]   | `Variable.quantization()`                                               | accessor       | quantization settings dict         |
 
 [ENTRYPOINT_SCOPE]: module-level time and utility functions
-- rail: netcdf-io
+- rail: field-dataset
 
 | [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------- |

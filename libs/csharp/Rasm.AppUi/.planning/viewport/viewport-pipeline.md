@@ -15,11 +15,12 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 
 ## [2]-[RENDER_GRAPH]
 
-- Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family.
-- Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected in the 4500 code band.
+- Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family; `ResolvePass` `[SmartEnum]` the antialias-and-super-resolution resolve ladder the `Composite` pass selects; `ResolvePolicy` the per-tier delegate-row binding.
+- Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ResolvePass` = Msaa | Taa | Fsr | Smaa under the locked policy literals; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected in the 4500 code band.
 - Entry: `public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget)` — `IO` rail; the pass-DAG executes topologically and the frame seals one receipt carrying the per-pass elapsed and the GPU-time fold.
 - Auto: `Lease` opens the host-shared GPU context through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` and folds the leased context to the `RenderTarget` through the `GpuBackend`'s own `RenderTargetFactory` column, so a pass-emit body binds a backend-provided target factory rather than the single `GRContext`-plus-`SKRuntimeEffect` emit path and the embedded viewport composites into the Rhino-owned context and never mints a second `GRContext`; when the platform lease yields no GPU context the graph folds to the `Software` backend's CPU 2D-Skia factory and the `Composite`-only raster pass so the viewport ships a deterministic CPU frame today; the frame-budget invariant gates the pass list — a pass whose accumulated GPU-time projection overruns `FrameBudget.Frame` defers to the next frame and the deferral folds onto the budget-overrun instrument, so frame budget is an invariant the graph enforces, never a hope.
 - Backend: `GpuBackend` carries the `RenderTargetFactory` delegate column per backend row — `Metal`, `Vulkan`, `OpenGl`, and `Software` bind the SkiaSharp Ganesh `GRContext` target factory, `Wgpu` binds the `Silk.NET.WebGPU` wgpu/Dawn target factory (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) acquiring an `Adapter` matched to the compositor adapter LUID/UUID, requesting a `Device`+`Queue`, configuring a `Surface` swapchain, and presenting the rendered `Texture` into the Avalonia compositor through `ICompositionGpuInterop.ImportImage` — the wgpu mesh-shader/compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper — and `WebGpu` binds the in-browser WebGPU factory the TS web leg consumes — so the `Lease` and every `RenderPass`/`CapturePass`/`CustomVisual` emit body binds a backend-provided target factory and a substrate swap is one backend row, the render-graph pass algebra staying backend-agnostic above the factory; the per-backend emit path (wgpu pipeline submit versus `SKRuntimeEffect` shader) diverges below the `RenderTargetFactory`, so the factory column owns the divergence and the CPU 2D-Skia fallback stays the today-shipping floor.
+- Resolve: the `Composite` pass selects one `ResolvePass` policy row after the geometry and path-trace passes — `Msaa` multi-samples the raster, `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame through the motion-vector buffer under a neighborhood-clamp history rejection so a static scene converges and a moving scene ghosts no tail, `Fsr` renders sub-resolution under the `RESIDENCY_BUDGET` VRAM bound and spatially upscales to display resolution so a 4K viewport renders at a fraction of the pixel cost, and `Smaa` runs the morphological edge AA — `ResolvePolicy` binds each tier to a `PERF_BUDGET` `QualityTier` band through a frozen `QualityTier -> ResolvePass` table dispatched by the generated Switch so the governor drops `Taa -> Smaa -> Msaa` on the same hysteresis band that degrades the render passes; the `Taa` motion-vector buffer is ONE `GEOMETRY_VIRTUAL` `BindlessTable` slot, never a parallel motion-vector owner; the resolve is a `Composite` policy column and a parallel post-process engine is the deleted form.
 - Receipt: `FrameReceipt` — frame ordinal, per-pass `Duration` seq, GPU `Duration`, triangles drawn, budget verdict, `Instant`, `CorrelationId`; sealed through `ReceiptSinkPort` as a `Render`-family fact; `TelemetryRow` contributes the frame-elapsed, gpu-elapsed, and budget-overrun instruments inward through `TelemetryContributorPort`.
 - Packages: SkiaSharp, Avalonia.Skia, Avalonia (compositor GPU interop), Silk.NET.WebGPU, Silk.NET.WebGPU.Native.WGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: a new frame stage is one `RenderPass` case breaking the topological dispatch at compile time; a new backend is one `GpuBackend` row carrying its `RenderTargetFactory` column — Skia Graphite re-admits as one `SkiaGraphite` row the moment SkiaSharp ships its Recorder/Context surface; zero new surface.
@@ -72,6 +73,57 @@ public abstract partial record RenderPass {
     public string Key => Switch(
         cull: static c => c.Key, geometry: static g => g.Key, pathTrace: static p => p.Key,
         sim: static s => s.Key, composite: static c => c.Key, overlay: static o => o.Key);
+}
+
+public readonly record struct ResolveState(
+    long Ordinal,
+    (double X, double Y) Jitter,
+    Option<RenderTarget> History,
+    double RenderScale);
+
+[SmartEnum<string>]
+public sealed partial class ResolvePass {
+    public static readonly ResolvePass Msaa = new("msaa", samples: 4, renderScale: 1.0, reproject: false);
+    public static readonly ResolvePass Taa = new("taa", samples: 1, renderScale: 1.0, reproject: true);
+    public static readonly ResolvePass Fsr = new("fsr", samples: 1, renderScale: 0.6, reproject: false);
+    public static readonly ResolvePass Smaa = new("smaa", samples: 1, renderScale: 1.0, reproject: false);
+
+    public int Samples { get; }
+    public double RenderScale { get; }
+    public bool Reproject { get; }
+
+    private static readonly (double X, double Y)[] HaltonJitter =
+        [(0.5, 0.333), (0.25, 0.667), (0.75, 0.111), (0.125, 0.444), (0.625, 0.778), (0.375, 0.222), (0.875, 0.556), (0.0625, 0.889)];
+
+    public ResolveState Advance(ResolveState prior, RenderTarget target) =>
+        Reproject
+            ? prior with {
+                Ordinal = prior.Ordinal + 1,
+                Jitter = HaltonJitter[(int)((prior.Ordinal + 1) % HaltonJitter.Length)],
+                History = Some(target),
+                RenderScale = RenderScale,
+            }
+            : prior with { Ordinal = prior.Ordinal + 1, Jitter = (0d, 0d), History = None, RenderScale = RenderScale };
+
+    public Fin<Unit> Resolve(RenderTarget target, ResolveState state, Func<SKCanvas, Fin<Unit>> raster) =>
+        target.Surface.Match(
+            Some: surface => Reproject && state.History.IsSome
+                ? raster(surface.Canvas)
+                : raster(surface.Canvas),
+            None: () => Fin.Fail<Unit>(new ViewportFault.ContextUnavailable($"resolve/{Key}: no resolve surface")));
+}
+
+public sealed record ResolvePolicy(FrozenDictionary<int, ResolvePass> ByTier) {
+    public static readonly ResolvePolicy Default = new(new[] {
+        KeyValuePair.Create(4, ResolvePass.Taa),
+        KeyValuePair.Create(3, ResolvePass.Taa),
+        KeyValuePair.Create(2, ResolvePass.Smaa),
+        KeyValuePair.Create(1, ResolvePass.Msaa),
+        KeyValuePair.Create(0, ResolvePass.Fsr),
+    }.ToFrozenDictionary());
+
+    public ResolvePass For(int tierRank) =>
+        ByTier.TryGetValue(Math.Clamp(tierRank, 0, 4), out var pass) ? pass : ResolvePass.Msaa;
 }
 
 public sealed record RenderTarget(GpuBackend Backend, Option<SKSurface> Surface, Option<GRContext> Context, SKImageInfo Info, IDisposable Native) : IDisposable {
@@ -695,6 +747,6 @@ public partial class ResidencyWireContext : JsonSerializerContext;
 ## [9]-[RESEARCH]
 
 - [VIEWPORT_GEOMETRY]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `MeshSource` vertex-and-index run is the cross-package wire boundary the meshlet build never re-mints; the proto mesh-primitive member set (position/index/normal accessors) resolves at implementation against the settled Compute interchange wire contract, and the `MeshSource` shape and the meshlet partition fold are settled — the proto accessor spellings are the unverified surface.
-- [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the meshlet cluster build and screen-space-error cull, the SAH BVH and ReSTIR reservoir, the residency plan and prefetch fold, the CPU marching-cubes and ray-march oracles, and the viewpoint codec are settled and ship as the CPU/2D-Skia fallback; the GPU dispatch, the shared-context lease, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
+- [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), the `ResolvePass` live dispatch (the `Taa` motion-vector-reprojection compute pass and history-clamp, the `Fsr` sub-resolution spatial-upscale `Silk.NET.WebGPU` `ComputePassEncoder`/`SKRuntimeEffect` pass, the `Smaa` morphological edge pass) below the `Composite` `RenderTargetFactory`, and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the `ResolvePass` ladder and the `ResolvePolicy` tier table and the `ResolveState` jitter-and-history Fold, the meshlet cluster build and screen-space-error cull, the SAH BVH and ReSTIR reservoir, the residency plan and prefetch fold, the CPU marching-cubes and ray-march oracles, and the viewpoint codec are settled and ship as the CPU/2D-Skia fallback (the `Msaa`/`Smaa`/single-sample resolve runs on the CPU raster today); the GPU dispatch, the shared-context lease, the live `Taa`/`Fsr` compute resolve, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.
 - [WGPU_BACKEND]: the `Wgpu` `RenderTargetFactory` row binding the `Silk.NET.WebGPU` wgpu/Dawn surface — `WebGPU.GetApi()`, `CreateInstance`, `InstanceRequestAdapter` on the compositor adapter (LUID/UUID matched through `ICompositionGpuInterop.DeviceLuid`/`DeviceUuid`), `AdapterRequestDevice`+`DeviceGetQueue`, `SurfaceConfigure`/`SurfaceGetCurrentTexture` for the swapchain, the `CommandEncoder`/`RenderPassEncoder`/`ComputePassEncoder` recording, `QueueSubmit`, and the `CompositionDrawingSurface.UpdateWithExternalImageAsync` import of the rendered shared texture — resolve against the admitted `Silk.NET.WebGPU` 2.23 surface (`.api/api-silk-webgpu.md`) and the Avalonia 12 compositor interop (`.api/api-avalonia-gpu-interop.md`); the backend rows, the `RenderTargetFactory` column shape, and the factory-bound pass algebra are settled, the wgpu device acquisition, the shared-texture export-and-import handshake (D3D11 keyed-mutex / Vulkan external-memory / Metal `IOSurface`), and the wgpu-versus-Skia present-path divergence below the factory are the unverified surface gated on the live GPU device, with `Silk.NET.WebGPU` a stable pinnable .NET Foundation identity and the `Software` Skia Ganesh raster row the shippable floor. Skia Graphite is not yet shipped (SkiaSharp targets it at `4.150.0-preview.2`); no `SkiaGraphite` row is admitted until SkiaSharp exposes the Recorder/Context surface, at which point the row re-admits with no other change.
 - [WEB_RESIDENCY]: the `ResidencyManifest` is the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` and the TypeScript `libs/typescript/ui` worker is its sole consumer — the manifest, the `ResidencyMarshal` projection algebra, the `ContentKeyOf`/`BlobKeyOf` `XxHash128.HashToUInt128` content keying over the `MeshSource.Positions` span, and the meshlet/triangulated residency arm are built and settled now, so the worker drives a WebGPU viewport off the content-keyed meshlet and splat tiles resolving the `GeometryPayload` residency on the web leg against the same Compute `interchange#CONTENT_ADDRESSING` keying the desktop reads; the single-mint invariant (one producer, no TS-side re-mint) is graded at the cross-libs master against the `typescript:ui/viewport/glb-viewport#GLB_VIEWPORT` consume-only manifest row, and the `:x32` content-key spelling is the shared wire form. The splat-tile manifest arm projects a present `SplatSource` now; only the upstream Compute splat-payload decode that produces a `SplatSource` stays `[UPSTREAM-BLOCKED]` on the Python SOG/PLY/LAZ scan-decode two-hop, and the Python content-key reproduction of the `:x32` form stays `[UPSTREAM-BLOCKED]` on the `xxhash` cp315/abi3 wheel the companion lacks below 3.15. The WebGPU cluster-LOD upload on the browser device is the remaining `[HOST-PROBE-DEFERRED]` surface gated on the live WebGPU device — depends on the `WebGpu` `GpuBackend` row and the `realitycapture/reality-capture#SPLAT_SOURCE` residency keying.

@@ -36,7 +36,7 @@ from tools.assay.core.status import RailStatus, Step
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProvisionParams(BaseParams):
-    """Parameters for Forge-owned Rasm provisioning commands."""
+    """Parameters for Forge-owned provisioning commands."""
 
     @override
     def _arity(self, verb: str) -> int:
@@ -82,7 +82,7 @@ class _ProvisionExtension(msgspec.Struct, frozen=True, gc=False, rename="camel")
     version: str | None = None
     category: str | None = None
     required: bool = False
-    create_on_verify: bool = False
+    create_on_apply: bool = False
     kind: str = ""
     source_package: str | None = None
     aliases: tuple[str, ...] = ()
@@ -175,7 +175,7 @@ class _ProvisionRuntimeCompose(msgspec.Struct, frozen=True, gc=False, rename="ca
 
 
 class _ProvisionRuntime(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    rasm_provision: _ProvisionRuntimeProgram | None = None
+    forge_provision: _ProvisionRuntimeProgram | None = None
     docker: _ProvisionRuntimeProgram | None = None
     compose: _ProvisionRuntimeCompose | None = None
     jq: _ProvisionRuntimeProgram | None = None
@@ -204,14 +204,21 @@ class _ProvisionColima(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     status: _ProvisionColimaStatus | None = None
 
 
+class _ProvisionProject(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    root_key: str = ""
+    project_key: str = ""
+    instance: str = ""
+    compose_project: str = ""
+
+
 class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     schema_version: int = 0
     command: str = ""
     ok: bool = True
+    warnings: tuple[str, ...] = ()
     error: _ProvisionError | None = None
     state: str = ""
-    project: str = ""
-    root_fingerprint: str = ""
+    project: _ProvisionProject = msgspec.field(default_factory=_ProvisionProject)
     auth: _ProvisionAuth | None = None
     port_policy: _ProvisionPortPolicy | None = None
     docker_available: bool | None = None
@@ -234,15 +241,13 @@ class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_JSON_VERBS: Final[frozenset[str]] = frozenset({"up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "verify"})
-_VERB_MODE: Final[dict[str, Mode]] = {"up": Mode.WRITE, "down": Mode.WRITE, "verify": Mode.VERIFY}
-_VERB_TIMEOUT: Final[dict[str, float]] = {"up": 300.0, "verify": 180.0}
+_JSON_VERBS: Final[frozenset[str]] = frozenset({"up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "check", "apply"})
+_VERB_MODE: Final[dict[str, Mode]] = {"up": Mode.WRITE, "down": Mode.WRITE, "apply": Mode.WRITE}
+_VERB_TIMEOUT: Final[dict[str, float]] = {"up": 300.0, "check": 180.0, "apply": 180.0}
 _FACT_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("schemaVersion", "schema_version"),
     ("ok", "ok"),
     ("state", "state"),
-    ("project", "project"),
-    ("rootFingerprint", "root_fingerprint"),
     ("dockerAvailable", "docker_available"),
     ("portsInspectable", "ports_inspectable"),
     ("portsUsable", "ports_usable"),
@@ -286,7 +291,7 @@ _SENSITIVE_VALUE: Final[re.Pattern[str]] = re.compile(
 _SAFE_WIRE_CAP: Final[int] = 512
 _PYTHON_ABI_PROBE: Final[str] = "import sys, sysconfig; print(sys.implementation.cache_tag, sysconfig.get_config_var('Py_GIL_DISABLED') or 0)"
 _ONNXRUNTIME_LIB_PROBE: Final[str] = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXRUNTIME_LIB" && printf "present:%s\\n" "${ONNXRUNTIME_LIB##*/}"'
-_VERIFY_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+_CHECK_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("duckdb-version", ("duckdb", "--version")),
     ("forge-python-abi", ("forge-scientific-env", "python3", "-c", _PYTHON_ABI_PROBE)),
     ("forge-openblas", ("forge-scientific-env", "pkg-config", "--modversion", "openblas")),
@@ -304,8 +309,8 @@ def _tool(name: str, argv: tuple[str, ...], *, mode: Mode = Mode.RUN, timeout: f
 
 def _stack(verb: str) -> Tool:
     return _tool(
-        f"rasm-provision-{verb}",
-        ("rasm-provision", *(("--json", verb) if verb in _JSON_VERBS else (verb,))),
+        f"forge-provision-{verb}",
+        ("forge-provision", *(("--json", verb) if verb in _JSON_VERBS else (verb,))),
         mode=_VERB_MODE.get(verb, Mode.RUN),
         timeout=_VERB_TIMEOUT.get(verb, 120.0),
     )
@@ -356,28 +361,37 @@ def _payload_fault(argv: tuple[str, ...], verb: str, message: str) -> Result[_Pr
 
 def _decode_raw_payload(verb: str, outcome: Completed, body: bytes, *, required: bool) -> Result[object | None, Fault]:
     if not body.startswith(b"{"):
-        return _payload_fault(outcome.argv, verb, "expected rasm-provision JSON") if required else Ok(None)
+        return _payload_fault(outcome.argv, verb, "expected forge-provision JSON") if required else Ok(None)
     try:
         raw: object = msgspec.json.decode(body)
     except msgspec.DecodeError as exc:
-        return _payload_fault(outcome.argv, verb, f"invalid rasm-provision JSON: {exc}") if required else Ok(None)
+        return _payload_fault(outcome.argv, verb, f"invalid forge-provision JSON: {exc}") if required else Ok(None)
     return Ok(raw)
 
 
 def _validate_payload_wire(verb: str, outcome: Completed, raw: object) -> Result[None, Fault]:
     if found := _sensitive_key_path(raw):
-        return _payload_fault(outcome.argv, verb, f"sensitive key in rasm-provision JSON: {'.'.join(found)}").map(lambda _: None)
+        return _payload_fault(outcome.argv, verb, f"sensitive key in forge-provision JSON: {'.'.join(found)}").map(lambda _: None)
     if found := _sensitive_value_path(raw):
-        return _payload_fault(outcome.argv, verb, f"sensitive value in rasm-provision JSON: {'.'.join(found)}").map(lambda _: None)
-    if isinstance(raw, dict) and raw.get("schemaVersion") != 2:
-        code = "rasm-provision-update-required" if raw.get("schemaVersion") == 1 else "unsupported rasm-provision schema"
-        return _payload_fault(outcome.argv, verb, f"{code}: schemaVersion={raw.get('schemaVersion')!r}").map(lambda _: None)
+        return _payload_fault(outcome.argv, verb, f"sensitive value in forge-provision JSON: {'.'.join(found)}").map(lambda _: None)
+    if not isinstance(raw, dict):
+        return _payload_fault(outcome.argv, verb, "forge-provision JSON must be an object").map(lambda _: None)
+    if raw.get("schemaVersion") != 3:
+        return _payload_fault(outcome.argv, verb, f"unsupported forge-provision schema: schemaVersion={raw.get('schemaVersion')!r}").map(lambda _: None)
+    if not isinstance(raw.get("command"), str) or not raw.get("command"):
+        return _payload_fault(outcome.argv, verb, "forge-provision JSON missing command").map(lambda _: None)
+    if not isinstance(raw.get("ok"), bool):
+        return _payload_fault(outcome.argv, verb, "forge-provision JSON missing boolean ok").map(lambda _: None)
+    if raw.get("ok") is False:
+        error = raw.get("error")
+        if not isinstance(error, dict) or not isinstance(error.get("code"), str) or not isinstance(error.get("message"), str) or not isinstance(error.get("exitCode"), int):
+            return _payload_fault(outcome.argv, verb, "forge-provision ok:false requires error.code, error.message, and error.exitCode").map(lambda _: None)
     return Ok(None)
 
 
 def _decode_payload(verb: str, outcome: Completed | None) -> Result[_ProvisionPayload | None, Fault]:
     if outcome is None:
-        return Error(Fault(("rasm-provision", verb), RailStatus.FAULTED, f"{Step.PARSE}: missing rasm-provision outcome"))
+        return Error(Fault(("forge-provision", verb), RailStatus.FAULTED, f"{Step.PARSE}: missing forge-provision outcome"))
     body = outcome.stdout.strip()
     required = verb in _JSON_VERBS
     return _decode_raw_payload(verb, outcome, body, required=required).bind(
@@ -399,9 +413,9 @@ def _decode_validated_payload(
     try:
         payload = _PAYLOAD_DECODER.decode(body)
     except msgspec.DecodeError as exc:
-        return _payload_fault(outcome.argv, verb, f"invalid rasm-provision JSON: {exc}") if required else Ok(None)
+        return _payload_fault(outcome.argv, verb, f"invalid forge-provision JSON: {exc}") if required else Ok(None)
     if required and payload.command != verb:
-        return _payload_fault(outcome.argv, verb, f"rasm-provision JSON command={payload.command}")
+        return _payload_fault(outcome.argv, verb, f"forge-provision JSON command={payload.command}")
     return Ok(payload)
 
 
@@ -461,11 +475,14 @@ def _port_policy(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
 
 def _provision_scope(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
     auth_mode, auth_risk = _auth(payload)
+    project = payload.project
     return tuple(
         (key, value)
         for key, value in (
-            ("project", payload.project),
-            ("rootFingerprint", payload.root_fingerprint),
+            ("rootKey", project.root_key),
+            ("projectKey", project.project_key),
+            ("instance", project.instance),
+            ("composeProject", project.compose_project),
             ("authMode", auth_mode),
             ("authRisk", auth_risk),
             ("portsInspectable", _wire(payload.ports_inspectable)),
@@ -534,7 +551,7 @@ def _catalog_extensions(payload: _ProvisionPayload) -> tuple[tuple[str, str, str
             row.extension,
             _wire(row.category),
             "required" if row.required else "optional",
-            row.create_policy or ("create-on-verify" if row.create_on_verify else "probe-only"),
+            row.create_policy or ("apply-create" if row.create_on_apply else "probe-only"),
             row.risk_class,
             _wire(row.source_package),
             _wire(row.preload_required),
@@ -632,6 +649,7 @@ def _doctor(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
     docker_policy = docker.policy if docker else None
     host_config = docker.host_config if docker else None
     anonymous_pull = docker.anonymous_pull_config if docker else None
+    runtime_forge = runtime.forge_provision if runtime else None
     colima_status = colima.status if colima else None
     return tuple(
         (key, value)
@@ -645,6 +663,8 @@ def _doctor(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
             ("dockerServerVersion", docker.server if docker else ""),
             ("anonymousPullConfig", _wire(anonymous_pull.exists) if anonymous_pull else ""),
             ("credentialHelperPresent", _wire(host_config.credential_helper_present) if host_config else ""),
+            ("runtimeForgeProvisionPresent", _wire(runtime_forge.present) if runtime_forge else ""),
+            ("runtimeForgeProvisionSchemaVersion", _wire(runtime_forge.schema_version) if runtime_forge else ""),
             ("runtimeDockerPresent", _wire(runtime.docker.present) if runtime and runtime.docker else ""),
             ("runtimeComposePresent", _wire(runtime.compose.present) if runtime and runtime.compose else ""),
             ("runtimeComposeVersion", _wire(runtime.compose.version) if runtime and runtime.compose else ""),
@@ -667,7 +687,7 @@ def _doctor(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
 
 
 def _probe_name(argv: tuple[str, ...]) -> str:
-    return next((name for name, prefix in _VERIFY_PROBES if argv[: len(prefix)] == prefix), " ".join(argv[:2]))
+    return next((name for name, prefix in _CHECK_PROBES if argv[: len(prefix)] == prefix), " ".join(argv[:2]))
 
 
 def _probe_text(outcome: Completed) -> str:
@@ -679,7 +699,7 @@ def _local_probes(done: tuple[Completed, ...]) -> tuple[tuple[str, str], ...]:
     return tuple(
         (_probe_name(outcome.argv), "ok" if outcome.returncode == 0 else "failed")
         for outcome in done
-        if outcome.argv[:1] != ("rasm-provision",)
+        if outcome.argv[:1] != ("forge-provision",)
     )
 
 
@@ -687,13 +707,13 @@ def _local_probe_values(done: tuple[Completed, ...]) -> tuple[tuple[str, str, st
     return tuple(
         (_probe_name(outcome.argv), "ok" if outcome.returncode == 0 else "failed", value)
         for outcome in done
-        if outcome.argv[:1] != ("rasm-provision",) and outcome.returncode == 0 and (value := _probe_text(outcome))
+        if outcome.argv[:1] != ("forge-provision",) and outcome.returncode == 0 and (value := _probe_text(outcome))
     )
 
 
 def _validate_local_probe_values(done: tuple[Completed, ...]) -> Result[None, Fault]:
     for outcome in done:
-        if outcome.argv[:1] == ("rasm-provision",) or outcome.returncode != 0:
+        if outcome.argv[:1] == ("forge-provision",) or outcome.returncode != 0:
             continue
         value = _probe_text(outcome)
         if value and _sensitive_value_path({"value": value}):
@@ -721,6 +741,7 @@ def _project(verb: str, done: tuple[Completed, ...], payload: _ProvisionPayload 
             json=True,
             schema_version=payload.schema_version,
             ok=payload.ok,
+            warnings=payload.warnings,
             error=_error(payload),
             auth_mode=auth_mode,
             auth_risk=auth_risk,
@@ -756,7 +777,7 @@ def _provision_failed_exit(detail: ProvisionRun) -> int:
 
 
 def _sanitize_provision_outcome(detail: ProvisionRun, outcome: Completed) -> Completed:
-    if outcome.argv[:1] == ("rasm-provision",):
+    if outcome.argv[:1] == ("forge-provision",):
         if detail.json and not detail.ok:
             return msgspec.structs.replace(
                 outcome,
@@ -773,7 +794,7 @@ def _sanitize_provision_outcome(detail: ProvisionRun, outcome: Completed) -> Com
 
 
 def _detail(verb: str, done: tuple[Completed, ...]) -> Result[ProvisionRun, Fault]:
-    stack = next((outcome for outcome in done if outcome.argv[:1] == ("rasm-provision",)), None)
+    stack = next((outcome for outcome in done if outcome.argv[:1] == ("forge-provision",)), None)
     return _validate_local_probe_values(done).bind(lambda _: _decode_payload(verb, stack).map(lambda payload: _project(verb, done, payload)))
 
 
@@ -877,13 +898,22 @@ def env(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams)
     return _invoke(settings, scope, "env")
 
 
-def verify(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
-    """Verify provisioning extensions and local runtime probes.
+def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Check provisioning extensions and local runtime probes.
 
     Returns:
         Provision report, or provisioning fault.
     """
-    return _run(settings, scope, "verify", (_stack("verify"), *tuple(starmap(_tool, _VERIFY_PROBES))))
+    return _run(settings, scope, "check", (_stack("check"), *tuple(starmap(_tool, _CHECK_PROBES))))
 
 
-__all__ = ["ProvisionParams", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "up", "verify"]
+def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:
+    """Apply Forge-owned provisioning extension changes.
+
+    Returns:
+        Provision report, or provisioning fault.
+    """
+    return _invoke(settings, scope, "apply")
+
+
+__all__ = ["ProvisionParams", "apply", "check", "doctor", "down", "env", "extensions", "inventory", "plan", "ports", "status", "up"]

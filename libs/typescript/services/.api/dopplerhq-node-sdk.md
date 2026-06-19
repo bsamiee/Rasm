@@ -118,6 +118,11 @@
 - `sdk.secrets.download` with `format: 'env'` returns a dotenv-format string in `DownloadResponse`; the field shape depends on the format selected.
 - `DynamicSecretsService.issueLease` requires `ttl_sec` and returns a lease `id` plus the resolved secret `value`; `revokeLease` uses the `slug` from the issued lease response.
 
+[RUNTIME_RESOLUTION]:
+- Consumed at RUNTIME by the `secrets/secret-store#SECRET_STORE` `SecretStore` `Doppler` arm — `sdk.secrets.get(project, config, name)` resolves one static secret and `sdk.secrets.download(project, config, { format: 'env' })` resolves the whole config as a dotenv block, both carried into `Config.redacted` so the value never enters a span or log.
+- A TTL-leased secret rides `DynamicSecretsService.issueLease({ ttl_sec })` → the `SecretStore` `LeasedSecret` cache holds the resolved `value` under the returned lease `id` for `ttl_sec`, and `revokeLease(slug)` releases it; the lease expiry drives the `SubscriptionRef.changes` rotation edge so dependents re-resolve without a restart.
+- A rotation invalidates the lease (expiry or explicit `revokeLease`) and the `SecretStore` re-runs `issueLease`/`secrets.get`, never a process restart.
+
 [RAIL_LAW]:
 - Package: `@dopplerhq/node-sdk`
 - Owns: Doppler API access (secrets, configs, environments, projects, service tokens, dynamic secrets)

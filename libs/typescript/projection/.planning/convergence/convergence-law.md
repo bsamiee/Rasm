@@ -8,8 +8,8 @@ One cluster: `[2]-[CONVERGENCE_LAW]` owns the `opLogEntryArb`/`conflictReceiptAr
 
 ## [2]-[CONVERGENCE_LAW]
 
-- Owner: `opLogEntryArb`, the `Arbitrary<OpLogEntryWire>` minting the closed three-kind op with a bounded `contentKey` byte set, an HLC `(physical, logical)` pair, and an `origin` from a bounded peer set so the key space collides and the LWW order is exercised; `conflictReceiptArb`, the `Arbitrary<ConflictReceiptWire>` over the four `ConflictOutcomeKind` literals; `permutedPairArb`, the `opSetArb.chain` arbitrary that draws the op-set and a `fc.shuffledSubarray` full-length permutation of it as one paired value so the permutation is a generated input that shrinks and replays under the run seed, never an in-predicate `fc.sample` whose un-seeded draw makes a counterexample irreproducible; and `convergenceLaw`, the `it.prop` suite folding both orders through `conflictStep` and asserting `Equal.equals` plus the idempotent-replay and tombstone-monotonicity corollaries.
-- Cases: the commutativity-plus-associativity law folds the op-set in source order and in `permute` order and asserts byte-identical `ConflictPresenceState` — the live map, the tombstone set, and the outcome ledger all `Equal`; the idempotence law folds the op-set, then folds the same set appended to itself, and asserts the doubled delivery equals the single delivery (a replayed op never moves the cell); the tombstone-monotonicity corollary asserts a key tombstoned by any delivery order stays tombstoned under every order so a late upsert never resurrects it. The bounded `contentKey` and `origin` sets force key and stamp collisions so the equal-stamp `origin` tiebreak and the tombstone guard are exercised rather than trivially distinct.
+- Owner: `opLogEntryArb`, the `Arbitrary<OpLogEntryWire>` minting the closed three-kind op with a bounded `contentKey` byte set, an HLC `(physical, logical)` pair, and an `origin` from a bounded peer set so the key space collides and the LWW order is exercised; `conflictReceiptArb`, the `Arbitrary<ConflictReceiptWire>` over the four `ConflictOutcomeKind` literals; `permutedPairArb`, the `opSetArb.chain` arbitrary that draws the op-set and a `fc.shuffledSubarray` full-length permutation of it as one paired value so the permutation is a generated input that shrinks and replays under the run seed, never an in-predicate `fc.sample` whose un-seeded draw makes a counterexample irreproducible; and `convergenceLaw`, the `it.prop` suite folding both orders through `conflictStep` and asserting `Equal.equals` plus the idempotent-replay and tombstone-monotonicity corollaries. The peer and key-byte collision sets the arbitrary draws from are not inline literals — they are `CollisionBounds`, the one `as const satisfies CollisionBoundsShape` frozen table whose `origins` row is the bounded peer set and `keyBytes` row the bounded content-key fill set, so the collision pressure is a named parameter `fc.constantFrom` reads through indexed access rather than a baked array, and a later re-pointing of the seed source to the cross-libs frozen corpus swaps one named table, never a hunt for inline literals.
+- Cases: the commutativity-plus-associativity law folds the op-set in source order and in `permute` order and asserts byte-identical `ConflictPresenceState` — the live map, the tombstone set, and the outcome ledger all `Equal`; the idempotence law folds the op-set, then folds the same set appended to itself, and asserts the doubled delivery equals the single delivery (a replayed op never moves the cell); the tombstone-monotonicity corollary asserts a key tombstoned by any delivery order stays tombstoned under every order so a late upsert never resurrects it. The bounded `CollisionBounds.origins` and `CollisionBounds.keyBytes` sets force key and stamp collisions so the equal-stamp `origin` tiebreak and the tombstone guard are exercised rather than trivially distinct; tightening or widening the collision pressure is a table-row edit, the law body unchanged.
 - Packages: `fast-check` for `Arbitrary`, `record`, `constantFrom`, `bigInt`, `date`, `array`, `oneof`, `chain`, and `shuffledSubarray`; `@effect/vitest` for `it.prop` binding the property spine to the pure `conflictStep` reduction; `@stryker-mutator/core` gating the kill ratio over the `conflictStep` arms so a mutated merge guard fails the law.
 - Growth: a new CRDT op kind lands as one arbitrary arm and passes the same permutation law before admission; a new convergence corollary lands as one assertion in the existing suite, never a parallel harness.
 - Boundary: the arbitrary mints only decode-admitted wire vocabulary — a generated op carrying a field the wire does not is the deleted form; the law asserts the `conflictStep` algebra directly so it is plumbing-free and isolates the merge law from the `Stream`/`SubscriptionRef` scaffold; the `Equal.equals` assertion reads the `HashMap`/`HashSet` `Equal` trait so byte-identity is structural, never a hand-rolled deep compare; the harness is internal to `convergence/` and the op vocabulary arrives settled from the wire.
@@ -21,8 +21,15 @@ import * as fc from "fast-check";
 import type { ConflictReceiptWire, OpLogEntryWire } from "@rasm/interchange";
 import { conflictStep, emptyConflictPresence, type ConflictPresenceState } from "./lww-merge";
 
-const ORIGINS = ["peer-a", "peer-b", "peer-c"] as const;
-const KEY_BYTES = [0, 1, 2, 3] as const;
+interface CollisionBoundsShape {
+  readonly origins: ReadonlyArray<string>;
+  readonly keyBytes: ReadonlyArray<number>;
+}
+
+const CollisionBounds = {
+  origins: ["peer-a", "peer-b", "peer-c"],
+  keyBytes: [0, 1, 2, 3],
+} as const satisfies CollisionBoundsShape;
 
 const FIXED_OP = {
   entityKind: "entity", entityKey: "key", columnFamily: "default", codec: "none",
@@ -31,11 +38,11 @@ const FIXED_OP = {
 
 const opLogEntryArb: fc.Arbitrary<OpLogEntryWire> = fc.record({
   kind: fc.constantFrom("upsert", "delete", "presence"),
-  contentKey: fc.constantFrom(...KEY_BYTES).map((b) => new Uint8Array(16).fill(b)),
+  contentKey: fc.constantFrom(...CollisionBounds.keyBytes).map((b) => new Uint8Array(16).fill(b)),
   sequence: fc.bigInt({ min: 0n, max: 64n }),
   physical: fc.date({ min: new Date("2024-01-01T00:00:00.000Z"), max: new Date("2024-01-01T00:00:01.000Z") }).map((d) => d.toISOString()),
   logical: fc.bigInt({ min: 0n, max: 8n }),
-  origin: fc.constantFrom(...ORIGINS),
+  origin: fc.constantFrom(...CollisionBounds.origins),
 }).map((stamp) => ({ ...FIXED_OP, ...stamp }));
 
 const conflictReceiptArb: fc.Arbitrary<ConflictReceiptWire> = fc.constantFrom("LocalWin", "RemoteWin", "Merged", "Rejected").map((outcome) => ({
@@ -57,7 +64,7 @@ const opSetArb = fc.array(fc.oneof(opLogEntryArb, conflictReceiptArb), { minLeng
 const permutedPairArb = opSetArb.chain((ops) =>
   fc
     .shuffledSubarray(Array.from({ length: ops.length }, (_, i) => i), { minLength: ops.length, maxLength: ops.length })
-    .map((order) => [ops, order.map((i) => ops[i])] as const),
+    .map((order) => [ops, order.map((i) => ops[i]!)] as const),
 );
 
 const foldOrder = (ops: ReadonlyArray<OpLogEntryWire | ConflictReceiptWire>): ConflictPresenceState =>
@@ -81,3 +88,4 @@ const convergenceLaw = () => {
 ## [3]-[RESEARCH]
 
 - [CRDT_LAW_ADMISSION]: [RESOLVED] — the `crdt` column-family op carries the `CrdtOpWire` join-semilattice algebra on the `OpLogEntryWire.payload` slot, decoded by `causality-graph/version-vector#CRDT_SEMILATTICE` off the `interchange/codecs/decode-rail#CRDT_OP_DECODE` ten-arm union; the convergence law that gates a `CrdtOpWire` arm asserts the same delivery-order independence over the version-vector `vectorJoin` least-upper-bound rather than the scalar LWW state.
+- [CORPUS_SEED_BINDING]: [BLOCKED on `typescript:testing/fixture-reader#CORPUS_SEED`] — `CollisionBounds` is the working folder-local seed today; the cross-libs `ONE_WIRE_FIXTURE_CORPUS` re-founding re-points `CollisionBounds.origins`/`keyBytes` and the HLC stamp range to the content-addressed XxHash128-keyed golden bytes (the CRDT op-set, the HLC two-half stamps) read through the branch `typescript:testing/` fixture reader, so a cross-language parity drift surfaces as one corpus mismatch rather than a per-folder fixture divergence. The swap is a one-line re-pointing of the named `CollisionBounds` source to the fixture reader's `constantFrom` seed set — the `opLogEntryArb`/`conflictReceiptArb` spines and the three laws are unchanged. The `typescript:testing/` fixture reader does not yet exist and `TESTING_LIB_FOLDER` is not a committed big idea; until the reader lands this stays gated and the folder-local `CollisionBounds` table is the floor.

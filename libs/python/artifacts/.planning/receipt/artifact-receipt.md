@@ -4,16 +4,16 @@ The one kind-discriminated artifact-receipt family shared across every productio
 
 ## [1]-[INDEX]
 
-[CLUSTERS]: one cluster — `[2]-[RECEIPT]`, the kind-discriminated artifact-receipt family every production sub-domain contributes a case to.
+[CLUSTERS]: one cluster — `[2]-[RECEIPT]`, the kind-discriminated artifact-receipt family every production sub-domain contributes a case to, including the bidirectional-seam introspection case, the egress finishing case, and the conformance-audit verdict case, plus the one `contribute` fold that the runtime reuse-fabric elision and `MeterProvider` signal stream both consume.
 
 ## [2]-[RECEIPT]
 
-- Owner: `ArtifactReceipt` the one kind-discriminated receipt family satisfying the structural runtime `receipts.ReceiptContributor` Protocol through its `contribute` method, keyed by the runtime `content_identity.ContentKey`; the case facts project to an emitted-phase `Receipt.of` string fact map through `ContentKey.hex`.
-- Cases: `ArtifactReceipt` cases `Document` (content key, byte count) · `Pdf` (content key, byte count, page count) · `Office` (content key, byte count) · `Report` (content key, byte count) · `Chart` (content key, format) · `Scene` (content key, target) · `Table` (content key, format) · `Preview` (content key, width, height) · `Bundle` (content key, byte count) — each a frozen `case()` carrying the content key and the mode-specific facts; three-or-more per-bucket constructions collapse into this one stream.
-- Entry: `contribute` folds the active case onto the runtime `Receipt.of` emitted-phase stream under the `artifacts` owner tag, the case tag as subject, and the case-specific facts as the string-valued fact map; the fold is one `match` over the union, never a per-case contributor.
-- Packages: `expression` (`tagged_union`/`tag`/`case`), runtime (`content_identity.ContentKey`, `receipts.Receipt`/`ReceiptContributor`).
-- Growth: a new artifact kind is one `ArtifactReceipt` case plus one constructor; zero new surface.
-- Boundary: a per-type `DocumentReceipt`/`PdfReceipt`/`ChartReceipt` family is the deleted form; the owner consumes the runtime port and `expression` only and re-mints no content key.
+- Owner: `ArtifactReceipt` the one kind-discriminated receipt family satisfying the structural runtime `receipts.ReceiptContributor` Protocol through its `contribute` method, keyed by the runtime `content_identity.ContentKey`; the case facts project to an emitted-phase `Receipt.of` string fact map through `ContentKey.hex`. The three seam cases — `Introspection` (the `documents/inspection/lens#LENS` recover-TO half), `Egress` (the `documents/egress/finish#FINISH` security-and-navigation close), and `Verdict` (the `typography/conformance#CONFORM` `ConformanceVerdict` audit) — land here once so the three downstream owners contribute a settled case rather than three conflicting same-file edits.
+- Cases: `ArtifactReceipt` cases `Document` (content key, byte count) · `Pdf` (content key, byte count, page count) · `Office` (content key, byte count) · `Report` (content key, byte count) · `Chart` (content key, format) · `Scene` (content key, target) · `Table` (content key, format) · `Preview` (content key, width, height) · `Bundle` (content key, byte count) · `Introspection` (content key, node count, text length, image count, search-hit count — the recovered-tree-shape facts the lens recovers TO `DocumentNode`) · `Egress` (content key, post-finish byte count, page count, encryption-R level, outline depth, overlay count — the security-and-navigation finishing facts) · `Verdict` (content key, the `ConformanceVerdict` value carrying PAdES validity / coverage level / modification-difference level / DSS-LTV completeness / archival-metadata presence) — each a frozen `case()` carrying the content key and the mode-specific facts; three-or-more per-bucket constructions collapse into this one stream.
+- Entry: `contribute` folds the active case onto the runtime `Receipt.of` emitted-phase stream under the `artifacts` owner tag, the case tag as subject, and the case-specific facts as the string-valued fact map; the fold is one `match` over the union, never a per-case contributor. The same `contribute` fold is the one edge the runtime `concurrency/lanes` `(ContentKey, Work)` reuse-fabric elision threads its hit/miss distinction through and the runtime `observability/metrics` `MeterProvider` instrument set reads its measured-signal stream from — both consumers of the single fold, never a parallel cache or metric owner.
+- Packages: `expression` (`tagged_union`/`tag`/`case`), runtime (`content_identity.ContentKey`, `receipts.Receipt`/`ReceiptContributor`); the `Verdict` case carries a `typography/conformance#CONFORM` `ConformanceVerdict` value.
+- Growth: a new artifact kind is one `ArtifactReceipt` case plus one constructor plus one `_facts` arm; zero new surface. The reuse-fabric hit/miss distinction and the `MeterProvider` signal stream are consumers of the existing fold, never new cases.
+- Boundary: a per-type `DocumentReceipt`/`PdfReceipt`/`ChartReceipt`/`IntrospectionReceipt`/`EgressReceipt`/`VerdictReceipt` family is the deleted form; the owner consumes the runtime port and `expression` only and re-mints no content key. The `Verdict` case stores the verdict value's facts projected to strings through `_facts`, never a second verdict owner; the reuse-fabric `(ContentKey, Work)` admission and the `MeterProvider` instrument set are consumed from runtime, never re-minted here.
 
 ```python signature
 from typing import Literal, assert_never
@@ -23,10 +23,15 @@ from expression import case, tag, tagged_union
 from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.receipts import Receipt
 
+from artifacts.typography.conformance import ConformanceVerdict
+
 
 @tagged_union(frozen=True)
 class ArtifactReceipt:
-    tag: Literal["document", "pdf", "office", "report", "chart", "scene", "table", "preview", "bundle"] = tag()
+    tag: Literal[
+        "document", "pdf", "office", "report", "chart", "scene", "table", "preview",
+        "bundle", "introspection", "egress", "verdict",
+    ] = tag()
     document: tuple[ContentKey, int] = case()
     pdf: tuple[ContentKey, int, int] = case()
     office: tuple[ContentKey, int] = case()
@@ -36,6 +41,9 @@ class ArtifactReceipt:
     table: tuple[ContentKey, str] = case()
     preview: tuple[ContentKey, int, int] = case()
     bundle: tuple[ContentKey, int] = case()
+    introspection: tuple[ContentKey, int, int, int, int] = case()
+    egress: tuple[ContentKey, int, int, int, int, int] = case()
+    verdict: tuple[ContentKey, ConformanceVerdict] = case()
 
     @staticmethod
     def Document(key: ContentKey, byte_count: int) -> "ArtifactReceipt":
@@ -73,6 +81,18 @@ class ArtifactReceipt:
     def Bundle(key: ContentKey, byte_count: int) -> "ArtifactReceipt":
         return ArtifactReceipt(bundle=(key, byte_count))
 
+    @staticmethod
+    def Introspection(key: ContentKey, nodes: int, text_len: int, images: int, hits: int) -> "ArtifactReceipt":
+        return ArtifactReceipt(introspection=(key, nodes, text_len, images, hits))
+
+    @staticmethod
+    def Egress(key: ContentKey, byte_count: int, pages: int, encryption_r: int, outline_depth: int, overlays: int) -> "ArtifactReceipt":
+        return ArtifactReceipt(egress=(key, byte_count, pages, encryption_r, outline_depth, overlays))
+
+    @staticmethod
+    def Verdict(key: ContentKey, verdict: ConformanceVerdict) -> "ArtifactReceipt":
+        return ArtifactReceipt(verdict=(key, verdict))
+
     def contribute(self) -> Receipt:
         return Receipt.of("emitted", "artifacts", self.tag, _facts(self))
 
@@ -97,6 +117,20 @@ def _facts(receipt: ArtifactReceipt) -> dict[str, str]:
             return {"key": key.hex, "width": str(width), "height": str(height)}
         case ArtifactReceipt(tag="bundle", bundle=(key, byte_count)):
             return {"key": key.hex, "bytes": str(byte_count)}
+        case ArtifactReceipt(tag="introspection", introspection=(key, nodes, text_len, images, hits)):
+            return {"key": key.hex, "nodes": str(nodes), "text_len": str(text_len), "images": str(images), "hits": str(hits)}
+        case ArtifactReceipt(tag="egress", egress=(key, byte_count, pages, encryption_r, outline_depth, overlays)):
+            return {
+                "key": key.hex, "bytes": str(byte_count), "pages": str(pages),
+                "encryption_r": str(encryption_r), "outline_depth": str(outline_depth), "overlays": str(overlays),
+            }
+        case ArtifactReceipt(tag="verdict", verdict=(key, verdict)):
+            return {"key": key.hex, **verdict.facts()}
         case _:
             assert_never(receipt)
 ```
+
+## [3]-[SIGNALS]
+
+- [REUSE_ELISION] [BLOCKED]: The reuse-fabric leg is the receipt-fold CONSUMER of the runtime `concurrency/lanes` `(ContentKey, Work)` admission elision — every artifacts `_emit` already returns `ContentIdentity.of(...)` (the `documents/document-plan#DOCUMENT`, `imaging/preview#PREVIEW`, `typography/conformance#CONFORM`, and `tables/table-plan#TABLE` `_emit` arms plus the `color-management/colorimetry#COLOR` derive), so the producers thread the same pre-minted key into the lane admission the runtime owns and the `ArtifactReceipt` carries the hit/miss distinction. The artifacts side is verification-and-consume only: no new case, no new owner, no re-minted key. BLOCKED-gated on the upstream runtime `concurrency/lanes` `(ContentKey, Work[T])` admission task (branch `CONTENT_ADDRESSED_REUSE_FABRIC`); close-condition: the runtime lane-admission surface lands and the producers thread the existing key into it. The fence above is already the settled consumer edge — the `contribute` fold is the one carrier.
+- [METRIC_SIGNALS] [BLOCKED]: The measured-signal leg is the receipt-fold CONSUMER of the runtime `observability/metrics` `MeterProvider` instrument set — production duration / byte-volume / compression-ratio signals route through the single `contribute` fold rather than a parallel artifacts metric owner, so render-duration histograms and output-byte gauges are first-class observable instruments on the one branch stream. The artifacts side is consume-only: the `contribute` edge feeds the runtime instruments at composition; no new artifacts surface. BLOCKED-gated on the upstream runtime `observability/metrics` instrument-set task (branch `ONE_MEASURED_SIGNAL_STREAM`); close-condition: the runtime instrument set lands and `contribute` records against it. The fence above is the settled consumer edge — both fabrics read the one fold.

@@ -98,6 +98,7 @@
 
 [LOCAL_ADMISSION]:
 - Provider construction takes an optional `WebTracerConfig`; registration calls `provider.register({ contextManager, propagator, idGenerator })` to plug into global OTel API handles
+- `register({ propagator })` is reachable ONLY on a SELF-CONSTRUCTED `new WebTracerProvider(...)` — the `@effect/opentelemetry` `WebSdk.layer` builds its `WebTracerProvider` internally and yields a `Resource.Resource` layer with no exposed `.register` handle (its `Configuration` carries no `propagator` field), so the W3C-propagator registration is a standalone `new WebTracerProvider().register({ propagator })` composed alongside the WebSdk export layer (`observability/metric-registry#TRACE_PROPAGATION`), never a call on the WebSdk-built provider
 - Network span enrichment via `addSpanNetworkEvents` reads `PerformanceResourceTiming` entries from the browser Performance API; pair with `getResource` to correlate fetch spans to timing entries
 - `PropagateTraceHeaderCorsUrls` controls which cross-origin URLs receive `traceparent`/`tracestate` headers; configure on the propagator, not on the provider
 

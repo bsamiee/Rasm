@@ -7,8 +7,10 @@
 The design pages under `.planning/`, organized by sub-domain:
 
 - [transport/transport.md](.planning/transport/transport.md) — the protocol-selection transport, four clients, the capability tuple, the framing fold, and the buf + capability-SDK codegen input
-- [codecs/decode-rail.md](.planning/codecs/decode-rail.md) — the codec-keyed dispatch table, both directions, the GeoJSON geometry vocabulary row, the compression-codec admission
-- [refinement/schema-refinement.md](.planning/refinement/schema-refinement.md) — the brand identity slots, the filter bounds, the decode-budget ingress ceilings
+- [codecs/decode-rail.md](.planning/codecs/decode-rail.md) — the codec-keyed dispatch table, both directions, the GeoJSON geometry vocabulary row, the backpressured segment-stream decode, the compression-codec admission
+- [codecs/patch-rail.md](.planning/codecs/patch-rail.md) — the recorded-intent six-verb `PatchOpWire` union, the error-accumulating `applyPatch` fold, the `createTests` concurrency guard, the `FieldMask` lower
+- [evolution/descriptor-gate.md](.planning/evolution/descriptor-gate.md) — the runtime descriptor-diff verdict (`Identical`/`Additive`/`Breaking`) over `createFileRegistry` reflection, the declaration-order checksum, the dial-time gate
+- [refinement/schema-refinement.md](.planning/refinement/schema-refinement.md) — the brand identity slots (`Guid`/`ContentKey`/`OrdinalKey`/`JsonPointer`), the filter bounds, the decode-budget ingress ceilings
 - [artifacts/frame-reassembly.md](.planning/artifacts/frame-reassembly.md) — the content-addressed reassembly, the owned Crc32, the XxHash128 content key, the transferable worker boundary
 - [parity/content-key-parity.md](.planning/parity/content-key-parity.md) — the frozen-corpus content-key reproduction binding, the LE↔BE normalize, the HLC two-half round-trip
 - [faults/fault-family.md](.planning/faults/fault-family.md) — the tagged fault family, the total wire projections, the exhaustive render table

@@ -1,6 +1,6 @@
 # [PERSISTENCE_SYNC_COLLABORATION]
 
-Rasm.Persistence owns local-first synchronization and collaboration: the op-log changefeed with HLC stamping and the logical-replication decode-fold that materializes a running pgoutput stream into op-log entries, the merge law that adjudicates LWW per column family and dispatches the `crdt` column family into the settled `Crdt.Apply` join-semilattice, the three-case `SyncTransport` axis widened by topology and direction fields, ephemeral presence, the dedicated lossy awareness lane, partial-replication working-set checkout, and blob transfer composing the settled `BlobRemote` contract under the ArtifactSync frame constants. AppHost vocabulary — the `ReceiptSinkPort` `Advance` algebra, `ClockPolicy`, `ScheduleEntry`, `DeadlineClass`, `DataClassification`, `CorrelationId` — arrives settled and composes inside the fences. Transport variance lands as case rows and two fields, so the merge law and the op-log shape stay transport-invariant and a new transport touches zero entity or query surface; the pgoutput decode is the one path a running PostgreSQL changefeed travels into the one op-log shape, never a second feed. The `SpeckleLikeDiff` transport binds the instance `Speckle.Sdk` `IOperations.Send`/`Receive` marshal delegates on `SyncSession`, resolved from the `AddSpeckleSdk` container so the rail never reaches for a static `Operations.Send`; `Operations.Send` returns `(string rootObjId, IReadOnlyDictionary<string, ObjectReference>)` where `rootObjId` is the content hash mapping onto the existing `UInt128 ContentKey` with zero second identity, and `Speckle.Sdk`'s repacked Polly/channel/serialisation-V2 transitive closure runs COMPANION / OUTSIDE-RHINO so the in-Rhino assembly touches only the marshal delegate slot and never loads `Speckle.Sdk` or `Speckle.Objects`.
+Rasm.Persistence owns local-first synchronization and collaboration: the op-log changefeed with HLC stamping and the logical-replication decode-fold that materializes a running pgoutput stream into op-log entries, the merge law that adjudicates LWW per column family and dispatches the `crdt` column family into the settled `Crdt.Apply` join-semilattice, the three-case `SyncTransport` axis widened by topology and direction fields, ephemeral presence, the dedicated lossy awareness lane, partial-replication working-set checkout, and blob transfer composing the settled `BlobRemote` contract under the ArtifactSync frame constants. AppHost vocabulary — the `ReceiptSinkPort` `Advance` algebra, `ClockPolicy`, `ScheduleEntry`, `DeadlineClass`, `DataClassification`, `CorrelationId`, and the `AppHost/observability/diagnostics-and-telemetry#CORRELATION_SPINE` propagation fold — arrives settled and composes inside the fences. The `OpLogEntry` envelope carries a `TraceContext` W3C trace-context slot so an op committed under an active span anchors the `ONE_DISTRIBUTED_TRACE` concert seam on the op-log; the stamp reads `Activity.Current` once and the replication pump extract-and-continues the parent span, so a write that crosses runtimes reads end-to-end on one trace id rather than three collector silos. Transport variance lands as case rows and two fields, so the merge law and the op-log shape stay transport-invariant and a new transport touches zero entity or query surface; the pgoutput decode is the one path a running PostgreSQL changefeed travels into the one op-log shape, never a second feed. The `SpeckleLikeDiff` transport binds the instance `Speckle.Sdk` `IOperations.Send`/`Receive` marshal delegates on `SyncSession`, resolved from the `AddSpeckleSdk` container so the rail never reaches for a static `Operations.Send`; `Operations.Send` returns `(string rootObjId, IReadOnlyDictionary<string, ObjectReference>)` where `rootObjId` is the content hash mapping onto the existing `UInt128 ContentKey` with zero second identity, and `Speckle.Sdk`'s repacked Polly/channel/serialisation-V2 transitive closure runs COMPANION / OUTSIDE-RHINO so the in-Rhino assembly touches only the marshal delegate slot and never loads `Speckle.Sdk` or `Speckle.Objects`.
 
 ## [1]-[INDEX]
 
@@ -14,14 +14,14 @@ Rasm.Persistence owns local-first synchronization and collaboration: the op-log 
 
 ## [2]-[OPLOG_CHANGEFEED]
 
-- Owner: `SyncOpKind` `[SmartEnum<string>]` under the `SyncKeyPolicy` ordinal accessor; `OpLogEntry` — the one op-log record serving every synced entity kind; `SyncCursor` carrying both the HLC cell and the WAL LSN watermark; the `OpLog` stamp-and-diff surface.
+- Owner: `SyncOpKind` `[SmartEnum<string>]` under the `SyncKeyPolicy` ordinal accessor; `TraceContext` `[ComplexValueObject]` — the W3C trace-context carrier (`traceparent` 16-byte trace-id, opaque `tracestate`) the envelope slot rides, its `Empty` value sentinel the no-active-span CASE; `OpLogEntry` — the one op-log record serving every synced entity kind, now carrying the `TraceContext` envelope slot beside `ContentKey`; `SyncCursor` carrying both the HLC cell and the WAL LSN watermark; the `OpLog` stamp-and-diff surface.
 - Cases: 3 kind rows — upsert, delete (tombstone), presence; entity-kind variance rides the `EntityKind` column, never a second table shape; before-image variance rides the `Image` column, never a second record.
-- Entry: `public static IO<OpLogEntry> Stamp(ReceiptSinkPort sink, ClockPolicy clocks, Func<(Instant Physical, ulong Logical), OpLogEntry> build)` — `IO` carries the HLC cell swap; the op-log stamp rides the same `Advance` algebra and the same `Hlc` atom as every receipt envelope.
+- Entry: `public static IO<OpLogEntry> Stamp(ReceiptSinkPort sink, ClockPolicy clocks, Func<(Instant Physical, ulong Logical, TraceContext Trace), OpLogEntry> build)` — `IO` carries the HLC cell swap; the op-log stamp rides the same `Advance` algebra and the same `Hlc` atom as every receipt envelope, and captures the ambient `Activity.Current` as a `TraceContext` value ONCE at stamp (or `TraceContext.Empty` when no span is active) so the build delegate never re-mints a root and an op committed under no span carries the empty sentinel, never a synthesized root.
 - Auto: the SaveChanges changefeed hook and the bulk lane's self-emission append rows with store-assigned `Sequence` in the same transaction as the entity rows; peer processes fold `TagTransitions` over entries past their cursor on the replay `ScheduleEntry` row — applying those transitions to the cache surface is the L2 contribution row's consequence; the logical-replication pump folds the running pgoutput stream into the same op-log shape so a change committed by any writer reaches every peer over the one feed.
 - Receipt: cursor position, queue depth, and the acknowledged LSN ride `SyncApplyReceipt`; appended-segment evidence rides `ReceiptSinkPort` kinds through the package wire context.
 - Packages: Npgsql, NodaTime, System.IO.Hashing, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new synced concern is one `SyncOpKind` row or one `EntityKind` value on the same op-log shape, zero new surface; per-entity-kind outbox tables are the deleted form.
-- Boundary: op-log and entity rows commit in one transaction — a trigger-based second write path is the rejected form; tombstone rows carry the age-bound retention class and hide behind the sync-tombstone named query filter; `Closure` carries the graph's descendant content-key manifest so transfer is set-difference, never tree-walk; a multi-segment pull decodes through the settled `MessagePackStreamReader` segment reader one length-delimited frame at a time, so a large catch-up never buffers the whole transfer set contiguously; the before-image `Image` column carries the table's replica-identity tuple so the merge law has the held content key without a read-before-write round trip, and a missing-replica-identity update decodes as an empty image folded as a `Merged` adjudication.
+- Boundary: op-log and entity rows commit in one transaction — a trigger-based second write path is the rejected form; tombstone rows carry the age-bound retention class and hide behind the sync-tombstone named query filter; `Closure` carries the graph's descendant content-key manifest so transfer is set-difference, never tree-walk; a multi-segment pull decodes through the settled `MessagePackStreamReader` segment reader one length-delimited frame at a time, so a large catch-up never buffers the whole transfer set contiguously; the before-image `Image` column carries the table's replica-identity tuple so the merge law has the held content key without a read-before-write round trip, and a missing-replica-identity update decodes as an empty image folded as a `Merged` adjudication; the `TraceContext` slot is a top-level envelope field beside `ContentKey`, NOT inside `Payload` (Payload is the `version-control#CRDT_WIRE` `CrdtOp` delta for crdt rows) so the trace slot is no `CrdtOpWire` schema fork and triggers no `AppHost/runtime-ports#WIRE_LAW` amendment — it realizes the `ONE_DISTRIBUTED_TRACE` concert seam on the op-log by carrying the C#-minted `traceparent`/`tracestate` the `AppHost/observability/diagnostics-and-telemetry#CORRELATION_SPINE` propagation fold owns; Persistence only READS `Activity.Current` at stamp (via `System.Diagnostics.DiagnosticSource`) and projects to the value, never re-mints the propagator or a second tracer (ARCHITECTURE NEVER L91: never a second correlation owner), the 16-byte `traceparent` length validating ONCE at `TraceContext` admission so the interior never re-parses, and `OpLogEntry` carries NO `CorrelationId` field — `CorrelationId` rides `SyncSession`/`SyncApplyReceipt` so the trace slot is a genuinely new envelope field the AppHost correlation spine populates, never a sibling of an existing correlation column.
 
 ```csharp signature
 public sealed class SyncKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -41,10 +41,47 @@ public sealed partial class SyncOpKind {
     public bool Tombstone { get; }
 }
 
+[ComplexValueObject]
+public sealed partial class TraceContext {
+    public static readonly TraceContext Empty = new(ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+
+    public ReadOnlyMemory<byte> Traceparent { get; }
+
+    public ReadOnlyMemory<byte> Tracestate { get; }
+
+    public bool HasParent => Traceparent.Length == 16;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ReadOnlyMemory<byte> traceparent, ref ReadOnlyMemory<byte> tracestate) {
+        if (traceparent.Length is not (0 or 16))
+            validationError = new ValidationError($"<traceparent-length:{traceparent.Length}>");
+    }
+
+    public static TraceContext Capture() =>
+        Activity.Current is { } activity && activity.Context.TraceId != default
+            ? Project(activity.Context, activity.TraceStateString)
+            : Empty;
+
+    public static TraceContext Project(ActivityContext context, string? traceState) {
+        var span = new byte[16];
+        context.TraceId.CopyTo(span.AsSpan(0, 16));
+        return Create(span, Encoding.ASCII.GetBytes(traceState ?? string.Empty));
+    }
+
+    public Option<ActivityContext> Continue() =>
+        HasParent
+            ? Some(new ActivityContext(
+                ActivityTraceId.CreateFromBytes(Traceparent.Span),
+                ActivitySpanId.CreateRandom(),
+                ActivityTraceFlags.Recorded,
+                Encoding.ASCII.GetString(Tracestate.Span) is { Length: > 0 } state ? state : null,
+                isRemote: true))
+            : None;
+}
+
 public sealed record OpLogEntry(
     long Sequence, string EntityKind, string EntityKey, string ColumnFamily,
     SyncOpKind Kind, SnapshotCodec Codec, ReadOnlyMemory<byte> Payload, ReadOnlyMemory<byte> Image,
-    UInt128 ContentKey, Seq<UInt128> Closure,
+    UInt128 ContentKey, TraceContext Trace, Seq<UInt128> Closure,
     string Actor, Guid OriginStoreId, Instant Physical, ulong Logical);
 
 public sealed record SyncCursor(Guid OriginStoreId, long Sequence, NpgsqlLogSequenceNumber Lsn, Instant Physical, ulong Logical) {
@@ -55,10 +92,10 @@ public sealed record SyncCursor(Guid OriginStoreId, long Sequence, NpgsqlLogSequ
 }
 
 public static class OpLog {
-    public static IO<OpLogEntry> Stamp(ReceiptSinkPort sink, ClockPolicy clocks, Func<(Instant Physical, ulong Logical), OpLogEntry> build) =>
-        IO.lift(() => clocks.Now)
-            .Map(wall => sink.Hlc.Swap(last => ReceiptSinkPort.Advance(last, wall)))
-            .Map(build);
+    public static IO<OpLogEntry> Stamp(ReceiptSinkPort sink, ClockPolicy clocks, Func<(Instant Physical, ulong Logical, TraceContext Trace), OpLogEntry> build) =>
+        IO.lift(() => (Wall: clocks.Now, Trace: TraceContext.Capture()))
+            .Map(captured => (Cell: sink.Hlc.Swap(last => ReceiptSinkPort.Advance(last, captured.Wall)), captured.Trace))
+            .Map(stamped => build((stamped.Cell.Physical, stamped.Cell.Logical, stamped.Trace)));
 
     public static Seq<UInt128> TransferSet(OpLogEntry entry, Func<UInt128, bool> holds) =>
         entry.Closure.Add(entry.ContentKey).Filter(key => !holds(key));
@@ -182,7 +219,7 @@ public static class SyncMerge {
 - Owner: `SyncTopology` and `SyncDirection` keyless vocabularies; `SyncTransport` `[Union]`; the `SyncPump` dispatch surface with the `SubtreeFetch` graph-checkout bridge and the `Offer` Speckle-diff arm; the `ReplicationPump` decode-fold owning the running pgoutput message family; `GraphDiff` is the named set-difference diff-algebra `SubtreeFetch` and `Offer` both dial — the closure-manifest set-difference over `Holds` membership that yields the missing content-key set; `SubtreeFetch` is the one graph-checkout route whose `root` argument discriminates breadth — a true graph root copies the whole graph, a chosen sub-root checks out only that sub-root's descendants — fetching only the keys the target lacks rather than the whole graph.
 - Cases: 3 transport cases — PgLogicalReplication, HttpDelta, SpeckleLikeDiff — widened by the `Topology` and `Direction` fields; fan-in, fan-out, and capture direction are field values, never new cases; `GraphDiff` carries the two diff operands — the source closure manifest and the target `Holds` predicate — never a new transport case.
 - Entry: `public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport)` — one total state-threaded dispatch; `public static Seq<UInt128> GraphDiff(OpLogEntry root, Func<UInt128, bool> holds)` is the set-difference diff-algebra projecting the missing-key set; `public static IO<SyncApplyReceipt> SubtreeFetch(SyncSession source, SyncSession target, UInt128 root)` is the partial-graph checkout over the diff; `public static async Task<Fin<SyncApplyReceipt>> Pump(LogicalReplicationConnection link, SyncTransport.PgLogicalReplication row, SyncSession session, Func<CommitBatch, IO<SyncApplyReceipt>> apply, CancellationToken token)` is the decode-fold that drains the running pgoutput stream into commit-ordered op-log batches and acknowledges the applied LSN.
-- Auto: `Options` fixes the non-obsolete pgoutput spelling — protocol V4, parallel streaming, binary wire; `Open` is the slot-attach stream with `StartReplication` taking a non-optional cancellation token; `CreatePgOutputReplicationSlot` creates the slot and acknowledgement rides `SetReplicationStatus` with the applied-and-flushed LSN after each committed apply, flushed by `SendStatusUpdate` or the 10-second feedback cadence; `RelationMessage` re-arrives on schema change as an in-stream schema fact, streamed in-progress transactions stage keyed by xid and release on `StreamCommitMessage`, abort drops the stage, and commit order — not arrival order — is the op-log order.
+- Auto: `Options` fixes the non-obsolete pgoutput spelling — protocol V4, parallel streaming, binary wire; `Open` is the slot-attach stream with `StartReplication` taking a non-optional cancellation token; `CreatePgOutputReplicationSlot` creates the slot and acknowledgement rides `SetReplicationStatus` with the applied-and-flushed LSN after each committed apply, flushed by `SendStatusUpdate` or the 10-second feedback cadence; `RelationMessage` re-arrives on schema change as an in-stream schema fact, streamed in-progress transactions stage keyed by xid and release on `StreamCommitMessage`, abort drops the stage, and commit order — not arrival order — is the op-log order; each committed batch applies under `ReplicationPump.Resumed`, which extracts the batch head's `TraceContext` and starts the apply `Activity` continuing that parent (`TraceContext.Continue` re-creates the `ActivityContext` from the 16-byte `traceparent` with a fresh child span id and `isRemote: true`), so a replicated op resumes the originating span rather than minting an independent root, and a batch whose head carries `TraceContext.Empty` starts an unparented apply span.
 - Receipt: every pump run yields one `SyncApplyReceipt` carrying the acknowledged LSN; slot lifecycle and relation-schema evidence ride `ReceiptSinkPort` kinds.
 - Packages: Npgsql, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new transport is one case row plus one dispatch arm, zero new surface; future PowerSync lands as one case behind its admission gate; future cr-sqlite lands as native-sqlite extension rows plus merge-law rows, never a case here; a new graph-checkout shape is one entry over `GraphDiff`, never a second diff algebra; a new pgoutput leaf decodes as one `Filed` arm on the same message switch.
@@ -301,14 +338,14 @@ public static class ReplicationPump {
                         (staged, open) = Filed(staged, open, dense.TransactionXid,
                             await Entry(session, dense.Relation, SyncOpKind.Delete, dense.OldRow, image: null, token).ConfigureAwait(false)); break;
                     case StreamCommitMessage streamed:
-                        receipt = await apply(new CommitBatch(streamed.TransactionEndLsn, staged.Find(streamed.TransactionXid).IfNone([]))).Run(EnvIO.New(token: token)).ConfigureAwait(false);
+                        receipt = await Resumed(apply, new CommitBatch(streamed.TransactionEndLsn, staged.Find(streamed.TransactionXid).IfNone([])), token).ConfigureAwait(false);
                         staged = staged.Remove(streamed.TransactionXid);
                         link.SetReplicationStatus(streamed.TransactionEndLsn);
                         await link.SendStatusUpdate(token).ConfigureAwait(false); break;
                     case StreamAbortMessage aborted:
                         staged = staged.Remove(aborted.TransactionXid); break;
                     case CommitMessage committed:
-                        receipt = await apply(new CommitBatch(committed.TransactionEndLsn, open)).Run(EnvIO.New(token: token)).ConfigureAwait(false);
+                        receipt = await Resumed(apply, new CommitBatch(committed.TransactionEndLsn, open), token).ConfigureAwait(false);
                         open = [];
                         link.SetReplicationStatus(committed.TransactionEndLsn);
                         await link.SendStatusUpdate(token).ConfigureAwait(false); break;
@@ -319,6 +356,17 @@ public static class ReplicationPump {
         catch (Exception ex) when (ex is not OperationCanceledException) {
             return Fin.Fail<SyncApplyReceipt>(Error.New(8251, $"<replication-faulted:{row.Slot}:{ex.Message}>"));
         }
+    }
+
+    private static readonly ActivitySource Source = new("Rasm.Persistence.Replication");
+
+    private static async Task<SyncApplyReceipt> Resumed(Func<CommitBatch, IO<SyncApplyReceipt>> apply, CommitBatch batch, CancellationToken token) {
+        using var span = batch.Entries.HeadOrNone()
+            .Bind(static head => head.Trace.Continue())
+            .Match(
+                Some: parent => Source.StartActivity("replication.apply", ActivityKind.Consumer, parent),
+                None: () => Source.StartActivity("replication.apply", ActivityKind.Consumer));
+        return await apply(batch).Run(EnvIO.New(token: token)).ConfigureAwait(false);
     }
 
     private static (HashMap<uint, Seq<OpLogEntry>> Staged, Seq<OpLogEntry> Open) Filed(
@@ -333,6 +381,7 @@ public static class ReplicationPump {
             Sequence: 0L, EntityKind: $"{relation.Namespace}.{relation.RelationName}", EntityKey: relation.RelationName,
             ColumnFamily: relation.ReplicaIdentity.ToString(), Kind: kind, Codec: SnapshotCodec.MessagePackBinary,
             Payload: payload, Image: imageBytes, ContentKey: XxHash128.HashToUInt128(payload.Span),
+            Trace: TraceContext.Capture(),
             Closure: Seq<UInt128>(), Actor: session.StoreId.ToString(), OriginStoreId: session.StoreId,
             Physical: session.Clocks.Now, Logical: 0UL);
     }
@@ -412,6 +461,7 @@ public static class Presence {
             Payload: payload,
             Image: ReadOnlyMemory<byte>.Empty,
             ContentKey: XxHash128.HashToUInt128(payload.Span),
+            Trace: cell.Trace,
             Closure: Seq<UInt128>(),
             Actor: row.Actor,
             OriginStoreId: storeId,
@@ -516,7 +566,7 @@ public static class Replication {
 - Owner: `OpLogEntryWire`, `SyncCursorWire`, `SyncSegmentWire`, `SyncRejectionWire`, `ConflictOutcomeKind`, `ConflictReceiptWire`, `PresenceRowWire` — the sync wire surface the dashboard and companion peers decode; the `crdt` column-family `OpLogEntryWire.payload` carries the `version-control#CRDT_WIRE` `CrdtOpWire` union, the single-mint owner this page consumes and never re-declares.
 - Packages: BCL inbox.
 - Growth: a new wire payload is one interface row decoded through the same decoder options, zero new surface; the `crdt` op carries the owned `version-control#CRDT_WIRE` `CrdtOpWire` discriminated union on the same `OpLogEntryWire.payload` slot, never a second envelope and never a re-minted shape on this page.
-- Boundary: 64-bit fields decode as bigint under useBigInt64; instants cross as ISO-8601 extended strings in the persisted temporal grammar and content keys cross as 16-byte binary — every shape on this surface is primitive-mapped with zero custom ext bytes, so no ExtensionCodec row exists; outcome discriminators cross as the case names and reconstruct as the literal union; the LSN crosses as the `pg_lsn` text spelling under the same wire grammar; `SyncRejectionWire` is the typed session-gate refusal for fingerprint mismatch; the `crdt` column-family op carries the `CrdtOpWire` discriminated union OWNED at `version-control#CRDT_WIRE` — the `op`-discriminated union whose HLC rides `HlcWire` and whose presence `beat`/`leave` arms surface the `EphemeralMap` live-multiplayer state — so the TS-web and Python legs decode the amended op-log payload on the one wire vocabulary, and a `kind`-discriminated re-mint on this page is the named cross-language drift defect; the amendment is recorded at the suite `CROSS_PACKAGE_LAWS` wire-law owner.
+- Boundary: 64-bit fields decode as bigint under useBigInt64; instants cross as ISO-8601 extended strings in the persisted temporal grammar and content keys cross as 16-byte binary — every shape on this surface is primitive-mapped with zero custom ext bytes, so no ExtensionCodec row exists; outcome discriminators cross as the case names and reconstruct as the literal union; the LSN crosses as the `pg_lsn` text spelling under the same wire grammar; the `trace` slot is an APPEND-ONLY optional field carrying the 16-byte `traceparent` and the opaque `tracestate` so a TS-web peer extract-and-continues the parent span — a browser INP span joins the op-log trace — never minting an independent root, the slot's optionality preserving the existing `[Key]` sequence the durability retirement law governs; `SyncRejectionWire` is the typed session-gate refusal for fingerprint mismatch; the `crdt` column-family op carries the `CrdtOpWire` discriminated union OWNED at `version-control#CRDT_WIRE` — the `op`-discriminated union whose HLC rides `HlcWire` and whose presence `beat`/`leave` arms surface the `EphemeralMap` live-multiplayer state — so the TS-web and Python legs decode the amended op-log payload on the one wire vocabulary, and a `kind`-discriminated re-mint on this page is the named cross-language drift defect; the amendment is recorded at the suite `CROSS_PACKAGE_LAWS` wire-law owner.
 
 ```ts contract
 interface SyncCursorWire {
@@ -542,6 +592,7 @@ interface OpLogEntryWire {
   origin: string;
   physical: string;
   logical: bigint;
+  trace?: { traceparent: Uint8Array; tracestate: Uint8Array };
 }
 
 interface SyncSegmentWire {

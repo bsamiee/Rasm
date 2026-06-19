@@ -27,14 +27,16 @@ if TYPE_CHECKING:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+_PROJECT = {"rootKey": "abc123", "projectKey": "forge-test-abc123", "instance": "default", "composeProject": "forge-forge-test-abc123-default"}
+
 
 def _json(command: str, **extra: object) -> bytes:
-    return msgspec.json.encode({"schemaVersion": 2, "command": command, "ok": True, **extra})
+    return msgspec.json.encode({"schemaVersion": 3, "command": command, "ok": True, "warnings": [], "project": _PROJECT, **extra})
 
 
 def _stdout(command: tuple[str, ...]) -> bytes:
     match command:
-        case ("rasm-provision", "--json", verb):
+        case ("forge-provision", "--json", verb):
             return _json(verb)
         case ("duckdb", "--version"):
             return b"DuckDB 1.4.2\n"
@@ -77,8 +79,8 @@ def _call(
 
 def test_provisionparams_arity_is_zero() -> None:
     """Provision commands do not accept positional tokens."""
-    assert ProvisionParams()._arity("verify") == 0
-    surplus = ProvisionParams(paths=("extra",)).bound("verify")
+    assert ProvisionParams()._arity("apply") == 0
+    surplus = ProvisionParams(paths=("extra",)).bound("apply")
     assert isinstance(surplus, Fault)
     assert surplus.status is RailStatus.FAULTED
 
@@ -87,15 +89,16 @@ register_law(ProvisionParams, "arity_is_zero")
 
 
 _STACK_VERBS = (
-    ("up", provision_rail.up, (("rasm-provision", "--json", "up"),)),
-    ("down", provision_rail.down, (("rasm-provision", "--json", "down"),)),
-    ("status", provision_rail.status, (("rasm-provision", "--json", "status"),)),
-    ("doctor", provision_rail.doctor, (("rasm-provision", "--json", "doctor"),)),
-    ("ports", provision_rail.ports, (("rasm-provision", "--json", "ports"),)),
-    ("inventory", provision_rail.inventory, (("rasm-provision", "--json", "inventory"),)),
-    ("extensions", provision_rail.extensions, (("rasm-provision", "--json", "extensions"),)),
-    ("plan", provision_rail.plan, (("rasm-provision", "--json", "plan"),)),
-    ("env", provision_rail.env, (("rasm-provision", "--json", "env"),)),
+    ("up", provision_rail.up, (("forge-provision", "--json", "up"),)),
+    ("down", provision_rail.down, (("forge-provision", "--json", "down"),)),
+    ("status", provision_rail.status, (("forge-provision", "--json", "status"),)),
+    ("doctor", provision_rail.doctor, (("forge-provision", "--json", "doctor"),)),
+    ("ports", provision_rail.ports, (("forge-provision", "--json", "ports"),)),
+    ("inventory", provision_rail.inventory, (("forge-provision", "--json", "inventory"),)),
+    ("extensions", provision_rail.extensions, (("forge-provision", "--json", "extensions"),)),
+    ("plan", provision_rail.plan, (("forge-provision", "--json", "plan"),)),
+    ("env", provision_rail.env, (("forge-provision", "--json", "env"),)),
+    ("apply", provision_rail.apply, (("forge-provision", "--json", "apply"),)),
 )
 
 
@@ -124,8 +127,7 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
     payload = _json(
         "status",
         state="present",
-        project="rasm-provision-test",
-        rootFingerprint="abc123",
+        warnings=["port range narrowed"],
         auth={"mode": "auto-root", "risk": "generated-root-secret", "user": "postgres", "credential": "managed-hidden"},
         portPolicy={"mode": "auto", "source": "auto", "range": "15364-15554", "seedFingerprint": "seed-hash"},
         dockerAvailable=True,
@@ -140,10 +142,10 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
                 "profile": "timescale",
                 "host": "127.0.0.1",
                 "port": 15432,
-                "portEnv": "RASM_TIMESCALE_PORT",
+                "portEnv": "FORGE_PROVISION_TIMESCALE_PORT",
                 "containerPort": 5432,
-                "dsnEnv": "RASM_TIMESCALE_DSN",
-                "dsnRedacted": "postgres://postgres:***@127.0.0.1:15432/rasm",
+                "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN",
+                "dsnRedacted": "postgres://postgres:***@127.0.0.1:15432/forge",
                 "composeService": "timescale",
                 "image": "timescale/timescaledb-ha:pg18",
             }
@@ -151,7 +153,7 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
         ports=[
             {
                 "service": "search",
-                "env": "RASM_SEARCH_PORT",
+                "env": "FORGE_PROVISION_SEARCH_PORT",
                 "value": 15433,
                 "state": "free",
                 "occupied": False,
@@ -160,7 +162,7 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
             },
             {
                 "service": "timescale",
-                "env": "RASM_TIMESCALE_PORT",
+                "env": "FORGE_PROVISION_TIMESCALE_PORT",
                 "value": 15432,
                 "state": "busy",
                 "occupied": True,
@@ -169,25 +171,26 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
             }
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
     report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.facts == (
-        ("schemaVersion", "2"),
+        ("schemaVersion", "3"),
         ("ok", "true"),
         ("state", "present"),
-        ("project", "rasm-provision-test"),
-        ("rootFingerprint", "abc123"),
         ("dockerAvailable", "true"),
     )
-    assert report.detail.schema_version == 2
+    assert report.detail.schema_version == 3
     assert report.detail.ok is True
+    assert report.detail.warnings == ("port range narrowed",)
     assert report.detail.auth_mode == "auto-root"
     assert report.detail.auth_risk == "generated-root-secret"
     assert report.detail.port_policy == (("mode", "auto"), ("source", "auto"), ("range", "15364-15554"), ("seedFingerprint", "seed-hash"))
     assert report.detail.provision_scope == (
-        ("project", "rasm-provision-test"),
-        ("rootFingerprint", "abc123"),
+        ("rootKey", "abc123"),
+        ("projectKey", "forge-test-abc123"),
+        ("instance", "default"),
+        ("composeProject", "forge-forge-test-abc123-default"),
         ("authMode", "auto-root"),
         ("authRisk", "generated-root-secret"),
     )
@@ -200,9 +203,9 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
             "true",
             "127.0.0.1",
             "15432",
-            "RASM_TIMESCALE_PORT",
-            "RASM_TIMESCALE_DSN",
-            "postgres://postgres:***@127.0.0.1:15432/rasm",
+            "FORGE_PROVISION_TIMESCALE_PORT",
+            "FORGE_PROVISION_TIMESCALE_DSN",
+            "postgres://postgres:***@127.0.0.1:15432/forge",
             "5432",
             "timescale",
         ),
@@ -210,8 +213,8 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness, monkeyp
     assert report.detail.service_roles == (("timescale", "time"),)
     assert report.detail.local_service_topology == (("timescale", "true", "timescale", "timescale/timescaledb-ha:pg18", "15432", "", ""),)
     assert report.detail.ports == (
-        ("search", "RASM_SEARCH_PORT", "15433", "free", "false", "none", "auto"),
-        ("timescale", "RASM_TIMESCALE_PORT", "15432", "busy", "true", "provision:this-project", "auto"),
+        ("search", "FORGE_PROVISION_SEARCH_PORT", "15433", "free", "false", "none", "auto"),
+        ("timescale", "FORGE_PROVISION_TIMESCALE_PORT", "15432", "busy", "true", "provision:this-project", "auto"),
     )
     assert report.detail.local_probe_values == (("gdal", "ok", "present"),)
 
@@ -225,7 +228,7 @@ def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHar
         "down",
         portPolicy={"mode": "auto", "source": "current-manifest", "range": "15364-15554", "seedFingerprint": None},
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "down"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "down"), payload))
     report = assert_ok(provision_rail.down(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.port_policy == (("mode", "auto"), ("source", "current-manifest"), ("range", "15364-15554"))
@@ -244,7 +247,7 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
                 "extension": "postgis",
                 "category": "geospatial",
                 "required": True,
-                "createOnVerify": True,
+                "createOnApply": True,
                 "riskClass": "local-extension",
                 "sourcePackage": "image:timescale/timescaledb-ha",
                 "preloadRequired": False,
@@ -253,7 +256,7 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
                 "fileAccess": True,
                 "networkAccess": True,
                 "backgroundWorker": True,
-                "createPolicy": "verify-create",
+                "createPolicy": "apply-create",
                 "sourceRoute": "image:timescale/timescaledb-ha",
                 "sourceKind": "image",
                 "nixStatus": "runtime-probed",
@@ -263,16 +266,16 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
                 "restartClass": "none",
                 "serviceProfile": "timescale",
                 "imageTag": "timescale/timescaledb-ha:pg18.4-ts2.27.2-all",
-                "loadPolicy": "verify-create",
+                "loadPolicy": "apply-create",
             }
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "extensions"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
     report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.extensions == ()
     assert report.detail.extension_catalog == (
-        ("timescale", "postgis", "geospatial", "required", "verify-create", "local-extension", "image:timescale/timescaledb-ha", "false"),
+        ("timescale", "postgis", "geospatial", "required", "apply-create", "local-extension", "image:timescale/timescaledb-ha", "false"),
     )
     assert report.detail.extension_metadata == (
         (
@@ -287,7 +290,7 @@ def test_provision_extensions_projects_catalog_rows(assay_root: AssayHarness, mo
             "none",
             "timescale",
             "timescale/timescaledb-ha:pg18.4-ts2.27.2-all",
-            "verify-create",
+            "apply-create",
         ),
     )
     assert report.detail.extension_requirements == (
@@ -335,7 +338,7 @@ def test_provision_extensions_preserves_tool_surface_rows(assay_root: AssayHarne
             },
         ],
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "extensions"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "extensions"), payload))
     report = assert_ok(provision_rail.extensions(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
     assert report.detail.tool_surface_extensions == (
@@ -390,7 +393,7 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, m
             "anonymousPullConfig": {"exists": True},
         },
         runtime={
-            "rasmProvision": {"present": True, "schemaVersion": 2},
+            "forgeProvision": {"present": True, "schemaVersion": 3},
             "docker": {"present": True},
             "compose": {"present": True, "version": "Docker Compose version v2.39.0"},
             "jq": {"present": True},
@@ -401,7 +404,7 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, m
         lock={"present": True, "active": False, "state": "ownerless", "pidAlive": False, "heartbeatStale": False},
         colima={"available": True, "status": {"running": True, "runtime": "docker", "arch": "aarch64"}},
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "doctor"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload))
     report = assert_ok(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
     assert dict(report.detail.doctor) == {
@@ -413,6 +416,8 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness, m
         "dockerServerVersion": "29.0.0",
         "anonymousPullConfig": "true",
         "credentialHelperPresent": "true",
+        "runtimeForgeProvisionPresent": "true",
+        "runtimeForgeProvisionSchemaVersion": "3",
         "runtimeDockerPresent": "true",
         "runtimeComposePresent": "true",
         "runtimeComposeVersion": "Docker Compose version v2.39.0",
@@ -437,30 +442,52 @@ register_law(provision_rail.doctor, "projects_sanitized_runtime")
 
 def test_provision_json_verbs_fault_on_malformed_success_json(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Successful JSON-backed commands must emit valid Forge JSON."""
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), b"{not-json"))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), b"{not-json"))
     fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
-    assert "invalid rasm-provision JSON" in fault.message
+    assert "invalid forge-provision JSON" in fault.message
 
 
 register_law(provision_rail.status, "faults_on_malformed_success_json")
 
 
 def test_provision_rejects_schema_v1_payload(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Schema v1 Forge payloads require an updated rasm-provision package."""
+    """Schema v1 Forge payloads are outside the schema-v3 contract."""
     payload = msgspec.json.encode({"schemaVersion": 1, "command": "status", "ok": True})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
     fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
-    assert "rasm-provision-update-required" in fault.message
+    assert "unsupported forge-provision schema" in fault.message
 
 
 register_law(provision_rail.status, "rejects_schema_v1_payload")
+
+
+def test_provision_rejects_schema_v2_payload(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Schema v2 Forge payloads are intentionally retired."""
+    payload = msgspec.json.encode({"schemaVersion": 2, "command": "status", "ok": True})
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
+    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    assert "unsupported forge-provision schema" in fault.message
+
+
+register_law(provision_rail.status, "rejects_schema_v2_payload")
+
+
+def test_provision_rejects_ok_false_without_structured_error(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Schema v3 ok:false payloads must carry structured error data."""
+    payload = msgspec.json.encode({"schemaVersion": 3, "command": "status", "ok": False})
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
+    fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
+    assert "ok:false requires error.code" in fault.message
+
+
+register_law(provision_rail.status, "rejects_ok_false_without_structured_error")
 
 
 def test_provision_rejects_sensitive_payload_keys(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Assay refuses Forge JSON that contains secret-shaped keys even when the command otherwise succeeds."""
     sensitive = {"token": "redacted"}
     payload = _json("status", services={"timescale": {"enabled": True}}, **sensitive)
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
     fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
     assert "sensitive key" in fault.message
 
@@ -470,8 +497,8 @@ register_law(provision_rail.status, "rejects_sensitive_payload_keys")
 
 def test_provision_rejects_sensitive_payload_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Assay refuses Forge JSON that contains credential-shaped values under otherwise-safe keys."""
-    payload = _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/rasm", "exitCode": 1}, ok=False)
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload))
+    payload = _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False)
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload))
     fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
     assert "sensitive value" in fault.message
 
@@ -483,18 +510,18 @@ register_law(provision_rail.status, "rejects_sensitive_payload_values")
     "value",
     [
         "/Users/example/.docker/config.json",
-        "/" + "tmp/rasm/socket",
+        "/" + "tmp/forge/socket",
         "/run/secrets/postgres",
         "/etc/passwd",
         "/var/run/docker.sock",
-        "unix:///tmp/rasm.sock",
+        "unix:///tmp/forge.sock",
     ],
     ids=("users", "tmp", "run-secrets", "etc", "var-run", "unix"),
 )
 def test_provision_rejects_local_path_payload_values(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     """Assay refuses safe-key Forge values that carry absolute local paths."""
     payload = _json("doctor", docker={"executableKind": value})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "doctor"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload))
     fault = assert_error_status(provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
     assert "sensitive value" in fault.message
 
@@ -512,29 +539,29 @@ def test_provision_allows_redacted_dsn_values(assay_root: AssayHarness, monkeypa
                 "connectable": True,
                 "host": "127.0.0.1",
                 "port": 15432,
-                "portEnv": "RASM_TIMESCALE_PORT",
-                "dsnEnv": "RASM_TIMESCALE_DSN",
-                "dsnRedacted": "postgres://postgres:***@127.0.0.1:15432/rasm",
+                "portEnv": "FORGE_PROVISION_TIMESCALE_PORT",
+                "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN",
+                "dsnRedacted": "postgres://postgres:***@127.0.0.1:15432/forge",
                 "containerPort": 5432,
                 "composeService": "timescale",
             }
         },
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "env"), payload))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "env"), payload))
     report = assert_ok(provision_rail.env(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert isinstance(report.detail, ProvisionRun)
-    assert report.detail.service_connections[0][6] == "postgres://postgres:***@127.0.0.1:15432/rasm"
+    assert report.detail.service_connections[0][6] == "postgres://postgres:***@127.0.0.1:15432/forge"
 
 
 register_law(provision_rail.env, "allows_redacted_dsn_values")
 
 
 @pytest.mark.parametrize(
-    "payload",
+    "payload, message",
     [
-        {"schemaVersion": 2, "ok": True},
-        {"schemaVersion": 2, "command": "", "ok": True},
-        {"schemaVersion": 2, "command": "doctor", "ok": True},
+        ({"schemaVersion": 3, "ok": True}, "missing command"),
+        ({"schemaVersion": 3, "command": "", "ok": True}, "missing command"),
+        ({"schemaVersion": 3, "command": "doctor", "ok": True}, "forge-provision JSON command"),
     ],
     ids=("missing", "empty", "wrong"),
 )
@@ -542,11 +569,12 @@ def test_provision_rejects_command_mismatch(
     assay_root: AssayHarness,
     monkeypatch: pytest.MonkeyPatch,
     payload: dict[str, object],
+    message: str,
 ) -> None:
     """JSON-backed provision verbs require the Forge command field to match the requested verb."""
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), msgspec.json.encode(payload)))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), msgspec.json.encode(payload)))
     fault = assert_error_status(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()), RailStatus.FAULTED)
-    assert "rasm-provision JSON command" in fault.message
+    assert message in fault.message
 
 
 register_law(provision_rail.status, "rejects_command_mismatch")
@@ -556,13 +584,13 @@ def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, monkey
     """Forge ok:false JSON is a completed provisioning result, not an adapter parse fault."""
     payload = msgspec.json.encode(
         {
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "command": "status",
             "ok": False,
             "error": {"code": "port-conflict", "message": "fixed port is busy", "exitCode": 1},
         }
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload, rc=1))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=1))
     report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert report.status is RailStatus.FAILED
     assert isinstance(report.detail, ProvisionRun)
@@ -578,13 +606,13 @@ def test_provision_ok_false_exit_zero_projects_failed_run(assay_root: AssayHarne
     """Forge ok:false controls report failure even when the process exits zero."""
     payload = msgspec.json.encode(
         {
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "command": "status",
             "ok": False,
             "error": {"code": "port-conflict", "message": "fixed port is busy", "exitCode": 0},
         }
     )
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "status"), payload, rc=0))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "status"), payload, rc=0))
     report = assert_ok(provision_rail.status(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     assert report.status is RailStatus.FAILED
     assert report.counts.failed == 1
@@ -595,15 +623,15 @@ def test_provision_ok_false_exit_zero_projects_failed_run(assay_root: AssayHarne
 register_law(provision_rail.status, "ok_false_exit_zero_projects_failed_run")
 
 
-def test_provision_verify_folds_stack_and_local_probes(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The verify verb runs stack extension proof plus local runtime probes."""
+def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The check verb runs stack evidence plus local runtime probes."""
     calls: list[tuple[tuple[str, ...], ...]] = []
     monkeypatch.setattr(provision_rail, "fan_out", _recording_fan(calls))
-    report = assert_ok(provision_rail.verify(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     commands = calls[0]
     assert report.claim is Claim.PROVISION
-    assert report.verb == "verify"
-    assert ("rasm-provision", "--json", "verify") in commands
+    assert report.verb == "check"
+    assert ("forge-provision", "--json", "check") in commands
     assert ("duckdb", "--version") in commands
     assert any(command[:2] == ("forge-scientific-env", "python3") for command in commands)
     assert any(command[:3] == ("forge-scientific-env", "pkg-config", "--modversion") for command in commands)
@@ -618,18 +646,18 @@ def test_provision_verify_folds_stack_and_local_probes(assay_root: AssayHarness,
     assert report.detail.local_probe_values[-1] == ("forge-onnxruntime-lib", "ok", "present:libonnxruntime.dylib")
 
 
-register_law(provision_rail.verify, "folds_stack_and_local_probes")
+register_law(provision_rail.check, "folds_stack_and_local_probes")
 
 
-def test_provision_verify_scrubs_failed_local_probe_streams(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Failed local probes keep a bounded failure row without durable raw stdout/stderr."""
 
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         outcomes = []
         for check in checks:
             command = check.tool.command
-            if command == ("rasm-provision", "--json", "verify"):
-                outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_json("verify"))))
+            if command == ("forge-provision", "--json", "check"):
+                outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_json("check"))))
             elif command == ("duckdb", "--version"):
                 outcomes.append(
                     Ok(
@@ -637,7 +665,7 @@ def test_provision_verify_scrubs_failed_local_probe_streams(assay_root: AssayHar
                             command,
                             1,
                             status=RailStatus.FAILED,
-                            stderr=b"POSTGRES_PASSWORD=leak postgres://postgres:pw@127.0.0.1/rasm",
+                            stderr=b"POSTGRES_PASSWORD=leak postgres://postgres:pw@127.0.0.1/forge",
                         )
                     )
                 )
@@ -646,7 +674,7 @@ def test_provision_verify_scrubs_failed_local_probe_streams(assay_root: AssayHar
         return tuple(outcomes)
 
     monkeypatch.setattr(provision_rail, "fan_out", fan)
-    report = assert_ok(provision_rail.verify(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
+    report = assert_ok(provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()))
     encoded = msgspec.json.encode(report)
     assert report.status is RailStatus.FAILED
     assert b"POSTGRES_PASSWORD" not in encoded
@@ -654,10 +682,10 @@ def test_provision_verify_scrubs_failed_local_probe_streams(assay_root: AssayHar
     assert b"provision probe failed: duckdb-version" in encoded
 
 
-register_law(provision_rail.verify, "scrubs_failed_local_probe_streams")
+register_law(provision_rail.check, "scrubs_failed_local_probe_streams")
 
 
-def test_provision_verify_rejects_sensitive_success_local_probe_values(
+def test_provision_check_rejects_sensitive_success_local_probe_values(
     assay_root: AssayHarness,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -667,8 +695,8 @@ def test_provision_verify_rejects_sensitive_success_local_probe_values(
         outcomes = []
         for check in checks:
             command = check.tool.command
-            if command == ("rasm-provision", "--json", "verify"):
-                outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_json("verify"))))
+            if command == ("forge-provision", "--json", "check"):
+                outcomes.append(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_json("check"))))
             elif command == ("duckdb", "--version"):
                 outcomes.append(
                     Ok(
@@ -686,13 +714,13 @@ def test_provision_verify_rejects_sensitive_success_local_probe_values(
 
     monkeypatch.setattr(provision_rail, "fan_out", fan)
     fault = assert_error_status(
-        provision_rail.verify(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()),
+        provision_rail.check(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()),
         RailStatus.FAULTED,
     )
     assert "sensitive local probe value" in fault.message
 
 
-register_law(provision_rail.verify, "rejects_sensitive_success_local_probe_values")
+register_law(provision_rail.check, "rejects_sensitive_success_local_probe_values")
 
 
 def test_provision_doctor_rejects_diagnostic_json_paths(
@@ -701,7 +729,7 @@ def test_provision_doctor_rejects_diagnostic_json_paths(
 ) -> None:
     """Forge diagnostic JSON is not admitted into the Assay-safe provision channel."""
     payload = _json("doctor", diagnostic={"resolvedEndpoint": "unix:///Users/example/.colima/default/docker.sock"})
-    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("rasm-provision", "--json", "doctor"), payload, rc=0))
+    monkeypatch.setattr(provision_rail, "fan_out", _fan_payload(("forge-provision", "--json", "doctor"), payload, rc=0))
     fault = assert_error_status(
         provision_rail.doctor(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams()),
         RailStatus.FAULTED,

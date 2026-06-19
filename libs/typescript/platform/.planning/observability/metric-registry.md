@@ -1,13 +1,14 @@
 # [PLATFORM_METRIC_REGISTRY]
 
-One page owns the self-telemetry export edge and the bounded instrument/span vocabulary — `MetricRegistry`, the one `Effect.Service` carrying the closed `Metric` instrument records, the `Effect.withSpan` span vocabulary every host owner ships through, and the `webSdk` `SelfTelemetry` browser-OpenTelemetry export layer the composition root composes. The collector is the only telemetry path; the registry declares every instrument as a named row built once at service construction, so an inline `Metric.counter` or a free-string span name authored at a sink is the deleted form. The service is provided once as `MetricRegistryLive` and resolved by the four host-owner consumers (`composition-root`, `crash-telemetry`, `performance-budget`, `session-recorder`) through `yield* MetricRegistry`; a bare interface no consumer can `provide` is the retired form. The page references no telemetry wire type and authors no decode.
+One page owns the self-telemetry export edge, the bounded instrument/span vocabulary, and the W3C trace-context continuation — `MetricRegistry`, the one `Effect.Service` carrying the closed `Metric` instrument records, the `Effect.withSpan` span vocabulary every host owner ships through, the `webSdk` `SelfTelemetry` browser-OpenTelemetry export layer the composition root composes, and the `tracePropagation` registration layer that binds the `CompositePropagator([W3CTraceContextPropagator, W3CBaggagePropagator])` as the extract-and-continue propagator so a browser interaction joins the one cross-runtime distributed trace `csharp:Rasm.AppHost/observability/diagnostics-and-telemetry#CORRELATION_SPINE` mints rather than a disconnected root. The collector is the only telemetry path; the registry declares every instrument as a named row built once at service construction, so an inline `Metric.counter` or a free-string span name authored at a sink is the deleted form. The service is provided once as `MetricRegistryLive` and resolved by the four host-owner consumers (`composition-root`, `crash-telemetry`, `performance-budget`, `session-recorder`) through `yield* MetricRegistry`; a bare interface no consumer can `provide` is the retired form. The page references no telemetry wire type and authors no decode; the outbound `traceparent`/`tracestate` inject leg is SETTLED at `interchange/transport/transport#WIRE_TRANSPORT`, so this owner registers extract-and-continue ONLY and mints no inject leg and no fresh root where an inbound parent exists.
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                          |
-| :-----: | :-------------- | :-------------------------------------------------------------- |
-|   [1]   | METRIC_REGISTRY | the `Effect.Service` export edge and the closed instrument/span vocabulary |
-|   [2]   | RESEARCH        | the `MetricBoundaries` histogram-bucket constructor spelling    |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                          |
+| :-----: | :----------------- | :-------------------------------------------------------------- |
+|   [1]   | METRIC_REGISTRY    | the `Effect.Service` export edge and the closed instrument/span vocabulary |
+|   [2]   | TRACE_PROPAGATION  | the W3C `CompositePropagator` extract-and-continue registration row |
+|   [3]   | RESEARCH           | the orchestrator trace-registration path choice (a self-constructed provider vs global) |
 
 ## [2]-[METRIC_REGISTRY]
 
@@ -21,10 +22,10 @@ One page owns the self-telemetry export edge and the bounded instrument/span voc
 ```ts contract
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 import type { Resource } from "@effect/opentelemetry/Resource";
-import type { MetricBoundaries } from "effect/MetricBoundaries";
-import { Effect, Layer, Metric } from "effect";
+import { Effect, Layer, Metric, MetricBoundaries } from "effect";
 import { WebSdk } from "@effect/opentelemetry";
-import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler } from "@opentelemetry/sdk-trace-web";
+import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler, WebTracerProvider } from "@opentelemetry/sdk-trace-web";
+import { CompositePropagator, W3CBaggagePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
@@ -51,6 +52,9 @@ const instrumentVocabulary = {
 
 const spanVocabulary = ["boot.spa", "route.transition", "worker.reassemble", "auth.refresh", "sw.activate", "crash.report", "web.vital.breach", "session.replay"] as const;
 
+// One exponential bucket schedule (1ms -> ~16s over 18 buckets) every *_ms / *_duration histogram reads.
+const HISTOGRAM_BOUNDARIES: MetricBoundaries.MetricBoundaries = MetricBoundaries.exponential({ start: 1, factor: 2, count: 18 });
+
 type InstrumentName = keyof typeof instrumentVocabulary;
 type InstrumentKind = typeof instrumentVocabulary[InstrumentName];
 type KeyOfKind<Kind extends InstrumentKind> = { readonly [K in InstrumentName]: typeof instrumentVocabulary[K] extends Kind ? K : never }[InstrumentName];
@@ -67,6 +71,7 @@ interface MetricRegistryShape {
   readonly gauges: { readonly [K in GaugeKey]: Metric.Metric.Gauge<number> };
   readonly span: <A, E, R>(name: SpanName, effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
   readonly webSdk: Layer.Layer<Resource, never, RuntimeConfig>;
+  readonly tracePropagation: Layer.Layer<never>;
 }
 
 const namesOfKind = <Kind extends InstrumentKind>(kind: Kind): ReadonlyArray<KeyOfKind<Kind>> =>
@@ -95,6 +100,14 @@ const webSdk: Layer.Layer<Resource, never, RuntimeConfig> = Layer.unwrapEffect(
   }),
 );
 
+const tracePropagation: Layer.Layer<never> = Layer.effectDiscard(
+  Effect.sync(() =>
+    new WebTracerProvider().register({
+      propagator: new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] }),
+    }),
+  ),
+);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 class MetricRegistry extends Effect.Service<MetricRegistry>()("@rasm/ts/platform/MetricRegistry", {
   sync: (): MetricRegistryShape => ({
@@ -103,6 +116,7 @@ class MetricRegistry extends Effect.Service<MetricRegistry>()("@rasm/ts/platform
     gauges,
     span: (name, effect) => effect.pipe(Effect.withSpan(name)),
     webSdk,
+    tracePropagation,
   }),
 }) {}
 
@@ -114,6 +128,14 @@ export type { CounterKey, GaugeKey, HistogramKey, SpanName, VitalKey };
 export { MetricRegistry, MetricRegistryLive };
 ```
 
-## [3]-[RESEARCH]
+## [3]-[TRACE_PROPAGATION]
 
-- [HISTOGRAM_BOUNDARIES]: `Metric.histogram(name, boundaries)` requires a `MetricBoundaries` second argument the `.api` `effect.md` `[8]-[OBSERVABILITY]` `Metric` section confirms by type but whose constructor (`Metric.boundaries.exponential`/`Metric.boundaries.linear`/`Metric.boundaries.fromIterable`) is unverified against the catalogue; `HISTOGRAM_BOUNDARIES` is the one bucket-schedule row every `*_ms`/`*_duration` histogram reads, its constructor spelling resolved against the `effect/MetricBoundaries` module before transcription — a per-histogram inline boundary set is the rejected form. The instrument records, the `span` `Effect.withSpan` projector, the `webSdk` layer, and the `Effect.Service` surface are settled.
+- Owner: `tracePropagation`, the W3C trace-context continuation registration — one `Layer.effectDiscard` constructing a standalone `@opentelemetry/sdk-trace-web` `WebTracerProvider` and calling `.register({ propagator })` with the `CompositePropagator([W3CTraceContextPropagator, W3CBaggagePropagator])` so the active global propagator extracts an inbound parent context and continues the trace rather than minting a fresh root, the `crash.report`/`web.vital.breach`/`session.replay` spans hanging under the one cross-runtime trace id. The composition root composes `MetricRegistry.tracePropagation` once alongside `MetricRegistry.webSdk`.
+- Cases: the registration path is forced by the `@effect/opentelemetry` `WebSdk` shape — `WebSdk.Configuration` carries NO `propagator` field (`libs/typescript/.api/effect-opentelemetry.md` `[7]-[WEBSDK]`) and `WebSdk.layer` constructs its `WebTracerProvider` internally yielding only a `Resource.Resource` layer with no raw `.register` handle, so `register({propagator})` is unreachable on the `WebSdk`-built provider; the realizable in-catalogue path is a SELF-CONSTRUCTED `WebTracerProvider` whose `.register({propagator})` (verified `libs/typescript/platform/.api/opentelemetry-sdk-trace-web.md`) binds the propagator into the global OTel API the `@effect/opentelemetry` `Tracer` global reads; the `CompositePropagator` runs `[W3CTraceContextPropagator, W3CBaggagePropagator]` in order so one propagator handle extracts and continues both `traceparent`/`tracestate` and `baggage`; this owner registers the extract-and-continue handle only and authors no header literal, while the `@opentelemetry/core` `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` constants the inject leg reads stay settled at `interchange/transport/transport#WIRE_TRANSPORT`.
+- Packages: `@opentelemetry/core` `W3CTraceContextPropagator`/`W3CBaggagePropagator`/`CompositePropagator` for the propagator classes; `@opentelemetry/sdk-trace-web` `WebTracerProvider.register({propagator})` for the in-catalogue registration mechanic on the self-constructed provider; `@effect/opentelemetry` `WebSdk.layer` as the provider host (no `propagator` field, no exposed provider handle) and `Tracer.layerGlobal` as the global-provider reader the registration feeds.
+- Growth: a new propagator (B3, jaeger) lands as one more entry in the `CompositePropagator` list, never a parallel registration; the `ParentBasedSampler(TraceIdRatioBasedSampler)` root-sampling row already in `[2]` stays the sampling decision under the now-propagated parent.
+- Boundary: this owner registers extract-and-continue ONLY — the outbound `traceparent`/`tracestate` inject leg is SETTLED at `interchange/transport/transport#WIRE_TRANSPORT`, so a second inject leg or a fresh root where an inbound parent exists is the named cross-language drift defect; the C# `CORRELATION_SPINE` owns the propagation fold, the browser extracts-and-continues at the wire.
+
+## [4]-[RESEARCH]
+
+- [TRACE_REGISTRATION_PATH]: the fence takes path (a) — the self-constructed `WebTracerProvider.register({propagator})`, in the current package set with no new admission. Path (b) — ADMIT `@opentelemetry/api` and call `propagation.setGlobalPropagator` globally (with `Tracer.layerGlobal` reading the global provider) — is the alternative the orchestrator may pick; it adds an `@opentelemetry/api` manifest admission and a standalone `.api` catalogue (absent today). The `@opentelemetry/core` central-TS-manifest row pin returns to the orchestrator (not yet present). A second tracer or a fresh root where an inbound parent exists = named cross-language drift defect.

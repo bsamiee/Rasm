@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_CONTROL]
 
-Rasm.Persistence owns Git-grade version control over the durable object graph: a content-addressed commit-DAG with named branches, lightweight commits, and merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW `Adjudicate` scalar with RGA sequence, add-wins observed-remove set, multi-value register, PN-counter, and LWW-by-HLC register types over the parametric DAG; an HLC `Hlc` stamp that is the one causal-ordering primitive shared by the op-log, the CRDT merge, and the wire seam; a `CrdtOpWire` op/CRDT encoding (HLC cell, op kinds, causal metadata) that amends the one-wire-vocabulary law field-for-field across the version-control owner and the AppHost wire seam; a version-vector concurrency detector plus a Merkle-DAG range-reconciliation handshake for anti-entropy; an AS-OF time-travel engine reconstructing, diffing, blaming, scrubbing, checkpointing, and branching-from-past over the HLC op-log and the content-addressed snapshots; and a geometry-aware structural diff/merge engine doing tree-edit-distance node-identity matching, three-way merge, and typed conflict classification. The op-log (`OpLogEntry`, HLC stamp, `Closure` manifest), the content-addressed snapshot identity (`Snapshots.ContentAddress`, `XxHash128`), the MessagePack codec profile (`ThinktectureMessageFormatterResolver`, `GeneratedMessagePackResolver`, `Lz4BlockArray`, `UntrustedData` restore lane), and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive from AppHost.
+Rasm.Persistence owns Git-grade version control over the durable object graph: a content-addressed commit-DAG with named branches, lightweight commits, and merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW `Adjudicate` scalar with RGA sequence, add-wins observed-remove set, multi-value register, PN-counter, and LWW-by-HLC register types over the parametric DAG; an HLC `Hlc` stamp that is the one causal-ordering primitive shared by the op-log, the CRDT merge, and the wire seam; a `CrdtOpWire` op/CRDT encoding (HLC cell, op kinds, causal metadata) that amends the one-wire-vocabulary law field-for-field across the version-control owner and the AppHost wire seam; a version-vector concurrency detector plus a Merkle-DAG range-reconciliation handshake for anti-entropy; an AS-OF time-travel engine reconstructing, diffing, blaming, scrubbing, checkpointing, and branching-from-past over the HLC op-log and the content-addressed snapshots; and a geometry-aware structural diff/merge engine doing tree-edit-distance node-identity matching, three-way merge, and typed conflict classification. The op-log (`OpLogEntry`, HLC stamp, `Closure` manifest), the content-addressed snapshot identity (`Snapshots.ContentAddress`, `XxHash128`), the MessagePack codec profile (`ThinktectureMessageFormatterResolver`, `GeneratedMessagePackResolver`, `Lz4BlockArray`, `UntrustedData` restore lane), and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive from AppHost. The `ContentParityCorpus` on `#CRDT_WIRE` mints the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` — the frozen HLC-cell, commit-key, CRDT-op, element-set-receipt, and embedding-seed bytes every cross-runtime parity harness reconciles against the one `XxHash128` seed.
 
 ## [1]-[INDEX]
 
@@ -317,14 +317,14 @@ public static class Crdt {
 
 ## [4]-[CRDT_WIRE]
 
-- Owner: `Hlc` the hybrid-logical-clock stamp value — the one causal-ordering primitive the op-log stamp, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op/CRDT encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CrdtWire` the static codec surface owning the byte-canonical content key, the `Encode`/`Decode` pair through the settled `ThinktectureMessageFormatterResolver`+`GeneratedMessagePackResolver` chain, and the `UntrustedData` restore-lane decode.
+- Owner: `Hlc` the hybrid-logical-clock stamp value — the one causal-ordering primitive the op-log stamp, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op/CRDT encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CrdtWire` the static codec surface owning the byte-canonical content key, the `Encode`/`Decode` pair through the settled `ThinktectureMessageFormatterResolver`+`GeneratedMessagePackResolver` chain, and the `UntrustedData` restore-lane decode; `ContentParityCorpus` the frozen-golden-bytes fixture owner minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` — one `ParityVector` table keyed by the one `XxHash128` seed every cross-runtime parity harness reconciles against.
 - Cases: 10 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave` on `CrdtOpWire`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned; the `beat`/`leave` arms carry the `EphemeralMap` presence delta so the TS projection version-vector and the UI presence surface decode live-multiplayer state on the one wire vocabulary, and the Python CRDT decode reconstructs the same self-expiring presence map.
-- Entry: `public static UInt128 ContentKey(CrdtOpWire op)` — the byte-canonical content key over the MessagePack-encoded delta so an identical op on two peers shares one identity; `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the delta through the version-control resolver under `Lz4BlockArray`; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads the delta under `MessagePackSecurity.UntrustedData` with the depth ceiling because a synced payload crossed a rest boundary.
+- Entry: `public static UInt128 ContentKey(CrdtOpWire op)` — the byte-canonical content key over the `None`-compression companion encoding so an identical op on two peers shares one identity across runtimes (the LZ4 `Write` lane is not byte-reproducible against a wasm/cp315 consumer, so the identity hashes the uncompressed companion bytes); `public static ReadOnlyMemory<byte> Encode(CrdtOp op)` writes the durable delta through the version-control resolver under `Lz4BlockArray` (C#-internal at-rest framing); `public static ReadOnlyMemory<byte> EncodeCompanion(CrdtOp op)` writes the same delta under `MessagePackCompression.None` for the Python and TS consumers that decode uncompressed MessagePack; `public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload)` reads the delta under `MessagePackSecurity.UntrustedData` with the depth ceiling because a synced payload crossed a rest boundary.
 - Auto: `Hlc.Advance` swaps the local cell forward past both the wall clock and the observed remote cell so a received op never rewinds the local logical counter — the same `ReceiptSinkPort.Advance` algebra the op-log stamp and every receipt envelope ride; `CrdtWire.Encode` rides the durability codec profile so a `CrdtOp` delta crosses as `OpLogEntry.Payload` bytes that the restore ladder and the snapshot codec already verify, never a second framing; the wire union and the `CrdtOp` union share one case vocabulary so a new op arm is one wire row plus one `CrdtOp` arm plus one map case, zero schema fork.
 - Receipt: an encoded delta carries no receipt (the `OpLogEntry` carries the codec, content key, and HLC cell); a decode failure folds into the `store.crdt.decode` fault on the interceptor stream as a typed contract-drift rejection.
 - Packages: MessagePack, Thinktecture.Runtime.Extensions.MessagePack, System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new op is one `CrdtOpWire` `[MessagePack.Union]` tag plus one `[Key]` member plus one `Map`/`Lift` arm; `Lift` over the owned `CrdtOp` `[Union]` is the generated total `Switch` so a new `CrdtOp` case breaks the build rather than throwing the `<crdt-op-unmapped>` default, while `Map` over the foreign `[MessagePack.Union]` `CrdtOpWire` stays a language `switch` whose `_ => throw` is the contract-drift guard at the wire-decode boundary, not a lossy owned-union default; a retired tag is never reassigned because reuse silently re-types history; zero new surface — a typeless payload, a JSON-array delta, or a per-type formatter beside the resolver chain is the deleted form.
-- Boundary: this is the FLAGSHIP CrdtOpWire amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` now carries a `CrdtOpWire` discriminated union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web `wire-consumption` leg and the Python `runtime/ServerHost` companion decoding the amended payload — recorded as a seam-split at the suite CROSS_PACKAGE_LAWS, never an additive parallel surface; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock, and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence and the `[MessagePack.Union]` tags obey the durability retirement law so contract drift is a build diagnostic through the `MessagePackAnalyzer`, never a first-restore discovery; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling because a synced delta's provenance is unprovable, while the write lane keeps the trusted default; `ContentKey` hashes the encoded canonical bytes so the op content key the `OpLogEntry` carries is reproducible across peers and is the same `XxHash128` identity the structural diff and the federation keys consume.
+- Boundary: this is the FLAGSHIP CrdtOpWire amendment to the one-wire-vocabulary law — `OpLogEntry.Payload` now carries a `CrdtOpWire` discriminated union for `column-family=crdt` rows, LWW `Adjudicate` survives only as the `set` arm reconstructing `LwwRegister`, and the breaking descriptor change is owned at `AppHost/runtime-ports#WIRE_LAW` with the TS-web `wire-consumption` leg and the Python `runtime/ServerHost` companion decoding the amended payload — recorded as a seam-split at the suite CROSS_PACKAGE_LAWS, never an additive parallel surface; the `Hlc` is one packed `(Instant Physical, ulong Logical)` whose ordering is `Physical` then `Logical` so two peers compare causality without a wall clock, and `WriteTo` emits the canonical 16-byte cell the commit content key and the op content key both hash; the wire `[Key]` sequence and the `[MessagePack.Union]` tags obey the durability retirement law so contract drift is a build diagnostic through the `MessagePackAnalyzer`, never a first-restore discovery; the restore lane reads under `UntrustedData` plus the object-graph depth ceiling because a synced delta's provenance is unprovable, while the write lane keeps the trusted default; `ContentKey` hashes the `None`-companion canonical bytes (never the LZ4 at-rest framing) so the op content key the `OpLogEntry` carries is byte-reproducible across the C#, Python, and TS runtimes and is the same `XxHash128` identity the structural diff and the federation keys consume; `ContentParityCorpus` freezes the Persistence leg of the one content-addressed golden corpus — the `Hlc.WriteTo` 16-byte cell (`Int64LE` `Physical.ToUnixTimeTicks()` then `UInt64LE` `Logical`, the VERIFIED layout), the canonical `(SortedParents, SortedOpKeys, Hlc)` commit-key preimage (`CommitGraph.Commit` @ `#COMMIT_DAG` byte-for-byte), and the `CrdtOpWire` op-set `None`-companion MessagePack encoding (the uncompressed cross-runtime lane the Python and TS legs decode, never the C#-internal `Lz4BlockArray` at-rest lane) under the one seed convention (`SeedOrigin = Guid.Empty`, `SeedInstant = Instant.FromUnixTimeTicks(0)`, seed-zero content), plus the cross-page byte shapes cited by reference — the sorted `ElementSet` receipt bytes (`federation#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt`, `UInt128` keys distinct-sorted then `UInt128LE`-packed) and the `EmbeddingIdentity` seed (`data-lanes#SEARCH_LANES` `EmbeddingIdentity.Of`, `XxHash128` over content × model-id × arity) — so a Python-recomputed CRDT op-set, a TS-read content key, and a C#-minted commit key reconcile against one frozen corpus and an off-by-one-half HLC encoding or a `(SortedParents, SortedOpKeys)` sort-order drift fails a single corpus assertion rather than silently folding a fresh op as stale across runtimes; the byte SHAPE, the field order, and the seed convention are ground truth and authorable now, the literal `XxHash128` digest values stamping on the host-validation pass (the OBSERVED digest is frozen, never an un-run asserted value); the corpus is a fixture-byte fence on this page, never a `.cs` test source file, and the Geometry `CSHARP_CANONICAL_ADJACENCY_FIXTURE` (the 52-byte single-triangle golden documented @ `#RESEARCH`) is a SIBLING corpus sharing the one `XxHash128` seed convention, never cross-authored here.
 
 ```csharp signature
 public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable<Hlc> {
@@ -398,6 +398,9 @@ public static class CrdtWire {
     private static readonly MessagePackSerializerOptions Restore =
         Write.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(64));
 
+    private static readonly MessagePackSerializerOptions Companion =
+        Write.WithCompression(MessagePackCompression.None);
+
     public static CrdtOpWire Lift(CrdtOp op) =>
         op.Switch<CrdtOpWire>(
             set:         static s => new CrdtOpWire.Set(s.Field, s.Value, s.Cell.Physical.ToUnixTimeTicks(), s.Cell.Logical, s.Origin),
@@ -429,13 +432,72 @@ public static class CrdtWire {
     public static ReadOnlyMemory<byte> Encode(CrdtOp op) =>
         MessagePackSerializer.Serialize(Lift(op), Write);
 
+    public static ReadOnlyMemory<byte> EncodeCompanion(CrdtOp op) =>
+        MessagePackSerializer.Serialize(Lift(op), Companion);
+
     public static Fin<CrdtOp> Decode(ReadOnlyMemory<byte> payload) =>
         Try.lift(() => Map(MessagePackSerializer.Deserialize<CrdtOpWire>(payload, Restore)))
             .Run()
             .MapFail(static error => Error.New(8261, $"<crdt-decode-drift:{error.Message}>"));
 
     public static UInt128 ContentKey(CrdtOpWire op) =>
-        XxHash128.HashToUInt128(MessagePackSerializer.Serialize(op, Write).Span);
+        XxHash128.HashToUInt128(MessagePackSerializer.Serialize(op, Companion).Span);
+}
+
+public readonly record struct ParityVector(string Name, byte[] CanonicalBytes, UInt128 ContentKey);
+
+public static class ContentParityCorpus {
+    public static readonly Guid SeedOrigin = Guid.Empty;
+
+    public static readonly Instant SeedInstant = Instant.FromUnixTimeTicks(0L);
+
+    public static readonly Hlc SeedCell = new(SeedInstant, 0UL);
+
+    public static byte[] HlcCell(Hlc cell) {
+        var sink = new ArrayBufferWriter<byte>();
+        cell.WriteTo(sink);
+        return sink.WrittenSpan.ToArray();
+    }
+
+    public static byte[] CommitKeyPreimage(Seq<UInt128> sortedParents, Seq<UInt128> sortedOpKeys, Hlc cell) {
+        var canonical = new ArrayBufferWriter<byte>();
+        foreach (var parent in sortedParents.OrderBy(static k => k))
+            BinaryPrimitives.WriteUInt128LittleEndian(canonical.GetSpan(16)[..16], parent);
+        canonical.Advance(sortedParents.Count * 16);
+        foreach (var key in sortedOpKeys.OrderBy(static k => k))
+            BinaryPrimitives.WriteUInt128LittleEndian(canonical.GetSpan(16)[..16], key);
+        canonical.Advance(sortedOpKeys.Count * 16);
+        cell.WriteTo(canonical);
+        return canonical.WrittenSpan.ToArray();
+    }
+
+    public static ParityVector Of(string name, byte[] canonicalBytes) =>
+        new(name, canonicalBytes, XxHash128.HashToUInt128(canonicalBytes));
+
+    public static Seq<ParityVector> Vectors() =>
+        Seq(
+            Of("hlc.zero", HlcCell(SeedCell)),
+            Of("commit.genesis", CommitKeyPreimage(Seq<UInt128>(), Seq<UInt128>(), SeedCell)),
+            Of("crdt.set.seed", CrdtWire.EncodeCompanion(new CrdtOp.Set("f", new byte[] { 1 }, SeedCell, SeedOrigin)).ToArray()),
+            Of("elementset.empty", ElementSetParity()),
+            Of("embedding.seed", EmbeddingParity()));
+
+    private static byte[] ElementSetParity() {
+        var buffer = new ArrayBufferWriter<byte>();
+        foreach (var key in Seq<UInt128>(UInt128.One).OrderBy(static k => k))
+            BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], key);
+        return buffer.WrittenSpan.ToArray();
+    }
+
+    private static byte[] EmbeddingParity() {
+        var identity = EmbeddingIdentity.Of("rasm-parity-seed"u8, "rasm-embed-0", EmbeddingArity.Dense);
+        var buffer = new ArrayBufferWriter<byte>();
+        BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], identity.ContentHash);
+        buffer.Advance(16);
+        buffer.Write(Encoding.UTF8.GetBytes(identity.ModelId));
+        buffer.Write(Encoding.UTF8.GetBytes(identity.Arity.Key));
+        return buffer.WrittenSpan.ToArray();
+    }
 }
 ```
 
@@ -446,6 +508,16 @@ public static class CrdtWire {
 |   [3]   | restore decode lane    | `UntrustedData` depth 64         | synced delta crossed a rest boundary                 |
 |   [4]   | op content key         | `XxHash128` over canonical bytes | reproducible across peers; one identity              |
 |   [5]   | presence union tags    | `beat`=8, `leave`=9              | `EphemeralMap` delta; append-only `[MessagePack.Union]` |
+
+| [INDEX] | [PARITY_VECTOR]    | [CANONICAL_SHAPE]                                              | [SEED / CROSS-PAGE]                                            |
+| :-----: | :----------------- | :------------------------------------------------------------ | :------------------------------------------------------------- |
+|   [1]   | `hlc.zero`         | `Int64LE` ticks then `UInt64LE` logical (16 bytes)            | `SeedCell = (Instant.FromUnixTimeTicks(0), 0)`; layout VERIFIED |
+|   [2]   | `commit.genesis`   | sorted parents `UInt128LE` ‖ sorted op-keys `UInt128LE` ‖ HLC cell | `CommitGraph.Commit` canonical preimage @ `#COMMIT_DAG`         |
+|   [3]   | `crdt.set.seed`    | `CrdtWire.EncodeCompanion(CrdtOp.Set)` MessagePack under `None`  | `SeedOrigin = Guid.Empty`; uncompressed cross-runtime lane     |
+|   [4]   | `elementset.empty` | distinct-sorted `UInt128LE`-packed keys                       | `federation#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt`   |
+|   [5]   | `embedding.seed`   | `EmbeddingIdentity.Of` `ContentHash` `UInt128LE` ‖ UTF8 model-id ‖ arity key | `data-lanes#SEARCH_LANES` `EmbeddingIdentity.Of` (`XxHash128` content × model-id × arity) |
+
+The `XxHash128` digest column of each `ParityVector` is host-frozen: the byte SHAPE, field order, and seed convention above are ground truth and authorable now, the OBSERVED literal digest bytes stamping on the host-validation pass. The Python (`runtime/identity/content-identity`) and TS (`interchange/artifacts/frame-reassembly`) reconciliation legs land in their own units against this corpus.
 
 ## [5]-[TIME_TRAVEL]
 

@@ -1,6 +1,6 @@
 # [APPHOST_DETERMINISM_AND_REPLAY]
 
-The reproducibility kernel for the runtime spine: one determinism context pins the RNG seed, the floating-point mode, and the environment fingerprint so a recorded run reproduces bit-for-bit, a hash-chained command log appends every executed command as a content-addressed entry whose hash links to its predecessor, a replay-verify rail re-executes a recorded log and proves each step's content hash matches, a macro engine records a command sequence and replays it as a reusable unit, and a partial-recompute graph re-runs only the downstream of a changed input by walking the content-address dependency edges. The page owns the determinism context, the content-addressed event log, the replay-verify rail, the macro record/replay engine, and the partial-recompute graph; it consumes `CommandReceipt`/`CommandAlgebra`, `HostFingerprint`, `ReceiptEnvelope`/`ReceiptSinkPort` (HLC stamp), `OpLog`/`OpLogEntry` (the durable changefeed), `CorrelationId`, and `TenantContext` as settled vocabulary and mints no eighth port.
+The reproducibility kernel for the runtime spine: one determinism context pins the RNG seed, the floating-point mode, and the environment fingerprint so a recorded run reproduces bit-for-bit, a hash-chained command log appends every executed command as a content-addressed entry whose hash links to its predecessor, a replay-verify rail re-executes a recorded log and proves each step's content hash matches, a macro engine records a command sequence and replays it as a reusable unit, a partial-recompute graph re-runs only the downstream of a changed input by walking the content-address dependency edges, and an adversarial frontier records `outbound/outbound-resilience` Simmy chaos decisions as deterministic fault-injection entries, bisects a divergence over the hash chain in log-time, and replays a recorded log with one command's arguments perturbed to surface the downstream cone a change would alter. The page owns the determinism context, the content-addressed event log, the replay-verify rail, the macro record/replay engine, the partial-recompute graph, and the adversarial-reproducibility frontier; it consumes `CommandReceipt`/`CommandAlgebra`, `HostFingerprint`, `ReceiptEnvelope`/`ReceiptSinkPort` (HLC stamp), `OpLog`/`OpLogEntry` (the durable changefeed), the `outbound/outbound-resilience` Simmy chaos pipeline as the deterministic fault source, `CorrelationId`, and `TenantContext` as settled vocabulary and mints no eighth port.
 
 ## [1]-[INDEX]
 
@@ -11,7 +11,8 @@ The reproducibility kernel for the runtime spine: one determinism context pins t
 |   [3]   | REPLAY_VERIFY      | Re-execute a recorded log; prove per-step content-hash identity       |
 |   [4]   | MACRO_ENGINE       | Record a command sequence; replay it as a reusable parameterized unit |
 |   [5]   | RECOMPUTE_GRAPH    | Content-address dependency edges; partial downstream recompute        |
-|   [6]   | TS_PROJECTION      | Event-log entry and replay-result wire shapes the dashboard consumes  |
+|   [6]   | ADVERSARIAL_FRONTIER | Chaos-fault replay, log-time divergence bisection, counterfactual replay |
+|   [7]   | TS_PROJECTION      | Event-log entry and replay-result wire shapes the dashboard consumes  |
 
 ## [2]-[DETERMINISM_KERNEL]
 
@@ -283,7 +284,90 @@ flowchart TD
     Next --> Recompute
 ```
 
-## [7]-[TS_PROJECTION]
+## [7]-[ADVERSARIAL_FRONTIER]
+
+- Owner: `ChaosDecision` the recorded fault-injection row; `FaultKind` `[SmartEnum<string>]` the Simmy injection-shape vocabulary; `Divergence` the bisection result record; `Counterfactual` the perturbed-replay result record; `AdversarialFrontier` the static surface owning the three operation families `[CHAOS_REPLAY]`, `[DIVERGENCE_BISECT]`, and `[COUNTERFACTUAL]`, each composing the kernel's own `EventLog`/`REPLAY_VERIFY`/`RECOMPUTE_GRAPH` owners — no second determinism surface.
+- Cases: `FaultKind` = latency | fault | outcome — the three `outbound/outbound-resilience` Simmy chaos strategies (`AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome`); a chaos decision records which strategy fired, its injected value, and the call it perturbed so a recorded fault campaign replays from the log, never from live randomness.
+- Entry: `RecordChaos(EventLog.Chain chain, ChaosDecision decision, DeterminismContext context, Instant physical, ulong logical)` folds one Simmy chaos decision into the `EventLog.Append` chain as a deterministic fault-injection `LogEntry` so the injected fault is a content-addressed entry; `Bisect(Seq<LogEntry> recorded, Func<LogEntry, ContentHash> rederive)` returns `Divergence` binary-searching the first divergent step over the content-hash chain in log-time; `Counterfact(RecomputeRuntime runtime, RecomputeGraph.Graph graph, Seq<LogEntry> recorded, long atSequence, JsonElement overrideArguments)` returns `IO<Counterfactual>` replaying the log with one command's bound arguments overridden and composing `RecomputeGraph.Invalidate` over the perturbed input to return the downstream cone the change would alter.
+- Auto: `[CHAOS_REPLAY]` projects each Simmy decision into a `ChaosDecision` (`FaultKind`, the injected latency/fault/outcome value, and the perturbed descriptor) the `EventLog.Append` chains exactly as a command receipt, so the chain's tamper-evidence covers the fault campaign and a replay re-injects the recorded faults bit-identically — the injected fault is a log entry the chain orders, never a live `Random` draw; `[DIVERGENCE_BISECT]` walks the tamper-evident chain by binary search rather than the linear `ReplayVerify` fold — it re-derives the midpoint entry's content hash, compares it to the recorded hash, and recurses into the half carrying the first mismatch, so a divergence in a thousand-step log is found in `log₂(n)` hash re-derivations and the found step is cryptographically pinned to the chain because every downstream hash depends on it; `[COUNTERFACTUAL]` overrides one command's arguments at its sequence, re-derives that entry's content hash under the perturbed arguments (the hash changes exactly because the arguments digest changes), and feeds the changed `ContentHash` into `RecomputeGraph.Invalidate` so the returned downstream cone is precisely the nodes a real edit would recompute — the recompute graph applied to history, not a live edit.
+- Receipt: a chaos decision is one `LogEntry` the chain already orders; a bisection yields one `Divergence` carrying the divergent sequence, the recorded and re-derived hashes, and the bisection step count; a counterfactual yields one `Counterfactual` carrying the perturbed sequence, the new content hash, and the invalidated downstream `Seq<ContentHash>` — no parallel adversarial receipt.
+- Packages: System.IO.Hashing, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one chaos strategy is one `FaultKind` row; the bisection and counterfactual are folds over the existing chain and graph, never a second log or a second dependency store; zero new surface.
+- Boundary: every cluster composes the kernel's own owners — `[CHAOS_REPLAY]` rides `EventLog.Append`, `[DIVERGENCE_BISECT]` rides the content-hash chain `EventLog.VerifyChain` proves, `[COUNTERFACTUAL]` rides `RecomputeGraph.Invalidate` — so the adversarial frontier mints no second determinism surface; the chaos decisions are deterministic log entries the chain orders, so a recorded chaos campaign is as reproducible as a recorded command stream and the `outbound/outbound-resilience` Simmy pipeline is read as the fault source, never re-injected live at replay; the bisection rides the tamper-evident chain so a found divergence is cryptographically pinned — a non-determinism source is traced to one command in log-time, not by linear scan; the counterfactual is the recompute graph applied to a recorded history with one perturbed input, so a "what if this input changed" question replays against the recorded log without re-recording and the answer is the exact downstream cone, never a full re-run; the override is bound at one sequence so a counterfactual perturbs exactly one command's arguments and observes the propagation, never mutating the recorded log itself — the recorded chain stays immutable and the counterfactual is a projection over it.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
+[KeyMemberComparer<CapabilityKeyPolicy, string>]
+public sealed partial class FaultKind {
+    public static readonly FaultKind Latency = new("latency");
+    public static readonly FaultKind Fault = new("fault");
+    public static readonly FaultKind Outcome = new("outcome");
+}
+
+public sealed record ChaosDecision(
+    FaultKind Kind,
+    string Descriptor,
+    string InjectedValue,
+    double InjectionRate);
+
+public sealed record Divergence(
+    long Sequence,
+    ContentHash Recorded,
+    ContentHash Rederived,
+    int Steps);
+
+public sealed record Counterfactual(
+    long Sequence,
+    ContentHash Perturbed,
+    Seq<ContentHash> Downstream);
+
+public static class AdversarialFrontier {
+    public static (EventLog.Chain Chain, LogEntry Entry) RecordChaos(EventLog.Chain chain, ChaosDecision decision, DeterminismContext context, Instant physical, ulong logical) {
+        var receipt = new CommandReceipt(
+            Descriptor: $"chaos.{decision.Kind.Key}.{decision.Descriptor}:{decision.InjectedValue}",
+            Txn: new CommandTxn.RolledBack($"chaos-injection:{decision.InjectionRate}"),
+            Charged: CostVector.Zero,
+            Dispatch: None,
+            Elapsed: Duration.Zero,
+            Correlation: Correlation.Mint(),
+            Tenant: TenantContext.Current,
+            At: physical);
+        return EventLog.Append(chain, receipt, context, physical, logical);
+    }
+
+    public static Divergence Bisect(Seq<LogEntry> recorded, Func<LogEntry, ContentHash> rederive) {
+        var (lo, hi, steps) = (0, recorded.Count - 1, 0);
+        var found = new Divergence(0L, ContentHash.Genesis, ContentHash.Genesis, 0);
+        while (lo <= hi) {
+            var mid = lo + ((hi - lo) >> 1);
+            var entry = recorded[mid];
+            var rederived = rederive(entry);
+            steps += 1;
+            if (rederived == entry.Hash) {
+                lo = mid + 1;
+            } else {
+                found = new Divergence(entry.Sequence, entry.Hash, rederived, steps);
+                hi = mid - 1;
+            }
+        }
+        return found with { Steps = steps };
+    }
+
+    public static IO<Counterfactual> Counterfact(RecomputeRuntime runtime, RecomputeGraph.Graph graph, Seq<LogEntry> recorded, long atSequence, JsonElement overrideArguments) =>
+        recorded.Find(entry => entry.Sequence == atSequence).Match(
+            Some: entry => {
+                var perturbedDigest = Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(
+                    Encoding.UTF8.GetBytes(overrideArguments.GetRawText())));
+                var perturbed = ContentHash.Create(Convert.ToHexStringLower(System.IO.Hashing.XxHash128.Hash(
+                    Encoding.UTF8.GetBytes($"{entry.Predecessor.Value}:{entry.Descriptor}:{perturbedDigest}:{entry.DeterminismDigest}:{entry.Sequence - 1L}"))));
+                return IO.pure(new Counterfactual(atSequence, perturbed, RecomputeGraph.Invalidate(graph, perturbed)));
+            },
+            None: () => IO.pure(new Counterfactual(atSequence, ContentHash.Genesis, Seq<ContentHash>())));
+}
+```
+
+## [8]-[TS_PROJECTION]
 
 - Owner: `LogEntryWire`, `ReplayOutcomeWire`, `DeterminismContextWire` — the event-log entry and replay-result wire shapes the reproducibility dashboard consumes; the command receipts ride the existing `ReceiptEnvelopeWire`.
 - Entry: the event-log entries cross as the chained sequence the dashboard renders as a verifiable timeline, the replay outcomes cross as the per-step match/diverge result, and the determinism context crosses so the dashboard shows the seed and environment a run pinned.
@@ -318,7 +402,7 @@ type ReplayOutcomeWire =
   | { readonly kind: "skipped"; readonly sequence: number; readonly reason: string };
 ```
 
-## [8]-[RESEARCH]
+## [9]-[RESEARCH]
 
 - [FLOAT_DETERMINISM]: the cross-platform floating-point determinism guarantee — a `FloatMode.CrossPlatform` run reproducing bit-identically across osx-arm64, linux-x64, and win-x64 — confirms against the runtime's floating-point configuration surface (FMA-contraction and vector-reassociation control) at the integrated host on each RID; the strict-mode FMA-disable and the cross-platform lowest-common-denominator mode carry settled member shapes and stay a tier-2 cross-RID harness probe.
 - [OPLOG_PROJECTION]: the `EventLog.ToOpLog` projection of a `LogEntry` to one `OpLogEntry` composes the finalized `Rasm.Persistence/sync/collaboration#OPLOG_CHANGEFEED` `OpLogEntry` record constructor directly — `SyncOpKind.Upsert` on the `command` column family, the entry hash as the `ContentKey`, the `SnapshotCodec.JsonStj` codec — so the command log rides the durable changefeed and never a second store; the residual confirms the `command`-family `EntityKind`/`EntityKey` spelling and the empty-`Closure` projection against the live op-log surface, and the HLC-ordered cross-process log merge confirms against the existing `ReceiptEnvelope` causal primitive.

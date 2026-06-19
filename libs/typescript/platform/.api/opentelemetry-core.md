@@ -1,6 +1,6 @@
 # [API_CATALOGUE] @opentelemetry/core
 
-`@opentelemetry/core` supplies the OpenTelemetry SDK utility layer: the W3C Trace Context and Baggage `TextMapPropagator` implementations (`W3CTraceContextPropagator`, `W3CBaggagePropagator`), the `CompositePropagator` that runs an ordered list of propagators as one, the `traceparent` parse helper (`parseTraceParent`), and the `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` header-name constants. The propagators implement the `@opentelemetry/api` `TextMapPropagator` contract (`inject`/`extract`/`fields`) and plug into the WebSDK provider registration as the `DefaultTextMapPropagator`.
+`@opentelemetry/core` supplies the OpenTelemetry SDK utility layer: the W3C Trace Context and Baggage `TextMapPropagator` implementations (`W3CTraceContextPropagator`, `W3CBaggagePropagator`), the `CompositePropagator` that runs an ordered list of propagators as one, the `traceparent` parse helper (`parseTraceParent`), and the `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` header-name constants. The propagators implement the `@opentelemetry/api` `TextMapPropagator` contract (`inject`/`extract`/`fields`). This package supplies the propagator CLASSES only; REGISTRATION is the consumer's seam choice (the `@effect/opentelemetry` `WebSdk.Configuration` has NO `propagator` field), realized either through a self-constructed `@opentelemetry/sdk-trace-web` `WebTracerProvider.register({ propagator })` or through the `@opentelemetry/api` `propagation.setGlobalPropagator` global registration — never a non-existent WebSDK `DefaultTextMapPropagator` field.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -78,12 +78,13 @@ export declare class CompositePropagator implements TextMapPropagator {
 - `parseTraceParent` decodes a `traceparent` header string to a `SpanContext` or `null` on a malformed value; it never throws
 
 [LOCAL_ADMISSION]:
-- the composite is registered as the SDK's `DefaultTextMapPropagator` so every outbound request injects `traceparent`/`tracestate` and every inbound carrier seeds the span from the extracted parent rather than a fresh root
+- the composite is registered through the consumer's chosen seam — a self-constructed `@opentelemetry/sdk-trace-web` `WebTracerProvider.register({ propagator })` (in the current package set) or the `@opentelemetry/api` `propagation.setGlobalPropagator` global registration (an added `@opentelemetry/api` admission) — so every inbound carrier seeds the span from the extracted parent rather than a fresh root. The `@effect/opentelemetry` `WebSdk.layer` builds its `WebTracerProvider` internally and exposes no `.register` handle, so registration on the WebSdk-built provider is unreachable; the registration is a standalone-provider or global call composed alongside the WebSdk export layer.
 - `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` are the canonical header names a transport interceptor injects under, never a hand-written `"traceparent"` literal
 - the propagator is paired with a `ParentBasedSampler` so the extracted parent's sampling decision is honored and a root span samples at the configured ratio
+- `MetricRegistry.tracePropagation` (`observability/metric-registry#TRACE_PROPAGATION`) registers extract-and-continue ONLY; the outbound inject leg is settled at `interchange/transport/transport#WIRE_TRANSPORT`
 
 [RAIL_LAW]:
 - Package: `@opentelemetry/core`
 - Owns: W3C trace-context and baggage propagation, the composite propagator fan-out, and the `traceparent` parse/header constants
-- Accept: `W3CTraceContextPropagator`/`W3CBaggagePropagator` composed in a `CompositePropagator`, registered as the SDK `DefaultTextMapPropagator`
+- Accept: `W3CTraceContextPropagator`/`W3CBaggagePropagator` composed in a `CompositePropagator`, registered through a self-constructed `WebTracerProvider.register({ propagator })` or `propagation.setGlobalPropagator`
 - Reject: a hand-rolled `traceparent` header build/parse, a per-request fresh root span where an inbound parent context exists, a `"traceparent"` string literal in place of `TRACE_PARENT_HEADER`

@@ -6,6 +6,7 @@ The artifact-emit rail: one `BimExport` export fold over the `format-axis#FORMAT
 
 - [2]-[EXPORT_RAIL]: artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization.
 - [3]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the `BimElement` semantic, bound to the GLB primitive through `EXT_mesh_features` feature IDs.
+- [4]-[BIM_LOD]: the per-element LOD pyramid through `Meshopt.Simplify`/`SimplifySloppy`, the `Meshopt.BuildMeshlets` meshlet residency band, and the per-LOD content key the `Rasm.Compute#TILE_PARTITION` pyramid addresses.
 
 ## [2]-[EXPORT_RAIL]
 
@@ -223,7 +224,86 @@ public static class TileMetadata {
 }
 ```
 
-## [4]-[RESEARCH]
+## [4]-[BIM_LOD]
 
-- [CONTENT_IDENTITY_CONSUME]: the `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key derivation is owned at `Rasm.Compute/interchange/codecs#CONTENT_ADDRESSING` and consumed here for the `ExportArtifact.ContentKey` slot; the public signature confirms against the Compute `InterchangeIdentity` owner at cross-folder alignment, and the artifact lands content-addressed on the Persistence blob lane through the Compute `InterchangeIdentity.Admit` path — Bim mints no second identity scheme and no second blob owner.
+- Owner: `BimLod` the per-element LOD-pyramid leg ADDITIVE to the export rail — one progressive-detail chain per element derived through the catalogued `Meshopt.Simplify`/`SimplifySloppy` decimation keyed by target triangle ratio, plus the `MeshletResidency` band through `Meshopt.BuildMeshlets` for the WebGPU raster path; `LodLevel` the per-level record carrying the decimated index buffer, the target ratio, and the per-LOD content key the `csharp:Rasm.Compute#TILE_PARTITION` pyramid content-addresses.
+- Entry: `BimLod.Pyramid(ImportedGeometry geometry, InterchangePolicy policy)` derives the LOD chain over the policy's ratio schedule (each level a `Meshopt.Simplify` at decreasing target index count, falling back to `Meshopt.SimplifySloppy` when the error threshold cannot be met), and `BimLod.Meshlets(ImportedGeometry geometry)` clusters the residency band through `Meshopt.BuildMeshlets` (bounded by `Meshopt.BuildMeshletsBound`, optimized per meshlet through `Meshopt.OptimizeMeshlet`) — `Fin<T>` aborts on a degenerate decimation captured at the boundary (`faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()`; each level seals its own `ExportArtifact.ContentKey` so the web peer streams each LOD by view distance, the `TileMetadata` per-tile semantic riding each level unchanged.
+- Receipt: each `LodLevel` carries its target ratio, resulting triangle count, and per-LOD content key — the same `InterchangeIdentity` the full-resolution `ExportArtifact` seals, computed per level so the `csharp:Rasm.Compute#TILE_PARTITION` pyramid content-addresses every detail level and the cross-libs `WEB_GEOMETRY_RESIDENCY_WIRE` splat/meshlet manifest the AppUi projection mints streams each LOD by view distance.
+- Packages: Alimer.Bindings.MeshOptimizer, SharpGLTF.Core, NodaTime, LanguageExt.Core, Rasm
+- Growth: a new detail level is one content-keyed `LodLevel` row on the pyramid; a new meshlet bound is one `MeshletResidency` band over the residency set; the per-tile `TileMetadata` semantic rides each LOD unchanged; never a per-element full-resolution emit and never a second LOD or residency owner.
+- Boundary: the LOD decimation is `Alimer.Bindings.MeshOptimizer`'s — `Meshopt.Simplify` (error-threshold decimation with `SimplificationOptions` flags) and `Meshopt.SimplifySloppy` (aggressive fallback) over the optimized indexed buffer own the LOD chain, and a hand-rolled edge-collapse decimator is the deleted form; the meshlet residency rides `Meshopt.BuildMeshlets` (allocated via `BuildMeshletsBound`, optimized per meshlet via `OptimizeMeshlet`) so the WebGPU raster path consumes the package-owned meshlet partition, never a hand-rolled cluster algorithm; the per-LOD content key meets `csharp:Rasm.Compute#TILE_PARTITION` at the seam — `Rasm.Bim` derives the per-element pyramid and seals each level's content key, the tile-pyramid partitioning and streaming stay at Compute consumed at the seam; the residency band feeds the `WEB_GEOMETRY_RESIDENCY_WIRE` manifest the AppUi projection mints, never a second residency owner; the LOD leg composes the same `ImportedGeometry` triangle-soup the `EXPORT_RAIL` `SceneOf` reads, never a second geometry carrier.
+
+```csharp signature
+public sealed record LodLevel(int Level, double TargetRatio, int TriangleCount, ReadOnlyMemory<uint> Indices, UInt128 ContentKey);
+
+public static class BimLod {
+    public static Fin<Seq<LodLevel>> Pyramid(ImportedGeometry geometry, InterchangePolicy policy) =>
+        Try.lift(() => Levels(geometry, policy)).Run().MapFail(static error => new BimFault.ModelRejected($"lod-decimate:{error.Message}").ToError());
+
+    static unsafe Seq<LodLevel> Levels(ImportedGeometry geometry, InterchangePolicy policy) {
+        var source = new uint[geometry.Indices.Length];
+        for (int i = 0; i < source.Length; i++) { source[i] = (uint)geometry.Indices.Span[i]; }
+        var verts = geometry.Vertices.ToArray();
+        nuint vertexCount = (nuint)geometry.VertexCount;
+        nuint vertexStride = (nuint)(3 * sizeof(float));
+        float scale;
+        fixed (float* vPtr = verts) { scale = Meshopt.SimplifyScale(vPtr, vertexCount, vertexStride); }
+        return LodSchedule.Map((ratio, level) => Decimate(source, verts, vertexCount, vertexStride, scale, ratio, level, geometry.Format.Key)).ToSeq();
+    }
+
+    static unsafe LodLevel Decimate(uint[] source, float[] verts, nuint vertexCount, nuint vertexStride, float scale, double ratio, int level, string formatKey) {
+        nuint sourceCount = (nuint)source.Length;
+        nuint targetCount = (nuint)((long)source.Length * ratio);
+        var destination = new uint[source.Length];
+        nuint resultCount;
+        float resultError;
+        fixed (uint* dst = destination)
+        fixed (uint* src = source)
+        fixed (float* vPtr = verts) {
+            resultCount = Meshopt.Simplify(dst, src, sourceCount, vPtr, vertexCount, vertexStride, targetCount, 0.01f * scale, SimplificationOptions.None, &resultError);
+            if (resultCount > targetCount) {
+                resultCount = Meshopt.SimplifySloppy(dst, src, sourceCount, vPtr, vertexCount, vertexStride, (byte*)null, targetCount, 0.05f * scale, &resultError);
+            }
+        }
+        var indices = destination.AsSpan(0, (int)resultCount).ToArray();
+        var bytes = MemoryMarshal.AsBytes(indices.AsSpan());
+        return new LodLevel(level, ratio, (int)resultCount / 3, indices,
+            InterchangeIdentity.Key($"{formatKey}:lod{level}", bytes, ratio, 1e-6, 1e-4));
+    }
+
+    public static unsafe Fin<Seq<Meshlet>> Meshlets(ImportedGeometry geometry) =>
+        Try.lift(() => Cluster(geometry)).Run().MapFail(static error => new BimFault.ModelRejected($"meshlet-build:{error.Message}").ToError());
+
+    static unsafe Seq<Meshlet> Cluster(ImportedGeometry geometry) {
+        var indices = new uint[geometry.Indices.Length];
+        for (int i = 0; i < indices.Length; i++) { indices[i] = (uint)geometry.Indices.Span[i]; }
+        var verts = geometry.Vertices.ToArray();
+        nuint indexCount = (nuint)indices.Length;
+        nuint vertexCount = (nuint)geometry.VertexCount;
+        nuint vertexStride = (nuint)(3 * sizeof(float));
+        const nuint maxVertices = 64, maxTriangles = 124;
+        nuint bound = Meshopt.BuildMeshletsBound(indexCount, maxVertices, maxTriangles);
+        var meshlets = new Meshlet[(int)bound];
+        var meshletVertices = new uint[(int)bound * (int)maxVertices];
+        var meshletTriangles = new byte[(int)bound * (int)maxTriangles * 3];
+        nuint count;
+        fixed (Meshlet* mPtr = meshlets)
+        fixed (uint* mvPtr = meshletVertices)
+        fixed (byte* mtPtr = meshletTriangles)
+        fixed (uint* iPtr = indices)
+        fixed (float* vPtr = verts) {
+            count = Meshopt.BuildMeshlets(mPtr, mvPtr, mtPtr, iPtr, indexCount, vPtr, vertexCount, vertexStride, maxVertices, maxTriangles, 0.0f);
+            for (nuint m = 0; m < count; m++) { Meshopt.OptimizeMeshlet(&mvPtr[mPtr[m].vertex_offset], &mtPtr[mPtr[m].triangle_offset], mPtr[m].triangle_count, mPtr[m].vertex_count); }
+        }
+        return meshlets.AsSpan(0, (int)count).ToArray().ToSeq();
+    }
+
+    static readonly Seq<double> LodSchedule = Seq(0.5, 0.25, 0.1, 0.05);
+}
+```
+
+## [5]-[RESEARCH]
+
+- [LOD_MESHLET_SURFACE]: the `Alimer.Bindings.MeshOptimizer` LOD/meshlet members the `BimLod` fold composes — `Meshopt.Simplify` (entrypoint 1, error-threshold decimation), `Meshopt.SimplifySloppy` (entrypoint 4, aggressive fallback), `Meshopt.SimplifyScale` (entrypoint 7, world-space error normalization), `Meshopt.BuildMeshlets` (meshlet entrypoint 1, cone-culling cluster), `Meshopt.BuildMeshletsBound` (entrypoint 3, buffer bound), `Meshopt.OptimizeMeshlet` (entrypoint 6, per-meshlet cache reorder), and the `Meshlet` struct (`vertex_offset`/`triangle_offset`/`vertex_count`/`triangle_count`) — are decompile-verified in the `.api/api-alimer-meshoptimizer` catalogue; the pinned-pointer simplify/meshlet call convention (the `nuint` count/stride arguments and the `SimplificationOptions` flag set) mirrors the settled `EXPORT_RAIL` `MeshoptBytes` pinned-pointer encode so the LOD leg reuses the package's native interop convention rather than a second binding — the pointer-overload `Meshopt.Simplify(destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride, target_index_count, target_error, SimplificationOptions, result_error)` is ten arguments, and the pointer-overload `Meshopt.SimplifySloppy(destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride, vertex_lock, target_index_count, target_error, result_error)` carries the `Byte* vertex_lock` per-vertex lock mask between the stride and the target count (passed `(byte*)null` for the no-lock decimation), distinct from the seven-argument `Span<uint>` overload — and the per-LOD `InterchangeIdentity.Key` content key per detail level meets `csharp:Rasm.Compute#TILE_PARTITION` at the codec admission gate.
+- [CONTENT_IDENTITY_CONSUME]: the `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key derivation is owned at `Rasm.Compute/interchange/codecs#CONTENT_ADDRESSING` and consumed here for the `ExportArtifact.ContentKey` and the per-`LodLevel` content-key slots; the public signature confirms against the Compute `InterchangeIdentity` owner at cross-folder alignment, and the artifact lands content-addressed on the Persistence blob lane through the Compute `InterchangeIdentity.Admit` path — Bim mints no second identity scheme and no second blob owner.
 - [TILE_FEATURE_BINDING]: the `SharpGLTF.Ext.3DTiles` per-tile metadata author members the `TileMetadata.Attach` fold composes — `Tiles3DExtensions.RegisterExtensions`/`UseStructuralMetadata`, `EXTStructuralMetadataRoot.UseEmbeddedSchema`/`AddPropertyTable`, `StructuralMetadataSchema.UseClassMetadata`/`UseEnumMetadata`, `StructuralMetadataClass.UseProperty`, `StructuralMetadataClassProperty.WithStringType`/`WithEnumeration`, `PropertyTable.UseProperty`, `PropertyTableProperty.SetValues<T>`, `new FeatureIDBuilder(...)`, and `MeshPrimitive.AddMeshFeatureIds` — are decompile-verified in the `Rasm.Bim/.api/api-sharpgltf-3dtiles` catalogue; the per-vertex feature-ID attribute index that binds each primitive vertex span to its element `PropertyTable` row (the `EXT_mesh_features` attribute accessor the `SceneOf` mesh build emits) grounds at the codec admission gate where the GLB primitive vertex-to-element mapping is settled against the `EXPORT_RAIL` triangle-soup layout, and the tile-pyramid partitioning rides `Rasm.Compute/interchange/codecs#TILE_PARTITION` consumed at the seam.

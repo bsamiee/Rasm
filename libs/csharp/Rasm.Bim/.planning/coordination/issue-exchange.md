@@ -18,8 +18,6 @@ The BCF 3.0 issue-exchange owner: one closed `BcfTopic`/`BcfComment`/`BcfViewpoi
 - Boundary: the `.bcfzip` codec is self-owned in `coordination` and is NOT a row on the `exchange/format-axis#FORMAT_AXIS` geometry-format axis — coupling the issue container to the geometry codec axis is the rejected form because BCF carries issues and viewpoints, never a `BimModel` or `ImportedGeometry` import; the archive read/write rides the BCL `System.IO.Compression` `ZipArchive` surface and the BCF markup the BCL `System.Xml.Linq` `XDocument` surface — a hand-rolled zip or XML writer is the deleted form; viewpoints anchor on the `model/elements#ELEMENT_MODEL` `GlobalId` so the issue payload aligns to element GlobalIds only, never to a geometry handle; the BCF-API REST shape rides the `csharp:Compute/remote/channels#TRANSPORT_AXIS` transport and a transport minted here is the named seam violation; `BcfArchive` is the boundary capsule and its codec body carries the language-owned `using var` archive statement the `ZipArchive` decode requires.
 
 ```csharp signature
-public enum BcfStatus : byte { Open = 0, InProgress = 1, Resolved = 2, Closed = 3, Reopened = 4 }
-
 public sealed record BcfViewpoint(
     string Guid,
     Vector3 CameraPosition,

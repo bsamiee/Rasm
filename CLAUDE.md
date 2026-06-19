@@ -90,7 +90,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] `assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
 - [ALWAYS] `assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
 - [ALWAYS] `assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.
-- [ALWAYS] `assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `rasm-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
+- [ALWAYS] `assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `forge-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
 - [ALWAYS] Treat bridge proof as `EvidenceCertificate` plus reviewed `ReferenceEvidence`; MCP exploration can promote invariants into scenarios, but never substitutes for certificate-backed verify.
 
 ## [7]-[DOCUMENTATION_AND_OUTPUT]

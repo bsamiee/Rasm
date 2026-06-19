@@ -66,6 +66,10 @@ Methods operate on a `geometry.PointCloud` or `geometry.TriangleMesh`; `create_f
 |  [12]   | `TriangleMesh.create_from_point_cloud_ball_pivoting` | cloud plus radii         | ball-pivoting reconstruction           |
 |  [13]   | `TriangleMesh.simplify_quadric_decimation`           | target triangle count    | quadric mesh decimation                |
 |  [14]   | `TriangleMesh.filter_smooth_taubin`                  | iteration count          | Taubin/Laplacian smoothing             |
+|  [15]   | `TriangleMesh.create_from_point_cloud_alpha_shape`   | cloud plus alpha         | alpha-complex concave-hull surface     |
+|  [16]   | `TriangleMesh.remove_vertices_by_mask`               | bool mask                | drop masked vertices (Poisson trim)    |
+|  [17]   | `geometry.KDTreeSearchParamHybrid`                   | radius plus max-nn       | hybrid radius/knn normal-search param  |
+|  [18]   | `utility.DoubleVector` / `utility.IntVector`         | python sequence          | typed vectors for radii/voxel schedules |
 
 [ENTRYPOINT_SCOPE]: register and optimize
 - rail: scan
@@ -82,6 +86,20 @@ Registration rows return a `RegistrationResult` (or `PoseGraph`); ICP rows take 
 |   [6]   | `registration.compute_fpfh_feature`                          | cloud plus search param      | FPFH descriptor computation      |
 |   [7]   | `registration.evaluate_registration`                         | source/target plus transform | fitness/inlier-rmse evaluation   |
 |   [8]   | `registration.global_optimization`                           | pose graph plus options      | multiway pose-graph optimization |
+
+[ENTRYPOINT_SCOPE]: tensor registration (`open3d.t.pipelines.registration`)
+- rail: scan
+
+The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `RegistrationResult` with `.transformation`/`.fitness`/`.inlier_rmse`; estimators take a `robust_kernel.RobustKernel` for outlier downweighting, and `multi_scale_icp` runs the coarse-to-fine voxel/iteration/correspondence schedule.
+
+| [INDEX] | [SURFACE]                                                                             | [CALL_SHAPE]                       | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------------ | :--------------------------------- | :------------------------------------ |
+|   [1]   | `t.pipelines.registration.icp`                                                        | source/target plus estimator       | single-scale tensor ICP               |
+|   [2]   | `t.pipelines.registration.multi_scale_icp(source, target, voxel_sizes, criteria_list, max_correspondence_distances, estimation)` | coarse-to-fine schedule | multi-scale tensor ICP                |
+|   [3]   | `t.pipelines.registration.TransformationEstimationPointToPlane(kernel)`               | optional `RobustKernel`            | point-to-plane estimator              |
+|   [4]   | `t.pipelines.registration.TransformationEstimationForColoredICP(lambda_geometric, kernel)` | geometric weight plus kernel | colored point-to-plane estimator      |
+|   [5]   | `t.pipelines.registration.robust_kernel.RobustKernel(method, scaling)`                | `RobustKernelMethod` plus scale    | Tukey/Huber/Cauchy/GM/L1/L2 weighting |
+|   [6]   | `t.pipelines.registration.robust_kernel.RobustKernelMethod.TukeyLoss`                 | enum member                        | Tukey biweight loss kernel            |
 
 [ENTRYPOINT_SCOPE]: input and output (`open3d.io`)
 - rail: scan
@@ -101,7 +119,7 @@ Registration rows return a `RegistrationResult` (or `PoseGraph`); ICP rows take 
 [SCAN_PROCESSING]:
 - import: `import open3d` at boundary scope only; module-level import is banned by the manifest import policy.
 - cloud axis: one `PointCloud` owns points/colors/normals/covariances; downsampling is a method row (`voxel_down_sample`, `uniform_down_sample`, `farthest_point_down_sample`), never parallel cloud subclasses. `KDTreeSearchParamHybrid`/`KNN`/`Radius` parameterize normal estimation and feature search.
-- registration axis: `registration_icp` dispatches on its `TransformationEstimation*` argument (point-to-point, point-to-plane, generalized, colored); the estimation method is an argument row, never a separate ICP function family. Results are `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`.
+- registration axis: legacy `registration_icp` dispatches on its `TransformationEstimation*` argument (point-to-point, point-to-plane, generalized, colored), the estimation method an argument row, never a separate ICP function family; the tensor `t.pipelines.registration` backend mirrors this with `icp`/`multi_scale_icp` over a `t.geometry.PointCloud`, the `TransformationEstimationPointToPlane`/`TransformationEstimationForColoredICP` estimators each taking a `robust_kernel.RobustKernel(RobustKernelMethod.TukeyLoss, scale)` for outlier downweighting and `multi_scale_icp` carrying the coarse-to-fine voxel/iteration/correspondence schedule. Both backends return `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`; the scan owner composes the tensor backend for the multi-scale and colored arms and the legacy `pipelines.registration` `PoseGraph`/`global_optimization` for the multiway pose-graph.
 - reconstruction axis: `TriangleMesh.create_from_point_cloud_poisson`/`ball_pivoting`/`alpha_shape` are the reconstruction rows; the algorithm choice is a static constructor, not a runtime mode flag.
 - pipeline: `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `compute_fpfh_feature` -> `registration_ransac_based_on_feature_matching` -> `registration_icp` refinement -> `create_from_point_cloud_poisson`.
 - evidence: each registration captures fitness, inlier rmse, correspondence count, and transformation; each reconstruction captures input point count and output vertex/triangle count as a scan receipt. The `open3d.t` tensor API mirrors this surface for batched GPU work.

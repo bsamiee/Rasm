@@ -65,11 +65,16 @@ public static class ProfileCatalogue {
     static readonly ProfileStandard En14080 = new("eu", StandardJointThicknessMm: 0.0, Authority: "EN 14080 / APA PRG 320");
 
     static readonly Seq<TimberRow> TimberRows = Seq(
-        new TimberRow("timber.sawn-c24-38x89",     "sawn",   "c24",   38.0,  89.0,  89.0,  1),
-        new TimberRow("timber.sawn-c24-38x140",    "sawn",   "c24",   38.0,  140.0, 140.0, 1),
+        new TimberRow("timber.sawn-c24-38x89",      "sawn",   "c24",   38.0,  89.0,  89.0,  1),
+        new TimberRow("timber.sawn-c24-38x140",     "sawn",   "c24",   38.0,  140.0, 140.0, 1),
+        new TimberRow("timber.sawn-c24-38x184",     "sawn",   "c24",   38.0,  184.0, 184.0, 1),
+        new TimberRow("timber.sawn-c30-63x175",     "sawn",   "c30",   63.0,  175.0, 175.0, 1),
+        new TimberRow("timber.glulam-gl24h-90x225", "glulam", "gl24h", 90.0,  225.0, 45.0,  5),
         new TimberRow("timber.glulam-gl28h-90x270", "glulam", "gl28h", 90.0,  270.0, 45.0,  6),
         new TimberRow("timber.glulam-gl32h-115x405","glulam", "gl32h", 115.0, 405.0, 45.0,  9),
-        new TimberRow("timber.clt-c24-5ply-150",    "clt",    "c24",   1250.0, 150.0, 30.0, 5));
+        new TimberRow("timber.clt-c24-3ply-90",     "clt",    "c24",   1250.0,  90.0, 30.0, 3),
+        new TimberRow("timber.clt-c24-5ply-150",    "clt",    "c24",   1250.0, 150.0, 30.0, 5),
+        new TimberRow("timber.clt-c24-7ply-230",    "clt",    "c24",   1250.0, 230.0, 33.0, 7));
 
     static Fin<TimberShape> TimberOf(TimberRow r, Context context, Op key) =>
         from w in key.AcceptValidated<PositiveMagnitude>(candidate: r.WMm)
@@ -90,5 +95,6 @@ public static class ProfileCatalogue {
 
 ## [3]-[RESEARCH]
 
-- [TIMBER_ROW_TRANSCRIPTION]: EN 14080 carries the glulam strength classes (GL24h/GL28h/GL32h homogeneous, the combined `c` variants) with the standard 40–45 mm lamella thickness, and APA PRG 320 carries the CLT layup grades with the 3/5/7-ply cross-laminated lamellae at 20–40 mm; the five rows are the realized seed and the remaining EN strength classes, the sawn nominal sizes, and the LVL/PSL engineered products are pure `TimberRow` data additions, each one row, never a new type. The CLT panel width is the full panel module the layup repeats, the sawn/glulam width the rectangular section breadth.
+- [TIMBER_ROW_TRANSCRIPTION]: REALIZED — EN 14080 carries the glulam strength classes (GL24h/GL28h/GL32h homogeneous, the combined `c` variants) with the standard 40–45 mm lamella thickness, EN 338 the C-class structural-sawn grades, and APA PRG 320 the CLT layup grades with the 3/5/7-ply cross-laminated lamellae at 20–40 mm; the catalogue carries the C24/C30 sawn sizes (38×89 through 63×175), the GL24h/GL28h/GL32h glulam sections, and the 3/5/7-ply CLT panels, the standard structural set keyed `timber.<designation>`, the remaining EN strength classes and the LVL/PSL/glulam-curved engineered products one further `TimberRow` data addition, each one row, never a new type. The CLT panel width is the full panel module the layup repeats, the sawn/glulam width the rectangular section breadth, the lamella thickness/count carrying the layup the gamma-method composite stiffness reads.
+- [IFCPROFILEDEF_TIMBER_ALIGNMENT]: every timber form maps to the `IfcRectangleProfileDef` rectangle subtype (`TimberForm.IfcSubtype` carries the spelling) — a sawn/glulam member is the `WidthMm`/`DepthMm` rectangle and a CLT panel the `WidthMm` panel module by `DepthMm` total thickness, the cross-ply layup carried in the `Lamellae`/`LamellaThicknessMm` columns and the material-profile-set layers rather than a profile variant; a timber member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` whose profile is the rectangle and whose `IfcMaterialProfileSetUsage` carries the grade/lamella receipt, the curved/tapered glulam a `SweptArea` extrusion the host materializes from the rectangle profile along the `RunPath`, never a per-product profile subtype. The probe is the `IfcMaterialProfileSetUsage` cardinal-point/orientation mapping at the `Rasm.Bim` boundary.
 - [TIMBER_LAYUP_GEOMETRY]: a CLT panel's cross-ply layup (alternating longitudinal/transverse plies) drives the effective-section composite stiffness the design seam computes from the lamella columns; the per-ply orientation and the rolling-shear modulus are `TimberSection` column growth, never a parallel section owner — the lamella thickness/count and the `TimberForm.CrossPly` discriminant already carry the layup receipt the `IfcRectangleProfileDef` rectangle wire and the gamma-method composite stiffness read. The CLT panel crosses the IFC wire as the rectangle outer profile, the layup carried in the material-profile-set layers.

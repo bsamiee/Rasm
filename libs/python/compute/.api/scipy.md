@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `scipy`
 - package: `scipy`
-- import: `scipy` (lint alias `sp`); submodules `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`
+- import: `scipy` (lint alias `sp`); submodules `scipy.linalg`, `scipy.sparse`, `scipy.sparse.linalg`, `scipy.optimize`, `scipy.integrate`, `scipy.interpolate`, `scipy.signal`, `scipy.stats` (`scipy.stats.qmc`), `scipy.spatial`
 - owner: `compute`
 - rail: solvers
 - capability: scientific solver suite — dense and sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics, and signal processing
@@ -113,6 +113,47 @@
 |  [13]   | `interpolate.griddata(points, values, xi)`                    | scattered      | unstructured-grid interpolation    |
 |  [14]   | `interpolate.RegularGridInterpolator(points, values, method)` | grid           | regular-grid interpolant           |
 
+[ENTRYPOINT_SCOPE]: `scipy.signal` filter design, spectral estimation, and resampling
+- rail: signal
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]    | [RESULT]                              |
+| :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------ |
+|   [1]   | `butter(N, Wn, btype, output='sos')`                     | IIR design        | Butterworth SOS / b,a coefficients    |
+|   [2]   | `firwin(numtaps, cutoff, window, pass_zero)`             | FIR design        | windowed-FIR tap coefficients         |
+|   [3]   | `sosfiltfilt(sos, x, axis)`                              | zero-phase filter | forward-backward SOS-filtered signal  |
+|   [4]   | `filtfilt(b, a, x, axis)`                                | zero-phase filter | forward-backward b,a-filtered signal  |
+|   [5]   | `welch(x, fs, nperseg, noverlap)`                        | spectral estimate | Welch PSD `(f, Pxx)`                   |
+|   [6]   | `spectrogram(x, fs, nperseg, noverlap)`                  | spectral estimate | time-frequency `(f, t, Sxx)`          |
+|   [7]   | `resample_poly(x, up, down, axis)`                       | resample          | polyphase rational resample           |
+|   [8]   | `find_peaks(x, height, distance, prominence)`            | peak detect       | peak indices and properties           |
+
+[ENTRYPOINT_SCOPE]: `scipy.stats.qmc` quasi-Monte-Carlo sampling
+- rail: experiments
+
+`Sobol`/`Halton`/`LatinHypercube` are `QMCEngine` subclasses whose `random(n)` draws a low-discrepancy sample on the unit hypercube; `scale` affinely maps the sample to the bounds box and `discrepancy` scores the sample uniformity.
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [RESULT]                                |
+| :-----: | :--------------------------------------------------- | :--------------- | :-------------------------------------- |
+|   [1]   | `qmc.Sobol(d, scramble, seed)` -> `.random(n)`       | QMC engine       | scrambled Sobol low-discrepancy sample  |
+|   [2]   | `qmc.Halton(d, scramble, seed)` -> `.random(n)`      | QMC engine       | Halton low-discrepancy sample           |
+|   [3]   | `qmc.LatinHypercube(d, scramble, seed)` -> `.random(n)` | QMC engine    | Latin-hypercube stratified sample       |
+|   [4]   | `qmc.scale(sample, l_bounds, u_bounds)`              | affine map       | sample scaled to the bounds box         |
+|   [5]   | `qmc.discrepancy(sample, method)`                    | uniformity score | low-discrepancy quality metric          |
+
+[ENTRYPOINT_SCOPE]: `scipy.spatial` neighbour search, hull, and tessellation
+- rail: spatial
+
+`cKDTree` is the compiled KD-tree; `ConvexHull`/`Delaunay`/`Voronoi` are Qhull-backed tessellation carriers whose attributes expose simplices, vertices, and adjacency; `distance.cdist` is the pairwise distance matrix.
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]    | [RESULT]                                |
+| :-----: | :------------------------------------------------------- | :---------------- | :-------------------------------------- |
+|   [1]   | `cKDTree(data)` -> `.query(x, k)`                        | neighbour search  | k-nearest indices and distances         |
+|   [2]   | `cKDTree.query_ball_point(x, r)`                         | radius search     | indices within radius `r`               |
+|   [3]   | `ConvexHull(points)` -> `.simplices`/`.volume`/`.area`   | hull              | facet simplices, hull volume and area   |
+|   [4]   | `Delaunay(points)` -> `.simplices`/`.points`/`.find_simplex(p)` | triangulation | simplex table, points, point-location   |
+|   [5]   | `Voronoi(points)` -> `.vertices`/`.regions`/`.ridge_points` | tessellation   | Voronoi vertices, regions, ridge graph  |
+|   [6]   | `distance.cdist(XA, XB, metric)`                         | distance matrix   | pairwise distance matrix                |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [SOLVER_TOPOLOGY]:
@@ -122,6 +163,9 @@
 - optimization: `scipy.optimize` owns minimization (`minimize`, `differential_evolution`), least squares (`least_squares`, `curve_fit`, `nnls`), root finding (`root`, `brentq`, `newton`, `fsolve`), and linear/integer programming (`linprog`, `milp`); constraints route through `Bounds`, `LinearConstraint`, and `NonlinearConstraint`; results carry an `OptimizeResult`.
 - integration: `scipy.integrate` owns adaptive quadrature (`quad`, `dblquad`, `nquad`, `quad_vec`), ODE integrators (`solve_ivp`, `odeint`), and sampled rules (`simpson`, `trapezoid`).
 - interpolation: `scipy.interpolate` owns 1-D interpolants (`interp1d`, `CubicSpline`, `PchipInterpolator`, `make_interp_spline`) and scattered/grid interpolation (`griddata`, `RegularGridInterpolator`).
+- signal: `scipy.signal` owns IIR/FIR design (`butter`, `firwin`), zero-phase filtering (`sosfiltfilt`, `filtfilt`), spectral estimation (`welch`, `spectrogram`), polyphase resampling (`resample_poly`), and peak detection (`find_peaks`); the `signal/dsp.md#DSP` owner routes the stationary cases here beside the `pywt` wavelet cases.
+- quasi-Monte-Carlo: `scipy.stats.qmc` owns the low-discrepancy engines (`Sobol`, `Halton`, `LatinHypercube`) with `scale` to a bounds box and `discrepancy` scoring; the `experiments/study.md#STUDY` DOE sampler routes here.
+- spatial: `scipy.spatial` owns KD-tree neighbour/radius search (`cKDTree.query`/`query_ball_point`), Qhull hull/tessellation (`ConvexHull`, `Delaunay`, `Voronoi`), and pairwise distance (`distance.cdist`); the `spatial/query.md#SPATIAL` owner routes every geometry query here.
 
 [LOCAL_ADMISSION]:
 - import: submodule imports at boundary scope only; module-level import is banned by the manifest import policy.

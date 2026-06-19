@@ -1,6 +1,6 @@
 # [APPUI_DRAFTING_SHEETS]
 
-The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a locale-aware sheet collection with ISO/ANSI/JIS title-block templating, `Viewport2D` frames a 3D model view through one hidden-line projection kernel onto a sheet region, `Dimension` and `Annotation` carry the dimensioning and GD&T annotation vocabulary as typed records, and `DraftEmit` renders the composed sheet to DWG/DXF/PDF/SVG through the offscreen document rail. The page owns the sheet-set and title-block axis, the projection-kernel viewport frame, the dimension and GD&T annotation families, and the multi-format emit dispatch; the substrate is SkiaSharp 2D geometry behind the `DrawSource.Owned` capsule and the `SKDocument` PDF export, the locale culture for title-block fields, the `Viewpoint` camera for the projection basis, and the Compute geometry payload for the projected edges. The PDF and SVG emit ship today on the 2D-Skia substrate; DWG and DXF emit is fence-complete and SPIKE-gated on the entity-writer surface.
+The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a locale-aware sheet collection with ISO/ANSI/JIS title-block templating, `Viewport2D` frames a 3D model view onto a sheet region by composing the single CAD-grade hidden-line owner `cs:Rasm.Fabrication/projection/hidden-line#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility kernel) and projecting its world-space visible/hidden/silhouette edge sets to sheet space, `Dimension` and `Annotation` carry the dimensioning and GD&T annotation vocabulary as typed records, and `DraftEmit` renders the composed sheet to DWG/DXF/PDF/SVG through the offscreen document rail and the catalogued entity-writer surface. The page owns the sheet-set and title-block axis, the projection-to-sheet viewport frame, the dimension and GD&T annotation families, and the multi-format emit dispatch; the substrate is SkiaSharp 2D geometry behind the `DrawSource.Owned` capsule and the `SKDocument` PDF export, the `ACadSharp` `CadDocument` DWG and `netDxf` `DxfDocument` DXF model-space entity writers (`.api/api-drafting-export.md`), the locale culture for title-block fields, the `Viewpoint` camera for the projection basis, and the Compute geometry payload for the projected edges. The PDF, SVG, DWG, and DXF emit arms transcribe their writer bodies now; the live host-shared GPU hidden-line depth buffer is the `viewport-pipeline.md#RESEARCH` `[VIEWPORT_GPU]` consequence while the Fabrication BSP kernel is the CAD-grade visibility owner this page composes — AppUi mints no second hidden-line kernel and no second CAD writer.
 
 ## [1]-[INDEX]
 
@@ -90,12 +90,12 @@ public sealed record SheetSet(string Key, Seq<Sheet> Sheets) {
 
 ## [3]-[PROJECTION]
 
-- Owner: `ProjectionBasis` the view-direction-and-scale projection; `Viewport2D` the model-view frame on a sheet region; `HiddenLine` the visible-edge fold.
-- Entry: `public Fin<Seq<(SKPoint A, SKPoint B)>> Project(MeshSource mesh, ProjectionBasis basis, SheetRegion region)` — projects the model edges into sheet-space line segments under the basis and clips to the region; visible-edge resolution rides `HiddenLine`.
-- Auto: `ProjectionBasis.From` derives the orthographic or perspective projection matrix from a `Viewpoint` camera so a saved 3D view drafts to a 2D viewport with the same basis — the drafting projection and the viewport camera share one camera vocabulary; standard views (top, front, right, iso) are basis presets; the projection scales model millimeters to sheet millimeters through the viewport scale so a 1:50 detail and a 1:1 detail are scale row values, never call-site arithmetic; `HiddenLine` folds the back-facing and occluded edges out by the painter depth sort so a drafted view shows visible edges, with the dashed hidden-line layer a style row.
-- Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
-- Growth: a new standard view is one `ProjectionBasis` preset; a new line style is one `EdgeStyle` row; zero new surface.
-- Boundary: the projection basis derives from the `Viewpoint` camera so the drafting view and the GPU viewport share one camera shape and a second camera model is the deleted form; the projected geometry is the `MeshSource` boundary projection off the canonical Compute `GeometryPayload` so the page never re-tessellates — the same wire boundary the viewport meshlet build consumes; the hidden-line removal is a painter depth-sort fold on the projected edges and a GPU depth-buffer hidden-line is the viewport-pipeline consequence under VIEWPORT_GPU, so the 2D painter hidden-line ships today; viewport scale is millimeter-to-millimeter row data and a hardcoded scale factor is the rejected form; the projected segments draw through the `DrawSource.Owned` capsule into the sheet region so the drafting page mints no second Skia-surface owner.
+- Owner: `ProjectionBasis` the view-direction-and-scale projection; `Viewport2D` the model-view frame on a sheet region projecting the CAD-grade hidden-line edge sets to sheet space; `HiddenLineSeam` the composition-bound delegate column carrying the `cs:Rasm.Fabrication/projection/hidden-line#PROJECTION_HIDDEN_LINE` `Hlr.Solve` visibility solver as the one in-process producer.
+- Entry: `public Fin<Seq<(SKPoint A, SKPoint B, EdgeStyle Style)>> Project(MeshSource mesh)` — the `Viewport2D` record carries its `Basis` and `Region`, so `Project` folds the model through the seam-bound Fabrication hidden-line solver to the world-space visible/hidden/silhouette `Edge3` sets, then projects each surviving sub-edge into sheet-space line segments under the basis, tagging each with its `EdgeStyle` (visible solid, hidden dashed, silhouette emphasized) and clipping to the region.
+- Auto: `ProjectionBasis.From` derives the orthographic or perspective projection matrix from a `Viewpoint` camera so a saved 3D view drafts to a 2D viewport with the same basis — the drafting projection and the viewport camera share one camera vocabulary; standard views (top, front, right, iso) are basis presets; the projection scales model millimeters to sheet millimeters through the viewport scale so a 1:50 detail and a 1:1 detail are scale row values, never call-site arithmetic; visible-edge resolution composes the Fabrication BSP front-to-back visibility kernel — the `HiddenLineSeam` delegate runs the `Hlr.Solve` BSP-tree front-to-back occluder ordering plus Clipper2 open-path screen Boolean and returns the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets, and `Viewport2D.Project` maps each set's sub-edges to the sheet through the basis and tags the style, so a concave self-occluding solid resolves CAD-grade rather than by a painter approximation.
+- Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project), Rasm.Fabrication (project)
+- Growth: a new standard view is one `ProjectionBasis` preset; a new line style is one `EdgeStyle` row; the hidden-line algorithm deepens at the single Fabrication owner, never in this page; zero new surface.
+- Boundary: the projection basis derives from the `Viewpoint` camera so the drafting view and the GPU viewport share one camera shape and a second camera model is the deleted form; the projected geometry is the `MeshSource` boundary projection off the canonical Compute `GeometryPayload` so the page never re-tessellates — the same wire boundary the viewport meshlet build consumes; hidden-line removal is the single CAD-grade owner `cs:Rasm.Fabrication/projection/hidden-line#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility solver plus the Clipper2 open-path screen clip) composed through the `HiddenLineSeam` in-process delegate column — the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the two-sided CONSUMPTION seam has Fabrication produce the world-space visible/hidden/silhouette `Edge3` sets and AppUi own the projection-to-sheet, and a re-minted painter back-to-front sort or a second hidden-line kernel here is the deleted form; the GPU depth-buffer hidden-line is the `viewport-pipeline.md#RESEARCH` `[VIEWPORT_GPU]` consequence the live render graph rides while the Fabrication BSP kernel is the deterministic CAD-grade producer this page composes today; viewport scale is millimeter-to-millimeter row data and a hardcoded scale factor is the rejected form; the projected segments draw through the `DrawSource.Owned` capsule into the sheet region so the drafting page mints no second Skia-surface owner.
 
 ```csharp signature
 public sealed record ProjectionBasis(
@@ -146,25 +146,31 @@ public sealed partial class EdgeStyle {
     public bool Dashed { get; }
 }
 
-public sealed record Viewport2D(string Key, SheetRegion Region, ProjectionBasis Basis, EdgeStyle Style) {
-    public Fin<Seq<(SKPoint A, SKPoint B)>> Project(MeshSource mesh, Seq<(int A, int B)> edges) =>
-        mesh.Positions.Length < 3
-            ? Fin.Fail<Seq<(SKPoint A, SKPoint B)>>(new DraftFault.EmptyView(Key))
-            : Fin.Succ(HiddenLine.Visible(edges, Vertex, Basis).Map(edge => (Point(Vertex(edge.A)), Point(Vertex(edge.B)))));
+public readonly record struct HiddenLineEdgeSets(
+    Seq<((double X, double Y, double Z) A, (double X, double Y, double Z) B)> Visible,
+    Seq<((double X, double Y, double Z) A, (double X, double Y, double Z) B)> Hidden,
+    Seq<((double X, double Y, double Z) A, (double X, double Y, double Z) B)> Silhouette);
 
-    private (double X, double Y, double Z) Vertex(int index) =>
-        (mesh.Positions.Span[index * 3], mesh.Positions.Span[(index * 3) + 1], mesh.Positions.Span[(index * 3) + 2]);
+public sealed record HiddenLineSeam(
+    Func<MeshSource, ProjectionBasis, Fin<HiddenLineEdgeSets>> Solve) {
+    public Fin<HiddenLineEdgeSets> Resolve(MeshSource mesh, ProjectionBasis basis) => Solve(mesh, basis);
+}
+
+public sealed record Viewport2D(string Key, SheetRegion Region, ProjectionBasis Basis, HiddenLineSeam Hlr) {
+    public Fin<Seq<(SKPoint A, SKPoint B, EdgeStyle Style)>> Project(MeshSource mesh) =>
+        mesh.Positions.Length < 3
+            ? Fin.Fail<Seq<(SKPoint A, SKPoint B, EdgeStyle Style)>>(new DraftFault.EmptyView(Key))
+            : Hlr.Resolve(mesh, Basis).Map(sets =>
+                Styled(sets.Visible, EdgeStyle.Visible)
+                    + Styled(sets.Hidden, EdgeStyle.Hidden)
+                    + Styled(sets.Silhouette, EdgeStyle.Visible));
+
+    private Seq<(SKPoint A, SKPoint B, EdgeStyle Style)> Styled(
+        Seq<((double X, double Y, double Z) A, (double X, double Y, double Z) B)> edges, EdgeStyle style) =>
+        edges.Map(edge => (Point(edge.A), Point(edge.B), style));
 
     private SKPoint Point((double X, double Y, double Z) world) =>
         Basis.Map(world) switch { var p => new SKPoint((float)(Region.X + p.X), (float)(Region.Y - p.Y)) };
-}
-
-public static class HiddenLine {
-    public static Seq<(int A, int B)> Visible(Seq<(int A, int B)> edges, Func<int, (double X, double Y, double Z)> vertex, ProjectionBasis basis) =>
-        edges.OrderByDescending(edge => Depth(vertex(edge.A), basis) + Depth(vertex(edge.B), basis)).ToSeq();
-
-    private static double Depth((double X, double Y, double Z) world, ProjectionBasis basis) =>
-        (world.X * basis.Direction.X) + (world.Y * basis.Direction.Y) + (world.Z * basis.Direction.Z);
 }
 ```
 
@@ -247,12 +253,12 @@ public abstract partial record Annotation {
 
 - Owner: `DraftFormat` `[SmartEnum<string>]` the emit-format axis; `DraftFault` the fault family; `DraftEmit` the multi-format emit dispatch.
 - Cases: `DraftFormat` = pdf · svg · dwg · dxf under the locked kind literals; `DraftFault` = Text | RegionOutOfBounds | EmptyView | EntityWriterUnavailable in the 4600 code band.
-- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, SheetSet set, DraftFormat format, ProjectionBasis basis, ResolvedLocale locale, VisualDestination destination)` — `IO` rail; the composed sheet renders to the format and delivers to the destination.
-- Auto: the PDF arm composes each sheet as a `FlowBlock.Tile` page run through the visuals `SKDocument` export so a multi-sheet set is one paginated PDF; the SVG arm renders each sheet to an `SKCanvas` recording surface emitted as SVG text through `SKSvgCanvas`; the DWG and DXF arms write the projected entities (lines, arcs, text, dimensions) as model-space entities through the entity-writer surface; every emit lands one `RenderReceipt` of kind drawing carrying the format and the delivered destination.
+- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr)` — `IO` rail; the sheet projects each region through the `HiddenLineSeam` HLR, then renders to the format and delivers to the destination.
+- Auto: the PDF arm composes each sheet as a `FlowBlock.Tile` page run through the visuals `SKDocument` export so a multi-sheet set is one paginated PDF; the SVG arm renders each sheet to an `SKCanvas` recording surface emitted as SVG text through `SKSvgCanvas`; the DWG arm writes the projected line/arc/text/dimension entities as model-space `ACadSharp` `Line`/`Arc`/`MText`/`Dimension` entities into a `CadDocument` and serializes through `DwgWriter.Write` (`.api/api-drafting-export.md` ENTRYPOINTS 7-8), the DXF arm writes the same entity run as `netDxf` `Line`/`Arc`/`MText` entities into a `DxfDocument` and serializes through `DxfDocument.Save` (ENTRYPOINTS 3-5) — both layer the visible solid, hidden dashed, and silhouette runs onto named `Layer`/`Layers` table entries carrying their `LineType`/`linetype` so the CAD layer structure round-trips the `EdgeStyle` tag; every emit lands one `RenderReceipt` of kind drawing carrying the format and the delivered destination.
 - Receipt: one `RenderReceipt` of kind drawing per emit; sealed through the visuals encode receipt sink.
-- Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
-- Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; zero new surface.
-- Boundary: PDF and SVG ride the settled visuals document and Skia surfaces so the page mints no second exporter — the `SKDocument` PDF and the `SKSvgCanvas` SVG ship today; DWG and DXF write through the entity-writer surface whose exact entity-table spelling resolves under DRAFT_ENTITY, so those two arms are fence-complete and SPIKE-gated on the entity writer while PDF and SVG ship now; the destination union is the visuals `VisualDestination` so the drafting emit delivers through the one destination owner and a drafting-local file write is the rejected form; the emit receipt rides the visuals `RenderReceipt` family so the drafting page mints no second receipt vocabulary; vector content survives as picture content in PDF and as path elements in SVG so a drawing rasterizes only where the format demands.
+- Packages: SkiaSharp, ACadSharp, netDxf, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
+- Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; a new CAD entity kind is one `SheetEntity` projection arm written into both the `CadDocument` and `DxfDocument`; zero new surface.
+- Boundary: PDF and SVG ride the settled visuals document and Skia surfaces so the page mints no second exporter — the `SKDocument` PDF and the `SKSvgCanvas` SVG ship today; DWG writes through the `ACadSharp` `CadDocument`/`DwgWriter` typed-entity surface and DXF through the `netDxf` `DxfDocument` typed-entity surface — both go through the typed entity constructor then collection `Add`, never a raw group-code write (the `IMPLEMENTATION_LAW` LOCAL_ADMISSION reject), so the entity-writer bodies transcribe now and only the per-entity property spellings (the `Dimension` style table, the `MText` formatting codes) carry the residual DRAFT_ENTITY verification; the destination union is the visuals `VisualDestination` so the drafting emit delivers through the one destination owner and a drafting-local file write is the rejected form, the `SheetEntities` fold being the single projection of a `Sheet`'s viewports, dimensions, and title-block into the shared entity run both CAD writers consume so a DWG and a DXF of the same sheet carry identical entities; the emit receipt rides the visuals `RenderReceipt` family so the drafting page mints no second receipt vocabulary; vector content survives as picture content in PDF, path elements in SVG, and typed CAD entities in DWG/DXF so a drawing rasterizes only where the format demands.
 
 ```csharp signature
 [Union]
@@ -279,33 +285,117 @@ public sealed partial class DraftFormat {
     public bool Native { get; }
 }
 
+public readonly record struct SheetEntity(EdgeStyle Style, (double X, double Y) A, (double X, double Y) B);
+
 public static class DraftEmit {
     public const string Kind = "drawing";
 
-    public static IO<RenderReceipt> Emit(VisualRuntime runtime, SheetSet set, DraftFormat format, ProjectionBasis basis, ResolvedLocale locale, VisualDestination destination) =>
-        format.Native
-            ? format.Key == DraftFormat.Pdf.Key
-                ? VisualExport.Export(runtime, new VisualExportSpec("pdf", 0f, 0f, Pages(set, basis, locale), BreakRule.OnePerPage, destination))
-                : Svg(runtime, set, basis, locale, destination)
-            : IO.fail<RenderReceipt>(new DraftFault.EntityWriterUnavailable(format.Key));
+    public static IO<RenderReceipt> Emit(
+        VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, VisualDestination destination,
+        Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
+        Project(sheet, meshOf, hlr).Match(
+            Succ: entities => format.Key switch {
+                var key when key == DraftFormat.Pdf.Key =>
+                    VisualExport.Export(runtime, new VisualExportSpec("pdf", sheet.Size.PointWidth, sheet.Size.PointHeight,
+                        Seq((Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, sheet, entities, locale))), BreakRule.OnePerPage, destination)),
+                var key when key == DraftFormat.Svg.Key => Svg(runtime, sheet, entities, locale, destination),
+                var key when key == DraftFormat.Dwg.Key => CadEmit(runtime, sheet, entities, locale, destination, WriteDwg),
+                _ => CadEmit(runtime, sheet, entities, locale, destination, WriteDxf),
+            },
+            Fail: error => IO.fail<RenderReceipt>(error));
 
-    static Seq<Func<SKCanvas, Fin<Unit>>> Pages(SheetSet set, ProjectionBasis basis, ResolvedLocale locale) =>
-        set.Sheets.Map(sheet => (Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, sheet, basis, locale)));
+    static Fin<Seq<SheetEntity>> Project(Sheet sheet, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
+        sheet.Regions
+            .Map(region => new Viewport2D(region.Key, region, ProjectionBasis.Top, hlr) switch {
+                var view => meshOf(region.Key).Match(
+                    Some: mesh => view.Project(mesh).Map(segs => segs.Map(s => new SheetEntity(s.Style, (s.A.X, s.A.Y), (s.B.X, s.B.Y)))),
+                    None: () => Fin.Succ(Seq<SheetEntity>())),
+            })
+            .Fold(Fin.Succ(Seq<SheetEntity>()), (rail, region) => rail.Bind(acc => region.Map(acc.Concat)));
 
-    static IO<RenderReceipt> Svg(VisualRuntime runtime, SheetSet set, ProjectionBasis basis, ResolvedLocale locale, VisualDestination destination) =>
+    static IO<RenderReceipt> Svg(VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, VisualDestination destination) =>
         from bytes in IO.lift(() => {
             using MemoryStream sink = new();
-            set.Sheets.HeadOrNone().Iter(sheet => {
-                using SKCanvas canvas = SKSvgCanvas.Create(new SKRect(0f, 0f, sheet.Size.PointWidth, sheet.Size.PointHeight), sink);
-                ignore(Render(canvas, sheet, basis, locale));
-            });
+            using (SKCanvas canvas = SKSvgCanvas.Create(new SKRect(0f, 0f, sheet.Size.PointWidth, sheet.Size.PointHeight), sink)) {
+                ignore(Render(canvas, sheet, entities, locale));
+            }
             return sink.ToArray();
         })
-        from receipt in VisualCodec.Encode(runtime, SKImage.Create(new SKImageInfo(1, 1)), VisualCodec.Png, Kind, "drawings/sheet.svg")
-        select receipt with { Format = "svg", Bytes = bytes.LongLength };
+        from artifact in runtime.BlobWrite($"drawings/{sheet.Key}.svg", bytes)
+        let receipt = new RenderReceipt(Kind, DraftFormat.Svg.Key, runtime.ContentHash(bytes), bytes.LongLength, Duration.Zero, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
+        from _ in runtime.Sink(receipt)
+        select receipt;
 
-    static Fin<Unit> Render(SKCanvas canvas, Sheet sheet, ProjectionBasis basis, ResolvedLocale locale) =>
-        FinSucc(unit);
+    static IO<RenderReceipt> CadEmit(
+        VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, VisualDestination destination,
+        Func<Sheet, Seq<SheetEntity>, ResolvedLocale, byte[]> write) =>
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from bytes in IO.lift(() => write(sheet, entities, locale))
+        from artifact in Deliver(runtime, destination, bytes)
+        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+        let format = destination is VisualDestination.FilePath { AbsolutePath: var p } && p.EndsWith("dxf", StringComparison.OrdinalIgnoreCase) ? DraftFormat.Dxf.Key : DraftFormat.Dwg.Key
+        let receipt = new RenderReceipt(Kind, format, runtime.ContentHash(bytes), bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
+        from _ in runtime.Sink(receipt)
+        select receipt;
+
+    static byte[] WriteDwg(Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale) {
+        CadDocument doc = new();
+        LineType dashed = new("DASHED");
+        doc.LineTypes.Add(dashed);
+        Layer visible = new("draft-visible") { LineType = LineType.Continuous };
+        Layer hidden = new("draft-hidden") { LineType = dashed };
+        doc.Layers.Add(visible);
+        doc.Layers.Add(hidden);
+        entities.Iter(entity => {
+            Line line = new(new CSMath.XYZ(entity.A.X, entity.A.Y, 0d), new CSMath.XYZ(entity.B.X, entity.B.Y, 0d)) {
+                Layer = entity.Style.Dashed ? hidden : visible,
+            };
+            doc.Entities.Add(line);
+        });
+        TitleEntities(sheet, locale).Iter(text => doc.Entities.Add(text));
+        using MemoryStream sink = new();
+        DwgWriter.Write(sink, doc);
+        return sink.ToArray();
+    }
+
+    static byte[] WriteDxf(Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale) {
+        netDxf.DxfDocument doc = new(netDxf.Header.DxfVersion.AutoCad2018);
+        netDxf.Tables.Layer visible = new("draft-visible") { Linetype = netDxf.Tables.Linetype.Continuous };
+        netDxf.Tables.Layer hidden = new("draft-hidden") { Linetype = netDxf.Tables.Linetype.Dashed };
+        entities.Iter(entity => doc.Entities.Add(new netDxf.Entities.Line(
+            new netDxf.Vector2(entity.A.X, entity.A.Y), new netDxf.Vector2(entity.B.X, entity.B.Y)) {
+            Layer = entity.Style.Dashed ? hidden : visible,
+        }));
+        sheet.Title.Fields(locale).Iter((field, index) => doc.Entities.Add(new netDxf.Entities.MText(
+            field.Value, new netDxf.Vector2(10d, sheet.Size.HeightMm - 10d - (index * 6d)), 3d)));
+        using MemoryStream sink = new();
+        doc.Save(sink);
+        return sink.ToArray();
+    }
+
+    static Seq<MText> TitleEntities(Sheet sheet, ResolvedLocale locale) =>
+        sheet.Title.Fields(locale).Map((field, index) => new MText {
+            Value = field.Value,
+            InsertPoint = new CSMath.XYZ(10d, sheet.Size.HeightMm - 10d - (index * 6d), 0d),
+            Height = 3d,
+        });
+
+    static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
+        destination.Switch(
+            state: (runtime, payload),
+            filePath: static (ctx, file) => IO.lift(() => { File.WriteAllBytes(file.AbsolutePath, ctx.payload); return file.AbsolutePath; }),
+            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
+            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
+
+    static Fin<Unit> Render(SKCanvas canvas, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale) =>
+        entities.Fold(FinSucc(unit), (rail, entity) => rail.Bind(_ => {
+            using SKPaint paint = new() {
+                Color = SKColors.Black, StrokeWidth = entity.Style == EdgeStyle.Visible ? 0.5f : 0.25f, IsStroke = true,
+                PathEffect = entity.Style.Dashed ? SKPathEffect.CreateDash([3f, 2f], 0f) : null,
+            };
+            canvas.DrawLine((float)entity.A.X, (float)entity.A.Y, (float)entity.B.X, (float)entity.B.Y, paint);
+            return FinSucc(unit);
+        }));
 }
 ```
 
@@ -314,7 +404,7 @@ flowchart LR
     SheetSet --> Sheet
     Sheet --> Viewport2D
     Viewport2D --> ProjectionBasis
-    Viewport2D --> HiddenLine
+    Viewport2D -->|HiddenLineSeam| Hlr["Fabrication PROJECTION_HIDDEN_LINE"]
     Sheet --> Dimension
     Sheet --> Annotation
     Sheet --> DraftEmit
@@ -323,4 +413,5 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-- [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer surface — the line, arc, text, and dimension entity records and the entity-table write that emits a CAD-interoperable drawing; the admitted entity-writer package and its entity-construction members resolve at implementation, and the PDF (`SKDocument`) and SVG (`SKSvgCanvas`) emit arms, the sheet-set and title-block fold, the projection kernel, and the dimension and GD&T vocabulary are settled; the entity-writer member set is the unverified surface, and `SKSvgCanvas.Create(SKRect, Stream)` and `SKImage.Create` resolve against the installed SkiaSharp 3 surface.
+- [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer bodies transcribe now against the catalogued `ACadSharp` `CadDocument`/`Line`/`Layer`/`MText`/`DwgWriter.Write` and `netDxf` `DxfDocument`/`Line`/`Layer`/`MText`/`Save` surfaces (`.api/api-drafting-export.md`); the residual verification is the per-entity property spelling — `ACadSharp` exposes only the `LineType.Continuous`/`ByLayer`/`ByBlock` static singletons (NO `Dashed` singleton), so the hidden layer binds a constructed named `LineType("DASHED")` registered on `doc.LineTypes` whose `Segments` dash pattern resolves at implementation, while `netDxf.Tables.Linetype` does carry the `Continuous`/`Dashed` statics; the `CSMath.XYZ` point constructor, the `netDxf.Vector2`/`MText` height arity, and the `Dimension`-entity style-table mapping for a dimensioned drawing (`Dimension` entity is catalogued PUBLIC_TYPE but its style-table population resolves at implementation) resolve against the installed ACadSharp 3.6.29 / netDxf 2023.11.10 surface; the projected line run, the layer `EdgeStyle` mapping, the title-block text entities, the `DwgWriter.Write(Stream, CadDocument)` static (its config/notification tail defaulted), and the `SKSvgCanvas.Create(SKRect, Stream)` SVG path are settled.
+- [HIDDEN_LINE_SEAM]: the CAD-grade hidden-line removal is the single Fabrication owner `cs:Rasm.Fabrication/projection/hidden-line#PROJECTION_HIDDEN_LINE` (`Hlr.Solve` over the BSP front-to-back visibility tree plus the Clipper2 open-path screen Boolean), composed here through the `HiddenLineSeam` in-process delegate column AppUi binds at composition — a two-sided CONSUMPTION seam where Fabrication produces the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets and AppUi owns the projection-to-sheet; the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the `MeshSource`-to-`FrontierInput` adapter (the `ProjectionBasis`-to-`ProjectionDir` and `MeshSource`-to-`MeshSpace` projection) binds at the seam delegate where the Fabrication `FrontierInput`/`FrontierPolicy.HiddenLine` shape meets the AppUi `MeshSource`, and a re-minted painter sort here is the rejected form.
