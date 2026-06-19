@@ -8,6 +8,7 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 - [2]-[CHANGE_PIPELINES]: Operator rows; dynamic predicate, comparer, page, window streams.
 - [3]-[BINDING_CAPSULE]: One UI-thread binding edge; single `ObserveOn`; the fault rail.
 - [4]-[AGGREGATION_SPINE]: Stat folds, change-audit evidence, suspend-resume law.
+
 ## [2]-[DATA_SOURCES]
 
 - Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection.

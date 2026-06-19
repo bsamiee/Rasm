@@ -8,6 +8,7 @@ The animation rail is the temporal model: `Track` is the closed keyframe-track u
 - [2]-[TIMELINE]: Track composition; deterministic playhead; sample-at-time fold.
 - [3]-[SCRUB]: Kinematic playback; transient-field scrubbing by frame index.
 - [4]-[WALKTHROUGH]: Offline frame-sequence render to the encode rail.
+
 ## [2]-[TRACK_MODEL]
 
 - Owner: `Keyframe<T>` the timed value with its easing; `Track` `[Union]` the track-kind family; `Easing` the motion-token interpolation projection.

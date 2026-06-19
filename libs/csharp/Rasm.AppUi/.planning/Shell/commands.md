@@ -9,6 +9,7 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 - [3]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink envelope.
 - [4]-[PALETTE_AND_REMOTE]: Derivation folds, span-ranked palette search, remote and control verbs.
 - [5]-[TS_PROJECTION]: Intent, availability, invocation, and receipt wire shapes.
+
 ## [2]-[INTENT_TABLE]
 
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.

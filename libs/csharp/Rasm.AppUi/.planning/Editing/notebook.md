@@ -8,6 +8,7 @@ The notebook rail is the reproducible computational-document model: `NotebookCel
 - [2]-[DEPENDENCY_GRAPH]: Cell DAG, dirty propagation, recompute over the affected closure.
 - [3]-[CRDT_COEDIT]: Conflict-free replicated document; op-log merge co-editing.
 - [4]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
+
 ## [2]-[CELL_MODEL]
 
 - Owner: `CapabilityPin` the pinned-capability fingerprint; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.

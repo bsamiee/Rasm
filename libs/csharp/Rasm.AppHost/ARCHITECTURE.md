@@ -1,6 +1,6 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-The professional domain map of `Rasm.AppHost` — the APP-PLATFORM runtime spine. One domain-folder owner per concern with closed cases, every entrypoint a typed rail, and every cross-package fact crossing one of the seven inward port records across the five folders (Runtime, Agent, Wire, Sandbox, Observability).
+The domain map of `Rasm.AppHost` — the APP-PLATFORM runtime spine. One domain-folder owner per concern with closed cases, every entrypoint a typed rail, and every cross-package fact crossing the inward port records across the Runtime, Agent, Wire, Sandbox, and Observability folders.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,32 +8,32 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 Rasm.AppHost/
-├── Runtime/             # the runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism
-│   ├── Profiles.cs      # host-variance profile axis, lifetime adapters, power/thermal fidelity
-│   ├── Lifecycle.cs     # the total lifecycle/phase/drain/cancellation spine
-│   ├── Time.cs          # injected clock pair, deadline taxonomy, and the one scheduler
-│   ├── Resources.cs     # bounded resource lanes: hybrid cache, object pools, drainable queues
-│   ├── Modules.cs       # the one composition root folding and freezing the service graph
-│   ├── Config.cs        # ranked config-source chain with fail-closed source-gen binding
-│   ├── Ports.cs         # the seven inward port records — the only cross-package seam
-│   └── Determinism.cs   # reproducibility kernel: pinned RNG/float-mode + hash-chained command log
-├── Agent/               # the bidirectional agent surface over the capability registry
-│   ├── Mcp.cs           # the MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
-│   ├── Reasoning.cs     # in-process agent loop over IChatClient function-calling
-│   ├── Federation.cs    # folds external MCP servers into the one registry as brokered descriptors
-│   └── Capability.cs    # the self-describing CapabilityDescriptor op catalog and command algebra
-├── Wire/                # the outbound and external-binding seam
-│   ├── Outbound.cs      # the single outbound boundary with per-seam retry/cache and delivery fan-out
-│   ├── LiveWire.cs      # the reactive bidirectional external-binding studio over the industrial-transport axis
-│   └── Companion.cs     # multi-process modality axis and the gRPC-over-UDS control-service host
-├── Sandbox/             # capability-brokered plugin isolation and the solver-plugin contract
-│   ├── Isolation.cs     # capability-brokered WASM/process plugin isolation with no-ambient-authority grants
-│   ├── Solver.cs        # the seven-kind solver-plugin contract with canonical-representation negotiation
-│   └── Provisioning.cs  # post-fetch self-update state machine with health-gated rolling waves
-└── Observability/       # four-signal telemetry, health, and redacted support capture
-    ├── Telemetry.cs     # unified four-signal telemetry through minted identities and egress redaction
-    ├── Health.cs        # the resource-pressure health fold and the degradation/alert rails
-    └── Bundles.cs       # bounded redacted support capture
+├── Runtime/             # Runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism
+│   ├── Profiles.cs      # Host-variance profile axis, lifetime adapters, power/thermal fidelity
+│   ├── Lifecycle.cs     # Total lifecycle/phase/drain/cancellation spine
+│   ├── Time.cs          # Injected clock pair, deadline taxonomy, and one scheduler
+│   ├── Resources.cs     # Bounded resource lanes: hybrid cache, object pools, drainable queues
+│   ├── Modules.cs       # One composition root folding and freezing service graph
+│   ├── Config.cs        # Ranked config-source chain with fail-closed source-gen binding
+│   ├── Ports.cs         # Seven inward port records — only cross-package seam
+│   └── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
+├── Agent/               # Bidirectional agent surface over capability registry
+│   ├── Mcp.cs           # MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
+│   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling
+│   ├── Federation.cs    # Folds external MCP servers into one registry as brokered descriptors
+│   └── Capability.cs    # Self-describing CapabilityDescriptor op catalog and command algebra
+├── Wire/                # Outbound and external-binding seam
+│   ├── Outbound.cs      # Single outbound boundary with per-seam retry/cache and delivery fan-out
+│   ├── LiveWire.cs      # Reactive bidirectional external-binding studio over industrial-transport axis
+│   └── Companion.cs     # Multi-process modality axis and gRPC-over-UDS control-service host
+├── Sandbox/             # Capability-brokered plugin isolation and solver-plugin contract
+│   ├── Isolation.cs     # Capability-brokered WASM/process plugin isolation with no-ambient-authority grants
+│   ├── Solver.cs        # Seven-kind solver-plugin contract with canonical-representation negotiation
+│   └── Provisioning.cs  # Post-fetch self-update state machine with health-gated rolling waves
+└── Observability/       # Four-signal telemetry, health, and redacted support capture
+    ├── Telemetry.cs     # Unified four-signal telemetry through minted identities and egress redaction
+    ├── Health.cs        # Resource-pressure health fold and degradation/alert rails
+    └── Bundles.cs       # Bounded redacted support capture
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
@@ -41,20 +41,23 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [2]-[SEAMS]
 
 ```text seams
-Agent/Capability.cs         →  typescript:interchange/codec       # CapabilityDescriptor command-shape (content-key)
-Runtime/Ports.cs            →  typescript:interchange/codec       # HLC two-half bigint round-trip parity (content-key)
-Runtime/Ports.cs            ⇄  python:runtime/execution           # CausalFrame Hlc two-half + Tenant (port)
-*                           →  typescript:services                # CredentialPemWire redacted carrier (wire)
-*                           →  typescript:interchange             # support-capture verb (wire)
-Agent/Capability.cs         ⇄  python:runtime/transport           # DiscoveryResult capability invoke + CommandReceipt (wire)
-Observability/Health.cs     →  typescript:projection/evidence     # DegradationLevel / CommandAvailabilityWire (wire)
-Observability/Telemetry.cs  ←  python:runtime/observability       # W3C trace-context inbound extraction (wire)
-Observability/Telemetry.cs  →  typescript:ui/render               # BenchmarkClaimWire / HostFingerprintWire identity gate (wire)
-Runtime/Config.cs           →  python:runtime/execution           # CredentialPem (wire)
-Runtime/Ports.cs            ⇄  python:runtime/transport           # HLC two-half stamp + Tenant partition (wire)
-Runtime/Ports.cs            →  typescript:projection/evidence     # ReceiptEnvelopeWire / HlcStampWire / TenantContextWire (wire)
-Wire/Livewire.cs            →  typescript:ui/render               # BindingStatusWire / CoercedValueWire / WriteReceiptWire (wire)
-Observability/Telemetry.cs  →  typescript:platform/observability  # OtelExport OTLP egress (transport)
+Agent/Capability.cs         →  typescript:interchange/codec         # [CONTENT_KEY]: CapabilityDescriptor command-shape
+Runtime/Ports.cs            →  typescript:interchange/codec         # [CONTENT_KEY]: HLC two-half bigint round-trip parity
+Runtime/Ports.cs            ⇄  python:runtime/execution             # [PORT]: CausalFrame Hlc two-half + Tenant
+*                           →  typescript:services                  # [WIRE]: CredentialPemWire redacted carrier
+*                           →  typescript:interchange               # [WIRE]: support-capture verb
+Agent/Capability.cs         ⇄  python:runtime/transport             # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
+Observability/Health.cs     →  typescript:projection/evidence       # [WIRE]: DegradationLevel / CommandAvailabilityWire
+Observability/Telemetry.cs  ←  python:runtime/observability         # [WIRE]: W3C trace-context inbound extraction
+Observability/Telemetry.cs  →  typescript:ui/render                 # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
+Runtime/Config.cs           →  python:runtime/execution             # [WIRE]: CredentialPem
+Runtime/Ports.cs            ⇄  python:runtime/transport             # [WIRE]: HLC two-half stamp + Tenant partition
+Runtime/Ports.cs            →  typescript:projection/evidence       # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
+Wire/Livewire.cs            →  typescript:ui/render                 # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
+Observability/Telemetry.cs  →  typescript:platform/observability    # [TRANSPORT]: OtelExport OTLP egress
+Runtime                     ←  csharp:Rasm/Geometry/Drawing         # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
+Runtime                     →  csharp:Rasm.AppUi/Editing/notebook   # [PORT]: DeterminismContext / CapabilityPin environment identity
+Runtime                     →  csharp:Rasm.Persistence/Query/cache  # [PORT]: TenantId RLS + cache L2 partition
 ```
 
 ## [3]-[SPINE]

@@ -9,6 +9,7 @@ The presentation rail is the client-facing design-review deliverable: `ReviewTou
 - [3]-[NARRATION]: Per-stop caption projected onto the typography role vocabulary; shaped runs.
 - [4]-[TOUR_SOURCE]: `TourSource` closed family; saved-sequence and BCF-topic-set projections.
 - [5]-[WALKTHROUGH_RENDER]: Offline tour render through the visuals destination over the timeline fold.
+
 ## [2]-[TOUR_MODEL]
 
 - Owner: `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `ReviewTour` `[ValueObject]` the ordered non-empty `Seq<TourStop>` with its tour key; `TourFault` the construction fault rail in the 4300 code band.

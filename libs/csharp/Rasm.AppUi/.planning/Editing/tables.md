@@ -8,6 +8,7 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 - [2]-[VIEW_STATE]: Serializable collection-view snapshot applied in one `DeferRefresh`.
 - [3]-[TREE_FLATTEN]: Five projection cases fold to one flat virtualized `TreeRow` stream.
 - [4]-[GRID_COMMIT]: Edit commits ride `CommandIntent` rails; exports ride one spec record.
+
 ## [2]-[GRID_SUBSTRATE]
 
 - Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` closes the cell vocabulary.

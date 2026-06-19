@@ -1,6 +1,6 @@
 # [PY_RUNTIME_ARCHITECTURE]
 
-The professional domain map of `runtime` — the host-free execution foundation the four Python siblings compose. One polymorphic owner per sub-domain (`observability`, `reliability`, `transport`, `execution`, `evidence`), minting the shared content-identity, fault rail, resilience, admission, transport, and receipt vocabulary.
+The domain map of `runtime` — the host-free execution foundation the Python siblings compose. One polymorphic owner per sub-domain (`observability`, `reliability`, `transport`, `execution`, `evidence`), minting the shared content-identity, fault rail, resilience, admission, transport, and receipt vocabulary.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,41 +8,43 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 runtime/
-├── observability/     # local evidence production: receipts, the contributor port, signals, the OTLP gate
-│   ├── receipts.py    # the Receipt union, ReceiptContributor port, and structlog/OTel/psutil signals
-│   ├── metrics.py     # async-observable durations/drain-counters/process-gauges over the MeterProvider
-│   └── telemetry.py   # the one OTLP install owner minting the Resource + provider trio, profile-gated
-├── reliability/       # the one fault family and resilience policy every sibling returns through
-│   ├── faults.py      # the BoundaryFault tagged union and the one exception-to-fault boundary
-│   └── resilience.py  # the Retry stamina-backed policy table, one row per retryable class
-├── transport/         # filesystem/object-store roots, remote-AEC transports, and the companion server
+├── observability/     # Local evidence production: receipts, contributor port, signals, OTLP gate
+│   ├── receipts.py    # Receipt union, ReceiptContributor port, and structlog/OTel/psutil signals
+│   ├── metrics.py     # Async-observable durations/drain-counters/process-gauges over MeterProvider
+│   └── telemetry.py   # One OTLP install owner minting Resource + provider trio, profile-gated
+├── reliability/       # One fault family and resilience policy every sibling returns through
+│   ├── faults.py      # BoundaryFault tagged union and one exception-to-fault boundary
+│   └── resilience.py  # Retry stamina-backed policy table, one row per retryable class
+├── transport/         # Filesystem/object-store roots, remote-AEC transports, and companion server
 │   ├── roots.py       # ResourceRoot/ResourceRef over fsspec/upath/obstore and HTTP/SSH TransportResource
-│   └── serve.py       # the ServerHost grpc.aio lifecycle, decoded Credential axis, and cyclopts Entrypoint
-├── execution/         # caller-owned admission of host facts and bounded structured concurrency
-│   ├── admission.py   # RuntimeContext policy table, causal frames, and the SettingsAdmission secret boundary
-│   └── lanes.py       # LanePolicy anyio task groups with DrainReceipt and the StagePlan DAG
-└── evidence/          # content-addressing plus external-surface and structural-parsing evidence
-    ├── identity.py    # ContentIdentity/ContentKey reproducing the C# XxHash128 seed bit-identically
+│   └── serve.py       # ServerHost grpc.aio lifecycle, decoded Credential axis, and cyclopts Entrypoint
+├── execution/         # Caller-owned admission of host facts and bounded structured concurrency
+│   ├── admission.py   # RuntimeContext policy table, causal frames, and SettingsAdmission secret boundary
+│   └── lanes.py       # LanePolicy anyio task groups with DrainReceipt and StagePlan DAG
+└── evidence/          # Content-addressing plus external-surface and structural-parsing evidence
+    ├── identity.py    # ContentIdentity/ContentKey reproducing C# XxHash128 seed bit-identically
     └── evidence.py    # ApiPackage/ApiMember reflection and Structural tree-sitter queries
 ```
 
 ## [2]-[SEAMS]
 
 ```text seams
-evidence/identity        ⇄  csharp:Rasm/Geometry               # XxHash128 digest endianness + seed parity (content-key)
-execution/admission      ⇄  csharp:Rasm.AppHost/Runtime        # CausalFrame Hlc two-half + Tenant (port)
-execution/admission      ←  csharp:Rasm.AppHost/Runtime        # CredentialPem (wire)
-observability/receipts   →  csharp:Rasm.AppHost/Observability  # W3C trace-context inbound extraction (wire)
-transport/serve          ⇄  csharp:Rasm.Compute/Runtime        # PROTO_VOCABULARY (wire)
-transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # DiscoveryResult capability invoke + CommandReceipt (wire)
-transport/serve          ⇄  csharp:Rasm.AppHost/Runtime        # HLC two-half stamp + Tenant partition (wire)
-transport/serve          ⇄  csharp:Rasm.Persistence/Version    # CrdtOpWire MessagePack union decode (wire)
-transport/serve          ⇄  csharp:Rasm.Persistence/Sync       # OpLogEntry.Payload MessagePack CRDT delta (wire)
-observability/telemetry  ⇄  csharp:Rasm.AppHost/Observability  # trace-context + OTLP egress (transport)
-transport/roots          ⇄  csharp:Rasm.AppHost/Runtime        # TransportResource HTTP/SSH remote-artifact acquisition (transport)
-transport/serve          ←  csharp:Rasm.AppHost/Runtime        # gRPC ServerHost / CRDT MessagePack (transport)
-evidence                 ←  python:geometry/mesh               # ContentIdentity.of keyed GLB bytes with policy seed (content-key)
-evidence/identity        →  python:data/tabular                # ContentIdentity content-key (content-key)
+evidence/identity        ⇄  csharp:Rasm/Geometry               # [CONTENT_KEY]: XxHash128 digest endianness + seed parity
+execution/admission      ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: CausalFrame Hlc two-half + Tenant
+execution/admission      ←  csharp:Rasm.AppHost/Runtime        # [WIRE]: CredentialPem
+observability/receipts   →  csharp:Rasm.AppHost/Observability  # [WIRE]: W3C trace-context inbound extraction
+transport/serve          ⇄  csharp:Rasm.Compute/Runtime        # [WIRE]: PROTO_VOCABULARY
+transport/serve          ⇄  csharp:Rasm.AppHost/Agent          # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
+transport/serve          ⇄  csharp:Rasm.AppHost/Runtime        # [WIRE]: HLC two-half stamp + Tenant partition
+transport/serve          ⇄  csharp:Rasm.Persistence/Version    # [WIRE]: CrdtOpWire MessagePack union decode
+transport/serve          ⇄  csharp:Rasm.Persistence/Sync       # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
+observability/telemetry  ⇄  csharp:Rasm.AppHost/Observability  # [TRANSPORT]: trace-context + OTLP egress
+transport/roots          ⇄  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
+transport/serve          ←  csharp:Rasm.AppHost/Runtime        # [TRANSPORT]: gRPC ServerHost / CRDT MessagePack
+evidence                 ←  python:geometry/mesh               # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes with policy seed
+evidence/identity        →  python:data/tabular                # [CONTENT_KEY]: ContentIdentity content-key
+observability            ←  python:artifacts/receipt           # [RECEIPT]: ArtifactReceipt receipt-facts contribution
+transport/serve          ⇄  python:compute/numerics            # [WIRE]: ContentIdentity array backend dispatch
 ```
 
 ## [3]-[BOUNDARIES]

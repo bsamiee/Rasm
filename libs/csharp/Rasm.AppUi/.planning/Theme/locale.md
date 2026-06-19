@@ -8,6 +8,7 @@ One locale law serves every AppUi surface: `LocaleRow` is the culture axis — t
 - [2]-[STRING_TABLES]: Inbox resx vocabulary, nameof-derived keys, `PropertyGrid` bridge.
 - [3]-[CULTURE_COMPOSITION]: Resolve fold, atomic switch, pattern and format binding.
 - [4]-[RTL_MIRRORING]: Flow application at surface root, icon mirroring exemption.
+
 ## [2]-[LOCALE_AXIS]
 
 - Owner: `LocaleKeyPolicy` single ordinal-ignore-case key accessor; `LocaleRow` `[SmartEnum<string>]` culture axis.

@@ -1,6 +1,6 @@
 # [RASM_BIM]
 
-`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
+`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
 ## [1]-[ROUTER]
 

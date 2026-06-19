@@ -27,7 +27,7 @@ using ACadSharp.IO;
 using CSMath;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.Frontier;
+using Rasm.Fabrication.Process;
 using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;

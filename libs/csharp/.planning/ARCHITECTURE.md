@@ -11,7 +11,7 @@ libs/csharp/
 ├── Rasm/              # KERNEL        — RhinoCommon-aware geometry/numeric kernel
 ├── Rasm.Materials/    # AEC-DOMAIN    — Host-neutral profiles, appearance, and construction
 ├── Rasm.Bim/          # AEC-DOMAIN    — Host-neutral BIM object model and IFC/glTF/STEP exchange
-├── Rasm.Fabrication/  # AEC-DOMAIN    — Host-neutral portable fabrication frontier
+├── Rasm.Fabrication/  # AEC-DOMAIN    — Host-neutral portable fabrication
 ├── Rasm.AppHost/      # APP-PLATFORM  — Runtime spine: lifecycle, clocks, config, ports, observability
 ├── Rasm.Compute/      # APP-PLATFORM  — Measured execution: tensor, model, solver, runtime
 ├── Rasm.Persistence/  # APP-PLATFORM  — Durable stores: store, schema, query, version, sync
@@ -25,13 +25,13 @@ The eight planning-scoped packages carry a `.planning/` scaffold with the four i
 ## [2]-[SEAMS]
 
 ```text seams
-Rasm.AppHost      →  typescript:interchange  # ReceiptEnvelope/HLC/Tenant + capability SDK (wire)
-Rasm.Compute      →  typescript:interchange  # proto suite wire + FaultDetail (wire)
-Rasm.Persistence  →  typescript:interchange  # OpLog/Snapshot CRDT wire (wire)
-Rasm              →  python:runtime          # XxHash128 content-identity seed parity (content-key)
-Rasm.Bim          ⇄  python:geometry         # GLB/IFC tessellation rail — C# requests, Python evaluates (tessellation)
-Rasm.AppHost      ⇄  python:runtime          # gRPC companion server + capability invoke (wire)
-Rasm.Compute      ←  python:compute          # graduation evidence HandoffAxis (graduation)
+Rasm.AppHost      →  typescript:interchange  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
+Rasm.Compute      →  typescript:interchange  # [WIRE]: proto suite wire + FaultDetail
+Rasm.Persistence  →  typescript:interchange  # [WIRE]: OpLog/Snapshot CRDT wire
+Rasm              →  python:runtime          # [CONTENT_KEY]: XxHash128 content-identity seed parity
+Rasm.Bim          ⇄  python:geometry         # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
+Rasm.AppHost      ⇄  python:runtime          # [WIRE]: gRPC companion server + capability invoke
+Rasm.Compute      ←  python:compute          # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
 ## [3]-[DEPENDENCY_DIRECTION]

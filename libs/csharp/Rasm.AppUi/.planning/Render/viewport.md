@@ -10,6 +10,7 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 - [4]-[PATH_TRACE]: BVH build/refit, ReSTIR reservoirs, progressive accumulation, denoise.
 - [5]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes.
 - [6]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection as a BCF receipt.
+
 ## [2]-[RENDER_GRAPH]
 
 - Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family; `ResolvePass` `[SmartEnum]` the antialias-and-super-resolution resolve ladder the `Composite` pass selects; `ResolvePolicy` the per-tier delegate-row binding.

@@ -8,13 +8,13 @@ Each node is a package folder; the language's `.planning/` scaffold is authoring
 
 ```text codemap
 libs/typescript/
-├── interchange/  # the byte-to-typed-and-back wire boundary and inbound dependency root
-├── projection/   # the read-side fold-algebra owner over keyedFold and StreamPolicy
-├── ui/           # the host-free browser UI/UX/components library over the decoded wire
-├── platform/     # the browser AppHost-analog: composition root, runtime, and host owners
-├── services/     # the host-free node durable interior and its deploy-time IaC
-├── edge/         # the public HTTP/edge ingress tier (NEW-FOLDER CANDIDATE)
-└── testing/      # the shared property-testing spine and wire fixtures (NEW-FOLDER CANDIDATE)
+├── interchange/  # Byte-to-typed-and-back wire boundary and inbound dependency root
+├── projection/   # Read-side fold-algebra owner over keyedFold and StreamPolicy
+├── ui/           # Host-free browser UI/UX/components library over decoded wire
+├── platform/     # Browser AppHost-analog: composition root, runtime, and host owners
+├── services/     # Host-free node durable interior and its deploy-time IaC
+├── edge/         # Public HTTP/edge ingress tier (NEW-FOLDER CANDIDATE)
+└── testing/      # Shared property-testing spine and wire fixtures (NEW-FOLDER CANDIDATE)
 ```
 
 `interchange`/`projection` form the platform-neutral interior every publication composes; `ui`/`platform` are the browser publication; `services` is the node durable interior; `edge` is the public ingress leaf. `edge/` and `testing/` are NEW-FOLDER CANDIDATES the branch adopts on the `libs/typescript/*` glob.
@@ -22,12 +22,12 @@ libs/typescript/
 ## [2]-[SEAMS]
 
 ```text seams
-interchange  ←  csharp:Rasm.AppHost      # ReceiptEnvelope/HLC/Tenant + capability SDK (wire)
-interchange  ←  csharp:Rasm.Compute      # proto suite wire + FaultDetail (wire)
-interchange  ←  csharp:Rasm.Persistence  # OpLog/Snapshot CRDT wire (wire)
-interchange  ⇄  csharp:Rasm              # XxHash128 content-key parity (content-key)
-projection   ←  csharp:Rasm.AppUi        # evidence / availability / command wire (wire)
-ui           ←  csharp:Rasm.Bim          # BCF topic / viewpoint wire (wire)
+interchange  ←  csharp:Rasm.AppHost      # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
+interchange  ←  csharp:Rasm.Compute      # [WIRE]: proto suite wire + FaultDetail
+interchange  ←  csharp:Rasm.Persistence  # [WIRE]: OpLog/Snapshot CRDT wire
+interchange  ⇄  csharp:Rasm              # [CONTENT_KEY]: XxHash128 content-key parity
+projection   ←  csharp:Rasm.AppUi        # [WIRE]: evidence / availability / command wire
+ui           ←  csharp:Rasm.Bim          # [WIRE]: BCF topic / viewpoint wire
 ```
 
 ## [3]-[DEPENDENCY_DIRECTION]

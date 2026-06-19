@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-The professional domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine. One sub-domain owner per concern with closed cases, every durable shape riding one closed lane axis folded against the store-profile engine rows across five folders (Store, Schema, Query, Version, Sync).
+The domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine. One sub-domain owner per concern with closed cases, every durable shape riding one closed lane axis folded against the store-profile engine rows across the Store, Schema, Query, Version, and Sync folders.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,32 +8,32 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 Rasm.Persistence/
-├── Store/                # the durable store tier: engine, profiles, remote, server
-│   ├── Engine.cs         # the embedded-SQLite floor: PRAGMA ladder, maintenance ops, encryption gate
-│   ├── Profiles.cs       # the six-row store-profile engine axis with placement fold and cost catalog
-│   ├── Remote.cs         # cloud object-store residence behind the BlobRemote contract
-│   └── Server.cs         # the self-provisioned PostgreSQL 18.4 tier with TimescaleDB and tenancy/RLS
-├── Schema/               # the schema and migration rails
-│   ├── Identity.cs       # the key axis with identity migration, object ACL, and signed authorship
-│   ├── Migration.cs      # the drift-fingerprint gate, expand/contract classifier, and receipted apply
-│   ├── Ddl.cs            # generated columns and the extension/index/temporal/check DDL set
-│   └── Converters.cs     # the converter/naming registration and compiled mount
-├── Query/                # the query, lane, cache, and federation rails
-│   ├── Rail.cs           # the StoreOp operation algebra with keyset pagination and changefeed
-│   ├── Lanes.cs          # the seven-case DataLane axis folded against profile capability
-│   ├── Cache.cs          # the HybridCache L2 contribution and the result/artifact/benchmark indexes
-│   └── Federation.cs     # the source-agnostic federated entity graph and ElementSet query algebra
-├── Version/              # the version-control history rails
-│   ├── Commits.cs        # the content-addressed commit-DAG and the op/delta-state CRDT
+├── Store/                # Durable store tier: engine, profiles, remote, server
+│   ├── Engine.cs         # Embedded-SQLite floor: PRAGMA ladder, maintenance ops, encryption gate
+│   ├── Profiles.cs       # Six-row store-profile engine axis with placement fold and cost catalog
+│   ├── Remote.cs         # Cloud object-store residence behind BlobRemote contract
+│   └── Server.cs         # Self-provisioned PostgreSQL 18.4 tier with TimescaleDB and tenancy/RLS
+├── Schema/               # Schema and migration rails
+│   ├── Identity.cs       # Key axis with identity migration, object ACL, and signed authorship
+│   ├── Migration.cs      # Drift-fingerprint gate, expand/contract classifier, and receipted apply
+│   ├── Ddl.cs            # Generated columns and extension/index/temporal/check DDL set
+│   └── Converters.cs     # Converter/naming registration and compiled mount
+├── Query/                # Query, lane, cache, and federation rails
+│   ├── Rail.cs           # StoreOp operation algebra with keyset pagination and changefeed
+│   ├── Lanes.cs          # Seven-case DataLane axis folded against profile capability
+│   ├── Cache.cs          # HybridCache L2 contribution and result/artifact/benchmark indexes
+│   └── Federation.cs     # Source-agnostic federated entity graph and ElementSet query algebra
+├── Version/              # Version-control history rails
+│   ├── Commits.cs        # Content-addressed commit-DAG and op/delta-state CRDT
 │   ├── TimeTravel.cs     # AS-OF reconstruction with checkpoint, range diff, blame, and scrub
-│   ├── Diff.cs           # tree-edit node-identity match, three-way merge, typed conflict classes
-│   ├── Provenance.cs     # the W3C-PROV causal DAG and the tamper-evident attested ledger
-│   ├── Snapshots.cs      # the content-addressed snapshot spine with sealed codec axis
-│   └── Retention.cs      # classification enforcement, receipted retention sweep, reachability GC
-└── Sync/                 # the collaboration, annotation, and schedule sync rails
-    ├── Collaboration.cs  # the op-log changefeed, HLC-stamped LWW merge, and three sync transports
-    ├── Annotation.cs     # anchored-annotation algebra, BCF coordination, and CDE OAuth2 sync
-    └── Schedule.cs       # P6/MS-Project schedule interchange and the 4D construction state
+│   ├── Diff.cs           # Tree-edit node-identity match, three-way merge, typed conflict classes
+│   ├── Provenance.cs     # W3C-PROV causal DAG and tamper-evident attested ledger
+│   ├── Snapshots.cs      # Content-addressed snapshot spine with sealed codec axis
+│   └── Retention.cs      # Classification enforcement, receipted retention sweep, reachability GC
+└── Sync/                 # Collaboration, annotation, and schedule sync rails
+    ├── Collaboration.cs  # Op-log changefeed, HLC-stamped LWW merge, and three sync transports
+    ├── Annotation.cs     # Anchored-annotation algebra, BCF coordination, and CDE OAuth2 sync
+    └── Schedule.cs       # P6/MS-Project schedule interchange and 4D construction state
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The `Version`, `Query/Federation`, and `Sync` rails plus the classification/cost catalog in `Store/Profiles` ride the existing op-log changefeed, content-addressed snapshots, and PostGIS lanes, and never admit a new engine.
@@ -41,20 +41,20 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [2]-[SEAMS]
 
 ```text seams
-*                   →  typescript:projection              # ElementSet stable receipt algebra (wire)
-Sync/collaboration  →  typescript:interchange/codec       # OpLogEntryWire / CrdtOpWire (wire)
-Sync/collaboration  ⇄  python:runtime/transport           # OpLogEntry.Payload MessagePack CRDT delta (wire)
-Version/commits     ⇄  python:runtime/transport           # CrdtOpWire MessagePack union (wire)
-Version/snapshots   →  typescript:interchange/codec       # SnapshotHeaderWire (wire)
-Version/commits     →  typescript:interchange/refinement  # JsonPointer RFC6901 Guid brand (shape)
-*                   ←  csharp:Rasm.Compute                # content-keyed blob (content-key)
-Query/cache         →  csharp:Rasm.Bim/Model              # ArtifactIndexRow IfcSemantic content-addressed model graph (content-key)
-Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # EmbeddingIdentity content x model-id x arity (content-key)
-Version/commits     ⇄  csharp:Rasm.Compute/Runtime        # HandoffAxis graduation evidence (graduation)
-Query/cache         ←  csharp:Rasm.AppHost/Runtime        # TenantId RLS + cache L2 partition (port)
-Sync                →  csharp:Rasm.Compute/Runtime        # content-key delta via FastCDC (projection)
-Sync                →  csharp:Rasm.AppUi/Editing          # NotebookOp op-log (projection)
-Sync/annotation     →  csharp:Rasm.AppUi/Editing          # annotation collaboration op-log (projection)
+*                   →  typescript:projection              # [WIRE]: ElementSet stable receipt algebra
+Sync/collaboration  →  typescript:interchange/codec       # [WIRE]: OpLogEntryWire / CrdtOpWire
+Sync/collaboration  ⇄  python:runtime/transport           # [WIRE]: OpLogEntry.Payload MessagePack CRDT delta
+Version/commits     ⇄  python:runtime/transport           # [WIRE]: CrdtOpWire MessagePack union
+Version/snapshots   →  typescript:interchange/codec       # [WIRE]: SnapshotHeaderWire
+Version/commits     →  typescript:interchange/refinement  # [SHAPE]: JsonPointer RFC6901 Guid brand
+*                   ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed blob
+Query/cache         →  csharp:Rasm.Bim/Model              # [CONTENT_KEY]: ArtifactIndexRow IfcSemantic content-addressed model graph
+Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
+Version/commits     ⇄  csharp:Rasm.Compute/Runtime        # [GRADUATION]: HandoffAxis graduation evidence
+Query/cache         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: TenantId RLS + cache L2 partition
+Sync                →  csharp:Rasm.Compute/Runtime        # [PROJECTION]: content-key delta via FastCDC
+Sync                →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: NotebookOp op-log
+Sync/annotation     →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: annotation collaboration op-log
 ```
 
 ## [3]-[SPINE]

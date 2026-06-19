@@ -6,6 +6,7 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
 
 - [1]-[SKIA_KINDS]: Fourteen custom-visual cases; layout folds; render-hash twins.
 - [2]-[COLOR_SPACE]: Four wide-gamut rows; working-space factory; encode-format tag.
+
 ## [2]-[SKIA_KINDS]
 
 - Owner: `CustomVisual` [Union] · `CustomVisualData` · `CustomVisuals`

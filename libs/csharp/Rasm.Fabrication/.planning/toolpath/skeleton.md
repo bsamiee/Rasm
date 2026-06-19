@@ -23,7 +23,7 @@ Wire posture: HOST-LOCAL. The medial-axis `Edge3` set crosses only the in-proces
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.Frontier;
+using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Geometry;
 using Rasm.Geometry.Numerics;

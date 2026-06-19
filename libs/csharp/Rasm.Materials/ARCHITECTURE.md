@@ -1,6 +1,6 @@
 # [MATERIALS_ARCHITECTURE]
 
-The professional domain map of `Rasm.Materials` — the host-neutral AEC-DOMAIN materials owner. One `ProfileFamily`/`MaterialLibrary`/`ConnectionFamily`/`MaterialProperty` row per concept across five sub-domains (`Profiles`, `Connection`, `Appearance`, `Construction`, `Properties`), never a per-material or per-family type.
+The domain map of `Rasm.Materials` — the host-neutral AEC-DOMAIN materials owner. One `ProfileFamily`/`MaterialLibrary`/`ConnectionFamily`/`MaterialProperty` row per concept across the `Profiles`, `Connection`, `Appearance`, `Construction`, and `Properties` sub-domains, never a per-material or per-family type.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,32 +8,32 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 Rasm.Materials/
-├── Profiles/             # one polymorphic Profile over a closed ProfileFamily axis
-│   ├── Profile.cs        # the Profile polymorphic owner over the ProfileFamily growth axis
-│   ├── Masonry.cs        # the masonry ProfileFamily with regional catalogue rows
-│   ├── Steel.cs          # the steel ProfileFamily over the AISC v16.0 section-property record
-│   ├── Cmu.cs            # the CMU ProfileFamily over the ASTM C90 cell/face-shell record
-│   ├── Timber.cs         # the timber ProfileFamily over sawn/glulam/CLT lamella records
-│   └── Glazing.cs        # the glazing ProfileFamily over pane/spacer/cavity records
-├── Connection/           # one polymorphic ConnectionItem over the ConnectionFamily axis
-│   ├── Connection.cs     # the ConnectionItem polymorphic owner over the ConnectionFamily axis
-│   ├── Reinforcement.cs  # the reinforcement ConnectionFamily over the ASTM A615/A706 bar record
-│   ├── Fastener.cs       # the fastener ConnectionFamily over the ISO 898/SAE J429 thread record
-│   └── Hanger.cs         # the hanger ConnectionFamily over the carried-member/capacity record
-├── Appearance/           # the measured appearance engine
-│   ├── Bsdf.cs           # the closed seven-lobe BsdfLobe family and the scene-linear spectral edge
-│   ├── Graph.cs          # the node-DAG MaterialGraph program and the MaterialLibrary row table
-│   ├── Texture.cs        # the TextureUv sampling fold over the closed TextureSource union
-│   ├── Photometric.cs    # the light-unit admission fold over the PhotometricQuantity band
-│   ├── Weathering.cs     # the Weathering aging fold over the closed WeatheringEffect union
-│   ├── Acquisition.cs    # the Acquisition import fold over the closed CaptureSource union
-│   ├── Finish.cs         # the FinishMix Kubelka-Munk pigment-reflectance engine
-│   └── Interchange.cs    # the MaterialWire and MaterialX .mtlx interchange projection
-├── Construction/         # the host-neutral construction model
-│   ├── Assembly.cs       # the IFC 4.3 material-assignment owner and the Element placed-unit model
-│   └── Layout.cs         # the one ConstructionLayout.Resolve placement fold over any ProfileFamily
-└── Properties/           # the typed engineering-property model
-    └── Properties.cs     # the MaterialProperty closed family with the quantity-coercion fold
+├── Profiles/             # One polymorphic Profile over a closed ProfileFamily axis
+│   ├── Profile.cs        # Profile polymorphic owner over ProfileFamily growth axis
+│   ├── Masonry.cs        # Masonry ProfileFamily with regional catalogue rows
+│   ├── Steel.cs          # Steel ProfileFamily over AISC v16.0 section-property record
+│   ├── Cmu.cs            # CMU ProfileFamily over ASTM C90 cell/face-shell record
+│   ├── Timber.cs         # Timber ProfileFamily over sawn/glulam/CLT lamella records
+│   └── Glazing.cs        # Glazing ProfileFamily over pane/spacer/cavity records
+├── Connection/           # One polymorphic ConnectionItem over ConnectionFamily axis
+│   ├── Connection.cs     # ConnectionItem polymorphic owner over ConnectionFamily axis
+│   ├── Reinforcement.cs  # Reinforcement ConnectionFamily over ASTM A615/A706 bar record
+│   ├── Fastener.cs       # Fastener ConnectionFamily over ISO 898/SAE J429 thread record
+│   └── Hanger.cs         # Hanger ConnectionFamily over carried-member/capacity record
+├── Appearance/           # Measured appearance engine
+│   ├── Bsdf.cs           # Closed seven-lobe BsdfLobe family and scene-linear spectral edge
+│   ├── Graph.cs          # Node-DAG MaterialGraph program and MaterialLibrary row table
+│   ├── Texture.cs        # TextureUv sampling fold over closed TextureSource union
+│   ├── Photometric.cs    # Light-unit admission fold over PhotometricQuantity band
+│   ├── Weathering.cs     # Weathering aging fold over closed WeatheringEffect union
+│   ├── Acquisition.cs    # Acquisition import fold over closed CaptureSource union
+│   ├── Finish.cs         # FinishMix Kubelka-Munk pigment-reflectance engine
+│   └── Interchange.cs    # MaterialWire and MaterialX .mtlx interchange projection
+├── Construction/         # Host-neutral construction model
+│   ├── Assembly.cs       # IFC 4.3 material-assignment owner and Element placed-unit model
+│   └── Layout.cs         # One ConstructionLayout.Resolve placement fold over any ProfileFamily
+└── Properties/           # Typed engineering-property model
+    └── Properties.cs     # MaterialProperty closed family with quantity-coercion fold
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ProfileFamily` row, a new material a `MaterialLibrary` row, a new lobe a `BsdfLobe` `[Union]` case, a new connection a `ConnectionFamily` row, a new engineering property a `MaterialProperty` case — never a new surface. The rail is named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes — `ProfileFault` 2300, `ConstructionFault` 2350, `ConnectionFault` 2360, `MaterialFault` 2450, all disjoint from the kernel `GeometryFault` band 2400. C# is the sole producer of the material wire: `Appearance/Interchange` `MaterialWire` and `MtlxDocument` mint the OpenPBR-vector and MaterialX `.mtlx` interchange once, and the TypeScript and Python peers decode both — a peer re-mint of the OpenPBR algebra, the `ConductorIor` table, or the MaterialX schema is the named cross-language drift defect.
@@ -41,15 +41,15 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [2]-[SEAMS]
 
 ```text seams
-Appearance/interchange  →  typescript:interchange/codec     # MaterialWire OpenPBR vector wire (wire)
-Appearance/bsdf         →  csharp:Rasm.Bim/Semantics        # BimAppearance (content-key)
-Appearance/bsdf         ←  csharp:Rasm.Compute/Symbolic     # QuantityFamily illuminance for emission (port)
-Appearance/photometric  ←  csharp:Rasm.Compute/Symbolic     # QuantityFamily illuminance seam (port)
-Connection              →  csharp:Rasm.Bim/Model            # ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener (wire)
-Properties              →  csharp:Rasm.Fabrication/Process  # Thermal Conductivity / SpecificHeat / Density scalars (wire)
-Construction/assembly   →  csharp:Rasm.Bim/Semantics        # MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet (projection)
-Appearance/bsdf         →  csharp:Rasm.AppUi/Render         # LayeredBsdf shading at path tracer (boundary)
-Appearance/graph        →  csharp:Rasm.AppUi/Render         # SurfaceShade to path tracer (boundary)
+Appearance/interchange  →  typescript:interchange/codec     # [WIRE]: MaterialWire OpenPBR vector wire
+Appearance/bsdf         →  csharp:Rasm.Bim/Semantics        # [CONTENT_KEY]: BimAppearance
+Appearance/bsdf         ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance for emission
+Appearance/photometric  ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance seam
+Connection              →  csharp:Rasm.Bim/Model            # [WIRE]: ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener
+Properties              →  csharp:Rasm.Fabrication/Process  # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
+Construction/assembly   →  csharp:Rasm.Bim/Semantics        # [PROJECTION]: MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet
+Appearance/bsdf         →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf shading at path tracer
+Appearance/graph        →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: SurfaceShade to path tracer
 ```
 
 ## [3]-[DOMAIN_LAW]

@@ -10,6 +10,7 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - [4]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
 - [5]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
 - [6]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
+
 ## [2]-[INSPECTOR_SURFACE]
 
 - Owner: `InspectorPolicy` policy record; `InspectorSurface` static boundary capsule.

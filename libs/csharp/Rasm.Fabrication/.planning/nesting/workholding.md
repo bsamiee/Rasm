@@ -23,7 +23,7 @@ Wire posture: HOST-LOCAL. The conditioned `Move` stream and the keep-out verdict
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.Frontier;
+using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Posting;
 using Rasm.Fabrication.ProcessModel;

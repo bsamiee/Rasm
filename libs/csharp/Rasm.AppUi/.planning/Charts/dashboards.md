@@ -9,6 +9,7 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 - [3]-[CHART_INTERACTION]: One policy record; zoom, anchors, intent routing, dashboard canvas.
 - [4]-[STREAM_BINDING]: Feed rows; downsampling fold; sync law; board-state persistence.
 - [5]-[DASHBOARD_TILES]: Tile union; placement fold; cross-filter brushing; layout persistence.
+
 ## [2]-[SERIES_TABLE]
 
 - Owner: `ChartSeriesSpec`

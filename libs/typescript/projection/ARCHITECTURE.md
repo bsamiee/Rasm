@@ -1,6 +1,6 @@
 # [PROJECTION_ARCHITECTURE]
 
-The professional domain map of `projection` — the read-side fold-algebra owner of the TypeScript branch. Five sub-domains (`fold`, `query`, `convergence`, `causality`, `evidence`) folding the decoded `interchange` shapes into keyed read models.
+The domain map of `projection` — the read-side fold-algebra owner of the TypeScript branch. The `fold`, `query`, `convergence`, `causality`, and `evidence` sub-domains fold the decoded `interchange` shapes into keyed read models.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,30 +8,30 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 projection/
-├── fold/                # the fold foundation every other sub-domain composes
-│   ├── policy.ts        # StreamPolicy + withPolicy — the bounded reconnect/back-pressure vocabulary
+├── fold/                # Fold foundation every other sub-domain composes
+│   ├── policy.ts        # StreamPolicy + withPolicy — bounded reconnect/back-pressure vocabulary
 │   ├── combinators.ts   # foldStream scalar primitive + keyedFold keyed-map combinator
-│   └── projection.ts    # Projection<A> Subscribable adapter + derive, the one atom-bridge read face
-├── query/               # the read-model engine tier: event-time IVM, versionless reactive, as-of
-│   ├── watermark.ts     # eventNanos projection, the Watermark mark, allowedLateness horizon
+│   └── projection.ts    # Projection<A> Subscribable adapter + derive, one atom-bridge read face
+├── query/               # Read-model engine tier: event-time IVM, versionless reactive, as-of
+│   ├── watermark.ts     # eventNanos projection, Watermark mark, allowedLateness horizon
 │   ├── window.ts        # WindowKind/bucketSet/signTable — Z-set signed-delta IVM over d2ts
 │   ├── reactive.ts      # LiveQuery + queryStore — d2mini MultiSet pipeline into a SubscriptionRef
 │   ├── asof.ts          # AsOf coordinate + asOfQuery reconstructAt projection
-│   └── diff.ts          # asOfDiff — the two-coordinate snapshot diff the conflict inspector reads
-├── convergence/         # strong-eventual-consistency CRDT fold + watermark-driven retention
+│   └── diff.ts          # asOfDiff — two-coordinate snapshot diff the conflict inspector reads
+├── convergence/         # Strong-eventual-consistency CRDT fold + watermark-driven retention
 │   ├── merge.ts         # opMerge LWW-by-HLC, tombstone guard, ConflictOutcomeKind ledger
 │   ├── presence.ts      # ConflictPresenceStore + ephemeral-TTL presence row
-│   ├── law.ts           # the fast-check permutation law proving cross-peer SEC
+│   ├── law.ts           # Fast-check permutation law proving cross-peer SEC
 │   └── retention.ts     # Frontier antichain + finalizeBelow — bounded-memory late-arrival horizon
-├── causality/           # concurrency-detection + causal-delivery + clock confidence
+├── causality/           # Concurrency-detection + causal-delivery + clock confidence
 │   ├── vector.ts        # VectorOrderKind partial order + skew-fused concurrent-uncertain verdict
 │   ├── buffer.ts        # CausalBuffer dependency-gated release + DeliveryVerdict + causalDelivery
 │   ├── frontier.ts      # stabilityFrontier SortedSet-of-cursors greatest-lower-bound meet
 │   └── skew.ts          # SkewBand interval + bandsOverlap ordering input
-└── evidence/            # the receipt + confidence projection: cells, envelope, correlation, availability
+└── evidence/            # Receipt + confidence projection: cells, envelope, correlation, availability
     ├── cells.ts         # FeedKind vocabulary + feedStore — latest receipt per slot per feed
-    ├── envelope.ts      # ReceiptEnvelopeCarrier — the one payload-bound Schema factory
-    ├── correlation.ts   # EvidenceProjection store + correlation on the assembled ContentKey
+    ├── envelope.ts      # ReceiptEnvelopeCarrier — one payload-bound Schema factory
+    ├── correlation.ts   # EvidenceProjection store + correlation on assembled ContentKey
     └── availability.ts  # AvailabilityStore + isEnabled — disabled command never fires
 ```
 
@@ -40,18 +40,18 @@ projection/
 ## [2]-[SEAMS]
 
 ```text seams
-*                      ←  csharp:Rasm.Persistence      # ElementSet stable receipt algebra (wire)
-evidence/*             ←  csharp:Rasm.AppHost          # DegradationLevel / CommandAvailabilityWire (wire)
-evidence/availability  ←  csharp:Rasm.AppUi/Shell      # CommandAvailabilityWire rows (wire)
-evidence/cells         ←  csharp:Rasm.Compute/Runtime  # ProgressMarkWire (wire)
-evidence               ←  csharp:Rasm.AppHost/Runtime  # PhaseReceipt / BootMarker / FaultRecord (projection)
-evidence/cells         ←  csharp:Rasm.AppHost/Runtime  # RuntimeFeed PhaseReceiptWire / BootMarkerWire / FaultRecordWire / DrainReceiptWire (projection)
-evidence/correlation   ←  csharp:Rasm.AppUi/Render     # EvidenceFeed / EvidenceRowWire (projection)
-evidence               ←  csharp:Rasm.AppHost/Wire     # ModalityReceipt / RosterReceipt via envelope (receipt)
-evidence/correlation   ←  csharp:Rasm.Compute/Runtime  # ComputeReceiptWire / ContentKey (receipt)
-evidence/availability  →  typescript:ui/interaction    # AvailabilityStore.isEnabled dial-time gate (port)
-fold/policy            ⇄  typescript:platform/config   # StreamPolicy reconnect reuse (port)
-causality/vector       →  typescript:ui/overlay        # CrdtField.EphemeralMap beat/leave over HlcWire (wire)
+*                      ←  csharp:Rasm.Persistence      # [WIRE]: ElementSet stable receipt algebra
+evidence/*             ←  csharp:Rasm.AppHost          # [WIRE]: DegradationLevel / CommandAvailabilityWire
+evidence/availability  ←  csharp:Rasm.AppUi/Shell      # [WIRE]: CommandAvailabilityWire rows
+evidence/cells         ←  csharp:Rasm.Compute/Runtime  # [WIRE]: ProgressMarkWire
+evidence               ←  csharp:Rasm.AppHost/Runtime  # [PROJECTION]: PhaseReceipt / BootMarker / FaultRecord
+evidence/cells         ←  csharp:Rasm.AppHost/Runtime  # [PROJECTION]: RuntimeFeed PhaseReceiptWire / BootMarkerWire / FaultRecordWire / DrainReceiptWire
+evidence/correlation   ←  csharp:Rasm.AppUi/Render     # [PROJECTION]: EvidenceFeed / EvidenceRowWire
+evidence               ←  csharp:Rasm.AppHost/Wire     # [RECEIPT]: ModalityReceipt / RosterReceipt via envelope
+evidence/correlation   ←  csharp:Rasm.Compute/Runtime  # [RECEIPT]: ComputeReceiptWire / ContentKey
+evidence/availability  →  typescript:ui/interaction    # [PORT]: AvailabilityStore.isEnabled dial-time gate
+fold/policy            ⇄  typescript:platform/config   # [PORT]: StreamPolicy reconnect reuse
+causality/vector       →  typescript:ui/overlay        # [WIRE]: CrdtField.EphemeralMap beat/leave over HlcWire
 ```
 
 ## [3]-[CHARTERS]

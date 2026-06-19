@@ -9,6 +9,7 @@ Offscreen visuals are the package's raster rail: one DrawSource capsule projects
 - [3]-[PREVIEW_SURFACES]: Receipt-to-path preview rows, backplates, zoomable viewing.
 - [4]-[ENCODE_IDENTITY]: Codec axis, content-hashed receipts, native asset identity.
 - [5]-[DOCUMENT_EXPORT]: Paged `SKDocument` export to parameterized destinations.
+
 ## [2]-[DRAW_CAPSULE]
 
 - Owner: `DrawSource` [Union] · `Offscreen`

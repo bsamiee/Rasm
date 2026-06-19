@@ -8,6 +8,7 @@ Rasm.AppUi sources every icon and bundled asset through one nameof-derived `Asse
 - [2]-[SVG_PIPELINE]: Retained SVG documents, scene graph, animation invalidation, hit testing.
 - [3]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
 - [4]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
+
 ## [2]-[ICON_AXIS]
 
 - Owner: `IconSource` — one `[Union]` icon-sourcing axis; `IconSurface` owns the rank-walk resolution fold and the one materialize dispatch; `IconRow` is the resolution-table row carrying the rank column.

@@ -9,6 +9,7 @@ One typographic law serves every AppUi surface: `TypographyRole` is the ten-row 
 - [3]-[SHAPING_RAIL]: One HarfBuzz shaping rail before every Skia glyph draw.
 - [4]-[MARKDOWN_PROJECTION]: Markdig AST folds to role-keyed rows and inline runs.
 - [5]-[TEXT_METRICS]: Baseline-grid math, measurement, trimming, tabular-numeral proof.
+
 ## [2]-[ROLE_AXIS]
 
 - Owner: `TypographyRole`

@@ -8,6 +8,7 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its 
 - [2]-[MOTION_APPLICATION]: Plan rows and projections binding transitions, charts, zoom, clocks.
 - [3]-[PHASE_MAPPING]: Frozen nine-row `ProgressPhase`-to-token map; one resolve entrypoint.
 - [4]-[REDUCED_MOTION]: Host-agnostic probe rows; one global degrade switch; conformance.
+
 ## [2]-[MOTION_AXIS]
 
 - Owner: `MotionKeyPolicy` comparer accessor; `SpringValue` spring algebra; `MotionToken` six-row vocabulary.

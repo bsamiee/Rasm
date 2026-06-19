@@ -1,6 +1,6 @@
 # [PY_COMPUTE_ARCHITECTURE]
 
-The professional domain map of `compute` — the host-free offline scientific-evidence package that graduates through one rail. Independent numeric-science sub-domains (`solvers`, `optimization`, `experiments`, `numerics`, `analysis`, `graduation`) meeting only through the one solve receipt, the one study spine, and the one graduation rail.
+The domain map of `compute` — the host-free offline scientific-evidence package that graduates through one rail. Independent numeric-science sub-domains (`solvers`, `optimization`, `experiments`, `numerics`, `analysis`, `graduation`) meeting only through the one solve receipt, the one study spine, and the one graduation rail.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,48 +8,48 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 compute/
-├── solvers/                   # the unified solve (4 routes + receipt) plus autodiff sensitivity and weak-form mesh/field assembly
-│   ├── receipt.py             #   SolverReceipt — the method-discriminated solve receipt over every route
-│   ├── linear.py              #   LinearIntent — dense/sparse/eigen over scipy + the Lineax autodiff operator tier
-│   ├── nonlinear.py           #   NonlinearIntent — root/minimise/fixed-point/least-squares over Optimistix + the numba row
-│   ├── quadrature.py          #   QuadratureIntent — 1-D quadrature, spline interpolation, the weak-form FEM fold
-│   ├── differential.py        #   DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
-│   ├── sensitivity.py         #   Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
-│   └── mesh.py                #   MeshField — mesh topology, per-node/per-cell fields, the skfem assemble fold, meshio interchange
-├── optimization/              # three sibling owners discriminated by problem structure — differentiable design, constrained/discrete programs, certified convex programs
-│   ├── design.py              #   DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading the implicit-adjoint gradient
-│   ├── program.py             #   ProgramIntent — linear/integer/global/constrained/assignment math programs over scipy.optimize folding one OptimizeResult receipt
-│   └── convex.py              #   ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding the dual-certificate proof of optimality
-├── experiments/               # design-of-experiments study, content-keyed run history, Bayesian inference, classical ML model assets
-│   ├── study.py               #   Study — DOE sampling, SALib sensitivity, surrogate fitting, the benchmark discriminant
-│   ├── history.py             #   RunHistory — content-key-keyed run persistence, partial-cell resume, run comparison
-│   ├── inference.py           #   Inference — the sampler-backend axis (pymc/numpyro/nutpie), arviz rhat-and-ess diagnostics
-│   └── model.py               #   ModelAsset — ONNX graph validation, io-binding, smoke inference, the sklearn-to-ONNX export
-├── numerics/                  # the numeric substrate: Array-API admission, certified intervals, unit-bearing quantities
-│   ├── array.py               #   ArrayPayload — namespace-dispatched dtype/shape/named-axes/finite/identity admission
-│   ├── interval.py            #   IntervalNumerics — Arb ball / mpmath interval / numpy outward-rounding floor ladder
-│   └── quantity.py            #   UncertainQuantity — correlated first-order uncertainty through the pint unit algebra
-├── analysis/                  # classical-math producers: digital signal processing, computer-algebra derivation, computational geometry
-│   ├── signal.py              #   Signal — IIR/FIR filter design, Welch spectral estimation, polyphase resampling, and the pywt wavelet/scalogram/packet multiresolution fold
-│   ├── symbolic.py            #   SymbolicDerivation — sympy lambdify/codegen producing the numpy/C handoff artifact
-│   └── spatial.py             #   SpatialQuery — KD-tree neighbour/radius, hull, Delaunay, Voronoi, alpha-shape boundary fold
-└── graduation/                # the Python-only graduation rail and the C# stub codegen
-    ├── handoff.py             #   GraduationReceipt — the handoff axis moving offline evidence into the managed owner system
-    └── codegen.py             #   StubCodegen — the ast-builder stub emitter decoding the C# evidence-bundle shape
+├── solvers/                   # Unified solve (4 routes + receipt) plus autodiff sensitivity and weak-form mesh/field assembly
+│   ├── receipt.py             # SolverReceipt — method-discriminated solve receipt over every route
+│   ├── linear.py              # LinearIntent — dense/sparse/eigen over scipy + Lineax autodiff operator tier
+│   ├── nonlinear.py           # NonlinearIntent — root/minimise/fixed-point/least-squares over Optimistix + numba row
+│   ├── quadrature.py          # QuadratureIntent — 1-D quadrature, spline interpolation, weak-form FEM fold
+│   ├── differential.py        # DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
+│   ├── sensitivity.py         # Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
+│   └── mesh.py                # MeshField — mesh topology, per-node/per-cell fields, skfem assemble fold, meshio interchange
+├── optimization/              # Three sibling owners discriminated by problem structure — differentiable design, constrained/discrete programs, certified convex programs
+│   ├── design.py              # DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading implicit-adjoint gradient
+│   ├── program.py             # ProgramIntent — linear/integer/global/constrained/assignment math programs over scipy.optimize folding one OptimizeResult receipt
+│   └── convex.py              # ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding dual-certificate proof of optimality
+├── experiments/               # Design-of-experiments study, content-keyed run history, Bayesian inference, classical ML model assets
+│   ├── study.py               # Study — DOE sampling, SALib sensitivity, surrogate fitting, benchmark discriminant
+│   ├── history.py             # RunHistory — content-key-keyed run persistence, partial-cell resume, run comparison
+│   ├── inference.py           # Inference — sampler-backend axis (pymc/numpyro/nutpie), arviz rhat-and-ess diagnostics
+│   └── model.py               # ModelAsset — ONNX graph validation, io-binding, smoke inference, sklearn-to-ONNX export
+├── numerics/                  # Numeric substrate: Array-API admission, certified intervals, unit-bearing quantities
+│   ├── array.py               # ArrayPayload — namespace-dispatched dtype/shape/named-axes/finite/identity admission
+│   ├── interval.py            # IntervalNumerics — Arb ball / mpmath interval / numpy outward-rounding floor ladder
+│   └── quantity.py            # UncertainQuantity — correlated first-order uncertainty through pint unit algebra
+├── analysis/                  # Classical-math producers: digital signal processing, computer-algebra derivation, computational geometry
+│   ├── signal.py              # Signal — IIR/FIR filter design, Welch spectral estimation, polyphase resampling, and pywt wavelet/scalogram/packet multiresolution fold
+│   ├── symbolic.py            # SymbolicDerivation — sympy lambdify/codegen producing numpy/C handoff artifact
+│   └── spatial.py             # SpatialQuery — KD-tree neighbour/radius, hull, Delaunay, Voronoi, alpha-shape boundary fold
+└── graduation/                # Python-only graduation rail and C# stub codegen
+    ├── handoff.py             # GraduationReceipt — handoff axis moving offline evidence into managed owner system
+    └── codegen.py             # StubCodegen — ast-builder stub emitter decoding C# evidence-bundle shape
 ```
 
 ## [2]-[SEAMS]
 
 ```text seams
-*                   →  csharp:Rasm.Compute       # HandoffAxis graduation evidence (graduation)
-graduation/codegen  ←  csharp:Rasm.Compute       # EvidenceBundle graduation-evidence wire (wire)
-solvers/receipt     →  csharp:Rasm.Compute       # SolverReceipt convergence verdict (projection)
-graduation          ←  python:geometry/ifc       # geometry HandoffAxis case IDS/clash/BCF (graduation)
-graduation/handoff  ⇄  python:geometry/graph     # HandoffAxis geometry case (graduation)
-numerics/array      ⇄  python:runtime/transport  # ContentIdentity array backend dispatch (wire)
-analysis/spatial    →  python:geometry/scan      # reconstructed-mesh alpha-shape boundary evidence (projection)
-experiments/study   ←  python:data/tabular       # DOE dataset / labelled-array study input (shape)
-numerics/array      ←  python:data/tabular       # ArrayPayload from xarray/dask labelled-array (shape)
+*                   →  csharp:Rasm.Compute       # [GRADUATION]: HandoffAxis graduation evidence
+graduation/codegen  ←  csharp:Rasm.Compute       # [WIRE]: EvidenceBundle graduation-evidence wire
+solvers/receipt     →  csharp:Rasm.Compute       # [PROJECTION]: SolverReceipt convergence verdict
+graduation          ←  python:geometry/ifc       # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF
+graduation/handoff  ⇄  python:geometry/graph     # [GRADUATION]: HandoffAxis geometry case
+numerics/array      ⇄  python:runtime/transport  # [WIRE]: ContentIdentity array backend dispatch
+analysis/spatial    →  python:geometry/scan      # [PROJECTION]: reconstructed-mesh alpha-shape boundary evidence
+experiments/study   ←  python:data/tabular       # [SHAPE]: DOE dataset / labelled-array study input
+numerics/array      ←  python:data/tabular       # [SHAPE]: ArrayPayload from xarray/dask labelled-array
 ```
 
 ## [3]-[ORGANIZATION]

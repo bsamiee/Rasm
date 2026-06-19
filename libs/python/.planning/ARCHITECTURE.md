@@ -1,6 +1,6 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/python` — five host-free peer packages of the science/compute/data/geometry/IFC companion. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundary.
+The branch domain map of `libs/python` — the host-free peer packages of the science/compute/data/geometry/IFC companion. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundary.
 
 Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -8,22 +8,22 @@ Each node is a package folder; the language's `.planning/` scaffold is authoring
 
 ```text codemap
 libs/python/
-├── runtime/    # the host-free execution foundation the four siblings compose
-├── compute/    # offline scientific evidence that graduates through one rail
-├── data/       # portable data interchange: tabular, spatial, gridded, graph
-├── geometry/   # the host-free geometry + IFC/BIM companion and cross-boundary owner
-└── artifacts/  # the self-contained artifact-production utility under one ArtifactReceipt
+├── runtime/    # Host-free execution foundation four siblings compose
+├── compute/    # Offline scientific evidence that graduates through one rail
+├── data/       # Portable data interchange: tabular, spatial, gridded, graph
+├── geometry/   # Host-free geometry + IFC/BIM companion and cross-boundary owner
+└── artifacts/  # Self-contained artifact-production utility under one ArtifactReceipt
 ```
 
 ## [2]-[SEAMS]
 
 ```text seams
-runtime   ←  csharp:Rasm              # XxHash128 content-identity seed decode parity (content-key)
-runtime   ⇄  csharp:Rasm.AppHost      # gRPC ServerHost + capability invoke + trace/OTLP egress (wire)
-runtime   ←  csharp:Rasm.Persistence  # CRDT MessagePack op-log decode (wire)
-geometry  ⇄  csharp:Rasm.Bim          # GLB/IFC tessellation companion (tessellation)
-geometry  ⇄  csharp:Rasm.Compute      # ComputeService/ArtifactSync GLB rail (wire)
-compute   →  csharp:Rasm.Compute      # graduation evidence HandoffAxis (graduation)
+runtime   ←  csharp:Rasm              # [CONTENT_KEY]: XxHash128 content-identity seed decode parity
+runtime   ⇄  csharp:Rasm.AppHost      # [WIRE]: gRPC ServerHost + capability invoke + trace/OTLP egress
+runtime   ←  csharp:Rasm.Persistence  # [WIRE]: CRDT MessagePack op-log decode
+geometry  ⇄  csharp:Rasm.Bim          # [TESSELLATION]: GLB/IFC tessellation companion
+geometry  ⇄  csharp:Rasm.Compute      # [WIRE]: ComputeService/ArtifactSync GLB rail
+compute   →  csharp:Rasm.Compute      # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
 ## [3]-[DEPENDENCY_DIRECTION]

@@ -8,6 +8,7 @@ Rasm.AppUi presents every modal and transient surface through one `DialogIntent`
 - [2]-[SESSION_ALGEBRA]: Topology rows bind sessions, stacking, styling, registration.
 - [3]-[NOTIFICATIONS]: Toast rows, suppression fold over phase and level, receipts.
 - [4]-[PICKERS_HOST_MODALITY]: Pick rows, format-derived filters, host modality law.
+
 ## [2]-[DIALOG_INTENTS]
 
 - Owner: `DialogIntent` `[Union]` — the one modal vocabulary across every admitted surface; `DialogFault` fault family in the 4130 code band.

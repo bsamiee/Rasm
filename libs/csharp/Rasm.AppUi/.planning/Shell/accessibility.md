@@ -8,6 +8,7 @@ Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: aut
 - [2]-[KEYBOARD_NAV]: Tab-order, trap, and refocus law over attached navigation.
 - [3]-[CONTRAST_GATE]: The suite's single WCAG luminance gate and floor rows.
 - [4]-[COMPLIANCE_PROOF]: Per-catalog-row audit law executed by the headless lanes.
+
 ## [2]-[AUTOMATION_PEERS]
 
 - Owner: `AnnouncementRow` live-region record; `SceneAccessNode` the 3D-scene accessibility tree; `SpatialCue` the spatial-audio cue; `AccessOps` identity fold over catalog columns.

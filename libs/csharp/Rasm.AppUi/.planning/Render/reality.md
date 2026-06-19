@@ -9,6 +9,7 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 - [3]-[CAPTURE_PASS]: Splat and point `RenderPass` cases over the backend target factory.
 - [4]-[MEASURE_OVERLAY]: LiDAR-anchored measurable annotation bound to the `Viewpoint`.
 - [5]-[CAPTURE_CLIP]: Time-based capture-frame playback on the animation playhead.
+
 ## [2]-[SPLAT_SOURCE]
 
 - Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the fault family in the 4900 band.

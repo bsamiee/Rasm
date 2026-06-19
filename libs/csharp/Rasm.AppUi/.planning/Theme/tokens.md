@@ -8,6 +8,7 @@ Rasm.AppUi resolves every visual constant through one frozen token catalogue: a 
 - [2]-[VARIANT_AXIS]: Four variant rows with host-agnostic probe folding.
 - [3]-[DENSITY_AXIS]: Two density rows selecting metric columns orthogonally.
 - [4]-[CONTROL_THEMES]: One Styles rail, atomic swap, token-diff receipts.
+
 ## [2]-[TOKEN_CATALOG]
 
 - Owner: `TokenRow` `[Union]` role-keyed token family; `ThemeCatalog` frozen table and resolve fold; `ResolvedTheme` the one resolved artifact every consumer reads; `Colormap` `[SmartEnum<string>]` perceptually-uniform data-colormap catalog.

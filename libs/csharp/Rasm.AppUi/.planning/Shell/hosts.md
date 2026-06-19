@@ -9,6 +9,7 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 - [3]-[SCHEDULER_BOUNDARY]: One UI-thread boundary completing the scheduler port marshal.
 - [4]-[NATIVE_ASSETS]: Per-RID Skia and HarfBuzz rows with load-identity receipts.
 - [5]-[SCALE_FOCUS]: Closed host fact union for scale, visibility, focus, appearance.
+
 ## [2]-[HOST_AXIS]
 
 - Owner: `SurfaceHost` — one `[Union]` host axis; `SurfaceSeam` — the host-delegate column record; `SurfaceRow` — the resolved policy row; `Surfaces` — the total dispatch and mount surface; `SurfaceFault` — the fault family; `SurfaceReceipt` and `SurfaceSession` — mount evidence.

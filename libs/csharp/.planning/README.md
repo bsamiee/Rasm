@@ -9,7 +9,7 @@ Eight planning-scoped package roots in strata order; each root `README.md` carri
 - [1]-[KERNEL]: [Rasm](../Rasm/README.md) — Mature `Vectors`/`Analysis`/`Domain`, greenfield `Geometry/` robust-core scaffolded under `Geometry/.planning/`.
 - [2]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
 - [3]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
-- [4]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting frontier.
+- [4]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting.
 - [5]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
 - [6]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
 - [7]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.

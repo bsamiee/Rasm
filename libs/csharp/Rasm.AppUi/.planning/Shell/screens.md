@@ -9,6 +9,7 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 - [3]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
 - [4]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
 - [5]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
+
 ## [2]-[SCREEN_CATALOG]
 
 - Owner: `ScreenCatalogRow` row record; `ScreenCatalog` frozen table with total projections.

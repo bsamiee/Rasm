@@ -1,6 +1,6 @@
 # [INTERCHANGE_ARCHITECTURE]
 
-The professional domain map of `interchange` — the host-free wire boundary and inbound dependency root of the TypeScript branch. Four sub-domains (`transport`, `codec`, `contract`, `ingress`) decode the C# wire, dial the browser transport, reassemble artifact frames, and reconstruct the .NET fault family; it mints no parallel wire shape and owns no geometry.
+The domain map of `interchange` — the host-free wire boundary and inbound dependency root of the TypeScript branch. The `transport`, `codec`, `contract`, and `ingress` sub-domains decode the C# wire, dial the browser transport, reassemble artifact frames, and reconstruct the .NET fault family; it mints no parallel wire shape and owns no geometry.
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
@@ -8,21 +8,21 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 interchange/
-├── transport/         # the outbound transport edge, command gateway, and codegen input
-│   ├── transport.ts   # the protocol-selection dial, capability tuple, framing fold, and codegen input
-│   └── gateway.ts     # the outbound command-dial face over the control verbs
-├── codec/             # the byte-to-typed decode/encode interior
-│   ├── codec.ts       # the codec-keyed decode/encode dispatch table
-│   ├── patch.ts       # the recorded-intent partial-update patch rail
-│   ├── frame.ts       # the content-addressed artifact-frame reassembly
-│   └── parity.ts      # the cross-runtime byte-identity reproduction binding
-├── contract/          # the canonical contract surface
-│   ├── inventory.ts   # the cluster-to-rail wire inventory and the suite anchors
-│   └── descriptor.ts  # the runtime descriptor-diff contract-evolution gate
-└── ingress/           # the untrusted-ingress enforcement, tolerance, and fault rails
-    ├── refinement.ts  # the decode-enforcement brand/filter/budget vocabulary
-    ├── quarantine.ts  # the contract-drift tolerance terminal
-    └── fault.ts       # the exhaustive .NET fault reconstruction
+├── transport/         # Outbound transport edge, command gateway, and codegen input
+│   ├── transport.ts   # Protocol-selection dial, capability tuple, framing fold, and codegen input
+│   └── gateway.ts     # Outbound command-dial face over control verbs
+├── codec/             # Byte-to-typed decode/encode interior
+│   ├── codec.ts       # Codec-keyed decode/encode dispatch table
+│   ├── patch.ts       # Recorded-intent partial-update patch rail
+│   ├── frame.ts       # Content-addressed artifact-frame reassembly
+│   └── parity.ts      # Cross-runtime byte-identity reproduction binding
+├── contract/          # Canonical contract surface
+│   ├── inventory.ts   # Cluster-to-rail wire inventory and suite anchors
+│   └── descriptor.ts  # Runtime descriptor-diff contract-evolution gate
+└── ingress/           # Untrusted-ingress enforcement, tolerance, and fault rails
+    ├── refinement.ts  # Decode-enforcement brand/filter/budget vocabulary
+    ├── quarantine.ts  # Contract-drift tolerance terminal
+    └── fault.ts       # Exhaustive .NET fault reconstruction
 ```
 
 `transport` is the inbound root every rail composes and the outbound dial face; `codec` is the byte-to-typed interior; `contract` is the canonical inventory and descriptor-evolution gate; `ingress` carries the enforcement, drift-tolerance, and fault rails over untrusted input. `@connectrpc/*` stops here; the fold tier reads only decoded shapes.
@@ -30,20 +30,22 @@ interchange/
 ## [2]-[SEAMS]
 
 ```text seams
-codec/codec          ←  csharp:Rasm.AppHost/Agent         # CapabilityDescriptor command-shape (content-key)
-codec/parity         ←  csharp:Rasm.AppHost/Runtime       # HLC two-half bigint round-trip parity (content-key)
-codec/parity         ⇄  csharp:Rasm/Geometry              # XxHash128 canonical-byte content-key (content-key)
-*                    ←  csharp:Rasm.AppHost               # support-capture verb (wire)
-*                    ←  csharp:Rasm.Compute               # ProgressStore stream proto (wire)
-codec/codec          ←  csharp:Rasm.Persistence/Sync      # OpLogEntryWire / CrdtOpWire / sync-segment stream (wire)
-codec/codec          ←  csharp:Rasm.Persistence/Version   # SnapshotHeaderWire messagepack (wire)
-codec/codec          ←  csharp:Rasm.Bim/Review            # DiffWire ElementChange content-keyed join (wire)
-codec/codec          ←  csharp:Rasm.Bim/Exchange          # BimWire snapshot / OpLogWire / BimWireDescriptor (wire)
-codec/codec          ←  csharp:Rasm.Materials/Appearance  # MaterialWire OpenPBR vector wire (wire)
-transport/gateway    ←  csharp:Rasm.AppUi/Shell           # CommandPayloadWire / CommandReceiptWire (wire)
-transport/transport  ←  csharp:Rasm.Persistence/Version   # SnapshotHeaderWire (wire)
-codec/codec          ←  csharp:Rasm.AppUi/Render          # RenderReceiptWire frame-hash proof (projection)
-ingress/fault        ←  csharp:Rasm.Compute/Runtime       # FaultDetailWire trailer package/code/case/evidence (fault)
+codec/codec          ←  csharp:Rasm.AppHost/Agent         # [CONTENT_KEY]: CapabilityDescriptor command-shape
+codec/parity         ←  csharp:Rasm.AppHost/Runtime       # [CONTENT_KEY]: HLC two-half bigint round-trip parity
+codec/parity         ⇄  csharp:Rasm/Geometry              # [CONTENT_KEY]: XxHash128 canonical-byte content-key
+*                    ←  csharp:Rasm.AppHost               # [WIRE]: support-capture verb
+*                    ←  csharp:Rasm.Compute               # [WIRE]: ProgressStore stream proto
+codec/codec          ←  csharp:Rasm.Persistence/Sync      # [WIRE]: OpLogEntryWire / CrdtOpWire / sync-segment stream
+codec/codec          ←  csharp:Rasm.Persistence/Version   # [WIRE]: SnapshotHeaderWire messagepack
+codec/codec          ←  csharp:Rasm.Bim/Review            # [WIRE]: DiffWire ElementChange content-keyed join
+codec/codec          ←  csharp:Rasm.Bim/Exchange          # [WIRE]: BimWire snapshot / OpLogWire / BimWireDescriptor
+codec/codec          ←  csharp:Rasm.Materials/Appearance  # [WIRE]: MaterialWire OpenPBR vector wire
+transport/gateway    ←  csharp:Rasm.AppUi/Shell           # [WIRE]: CommandPayloadWire / CommandReceiptWire
+transport/transport  ←  csharp:Rasm.Persistence/Version   # [WIRE]: SnapshotHeaderWire
+codec/codec          ←  csharp:Rasm.AppUi/Render          # [PROJECTION]: RenderReceiptWire frame-hash proof
+ingress/fault        ←  csharp:Rasm.Compute/Runtime       # [FAULT]: FaultDetailWire trailer package/code/case/evidence
+ingress              ⇄  typescript:platform/transport     # [CONTENT_KEY]: ContentKey brand mint and tile keying
+transport            →  typescript:ui/interaction         # [PORT]: CommandGateway / IntentRegistry intent dial
 ```
 
 ## [3]-[CHARTERS]

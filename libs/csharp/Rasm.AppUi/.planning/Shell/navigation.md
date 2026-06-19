@@ -8,6 +8,7 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 - [2]-[DOCK_LAYOUTS]: Dockables fold from route rows; checkpoint, restore, external dock.
 - [3]-[SHELL_CHROME]: Chrome rows derive from intent keys per surface row.
 - [4]-[ADAPTIVE_LAYOUT]: One breakpoint table; behavior-attached responsive policy values.
+
 ## [2]-[ROUTING_SPINE]
 
 - Owner: `NavRequest` `[Union]` five-verb navigation vocabulary with the deep-link grammar; `ShellRoot` shell-root capsule owning `IScreen`, the router cell, and the ordinal-frozen route index.

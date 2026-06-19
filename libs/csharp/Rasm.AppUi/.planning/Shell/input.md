@@ -9,6 +9,7 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 - [3]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
 - [4]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
 - [5]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
+
 ## [2]-[HOTKEY_DERIVATION]
 
 - Owner: `GesturePolicy` — the per-surface chord, scope, and return-key policy record carrying the binding fold.

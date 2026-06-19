@@ -8,6 +8,7 @@ The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Vi
 - [2]-[COMMENT_THREAD]: CRDT op-log comment conversation over the replicated-document law.
 - [3]-[ISSUE_TILE]: Dashboard-tile projection of the issue list with status brushing.
 - [4]-[BOARD_PROJECTION]: Board owning the issue-to-viewpoint binding and the BCF round-trip.
+
 ## [2]-[ISSUE_MODEL]
 
 - Owner: `IssueStatus` `[SmartEnum<string>]` the coordination lifecycle; `Issue` the board issue record; `IssueBinding` the topic-to-viewpoint binding; `IssueFault` the fault family in the 5000 band.

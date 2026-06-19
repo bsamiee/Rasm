@@ -11,6 +11,7 @@ Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds ever
 - [5]-[DEV_LOOP]: Debug hot-reload knob rows; dispatcher starvation probe.
 - [6]-[PERF_BUDGET]: Declarative quality governor folding telemetry into one degrade verdict.
 - [7]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
+
 ## [2]-[RECEIPT_UNION]
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold; `AppUiWireContext` — the package wire context.

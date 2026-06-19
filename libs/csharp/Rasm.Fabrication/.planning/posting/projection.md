@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_HIDDEN_LINE]
 
-The hidden-line-removal kernel: a BSP-tree front-to-back visibility solver plus a Clipper2 open-path-Boolean screen clip producing the world-space visible/hidden/silhouette edge sets the AppUi `Render/drafting#PROJECTION` `Viewport2D` consumes BELOW its painter sort. The BSP front-to-back ordering and the silhouette extraction are author-kernel — the property a back-to-front painter sort cannot give, so a concave self-occluding solid resolves correctly. The screen clip rides the `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 substrate: each candidate edge is intersected and differenced against the front-to-back occluder screen polygons, the integer-robust Boolean clip replacing the hand-rolled parameter-interval subtraction. The kernel composes the kernel `Rasm.Geometry/Spatial/index#SPATIAL_INDEX` `SpatialIndex` BVH broad-phase for occluder candidate pruning, the kernel `Rasm.Geometry/Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation for the silhouette view-dot sign floor, and the `Process/owner#FABRICATION_OWNER` `Loop`/`Edge3`/`ProjectionDir`/`FrontierResult` shared vocabulary. It is dispatched by the `Process/owner#FABRICATION_OWNER` `Run` fold's `HiddenLine` policy case; it mints no second `Viewport2D`, no second acceleration structure, and computes no hash.
+The hidden-line-removal kernel: a BSP-tree front-to-back visibility solver plus a Clipper2 open-path-Boolean screen clip producing the world-space visible/hidden/silhouette edge sets the AppUi `Render/drafting#PROJECTION` `Viewport2D` consumes BELOW its painter sort. The BSP front-to-back ordering and the silhouette extraction are author-kernel — the property a back-to-front painter sort cannot give, so a concave self-occluding solid resolves correctly. The screen clip rides the `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 substrate: each candidate edge is intersected and differenced against the front-to-back occluder screen polygons, the integer-robust Boolean clip replacing the hand-rolled parameter-interval subtraction. The kernel composes the kernel `Rasm.Geometry/Spatial/index#SPATIAL_INDEX` `SpatialIndex` BVH broad-phase for occluder candidate pruning, the kernel `Rasm.Geometry/Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation for the silhouette view-dot sign floor, and the `Process/owner#FABRICATION_OWNER` `Loop`/`Edge3`/`ProjectionDir`/`FabricationResult` shared vocabulary. It is dispatched by the `Process/owner#FABRICATION_OWNER` `Run` fold's `HiddenLine` policy case; it mints no second `Viewport2D`, no second acceleration structure, and computes no hash.
 
 Wire posture: HOST-LOCAL. The world-space `HiddenLineResult` edge sets cross only the in-process seam to the AppUi `Viewport2D` consumer — a CONSUMPTION seam where AppUi reads and Fabrication produces, the projection-to-sheet owned by AppUi. The `Facet`/`BspNode` interior records are host-local types that never sit between wire and rail.
 
@@ -12,7 +12,7 @@ Wire posture: HOST-LOCAL. The world-space `HiddenLineResult` edge sets cross onl
 
 - Owner: `ProjectionDir` the view direction the silhouette resolves against (eye-to-target, the basis the AppUi `Viewport2D` shares); `Facet` the projected triangle carrying its world vertices, its native topology vertex indices, its plane, its view-space depth, and its screen-space 2D footprint; `BspNode` the binary space-partition node splitting the facet set by a chosen facet's supporting plane into in-front/behind half-spaces; `Hlr` the static visibility fold building the BSP, resolving silhouette edges, and clipping every candidate edge against the front-to-back occluder set through the Clipper2 screen Boolean.
 - Cases: an edge is `Visible` (no occluder facet covers its screen footprint), `Hidden` (covered by a strictly-nearer occluder), or a `Silhouette` (a mesh edge whose two incident facets face opposite the view — the boundary the drafted outline traces); the partition is the three `HiddenLineResult` sets, never three parallel solver passes.
-- Entry: `public static Fin<FrontierResult> Solve(FrontierPolicy.HiddenLine policy, FrontierInput input)` — `Fin<T>` routes `GeometryFault.DegenerateInput` on an absent model or a degenerate (zero-area) facet set; the body extracts facets, builds the BSP over their planes, extracts silhouette edges, broad-phase-prunes occluder candidates per edge through the settled `SpatialIndex`, and Clipper2-clips each edge into its visible and hidden runs.
+- Entry: `public static Fin<FabricationResult> Solve(FabricationPolicy.HiddenLine policy, FabricationInput input)` — `Fin<T>` routes `GeometryFault.DegenerateInput` on an absent model or a degenerate (zero-area) facet set; the body extracts facets, builds the BSP over their planes, extracts silhouette edges, broad-phase-prunes occluder candidates per edge through the settled `SpatialIndex`, and Clipper2-clips each edge into its visible and hidden runs.
 - Auto: `Hlr.Solve` projects every mesh facet to screen space under `ProjectionDir`, builds the `BspNode` tree by picking a splitting facet and partitioning the rest into the plane's positive/negative half-spaces (the front-to-back traversal order a back-to-front painter sort cannot give); silhouette edges are the mesh edges whose two incident facet normals dot the view with opposite sign (the `Predicate.Orient2D`-grounded sign on the projected incident triangles); each candidate edge queries the `SpatialIndex` `Range` for the facets whose screen bound covers it, and `ClipEdge` walks those occluders front-to-back, intersecting the edge against each strictly-nearer occluder's screen polygon through the `Polygon/clipper#POLYGON_ALGEBRA` open-path Boolean — the difference runs survive as `Visible` world-space sub-edges, the intersection runs are `Hidden`.
 - Receipt: the `HiddenLineResult` carries the visible/hidden/silhouette edge sets directly — the partition IS the evidence the AppUi consumer projects; no separate visibility ledger.
 - Packages: `Rasm`/Vectors (`MeshSpace`/`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled), `Rasm.Geometry.Spatial` (`SpatialIndex` — settled), Clipper2 (open-path Boolean for the screen clip, via `Polygon/clipper#POLYGON_ALGEBRA`), LanguageExt.Core, BCL inbox.
@@ -23,7 +23,7 @@ Wire posture: HOST-LOCAL. The world-space `HiddenLineResult` edge sets cross onl
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Fabrication.Frontier;
+using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Geometry;
 using Rasm.Geometry.Numerics;
@@ -82,12 +82,12 @@ public sealed record BspNode(Facet Splitter, Option<BspNode> Front, Option<BspNo
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Hlr {
-    public static Fin<FrontierResult> Solve(FrontierPolicy.HiddenLine policy, FrontierInput input) =>
+    public static Fin<FabricationResult> Solve(FabricationPolicy.HiddenLine policy, FabricationInput input) =>
         input.Model.Match(
-            None: () => Fin.Fail<FrontierResult>(GeometryFault.DegenerateInput("hlr:no-model").ToError()),
+            None: () => Fin.Fail<FabricationResult>(GeometryFault.DegenerateInput("hlr:no-model").ToError()),
             Some: model => {
                 Seq<Facet> facets = Facets(model, input.View, policy.FacetTolerance);
-                if (facets.IsEmpty) return Fin.Fail<FrontierResult>(GeometryFault.DegenerateInput("hlr:no-facets").ToError());
+                if (facets.IsEmpty) return Fin.Fail<FabricationResult>(GeometryFault.DegenerateInput("hlr:no-facets").ToError());
                 Option<BspNode> bsp = BspNode.Build(facets);
                 Seq<Edge3> silhouette = Silhouette(facets, input.View.Forward);
                 BoundingBox[] occluderBounds = facets.Map(static f => f.Screen.Bound()).ToArray();
@@ -100,7 +100,7 @@ public static class Hlr {
                                 var (vis, hid) = ClipEdge(edge, ordered, index, facets, input.View);
                                 return (acc.Visible.Concat(vis), acc.Hidden.Concat(hid));
                             });
-                        return (FrontierResult)new FrontierResult.HiddenLineResult(visible, hidden, silhouette);
+                        return (FabricationResult)new FabricationResult.HiddenLineResult(visible, hidden, silhouette);
                     });
             });
 
