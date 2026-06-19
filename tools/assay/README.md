@@ -2,13 +2,13 @@
 
 `tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces.
 
-## [00][PLANNED_DOTNET_EF]
+## [00]-[PLANNED_DOTNET_EF]
 
 `dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail. That rail must prove migration metadata and generated SQL under Assay-owned artifacts, not act as general package health.
 
 Package health is SDK-first: use `dotnet package list --outdated|--deprecated|--vulnerable --format json` and `dotnet nuget why`. A `dotnet-outdated` fallback must be an explicit Assay rail before the tool returns to the manifest.
 
-## [01][SCOPE]
+## [01]-[SCOPE]
 
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `drive(trigger, action, settings)`.
 
@@ -18,7 +18,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 
 The Python mutation lane is a staged `python -m` gate scored against an 0.80 kill-floor; it is not a CLI verb.
 
-## [02][FIRST_COMMAND]
+## [02]-[FIRST_COMMAND]
 
 ```bash copy-safe
 uv run python -m tools.assay self-test
@@ -26,7 +26,7 @@ uv run python -m tools.assay self-test
 
 Verify: stdout contains one JSON `Envelope`; `Envelope.status`/`exit_code` are the only process-result source; stderr carries structlog events and tool diagnostics. `--rhino` opts the local Rhino bridge lane into the smoke.
 
-## [03][FLOW]
+## [03]-[FLOW]
 
 ```mermaid
 ---
@@ -67,7 +67,7 @@ flowchart LR
 
 Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail owns settings, scope, routing, check construction, engine dispatch, and fold. The engine runs `Check` rows and returns either a `Completed` receipt for a `Report` or a `Fault` for an error `Envelope`. Automation uses the same engine and registry rails and emits NDJSON per fire or sequence leaf.
 
-## [04][COMMANDS]
+## [04]-[COMMANDS]
 
 Run nested commands as `uv run python -m tools.assay <claim> <verb> ...`; bare `assay <claim> <verb> ...` is only valid when `command -v assay` proves a local wrapper exists. Single-verb claims (`static`, `docs`) and root commands omit the verb token. Multi-verb claims (`code`, `test`, `bridge`, `package`, `api`, `provision`) are Cyclopts sub-apps. Exhaustive parameter signatures stay in source and Cyclopts help. The language axis is selected by the mutually-exclusive `--csharp`, `--python`, and `--typescript` flags; an unset selection routes every eligible language. There is no `--language` flag.
 
@@ -163,7 +163,7 @@ Run nested commands as `uv run python -m tools.assay <claim> <verb> ...`; bare `
 - Boundary: Docker/Compose generation, image choice, credential material, port policy, native exports, direct database shells, pruning, diagnostic JSON, and Forge self-tests stay in Parametric_Forge. Rasm owns this envelope surface and the manifest markers, lockfiles, `.api` catalogues, and evidence that consume it.
 - Example: `uv run python -m tools.assay provision check`
 
-## [05][OUTPUT_CONTRACT]
+## [05]-[OUTPUT_CONTRACT]
 
 Parse stdout for results, read stderr for diagnosis, and treat the process exit as a projection of `Envelope.status`.
 
@@ -200,7 +200,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Remote facts: target URL, host, exit status, and pushed/pulled counts ride `report.exec` / `Envelope.exec` (`ExecReceipt`, threaded from `Completed.exec`), populated by `fold` and the emit layer — not by the `envelope()` constructor.
 - Truncation: when a result or artifact cap fires the emit layer sets `Envelope.truncated=true`, clips the rows, attaches the unclipped report as a full-report artifact, and appends one note to `report.notes` in the unified `results: {shown} of {total} (cap={cap}); full report artifact under {run_id}` shape. There is no stderr truncation side-channel.
 
-## [06][INTEGRATIONS]
+## [06]-[INTEGRATIONS]
 
 [DOTNET]:
 - Enables: C# restore, build, test, API, bridge, and package rails.
@@ -263,7 +263,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 - Load-bearing libraries: `msgspec` owns wire structs, `pydantic-settings` owns `ASSAY_*` settings, `cyclopts` owns CLI binding, `anyio` owns concurrency, `expression` owns `Result` folding, `stamina` owns engine retry, and `beartype`/`structlog`/OpenTelemetry own cross-cutting aspects.
 - Boundary: runtime model libraries are not command surfaces.
 
-## [07][AUTOMATION]
+## [07]-[AUTOMATION]
 
 Automation is a programmatic arm, not a root CLI command. `drive(trigger, action, settings)` hosts fires under one AnyIO loop and writes NDJSON output.
 
@@ -283,7 +283,7 @@ Automation is a programmatic arm, not a root CLI command. `drive(trigger, action
 - `cpu_threshold` is fractional: `0.8` means 80 percent.
 - Debounce can be trailing-edge collapse or leading-edge drain; schedule coalescing is separate from debounce.
 
-## [08][ARTIFACTS_OBSERVABILITY_REMOTE]
+## [08]-[ARTIFACTS_OBSERVABILITY_REMOTE]
 
 [ARTIFACT_ROOT]:
 - Default local root: `.artifacts/assay`.
