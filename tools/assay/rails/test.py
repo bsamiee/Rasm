@@ -241,13 +241,10 @@ def _relative_project(project: str | Path, settings: AssaySettings) -> str:
 def _solution_projects(settings: AssaySettings) -> tuple[str, ...]:
     try:
         tree = ET.fromstring(settings.solution.read_bytes() or b"<Solution/>")  # noqa: S314  # trusted local solution XML
-    except (OSError, ET.ParseError):
+    except OSError, ET.ParseError:
         return ()
     return tuple(
-        PurePosixPath(path.replace("\\", "/")).as_posix()
-        for node in tree.iter()
-        for path in (node.get("Path") or "",)
-        if path.endswith(".csproj")
+        PurePosixPath(path.replace("\\", "/")).as_posix() for node in tree.iter() for path in (node.get("Path") or "",) if path.endswith(".csproj")
     )
 
 
@@ -291,9 +288,7 @@ def _classified_projects(params: TestParams, routed: Routed, settings: AssaySett
             return tuple((project, _project_lane(project, settings)) for project in _solution_projects(settings))
         case (Language.CSHARP, None, False):
             host = frozenset(routed.host_bound)
-            return tuple(
-                (project, _TestProjectLane.HOST_BOUND if project in host else _TestProjectLane.MANAGED) for project in routed.projects
-            )
+            return tuple((project, _TestProjectLane.HOST_BOUND if project in host else _TestProjectLane.MANAGED) for project in routed.projects)
         case _:
             return ()
 
@@ -353,14 +348,7 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
             case (Language.CSHARP, Mode.RUN | Mode.LIST, (*host,)) if host:
                 status = _host_status()
                 return (
-                    Ok(
-                        receipt(
-                            ("assay", "test", "host-bound"),
-                            status.exit_code,
-                            status=status,
-                            notes=(f"host-bound[csharp]: {', '.join(host)}",),
-                        )
-                    ),
+                    Ok(receipt(("assay", "test", "host-bound"), status.exit_code, status=status, notes=(f"host-bound[csharp]: {', '.join(host)}",))),
                 )
             case _:
                 return ()
@@ -446,8 +434,7 @@ def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, 
     empty_or_failed = sum(
         1
         for c in outcomes
-        if c.status.severity > RailStatus.OK.severity
-        or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,)))
+        if c.status.severity > RailStatus.OK.severity or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,)))
     )
     return _lane_counts((m.id, _DiscoveryLane.LISTED) for m in discovered) + _lane_counts(
         tuple((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed))
@@ -455,10 +442,7 @@ def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, 
 
 
 def _run_detail(
-    detail: AnyDetail | None,
-    *,
-    project_counts: tuple[tuple[str, int], ...],
-    discovery_counts: tuple[tuple[str, int], ...] = (),
+    detail: AnyDetail | None, *, project_counts: tuple[tuple[str, int], ...], discovery_counts: tuple[tuple[str, int], ...] = ()
 ) -> TestRun | AnyDetail | None:
     match (detail, bool(project_counts or discovery_counts)):
         case (TestRun() as run, _):

@@ -1,10 +1,49 @@
 # [IDEATE_WORKFLOW]
 
-[IMPORTANT]: We MUST maximize the entire planning mode time we have; ALL changes must be exhaustively reviewed, planned, and made with clear changes in ALL planning directories/files. We must have 4+ pages of planning content, during planning mode (we are in it right now) we can make local/tmp artifacts if needed with changes, additions, and ensure the plan we have has no gaps. When we leave the planning mode, we MUST have everything already identified to do, we do NOT want to do more research that we can't do now in planning, once we leave planning mode, everything needs to be identified to be done in exhaustive detail. The plan MUST be made with critique + red team passes for all the major phase work, and refined/pushed in quality, consideration, and detail, the expectaitons of our plan is 4x higher than what you think; do not waste the planning mode, we must use it for extreme detail, refinement/hardening of all content we will do this session. The plan must be created in a structured, detailed way, ALL work that we do should be done with workflows WHILE WE ARE IN PLANNING MODE, AND ONCE WE LEAVE IT, you are an orchestrator as much as possible, doing personal work only where surgical/needed. At the start of leaving the planning mode, you MUST re-read the entire plan + all artifacts we made, if any, create a proper task list. ALL agents/workflows/teams must re-read the plan for their phase work, fully, and they MUST read `docs/stacks/csharp` regardless of language target, understand these files, our `docs/stacks/csharp/README.md` for code doctrine, and other files in root of `docs/stacks/csharp` the code standard here is the FLOOR, ts/py code if we touch/consider it is far far weaker, and always needs refining/hardening to reduce surface, reduce object/shape/types with ultra-advanced/modern/bleeding-edge replacements to reduce LOC + surface + objects without losing functionality. This is a concern at all levels, we are NEVER making code files, we ALWAYS work on design docs, we can improve/refactor all tooling + configs at repo root like `pnpm-workspace.yaml`, `pyproject.toml`, `NuGet.config`, `global.json`, `Directory.Packages.props`, `Directory.Build.targets`, `Directory.Build.props`, and `.config`, etc... external packages/tooling is a big concern of ours, always refining/improving, adding most advanced/new tooling/configs when possible, and updating docs for them to be integrated (.api/ folders if needed, readme manifests, root repo docs if needed, etc)
+[BRIEF] You must be an orchestrator, not a writer, unless the task is focused, and small, otherwise, delegate all tasks. We are in plan mode, and MUST maximize it exhaustively, we cannot and will not leave plan mode until it is extensively researched, investigated, and detailed; all the actions that will be done once we leave plan mode must be predetermined with great detail in plan mode. You must use opus agents to help compile the plan through-out, reviewing it as you build it parallel to any other work we are doing, they will critique, refine, and improve it, ensuring the plan is signal, focused, and structured properly, no vagueness or ambiguity in it, providing enough detail to immediatly jump into workflows once we leave plan mode. Prior to presenting the plan to user, review the entire "finalized" plan line by line, and identify the appropriate series of workflows that will be needed, plan them NOW to have agents also review/critique it compared to plan, to ensure we have well made phase structure, without any gaps, each phase is high impact/value, and is sequenced properly, and we leverage parallel work within a workflow, as well as parallel workflows where we can. Never commit, do not worry about commiting, focus on implementing all the work, user will commit themselves at the end.
 
-THE PLANNING MODE CANNOT BE LEFT UNLESS IT IS EXHAUSTIVE, DETAILED, ADVANCED, COMPLEX/RICH, NO FLUFF/CHAFF, ALL CONSIDERATIONS/TASKS FULLY INVESTIGATED, RESOLVED, CRITIQUED/REFINED + RED-TEAMED
+For the approach, fully understand topology of lib-wide, language-wide, and per-folder, and the neccessity to have foresight on the impact of tasks/ideas waterfalling across so that each is implemented holistically, and fully, but done in a complimentary manner, not as dual paradigms, and this may necessitate refinement/interpretation of the tasks/ideas. ASK THE USER AS MANY QUESTIONS AS POSSIBLE, EARLY DURING PLAN MODE, DURING PLAN MODE, MIDDLE OF PLAN MODE, AND WELL BEFORE FINAL PRESENTATION TO ENSURE PLAN IS DONE WITHOUT MISUNDERSTANDING. THE PLAN MUST BE EXTREMELY DETAILED, ALL WORKFLOWS MUST REFERENCE/READ IT AND OTHER STANDARDS NEEDED PRIOR TO PROCEEDING, YOU AND ALL WORKFLOW AGENTS MUST TREAT THE PLAN AS TRUTH, ADJUST ONLY BASED ON EARLIER SESSION WORK TO IMPLEMENT LATER WORK PROPERLY.
 
-[IMPORTANT]: This is more than just external lib evaluation, removals/additions, we want workflows for deep, line by line reading of all folders in isolation, identifying all tasks to create, code quality issues per `docs/stacks/csharp` for all languages, that is the floor (ultra-dense,rich, complex code over flat spam, no indirection, etc), ensuring no handrolling where api the package has available can replace, improving/extending all functionality within the existing design docs, adding new files, or sub-folders (these are tasks, not work we do, but must be grounded in logic/fact). Essentially, we want to create complete, full per folder tasks, in isolation, THEN, we do the cross-language tasks, to add to the <language>/.planning/ tasks, but ALSO updating/refining all folders within it, adding tasks related to those central language changes, refining/massaging existing tasks if they need to, for cross-folder alignment where relevant, etc, the lib wide is essentially the same, adding the tasks from big ideas to relevant folder locations, refining/massaging where cross-language concern is relevant (without coupling), things like wires, projections, grpc, ports, etc especially, but also in other ways where we want to keep all capability aligned where relevant.
+[READ]:
+- Session Targets: `libs/.planning/planning-targets.md`
+- Mandated Approach: `libs/.planning/campaign-method.md`
+- Planning Infrastructure: `libs/.planning/README.md`
+- Planning Topology: `libs/.planning/architecture.md`
+- MUST READ: `CLAUDE.md` + `AGENTS.md` + `README.md` + `tools/assay/README.md`
+
+[CODE_DOCTRINE] - Universal, regardless of language, all other languages must meet these same standards of density, complexity, advancement, no flat code.
+- Foundation: `docs/stacks/csharp/README.md`
+- Core (read all ROOT files in dir): `docs/stacks/csharp`
+- Specialized (read all files in dir): `docs/stacks/csharp/domain`
+
+Note: `docs/stacks/<lang>/` for the tier's language is the governing code doctrine, read in full at every stage; `docs/stacks/csharp/` is the universal density bar every branch matches whatever its language. A fence is held to C# bar FIRST its own language doctrine SECOND.
+
+[API_SOURCES]
+- The branch and folder targets named by the session, each target's own `<pkg>/.api/` catalogues, and the admitted packages themselves.
+- These MUST be utilized and understood whenever working on design docs, idea or task creation, we treat external libs/packages as FIRST CLASS and PREFERRED over stdlib.
+
+[LIVE_PROOF]
+- If a task or idea requires live probing, launch Rhino WIP (not rhino 8) locally on machine to run it, it is available, between assay, rhino-bridge, and our rhino-mcp skill there is nothing we can properly diagnose/extract/identify/understand regarding rhino behavior for any functionality need.
+- We have: `tools/rhino-bridge/README.md` available as well, and pairs with `tools/assay`
+- We have: `.claude/skills/rhino-mcp` as well if needed
+
+## [GOALS]
+
+
+
+
+
+
+
+
+
+
+
+[IMPORTANT]: This is more than just external lib evaluation, removals/additions, we want ultra-deep, line by line reading of all folders in isolation and holistically, (use a workflow),
+
+
+
+code quality issues per `docs/stacks/csharp` for our `<TARGET>`, that is the floor (ultra-dense,rich, complex code over flat spam, no indirection, etc), ensuring no handrolling where api the package has available can replace, improving/extending all functionality within the existing design docs, adding new files, or sub-folders (these are tasks, not work we do, but must be grounded in logic/fact). Essentially, we want to create complete, full per folder tasks, in isolation, THEN, we do the cross-language tasks, to add to the <language>/.planning/ tasks, but ALSO updating/refining all folders within it, adding tasks related to those central language changes, refining/massaging existing tasks if they need to, for cross-folder alignment where relevant, etc, the lib wide is essentially the same, adding the tasks from big ideas to relevant folder locations, refining/massaging where cross-language concern is relevant (without coupling), things like wires, projections, grpc, ports, etc especially, but also in other ways where we want to keep all capability aligned where relevant.
 
 [CRITICAL]: ALL EXTERNAL LIB/PACKAGE RELATED FINDINGS ARE IMPLEMENTED ONCE WE LEAVE PLANNING MODE, NOT RELEGATED TO TASKS/IDEAS, WE REPLACE/ADD/REMOVE/ETC ALL - UPDATING CENTRAL PACKAGE MANAGERS - REMOVING OLD .API/ FILES AS WELL AS CREATING NEW ONES IF NEEDED. Do not just focus on external libs, they are a huge source of ideation/potentiality for ideas, tasks, new folder ideas/concepts, new files within existing folders, new capabilities/functionalities within existing design docs, cross-cutting additions to existing design docs, etc but not the only source of ideation (general modern/current research as well, with dedicated agents). IF there are any existing tasks/ideas related to implementing/adding external libs/api, we invesitgate/evaluate the quality/correctness of it, and if valid/appropriate we WILL implement the task/idea. WE CAN REMOVE ANY IDEA AT ANY LOCATION, AS WELL AS TASKS, AND REPLACE WITH NEW AS NEEDED, SO LONG AS ALL DESIGN DOCS ARE FULLY READ IN ALL FOLDERS (REQUIRED), FOR PROPER UNDERSTANDING OF CHANGES, IF ANY NEEDED. Ideas must be well scopped/defined, and tasks even more so, within the guidelines of the campaign method. WE ARE NOT WORKING ON DESIGN DOCS; PRIMARILY FOCUSED ON IDEAS, TASKS, AND EXTERNAL PACKAGE ADDITIONS, REPLACEMENTS, REMOVALS, AND THEIR .API/ FILE CREATION/REMOVAL, ETC
 

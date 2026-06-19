@@ -57,9 +57,7 @@ Idea ambition increases as topology level increases, with lib-wide being the lar
 [IMPORTANT]: Our focus is `<TARGET>` but understanding the broader planning targets/folders we have and their relation and topology is critical when working within `<TARGET>` so that we can update other folders if needed for alignment, or keep our changes within `<TARGET>` properly bounded, and within our seperation of concer, ensuring no overlap/duplication/cycles, etc
 
 [BLOCKED_ITEMS]:
-- ANYTHING MARKED [BLOCKED] will be investigated/researched NOW, for py related blockers, read pyproject.toml + our `tools/assay/README.md` UNDERSTAND that we have a full provisioning tool to confirm/check things, during plan mode especially. Our Parametric_Forge project also provides py substrates for us on packages that we couldn't add due to our hard requirement of being on py 315, though we can version floor other tools as needed, READ:
-- `/Users/bardiasamiee/Documents/99.Github/Parametric_Forge/modules/home/programs/languages/python-tools.nix`
-- `/Users/bardiasamiee/Documents/99.Github/Parametric_Forge/modules/home/programs/languages/scientific-tools.nix`
+- ANYTHING MARKED [BLOCKED] will be investigated/researched NOW. For Python, native, scientific, database, or provisioning blockers, read `pyproject.toml` and `tools/assay/README.md`, then use `uv run python -m tools.assay provision check` to collect sanitized Rasm evidence before inspecting Forge owner files. Direct `forge-provision` or Parametric_Forge source inspection is for Forge-level debugging, not the normal Rasm campaign entry.
 
 ## [METHOD_AND_STANDARDS]
 

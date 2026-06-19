@@ -171,8 +171,7 @@ def _sarif_pin(check: Check, routed: Routed, settings: AssaySettings, scope: Art
     match (check.tool.runner, check.tool.mode):
         case (Runner.DOTNET, Mode.BUILD):
             tool = msgspec.structs.replace(
-                check.tool,
-                command=(*check.tool.command, f"-p:CspSarifDir={scope.sarif_dir}/{_sarif_key(check, routed, settings)}"),
+                check.tool, command=(*check.tool.command, f"-p:CspSarifDir={scope.sarif_dir}/{_sarif_key(check, routed, settings)}")
             )
             return msgspec.structs.replace(check, tool=tool)
         case _:
@@ -212,9 +211,7 @@ def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope)
     selected = tuple((phase, Check(tool=_dotnet_policy(tool, settings), paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
     expanded = tuple(
-        (phase, _sarif_pin(clone, routed, settings, scope))
-        for phase, check in selected
-        for clone in expand((check,), routed, settings=settings)
+        (phase, _sarif_pin(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings)
     )
     phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped

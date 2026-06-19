@@ -4,9 +4,9 @@
 provisioning surface over the `OpLogEntry`-rollup table, plus its native bgworker policy scheduler so
 the AppHost schedule port never schedules a refresh/retention/compression job. It carries no managed
 assembly and no first-party EF translator: every surface is server-side SQL the
-`provisioning#TIMESCALE_PROVISIONING` `TimescaleStep` fold emits through `MigrationBuilder.Sql`, and
-the rollups feed `data-lanes#ANALYTICAL_LANE` and the dashboard tiles. The extension is preload-gated
-(it rides the `ClusterConfig` `shared_preload_libraries` row), never a `schema-rail#EXTENSION_DDL`
+`Store/server#TIMESCALE_PROVISIONING` `TimescaleStep` fold emits through `MigrationBuilder.Sql`, and
+the rollups feed `Query/lanes#ANALYTICAL_LANE` and the dashboard tiles. The extension is preload-gated
+(it rides the `ClusterConfig` `shared_preload_libraries` row), never a `Schema/ddl#EXTENSION_DDL`
 self-provisioned `CREATE EXTENSION` annotation.
 
 ## [1]-[PACKAGE_SURFACE]
@@ -25,7 +25,7 @@ self-provisioned `CREATE EXTENSION` annotation.
 |   [2]   | `add_dimension`     | `add_dimension('tbl', by_range('col', INTERVAL 'i'))`                                 | add a secondary partition dimension               |
 
 The time column is the HLC `Physical` instant on the rollup table; the rollup mirrors the
-`OpLogEntry` columns the `DuckDBOpLogMap` projects on `data-lanes#ANALYTICAL_LANE`.
+`OpLogEntry` columns the `DuckDBOpLogMap` projects on `Query/lanes#ANALYTICAL_LANE`.
 
 ## [3]-[CONTINUOUS_AGGREGATE]
 

@@ -4,34 +4,8 @@ The forward pool of higher-order concepts for `data`, grounded in the host-free 
 
 ## [1]-[OPEN]
 
+(none)
+
 ## [2]-[CLOSED]
 
-[CF_FIELD_DATASET_OWNER]: realized — `field-dataset/dataset.md#FIELD`/`#SELECT`/`#EGRESS` owns one `FieldDataset` over `xarray` (function-local under `# noqa: PLC0415`) reading/writing CF field cubes through the `FieldEngine` netcdf4/h5netcdf/zarr engine rows, the `FieldSelection` tagged-union CF-aware Sel/Isel/Interp/GroupBy/GroupByBins/Resample axis, and the content-keyed `FieldReceipt` over the pyarrow/Zarr egress, binding the admitted-but-unconsumed `netcdf4` to its first consumer (the `data/.api/xarray.md` + `data/.api/netcdf4.md` rails re-owned to `field-dataset` framing).
-
-[VECTOR_SPATIAL_ALGEBRA]: realized — `geospatial/claim.md#GEO` owns one `VectorOp` tagged-union axis on `VectorGeoClaim.apply` (Join/Overlay/Dissolve/Clip/Construct/Predicate over geopandas `sjoin`/`sjoin_nearest`/`overlay`/`dissolve`/`clip`/the `ConstructKind` constructive family/the `JoinPredicate` filter, index-accelerated by `GeoDataFrame.sindex`), the flat `reproject`/`set_precision` method shape collapsed into the CRS-normalize prelude + `Construct`, folding the shared `columnar` `QueryReceipt`.
-
-[RASTER_COVERAGE_ALGEBRA]: realized — `geospatial/claim.md#GEO` owns one `RasterOp` tagged-union axis on `RasterGeoClaim.apply` (Window/Mosaic/Mask/Vectorize/Rasterize/Reproject over rasterio `windows.from_bounds`+`read(window=,boundless=)` streamed over `block_windows`/`merge.merge`/`mask.mask`/`features.shapes`/`features.rasterize`/`warp.reproject` over `enums.Resampling`/`enums.MergeAlg`), the flat `resample` method collapsed into `Reproject`, emitting the `CoverageResult` `(count,rows,cols)` NumPy egress with its `QueryReceipt`.
-
-[COLUMNAR_REMOTE_GLOB]: realized — `columnar/dataset.md#SCAN` adds two `ScanPlan` cases (`RemoteGlob(glob,predicate,partition_keys)` self-loading `httpfs` per-connection over `read_parquet(file_glob)` with predicate-pushdown partition prune and the runtime `roots#RESOURCE` `ResourceRef.path.fs` `fsspec` filesystem registered through `register_filesystem`, `Window(partitions,order,functions)` over the `WindowFunction` row catalogue) on the existing `@tagged_union`, both terminating in the uniform `pyarrow.Table` the shared `QueryReceipt` folds; the `_run` `assert_never` site is total over the five arms.
-
-[STAC_CLOUD_NATIVE_CATALOG]: realized — `stac-catalog/catalog.md` carries the `StacCatalog`/`StacQuery` discovery owner over `pystac-client` `Client.open`/`search` (`#CATALOG` bbox/datetime/collection/CQL2-filter folded by `match`/`case`), the `stac-geoparquet` `arrow.parse_stac_items_to_arrow`/`to_parquet`/`stac_table_to_items` columnar Arrow item-table the `columnar` scan and `query` engine consume (`#TABLE`), and the asset-href fold into the settled `cloud-egress` `ObjectEgress.GetRange` and `tensor` `TensorStore.virtual` fences with the `StacReceipt` keyed by `ContentIdentity` (`#ASSETS`); the three pure-Python catalogues are reflection-authored, the distribution-sync member confirmation RESEARCH-flagged (`[STAC_DISTRIBUTION_SYNC]`).
-
-[INCREMENTAL_CDC_MATERIALIZE]: fenced — `columnar/dataset.md#MATERIALIZE` carries the `DerivedSnapshot`/`PartitionBundle` partition-delta recompute composing the `lakehouse` change feed and the `query` engine, re-keying only touched partitions through the Merkle `ContentIdentity.of` fold.
-
-[GEOARROW_SPATIAL_ENGINE]: fenced — `geospatial/claim.md` carries the `EgressFormat.GEOARROW` native-encoding row and the `claim.md#SPATIAL` `SpatialQuery`/`SpatialEngine` DuckDB-spatial join/point-in-polygon/H3 engine over the `spatial`/`h3` extensions, composing the `query` engine for the SQL path. The in-frame `geopandas` vector-algebra path is the distinct `VECTOR_SPATIAL_ALGEBRA` open idea, not a re-litigation of the SQL engine.
-
-[IBIS_PORTABLE_IR]: fenced — `query/relational.md#QUERY` carries the `QuerySpec.Ir` Ibis backend-agnostic expression case and the `QuerySpec.Remote` ADBC/ConnectorX transport case, both materializing to the uniform `pyarrow.Table`, ConnectorX behind the `<3.15` gated band. The remote-glob local-source scan is the distinct `COLUMNAR_REMOTE_GLOB` open idea on the `columnar` scan owner, not the relational `Remote` transport.
-
-[TABLE_FORMAT_AXIS]: fenced — `lakehouse/table.md#LAKEHOUSE` carries the `TableFormat` provider axis (Delta/Iceberg/Lance) crossed with the `LakeOp` operation axis on one `Lakehouse` owner, dispatching `_apply` to the format provider, the Delta-only operations rejecting as typed faults on non-Delta formats.
-
-[POINTCLOUD_SCAN_EXCHANGE]: fenced — `mesh/exchange.md#POINTCLOUD` carries the `PointCloud` LAS/LAZ row over `laspy` and the COPC octree-subset arm over the `<3.15`-gated `pdal`, with the numpy/Arrow columnar point-record bridge. Two distinct catalogue gaps: the `laspy` surface is host-environmental (cp315-clean and installable, only uncatalogued because the authoring host lacks `laspy`/`assay api`), while the `pdal` COPC surface is a genuine upstream blocker (sdist-only, no cp315 wheel, unauthorable on the core).
-
-[VIRTUAL_REFERENCE_CUBE]: fenced — `tensor/store.md#TENSOR` carries the `TensorStore.virtual`/`_virtual_cube` row over module-top `virtualizarr` `open_virtual_dataset`/`HDFParser`, the function-local `xarray` combine, and the `<3.15`-gated `icechunk` commit through `ds.virtualize.to_icechunk`.
-
-[CLOUD_EGRESS_FACADE]: fenced — `cloud-egress/store.md#EGRESS` carries the `ObjectEgress`/`StoreOp` native object-store egress façade over `obstore` `from_url`/`put`/`get`/`get_range`/`list`/`delete`/`copy`, composing the runtime `TransportResource`/`ResourceRef` and keying by `ContentIdentity`, closing the visible cloud-egress gap.
-
-[FOLDER_API_CATALOGUES]: fenced — the cp315-clean fenced-interchange catalogues (`narwhals`, `zarr`, `cubed`, `awkward`, `nanoarrow`, `arro3-core`) plus the gated/abi3 ones (`virtualizarr`, `icechunk`, `xarray`, `pyiceberg`, `pylance`, `obstore`, `ibis-framework`, `adbc-driver-manager`, `connectorx`) are decompile-verified in `.api/`, retiring the catalogue-pending RESEARCH items on `interop`/`query`/`contracts`/`tensor`/`lakehouse`; the still-missing catalogues split two buckets: `laspy` is host-environmental (installable cp315-clean, blocked only by the authoring host), while `pdal` (gated-band sdist-only) and the scalar `LanceDataset.version` accessor are genuine upstream/reflection gaps; the iceberg-snapshot residue resolved by rebinding `_iceberg_receipt` to the catalogued `Table.inspect.snapshots()` surface rather than the reject-law-violating `Table.metadata.current_snapshot_id` attribute.
-
-[ARROW_PYCAPSULE_INTEROP]: dropped — the `interop/frame.md` design page already carries the decision-complete `ArrowCStream` blueprint over `arro3-core`/`nanoarrow`, so the pyarrow-free Arrow carrier is build work in `TASKLOG.md`, not a forward concept; an idea fully fenced on its page is no longer in the forward pool.
-
-[SPARSE_ND_TENSOR_ROW]: rejected — the admitted `sparse` (PyData COO/GCXS/DOK) is already owned by `compute/arrays/payload.md` as an Array-API backend with a `compute/.api/sparse.md` catalogue, resolved through `array_namespace` at the `arrays/payload#PAYLOAD` admission path; a second `sparse` tensor row inside `data/tensor` would re-mint a concern the compute array owner holds, so it is not a `data` unexploited admission and never a `TensorBackend` case.
+(none)

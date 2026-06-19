@@ -42,10 +42,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 type ShapeFault = Literal["<empty-key>", "<invalid-payload>", "<invalid-egress>"]
 
+
 class ShapeIngress(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
     key: str = Field(validation_alias="source_key")
     note: str | None = Field(default=None, validation_alias="source_note")
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -56,11 +58,14 @@ class Shape:
     def admit(cls, ingress: ShapeIngress, /) -> Result[Self, ShapeFault]:
         return Error("<empty-key>") if ingress.key == "" else Ok(cls(key=ingress.key, note=ingress.note))
 
+
 class ShapeWire(msgspec.Struct, frozen=True, omit_defaults=True, rename={"key": "wire_key", "note": "wire_note"}):
     key: str
     note: str | None = None
 
+
 SHAPE_ENCODER = msgspec.json.Encoder()
+
 
 def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
     try:
@@ -69,15 +74,18 @@ def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
         return Error("<invalid-payload>")
     return Shape.admit(ingress)
 
+
 def projected(shape: Shape, /) -> ShapeWire:
     # convert matches source attributes by field name, so the wire owner keeps canonical names and renames only at the encoded edge
     return msgspec.convert(shape, ShapeWire, from_attributes=True)
+
 
 def egressed(wire: ShapeWire, /) -> Result[bytes, ShapeFault]:
     try:
         return Ok(SHAPE_ENCODER.encode(wire))
     except msgspec.EncodeError:
         return Error("<invalid-egress>")
+
 
 def delivered(raw: object, /) -> Result[bytes, ShapeFault]:
     return admitted(raw).map(projected).bind(egressed)
@@ -143,12 +151,15 @@ from pydantic import TypeAdapter, ValidationError
 
 type ShapeFault = Literal["<empty-key>", "<invalid-payload>"]
 
+
 class ShapePayload(TypedDict, extra_items=str):
     key: Required[ReadOnly[str]]
     note: NotRequired[ReadOnly[str | None]]
 
+
 SHAPE_PAYLOAD = TypeAdapter(ShapePayload)
 _PAYLOAD_KEYS: frozenset[str] = ShapePayload.__required_keys__ | ShapePayload.__optional_keys__
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -161,12 +172,11 @@ class Shape:
         return (
             Error("<empty-key>")
             if payload["key"] == ""
-            else Ok(cls(
-                key=payload["key"],
-                note=payload.get("note"),
-                extensions=frozendict({k: v for k, v in payload.items() if k not in _PAYLOAD_KEYS}),
-            ))
+            else Ok(
+                cls(key=payload["key"], note=payload.get("note"), extensions=frozendict({k: v for k, v in payload.items() if k not in _PAYLOAD_KEYS}))
+            )
         )
+
 
 def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, ShapeFault]:
     try:
@@ -208,11 +218,13 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 
 type ShapeFault = Literal["<empty-key>", "<empty-tag>", "<duplicate-tag>"]
 
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ShapeView:
     key: str
     note: Option[str]
     tags: tuple[str, ...]
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -225,13 +237,7 @@ class Shape:
         return Error("<empty-key>") if key == "" else Ok(cls(key=key, note=note))
 
     def tagged(self, tag: str, /) -> Result[Self, ShapeFault]:
-        return (
-            Error("<empty-tag>")
-            if tag == ""
-            else Error("<duplicate-tag>")
-            if tag in self.tags
-            else Ok(replace(self, tags=(*self.tags, tag)))
-        )
+        return Error("<empty-tag>") if tag == "" else Error("<duplicate-tag>") if tag in self.tags else Ok(replace(self, tags=(*self.tags, tag)))
 
     def fold_note[T](self, some: Callable[[str], T], none: Callable[[], T], /) -> T:
         match self.note:
@@ -285,20 +291,26 @@ from pydantic import TypeAdapter, ValidationError
 MISSING = sentinel("MISSING")
 type ShapeFault = Literal["<invalid-patch>", "<invalid-note>"]
 
+
 class ShapePatch(TypedDict, total=False, closed=True):
     note: NotRequired[ReadOnly[str | None]]
+
 
 @dataclass(frozen=True, slots=True)
 class Omitted: ...
 
+
 @dataclass(frozen=True, slots=True)
 class Null: ...
+
 
 @dataclass(frozen=True, slots=True)
 class Provided:
     text: str
 
+
 type Note = Omitted | Null | Provided
+
 
 def admitted_note(row: ShapePatch, /) -> Result[Note, ShapeFault]:
     match row.get("note", MISSING):
@@ -311,6 +323,7 @@ def admitted_note(row: ShapePatch, /) -> Result[Note, ShapeFault]:
         case str() as text:
             return Ok(Provided(text))
 
+
 def selected(note: Note, fallback: Option[str] = Nothing, /) -> Option[str]:
     match note:
         case Provided(text):
@@ -322,11 +335,14 @@ def selected(note: Note, fallback: Option[str] = Nothing, /) -> Option[str]:
         case unreachable:
             assert_never(unreachable)
 
+
 SHAPE_PATCH = TypeAdapter(ShapePatch)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     note: Note = field(default_factory=Omitted)
+
 
 def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
     try:
@@ -356,9 +372,11 @@ from typing import Self, assert_never
 
 from expression import Nothing, Option, Some
 
+
 class Variant(StrEnum):
     PRIMARY = "<value-a>"
     SECONDARY = "<value-b>"
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -372,11 +390,7 @@ class Shape:
 
     @classmethod
     def secondary(cls, key: str, note: str | None = None, /) -> Self:
-        return cls(
-            kind=Variant.SECONDARY,
-            key=key,
-            note=Nothing if note is None else Some(note),
-        )
+        return cls(kind=Variant.SECONDARY, key=key, note=Nothing if note is None else Some(note))
 
     def folded[T](self, primary: Callable[[str], T], secondary: Callable[[str, Option[str]], T], /) -> T:
         match self.kind:
@@ -412,16 +426,20 @@ from expression import Error, Ok, Result
 from builtins import frozendict
 from pydantic import TypeAdapter, ValidationError
 
+
 class Variant(StrEnum):
     PRIMARY = "<value-a>"
     SECONDARY = "<value-b>"
 
+
 type WireKind = Literal["<wire-a>", "<wire-b>"]
 type ShapeFault = Literal["<empty-key>", "<invalid-row>", "<unknown-kind>"]
+
 
 class ForeignRow(TypedDict, closed=True):
     foreign_kind: Required[ReadOnly[str]]
     foreign_key: Required[ReadOnly[str]]
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -430,15 +448,13 @@ class Shape:
 
     @classmethod
     def admit(cls, *, kind: Variant, key: str) -> Result[Self, ShapeFault]:
-        return (
-            Error("<empty-key>")
-            if key == ""
-            else Ok(cls(kind=kind, key=key))
-        )
+        return Error("<empty-key>") if key == "" else Ok(cls(kind=kind, key=key))
+
 
 class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     wire_kind: WireKind
     wire_key: str
+
 
 KIND_ROUTE: frozendict[str, tuple[Variant, WireKind]] = frozendict({
     "<foreign-a>": (Variant.PRIMARY, "<wire-a>"),
@@ -448,20 +464,19 @@ KIND_OUT: frozendict[Variant, WireKind] = frozendict({kind: wire for kind, wire 
 
 FOREIGN_ROW = TypeAdapter(ForeignRow)
 
+
 def materialized(raw: object, /) -> Result[Shape, ShapeFault]:
     try:
         row = FOREIGN_ROW.validate_python(raw)
     except ValidationError:
         return Error("<invalid-row>")
     route = KIND_ROUTE.get(row["foreign_kind"])
-    return (
-        Error("<unknown-kind>")
-        if route is None
-        else Shape.admit(kind=route[0], key=row["foreign_key"])
-    )
+    return Error("<unknown-kind>") if route is None else Shape.admit(kind=route[0], key=row["foreign_key"])
+
 
 def projected(shape: Shape, /) -> ShapeWire:
     return ShapeWire(wire_kind=KIND_OUT[shape.kind], wire_key=shape.key)
+
 
 def translated(raw: object, /) -> Result[ShapeWire, ShapeFault]:
     return materialized(raw).map(projected)
@@ -487,14 +502,17 @@ from builtins import frozendict
 
 type ShapeFault = Literal["<missing>"]
 
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     key: str
     value: str
 
+
 class ShapeStore(Protocol):
     def loaded(self, key: str, /) -> Result[Shape, ShapeFault]: ...
     def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]: ...
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MemoryStore:
@@ -506,6 +524,7 @@ class MemoryStore:
     def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
         return Ok(replace(self, rows=self.rows | {shape.key: shape}))
 
+
 @dataclass(frozen=True, slots=True)
 class SnapshotStore:
     row: Shape
@@ -515,6 +534,7 @@ class SnapshotStore:
 
     def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
         return Ok(replace(self, row=shape)) if shape.key == self.row.key else Error("<missing>")
+
 
 def refreshed[S: ShapeStore](store: S, key: str, value: str, /) -> Result[S, ShapeFault]:
     return store.loaded(key).map(lambda shape: replace(shape, value=value)).bind(store.stored)
@@ -545,10 +565,12 @@ from pydantic import TypeAdapter, ValidationError
 
 type ShapeFault = Literal["<empty-key>", "<invalid-patch>", "<stale-version>"]
 
+
 class ShapePatch(TypedDict, closed=True):
     expected_version: Required[ReadOnly[int]]
     key: NotRequired[ReadOnly[str]]
     note: NotRequired[ReadOnly[str | None]]
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
@@ -565,7 +587,9 @@ class Shape:
             else Ok(replace(self, key=key, note=note, version=self.version + 1))
         )
 
+
 SHAPE_PATCH = TypeAdapter(ShapePatch)
+
 
 def patched(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
     try:
@@ -573,9 +597,5 @@ def patched(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
     except ValidationError:
         return Error("<invalid-patch>")
 
-    return shape.advanced(
-        expected_version=patch["expected_version"],
-        key=patch.get("key", shape.key),
-        note=patch.get("note", shape.note),
-    )
+    return shape.advanced(expected_version=patch["expected_version"], key=patch.get("key", shape.key), note=patch.get("note", shape.note))
 ```

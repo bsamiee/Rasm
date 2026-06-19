@@ -1,33 +1,50 @@
 # [RASM_FABRICATION]
 
-`Rasm.Fabrication` is the host-neutral portable-fabrication frontier over the `Rasm` kernel: the polymorphic `Fabrication` owner closes the 3D-to-fabrication concern over a `FrontierPolicy` `[Union]` discriminant folded by one `Run` generated total `Switch` — exact hidden-line projection, CAM toolpath motion plus serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter, all over a shared 2D polygon-algebra floor. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
+`Rasm.Fabrication` is the host-neutral portable-fabrication frontier over the `Rasm` kernel. The polymorphic `Fabrication` owner closes the 3D-to-fabrication concern over a `FrontierPolicy` `[Union]` discriminant folded by one `Run` generated total `Switch`, spanning exact hidden-line projection, CAM toolpath motion with serial-chain kinematics, 2D true-shape nesting, and a portable cut-program emitter — all over a shared 2D polygon-algebra floor. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/` mirror the eventual source tree, one page per source file.
+- [1]-[OWNER](.planning/Process/owner.md): polymorphic `Fabrication` owner — `FrontierPolicy`/`FrontierResult` unions, shared `Loop`/`Edge3`/`Move`/`PartTransform` atoms, one `Run` fold.
+- [2]-[FAMILY](.planning/Process/family.md): `Process`/`Machine` axis pair — removal-modality/kinematic-class/post-dialect discriminant covering mill/turn/route/laser/plasma/waterjet/additive/oxyfuel/edm-wire.
+- [3]-[CLIPPER](.planning/Polygon/clipper.md): `Clipper2` polygon-algebra substrate — offset/inflate, Boolean clip, Minkowski sum, open-path screen clip.
+- [4]-[IMPORT](.planning/Polygon/import.md): portable 2D profile-ingress boundary — DXF/DWG closed-polyline and arc entities tessellated into the canonical `Loop` via `ACadSharp`, host-neutral and coexisting with Rhino-native I/O.
+- [5]-[PROJECTION](.planning/Posting/projection.md): HLR — BSP front-to-back visibility and `Clipper2` open-path-Boolean screen clip; world-space edge sets for the `AppUi` `Viewport2D`.
+- [6]-[MOTION](.planning/Toolpath/motion.md): CAM motion — `(Process, ToolpathKind)` move family (milling contour/pocket/drill/trochoidal, lathe turn/face/groove/thread, thermal contour, additive slice-layer) over the `Geometry2D` offset.
+- [7]-[SKELETON](.planning/Toolpath/skeleton.md): straight-skeleton/medial-axis author-kernel driving trochoidal adaptive clearing.
+- [8]-[SLICING](.planning/Toolpath/slicing.md): FFF/DED slicing author-kernel — planar-section layer contours, perimeter shells, and hatch-clip infill over the `Geometry2D` substrate.
+- [9]-[KINEMATICS](.planning/Toolpath/kinematics.md): DH forward kinematics and the damped-least-squares Jacobian-pseudoinverse IK solver.
+- [10]-[NFP](.planning/Nesting/nfp.md): 2D true-shape nesting — NFP feasibility, bottom-left/genetic placement, and the `Stock` union (sheet/plate/bar/tube/billet/filament/remnant) content-keyed feasibility set.
+- [11]-[PROGRAM](.planning/Posting/program.md): host-neutral cut-program emission — dialect-neutral G-code AST plus `PostDialect` family (linuxcnc/grbl/fanuc/marlin/hypertherm), kerf-comp, lead-in/out, pierce, micro-tab, cut-sequencing.
+- [12]-[WORKHOLDING](.planning/Nesting/workholding.md): `Workholder` keep-out family (clamp/vise/chuck/vacuum-table/magnet/sacrificial-bed) conditioning the toolpath and cut sequence against fixture geometry.
+- [13]-[PHYSICS](.planning/Process/physics.md): removal-physics table projecting `process × material × tool × operation` to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive) the toolpath generators read.
+- [14]-[FAULTS](.planning/Process/faults.md): band-2500 `FabricationFault` cases composing the kernel band-2400 `GeometryFault`.
 
-- [frontier/owner](.planning/frontier/owner.md): the polymorphic `Fabrication` owner — `FrontierPolicy`/`FrontierResult` unions, the shared `Loop`/`Edge3`/`Move`/`PartTransform` atoms, one `Run` fold.
-- [process/family](.planning/process/family.md): the `Process`/`Machine` axis pair — the removal-modality/kinematic-class/post-dialect discriminant every fabrication owner reads (mill/turn/route/laser/plasma/waterjet/additive/oxyfuel/edm-wire).
-- [geometry2d/clipper](.planning/geometry2d/clipper.md): the one Clipper2 polygon-algebra substrate — offset/inflate, Boolean clip, Minkowski sum, open-path screen clip.
-- [geometry2d/profile-import](.planning/geometry2d/profile-import.md): the portable 2D profile-ingress boundary — DXF/DWG closed-polyline and arc entities tessellated into the canonical `Loop` through the `ACadSharp` reader, host-neutral and coexisting with Rhino-native I/O.
-- [projection/hidden-line](.planning/projection/hidden-line.md): HLR — BSP front-to-back visibility and Clipper2 open-path-Boolean screen clip; world-space edge sets for the AppUi `Viewport2D`.
-- [toolpath/motion](.planning/toolpath/motion.md): CAM motion — the `(Process, ToolpathKind)` move family (milling contour/pocket/drill/trochoidal, lathe turn/face/groove/thread, thermal contour, additive slice-layer) over the Geometry2D offset.
-- [toolpath/skeleton](.planning/toolpath/skeleton.md): the straight-skeleton/medial-axis author-kernel driving trochoidal adaptive clearing.
-- [additive/slicing](.planning/additive/slicing.md): the FFF/DED slicing author-kernel — planar-section layer contours, perimeter shells, and hatch-clip infill over the Geometry2D substrate.
-- [kinematics/serial-chain](.planning/kinematics/serial-chain.md): DH forward kinematics and the one damped-least-squares Jacobian-pseudoinverse IK solver.
-- [nesting/nfp](.planning/nesting/nfp.md): 2D true-shape nesting — NFP feasibility, bottom-left/genetic placement, and the `Stock` union (sheet/plate/bar/tube/billet/filament/remnant) content-keyed feasibility set.
-- [posting/program](.planning/posting/program.md): host-neutral portable cut-program emission — the dialect-neutral G-code AST plus the `PostDialect` family (linuxcnc/grbl/fanuc/marlin/hypertherm), kerf-comp, lead-in/out, pierce, micro-tab, cut-sequencing.
-- [fixturing/workholding](.planning/fixturing/workholding.md): the `Workholder` keep-out family (clamp/vise/chuck/vacuum-table/magnet/sacrificial-bed) conditioning the toolpath and the cut sequence against fixture geometry.
-- [process-physics/cut-parameter](.planning/process-physics/cut-parameter.md): the removal-physics table projecting the `process × material × tool × operation` row to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive) the toolpath generators read.
-- [faults/faults](.planning/faults/faults.md): the band-2500 `FabricationFault` cases composing the kernel band-2400 `GeometryFault`.
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+Domain libraries owned outside the C# substrate registry. Versions are centralized in the one C# manifest and corroborated by this folder's `.api/`.
 
-Every external library the folder uses, planned or implemented. Versions are centralized in the one C# manifest.
+[POLYGON_ALGEBRA]:
+- `Clipper2`
 
-- Rasm
-- Clipper2
-- ACadSharp
-- Thinktecture.Runtime.Extensions
-- LanguageExt.Core
-- System.IO.Hashing
+[CAD_IMPORT]:
+- `ACadSharp`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+Substrate cards this folder consumes from the registry. Full substrate law and package charters live in `libs/csharp/.planning/README.md`; decompile evidence for domain packages lives in this folder's `.api/`.
+
+[FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `JetBrains.Annotations`
+
+[TIME_IDENTITY]:
+- `System.IO.Hashing`
+
+[TEST_SUBSTRATE]:
+- `xunit.v3.core`
+- `CsCheck`
+- `coverlet.MTP`
+- `BenchmarkDotNet`
+- `SharpFuzz`
+- `Verify.XunitV3`

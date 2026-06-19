@@ -38,11 +38,15 @@ from threading import RLock
 
 scope: ContextVar[str] = ContextVar("<field-a>", default="<value-a>")
 
+
 def synchronized[**P, T](operation: Callable[P, T], /) -> Callable[P, T]:
     gate = RLock()
+
     @wraps(operation)
     def call(*args: P.args, **kwargs: P.kwargs) -> T:
-        with gate: return copy_context().run(operation, *args, **kwargs)
+        with gate:
+            return copy_context().run(operation, *args, **kwargs)
+
     return call
 ```
 
@@ -60,13 +64,18 @@ from typing import Literal
 
 type InterpreterGil = Literal["own"]
 
+
 def isolated[**P, T](entrypoint: str, /, *, gil: InterpreterGil = "own") -> Callable[[Callable[P, T]], Callable[P, T]]:
     def bind(operation: Callable[P, T], /) -> Callable[P, T]:
         route = operation.__module__, operation.__qualname__
+
         @wraps(operation)
         def call(*args: P.args, **kwargs: P.kwargs) -> T:
-            with interpreters.create(gil=gil) as runtime: return runtime.call(entrypoint, route, args, kwargs)
+            with interpreters.create(gil=gil) as runtime:
+                return runtime.call(entrypoint, route, args, kwargs)
+
         return call
+
     return bind
 ```
 
@@ -116,9 +125,14 @@ import pickle
 
 type BinaryFrame = tuple[bytes, tuple[pickle.PickleBuffer, ...]]
 
+
 class BinaryPacket[T: Buffer]:
-    def __init__(self, payload: T, /): self._view = memoryview(payload)
-    def __buffer__(self, flags: int, /) -> memoryview: return self._view
+    def __init__(self, payload: T, /):
+        self._view = memoryview(payload)
+
+    def __buffer__(self, flags: int, /) -> memoryview:
+        return self._view
+
 
 def encode[T: Buffer](payload: T, /, shape: Callable[[pickle.PickleBuffer], object]) -> BinaryFrame:
     buffers: list[pickle.PickleBuffer] = []
@@ -163,14 +177,18 @@ import sys
 
 type DiagnosticSink = Callable[[str, dict[str, object]], None]
 
+
 def observed(surface: str, sink: DiagnosticSink, /, *, tool: int = sys.monitoring.PROFILER_ID) -> int:
     monitoring = sys.monitoring
     monitoring.use_tool_id(tool, surface)
     event = monitoring.events.RAISE
+
     def raised(frame, offset: int, error: BaseException, /) -> None:
         code = frame.f_code
         sink("<raise>", {"offset": offset, "lines": tuple(code.co_lines()), "positions": tuple(code.co_positions()), "error": error})
+
     sys.addaudithook(lambda name, args: sink("<audit>", {"event": name, "args": args}))
-    monitoring.register_callback(tool, event, raised); monitoring.set_events(tool, event)
+    monitoring.register_callback(tool, event, raised)
+    monitoring.set_events(tool, event)
     return tool
 ```

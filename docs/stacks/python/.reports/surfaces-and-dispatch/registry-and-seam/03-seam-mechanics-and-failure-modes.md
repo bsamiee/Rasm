@@ -27,15 +27,16 @@
   from typing import ClassVar
   from expression import Some, Nothing
 
+
   class Handler:
       _registry: ClassVar[dict[str, type[Handler]]] = {}
 
-      def __init_subclass__(cls, tag: str = '', **kw: object) -> None:
+      def __init_subclass__(cls, tag: str = "", **kw: object) -> None:
           super().__init_subclass__(**kw)
           if not tag:
               return
           if tag in Handler._registry:
-              raise TypeError(f'Duplicate handler tag: {tag!r} (existing: {Handler._registry[tag].__qualname__})')
+              raise TypeError(f"Duplicate handler tag: {tag!r} (existing: {Handler._registry[tag].__qualname__})")
           Handler._registry[tag] = cls
 
       @classmethod
@@ -43,7 +44,8 @@
           h = cls._registry.get(tag)
           return Some(h) if h is not None else Nothing
 
-  class FooHandler(Handler, tag='foo'): ...
+
+  class FooHandler(Handler, tag="foo"): ...
   ```
   Conflict is detected at class definition time, not at lookup time. (verified CPython 3.15.0b1, 2026-06-09)
 - `__init_subclass__` versus `@register` decorator as registration seams: `__init_subclass__` is appropriate when the discriminant is structural (the subclass itself IS the handler type) and the registry is keyed by tag strings or similar stable tokens; `@register` is appropriate when the handler is a plain function and the registry is keyed by input type or vocabulary token. The two seams own different shapes: class-hierarchy extension vs function registration.

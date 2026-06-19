@@ -4,17 +4,15 @@ THE MATERIAL WIRE VOCABULARY and THE MATERIALX NODE-GRAPH INTERCHANGE. One `Mate
 
 ## [1]-[INDEX]
 
-The page's two clusters, each owning one disjoint layer of the material interchange.
-
-- `[2]-[MATERIAL_WIRE]`: the `MaterialWire` canonical OpenPBR-vector wire shape, the `OpenPbrGroupsWire` parameter-group projection, the `WireProvenance` receipt, and the C#-mints / peers-decode single-mint law plus the TS and Python decode contracts.
-- `[3]-[MATERIALX_DOCUMENT]`: the `MtlxDocument`/`MtlxNode` MaterialX 1.39 node-graph shape, the `NodeCategory` axis, the `AppearanceNode`→MaterialX projection, and the `.mtlx` serialize/admit fold.
+- [1]-[MATERIAL_WIRE]: the `MaterialWire` canonical OpenPBR-vector wire shape, the `OpenPbrGroupsWire` parameter-group projection, the `WireProvenance` receipt, and the C#-mints / peers-decode single-mint law plus the TS and Python decode contracts.
+- [2]-[MATERIALX_DOCUMENT]: the `MtlxDocument`/`MtlxNode` MaterialX 1.39 node-graph shape, the `NodeCategory` axis, the `AppearanceNode`→MaterialX projection, and the `.mtlx` serialize/admit fold.
 
 ## [2]-[MATERIAL_WIRE]
 
 - Owner: `MaterialWire` the canonical material wire shape; `OpenPbrGroupsWire` the OpenPBR parameter-group projection; `WireProvenance` the wire receipt; `MaterialProjection` the static mint fold.
 - Entry: `public static MaterialWire Project(MaterialId id, MaterialParameters parameters, Provenance provenance, SurfaceShade preview)` mints the one wire shape from a library row, and `public static Fin<MaterialWire> Mint(MaterialId id, Op key)` resolves a registered row, lowers it to the OpenPBR vector, and projects — the SINGLE site the material wire is minted; the TS `MaterialWire`/`OpenPbrGroupsWire` interface and the Python `MaterialWire` dataclass DECODE this exact shape and never re-mint the OpenPBR algebra.
 - Packages: Wacton.Unicolour (composed — scene-linear color hex/linear-triple projection for the wire color fields), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new OpenPBR parameter is one column on `OpenPbrGroupsWire` (and its TS/Py decode row), defaulted so existing rows decode unchanged; a new wire receipt field is one `WireProvenance` column; a new metal is one `ConductorMetal` row the wire names by key — never a parallel material wire shape and never a per-material wire type. The `MaterialWire` is the OpenPBR-vector wire the `bsdf#OPENPBR_SLAB` `SlabStack` defines; the renderer-side consumer at `Rasm.AppUi/viewport/viewport-pipeline#PATH_TRACE` reads the C# `MaterialParameters` interior directly (same runtime), and the cross-language peers read `MaterialWire` over the wire.
+- Growth: a new OpenPBR parameter is one column on `OpenPbrGroupsWire` (and its TS/Py decode row), defaulted so existing rows decode unchanged; a new wire receipt field is one `WireProvenance` column; a new metal is one `ConductorMetal` row the wire names by key — never a parallel material wire shape and never a per-material wire type. The `MaterialWire` is the OpenPBR-vector wire the `bsdf#OPENPBR_SLAB` `SlabStack` defines; the renderer-side consumer at `Rasm.AppUi/Render/viewport#PATH_TRACE` reads the C# `MaterialParameters` interior directly (same runtime), and the cross-language peers read `MaterialWire` over the wire.
 - Law: C# is the sole producer of the material wire vocabulary — the OpenPBR parameter groups, the `ConductorMetal` key, the `SurfaceShade` preview, and the `WireProvenance` receipt are minted once at `MaterialProjection.Mint` and decoded by every peer; a TS or Python re-derivation of the OpenPBR lowering, the conductor-IOR table, or the MaterialX node schema is the named cross-language drift defect, so the peers carry a decode-only `MaterialWire` shape that mirrors this projection field-for-field and never an OpenPBR construction of their own.
 - Boundary: `MaterialWire` is the ONE material wire — a per-consumer material DTO is the deleted form; the wire carries the `MaterialId` `family.name` key, the `OpenPbrGroupsWire` flat OpenPBR vector (the `bsdf#OPENPBR_SLAB` `OpenPbrSurface` columns projected to wire scalars and color triples), the `ConductorMetal` key string for the metal grounding (empty for a dielectric), the `WireProvenance` receipt (the `acquisition#ACQUISITION` `Provenance` device/wavelength/residual), and the resolved `SurfaceShade` preview as a scene-linear linear-RGB triple plus the `Hex` byte string the web swatch reads; color fields cross as the scene-linear `RgbLinear.Triplet` `(First, Second, Third)` triple and the clipped `Hex` so a peer renders without re-deriving the ACEScg working space, the linear triple the shading truth and the hex the preview; the `Provenance.Authored` receipt marks a hand-authored row and a measured row carries its device/residual so a consumer distinguishes a measured material from an authored guess on the wire; the wire is a portable data record (no `Rhino.Geometry`, no `Unicolour` object crosses — only the projected scalars/triples) so the TS interface and the Python dataclass decode it structurally; the single-mint invariant is verified end-to-end — `MaterialProjection.Mint` is the only OpenPBR-vector construction site, the TS `decodeMaterialWire` and the Python `MaterialWire.from_wire` are pure structural decoders that never call an OpenPBR lowering, and a peer that re-mints the OpenPBR vector or the conductor table is the rejected form.
 
@@ -157,6 +155,7 @@ class WireColor:
     b: float
     hex: str
 
+
 @dataclass(frozen=True, slots=True)
 class OpenPbrGroupsWire:
     base_weight: float
@@ -183,6 +182,7 @@ class OpenPbrGroupsWire:
     thin_film_ior: float
     emission_color: WireColor
     emission_luminance: float
+
 
 @dataclass(frozen=True, slots=True)
 class MaterialWire:

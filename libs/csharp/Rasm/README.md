@@ -1,44 +1,61 @@
 # [RASM]
 
-`Rasm` is the geometry and numeric kernel below the C# app strata: it references no sibling and is referenced by every stratum above. It carries three mature sub-domains with co-located source — `Vectors` (the typed operator/spectral vocabulary), `Analysis` (the measure/query/intersect/topology algebra), and `Domain` (Rhino-normalization, context, stats, validation) — plus the greenfield robust-core `Geometry` sub-domain whose design pages live under `.planning/`. The robust-core composes `Rasm.Vectors` as settled vocabulary and never re-mints a primitive, admits NO external geometry library (every predicate, index, naming, healing, and constraint kernel is authored from first principles), and is pure-managed osx-arm64 with one tier-3 native gate (the boolean/CSG arrangement asset). This README routes the design pages and registers every external package the folder uses.
+`Rasm` is the geometry and numeric kernel below the C# app strata: it references no sibling and is referenced by every stratum above. It carries three mature sub-domains with co-located source — `Vectors` (the typed operator/spectral vocabulary), `Analysis` (the measure/query/intersect/topology algebra), and `Domain` (Rhino-normalization, context, stats, validation) — plus the greenfield robust-core `Geometry` sub-domain whose design pages live under `.planning/`. The robust-core composes `Rasm.Vectors` as settled vocabulary, never re-mints a primitive, admits no external geometry library (every predicate, index, naming, healing, and constraint kernel is authored from first principles), and runs pure-managed on osx-arm64 with one tier-3 native gate for the boolean/CSG arrangement asset. This README routes the design pages and registers every external package the folder uses.
 
 ## [1]-[ROUTER]
 
-The mature `Vectors`/`Analysis`/`Domain` source carries no `.planning/`; its design surface is `Vectors/_ARCHITECTURE.md` and its open work rides this folder's `TASKLOG.md`. The greenfield robust-core's pages live under `Geometry/.planning/<sub-domain>/`, one page per eventual source file, mirroring the `Rasm.Geometry.*` namespaces, because a package-root `.planning/` would wrongly imply the mature siblings are also in planning. `ARCHITECTURE.md` maps the full sub-domain structure; `IDEAS.md` and `TASKLOG.md` carry the forward pool and the distilled work.
+- [1]-[PREDICATES](Geometry/.planning/Numerics/predicates.md): Adaptive-precision exact-predicate floor — `Predicate` (Orient2D/Orient3D/InCircle/InSphere + OrientLPI/OrientTPI/InCircleLPI/InSphereTPI implicit-point) over `Expansion` sign-exact arithmetic, the `ErrorBound` filter table, and the `NumericsPolicy` interior-double scope.
+- [2]-[INDEX](Geometry/.planning/Spatial/index.md): Polymorphic `SpatialIndex` (SAH-BVH + Morton linear octree) over one `NodeStore`, the `SpatialQuery` nearest/range/ray/overlap fold, `Refit`, and the `ToAcceleration` Compute seam.
+- [3]-[NAMING](Geometry/.planning/Spatial/naming.md): Persistent topological naming — one `TopoName` lineage algebra, the `NameTable` registry, and the `Track` re-anchor-by-signature fold.
+- [4]-[RECONCILIATION](Geometry/.planning/Spatial/reconciliation.md): Naming-to-hash fence — `CanonicalTopology` canonical-adjacency encoder and the `Reconcile` projection onto the Persistence `GeometryHash`.
+- [5]-[REPAIR](Geometry/.planning/Processing/repair.md): Repair rail — the `HealOp` closed algebra (six author-kernels + one native-gate boolean) and the `Heal.Repair` session fold composing the predicate floor.
+- [6]-[RECEIPTS](Geometry/.planning/Processing/receipts.md): Typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
+- [7]-[SOLVER](Geometry/.planning/Processing/solver.md): Author-kernel geometric constraint solver — the closed `Constraint` residual/Jacobian algebra, the `DofAnalysis` verdict, and the Levenberg-Marquardt `Solve` iterate.
+- [8]-[DELAUNAY](Geometry/.planning/Meshing/delaunay.md): Author-kernel constrained Delaunay owner — one `Tessellation` (triangulation/tetrahedralization) over a flat `SimplexStore`, Bowyer-Watson insertion driven by the exact `InCircle`/`InSphere` predicate, and predicate-guarded constraint recovery.
+- [9]-[OFFSET](Geometry/.planning/Meshing/offset.md): Predicate-exact offsetting owner — one `OffsetOp` (skeleton/medial/minkowski/offset) over a flat `WavefrontStore`, the Aichholzer-Aurenhammer wavefront event queue driven by the exact `Orient2D` turn sign, the medial-axis read-off over the `Tessellation` Voronoi dual, the Minkowski edge-normal convolution, and `Assemble` loop assembly re-routed through the `Arrangement` planar-overlay exact cell complex.
+- [10]-[ARRANGEMENT](Geometry/.planning/Meshing/arrangement.md): Fully-managed exact-arithmetic mesh/polygon arrangement owner — one `Arrangement` (mesh-boolean/planar-overlay/cell-complex) over the constrained tetrahedralization, every intersection segment an `Lpi`/`Tpi` implicit point, cells classified inside/outside by `SpatialQuery.Winding` GWN scalar, `BooleanOp`-selected cells welded through `DuplicateWeld`, and the `BooleanReceipt` kept/classified/weld-count carrier; retires the tier-3 native CSG gate.
+- [11]-[INTERSECT](Geometry/.planning/Meshing/intersect.md): Predicate-exact curve/surface/mesh intersection lattice — one `IntersectOp` (segment-segment/segment-triangle/triangle-triangle/ray-mesh/mesh-mesh/plane-mesh) over an exact-sign `Crossing` carrier (`Lpi`/`Tpi` implicit point + exact parametric ordering key), the robust counterpart that `Analysis/Intersect.cs` never owns at predicate exactness.
+- [12]-[FIT](Geometry/.planning/Processing/fit.md): Robust geometric primitive-fit owner — one `FitOp` (plane/sphere/cylinder/cone/torus/line) over a MLESAC robust-consensus sampler plus geometric-orthogonal-distance LM refine reusing the `ConstraintSolver` iterate, returning a typed `FitReceipt` (inlier mask, residual, fitted primitive, consensus score); the scan-to-BIM segmentation primitive.
+- [13]-[FLATTEN](Geometry/.planning/Processing/flatten.md): Robust mesh parameterization/UV-flattening owner — one `ParamOp` (harmonic/LSCM/ARAP/BFF) over the `Vectors` DEC operator substrate composing the `LaplacianCache` Cholesky factor, returning a typed `ChartAtlas` (per-chart UV, distortion receipt, seam set).
+- [14]-[VIEW](Geometry/.planning/Drawing/view.md): Predicate-exact hidden-line/silhouette projection owner — one `ViewOp` (silhouette/hidden-line/section/outline) over a Newell-Newell-Sancha BSP visibility kernel, the silhouette locus decided by the exact `Orient3D` view-dot sign, the section cut via one `IntersectOp.Apply`, and the `DrawingProjection` visible/hidden 2D-segment carrier.
+- [15]-[DECIMATE](Geometry/.planning/Processing/decimate.md): Predicate-guarded mesh decimation/LOD owner — one `SimplifyOp` (quadric-collapse/progressive-mesh/voxel-remesh/feature-preserve) over a Garland-Heckbert QEM edge-collapse queue gated by the exact `Orient3D` sign, and the `DecimationReceipt` per-LOD budget/Hausdorff bound/reversible vsplit carrier.
+- [16]-[PACK](Geometry/.planning/Drawing/pack.md): Canonical geometry-encoding/packing owner — one `PackOp` (point-cloud/mesh-patch/voxel-grid/brep-patch) over the eight-row `EncodingChannel` feature lattice composing the live `Vectors` mesh/cloud/SDF/curvature/geodesic readers, and the `EncodedGeometry` per-channel-payload/lossless-round-trip-witness carrier.
+- [17]-[FAULTS](Geometry/.planning/Numerics/faults.md): Consolidated band-2400 `GeometryFault` union every geometry rail routes through (spatial 2401–, topology 2410–, healing 2420–, constraints 2430–, offsetting 2440–, arrangement 2450–, intersection 2460–, fitting 2470–, parameterization 2480–, projection 2490–, decimation 2500–, encoding 2510–), and the `GeometryKeyPolicy` ordinal key accessor.
 
-- `Geometry/.planning/numerics/predicates.md` — the adaptive-precision exact-predicate floor: `Predicate` (Orient2D/Orient3D/InCircle/InSphere + OrientLPI/OrientTPI/InCircleLPI/InSphereTPI implicit-point) over `Expansion` sign-exact arithmetic and the `ErrorBound` filter table, the `NumericsPolicy` interior-double scope.
-- `Geometry/.planning/spatial/index.md` — one polymorphic `SpatialIndex` (SAH-BVH + Morton linear octree) over one `NodeStore`, the `SpatialQuery` nearest/range/ray/overlap fold, `Refit`, and the `ToAcceleration` Compute seam.
-- `Geometry/.planning/topology/naming.md` — persistent topological naming: one `TopoName` lineage algebra, the `NameTable` registry, and the `Track` re-anchor-by-signature fold.
-- `Geometry/.planning/topology/reconciliation.md` — the naming↔hash fence: `CanonicalTopology` canonical-adjacency encoder and the `Reconcile` projection onto the Persistence `GeometryHash`.
-- `Geometry/.planning/healing/repair.md` — the repair rail: the `HealOp` closed algebra (six author-kernels + one native-gate boolean) and the `Heal.Repair` session fold composing the predicate floor.
-- `Geometry/.planning/healing/receipts.md` — the typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
-- `Geometry/.planning/constraints/solver.md` — one author-kernel geometric constraint solver: the closed `Constraint` residual/Jacobian algebra, the `DofAnalysis` verdict, and the Levenberg-Marquardt `Solve` iterate.
-- `Geometry/.planning/tessellation/delaunay.md` — the author-kernel constrained Delaunay owner: one `Tessellation` (triangulation/tetrahedralization) over a flat `SimplexStore`, the Bowyer-Watson insertion driven by the exact `InCircle`/`InSphere` predicate, and predicate-guarded constraint recovery.
-- `Geometry/.planning/offsetting/offset.md` — the predicate-exact offsetting owner: one `OffsetOp` (skeleton/medial/minkowski/offset) over a flat `WavefrontStore`, the Aichholzer-Aurenhammer wavefront event queue driven by the exact `Orient2D` turn sign, the medial-axis read-off over the `Tessellation` Voronoi dual, the Minkowski edge-normal convolution, and the `Assemble` loop assembly re-routed through the `Arrangement` planar-overlay exact cell complex.
-- `Geometry/.planning/arrangement/arrangement.md` — the fully-managed exact-arithmetic mesh/polygon arrangement owner: one `Arrangement` (mesh-boolean/planar-overlay/cell-complex) over the constrained tetrahedralization, every intersection segment an `Lpi`/`Tpi` implicit point, cells classified inside/outside by the `SpatialQuery.Winding` GWN scalar, `BooleanOp`-selected cells welded through `DuplicateWeld`, the `BooleanReceipt` kept/classified/weld-count carrier; retiring the tier-3 native CSG gate.
-- `Geometry/.planning/intersection/intersect.md` — the predicate-exact curve/surface/mesh intersection lattice: one `IntersectOp` (segment-segment/segment-triangle/triangle-triangle/ray-mesh/mesh-mesh/plane-mesh) over an exact-sign `Crossing` carrier (`Lpi`/`Tpi` implicit point + exact parametric ordering key), the robust counterpart the host-delegated `Analysis/Intersect.cs` never owns at predicate exactness.
-- `Geometry/.planning/fitting/fit.md` — the robust geometric primitive-fit owner: one `FitOp` (plane/sphere/cylinder/cone/torus/line) over a MLESAC robust-consensus sampler plus a geometric-orthogonal-distance LM refine reusing the `ConstraintSolver` iterate, returning a typed `FitReceipt` (inlier mask, residual, fitted primitive, consensus score); the scan-to-BIM segmentation primitive.
-- `Geometry/.planning/parameterization/flatten.md` — the robust mesh parameterization / UV-flattening owner: one `ParamOp` (harmonic/LSCM/ARAP/BFF) over the `Vectors` DEC operator substrate composing the `LaplacianCache` Cholesky factor, returning a typed `ChartAtlas` (per-chart UV, distortion receipt, seam set).
-- `Geometry/.planning/projection/view.md` — the predicate-exact hidden-line/silhouette projection owner: one `ViewOp` (silhouette/hidden-line/section/outline) over a Newell-Newell-Sancha BSP visibility kernel, the silhouette locus decided by the exact `Orient3D` view-dot sign, the section cut one `IntersectOp.Apply`, and the `DrawingProjection` visible/hidden 2D-segment carrier.
-- `Geometry/.planning/simplification/decimate.md` — the predicate-guarded mesh decimation / LOD owner: one `SimplifyOp` (quadric-collapse/progressive-mesh/voxel-remesh/feature-preserve) over a Garland-Heckbert QEM edge-collapse queue gated by the exact `Orient3D` sign, and the `DecimationReceipt` per-LOD budget / Hausdorff bound / reversible vsplit carrier.
-- `Geometry/.planning/encoding/pack.md` — the canonical geometry-encoding / packing owner: one `PackOp` (point-cloud/mesh-patch/voxel-grid/brep-patch) over the eight-row `EncodingChannel` feature lattice composing the live `Vectors` mesh/cloud/SDF/curvature/geodesic readers, and the `EncodedGeometry` per-channel-payload / lossless-round-trip-witness carrier.
-- `Geometry/.planning/faults/faults.md` — the consolidated band-2400 `GeometryFault` union every geometry rail routes through (spatial 2401–, topology 2410–, healing 2420–, constraints 2430–, offsetting 2440–, arrangement 2450–, intersection 2460–, fitting 2470–, parameterization 2480–, projection 2490–, decimation 2500–, encoding 2510–), and the `GeometryKeyPolicy` ordinal key accessor.
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+The numeric solver and geometry host packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
 
-Every external library the kernel uses, planned or implemented, as a flat list. Versions are centralized in the one language manifest; no per-folder manifest exists. The robust-core admits NO external geometry library; the packages below back the numeric lane, the generated dispatch, the result rails, and the content-hash federation.
+[NUMERIC_SOLVERS]:
+- `MathNet.Numerics`
+- `MathNet.Numerics.Providers.MKL`
+- `MathNet.Numerics.Providers.OpenBLAS`
+- `CSparse`
 
-- Thinktecture.Runtime.Extensions — `[Union]`/`[SmartEnum]`/`[ValueObject]` generated dispatch and value objects.
-- LanguageExt.Core — `Fin`/`Validation`/`Eff` result rails, `Seq`/`Option`/`HashMap`/`Set` immutable collections, `Error`.
-- MathNet.Numerics — dense linear algebra (`Matrix<double>`/`DenseMatrix`/`Cholesky`) for the constraint solver's normal-equations solve.
-- MathNet.Numerics.Providers.MKL / .OpenBLAS — native linear-algebra backends behind the `Control.LinearAlgebraProvider` seam, version-matched to the core line.
-- CSparse — sparse direct solves for the mature `Vectors` mesh/matrix lane.
-- System.Numerics.Tensors — `TensorPrimitives` SIMD primitives for the mature `Vectors` field/spectral lane.
-- System.IO.Hashing — `XxHash128`, the one content-address hash the topology reconciliation reuses.
-- System.Buffers.Binary — `BinaryPrimitives` for the canonical-adjacency byte encoding (BCL inbox).
-- System.Numerics.BigInteger — the exact rational oracle the predicate law-matrix proves against (BCL inbox).
-- System.Collections.Frozen — `FrozenDictionary` for the spatial-index builder table (BCL inbox).
-- System.Math — `FusedMultiplyAdd`/IEEE-754 primitives for the expansion arithmetic (BCL inbox).
-- Rhino.Geometry / RhinoCommon — `Point3d`/`Vector3d`/`BoundingBox`/`Ray3d`/`Sphere`/`Mesh` geometry, composed via `Rasm.Vectors`, never re-minted.
-- Rasm.Vectors (project) — the settled operator/mesh vocabulary the robust-core composes.
-- Rasm.Compute.Solver (project) — the `AccelerationStructure` clash seam the spatial index projects to, composed never re-minted.
+[PROJECTS]:
+- `Rhino.Geometry` / `RhinoCommon`
+- `Rasm.Vectors`
+- `Rasm.Compute.Solver`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+The C# substrate registry cards this folder consumes; full registry and version ownership live in `libs/csharp/.planning/README.md`, with decompile evidence in the folder `.api/`.
+
+[FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `JetBrains.Annotations`
+
+[TIME_IDENTITY]:
+- `System.IO.Hashing`
+
+[NUMERIC_SUBSTRATE]:
+- `System.Numerics.Tensors`
+
+[TEST_SUBSTRATE]:
+- `xunit.v3.*`
+- `CsCheck`
+- `coverlet.MTP`
+- `BenchmarkDotNet`
+- `SharpFuzz`
+- `Verify.XunitV3`

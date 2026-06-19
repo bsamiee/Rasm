@@ -4,7 +4,7 @@ THE KUBELKA-MUNK PIGMENT/COAT-STACK FINISH ENGINE. One `Finish.Resolve` static f
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[FINISH]` owns the `FinishKind` `[SmartEnum<string>]` discriminant (paint · coating · stain · plaster, each carrying its pigment-handling behavior row), the `FinishMix` pigment-weight vector resolving through the admitted Kubelka-Munk constructor over the `ArtistPaint` set, the `FinishLayer` `[Union]` primer/base/topcoat coat stack lowering to the `bsdf#OPENPBR_SLAB` `Slab.Coat` slab, and the one `Finish.Resolve` fold producing a `graph#MATERIAL_LIBRARY` `MaterialParameters` row with measured `Provenance`.
+- [1]-[FINISH]: the `FinishKind` `[SmartEnum<string>]` discriminant (paint · coating · stain · plaster, each carrying its pigment-handling behavior row), the `FinishMix` pigment-weight vector resolving through the admitted Kubelka-Munk constructor over the `ArtistPaint` set, the `FinishLayer` `[Union]` primer/base/topcoat coat stack lowering to the `bsdf#OPENPBR_SLAB` `Slab.Coat` slab, and the one `Finish.Resolve` fold producing a `graph#MATERIAL_LIBRARY` `MaterialParameters` row with measured `Provenance`.
 
 ## [2]-[FINISH]
 

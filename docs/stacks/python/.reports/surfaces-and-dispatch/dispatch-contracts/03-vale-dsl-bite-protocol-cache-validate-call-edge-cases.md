@@ -17,13 +17,17 @@ from beartype.plug import BeartypeHintable
 from beartype.vale import Is
 from typing import Annotated
 
+
 class NonEmpty(int, BeartypeHintable):
     @classmethod
     def __beartype_hint__(cls) -> object:
         return Annotated[int, Is[lambda n: n > 0]]
 
+
 @beartype
 def accept(n: NonEmpty) -> None: ...
+
+
 # beartype replaces NonEmpty with Annotated[int, Is[lambda n: n > 0]] at decoration time
 ```
 

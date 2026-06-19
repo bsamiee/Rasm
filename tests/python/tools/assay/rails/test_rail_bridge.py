@@ -207,10 +207,7 @@ def test_decode_empty_stdout_reads_process_log(tmp_path: Path) -> None:
     out_log.write_bytes(_envelope(report_dir=str(tmp_path), scenarios=({"scenario": "analysis.NativeRail", "status": "ok"},)))
 
     done = receipt(
-        ("rasm-bridge",),
-        0,
-        stdout=b"",
-        artifacts=(Artifact(id="out", kind=ArtifactKind.PROCESS, path=str(out_log), bytes=out_log.stat().st_size),),
+        ("rasm-bridge",), 0, stdout=b"", artifacts=(Artifact(id="out", kind=ArtifactKind.PROCESS, path=str(out_log), bytes=out_log.stat().st_size),)
     )
 
     envelope = _decode_envelope(done)

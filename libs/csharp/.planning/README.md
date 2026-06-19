@@ -4,50 +4,58 @@ The C# branch router and the cross-cutting package registry. The branch aggregat
 
 ## [1]-[ROUTER]
 
-The eight planning-scoped package roots, in strata order. Each root README carries the folder's page router and its own package additions; each `ARCHITECTURE.md` carries the folder's sub-domain map.
+Eight planning-scoped package roots in strata order; each root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map.
 
-- KERNEL: [Rasm](../Rasm/README.md) — geometry/numeric kernel; mature `Vectors`/`Analysis`/`Domain` plus the greenfield `Geometry/` robust-core scaffolded under `Geometry/.planning/`.
-- AEC-DOMAIN: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
-- AEC-DOMAIN: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
-- AEC-DOMAIN: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting frontier.
-- APP-PLATFORM: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
-- APP-PLATFORM: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
-- APP-PLATFORM: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
-- APP-PLATFORM: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
+- [1]-[KERNEL]: [Rasm](../Rasm/README.md) — Mature `Vectors`/`Analysis`/`Domain`, greenfield `Geometry/` robust-core scaffolded under `Geometry/.planning/`.
+- [2]-[AEC-DOMAIN]: [Rasm.Materials](../Rasm.Materials/README.md) — profiles, appearance, construction.
+- [3]-[AEC-DOMAIN]: [Rasm.Bim](../Rasm.Bim/README.md) — BIM object model and IFC/glTF/STEP exchange.
+- [4]-[AEC-DOMAIN]: [Rasm.Fabrication](../Rasm.Fabrication/README.md) — portable HLR/CAM/nesting frontier.
+- [5]-[APP-PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — runtime spine.
+- [6]-[APP-PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured execution.
+- [7]-[APP-PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — durable stores.
+- [8]-[APP-PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product UI.
 
-The HOST-BOUNDARY packages `Rasm.Rhino` and `Rasm.Grasshopper` are out-of-scope-durable source with no `.planning/`; the future app root composes them, and the open seams it spans ride this branch `TASKLOG.md`.
+The HOST-BOUNDARY packages `Rasm.Rhino` and `Rasm.Grasshopper` are out-of-scope-durable source with no `.planning/`.
 
-## [2]-[CROSS_CUTTING_PACKAGES]
+## [2]-[SUBSTRATE_PACKAGES]
 
-The packages every C# folder shares or that span two or more C# folders, trimmed from the per-folder registries so a folder README lists only its own additions. Per-folder-only packages (Avalonia, GeometryGym, Clipper2, ONNX Runtime, the OPC-UA/MQTT stack, EF Core providers, the cloud object-store SDKs) stay in their owning folder README.
+The cross-domain C# foundation every package builds on: rails, time/identity, the array substrate, the wire-codegen toolchain, and the test stack. Folder `README.md`s list their own domain additions under their own `## [3]-[SUBSTRATE_PACKAGES]`.
 
 [FUNCTIONAL_CORE]:
-- LanguageExt.Core — `Fin`/`Validation`/`Eff` result rails, `Seq`/`Option`/`HashMap`/`Set` immutable collections, `Error`. Every C# folder.
-- Thinktecture.Runtime.Extensions — `[Union]`/`[SmartEnum]`/`[ValueObject]` generated dispatch and value objects. Every C# folder.
-- Thinktecture.Runtime.Extensions.Json — the generated-owner JSON converters. Bim, AppHost, Compute, Persistence, AppUi.
+- `LanguageExt.Core` — every C# folder.
+- `Thinktecture.Runtime.Extensions` — every C# folder.
+- `Thinktecture.Runtime.Extensions.Json` — Bim, AppHost, Compute, Persistence, AppUi.
+- `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
-- NodaTime — `Instant`/`Duration` receipt stamping and the semantic clock. Bim, AppHost, Compute, Persistence, AppUi.
-- System.IO.Hashing — `XxHash128`, the one content-address seed reproduced across runtimes. Rasm, Bim, AppHost, Compute, Persistence, AppUi.
-- UnitsNet — the quantity owner the Compute units boundary composes; consumed by AppUi and, through the Compute seam, by Materials.
+- `NodaTime` — Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime.Serialization.SystemTextJson` — Bim, AppHost, Compute, Persistence, AppUi.
+- `NodaTime.Serialization.Protobuf` — AppHost, Compute.
+- `System.IO.Hashing` — Rasm, Bim, AppHost, Compute, Persistence, AppUi.
 
-[NUMERIC]:
-- MathNet.Numerics — dense linear algebra. Rasm (constraint solve), Compute (the dense lane).
-- CSparse — sparse direct solves. Rasm (mature `Vectors` lane), Compute (the sparse lane).
-- System.Numerics.Tensors — `TensorPrimitives` SIMD. Rasm (field/spectral lane), Compute (the tensor lane).
+[NUMERIC_SUBSTRATE]:
+- `System.Numerics.Tensors` — Rasm, Compute.
 
-[GEOMETRY_INTERCHANGE]:
-- SharpGLTF.Core / SharpGLTF.Toolkit — the glTF read/write path. Bim (the exchange codec), Compute (the tile-emit path); Bim also admits SharpGLTF.Runtime.
-- meshoptimizer — leaf-geometry optimization. Bim (via Alimer.Bindings.MeshOptimizer), Compute.
+[WIRE_CODEGEN]:
+- `Google.Protobuf`
+- `Grpc.Net.Client`
+- `Grpc.Net.Client.Web`
+- `Grpc.Net.Common`
+- `Grpc.Core.Api`
+- `Grpc.AspNetCore`
+- `Grpc.AspNetCore.Web`
+- `Grpc.AspNetCore.HealthChecks`
+- `Grpc.Tools`
 
-[RUNTIME_PLATFORM]:
-- Microsoft.Extensions.Caching.Hybrid — the cache port and its L2 contribution. AppHost (the port), Compute (the result cache), Persistence (the L2 contribution).
-- Microsoft.Extensions.AI.Abstractions — the `AIFunction`/`IChatClient` surface. AppHost (the MCP projection), Compute (the model lane).
-- The gRPC and ASP.NET Core hosting surface (`Grpc.Net.Client`, `Grpc.AspNetCore`, the test host) — the wire transport. AppHost (the ports), Compute (the remote lane).
-
-[TESTING]:
-- BenchmarkDotNet — micro-benchmark claims. Compute, Persistence.
-- SharpFuzz — out-of-process decode fuzzing. Compute, Persistence.
-- Verify.XunitV3 — snapshot verification. Persistence, AppUi.
-
-The universal managed-law, property-based, coverage, mutation, and architecture rails (xUnit v3, CsCheck, coverlet, Stryker, ArchUnitNET) apply to every C# package per the route-owned `testing-cs` doctrine and are not duplicated as folder package additions.
+[TEST_SUBSTRATE]:
+- `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.
+- `CsCheck`
+- `coverlet.MTP`
+- `Microsoft.Testing.Platform` stack.
+- `BenchmarkDotNet` — Compute, Persistence.
+- `SharpFuzz` — Compute, Persistence.
+- `Verify.XunitV3` — Persistence, AppUi.
+- `NodaTime.Testing`
+- `Microsoft.Extensions.TimeProvider.Testing`
+- `Microsoft.Extensions.Diagnostics.Testing`
+- `Microsoft.AspNetCore.TestHost`

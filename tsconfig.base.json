@@ -34,15 +34,7 @@
         "noEmit": true,
         "types": ["node", "vite/client", "vitest"]
     },
-    "exclude": [
-        "**/node_modules",
-        "**/dist",
-        "**/build",
-        "**/coverage",
-        "**/.stryker-tmp",
-        "**/.cache",
-        "tests/ast-grep/**"
-    ],
+    "exclude": ["**/node_modules", "**/dist", "**/build", "**/coverage", "**/.stryker-tmp", "**/.cache", "tests/ast-grep/**"],
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",

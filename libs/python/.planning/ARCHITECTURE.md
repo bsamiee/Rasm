@@ -1,21 +1,32 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-The Python branch domain map: five host-free peer packages of the science/compute/data/geometry/IFC companion, the dependency direction across them stated once, and the interpreter floor the whole branch sits below. The per-package sub-domain structure, owners, and charters live on each package `ARCHITECTURE.md` and are not restated here; this map carries only the branch-altitude topology. Cross-language wires live on the folder tasks that build them and in the cross-`libs/` `IDEAS.md`/`TASKLOG.md`, never in a branch seam ledger.
+The branch domain map of `libs/python` — five host-free peer packages of the science/compute/data/geometry/IFC companion. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` compose them at their boundary.
+
+Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
 ## [1]-[PACKAGE_MAP]
 
-Five packages, one foundation and four consumers. `runtime` mints the shared value shapes; `compute`, `data`, `geometry`, and `artifacts` are independent peer producers that compose those shapes at their boundary.
-
 ```text codemap
 libs/python/
-├── runtime/      # the host-free execution foundation: the one content-identity owner, the one boundary-fault + Result/Option rail, the one resilience policy, caller-owned context/settings admission, resource roots + bounded anyio lanes, local receipts + the contributor port, the inbound companion gRPC server-runtime + credential axis, external-API/structural-parsing evidence, the private daemon entrypoint
-├── compute/      # offline scientific evidence that graduates: Array-API array admission, one route-discriminated solver folding one receipt, autodiff sensitivity, the gradient-driven inverse-design optimization loop over the autodifferentiable solves, certified-enclosure validated numerics, signal processing, symbolic codegen, unit-bearing uncertainty, design-of-experiments + run history, model-asset validation, Bayesian inference, the graduation rail + the C# stub codegen
-├── data/         # portable data interchange: typed dataset refs, columnar lazy/streaming scan + egress, the transactional table-format lakehouse, cross-engine relational query, a data-contract gate, dataframe-agnostic interop over a pyarrow-free Arrow carrier, vector + raster geospatial, graph payloads, chunked tensor stores, the CF-conventioned labelled field-dataset owner, mesh-file exchange
-├── geometry/     # the host-free geometry + IFC/BIM companion and the load-bearing cross-boundary owner: the IfcOpenShell GLB tessellation daemon, IFC analysis + buildingSMART validation, point-cloud/3D-scan registration, non-manifold topology, AEC computational geometry, the planned CAD-STEP hop and the shared mesh-utility
-└── artifacts/    # the self-contained artifact-production utility: documents/PDF/Office/structured-text, reproducible notebook reports, publication tables, 2D charts + offscreen 3D scientific visuals, archival signed PDFs, color-managed assets, raster previews, compressed bundles, all under one kind-discriminated ArtifactReceipt
+├── runtime/    # the host-free execution foundation the four siblings compose
+├── compute/    # offline scientific evidence that graduates through one rail
+├── data/       # portable data interchange: tabular, spatial, gridded, graph
+├── geometry/   # the host-free geometry + IFC/BIM companion and cross-boundary owner
+└── artifacts/  # the self-contained artifact-production utility under one ArtifactReceipt
 ```
 
-## [2]-[DEPENDENCY_DIRECTION]
+## [2]-[SEAMS]
+
+```text seams
+runtime   ←  csharp:Rasm              # XxHash128 content-identity seed decode parity (content-key)
+runtime   ⇄  csharp:Rasm.AppHost      # gRPC ServerHost + capability invoke + trace/OTLP egress (wire)
+runtime   ←  csharp:Rasm.Persistence  # CRDT MessagePack op-log decode (wire)
+geometry  ⇄  csharp:Rasm.Bim          # GLB/IFC tessellation companion (tessellation)
+geometry  ⇄  csharp:Rasm.Compute      # ComputeService/ArtifactSync GLB rail (wire)
+compute   →  csharp:Rasm.Compute      # graduation evidence HandoffAxis (graduation)
+```
+
+## [3]-[DEPENDENCY_DIRECTION]
 
 The direction is stated once, here. `runtime` is the foundation: it mints `ContentIdentity`/`ContentKey`, `BoundaryFault`/`RuntimeRail`, `Retry`, `RuntimeContext`/`SettingsAdmission`, `ResourceRoot`/`TransportResource`, `LanePolicy`/`StagePlan`, `Receipt`/`ReceiptContributor`, and `ServerHost`/`Credential`, and references no sibling. `compute`, `data`, `geometry`, and `artifacts` compose those owners at their boundary as settled vocabulary and never re-mint a second content-identity, receipt, retry, transport, or wire owner. No package imports another package's interior.
 
@@ -23,6 +34,6 @@ Two consumer-to-consumer compositions exist and are named here so neither is rea
 
 The cross-language wire — the companion gRPC contract the geometry daemon serves, the content-identity seed parity with C#, the two-hop IFC/STEP tessellation rail, and the graduation-evidence seam — couples Python to C# only at the wire and lives on the owning folder tasks and the cross-`libs/` ledger, never on a Python-branch surface.
 
-## [3]-[INTERPRETER_FLOOR]
+## [4]-[INTERPRETER_FLOOR]
 
 The branch runs a `>=3.15` core on the normal-GIL CPython build (`Py_GIL_DISABLED=0`) for `runtime`, `compute`, `data`, and `artifacts`, with one sanctioned divergence: a `python_version<'3.13'` companion floor homing the native geometry/IFC and gRPC-codegen stack. The companion floor is provided by the Forge companion lane (`forge-companion-env`, python312, source-building the companion native libs), not a Rasm-owned environment gate to admit: it carries the compiled geometry/IFC cores (`ifcopenshell`, `open3d`, `small-gicp`, `topologicpy`, isolating the copyleft `ifcopenshell` wheel at the process boundary). The gRPC stack splits by provenance: `grpcio-tools` (the `protoc` compiler) is companion-lane-only, while `grpcio` (the `grpc.aio` runtime) and `protobuf` resolve transitively on the cp315 core through `specklepy` — so a `runtime` page needing only the `grpc.aio` server leg sits on the core, and only proto codegen assumes the companion interpreter. Two floors are Rasm-owned and manifest-declared, distinct from the Forge lane: the `python_version<'3.15'` gated band (`compas`/`compas_dr`/`compas_tna`/`manifold3d` and the scientific stack) and the `python_version<'3.13'` artifacts native render path (`vtk`/`pyvista`). The OCCT CAD-STEP reader (`pythonocc-core`) has no PyPI distribution and is an honest deferral. Every package consumes the floor as settled.

@@ -4,28 +4,8 @@ The forward pool of higher-order concepts for measured execution, each grounded 
 
 ## [1]-[OPEN]
 
-(No open ideas — every forward concept seeded for measured execution has been realized or dropped. The four host/runtime tasks blocked in `TASKLOG.md` are gated on environment, not on an unresolved idea.)
+(none)
 
 ## [2]-[CLOSED]
 
-[SYMBOLIC_CAS_SUBDOMAIN]: realized — `symbolic/expression.md#SYMBOLIC_EXPR` owns the `SymbolicExpr` F# `Expression` algebra and the `Differentiate`/`Simplify`/`Compile`/`Substitute`/`Project` family over the verified twelve-module `MathNet.Symbolics` surface, `symbolic/dimensional.md#DIMENSION_PROOF` owns the `DimensionMonomial` SI base-dimension proof feeding the `units/quantities#DIMENSIONAL_LAW` boundary, and `symbolic/lowering.md#LOWERING` owns the canonical-NF `XxHash128` `CompiledExpr` cache and the symbolic-Jacobian `OperatorRow` lowered into the existing `solver/optimizer#OPTIMIZER_LANE` `DesignProblem.OperatorRows` adjoint registry (the `GradientSource.Symbolic` label binds to that registry entry, never a parallel gradient path).
-
-[UNCERTAINTY_PROPAGATION_LANE]: realized — `solver/uncertainty.md#UNCERTAINTY_LANE` owns the `UncertaintyMethod` `[SmartEnum<string>]` axis, the `RandomVariable` `[Union]` over `MathNet.Numerics.Distributions`, the `UncertaintyResult` carrier, and the `Propagate` fold over the `optimizer#OPTIMIZER_LANE` `evaluate` oracle, landing the `Uncertainty` `ComputeReceipt` case (`receipts/union#RECEIPT_UNION`, 21→22) as the C# producer of the cross-libs `ONE_GRADUATION_EVIDENCE` `uncertainty-law` axis — the offline distribution/PCE fit stays the Python companion's.
-
-[STREAMING_RESIDENCY_PAYLOAD]: realized — `interchange/residency.md#RESIDENCY` owns the `ResidencyKind` `[SmartEnum<string>]` payload axis and the `ResidencyPayload` content-keyed carrier over the `meshoptimizer` meshlet/cluster-bounds/spatial-sort/encode surface (plus `SimplifyPoints`/`EncodeVertexBufferLevel`), reading the existing `codecs#TILE_PARTITION` octree leaf and riding the `StreamSegment` receipt slot — content-keyed bytes the AppUi `ResidencyManifest.Mint` references, never a second manifest mint; the SPZ/SOG splat decode grounds on the Python companion wire and homes splat payload without admitting the distinct E57/LAS point-cloud-file readers.
-
-[EMBEDDING_VECTOR_LANE]: realized — `models/embedding.md#EMBEDDING` owns the `VectorEncoding`/`VectorScore` `[SmartEnum<string>]` axes, the `EmbeddingVector` carrier, and the `Score` fold over the `TensorPrimitives` `CosineSimilarity`/`Dot`/`Distance`/`HammingDistance` SIMD members plus `ConvertSaturating` int8 quantization, extending the existing `inference#INFERENCE_MODES` `Embed`/`BoundLoop` run (never a new model lane) and riding the `Generate` receipt slot, the candidate set crossing to the Persistence vector lane by reference.
-
-[NEURAL_FIELD_SURROGATE] [REALIZED]: `solver#OPTIMIZER_LANE` carries the `SurrogateKind.NeuralField` row, the `NeuralFieldModel` content-keyed coordinate-MLP/Fourier-feature field, and `Surrogate.OfField`/`Predict` threading the leased `inference#INFERENCE_MODES` `RunOps.Infer` run behind the identical `(Seq<double>, double)` surrogate contract — the network fit is the Python offline-science companion, never an in-proc ORT-Training loop.
-
-[NEURAL_RESIDUAL_FIELD_CODEC] [REALIZED]: `interchange#FIELD_RESULT_CODEC` carries the `FieldCodecPolicy.ResidualPredict` column, the `ResidualPredictor` model-lane chunk predictor, and the `FieldCodec.ResidualEncode` fold predicting each grid-coordinate-indexed chunk from its neighbours and storing the bounded residual with lossless deflate as the terminal fall-through — the grid-coordinate index is preserved so a content-defined-byte rewrite is the rejected form.
-
-[TILES_METADATA_LAYER] [REALIZED]: `interchange#TILE_PARTITION` carries the `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` `EXT_structural_metadata` semantic layer joining the `Rasm.Bim` IFC classification and the `solver#DISCRETIZATION_MESH` field values at the shared content-key, with `meshoptimizer` LOD on the leaf geometry — the SharpGLTF raw glTF-extension binary write (property-table buffer views, `_FEATURE_ID_0`) is the `[EXT_STRUCTURAL_METADATA]` RESEARCH leaf.
-
-[COMPILED_EP_CONTEXT] [REALIZED]: `models#SESSION_CAPSULE` carries the `Compile` member driving `OrtModelCompilationOptions` and the `FleetContextKey` `(checksum, OrtEpDevice fingerprint)` device-keyed `ArtifactIndexRow.EpContext` publish, so a matching-hardware peer warms from the same blob-lane owner over `remote#ARTIFACT_FRAMES` instead of recompiling — a mismatched fingerprint addresses a distinct row and falls back to a fresh compile.
-
-[REACTIVE_SOLVE_GRAPH] [REALIZED]: `scheduling#JOB_GRAPH` carries the `JobNode.InputBytes`/`NodeKey` content seed, `JobGraph.Keys`/`Reconcile` diffing new node digests against the prior key map to derive the moved set, and the clean-node replay from `models#RESULT_CACHE` — the dirty mark is the one `interchange#CONTENT_ADDRESSING` `XxHash128` content-key inequality over the existing edges, never a per-node version stamp or a second memoization owner.
-
-[FIELD_DELTA_UNIFICATION] [DROPPED]: A content-defined-chunk merge of the geometry-delta and field codecs destroys the grid-coordinate locality the residual predictor depends on (it conflicts with NEURAL_RESIDUAL_FIELD_CODEC) and is an internal collapse, not a capability — the genuine incremental-transmission value it chased is owned by REACTIVE_SOLVE_GRAPH at node granularity instead.
-
-[SYMBOLIC_EXPRESSION_OWNER] [SUPERSEDED]: the single `symbolic/expression` page is absorbed into and widened by the open `SYMBOLIC_CAS_SUBDOMAIN` (a three-page sub-domain: expression + dimensional-proof + lowering). The expression-page build, its `T-SYMBOLIC-OWNER` task, and the `csharp:IDEAS#SYMBOLIC_PARAMETRIC_ALGEBRA` seam carry forward unchanged under the wider idea; no capability is dropped, the dimensional and lowering arms are added.
+(none)

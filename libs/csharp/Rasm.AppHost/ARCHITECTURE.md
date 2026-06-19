@@ -1,55 +1,63 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-The professional-domain folder-map of `Rasm.AppHost`, the APP-PLATFORM runtime spine: every concern is one sub-domain owner with closed cases, every entrypoint is a typed rail, and every cross-package fact crosses through one of the seven inward port records. The codemap names the full sub-domain structure — each one a real domain concept, never a rail/axis/lane file-naming scheme — so a planned-but-empty folder reads as a visible gap that fuels an idea or task. Mechanics live in the `.planning/` design pages; this map carries the structure, the boot-to-drain spine, and the boundary and prohibition law.
+The professional domain map of `Rasm.AppHost` — the APP-PLATFORM runtime spine. One domain-folder owner per concern with closed cases, every entrypoint a typed rail, and every cross-package fact crossing one of the seven inward port records across the five folders (Runtime, Agent, Wire, Sandbox, Observability).
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
-Each sub-domain mirrors one eventual source sub-tree. The charter is the concern the folder owns; the page list is the design pages that have landed under it.
-
 ```text codemap
 Rasm.AppHost/
-├── hosting/             Host-variance profile axis, lifetime adapters, resource identity, power/thermal fidelity, and the total lifecycle/phase/drain/cancellation spine.
-│   ├── host-profiles.md
-│   └── lifecycle-and-drain.md
-├── time/                Injected clock pair (elapsed vs semantic), deadline taxonomy, and the one scheduler with cron/period rows, lease split, and missed-occurrence sweep.
-│   └── time-and-deadlines.md
-├── configuration/       Ranked config-source chain, fail-closed source-gen binding to frozen policy, reload-class-gated publish, operator kill-switch, and the one composition root that folds and freezes the service graph.
-│   ├── configuration-and-options.md
-│   └── composition-and-modules.md
-│                         coordination: single-writer election with monotone fencing tokens is the `time/time-and-deadlines.md` `[FENCING_TOKEN]` row cluster over `SchedulePort`/`LeasePolicy.Maintenance`, never a sub-domain — identity/coordination concerns land as ROWS on the temporal owner.
-├── resources/           Bounded runtime resource lanes: lane-keyed hybrid cache with stampede single-flight, delegate-row object pools, and bounded drainable queues with receipted loss.
-│   └── resource-lanes.md
-│                         secrets: the credential lifecycle (acquisition, deadline-class lease renewal, drain-time zeroization, rotation receipts) is the `configuration/configuration-and-options.md` `[SECRET_LEASE]` row cluster extending `ConfigSource.SecretsStore`, never a sub-domain — credential concerns land as ROWS on the configuration owner.
-├── observability/       Unified four-signal telemetry (traces/metrics/logs/profiles) through minted identities, redaction at every egress, the resource-pressure health fold, the degradation/alert rails, and bounded redacted support capture.
-│   ├── diagnostics-and-telemetry.md
-│   ├── health-and-degradation.md
-│   └── support-bundles.md
-├── outbound/            The single outbound boundary: hop-case axis, one retry/cache owner per seam, standard/hedging HTTP and keyed non-HTTP Polly pipelines with Simmy chaos, companion discovery/UDS attach, and multi-channel delivery fan-out.
-│   └── outbound-resilience.md
-├── ports/               The seven inward port records — the only cross-package seam — the HLC-stamped receipt envelope, tenant/causal identity, and the Strict-JSON suite wire law with the TS dashboard projection.
-│   └── runtime-ports.md
-├── provisioning/        Post-fetch self-update state machine over the update manager, three-channel feed axis with downgrade policy, drain-before-swap rollover, and health-gated fleet-wide rolling-update waves.
-│   └── provisioning-and-update.md
-├── companion/           Multi-process modality axis (companion/sidecar/paired-peer), the inbound gRPC-over-UDS control-service host with peer-credential admission, cross-process degradation cascade, and the attached-peer presence roster.
-│   └── companion-sidecar.md
-├── capability/          The self-describing op catalog: typed CapabilityDescriptor rows projecting effect/idempotency/cost/permission, the shape-discriminated discovery fold, the commit-or-rollback command algebra, the grant/cost broker metering a typed permission × scope × ceiling × window predicate with a signed grant attestation, and polyglot C#/TS/Python SDK codegen off one descriptor source.
-│   └── registry.md
-├── agent/               The bidirectional agent surface over the capability registry: the MCP-server projection (descriptor-to-AIFunction tools/resources/prompts, brokered dry-run dispatch, sampling, elicitation, SSE-resumable streaming), the MCP-client federation that folds external servers' tools into the one registry as brokered descriptors, and the in-process reasoning runtime (IChatClient function-calling, embedding-ranked intent discovery, replayable transcript).
-│   ├── mcp-projection.md
-│   ├── tool-federation.md       Consumes external MCP servers, folding peer tools/resources/prompts/templates into the one registry as brokered descriptors and draining peer resource-update subscriptions into the live-wire lane.
-│   └── reasoning-runtime.md     In-process agent loop + model governance: IChatClient function-calling over the brokered CommandAIFunction, embedding-ranked ByIntent discovery, replayable transcript, and the metered/cached/traced middleware fold.
-├── sandbox/             Capability-brokered plugin isolation (wasmtime-dotnet WASM component-model + process), no-ambient-authority grant handles, per-plugin quota/kill/quarantine, fail-closed supply-chain attestation gate, and the seven-kind solver-plugin contract with canonical-representation negotiation.
-│   ├── sandbox-host.md
-│   └── solver-plugin.md
-├── live-wire/           The reactive bidirectional external-binding studio: industrial-transport axis (OPC-UA/Modbus/MQTT/serial/REST/GraphQL/spreadsheet/ERP-PLM) over the certified OPC-UA + MQTTnet stack, the FluentModbus managed Modbus client, and the System.IO.Ports serial line, edge unit coercion through the Compute unit algebra, and transactional write-back with acknowledgement/rollback.
-│   └── live-wire.md
-└── determinism/         The reproducibility kernel: pinned RNG/float-mode/environment-fingerprint, the hash-chained content-addressed command log over the durable op-log, replay-verify with per-step content-hash proof, macro record/replay, and partial content-address recompute.
-    └── determinism-and-replay.md
+├── Runtime/             # the runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism
+│   ├── Profiles.cs      # host-variance profile axis, lifetime adapters, power/thermal fidelity
+│   ├── Lifecycle.cs     # the total lifecycle/phase/drain/cancellation spine
+│   ├── Time.cs          # injected clock pair, deadline taxonomy, and the one scheduler
+│   ├── Resources.cs     # bounded resource lanes: hybrid cache, object pools, drainable queues
+│   ├── Modules.cs       # the one composition root folding and freezing the service graph
+│   ├── Config.cs        # ranked config-source chain with fail-closed source-gen binding
+│   ├── Ports.cs         # the seven inward port records — the only cross-package seam
+│   └── Determinism.cs   # reproducibility kernel: pinned RNG/float-mode + hash-chained command log
+├── Agent/               # the bidirectional agent surface over the capability registry
+│   ├── Mcp.cs           # the MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
+│   ├── Reasoning.cs     # in-process agent loop over IChatClient function-calling
+│   ├── Federation.cs    # folds external MCP servers into the one registry as brokered descriptors
+│   └── Capability.cs    # the self-describing CapabilityDescriptor op catalog and command algebra
+├── Wire/                # the outbound and external-binding seam
+│   ├── Outbound.cs      # the single outbound boundary with per-seam retry/cache and delivery fan-out
+│   ├── LiveWire.cs      # the reactive bidirectional external-binding studio over the industrial-transport axis
+│   └── Companion.cs     # multi-process modality axis and the gRPC-over-UDS control-service host
+├── Sandbox/             # capability-brokered plugin isolation and the solver-plugin contract
+│   ├── Isolation.cs     # capability-brokered WASM/process plugin isolation with no-ambient-authority grants
+│   ├── Solver.cs        # the seven-kind solver-plugin contract with canonical-representation negotiation
+│   └── Provisioning.cs  # post-fetch self-update state machine with health-gated rolling waves
+└── Observability/       # four-signal telemetry, health, and redacted support capture
+    ├── Telemetry.cs     # unified four-signal telemetry through minted identities and egress redaction
+    ├── Health.cs        # the resource-pressure health fold and the degradation/alert rails
+    └── Bundles.cs       # bounded redacted support capture
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, never a new surface, and a public type outside an owner region is the named defect. One rail per entrypoint, named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant`/`Duration`; `TimeProvider` owns elapsed measurement.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
-## [2]-[SPINE]
+## [2]-[SEAMS]
+
+```text seams
+Agent/Capability.cs         →  typescript:interchange/codec       # CapabilityDescriptor command-shape (content-key)
+Runtime/Ports.cs            →  typescript:interchange/codec       # HLC two-half bigint round-trip parity (content-key)
+Runtime/Ports.cs            ⇄  python:runtime/execution           # CausalFrame Hlc two-half + Tenant (port)
+*                           →  typescript:services                # CredentialPemWire redacted carrier (wire)
+*                           →  typescript:interchange             # support-capture verb (wire)
+Agent/Capability.cs         ⇄  python:runtime/transport           # DiscoveryResult capability invoke + CommandReceipt (wire)
+Observability/Health.cs     →  typescript:projection/evidence     # DegradationLevel / CommandAvailabilityWire (wire)
+Observability/Telemetry.cs  ←  python:runtime/observability       # W3C trace-context inbound extraction (wire)
+Observability/Telemetry.cs  →  typescript:ui/render               # BenchmarkClaimWire / HostFingerprintWire identity gate (wire)
+Runtime/Config.cs           →  python:runtime/execution           # CredentialPem (wire)
+Runtime/Ports.cs            ⇄  python:runtime/transport           # HLC two-half stamp + Tenant partition (wire)
+Runtime/Ports.cs            →  typescript:projection/evidence     # ReceiptEnvelopeWire / HlcStampWire / TenantContextWire (wire)
+Wire/Livewire.cs            →  typescript:ui/render               # BindingStatusWire / CoercedValueWire / WriteReceiptWire (wire)
+Observability/Telemetry.cs  →  typescript:platform/observability  # OtelExport OTLP egress (transport)
+```
+
+## [3]-[SPINE]
 
 ```mermaid
 ---
@@ -75,7 +83,7 @@ flowchart LR
 
 `ProfileSurface.Resolve` materializes the one `ResolvedProfile` record, `ProfileBoot.Boot` configures the Generic Host builder, `ConfigSource.Compose` mounts the ranked source chain, `PolicyBinding` and `OptionsAdmission` publish validated frozen policy, `CompositionSurface.Compose` folds the module table and freezes the graph, and the `Lifecycle` cell transitions to Ready then Running. Telemetry, health, support, and outbound rails run beside the cell and surface through the seven port records; `DrainConductor.Drain` folds ranked participants into one `DrainReceipt` ending at Unloaded.
 
-## [3]-[BOUNDARIES]
+## [4]-[BOUNDARIES]
 
 - AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment, host events, and app-root-only pins (OTLP exporter, the MCP HTTP transport, the WASM/industrial-protocol runtimes, Kestrel/gRPC surfaces, Serilog host bridge and sinks).
@@ -85,7 +93,7 @@ flowchart LR
 - AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
-## [4]-[PROHIBITIONS]
+## [5]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose.
 

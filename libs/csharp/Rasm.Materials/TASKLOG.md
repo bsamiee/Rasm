@@ -4,40 +4,8 @@ The open and closed work for the host-neutral materials owner, distilled from `I
 
 ## [1]-[OPEN]
 
+(none)
+
 ## [2]-[CLOSED]
 
-[COMPLETE] `connection/` sub-domain — `connection/connection#CONNECTION_OWNER` owns the `ConnectionItem` `[Union]` over the closed `ConnectionFamily` axis, the `ConnectionId` key, the `ConnectionCatalogue.Build` registered-row fold, and `ConnectionFault` band 2360; `connection/reinforcement#REINFORCEMENT_FAMILY` the `RebarGrade`/`BarSize`/`RebarSection` ASTM A615/A706 + ACI 318 bend catalogue, `connection/fastener#FASTENER_FAMILY` the `FastenerKind`/`FastenerGrade`/`FastenerSection` ISO 898/SAE J429 catalogue (anchor a `FastenerKind` arm), `connection/hanger#HANGER_FAMILY` the `HangerType`/`HangerSection` framing-connector catalogue.
-
-[COMPLETE] `appearance/finish` sub-domain — `appearance/finish#FINISH` owns the `FinishMix` over `new Unicolour(Pigment[], double[])` Kubelka-Munk + the `ArtistPaint` 19-pigment set, the `FinishLayer` primer/base/topcoat coat-stack lowering to `bsdf#OPENPBR_SLAB` Coat, the `FinishKind` discriminant, and `Finish.Resolve` seeding a `graph#MATERIAL_LIBRARY` `BaseColor` row gated through the W1B Pointer real-surface gamut primitive.
-
-[COMPLETE] Engineering-property aggregation — `physical-properties/properties#ASSEMBLY_PROPERTY` owns the `AssemblyAggregator` series-resistance U-value (ISO 6946), constituent-`Fraction`-weighted rule-of-mixtures, and mass-law/coincidence layered-STC (ISO 12354) folds producing one `AssemblyProperty` receipt, closing the `[CONSTITUENT_FRACTION]`/`[LAYER_BUILDUP_GEOMETRY]` probes.
-
-[COMPLETE] Per-octave-band acoustic spectrum — `physical-properties/properties#MATERIAL_PROPERTY` re-shapes `MaterialProperty.Acoustic` to the six-band `AbsorptionSpectrum`/`SoundReductionIndexDb` `ReadOnlyMemory<double>` carriers over the `AcousticBand` `[SmartEnum]` octave centres, with `Nrc`/`Saa`/`StcWeighted` projection folds, the `Magnitude` arm re-routed to `StcWeighted`, and the `wood.oak` seed row migrated to the band vectors.
-
-[COMPLETE] Dormant Unicolour gamut/CVD/Pointer surface — `appearance/graph#MATERIAL_LIBRARY` owns the `PointerAdmit`/`MapToPointer` Pointer real-surface gamut accessors (the predicate `appearance/finish#FINISH` imports) and the `CvdPreview` `Simulate(Cvd, severity)` accessibility projection, two gamut gates by domain reusing `MaterialFault.Gamut`.
-
-[COMPLETE] Layout condition-stage detailing depth — `construction/layout#ASSEMBLY_FOLD` grows the `Opening.JambCut` `EdgeCut` `[SmartEnum]` (toothed/straight/quoined per-course jamb cut) and the `Corner.Leaves`/`Reconcile` multi-leaf corner-bond reconciliation as column growth on the realized condition records, threading the one `StepCursor` through the single `CornerOrClosingCut` resolution order, not a re-architecture.
-
-[COMPLETE] cmu, timber, and glazing `ProfileFamily` vocabularies — `cmu#CMU_FAMILY` carries the ASTM C90 4/6/8/10/12-inch + splitface/half-high rows, `timber#TIMBER_FAMILY` the EN 14080/EN 338/APA PRG 320 sawn/glulam/3-5-7-ply CLT rows, `glazing#GLAZING_FAMILY` the EN 1279 double/triple/low-E/laminated IGU builds, each with its per-family `IfcProfileDef` alignment note (`profile#IFCPROFILEDEF_ALIGNMENT`).
-
-[COMPLETE] `Rasm.Compute` project reference — `Rasm.Materials.csproj` adds `<ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />` inside the existing `Rasm` ItemGroup, resolving the `UnitAlgebra.Numeric` admission the `properties#Admit`/`photometric#PHOTOMETRIC`/graph-emission fences compose; no `Directory.Packages.props` or README edit (the registry already lists it).
-
-[COMPLETE] OpenPBR slab-tree reshape of `appearance/bsdf` — realized at `bsdf#OPENPBR_SLAB`: the `SlabKind` axis, the closed `Slab` `[Union]` (fuzz/coat/emission/base), the `SlabStack` outermost-to-base albedo-scaling layering algebra, `SlabStack.Lower` (the one OpenPBR Surface 1.1 construction reading a `MaterialParameters` row and grounding the base substrate through `bsdf#CONDUCTOR_IOR`), and `ToLayered` (the energy-preserving collapse into the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf` weighted-lobe fold the integrator shades), with the `MaterialParameters` columns aligned to the OpenPBR parameter groups and the fuzz slab realized as the `Sheen` lobe at the fuzz position. The `LayeredBsdf` fold is the lowering target by design; an over-unit or non-finite slab weight rails `MaterialFault.Parameter` at `Lower`.
-
-[COMPLETE] MaterialX node-graph interchange for `appearance/graph` and `appearance/texture` — realized at `interchange#MATERIALX_DOCUMENT`: the `MtlxDocument`/`MtlxNode`/`MtlxInput` MaterialX 1.39 shape, the `NodeCategory` `[SmartEnum<string>]` axis mapping the six `AppearanceNode` cases (`constant`/`image`/`multiply`/`mix`/`normalmap`/`open_pbr_surface`) and the `PortValue` polarities onto the MaterialX typed ports, and `Mtlx.FromGraph`/`ToOpenPbr` bidirectional `.mtlx` projection over `System.Xml.Linq` at the host boundary; the `BsdfOutput`→`open_pbr_surface` inputs read the `bsdf#OPENPBR_SLAB` `OpenPbrSurface` columns. Residue: the per-input port-name calibration and host-boundary schema validation are the `[4]-[RESEARCH]` `[MATERIALX_GRAPH_INTERCHANGE]`/`[MTLX_SCHEMA_VALIDATION]` probes, and the `texture#MATERIALX_NODE_PARITY` Worley/color-ramp node-category mapping is the matching `texture` probe.
-
-[COMPLETE] Conductor complex-IOR grounding of `appearance/graph` library rows — realized internal at `bsdf#CONDUCTOR_IOR`: the `ConductorIor` measured `(η, k)` per-RGB-band table (gold/copper/aluminum/silver/iron/chromium/titanium/brass, Johnson-Christy / `refractiveindex.info`) grounds every `metal.*` row's `bsdf#LOBE_FAMILY` `Conductor` lobe from the measured Fresnel via `ConductorIor.Resolve(family, name)`, round-tripping in-gamut through the `bsdf#WHITE_FURNACE_HARNESS` and the `graph#MATERIAL_LIBRARY` `NearestChecker` ΔE seam. Residual [UPSTREAM-BLOCKED]: the EPFL RGL 195-wavelength `.bsdf` measured-BRDF binary admitted through `bsdf#SPECTRAL_UPSAMPLE` `ToSpd` stays gated on a vendored managed `.bsdf` reader at `acquisition#EPFL_RGL_BRDF_LOADER`.
-
-[COMPLETE] Steel `ProfileFamily` vocabulary in `profiles/steel` — the `ProfileFamily.Steel` case with the `SteelClass` `IfcProfileDef`-subtype axis, the `SteelSection` AISC v16.0 section-property record (depth/flange/web/fillet/`Ix`/`Sx`/`Zx`), the `SteelSection.ToUnit` bridge to the canonical `ProfileUnit`, and the `BuildSteelRows` W-shape catalogue folded into `profile#PROFILE_OWNER` `ProfileCatalogue.Build`; the `PositiveMagnitude.Of` factory spelling is the one flagged RESEARCH gap.
-
-[COMPLETE] `StationStep` placement projection in `construction/layout` — the realized station-stepped course fold (the `StepCursor` cursor, per-unit pitch, offset-fraction shift, `FootprintRun`/`FootprintRise` per `Orientation`, closing-cut bat) replacing the empty-`Seq` stub; the four condition stages tracked under the [ACTIVE] layout task.
-
-[COMPLETE] Photometric UnitsNet unit-enum catalogue in `.api/api-unitsnet.md` — the `IlluminanceUnit`/`LuminanceUnit`/`LuminousFluxUnit`/`LuminousIntensityUnit`/`IrradianceUnit` enums and the matching quantity structs are catalogued with their SI-base canonical members, ratifying the `appearance/photometric` fences.
-
-[COMPLETE] Wacton.Unicolour.Datasets admission — the package is admitted in the manifest and `.api/api-unicolour-datasets.md` carries the narrowed surface; exploited by `graph#MATERIAL_LIBRARY` `NearestChecker` (ColorChecker `Macbeth.All` ΔE validation) and `Named` (`Css`/`Xkcd`/`Nord` named-colour resolution), closing the admitted-but-unused under-utilization.
-
-[COMPLETE] Physical-property model in `physical-properties/properties` — the `MaterialProperty` `[Union]` (mechanical/thermal/acoustic/fire) keyed by `MaterialId`, the `MaterialPropertySet` bundle, the `FireRating`/`MaterialPropertyKind` bands, the `UnitsNet`-composing `Admit` coercion, and the `MaterialPropertyLibrary` rows; the dedicated `ThermalConductivityUnit` enums are a flagged `.api` catalogue gap riding proxy units.
-
-[COMPLETE] Weathering-aging operator in `appearance/weathering` — the `Weathering.Apply` fold over the closed `WeatheringEffect` `[Union]` driving a `MaterialParameters` row along an `AgeParameter` through Unicolour `Mix`, re-admitting through `MaterialParameters.Of`.
-
-[COMPLETE] Material-acquisition import in `appearance/acquisition` — the `Acquisition.Import` fold over the closed `CaptureSource` `[Union]` producing a `MaterialParameters` row with measured `Provenance`; the angular-sample fit and field-average arms are internal, the EPFL `.bsdf` binary decode and neural-SVBRDF inference [UPSTREAM-BLOCKED].
+(none)

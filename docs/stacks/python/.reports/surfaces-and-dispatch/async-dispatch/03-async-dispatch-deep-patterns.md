@@ -51,6 +51,7 @@ async def dispatch_arm(payload: Payload) -> Result[Output, Err]:
 ```python
 _REGISTRY: RunVar[dict[str, Handler]] = RunVar("dispatch_registry", default=None)
 
+
 async def resolve_handler(key: str) -> Result[Handler, MissingHandler]:
     reg = _REGISTRY.get(default=None) or {}
     return Ok(reg[key]) if key in reg else Error(MissingHandler(key))
@@ -66,6 +67,7 @@ async def resolve_handler(key: str) -> Result[Handler, MissingHandler]:
 
 ```python
 _guard = ResourceGuard("sending to")
+
 
 async def dispatch(payload: Payload) -> Result[Response, DispatchErr]:
     with _guard:
@@ -91,6 +93,7 @@ async def dispatch(payload: Payload) -> Result[Response, DispatchErr]:
 _cond = Condition()
 _ready: dict[str, Result[T, E]] = {}
 
+
 async def await_result(key: str) -> Result[T, E]:
     async with _cond:
         return await _cond.wait_for(lambda: _ready.get(key))
@@ -112,6 +115,7 @@ async def await_result(key: str) -> Result[T, E]:
 def retry_after_hook(exc: Exception) -> bool | float:
     header = getattr(exc, "retry_after", None)
     return float(header) if header is not None else isinstance(exc, TransientError)
+
 
 async def fetch_arm(key: Key) -> Result[Payload, FetchError]:
     async for attempt in stamina.retry_context(on=retry_after_hook, attempts=5):
@@ -151,9 +155,11 @@ async def fetch_arm(key: Key) -> Result[Payload, FetchError]:
 _caller = stamina.AsyncRetryingCaller(attempts=5, timeout=30.0, wait_max=3.0)
 _retry = _caller.on(TransientError)
 
+
 async def arm_a(payload: A) -> Result[R, E]:
     raw = await _retry(transport.fetch_a, payload)
     return Ok(parse_a(raw))
+
 
 async def arm_b(payload: B) -> Result[R, E]:
     raw = await _retry(transport.fetch_b, payload)
@@ -184,11 +190,13 @@ async def arm_b(payload: B) -> Result[R, E]:
 ```python
 results: list[Result[T, E] | None] = [None] * len(arms)
 
+
 async def arm_task(idx: int, arm: Arm, tg: TaskGroup) -> None:
     results[idx] = r = await arm.execute()
     match r:
         case Ok(value) if is_definitive(value):
             tg.cancel_scope.cancel("definitive result found")
+
 
 async with anyio.create_task_group() as tg:
     for idx, arm in enumerate(arms):

@@ -1,49 +1,112 @@
 # [PY_COMPUTE]
 
-The host-free numeric and scientific companion of the monorepo: array admission, one route-discriminated solver, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference, with the graduation rail that hands offline results across the wire into the C# managed owner system. This router indexes the design pages under `.planning/` and registers every external package the folder uses; `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/python/compute` is the host-free numeric and scientific library of the monorepo. It owns array admission, one route-discriminated solver surface, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference. The graduation rail hands offline results across the wire into the C# managed owner system. `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/`, grouped by sub-domain.
+- [1]-[RECEIPT](.planning/solvers/receipt.md)
+- [2]-[LINEAR](.planning/solvers/linear.md)
+- [3]-[NONLINEAR](.planning/solvers/nonlinear.md)
+- [4]-[QUADRATURE](.planning/solvers/quadrature.md)
+- [5]-[DIFFERENTIAL](.planning/solvers/differential.md)
+- [6]-[SENSITIVITY](.planning/solvers/sensitivity.md)
+- [7]-[MESH](.planning/solvers/mesh.md)
+- [8]-[DESIGN](.planning/optimization/design.md)
+- [9]-[PROGRAM](.planning/optimization/program.md)
+- [10]-[CONVEX](.planning/optimization/convex.md)
+- [11]-[STUDY](.planning/experiments/study.md)
+- [12]-[HISTORY](.planning/experiments/history.md)
+- [13]-[INFERENCE](.planning/experiments/inference.md)
+- [14]-[MODEL](.planning/experiments/model.md)
+- [15]-[ARRAY](.planning/numerics/array.md)
+- [16]-[INTERVAL](.planning/numerics/interval.md)
+- [17]-[QUANTITY](.planning/numerics/quantity.md)
+- [18]-[SIGNAL](.planning/analysis/signal.md)
+- [19]-[SYMBOLIC](.planning/analysis/symbolic.md)
+- [20]-[SPATIAL](.planning/analysis/spatial.md)
+- [21]-[HANDOFF](.planning/graduation/handoff.md)
+- [22]-[CODEGEN](.planning/graduation/codegen.md)
 
-- arrays: [payload](.planning/arrays/payload.md)
-- solvers: [receipt](.planning/solvers/receipt.md), [linear](.planning/solvers/linear.md), [nonlinear](.planning/solvers/nonlinear.md), [quadrature](.planning/solvers/quadrature.md), [differential](.planning/solvers/differential.md)
-- differentiation: [sensitivity](.planning/differentiation/sensitivity.md)
-- optimization: [design](.planning/optimization/design.md), [program](.planning/optimization/program.md), [convex](.planning/optimization/convex.md)
-- validated_numerics: [enclosure](.planning/validated_numerics/enclosure.md)
-- signal: [dsp](.planning/signal/dsp.md)
-- symbolics: [derivation](.planning/symbolics/derivation.md)
-- metrology: [quantity](.planning/metrology/quantity.md)
-- experiments: [study](.planning/experiments/study.md), [run_history](.planning/experiments/run_history.md)
-- spatial: [query](.planning/spatial/query.md)
-- simframe: [mesh_field](.planning/simframe/mesh_field.md)
-- models: [asset](.planning/models/asset.md)
-- inference: [bayesian](.planning/inference/bayesian.md)
-- graduation: [receipt](.planning/graduation/receipt.md), [stub_codegen](.planning/graduation/stub_codegen.md)
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+Every scientific and solver library this folder uses, planned or implemented. Versions are centralized in the one root manifest; corroborating API evidence lives in the adjacent `.api/` folder.
 
-Every external library the folder uses, planned or implemented, as a flat list. Versions live in the one root manifest; centralization is absolute, and no per-folder manifest exists.
+[ARRAY_ADMISSION]:
+- `array-api-compat`
+- `array-api-extra`
+- `numba`
+- `jax`
+- `sparse`
 
-- Array admission and acceleration: `array-api-compat`, `array-api-extra`, `numba`, `jax`, `sparse`.
-- Solvers and differential equations: `scipy`, `scikit-fem`, `lineax`, `optimistix`, `diffrax`, `equinox`.
-- Inverse-design optimization: `optimistix`, `equinox`, `jax`, `optax` (the first-order-descent axis row threaded through `optimistix.OptaxMinimiser`).
-- Constrained and discrete optimization: `scipy` (`scipy.optimize` `linprog`/`milp`/`differential_evolution`/`minimize`/`linear_sum_assignment`).
-- Convex optimization: `cvxpy`, `clarabel` (the conic backend producing the dual-certificate proof of optimality).
-- Spatial geometry and mesh interchange: `scipy` (`scipy.spatial`), `meshio`.
-- Signal processing: `scipy` (`scipy.signal`), `pywavelets`.
-- Symbolics: `sympy`.
-- Validated numerics: `python-flint`, `mpmath`.
-- Metrology: `pint`, `uncertainties`.
-- Experiments and sensitivity: `SALib`, `scikit-learn`, `dask`.
-- Model assets: `onnx`, `onnxruntime`, `skl2onnx`.
-- Bayesian inference: `pymc`, `arviz`, `numpyro`, `nutpie`, `blackjax`.
+[SOLVERS_DIFFERENTIAL]:
+- `scipy`
+- `scikit-fem`
+- `lineax`
+- `optimistix`
+- `diffrax`
+- `equinox`
 
-## [3]-[CROSS_CUTTING]
+[INVERSE_DESIGN]:
+- `optimistix`
+- `equinox`
+- `jax`
+- `optax`
 
-Branch-wide infrastructure packages this folder consumes; canonical registry lives at `libs/python/.api/`.
+[CONSTRAINED_DISCRETE_OPTIMIZATION]:
+- `scipy`
 
-- expression
-- beartype
-- msgspec
-- numpy
+[CONVEX_OPTIMIZATION]:
+- `cvxpy`
+- `clarabel`
+
+[SPATIAL_MESH]:
+- `scipy`
+- `meshio`
+
+[SIGNAL_PROCESSING]:
+- `scipy`
+- `pywavelets`
+
+[SYMBOLICS]:
+- `sympy`
+
+[VALIDATED_NUMERICS]:
+- `python-flint`
+- `mpmath`
+
+[METROLOGY]:
+- `pint`
+- `uncertainties`
+
+[EXPERIMENTS_SENSITIVITY]:
+- `SALib`
+- `scikit-learn`
+- `dask`
+
+[MODEL_ASSETS]:
+- `onnx`
+- `onnxruntime`
+- `skl2onnx`
+
+[BAYESIAN_INFERENCE]:
+- `pymc`
+- `arviz`
+- `numpyro`
+- `nutpie`
+- `blackjax`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+Cross-cutting Python substrate libraries this folder consumes; canonical registry and charters live in `libs/python/.planning/README.md` and the adjacent `libs/python/.api/` folder.
+
+[TYPING_RAILS]:
+- `expression`
+- `msgspec`
+- `beartype`
+- `pydantic`
+
+[CONCURRENCY]:
+- `anyio`
+
+[NUMERIC_SUBSTRATE]:
+- `numpy`

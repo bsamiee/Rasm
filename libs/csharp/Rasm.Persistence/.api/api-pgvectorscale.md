@@ -3,8 +3,8 @@
 `pgvectorscale` (Timescale `vectorscale`) supplies the `diskann` index access method over a
 `pgvector` `vector(N)` column — a disk-backed StreamingDiskANN graph with statistical binary
 quantization (SBQ) that scales approximate-nearest-neighbour search beyond RAM-resident HNSW. It
-carries no managed assembly: every surface is server-side SQL the `provisioning#SEARCH_PROVISIONING`
-`IndexSpec.DiskAnn` fold emits through `MigrationBuilder.Sql` and the `data-lanes#SEARCH_LANES`
+carries no managed assembly: every surface is server-side SQL the `Store/server#SEARCH_PROVISIONING`
+`IndexSpec.DiskAnn` fold emits through `MigrationBuilder.Sql` and the `Query/lanes#SEARCH_LANES`
 planner routes a `pgvector` distance query through transparently. The companion is preload-free —
 it registers through its index AM, so it is correctly absent from the `ClusterConfig` preload row —
 and runs in-process inside the PG18 server tier, never linked into managed code.

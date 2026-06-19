@@ -4,7 +4,7 @@ ONE `TextureUv` static sampling fold over the closed `TextureSource` `[Union]` (
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[TEXTURE_UV]` owns the `AddressMode`/`FilterMode`/`NoiseBasis` bands, the `ProceduralNoise` author-kernel, the `TextureSource` union, the one `TextureUv` sampling fold, and the `ShadeVec4` register.
+- [1]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis` bands, the `ProceduralNoise` author-kernel, the `TextureSource` union, the one `TextureUv` sampling fold, and the `ShadeVec4` register.
 
 ## [2]-[TEXTURE_UV]
 

@@ -4,32 +4,8 @@ The forward pool of higher-order concepts for the runtime spine, each grounded i
 
 ## [1]-[OPEN]
 
+(none)
+
 ## [2]-[CLOSED]
 
-[INDUSTRIAL_DEEPENING]: realized -- `live-wire/live-wire.md`#TRANSPORT_BINDING binds all eight transports through `ModbusLane` (`FluentModbus` `ModbusClient.ReadHoldingRegistersAsync<short>`/`WriteMultipleRegistersAsync` over the `ModbusEndianness` window), `SerialLane` (`System.IO.Ports` `SerialPort` line read/write + `DataReceived` subscribe attach), `HttpPoll` (REST/GraphQL/spreadsheet/ERP-PLM over `OutboundHop.HttpApi`), and `PubSubLane` (`UaPubSubApplication` dataset fan into the one bounded lane) — the `PollRead`/`PollWrite` stubs are gone, the Modbus row Hop re-seated off the HTTP placeholder onto `CompanionSpawn`, register-window/line-grammar carried as `PollPolicy` binding-spec data; mechanics in `TASKLOG#T-INDUSTRIAL-POLL-TRANSPORTS`/`T-OPCUA-PUBSUB-LANE`/`T-FIELDBUS-PACKAGE-ADMIT`.
-
-[RESILIENT_REPLAY_FRONTIER]: realized -- `determinism/determinism-and-replay.md`#ADVERSARIAL_FRONTIER owns `[CHAOS_REPLAY]` (Simmy chaos decisions recorded as deterministic `EventLog.Append` fault-injection entries), `[DIVERGENCE_BISECT]` (binary-search first-divergence over the tamper-evident hash chain in log-time), and `[COUNTERFACTUAL]` (perturbed-argument replay composing `RecomputeGraph.Invalidate` over the changed hash to return the downstream cone) — every cluster composes the kernel's own `EventLog`/`VerifyChain`/`RecomputeGraph` owners, no second determinism surface; mechanics in `TASKLOG#T-RESILIENT-REPLAY-FRONTIER`.
-
-[AGENT_TOOL_FEDERATION]: realized -- `agent/tool-federation.md`#FEDERATION_PROJECTION owns the peer-tool-to-descriptor inversion fold (`McpClient.ListToolsAsync` → `McpClientTool` → brokered `CapabilityDescriptor` under `federated.{server}.{tool}`, reusing the one `CommandAIFunction`), #FEDERATION_AXIS the `TransportKind`/`FederatedServer`/`TrustScope` admission, and #FEDERATED_DISPATCH the brokered call through `CommandAlgebra.Run` over `OutboundHop`; mechanics in `TASKLOG#T-AGENT-TOOL-FEDERATION`.
-
-[AGENTIC_REASONING_RUNTIME]: realized -- `agent/reasoning-runtime.md`#REASONING_LOOP owns the in-process `IChatClient.GetStreamingResponseAsync` agent loop over the one brokered `CommandAIFunction` tool-adoption seam (two front doors, never a second projection), #SEMANTIC_DISCOVERY the `IEmbeddingGenerator` cosine fold adding `DiscoveryQuery.ByIntent` to `capability/registry#DISCOVERY_FOLD`, #REPLAYABLE_TRANSCRIPT the transcript-to-`CommandReceipt`/`LogEntry` chain over `determinism#EVENT_LOG`/`MACRO_ENGINE`, #MODEL_GOVERNANCE the one `ChatClientBuilder` middleware fold, and #MODAL_INPUT the gated `[Experimental MEAI001]` `ModalClient` `[Union]`; mechanics in `TASKLOG#T-AGENT-REASONING-RUNTIME`/`T-GENAI-MODEL-GOVERNANCE`.
-
-[FIELDBUS_TRANSPORT_DEPTH]: [FOLDED] The Modbus/serial phantom-admission gap is not a higher-order concept — it is the package-admission leg of `INDUSTRIAL_DEEPENING`, which now names `FluentModbus` (over the abandoned `NModbus`) and `System.IO.Ports` as the `modbus`/`serial` owners alongside the poll-transport bodies and the PubSub fan-in; the work is `TASKLOG#T-FIELDBUS-PACKAGE-ADMIT` (the catalogue + bind) feeding `T-INDUSTRIAL-POLL-TRANSPORTS`. One axis-depth idea, not two; a manifest gap is a task, never a parallel idea.
-
-[GENAI_DETERMINISTIC_REASONING]: [FOLDED] Model metering/caching/replay is the `[MODEL_GOVERNANCE]` cluster ON `agent/reasoning-runtime.md`, not a separate idea — it is subsumed by `AGENTIC_REASONING_RUNTIME` (the page the cluster lives on) and owned by `TASKLOG#T-GENAI-MODEL-GOVERNANCE`, an extension of `T-AGENT-REASONING-RUNTIME`. The two model front doors (in-process loop + MCP server-sampling) share one governance fold; a second idea restating the same `Microsoft.Extensions.AI` middleware composition is the deleted form.
-
-[SECRET_LIFECYCLE]: [COMPLETE] Credential lifecycle landed as the `[5]-[SECRET_LEASE]` cluster on `configuration/configuration-and-options.md` extending `ConfigSource.SecretsStore`, not a new `secrets/` sub-domain — confirming the "secrets = ROWS on the configuration owner" law; mechanics in `TASKLOG#T-SECRET-LIFECYCLE`.
-
-[FENCING_COORDINATION]: [COMPLETE] Fenced single-writer election landed as the `[5]-[FENCING_TOKEN]` cluster on `time/time-and-deadlines.md` extending `SchedulePort`/`LeasePolicy.Maintenance`, not a new `coordination/` sub-domain — confirming the "coordination = ROWS on the temporal owner" law; mechanics in `TASKLOG#T-FENCING-COORDINATION`.
-
-[OFFICIAL_MCP_SDK_COLLAPSE]: [COMPLETE] Agent-facing serving is the capability registry projected onto the official `ModelContextProtocol(.Core/.AspNetCore)` SDK in `agent/mcp-projection.md` — the SDK owns JSON-RPC framing, handshake, and the error map; the descriptor-to-SDK leg references the cross-libs `ONE_CAPABILITY_CATALOG` seam. Mechanics in `TASKLOG#T-MCP-SDK`. Re-opened as the consumer leg under `AGENT_TOOL_FEDERATION` — the server projection is complete, the client federation is the named successor frontier, not a re-litigation.
-
-[FOURTH_SIGNAL_PROFILING]: [COMPLETE] `observability/diagnostics-and-telemetry.md` carries the four-row `TelemetrySignal` set with the `Profile` continuous-profiling row, the span-linking `SpanProfileProcessor`, and the GenAI semantic conventions. Mechanics in `TASKLOG#T-PROFILE-SIGNAL`.
-
-[SIGNED_GRANT_ATTESTATION]: [COMPLETE] The verifiable signed-grant admission spans `capability/registry.md` (`GrantAttestation` over the `XxHash128` digest seed) and `determinism/determinism-and-replay.md`#EVENT_LOG (the hash-chain seat), closing the in-process-only authorization gap. Mechanics in `TASKLOG#T-GRANT-ATTESTATION`.
-
-[CERTIFIED_INDUSTRIAL_TRANSPORT]: [COMPLETE] `live-wire/live-wire.md` names `OPCFoundation.NetStandard.Opc.Ua` (`.PubSub` for PubSub-over-MQTT) and `MQTTnet` as the concrete owners behind the one `TransportRow` contract. Mechanics in `TASKLOG#T-INDUSTRIAL-TRANSPORT`/`T-LIVE-WIRE-BINDING`. The transport-axis breadth (poll-transport bodies, Modbus/serial clients, the PubSub dataset leg) re-opens under `INDUSTRIAL_DEEPENING` — the axis is settled, its rows are the unbuilt depth.
-
-[WASM_RUNTIME_OWNER]: [COMPLETE] `sandbox/sandbox-host.md` names `wasmtime-dotnet` as the isolation host runtime with the WASI-Preview-2 import table scoped to the granted descriptor set and the `Store` fuel/memory quota cell. Mechanics in `TASKLOG#T-WASM-RUNTIME`.
-
-[CEDAR_PERMISSION_GRAMMAR]: [DROPPED] No Cedar .NET binding exists (Cedar ships Rust/WASM/Java/Go/Ruby; a C# binding is an open feature request), so the central manifest cannot admit it; the broker's typed `PermissionShape` × `GrantScope.Covers` predicate is correct ROP, and the auditable-decision goal re-targets to `SIGNED_GRANT_ATTESTATION`.
+(none)

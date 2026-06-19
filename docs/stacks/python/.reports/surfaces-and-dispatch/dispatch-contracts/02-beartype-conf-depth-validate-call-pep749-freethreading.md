@@ -36,8 +36,12 @@ from beartype import beartype, BeartypeConf
 from beartype.roar import BeartypeCallHintParamViolation, BeartypeCallHintReturnViolation
 from expression import Result, Error, Ok
 
+
 class InputContractError(Exception): ...
+
+
 class OutputContractError(Exception): ...
+
 
 _conf = BeartypeConf(
     violation_param_type=InputContractError,
@@ -45,13 +49,14 @@ _conf = BeartypeConf(
     strategy=BeartypeStrategy.On,  # full check at ingress
 )
 
+
 @beartype(conf=_conf)
 def _validated(payload: PayloadType) -> DomainResult: ...
 
+
 def ingest(raw: object) -> Result[DomainResult, InputContractError | OutputContractError]:
     return Result.of(lambda: _validated(raw)).map_error(
-        lambda e: e if isinstance(e, (InputContractError, OutputContractError))
-        else InputContractError(str(e))
+        lambda e: e if isinstance(e, (InputContractError, OutputContractError)) else InputContractError(str(e))
     )
 ```
 

@@ -1,39 +1,52 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-The branch domain map of the TypeScript web/edge/backend platform — the packages by stratum and altitude, each in one line, and the dependency direction stated once. The branch is a full host-free services platform that stands on its own: a browser publication, a node durable interior, and a public edge ingress, meeting the C# wire as settled vocabulary and authoring no wire shape; it owns no geometry. Per-package domain maps live in each folder's `ARCHITECTURE.md`; this page draws only the cross-package picture. Cross-folder and cross-language wires live on the folder task cards, never a standalone seam ledger that drifts.
+The branch domain map of `libs/typescript` — the host-free web/edge/backend platform. A browser publication, a node durable interior, and a public edge ingress, meeting the C# wire as settled vocabulary and owning no geometry.
+
+Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
 ## [1]-[PACKAGE_MAP]
 
-Four strata carry the packages: the platform-neutral interchange/projection interior every publication composes, the browser ui/platform publication, the node services durable interior, and the public edge ingress at the leaf above it. Two folders are NEW-FOLDER CANDIDATES the branch adopts on the `libs/typescript/*` workspace glob — `testing/` (the shared property-testing spine, from `TESTING_LIB_FOLDER`) and `edge/` (the public HTTP/edge ingress tier, from `PUBLIC_EDGE_INGRESS`). Each package is a genuine higher-order domain, not a weak sibling.
-
 ```text codemap
 libs/typescript/
-├── interchange/    # neutral interior, "." export — the byte-to-typed-and-back wire boundary: one protocol-selection transport, the codec rail family, content-addressed artifact-frame reassembly, the exhaustive fault reconstruction, the contract-drift quarantine, the outbound command gateway
-├── projection/     # neutral interior, "." export — the read-side fold-algebra owner: one keyedFold combinator over one StreamPolicy into SubscriptionRef-backed keyed maps, the differential-dataflow standing-query engine, the strong-eventual-consistency CRDT fold, the receipt/evidence/availability/clock-uncertainty projection
-├── ui/             # browser publication, "./ui" library — the host-free browser UI/UX/components library: the one AtomBinding reactive spine, the headless interaction-role vocabulary, the OKLCH theming engine, and the cartography/viewport/observation leaf surfaces over the decoded wire
-├── platform/       # browser publication, "./web" SPA entry — the browser AppHost-analog: the composition root and one runtime, the browser platform bindings, the OIDC/PKCE auth-session, the typed runtime-config boundary, the self-telemetry edge, the build and main-thread-offload pipeline, routing, the PWA offline cache, crash capture, feature flags, and the web-vitals budget
-├── services/       # node publication, "./node" + "./provisioning" + "./agent" — the host-free node durable interior and its deploy-time IaC, deliberately NOT coupled to the AEC/Rhino pipelines: durable execution over the cluster engine, the multi-tenant Postgres store, hybrid search, internal RPC, the addressable-actor modality, eventing, the durable-agent tier, the SLO/error-budget read model, runtime secret governance, the object-store tier, and the two-mode provisioning tier
-├── edge/           # public publication, "./edge" ingress — the public HTTP/edge ingress tier (NEW-FOLDER CANDIDATE): the one declarative HttpApi over the closed endpoint family, the middleware stack (problem-detail fold, CORS, caps, trace continuation, auth context), the OpenApi spec emit, the HttpApiClient-derived typed SDK, and the node-process / fetch-handler edge-runtime deployment modality on one HttpApp composing the services durable interior behind it
-└── testing/        # neutral lib, the shared test infrastructure (NEW-FOLDER CANDIDATE): the fast-check arbitrary library, the reusable law-harness combinator, and the FileDescriptorSet-pinned wire fixtures the five publication folders consume — the TS-side reader of the ONE_WIRE_FIXTURE_CORPUS frozen corpus
+├── interchange/  # the byte-to-typed-and-back wire boundary and inbound dependency root
+├── projection/   # the read-side fold-algebra owner over keyedFold and StreamPolicy
+├── ui/           # the host-free browser UI/UX/components library over the decoded wire
+├── platform/     # the browser AppHost-analog: composition root, runtime, and host owners
+├── services/     # the host-free node durable interior and its deploy-time IaC
+├── edge/         # the public HTTP/edge ingress tier (NEW-FOLDER CANDIDATE)
+└── testing/      # the shared property-testing spine and wire fixtures (NEW-FOLDER CANDIDATE)
 ```
 
-## [2]-[DEPENDENCY_DIRECTION]
+`interchange`/`projection` form the platform-neutral interior every publication composes; `ui`/`platform` are the browser publication; `services` is the node durable interior; `edge` is the public ingress leaf. `edge/` and `testing/` are NEW-FOLDER CANDIDATES the branch adopts on the `libs/typescript/*` glob.
+
+## [2]-[SEAMS]
+
+```text seams
+interchange  ←  csharp:Rasm.AppHost      # ReceiptEnvelope/HLC/Tenant + capability SDK (wire)
+interchange  ←  csharp:Rasm.Compute      # proto suite wire + FaultDetail (wire)
+interchange  ←  csharp:Rasm.Persistence  # OpLog/Snapshot CRDT wire (wire)
+interchange  ⇄  csharp:Rasm              # XxHash128 content-key parity (content-key)
+projection   ←  csharp:Rasm.AppUi        # evidence / availability / command wire (wire)
+ui           ←  csharp:Rasm.Bim          # BCF topic / viewpoint wire (wire)
+```
+
+## [3]-[DEPENDENCY_DIRECTION]
 
 The graph is acyclic with the wire boundary at the base and the publications at the leaves; dependency flows inward toward `interchange`. No folder imports another's interior — each consumes only the published surface of the package below it.
 
 - `interchange` decodes the wire and imports no sibling; it is the inbound dependency root the whole branch reaches through.
 - `projection` folds the decoded `interchange` shapes; it dials no transport and the `@connectrpc/*` import never crosses into the fold interior.
 - `ui` and `platform` consume `projection` folds and the `interchange` rails and gateway; `platform` composes `ui` into the SPA root, and `ui` never imports `platform` — the one-way intra-browser direction.
-- `services` is the node durable interior: it composes `interchange` and `projection` over its own durable, persistence, search, RPC, eventing, agent, SLO, secrets, object-store, and provisioning owners, and keeps the deploy-time `@pulumi/*` closure off the runtime hot path behind the `./provisioning` subpath and the AI/agent closure behind `./agent`.
-- `edge` is the public ingress leaf above `services`: it imports `services` (the durable workflows and `messaging/internal-rpc` proxy are the handler implementation) plus `interchange`/`projection` for decode and the availability gate, and exposes the one public `HttpApi` over `NodeHttpServer.layer` or the `toWebHandler` fetch-handler runtime. The node durable interior never exposes itself; the public front door is `edge` alone, and a second public-API mint is the named branch defect.
+- `services` is the node durable interior: it composes `interchange` and `projection` over its own execution (durable engine, backplane, outbox, SLO), persistence (store and object blob), search, messaging RPC, security, agent, and provisioning owners, and keeps the deploy-time `@pulumi/*` closure off the runtime hot path behind the `./provisioning` subpath and the AI/agent closure behind `./agent`.
+- `edge` is the public ingress leaf above `services`: it imports `services` (the durable workflows and `messaging/rpc` proxy are the handler implementation) plus `interchange`/`projection` for decode and the availability gate, and exposes the one public `HttpApi` over `NodeHttpServer.layer` or the `toWebHandler` fetch-handler runtime. The node durable interior never exposes itself; the public front door is `edge` alone, and a second public-API mint is the named branch defect.
 - `testing` is the neutral test-infrastructure lib the five publication folders consume; it imports `interchange` for the `*Wire` shapes its fixtures pin and dials no transport.
 
 The only read-back edge is the dial-time gate: the `interchange` `CommandGateway` reads the `projection` `AvailabilityStore` before a command fires. The dialing gateway is resident in the transport-owning folder, so this is a read across the neutral interior, never a transport leak into the fold tier or a stratum reversal. The publication bundle stays clean by construction — the browser bundle never carries `@effect/cluster`/`@effect/sql-pg`/`@pulumi/*`/`@effect/platform-node`, the node bundle never carries `@effect/platform-browser`/`react`/`maplibre-gl`/`@deck.gl/*`/`arctic`/`workbox-*`, and the `edge` ingress bundle carries `@effect/platform`/`@effect/platform-node` HttpApi but never the browser surface — enforced by the centralized monorepo config, never a runtime guard.
 
-## [3]-[FAULT_OWNERSHIP]
+## [4]-[FAULT_OWNERSHIP]
 
 One fault concept, three altitudes, never merged into a single branch-wide fault family. The wire-reconstruction owner, the node-side typed rails, and the public problem-detail projection are distinct in kind: the wire owner reconstructs what the C# packages emit across the boundary; a node-tier rail is a local failure the node process raises and folds; the edge owner projects either of those outward to the one public error shape a third-party client decodes.
 
 - `interchange` owns the one wire-fault reconstruction: `FaultDetail`, the `Data.TaggedEnum` family rebuilding every .NET fault the `grpc-status-details-bin` trailer carries, with the `fromConnect` infallible boundary fold and the `Match.tagsExhaustive` render table. `FaultDetail` is WIRE-ONLY — it reconstructs the C#-minted fault, authors no node-side failure, and never leaks past the decode boundary as a general node error type.
-- Each node-tier surface owns its own page-local typed rail for node-side failures — the `services` `DurableFault` (durable-execution engine), the artifact-transfer, rerank, drift, auth, SLO, secrets, and object-store faults — declared as a `Data.TaggedEnum` or `Data.TaggedError` at the page that raises it, never reaching for `interchange` `FaultDetail` to carry a failure that never crossed the wire. A node-tier surface importing `FaultDetail` to model a local failure is the named branch defect: the wire owner reconstructs the boundary, the node rail owns the interior.
+- Each node-tier surface owns its own page-local typed rail for node-side failures — the `services` `DurableFault` (`execution/engine`), the artifact-transfer, rerank, drift, auth, SLO, secret, and object faults — declared as a `Data.TaggedEnum` or `Data.TaggedError` at the page that raises it, never reaching for `interchange` `FaultDetail` to carry a failure that never crossed the wire. A node-tier surface importing `FaultDetail` to model a local failure is the named branch defect: the wire owner reconstructs the boundary, the node rail owns the interior.
 - `edge` owns the one public problem-detail projection: the `HttpApiError`/RFC 9457 problem-detail fold mapping every node-tier rail and every reconstructed `interchange` `FaultDetail` onto the public error schema each `HttpApiEndpoint` declares, with the status/title/detail rows carried as a vocabulary the middleware reads. The projection is OUTBOUND-ONLY — it shapes the public boundary response and authors no interior failure, and a node-tier rail leaking its raw `_tag` to the public client unprojected is the named defect: the node rail owns the interior, the edge owner shapes the public boundary.

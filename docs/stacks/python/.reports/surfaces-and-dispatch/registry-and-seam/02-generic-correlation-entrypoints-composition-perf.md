@@ -6,6 +6,7 @@
   ```python
   T = TypeVar("T")
 
+
   class Registry:
       _d: dict[type, Callable[..., object]] = {}
 
@@ -28,17 +29,14 @@
   from collections import defaultdict
   from expression import Ok, Error
 
+
   def load_group(group: str) -> Result[dict[str, object], str]:
       eps = entry_points(group=group)
       by_name: defaultdict[str, list[EntryPoint]] = defaultdict(list)
       for ep in eps:
           by_name[ep.name].append(ep)
       conflicts = {n: vs for n, vs in by_name.items() if len(vs) > 1}
-      return (
-          Error(f"conflict: {conflicts}")
-          if conflicts
-          else Ok({n: vs[0].load() for n, vs in by_name.items()})
-      )
+      return Error(f"conflict: {conflicts}") if conflicts else Ok({n: vs[0].load() for n, vs in by_name.items()})
   ```
   [CPython 3.15.0b1 `importlib/metadata/__init__.py`; PEP 451, 2026-06-09]
 - `EntryPoint.load()` is **not idempotent in cost** but is idempotent in result: `import_module` is O(1) after the first call (sys.modules hit), but `getattr` attribute traversal runs on every `load()` call. Cache the loaded object, not the `EntryPoint`. Pattern: `_loaded: dict[str, object] = {}` populated once at startup before the registry loop, never re-fetched at dispatch time. [verified CPython 3.15.0b1, 2026-06-09]

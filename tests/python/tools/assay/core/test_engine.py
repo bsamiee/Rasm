@@ -518,11 +518,7 @@ def test_argv_for_scopes_dotnet_project_tail_after_expansion(assay_root: AssayHa
     """Argv composition injects the per-project scope after routed ``--project`` tails are known."""
     scope = assay_root.scope(Claim.TEST)
     tool = Tool("dotnet-test", Runner.DOTNET, ("test",), Input.PROJECT, Language.CSHARP, Claim.TEST, mode=Mode.RUN)
-    routed = Routed(
-        language=Language.CSHARP,
-        scope=Scope.FULL,
-        projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",),
-    )
+    routed = Routed(language=Language.CSHARP, scope=Scope.FULL, projects=("tests/csharp/libs/Shape/Shape.Tests.csproj",))
     argv = assert_ok(argv_for(Check(tool=tool), routed, settings=assay_root.settings, scope=scope))
     artifact_path = argv[argv.index("--artifacts-path") + 1]
     assert artifact_path.endswith("/dotnet/tests__csharp__libs__Shape__Shape.Tests")

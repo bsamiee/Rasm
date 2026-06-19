@@ -81,7 +81,7 @@ export declare class CompositePropagator implements TextMapPropagator {
 - the composite is registered through the consumer's chosen seam — a self-constructed `@opentelemetry/sdk-trace-web` `WebTracerProvider.register({ propagator })` (in the current package set) or the `@opentelemetry/api` `propagation.setGlobalPropagator` global registration (an added `@opentelemetry/api` admission) — so every inbound carrier seeds the span from the extracted parent rather than a fresh root. The `@effect/opentelemetry` `WebSdk.layer` builds its `WebTracerProvider` internally and exposes no `.register` handle, so registration on the WebSdk-built provider is unreachable; the registration is a standalone-provider or global call composed alongside the WebSdk export layer.
 - `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` are the canonical header names a transport interceptor injects under, never a hand-written `"traceparent"` literal
 - the propagator is paired with a `ParentBasedSampler` so the extracted parent's sampling decision is honored and a root span samples at the configured ratio
-- `MetricRegistry.tracePropagation` (`observability/metric-registry#TRACE_PROPAGATION`) registers extract-and-continue ONLY; the outbound inject leg is settled at `interchange/transport/transport#WIRE_TRANSPORT`
+- `MetricRegistry.tracePropagation` (`Observability/telemetry#TRACE_PROPAGATION`) registers extract-and-continue ONLY; the outbound inject leg is settled at `interchange/Transport/transport#WIRE_TRANSPORT`
 
 [RAIL_LAW]:
 - Package: `@opentelemetry/core`

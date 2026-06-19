@@ -7,6 +7,7 @@ watchfiles, and emit boundaries.
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import contextvars
+from datetime import datetime, UTC
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -116,6 +117,18 @@ def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
             yield {(kind, path) for kind, path in batch}
 
     return _awatch
+
+
+def _cron_tick(stop: anyio.Event | None = None) -> SimpleNamespace:
+    previous: list[datetime | None] = []
+
+    def _next(previous_fire_time: datetime | None, _now: datetime) -> datetime:
+        previous.append(previous_fire_time)
+        if stop is not None and len(previous) >= 2:
+            stop.set()
+        return datetime.now(UTC)
+
+    return SimpleNamespace(get_next_fire_time=_next)
 
 
 # --- [LAWS_IS_GOVERNED]
@@ -596,38 +609,24 @@ register_law(_eng.drive, "test_drive_watch_debounce_collapses_storm")
 def test_drive_schedule_fires_then_stops(
     assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Schedule drive fires once per cron wakeup and stops the cron on teardown.
+    """Schedule drive fires once per cron wakeup and stops on the shared event.
 
-    Falsified by: ``_schedule`` not calling ``cron.stop()`` on teardown, or the stop event not breaking the cron loop (run hangs past the timeout).
+    Falsified by: the stop event not breaking the cron loop (run hangs past the timeout).
     """
     monkeypatch.setattr(_eng, "_JITTER_MS", 1)
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
-    stopped: list[bool] = []
 
     async def _drive() -> None:
         spec = Schedule(cron="* * * * *")
         stop = anyio.Event()
-        wakeups = 0
 
-        def _crontab(*_a: object, **_k: object) -> SimpleNamespace:
-            async def _next() -> None:
-                nonlocal wakeups
-                await anyio.lowlevel.checkpoint()
-                wakeups += 1
-                # The second wakeup arms stop before the post-next guard.
-                if wakeups >= 2:
-                    stop.set()
-
-            return SimpleNamespace(next=_next, stop=lambda: stopped.append(True))
-
-        monkeypatch.setattr(_eng, "aiocron", SimpleNamespace(crontab=_crontab))
+        monkeypatch.setattr(_eng, "_cron_trigger", lambda _spec: _cron_tick(stop))
         with anyio.move_on_after(5.0) as scope:
             await _eng._drive(spec, Program(argv=("tool",)), assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
         assert not scope.cancelled_caught, "schedule drive must stop, not hang"
 
     anyio.run(_drive)
 
-    assert stopped == [True], "cron.stop() must run exactly once on teardown"
     assert _one(captured_emits).status is RailStatus.OK
 
 
@@ -645,17 +644,12 @@ def test_drive_schedule_debounce_co_resides_worker(
     rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
     wakeups = 0
 
-    def _crontab(*_a: object, **_k: object) -> SimpleNamespace:
-        async def _next() -> None:
-            nonlocal wakeups
-            await anyio.lowlevel.checkpoint()
-            wakeups += 1
-            # Sleep after the burst so the quiet window can elapse before stop cancels.
-            await (anyio.sleep(0.005) if wakeups < 3 else anyio.sleep_forever())
+    def _next(_previous_fire_time: datetime | None, _now: datetime) -> datetime:
+        nonlocal wakeups
+        wakeups += 1
+        return datetime.now(UTC)
 
-        return SimpleNamespace(next=_next, stop=lambda: None)
-
-    monkeypatch.setattr(_eng, "aiocron", SimpleNamespace(crontab=_crontab))
+    monkeypatch.setattr(_eng, "_cron_trigger", lambda _spec: SimpleNamespace(get_next_fire_time=_next))
 
     async def _run() -> None:
         spec = Schedule(cron="* * * * *")
@@ -666,6 +660,13 @@ def test_drive_schedule_debounce_co_resides_worker(
             await anyio.sleep(0.15)
             stop.set()
 
+        def _delay(cron: object, previous: datetime | None) -> tuple[datetime | None, float]:
+            nonlocal wakeups
+            _ = cron, previous
+            wakeups += 1
+            return (datetime.now(UTC), 0.005 if wakeups < 3 else 3600.0)
+
+        monkeypatch.setattr(_eng, "_next_cron_delay", _delay)
         async with anyio.create_task_group() as tg:
             _ = tg.start_soon(_release)
             await _eng._drive(spec, action, assay_root.settings, limiter=anyio.CapacityLimiter(1), stop=stop, harden=True)
@@ -707,17 +708,13 @@ def test_quiesce_drains_until_quiet_window() -> None:
 register_law(_eng.drive, "test_quiesce_drains_until_quiet_window")
 
 
-def test_schedule_stops_cron_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``_schedule`` calls ``cron.stop()`` when the enclosing scope cancels the loop.
+def test_schedule_exits_on_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_schedule`` exits when the enclosing scope cancels the loop.
 
-    Falsified by: removing ``finally: cron.stop()`` and leaking the aiocron timer.
+    Falsified by: swallowing cancellation inside the cron wait loop.
     """
-    stopped: list[bool] = []
-
-    async def _next() -> None:
-        await anyio.sleep_forever()
-
-    monkeypatch.setattr(_eng, "aiocron", SimpleNamespace(crontab=lambda *_a, **_k: SimpleNamespace(next=_next, stop=lambda: stopped.append(True))))
+    monkeypatch.setattr(_eng, "_cron_trigger", lambda _spec: SimpleNamespace(get_next_fire_time=lambda *_a: datetime.now(UTC)))
+    monkeypatch.setattr(_eng, "_next_cron_delay", lambda *_a: (datetime.now(UTC), 3600.0))
 
     async def _run() -> None:
         stop = anyio.Event()
@@ -730,10 +727,8 @@ def test_schedule_stops_cron_on_cancellation(monkeypatch: pytest.MonkeyPatch) ->
 
     anyio.run(_run)
 
-    assert stopped == [True]
 
-
-register_law(_eng.drive, "test_schedule_stops_cron_on_cancellation")
+register_law(_eng.drive, "test_schedule_exits_on_cancellation")
 
 
 def test_fire_with_coalesce_runs_catch_up_on_missed_tick(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

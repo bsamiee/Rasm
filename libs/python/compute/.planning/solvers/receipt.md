@@ -4,13 +4,13 @@ The one method-discriminated solve receipt folded across every solver route. `So
 
 ## [1]-[INDEX]
 
-[RECEIPT]: the unified method-discriminated solve receipt and the convergence fold.
+- [1]-[RECEIPT]: the unified method-discriminated solve receipt and the convergence fold.
 
 ## [2]-[RECEIPT]
 
 - Owner: `SolverReceipt` — the ONE `@tagged_union` solve receipt over every route; the `Literal` tag is the solve method, read directly through `.method`. Each method case carries its own tuple payload, so `direct` carries `(residual, condition, converged)`, `iterative` carries `(residual, iterations, tol, converged)`, `least_squares` carries `(residual, rank, iterations, converged)`, and `eigen` carries `(spectral_residual, k, condition, converged)`. The discriminant lives in the case, never in a flat shared struct and never in a parallel vocabulary enum beside the tag.
 - Entry: the four static constructors `Direct`, `Iterative`, `LeastSquares`, and `Eigen` are the canonical factories every solver route folds into; `.converged` is a total `match` over the four cases reading the per-case convergence flag, and `.method` reads the tag as the method literal. One `match` folds the scipy, lineax, optimistix, diffrax, and scikit-fem paths into the same receipt.
-- Receipt: `SolverReceipt.contribute` implements `ReceiptContributor`, emitting one `Receipt.of("emitted", ...)` row carrying the method tag and the convergence verdict; a solve graduating outward routes through `graduation/receipt.md#GRADUATION` on the solver or symbolic `HandoffAxis` case.
+- Receipt: `SolverReceipt.contribute` implements `ReceiptContributor`, emitting one `Receipt.of("emitted", ...)` row carrying the method tag and the convergence verdict; a solve graduating outward routes through `graduation/handoff.md#GRADUATION` on the solver or symbolic `HandoffAxis` case.
 - Packages: `expression` (`tag`, `case`, `tagged_union`), `numpy` (`isfinite`, `linalg.norm` floors the converged predicates), runtime (`Receipt`, `ReceiptContributor`).
 - Growth: a new convergence shape is one `SolverReceipt` case keyed by one tag literal; zero new surface, no per-solver receipt struct, no flat shared-field receipt, no parallel method-vocabulary enum.
 - Boundary: no benchmark authority and no substrate selection on the receipt — it carries the convergence evidence the C# graduation gate reads, never a runtime decision. A per-solver receipt struct, a flat receipt with a stringly-typed method field, a `SolveMethod` enum duplicating the tag, and a single per-case factory collapse hiding the method payload are the deleted forms; the runtime `Receipt.of(phase, owner, subject, facts)` carries the contribution.

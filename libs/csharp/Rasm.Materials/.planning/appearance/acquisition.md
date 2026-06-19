@@ -4,7 +4,7 @@ THE MEASURED-MATERIAL IMPORT PATH. One `Acquisition` static fold over the closed
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[ACQUISITION]` owns the `CaptureSource` `[Union]` capture family, the `BrdfSample`/`Provenance` capture records, the `Acquisition.Import` fit-and-ground fold producing a `MaterialParameters` row, and the measured-provenance receipt.
+- [1]-[ACQUISITION]: the `CaptureSource` `[Union]` capture family, the `BrdfSample`/`Provenance` capture records, the `Acquisition.Import` fit-and-ground fold producing a `MaterialParameters` row, and the measured-provenance receipt.
 
 ## [2]-[ACQUISITION]
 

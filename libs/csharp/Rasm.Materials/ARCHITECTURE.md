@@ -1,44 +1,58 @@
 # [MATERIALS_ARCHITECTURE]
 
-The professional-domain folder-map of `Rasm.Materials`, the host-neutral AEC-domain materials owner: every cross-section is a `ProfileFamily` row, every appearance a node case, every material a library row, every lobe a closed-union case, every layout the one placement fold, every connection a `ConnectionFamily` row, every engineering property a `MaterialProperty` case, every assembly property the one aggregation fold — never a per-material or per-family type. The codemap names the full sub-domain structure across the five domains (`profiles/`, `connection/`, `appearance/`, `construction/`, `physical-properties/`), each a real domain concept — never a rail/axis/lane file-naming scheme — so a thin folder reads as a visible gap that fuels an idea or task. Mechanics live in the `.planning/` design pages; this map carries the structure, the boundary law, and the prohibitions.
+The professional domain map of `Rasm.Materials` — the host-neutral AEC-DOMAIN materials owner. One `ProfileFamily`/`MaterialLibrary`/`ConnectionFamily`/`MaterialProperty` row per concept across five sub-domains (`Profiles`, `Connection`, `Appearance`, `Construction`, `Properties`), never a per-material or per-family type.
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
-Each sub-domain mirrors one eventual source sub-tree. The charter is the concern the folder owns; the page line is the design page that has landed under it.
-
 ```text codemap
 Rasm.Materials/
-├── profiles/           One polymorphic Profile over a closed ProfileFamily axis (masonry, steel, cmu, timber, glazing realized), IfcProfileDef-aligned cross-section and the ProfileCatalogue registered-row table.
-│   ├── profile.md        The Profile polymorphic owner, the ProfileFamily growth axis, ProfileId/ProfileUnit/ProfileStandard, ProfileFault band 2300, and the context-folded registered-row catalogue over all five family builders.
-│   ├── masonry.md        The first realized ProfileFamily: void-class/bond/orientation/cut/closure/special-shape algebra and the regional ProfileCatalogue masonry rows (us/uk/din/au/is).
-│   ├── steel.md          The second realized ProfileFamily: SteelClass IfcProfileDef-subtype axis, the SteelSection AISC v16.0 section-property record (depth/flange/web/fillet/Ix/Sx/Zx), and the BuildSteelRows W-shape catalogue.
-│   ├── cmu.md            The CMU ProfileFamily: CmuGrade solid/hollow discriminant, the CmuSection ASTM C90 cell/face-shell record, the net-area-to-Coring bridge, and the BuildCmuRows catalogue.
-│   ├── timber.md         The timber ProfileFamily: TimberForm sawn/glulam/CLT discriminant, TimberGrade EN 14080/APA PRG 320 strength class, the TimberSection lamella record, and the BuildTimberRows catalogue.
-│   └── glazing.md        The glazing ProfileFamily: GlazingBuild double/triple discriminant, SpacerType edge-seal axis, the GlazingSection pane/spacer/cavity record, the IGU-to-LayerSet bridge, and the BuildGlazingRows catalogue.
-├── connection/         One polymorphic ConnectionItem over the closed ConnectionFamily axis (reinforcement, fastener, hanger — anchor folded as a FastenerKind arm, never a fourth family), each a registered-row catalogue the ConnectionCatalogue.Build folds — the structural-connection material spine the profile/construction model assigns and the BIM wire serializes as the IFC IfcReinforcingBar/IfcMechanicalFastener element.
-│   ├── connection.md     The ConnectionItem polymorphic owner, the ConnectionFamily growth axis, ConnectionId/ConnectionFault band 2360, and the context-folded registered-row catalogue over all family builders.
-│   ├── reinforcement.md  The reinforcement ConnectionFamily: RebarGrade/BarSize axis, the RebarSection ASTM A615/A706 bar-diameter/area record, the ACI 318 bend/hook geometry, and the BuildRebarRows catalogue.
-│   ├── fastener.md       The fastener ConnectionFamily: FastenerKind bolt/nut/screw/anchor discriminant, FastenerGrade ISO 898/SAE J429 axis, the FastenerSection thread/diameter/length record, and the BuildFastenerRows catalogue.
-│   └── hanger.md         The hanger ConnectionFamily: HangerType framing-connector discriminant, the HangerSection carried-member/capacity record, and the BuildHangerRows catalogue.
-├── appearance/         One measured appearance engine: a node MaterialGraph to one shading sink, the closed BSDF lobe family lowered from the OpenPBR SlabStack, the MaterialLibrary row table grounded by the conductor complex-IOR table, texture plus photometric admission folds, the weathering aging operator, the acquisition import path, and the material wire vocabulary.
-│   ├── bsdf.md          The closed seven-lobe BsdfLobe family and the scene-linear spectral edge: per-lobe Evaluate/Sample/Pdf, GGX + Smith masking, Fresnel, Kulla-Conty multi-scatter, RGB→SPD, ACES tone-map, the ConductorIor measured complex-IOR table, and the OpenPBR Surface 1.1 SlabStack layering algebra.
-│   ├── graph.md         The node-DAG appearance program (AppearanceNode union, typed PortValue channels, Kahn fold to SurfaceShade), the MaterialLibrary row table keyed by MaterialId, and the Datasets ColorChecker/named-colour validation seam.
-│   ├── texture.md       One TextureUv sampling fold over the closed TextureSource union with closed address/filter bands and the author-kernel ProceduralNoise (Perlin/OpenSimplex2/Worley/fBm).
-│   ├── photometric.md   The light-unit admission fold over the closed PhotometricQuantity band composing Compute QuantityFamily, with EmissionSpectrum through the Unicolour color seam.
-│   ├── weathering.md    The Weathering aging fold over the closed WeatheringEffect union (patina/oxidation/soiling/uv-fade) driving a MaterialParameters row forward along an AgeParameter.
-│   ├── acquisition.md   The Acquisition import fold over the closed CaptureSource union (measured-brdf/svbrdf-map/spectral-reflectance) producing a MaterialParameters row with measured Provenance.
-│   ├── finish.md        One FinishMix Kubelka-Munk pigment-reflectance engine over the admitted Unicolour Pigment/ArtistPaint set and the FinishLayer coat-stack, lowering to the bsdf OpenPBR coat slab and seeding a MaterialLibrary row with measured pigment provenance.
-│   └── interchange.md   The MaterialWire OpenPBR-vector material wire vocabulary C# mints once and the TS/Py peers decode, plus the MtlxDocument MaterialX 1.39 .mtlx node-graph interchange projection.
-├── construction/       The host-neutral construction model: elements assigned materials by layer-set (walls/slabs), profile-set (members), or constituent-set (components), resolved to portable scalar placement data.
-│   ├── assembly.md      The IFC 4.3 material-assignment owner (MaterialAssignment layer-set/profile-set/constituent-set), the Element placed-unit model, RunPath length algebra, and ConstructionFault band 2350.
-│   └── layout.md        The one ConstructionLayout.Resolve fold over any ProfileFamily, the realized station/elevation StationStep placement stream, JointPolicy, and the queued opening/corner/arch/pier stages.
-└── physical-properties/ The typed engineering-property model: the MaterialProperty union (mechanical/thermal/acoustic/fire) keyed by MaterialId over the IFC IfcMaterialProperties set, the UnitsNet quantity-coercion seam, and the MaterialPropertyLibrary rows.
-    └── properties.md    The MaterialProperty closed family (the per-octave-band Acoustic spectrum over the AcousticBand centres), the MaterialPropertySet MaterialId-keyed bundle, the FireRating rating band, the Admit quantity-coercion fold, and the AssemblyProperty series-resistance/rule-of-mixtures/layered-STC aggregation folds.
+├── Profiles/             # one polymorphic Profile over a closed ProfileFamily axis
+│   ├── Profile.cs        # the Profile polymorphic owner over the ProfileFamily growth axis
+│   ├── Masonry.cs        # the masonry ProfileFamily with regional catalogue rows
+│   ├── Steel.cs          # the steel ProfileFamily over the AISC v16.0 section-property record
+│   ├── Cmu.cs            # the CMU ProfileFamily over the ASTM C90 cell/face-shell record
+│   ├── Timber.cs         # the timber ProfileFamily over sawn/glulam/CLT lamella records
+│   └── Glazing.cs        # the glazing ProfileFamily over pane/spacer/cavity records
+├── Connection/           # one polymorphic ConnectionItem over the ConnectionFamily axis
+│   ├── Connection.cs     # the ConnectionItem polymorphic owner over the ConnectionFamily axis
+│   ├── Reinforcement.cs  # the reinforcement ConnectionFamily over the ASTM A615/A706 bar record
+│   ├── Fastener.cs       # the fastener ConnectionFamily over the ISO 898/SAE J429 thread record
+│   └── Hanger.cs         # the hanger ConnectionFamily over the carried-member/capacity record
+├── Appearance/           # the measured appearance engine
+│   ├── Bsdf.cs           # the closed seven-lobe BsdfLobe family and the scene-linear spectral edge
+│   ├── Graph.cs          # the node-DAG MaterialGraph program and the MaterialLibrary row table
+│   ├── Texture.cs        # the TextureUv sampling fold over the closed TextureSource union
+│   ├── Photometric.cs    # the light-unit admission fold over the PhotometricQuantity band
+│   ├── Weathering.cs     # the Weathering aging fold over the closed WeatheringEffect union
+│   ├── Acquisition.cs    # the Acquisition import fold over the closed CaptureSource union
+│   ├── Finish.cs         # the FinishMix Kubelka-Munk pigment-reflectance engine
+│   └── Interchange.cs    # the MaterialWire and MaterialX .mtlx interchange projection
+├── Construction/         # the host-neutral construction model
+│   ├── Assembly.cs       # the IFC 4.3 material-assignment owner and the Element placed-unit model
+│   └── Layout.cs         # the one ConstructionLayout.Resolve placement fold over any ProfileFamily
+└── Properties/           # the typed engineering-property model
+    └── Properties.cs     # the MaterialProperty closed family with the quantity-coercion fold
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ProfileFamily` row, a new material a `MaterialLibrary` row, a new appearance variation a node case, a new lobe a `[Union]` case, a new slab a `Slab` case, a new layout stage a fold extension, a new engineering property a `MaterialProperty` case, a new weathering effect a `WeatheringEffect` case, a new material wire field a `MaterialWire` column — never a new surface, and a public type outside an owner region is the named defect. One rail per entrypoint, named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a band-2300 `ProfileFault`, band-2350 `ConstructionFault`, band-2360 `ConnectionFault` (the realized `connection/` rail), or band-2450 `MaterialFault` can route (the kernel owns band-2400 `GeometryFault`, so the Materials appearance band sits at 2450 above the kernel's offsetting sub-band). All five `profiles/` families (masonry, steel, cmu, timber, glazing) are realized, each one `ProfileFamily` case folded into the one `ProfileCatalogue.Build`; the `construction/assembly` `MaterialAssignment` owner is the realized canonical owner the linear-run-only model lacked, the `construction/layout` `Resolve` fold the realized placement stream it feeds across the straight-run/opening/corner/arch/pier/layer-buildup stages. C# is the SOLE producer of the material wire vocabulary: `appearance/interchange` `MaterialWire` mints the OpenPBR-vector wire once (the `bsdf` `SlabStack` OpenPBR lowering and the `ConductorIor` measured table its truth) and the `MtlxDocument` the MaterialX `.mtlx` interchange, and the TypeScript and Python peers DECODE both — a second mint of the OpenPBR algebra, the conductor table, or the MaterialX schema in a peer is the named cross-language drift defect.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ProfileFamily` row, a new material a `MaterialLibrary` row, a new lobe a `BsdfLobe` `[Union]` case, a new connection a `ConnectionFamily` row, a new engineering property a `MaterialProperty` case — never a new surface. The rail is named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes — `ProfileFault` 2300, `ConstructionFault` 2350, `ConnectionFault` 2360, `MaterialFault` 2450, all disjoint from the kernel `GeometryFault` band 2400. C# is the sole producer of the material wire: `Appearance/Interchange` `MaterialWire` and `MtlxDocument` mint the OpenPBR-vector and MaterialX `.mtlx` interchange once, and the TypeScript and Python peers decode both — a peer re-mint of the OpenPBR algebra, the `ConductorIor` table, or the MaterialX schema is the named cross-language drift defect.
 
-## [2]-[DOMAIN_LAW]
+## [2]-[SEAMS]
+
+```text seams
+Appearance/interchange  →  typescript:interchange/codec     # MaterialWire OpenPBR vector wire (wire)
+Appearance/bsdf         →  csharp:Rasm.Bim/Semantics        # BimAppearance (content-key)
+Appearance/bsdf         ←  csharp:Rasm.Compute/Symbolic     # QuantityFamily illuminance for emission (port)
+Appearance/photometric  ←  csharp:Rasm.Compute/Symbolic     # QuantityFamily illuminance seam (port)
+Connection              →  csharp:Rasm.Bim/Model            # ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener (wire)
+Properties              →  csharp:Rasm.Fabrication/Process  # Thermal Conductivity / SpecificHeat / Density scalars (wire)
+Construction/assembly   →  csharp:Rasm.Bim/Semantics        # MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet (projection)
+Appearance/bsdf         →  csharp:Rasm.AppUi/Render         # LayeredBsdf shading at path tracer (boundary)
+Appearance/graph        →  csharp:Rasm.AppUi/Render         # SurfaceShade to path tracer (boundary)
+```
+
+## [3]-[DOMAIN_LAW]
 
 The canonical-collapse law the three domains share — one owner per axis, one entrypoint family per rail, growth by data. The per-page boundary cards carry the concrete seams; this map states only the collapse rule and the closed counts the codemap enforces.
 

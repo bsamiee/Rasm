@@ -1,32 +1,51 @@
 # [MATERIALS]
 
-`Rasm.Materials` is the host-neutral AEC-domain owner of architectural materials across five domains: `profiles/` (one polymorphic `Profile` over a closed `ProfileFamily` axis — masonry, steel, cmu, timber, and glazing realized), `connection/` (one polymorphic `ConnectionItem` over the closed `ConnectionFamily` axis — reinforcement, fastener, hanger, with anchor folded as a `FastenerKind` arm — the structural-fastener/reinforcement/connector catalogue the BIM wire serializes as the IFC `IfcReinforcingBar`/`IfcMechanicalFastener` element), `appearance/` (one measured appearance engine — a node `MaterialGraph`, a closed seven-lobe `BsdfLobe` family lowered from the OpenPBR Surface 1.1 `SlabStack`, a `MaterialLibrary` row table grounded by the measured conductor complex-IOR table with the Pointer real-surface gamut and CVD-preview seam, procedural texture and photometric admission, the Kubelka-Munk pigment/coat-stack finish engine, the weathering aging operator, the measured-material acquisition import, and the OpenPBR/MaterialX material wire vocabulary the host-free peers decode), `construction/` (the host-neutral element-to-assembly-to-layout data model, materials assigned by the IFC 4.3 layer-set/profile-set/constituent-set trichotomy, resolved to portable scalar placements), and `physical-properties/` (the typed `MaterialProperty` engineering-property family — mechanical/thermal/acoustic over per-octave-band spectra/fire over the IFC `IfcMaterialProperties` set — plus the `AssemblyProperty` series-resistance/rule-of-mixtures/layered-STC aggregation folds). A material is a LIBRARY ROW, an appearance variation a NODE CASE, a lobe a `[Union]` CASE, a cross-section a `ProfileFamily` ROW, a connection a `ConnectionFamily` ROW, a layout the ONE placement fold, an assembly property the ONE aggregation fold — never a per-material or per-family type. The package composes the `Rasm` kernel for vector/dimension value-objects, consumes Wacton.Unicolour directly as its scene-linear/spectral color owner, and composes the Compute unit algebra at the seam, never re-minting a vector, a color space, or a unit owner. This README routes the `.planning/` design pages and lists every external package the folder uses; the sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work in `TASKLOG.md`.
+`Rasm.Materials` is the host-neutral AEC-domain owner of architectural materials across five sub-domains. `Profiles/` owns one polymorphic `Profile` over a closed `ProfileFamily` axis — masonry, steel, CMU, timber, and glazing realized. `Connection/` owns one polymorphic `ConnectionItem` over the closed `ConnectionFamily` axis — reinforcement, fastener, hanger — with anchor folded as a `FastenerKind` arm; the catalogue serializes over the BIM wire as the IFC `IfcReinforcingBar`/`IfcMechanicalFastener` element. `Appearance/` owns one measured appearance engine: a node `MaterialGraph`, a closed seven-lobe `BsdfLobe` family lowered from the OpenPBR Surface 1.1 `SlabStack`, a `MaterialLibrary` row table grounded by the measured conductor complex-IOR table with the Pointer real-surface gamut and CVD-preview seam, procedural texture and photometric admission, the Kubelka-Munk pigment/coat-stack finish engine, the weathering aging operator, measured-material acquisition import, and the OpenPBR/MaterialX wire vocabulary host-free peers decode. `Construction/` owns the host-neutral element-to-assembly-to-layout data model, with materials assigned by the IFC 4.3 layer-set/profile-set/constituent-set trichotomy and resolved to portable scalar placements. `Properties/` owns the typed `MaterialProperty` engineering-property family — mechanical, thermal, acoustic over per-octave-band spectra, and fire over the IFC `IfcMaterialProperties` set — plus the `AssemblyProperty` series-resistance/rule-of-mixtures/layered-STC aggregation folds. A material is a LIBRARY ROW, an appearance variation a NODE CASE, a lobe a `[Union]` CASE, a cross-section a `ProfileFamily` ROW, a connection a `ConnectionFamily` ROW, a layout the ONE placement fold, and an assembly property the ONE aggregation fold — never a per-material or per-family type. The package composes the `Rasm` kernel for vector/dimension value-objects, consumes `Wacton.Unicolour` as its scene-linear/spectral color owner, and composes the Compute unit algebra at the seam, never re-minting a vector, a color space, or a unit owner. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/`, grouped by sub-domain.
+- [1]-[PROFILE](.planning/Profiles/profile.md)
+- [2]-[MASONRY](.planning/Profiles/masonry.md)
+- [3]-[STEEL](.planning/Profiles/steel.md)
+- [4]-[CMU](.planning/Profiles/cmu.md)
+- [5]-[TIMBER](.planning/Profiles/timber.md)
+- [6]-[GLAZING](.planning/Profiles/glazing.md)
+- [7]-[CONNECTION](.planning/Connection/connection.md): `ConnectionItem` `[Union]` reinforcement/fastener/hanger/anchor catalogue over the closed `ConnectionFamily` axis (`anchor` folded as a `FastenerKind` arm), band 2360
+- [8]-[REINFORCEMENT](.planning/Connection/reinforcement.md)
+- [9]-[FASTENER](.planning/Connection/fastener.md)
+- [10]-[HANGER](.planning/Connection/hanger.md)
+- [11]-[BSDF](.planning/Appearance/bsdf.md)
+- [12]-[GRAPH](.planning/Appearance/graph.md)
+- [13]-[TEXTURE](.planning/Appearance/texture.md)
+- [14]-[PHOTOMETRIC](.planning/Appearance/photometric.md)
+- [15]-[WEATHERING](.planning/Appearance/weathering.md)
+- [16]-[ACQUISITION](.planning/Appearance/acquisition.md)
+- [17]-[FINISH](.planning/Appearance/finish.md)
+- [18]-[INTERCHANGE](.planning/Appearance/interchange.md)
+- [19]-[ASSEMBLY](.planning/Construction/assembly.md)
+- [20]-[LAYOUT](.planning/Construction/layout.md)
+- [21]-[PROPERTIES](.planning/Properties/properties.md)
 
-- profiles: [profile](.planning/profiles/profile.md) · [masonry](.planning/profiles/masonry.md) · [steel](.planning/profiles/steel.md) · [cmu](.planning/profiles/cmu.md) · [timber](.planning/profiles/timber.md) · [glazing](.planning/profiles/glazing.md)
-- connection: [connection](.planning/connection/connection.md) · [reinforcement](.planning/connection/reinforcement.md) · [fastener](.planning/connection/fastener.md) · [hanger](.planning/connection/hanger.md) — the `ConnectionItem` `[Union]` reinforcement/fastener/hanger/anchor catalogue over the closed `ConnectionFamily` axis (`anchor` folded as a `FastenerKind` arm), band 2360
-- appearance: [bsdf](.planning/appearance/bsdf.md) · [graph](.planning/appearance/graph.md) · [texture](.planning/appearance/texture.md) · [photometric](.planning/appearance/photometric.md) · [weathering](.planning/appearance/weathering.md) · [acquisition](.planning/appearance/acquisition.md) · [finish](.planning/appearance/finish.md) · [interchange](.planning/appearance/interchange.md)
-- construction: [assembly](.planning/construction/assembly.md) · [layout](.planning/construction/layout.md)
-- physical-properties: [properties](.planning/physical-properties/properties.md)
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
-
-Every external library the folder uses, planned or implemented, as a flat list. Versions are centralized in the one C# manifest and never pinned here; admissions land here from the folder's ideas and tasks.
-
-[FUNCTIONAL_CORE]:
-- LanguageExt.Core
-- Thinktecture.Runtime.Extensions
+Domain packages admitted by this folder; versions are centralized in the one C# manifest and corroborated by this folder's `.api/`.
 
 [COLOR_SPECTRAL]:
-- Wacton.Unicolour (scene-linear/spectral color owner; `Pigment`/`new Unicolour(Pigment[], double[])` Kubelka-Munk reflectance, `MapToPointerGamut`/`IsInPointerGamut` real-surface gamut, and `Simulate(Cvd)` drive the `appearance/finish` pigment engine and the accessibility-preview seam)
-- Wacton.Unicolour.Datasets (named-colour lists, ColorChecker/Macbeth reference sets, perceptual colourmaps, the `ArtistPaint` Golden 19-pigment Kubelka-Munk reflectance set the `appearance/finish` engine mixes, and academic reference datasets only; observer CMFs, illuminant SPDs, and generic reflectance stay on the main `Wacton.Unicolour` owner)
+- `Wacton.Unicolour`
+- `Wacton.Unicolour.Datasets`
 
 [UNITS]:
-- UnitsNet (the photometric quantity/unit enums — `IlluminanceUnit`/`LuminanceUnit`/`LuminousFluxUnit`/`LuminousIntensityUnit`/`IrradianceUnit` — the `photometric` author-kernel rescales to SI base)
+- `UnitsNet`
 
 [PROJECTS]:
-- Rasm (kernel — `Vectors` value-objects: `VectorFrame`/`Direction`/`Dimension`/`UnitInterval`/`PositiveMagnitude`; `Domain` `Context`)
-- Rasm.Compute (`QuantityFamily`/`UnitAlgebra`/`UnitPolicy`/`UnitEvidence` unit seam, composing the admitted `UnitsNet` quantity owner)
+- `Rasm`
+- `Rasm.Compute`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+Substrate packages from the C# registry consumed by this folder; full registry and substrate contracts live in [`libs/csharp/.planning/README.md`](../csharp/.planning/README.md) and this folder's `.api/`.
+
+[FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `JetBrains.Annotations`

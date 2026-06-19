@@ -497,7 +497,7 @@ target. The `state` field re-read after each `change` is the live grant value th
 ## [3]-[STORAGE_MANAGER] (native)
 
 `navigator.storage` (the `StorageManager`) has no `@effect/platform-browser` surface — the two
-calls below are confined to the `capabilities/browser-capability` owner.
+calls below are confined to the `Shell/capability` owner.
 
 ### persist
 
@@ -538,4 +538,4 @@ kind, equally confined to that owner.
 [LOCAL_ADMISSION]:
 - `@effect/platform-browser` satisfies `HttpClient`, `Socket`, `Socket.WebSocketConstructor`, `Worker.WorkerManager`, `PlatformWorker`, `Spawner`, `WorkerRunner.PlatformRunner`, and `KeyValueStore` with browser-DOM drivers, and adds three browser-only tags: `Clipboard`, `Geolocation`, `Permissions`.
 - Layers are consumed at `CompositionRoot`; no local wrapper re-exports these — planning owners reference namespace-qualified symbols directly.
-- The `Clipboard`/`Geolocation`/`Permissions` capsules and the native `navigator.storage.persist`/`estimate`/`Notification.requestPermission` grant ceremonies compose only inside `capabilities/browser-capability` behind the one `CapabilityKind` axis; a native `navigator.notification`/`navigator.clipboard`/`navigator.storage`/`navigator.permissions` call at any other owner is the named ungated-native-call defect.
+- The `Clipboard`/`Geolocation`/`Permissions` capsules and the native `navigator.storage.persist`/`estimate`/`Notification.requestPermission` grant ceremonies compose only inside `Shell/capability` behind the one `CapabilityKind` axis; a native `navigator.notification`/`navigator.clipboard`/`navigator.storage`/`navigator.permissions` call at any other owner is the named ungated-native-call defect.

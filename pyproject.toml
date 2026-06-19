@@ -184,8 +184,9 @@ artifacts = [
 # --- [UV] ------------------------------------------------------------------
 
 [tool.uv]
-package =   false
-cache-dir = ".cache/uv"
+package =        false
+cache-dir =      ".cache/uv"
+default-groups = ["dev", "mutation"]
 
 [tool.uv.sources]
 beartype = { git = "https://github.com/beartype/beartype.git", rev = "f370a0b1733413681e7a72bf36fbe839e60b3c85" }

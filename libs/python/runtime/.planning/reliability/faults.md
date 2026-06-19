@@ -4,7 +4,7 @@ The single fault family and Result/Option rail for the whole branch. `BoundaryFa
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[FAULT]` — the boundary-fault tagged union with the aggregate combination law, the rail carrier, the fail-fast and accumulating traversals, the one sync/async exception-to-fault conversion.
+- [1]-[FAULT]: the boundary-fault tagged union with the aggregate combination law, the rail carrier, the fail-fast and accumulating traversals, the one sync/async exception-to-fault conversion.
 
 ## [2]-[FAULT]
 

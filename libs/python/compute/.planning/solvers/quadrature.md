@@ -4,7 +4,7 @@ The quadrature, interpolation, and finite-element routes of the one numeric solv
 
 ## [1]-[INDEX]
 
-[QUADRATURE]: 1-D quadrature, spline interpolation, and the weak-form FEM assemble fold on one `QuadratureIntent` owner.
+- [1]-[QUADRATURE]: 1-D quadrature, spline interpolation, and the weak-form FEM assemble fold on one `QuadratureIntent` owner.
 
 ## [2]-[QUADRATURE]
 

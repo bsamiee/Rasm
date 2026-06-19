@@ -1,24 +1,52 @@
 # [UI_ARCHITECTURE]
 
-The professional domain map for the host-free browser UI library. Each sub-domain is a genuine browser-UI capability folder mirroring the eventual source tree under `.planning/`, named by its domain concept with a one-line charter. Dependency direction across the TypeScript strata is stated once in the branch `ARCHITECTURE.md`; boundaries and wires live on the task cards that build them.
+The professional domain map of `ui` — the host-free browser UI/UX/component library. One `AtomBinding` reactive spine, a headless `interaction` tier, the OKLCH `theming` engine, the `overlay` owner, and read-only `render` leaves over the decoded wire.
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
-The binding spine precedes every surface that subscribes through it; the vocabulary owners (component-system, theming) precede the surfaces that compose them; the render leaves (observation, cartography, viewport) are projections over the `projection` folds, the `interchange` `GeometryRail`, and the `interchange` `ArtifactFrameRail`; motion and overlay are cross-cutting interaction owners the surfaces compose.
-
 ```text codemap
 ui/
-├── binding/            # The single sanctioned reactive-binding spine over the effect-atom React hooks and native state constructors
-├── component-system/   # The headless interaction-role vocabulary, the live-region accessibility-broadcast path, the schema-driven FormBinding validity fold, and the perceptual color/date/file PickerBehavior family
-├── content/            # The CommandAction AEC action-lexicon vocabulary, the cmdk palette and vaul drawer surfaces, the lucide-react icon vocabulary, and the one cva+twMerge variant-recipe owner
-├── theming/            # The OKLCH design-token engine, the CSS-variable runtime sync, and the tw-animate-css enter/exit utility layer, distinct from interaction behavior
-├── observation/        # The read-only dashboard routes over the projection folds — leaves that read and never emit, including the HLC skew-band confidence-interval render
-├── cartography/        # The 2D geospatial surface over the interchange GeometryRail, with the GeoArrow/TileLayer out-of-core and cell-index aggregation arms
-├── viewport/           # The 3D mesh render leaf over the interchange ArtifactFrameRail GLB blob, consuming the residency manifest by content key
-├── motion/             # The route/layout transition and activity-preservation owner, the reduced-motion gate, and the shared pointer-gesture algebra
-└── overlay/            # The floating-surface positioning/anchor-bridge/dismiss owner and the collaborator-presence cohort over the convergence changefeed
+├── binding/           # the single sanctioned reactive-binding spine
+│   └── atom.ts        # AtomBinding over Atom.searchParam/kvs/family/pull + the UndoStack fold
+├── interaction/       # the headless behavior tier: roles, accessibility, form/picker, command, motion
+│   ├── role.ts        # the _Roles/InteractionRole vocabulary owner-block + RoleBehavior contract
+│   ├── announce.ts    # the live-region accessibility-broadcast path + ToastQueue store
+│   ├── form.ts        # the schema-driven FormBinding folding decode into the aria validity map
+│   ├── picker.ts      # the perceptual color/date/file PickerBehavior family over react-aria
+│   ├── command.ts     # the CommandAction AEC action-lexicon, cmdk palette, and variant-recipe owner
+│   ├── gesture.ts     # the shared CameraGesture/GestureFold pointer-gesture algebra
+│   └── transition.ts  # the SurfaceTransition route/layout transition with reduced-motion gate
+├── theming/           # the OKLCH design-token engine and CSS-variable runtime sync
+│   └── tokens.ts      # ThemeTokens OKLCH scale + CssVarSync Tailwind sync + tw-animate-css layer
+├── overlay/           # the floating/presence/anchor owner the surfaces compose
+│   ├── floating.ts    # useFloatingAnchor placement, the CSS Anchor bridge, and the dismiss law
+│   ├── presence.ts    # the PresenceOverlay collaborator-cursor cohort over the convergence changefeed
+│   └── bcf.ts         # the BCF viewpoint/issue-anchored overlay decoding BcfTopicWire/BcfViewpointWire
+└── render/            # the read-only render leaves over the projection folds and interchange rails
+    ├── glb.ts         # the 3D mesh render leaf over the ArtifactFrameRail GLB blob
+    ├── geo.ts         # the 2D geospatial GeoSeriesLayer over the GeometryRail
+    ├── dashboard.ts   # the live-wire binding-studio cockpit over decoded status/receipt rows
+    └── routes.ts      # the read-only observation routes: EvidenceTimeline, Benchmark, CollectorPanel
 ```
 
-The `content` sub-domain is a genuine higher-order capability folder, not a top-level candidate: it owns the in-app command and styling-recipe surface (`cmdk`/`vaul`/`lucide-react`/`cva`/`twMerge`) at the same browser-library stratum as the other sub-domains, dialing only through the `interchange` `CommandGateway` and holding no domain state.
+`interaction` unifies the headless behavior tier — the `command`/styling-recipe surface, the `gesture`/`transition` motion owners, the interaction-role vocabulary, and the form/picker behaviors. `render` unifies the read-only leaves (`glb`, `geo`, `dashboard`, `routes`) that project the `projection` folds and the `interchange` rails. `binding` and `theming` stay single-file foundational owners — the one `AtomBinding` spine and the OKLCH token engine every surface composes.
 
-Each page is one transcription unit per eventual source file. A new capability deepens the owning sub-domain through rows, cases, and policy values rather than a new public surface beside it. The page clusters transcribe into the TypeScript workspace at web app-root creation; `ui/**` never imports `platform/**`.
+## [2]-[SEAMS]
+
+```text seams
+overlay/bcf          ←  csharp:Rasm.Bim/Review             # BcfTopicWire / BcfCommentWire / BcfViewpointWire (wire)
+render/dashboard     ←  csharp:Rasm.AppHost/Wire           # BindingStatusWire / CoercedValueWire / WriteReceiptWire (wire)
+render/glb           ←  csharp:Rasm.Compute/Runtime        # GeometryPayload proto descriptor / MeshTensor view (wire)
+render/routes        ←  csharp:Rasm.AppHost/Observability  # BenchmarkClaimWire / HostFingerprintWire identity gate (wire)
+render/glb           ←  csharp:Rasm.AppUi/Render           # ResidencyManifest content-key-keyed mesh residency (receipt)
+overlay/bcf          ←  csharp:Rasm.Bim/Model              # GlobalId element selection set (shape)
+render/glb           ⇄  typescript:platform/transport      # ContentKey mint and tile keying (content-key)
+binding/atom         →  typescript:platform/persistence    # LocalPersistence KeyValueStore via Atom.kvs (port)
+interaction/command  ←  typescript:interchange/transport   # CommandGateway / IntentRegistry intent dial (port)
+interaction/command  ←  typescript:projection/evidence     # AvailabilityStore.isEnabled dial-time gate (port)
+interaction/form     →  typescript:interchange/transport   # FormBinding intent dial via CommandGateway (port)
+render/glb           ←  typescript:platform/transport      # ViewportHost / DecodeWorkerPool / BrowserPlatform (port)
+*                    ←  typescript:interchange             # URL-resident state via Atom.searchParam (wire)
+```

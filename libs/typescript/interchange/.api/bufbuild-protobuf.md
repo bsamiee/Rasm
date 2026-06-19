@@ -126,7 +126,7 @@
 [ENTRYPOINT_SCOPE]: descriptor reflection walk
 - rail: wire
 
-The descriptor-evolution gate (`evolution/descriptor-gate.md`) reads the descriptor surface through these iteration accessors and the `@bufbuild/protobuf/reflect` `nestedTypes` walker; `registry.files` is the file roster a `createFileRegistry(set)` yields, and every member below is a read-only property of the immutable descriptor interfaces.
+The descriptor-evolution gate (`Contract/descriptor.md`) reads the descriptor surface through these iteration accessors and the `@bufbuild/protobuf/reflect` `nestedTypes` walker; `registry.files` is the file roster a `createFileRegistry(set)` yields, and every member below is a read-only property of the immutable descriptor interfaces.
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]   | [RAIL]                                                                  |
 | :-----: | :--------------------------------- | :--------------- | :--------------------------------------------------------------------- |

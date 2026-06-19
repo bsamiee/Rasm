@@ -4,7 +4,7 @@ The multi-tenant RLS scoping axis over the one `PgClient` — `TenantScope`, sco
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[TENANCY]` owns the multi-tenant RLS axis, the tenant lifecycle vocabulary, and the purge-handler family.
+- [1]-[TENANCY]: owns the multi-tenant RLS axis, the tenant lifecycle vocabulary, and the purge-handler family.
 
 ## [2]-[TENANCY]
 

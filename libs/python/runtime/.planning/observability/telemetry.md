@@ -1,13 +1,10 @@
 # [PY_RUNTIME_TELEMETRY]
 
-The one composition-root install owner for the OTLP signal egress every other observability surface assumes already wired. `Telemetry` is the single static surface that mints the shared `Resource`, constructs the `TracerProvider`/`MeterProvider`/`LoggerProvider` trio over the one `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` family under `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`, registers all three providers globally through the `opentelemetry-api` `set_*_provider` surface, and installs the composite `TextMapPropagator` through `set_global_textmap` so the inbound extract (`observability/receipts#RECEIPT`) and the outbound client interceptors (`server/serve#CAPABILITY_INVOKE`) resolve one cross-language trace. The install is profile-gated by the `context/admission#CONTEXT` `emit_otel` policy row through a frozen `SignalProfile` table keyed by `RuntimeProfile` — a `SIDECAR`/`TOOL` profile installs the batched OTLP trio, a `PACKAGE`/`TEST` profile leaves the `opentelemetry-api` no-op providers in place and emits nothing. The siblings read the installed providers and own no construction: `observability/metrics#METRIC` reads the installed `MeterProvider` through `metrics.get_meter`, `observability/receipts#RECEIPT` reads the installed `LoggerProvider` and the trace context the propagator seeds, and the providers all carry the one `RUNTIME_RESOURCE` so the three signals join one `service.name`. The package installs the local signal pipeline only; the product telemetry envelope, sampler floor, and health stay AppHost-owned — the C# `diagnostics` one-`UseOtlpExporter`, one-`Resource`, one-propagator parity bar realized on the cp315 core.
+The one composition-root install owner for the OTLP signal egress every other observability surface assumes already wired. `Telemetry` is the single static surface that mints the shared `Resource`, constructs the `TracerProvider`/`MeterProvider`/`LoggerProvider` trio over the one `OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` family under `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`, registers all three providers globally through the `opentelemetry-api` `set_*_provider` surface, and installs the composite `TextMapPropagator` through `set_global_textmap` so the inbound extract (`observability/receipts#RECEIPT`) and the outbound client interceptors (`transport/serve#CAPABILITY_INVOKE`) resolve one cross-language trace. The install is profile-gated by the `execution/admission#CONTEXT` `emit_otel` policy row through a frozen `SignalProfile` table keyed by `RuntimeProfile` — a `SIDECAR`/`TOOL` profile installs the batched OTLP trio, a `PACKAGE`/`TEST` profile leaves the `opentelemetry-api` no-op providers in place and emits nothing. The siblings read the installed providers and own no construction: `observability/metrics#METRIC` reads the installed `MeterProvider` through `metrics.get_meter`, `observability/receipts#RECEIPT` reads the installed `LoggerProvider` and the trace context the propagator seeds, and the providers all carry the one `RUNTIME_RESOURCE` so the three signals join one `service.name`. The package installs the local signal pipeline only; the product telemetry envelope, sampler floor, and health stay AppHost-owned — the C# `diagnostics` one-`UseOtlpExporter`, one-`Resource`, one-propagator parity bar realized on the cp315 core.
 
 ## [1]-[INDEX]
 
-| [CLUSTER]         | [OWNS]                                                                                                                                                                                |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[2]-[TELEMETRY]` | `Telemetry` composition-root install, `SignalProfile` emit-gated provider-trio table, `RUNTIME_RESOURCE`, the OTLP exporter trio, the `set_global_textmap` composite, the host-drain flush boundary. |
-| `[3]-[RESEARCH]`  | the settled provider-trio / batch-processor / composite-propagator install spellings.                                                                                               |
+- [1]-[TELEMETRY]: `Telemetry` composition-root install, `SignalProfile` emit-gated provider-trio table, `RUNTIME_RESOURCE`, the OTLP exporter trio, the `set_global_textmap` composite, the host-drain flush boundary.
 
 ## [2]-[TELEMETRY]
 
@@ -59,12 +56,15 @@ class SignalProfile(Struct, frozen=True):
 
 
 SIGNAL_PROFILE: Final[Map[RuntimeProfile, SignalProfile]] = Map.of_seq([
-    (profile, SignalProfile(
+    (
         profile,
-        emit_otel=PROFILE_POLICY[profile].emit_otel,
-        export_interval_ms=2000 if profile is RuntimeProfile.SIDECAR else 5000,
-        max_queue_size=2048 if profile is RuntimeProfile.SIDECAR else 512,
-    ))
+        SignalProfile(
+            profile,
+            emit_otel=PROFILE_POLICY[profile].emit_otel,
+            export_interval_ms=2000 if profile is RuntimeProfile.SIDECAR else 5000,
+            max_queue_size=2048 if profile is RuntimeProfile.SIDECAR else 512,
+        ),
+    )
     for profile in RuntimeProfile
 ])
 
@@ -94,9 +94,7 @@ class Telemetry:
         trace.set_tracer_provider(tracer)
         metrics.set_meter_provider(meter)
         _logs.set_logger_provider(logger)
-        propagate.set_global_textmap(
-            CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])
-        )
+        propagate.set_global_textmap(CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()]))
         cls._tracer, cls._meter, cls._logger, cls._installed = tracer, meter, logger, True
 
     @classmethod
@@ -110,4 +108,4 @@ class Telemetry:
 
 ## [3]-[RESEARCH]
 
-- [OTLP_PROVIDER_INSTALL]: reflection-confirmed — the `opentelemetry-sdk` provider trio (`sdk.trace.TracerProvider(resource, ...)` + `add_span_processor(BatchSpanProcessor(exporter, max_queue_size, ...))`, `sdk.metrics.MeterProvider(metric_readers=[PeriodicExportingMetricReader(exporter, export_interval_millis)], resource)`, `sdk._logs.LoggerProvider(resource)` + `add_log_record_processor(BatchLogRecordProcessor(exporter, max_queue_size))`) over the `opentelemetry-exporter-otlp-proto-http` exporter family (`OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` sharing the `(endpoint, headers, timeout, compression, session)` constructor) is the production install path; the providers register through the `opentelemetry-api` `trace.set_tracer_provider`/`metrics.set_meter_provider`/`_logs.set_logger_provider` global resolution points, replacing the no-op API providers only at the composition root. The composite `TextMapPropagator` is the `opentelemetry.propagators.composite.CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` (the W3C trace-context + baggage construction the API catalogues as the `TextMapPropagator` surface without separately indexing the concrete classes) installed through `propagate.set_global_textmap`, which `propagate.get_global_textmap` resolves for the inbound `observability/receipts#RECEIPT` extract and the outbound `server/serve#CAPABILITY_INVOKE` client interceptors — the C# `csharp:Rasm.AppHost/observability/diagnostics-and-telemetry#CORRELATION_SPINE` `Propagators.DefaultTextMapPropagator` parity at the wire. The install gate reads the `context/admission#CONTEXT` `PROFILE_POLICY` `emit_otel` row (`SIDECAR`/`TOOL` true → batched OTLP trio, `PACKAGE`/`TEST` false → API no-op providers, zero egress); `BatchSpanProcessor`/`BatchLogRecordProcessor` require an explicit `shutdown` flush on host drain, owned by `Telemetry.shutdown`. The provider-install spellings are settled. No open RESEARCH seam remains on this page.
+- [OTLP_PROVIDER_INSTALL]: reflection-confirmed — the `opentelemetry-sdk` provider trio (`sdk.trace.TracerProvider(resource, ...)` + `add_span_processor(BatchSpanProcessor(exporter, max_queue_size, ...))`, `sdk.metrics.MeterProvider(metric_readers=[PeriodicExportingMetricReader(exporter, export_interval_millis)], resource)`, `sdk._logs.LoggerProvider(resource)` + `add_log_record_processor(BatchLogRecordProcessor(exporter, max_queue_size))`) over the `opentelemetry-exporter-otlp-proto-http` exporter family (`OTLPSpanExporter`/`OTLPMetricExporter`/`OTLPLogExporter` sharing the `(endpoint, headers, timeout, compression, session)` constructor) is the production install path; the providers register through the `opentelemetry-api` `trace.set_tracer_provider`/`metrics.set_meter_provider`/`_logs.set_logger_provider` global resolution points, replacing the no-op API providers only at the composition root. The composite `TextMapPropagator` is the `opentelemetry.propagators.composite.CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` (the W3C trace-context + baggage construction the API catalogues as the `TextMapPropagator` surface without separately indexing the concrete classes) installed through `propagate.set_global_textmap`, which `propagate.get_global_textmap` resolves for the inbound `observability/receipts#RECEIPT` extract and the outbound `transport/serve#CAPABILITY_INVOKE` client interceptors — the C# `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` `Propagators.DefaultTextMapPropagator` parity at the wire. The install gate reads the `execution/admission#CONTEXT` `PROFILE_POLICY` `emit_otel` row (`SIDECAR`/`TOOL` true → batched OTLP trio, `PACKAGE`/`TEST` false → API no-op providers, zero egress); `BatchSpanProcessor`/`BatchLogRecordProcessor` require an explicit `shutdown` flush on host drain, owned by `Telemetry.shutdown`. The provider-install spellings are settled. No open RESEARCH seam remains on this page.

@@ -129,7 +129,6 @@ class _ProvisionPortPolicy(msgspec.Struct, frozen=True, gc=False, rename="camel"
     source: str = ""
     range_: str = msgspec.field(default="", name="range")
     exclude: str = ""
-    seed: str | None = None
     seed_fingerprint: str | None = None
 
 
@@ -139,69 +138,39 @@ class _ProvisionError(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     exit_code: int = 0
 
 
-class _ProvisionDockerPolicy(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    status: str = ""
-    reason: str | None = None
+class _ProvisionNotice(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    code: str = ""
+    message: str = ""
 
 
-class _ProvisionDockerHostConfig(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    credential_helper_present: bool | None = None
-    warning: str | None = None
+class _ProvisionOwnedResources(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    containers: tuple[dict[str, object], ...] = ()
+    volumes: tuple[dict[str, object], ...] = ()
+    networks: tuple[dict[str, object], ...] = ()
 
 
-class _ProvisionDockerAnonymousPullConfig(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    exists: bool | None = None
+class _ProvisionResources(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    counts: dict[str, int] = msgspec.field(default_factory=dict)
+    owned: _ProvisionOwnedResources = msgspec.field(default_factory=_ProvisionOwnedResources)
+    images: tuple[dict[str, object], ...] = ()
+    docker_disk: tuple[dict[str, object], ...] = ()
+    runtime: dict[str, object] = msgspec.field(default_factory=dict)
 
 
-class _ProvisionDocker(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    executable_present: bool | None = None
-    executable_kind: str | None = None
-    policy: _ProvisionDockerPolicy | None = None
-    endpoint_kind: str = ""
-    compose: str = ""
-    server: str = ""
-    host_config: _ProvisionDockerHostConfig | None = None
-    anonymous_pull_config: _ProvisionDockerAnonymousPullConfig | None = None
+class _ProvisionArtifacts(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    generated: tuple[dict[str, object], ...] = ()
+    plan: dict[str, object] | None = None
 
 
-class _ProvisionRuntimeProgram(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    present: bool | None = None
-    schema_version: int = 0
+class _ProvisionExtensions(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    catalog: tuple[_ProvisionExtension, ...] = ()
+    results: tuple[_ProvisionExtension, ...] = ()
+    summary: dict[str, int] = msgspec.field(default_factory=dict)
 
 
-class _ProvisionRuntimeCompose(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    present: bool | None = None
-    version: str | None = None
-
-
-class _ProvisionRuntime(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    forge_provision: _ProvisionRuntimeProgram | None = None
-    docker: _ProvisionRuntimeProgram | None = None
-    compose: _ProvisionRuntimeCompose | None = None
-    jq: _ProvisionRuntimeProgram | None = None
-    listener_probe_method: str = ""
-    anonymous_docker_config: bool | None = None
-    host_credential_helper_present: bool | None = None
-
-
-class _ProvisionLock(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    present: bool | None = None
-    active: bool | None = None
-    state: str = ""
-    pid_alive: bool | None = None
-    heartbeat_stale: bool | None = None
-    command: str | None = None
-
-
-class _ProvisionColimaStatus(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    running: bool | None = None
-    runtime: str | None = None
-    arch: str | None = None
-
-
-class _ProvisionColima(msgspec.Struct, frozen=True, gc=False, rename="camel"):
-    available: bool | None = None
-    status: _ProvisionColimaStatus | None = None
+class _ProvisionTools(msgspec.Struct, frozen=True, gc=False, rename="camel"):
+    surfaces: dict[str, object] = msgspec.field(default_factory=dict)
+    summary: dict[str, object] = msgspec.field(default_factory=dict)
 
 
 class _ProvisionProject(msgspec.Struct, frozen=True, gc=False, rename="camel"):
@@ -215,60 +184,54 @@ class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
     schema_version: int = 0
     command: str = ""
     ok: bool = True
-    warnings: tuple[str, ...] = ()
+    warnings: tuple[_ProvisionNotice, ...] = ()
     error: _ProvisionError | None = None
     state: str = ""
     project: _ProvisionProject = msgspec.field(default_factory=_ProvisionProject)
     auth: _ProvisionAuth | None = None
     port_policy: _ProvisionPortPolicy | None = None
-    docker_available: bool | None = None
-    ports_inspectable: bool | None = None
-    ports_usable: bool | None = None
-    non_owned_cleanup_policy: str = ""
-    summary: dict[str, int] = msgspec.field(default_factory=dict)
-    resources: dict[str, int] = msgspec.field(default_factory=dict)
-    probes: dict[str, str | int | bool] = msgspec.field(default_factory=dict)
-    artifacts: dict[str, object] = msgspec.field(default_factory=dict)
-    docker: _ProvisionDocker | None = None
-    runtime: _ProvisionRuntime | None = None
-    lock: _ProvisionLock | None = None
-    colima: _ProvisionColima | None = None
+    resources: _ProvisionResources = msgspec.field(default_factory=_ProvisionResources)
+    artifacts: _ProvisionArtifacts = msgspec.field(default_factory=_ProvisionArtifacts)
     services: dict[str, _ProvisionService] = msgspec.field(default_factory=dict)
     ports: tuple[_ProvisionPort, ...] = ()
-    extensions: tuple[_ProvisionExtension, ...] = ()
+    extensions: _ProvisionExtensions = msgspec.field(default_factory=_ProvisionExtensions)
+    tools: _ProvisionTools = msgspec.field(default_factory=_ProvisionTools)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_JSON_VERBS: Final[frozenset[str]] = frozenset({"up", "down", "status", "doctor", "ports", "inventory", "extensions", "plan", "env", "check", "apply"})
+_JSON_VERBS: Final[frozenset[str]] = frozenset({
+    "up",
+    "down",
+    "status",
+    "doctor",
+    "ports",
+    "inventory",
+    "extensions",
+    "plan",
+    "env",
+    "check",
+    "apply",
+    "tools",
+})
 _VERB_MODE: Final[dict[str, Mode]] = {"up": Mode.WRITE, "down": Mode.WRITE, "apply": Mode.WRITE}
 _VERB_TIMEOUT: Final[dict[str, float]] = {"up": 300.0, "check": 180.0, "apply": 180.0}
-_FACT_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("schemaVersion", "schema_version"),
-    ("ok", "ok"),
-    ("state", "state"),
-    ("dockerAvailable", "docker_available"),
-    ("portsInspectable", "ports_inspectable"),
-    ("portsUsable", "ports_usable"),
-    ("nonOwnedCleanupPolicy", "non_owned_cleanup_policy"),
-)
+_FACT_FIELDS: Final[tuple[tuple[str, str], ...]] = (("schemaVersion", "schema_version"), ("ok", "ok"), ("state", "state"))
 _SENSITIVE_KEY_FRAGMENTS: Final[frozenset[str]] = frozenset({"password", "token", "secret", "pgpass"})
-_SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
-    {
-        "composefile",
-        "dockerconfig",
-        "dockerconfigpath",
-        "dockerhost",
-        "envfile",
-        "hostlistenercommand",
-        "logs",
-        "mountpoint",
-        "rawcompose",
-        "rawlogs",
-        "socket",
-    }
-)
+_SENSITIVE_KEYS: Final[frozenset[str]] = frozenset({
+    "composefile",
+    "dockerconfig",
+    "dockerconfigpath",
+    "dockerhost",
+    "envfile",
+    "hostlistenercommand",
+    "logs",
+    "mountpoint",
+    "rawcompose",
+    "rawlogs",
+    "socket",
+})
 _CREDENTIAL_URI: Final[re.Pattern[str]] = re.compile(r"(?i)[a-z][a-z0-9+.-]*://[^/\s:@]+:([^@\s]+)@")
 _RAW_URI: Final[re.Pattern[str]] = re.compile(r"(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb|redis|amqp|http|https|ssh|tcp|unix)://")
 _ABSOLUTE_POSIX_PATH: Final[re.Pattern[str]] = re.compile(r"(^|[\s\"'])/(?!/)[^\s\"']+")
@@ -292,7 +255,6 @@ _SAFE_WIRE_CAP: Final[int] = 512
 _PYTHON_ABI_PROBE: Final[str] = "import sys, sysconfig; print(sys.implementation.cache_tag, sysconfig.get_config_var('Py_GIL_DISABLED') or 0)"
 _ONNXRUNTIME_LIB_PROBE: Final[str] = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXRUNTIME_LIB" && printf "present:%s\\n" "${ONNXRUNTIME_LIB##*/}"'
 _CHECK_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("duckdb-version", ("duckdb", "--version")),
     ("forge-python-abi", ("forge-scientific-env", "python3", "-c", _PYTHON_ABI_PROBE)),
     ("forge-openblas", ("forge-scientific-env", "pkg-config", "--modversion", "openblas")),
     ("forge-onnxruntime-lib", ("forge-scientific-env", "sh", "-lc", _ONNXRUNTIME_LIB_PROBE)),
@@ -361,7 +323,7 @@ def _payload_fault(argv: tuple[str, ...], verb: str, message: str) -> Result[_Pr
 
 def _decode_raw_payload(verb: str, outcome: Completed, body: bytes, *, required: bool) -> Result[object | None, Fault]:
     if not body.startswith(b"{"):
-        return _payload_fault(outcome.argv, verb, "expected forge-provision JSON") if required else Ok(None)
+        return _payload_fault(outcome.argv, verb, "expected exactly one forge-provision JSON object on stdout") if required else Ok(None)
     try:
         raw: object = msgspec.json.decode(body)
     except msgspec.DecodeError as exc:
@@ -369,24 +331,96 @@ def _decode_raw_payload(verb: str, outcome: Completed, body: bytes, *, required:
     return Ok(raw)
 
 
-def _validate_payload_wire(verb: str, outcome: Completed, raw: object) -> Result[None, Fault]:
+def _valid_error_shape(error: object) -> bool:
+    match error:
+        case {"code": str(), "message": str(), "exitCode": int()}:
+            return True
+        case _:
+            return False
+
+
+def _object_dict(value: object) -> dict[object, object]:
+    if not isinstance(value, dict):
+        return {}
+    return dict(value.items())
+
+
+def _canonical_carrier_skew(raw: dict[object, object]) -> str | None:
+    missing = tuple(key for key in ("resources", "artifacts", "services", "ports", "extensions", "tools") if key not in raw)
+    malformed_failure = raw.get("ok") is False and not _valid_error_shape(raw.get("error"))
+    valid_command = isinstance(raw.get("command"), str) and bool(raw.get("command"))
+    if raw.get("schemaVersion") != 3 or not valid_command:
+        return None
+    if not missing or malformed_failure:
+        return None
+    return (
+        "installed forge-provision is older than the Rasm provision adapter; "
+        "expected schema-v3 carriers resources, artifacts, services, ports, extensions, and tools; "
+        f"missing {missing[0]}; use the packaged Parametric_Forge forge-provision after redeploy, then rerun: "
+        f"uv run python -m tools.assay provision {_wire(raw.get('command')) or '<verb>'}"
+    )
+
+
+def _payload_sensitive_violation(raw: object) -> str | None:
     if found := _sensitive_key_path(raw):
-        return _payload_fault(outcome.argv, verb, f"sensitive key in forge-provision JSON: {'.'.join(found)}").map(lambda _: None)
+        return f"sensitive key in forge-provision JSON: {'.'.join(found)}"
     if found := _sensitive_value_path(raw):
-        return _payload_fault(outcome.argv, verb, f"sensitive value in forge-provision JSON: {'.'.join(found)}").map(lambda _: None)
+        return f"sensitive value in forge-provision JSON: {'.'.join(found)}"
+    return None
+
+
+def _payload_legacy_violation(raw: dict[object, object]) -> str | None:
+    legacy = tuple(key for key in ("generated", "owned", "containers") if key in raw)
+    if legacy:
+        return f"legacy forge-provision top-level carrier: {legacy[0]}"
+    return "legacy forge-provision top-level export key" if any(str(key).startswith("FORGE_PROVISION_") for key in raw) else None
+
+
+def _payload_shape_violation(raw: dict[object, object]) -> str | None:
+    warnings = raw.get("warnings", [])
+    warning_rows = warnings if isinstance(warnings, list) else ()
+    project = raw.get("project")
+    checks = (
+        (raw.get("schemaVersion") == 3, f"unsupported forge-provision schema: schemaVersion={raw.get('schemaVersion')!r}"),
+        (isinstance(raw.get("command"), str) and bool(raw.get("command")), "forge-provision JSON missing command"),
+        (isinstance(raw.get("ok"), bool), "forge-provision JSON missing boolean ok"),
+        (
+            raw.get("ok") is not False or _valid_error_shape(raw.get("error")),
+            "forge-provision ok:false requires error.code, error.message, and error.exitCode",
+        ),
+        (isinstance(raw.get("warnings"), list), "forge-provision JSON missing warnings array"),
+        (
+            all(isinstance(row, dict) and isinstance(row.get("message"), str) for row in warning_rows),
+            "forge-provision warnings must be objects with message",
+        ),
+        (isinstance(project, dict), "forge-provision JSON missing project object"),
+        (
+            isinstance(project, dict)
+            and all(isinstance(project.get(key), str) and project.get(key) for key in ("rootKey", "projectKey", "instance", "composeProject")),
+            "forge-provision project requires rootKey, projectKey, instance, and composeProject",
+        ),
+        (isinstance(raw.get("resources"), dict), "forge-provision JSON missing resources object"),
+        (isinstance(raw.get("artifacts"), dict), "forge-provision JSON missing artifacts object"),
+        (isinstance(raw.get("services"), dict), "forge-provision JSON missing services object"),
+        (isinstance(raw.get("ports"), list), "forge-provision JSON missing ports array"),
+        (isinstance(raw.get("extensions"), dict), "forge-provision JSON missing extensions object"),
+        (isinstance(raw.get("tools"), dict), "forge-provision JSON missing tools object"),
+    )
+    return next((message for valid, message in checks if not valid), None)
+
+
+def _payload_wire_violation(raw: object) -> str | None:
+    if sensitive := _payload_sensitive_violation(raw):
+        return sensitive
     if not isinstance(raw, dict):
-        return _payload_fault(outcome.argv, verb, "forge-provision JSON must be an object").map(lambda _: None)
-    if raw.get("schemaVersion") != 3:
-        return _payload_fault(outcome.argv, verb, f"unsupported forge-provision schema: schemaVersion={raw.get('schemaVersion')!r}").map(lambda _: None)
-    if not isinstance(raw.get("command"), str) or not raw.get("command"):
-        return _payload_fault(outcome.argv, verb, "forge-provision JSON missing command").map(lambda _: None)
-    if not isinstance(raw.get("ok"), bool):
-        return _payload_fault(outcome.argv, verb, "forge-provision JSON missing boolean ok").map(lambda _: None)
-    if raw.get("ok") is False:
-        error = raw.get("error")
-        if not isinstance(error, dict) or not isinstance(error.get("code"), str) or not isinstance(error.get("message"), str) or not isinstance(error.get("exitCode"), int):
-            return _payload_fault(outcome.argv, verb, "forge-provision ok:false requires error.code, error.message, and error.exitCode").map(lambda _: None)
-    return Ok(None)
+        return "forge-provision JSON must be an object"
+    payload = _object_dict(raw)
+    return _payload_legacy_violation(payload) or _canonical_carrier_skew(payload) or _payload_shape_violation(payload)
+
+
+def _validate_payload_wire(verb: str, outcome: Completed, raw: object) -> Result[None, Fault]:
+    violation = _payload_wire_violation(raw)
+    return Ok(None) if violation is None else _payload_fault(outcome.argv, verb, violation).map(lambda _: None)
 
 
 def _decode_payload(verb: str, outcome: Completed | None) -> Result[_ProvisionPayload | None, Fault]:
@@ -399,14 +433,17 @@ def _decode_payload(verb: str, outcome: Completed | None) -> Result[_ProvisionPa
     )
 
 
-def _decode_validated_payload(
-    verb: str,
-    outcome: Completed,
-    body: bytes,
-    raw: object,
-    *,
-    required: bool,
-) -> Result[_ProvisionPayload | None, Fault]:
+def _raw_command_mismatch(raw: object, verb: str) -> bool:
+    return isinstance(raw, dict) and isinstance(raw.get("command"), str) and bool(raw.get("command")) and raw.get("command") != verb
+
+
+def _raw_command(raw: object) -> str:
+    return str(raw.get("command")) if isinstance(raw, dict) and isinstance(raw.get("command"), str) else ""
+
+
+def _decode_validated_payload(verb: str, outcome: Completed, body: bytes, raw: object, *, required: bool) -> Result[_ProvisionPayload | None, Fault]:
+    if required and _raw_command_mismatch(raw, verb):
+        return _payload_fault(outcome.argv, verb, f"forge-provision JSON command={_raw_command(raw)}")
     validated = _validate_payload_wire(verb, outcome, raw)
     if validated.is_error():
         return Error(validated.error)
@@ -443,11 +480,7 @@ def _error(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
     return (
         ()
         if err is None
-        else tuple(
-            (key, value)
-            for key, value in (("code", err.code), ("message", err.message), ("exitCode", _wire(err.exit_code)))
-            if value
-        )
+        else tuple((key, value) for key, value in (("code", err.code), ("message", err.message), ("exitCode", _wire(err.exit_code))) if value)
     )
 
 
@@ -467,7 +500,7 @@ def _port_policy(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
             ("source", policy.source),
             ("range", policy.range_),
             ("exclude", policy.exclude),
-            ("seedFingerprint", policy.seed_fingerprint or policy.seed),
+            ("seedFingerprint", policy.seed_fingerprint),
         )
         if value
     )
@@ -485,19 +518,13 @@ def _provision_scope(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
             ("composeProject", project.compose_project),
             ("authMode", auth_mode),
             ("authRisk", auth_risk),
-            ("portsInspectable", _wire(payload.ports_inspectable)),
-            ("portsUsable", _wire(payload.ports_usable)),
-            ("nonOwnedCleanupPolicy", payload.non_owned_cleanup_policy),
         )
         if value
     )
 
 
 def _services(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str], ...]:
-    return tuple(
-        (key, _wire(row.enabled), row.profile, str(row.port), row.image)
-        for key, row in sorted(payload.services.items())
-    )
+    return tuple((key, _wire(row.enabled), row.profile, str(row.port), row.image) for key, row in sorted(payload.services.items()))
 
 
 def _service_connections(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str, str, str, str, str], ...]:
@@ -524,8 +551,7 @@ def _service_roles(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
 
 def _local_service_topology(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str, str, str], ...]:
     return tuple(
-        (key, _wire(row.enabled), row.profile, row.image, str(row.port), row.state, row.health)
-        for key, row in sorted(payload.services.items())
+        (key, _wire(row.enabled), row.profile, row.image, str(row.port), row.state, row.health) for key, row in sorted(payload.services.items())
     )
 
 
@@ -539,9 +565,13 @@ def _ports(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str, s
 def _verify_extensions(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str, str], ...]:
     return tuple(
         (row.service, row.extension, row.state, _wire(row.version), _wire(row.category), "required" if row.required else "optional")
-        for row in sorted(payload.extensions, key=lambda row: (row.service, row.extension, row.state, row.version or ""))
+        for row in sorted(payload.extensions.results, key=lambda row: (row.service, row.extension, row.state, row.version or ""))
         if row.state
     )
+
+
+def _extension_sort_key(row: _ProvisionExtension) -> tuple[str, str, str, bool, str]:
+    return (row.service, row.extension, row.category or "", not row.required, row.create_policy)
 
 
 def _catalog_extensions(payload: _ProvisionPayload) -> tuple[tuple[str, str, str, str, str, str, str, str], ...]:
@@ -556,8 +586,7 @@ def _catalog_extensions(payload: _ProvisionPayload) -> tuple[tuple[str, str, str
             _wire(row.source_package),
             _wire(row.preload_required),
         )
-        for row in sorted(payload.extensions, key=lambda row: (row.service, row.extension, row.category or "", not row.required, row.create_policy))
-        if not row.state
+        for row in sorted(payload.extensions.catalog, key=_extension_sort_key)
     )
 
 
@@ -577,22 +606,19 @@ def _extension_metadata(payload: _ProvisionPayload) -> tuple[tuple[str, str, str
             _wire(row.image_tag),
             _wire(row.load_policy),
         )
-        for row in sorted(payload.extensions, key=lambda row: (row.service, row.extension, row.category or "", not row.required, row.create_policy))
-        if not row.state
-        and any(
-            (
-                row.source_route,
-                row.source_kind,
-                row.nix_status,
-                row.probe_kind,
-                row.capability_rank,
-                row.external_access,
-                row.restart_class,
-                row.service_profile,
-                row.image_tag,
-                row.load_policy,
-            )
-        )
+        for row in sorted(payload.extensions.catalog, key=_extension_sort_key)
+        if any((
+            row.source_route,
+            row.source_kind,
+            row.nix_status,
+            row.probe_kind,
+            row.capability_rank,
+            row.external_access,
+            row.restart_class,
+            row.service_profile,
+            row.image_tag,
+            row.load_policy,
+        ))
     )
 
 
@@ -607,15 +633,8 @@ def _extension_requirements(payload: _ProvisionPayload) -> tuple[tuple[str, str,
             _wire(row.network_access),
             _wire(row.background_worker),
         )
-        for row in sorted(payload.extensions, key=lambda row: (row.service, row.extension, row.category or "", not row.required, row.create_policy))
-        if not row.state
-        and (
-            row.requires_superuser
-            or row.requires_shared_preload
-            or row.file_access
-            or row.network_access
-            or row.background_worker
-        )
+        for row in sorted(payload.extensions.catalog, key=_extension_sort_key)
+        if (row.requires_superuser or row.requires_shared_preload or row.file_access or row.network_access or row.background_worker)
     )
 
 
@@ -636,53 +655,78 @@ def _tool_surface_extensions(payload: _ProvisionPayload) -> tuple[tuple[str, str
             _wire(row.probe_function),
             ",".join(row.aliases),
         )
-        for row in sorted(payload.extensions, key=lambda row: (row.surface, row.database, row.extension))
-        if not row.state and (row.kind == "tool-extension" or row.surface or row.database)
+        for row in sorted(payload.extensions.catalog, key=lambda row: (row.surface, row.database, row.extension))
+        if row.kind == "tool-extension" or row.surface or row.database
     )
 
 
+def _dict_child(source: object, key: str) -> dict[str, object]:
+    value = source.get(key) if isinstance(source, dict) else None
+    return {row_key: row_value for row_key, row_value in value.items() if isinstance(row_key, str)} if isinstance(value, dict) else {}
+
+
 def _doctor(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
-    docker = payload.docker
-    runtime = payload.runtime
-    lock = payload.lock
-    colima = payload.colima
-    docker_policy = docker.policy if docker else None
-    host_config = docker.host_config if docker else None
-    anonymous_pull = docker.anonymous_pull_config if docker else None
-    runtime_forge = runtime.forge_provision if runtime else None
-    colima_status = colima.status if colima else None
-    return tuple(
-        (key, value)
-        for key, value in (
-            ("dockerPolicyStatus", docker_policy.status if docker_policy else ""),
-            ("dockerPolicyReason", _wire(docker_policy.reason) if docker_policy else ""),
-            ("dockerEndpointKind", docker.endpoint_kind if docker else ""),
-            ("dockerExecutablePresent", _wire(docker.executable_present) if docker else ""),
-            ("dockerExecutableKind", _wire(docker.executable_kind) if docker else ""),
-            ("dockerComposeVersion", docker.compose if docker else ""),
-            ("dockerServerVersion", docker.server if docker else ""),
-            ("anonymousPullConfig", _wire(anonymous_pull.exists) if anonymous_pull else ""),
-            ("credentialHelperPresent", _wire(host_config.credential_helper_present) if host_config else ""),
-            ("runtimeForgeProvisionPresent", _wire(runtime_forge.present) if runtime_forge else ""),
-            ("runtimeForgeProvisionSchemaVersion", _wire(runtime_forge.schema_version) if runtime_forge else ""),
-            ("runtimeDockerPresent", _wire(runtime.docker.present) if runtime and runtime.docker else ""),
-            ("runtimeComposePresent", _wire(runtime.compose.present) if runtime and runtime.compose else ""),
-            ("runtimeComposeVersion", _wire(runtime.compose.version) if runtime and runtime.compose else ""),
-            ("runtimeJqPresent", _wire(runtime.jq.present) if runtime and runtime.jq else ""),
-            ("runtimeListenerProbeMethod", runtime.listener_probe_method if runtime else ""),
-            ("runtimeAnonymousDockerConfig", _wire(runtime.anonymous_docker_config) if runtime else ""),
-            ("runtimeHostCredentialHelperPresent", _wire(runtime.host_credential_helper_present) if runtime else ""),
-            ("lockState", lock.state if lock else ""),
-            ("lockPresent", _wire(lock.present) if lock else ""),
-            ("lockActive", _wire(lock.active) if lock else ""),
-            ("lockPidAlive", _wire(lock.pid_alive) if lock else ""),
-            ("lockHeartbeatStale", _wire(lock.heartbeat_stale) if lock else ""),
-            ("colimaAvailable", _wire(colima.available) if colima else ""),
-            ("colimaRunning", _wire(colima_status.running) if colima_status else ""),
-            ("colimaRuntime", _wire(colima_status.runtime) if colima_status else ""),
-            ("colimaArch", _wire(colima_status.arch) if colima_status else ""),
+    runtime = payload.resources.runtime
+    docker = _dict_child(runtime, "docker")
+    colima = _dict_child(runtime, "colima")
+    runtime_facts = {
+        "dockerPolicyStatus": _wire(_dict_child(docker, "policy").get("status")),
+        "dockerPolicyReason": _wire(_dict_child(docker, "policy").get("reason")),
+        "dockerEndpointKind": _wire(docker.get("endpointKind")),
+        "dockerExecutablePresent": _wire(docker.get("executablePresent", docker.get("present"))),
+        "dockerExecutableKind": _wire(docker.get("executableKind")),
+        "dockerComposeVersion": _wire(docker.get("compose")),
+        "dockerServerVersion": _wire(docker.get("server")),
+        "anonymousPullConfig": _wire(_dict_child(docker, "anonymousPullConfig").get("exists")),
+        "credentialHelperPresent": _wire(_dict_child(docker, "hostConfig").get("credentialHelperPresent")),
+        "runtimeForgeProvisionPresent": _wire(_dict_child(runtime, "forgeProvision").get("present")),
+        "runtimeForgeProvisionSchemaVersion": _wire(_dict_child(runtime, "forgeProvision").get("schemaVersion")),
+        "runtimeDockerPresent": _wire(docker.get("present")),
+        "runtimeComposePresent": _wire(_dict_child(runtime, "compose").get("present")),
+        "runtimeComposeVersion": _wire(_dict_child(runtime, "compose").get("version")),
+        "runtimeJqPresent": _wire(_dict_child(runtime, "jq").get("present")),
+        "runtimeListenerProbeMethod": _wire(runtime.get("listenerProbeMethod")),
+        "runtimeAnonymousDockerConfig": _wire(runtime.get("anonymousDockerConfig")),
+        "runtimeHostCredentialHelperPresent": _wire(runtime.get("hostCredentialHelperPresent")),
+        "lockState": _wire(_dict_child(runtime, "lock").get("state")),
+        "lockPresent": _wire(_dict_child(runtime, "lock").get("present")),
+        "lockActive": _wire(_dict_child(runtime, "lock").get("active")),
+        "lockPidAlive": _wire(_dict_child(runtime, "lock").get("pidAlive")),
+        "lockHeartbeatStale": _wire(_dict_child(runtime, "lock").get("heartbeatStale")),
+        "colimaAvailable": _wire(colima.get("available")),
+        "colimaRunning": _wire(_dict_child(colima, "status").get("running")),
+        "colimaRuntime": _wire(_dict_child(colima, "status").get("runtime")),
+        "colimaArch": _wire(_dict_child(colima, "status").get("arch")),
+    }
+    return tuple((key, value) for key, value in runtime_facts.items() if value)
+
+
+def _tool_surface_status(value: object) -> str:
+    return "ok" if isinstance(value, dict) and value.get("ok") is True else "failed"
+
+
+def _tool_surface_executable(value: object) -> str:
+    return _wire(value.get("executable") if isinstance(value, dict) else "")
+
+
+def _tool_surface_probe_value(value: object) -> str:
+    if not isinstance(value, dict):
+        return ""
+    probe = value.get("probe")
+    if isinstance(probe, dict):
+        return _wire(probe.get("extensionRows"))
+    return _wire(value.get("executable"))
+
+
+def _decode_and_project(verb: str, done: tuple[Completed, ...], stack: Completed | None) -> Result[ProvisionRun, Fault]:
+    return _decode_payload(verb, stack).map(lambda payload: _project(verb, done, payload))
+
+
+def _decode_check_detail(done: tuple[Completed, ...], stack: Completed | None, tools_outcome: Completed | None) -> Result[ProvisionRun, Fault]:
+    return _decode_payload("check", stack).bind(
+        lambda payload: _decode_payload("tools", tools_outcome).map(
+            lambda tool_payload: _project("check", done, _merge_tool_payload(payload, tool_payload))
         )
-        if value
     )
 
 
@@ -697,9 +741,7 @@ def _probe_text(outcome: Completed) -> str:
 
 def _local_probes(done: tuple[Completed, ...]) -> tuple[tuple[str, str], ...]:
     return tuple(
-        (_probe_name(outcome.argv), "ok" if outcome.returncode == 0 else "failed")
-        for outcome in done
-        if outcome.argv[:1] != ("forge-provision",)
+        (_probe_name(outcome.argv), "ok" if outcome.returncode == 0 else "failed") for outcome in done if outcome.argv[:1] != ("forge-provision",)
     )
 
 
@@ -722,11 +764,51 @@ def _validate_local_probe_values(done: tuple[Completed, ...]) -> Result[None, Fa
 
 
 def _payload_probe_values(payload: _ProvisionPayload) -> tuple[tuple[str, str, str], ...]:
-    return tuple((key, "ok", _wire(value)) for key, value in sorted(payload.probes.items()))
+    return tuple(
+        (f"forge-tools-{key}", _tool_surface_status(value), _tool_surface_executable(value)) for key, value in sorted(payload.tools.surfaces.items())
+    )
 
 
 def _resource_counts(payload: _ProvisionPayload) -> tuple[tuple[str, int], ...]:
-    return tuple(sorted((payload.resources or payload.summary).items()))
+    return tuple(sorted(payload.resources.counts.items()))
+
+
+def _resource_inventory(payload: _ProvisionPayload) -> tuple[tuple[str, int], ...]:
+    owned = payload.resources.owned
+    return (
+        ("containers", len(owned.containers)),
+        ("volumes", len(owned.volumes)),
+        ("networks", len(owned.networks)),
+        ("images", len(payload.resources.images)),
+        ("dockerDisk", len(payload.resources.docker_disk)),
+    )
+
+
+def _generated_artifacts(payload: _ProvisionPayload) -> tuple[tuple[str, str, str], ...]:
+    return tuple((_wire(row.get("kind")), _wire(row.get("type")), _wire(row.get("exists"))) for row in payload.artifacts.generated)
+
+
+def _extension_summary(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
+    return tuple((key, _wire(value)) for key, value in sorted(payload.extensions.summary.items()))
+
+
+def _tool_summary(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
+    return tuple((key, _wire(value)) for key, value in sorted(payload.tools.summary.items()))
+
+
+def _plan_summary(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
+    plan = payload.artifacts.plan
+    if not isinstance(plan, dict):
+        return ()
+    return tuple(
+        (key, _wire(value))
+        for key, value in sorted(plan.items())
+        if key != "composeYaml" and isinstance(key, str) and isinstance(value, str | int | float | bool | type(None))
+    )
+
+
+def _tool_surfaces(payload: _ProvisionPayload) -> tuple[tuple[str, str, str], ...]:
+    return tuple((key, _tool_surface_status(value), _tool_surface_probe_value(value)) for key, value in sorted(payload.tools.surfaces.items()))
 
 
 def _project(verb: str, done: tuple[Completed, ...], payload: _ProvisionPayload | None) -> ProvisionRun:
@@ -741,7 +823,7 @@ def _project(verb: str, done: tuple[Completed, ...], payload: _ProvisionPayload 
             json=True,
             schema_version=payload.schema_version,
             ok=payload.ok,
-            warnings=payload.warnings,
+            warnings=tuple(row.message for row in payload.warnings),
             error=_error(payload),
             auth_mode=auth_mode,
             auth_risk=auth_risk,
@@ -750,8 +832,14 @@ def _project(verb: str, done: tuple[Completed, ...], payload: _ProvisionPayload 
             local_service_topology=_local_service_topology(payload),
             service_roles=_service_roles(payload),
             resource_counts=_resource_counts(payload),
+            resource_inventory=_resource_inventory(payload),
+            generated_artifacts=_generated_artifacts(payload),
             facts=_facts(payload),
-            summary=tuple(sorted(payload.summary.items())),
+            summary=tuple(sorted(payload.extensions.summary.items())),
+            extension_summary=_extension_summary(payload),
+            tool_summary=_tool_summary(payload),
+            plan_summary=_plan_summary(payload),
+            tool_surfaces=_tool_surfaces(payload),
             services=_services(payload),
             service_connections=_service_connections(payload),
             ports=_ports(payload),
@@ -767,25 +855,26 @@ def _project(verb: str, done: tuple[Completed, ...], payload: _ProvisionPayload 
     )
 
 
-def _provision_failed_exit(detail: ProvisionRun) -> int:
-    values = dict(detail.error)
+def _forge_outcome_failure(outcome: Completed) -> tuple[int, bool]:
     try:
-        code = int(values.get("exitCode", "1") or "1")
-    except ValueError:
-        code = 1
-    return code or 1
+        raw = msgspec.json.decode(outcome.stdout.strip())
+    except msgspec.DecodeError:
+        return (outcome.returncode or 1, outcome.returncode != 0)
+    if not isinstance(raw, dict):
+        return (outcome.returncode or 1, outcome.returncode != 0)
+    if raw.get("ok") is not False:
+        return (0, False)
+    error = raw.get("error")
+    exit_code = error.get("exitCode") if isinstance(error, dict) else None
+    return (exit_code if isinstance(exit_code, int) and exit_code else 1, True)
 
 
-def _sanitize_provision_outcome(detail: ProvisionRun, outcome: Completed) -> Completed:
+def _sanitize_provision_outcome(_detail: ProvisionRun, outcome: Completed) -> Completed:
     if outcome.argv[:1] == ("forge-provision",):
-        if detail.json and not detail.ok:
+        failed_exit, failed = _forge_outcome_failure(outcome)
+        if failed:
             return msgspec.structs.replace(
-                outcome,
-                returncode=_provision_failed_exit(detail),
-                status=RailStatus.FAILED,
-                stdout=b"",
-                stderr=b"provision result failed",
-                artifacts=(),
+                outcome, returncode=failed_exit, status=RailStatus.FAILED, stdout=b"", stderr=b"provision result failed", artifacts=()
             )
         return msgspec.structs.replace(outcome, stdout=b"", stderr=b"", artifacts=())
     if outcome.returncode == 0:
@@ -793,9 +882,22 @@ def _sanitize_provision_outcome(detail: ProvisionRun, outcome: Completed) -> Com
     return msgspec.structs.replace(outcome, stdout=b"", stderr=f"provision probe failed: {_probe_name(outcome.argv)}".encode(), artifacts=())
 
 
+def _stack_outcome(done: tuple[Completed, ...], verb: str) -> Completed | None:
+    return next((outcome for outcome in done if outcome.argv[:1] == ("forge-provision",) and outcome.argv[-1:] == (verb,)), None)
+
+
+def _merge_tool_payload(payload: _ProvisionPayload | None, tool_payload: _ProvisionPayload | None) -> _ProvisionPayload | None:
+    if payload is None or tool_payload is None:
+        return payload
+    return msgspec.structs.replace(payload, tools=tool_payload.tools)
+
+
 def _detail(verb: str, done: tuple[Completed, ...]) -> Result[ProvisionRun, Fault]:
-    stack = next((outcome for outcome in done if outcome.argv[:1] == ("forge-provision",)), None)
-    return _validate_local_probe_values(done).bind(lambda _: _decode_payload(verb, stack).map(lambda payload: _project(verb, done, payload)))
+    stack = _stack_outcome(done, verb)
+    if verb != "check":
+        return _validate_local_probe_values(done).bind(lambda _: _decode_and_project(verb, done, stack))
+    tools_outcome = _stack_outcome(done, "tools")
+    return _validate_local_probe_values(done).bind(lambda _: _decode_check_detail(done, stack, tools_outcome))
 
 
 def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[Tool, ...]) -> Result[Report, Fault]:
@@ -803,11 +905,7 @@ def _run(settings: AssaySettings, scope: ArtifactScope, verb: str, tools: tuple[
     return outcomes.bind(
         lambda done: _detail(verb, tuple(done)).map(
             lambda detail: fold(
-                Claim.PROVISION,
-                verb,
-                tuple(_sanitize_provision_outcome(detail, outcome) for outcome in done),
-                detail=detail,
-                promote_empty=True,
+                Claim.PROVISION, verb, tuple(_sanitize_provision_outcome(detail, outcome) for outcome in done), detail=detail, promote_empty=True
             )
         )
     )
@@ -904,7 +1002,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParam
     Returns:
         Provision report, or provisioning fault.
     """
-    return _run(settings, scope, "check", (_stack("check"), *tuple(starmap(_tool, _CHECK_PROBES))))
+    return _run(settings, scope, "check", (_stack("check"), _stack("tools"), *tuple(starmap(_tool, _CHECK_PROBES))))
 
 
 def apply(settings: AssaySettings, scope: ArtifactScope, _params: ProvisionParams) -> Result[Report, Fault]:

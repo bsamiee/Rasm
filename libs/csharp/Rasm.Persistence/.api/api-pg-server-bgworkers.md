@@ -5,7 +5,7 @@ The preload-gated PG18 server-tier maintenance companions that ride the `Cluster
 `pg_partman` (declarative range/list partition maintenance), `pg_squeeze` (lock-light bloat
 reclamation), `pg_jsonschema` (server-side JSON Schema CHECK validation), and `pgaudit` (session/object
 audit logging). Each carries no managed assembly: every surface is server-side SQL consumed by
-`provisioning#CLUSTER_CONFIG`, `data-lanes#DOCUMENT_LANE`, `retention/redaction-retention#AUDIT_BINDING`,
+`Store/server#CLUSTER_CONFIG`, `Query/lanes#DOCUMENT_LANE`, `Version/retention#AUDIT_BINDING`,
 and the maintenance schedule rows. `pg_jsonschema` and `pgaudit` register through type/preload rather
 than a self-provisioned `CREATE EXTENSION` annotation on the hot path.
 

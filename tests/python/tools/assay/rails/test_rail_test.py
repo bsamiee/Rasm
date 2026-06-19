@@ -165,8 +165,7 @@ def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
         + "</Solution>",
     )
     assay_root.write(
-        "tests/csharp/libs/Rasm/Rasm.Tests.csproj",
-        "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>",
+        "tests/csharp/libs/Rasm/Rasm.Tests.csproj", "<Project><PropertyGroup><AssayHostBound>true</AssayHostBound></PropertyGroup></Project>"
     )
     assay_root.write(
         "tests/csharp/libs/Rasm.Empty/Rasm.Empty.Tests.csproj",

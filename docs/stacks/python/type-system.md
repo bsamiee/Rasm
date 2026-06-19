@@ -144,20 +144,10 @@ class RowPayload(TypedDict, total=False, extra_items=ReadOnly[Atom]):
     value: Required[ReadOnly[Atom]]
 
 
-def materialized(
-    row: RowPayload,
-    /,
-    *,
-    default: Kind = "<value-a>",
-) -> Member:
+def materialized(row: RowPayload, /, *, default: Kind = "<value-a>") -> Member:
     match {"kind": default} | row:
         case {"kind": "<value-a>" | "<value-b>" as kind, "key": key, "value": value, **extensions}:
-            return Shape(
-                kind=kind,
-                key=key,
-                value=value,
-                extensions=tuple(extensions.items()),
-            )
+            return Shape(kind=kind, key=key, value=value, extensions=tuple(extensions.items()))
         case unreachable:
             assert_never(unreachable)
 ```
@@ -178,10 +168,7 @@ type Context = tuple[Kind, str]
 type RowOperation[T] = Callable[[Unpack[RowPayload]], T]
 
 
-def with_context[**P, T](
-    context: Context,
-    /,
-) -> Callable[[Callable[Concatenate[Context, P], T]], Callable[P, T]]:
+def with_context[**P, T](context: Context, /) -> Callable[[Callable[Concatenate[Context, P], T]], Callable[P, T]]:
     def bind(operation: Callable[Concatenate[Context, P], T], /) -> Callable[P, T]:
         @wraps(operation)
         def call(*args: P.args, **kwargs: P.kwargs) -> T:

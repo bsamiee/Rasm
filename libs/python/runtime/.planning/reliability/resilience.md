@@ -4,7 +4,7 @@ The one resilience policy table for the whole branch. `Retry` is the single `sta
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[RESILIENCE]` — the one `Retry` policy table, one persistent-map row per retryable class, the bound-caller entry, and the one-shot on-retry instrumentation.
+- [1]-[RESILIENCE]: the one `Retry` policy table, one persistent-map row per retryable class, the bound-caller entry, and the one-shot on-retry instrumentation.
 
 ## [2]-[RESILIENCE]
 

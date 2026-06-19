@@ -1,25 +1,54 @@
 # [PYTHON_BRANCH]
 
-The Python branch file router and the cross-cutting package registry: a first-class host-free science/compute/data/geometry/IFC library of five peer packages, held to the cross-language density bar in idiomatic modern Python. The single root `pyproject.toml` owns the Python `>=3.15` project and dependency groups; the Forge companion lane owns the `<'3.13'` native geometry/IFC cores and the `grpcio-tools` codegen compiler outside that manifest, while the `grpc.aio` runtime (`grpcio`/`protobuf`) is already present transitively on the core through `specklepy`. This file routes the branch index docs and registers the packages shared across folders; `ARCHITECTURE.md` carries the package map and dependency direction, `IDEAS.md` the cross-package concert, and `TASKLOG.md` the cross-package work.
+The Python branch is a first-class host-free science/compute/data/geometry/IFC library of five peer packages, held to the cross-language density bar in idiomatic modern Python. The single root `pyproject.toml` owns the `python>=3.15` project and all dependency groups. The Forge companion lane owns the `<'3.13'` native geometry/IFC cores and the `grpcio-tools` codegen compiler outside that manifest, while the `grpc.aio` runtime (`grpcio` and `protobuf`) resolves transitively on the cp315 core through `specklepy`. This file routes the branch index docs and registers the packages shared across folders.
 
 ## [1]-[ROUTER]
 
-- `ARCHITECTURE.md` — the five-package domain map, the dependency direction stated once (runtime mints the shared shapes; the four consumers compose them and never re-mint), and the interpreter floor.
-- `IDEAS.md` — the cross-package Python concert: ideas coupling the packages to each other, distilled from the folder ideas.
-- `TASKLOG.md` — the cross-package open work, including the companion-environment floor gate.
-- Per-package planning: each of `runtime/`, `compute/`, `data/`, `geometry/`, and `artifacts/` carries its own `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`, and design pages under `<package>/.planning/<sub-domain>/<page>.md`.
+- [1]-[ARCHITECTURE](ARCHITECTURE.md): five-package domain map, dependency direction (runtime mints shared shapes; the four consumers compose them and never re-mint), and the interpreter floor.
+- [2]-[IDEAS](IDEAS.md): cross-package Python concert — ideas coupling the packages to each other, distilled from the per-folder ideas.
+- [3]-[TASKLOG](TASKLOG.md): cross-package open work, including the companion-environment floor gate.
+- [4]-[RUNTIME](../runtime/README.md)
+- [5]-[COMPUTE](../compute/README.md)
+- [6]-[DATA](../data/README.md)
+- [7]-[GEOMETRY](../geometry/README.md)
+- [8]-[ARTIFACTS](../artifacts/README.md)
 
-## [2]-[CROSS_CUTTING_PACKAGES]
+## [2]-[SUBSTRATE_PACKAGES]
 
-The packages shared across two or more folders, registered once here and trimmed from the per-folder registries. Per-folder-only packages stay on the owning folder `README.md`. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here.
+The cross-domain Python foundation every folder builds on: typing/rails, concurrency, observability, the numeric substrate, content identity, the wire-codegen toolchain, and the test stack. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here. Folder READMEs list these under their own `## [3]-[SUBSTRATE_PACKAGES]` section rather than duplicating the registry here.
 
-The typing/modelling, concurrency, observability, numeric-core, and companion-wire tiers below each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`; a consuming folder names them in its README `[CROSS_CUTTING]` section. The companion native-geometry, mesh-file-interchange, and object-store tiers are domain seams that keep a per-folder catalogue in each consuming folder, not a branch catalogue.
+The typing/rails, concurrency, observability, numeric-substrate, identity, and companion-wire tiers each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`. Domain-owned packages (geometry, data/geometry seams, runtime/data transport) keep their catalogues in the consuming folder, not here.
 
-- Typing and modelling: `msgspec`, `pydantic`, `beartype`, `expression`.
-- Concurrency and process: `anyio`.
-- Observability: `structlog`, `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, `psutil`.
-- Numeric core: `numpy`.
-- Companion wire: `grpcio-tools` (the `protoc` codegen compiler) is companion-lane-only on the Forge `<'3.13'` interpreter (`forge-companion-env`, python312); `grpcio` (the `grpc.aio` runtime) and `protobuf` resolve transitively on the cp315 core through `specklepy`, so a page needing only the runtime leg sits on the core and only proto codegen assumes the companion interpreter.
-- Companion native geometry: `ifcopenshell`, `open3d`, `small-gicp`, `topologicpy` — provided by the Forge companion lane (`<'3.13'`), not cp315 core dependencies.
-- Mesh-file interchange (data emits, geometry consumes at the mesh seam): `meshio`, `trimesh`, `rhino3dm`.
-- Object-store transport (runtime owns; data egress composes): `obstore`.
+[TYPING_RAILS]:
+- `expression`
+- `msgspec`
+- `beartype`
+- `pydantic`
+
+[CONCURRENCY]:
+- `anyio`
+
+[OBSERVABILITY]:
+- `structlog`
+- `opentelemetry-api`
+- `opentelemetry-sdk`
+- `opentelemetry-exporter-otlp-proto-http`
+- `psutil`
+
+[NUMERIC_SUBSTRATE]:
+- `numpy`
+
+[IDENTITY]:
+- `xxhash`
+
+[WIRE_CODEGEN]:
+- `grpcio` (`grpc.aio` runtime — resolves transitively on the cp315 core through `specklepy`)
+- `grpcio-tools` (`protoc` codegen compiler — companion-lane-only on the Forge `<'3.13'` interpreter; only proto codegen assumes the companion interpreter)
+- `protobuf`
+
+[TEST_SUBSTRATE]:
+- `pytest` (+ its plugins)
+- `hypothesis`
+- `inline-snapshot`
+- `coverage`
+- `mutmut`

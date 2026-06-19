@@ -1,28 +1,60 @@
 # [RASM_BIM_ARCHITECTURE]
 
-The professional domain folder structure of `Rasm.Bim`, each sub-domain with a one-line charter. Mechanics live on the `.planning/` design pages and forward work on `IDEAS.md` and `TASKLOG.md`.
+The professional domain map of `Rasm.Bim` — the host-neutral AEC-DOMAIN BIM object model and IFC/glTF/STEP exchange. Five sub-domains (`Model`, `Semantics`, `Planning`, `Exchange`, `Review`), each composing the one `BimModel` and lowering onto the one `BimFault` band.
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
-The sub-domains mirror the eventual source tree, each carrying a `.planning/` design page. Every sub-domain composes the one `BimModel` the `exchange` import rail produces rather than minting a parallel model surface, lowers its rejection onto the one `faults#FAULT_BAND` `BimFault` band, and consumes the `query/element-set#ELEMENT_SET` `ElementPredicate` algebra and the `classification/systems#CLASSIFICATION_AXIS` axis as settled vocabulary rather than a parallel selection or classification surface.
-
 ```text codemap
 Rasm.Bim/
-├── faults/           # BimFault closed [Union] band-2600 (ModelRejected/UnmappedClass/DanglingReference/CodecReject/CapabilityMiss) every entrypoint lowers onto the Fin<T> rail, composing the kernel GeometryFault for shared degenerate-geometry.
-├── model/            # Host-neutral BIM object model: BimElement record discriminated by an IfcClass row, BimModel collection, the Project fold.
-├── query/            # ElementSet set-algebraic query over a closed ElementPredicate union folded by Union/Intersect/Except/Where.
-├── classification/   # bSDD-bound standard-systems classification axis: Classification vocabulary, ClassificationCode, ClassificationRef, plus the BsddResolution live dictionary resolution degrading to the row's local code-shape policy.
-├── assembly/         # Host-neutral spatial-structure tree plus the closed AssemblyRel decomposition union over the IFC IfcRel* relationships.
-├── properties/       # First-class Pset/Qto owner: typed PropertySet/QuantitySet over the standard Pset_*/Qto_* sets, type-vs-occurrence inheritance, round-tripped through IfcRelDefinesByProperties.
-├── validation/       # IDS v1.0 model-validation owner folding the six IdsFacet arms onto the ElementPredicate algebra over BimModel, routing cross-tool audit to the ifctester companion.
-├── coordination/     # BCF 3.0 issue exchange (BcfTopic/BcfComment/BcfViewpoint, the .bcfzip codec, the BcfApi REST projection) and the GlobalId-plus-content-key ModelDiff federation change-set.
-├── georeferencing/   # IFC4.3 coordinate-reference owner projecting IfcMapConversion/IfcProjectedCRS onto a host-neutral GeoReference record reconciled by the FrameNormalization.Georeference CRS overload, plus the ProjNET datum-to-datum reprojection bridging the rigid map-conversion offset onto a true geodetic transform.
-├── material/         # Host-neutral construction-material composition: BimMaterial owning the BimMaterialComposition [Union] (IfcMaterialLayerSet thickness-keyed layer build-up, IfcMaterialProfileSet linear-member section material, IfcMaterialConstituentSet composite constituent fractions) and the BimAppearance IfcSurfaceStyleRendering PBR record reconciled with Rasm.Materials at the content-key seam — never a single material-name string.
-├── systems/          # IFC distribution-system connectivity graph: DistributionSystem carrying its DistributionSystemKind [SmartEnum] over IfcDistributionSystemEnum, its member element set, and the PortConnection [Union] over IfcRelConnectsPortToElement/IfcRelConnectsPorts the SystemTrace graph fold traverses.
-├── zoning/           # Cross-cutting spatial-zone/program grouping overlay: BimZone carrying its BimZoneKind [SmartEnum], a many-to-many element/space assignment distinct from the single-parent containment tree, and the ZoneAssignment [Union] over IfcRelAssignsToGroup/IfcRelReferencedInSpatialStructure a fire-compartment/thermal-zone/program-area query folds through the ByZone arm.
-├── cost/             # 5D cost-and-resource network: CostItem joining an IfcCostValue rate to the QuantitySet quantity by element, the ConstructionResource [Union] (labor/material/equipment) joined to the sequencing ConstructionTask, and the CostSchedule.Rollup fold the persistence cost catalog and the AppUi estimate report consume.
-├── analysis/         # IFC structural-analysis-domain projection: the AnalysisModel host-neutral analysis-element/load/support graph (AnalysisMember [Union] over IfcStructuralCurveMember/IfcStructuralSurfaceMember/IfcStructuralPointConnection plus LoadGroup/Support) the Compute solver reads by (GeometryHash, PropertyHash), the idealized member binding the physical BimElement by GlobalId.
-├── sequencing/       # IFC4.3 4D construction-scheduling network: ConstructionTask carrying its IfcTaskTime as a NodaTime Interval, the SequenceRel [Union] dependency lag as a Period, and its IfcRelAssignsToProcess element assignment, so ConstructionState.At(Instant) reads the task-interval-bounded element set.
-├── reconstruction/   # Scan-to-BIM primitive fitting: a ReconstructionPrimitive [Union] (plane/cylinder/torus/freeform) folding the kernel-registered segmented cloud into BimElement rows with an ElementClassifier primitive->IfcClass table, a confidence band on the Pset, and a ReconstructionLineage source-cloud key — registration is the kernel's, the splat payload is Compute's, the BIM semantics are Bim's.
-└── exchange/         # Universal interchange codec across the format/codec/extension axis plus FrameNormalization, the BimIo import fold, the BimExport emit fold with the per-tile TileMetadata EXT_structural_metadata author, the TessellationRequest companion bridge, and the host-free BimWire projection the Python and TypeScript peers decode.
+├── Model/                 # host-neutral BIM object model and analytical model
+│   ├── Elements.cs        # IfcClass-discriminated BimElement record + the BimModel.Project fold
+│   ├── Query.cs           # set-algebraic ElementPredicate query folded over the ElementSet
+│   ├── Structure.cs       # the spatial-structure tree + closed AssemblyRel decomposition
+│   ├── Zones.cs           # the BimZone many-to-many zone/program overlay
+│   ├── Systems.cs         # the DistributionSystem MEP connectivity graph with SystemTrace fold
+│   ├── Structural.cs      # the IFC structural-analysis AnalysisModel the Compute solver reads
+│   └── Faults.cs          # the band-2600 BimFault closed [Union] every entrypoint lowers onto
+├── Semantics/             # element-bound semantic enrichment
+│   ├── Properties.cs      # typed PropertySet/QuantitySet with type-vs-occurrence inheritance
+│   ├── Classification.cs  # the bSDD-bound Classification axis with BsddResolution live dictionary
+│   ├── Composition.cs     # the BimMaterial construction-material composition [Union]
+│   ├── Appearance.cs      # the BimAppearance PBR record reconciled with Rasm.Materials at the content-key seam
+│   └── GeoReference.cs    # the GeoReference IFC4.3 owner with ProjNET datum-to-datum reprojection
+├── Planning/              # the 4D/5D delivery network
+│   ├── Schedule.cs        # the ConstructionTask 4D activity schedule over IfcTaskTime intervals
+│   └── Cost.cs            # the CostItem 5D cost-and-resource estimate with CostSchedule.Rollup fold
+├── Exchange/              # universal interchange codec
+│   ├── Format.cs          # the format/codec/extension axis plus FrameNormalization
+│   ├── Import.cs          # the BimIo foreign-bytes ingest fold
+│   ├── Export.cs          # the BimExport emit fold with per-tile EXT_structural_metadata
+│   ├── Tessellation.cs    # the TessellationRequest Compute companion bridge
+│   ├── Reconstruct.cs     # the scan-to-BIM ReconstructionPrimitive [Union] fitting fold
+│   └── Wire.cs            # the host-free BimWire projection the Python and TypeScript peers decode
+└── Review/                # model-checking and coordination
+    ├── Validation.cs      # the IDS v1.0 owner folding six IdsFacet arms over BimModel
+    ├── Issues.cs          # the BCF 3.0 issue exchange with .bcfzip codec and BcfApi REST projection
+    └── Diff.cs            # the GlobalId-plus-content-key ModelDiff federation change-set
+```
+
+Every sub-domain composes the one `BimModel` the `Exchange` import rail produces rather than a parallel model surface, lowers rejection onto the `Model/Faults` `BimFault` band, and consumes the `Model/Query` `ElementPredicate` algebra and the `Semantics/Classification` axis as settled vocabulary.
+
+## [2]-[SEAMS]
+
+```text seams
+Exchange/tessellation  ⇄  python:geometry/mesh                # GLB tessellation rail / TessellationRequest (tessellation)
+*                      →  typescript:interchange              # BcfTopicWire / BcfViewpointWire (wire)
+Review/issues          →  typescript:ui/overlay               # BcfTopicWire / BcfViewpointWire (wire)
+Exchange/import        →  python:geometry/ifc                 # IFC semantic graph ingest via GeometryGym (projection)
+Exchange/wire          →  python:geometry/ifc                 # BimWire model vocabulary (projection)
+Model/elements         →  typescript:ui/overlay               # GlobalId element selection set (shape)
+Review/validation      ←  python:geometry/ifc                 # IDS validation evidence via ifctester (boundary)
+Model                  ←  csharp:Rasm.Persistence/Query       # ArtifactIndexRow IfcSemantic content-addressed model graph (content-key)
+Model/structural       →  csharp:Rasm.Compute/Solver          # AnalysisModel (GeometryKey, PropertyKey) content-key (content-key)
+Semantics/*            ←  csharp:Rasm.Materials               # BimAppearance (content-key)
+Model/query            →  csharp:Rasm.AppUi/Render            # ElementSet query algebra via capability descriptor (port)
+Model                  ←  csharp:Rasm.Materials/Connection    # ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener (wire)
+Semantics              ←  csharp:Rasm.Materials/Construction  # MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet (projection)
+Semantics              →  csharp:Rasm.Compute/Runtime         # IFC/glTF semantic metadata layer (projection)
 ```

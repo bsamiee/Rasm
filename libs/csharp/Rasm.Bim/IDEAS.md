@@ -4,40 +4,8 @@ The forward pool of higher-order concepts for the host-neutral BIM-and-exchange 
 
 ## [1]-[OPEN]
 
+(none)
+
 ## [2]-[CLOSED]
 
-[IFC_VOCABULARY_BREADTH]: realized -- `model/elements#ELEMENT_MODEL` widens the `IfcClass` `[SmartEnum<string>]` to the IFC4.3 architectural/MEP/structural/infrastructure/geotechnical breadth with each row carrying its seven-case `IfcDomain` and frozen valid-predefined set, `model/elements#ELEMENT_MODEL` adds the `PredefinedType` `[ValueObject<string>]` admitted via `IfcClass.AdmitPredefined`, `model/elements#BIM_TYPE` promotes the thin `TypeRow` into the `BimType` type-occurrence owner with the `IfcRepresentationMap` instanced-geometry key, and `query/element-set#ELEMENT_SET` gains the `ByDomain`/`ByPredefinedType` arms -- one vocabulary owner on three axes, never three parallel surfaces.
-
-[BIM_MATERIAL_OWNER]: realized -- `material/composition#MATERIAL_COMPOSITION` owns the `BimMaterial` + `BimMaterialComposition [Union]` (LayerSet/ProfileSet/ConstituentSet) and `material/appearance#MATERIAL_APPEARANCE` the `BimAppearance` PBR record reconciled with Rasm.Materials at the content-key seam, and `model/elements#ELEMENT_MODEL` swaps `BimElement.Materials` from `Seq<string>` to the typed `Seq<BimMaterial>` binding.
-
-[SCAN_TO_BIM_RECONSTRUCTION]: realized -- `reconstruction/primitives#RECONSTRUCTION` owns the `ReconstructionPrimitive [Union]` (plane/cylinder/torus/freeform) folding the kernel-registered cloud into `BimElement` rows with the `ElementClassifier` primitive->IfcClass table and the `ReconstructionLineage` source-cloud key, consuming `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement at the kernel seam, never a parallel scan engine.
-
-[ANALYSIS_MODEL_BRIDGE]: realized -- `analysis/structural-model#ANALYSIS_MODEL` owns the host-neutral `AnalysisModel` graph with the `AnalysisMember [Union]` (Curve/Surface/PointConnection) over `IfcStructural*` plus `LoadGroup`/`Support`, the idealized member binding the physical `BimElement` by GlobalId so the Compute solver reads it by reference at the `csharp:AEC_SIMULATION_BRIDGE` seam, never a re-modeled mesh.
-
-[FOUR_DIMENSIONAL_SEQUENCING]: realized -- `sequencing/schedule#SCHEDULE` owns the `ConstructionTask` carrying its `IfcTaskTime` as a NodaTime `Interval`, the `SequenceRel [Union]` (FinishToStart/StartToStart/FinishToFinish) lag as a `Period`, and `ConstructionState.At(Instant)` reading the task-interval-bounded element set, exploiting the admitted-but-unexploited NodaTime calendar/interval surface.
-
-[GEODETIC_CRS_TRANSFORM]: realized -- `georeferencing/coordinate-reference#GEODETIC_TRANSFORM` owns the net-new `GeoReference.Reproject` datum-to-datum leg over the admitted `ProjNET` `CoordinateSystemServices.CreateTransformation`/`MathTransform.Transform` (Bursa-Wolf datum shift + projection) composed before the rigid map-conversion offset, and `georeferencing/coordinate-reference#GEO_REFERENCE` authors the `GeoReference.Project` body reading the import-rail `MapConversionRow`.
-
-[SPATIAL_ZONE_PROGRAM]: realized -- `zoning/grouping#ZONE_GRAPH` owns the `BimZone` many-to-many grouping overlay carrying its `BimZoneKind [SmartEnum]` and the `ZoneAssignment [Union]` (AssignsToGroup/ReferencedInSpatialStructure) distinct from the single-parent containment tree, and `query/element-set#ELEMENT_SET` gains the `ByZone` arm folding the overlay the analysis/systems sub-domains read.
-
-[COST_RESOURCE_5D]: realized -- `cost/estimate#ESTIMATE` owns the `CostItem` joining an `IfcCostValue` rate to the `QuantitySet` quantity by GlobalId, the `ConstructionResource [Union]` (Labor/Material/Equipment) joined to `sequencing#ConstructionTask`, and the `CostSchedule.Rollup` fold over (quantity x rate x resource) the cross-libs `csharp:TELEMETRY_LAKE_ANALYTICS` cost catalog consumes.
-
-[MEP_SYSTEM_TOPOLOGY]: realized -- `systems/connectivity#CONNECTIVITY` owns the `DistributionSystem` carrying its `DistributionSystemKind [SmartEnum]` over `IfcDistributionSystemEnum`, the `PortConnection [Union]` (ConnectsPortToElement/ConnectsPorts) connection-edge graph, and the `SystemTrace` graph fold (every element downstream of a junction), distinct from the element-breadth `IfcClass` MEP rows.
-
-[BIM_LOD_RESIDENCY_PYRAMID]: realized -- `exchange/export-rail#BIM_LOD` owns the `BimLod` per-element LOD pyramid through `Meshopt.Simplify`/`SimplifySloppy` keyed by target ratio, the `MeshletResidency` band through `Meshopt.BuildMeshlets`, and the per-LOD content key the `csharp:Rasm.Compute#TILE_PARTITION` pyramid addresses, closing the `Alimer.Bindings.MeshOptimizer` LOD/meshlet under-exploitation.
-
-[BIM_FAULT_OWNER]: realized as `faults/faults.md#FAULT_BAND` — the `BimFault` closed `[Union]` band-2600 (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) with `Code`/`ToError`, composing the kernel `GeometryFault` for the shared degenerate-geometry failure; the ~8 scattered stringly-typed `BimFault.ModelRejected($"<token:detail>")` sites across `model/elements`, `query/element-set` (total, no rail), `classification/systems`, `assembly/spatial-structure`, and `exchange/*` lifted onto the typed arms and lowered through `.ToError()`, recoverable by code.
-
-[IDS_VALIDATION_OWNER]: realized as `validation/ids.md#IDS_FACETS` — the `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `query/element-set#ELEMENT_SET` `ElementPredicate` algebra over `BimModel`, the IDS v1.0 XSD parse over `System.Xml.Schema`, the `IdsAudit` deterministic receipt, and the ifctester companion as the cross-tool conformance oracle; the validation predicate IS the query predicate, no second selection surface.
-
-[BCF_COORDINATION_GRAPH]: realized as `coordination/issue-exchange.md#BCF_ARCHIVE` and `coordination/model-diff.md#MODEL_DIFF` — the closed `BcfTopic`/`BcfComment`/`BcfViewpoint` family with the self-owned `.bcfzip` codec over `ZipArchive` and the `BcfApi` REST projection (NOT a geometry-format-axis row), plus the `ModelDiff` change-set joining two `BimModel` snapshots by GlobalId plus the Compute content-key into added/modified/removed/moved arms, deduping unchanged elements.
-
-[BSDD_DICTIONARY_BINDING]: realized as `classification/systems.md#BSDD_RESOLUTION` — the `BsddResolution` live dictionary class/property resolution over Compute's transport keyed on the `Classification.DictionaryUri`, degrading to the row's local code-shape policy on a service miss so ingest never blocks; the bSDD class-to-property mapping feeds `properties` and `validation`, and a new standard is one dictionary-URI row.
-
-[PROPERTY_QUANTITY_OWNER]: realized as `properties/property-sets.md#PROPERTY_SETS` — the typed `PropertyKey`/`PropertySet`/`QuantitySet` keyed vocabulary over the standard `Pset_*`/`Qto_*` sets, the IFC `QTO_TYPEDRIVENOVERRIDE` type-vs-occurrence inheritance fold, base-quantity derivation from the kernel geometry by reference, and the `IfcRelDefinesByProperties` round-trip; the query/IDS/bSDD consumers compose this one model, never a second property store.
-
-[GEOREFERENCED_FEDERATION]: realized as `georeferencing/coordinate-reference.md#GEO_REFERENCE` — the host-neutral `GeoReference` record projected from `IfcMapConversion`/`IfcProjectedCRS`/`IfcCoordinateOperation`, reconciled by the `FrameNormalization.Georeference` CRS overload distinct from the up-axis/handedness `Canonicalize`; the rigid map-conversion transform composes the kernel `Rasm` transform algebra. The datum-to-datum reprojection leg re-opens as `[GEODETIC_CRS_TRANSFORM]`.
-
-[UNIVERSAL_WIRE_PROJECTION]: realized as `exchange/wire.md#WIRE_PROJECTION` — the `BimWire` content-keyed snapshot over the generated owners through the `Thinktecture.Runtime.Extensions.Json` converters and the source-generated `BimWireContext`, each closed family serializing by its key or case discriminant gated through `Validate`; the Python and TypeScript peers decode the same `BimModel` vocabulary, and the BCF diff and IDS audit ride the same payload.
-
-[TILE_METADATA_BINDING]: realized as `exchange/export-rail.md#TILE_METADATA` (closing the `SharpGLTF.Ext.3DTiles` admitted-but-unexploited under-utilization) — the `TileMetadata.Attach` per-tile `EXT_structural_metadata` schema/class/property-table over the `BimElement` semantic bound to GLB primitives through `EXT_mesh_features` feature IDs, so the Cesium 3D Tiles web peer resolves per-element BIM semantics at pick; the tile pyramid stays at `Rasm.Compute#TILE_PARTITION`.
+(none)

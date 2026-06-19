@@ -87,10 +87,11 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] For docs-only, catalog-only, read-only, declaration-order, move-only, source-comment-only, docstring-only, XML-doc-only, and TSDoc-only work, use text, path, table, link, owner, and preservation checks unless the user requests an executable quality rail.
 - [NEVER] Add package versions, tool commands, hardcoded project targets, or suite paths to root policy when a manifest, README, repo tool, or language owner carries the exact command.
 - [ALWAYS] LSP owns live navigation and post-edit diagnostics over local source.
-- [ALWAYS] `assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
-- [ALWAYS] `assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
-- [ALWAYS] `assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.
-- [ALWAYS] `assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `forge-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
+- [ALWAYS] Invoke the repo operator as `uv run python -m tools.assay ...`; bare `assay ...` is only valid when `command -v assay` proves a local wrapper exists.
+- [ALWAYS] `uv run python -m tools.assay api` owns external-artifact decompile/reflection over host DLLs, NuGet packages, installed Python distributions, and `node_modules` declarations.
+- [ALWAYS] `uv run python -m tools.assay code` owns structural/pattern search over ast-grep metavariables, tree-sitter queries, and CI artifacts; prefer LSP for plain single-symbol navigation.
+- [ALWAYS] `uv run python -m tools.assay static/test/bridge/package` own gating quality rails and mutation routes. LSP is read-only.
+- [ALWAYS] `uv run python -m tools.assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `forge-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
 - [ALWAYS] Treat bridge proof as `EvidenceCertificate` plus reviewed `ReferenceEvidence`; MCP exploration can promote invariants into scenarios, but never substitutes for certificate-backed verify.
 
 ## [7]-[DOCUMENTATION_AND_OUTPUT]

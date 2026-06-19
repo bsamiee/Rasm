@@ -1,26 +1,50 @@
 # [PY_ARTIFACTS_ARCHITECTURE]
 
-The professional-domain map of `artifacts`: every concern is a sub-domain owning one polymorphic surface, every artifact keys by the runtime content key, and every receipt is one kind-discriminated family. The map fuels the ideas and tasks. The codemap tree below names the full sub-domain structure, each with a one-line charter; one sub-domain folder mirrors one eventual source sub-tree.
+The professional domain map of `artifacts` — the host-free artifact-production utility. Each sub-domain owns one polymorphic surface, every artifact keys by the runtime content key, and every receipt is one kind-discriminated `ArtifactReceipt` family.
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
 ```text codemap
 artifacts/
-├── documents/          # the document axis over one DocumentNode semantic tree (model.md): emission (DocumentPlan backends lower FROM the tree) and extraction (inspection recovers TO the tree) are inverses, with the DocumentDelta diff/merge algebra defined once; Typst introspection (query/eval) and sys.inputs data-binding ride the held Compiler world
-│   ├── inspection/     # the recover-TO half: DocumentLens text/image/word/region extraction, search, embedded-file/outline harvest, redaction, annotation, and reflowable Story layout over pymupdf + pypdf, recovering DocumentNode trees into the runtime columnar corpus lane
-│   └── egress/         # the security-and-navigation finishing layer over an emitted PDF: DocumentEgress AES encryption + permission policy, outline/bookmark-tree authoring, overlay/underlay watermarking, embedded-attachment binding, and n-up imposition over pikepdf + pypdf + weasyprint — never an authoring path
-├── reporting/          # the ReportPlan composition axis binding figures/sections into a document tree over jinja2 templating + papermill/nbclient notebook execution
-├── charts/             # the 2D chart union (altair/plotly/matplotlib) with host-free static export (vl-convert primary, kaleido gated)
-├── scene3d/            # pyvista/VTK offscreen 3D scientific render + glTF/VRML scene export on the gated native floor
-├── tables/             # the great-tables publication-table owner exporting HTML/LaTeX/PDF with the tab_options theme and header/summary/style/cols publication surface
-├── imaging/            # the raster/preview owner over pillow + scikit-image + segno + python-magic
-│   └── figure/         # the figure-composition owner: Figure scale-to-fit/n-up-tile/crop/bounds-query over svgelements (SVG the chart/QR/nanoplot owners emit) plus ImageDraw/ImageFont/ImageOps/Exif annotation-and-metadata over pillow — turns emitted graphics into placed, annotated, color-correct figures
-├── color-management/   # the colour-science colorimetry/spectral/CAM16/palette owner feeding the visual sub-domains plus the ICC/LUT color-managed raster egress
-├── typography/         # the fonttools subset/instance + uharfbuzz OpenType text shaping + pyhanko PAdES-signing-and-verification PDF conformance close
-├── compression/        # the algorithm-row compression/bundle owner over zstandard/lz4/brotli/py7zr
-└── receipt/            # the shared kind-discriminated ArtifactReceipt family across every production mode, the one receipt-fold edge the reuse-fabric elision and MeterProvider signal stream both consume
+├── documents/          # the DocumentNode tree and its emission/extraction inverses
+│   ├── model.py        # the DocumentNode semantic tree and the DocumentDelta diff/merge algebra
+│   ├── emit.py         # the emission axis: every backend lowers FROM the DocumentNode tree
+│   ├── egress.py       # the PDF security/navigation finishing layer over pikepdf/pypdf/weasyprint
+│   └── lens.py         # the DocumentLens extraction/recovery half over pymupdf/pypdf
+├── figures/            # the visual-figure plane: charts, tables, scenes, preview, compose, color
+│   ├── chart.py        # the 2D chart union over altair/plotly/matplotlib with host-free static export
+│   ├── table.py        # the great-tables publication-table owner exporting HTML/LaTeX/PDF
+│   ├── scene.py        # pyvista/VTK offscreen 3D render and glTF/VRML export on the gated floor
+│   ├── preview.py      # the raster/preview owner over pillow/scikit-image/segno
+│   ├── compose.py      # the figure-composition owner over svgelements and pillow
+│   └── color.py        # the colour-science color/spectral/palette owner and ICC/LUT egress
+├── typography/         # the font-shaping/PAdES-signing/PDF-A conformance close
+│   └── conformance.py  # font subset/instance, uharfbuzz shaping, and pyhanko PAdES conformance
+├── reports/            # the figure-binding report composition
+│   └── report.py       # the ReportPlan composition binding figures/sections over jinja2 and papermill
+├── bundle/             # the compression/bundling owner
+│   └── bundle.py       # the algorithm-row compression/bundle owner over zstandard/lz4/brotli/py7zr
+└── receipt/            # the kind-discriminated ArtifactReceipt family
+    └── receipt.py      # the shared kind-discriminated ArtifactReceipt family across every mode
 ```
 
-Three concerns the charter names are bidirectional, not emit-only, and the map carries both halves: `documents` owns one `DocumentNode` semantic tree (`model.md`) that emission lowers FROM and `inspection` recovers TO — production and extraction are inverses over one node algebra, with `DocumentDelta` diff/merge defined once and an extracted-tree corpus keyed into the runtime columnar lane so a multi-PDF corpus is a queryable value, never a flat read-verb scatter beside emit; `typography` owns PAdES signing AND conformance verification (signature validity, coverage, DSS/LTV material, archival metadata) so an archival close proves rather than only asserts; `color-management` owns colorimetry/palette derivation AND the ICC/LUT management layer that attaches profiles and rendering intents to the raster egress so output is color-managed rather than naive sRGB. Two sub-domains are finishing-and-composition layers over already-emitted graphics, never authoring paths: `documents/egress` owns the security-and-navigation close — AES encryption with a permission policy, outline/bookmark trees, overlay/underlay watermarks, embedded attachments, and n-up imposition over pikepdf/pypdf/weasyprint — so a published artifact is sealed and navigable, not a flat byte stream; `imaging/figure` owns figure composition — SVG scale-to-fit/n-up/crop/bounds query over svgelements and draw/annotate/metadata over pillow — so an emitted chart, QR, or nanoplot SVG becomes a placed, captioned, color-correct figure the report binds. `typography` additionally owns OpenType text shaping over uharfbuzz (the `shape`/`Buffer`/`GlyphInfo`/`GlyphPosition` pipeline), the load-bearing leg between font embedding and correct multilingual/RTL/complex-script text placement.
+Three concerns are bidirectional, not emit-only: `documents` owns one `DocumentNode` tree that emission lowers FROM and `documents/lens` recovers TO over one node algebra, with `DocumentDelta` diff/merge once and an extracted-tree corpus keyed into the runtime columnar lane; `typography` owns PAdES signing AND conformance verification plus uharfbuzz OpenType shaping; `figures/color` owns palette derivation AND the ICC/LUT layer that color-manages the raster egress. Two sub-domains finish already-emitted graphics rather than author them: `documents/egress` seals and navigates the PDF (encryption, bookmarks, watermarks, attachments, n-up) over pikepdf/pypdf/weasyprint, and `figures/compose` places and annotates emitted SVG over svgelements and pillow.
 
-`receipt` is the shared owner every visual and document sub-domain contributes one case to, never a parallel per-producer receipt rail, and the one receipt-fold edge the runtime `concurrency/lanes` reuse-fabric elision and the runtime `observability/metrics` `MeterProvider` signal stream both consume; outward figure handoff to a sibling package travels only as the `compute/graduation` `HandoffAxis` model-asset case keyed by `ContentIdentity`, never a parallel per-artifact handoff, and the artifacts sources re-mint no canonical concept so the runtime `evidence` `Structural.drift` query stays clean. `color-management` is the one upstream color source the visual sub-domains pull palettes from rather than each engine picking color ad hoc. The host-free posture is the structural axis cutting every sub-domain: vl-convert-python is the primary chart engine, and the kaleido host-Chrome and great-tables Selenium paths are gated optional, never the default. The interpreter floor is the second structural axis: the cp315-core process imports no gated distribution, so every gated arm — `pillow`/`scikit-image`/`matplotlib`/`lxml`/`brotli`/`lz4` on the `python_version<'3.15'` band, `pyvista`/`vtk` on the sub-3.13 band — dispatches onto the runtime subprocess seam (`anyio.to_process.run_sync`), and the gated-band worker imports the package at module scope and renders offscreen on the software-GL floor.
+`receipt` is the shared owner every visual and document sub-domain contributes one case to, never a parallel per-producer receipt rail, and the one receipt-fold edge the runtime `execution/lanes` reuse-fabric elision and the runtime `observability/metrics` `MeterProvider` signal stream both consume; outward figure handoff to a sibling package travels only as the `compute/graduation` `HandoffAxis` model-asset case keyed by `ContentIdentity`, never a parallel per-artifact handoff, and the artifacts sources re-mint no canonical concept so the runtime `evidence` `Structural.drift` query stays clean. `figures/color` is the one upstream color source the visual sub-domains pull palettes from rather than each engine picking color ad hoc. The host-free posture is the structural axis cutting every sub-domain: vl-convert-python is the primary chart engine, and the kaleido host-Chrome and great-tables Selenium paths are gated optional, never the default. The interpreter floor is the second structural axis: the cp315-core process imports no gated distribution, so every gated arm — `pillow`/`scikit-image`/`matplotlib`/`lxml`/`brotli`/`lz4` on the `python_version<'3.15'` band, `pyvista`/`vtk` on the sub-3.13 band — dispatches onto the runtime subprocess seam (`anyio.to_process.run_sync`), and the gated-band worker imports the package at module scope and renders offscreen on the software-GL floor.
+
+## [2]-[SEAMS]
+
+```text seams
+*                       ←  python:runtime                # ContentKey (content-key)
+documents/model         →  python:data/tabular           # to_corpus_row flat record (wire)
+figures/color           →  python:data/tabular           # color palette arrays / appearance correlates (wire)
+documents/emit          ←  python:runtime/evidence       # gRPC ServerHost / CRDT MessagePack (transport)
+*                       →  python:runtime                # Chart receipt (receipt)
+receipt/receipt         ←  python:runtime/execution      # reuse-fabric elision ContentKey hit/miss (receipt)
+receipt/receipt         ←  python:runtime/observability  # MeterProvider signal stream (receipt)
+figures/color           →  python:runtime/evidence       # Derived color arrays/palettes (shape)
+typography/conformance  →  python:data/tabular           # PositionedGlyphRun shape/run facts (shape)
+*                       ←  python:runtime                # boundary sync (boundary)
+```

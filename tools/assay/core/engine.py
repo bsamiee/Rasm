@@ -393,7 +393,7 @@ def _dotnet_scope_flags(command: tuple[str, ...], scope: ArtifactScope) -> tuple
 def _project_scope(command: tuple[str, ...]) -> str:
     try:
         project = command[command.index("--project") + 1]
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return ""
     stem = PurePosixPath(project.replace("\\", "/")).with_suffix("").as_posix().replace("/", "__")
     return "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in stem).strip("._")

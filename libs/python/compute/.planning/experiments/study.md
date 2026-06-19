@@ -4,11 +4,11 @@ The one study-spine owner over design-of-experiments sampling, global sensitivit
 
 ## [1]-[INDEX]
 
-[STUDY]: DOE sampling, SALib sensitivity, surrogate fitting, and the benchmark discriminant on one `Study` owner.
+- [1]-[STUDY]: DOE sampling, SALib sensitivity, surrogate fitting, and the benchmark discriminant on one `Study` owner.
 
 ## [2]-[STUDY]
 
-- Owner: `Study` — the ONE study-lake owner discriminating by a `StudyMethod` axis over the param-axis, sample-grid, objective-route, and measurement spine; DOE sampling, global sensitivity, and surrogate fitting are cases on one owner. `RunHistory` rides the same spine for persistence and resume in `experiments/run_history.md#RUN_HISTORY`; `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt.
+- Owner: `Study` — the ONE study-lake owner discriminating by a `StudyMethod` axis over the param-axis, sample-grid, objective-route, and measurement spine; DOE sampling, global sensitivity, and surrogate fitting are cases on one owner. `RunHistory` rides the same spine for persistence and resume in `experiments/history.md#RUN_HISTORY`; `BenchmarkData` collapses into a `MeasurementMode` discriminant on the receipt.
 - Cases: `StudyMethod` discriminates the DOE samplers (`Lhs(n)` numpy stratified Latin-hypercube floor, `Factorial(levels)` numpy full-factorial floor, `Sobol(m)` and `Halton(n)` over `scipy.stats.qmc.Sobol`/`Halton` with `qmc.scale`), the SALib sensitivity analyzers (`MorrisScreen(trajectories, levels)` over `SALib.sample.morris`/`SALib.analyze.morris` reading `mu_star`, `SobolIndices(n)` over `SALib.sample.sobol`/`SALib.analyze.sobol` reading `ST`, `Fast(n)` over `SALib.sample.fast_sampler`/`SALib.analyze.fast` reading `ST`, `Pawn(n)` over `SALib.sample.sobol`/`SALib.analyze.pawn` reading the moment-independent `median`, `Dgsm(n)` over `SALib.sample.finite_diff`/`SALib.analyze.dgsm` reading the derivative-based `dgsm` index, `Hdmr(n)` over `SALib.sample.latin`/`SALib.analyze.hdmr` reading the component `Sa`), and the surrogates (`Polynomial(degree)` numpy least-squares Vandermonde floor, `GaussianProcess(length_scale)` over `sklearn.gaussian_process.GaussianProcessRegressor` with an `RBF` kernel). The SALib `X`-and-`Y` analyzers (Morris, DGSM, HDMR) read the design matrix and the responses; the `Y`-only analyzers (Sobol, FAST, PAWN) read the responses against the structured Saltelli/FAST design. `MeasurementMode` discriminates result, wallclock, and speedup measurement on the receipt.
 - Entry: `Study.run` matches the method, builds the SALib `problem` dict from the param axes, draws the design through the matching SALib sampler or numpy floor, evaluates the objective per design row, runs the matching SALib analyzer for the sensitivity indices, and returns `RuntimeRail[StudyReceipt]` carrying the method, mode, completed and total cells, the per-axis sensitivity indices, and the design `ContentKey`. The SALib sampler-and-analyzer pair is the canonical sensitivity owner, so Morris elementary effects and Saltelli first-and-total-order Sobol indices are read from SALib, never hand-rolled.
 - Packages: `SALib` (`sample.morris`, `sample.sobol`, `sample.fast_sampler`, `sample.finite_diff`, `sample.latin`, `analyze.morris`, `analyze.sobol`, `analyze.fast`, `analyze.pawn`, `analyze.dgsm`, `analyze.hdmr`, the `ProblemSpec`/`problem` dict), `scipy` (`stats.qmc.Sobol`, `stats.qmc.Halton`, `stats.qmc.scale`), `scikit-learn` (`gaussian_process.GaussianProcessRegressor`, `gaussian_process.kernels.RBF`), `numpy` (`random.default_rng`, `argsort`, `linspace`, `meshgrid`, `column_stack`, `vander`, `linalg.lstsq`, `apply_along_axis`), data-branch `xarray`/`dask` shapes for the grid lane, runtime (`RuntimeRail`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
@@ -52,9 +52,7 @@ class ParamAxis(Struct, frozen=True):
 @tagged_union(frozen=True)
 class StudyMethod:
     tag: Literal[
-        "lhs", "factorial", "sobol", "halton",
-        "morris_screen", "sobol_indices", "fast", "pawn", "dgsm", "hdmr",
-        "polynomial", "gaussian_process",
+        "lhs", "factorial", "sobol", "halton", "morris_screen", "sobol_indices", "fast", "pawn", "dgsm", "hdmr", "polynomial", "gaussian_process"
     ] = tag()
     lhs: int = case()
     factorial: tuple[int, ...] = case()
@@ -131,11 +129,7 @@ class StudyReceipt(Struct, frozen=True):
             "emitted",
             "compute.study",
             self.method,
-            {
-                "mode": self.mode.value,
-                "cells": f"{self.cells_completed}/{self.cells_total}",
-                **{f"S[{k}]": repr(v) for k, v in self.indices.items()},
-            },
+            {"mode": self.mode.value, "cells": f"{self.cells_completed}/{self.cells_total}", **{f"S[{k}]": repr(v) for k, v in self.indices.items()}},
         )
 
 
@@ -148,11 +142,7 @@ class Study(Struct, frozen=True):
         return boundary(f"study.{self.method.tag}", lambda: _execute(self, objective, seed))
 
     def problem(self) -> dict[str, object]:
-        return {
-            "num_vars": len(self.axes),
-            "names": [ax.name for ax in self.axes],
-            "bounds": [[ax.low, ax.high] for ax in self.axes],
-        }
+        return {"num_vars": len(self.axes), "names": [ax.name for ax in self.axes], "bounds": [[ax.low, ax.high] for ax in self.axes]}
 
 
 def _execute(study: Study, objective: Objective, seed: int) -> StudyReceipt:

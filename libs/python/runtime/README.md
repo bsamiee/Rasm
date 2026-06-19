@@ -1,61 +1,79 @@
 # [PY_RUNTIME]
 
-`runtime` is the host-free execution foundation every `libs/python` sibling composes. It mints the shared value shapes once and references no sibling: the single content-identity owner reproducing the C# `XxHash128` seed bit-identically, the one boundary-fault and Result/Option rail, the one resilience policy, caller-owned context and settings admission, resource roots and bounded structured-concurrency lanes, local receipts and the contributor port, the inbound companion gRPC server-runtime decoding the C#-owned protobuf wire, the MessagePack op-log delta, and the capability-descriptor SDK, external-API and structural-parsing evidence, and the private daemon entrypoint grammar. The companion owns no wire vocabulary; it decodes the C#-minted shapes (single-mint invariant). This README routes the design pages and lists the external packages the folder uses; `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, `TASKLOG.md` the open work.
+`runtime` is the host-free execution foundation every `libs/python` sibling composes. It mints shared value shapes once and references no sibling: the single content-identity owner reproducing the C# `XxHash128` seed bit-identically, the one boundary-fault and `Result`/`Option` rail, the one resilience policy, caller-owned context and settings admission, resource roots and bounded structured-concurrency lanes, local receipts and the contributor port, the inbound companion gRPC server-runtime decoding the C#-owned protobuf wire, the `msgspec.msgpack` op-log delta, the capability-descriptor SDK, external-API and structural-parsing evidence, and the private daemon entrypoint grammar. The companion owns no wire vocabulary and decodes only C#-minted shapes (single-mint invariant). `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/`, grouped by sub-domain.
+- [1]-[RECEIPTS](.planning/observability/receipts.md)
+- [2]-[METRICS](.planning/observability/metrics.md)
+- [3]-[TELEMETRY](.planning/observability/telemetry.md)
+- [4]-[FAULTS](.planning/reliability/faults.md)
+- [5]-[RESILIENCE](.planning/reliability/resilience.md)
+- [6]-[ROOTS](.planning/transport/roots.md)
+- [7]-[SERVE](.planning/transport/serve.md)
+- [8]-[ADMISSION](.planning/execution/admission.md)
+- [9]-[LANES](.planning/execution/lanes.md)
+- [10]-[IDENTITY](.planning/evidence/identity.md)
+- [11]-[EVIDENCE](.planning/evidence/evidence.md)
 
-- identity: [content-identity](.planning/identity/content-identity.md)
-- reliability: [faults](.planning/reliability/faults.md), [resilience](.planning/reliability/resilience.md)
-- context: [admission](.planning/context/admission.md)
-- resources: [roots](.planning/resources/roots.md)
-- concurrency: [lanes](.planning/concurrency/lanes.md)
-- observability: [receipts](.planning/observability/receipts.md), [metrics](.planning/observability/metrics.md), [telemetry](.planning/observability/telemetry.md)
-- server: [serve](.planning/server/serve.md)
-- evidence: [evidence](.planning/evidence/evidence.md)
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+Every domain library this folder owns directly, planned or implemented. Versions are centralized in the one root manifest; this list carries no pin. `xxhash` and `lz4` ride the `python_version<'3.15'` companion band (no cp315 wheel); `lz4` gates the single install-conditional leg at `transport/serve#CRDT_DECODE`. Every other row is a cp315-clean manifest dependency.
 
-Every external library the folder uses, planned or implemented. Versions live in the one root manifest; this list carries no pin. The gRPC stack splits by provenance: the `grpc.aio` runtime leg (`grpcio`, `protobuf`) resolves transitively on the cp315 core through `specklepy`, so the `ServerHost` serve leg sits on the core; only `grpcio-tools` (the `protoc` codegen compiler) is companion-lane-only on the Forge `<'3.13'` interpreter (python312) and is NOT declared in the cp315 `pyproject.toml`. Two rows ride the `python_version<'3.15'` companion band with no cp315 wheel synced: `xxhash` (content-identity digest) and `lz4` (the op-log `Lz4BlockArray` decompression at `server/serve#CRDT_DECODE`); the MessagePack op-log decode through `msgspec.msgpack` is cp315-clean and the LZ4 decompression is the single install-gated leg. Every other row is a cp315-clean manifest dependency.
+[SETTINGS_SECRETS]:
+- `pydantic-settings`
+- `keyring`
 
-- pydantic-settings
-- keyring
-- xxhash
-- lz4
-- stamina
-- obstore
-- httpx
-- asyncssh
-- watchfiles
-- apscheduler
-- cyclopts
-- opentelemetry-instrumentation-grpc
-- tree-sitter
-- tree-sitter-python
-- tree-sitter-typescript
+[TRANSPORT]:
+- `httpx`
+- `asyncssh`
+- `watchfiles`
+- `stamina`
+- `opentelemetry-instrumentation-grpc`
+- `obstore`
 
-## [3]-[CROSS_CUTTING]
+[SCHEDULING]:
+- `apscheduler`
 
-Branch-wide infrastructure packages this folder consumes. The shared-runtime registry lives at `libs/python/.api/`; the resource-root transport family is owned by `runtime` at `resources/roots#ResourceRoot` and catalogued in this folder's `.api/`.
+[PARSING]:
+- `cyclopts`
+- `tree-sitter`
+- `tree-sitter-python`
+- `tree-sitter-typescript`
 
-[SHARED_RUNTIME]:
-- expression
-- beartype
-- msgspec
-- pydantic
-- anyio
-- structlog
-- psutil
-- opentelemetry-api
-- opentelemetry-sdk
-- opentelemetry-exporter-otlp-proto-http
-- grpcio
-- grpcio-tools
-- protobuf
+[STORAGE_ROOTS]:
+- `fsspec`
+- `s3fs`
+- `gcsfs`
+- `universal-pathlib`
 
-[RESOURCE_ROOTS]:
-- fsspec
-- s3fs
-- gcsfs
-- universal-pathlib
+[COMPRESSION]:
+- `lz4`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+Branch-wide substrate packages this folder consumes; the canonical registry and API evidence live at `libs/python/.planning/README.md` and `libs/python/.api/`.
+
+[TYPING_RAILS]:
+- `expression`
+- `msgspec`
+- `beartype`
+- `pydantic`
+
+[CONCURRENCY]:
+- `anyio`
+
+[OBSERVABILITY]:
+- `structlog`
+- `opentelemetry-api`
+- `opentelemetry-sdk`
+- `opentelemetry-exporter-otlp-proto-http`
+- `psutil`
+
+[IDENTITY]:
+- `xxhash`
+
+[WIRE_CODEGEN]:
+- `grpcio`
+- `grpcio-tools`
+- `protobuf`

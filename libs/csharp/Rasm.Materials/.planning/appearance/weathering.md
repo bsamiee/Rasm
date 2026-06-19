@@ -4,7 +4,7 @@ THE AGING OPERATOR. One `Weathering` static fold over the closed `WeatheringEffe
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[WEATHERING]` owns the `AgeParameter` value-object, the `WeatheringEffect` `[Union]` effect family, the `WeatheringTrajectory` per-effect terminal/rate row, and the one `Weathering.Apply` aging fold over `MaterialParameters`.
+- [1]-[WEATHERING]: the `AgeParameter` value-object, the `WeatheringEffect` `[Union]` effect family, the `WeatheringTrajectory` per-effect terminal/rate row, and the one `Weathering.Apply` aging fold over `MaterialParameters`.
 
 ## [2]-[WEATHERING]
 

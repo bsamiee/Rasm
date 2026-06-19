@@ -3,7 +3,7 @@
 `ProjNET` supplies a pure-managed .NET spatial-reference and projection engine:
 EPSG/SRID-keyed coordinate-system lookup, WKT and ESRI coordinate-system parsing,
 geographic-to-projected and datum-to-datum coordinate transformation, and the
-`MathTransform` numeric pipeline the `georeferencing/coordinate-reference#GEO_REFERENCE`
+`MathTransform` numeric pipeline the `Semantics/georeference#GEO_REFERENCE`
 `GEODETIC_TRANSFORM` datum-bridging cluster composes over the rigid map-conversion frame.
 
 ## [1]-[PACKAGE_SURFACE]

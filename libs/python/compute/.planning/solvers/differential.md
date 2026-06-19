@@ -4,7 +4,7 @@ The differential-equations route of the one numeric solver. `DifferentialIntent`
 
 ## [1]-[INDEX]
 
-[DIFFERENTIAL]: ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves on one `DifferentialIntent` owner.
+- [1]-[DIFFERENTIAL]: ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves on one `DifferentialIntent` owner.
 
 ## [2]-[DIFFERENTIAL]
 
@@ -12,7 +12,7 @@ The differential-equations route of the one numeric solver. `DifferentialIntent`
 - Entry: `DifferentialIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the solve runs `diffrax.diffeqsolve(terms, solver, t0, t1, dt0, y0, stepsize_controller, saveat, adjoint, event)`, reads `Solution.stats["num_steps"]` and the terminal-state residual against a steady-state or event target, and folds them into `SolverReceipt.Iterative`. Event handling routes through `diffrax.Event` with a root-finding condition, so a transient field decay or a contact event terminates the integration at the crossing.
 - Packages: `diffrax` (`diffeqsolve`, `ODETerm`, `ControlTerm`, `MultiTerm`, `Tsit5`, `Dopri5`, `Kvaerno5`, `PIDController`, `ConstantStepSize`, `SaveAt`, `VirtualBrownianTree`, `Event`, `RecursiveCheckpointAdjoint`, `BacksolveAdjoint`, `Solution`), `equinox` (the PyTree foundation Diffrax composes), `numpy` (`asarray`, `linalg.norm`), `solvers/receipt.md#RECEIPT` (`SolverReceipt`), runtime (`RuntimeRail`, `boundary`).
 - Growth: a new solver is one `match` arm; a new equation class is one `DifferentialIntent` case; a new step controller is one `StepControl` row; zero new surface.
-- Boundary: `diffrax`/`equinox`/`jaxlib` carry no cp315 wheel, so the entire owner is authored against the documented API on the JAX floor; there is no numpy ODE floor because trajectory integration of a stiff or stochastic system is the gated capability itself. The adjoint solve feeds `differentiation/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`; a hand-rolled Runge-Kutta loop and a scalar quadrature route here are the deleted forms.
+- Boundary: `diffrax`/`equinox`/`jaxlib` carry no cp315 wheel, so the entire owner is authored against the documented API on the JAX floor; there is no numpy ODE floor because trajectory integration of a stiff or stochastic system is the gated capability itself. The adjoint solve feeds `solvers/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`; a hand-rolled Runge-Kutta loop and a scalar quadrature route here are the deleted forms.
 
 ```python signature
 from collections.abc import Callable
@@ -45,29 +45,18 @@ class DifferentialIntent:
 
     @staticmethod
     def Ode(
-        vector_field: Callable[..., np.ndarray],
-        y0: np.ndarray,
-        span: tuple[float, float],
-        step: StepControl = StepControl.PID,
+        vector_field: Callable[..., np.ndarray], y0: np.ndarray, span: tuple[float, float], step: StepControl = StepControl.PID
     ) -> "DifferentialIntent":
         return DifferentialIntent(ode=(vector_field, y0, span, step))
 
     @staticmethod
     def Sde(
-        drift: Callable[..., np.ndarray],
-        diffusion: Callable[..., np.ndarray],
-        y0: np.ndarray,
-        span: tuple[float, float],
+        drift: Callable[..., np.ndarray], diffusion: Callable[..., np.ndarray], y0: np.ndarray, span: tuple[float, float]
     ) -> "DifferentialIntent":
         return DifferentialIntent(sde=(drift, diffusion, y0, span))
 
     @staticmethod
-    def Cde(
-        vector_field: Callable[..., np.ndarray],
-        control: object,
-        y0: np.ndarray,
-        span: tuple[float, float],
-    ) -> "DifferentialIntent":
+    def Cde(vector_field: Callable[..., np.ndarray], control: object, y0: np.ndarray, span: tuple[float, float]) -> "DifferentialIntent":
         return DifferentialIntent(cde=(vector_field, control, y0, span))
 
 
@@ -112,4 +101,4 @@ def _dispatch(intent: DifferentialIntent, adjoint: AdjointMode) -> SolverReceipt
 
 ## [3]-[RESEARCH]
 
-- [DIFFRAX_SOLVE]: `diffrax` and `equinox` resolve on the gated `python_version<'3.15'` band riding the jaxlib floor; the `diffeqsolve`/`ODETerm`/`ControlTerm`/`MultiTerm`/`Tsit5`/`Dopri5`/`Kvaerno5`/`PIDController`/`ConstantStepSize`/`SaveAt`/`VirtualBrownianTree`/`Event`/`RecursiveCheckpointAdjoint`/`BacksolveAdjoint`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Diffrax adjoint solve feeds `differentiation/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`.
+- [DIFFRAX_SOLVE]: `diffrax` and `equinox` resolve on the gated `python_version<'3.15'` band riding the jaxlib floor; the `diffeqsolve`/`ODETerm`/`ControlTerm`/`MultiTerm`/`Tsit5`/`Dopri5`/`Kvaerno5`/`PIDController`/`ConstantStepSize`/`SaveAt`/`VirtualBrownianTree`/`Event`/`RecursiveCheckpointAdjoint`/`BacksolveAdjoint`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Diffrax adjoint solve feeds `solvers/sensitivity.md#SENSITIVITY` and the parametric-trajectory case of `experiments/study.md#STUDY`.

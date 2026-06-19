@@ -6,6 +6,7 @@ The capacity limiter keeps one leaf action active per driver.
 
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
+from datetime import datetime, UTC
 import hashlib
 from itertools import count
 from operator import itemgetter
@@ -14,7 +15,6 @@ import sys
 from typing import assert_never, TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import aiocron  # type: ignore[import-untyped]  # aiocron ships no py.typed marker
 import anyio
 from anyio import to_thread
 from expression import Error, Ok, Result
@@ -34,6 +34,7 @@ from tools.assay.core.status import join, RailStatus
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from typing import Protocol
 
     from anyio.abc import TaskGroup  # annotation-only; anyio.abc is not exposed from the root anyio import
     from anyio.streams.memory import MemoryObjectReceiveStream
@@ -42,6 +43,17 @@ if TYPE_CHECKING:
     from tools.assay.automation.model import Action, Trigger
     from tools.assay.composition.settings import AssaySettings
     from tools.assay.core.model import Bind
+
+    class _CronTrigger(Protocol):
+        def get_next_fire_time(self, previous_fire_time: datetime | None, now: datetime) -> datetime | None: ...
+
+    def _cron_from_crontab(expr: str, timezone: ZoneInfo) -> _CronTrigger: ...
+
+else:
+    from apscheduler.triggers.cron import CronTrigger as _CronTrigger  # type: ignore[import-untyped]  # APScheduler ships no py.typed marker.
+
+    def _cron_from_crontab(expr: str, timezone: ZoneInfo) -> _CronTrigger:
+        return _CronTrigger.from_crontab(expr, timezone=timezone)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -343,17 +355,27 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
     return hardened
 
 
+def _cron_trigger(spec: Schedule) -> _CronTrigger:
+    return _cron_from_crontab(spec.cron, timezone=ZoneInfo(spec.timezone))
+
+
+def _next_cron_delay(cron: _CronTrigger, previous: datetime | None) -> tuple[datetime | None, float]:
+    now = datetime.now(UTC)
+    fire_at = cron.get_next_fire_time(previous, now)
+    return (None, 0.0) if fire_at is None else (fire_at, max(0.0, (fire_at - datetime.now(fire_at.tzinfo or UTC)).total_seconds()))
+
+
 async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
-    # aiocron owns wakeup calculation; this loop owns stop integration.
-    tz = ZoneInfo(spec.timezone)
-    cron = aiocron.crontab(spec.cron, start=False, tz=tz)
-    try:
-        while not stop.is_set():
-            await cron.next()
-            if not stop.is_set():
-                await fire(_NO_CHANGES)
-    finally:
-        cron.stop()
+    cron = _cron_trigger(spec)
+    previous: datetime | None = None
+    while not stop.is_set():
+        previous, delay = _next_cron_delay(cron, previous)
+        if previous is None:
+            return
+        with anyio.move_on_after(delay) as scope:
+            await stop.wait()
+        if scope.cancelled_caught and not stop.is_set():
+            await fire(_NO_CHANGES)
 
 
 def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Worker | None]:

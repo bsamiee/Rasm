@@ -1,50 +1,63 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-The professional-domain folder-map of `Rasm.Persistence`, the APP-PLATFORM durable-state spine: every concern is one sub-domain owner with closed cases, every entrypoint is a typed rail, and every durable shape rides one closed lane axis folded against the store-profile engine rows. The codemap names the full sub-domain structure — each one a real domain concept, never a rail/axis/lane file-naming scheme — so a planned-but-thin folder reads as a visible gap that fuels an idea or task. Mechanics live in the `.planning/` design pages; this map carries the structure, the store-flow spine, and the boundary and prohibition law.
+The professional domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine. One sub-domain owner per concern with closed cases, every durable shape riding one closed lane axis folded against the store-profile engine rows across five folders (Store, Schema, Query, Version, Sync).
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
-Each sub-domain mirrors one eventual source sub-tree. The charter is the concern the folder owns; the page list is the design pages that have landed under it.
-
 ```text codemap
 Rasm.Persistence/
-├── stores/             Six-row store-profile engine axis, the five-state lifecycle ceremony with typed open/restore/drain receipts, cross-process writer lease and epoch fence, the eight-modality placement fold, the operator-provisioning manifest, and the multi-standard classification + 5D cost catalog (Uniclass/OmniClass/MasterFormat ltree, formula-evaluated rollup over the DuckDB analytical lane).
-│   └── profiles.md
-├── stores-remote/      Cloud object-store residence (S3/Azure/GCS) behind the settled BlobRemote contract: chunked resumable multipart transfer, content-key descriptor round-trip with conditional-write concurrency, and the content-address artifact-sync feed over the op-log changefeed.
-│   └── object-store.md
-├── stores-server/      The self-provisioned PostgreSQL 18.4 server tier: TimescaleDB hypertable/continuous-aggregate/columnstore DDL, diskann + BM25 index provisioning, deploy-time GUC verification, the tenancy/RLS lifecycle with per-tenant quota, and the migration-bundle deploy gate.
-│   └── provisioning.md
-├── schema/             The identity/migration/DDL rail: the three-row identity policy (uuid-v7/content/natural), expand-contract migration law with the drift fingerprint gate, generated columns, the extension and native-type DDL set, the generated-converter rail, and object-level ACL with signed authorship.
-│   └── schema-rail.md
-├── modalities/         The seven-case DataLane axis (relational/document/key-value/vector/full-text/analytical/blob) folded against profile capability, the document JSON-index policy, the vector + BM25 search shapes with RRF fusion, the geometry residence and spatial-diff lanes with CRS reconciliation, and the analytical read lane.
-│   └── data-lanes.md
-├── query/              The StoreOp operation algebra with Kleisli composition, keyset pagination and typed projection egress, the bulk-movement lane with self-emitted changefeed, the four-hook interceptor spine, the incremental standing-query window, and the Arrow zero-copy carrier.
-│   └── query-rail.md
-├── engine/             The embedded-SQLite floor: the PRAGMA policy ladder, the compile-options probe surface, the maintenance op family, and the loadable-extension and at-rest-encryption gate.
-│   └── sqlite.md
-├── snapshots/          The content-addressed snapshot spine: the three-row sealed codec axis, the compression and hash policy axes, the atomic snapshot protocol with diff and restore, the schema/codec evolution registry, and the fuzz harness.
-│   └── codecs.md
-├── cache/              The HybridCache L2 contribution behind the AppHost cache port plus the result, artifact-blob, and benchmark index surfaces that select warm-start substrates and content-addressed artifacts.
-│   └── indexes.md
-├── sync/               The op-log changefeed (one log: outbox, audit, feed, sync), the HLC-stamped LWW merge law, the three sync transports (logical replication, HTTP delta, object-graph diff), presence/awareness, and partial-replication working-set checkout.
-│   └── collaboration.md
-├── versioning/         Git-grade version control over the durable graph: the content-addressed commit-DAG with branches and merge-base, the convergent op/delta-state CRDT, the CrdtOpWire payload amendment, AS-OF time-travel, and the geometry-aware structural diff/merge.
-│   └── version-control.md
-├── federation/         The source-agnostic federated entity graph keyed on geometry/property identity, the universal ElementSet query algebra, cross-document links with transitive impact, the declarative rule engine (clash/IDS/MVD/QTO), fusion ranking with lineage, and the cross-engine query planner.
-│   └── federation.md
-├── provenance/         The W3C-PROV causal DAG as a join dimension, lineage slicing and blame, the tamper-evident hash-chained attested ledger, and the lineage-scoped redaction-aware change-data-capture envelope.
-│   └── provenance.md
-├── annotation/         Anchored-annotation anchor algebra with threads, the BCF 2.1/3.0 coordination protocol with viewpoint lifecycle, and the bidirectional CDE OAuth2 sync.
-│   └── annotation.md
-├── schedule/           P6/MS-Project schedule interchange with the activity network, the task-to-ElementSet link, and the 4D construction state with planned/actual variance.
-│   └── schedule-interchange.md
-└── retention/          Classification enforcement at every store egress, the hold-first receipted retention sweep, object-store reachability GC by live closure, the hash-proved support-bundle export, and the classification-to-pgaudit category binding.
-    └── redaction-retention.md
+├── Store/                # the durable store tier: engine, profiles, remote, server
+│   ├── Engine.cs         # the embedded-SQLite floor: PRAGMA ladder, maintenance ops, encryption gate
+│   ├── Profiles.cs       # the six-row store-profile engine axis with placement fold and cost catalog
+│   ├── Remote.cs         # cloud object-store residence behind the BlobRemote contract
+│   └── Server.cs         # the self-provisioned PostgreSQL 18.4 tier with TimescaleDB and tenancy/RLS
+├── Schema/               # the schema and migration rails
+│   ├── Identity.cs       # the key axis with identity migration, object ACL, and signed authorship
+│   ├── Migration.cs      # the drift-fingerprint gate, expand/contract classifier, and receipted apply
+│   ├── Ddl.cs            # generated columns and the extension/index/temporal/check DDL set
+│   └── Converters.cs     # the converter/naming registration and compiled mount
+├── Query/                # the query, lane, cache, and federation rails
+│   ├── Rail.cs           # the StoreOp operation algebra with keyset pagination and changefeed
+│   ├── Lanes.cs          # the seven-case DataLane axis folded against profile capability
+│   ├── Cache.cs          # the HybridCache L2 contribution and the result/artifact/benchmark indexes
+│   └── Federation.cs     # the source-agnostic federated entity graph and ElementSet query algebra
+├── Version/              # the version-control history rails
+│   ├── Commits.cs        # the content-addressed commit-DAG and the op/delta-state CRDT
+│   ├── TimeTravel.cs     # AS-OF reconstruction with checkpoint, range diff, blame, and scrub
+│   ├── Diff.cs           # tree-edit node-identity match, three-way merge, typed conflict classes
+│   ├── Provenance.cs     # the W3C-PROV causal DAG and the tamper-evident attested ledger
+│   ├── Snapshots.cs      # the content-addressed snapshot spine with sealed codec axis
+│   └── Retention.cs      # classification enforcement, receipted retention sweep, reachability GC
+└── Sync/                 # the collaboration, annotation, and schedule sync rails
+    ├── Collaboration.cs  # the op-log changefeed, HLC-stamped LWW merge, and three sync transports
+    ├── Annotation.cs     # anchored-annotation algebra, BCF coordination, and CDE OAuth2 sync
+    └── Schedule.cs       # P6/MS-Project schedule interchange and the 4D construction state
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, never a new surface, and a public type outside an owner region is the named defect. One rail per entrypoint, named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects. Receipts stamp NodaTime `Instant`/`Duration`; `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The version-control, federation, provenance, annotation, and schedule sub-domains plus the classification/cost catalog in stores ride the existing substrate — the op-log changefeed, the content-addressed snapshots, and the PostGIS GiST + jsonb + ltree lanes — and never admit a new engine.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The `Version`, `Query/Federation`, and `Sync` rails plus the classification/cost catalog in `Store/Profiles` ride the existing op-log changefeed, content-addressed snapshots, and PostGIS lanes, and never admit a new engine.
 
-## [2]-[SPINE]
+## [2]-[SEAMS]
+
+```text seams
+*                   →  typescript:projection              # ElementSet stable receipt algebra (wire)
+Sync/collaboration  →  typescript:interchange/codec       # OpLogEntryWire / CrdtOpWire (wire)
+Sync/collaboration  ⇄  python:runtime/transport           # OpLogEntry.Payload MessagePack CRDT delta (wire)
+Version/commits     ⇄  python:runtime/transport           # CrdtOpWire MessagePack union (wire)
+Version/snapshots   →  typescript:interchange/codec       # SnapshotHeaderWire (wire)
+Version/commits     →  typescript:interchange/refinement  # JsonPointer RFC6901 Guid brand (shape)
+*                   ←  csharp:Rasm.Compute                # content-keyed blob (content-key)
+Query/cache         →  csharp:Rasm.Bim/Model              # ArtifactIndexRow IfcSemantic content-addressed model graph (content-key)
+Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # EmbeddingIdentity content x model-id x arity (content-key)
+Version/commits     ⇄  csharp:Rasm.Compute/Runtime        # HandoffAxis graduation evidence (graduation)
+Query/cache         ←  csharp:Rasm.AppHost/Runtime        # TenantId RLS + cache L2 partition (port)
+Sync                →  csharp:Rasm.Compute/Runtime        # content-key delta via FastCDC (projection)
+Sync                →  csharp:Rasm.AppUi/Editing          # NotebookOp op-log (projection)
+Sync/annotation     →  csharp:Rasm.AppUi/Editing          # annotation collaboration op-log (projection)
+```
+
+## [3]-[SPINE]
 
 ```mermaid
 ---
@@ -68,18 +81,18 @@ flowchart LR
     OpLog --> SyncPump["SyncPump"]
 ```
 
-`StorePlacement.Resolve` folds the `ResolvedProfile` into a placement, `StoreLocality.Admit` gates the volume, `StoreCeremony.Open` proves the store ready and mints the open receipt, every operation dispatches through the store rail into the interceptor spine, and the spine fans out to the op-log changefeed, cache invalidation, and the receipt sink. The op-log feeds the sync pump, and the version-control commit-DAG, the provenance ledger, and the federation entity graph all ride that one changefeed.
+`StorePlacement.Resolve` folds the `ResolvedProfile` into a placement, `StoreLocality.Admit` gates the volume, `StoreCeremony.Open` proves the store ready and mints the open receipt, every operation dispatches through the store rail into the interceptor spine, and the spine fans out to the op-log changefeed, cache invalidation, and the receipt sink. The op-log feeds the sync pump, and the `Version/commits` commit-DAG, the `Version/provenance` ledger, and the `Query/federation` entity graph all ride that one changefeed.
 
-## [3]-[BOUNDARIES]
+## [4]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, and app roots resolve host profile, paths, and dsn before any call enters.
 - Typed projection records are the only egress; entity types never cross the package boundary, and provider failure converts into `StoreFault` at exactly one site on the query rail.
 - Provider, codec, and engine types stay implementation material behind axis vocabulary; consumers select rows, never packages.
 - AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows to each and never reverses the dependency. The database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
-- The version-control, federation, provenance, annotation, and schedule rails plus the in-stores classification/cost catalog ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
+- The `Version` rails (commits/timetravel/diff, provenance, snapshots, retention), the `Query/federation` rail, and the `Sync` rails (collaboration, annotation, schedule) plus the in-`Store/profiles` classification/cost catalog ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
 - No store operation runs on a Grasshopper solve hot path.
 
-## [4]-[PROHIBITIONS]
+## [5]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose.
 

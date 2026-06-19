@@ -1,51 +1,75 @@
 # [RASM_BIM]
 
-`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and the universal IFC/glTF/STEP exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, the per-importer frame normalization, the `BimElement` element vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree; it composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
+`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The professional domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/` mirror the eventual source tree, one page per source file.
+- [1]-[FAULTS](.planning/Model/faults.md): `BimFault` closed `[Union]` (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) every Bim entrypoint lowers onto the `Fin<T>` rail through `.ToError()`.
+- [2]-[ELEMENTS](.planning/Model/elements.md): `BimElement` record, the `IfcClass`/`IfcDomain` entity-class vocabulary, the `PredefinedType` sub-class discriminant, `BimType` type-occurrence factoring, `BimModel` collection, and the `Project` fold from the IFC semantic graph.
+- [3]-[QUERY](.planning/Model/query.md): set-algebraic `ElementSet` query over a closed `ElementPredicate` union with `ByDomain`/`ByPredefinedType`/`ByZone` discrimination arms.
+- [4]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD-bound standard-systems classification axis, local code-shape policy, `BsddResolution` live dictionary resolution, and the `IfcRelAssociatesClassification` round-trip.
+- [5]-[COMPOSITION](.planning/Semantics/composition.md): host-neutral `BimMaterial` construction-material composition — `BimMaterialComposition` `[Union]` over the IFC layered/profiled/constituent material sets and the thickness-keyed `MaterialLayer`.
+- [6]-[APPEARANCE](.planning/Semantics/appearance.md): `BimAppearance` host-neutral PBR record projected from `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
+- [7]-[STRUCTURE](.planning/Model/structure.md): host-neutral spatial-structure tree and the closed `AssemblyRel` decomposition algebra.
+- [8]-[ZONES](.planning/Model/zones.md): cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem`, distinct from the single-parent containment tree, with the `ByZone` query arm.
+- [9]-[PROPERTIES](.planning/Semantics/properties.md): typed `PropertySet`/`QuantitySet` keyed vocabulary, type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
+- [10]-[VALIDATION](.planning/Review/validation.md): IDS v1.0 `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `ElementPredicate` algebra, the XSD parse, and the `IdsAudit` receipt.
+- [11]-[ISSUES](.planning/Review/issues.md): BCF 3.0 `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec, and the `BcfApi` REST projection.
+- [12]-[DIFF](.planning/Review/diff.md): `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms joined by GlobalId plus content-key.
+- [13]-[STRUCTURAL](.planning/Model/structural.md): host-neutral `AnalysisModel` structural-analysis graph projecting `IfcStructuralAnalysisModel`/`IfcStructuralCurveMember`/`IfcStructuralSurfaceMember`/load/support, binding the physical `BimElement` by GlobalId for the Compute solver.
+- [14]-[SCHEDULE](.planning/Planning/schedule.md): 4D `ConstructionTask` activity network carrying `IfcTaskTime` as a NodaTime `Interval`, the `SequenceRel` `[Union]` dependency lag as a `Period`, and the `ConstructionState.At(Instant)` element-set snapshot.
+- [15]-[COST](.planning/Planning/cost.md): 5D `CostItem` cost-and-resource network joining an `IfcCostValue` rate to the `QuantitySet` quantity by GlobalId, the `ConstructionResource` `[Union]`, and the `CostSchedule.Rollup` fold.
+- [16]-[SYSTEMS](.planning/Model/systems.md): `DistributionSystem` MEP connectivity graph with `DistributionSystemKind` `[SmartEnum]`, the `PortConnection` `[Union]` over `IfcRelConnectsPortToElement`/`IfcRelConnectsPorts`, and the `SystemTrace` graph fold.
+- [17]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): scan-to-BIM `ReconstructionPrimitive` `[Union]` (plane/cylinder/torus/freeform) folding the kernel-registered segmented cloud into `BimElement` rows with an `ElementPredicate`-classified `IfcClass` and source-cloud lineage key.
+- [18]-[GEOREFERENCE](.planning/Semantics/georeference.md): host-neutral `GeoReference` record projected from `IfcMapConversion`/`IfcProjectedCRS`, the `FrameNormalization.Georeference` CRS overload, and the `GeoReference.Reproject` `ProjNET` datum-to-datum geodetic leg.
+- [19]-[FORMAT](.planning/Exchange/format.md): `InterchangeFormat`/`InterchangeCodec`/`KhrExtension` format-codec-extension table, `FrameNormalization` per-importer frame coercion, and the `Detect` row resolution.
+- [20]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold — managed glTF/mesh decode, the in-process semantic IFC/IFC5/STEP `IfcSemanticModel` graph, and the Speckle `Base` object-graph seam onto the canonical carriers.
+- [21]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization, per-tile `EXT_structural_metadata` `TileMetadata` author, and the `InterchangePolicy`/`ExportArtifact` carriers.
+- [22]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
+- [23]-[WIRE](.planning/Exchange/wire.md): host-free `BimWire` JSON projection of the generated owners through the Thinktecture converters, the source-generated `BimWireContext`, and the content-keyed `BimModel` snapshot the Python and TypeScript peers decode.
 
-- [faults/faults](.planning/faults/faults.md): the `BimFault` closed `[Union]` band-2600 (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) every Bim entrypoint lowers onto the `Fin<T>` rail through `.ToError()`.
-- [model/elements](.planning/model/elements.md): `BimElement` element record, the `IfcClass`/`IfcDomain` entity-class vocabulary, the `PredefinedType` sub-class discriminant, the `BimType` type-occurrence factoring, `BimModel` collection, and the `Project` fold from the IFC semantic graph.
-- [query/element-set](.planning/query/element-set.md): the set-algebraic `ElementSet` query over a closed `ElementPredicate` union with the `ByDomain`/`ByPredefinedType`/`ByZone` discrimination arms.
-- [classification/systems](.planning/classification/systems.md): the bSDD-bound standard-systems classification axis, the local code-shape policy, the `BsddResolution` live dictionary resolution, and the `IfcRelAssociatesClassification` round-trip.
-- [material/composition](.planning/material/composition.md): the host-neutral `BimMaterial` construction-material composition — the `BimMaterialComposition` `[Union]` over the IFC layered/profiled/constituent material sets and the thickness-keyed `MaterialLayer`.
-- [material/appearance](.planning/material/appearance.md): the `BimAppearance` host-neutral PBR record projected from `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
-- [assembly/spatial-structure](.planning/assembly/spatial-structure.md): the host-neutral spatial-structure tree and the closed `AssemblyRel` decomposition algebra.
-- [zoning/grouping](.planning/zoning/grouping.md): the cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem` distinct from the single-parent containment tree, and the `ByZone` query arm.
-- [properties/property-sets](.planning/properties/property-sets.md): the typed `PropertySet`/`QuantitySet` keyed vocabulary, the type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
-- [validation/ids](.planning/validation/ids.md): the IDS v1.0 `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `ElementPredicate` algebra, the XSD parse, and the `IdsAudit` receipt.
-- [coordination/issue-exchange](.planning/coordination/issue-exchange.md): the BCF 3.0 `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec, and the `BcfApi` REST projection.
-- [coordination/model-diff](.planning/coordination/model-diff.md): the `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms joined by GlobalId plus content-key.
-- [analysis/structural-model](.planning/analysis/structural-model.md): the host-neutral `AnalysisModel` structural-analysis graph projecting `IfcStructuralAnalysisModel`/`IfcStructuralCurveMember`/`IfcStructuralSurfaceMember`/load/support, the idealized member binding the physical `BimElement` by GlobalId for the Compute solver.
-- [sequencing/schedule](.planning/sequencing/schedule.md): the 4D `ConstructionTask` activity network carrying `IfcTaskTime` as a NodaTime `Interval`, the `SequenceRel` `[Union]` dependency lag as a `Period`, and the `ConstructionState.At(Instant)` element-set snapshot.
-- [cost/estimate](.planning/cost/estimate.md): the 5D `CostItem` cost-and-resource network joining an `IfcCostValue` rate to the `QuantitySet` quantity by GlobalId, the `ConstructionResource` `[Union]`, and the `CostSchedule.Rollup` fold.
-- [systems/connectivity](.planning/systems/connectivity.md): the `DistributionSystem` MEP connectivity graph carrying its `DistributionSystemKind` `[SmartEnum]`, the `PortConnection` `[Union]` over `IfcRelConnectsPortToElement`/`IfcRelConnectsPorts`, and the `SystemTrace` graph fold.
-- [reconstruction/primitives](.planning/reconstruction/primitives.md): the scan-to-BIM `ReconstructionPrimitive` `[Union]` (plane/cylinder/torus/freeform) folding the kernel-registered segmented cloud into `BimElement` rows with an `ElementPredicate`-classified `IfcClass` and a source-cloud lineage key.
-- [georeferencing/coordinate-reference](.planning/georeferencing/coordinate-reference.md): the host-neutral `GeoReference` record projected from `IfcMapConversion`/`IfcProjectedCRS`, the `FrameNormalization.Georeference` CRS overload, and the `GeoReference.Reproject` `ProjNET` datum-to-datum geodetic leg.
-- [exchange/format-axis](.planning/exchange/format-axis.md): the `InterchangeFormat`/`InterchangeCodec`/`KhrExtension` format-codec-extension table, the `FrameNormalization` per-importer frame coercion, and the `Detect` row resolution.
-- [exchange/import-rail](.planning/exchange/import-rail.md): the `BimIo` foreign-bytes ingest fold — managed glTF/mesh decode, the in-process semantic IFC/IFC5/STEP `IfcSemanticModel` graph, and the Speckle `Base` object-graph seam onto the canonical carriers.
-- [exchange/export-rail](.planning/exchange/export-rail.md): the `BimExport` artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization, the per-tile `EXT_structural_metadata` `TileMetadata` author, and the `InterchangePolicy`/`ExportArtifact` carriers.
-- [exchange/tessellation-bridge](.planning/exchange/tessellation-bridge.md): the `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
-- [exchange/wire](.planning/exchange/wire.md): the host-free `BimWire` JSON projection of the generated owners through the Thinktecture converters, the source-generated `BimWireContext`, and the content-keyed `BimModel` snapshot the Python and TypeScript peers decode.
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+The IFC/glTF/STEP interchange and geodetic domain packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
 
-Every external library the folder uses, planned or implemented. Versions are centralized in the one C# manifest.
+[IFC_SEMANTIC]:
+- `GeometryGymIFC_Core`
 
-- GeometryGymIFC_Core
-- SharpGLTF.Core
-- SharpGLTF.Toolkit
-- SharpGLTF.Runtime
-- SharpGLTF.Ext.3DTiles (per-tile `EXT_structural_metadata` BIM-feature metadata, `exchange/export-rail#TILE_METADATA`)
-- Openize.Drako
-- Alimer.Bindings.MeshOptimizer
-- Speckle.Sdk
-- Speckle.Objects
-- Thinktecture.Runtime.Extensions
-- Thinktecture.Runtime.Extensions.Json
-- LanguageExt.Core
-- NodaTime
-- System.IO.Hashing
-- ProjNET (geodetic datum/projection reprojection for the `georeferencing/coordinate-reference#GEODETIC_TRANSFORM` `GeoReference.Reproject` datum-bridging leg, `.api/api-projnet`)
+[GLTF_CODEC]:
+- `SharpGLTF.Core`
+- `SharpGLTF.Toolkit`
+- `SharpGLTF.Runtime`
+- `SharpGLTF.Ext.3DTiles`
+
+[MESH_COMPRESSION]:
+- `Openize.Drako`
+- `Alimer.Bindings.MeshOptimizer`
+
+[SPECKLE_SYNC]:
+- `Speckle.Sdk`
+- `Speckle.Objects`
+
+[GEODETIC]:
+- `ProjNET`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+The C# substrate registry cards this folder consumes; full registry and version ownership live in `libs/csharp/.planning/README.md`, with decompile evidence in the folder `.api/`.
+
+[FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json`
+- `JetBrains.Annotations`
+
+[TIME_IDENTITY]:
+- `NodaTime`
+- `System.IO.Hashing`
+
+[TEST_SUBSTRATE]:
+- `xunit.v3.*`
+- `CsCheck`
+- `coverlet.MTP`
+- `BenchmarkDotNet`
+- `SharpFuzz`
+- `Verify.XunitV3`

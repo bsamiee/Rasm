@@ -607,8 +607,14 @@ class ProvisionRun(Detail, frozen=True, tag="provision"):
     local_service_topology: tuple[tuple[str, str, str, str, str, str, str], ...] = ()
     service_roles: tuple[tuple[str, str], ...] = ()
     resource_counts: tuple[tuple[str, int], ...] = ()
+    generated_artifacts: tuple[tuple[str, str, str], ...] = ()
+    resource_inventory: tuple[tuple[str, int], ...] = ()
     facts: tuple[tuple[str, str], ...] = ()
     summary: tuple[tuple[str, int], ...] = ()
+    extension_summary: tuple[tuple[str, str], ...] = ()
+    tool_summary: tuple[tuple[str, str], ...] = ()
+    plan_summary: tuple[tuple[str, str], ...] = ()
+    tool_surfaces: tuple[tuple[str, str, str], ...] = ()
     services: tuple[tuple[str, str, str, str, str], ...] = ()
     service_connections: tuple[tuple[str, str, str, str, str, str, str, str, str], ...] = ()
     ports: tuple[tuple[str, str, str, str, str, str, str], ...] = ()
@@ -984,10 +990,7 @@ def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
 def _sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tuple[tuple[str, str], ...]:
     base = Path(sarif_dir) if sarif_dir else None
     return tuple(
-        (
-            stem,
-            _classify_sarif(done.status, base, done.argv, stem, slnx=slnx).token(_sarif_results(base, done.argv, stem, slnx=slnx)),
-        )
+        (stem, _classify_sarif(done.status, base, done.argv, stem, slnx=slnx).token(_sarif_results(base, done.argv, stem, slnx=slnx)))
         for done in outcomes
         if "dotnet" in done.argv and "build" in done.argv
         for stem, slnx in (_build_targets(done.argv) or (("", False),))

@@ -52,7 +52,7 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
-    """Cron trigger interpreted by aiocron.
+    """Cron trigger interpreted by APScheduler.
 
     cpu_threshold suppresses a scheduled fire before the action pipeline when sampled CPU
     utilization meets or exceeds the fractional ceiling.

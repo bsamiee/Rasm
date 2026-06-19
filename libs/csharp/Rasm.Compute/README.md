@@ -1,81 +1,107 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the APP-PLATFORM measured-execution package: it admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. It owns the CPU tensor lane, the dense and sparse numeric lane, the ONNX model lane with its generative token-streaming run, the suite wire vocabulary and content-address seed, the field/result and geometry-delta codecs with the two-hop tessellation bridge and 3D-Tiles partition, the discretization/solve/optimizer solver lane, staging memory, scheduling, monotonic progress, and the units boundary. It consumes the `Rasm` geometry kernel, AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. This README routes the `.planning/` design pages and lists every external package the folder uses; the sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work in `TASKLOG.md`.
+`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, and inference, including the generative token-streaming run and embedding retrieval. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, wire channels, and the field/result/geometry-delta codecs with the GPU-ready residency payload. `Rasm.Compute` consumes the `Rasm` geometry kernel, AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [1]-[ROUTER]
 
-The design pages under `.planning/`, grouped by sub-domain.
+- [1]-[VOCABULARY](.planning/Tensor/vocabulary.md)
+- [2]-[LAYOUT](.planning/Tensor/layout.md)
+- [3]-[DISPATCH](.planning/Tensor/dispatch.md)
+- [4]-[RESIDENCY](.planning/Tensor/residency.md)
+- [5]-[MEMORY](.planning/Tensor/memory.md)
+- [6]-[BLAS](.planning/Tensor/blas.md)
+- [7]-[FACTOR](.planning/Tensor/factor.md)
+- [8]-[QUADRATURE](.planning/Tensor/quadrature.md)
+- [9]-[SAMPLING](.planning/Tensor/sampling.md)
+- [10]-[EXPRESSION](.planning/Symbolic/expression.md)
+- [11]-[DIMENSIONAL](.planning/Symbolic/dimensional.md)
+- [12]-[LOWERING](.planning/Symbolic/lowering.md)
+- [13]-[UNITS](.planning/Symbolic/units.md)
+- [14]-[IDENTITY](.planning/Model/identity.md)
+- [15]-[SESSIONS](.planning/Model/sessions.md)
+- [16]-[PROVIDERS](.planning/Model/providers.md)
+- [17]-[INFERENCE](.planning/Model/inference.md)
+- [18]-[EMBEDDING](.planning/Model/embedding.md)
+- [19]-[GENERATIVE](.planning/Model/generative.md)
+- [20]-[EXTENSION](.planning/Model/extension.md)
+- [21]-[DISCRETIZATION](.planning/Solver/discretization.md)
+- [22]-[CONTRACT](.planning/Solver/contract.md)
+- [23]-[OPTIMIZER](.planning/Solver/optimizer.md)
+- [24]-[SWEEP](.planning/Solver/sweep.md)
+- [25]-[CLASH](.planning/Solver/clash.md)
+- [26]-[UNCERTAINTY](.planning/Solver/uncertainty.md)
+- [27]-[ADMISSION](.planning/Runtime/admission.md)
+- [28]-[SCHEDULING](.planning/Runtime/scheduling.md)
+- [29]-[PROGRESS](.planning/Runtime/progress.md)
+- [30]-[RECEIPTS](.planning/Runtime/receipts.md)
+- [31]-[CHANNELS](.planning/Runtime/channels.md)
+- [32]-[CODECS](.planning/Runtime/codecs.md)
+- [33]-[PAYLOAD](.planning/Runtime/payload.md)
 
-- intent: [admission](.planning/intent/admission.md)
-- tensors: [vocabulary](.planning/tensors/vocabulary.md), [residency](.planning/tensors/residency.md), [layout](.planning/tensors/layout.md), [dispatch](.planning/tensors/dispatch.md)
-- numeric: [algebra](.planning/numeric/algebra.md)
-- symbolic: [expression](.planning/symbolic/expression.md), [dimensional](.planning/symbolic/dimensional.md), [lowering](.planning/symbolic/lowering.md)
-- models: [identity](.planning/models/identity.md), [sessions](.planning/models/sessions.md), [providers](.planning/models/providers.md), [extension-ops](.planning/models/extension-ops.md), [inference](.planning/models/inference.md), [generative](.planning/models/generative.md), [embedding](.planning/models/embedding.md)
-- remote: [channels](.planning/remote/channels.md)
-- interchange: [codecs](.planning/interchange/codecs.md), [residency](.planning/interchange/residency.md)
-- solver: [index](.planning/solver/index.md), [discretization](.planning/solver/discretization.md), [solve-contract](.planning/solver/solve-contract.md), [optimizer](.planning/solver/optimizer.md), [sweep](.planning/solver/sweep.md), [clash](.planning/solver/clash.md), [uncertainty](.planning/solver/uncertainty.md)
-- staging: [memory](.planning/staging/memory.md)
-- scheduling: [runtime](.planning/scheduling/runtime.md)
-- progress: [cell](.planning/progress/cell.md)
-- units: [quantities](.planning/units/quantities.md)
-- receipts: [union](.planning/receipts/union.md)
+## [2]-[DOMAIN_PACKAGES]
 
-## [2]-[PACKAGES]
+Every Compute-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; API evidence lives in the adjacent `.api/` folder.
 
-Every external library the folder uses, planned or implemented, as a flat list. Versions are centralized in the one C# manifest and never pinned here; admissions land here from the folder's ideas and tasks.
-
-[TENSORS_NUMERIC]:
-- System.Numerics.Tensors
-- CommunityToolkit.HighPerformance
-- MathNet.Numerics
-- MathNet.Numerics.Providers.MKL
-- MathNet.Numerics.Providers.OpenBLAS
-- CSparse
+[TENSOR_NUMERIC]:
+- `CommunityToolkit.HighPerformance`
+- `MathNet.Numerics`
+- `MathNet.Numerics.Providers.MKL`
+- `MathNet.Numerics.Providers.OpenBLAS`
+- `CSparse`
 
 [SYMBOLIC]:
-- MathNet.Symbolics
-- MathNet.Numerics.FSharp
-- FParsec
+- `MathNet.Symbolics`
+- `FParsec`
 
-[MODELS]:
-- Microsoft.ML.OnnxRuntime
-- Microsoft.ML.OnnxRuntime.Extensions
-- Microsoft.ML.OnnxRuntime.Gpu
-- Microsoft.ML.OnnxRuntime.DirectML
-- Microsoft.ML.OnnxRuntimeGenAI
-- Microsoft.Extensions.AI.Abstractions
-- Microsoft.Extensions.Caching.Hybrid
+[ML_RUNTIME]:
+- `Microsoft.ML.OnnxRuntime`
+- `Microsoft.ML.OnnxRuntime.Extensions`
+- `Microsoft.ML.OnnxRuntime.Gpu`
+- `Microsoft.ML.OnnxRuntime.DirectML`
+- `Microsoft.ML.OnnxRuntimeGenAI`
 
-[REMOTE_WIRE]:
-- Google.Protobuf
-- Grpc.Tools
-- Grpc.Net.Client
-- Grpc.Net.Client.Web
-- Grpc.Net.Common
-- Grpc.Core.Api
-- Grpc.AspNetCore
-- Grpc.AspNetCore.HealthChecks
-- Grpc.AspNetCore.Web
-- Microsoft.AspNetCore.TestHost
-- NodaTime.Serialization.Protobuf
+[INTERCHANGE]:
+- `SharpGLTF.Core`
+- `SharpGLTF.Ext.3DTiles`
+- `SharpGLTF.Toolkit`
+- `Alimer.Bindings.MeshOptimizer`
 
-[INTERCHANGE_STAGING]:
-- Microsoft.IO.RecyclableMemoryStream
-- SharpGLTF.Core
-- SharpGLTF.Ext.3DTiles
-- SharpGLTF.Toolkit
-- Alimer.Bindings.MeshOptimizer
-
-[FUNCTIONAL_CORE]:
-- LanguageExt.Core
-- Thinktecture.Runtime.Extensions
-- Thinktecture.Runtime.Extensions.Json
-- NodaTime
-- System.IO.Hashing
+[PERF]:
+- `Microsoft.IO.RecyclableMemoryStream`
 
 [UNITS]:
-- UnitsNet
+- `UnitsNet`
 
-[TESTING]:
-- SharpFuzz
-- BenchmarkDotNet
+[CACHE_AI]:
+- `Microsoft.Extensions.Caching.Hybrid`
+- `Microsoft.Extensions.AI.Abstractions`
+
+## [3]-[SUBSTRATE_PACKAGES]
+
+Cross-cutting C# substrate libraries Compute consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
+
+[FUNCTIONAL_CORE]:
+- `LanguageExt.Core`
+- `Thinktecture.Runtime.Extensions`
+- `Thinktecture.Runtime.Extensions.Json`
+- `JetBrains.Annotations`
+
+[TIME_IDENTITY]:
+- `NodaTime`
+- `System.IO.Hashing`
+
+[NUMERIC_SUBSTRATE]:
+- `System.Numerics.Tensors`
+
+[WIRE_CODEGEN]:
+- `Google.Protobuf`
+- `Grpc.Net.Client`
+- `Grpc.Net.Client.Web`
+- `Grpc.Net.Common`
+- `Grpc.AspNetCore`
+- `Grpc.Tools`
+- `NodaTime.Serialization.Protobuf`
+
+[TEST_SUBSTRATE]:
+- `BenchmarkDotNet`
+- `SharpFuzz`

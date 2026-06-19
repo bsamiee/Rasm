@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SPECKLE]
 
-`Speckle.Sdk` supplies the object-graph `Base` model, the dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`. `Speckle.Objects` supplies the geometry roster and the `Speckle.Objects.Data` host-object family layered on `Base`. Both bind the Persistence `SyncTransport.SpeckleLikeDiff` case (owned at `sync/collaboration`, dispatched through `SyncPump.Offer`): the INSTANCE `IOperations.Send`/`Receive` resolve from DI (never `static Operations.Send`, which does not exist), and the `Send` tuple's `rootObjId` is the content hash that maps to the existing `UInt128 ContentKey`.
+`Speckle.Sdk` supplies the object-graph `Base` model, the dynamic detach/chunk serialisation, the DI-resolved `IOperations` send/receive surface, the transport family, and the GraphQL `IClient`. `Speckle.Objects` supplies the geometry roster and the `Speckle.Objects.Data` host-object family layered on `Base`. Both bind the Persistence `SyncTransport.SpeckleLikeDiff` case (owned at `Sync/collaboration`, dispatched through `SyncPump.Offer`): the INSTANCE `IOperations.Send`/`Receive` resolve from DI (never `static Operations.Send`, which does not exist), and the `Send` tuple's `rootObjId` is the content hash that maps to the existing `UInt128 ContentKey`.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -166,7 +166,7 @@ The Speckle 3.21 model replaces the v2 `Objects.BuiltElements` typed roster (`Wa
 ## [5]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
-- Package pages carry external package API facts; the `SyncTransport.SpeckleLikeDiff` case, the `SyncPump.Offer` dispatch, and the `ContentKey` mapping are owned at `sync/collaboration`.
-- The `rootObjId`-to-`ContentKey` projection is owned at `sync/collaboration`; this catalogue records only that the `Send` tuple's first element is the content hash.
+- Package pages carry external package API facts; the `SyncTransport.SpeckleLikeDiff` case, the `SyncPump.Offer` dispatch, and the `ContentKey` mapping are owned at `Sync/collaboration`.
+- The `rootObjId`-to-`ContentKey` projection is owned at `Sync/collaboration`; this catalogue records only that the `Send` tuple's first element is the content hash.
 - `ServerInfo`/`UserInfo` credential acquisition and the `Account` token lifecycle are connection input handed over by app roots, not a Persistence fence member.
 - `Speckle.Sdk` runs OUTSIDE-RHINO; `Speckle.Sdk.Dependencies` repacks the SDK's Polly + channel + serialisation-V2 closure into one assembly, and the in-Rhino assembly composes only the canonical `SyncTransport.SpeckleLikeDiff` case and never references the Speckle assemblies.

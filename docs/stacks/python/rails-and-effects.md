@@ -103,10 +103,7 @@ def admitted_one(raw: str, /) -> Result[int, TraverseFault]:
 
 def traversed_fail_fast(raws: Block[str], /) -> Result[Block[int], TraverseFault]:
     seed: Result[Block[int], TraverseFault] = Ok(Block.empty())
-    return raws.fold(
-        lambda acc, raw: acc.bind(lambda done: admitted_one(raw).map(done.append)),
-        seed,
-    )
+    return raws.fold(lambda acc, raw: acc.bind(lambda done: admitted_one(raw).map(done.append)), seed)
 
 
 def traversed_accumulate(raws: Block[str], /) -> tuple[Block[int], Block[TraverseFault]]:
@@ -194,12 +191,7 @@ from expression.collections import Block
 type RunFault = str
 
 
-async def gathered[T](
-    work: Block[Callable[[], Awaitable[Result[T, RunFault]]]],
-    /,
-    *,
-    seconds: float,
-) -> Result[Block[T], RunFault]:
+async def gathered[T](work: Block[Callable[[], Awaitable[Result[T, RunFault]]]], /, *, seconds: float) -> Result[Block[T], RunFault]:
     send, receive = anyio.create_memory_object_stream[Result[T, RunFault]](max_buffer_size=len(work))
 
     async def run(operation: Callable[[], Awaitable[Result[T, RunFault]]], sink: MemoryObjectSendStream, /) -> None:
@@ -244,11 +236,7 @@ async def leased(name: str, /) -> AsyncIterator[str]:
 
 
 async def bracketed[T](
-    names: tuple[str, ...],
-    body: Callable[[tuple[str, ...]], Result[T, BracketFault]],
-    /,
-    *,
-    seconds: float,
+    names: tuple[str, ...], body: Callable[[tuple[str, ...]], Result[T, BracketFault]], /, *, seconds: float
 ) -> Result[T, BracketFault]:
     async with AsyncExitStack() as stack:
         with anyio.fail_after(seconds):
@@ -356,9 +344,7 @@ class Fact:
 
 
 def collapsed(facts: Block[Fact], /) -> Block[Receipt]:
-    return facts.choose(
-        lambda fact: Some(fact.payload) if isinstance(fact.payload, Receipt) else Nothing
-    )
+    return facts.choose(lambda fact: Some(fact.payload) if isinstance(fact.payload, Receipt) else Nothing)
 
 
 def grouped_last(facts: Block[Fact], /) -> dict[str, Fact]:
@@ -388,23 +374,13 @@ import anyio
 from expression import Error, Ok, Option, Result
 
 
-async def bridged[T](
-    operation: Callable[[], Awaitable[Result[T, str]]],
-    fallback: Callable[[], T],
-    /,
-    *,
-    seconds: float,
-) -> Result[T, str]:
+async def bridged[T](operation: Callable[[], Awaitable[Result[T, str]]], fallback: Callable[[], T], /, *, seconds: float) -> Result[T, str]:
     outcome: Result[T, str] = Error("<deadline>")
     with anyio.move_on_after(seconds) as scope:
         outcome = await operation()
     return Ok(fallback()) if scope.cancelled_caught else outcome
 
 
-def carrier_neutral[T, U](
-    value: "Result[T, str] | Option[T]",
-    step: Callable[[T], U],
-    /,
-) -> "Result[U, str] | Option[U]":
+def carrier_neutral[T, U](value: "Result[T, str] | Option[T]", step: Callable[[T], U], /) -> "Result[U, str] | Option[U]":
     return value.map(step)
 ```

@@ -3,8 +3,8 @@
 `pg_search` (ParadeDB) supplies the `bm25` index access method and the `pdb` query-builder schema —
 a Tantivy-backed BM25 full-text engine providing high-power lexical relevance over a PostgreSQL
 table beside the always-present native `tsvector`/`ts_rank` baseline. It carries no managed assembly:
-every surface is server-side SQL the `provisioning#SEARCH_PROVISIONING` `Bm25Predicate`/`IndexSpec.Bm25`
-fold emits and the `data-lanes#SEARCH_LANES` `HybridRetrieve.Fuse` BM25 branch matches through. The
+every surface is server-side SQL the `Store/server#SEARCH_PROVISIONING` `Bm25Predicate`/`IndexSpec.Bm25`
+fold emits and the `Query/lanes#SEARCH_LANES` `HybridRetrieve.Fuse` BM25 branch matches through. The
 0.24.0 line removed the legacy `paradedb.*` namespace — only `pdb.*` builders and the bare column
 operators are emitted, and `paradedb.*` is asserted absent. The extension is preload-gated (it rides
 the `ClusterConfig` `shared_preload_libraries` row), runs in-process inside the PG18 server tier under

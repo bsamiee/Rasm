@@ -94,18 +94,10 @@ def normalized[T](items: T | Iterable[T], /) -> tuple[T, ...]:
             return (lone,)
 
 
-def reduced(
-    items: "Request | Iterable[Request]",
-    ledger: "Ledger",
-    /,
-) -> Result[tuple["Receipt", ...], RequestFault]:
+def reduced(items: "Request | Iterable[Request]", ledger: "Ledger", /) -> Result[tuple["Receipt", ...], RequestFault]:
     seed: Result[tuple["Receipt", ...], RequestFault] = Ok(())
     return reduce(
-        lambda acc, request: acc.bind(
-            lambda done: dispatched(request, ledger).map(lambda receipt: (*done, receipt))
-        ),
-        normalized(items),
-        seed,
+        lambda acc, request: acc.bind(lambda done: dispatched(request, ledger).map(lambda receipt: (*done, receipt))), normalized(items), seed
     )
 ```
 
@@ -146,10 +138,7 @@ class Policy:
 
 
 STRICT = Policy(
-    canonical=Context(ceiling=1),
-    step=lambda value, ctx: Ok(Receipt.EMPTY)
-    if value.score <= ctx.ceiling
-    else Error(f"<over:{value.score}>"),
+    canonical=Context(ceiling=1), step=lambda value, ctx: Ok(Receipt.EMPTY) if value.score <= ctx.ceiling else Error(f"<over:{value.score}>")
 )
 LENIENT = Policy(canonical=Context(ceiling=8), step=lambda _value, _ctx: Ok(Receipt.DEGRADED))
 
@@ -192,10 +181,7 @@ class Marker(StrEnum):
     SECONDARY = "<key-b>"
 
 
-WEIGHT: frozendict[Marker, tuple[int, str]] = frozendict({
-    Marker.PRIMARY: (1, "<label-a>"),
-    Marker.SECONDARY: (2, "<label-b>"),
-})
+WEIGHT: frozendict[Marker, tuple[int, str]] = frozendict({Marker.PRIMARY: (1, "<label-a>"), Marker.SECONDARY: (2, "<label-b>")})
 LABEL: frozendict[Marker, str] = frozendict({marker: label for marker, (_rank, label) in WEIGHT.items()})
 
 
@@ -324,11 +310,7 @@ from beartype import beartype
 from expression import Error, Result
 
 
-def aspected[**P, T, E](
-    *,
-    on: type[Exception],
-    attempts: int = 3,
-) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]:
+def aspected[**P, T, E](*, on: type[Exception], attempts: int = 3) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]:
     def weave(operation: Callable[P, Result[T, E]], /) -> Callable[P, Result[T, E]]:
         retried = stamina.retry(on=on, attempts=attempts)(beartype(operation))
 

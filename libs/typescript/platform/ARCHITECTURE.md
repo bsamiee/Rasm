@@ -1,55 +1,65 @@
 # [PLATFORM_ARCHITECTURE]
 
-The professional domain folder-map of the browser host-free platform substrate. `platform` is the SPA browser entry and AppHost-analog: one `CompositionRoot` composes the closed five app-services into one `Layer` graph and one runtime, and every infrastructure concern is one platform-bound host owner — never a sixth app-service. The runtime-state spine (`app-lifecycle`, `capability-rank`), the `connectivity` edge, and the operator-named `worker/` decode leg are platform-bound HOST owners on the same budget, not app-services. The map is the sub-domain structure mirroring the eventual source tree, including the `session-replay` sub-domain whose `session-recorder` page binds the sampled recorder to the `observability` trace context. Each leaf carries a one-line charter; mechanics live in the `.planning/<sub-domain>/<page>.md` design pages.
+The professional domain map of `platform` — the browser host-free platform substrate and SPA AppHost-analog. One `CompositionRoot` folds the five app-services into one `Layer` graph and runtime; every infrastructure concern is a platform-bound host owner across six folders (`Runtime`, `Config`, `Transport`, `Session`, `Observability`, `Shell`).
+
+Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
 ## [1]-[DOMAIN_MAP]
 
 ```text codemap
 platform/
-├── runtime-composition/                  # the composition root, browser platform bindings, and the runtime-state spine
-│   ├── composition-root                  # the one Layer graph, the one ManagedRuntime, and the BrowserRuntime.runMain ./web SPA boot entry
-│   ├── browser-platform                  # the HTTP/key-value/worker platform layer every host owner composes
-│   ├── scoped-event-stream               # the generic addEventListener->removeEventListener Stream bridge for non-WindowEventMap targets
-│   ├── app-lifecycle                     # the one closed Phase enum folding visibilitychange + pagehide(freeze) + beforeunload
-│   └── capability-rank                   # the one closed Rank fold (Full/Degraded/OfflineOnly/Draining) with escalate-fast/recover-slow hysteresis
-├── connectivity/                         # the single online/offline connectivity edge
-│   └── connectivity                      # the online/offline cell, the redial edge, and the native SyncManager wake, read by >=4 concerns
-├── capabilities/                         # the single browser permission/host-capability grant edge
-│   ├── browser-capability                # the one Permissions-backed CapabilityKind axis, the per-kind PermissionState cell, and the storage-persist quota grant feeding capability-rank
-│   └── permission-grant-fold             # the PermissionStatus.change -> PermissionState fold over scopedEventStream patching the per-kind cell
-├── realtime/                             # the single bidirectional socket transport modality
-│   ├── socket-transport                  # the one BrowserSocket duplex Channel, the decoded inbound frame stream, and the outbound write over the one scoped resource
-│   └── transport-modality                # the closed TransportModality Data.TaggedEnum (WebSocket/WebTransport) growth axis under the reused StreamPolicy reconnect
-├── identity-session/                     # the browser credential lifecycle
-│   └── auth-session                      # OIDC PKCE acquisition + redirect-continuity round-trip, the session fold, silent refresh, revocation, and tokenHeader
-├── runtime-config/                       # the single typed env boundary
-│   └── runtime-config                    # one Config schema and one ConfigProvider over the browser env snapshot
-├── observability/                        # the self-telemetry export edge
-│   └── metric-registry                   # the bounded instrument/span vocabulary, the trace Sampler row, and the OTLP WebSdk collector path
-├── build-pipeline/                       # the build-time-only asset-emit pipeline
-│   └── build-pipeline                    # the Vite plugin set and the styling/PWA-asset emit (no worker runtime after the worker/ move)
-├── worker/                               # the operator-named top-level browser decode leg
-│   └── decode-pool                       # the transferable Worker.makePool snapshot/artifact-frame/residency offload and the single content-key mint
-├── local-persistence/                    # the single browser-local store
-│   └── local-persistence                 # the Schema-encoded last-good snapshot and the offline command queue
-├── routing/                              # the client routing and navigation infrastructure
-│   ├── app-router                        # the route-key axis, the param codec, and the Navigation API ingress
-│   └── navigation-guard                  # the route-admission fold over auth status and projection availability
-├── offline-cache/                        # the service-worker / PWA offline-first cache
-│   ├── service-worker-host               # the registration lifecycle and the cache-strategy axis
-│   └── background-sync-replay            # the redial-driven drain of the offline queue into the gateway over the connectivity cell
-├── fault-capture/                        # the browser crash/error-boundary fault sink
-│   ├── crash-telemetry                   # the global capture, the crash fold, and the sanitized CrashReport ship
-│   └── error-boundary-binding            # the react-error-boundary integration and the escalation hook
-├── feature-flags/                        # the feature-flag and remote-config read-side
-│   ├── remote-config                     # the decode-once FlagSet, the deterministic-bucket flag evaluation, and the poll demoted to backfill
-│   └── flag-stream                       # the native EventSource SSE flag-delta ingress patching the FlagSet cell in place for near-real-time propagation
-├── web-vitals/                           # the performance-budget and web-vitals observability
-│   └── performance-budget                # the native PerformanceObserver capture, the threshold fold, and the breach span
-└── session-replay/                       # the trace-correlated, privacy-sanitized sampled session recording bound to the SelfTelemetry trace context
-    └── session-recorder                  # the flag-gated sampled DOM/interaction recorder, the redaction-at-capture fold, and the replay-window id the crash/breach spans annotate
+├── runtime/              # the composition root, browser bindings, runtime-state spine, and connectivity edge
+│   ├── composition.ts    # the one Layer graph, the one ManagedRuntime, and the SPA boot entry
+│   ├── bindings.ts       # the HTTP/key-value/worker platform layer every host owner composes
+│   ├── events.ts         # the generic addEventListener->removeEventListener Stream bridge
+│   ├── lifecycle.ts      # the one closed Phase enum folding visibility/freeze/unload
+│   ├── rank.ts           # the one closed Rank fold with escalate-fast/recover-slow hysteresis
+│   └── connectivity.ts   # the online/offline cell, redial edge, and SyncManager wake
+├── config/               # the typed env boundary and the feature-flag read-side
+│   ├── config.ts         # one Config schema and one ConfigProvider over the browser env snapshot
+│   ├── flags.ts          # the decode-once FlagSet and deterministic-bucket flag evaluation
+│   └── stream.ts         # the native EventSource SSE flag-delta ingress patching the FlagSet cell
+├── transport/            # the bidirectional socket modality and the main-thread-offload decode leg
+│   ├── socket.ts         # the one BrowserSocket duplex Channel and decoded inbound frame stream
+│   ├── modality.ts       # the closed TransportModality (WebSocket/WebTransport) growth axis
+│   └── decode.ts         # the transferable Worker.makePool decode offload and content-key mint
+├── session/              # the browser credential lifecycle, client routing, and local store
+│   ├── session.ts        # OIDC PKCE acquisition, the session fold, silent refresh, and tokenHeader
+│   ├── router.ts         # the route-key axis, param codec, and Navigation API ingress
+│   ├── guard.ts          # the route-admission fold over auth status and projection availability
+│   └── store.ts          # the Schema-encoded last-good snapshot and the offline command queue
+├── observability/        # the self-telemetry export edge, web-vitals, crash sink, and session replay
+│   ├── telemetry.ts      # the instrument/span vocabulary, trace Sampler row, and OTLP WebSdk path
+│   ├── vitals.ts         # the PerformanceObserver capture, threshold fold, and breach span
+│   ├── crash.ts          # the global capture, crash fold, and sanitized CrashReport ship
+│   ├── boundary.ts       # the react-error-boundary integration and the escalation hook
+│   └── replay.ts         # the flag-gated sampled DOM/interaction recorder with redaction-at-capture
+└── shell/                # the PWA service-worker shell, offline drain, build pipeline, and capability grants
+    ├── serviceworker.ts  # the registration lifecycle and the cache-strategy axis
+    ├── sync.ts           # the redial-driven drain of the offline queue into the gateway
+    ├── build.ts          # the Vite plugin set and the styling/PWA-asset emit (build-time only)
+    ├── capability.ts     # the Permissions-backed CapabilityKind axis and per-kind PermissionState cell
+    └── grant.ts          # the PermissionStatus.change -> PermissionState fold patching the per-kind cell
 ```
 
-## [2]-[ALTITUDE]
+## [2]-[SEAMS]
 
-The folder is the browser AppHost-analog: it owns runtime composition and host policy, never domain state, decode, or UI components. The five infrastructure owners (`AppRouter`, `ServiceWorkerHost`, `CrashTelemetry`, `RemoteConfig`, `PerformanceBudget`), the runtime-state spine (`AppLifecycle`, `CapabilityRank`), the `Connectivity` edge, the `BrowserCapability` permission edge, the `SocketTransport` modality, and the `worker/` `DecodeWorkerPool` are platform-bound host owners exactly as `AuthSession`/`BrowserPlatform`/`SelfTelemetry`; none enters the closed five-app-service budget. `BrowserCapability` is the single permission-grant owner the host policies (notification, clipboard, geolocation, persistent-storage) resolve through, holding the per-kind `PermissionState` cell `ui` greys a denied affordance from and feeding `CapabilityRank` a denied-storage health input; `SocketTransport` is the single bidirectional-socket owner the SSE-only ingress lacks, the modality the `WebTransport`/CRDT-push-back legs compose rather than a parallel socket. `app-lifecycle` is the single page-lifecycle axis the three former private `visibilitychange` ingresses (`web-vitals`/`feature-flags`/`fault-capture`) project from; `capability-rank` is the one capability cell `ui` reads and holds no behavior; `connectivity` is the single online/offline owner read by `capability-rank`, `background-sync-replay`, `feature-flags`, and `observability`; `scoped-event-stream` is the one generic listener bridge the non-`WindowEventMap` ingresses compose. `runtime-config` is the single env boundary; `observability` is the single instrument owner, the single collector path, and the one trace-Sampler row; `local-persistence` is the single browser-local store; uncaught faults reconstruct as the `interchange` typed fault family; the flag bucket/variant vocabulary is referenced from `services` as settled and `flag-stream`'s SSE delta patches the one `RemoteConfig` cell. The PWA worker concern splits at the build edge — `build-pipeline` is build-time-only and `offline-cache` owns the SW lifecycle — while the main-thread-offload decode pool is the operator-named `worker/` leg hosting the `[WEB_GEOMETRY_RESIDENCY_WIRE]` decode and the single content-key mint; the dependency direction within the branch (`platform` imports `ui`/`interchange`/`projection`; `ui` never imports `platform`) is stated once at the branch `ARCHITECTURE.md`, never restated here.
+```text seams
+transport/transport      ←  csharp:Rasm.Compute/Runtime        # ArtifactFrameWire reassembly (wire)
+observability/telemetry  ⇄  csharp:Rasm.AppHost/Observability  # W3C trace-context continuation (transport)
+observability/telemetry  ←  csharp:Rasm.AppHost/Observability  # OtelExport OTLP egress (transport)
+transport/decode         ←  csharp:Rasm.AppUi/Render           # GeometryResidencyWire ResidencyManifest decode (projection)
+transport/decode         ⇄  typescript:ui/render               # ContentKey mint and tile keying (content-key)
+transport/decode         ⇄  typescript:interchange/ingress     # ContentKey brand mint and tile keying (content-key)
+config/stream            ⇄  typescript:projection/fold         # StreamPolicy reconnect reuse (port)
+persistence              ←  typescript:ui/binding              # LocalPersistence KeyValueStore via Atom.kvs (port)
+session/session          →  typescript:services/security       # TOTP/WebAuthn ceremony verification (port)
+transport                →  typescript:ui/render               # ViewportHost / DecodeWorkerPool / BrowserPlatform (port)
+runtime/bindings         →  typescript:interchange/codec       # DecodeWorkerPool TaggedRequest serialization (wire)
+transport/socket         →  typescript:interchange/codec       # inbound frame decode via Schema.decodeUnknown (wire)
+shell/sync               →  typescript:interchange/transport   # offline queue drain resolved-intent replay (transport)
+```
+
+## [3]-[ALTITUDE]
+
+The folder is the browser AppHost-analog: it owns runtime composition and host policy, never domain state, decode, or UI components. The infrastructure owners, the runtime-state spine (`AppLifecycle`, `CapabilityRank`), the `Connectivity` edge, the `BrowserCapability` permission edge, the `SocketTransport` modality, and the `DecodeWorkerPool` leg are platform-bound host owners, never one of the closed five app-services. `Shell/capability` is the single permission-grant owner the host policies resolve through, feeding `Runtime/rank` a denied-storage health input; `Transport/socket` is the single bidirectional-socket owner the `WebTransport`/CRDT-push-back legs compose. `Runtime/lifecycle` is the one page-lifecycle axis the former `visibilitychange` ingresses project from; `Runtime/connectivity` is the one online/offline owner read by `Runtime/rank`, `Shell/sync`, `Config/flags`, and `Observability/telemetry`. `Config/config` is the single env boundary, `Observability/telemetry` the single instrument owner and collector path, `Session/store` the single browser-local store, and uncaught faults reconstruct as the `interchange` typed fault family. The PWA shell splits at the build edge — `Shell/build` build-time-only, `Shell/serviceworker` the SW lifecycle, `Shell/sync` the redial drain — and `Transport/decode` hosts the residency-wire decode and the single content-key mint.

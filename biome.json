@@ -12,6 +12,7 @@
             "!!**/node_modules",
             "!!**/.cache",
             "!!**/.artifacts",
+            "!!**/.claude",
             "!!**/.claude/skills/**/.cache",
             "!!**/.claude/worktrees",
             "!!**/.mypy_cache",

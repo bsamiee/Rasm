@@ -82,7 +82,7 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 - redactor root: erasing, HMAC, and null redactors with a fail-closed fallback
 
 [LOCAL_ADMISSION]:
-- The `DataClassification` axis at diagnostics-and-telemetry#REDACTION_TAXONOMY drives redactor selection through its `RedactorKind` column; `RedactionRegistration.Bind` folds each row to `SetRedactor`/`SetHmacRedactor`.
+- The `DataClassification` axis at Observability/telemetry#REDACTION_TAXONOMY drives redactor selection through its `RedactorKind` column; `RedactionRegistration.Bind` folds each row to `SetRedactor`/`SetHmacRedactor`.
 - `SetFallbackRedactor<ErasingRedactor>()` is the fail-closed default for unmapped classifications, so an unclassified value erases rather than leaks.
 - `SetHmacRedactor` carries `EXTEXP0002`; the fold registers it without a suppression because the HMAC row is a declared policy value, not an experimental opt-in at the call site.
 - HMAC redaction pseudonymizes while preserving cross-event correlation; erase destroys the value; credential and secret material never persists in any signal.

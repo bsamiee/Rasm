@@ -69,18 +69,18 @@ Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail ow
 
 ## [4][COMMANDS]
 
-Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.assay <claim> <verb> ...`); single-verb claims (`static`, `docs`) and root commands omit the verb token. Multi-verb claims (`code`, `test`, `bridge`, `package`, `api`, `provision`) are Cyclopts sub-apps. Exhaustive parameter signatures stay in source and Cyclopts help. The language axis is selected by the mutually-exclusive `--csharp`, `--python`, and `--typescript` flags; an unset selection routes every eligible language. There is no `--language` flag.
+Run nested commands as `uv run python -m tools.assay <claim> <verb> ...`; bare `assay <claim> <verb> ...` is only valid when `command -v assay` proves a local wrapper exists. Single-verb claims (`static`, `docs`) and root commands omit the verb token. Multi-verb claims (`code`, `test`, `bridge`, `package`, `api`, `provision`) are Cyclopts sub-apps. Exhaustive parameter signatures stay in source and Cyclopts help. The language axis is selected by the mutually-exclusive `--csharp`, `--python`, and `--typescript` flags; an unset selection routes every eligible language. There is no `--language` flag.
 
-| [INDEX] | [SURFACE]   | [VERBS]                                                                                       |
-| :-----: | :---------- | :-------------------------------------------------------------------------------------------- |
-|   [1]   | root        | `self-test`, `delta`                                                                          |
-|   [2]   | `static`    | _(leaf — value-driven targets, no sub-verbs)_                                                 |
-|   [3]   | `code`      | `search`, `query`                                                                             |
-|   [4]   | `test`      | `run`, `list`, `coverage`                                                                     |
-|   [5]   | `bridge`    | `build`, `verify`, `status`, `quit`                                                           |
-|   [6]   | `package`   | `publish`, `plan`, `list`                                                                     |
-|   [7]   | `api`       | `resolve`, `query`, `show`, `status`                                                          |
-|   [8]   | `docs`      | `check`                                                                                       |
+| [INDEX] | [SURFACE]   | [VERBS]                                                                                               |
+| :-----: | :---------- | :---------------------------------------------------------------------------------------------------- |
+|   [1]   | root        | `self-test`, `delta`                                                                                  |
+|   [2]   | `static`    | _(leaf — value-driven targets, no sub-verbs)_                                                         |
+|   [3]   | `code`      | `search`, `query`                                                                                     |
+|   [4]   | `test`      | `run`, `list`, `coverage`                                                                             |
+|   [5]   | `bridge`    | `build`, `verify`, `status`, `quit`                                                                   |
+|   [6]   | `package`   | `publish`, `plan`, `list`                                                                             |
+|   [7]   | `api`       | `resolve`, `query`, `show`, `status`                                                                  |
+|   [8]   | `docs`      | `check`                                                                                               |
 |   [9]   | `provision` | `up`, `down`, `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, `env`, `check`, `apply` |
 
 [ROOT_COMMANDS]:
@@ -88,7 +88,7 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - Inputs: `self-test` accepts `--rhino`; `delta` takes positional `<run_id>` and `--against <run_id>`.
 - Output: `Envelope.report`; `delta` carries `RunDelta` detail with `drift` rows `(host-fact key, before, after)` for changed cross-session host facts (`rhinoVersion`, `mcp.platform.version`, `mcp.listener`, `rpc.streamjsonrpc`) when both sides are bridge runs.
 - `self-test` runs the composition/catalog census; `--rhino` opts into bridge-aware smoke. `delta` compares retained history under `.artifacts/assay/history`; host-fact drift rows populate only when both compared runs are bridge runs, so non-bridge pairs report empty `drift`.
-- Example: `assay delta <run_id> --against <run_id>`
+- Example: `uv run python -m tools.assay delta <run_id> --against <run_id>`
 
 [STATIC_COMMANDS]:
 - Verb: `static` is a single root leaf — no `check`/`build`/`fix` split.
@@ -99,8 +99,8 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - Target binding: each flag consumes space-separated values until the next option and is repeatable. Commas are literal path characters.
 - Output: shared `Report`; `StaticRun` detail carries targets, routes, planned argv triples, skipped rows, phase order, resource projection, `sarif_status`, and artifact scopes.
 - For every language the resolved targets touch, `static` runs the full lane in fixed order — FIX (`Mode.WRITE` formatters and fixers) -> DIAGNOSTIC (`Mode.CHECK` analyzers) -> RESTORE -> BUILD. The C# FIX phase is gated on an analyzer-free compile probe (`-p:RunAnalyzers=false`, throwaway scope): a non-compiling target drops both its WRITE fix and CHECK twin, so neither rewrites unbuildable source. C# closure builds run under an exclusive build lease over restored output; RESTORE failure forces BUILD checks to SKIP. dotnet build tools pin `-p:CspSarifDir=...` and `-maxCpuCount:`; SARIF folds into the report, so the reported set matches `dotnet build`.
-- Example: `assay static --folder tools/assay tests/python --file tools/assay/rails/static.py`
-- Project example: `assay static --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
+- Example: `uv run python -m tools.assay static --folder tools/assay tests/python --file tools/assay/rails/static.py`
+- Project example: `uv run python -m tools.assay static --project tools/rhino-bridge/Supervisor/Supervisor.csproj`
 
 [CODE_COMMANDS]:
 - Verbs: `search`, `query`
@@ -109,7 +109,7 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - `search <pattern>`: a `$NAME` metavar pattern routes to ast-grep structural search; every other pattern routes to ripgrep content search.
 - `query <pattern>`: in-process tree-sitter query over grammar-backed Python and TypeScript files (`.tsx` uses the tsx grammar). Capture rows carry name, ordinal, pattern, and line; parse and query errors surface as `failed`-severity rows; match-limit saturation marks rows truncated.
 - Routing: use LSP for single declared-symbol navigation and post-edit diagnostics; `code search`/`code query` own `$NAME` metavar, predicate-filtered captures, and structural search; `api` owns external compiled-artifact decompile.
-- Example: `assay code search --pattern run_check --python tools/assay`
+- Example: `uv run python -m tools.assay code search --pattern run_check --python tools/assay`
 
 [TEST_COMMANDS]:
 - Verbs: `run`, `coverage`, `list`
@@ -119,7 +119,7 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - C# `--all` selects every solution-admitted managed test project. Host-bound C# projects surface as typed unsupported/degraded test evidence; live Rhino/GH2 proof belongs to `bridge verify`.
 - `--mutation changed` scopes via Stryker `--mutate <glob>` and mutmut module-dotted names; runners with no changed-file scope surface `unsupported`, and `--mutation` with no eligible lane notes the gap. mutmut gets a lease-riding `mutmut-gate` kill-rate floor. Per-language mutation runs hold sorted exclusive `mutation-<lang>` leases.
 - `--filter` is the MTP discriminant for dotnet RUN/LIST: leading `/` = query, `k=v` = trait, `Tests`/`Laws`/`Spec` suffix or `+` = class, else method. `--limit` caps roster rows; `--grep` substring-filters the discovered roster.
-- Example: `assay test run --csharp tests/csharp`
+- Example: `uv run python -m tools.assay test run --csharp tests/csharp`
 
 [BRIDGE_COMMANDS]:
 - Verbs: `build`, `verify`, `status`, `quit` — all arity 0 except `verify`, all serialized through the process-global `bridge` exclusive lease (the live Rhino host is a per-machine singleton).
@@ -128,14 +128,14 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - `build` compiles supervisor, shell, stub, cargo, contract, and typed scenario closures sequentially (RESTORE/build gated, first-error short-circuit) and folds `bridge.firstDiagnostic` plus SARIF artifacts. `verify` builds the closures, aggregates `bridge-closure.assay.json`, then runs typed scenarios under the live host lease; it first expires report dirs older than 300s (`_VERIFY_TTL_S`). `status` probes bridge host health; `quit` terminates the host under the lease.
 - `verify` pattern selection: empty / `all` / `*` = every corpus; comma-separated theme tokens; scenario names; or glob/path tokens against the scenario corpora. No match = `unsupported` fault. Scenario timeout is 600s.
 - `verify` and `status` carry `detail.freshness` (`fresh` / `stale` / `absent` / `unknown`): the installed Yak plugin against the shell source. It is decoupled data, never a rail fault — a stale install still passes (the supervisor tolerates it and scenarios load fresh cargo), so a gated pipeline reads `detail.freshness` to decide escalation. A non-`fresh` state also rides a remediation note.
-- Example: `assay bridge verify tests/csharp/libs/Rasm.Rhino`
+- Example: `uv run python -m tools.assay bridge verify tests/csharp/libs/Rasm.Rhino`
 
 [PACKAGE_COMMANDS]:
 - Verbs: `publish`, `plan`, `list`
 - Inputs: `--slug <s>`, `--version <v>` (both flags, no positionals). `publish` requires both non-empty (an empty slug identifies a non-yak project; an empty version reaches the staged build as `-p:Version=` and breaks `GetAssemblyVersion` with MSB4044, so both reject at the boundary). `plan` requires `--slug` and is version-agnostic; `list` is slug-agnostic.
 - Output: `PackageRun` detail (stage/package dir, project, pattern, version, dirs, platform, push source).
 - `publish` runs the full yak pipeline under an exclusive `package-<slug>` lease: evaluate and validate MSBuild yak metadata, build with `-p:Version=<version>`, stage (host assemblies excluded), `yak build`, atomic same-filesystem commit, then policy-driven post-stage steps — non-bridge slug = INSTALL+PUSH; the `rasm-bridge` slug = QUIT, INSTALL, REFRESH, PUSH under the `bridge` lease. `plan` evaluates and validates yak metadata only with no staging. `list` rosters every package project as `Match` rows `id=slug, text=project`.
-- Example: `assay package plan --slug <yak-slug> --version <version>`
+- Example: `uv run python -m tools.assay package plan --slug <yak-slug> --version <version>`
 
 [API_COMMANDS]:
 - Verbs: `resolve`, `query`, `show`, `status`
@@ -145,23 +145,23 @@ Run nested commands as `assay <claim> <verb> ...` (or `uv run python -m tools.as
 - `query <symbol>` dispatches on symbol shape (index roster, namespace roster, or `ilspycmd -t <fqn>` type/member decompile) and windows output to `--max-lines` unless `--full`. `resolve <key> [kind]` resolves a key to asset paths; `--kind` in `{all, assembly, xml, nuspec, deps, package-root}` (unknown = `unsupported`). `show <token>` previews a written artifact (`latest` selects newest), sliceable by `--lines`/`--grep`/`--max-lines`/`--full`. `status` inventories source health, narrowable by `--sources`; `--strict` faults when required core sources (`rhino-app`, `ilspycmd`, host specs) are absent.
 - `query` results are content-fingerprint cached and self-invalidating: a truncated or corrupt cache fails `_cache_valid` and rebuilds, so a no-match reflects the current artifact rather than a stale hit.
 - Row text: each `status` inventory `Match.text` is the fixed-order, single-space health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->`. Envelope rows compact to ASSEMBLY, NuGet, and TOOL source kinds plus the `python-dists` and `ts-decls` summary rows; per-distribution PYDIST and TSDECL rows never ride the envelope and read from the full `status-inventory.json` artifact instead.
-- Example: `assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
+- Example: `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
 
 [DOCS_COMMANDS]:
 - Verb: `check`
 - Inputs: `[paths...]`, `--strict` (promotes EMPTY/SKIP to a `FaultedPromotion`; real defects keep their status).
 - Output: shared `Report` with one `mmdc <file>: ok|failed` PROCESS `Match` per routed file and `Artifact` rows for the produced `<stem>.md` and `<stem>-<n>.svg` under the per-run scope.
 - `check` validates Mermaid diagrams across routed Markdown files through `mmdc`, one invocation per file as `-i <file> -a <scope_dir> -o <scope_dir>/<stem>.md`. The sink stem is the full relative path joined by `__`, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
-- Example: `assay docs tools/assay/README.md`
+- Example: `uv run python -m tools.assay docs tools/assay/README.md`
 
 [PROVISION_COMMANDS]:
 - Verbs: `up`, `down`, `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, `env`, `check`, `apply` — all arity 0, delegating to the Forge-owned `forge-provision` CLI.
 - Inputs: none.
 - Output: shared `Report` with `ProvisionRun` detail from Forge schema-v3 JSON. The rail validates explicit `schemaVersion`, command match, boolean `ok`, structured `error` on `ok:false`, sensitive-key/value absence, and absolute-local-path absence before projection; `ok:false` is a completed failed `ProvisionRun`, while missing JSON, malformed JSON, schema mismatch, command mismatch, timeout, spawn failure, and redaction breach are Assay faults. Provisioning raw stdout/stderr artifacts are not persisted.
-- Evidence fields: `warnings`, `local_service_topology`, `service_roles`, `port_policy`, `provision_scope`, `resource_counts`, `doctor`, `extension_catalog`, `extension_metadata`, `extension_requirements`, `extensions`, and `local_probe_values`. `provision_scope` carries `rootKey`, `projectKey`, and `instance`. `extensions` returns catalog rows with `riskClass`, `sourcePackage`, `preloadRequired`, and `createPolicy`; additive metadata projects sanitized scalar provenance and policy fields such as `sourceRoute`, `nixStatus`, `probeKind`, `capabilityRank`, `externalAccess`, `restartClass`, `serviceProfile`, and `loadPolicy`. `extension_requirements` preserves safety flags for rows that require superuser, shared preload, file access, network access, or background workers. `check` returns observed extension states without creation; `apply` is the explicit mutating extension-creation verb.
-- `up` starts the enabled Forge services (`forge-provision --json up`, 300s) and lets Forge run its internal apply path. `down` stops owned services and preserves volumes. `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, and `env` consume sanitized Forge JSON; Assay `plan` is a safe plan projection, not raw Compose YAML. `doctor` projects safe Docker policy, endpoint kind, Compose/server versions, credential-helper presence, lock state, Colima state, and listener-probe method. `check` runs `forge-provision --json check` (180s) plus local `duckdb --version`, `forge-scientific-env` Python ABI, OpenBLAS, and ONNX Runtime presence probes. Successful local probe values pass the same sensitive-value rejection used for Forge JSON before they enter `ProvisionRun`; failed probe streams are reduced to bounded probe names. The ONNX Runtime probe reports `forge-onnxruntime-lib` as presence plus version/fingerprint or library basename only; it never emits `ONNXRUNTIME_LIB` or an absolute Nix/store path.
+- Evidence fields: `warnings`, `local_service_topology`, `service_roles`, `port_policy`, `provision_scope`, `resource_counts`, `doctor`, `extension_catalog`, `extension_metadata`, `extension_requirements`, `extensions`, `tool_surfaces`, `tool_summary`, `plan_summary`, and `local_probe_values`. `provision_scope` carries `rootKey`, `projectKey`, `instance`, and `composeProject`. `extensions` returns catalog rows with `riskClass`, `sourcePackage`, `preloadRequired`, and `createPolicy`; additive metadata projects sanitized scalar provenance and policy fields such as `sourceRoute`, `nixStatus`, `probeKind`, `capabilityRank`, `externalAccess`, `restartClass`, `serviceProfile`, and `loadPolicy`. `extension_requirements` preserves safety flags for rows that require superuser, shared preload, file access, network access, or background workers. `check` returns observed extension states without creation; `apply` is the explicit mutating extension-creation verb.
+- `up` starts the enabled Forge services (`forge-provision --json up`, 300s) and lets Forge run its internal apply path. `down` stops owned services and preserves volumes. `status`, `doctor`, `ports`, `inventory`, `extensions`, `plan`, and `env` consume sanitized Forge JSON; Assay `plan` is a safe plan projection, not raw Compose YAML. `doctor` projects safe Docker policy, endpoint kind, Compose/server versions, credential-helper presence, lock state, Colima state, and listener-probe method. `check` runs `forge-provision --json check` and `forge-provision --json tools` (180s) plus local `forge-scientific-env` Python ABI, OpenBLAS, and ONNX Runtime presence probes. Successful local probe values pass the same sensitive-value rejection used for Forge JSON before they enter `ProvisionRun`; failed probe streams are reduced to bounded probe names. The ONNX Runtime probe reports `forge-onnxruntime-lib` as presence plus version/fingerprint or library basename only; it never emits `ONNXRUNTIME_LIB` or an absolute Nix/store path.
 - Boundary: Docker/Compose generation, image choice, credential material, port policy, native exports, direct database shells, pruning, diagnostic JSON, and Forge self-tests stay in Parametric_Forge. Rasm owns this envelope surface and the manifest markers, lockfiles, `.api` catalogues, and evidence that consume it.
-- Example: `assay provision check`
+- Example: `uv run python -m tools.assay provision check`
 
 ## [5][OUTPUT_CONTRACT]
 
@@ -234,7 +234,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 [PROVISIONING]:
 - Enables: tier-2 server and native runtime closure proofs through sanitized Assay evidence projected from the Forge-owned `forge-provision` and `forge-scientific-env` executables.
 - Requires: `forge-provision` and `forge-scientific-env` on `PATH`; Parametric_Forge owns both executables and their version, so assay pins no version and a missing executable surfaces as a process fault rather than an assay defect.
-- Surface: `provision up|down|status|doctor|ports|inventory|extensions|plan|env|check|apply` is the Rasm campaign command surface. Forge-only debugging commands such as `paths`, `self-test`, `prune`, and `psql <service>` are intentionally absent from Assay.
+- Surface: `uv run python -m tools.assay provision up|down|status|doctor|ports|inventory|extensions|plan|env|check|apply` is the Rasm campaign command surface; bare `assay provision ...` is not the contract unless `command -v assay` proves a repo-local wrapper. Forge-only debugging commands such as `paths`, `self-test`, `prune`, and `psql <service>` are intentionally absent from Assay.
 - Security: Forge defaults to hidden automatic root credentials; agents do not need passwords. Assay-safe JSON carries redacted DSN metadata and safe topology facts, never raw passwords, password-bearing DSNs, raw logs, raw Compose, Docker config paths, mountpoints, token values, `ONNXRUNTIME_LIB`, absolute Nix/store paths, or absolute provisioning paths.
 - Runtime evidence: `status` and `doctor` expose service health, Docker/locality policy, resource counts, stale state, safe runtime facts, and probe facts; `ports` exposes the resolved port policy without making port numbers root doctrine; `env` exposes connectability and variable names with redacted DSN templates; `inventory` exposes owned-resource counts and cleanup state.
 - Failure: Docker-unavailable, invalid-root, port-bound, extension-missing, and probe-failed states can return Forge `ok:false` and become failed `ProvisionRun` detail. Missing/malformed JSON, schema drift, command drift, timeout, spawn failure, and sensitive payloads are adapter faults because the evidence contract itself failed.

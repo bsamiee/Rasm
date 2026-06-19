@@ -4,7 +4,7 @@ External-API and structural-parsing evidence. `ApiPackage`/`ApiMember` record di
 
 ## [1]-[INDEX]
 
-One cluster: `[2]-[API]` — API records, structural-parsing spans, and the cross-language drift detector.
+- [1]-[API]: API records, structural-parsing spans, and the cross-language drift detector.
 
 ## [2]-[API]
 
@@ -55,11 +55,7 @@ class Structural:
     def query(language: Language, source: bytes, pattern: str) -> tuple[tuple[str, int, int], ...]:
         tree = Parser(language).parse(source)
         captures = QueryCursor(Query(language, pattern)).captures(tree.root_node)
-        return tuple(
-            (name, node.start_byte, node.end_byte)
-            for name, nodes in captures.items()
-            for node in nodes
-        )
+        return tuple((name, node.start_byte, node.end_byte) for name, nodes in captures.items() for node in nodes)
 
     @staticmethod
     def drift(corpora: tuple[tuple[str, Language, bytes, str], ...], canonical: frozenset[str]) -> tuple[DriftSpan, ...]:

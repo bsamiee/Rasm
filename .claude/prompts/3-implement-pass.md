@@ -22,7 +22,7 @@ Note: `docs/stacks/<lang>/` for the tier's language is the governing code doctri
 - The branch and folder targets named by the session, each target's own `<pkg>/.api/` catalogues, and the admitted packages themselves.
 - These MUST be utilized and understood whenever working on design docs, idea or task creation, we treat external libs/packages as FIRST CLASS and PREFERRED over stdlib.
 
-[LIVE_PROVE]
+[LIVE_PROOF]
 - If a task or idea requires live probing, launch Rhino WIP (not rhino 8) locally on machine to run it, it is available, between assay, rhino-bridge, and our rhino-mcp skill there is nothing we can properly diagnose/extract/identify/understand regarding rhino behavior for any functionality need.
 - We have: `tools/rhino-bridge/README.md` available as well, and pairs with `tools/assay`
 - We have: `.claude/skills/rhino-mcp` as well if needed
@@ -46,9 +46,7 @@ Idea ambition increases as topology level increases, with lib-wide being the lar
 - SOME ideas and tasks within folders are to add a new folder or file, both of these are ambitious and large line items, and must be afforded extremely high care, and detail; ensuring that we are aware that the line item is an outline not full scope, and it is PARAMOUNT that we fully conceptualize a new folder or file fully, a folder rarely should have 1 file for "completion" and both must be world-class and 11/10 in rating from the start; existing design-docs should be considered the FLOOR and to be exceeded, and new functionality must be made to integrate properly within the folder. This requires us to do GROUND-UP/ROOT-UP REFACTORING OF ALL DESIGN DOCS, SO THAT NEW FUNCTIONALITY IS MADE AS IF IT WAS CREATED FROM THE START (WITHIN DESIGN-DOCS, NOT CODE FILES), THIS IS WHY WE ARE DOING SO MUCH PRE-PLANNING, TO OBSESSIVELY REFINE/IMPROVE DESIGN DOCS, AND CODE, TO COLLAPSE SURFACE, INCREASE PARAMETERIZATION, FUNCTIONALITY, FEATURES, CAPABILITIES, AND UNFIY THEM TO MINIMAL OBJECT/SHAPE/TYPE SURFACE, AND UNIFIED RAILS, PIPELINES, LOGIC FLOWS, WITH INSANE LEVELS OF DETAIL PAID TO EACH LINE OF CODE WITHIN FENCES.
 
 [BLOCKED_ITEMS]:
-- ANYTHING MARKED [BLOCKED] will be investigated/researched NOW, for py related blockers, read pyproject.toml + our `tools/assay/README.md` UNDERSTAND that we have a full provisioning tool to confirm/check things, during plan mode especially. Our Parametric_Forge project also provides py substrates for us on packages that we couldn't add due to our hard requirement of being on py 315, though we can version floor other tools as needed, READ:
-- `/Users/bardiasamiee/Documents/99.Github/Parametric_Forge/modules/home/programs/languages/python-tools.nix`
-- `/Users/bardiasamiee/Documents/99.Github/Parametric_Forge/modules/home/programs/languages/scientific-tools.nix`
+- ANYTHING MARKED [BLOCKED] will be investigated/researched NOW. For Python, native, scientific, database, or provisioning blockers, read `pyproject.toml` and `tools/assay/README.md`, then use `uv run python -m tools.assay provision check` to collect sanitized Rasm evidence before inspecting Forge owner files. Direct `forge-provision` or Parametric_Forge source inspection is for Forge-level debugging, not the normal Rasm campaign entry.
 
 ## [METHOD_AND_STANDARDS]
 

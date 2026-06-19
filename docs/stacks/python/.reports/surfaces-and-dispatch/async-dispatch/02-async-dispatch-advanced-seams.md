@@ -20,10 +20,12 @@ Sources: anyio 4.13.0 `.venv/lib/python3.15/site-packages/anyio/` + stamina 26.1
 send, recv = anyio.create_memory_object_stream[Result[T, E]](0)
 results: dict[int, Result[T, E]] = {}
 
+
 async def collector() -> None:
     async with recv:
         async for i, item in enumerate_stream(recv):  # see note below
             results[i] = item
+
 
 async with anyio.create_task_group() as tg:
     tg.start_soon(collector)
@@ -50,8 +52,10 @@ Note: `MemoryObjectReceiveStream` is an `AsyncIterable[T]` — iterate via `asyn
 ```python
 results: list[Result[T, E] | None] = [None] * len(arms)
 
+
 async def arm_task(idx: int, arm: Arm) -> None:
     results[idx] = await arm.execute()
+
 
 async with anyio.create_task_group() as tg:
     for idx, arm in enumerate(arms):

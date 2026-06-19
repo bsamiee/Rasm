@@ -78,13 +78,7 @@ type AdmitFault = Literal["<nan>", "<inf>"]
 
 def admitted(a: np.ndarray, /) -> Result[np.ndarray, AdmitFault]:
     flat = np.ascontiguousarray(a, dtype=np.float64).reshape(-1)
-    return (
-        Ok(a)
-        if np.isfinite(flat).all()
-        else Error("<nan>")
-        if np.isnan(flat).any()
-        else Error("<inf>")
-    )
+    return Ok(a) if np.isfinite(flat).all() else Error("<nan>") if np.isnan(flat).any() else Error("<inf>")
 ```
 
 [SYMMETRY_FORCING]:
@@ -129,9 +123,7 @@ def refined(a: np.ndarray, b: np.ndarray, x: np.ndarray, tol: float, cap: int, /
 
     seed = (x, float(np.linalg.norm(b - a @ x, np.inf)) / b_norm)
     refined_x = next(
-        (cursor for cursor, _ in (
-            (step(x, i), 0) for i in range(cap)
-        ) if float(np.linalg.norm(b - a @ cursor, np.inf)) / b_norm <= tol),
+        (cursor for cursor, _ in ((step(x, i), 0) for i in range(cap)) if float(np.linalg.norm(b - a @ cursor, np.inf)) / b_norm <= tol),
         step(x, cap - 1),
     )
     residual = float(np.linalg.norm(b - a @ refined_x, np.inf)) / b_norm
@@ -161,13 +153,7 @@ type WitnessFault = Literal["<non-finite-residual>", "<residual-exceeded>"]
 
 def witnessed(a: np.ndarray, x: np.ndarray, b: np.ndarray, cap: float, /) -> Result[np.ndarray, WitnessFault]:
     residual = float(np.linalg.norm(b - a @ x)) / max(float(np.linalg.norm(b)), np.finfo(np.float64).tiny)
-    return (
-        Error("<non-finite-residual>")
-        if not np.isfinite(residual)
-        else Ok(x)
-        if residual <= cap
-        else Error("<residual-exceeded>")
-    )
+    return Error("<non-finite-residual>") if not np.isfinite(residual) else Ok(x) if residual <= cap else Error("<residual-exceeded>")
 ```
 
 ## [5]-[SYMBOLIC_UNITS_UNCERTAINTY]

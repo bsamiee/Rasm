@@ -99,9 +99,7 @@ class Shape:
     @disjoint_base
     class _Seal: ...
 
-
     class RefinedShape(_Seal): ...
-
 
     @final
     class OtherShape(_Seal): ...
@@ -115,11 +113,7 @@ def is_refined(value: Member) -> TypeIs[Shape.RefinedShape]:
 
 
 def projected(value: Member) -> Member:
-    return (
-        assert_type(value, Shape.RefinedShape)
-        if is_refined(value)
-        else assert_type(value, Shape.OtherShape)
-    )
+    return assert_type(value, Shape.RefinedShape) if is_refined(value) else assert_type(value, Shape.OtherShape)
 ```
 
 Tagged generic owner: use when one parameterized model owns the family and literal state proves the narrower member.
@@ -147,11 +141,7 @@ def is_refined(value: Member) -> TypeIs[Shape[RefinedTag]]:
 
 
 def projected(value: Member) -> Member:
-    return (
-        assert_type(value, Shape[RefinedTag])
-        if is_refined(value)
-        else assert_type(value, Shape[OtherTag])
-    )
+    return assert_type(value, Shape[RefinedTag]) if is_refined(value) else assert_type(value, Shape[OtherTag])
 ```
 
 [TYPED_DICT_PAYLOAD_SITE]:
@@ -179,9 +169,7 @@ class Row(TypedDict, total=False, closed=True):
 
 def selected(**row: Unpack[Row]) -> str:
     key = row["key"]
-    return Option.of_optional(row.get("field")).map(
-        lambda field: f"<result-a>:{key}:{field}"
-    ).default_with(lambda: f"<result-b>:{key}")
+    return Option.of_optional(row.get("field")).map(lambda field: f"<result-a>:{key}:{field}").default_with(lambda: f"<result-b>:{key}")
 
 
 SELECTED_RESULT = selected(key="<key-a>", field=Field.KEY)
@@ -222,13 +210,7 @@ type TemplateParts = tuple[tuple[str, ...], tuple[InterpolationParts, ...]]
 
 
 def selected(template: Template) -> TemplateParts:
-    return (
-        template.strings,
-        tuple(
-            (field.value, field.expression, field.conversion, field.format_spec)
-            for field in template.interpolations
-        ),
-    )
+    return (template.strings, tuple((field.value, field.expression, field.conversion, field.format_spec) for field in template.interpolations))
 
 
 VALUE = "<value-a>"

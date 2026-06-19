@@ -83,6 +83,6 @@
 [IMPLEMENTATION_LAW]: AppHost usage
 - rail: live-wire
 
-- the live-wire `serial` transport row binds `SerialPort` behind the one `TransportRow.Read`/`Write` adapter; the serial leg attaches through the `companion#CONTROL_SERVICE` spawn-attach where the device lives behind a companion process, or binds the port directly where the host owns the line.
+- the live-wire `serial` transport row binds `SerialPort` behind the one `TransportRow.Read`/`Write` adapter; the serial leg attaches through the `Wire/companion#CONTROL_SERVICE` spawn-attach where the device lives behind a companion process, or binds the port directly where the host owns the line.
 - a line grammar (NMEA/ASCII/binary frame) is binding-spec policy data, never a serial-specific poller; the per-row retry is the `OutboundHop` redial, never a serial reconnect loop.
 - the `ModbusRtuClient` (`api-modbus.md`) rides this same serial line for Modbus-RTU, so the serial owner carries both the raw-line and the RTU-carrier role with no second serial surface.
