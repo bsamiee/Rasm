@@ -2,21 +2,21 @@
 
 Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → receipt written once; a per-module pipeline re-deriving the chain is the rejected form. MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every result leaves as a domain receipt carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal surviving preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. A hand-rolled kernel is admitted only after a benchmark defeats both libraries. In-place numeric kernels — library in-place solve and multiply overloads writing into pre-sized scratch, and per-evaluation counters inside guarded integrands — are this page's named statement exemption.
 
-## [1]-[ROUTE_SPINE]
+## [01]-[ROUTE_SPINE]
 
 The operand shape selects the route before any solve; the most specific shape wins, and the table is the lifecycle's one route step.
 
 | [INDEX] | [OPERAND_SHAPE]                        | [OWNING_ROUTE]                        | [CONDITIONING_FALLBACK]                |
 | :-----: | :------------------------------------- | :------------------------------------ | :------------------------------------- |
-|   [1]   | dense symmetric positive-definite      | `Cholesky()`                          | `ε·I` shift, then `Evd`                |
-|   [2]   | dense square general                   | `LU()`                                | rank-revealing `Svd(true)`             |
-|   [3]   | dense overdetermined                   | thin `QR()`                           | `Svd(true)` truncated pseudo-inverse   |
-|   [4]   | tiny system below sparse crossover     | dense factorization-as-probe          | managed path beats provider switch     |
-|   [5]   | symmetric or Hermitian spectrum        | `Evd(Symmetricity.Symmetric)`         | congruence-reduced generalized `Evd`   |
-|   [6]   | nonsymmetric spectrum                  | `Evd(Symmetricity.Unknown)`           | block residual witness, no resort      |
-|   [7]   | rank, norm, or condition evidence only | retained `Svd(false)` handle          | one handle answers all three           |
-|   [8]   | sparse SPD, fixed pattern              | `SparseCholesky` + `AMD`              | rank-1 downdate fails → reconstruct    |
-|   [9]   | sparse symmetric indefinite            | `SparseLDL`                           | `BiCgStab` while structure unproven    |
+|  [01]   | dense symmetric positive-definite      | `Cholesky()`                          | `ε·I` shift, then `Evd`                |
+|  [02]   | dense square general                   | `LU()`                                | rank-revealing `Svd(true)`             |
+|  [03]   | dense overdetermined                   | thin `QR()`                           | `Svd(true)` truncated pseudo-inverse   |
+|  [04]   | tiny system below sparse crossover     | dense factorization-as-probe          | managed path beats provider switch     |
+|  [05]   | symmetric or Hermitian spectrum        | `Evd(Symmetricity.Symmetric)`         | congruence-reduced generalized `Evd`   |
+|  [06]   | nonsymmetric spectrum                  | `Evd(Symmetricity.Unknown)`           | block residual witness, no resort      |
+|  [07]   | rank, norm, or condition evidence only | retained `Svd(false)` handle          | one handle answers all three           |
+|  [08]   | sparse SPD, fixed pattern              | `SparseCholesky` + `AMD`              | rank-1 downdate fails → reconstruct    |
+|  [09]   | sparse symmetric indefinite            | `SparseLDL`                           | `BiCgStab` while structure unproven    |
 |  [10]   | sparse nonsymmetric or uncertain       | `SparseLU` (column-relative `tol`)    | iterative solve + witness gate         |
 |  [11]   | sparse rectangular least-squares       | `SparseQR`                            | augmented-dimension solution sizing    |
 |  [12]   | huge sparse or changing pattern        | `TrySolveIterative` + criterion stack | verdict-routed direct solve            |
@@ -55,7 +55,7 @@ public static class DenseRoute
 }
 ```
 
-## [2]-[ADMISSION_GATES]
+## [02]-[ADMISSION_GATES]
 
 [FINITE_ADMISSION]:
 - Law: gate every operand on one all-finite predicate over the flat column-major `Values` span before factoring, with NaN-any and Inf-any early-exit variants when the typed rejection must name its cause.
@@ -90,7 +90,7 @@ public static class Admission
 - Law: check the factor buffers all-finite after a `QR` construction; a near-zero column norm divides through and fills `Q`/`R` with `NaN` while `IsFullRank` still returns `true`, the throw firing only at a bit-exact-zero norm.
 - Use: thin Householder `QR` over single-pass Gram-Schmidt in near-dependent columns; the probe `qr.R.Diagonal().Any(v => Math.Abs(v) < floor)` lazily materializes `R`.
 
-## [3]-[DENSE_FACTOR_LAW]
+## [03]-[DENSE_FACTOR_LAW]
 
 [RANK_AND_TOLERANCE]:
 - Law: derive every threshold from operator and right-hand-side scale (`σ_max`, `‖A‖_F`, `‖b‖∞`) and travel it as one named policy record on the receipt.
@@ -137,7 +137,7 @@ public static class HeldRefinement
 - Reject: a raw-array weight; it has no fast path and forfeits the structural route.
 - Law: select the damped normal form and the augmented `√λ`-stacked form as two cases of one route on a conditioning-budget field; the Gram-plus-ridge form squares `κ` through the densifying transpose-multiply, and the stacked-identity thin `QR` avoids the squaring when condition exceeds the inverse cap.
 
-## [4]-[SPARSE_DIRECT_LAW]
+## [04]-[SPARSE_DIRECT_LAW]
 
 [CSC_OWNER]:
 - Law: own one `CompressedColumnStorage<T>`; convert triplet exactly once and derive the row orientation by one `Transpose` at construction, never reconverting among the three formats at runtime.
@@ -229,7 +229,7 @@ public static class StructuralEdit
 }
 ```
 
-## [5]-[ITERATIVE_AND_WITNESS]
+## [05]-[ITERATIVE_AND_WITNESS]
 
 [CRITERION_PRECEDENCE]:
 - Law: construct the criterion stack explicitly in order `FailureStopCriterion`, `DivergenceStopCriterion`, `ResidualStopCriterion`, `IterationCountStopCriterion`, since insertion order is precedence; `Failure` first keeps `NaN` terminal and `Residual` before the count cap suppresses convergence on the final iteration.
@@ -287,7 +287,7 @@ public static class Conditioned
 }
 ```
 
-## [6]-[SPECTRAL_LAW]
+## [06]-[SPECTRAL_LAW]
 
 [SYMMETRY_CONTRACT]:
 - Law: carry a result `[Union]` with distinct dense-symmetric and dense-general cases; the `Symmetricity` flag selects five output axes together — eigenvector norm, real versus block-diagonal `D`, single-column versus column-pair encoding, ascending versus Schur-deflation order, and a working versus norm-gated solve.
@@ -328,7 +328,7 @@ public static class SchurDecode
 - Boundary: pin the managed provider once before first provider touch and treat provider identity as a result discriminant; the slot is process-static with no per-call override.
 - Boundary: only `DenseMatrix` reaches the native `EigenDecomp`, the managed `Evd` kernels are serial regardless of degree, and sign, ordering, and last bits differ across the seam.
 
-## [7]-[RECEIPT_LAW]
+## [07]-[RECEIPT_LAW]
 
 [PROVENANCE_SNAPSHOT]:
 - Law: snapshot the provider `ToString` tag, parallelism degree, and the two parallelization thresholds at solve construction; every kernel reads this ambient static at execution instant.
@@ -382,7 +382,7 @@ public static class Terminal
 }
 ```
 
-## [8]-[OWNED_BUILDS]
+## [08]-[OWNED_BUILDS]
 
 [QUADRATURE]:
 - Law: choose the quadrature route as the accuracy decision, order secondary; double-exponential, fixed Gauss-Legendre, adaptive Gauss-Kronrod, and tensor-product cubature are four distinct kernels, not wrappers.

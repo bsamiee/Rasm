@@ -4,7 +4,7 @@ The domain map of `Rasm.AppUi` — the APP-PLATFORM Avalonia product UI engine. 
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.AppUi/
@@ -45,7 +45,7 @@ Rasm.AppUi/
 
 `Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, dialog, input, and accessibility pages ride the same spine. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `viewport`, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and the planned `shading` and `immersive` pages deepen it without minting a parallel scene model. `Charts` and `Editing` project over the same receipt spine; `Editing/issues` composes the viewport, notebook, and chart owners over the `Rasm.Bim` BCF topic contract, and `Editing/tour` rides the animation playhead.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Shell/commands    →  typescript:interchange/transport            # [WIRE]: CommandPayloadWire + AvailabilityStore gate

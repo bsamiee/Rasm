@@ -2,14 +2,14 @@
 
 Rasm.AppUi sources every icon and bundled asset through one nameof-derived `AssetKey` vocabulary: five `IconSource` cases materialize into one image product through a rank-column fallback walk, the SVG pipeline retains documents, scene graphs, and animation invalidation, raster rows own async loading with cache and DPI-variant policy, and the avares admission table mints identity receipts. The page owns the icon axis, the SVG pipeline, the raster rows, and the asset catalogue over FluentIcons.Avalonia, Svg.Controls.Skia.Avalonia, AsyncImageLoader.Avalonia, SkiaSharp, Thinktecture-generated vocabulary, and LanguageExt rails.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ICON_AXIS]: Five-case icon union, rank-column fallback walk, one materialize dispatch.
-- [2]-[SVG_PIPELINE]: Retained SVG documents, scene graph, animation invalidation, hit testing.
-- [3]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
-- [4]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
+- [01]-[ICON_AXIS]: Five-case icon union, rank-column fallback walk, one materialize dispatch.
+- [02]-[SVG_PIPELINE]: Retained SVG documents, scene graph, animation invalidation, hit testing.
+- [03]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
+- [04]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
 
-## [2]-[ICON_AXIS]
+## [02]-[ICON_AXIS]
 
 - Owner: `IconSource` — one `[Union]` icon-sourcing axis; `IconSurface` owns the rank-walk resolution fold and the one materialize dispatch; `IconRow` is the resolution-table row carrying the rank column.
 - Cases: FluentSymbol | SvgDocument | PathGeometry | ProviderGenerated | HostBitmap in canonical fallback order; `AssetFault` = Text | UnknownKey | SizeOffAxis | MaterializeRejected in the 4120 code band; 16, 20, 24, 32 are the closed size axis.
@@ -106,7 +106,7 @@ flowchart LR
     Raster --> IImage
 ```
 
-## [3]-[SVG_PIPELINE]
+## [03]-[SVG_PIPELINE]
 
 - Owner: `SvgPipeline` — retained SVG document admission, scene-graph access, animation control and invalidation, hit testing, and tinted image projection.
 - Cases: `ScenePolicy` carrier values — `PictureOnly` for icons and illustrations, `RetainedScene` for hit-testable documents, `Animated` for time-driven documents — selecting whether `TryEnsureRetainedSceneGraph` runs at admission and whether the animation controller binds.
@@ -165,7 +165,7 @@ public static class SvgPipeline {
 }
 ```
 
-## [4]-[RASTER_ASSETS]
+## [04]-[RASTER_ASSETS]
 
 - Owner: `RasterAssets` — async raster loader rows, cache scope, and DPI-variant selection; `RasterRow` is the policy record carrying placeholder and error fallback keys.
 - Entry: `public static IAsyncImageLoader Loader(ProfileRoots roots)` — the disk-cached loader rooted under the resolved app root.
@@ -197,7 +197,7 @@ public static class RasterAssets {
 }
 ```
 
-## [5]-[ASSET_CATALOG]
+## [05]-[ASSET_CATALOG]
 
 - Owner: `AssetCatalog` — the avares admission table; `AssetKey` is the one nameof-derived key vocabulary shared by command, screen, and chart rows; `AssetKind` is the kind axis.
 - Cases: `AssetKind` = vector | raster | geo.

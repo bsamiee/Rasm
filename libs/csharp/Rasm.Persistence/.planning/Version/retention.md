@@ -2,14 +2,14 @@
 
 Rasm.Persistence enforces the AppHost data-classification taxonomy at every store write and export, owns the `RetentionPolicy` axis with its receipted sweep fold, assembles the store's support-bundle contribution with hash-proved export receipts, and binds classification rows to server-side audit categories. Owned axes: the `ArtifactClassRow` registry, the four-row `RetentionPolicy` vocabulary, the `StoreEvidence` contribution rows, and the `AuditBinding` category table. `DataClassification`, `RedactorKind`, `SupportContributorPort`, `ScheduleEntry`, `LeasePolicy`, `DeadlineClass`, and `ClockPolicy` arrive settled and compose as given — the concern lands as enforcement columns, sweep rows, and receipts, never a parallel taxonomy, a redactor table, or a second scheduler.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CLASSIFICATION_ENFORCEMENT]: artifact-class registry, write-guard admission, and unpersistable classes.
-- [2]-[RETENTION_SWEEPS]: policy axis, hold-first sweep fold, object-store GC, and schedule rows.
-- [3]-[EXPORT_PROOF]: support contribution rows, redacted assembly, and hash-proved export proof.
-- [4]-[AUDIT_BINDING]: classification-to-pgaudit category table, per-tenant binding, and verification.
+- [01]-[CLASSIFICATION_ENFORCEMENT]: artifact-class registry, write-guard admission, and unpersistable classes.
+- [02]-[RETENTION_SWEEPS]: policy axis, hold-first sweep fold, object-store GC, and schedule rows.
+- [03]-[EXPORT_PROOF]: support contribution rows, redacted assembly, and hash-proved export proof.
+- [04]-[AUDIT_BINDING]: classification-to-pgaudit category table, per-tenant binding, and verification.
 
-## [2]-[CLASSIFICATION_ENFORCEMENT]
+## [02]-[CLASSIFICATION_ENFORCEMENT]
 
 - Owner: `ArtifactClassRow` registry inside `ArtifactClasses`; `ClassificationGuard` admission surface.
 - Cases: 7 registry rows over 5 persistable classification values; Credential and Secret are unpersistable.
@@ -57,7 +57,7 @@ public static class ClassificationGuard {
 }
 ```
 
-## [3]-[RETENTION_SWEEPS]
+## [03]-[RETENTION_SWEEPS]
 
 - Owner: `RetentionPolicy` `[SmartEnum<string>]` under the `RetentionKeyPolicy` ordinal accessor; `RetentionSweep` fold; `ClosureGc` reachability-sweep fold; `ArtifactFacts` survey row; `SweepReceipt`; `ClosureGcReceipt`.
 - Cases: 4 policy rows — age-bound, count-bound, size-bound, legal-hold.
@@ -164,10 +164,10 @@ public static class ClosureGc {
 
 | [INDEX] | [POLICY]      | [VALUE]                               | [BINDING]                                                 |
 | :-----: | :------------ | :------------------------------------ | :-------------------------------------------------------- |
-|   [1]   | sweep cadence | config-sourced cron, `@daily` default | `SweepEntry` schedule row under `LeasePolicy.Maintenance` |
-|   [2]   | drain sweep   | one fold invocation before close      | band-300 store drain order                                |
+|  [01]   | sweep cadence | config-sourced cron, `@daily` default | `SweepEntry` schedule row under `LeasePolicy.Maintenance` |
+|  [02]   | drain sweep   | one fold invocation before close      | band-300 store drain order                                |
 
-## [4]-[EXPORT_PROOF]
+## [04]-[EXPORT_PROOF]
 
 - Owner: `StoreEvidence` contribution rows; `ExportProof` receipt.
 - Cases: 7 artifact rows — store-metadata, open-receipts, schema-history, pragma-snapshot, fault-receipts, sweep-receipts, export-proofs.
@@ -215,7 +215,7 @@ public static class StoreEvidence {
 }
 ```
 
-## [5]-[AUDIT_BINDING]
+## [05]-[AUDIT_BINDING]
 
 - Owner: `AuditBinding` category table with the per-tenant audit-binding projection.
 - Cases: 5 binding rows over the persistable classification values in escalating rank order.
@@ -243,7 +243,7 @@ public static class AuditBinding {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [PGAUDIT_CATEGORIES]: pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows, and the per-tenant `BindTenant` category emission verified against a per-tenant `CREATE POLICY` (the policy mechanics owned on `Store/server#TENANCY_RLS`) on a live PG18 server.
 - [CLOSURE_GC]: `ClosureGc.Collect` reachable-set-versus-residence eviction verified against a live object-store residence listing and a live sync `Closure` membership union — the unreferenced-blob set, the `LegalHold` exemption under a live class registry, and the eviction-delete round-trip against the object-store delete the residence axis owns.

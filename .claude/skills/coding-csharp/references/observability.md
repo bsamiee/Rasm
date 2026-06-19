@@ -4,7 +4,7 @@
 Observability keeps `Fin<T>`, `Validation<Error,T>`, and `Eff<RT,T>` intact while projecting telemetry through one compositional surface. Host surfaces include `[LoggerMessage]`, `ActivitySource`, `Meter`, `TagList`, `LogContext`, Serilog OTLP sink, and OpenTelemetry exporters.
 
 ---
-## [1]-[SIGNAL_ALGEBRA]
+## [01]-[SIGNAL_ALGEBRA]
 >**Dictum:** *One module owns identities, tag algebra, and fused channel emission.*
 
 ```csharp
@@ -199,20 +199,20 @@ public static class Observe {
 ```
 
 ---
-## [2]-[OBSERVABILITY_CANON]
+## [02]-[OBSERVABILITY_CANON]
 >**Dictum:** *Observability constraints are architecture contracts, not optional style.*
 
 | [INDEX] | [CONSTRAINT]               | [MANDATE]                                                                        | [SURFACE]                           |
 | :-----: | :------------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
-|   [1]   | **`LOGGING_PATH`**         | structured logs via `[LoggerMessage]` only                                       | CA1848, CA2254                      |
-|   [2]   | **`TRACE_LIFECYCLE`**      | span lifecycle bracket-owned, never leaked                                       | Pipeline bracket                    |
-|   [3]   | **`METRIC_DIMENSIONS`**    | tags include `operation` + `outcome` taxonomy                                    | TagPolicy.Outcome                   |
-|   [4]   | **`ERROR_CODE_STABILITY`** | numeric `Error.Code` as canonical failure dim                                    | span/metric/log fields              |
-|   [5]   | **`NO_SPLIT_PIPELINES`**   | no parallel telemetry branches in logic                                          | fused BiMap projection              |
-|   [6]   | **`BOUNDARY_ONLY_MATCH`**  | no mid-pipeline `.Match()` for observability                                     | Fin/Eff/Val BiMap                   |
-|   [7]   | **`SINGLETON_IDS`**        | ActivitySource/Meter match OTel registration                                     | Signals statics                     |
-|   [8]   | **`AMBIENT_SCOPE`**        | contextual props boundary-scoped via ambient ctx                                 | LogContext                          |
-|   [9]   | **`RETRY_TELEMETRY`**      | every retry emits count + error code                                             | RetryProjection                     |
+|  [01]   | **`LOGGING_PATH`**         | structured logs via `[LoggerMessage]` only                                       | CA1848, CA2254                      |
+|  [02]   | **`TRACE_LIFECYCLE`**      | span lifecycle bracket-owned, never leaked                                       | Pipeline bracket                    |
+|  [03]   | **`METRIC_DIMENSIONS`**    | tags include `operation` + `outcome` taxonomy                                    | TagPolicy.Outcome                   |
+|  [04]   | **`ERROR_CODE_STABILITY`** | numeric `Error.Code` as canonical failure dim                                    | span/metric/log fields              |
+|  [05]   | **`NO_SPLIT_PIPELINES`**   | no parallel telemetry branches in logic                                          | fused BiMap projection              |
+|  [06]   | **`BOUNDARY_ONLY_MATCH`**  | no mid-pipeline `.Match()` for observability                                     | Fin/Eff/Val BiMap                   |
+|  [07]   | **`SINGLETON_IDS`**        | ActivitySource/Meter match OTel registration                                     | Signals statics                     |
+|  [08]   | **`AMBIENT_SCOPE`**        | contextual props boundary-scoped via ambient ctx                                 | LogContext                          |
+|  [09]   | **`RETRY_TELEMETRY`**      | every retry emits count + error code                                             | RetryProjection                     |
 |  [10]   | **`VALIDATION_TELEMETRY`** | validation fail emits accumulation-aware metric                                  | Observe.Validation                  |
 |  [11]   | **`EXPRESSION_GATING`**    | dynamic Serilog filters compile-validated                                        | TryCompile gate                     |
 |  [12]   | **`DB_CORRELATION`**       | DB instrumentation mandatory for e2e traces                                      | Npgsql.OpenTelemetry                |
@@ -227,14 +227,14 @@ public static class Observe {
 
 | [INDEX] | [DIMENSION]      | [REQUIRED]      | [SEMANTICS]                                       |
 | :-----: | :--------------- | :-------------- | ------------------------------------------------- |
-|   [1]   | **`operation`**  | **yes**         | stable taxonomy key (`orders.submit`, `db.query`) |
-|   [2]   | **`outcome`**    | **yes**         | `success`, `failure`, `active`                    |
-|   [3]   | **`error.code`** | **on failure**  | stable numeric domain/system error code           |
-|   [4]   | **`service`**    | **recommended** | service identity for shared dashboards            |
-|   [5]   | **`component`**  | **recommended** | adapter boundary (`gateway`, `repo`, `scheduler`) |
+|  [01]   | **`operation`**  | **yes**         | stable taxonomy key (`orders.submit`, `db.query`) |
+|  [02]   | **`outcome`**    | **yes**         | `success`, `failure`, `active`                    |
+|  [03]   | **`error.code`** | **on failure**  | stable numeric domain/system error code           |
+|  [04]   | **`service`**    | **recommended** | service identity for shared dashboards            |
+|  [05]   | **`component`**  | **recommended** | adapter boundary (`gateway`, `repo`, `scheduler`) |
 
 ---
-## [3]-[EFF_PIPELINE]
+## [03]-[EFF_PIPELINE]
 >**Dictum:** *`Eff` instrumentation composes as one wrapper; no business-flow forks.*
 
 ```csharp
@@ -275,7 +275,7 @@ public static class ObserveEff {
 ```
 
 ---
-## [4]-[COMPOSITION_ROOT]
+## [04]-[COMPOSITION_ROOT]
 >**Dictum:** *Composition root wires exporters and resilience; domain modules emit canonical signals only.*
 
 ```csharp
@@ -375,7 +375,7 @@ public static class ResilienceContextSetup {
 ```
 
 ---
-## [5]-[RULES]
+## [05]-[RULES]
 >**Dictum:** *Observability quality is consistency under composition pressure.*
 
 - [ALWAYS] Emit via Observe.Outcome, Observe.Validation, and ObserveEff.Pipeline.

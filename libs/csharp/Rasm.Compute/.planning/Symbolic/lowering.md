@@ -4,13 +4,13 @@ The compile-and-reuse terminal of the symbolic CAS arm: a simplified `SymbolicEx
 
 The lowering is the gate the `Symbolic/dimensional#DIMENSION_PROOF` pre-numeric admission runs strictly before: a formula compiles and registers a Jacobian only after its `DimensionProof` admits, so a dimension-inconsistent expression never reaches a `CompiledExpr` slot, the optimizer oracle, or the integrator seed. A formula carrying no free design symbol lowers an empty Jacobian and `DescendAdjoint` falls to finite-difference exactly as the absent-`DesignMesh` case lowers an empty geometry tape and descends degenerate by construction (`Solver/optimizer#OPTIMIZER_LANE` L786) — the symbolic source admits without breaking that invariant and without a parallel descent. The page is host-local and carries no TS_PROJECTION cluster: the `CompiledExpr` delegate is an interior runtime value that never crosses a wire, and the only cross-surface fact is the `CompiledKey` content key the `csharp:IDEAS#SYMBOLIC_PARAMETRIC_ALGEBRA` branch seam crosses by reference to the Persistence cost-catalog/QTO-formula consumers, aligned at the key and never coupled into a sibling interior. The compiled delegate is netstandard2.0 ALC-safe (the F# `Expression` core and the `LambdaExpression.Compile()` it lowers carry no runtime-codegen ALC hazard the live plugin host forbids). An in-proc symbolic-regression fit is the rejected form — offline formula discovery is the Python branch's, and this page owns compile-and-cache plus the analytic-Jacobian lowering over an already-known, already-admitted expression.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LOWERING]: `CompiledExpr` delegate carrier; `CompileArity` axis; the `Compile.compileExpression` lowering.
-- [2]-[LOWERING_CACHE]: `LoweringCache` read-through over `CacheLane.ModelResult`; `CompiledKey` content-key derivation.
-- [3]-[SYMBOLIC_JACOBIAN]: `SymbolicJacobian` partial-derivative lowering; `SymbolicTape`/`SymbolicAdjoint` transpose row.
+- [01]-[LOWERING]: `CompiledExpr` delegate carrier; `CompileArity` axis; the `Compile.compileExpression` lowering.
+- [02]-[LOWERING_CACHE]: `LoweringCache` read-through over `CacheLane.ModelResult`; `CompiledKey` content-key derivation.
+- [03]-[SYMBOLIC_JACOBIAN]: `SymbolicJacobian` partial-derivative lowering; `SymbolicTape`/`SymbolicAdjoint` transpose row.
 
-## [2]-[LOWERING]
+## [02]-[LOWERING]
 
 - Owner: `CompiledExpr` the carrier binding a lowered native delegate to its source `SymbolicExpr` content key and its ordered free-symbol vector; `CompileArity` `[SmartEnum<string>]` the five rows (`nullary` · `unary` · `binary` · `ternary` · `variadic`) selecting the arity-exact `Compile.compileExpression{,1,2,3}` module form over the symbol order, each row carrying the boxed-delegate down-cast so a five-symbol formula routes the variadic `compileExpression` `Delegate` form and a one-symbol formula routes the `compileExpression1` `Func<double,double>` form; `CompileCapsule` the one boundary owner projecting the `FSharpOption<Delegate>`/`FSharpOption<Func<…>>` compile carrier into the `Fin` rail (composing the `Symbolic/expression#SYMBOLIC_EXPR` `ExpressionCapsule.ProjectCompile`), so a compile-decline (an unsupported `FunctionN` node) is a `ComputeFault.NonDifferentiable` fault and never an unwrapped null delegate.
 - Cases: `CompileArity` rows `nullary` (no free symbol — the formula is a constant, evaluated once) · `unary` (`compileExpression1`, `Func<double,double>`) · `binary` (`compileExpression2`, `Func<double,double,double>`) · `ternary` (`compileExpression3`, `Func<double,double,double,double>`) · `variadic` (`compileExpression` over a `Symbol list`, the boxed `Delegate` the caller invokes with a positional `double[]`); the arity row is selected by the count of the ordered free-symbol vector, never a call-site branch.
@@ -89,7 +89,7 @@ public static class CompileCapsule {
 }
 ```
 
-## [3]-[LOWERING_CACHE]
+## [03]-[LOWERING_CACHE]
 
 - Owner: `CompiledKey` the static derivation folding the source `SymbolicExpr.ContentKey` and the ordered symbol-vector digest into one `XxHash128` cache key, composing the suite hash law `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key` holds (never a second hashing pass and never a string-path key); `LoweringCache` the read-through service over the one `HybridCache` substrate the model lane already runs — it scopes the content key onto the settled `CacheLane.ModelResult` lane `Model/inference#RESULT_CACHE` declares and dispatches `HybridCache.GetOrCreateAsync` under the `CachePolicy.ReadThrough` row, never constructing or registering a `HybridCache` instance of its own and never minting a parallel `CacheLane`. The lowering key is a content-addressed symbolic key, not a `ModelResultKey` (the `ModelResultKey` carries `ModelIdentity`/`ExecutionProvider`/`ModelPrecision` ONNX-run facts a compiled formula has none of), so the lowering composes the cache substrate and the `CachePolicy` vocabulary while keying by its own content identity.
 - Cases: the cache posture is the existing `Model/inference#RESULT_CACHE` `CachePolicy` `[SmartEnum]` (`ReadThrough` serves a hit and stores a miss — the produced `Fin<CompiledExpr>` is stored whether success or fault, so a deterministic `NonDifferentiable` compile-decline serves the cached failure rather than re-compiling under the lane's entry TTL the model lane owns) — no new cache policy and no new fact slot; the lowering rides the model-lane `CacheLane.ModelResult` lane scoped by the symbolic content key, never a parallel `CacheLane`.
@@ -130,7 +130,7 @@ public sealed class LoweringCache(HybridCache cache) {
 }
 ```
 
-## [4]-[SYMBOLIC_JACOBIAN]
+## [04]-[SYMBOLIC_JACOBIAN]
 
 - Owner: `SymbolicJacobian` the static lowering differentiating a formula by each of its free design symbols through `Symbolic/expression#OPERATION_FOLD` `SymbolicOp.Differentiate`, compiling each partial to a `CompiledExpr`, and packing them into a `SymbolicTape`; `SymbolicTape` the symbolic analog of the DDG `Tensor/dispatch#EQUIVALENCE_INTEROP` `GeometryTape` carrying the ordered design-symbol vector and the compiled partial-derivative delegates evaluated at the design point; `SymbolicAdjoint` the reverse-mode transpose owner whose `Backward` applies the analytic Jacobian transpose `x̄ = Jᵀ·ȳ` and whose `Chain` folds a `Seq<SymbolicTape>` exactly as `SensitivityLaw.Chain(Seq<GeometryTape>, seed)` folds the geometry tape — the same `Fin<ReadOnlyMemory<float>>` reverse-mode contract the optimizer `DescendAdjoint` reads, so the symbolic source is a row on the `Solver/optimizer#OPTIMIZER_LANE` `DesignProblem.OperatorRows` registry, not a parallel descent.
 - Cases: a free design symbol present in `source.FreeSymbols` lowers to one compiled partial `∂f/∂xᵢ` on the tape; a formula with no free design symbol (a constant, or a formula whose free symbols are all non-design parse-context symbols) lowers an empty `SymbolicTape` so `SymbolicAdjoint.Chain` returns the upstream seed unchanged and `DescendAdjoint` falls to finite-difference — the degenerate-descent invariant `Solver/optimizer#OPTIMIZER_LANE` L786 holds for the symbolic source exactly as it holds for the absent-`DesignMesh` case; a non-differentiable node (a `FunctionN` the `Calculus.differentiate` declines, surfaced as the `compileExpression` `None`) is the `NonDifferentiable` 2215 fault on the lowering rail before any tape records.
@@ -189,6 +189,6 @@ public static class SymbolicAdjoint {
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [SYMBOLIC_REGISTRY_WIRING]: the live `DesignProblem.OperatorRows` registry extension that lowers a free symbolic design field (a `DesignVariable.Symbolic` carrying the formula and its declared design symbols) to a `SymbolicTape` lands when the `Solver/optimizer#OPTIMIZER_LANE` `DesignVariable` `[Union]` is widened with the symbolic case — an additive arm on the existing union, the `OperatorRows` table gaining one `typeof(DesignVariable.Symbolic)` row whose lowering calls `SymbolicJacobian.Lower` and whose `.Adjoint` routes `SymbolicAdjoint.Chain`, never a parallel registry. The `SymbolicTape`/`SymbolicAdjoint` contract this page mints is the producer surface that arm composes; the optimizer page owns the consumer-side registry row and the `DesignVariable.Symbolic` carrier.

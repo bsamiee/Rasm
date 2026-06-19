@@ -3,16 +3,16 @@
 
 <br>
 
-## [1]-[COVERAGE]
+## [01]-[COVERAGE]
 
-| [INDEX] | [CLASS] | [ACTION] |
-| :-----: | ------- | -------- |
-| [1] | Missing static law | Add or strengthen managed xUnit/CsCheck spec. |
-| [2] | Runtime-owned path | Add or strengthen the runtime scenario; do not fake coverage. |
-| [3] | Generated code | Exclude centrally by file/attribute. |
-| [4] | Defensive unreachable | Document only after source review. |
+| [INDEX] | [CLASS]               | [ACTION]                                                      |
+| :-----: | --------------------- | ------------------------------------------------------------- |
+|  [01]   | Missing static law    | Add or strengthen managed xUnit/CsCheck spec.                 |
+|  [02]   | Runtime-owned path    | Add or strengthen the runtime scenario; do not fake coverage. |
+|  [03]   | Generated code        | Exclude centrally by file/attribute.                          |
+|  [04]   | Defensive unreachable | Document only after source review.                            |
 
-## [2]-[MUTATION]
+## [02]-[MUTATION]
 
 - Use Stryker only through the repo-declared explicit mutation command; zero discovery fails the rail.
 - Target the repo-declared threshold for eligible managed code, never for host-runtime rails.
@@ -23,7 +23,7 @@
 - Mutation uses an advisory lock. Live contention fails fast; unlocked stale lock files are reused automatically.
 
 ---
-## [3]-[THEORY_EXPANSION_AS_STRYKER_ENABLER]
+## [03]-[THEORY_EXPANSION_AS_STRYKER_ENABLER]
 >**Dictum:** *PBT hosts are one mutation target; Theory rows are N.*
 
 <br>
@@ -43,13 +43,13 @@ Do NOT convert when:
 - Per-case Theory rows would be pure copy-paste of body code.
 
 ---
-## [4]-[SURVIVOR_TAXONOMY]
+## [04]-[SURVIVOR_TAXONOMY]
 
-| [INDEX] | [CLASS] | [ACTION] |
-| :-----: | ------- | -------- |
-| [1] | Missing oracle | Add Grade A/B/B+ oracle (closed-form, smaller model, metamorphic, conditioning-aware). |
-| [2] | Equivalent mutant | Document inline; do not weaken oracle. |
-| [3] | Runtime-owned path | Add or strengthen the runtime scenario; static spec cannot kill it. |
-| [4] | Product bug | Fix production code; mutation revealed a real defect. |
+| [INDEX] | [CLASS]            | [ACTION]                                                                               |
+| :-----: | ------------------ | -------------------------------------------------------------------------------------- |
+|  [01]   | Missing oracle     | Add Grade A/B/B+ oracle (closed-form, smaller model, metamorphic, conditioning-aware). |
+|  [02]   | Equivalent mutant  | Document inline; do not weaken oracle.                                                 |
+|  [03]   | Runtime-owned path | Add or strengthen the runtime scenario; static spec cannot kill it.                    |
+|  [04]   | Product bug        | Fix production code; mutation revealed a real defect.                                  |
 
 Do not chase a survivor by adding an assertion on the mutant's behavior — that is implementation mirror coverage (Grade F per [oracles-laws.md `[4]`](oracles-laws.md)).

@@ -2,7 +2,7 @@
 
 `gcsfs` supplies the Google Cloud Storage fsspec backend: an async `GCSFileSystem` and a `GCSMap` mapping view, registered under the `gs`/`gcs` protocols and reached through fsspec dispatch. It is the runtime GCS transport row for shared-pull cloud resource roots.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `gcsfs`
 - package: `gcsfs`
@@ -12,26 +12,26 @@
 - namespaces: `gcsfs`, `gcsfs.core`, `gcsfs.credentials`, `gcsfs.mapping`
 - capability: async GCS filesystem, GCS mapping view, credential admission
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: filesystem family
 - rail: resources
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                           |
 | :-----: | :-------------- | :------------ | :------------------------------- |
-|   [1]   | `GCSFileSystem` | filesystem    | async GCS fsspec filesystem      |
-|   [2]   | `GCSMap`        | mapping       | dict-like view over a GCS prefix |
+|  [01]   | `GCSFileSystem` | filesystem    | async GCS fsspec filesystem      |
+|  [02]   | `GCSMap`        | mapping       | dict-like view over a GCS prefix |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: backend operations
 - rail: resources
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :----------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `GCSFileSystem(token, project, ...)` | build          | construct via fsspec `storage_options` |
+|  [01]   | `GCSFileSystem(token, project, ...)` | build          | construct via fsspec `storage_options` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RESOURCES_TOPOLOGY]:
 - dispatch law: GCS roots are reached through `fsspec.url_to_fs("gs://...", **storage_options)`; the runtime never constructs `GCSFileSystem` directly outside the fsspec resolution path.

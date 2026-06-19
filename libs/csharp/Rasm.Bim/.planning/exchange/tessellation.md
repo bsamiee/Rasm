@@ -2,11 +2,11 @@
 
 The IFC/AP242/native geometry tessellation bridge: one `TessellationRequest` shape crossing geometry evaluation to the `Rasm.Compute/Runtime/codecs#TWO_HOP_TESSELLATION` companion rail (IfcOpenShell `IfcConvert` producing GLB) and re-importing the GLB through the `import#IMPORT_RAIL` glTF path. The request is host-local in posture and rides Compute's existing companion transport, never a new transport and never the orchestration itself. The page composes the `format#FORMAT_AXIS` `TessellationRequiresCompanion` gate, the `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` content key, and the `Rasm.Compute/Runtime/channels#TRANSPORT_AXIS` transport as settled vocabulary. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TESSELLATION_BRIDGE]: IFC/AP242/native geometry crosses to the Compute companion rail, never in-process.
+- [01]-[TESSELLATION_BRIDGE]: IFC/AP242/native geometry crosses to the Compute companion rail, never in-process.
 
-## [2]-[TESSELLATION_BRIDGE]
+## [02]-[TESSELLATION_BRIDGE]
 
 - Owner: `TessellationRequest` — the Bim-side request shape crossing IFC/AP242/native geometry evaluation to the `Rasm.Compute/Runtime/codecs#TWO_HOP_TESSELLATION` companion rail (IfcOpenShell `IfcConvert` producing GLB) and re-importing the GLB through the `import#IMPORT_RAIL` glTF path; the request is host-local in posture and rides Compute's existing companion transport, never a new transport and never the orchestration itself.
 - Entry: `TessellationRequest.Plan(InterchangeFormat source, ReadOnlyMemory<byte> ifcBytes, InterchangePolicy policy)` builds the request keyed on the IFC content and the deflection/tolerance policy; Compute issues the request over `Rasm.Compute/Runtime/channels#TRANSPORT_AXIS` and the GLB result re-enters through `BimIo.ImportGeometry(InterchangeFormat.Glb, ...)`.
@@ -34,7 +34,7 @@ public sealed record TessellationRequest(
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [AP242_CODEC]: the ISO 10303 AP203/AP214/AP242 STEP solid-model reader/writer member spellings (entity-instance parse, B-rep advanced_brep extraction, NURBS surface read) confirm against the STEP codec surface — the three protocols ride one `step-iso10303` codec discriminated by the `StepProtocol` column, all routing geometry evaluation through the same Compute companion rail GeometryGym IFC uses because managed STEP solid evaluation has no in-process kernel; the `step-ap242-reader-pending` `CataloguePackage` marker names the unadmitted managed STEP reader and the row, codec, protocol, and frame columns are settled with the semantic-read body grounding at the cross-folder Python-companion alignment.
 - [COMPANION_PROTOCOL]: the IfcOpenShell companion-daemon request/response protocol for the tessellation hop — the `IfcConvert`-to-GLB invocation shape, the deflection/tolerance argument mapping, and the GLB streaming-back contract — is owned by `libs/python/geometry` (`python:geometry/ifc-companion`) and orchestrated by `Rasm.Compute/Runtime/codecs#TWO_HOP_TESSELLATION`; the Bim `TessellationRequest` shape is settled and the companion wire detail rides Compute's existing companion rpc.

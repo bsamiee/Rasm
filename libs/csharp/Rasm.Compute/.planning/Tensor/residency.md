@@ -2,12 +2,12 @@
 
 The ONNX C-data residency bridge and the geometry-to-tensor encoding: one `OrtResidency` lattice over the five copy gates (managed-span → memory-backed value → device residency → output value → span view) binding each `OrtValue` C-data factory and projection member as the zero-copy tensor-flow boundary, the `BoundFlow` `OrtIoBinding` steady-state capsule, and the `GeometryEncoding` cases as the canonical geometry-ML input vocabulary with their packing kernels as declared boundary capsules. The page owns the `OrtResidency`/`CopyPoint`/`DeviceMemory` residency vocabulary, the `TensorBridge` C-data capsule, the `BoundFlow` steady-state composition, the `EncodingChannel`/`GeometryEncoding` encoding axes, the `EncodedTensor` carrier, and the `GeometryPacking` boundary capsule; the `OrtValue` carrier rides `Microsoft.ML.OnnxRuntime`, host geometry enters through `Rasm` and folds inside `GeometryPacking`, and the `TensorDtype`/`TensorFault`/`TensorKeyPolicy` and the `TensorVocabulary.OrtByteSpan` egress-size law arrive settled from `Tensor/vocabulary#TENSOR_VOCABULARY`. The `OrtResidency`/`CopyPoint` residency lattice serves the `Model/inference#INFERENCE_MODES` OrtValue-only run law and the `EncodedTensor` free-dimension rows feed the model-lane admission.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ORT_BRIDGE]: `OrtResidency` lattice; `OrtValue` C-data factories; zero-copy ingress/egress; IoBinding loop.
-- [2]-[GEOMETRY_ENCODING]: geometry-to-tensor cases; packing capsules; free-dimension names; wire-shape rows.
+- [01]-[ORT_BRIDGE]: `OrtResidency` lattice; `OrtValue` C-data factories; zero-copy ingress/egress; IoBinding loop.
+- [02]-[GEOMETRY_ENCODING]: geometry-to-tensor cases; packing capsules; free-dimension names; wire-shape rows.
 
-## [2]-[ORT_BRIDGE]
+## [02]-[ORT_BRIDGE]
 
 - Owner: `TensorBridge` (boundary capsule); `OrtResidency` `[SmartEnum<string>]` over the five copy gates; `BoundFlow` the `OrtIoBinding` steady-state tensor-flow capsule.
 - Entry: `public static Fin<OrtValue> Ingress<T>(Tensor<T> source, OrtResidency gate)` / the pooled-backing, foreign-pointer, and device-allocator overloads / `public static Fin<Unit> Egress<T>(OrtValue value, in TensorSpan<T> destination)` / `public static Fin<BoundFlow> Bind(InferenceSession session, string inputName, string outputName, ReadOnlySpan<long> shape)` — `Fin<T>` aborts when the residency gate forbids the carrier or the egress destination is undersized; the bound flow is a disposable capsule leasing one `OrtIoBinding` over pinned input and output values with a `ClearBound*` rebind path for a shape-class transition.
@@ -135,7 +135,7 @@ public sealed class BoundFlow : IDisposable {
 }
 ```
 
-## [3]-[GEOMETRY_ENCODING]
+## [03]-[GEOMETRY_ENCODING]
 
 - Owner: `GeometryEncoding`
 - Cases: `PointCloud(VectorCloud, Option<CloudNeighborhoodPcaResult>, Option<ReadOnlyMemory<float>>)` | `MeshPatch(MeshSpace)` | `VoxelGrid(ReadOnlyMemory<float>, Dimension, Dimension, Dimension, VolumeGridPolicy)` | `BrepPatch(ReadOnlyMemory<float>, ReadOnlyMemory<float>, int, int, Dimension, Dimension)`
@@ -260,6 +260,6 @@ public static class GeometryPacking {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [SOLVER_FIELD_TOOLPATH_ENCODING]: the `Field` and `Toolpath` representations the `AppHost/Sandbox/solver#SOLVER_KIND` `EncodingKind` solver and CAM-post kind contracts speak land as two `GeometryEncoding` case extensions on this owner — a `Field` case carrying the discretization `FieldSpace` sample grid and a `Toolpath` case carrying the ordered cut-segment stream — each a single `CaseRow` arm with its `WireShape`/`LayoutForm`/free-dimension triad and its `EncodingChannel` set, never a solver-page literal and never a fifth feature axis. The four geometry rows (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`) the `EncodingKind` axis already projects onto are finalized; the residual is the two case-row arms whose packing kernels finalize against their source owners — the `Field` arm against the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` station grid, the `Toolpath` arm against the `Rasm.Fabrication/Toolpath/motion#CAM_MOTION` `Motion` cut-segment stream the `Rasm.Fabrication/Posting/program#CUT_PROGRAM` emitter consumes — read as settled vocabulary and folded inside `GeometryPacking`, never re-minted; once both arms resolve the `EncodingKind.Field`/`.Toolpath` working rows bind to settled cases and the negotiation reads the case-level encoding for all seven plugin kinds.

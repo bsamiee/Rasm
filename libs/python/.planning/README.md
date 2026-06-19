@@ -2,18 +2,18 @@
 
 The Python branch is a first-class host-free science/compute/data/geometry/IFC library of five peer packages, held to the cross-language density bar in idiomatic modern Python. The single root `pyproject.toml` owns the `python>=3.15` project and all dependency groups. The Forge companion lane owns the `<'3.13'` native geometry/IFC cores and the `grpcio-tools` codegen compiler outside that manifest, while the `grpc.aio` runtime (`grpcio` and `protobuf`) resolves transitively on the cp315 core through `specklepy`. This file routes the branch index docs and registers the packages shared across folders.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[ARCHITECTURE](ARCHITECTURE.md): five-package domain map, dependency direction (runtime mints shared shapes; the four consumers compose them and never re-mint), and the interpreter floor.
-- [2]-[IDEAS](IDEAS.md): cross-package Python concert — ideas coupling the packages to each other, distilled from the per-folder ideas.
-- [3]-[TASKLOG](TASKLOG.md): cross-package open work, including the companion-environment floor gate.
-- [4]-[RUNTIME](../runtime/README.md)
-- [5]-[COMPUTE](../compute/README.md)
-- [6]-[DATA](../data/README.md)
-- [7]-[GEOMETRY](../geometry/README.md)
-- [8]-[ARTIFACTS](../artifacts/README.md)
+- [01]-[ARCHITECTURE](ARCHITECTURE.md): five-package domain map, dependency direction (runtime mints shared shapes; the four consumers compose them and never re-mint), and the interpreter floor.
+- [02]-[IDEAS](IDEAS.md): cross-package Python concert — ideas coupling the packages to each other, distilled from the per-folder ideas.
+- [03]-[TASKLOG](TASKLOG.md): cross-package open work, including the companion-environment floor gate.
+- [04]-[RUNTIME](../runtime/README.md)
+- [05]-[COMPUTE](../compute/README.md)
+- [06]-[DATA](../data/README.md)
+- [07]-[GEOMETRY](../geometry/README.md)
+- [08]-[ARTIFACTS](../artifacts/README.md)
 
-## [2]-[SUBSTRATE_PACKAGES]
+## [02]-[SUBSTRATE_PACKAGES]
 
 The cross-domain Python foundation every folder builds on: typing/rails, concurrency, observability, the numeric substrate, content identity, the wire-codegen toolchain, and the test stack. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here. Folder READMEs list these under their own `## [3]-[SUBSTRATE_PACKAGES]` section rather than duplicating the registry here.
 

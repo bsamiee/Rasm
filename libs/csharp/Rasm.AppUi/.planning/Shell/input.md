@@ -2,15 +2,15 @@
 
 One interaction rail owns gesture mechanics for every admitted surface: keyboard chords derive from the one command table through a per-surface `GesturePolicy`, the behavior rail admits its trigger and action vocabulary as rows, pointer gestures and the frozen `PanZoomRow` canvas family route pinch, wheel, and drag input, and `DragPayload` plus `ClipboardRow` carry every transfer across the drag and clipboard boundaries on the validation rail. The page owns no key table, no conflict fold, no timer loop, and no second hotkey registry — the command deck, the AppHost schedule rows, and the motion timing vocabulary arrive settled. The spine is Avalonia, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[HOTKEY_DERIVATION]: Chord transform, scope split, gesture bindings over the frozen deck.
-- [2]-[BEHAVIOR_RAIL]: Admitted trigger and action rows; one intent-binding entry.
-- [3]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
-- [4]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
-- [5]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
+- [01]-[HOTKEY_DERIVATION]: Chord transform, scope split, gesture bindings over the frozen deck.
+- [02]-[BEHAVIOR_RAIL]: Admitted trigger and action rows; one intent-binding entry.
+- [03]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
+- [04]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
+- [05]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
 
-## [2]-[HOTKEY_DERIVATION]
+## [02]-[HOTKEY_DERIVATION]
 
 - Owner: `GesturePolicy` — the per-surface chord, scope, and return-key policy record carrying the binding fold.
 - Entry: `public FrozenDictionary<KeyGesture, CommandIntent> Bindings(CommandDeck deck)` — pure fold over the frozen deck's gesture column through its chord delegate; the first admitted row holds a contested chord and every later claimant drops deterministically.
@@ -51,7 +51,7 @@ public sealed record GesturePolicy(
 }
 ```
 
-## [3]-[BEHAVIOR_RAIL]
+## [03]-[BEHAVIOR_RAIL]
 
 - Owner: `BehaviorRail` — the static intent-binding surface over the admitted trigger and action rows.
 - Entry: `public static InvokeCommandAction Intent(ICommand command)` — the only action-to-command bridge; the argument is the table-generated ReactiveCommand row resolved by intent key.
@@ -71,19 +71,19 @@ public static class BehaviorRail {
 
 | [INDEX] | [ROW]          | [SURFACE]                    | [KNOB]        | [TIMING_ROW] |
 | :-----: | -------------- | ---------------------------- | ------------- | :----------: |
-|   [1]   | routed-event   | `RoutedEventTriggerBehavior` | `RoutedEvent` |      —       |
-|   [2]   | data           | `DataTriggerBehavior`        | `Binding`     |      —       |
-|   [3]   | multi-data     | `MultiDataTriggerBehavior`   | `Conditions`  |      —       |
-|   [4]   | timer          | `TimerTrigger`               | —             |   standard   |
-|   [5]   | task-completed | `TaskCompletedTrigger`       | —             |      —       |
-|   [6]   | stream-bridge  | `ObservableStreamBehavior`   | `Source`      |      —       |
-|   [7]   | intent-action  | `InvokeCommandAction`        | `Command`     |      —       |
-|   [8]   | property       | `ChangePropertyAction`       | —             |      —       |
-|   [9]   | async-group    | `AsyncActionGroup`           | `Actions`     |      —       |
+|  [01]   | routed-event   | `RoutedEventTriggerBehavior` | `RoutedEvent` |      —       |
+|  [02]   | data           | `DataTriggerBehavior`        | `Binding`     |      —       |
+|  [03]   | multi-data     | `MultiDataTriggerBehavior`   | `Conditions`  |      —       |
+|  [04]   | timer          | `TimerTrigger`               | —             |   standard   |
+|  [05]   | task-completed | `TaskCompletedTrigger`       | —             |      —       |
+|  [06]   | stream-bridge  | `ObservableStreamBehavior`   | `Source`      |      —       |
+|  [07]   | intent-action  | `InvokeCommandAction`        | `Command`     |      —       |
+|  [08]   | property       | `ChangePropertyAction`       | —             |      —       |
+|  [09]   | async-group    | `AsyncActionGroup`           | `Actions`     |      —       |
 |  [10]   | throttle       | `ThrottleAction`             | `Interval`    |     fast     |
 |  [11]   | debounce       | `DebounceAction`             | `Delay`       |   standard   |
 
-## [4]-[POINTER_GESTURES]
+## [04]-[POINTER_GESTURES]
 
 - Owner: `PanZoomRow` — the frozen canvas row family over `ZoomBorder`; gesture routing rows.
 - Cases: `Dashboard` | `Preview`
@@ -115,20 +115,20 @@ public sealed record PanZoomRow(
 
 | [INDEX] | [GESTURE]       | [ROUTE]                                               | [CONSEQUENCE]                                                                       |
 | :-----: | --------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-|   [1]   | tap             | `TappedEventTrigger`                                  | primary intent action fires                                                         |
-|   [2]   | double-tap      | `DoubleTappedEventTrigger`                            | canvas rows route through `DoubleClickZoomMode`                                     |
-|   [3]   | press-hold      | `HoldingGestureTrigger`                               | context intent raise                                                                |
-|   [4]   | context-request | `RightTappedEventTrigger`                             | menu derivation from the command-table surface predicate                            |
-|   [5]   | wheel zoom      | `ZoomBorder`                                          | one zoom owner per canvas row                                                       |
-|   [6]   | pinch zoom      | `PinchGestureTrigger` / `ZoomBorder` `EnableGestures` | same single-owner law                                                               |
-|   [7]   | canvas drag     | `CanvasDragBehavior`                                  | draggable tiles inside canvas rows                                                  |
-|   [8]   | item drag       | `ItemDragBehavior`                                    | draggable-control rows                                                              |
-|   [9]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`          | gated by the row `EnableRotation` onto `Rotate`/`SnapRotation` under `RotationStep` |
+|  [01]   | tap             | `TappedEventTrigger`                                  | primary intent action fires                                                         |
+|  [02]   | double-tap      | `DoubleTappedEventTrigger`                            | canvas rows route through `DoubleClickZoomMode`                                     |
+|  [03]   | press-hold      | `HoldingGestureTrigger`                               | context intent raise                                                                |
+|  [04]   | context-request | `RightTappedEventTrigger`                             | menu derivation from the command-table surface predicate                            |
+|  [05]   | wheel zoom      | `ZoomBorder`                                          | one zoom owner per canvas row                                                       |
+|  [06]   | pinch zoom      | `PinchGestureTrigger` / `ZoomBorder` `EnableGestures` | same single-owner law                                                               |
+|  [07]   | canvas drag     | `CanvasDragBehavior`                                  | draggable tiles inside canvas rows                                                  |
+|  [08]   | item drag       | `ItemDragBehavior`                                    | draggable-control rows                                                              |
+|  [09]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`          | gated by the row `EnableRotation` onto `Rotate`/`SnapRotation` under `RotationStep` |
 |  [10]   | magnify gesture | `PointerTouchPadGestureMagnifyGestureTrigger`         | wheel-class zoom under the row `MinZoom`/`MaxZoom`                                  |
 |  [11]   | pointer-capture | `PointerCaptureLostEventTrigger`                      | capture-loss releases the canvas pointer owner                                      |
 |  [12]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView`               | `DeleteSavedView`/`ClearSavedViews` raise as intents                                |
 
-## [5]-[DRAG_CLIPBOARD]
+## [05]-[DRAG_CLIPBOARD]
 
 - Owner: `DragPayload` transfer union; `ClipboardRow` codec row family.
 - Cases: `TableRows(Seq<string> Keys, string Tsv)` | `AssetKey(string Key)` | `HostObjects(Seq<Guid> Ids)` | `Files(Seq<string> Paths)` | `Image(ReadOnlyMemory<byte> Png)`
@@ -214,7 +214,7 @@ flowchart LR
     DragPayload --> CommandIntent
 ```
 
-## [6]-[INPUT_FABRIC]
+## [06]-[INPUT_FABRIC]
 
 - Owner: `InputDevice` `[Union]` the alternative-input source family; `DeviceAxis` the normalized continuous-axis sample; `DeviceOutput` `[Union]` the device-output sink family; `InputFabric` the device-to-intent and intent-to-device fold.
 - Cases: `InputDevice` = SpaceMouse | GameController | EyeTracker | SwitchAccess | Voice | MidiSurface under the locked kind literals; `DeviceOutput` = MotionController | CncMachine | Robot | HapticRumble under the locked kind literals.
@@ -276,7 +276,7 @@ public static class InputFabric {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [PANEL_KEYS]: Rhino panel return-key policy knob residence and its registration point on the panel host.
 - [EMBEDDED_DRAG]: host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel.

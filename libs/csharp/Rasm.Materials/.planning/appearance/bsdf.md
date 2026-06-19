@@ -2,18 +2,18 @@
 
 The closed BSDF lobe family and its scene-linear spectral edge: ONE `BsdfLobe` `[Union]` of seven physical lobes (diffuse · conductor · dielectric · sheen · clearcoat · subsurface · thin-film) under ONE `Evaluate`/`Sample`/`Pdf` contract, ONE `LayeredBsdf` weighted-composition fold every material drives by parameter row, ONE `SpectralUpsample` RGB→SPD kernel feeding Unicolour's `Spd`→XYZ, ONE `ConductorIor` measured complex-IOR table grounding every metal F0 per band, ONE `SlabStack` OpenPBR Surface 1.1 stack-of-slabs the `LayeredBsdf` fold lowers from, and ONE `ToneMap` ACES RRT/ODT + scene-referred operator table. The page owns the `BsdfLobe`, `FresnelMode`, `SpectralBand`, `ConductorMetal`, `SlabKind`, and `ToneOperator` axes, the `MaterialKeyPolicy` accessor, the `MaterialFault` union (band 2450 — disjoint from the kernel `Rasm.Geometry/Numerics/faults#FAULT_BAND` `GeometryFault` which owns band 2400, and from the Materials sibling bands `Profiles/profile#PROFILE_FAMILY` `ProfileFault` 2300 and `Construction/assembly#ELEMENT_MODEL` `ConstructionFault` 2350), and the lobe/spectral/conductor/slab/tone kernels. A material is NEVER a lobe subtype: `LayeredBsdf` carries the lobe weights and per-lobe parameters a `MaterialParameters` row supplies, so metal, glass, plastic, skin, fabric, car paint, and wax are weightings of this one closed set, never new lobe types or per-material BSDF classes. The lobe composition is the OpenPBR Surface 1.1 stack-of-slabs (`fuzz` · `coat` · `thin-film` modifier · base substrate mixing a conductor slab against a dielectric base) realized as the `SlabStack` algebra at `[9]-[OPENPBR_SLAB]`, the model the CG/AEC ecosystem standardizes on; the renderer (`graph#MATERIAL_GRAPH` sink, shaded by the path tracer at the `Rasm.AppUi/Render/viewport#PATH_TRACE` seam) shades FROM `LayeredBsdf.Sample`/`Evaluate`/`Pdf` and never re-derives lobe math.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the `MaterialFault` band-2450 union, and the `MaterialKeyPolicy` ordinal accessor.
-- [2]-[MICROFACET_KERNEL]: Fresnel (Schlick plus exact dielectric/conductor), the GGX/Trowbridge-Reitz NDF, and Smith height-correlated masking.
-- [3]-[LOBE_FAMILY]: the `BsdfLobe` `[Union]`, the per-lobe `Evaluate`/`Sample`/`Pdf` contract, and the Kulla-Conty multi-scatter compensation.
-- [4]-[LAYERED_COMPOSITION]: the `LayeredBsdf` weighted-lobe fold, the MIS-balanced sample/pdf, and the material-is-a-row seam.
-- [5]-[SPECTRAL_UPSAMPLE]: the RGB→SPD coefficient kernel, the Unicolour `Spd`→XYZ composition, and scene-linear admission.
-- [6]-[TONE_MAP]: the ACES RRT/ODT author-kernel, the scene-referred filmic/Reinhard/exposure operators, and the `ToneOperator` table.
-- [7]-[CONDUCTOR_IOR]: the `ConductorMetal` axis, the `ConductorIor` measured complex-IOR table per RGB band, and the `Conductor` lobe grounding.
-- [8]-[OPENPBR_SLAB]: the `SlabKind` axis, the `Slab` `[Union]`, the `SlabStack` outermost-to-base layering algebra, and the `MaterialParameters`→stack lowering the `LayeredBsdf` fold consumes.
+- [01]-[SHADING_FRAME]: the `ShadingFrame` local-frame transform, the `MaterialFault` band-2450 union, and the `MaterialKeyPolicy` ordinal accessor.
+- [02]-[MICROFACET_KERNEL]: Fresnel (Schlick plus exact dielectric/conductor), the GGX/Trowbridge-Reitz NDF, and Smith height-correlated masking.
+- [03]-[LOBE_FAMILY]: the `BsdfLobe` `[Union]`, the per-lobe `Evaluate`/`Sample`/`Pdf` contract, and the Kulla-Conty multi-scatter compensation.
+- [04]-[LAYERED_COMPOSITION]: the `LayeredBsdf` weighted-lobe fold, the MIS-balanced sample/pdf, and the material-is-a-row seam.
+- [05]-[SPECTRAL_UPSAMPLE]: the RGB→SPD coefficient kernel, the Unicolour `Spd`→XYZ composition, and scene-linear admission.
+- [06]-[TONE_MAP]: the ACES RRT/ODT author-kernel, the scene-referred filmic/Reinhard/exposure operators, and the `ToneOperator` table.
+- [07]-[CONDUCTOR_IOR]: the `ConductorMetal` axis, the `ConductorIor` measured complex-IOR table per RGB band, and the `Conductor` lobe grounding.
+- [08]-[OPENPBR_SLAB]: the `SlabKind` axis, the `Slab` `[Union]`, the `SlabStack` outermost-to-base layering algebra, and the `MaterialParameters`→stack lowering the `LayeredBsdf` fold consumes.
 
-## [2]-[SHADING_FRAME]
+## [02]-[SHADING_FRAME]
 
 - Owner: `ShadingFrame` over the composed `Rasm.Vectors.VectorFrame`; `MaterialFault` `[Union]` band 2450; `MaterialKeyPolicy` ordinal accessor.
 - Entry: `public static Fin<ShadingFrame> Of(VectorFrame frame, Context context, Direction outgoing, Op key)` — `Fin<T>` aborts when the outgoing direction is degenerate in the local frame; `ToLocal`/`ToWorld` are the only world↔tangent transforms and `CosTheta`/`Sin2Theta`/`TanTheta`/`CosPhi`/`SinPhi` read the local z-up convention every lobe kernel shares. The frame carries the integrator's `Context` so `ToWorld` rails the unitized world direction through the PUBLIC `Direction.Of(Vector3d, Context, Op?)` overload (the `(Vector3d, double, Op?)` overload is `internal` to `Rasm` and cannot bind cross-assembly).
@@ -85,7 +85,7 @@ public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
 }
 ```
 
-## [3]-[MICROFACET_KERNEL]
+## [03]-[MICROFACET_KERNEL]
 
 - Owner: `FresnelMode` `[SmartEnum<string>]` (schlick · exact) driving the static `Microfacet` kernel.
 - Entry: `public static double Ndf(LocalVector h, double alphaX, double alphaY)` and the sibling `MaskingShadowing`/`FresnelDielectric`/`FresnelConductor`/`FresnelSchlick` — pure values; the NDF takes only the half-vector and anisotropic roughness `(alphaX, alphaY)` (it is Fresnel-mode-independent, so `FresnelMode` is NOT a parameter), and the isotropic case is `alphaX == alphaY`, never a second isotropic kernel.
@@ -181,7 +181,7 @@ public static class Microfacet {
 }
 ```
 
-## [4]-[LOBE_FAMILY]
+## [04]-[LOBE_FAMILY]
 
 - Owner: `BsdfLobe` `[Union]` closed lobe family; `LobeSample` the typed sample receipt.
 - Entry: `public RgbSpectrum Evaluate(LocalVector wo, LocalVector wi)` · `public Fin<LobeSample> Sample(LocalVector wo, double u0, double u1, Op key)` · `public double Pdf(LocalVector wo, LocalVector wi)` — the three-method contract every lobe case implements through one total `Switch`; the lobe is frame-local, so `Evaluate`/`Pdf` read the local-frame `LocalVector` triples the integrator transforms once and `Sample` carries the `Op key` for its `MaterialFault` rail; `RgbSpectrum` is the per-band reflectance triple, NEVER a host color type at an interior signature.
@@ -421,7 +421,7 @@ public static class MultiScatter {
 }
 ```
 
-## [5]-[LAYERED_COMPOSITION]
+## [05]-[LAYERED_COMPOSITION]
 
 - Owner: `LayeredBsdf` — the weighted-lobe fold; `LobeWeight` the per-lobe weight row.
 - Entry: `public RgbSpectrum Evaluate(ShadingFrame frame, Direction wo, Direction wi)` · `public Fin<LobeSample> Sample(ShadingFrame frame, Direction wo, double uLobe, double u0, double u1, Op key)` · `public double Pdf(ShadingFrame frame, Direction wo, Direction wi)` — the renderer's sole shading entry; the integrator transforms to local once, folds the weighted lobes, and transforms back; `Sample` carries the `Op key` for the `MaterialFault` rail and `Of` admits the weighted lobe list under the same key.
@@ -470,7 +470,7 @@ public sealed record LayeredBsdf {
 }
 ```
 
-## [6]-[SPECTRAL_UPSAMPLE]
+## [06]-[SPECTRAL_UPSAMPLE]
 
 - Owner: `SpectralUpsample` author-kernel; `SpectralBand` `[SmartEnum<string>]` the band vocabulary; composes Wacton.Unicolour for every conversion Unicolour already owns.
 - Entry: `public static Fin<Spd> ToSpd(RgbSpectrum rgb, Op key)` and `public static Fin<RgbSpectrum> SceneLinear(Unicolour colour, Op key)` — RGB→SPD is the author-kernel Unicolour lacks (NOT_COVERED); SceneLinear COMPOSES `RgbConfiguration.Acescg` and Unicolour's `.RgbLinear` accessor, never re-deriving the linearization; both carry the `Op key` the `MaterialFault` rail correlates.
@@ -534,7 +534,7 @@ public static class SpectralUpsample {
 }
 ```
 
-## [7]-[TONE_MAP]
+## [07]-[TONE_MAP]
 
 - Owner: `ToneOperator` `[SmartEnum<string>]` (aces · reinhard · filmic · exposure); `ToneMap` the static operator table.
 - Entry: `public static RgbSpectrum Apply(ToneOperator op, RgbSpectrum sceneLinear, double exposure)` — one entry, four operators by row; the scene-linear input is the integrator's HDR radiance, the output is display-referred [0,1] for the gamut check.
@@ -583,7 +583,7 @@ public static class ToneMap {
 }
 ```
 
-## [8]-[CONDUCTOR_IOR]
+## [08]-[CONDUCTOR_IOR]
 
 - Owner: `ConductorMetal` `[SmartEnum<string>]` the measured-metal axis; `ConductorIor` the per-band complex-IOR `(Eta, K)` table; the `Conductor` lobe grounding.
 - Entry: `public static (RgbSpectrum Eta, RgbSpectrum K) Of(ConductorMetal metal)` reads the measured complex refractive index per RGB band, and `public static BsdfLobe.Conductor Lobe(ConductorMetal metal, double alphaX, double alphaY)` constructs the grounded `Conductor` lobe — the metal F0 is the measured `(η, k)` Fresnel, NEVER a hand-authored RGB albedo scaled to a guess.
@@ -638,7 +638,7 @@ public static class ConductorIor {
 }
 ```
 
-## [9]-[OPENPBR_SLAB]
+## [09]-[OPENPBR_SLAB]
 
 - Owner: `SlabKind` `[SmartEnum<string>]` the slab axis (fuzz · coat · emission · base); `Slab` `[Union]` the closed slab family; `SlabStack` the outermost-to-base layering algebra; `OpenPbrSurface` the OpenPBR parameter vector.
 - Entry: `public static SlabStack Lower(MaterialParameters parameters, ConductorMetal conductor)` lowers a `graph#MATERIAL_LIBRARY` `MaterialParameters` row to the formal OpenPBR Surface 1.1 stack (the row names its `ConductorMetal` through `bsdf#CONDUCTOR_IOR`), and `public Fin<LayeredBsdf> ToLayered(Op key)` collapses the stack to the `[5]-[LAYERED_COMPOSITION]` `LayeredBsdf` weighted-lobe fold the integrator shades — the stack IS the composition law, the weighted fold its energy-preserving lowering, so the renderer reads one `LayeredBsdf` and the slab algebra is the construction the row drives through.

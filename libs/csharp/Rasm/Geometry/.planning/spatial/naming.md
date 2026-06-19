@@ -4,11 +4,11 @@ Persistent topological naming that survives rebuilds: one `TopoName` lineage ref
 
 `TopoName` is a reference identity that never crosses a transport; `EntityKind`, the `TopoName` value object, and the lineage records are interior types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TOPO_NAMING]: One `TopoName` lineage algebra; `NameTable` generation registry; `Track` re-anchor-by-signature fold.
+- [01]-[TOPO_NAMING]: One `TopoName` lineage algebra; `NameTable` generation registry; `Track` re-anchor-by-signature fold.
 
-## [2]-[TOPO_NAMING]
+## [02]-[TOPO_NAMING]
 
 - Owner: `EntityKind` `[SmartEnum<int>]` the entity-modality discriminant (`Vertex`/`Edge`/`Face`) carrying the per-kind signature-arity column; `TopoSignature` the rebuild-invariant topological fingerprint a name re-anchors against (boundary-vertex multiset + incident-kind histogram, position-free so a rigid move keeps the signature); `TopoName` `[ValueObject<UInt128>]` the stable lineage reference — one naming algebra over every `EntityKind`, the modality lives in the `Kind` column of the `NameEntry` row, never a `VertexName`/`EdgeName`/`FaceName` parallel triple; `Generation` the monotone rebuild counter; `NameEntry` the lineage record (name + kind + birth generation + last-seen generation + provenance parent name + current signature + stored resolved boundary-name set + canonical bytes); `NameTable` the immutable registry keyed by `TopoName` with the signature index AND a topology-vertex-index→name row (`VertexNames`) that resolves intrinsic incidence to prior names; `Track` the re-anchoring fold that matches names across a rebuild.
 - Cases: `EntityKind` rows `Vertex` (arity 0, signature is its own position bucket) · `Edge` (arity 2, signature is its endpoint-name multiset) · `Face` (`SignatureArity` `-1` sentinel for the variadic boundary cycle) (3); `Track` outcomes per rebuilt entity are `Survived` (signature match → keep name, bump last-seen) · `Migrated` (parent-signature subset match → new name, parent provenance) · `Born` (no match → fresh name) folded into the next-generation `NameTable`.
@@ -144,18 +144,18 @@ public static class TopoNaming {
 }
 ```
 
-## [3]-[DENSITY_BAR]
+## [03]-[DENSITY_BAR]
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
 | [INDEX] | [AXIS/CONCERN]              | [OWNER]                  | [KIND]                                                                        | [RAIL]                                    | [CASES] |
 | :-----: | :-------------------------- | :----------------------- | :---------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|   [1]   | Entity modality             | `EntityKind`             | `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column                  | discriminant (pure)                       |    3    |
-|   [2]   | Re-anchor outcome           | `TrackOutcome`           | `[Union]` Survived/Migrated/Born                                              | carrier (returned in `Track` rail)        |    3    |
-|   [3]   | Topological fingerprint     | `TopoSignature`          | `[ValueObject<UInt128>]` position-free incident-name/kind digest + `Subsumes` | `TopoSignature.Of → TopoSignature` (pure) |    —    |
-|   [4]   | Stable lineage reference    | `TopoName`               | `[ValueObject<UInt128>]` one naming algebra over all kinds + `Mint`           | `TopoName.Mint → TopoName` (pure)         |    —    |
-|   [5]   | Naming registry + re-anchor | `NameTable`/`TopoNaming` | immutable registry + signature index + `VertexNames` row + `Track` fold       | `TopoNaming.Track → Fin<NameTable>`       |    3    |
+|  [01]   | Entity modality             | `EntityKind`             | `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column                  | discriminant (pure)                       |    3    |
+|  [02]   | Re-anchor outcome           | `TrackOutcome`           | `[Union]` Survived/Migrated/Born                                              | carrier (returned in `Track` rail)        |    3    |
+|  [03]   | Topological fingerprint     | `TopoSignature`          | `[ValueObject<UInt128>]` position-free incident-name/kind digest + `Subsumes` | `TopoSignature.Of → TopoSignature` (pure) |    —    |
+|  [04]   | Stable lineage reference    | `TopoName`               | `[ValueObject<UInt128>]` one naming algebra over all kinds + `Mint`           | `TopoName.Mint → TopoName` (pure)         |    —    |
+|  [05]   | Naming registry + re-anchor | `NameTable`/`TopoNaming` | immutable registry + signature index + `VertexNames` row + `Track` fold       | `TopoNaming.Track → Fin<NameTable>`       |    3    |
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [REANCHOR_INJECTIVITY] — `TopoNaming.Track` is total over the `Fin` rail and routes `GeometryFault.NameCollision` on a non-injective re-anchor (two rebuilt entities of one kind resolving to one prior name). The tier-2 property harness drives the rebuild-matching validation: generate a mesh, apply a labelled topological operation (rigid move → all names Survive; face split → child Migrates with parent provenance; vertex insert → Born; edge collapse → the collapsed-into name Survives, the collapsed name absent), and assert the `TrackOutcome` matches the operation's expected lineage class and that the next-generation `NameTable` is injective per `EntityKind`; the static `TopoSignature.Subsumes` parent-subset predicate is the migration disambiguator under test (a face split's children each subsume the parent boundary), with a deterministic smallest-`TopoName` tiebreak so a split-into-n parent selection is stable across runs (an enumeration-order-dependent tiebreak flakes the golden rebuild fixture on `HashMap` order — the smallest-name rule removes that dependence). The boundary-storage shape is pinned — `NameEntry.Boundary` stores the resolved incident-name set as a column (read directly in `MigrateOrBirth`, never re-derived) and `NameTable.VertexNames` resolves intrinsic incident topology-vertex indices to prior names via `ResolveBoundary`; the OPEN residual is the injectivity proof itself, specifically the Survive×Migrate cross-case (a `Survived` name followed by a `Migrated` that mints a child of the same prior parent), which the per-`EntityKind` `claimed` set must prove non-colliding alongside the already-guarded Survive×Survive case — held until the property harness asserts injectivity across both cross-cases against the golden rebuild fixture.

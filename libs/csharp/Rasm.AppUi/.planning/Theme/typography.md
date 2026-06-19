@@ -2,15 +2,15 @@
 
 One typographic law serves every AppUi surface: `TypographyRole` is the ten-row vocabulary every product text appearance traces to, `FontChain` rows make font admission deterministic per platform, and one HarfBuzz shaping rail places every Skia-rendered glyph. `MarkdownProjection` folds the Markdig AST into role-keyed rows so document panels ride the same vocabulary, and `TextMetricsPolicy` owns baseline-grid math and measurement. The package spine is Avalonia.Fonts.Inter for the embedded faces, SkiaSharp.HarfBuzz over the centrally pinned HarfBuzz natives for shaping, and Markdig for document structure; retained styles, chart paints, editor fonts, table columns, and shaped labels all consume one resolved `TextStyleRow`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ROLE_AXIS]: Ten role rows; every text appearance literal traces here.
-- [2]-[FONT_ADMISSION]: Deterministic embedded-Inter admission; ranked per-platform fallback chains.
-- [3]-[SHAPING_RAIL]: One HarfBuzz shaping rail before every Skia glyph draw.
-- [4]-[MARKDOWN_PROJECTION]: Markdig AST folds to role-keyed rows and inline runs.
-- [5]-[TEXT_METRICS]: Baseline-grid math, measurement, trimming, tabular-numeral proof.
+- [01]-[ROLE_AXIS]: Ten role rows; every text appearance literal traces here.
+- [02]-[FONT_ADMISSION]: Deterministic embedded-Inter admission; ranked per-platform fallback chains.
+- [03]-[SHAPING_RAIL]: One HarfBuzz shaping rail before every Skia glyph draw.
+- [04]-[MARKDOWN_PROJECTION]: Markdig AST folds to role-keyed rows and inline runs.
+- [05]-[TEXT_METRICS]: Baseline-grid math, measurement, trimming, tabular-numeral proof.
 
-## [2]-[ROLE_AXIS]
+## [02]-[ROLE_AXIS]
 
 - Owner: `TypographyRole`
 - Cases: display, headline, title, subtitle, body, body-strong, caption, overline, code, numeric
@@ -73,7 +73,7 @@ public sealed record TextStyleRow(string Family, double Size, int Weight, double
 }
 ```
 
-## [3]-[FONT_ADMISSION]
+## [03]-[FONT_ADMISSION]
 
 - Owner: `FontChain`
 - Cases: MacOS | Windows | Linux
@@ -112,7 +112,7 @@ public static class FontAdmission {
 }
 ```
 
-## [4]-[SHAPING_RAIL]
+## [04]-[SHAPING_RAIL]
 
 - Owner: `ShapingSurface`
 - Entry: `public static Unit DrawLabel(SKCanvas canvas, SKShaper shaper, SKFont font, SKPaint paint, string text, float x, float y)` — boundary write onto a caller-leased canvas; the lease rail lives with the canvas owner.
@@ -130,7 +130,7 @@ public static class ShapingSurface {
 }
 ```
 
-## [5]-[MARKDOWN_PROJECTION]
+## [05]-[MARKDOWN_PROJECTION]
 
 - Owner: `MarkdownProjection`
 - Cases: Heading | Paragraph | Quote | ListRows | Grid | CodeFence | Rule — the closed seven-arm fold; footnote, front-matter, task-list, and heading-anchor constructs ride existing arms and column slots, never an eighth case.
@@ -241,7 +241,7 @@ flowchart LR
     TextStyleRow --> TextMetricsPolicy
 ```
 
-## [6]-[TEXT_METRICS]
+## [06]-[TEXT_METRICS]
 
 - Owner: `TextMetricsPolicy`
 - Entry: `public double LineBox(SKFontMetrics metrics)` — pure value; the snapped line box every text container sizes against.
@@ -263,7 +263,7 @@ public sealed record TextMetricsPolicy(double BaselineUnit) {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [FRONT_MATTER_AST]: the front-matter and footnote AST node types and member accessors — the front-matter block and its line text, the footnote group and footnote label, and the typed descendant traversal that populates the `FrontMatter` and `Footnotes` fields from the parsed document, against the Markdig extension block families beyond the catalogued `UseYamlFrontMatter`/`UseFootnotes` builder rows.
 

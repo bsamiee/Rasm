@@ -2,11 +2,11 @@
 
 IFC property/quantity/relationship analysis and standards-conformant validation — the AEC verbs the tessellation hop alone drops. `IfcAnalysis` runs quantity takeoff, Pset/schedule queries, IDS model-checking, clash detection, space-program validation, and BCF issue round-trip over `ifcopenshell.util`, `ifctester`, `ifcclash`, and the `bcf` library, emitting a geometry receipt that graduates through the compute `HandoffAxis` geometry case. The C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and the buildingSMART validation output the managed projection does not produce.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ANALYSIS]: the quantity, Pset, IDS, clash, space-program, and BCF analysis verbs under one `AnalysisKind`-discriminated owner.
+- [01]-[ANALYSIS]: the quantity, Pset, IDS, clash, space-program, and BCF analysis verbs under one `AnalysisKind`-discriminated owner.
 
-## [2]-[ANALYSIS]
+## [02]-[ANALYSIS]
 
 - Owner: `IfcAnalysis` — the static surface dispatching the analysis verbs over the IfcOpenShell ecosystem; `AnalysisKind` the closed `StrEnum` selecting the verb; `AnalysisResult` the typed receipt carrying the kind, the subject element set, and the BCF-serializable result rows.
 - Cases: `AnalysisKind` rows `QUANTITY` (quantity takeoff over `util.element`) · `PSET` (property-set queries) · `IDS` (model-checking over `ifctester.ids`) · `CLASH` (clash sets over `ifcclash`) · `SPACE_PROGRAM` (`IfcSpace` area validation against a program table) · `BCF` (issue authoring/round-trip over the `bcf` library) — matched by `match`/`case`, each dispatching to the ecosystem tool that owns it.
@@ -105,7 +105,7 @@ class IfcAnalysis:
         return 0.0
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [CLASH_SET_INTERNAL]: the branch `ifcclash` catalogue confirms `Clasher(ClashSettings())`, the `ClashSet` TypedDict (`name`/`a`/`b`/`mode`), the `ClashSource` TypedDict (`ifc`/`mode` `'a'`-all selector), the in-place `clashes: dict[str, ClashResult]` result accumulation, and the `ClashResult.a_global_id`/`b_global_id` pair; the `Clasher.clash()` populate-versus-`process_clash_set` single-set entry and whether `clash_sets[i]["clashes"]` is keyed before or after `clash()` is the remaining internal-shape detail the live run confirms.
 - [BCF_TOPIC_ROUNDTRIP]: the branch `bcf-client` catalogue confirms `bcf.v3.bcfxml.BcfXml.create_new(project_name)`, `BcfXml.add_topic(title, description, author) -> TopicHandler`, `BcfXml.get_topics() -> dict[str, TopicHandler]`, and `TopicHandler.topic`/`TopicHandler.guid`; the `TopicHandler.topic.title` markup field spelling (the `v3.model.markup.Topic.title` attribute) is the remaining field-name detail the live run confirms. The `BCF` arm realizes the author leg — `add_topic(title, description, author)` mints the topic before `get_topics` returns the populated map — so the round-trip is fenced, not prose; the IDS `reporter.Json`/`reporter.Bcf` exporter is the standards-conformant export the graduation leg writes.

@@ -2,11 +2,11 @@
 
 One page owns the browser platform bindings layer — `BrowserPlatform`, the one `Layer.mergeAll` of the `@effect/platform-browser` fetch HTTP client, the local-storage key-value store, and the worker-manager binding that every host owner composes for its IO primitives. The layer is config-free stock bindings sitting directly above `RuntimeConfig` in the graph; it owns no policy and authors no decode.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[BROWSER_PLATFORM]: the HTTP client, the key-value store, and the worker-manager binding.
+- [01]-[BROWSER_PLATFORM]: the HTTP client, the key-value store, and the worker-manager binding.
 
-## [2]-[BROWSER_PLATFORM]
+## [02]-[BROWSER_PLATFORM]
 
 - Owner: `BrowserPlatform`, the browser platform layer owning the HTTP client, the key-value store, and the `WorkerManager` binding bound under one `Layer.mergeAll`.
 - Cases: `BrowserPlatform` binds the platform services from one `Layer.mergeAll` of the `@effect/platform-browser` `FetchHttpClient.layer`, `BrowserKeyValueStore.layerLocalStorage`, and the `WorkerManager` binding, so the fetch client `feature-flags`'s `RemoteConfig` config fetch and `observability`'s OTLP exporters resolve over, the key-value store `local-persistence` composes, and the `WorkerManager` `worker/`'s `DecodeWorkerPool` requires each resolve from this one binding rather than a per-owner platform layer; the layer is config-free stock bindings, so it sits directly above `RuntimeConfig.provider` in the graph and below the config-reading owners.

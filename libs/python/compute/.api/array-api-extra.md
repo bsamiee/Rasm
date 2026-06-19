@@ -2,7 +2,7 @@
 
 `array-api-extra` supplies the Array API Standard extension functions absent from the base standard — `at`-style indexed updates, `apply_where`, `argpartition`, `one_hot`, `pad`, `searchsorted`, `setdiff1d`, `union1d`, and covariance/diagonal/sinc/nan utilities — operating against any `xp` namespace resolved by `array-api-compat`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `array-api-extra`
 - package: `array-api-extra`
@@ -10,22 +10,22 @@
 - asset: runtime library
 - rail: array-api
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension operations and helper types
 - rail: array-api
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [ROLE]                                              |
 | :-----: | :----------------- | :------------ | :-------------------------------------------------- |
-|   [1]   | `at`               | class         | indexed functional update builder (`at(x, idx)`)    |
-|   [2]   | `apply_where`      | function      | conditional two-branch elementwise apply            |
-|   [3]   | `argpartition`     | function      | indirect partial sort indices                       |
-|   [4]   | `atleast_nd`       | function      | broadcast array to at least `ndim` dimensions       |
-|   [5]   | `broadcast_shapes` | function      | compute broadcast shape for shape tuples            |
-|   [6]   | `cov`              | function      | covariance matrix                                   |
-|   [7]   | `create_diagonal`  | function      | diagonal matrix from 1-D array with optional offset |
-|   [8]   | `default_dtype`    | function      | default dtype for a kind on a namespace             |
-|   [9]   | `expand_dims`      | function      | insert axes at given positions                      |
+|  [01]   | `at`               | class         | indexed functional update builder (`at(x, idx)`)    |
+|  [02]   | `apply_where`      | function      | conditional two-branch elementwise apply            |
+|  [03]   | `argpartition`     | function      | indirect partial sort indices                       |
+|  [04]   | `atleast_nd`       | function      | broadcast array to at least `ndim` dimensions       |
+|  [05]   | `broadcast_shapes` | function      | compute broadcast shape for shape tuples            |
+|  [06]   | `cov`              | function      | covariance matrix                                   |
+|  [07]   | `create_diagonal`  | function      | diagonal matrix from 1-D array with optional offset |
+|  [08]   | `default_dtype`    | function      | default dtype for a kind on a namespace             |
+|  [09]   | `expand_dims`      | function      | insert axes at given positions                      |
 |  [10]   | `isclose`          | function      | element-wise approximate equality                   |
 |  [11]   | `isin`             | function      | element-wise membership test                        |
 |  [12]   | `kron`             | function      | Kronecker product                                   |
@@ -41,29 +41,29 @@
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [ROLE]                                     |
 | :-----: | :------------- | :------------ | :----------------------------------------- |
-|   [1]   | `searchsorted` | function      | sorted-array binary search                 |
-|   [2]   | `setdiff1d`    | function      | set difference of two 1-D arrays           |
-|   [3]   | `sinc`         | function      | normalized sinc function                   |
-|   [4]   | `union1d`      | function      | sorted union of two 1-D arrays             |
-|   [5]   | `angle`        | function      | element-wise phase angle of complex array  |
-|   [6]   | `testing`      | module        | test helpers for array-api-extra functions |
+|  [01]   | `searchsorted` | function      | sorted-array binary search                 |
+|  [02]   | `setdiff1d`    | function      | set difference of two 1-D arrays           |
+|  [03]   | `sinc`         | function      | normalized sinc function                   |
+|  [04]   | `union1d`      | function      | sorted union of two 1-D arrays             |
+|  [05]   | `angle`        | function      | element-wise phase angle of complex array  |
+|  [06]   | `testing`      | module        | test helpers for array-api-extra functions |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: core array extensions
 - rail: array-api
 
 | [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `at(x, idx=UNDEF, /) -> None`                                                                                      | indexed update | immutable-style indexed mutation entry |
-|   [2]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None, xp=None)`                                | conditional    | two-branch element-wise dispatch       |
-|   [3]   | `argpartition(a, kth, /, axis=-1, *, xp=None)`                                                                     | sort           | indirect partial sort                  |
-|   [4]   | `atleast_nd(x, /, *, ndim, xp=None)`                                                                               | shape          | broadcast to minimum ndim              |
-|   [5]   | `broadcast_shapes(*shapes, xp=None) -> tuple[int \| None, ...]`                                                    | shape          | broadcast shape computation            |
-|   [6]   | `cov(m, /, *, xp=None)`                                                                                            | statistics     | covariance matrix                      |
-|   [7]   | `create_diagonal(x, /, *, offset=0, xp=None)`                                                                      | linear algebra | diagonal matrix from 1-D               |
-|   [8]   | `default_dtype(xp, kind='real floating', *, device=None)`                                                          | dtype          | backend default dtype query            |
-|   [9]   | `expand_dims(a, /, *, axis=(0,), xp=None)`                                                                         | shape          | insert axes                            |
+|  [01]   | `at(x, idx=UNDEF, /) -> None`                                                                                      | indexed update | immutable-style indexed mutation entry |
+|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None, xp=None)`                                | conditional    | two-branch element-wise dispatch       |
+|  [03]   | `argpartition(a, kth, /, axis=-1, *, xp=None)`                                                                     | sort           | indirect partial sort                  |
+|  [04]   | `atleast_nd(x, /, *, ndim, xp=None)`                                                                               | shape          | broadcast to minimum ndim              |
+|  [05]   | `broadcast_shapes(*shapes, xp=None) -> tuple[int \| None, ...]`                                                    | shape          | broadcast shape computation            |
+|  [06]   | `cov(m, /, *, xp=None)`                                                                                            | statistics     | covariance matrix                      |
+|  [07]   | `create_diagonal(x, /, *, offset=0, xp=None)`                                                                      | linear algebra | diagonal matrix from 1-D               |
+|  [08]   | `default_dtype(xp, kind='real floating', *, device=None)`                                                          | dtype          | backend default dtype query            |
+|  [09]   | `expand_dims(a, /, *, axis=(0,), xp=None)`                                                                         | shape          | insert axes                            |
 |  [10]   | `isclose(a, b, *, rtol=1e-5, atol=1e-8, equal_nan=False, xp=None)`                                                 | comparison     | approximate equality                   |
 |  [11]   | `isin(a, b, /, *, assume_unique=False, invert=False, kind=None, xp=None)`                                          | membership     | element membership test                |
 |  [12]   | `kron(a, b, /, *, xp=None)`                                                                                        | linear algebra | Kronecker product                      |
@@ -79,19 +79,19 @@
 
 | [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :------------------------------------------------------------------------------------ | :------------- | :------------------------------------- |
-|   [1]   | `searchsorted(x1, x2, /, *, side='left', xp=None)`                                    | search         | binary search                          |
-|   [2]   | `setdiff1d(x1, x2, /, *, assume_unique=False, xp=None)`                               | set            | set difference                         |
-|   [3]   | `sinc(x, /, *, xp=None)`                                                              | math           | normalized sinc                        |
-|   [4]   | `union1d(a, b, /, *, xp=None)`                                                        | set            | set union                              |
-|   [5]   | `angle(z, /, *, deg=False, xp=None)`                                                  | complex        | phase angle                            |
-|   [6]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, xp=None, ...)`           | test helper    | approximate equality assert            |
-|   [7]   | `testing.assert_equal(actual, desired, *, xp=None, ...)`                              | test helper    | exact equality assert                  |
-|   [8]   | `testing.assert_less(x, y, *, xp=None, ...)`                                          | test helper    | strict less assert                     |
-|   [9]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, xp=None, ...)`                 | test helper    | ULP-based assert                       |
+|  [01]   | `searchsorted(x1, x2, /, *, side='left', xp=None)`                                    | search         | binary search                          |
+|  [02]   | `setdiff1d(x1, x2, /, *, assume_unique=False, xp=None)`                               | set            | set difference                         |
+|  [03]   | `sinc(x, /, *, xp=None)`                                                              | math           | normalized sinc                        |
+|  [04]   | `union1d(a, b, /, *, xp=None)`                                                        | set            | set union                              |
+|  [05]   | `angle(z, /, *, deg=False, xp=None)`                                                  | complex        | phase angle                            |
+|  [06]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, xp=None, ...)`           | test helper    | approximate equality assert            |
+|  [07]   | `testing.assert_equal(actual, desired, *, xp=None, ...)`                              | test helper    | exact equality assert                  |
+|  [08]   | `testing.assert_less(x, y, *, xp=None, ...)`                                          | test helper    | strict less assert                     |
+|  [09]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, xp=None, ...)`                 | test helper    | ULP-based assert                       |
 |  [10]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True, ...)`      | test fixture   | wrap function for lazy backend testing |
 |  [11]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp) -> ContextManager` | test fixture   | patch lazy dispatch for tests          |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [ARRAY_API_EXTRA_TOPOLOGY]:
 - all operations accept an optional `xp` keyword; omitting it triggers `array_namespace(*arrays)` resolution internally

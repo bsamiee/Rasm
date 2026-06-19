@@ -2,7 +2,7 @@
 
 `@pulumi/random` supplies randomness resource classes — `RandomPassword`, `RandomString`, `RandomId`, `RandomBytes`, `RandomInteger`, `RandomPet`, `RandomShuffle`, `RandomUuid`, `RandomUuid4`, `RandomUuid7` — that produce deterministic Pulumi-tracked outputs, regenerating only when `keepers` change, for seeding secrets, generating resource name suffixes, and selecting values from pools.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/random`
 - package: `@pulumi/random`
@@ -10,22 +10,22 @@
 - asset: random value resource classes with keeper-driven recreation
 - rail: deployment
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: random resource family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [RAIL]                                             |
 | :-----: | :--------------- | :------------- | :------------------------------------------------- |
-|   [1]   | `RandomPassword` | resource class | secret-grade string with charset composition rules |
-|   [2]   | `RandomString`   | resource class | plain string with charset composition rules        |
-|   [3]   | `RandomId`       | resource class | fixed-byte random ID in hex/base64/decimal forms   |
-|   [4]   | `RandomBytes`    | resource class | raw random bytes as base64 and hex outputs         |
-|   [5]   | `RandomInteger`  | resource class | integer in `[min, max]` range                      |
-|   [6]   | `RandomPet`      | resource class | human-readable random pet name                     |
-|   [7]   | `RandomShuffle`  | resource class | shuffled subset of an input string list            |
-|   [8]   | `RandomUuid`     | resource class | random UUID v4 string                              |
-|   [9]   | `RandomUuid4`    | resource class | explicit UUID v4 string                            |
+|  [01]   | `RandomPassword` | resource class | secret-grade string with charset composition rules |
+|  [02]   | `RandomString`   | resource class | plain string with charset composition rules        |
+|  [03]   | `RandomId`       | resource class | fixed-byte random ID in hex/base64/decimal forms   |
+|  [04]   | `RandomBytes`    | resource class | raw random bytes as base64 and hex outputs         |
+|  [05]   | `RandomInteger`  | resource class | integer in `[min, max]` range                      |
+|  [06]   | `RandomPet`      | resource class | human-readable random pet name                     |
+|  [07]   | `RandomShuffle`  | resource class | shuffled subset of an input string list            |
+|  [08]   | `RandomUuid`     | resource class | random UUID v4 string                              |
+|  [09]   | `RandomUuid4`    | resource class | explicit UUID v4 string                            |
 |  [10]   | `RandomUuid7`    | resource class | time-sortable UUID v7 string                       |
 
 [PUBLIC_TYPE_SCOPE]: args family
@@ -33,33 +33,33 @@
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [KEY_FIELDS]                                                                                                                                  |
 | :-----: | :------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `RandomPasswordArgs` | args interface | `length` (required), `special`, `upper`, `lower`, `numeric`, `minSpecial`, `minUpper`, `minLower`, `minNumeric`, `overrideSpecial`, `keepers` |
-|   [2]   | `RandomStringArgs`   | args interface | `length` (required), `special`, `upper`, `lower`, `numeric`, `overrideSpecial`, `keepers`                                                     |
-|   [3]   | `RandomIdArgs`       | args interface | `byteLength` (required), `keepers`, `prefix`                                                                                                  |
-|   [4]   | `RandomBytesArgs`    | args interface | `length` (required), `keepers`                                                                                                                |
-|   [5]   | `RandomIntegerArgs`  | args interface | `min` (required), `max` (required), `keepers`, `seed`                                                                                         |
-|   [6]   | `RandomPetArgs`      | args interface | `length`, `prefix`, `separator`, `keepers`                                                                                                    |
-|   [7]   | `RandomShuffleArgs`  | args interface | `inputs` (required), `resultCount`, `keepers`, `seed`                                                                                         |
+|  [01]   | `RandomPasswordArgs` | args interface | `length` (required), `special`, `upper`, `lower`, `numeric`, `minSpecial`, `minUpper`, `minLower`, `minNumeric`, `overrideSpecial`, `keepers` |
+|  [02]   | `RandomStringArgs`   | args interface | `length` (required), `special`, `upper`, `lower`, `numeric`, `overrideSpecial`, `keepers`                                                     |
+|  [03]   | `RandomIdArgs`       | args interface | `byteLength` (required), `keepers`, `prefix`                                                                                                  |
+|  [04]   | `RandomBytesArgs`    | args interface | `length` (required), `keepers`                                                                                                                |
+|  [05]   | `RandomIntegerArgs`  | args interface | `min` (required), `max` (required), `keepers`, `seed`                                                                                         |
+|  [06]   | `RandomPetArgs`      | args interface | `length`, `prefix`, `separator`, `keepers`                                                                                                    |
+|  [07]   | `RandomShuffleArgs`  | args interface | `inputs` (required), `resultCount`, `keepers`, `seed`                                                                                         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resource constructors
 - rail: deployment
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]  | [OUTPUT_FIELDS]                          |
 | :-----: | :-------------------------------------- | :-------------- | :--------------------------------------- |
-|   [1]   | `new RandomPassword(name, args, opts?)` | resource create | `result: Output<string>` (secret-marked) |
-|   [2]   | `new RandomString(name, args, opts?)`   | resource create | `result: Output<string>`                 |
-|   [3]   | `new RandomId(name, args, opts?)`       | resource create | `b64Std`, `b64Url`, `hex`, `dec`         |
-|   [4]   | `new RandomBytes(name, args, opts?)`    | resource create | `hex: Output<string>`, `length`          |
-|   [5]   | `new RandomInteger(name, args, opts?)`  | resource create | `result: Output<number>`                 |
-|   [6]   | `new RandomPet(name, args?, opts?)`     | resource create | `id: Output<string>`                     |
-|   [7]   | `new RandomShuffle(name, args, opts?)`  | resource create | `results: Output<string[]>`              |
-|   [8]   | `new RandomUuid(name, args?, opts?)`    | resource create | `result: Output<string>`                 |
-|   [9]   | `new RandomUuid4(name, args?, opts?)`   | resource create | `result: Output<string>`                 |
+|  [01]   | `new RandomPassword(name, args, opts?)` | resource create | `result: Output<string>` (secret-marked) |
+|  [02]   | `new RandomString(name, args, opts?)`   | resource create | `result: Output<string>`                 |
+|  [03]   | `new RandomId(name, args, opts?)`       | resource create | `b64Std`, `b64Url`, `hex`, `dec`         |
+|  [04]   | `new RandomBytes(name, args, opts?)`    | resource create | `hex: Output<string>`, `length`          |
+|  [05]   | `new RandomInteger(name, args, opts?)`  | resource create | `result: Output<number>`                 |
+|  [06]   | `new RandomPet(name, args?, opts?)`     | resource create | `id: Output<string>`                     |
+|  [07]   | `new RandomShuffle(name, args, opts?)`  | resource create | `results: Output<string[]>`              |
+|  [08]   | `new RandomUuid(name, args?, opts?)`    | resource create | `result: Output<string>`                 |
+|  [09]   | `new RandomUuid4(name, args?, opts?)`   | resource create | `result: Output<string>`                 |
 |  [10]   | `new RandomUuid7(name, args?, opts?)`   | resource create | `result: Output<string>`                 |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RANDOM_TOPOLOGY]:
 - all resources extend `pulumi.CustomResource`; inputs accept `Input<T>`, outputs emit `Output<T>`

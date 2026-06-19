@@ -2,7 +2,7 @@
 
 Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low-level multipart plus `TransferUtility`, `Azure.Storage.Blobs` staged-block plus parallel upload, and `Google.Cloud.Storage.V1` resumable chunked upload with conditional-write concurrency. Each SDK supplies the chunked/resumable transfer members, the content-hash/ETag descriptor evidence, and the conditional-write optimistic-concurrency edge the `ObjectStore` placement rows consume.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AWSSDK.S3`
 - package: `AWSSDK.S3`
@@ -28,22 +28,22 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 - asset: runtime library
 - rail: object-store
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [S3_TYPES]: AWSSDK.S3 multipart and transfer
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]     | [CAPABILITY]                         |
 | :-----: | :-------------------------------- | :----------------- | :----------------------------------- |
-|   [1]   | `AmazonS3Client : IAmazonS3`      | client             | low-level multipart and object ops   |
-|   [2]   | `InitiateMultipartUploadRequest`  | request            | begins multipart, carries key/bucket |
-|   [3]   | `InitiateMultipartUploadResponse` | response           | yields `UploadId`                    |
-|   [4]   | `UploadPartRequest`               | request            | one part stream + `PartNumber`       |
-|   [5]   | `UploadPartResponse`              | response           | yields part `ETag`                   |
-|   [6]   | `CompleteMultipartUploadRequest`  | request            | carries `PartETags` list             |
-|   [7]   | `CompleteMultipartUploadResponse` | response           | yields object `ETag`/`Location`      |
-|   [8]   | `AbortMultipartUploadRequest`     | request            | abandons an in-flight upload         |
-|   [9]   | `PartETag`                        | value              | `(PartNumber, ETag)` pair            |
+|  [01]   | `AmazonS3Client : IAmazonS3`      | client             | low-level multipart and object ops   |
+|  [02]   | `InitiateMultipartUploadRequest`  | request            | begins multipart, carries key/bucket |
+|  [03]   | `InitiateMultipartUploadResponse` | response           | yields `UploadId`                    |
+|  [04]   | `UploadPartRequest`               | request            | one part stream + `PartNumber`       |
+|  [05]   | `UploadPartResponse`              | response           | yields part `ETag`                   |
+|  [06]   | `CompleteMultipartUploadRequest`  | request            | carries `PartETags` list             |
+|  [07]   | `CompleteMultipartUploadResponse` | response           | yields object `ETag`/`Location`      |
+|  [08]   | `AbortMultipartUploadRequest`     | request            | abandons an in-flight upload         |
+|  [09]   | `PartETag`                        | value              | `(PartNumber, ETag)` pair            |
 |  [10]   | `TransferUtility`                 | high-level surface | managed multipart upload             |
 |  [11]   | `TransferUtilityUploadRequest`    | request            | `PartSize`/stream high-level config  |
 |  [12]   | `GetObjectRequest`                | request            | range-read resumption (`ByteRange`)  |
@@ -54,15 +54,15 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                       |
 | :-----: | :--------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `BlockBlobClient : BlobBaseClient` | client         | staged-block upload                |
-|   [2]   | `BlobClient : BlobBaseClient`      | client         | simple/parallel upload             |
-|   [3]   | `BlockBlobStageBlockOptions`       | options        | per-block conditions/progress      |
-|   [4]   | `CommitBlockListOptions`           | options        | headers/metadata/tags/conditions   |
-|   [5]   | `BlobUploadOptions`                | options        | carries `TransferOptions`          |
-|   [6]   | `StorageTransferOptions`           | value          | chunk-size and concurrency tuning  |
-|   [7]   | `BlockInfo`                        | response       | block `ContentHash`/`ContentCrc64` |
-|   [8]   | `BlobContentInfo`                  | response       | object `ETag`/`ContentHash`        |
-|   [9]   | `BlobRequestConditions`            | value          | `IfMatch`/`IfNoneMatch` ETag gate  |
+|  [01]   | `BlockBlobClient : BlobBaseClient` | client         | staged-block upload                |
+|  [02]   | `BlobClient : BlobBaseClient`      | client         | simple/parallel upload             |
+|  [03]   | `BlockBlobStageBlockOptions`       | options        | per-block conditions/progress      |
+|  [04]   | `CommitBlockListOptions`           | options        | headers/metadata/tags/conditions   |
+|  [05]   | `BlobUploadOptions`                | options        | carries `TransferOptions`          |
+|  [06]   | `StorageTransferOptions`           | value          | chunk-size and concurrency tuning  |
+|  [07]   | `BlockInfo`                        | response       | block `ContentHash`/`ContentCrc64` |
+|  [08]   | `BlobContentInfo`                  | response       | object `ETag`/`ContentHash`        |
+|  [09]   | `BlobRequestConditions`            | value          | `IfMatch`/`IfNoneMatch` ETag gate  |
 |  [10]   | `BlobDownloadStreamingResult`      | response       | range-read resumption stream       |
 
 [GCS_TYPES]: Google.Cloud.Storage.V1 resumable upload
@@ -70,26 +70,26 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]    | [CAPABILITY]                                   |
 | :-----: | :---------------------- | :---------------- | :--------------------------------------------- |
-|   [1]   | `StorageClient`         | client (abstract) | upload/download/list object ops                |
-|   [2]   | `UploadObjectOptions`   | options           | `ChunkSize` resumable + generation-match gate  |
-|   [3]   | `DownloadObjectOptions` | options           | range-read resumption                          |
-|   [4]   | `Object`                | value             | destination descriptor + `Generation`/`Crc32c` |
-|   [5]   | `IUploadProgress`       | progress          | per-chunk byte progress                        |
-|   [6]   | `PredefinedObjectAcl`   | enum              | predefined-acl column                          |
+|  [01]   | `StorageClient`         | client (abstract) | upload/download/list object ops                |
+|  [02]   | `UploadObjectOptions`   | options           | `ChunkSize` resumable + generation-match gate  |
+|  [03]   | `DownloadObjectOptions` | options           | range-read resumption                          |
+|  [04]   | `Object`                | value             | destination descriptor + `Generation`/`Crc32c` |
+|  [05]   | `IUploadProgress`       | progress          | per-chunk byte progress                        |
+|  [06]   | `PredefinedObjectAcl`   | enum              | predefined-acl column                          |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [S3_MULTIPART]: low-level multipart over `AmazonS3Client`
 - rail: object-store
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]              | [CAPABILITY]      |
 | :-----: | :----------------------------- | :------------------------ | :---------------- |
-|   [1]   | `InitiateMultipartUploadAsync` | request plus cancellation | begins upload     |
-|   [2]   | `UploadPartAsync`              | request plus cancellation | uploads one part  |
-|   [3]   | `CompleteMultipartUploadAsync` | request plus cancellation | seals object      |
-|   [4]   | `AbortMultipartUploadAsync`    | request plus cancellation | abandons upload   |
-|   [5]   | `GetObjectAsync`               | request plus cancellation | range-read fetch  |
-|   [6]   | `TransferUtility.UploadAsync`  | request plus cancellation | managed multipart |
+|  [01]   | `InitiateMultipartUploadAsync` | request plus cancellation | begins upload     |
+|  [02]   | `UploadPartAsync`              | request plus cancellation | uploads one part  |
+|  [03]   | `CompleteMultipartUploadAsync` | request plus cancellation | seals object      |
+|  [04]   | `AbortMultipartUploadAsync`    | request plus cancellation | abandons upload   |
+|  [05]   | `GetObjectAsync`               | request plus cancellation | range-read fetch  |
+|  [06]   | `TransferUtility.UploadAsync`  | request plus cancellation | managed multipart |
 
 Request members consumed: `InitiateMultipartUploadRequest` — `BucketName`, `Key`, `ContentType`, `StorageClass` (`S3StorageClass`); `UploadPartRequest` — `BucketName`, `Key`, `UploadId`, `PartNumber` (int, 1-10000), `InputStream`, `PartSize` (long); `UploadPartResponse` — `ETag`, `PartNumber`; `CompleteMultipartUploadRequest` — `BucketName`, `Key`, `UploadId`, `PartETags` (`List<PartETag>`); `PartETag` — `PartNumber`, `ETag`; `CompleteMultipartUploadResponse` — `Location`, `BucketName`, `Key`, `ETag`; `GetObjectRequest` — `BucketName`, `Key`, `ByteRange` (`ByteRange(long start, long end)`); `TransferUtilityUploadRequest` — `BucketName`, `Key`, `InputStream`, `PartSize` (long, min 5 MB), `AutoCloseStream`.
 
@@ -98,10 +98,10 @@ Request members consumed: `InitiateMultipartUploadRequest` — `BucketName`, `Ke
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]                       | [CAPABILITY]     |
 | :-----: | :----------------------- | :--------------------------------- | :--------------- |
-|   [1]   | `StageBlockAsync`        | block id, stream, options          | one block        |
-|   [2]   | `CommitBlockListAsync`   | block ids plus options             | seals blob       |
-|   [3]   | `BlobClient.UploadAsync` | stream plus upload options         | parallel chunked |
-|   [4]   | `DownloadStreamingAsync` | download options plus cancellation | range-read fetch |
+|  [01]   | `StageBlockAsync`        | block id, stream, options          | one block        |
+|  [02]   | `CommitBlockListAsync`   | block ids plus options             | seals blob       |
+|  [03]   | `BlobClient.UploadAsync` | stream plus upload options         | parallel chunked |
+|  [04]   | `DownloadStreamingAsync` | download options plus cancellation | range-read fetch |
 
 Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (byte[]); `BlobContentInfo` — `ETag`, `LastModified`, `ContentHash` (byte[]), `VersionId`; `BlobUploadOptions` — `HttpHeaders`, `Metadata`, `Tags`, `AccessTier?`, `TransferOptions` (`StorageTransferOptions`), `Conditions` (`BlobRequestConditions?`); `StorageTransferOptions` — `InitialTransferSize` (long?), `MaximumTransferSize` (long?), `MaximumConcurrency` (int?); `BlobRequestConditions` — `IfMatch` (`ETag?`), `IfNoneMatch` (`ETag?`).
 
@@ -110,26 +110,26 @@ Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (b
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]                    | [CAPABILITY]     |
 | :-----: | :-------------------------- | :------------------------------ | :--------------- |
-|   [1]   | `UploadObjectAsync`         | object, stream, options         | resumable upload |
-|   [2]   | `DownloadObjectAsync`       | bucket, object, stream, options | range-read fetch |
-|   [3]   | `StorageClient.CreateAsync` | credential option               | client factory   |
+|  [01]   | `UploadObjectAsync`         | object, stream, options         | resumable upload |
+|  [02]   | `DownloadObjectAsync`       | bucket, object, stream, options | range-read fetch |
+|  [03]   | `StorageClient.CreateAsync` | credential option               | client factory   |
 
 Type members consumed: `UploadObjectOptions` — `ChunkSize` (int?, positive multiple of 262144 enables resumable chunked; null = single-request), `IfGenerationMatch` (long?), `IfGenerationNotMatch` (long?), `IfMetagenerationMatch` (long?), `PredefinedAcl` (`PredefinedObjectAcl?`), `KmsKeyName` (string?); `Object` — `Name`, `Bucket`, `Generation` (long?), `Crc32c` (string), `Md5Hash` (string), `Size` (ulong?), `ContentType`; `DownloadObjectOptions` — `Range` (`System.Net.Http.Headers.RangeHeaderValue?`).
 
-## [4]-[ERROR_TAXONOMY]
+## [04]-[ERROR_TAXONOMY]
 
 [BOUNDARY_FAULTS]: SDK exception surfaces lifted at the object-store edge
 - rail: object-store
 
 | [INDEX] | [SDK]                     | [THROWN]                 | [DISCRIMINANT]                              |
 | :-----: | :------------------------ | :----------------------- | :------------------------------------------ |
-|   [1]   | `AWSSDK.S3`               | `AmazonS3Exception`      | `StatusCode` (HttpStatusCode) + `ErrorCode` |
-|   [2]   | `Azure.Storage.Blobs`     | `RequestFailedException` | `Status` (int) + `ErrorCode` (string)       |
-|   [3]   | `Google.Cloud.Storage.V1` | `GoogleApiException`     | `HttpStatusCode` + `Error.Code`             |
+|  [01]   | `AWSSDK.S3`               | `AmazonS3Exception`      | `StatusCode` (HttpStatusCode) + `ErrorCode` |
+|  [02]   | `Azure.Storage.Blobs`     | `RequestFailedException` | `Status` (int) + `ErrorCode` (string)       |
+|  [03]   | `Google.Cloud.Storage.V1` | `GoogleApiException`     | `HttpStatusCode` + `Error.Code`             |
 
 Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `ConditionNotMet`/`412`, GCS `412` on generation-match — each routes to the `RemoteStoreFault.Conflict` case.
 
-## [5]-[CATALOGUE_LAW]
+## [05]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
 - Package pages carry external package API facts; the `ObjectStore` placement rows and the multipart transfer algebra are owned at `remote-stores`.

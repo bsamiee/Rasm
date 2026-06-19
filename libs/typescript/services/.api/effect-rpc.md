@@ -2,7 +2,7 @@
 
 `@effect/rpc` is the schema-driven, transport-agnostic RPC surface for Effect. The package re-exports twelve modules as namespaces through `index.d.ts`: procedure definition (`Rpc`), group aggregate (`RpcGroup`), typed client (`RpcClient`), server runner (`RpcServer`), wire-message algebra (`RpcMessage`), middleware (`RpcMiddleware`), stream schema (`RpcSchema`), serialization layers (`RpcSerialization`), client error (`RpcClientError`), test client (`RpcTest`), and worker bootstrap (`RpcWorker`).
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/rpc`
 - package: `@effect/rpc`
@@ -27,7 +27,7 @@ export * as RpcTest from "./RpcTest.js"
 export * as RpcWorker from "./RpcWorker.js"
 ```
 
-## [2]-[RPC]
+## [02]-[RPC]
 
 `@effect/rpc/Rpc` — the procedure definition atom. `Rpc` carries the tag, payload/success/error schemas,
 defect schema, annotations, and middleware set; the `make` constructor builds one, and the type-level
@@ -38,15 +38,15 @@ projection family derives handler shapes, exit schemas, and context requirements
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [RAIL]                                                |
 | :-----: | :----------------------- | :------------------- | :---------------------------------------------------- |
-|   [1]   | `Rpc`                    | interface (5 params) | procedure atom; fluent `set*`/`prefix`/`middleware`   |
-|   [2]   | `Handler`                | interface            | implemented rpc (`tag` + handler fn + context)        |
-|   [3]   | `Any` / `AnyWithProps`   | interface            | erased procedure constraints                          |
-|   [4]   | `From`                   | interface            | rpc derived from a tagged-request schema              |
-|   [5]   | `AnySchema`              | interface            | structural schema bound (Type/Encoded/Context/ast)    |
-|   [6]   | `AnyTaggedRequestSchema` | interface            | `AnySchema` + `_tag`/`success`/`failure`              |
-|   [7]   | `make`                   | const fn             | procedure constructor                                 |
-|   [8]   | `fromTaggedRequest`      | const fn             | `(schema) => From<S>`                                 |
-|   [9]   | `exitSchema`             | const fn             | `(self) => Schema.Schema<Exit<R>, ExitEncoded<R>, …>` |
+|  [01]   | `Rpc`                    | interface (5 params) | procedure atom; fluent `set*`/`prefix`/`middleware`   |
+|  [02]   | `Handler`                | interface            | implemented rpc (`tag` + handler fn + context)        |
+|  [03]   | `Any` / `AnyWithProps`   | interface            | erased procedure constraints                          |
+|  [04]   | `From`                   | interface            | rpc derived from a tagged-request schema              |
+|  [05]   | `AnySchema`              | interface            | structural schema bound (Type/Encoded/Context/ast)    |
+|  [06]   | `AnyTaggedRequestSchema` | interface            | `AnySchema` + `_tag`/`success`/`failure`              |
+|  [07]   | `make`                   | const fn             | procedure constructor                                 |
+|  [08]   | `fromTaggedRequest`      | const fn             | `(schema) => From<S>`                                 |
+|  [09]   | `exitSchema`             | const fn             | `(self) => Schema.Schema<Exit<R>, ExitEncoded<R>, …>` |
 |  [10]   | `isRpc`                  | guard                | `(u) => u is Rpc<any, any, any>`                      |
 |  [11]   | `TypeId`                 | unique symbol        | brand                                                 |
 
@@ -55,15 +55,15 @@ projection family derives handler shapes, exit schemas, and context requirements
 
 | [INDEX] | [SYMBOL]                                                   | [RESOLVES_TO]                                          |
 | :-----: | :--------------------------------------------------------- | :----------------------------------------------------- |
-|   [1]   | `Tag<R>`                                                   | the procedure tag string                               |
-|   [2]   | `Payload<R>` / `PayloadConstructor<R>`                     | payload `Type` / struct constructor input              |
-|   [3]   | `Success<R>` / `SuccessSchema<R>` / `SuccessEncoded<R>`    | success value / schema / encoded                       |
-|   [4]   | `SuccessExit<R>` / `SuccessExitEncoded<R>`                 | exit success (`void` for streams)                      |
-|   [5]   | `SuccessChunk<R>` / `SuccessChunkEncoded<R>`               | per-chunk stream element                               |
-|   [6]   | `Error<R>` / `ErrorSchema<R>` / `ErrorEncoded<R>`          | error value / schema (incl. middleware) / encoded      |
-|   [7]   | `ErrorExit<R>` / `ErrorExitEncoded<R>`                     | exit error (incl. stream failure)                      |
-|   [8]   | `Exit<R>` / `ExitEncoded<R>`                               | `Exit_<SuccessExit, ErrorExit>` / schema-encoded exit  |
-|   [9]   | `Context<R>`                                               | payload+success+error schema context union             |
+|  [01]   | `Tag<R>`                                                   | the procedure tag string                               |
+|  [02]   | `Payload<R>` / `PayloadConstructor<R>`                     | payload `Type` / struct constructor input              |
+|  [03]   | `Success<R>` / `SuccessSchema<R>` / `SuccessEncoded<R>`    | success value / schema / encoded                       |
+|  [04]   | `SuccessExit<R>` / `SuccessExitEncoded<R>`                 | exit success (`void` for streams)                      |
+|  [05]   | `SuccessChunk<R>` / `SuccessChunkEncoded<R>`               | per-chunk stream element                               |
+|  [06]   | `Error<R>` / `ErrorSchema<R>` / `ErrorEncoded<R>`          | error value / schema (incl. middleware) / encoded      |
+|  [07]   | `ErrorExit<R>` / `ErrorExitEncoded<R>`                     | exit error (incl. stream failure)                      |
+|  [08]   | `Exit<R>` / `ExitEncoded<R>`                               | `Exit_<SuccessExit, ErrorExit>` / schema-encoded exit  |
+|  [09]   | `Context<R>`                                               | payload+success+error schema context union             |
 |  [10]   | `Middleware<R>` / `MiddlewareClient<R>`                    | middleware tag identifier / client-required identifier |
 |  [11]   | `AddError<R, E>` / `AddMiddleware<R, M>`                   | widen the error / middleware param                     |
 |  [12]   | `ToHandler<R>` / `ToHandlerFn<Current, R>`                 | `Handler<Tag>` / the implementor function shape        |
@@ -198,7 +198,7 @@ const uninterruptible: <A extends object>(value: A) => A extends Wrapper<infer _
 `fork` wraps a response `Effect`/`Stream` to force concurrent execution regardless of the `RpcServer`
 concurrency setting; `uninterruptible` wraps it into an uninterruptible region.
 
-## [3]-[RPC_GROUP]
+## [03]-[RPC_GROUP]
 
 `@effect/rpc/RpcGroup` — the procedure aggregate. A group accumulates `Rpc` definitions, applies
 middleware/prefixes across them, and produces handler contexts and layers. `InternalRpc` holds one
@@ -269,7 +269,7 @@ type Rpcs<Group> = Group extends RpcGroup<infer R> ? string extends R["_tag"] ? 
 const make: <const Rpcs extends ReadonlyArray<Rpc.Any>>(...rpcs: Rpcs) => RpcGroup<Rpcs[number]>
 ```
 
-## [4]-[RPC_CLIENT]
+## [04]-[RPC_CLIENT]
 
 `@effect/rpc/RpcClient` — the typed client. `RpcClient<Rpcs, E>` resolves each procedure to a callable
 returning `Effect`/`Stream`/`Mailbox`; `make` requires a `Protocol` from context; `makeNoSerialization`
@@ -281,13 +281,13 @@ drives a raw message pair. The `Protocol` tag and its `make*`/`layer*` factories
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [RAIL]                                             |
 | :-----: | :---------------------- | :------------- | :------------------------------------------------- |
-|   [1]   | `RpcClient<Rpcs, E>`    | type alias     | prefixed + non-prefixed method record              |
-|   [2]   | `RpcClient.Prefixes`    | namespace type | dotted-tag prefix extraction                       |
-|   [3]   | `RpcClient.NonPrefixed` | namespace type | tags without a `prefix.` segment                   |
-|   [4]   | `RpcClient.Prefixed`    | namespace type | tags with a `prefix.` segment                      |
-|   [5]   | `RpcClient.From`        | namespace type | per-method callable record                         |
-|   [6]   | `RpcClient.Flat`        | namespace type | single `(tag, payload, options)` dispatch callable |
-|   [7]   | `FromGroup<Group, E>`   | type alias     | `RpcClient<RpcGroup.Rpcs<Group>, E>`               |
+|  [01]   | `RpcClient<Rpcs, E>`    | type alias     | prefixed + non-prefixed method record              |
+|  [02]   | `RpcClient.Prefixes`    | namespace type | dotted-tag prefix extraction                       |
+|  [03]   | `RpcClient.NonPrefixed` | namespace type | tags without a `prefix.` segment                   |
+|  [04]   | `RpcClient.Prefixed`    | namespace type | tags with a `prefix.` segment                      |
+|  [05]   | `RpcClient.From`        | namespace type | per-method callable record                         |
+|  [06]   | `RpcClient.Flat`        | namespace type | single `(tag, payload, options)` dispatch callable |
+|  [07]   | `FromGroup<Group, E>`   | type alias     | `RpcClient<RpcGroup.Rpcs<Group>, E>`               |
 
 ```ts contract
 // @effect/rpc/RpcClient
@@ -408,7 +408,7 @@ const layerProtocolWorker: (options:
 ) => Layer.Layer<Protocol, WorkerError, Worker.PlatformWorker | Worker.Spawner>
 ```
 
-## [5]-[RPC_SERVER]
+## [05]-[RPC_SERVER]
 
 `@effect/rpc/RpcServer` — the server runner. `make`/`layer` run a group against the server `Protocol`;
 `toHttpApp`/`toHttpAppWebsocket`/`toWebHandler` produce `@effect/platform` HTTP entrypoints;
@@ -538,7 +538,7 @@ const fiberIdClientInterrupt: FiberId.Runtime
 const fiberIdTransientInterrupt: FiberId.Runtime
 ```
 
-## [6]-[RPC_MESSAGE]
+## [06]-[RPC_MESSAGE]
 
 `@effect/rpc/RpcMessage` — the wire-message algebra. Two discriminated unions per direction: a decoded
 form (`FromClient`/`FromServer`, generic over `Rpc.Any`) and an encoded wire form
@@ -550,12 +550,12 @@ form (`FromClient`/`FromServer`, generic over `Rpc.Any`) and an encoded wire for
 
 | [INDEX] | [SYMBOL]            | [DISCRIMINANTS / SHAPE]                                                                               |
 | :-----: | :------------------ | :---------------------------------------------------------------------------------------------------- |
-|   [1]   | `FromClient<A>`     | `Request<A> \| Ack \| Interrupt \| Eof`                                                               |
-|   [2]   | `FromClientEncoded` | `RequestEncoded \| AckEncoded \| InterruptEncoded \| Ping \| Eof`                                     |
-|   [3]   | `FromServer<A>`     | `ResponseChunk<A> \| ResponseExit<A> \| ResponseDefect \| ClientEnd`                                  |
-|   [4]   | `FromServerEncoded` | `ResponseChunkEncoded \| ResponseExitEncoded \| ResponseDefectEncoded \| Pong \| ClientProtocolError` |
-|   [5]   | `RequestId`         | `Branded<bigint, RequestIdTypeId>` + `(id: bigint \| string) => RequestId`                            |
-|   [6]   | `ResponseId`        | `Branded<number, ResponseIdTypeId>`                                                                   |
+|  [01]   | `FromClient<A>`     | `Request<A> \| Ack \| Interrupt \| Eof`                                                               |
+|  [02]   | `FromClientEncoded` | `RequestEncoded \| AckEncoded \| InterruptEncoded \| Ping \| Eof`                                     |
+|  [03]   | `FromServer<A>`     | `ResponseChunk<A> \| ResponseExit<A> \| ResponseDefect \| ClientEnd`                                  |
+|  [04]   | `FromServerEncoded` | `ResponseChunkEncoded \| ResponseExitEncoded \| ResponseDefectEncoded \| Pong \| ClientProtocolError` |
+|  [05]   | `RequestId`         | `Branded<bigint, RequestIdTypeId>` + `(id: bigint \| string) => RequestId`                            |
+|  [06]   | `ResponseId`        | `Branded<number, ResponseIdTypeId>`                                                                   |
 
 ```ts contract
 // @effect/rpc/RpcMessage — request side
@@ -617,7 +617,7 @@ interface Pong { readonly _tag: "Pong" }
 const constPong: Pong
 ```
 
-## [7]-[RPC_MIDDLEWARE]
+## [07]-[RPC_MIDDLEWARE]
 
 `@effect/rpc/RpcMiddleware` — the middleware tag family. `Tag<Self>()` builds a `TagClass` whose
 behavior shape depends on the option flags (`wrap`, `provides`, `failure`, `optional`, `requiredForClient`).
@@ -701,7 +701,7 @@ const layerClient: <Id, S, R, EX = never, RX = never>(
 ) => Layer.Layer<ForClient<Id>, EX, R | Exclude<RX, Scope>>
 ```
 
-## [8]-[RPC_SCHEMA]
+## [08]-[RPC_SCHEMA]
 
 `@effect/rpc/RpcSchema` — the stream-success schema. `Stream<A, E>` is a `Schema` whose decoded type is
 `Stream_.Stream<A["Type"], E["Type"]>`; `Rpc.make({ stream: true })` wraps the success schema as one.
@@ -724,7 +724,7 @@ const Stream: <A extends Schema.Schema.Any, E extends Schema.Schema.All>(
 ) => Stream<A, E>
 ```
 
-## [9]-[RPC_SERIALIZATION]
+## [09]-[RPC_SERIALIZATION]
 
 `@effect/rpc/RpcSerialization` — the serialization service. `RpcSerialization` is a `Context.TagClass`
 producing a `Parser` (`decode`/`encode`); the module ships JSON, NDJSON, JSON-RPC, NDJSON-RPC, and
@@ -733,12 +733,12 @@ MessagePack codecs as both bare service values and `Layer`s. `makeMsgPack` accep
 
 | [INDEX] | [SYMBOL]                       | [KIND]          | [CONTENT_TYPE / FRAMING]                   |
 | :-----: | :----------------------------- | :-------------- | :----------------------------------------- |
-|   [1]   | `json` / `layerJson`           | service / layer | JSON; supports framing                     |
-|   [2]   | `ndjson` / `layerNdjson`       | service / layer | NDJSON; no framing (newline-delimited)     |
-|   [3]   | `jsonRpc` / `layerJsonRpc`     | factory / layer | JSON-RPC; optional `contentType`           |
-|   [4]   | `ndJsonRpc` / `layerNdJsonRpc` | factory / layer | NDJSON JSON-RPC; optional `contentType`    |
-|   [5]   | `msgPack` / `layerMsgPack`     | service / layer | MessagePack binary                         |
-|   [6]   | `makeMsgPack`                  | factory         | MessagePack with custom `msgpackr.Options` |
+|  [01]   | `json` / `layerJson`           | service / layer | JSON; supports framing                     |
+|  [02]   | `ndjson` / `layerNdjson`       | service / layer | NDJSON; no framing (newline-delimited)     |
+|  [03]   | `jsonRpc` / `layerJsonRpc`     | factory / layer | JSON-RPC; optional `contentType`           |
+|  [04]   | `ndJsonRpc` / `layerNdJsonRpc` | factory / layer | NDJSON JSON-RPC; optional `contentType`    |
+|  [05]   | `msgPack` / `layerMsgPack`     | service / layer | MessagePack binary                         |
+|  [06]   | `makeMsgPack`                  | factory         | MessagePack with custom `msgpackr.Options` |
 
 ```ts contract
 // @effect/rpc/RpcSerialization

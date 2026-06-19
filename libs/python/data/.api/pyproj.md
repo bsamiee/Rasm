@@ -2,7 +2,7 @@
 
 `pyproj` supplies a Python binding to PROJ for coordinate reference system definition, coordinate transformation, and geodesic computation. It provides `CRS`, `Transformer`, `Geod`, and `Proj` as primary owners, with WKT/PROJ4/EPSG/JSON interchange on the CRS boundary and area-of-interest-aware operation selection on the transformer.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyproj`
 - package: `pyproj`
@@ -11,7 +11,7 @@
 - rail: geospatial
 - capability: CRS construction and interchange, axis-aware coordinate transformation, geodesic forward/inverse and area computation, transformer-group enumeration, PROJ database queries, and CDN grid network control
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `pyproj.CRS` — coordinate reference system; constructed from EPSG, WKT, PROJ4, JSON, dict, CF, or user input; exposes axis, datum, ellipsoid, and projection metadata.
@@ -48,7 +48,7 @@
 - `Proj` is the projection special case of `Transformer` (geographic to or from one projected CRS); prefer `Transformer.from_crs` for general CRS-to-CRS work.
 - `set_network_enabled` and the CDN grid sync control transformation-grid download; enable the network when high-accuracy datum shifts require grids absent from the local cache.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pyproj`

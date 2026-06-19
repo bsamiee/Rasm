@@ -2,7 +2,7 @@
 
 This standard carries craft: the words inside a durable artifact, sentence mechanics, terminology, punctuation, links, and code-safe Markdown. It makes documentation direct, agent-facing, portable, and free of report framing.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Apply this standard when writing or reviewing:
 - prose, headings, captions, notes, warnings, and examples
@@ -12,7 +12,7 @@ Apply this standard when writing or reviewing:
 
 Container form belongs to `information-structure.md`; marker shape belongs to `formatting.md`; claim confidence belongs to `proof.md`.
 
-## [2]-[WORDING_PRECEDENCE]
+## [02]-[WORDING_PRECEDENCE]
 
 Use the first owner that decides a naming or wording question:
 1. Current repository material, manifests, generated contracts, API fields, and actual product or package names.
@@ -23,7 +23,7 @@ Use the first owner that decides a naming or wording question:
 
 When owners conflict, choose the repo-local term only when a current route or contract proves it. Never alternate terms to avoid the conflict.
 
-## [3]-[AGENT_PROSE]
+## [03]-[AGENT_PROSE]
 
 Durable docs, prompts, standards, skills, examples, and templates are agent-facing law. State the rule, contract, route, or gap directly. Do not describe the artifact, the session, the source-mining process, or the reader's mental model.
 
@@ -53,7 +53,7 @@ Durable docs, prompts, standards, skills, examples, and templates are agent-faci
 - Use links only when they change the reader’s action.
 - Route maps, relation records, README indexes, generated/reference handoff surfaces, and instruction files may name owner relationships because routing is their job.
 
-## [4]-[SENTENCES]
+## [04]-[SENTENCES]
 
 Use a front-and-close paragraph shape. The first sentence states the rule, claim, scope, outcome, or transition. The final sentence closes on the consequence, boundary, confirmation, or route the reader should retain.
 
@@ -79,7 +79,7 @@ Use a front-and-close paragraph shape. The first sentence states the rule, claim
 - Keep modifiers next to the terms they govern.
 - Keep parallel items parallel in grammar and scope.
 
-## [5]-[TERMINOLOGY]
+## [05]-[TERMINOLOGY]
 
 Use one term for one concept inside a bounded context. Names are load-bearing: product names, package names, API members, commands, file paths, UI labels, and config keys must match the actual surface.
 
@@ -91,7 +91,7 @@ Use one term for one concept inside a bounded context. Names are load-bearing: p
 - Do not invent reader-facing names for internal concepts.
 - Do not name stale commands, removed tools, transient task labels, or removed skills.
 
-## [6]-[PUNCTUATION]
+## [06]-[PUNCTUATION]
 
 [LOCAL_MECHANICS]:
 - Use U.S. English spelling unless a product or proper name differs.
@@ -118,7 +118,7 @@ Use one term for one concept inside a bounded context. Names are load-bearing: p
 - Place commas and periods inside closing quotation marks in ordinary prose quotations; preserve literal punctuation for UI labels, commands, code, exact strings, and copied text.
 - Use straight quotes and ASCII-safe punctuation in copyable Markdown.
 
-## [7]-[CODE_SAFE_MARKDOWN]
+## [07]-[CODE_SAFE_MARKDOWN]
 
 - Wrap commands, flags, paths, environment variables, package IDs, symbols, literal values, and placeholders in backticks.
 - Name placeholders by route, such as `<scenario-glob>` or `<package-name>`.
@@ -140,7 +140,7 @@ Use one term for one concept inside a bounded context. Names are load-bearing: p
 - Accepted: `Field`, `KEY`, `VALUE`, `Row`, `ROW_A`, and `TABLE`. Near miss: `Header`, `Route`, `UserRow`, and `OrderMap`. Reason: the accepted names keep mapping examples structural unless the documented concept is headers, routes, users, or orders.
 - Accepted: `SELECTED`, `SELECTED_RESULT`, `"<value-a>"`, and `"<result-a>"`. Near miss: `active_customer`, `invoice_total`, `"alice"`, and `"acme"`. Reason: the accepted names mark selection and data position without anchoring the sample to an identity or product.
 
-## [8]-[LINKS]
+## [08]-[LINKS]
 
 Use link text that describes the destination. Avoid bare URLs unless the URL is the example value. Prefer stable local routes and generated contracts over deep external links when the local route carries the same action.
 
@@ -150,7 +150,7 @@ Use link text that describes the destination. Avoid bare URLs unless the URL is 
 - README indexes and route maps may link because navigation is their job.
 - Do not put links inside table cells unless the table is a routing table or the link is the cell value.
 
-## [9]-[EXAMPLES]
+## [09]-[EXAMPLES]
 
 Examples prove shape or prevent misuse. Place them beside the rule they clarify.
 

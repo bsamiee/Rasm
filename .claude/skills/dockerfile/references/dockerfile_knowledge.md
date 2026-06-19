@@ -2,7 +2,7 @@
 
 [IMPORTANT] Docker Engine 29.2+ | BuildKit 0.27+ | Dockerfile syntax 1 (auto-resolving) | February 2026
 
-## [1]-[MULTI_STAGE_TEMPLATE]
+## [01]-[MULTI_STAGE_TEMPLATE]
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -44,15 +44,15 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=${START} --start-interval
 ENTRYPOINT ${ENTRYPOINT}
 ```
 
-## [2]-[LANGUAGE_SUBSTITUTION]
+## [02]-[LANGUAGE_SUBSTITUTION]
 
-| [INDEX] | [STACK]       | [BUILD_IMAGE]             | [RUNTIME_IMAGE]             |
-| :-----: | ------------- | ------------------------- | --------------------------- |
-|   [1]   | PNPM          | `node:24-slim-trixie`     | `node:24-slim-trixie`       |
-|   [2]   | NODE          | `node:24-alpine3.23`      | `node:24-alpine3.23`        |
-|   [3]   | PYTHON_UV     | `python:3.15-rc-slim-trixie` | `python:3.15-rc-slim-trixie`   |
-|   [4]   | GO_DISTROLESS | `golang:1.26-alpine3.23`  | `distroless/static:nonroot` |
-|   [5]   | JAVA          | `temurin:21-jdk-alpine`   | `temurin:21-jre-alpine`     |
+| [INDEX] | [STACK]       | [BUILD_IMAGE]                | [RUNTIME_IMAGE]              |
+| :-----: | ------------- | ---------------------------- | ---------------------------- |
+|  [01]   | PNPM          | `node:24-slim-trixie`        | `node:24-slim-trixie`        |
+|  [02]   | NODE          | `node:24-alpine3.23`         | `node:24-alpine3.23`         |
+|  [03]   | PYTHON_UV     | `python:3.15-rc-slim-trixie` | `python:3.15-rc-slim-trixie` |
+|  [04]   | GO_DISTROLESS | `golang:1.26-alpine3.23`     | `distroless/static:nonroot`  |
+|  [05]   | JAVA          | `temurin:21-jdk-alpine`      | `temurin:21-jre-alpine`      |
 
 **Dependency Files:**
 1. `pnpm-lock.yaml pnpm-workspace.yaml`
@@ -80,7 +80,7 @@ ENTRYPOINT ${ENTRYPOINT}
 - **NODE/JAVA** (Alpine): `addgroup -g 1001 -S nodejs && adduser -u 1001 -S -G nodejs -s /sbin/nologin nodejs`
 - **GO_DISTROLESS**: Built-in `nonroot` user (UID 65532) — no creation needed
 
-## [3]-[PNPM_MONOREPO]
+## [03]-[PNPM_MONOREPO]
 
 **Stage sequence:** `base` (corepack enable) -> `deps` (fetch + install) -> `build` (nx build + pnpm deploy) -> `runtime`
 
@@ -97,19 +97,19 @@ ENTRYPOINT ${ENTRYPOINT}
 - `STOPSIGNAL SIGTERM` for graceful Node.js shutdown
 - Exemplar: the Dockerfile in the physical app root is the production reference.
 
-## [4]-[CACHE_MOUNTS]
+## [04]-[CACHE_MOUNTS]
 
 | [INDEX] | [PKG_MGR]    | [CACHE_TARGET]                          |
 | :-----: | ------------ | --------------------------------------- |
-|   [1]   | pnpm         | `/pnpm/store`                           |
-|   [2]   | npm          | `/root/.npm`                            |
-|   [3]   | yarn         | `/root/.yarn/cache`                     |
-|   [4]   | bun          | `/root/.bun/install/cache`              |
-|   [5]   | uv           | `/root/.cache/uv`                       |
-|   [6]   | pip          | `/root/.cache/pip`                      |
-|   [7]   | Go           | `/go/pkg/mod` + `/root/.cache/go-build` |
-|   [8]   | Maven/Gradle | `/root/.m2` or `/root/.gradle`          |
-|   [9]   | Cargo        | `/usr/local/cargo/registry` + target    |
+|  [01]   | pnpm         | `/pnpm/store`                           |
+|  [02]   | npm          | `/root/.npm`                            |
+|  [03]   | yarn         | `/root/.yarn/cache`                     |
+|  [04]   | bun          | `/root/.bun/install/cache`              |
+|  [05]   | uv           | `/root/.cache/uv`                       |
+|  [06]   | pip          | `/root/.cache/pip`                      |
+|  [07]   | Go           | `/go/pkg/mod` + `/root/.cache/go-build` |
+|  [08]   | Maven/Gradle | `/root/.m2` or `/root/.gradle`          |
+|  [09]   | Cargo        | `/usr/local/cargo/registry` + target    |
 |  [10]   | apt          | `/var/cache/apt` + `/var/lib/apt`       |
 |  [11]   | apk          | Not needed                              |
 
@@ -122,18 +122,18 @@ ENTRYPOINT ${ENTRYPOINT}
 10. apt: Add `sharing=locked`
 11. apk: `apk add --no-cache` sufficient
 
-## [5]-[FRAMEWORK_NOTES]
+## [05]-[FRAMEWORK_NOTES]
 
 | [INDEX] | [FRAMEWORK]        | [KEY_PATTERNS]                                                                                                                 |
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | **Next.js**        | `output: 'standalone'`, copy `.next/standalone` + `.next/static` + `public`, `NEXT_TELEMETRY_DISABLED=1`, `HOSTNAME="0.0.0.0"` |
-|   [2]   | **FastAPI**        | uvicorn `--host 0.0.0.0 --proxy-headers`, uv over pip                                                                          |
-|   [3]   | **Spring Boot**    | Layered JAR extraction, JRE not JDK runtime, `--start-period=40s`                                                              |
-|   [4]   | **Express/Effect** | pnpm monorepo pattern (section 3), `NODE_OPTIONS="--enable-source-maps"`                                                       |
-|   [5]   | **Django**         | gunicorn `--bind 0.0.0.0:8000 --workers 4`, collect static in build stage                                                      |
-|   [6]   | **Remix**          | `output: 'server'`, copy `build/server` + `build/client` + `public`                                                            |
+|  [01]   | **Next.js**        | `output: 'standalone'`, copy `.next/standalone` + `.next/static` + `public`, `NEXT_TELEMETRY_DISABLED=1`, `HOSTNAME="0.0.0.0"` |
+|  [02]   | **FastAPI**        | uvicorn `--host 0.0.0.0 --proxy-headers`, uv over pip                                                                          |
+|  [03]   | **Spring Boot**    | Layered JAR extraction, JRE not JDK runtime, `--start-period=40s`                                                              |
+|  [04]   | **Express/Effect** | pnpm monorepo pattern (section 3), `NODE_OPTIONS="--enable-source-maps"`                                                       |
+|  [05]   | **Django**         | gunicorn `--bind 0.0.0.0:8000 --workers 4`, collect static in build stage                                                      |
+|  [06]   | **Remix**          | `output: 'server'`, copy `build/server` + `build/client` + `public`                                                            |
 
-## [6]-[BUILD_ORCHESTRATION]
+## [06]-[BUILD_ORCHESTRATION]
 
 ```hcl
 variable "GIT_SHA"    { default = "unknown" }

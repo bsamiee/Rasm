@@ -2,16 +2,16 @@
 
 Configuration admission for the runtime spine: eight ranked `ConfigSource` rows mount every input onto one `ConfigurationManager` chain, a source-generated binder admits immutable policy records onto the `Validation<ConfigError,T>` rail, options validate once and publish frozen at ready, every change lands as a reload-class-gated `ReloadOutcome` transition carried by a `ReloadReceipt` — a structured operator edit arriving as an RFC-6902 `application/json-patch+json` document folds through `PatchSection` onto that same transition — the operator kill-switch is one transition-class config row whose `OperatorOverride` union forces the degradation fold, the `SecretsStore` source extends into a `SecretLease` row family that acquires, renews, and zeroizes credential material against the one RID-dispatched credential-store provider the host resolves, and one `CredentialPem` axis is the suite's only credential-material wire vocabulary — the host encodes every PEM-bearing credential into one canonical RFC-7468 multi-element bundle the `\n` PEM-block delimiter joins, mints the redacted `CredentialPemWire` carrier the TS verifier and the Python admission decode, and never crosses a raw `byte[]` or a parallel base64 envelope. The page owns the source axis with rank and reload-class columns, the `ConfigError` fault vocabulary, the reload transition family, the operator forcing family, the secret-lease lifecycle, and the credential-PEM encoding vocabulary. The spine is Microsoft.Extensions.Configuration with its four provider packages, Microsoft.Extensions.Options, FluentValidation, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core, with System.Security.Cryptography (the BCL `PemEncoding`/`X509Certificate2` PEM owners) and System.IO.Hashing for the credential-bundle encoding.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SOURCE_AXIS]: Eight ranked source rows with reload class and mount delegate.
-- [2]-[TYPED_BINDING]: Fail-closed source-generated binding into validated policy records.
-- [3]-[POLICY_VALUES]: Validate-once frozen publish with reload-class-gated receipted transitions.
-- [4]-[KILL_SWITCH]: Operator override row forcing the degradation fold.
-- [5]-[SECRET_LEASE]: Acquire-renew-zeroize credential lifecycle extending the `SecretsStore` row.
-- [6]-[CREDENTIAL_PEM]: Canonical RFC-7468 PEM bundle encoding and the redacted cross-language carrier.
+- [01]-[SOURCE_AXIS]: Eight ranked source rows with reload class and mount delegate.
+- [02]-[TYPED_BINDING]: Fail-closed source-generated binding into validated policy records.
+- [03]-[POLICY_VALUES]: Validate-once frozen publish with reload-class-gated receipted transitions.
+- [04]-[KILL_SWITCH]: Operator override row forcing the degradation fold.
+- [05]-[SECRET_LEASE]: Acquire-renew-zeroize credential lifecycle extending the `SecretsStore` row.
+- [06]-[CREDENTIAL_PEM]: Canonical RFC-7468 PEM bundle encoding and the redacted cross-language carrier.
 
-## [2]-[SOURCE_AXIS]
+## [02]-[SOURCE_AXIS]
 
 - Owner: `ConfigSource` `[SmartEnum<string>]` eight rows; `ReloadClass` `[SmartEnum<string>]` two rows; `ConfigSourceKeyPolicy` single ordinal-ignore-case key accessor; `ConfigLayer` boot input record.
 - Cases: json, user-settings, host-document, secrets-store, user-secrets, in-memory, env, cli — rank order is mount order, a later mount overrides earlier keys, and the rank fold is the whole precedence law.
@@ -111,7 +111,7 @@ public sealed partial class ConfigSource {
 }
 ```
 
-## [3]-[TYPED_BINDING]
+## [03]-[TYPED_BINDING]
 
 - Owner: `PolicyBinding` static admission surface; `ConfigError` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract.
 - Cases: Text, SourceRejected, SectionAbsent, BindRejected, Scalar, Invariant, Aggregate — codes 4100-4199, `Combine` folds independent faults into Aggregate.
@@ -183,7 +183,7 @@ public static class PolicyBinding {
 }
 ```
 
-## [4]-[POLICY_VALUES]
+## [04]-[POLICY_VALUES]
 
 - Owner: `OptionsAdmission` static registration surface; `ReloadOutcome` `[Union]`; `ReloadReceipt` record.
 - Cases: Applied, Unchanged, RestartRequired, Rejected — Applied re-publishes frozen policy values, Unchanged records a no-diff publish, RestartRequired is the frozen-row path, Rejected carries the `ConfigError` of a failed re-validation while the prior values stay live.
@@ -280,7 +280,7 @@ public static class OptionsAdmission {
 }
 ```
 
-## [5]-[KILL_SWITCH]
+## [05]-[KILL_SWITCH]
 
 - Owner: `KillSwitchConfig` config row record; `OperatorOverride` `[Union]` forcing family.
 - Cases: ForceLevel, Release — ForceLevel carries a degradation row key as text, Release withdraws the force.
@@ -308,7 +308,7 @@ public abstract partial record OperatorOverride {
 }
 ```
 
-## [6]-[SECRET_LEASE]
+## [06]-[SECRET_LEASE]
 
 - Owner: `SecretLease` boundary capsule extending `ConfigSource.SecretsStore` — the only credential lifecycle owner; `LeaseTransition` `[Union]` lifecycle vocabulary; `SecretFault` `[Union]` fault family in the 4780-4789 band; `SecretReceipt` the redacted rotation evidence record.
 - Cases: lifecycle transitions Acquired | Renewed | Released | Zeroized; `SecretFault` = Text | AcquireRejected | RenewMissed | StoreUnavailable.
@@ -414,7 +414,7 @@ public static class SecretLeaseOps {
 }
 ```
 
-## [7]-[CREDENTIAL_PEM]
+## [07]-[CREDENTIAL_PEM]
 
 - Owner: `PemLabel` `[SmartEnum<string>]` the closed RFC-7468 textual-encoding label vocabulary under the `ConfigSourceKeyPolicy` accessor; `PemBlock` the single armored element; `CredentialBundle` the ordered multi-element bundle the canonical `\n` PEM-block delimiter joins; `CredentialPemWire` the redacted cross-language carrier; `PemFault` `[Union]` fault family in the 4790-4799 band; `CredentialPem` the static encode-decode-redact surface.
 - Cases: 6 label rows — certificate, public-key, private-key, ec-private-key, rsa-private-key, pkcs7 — the RFC-7468 armor labels the BCL `PemEncoding` writes between the `-----BEGIN {label}-----`/`-----END {label}-----` lines; `PemFault` = Text | LabelUnknown | ArmorMalformed | EmptyBundle.
@@ -504,7 +504,7 @@ public static class CredentialPem {
 }
 ```
 
-## [8]-[TS_PROJECTION]
+## [08]-[TS_PROJECTION]
 
 - Owner: `CredentialPemWire` — the redacted credential-bundle carrier the TS `security/auth` and the Python `runtime/execution/admission` decode; the raw bundle text crosses as the standard RFC-7468 PEM string the consumers parse through their own key surfaces.
 - Entry: the bundle text crosses as the canonical multi-element PEM string (`-----BEGIN/END-----` armored blocks joined by `\n`), and the redacted carrier crosses as `CredentialPemWire` so a consumer reads the bundle's label set and content digests without the private-key bytes.
@@ -530,7 +530,7 @@ interface CredentialPemWire {
 }
 ```
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [SOURCE_ROUTES]: the secrets-store provider route behind `ConfigLayer.SecretsSource` is RID-dispatched, never a single universal keychain — macOS resolves to Security.framework `SecItemCopyMatching` P/Invoke (from the Security.framework headers) versus a `/usr/bin/security` child process; Linux has no keychain and resolves to libsecret/`systemd-creds`/a file-backed `UserSecrets` store; Windows resolves to DPAPI/Credential Manager. The P/Invoke entrypoints are authored from the Apple/Linux man-pages and SDK headers and stay RESEARCH-flagged; no live `SecItem*`/DPAPI/credential-store read is performed during authoring because each raises an OS unlock dialog. The `SecretRuntime.Read` delegate the `SecretLease` acquires through resolves to whichever store the RID selected, never a parallel reader beside it.
 - [SIGHUP_RELOAD]: the launchd and systemd `SIGHUP` reload-trigger delivery that re-mounts the transition-class sources and enqueues one `ReloadOutcome` under `ReloadReceipt.SignalTrigger` — the registration is `System.Runtime.InteropServices.PosixSignalRegistration.Create(PosixSignal.SIGHUP, ctx => ...)`, a Unix-only seam (Linux + macOS); a `win-*` host has no `SIGHUP` and routes reload solely through `ControlTrigger`, so the `SignalTrigger` band never fabricates a Windows signal path. The `PosixSignalRegistration`/`PosixSignal` member shape is not in the folder `.api/` catalogue; its spelling and the `PosixSignalContext.Cancel` re-handling default are the open verification before transcription. The live delivery of `SIGHUP` under the running service manager (one reload, zero drains) is the open distinction the live service-manager host resolves.

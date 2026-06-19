@@ -2,7 +2,7 @@
 
 `segno` supplies the pure-Python QR and Micro-QR code surface for the artifacts imaging rail: a `make` factory family that encodes content into a `QRCode`/`QRCodeSequence`, plus a multi-format `save` path that serializes to SVG/PNG/PDF/EPS/text and other formats with no raster dependency. The package owner composes `make`, `QRCode`, and `save` into the `PreviewOp.QR` path; it removes the `qrcode` Pillow leak because every serializer is in-package, and it never re-implements the Reed-Solomon QR encoding segno already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `segno`
 - package: `segno`
@@ -13,7 +13,7 @@
 - entry points: console script `segno` (CLI); library use is import-only
 - capability: QR (versions 1-40) and Micro-QR (M1-M4) symbol generation, error-correction L/M/Q/H, boolean module matrix, structured-append sequences, and dependency-free SVG/PNG/PDF/EPS/PAM/PPM/LaTeX/XBM/XPM/ANSI/text serialization
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: symbol and sequence roots
 - rail: imaging
@@ -22,11 +22,11 @@
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [RAIL]                                     |
 | :-----: | :------------------ | :-------------- | :----------------------------------------- |
-|   [1]   | `QRCode`            | symbol          | one QR or Micro-QR symbol with serializers |
-|   [2]   | `QRCodeSequence`    | symbol sequence | structured-append multi-symbol sequence    |
-|   [3]   | `DataOverflowError` | error           | content-exceeds-capacity failure           |
+|  [01]   | `QRCode`            | symbol          | one QR or Micro-QR symbol with serializers |
+|  [02]   | `QRCodeSequence`    | symbol sequence | structured-append multi-symbol sequence    |
+|  [03]   | `DataOverflowError` | error           | content-exceeds-capacity failure           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory functions
 - rail: imaging
@@ -35,10 +35,10 @@ The factory rows share `error`, `version`, `mode`, `mask`, `encoding`, and `boos
 
 | [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                                                                 | [CAPABILITY]                             |
 | :-----: | :-------------- | :--------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-|   [1]   | `make`          | `make(content, error=None, version=None, mode=None, mask=None, encoding=None, eci=False, micro=None, boost_error=True)`      | encode content to a `QRCode` (auto kind) |
-|   [2]   | `make_qr`       | `make_qr(content, error=None, version=None, mode=None, mask=None, encoding=None, eci=False, boost_error=True)`               | force a full QR symbol                   |
-|   [3]   | `make_micro`    | `make_micro(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True)`                       | force a Micro-QR symbol                  |
-|   [4]   | `make_sequence` | `make_sequence(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True, symbol_count=None)` | structured-append `QRCodeSequence`       |
+|  [01]   | `make`          | `make(content, error=None, version=None, mode=None, mask=None, encoding=None, eci=False, micro=None, boost_error=True)`      | encode content to a `QRCode` (auto kind) |
+|  [02]   | `make_qr`       | `make_qr(content, error=None, version=None, mode=None, mask=None, encoding=None, eci=False, boost_error=True)`               | force a full QR symbol                   |
+|  [03]   | `make_micro`    | `make_micro(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True)`                       | force a Micro-QR symbol                  |
+|  [04]   | `make_sequence` | `make_sequence(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True, symbol_count=None)` | structured-append `QRCodeSequence`       |
 
 [ENTRYPOINT_SCOPE]: `QRCode` render and inspect
 - rail: imaging
@@ -47,20 +47,20 @@ The factory rows share `error`, `version`, `mode`, `mask`, `encoding`, and `boos
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                     | [CAPABILITY]                                  |
 | :-----: | :-------------------- | :----------------------------------------------------------------------------------------------- | :-------------------------------------------- |
-|   [1]   | `QRCode.save`         | `save(out, kind=None, **kw)`                                                                     | serialize to SVG/PNG/PDF/EPS/text (by `kind`) |
-|   [2]   | `QRCode.svg_inline`   | `svg_inline(**kw)` -> `str`                                                                      | inline SVG markup string                      |
-|   [3]   | `QRCode.svg_data_uri` | `svg_data_uri(xmldecl=False, encode_minimal=False, omit_charset=False, nl=False, **kw)` -> `str` | SVG `data:` URI                               |
-|   [4]   | `QRCode.png_data_uri` | `png_data_uri(**kw)` -> `str`                                                                    | PNG `data:` URI                               |
-|   [5]   | `QRCode.matrix_iter`  | `matrix_iter(scale=1, border=None, verbose=False)`                                               | iterate the module matrix                     |
-|   [6]   | `QRCode.symbol_size`  | `symbol_size(scale=1, border=None)`                                                              | rendered pixel/point dimensions               |
-|   [7]   | `QRCode.terminal`     | `terminal(out=None, border=None, compact=False)`                                                 | render to ANSI/TTY                            |
-|   [8]   | `QRCode.matrix`       | property                                                                                         | the boolean module matrix                     |
-|   [9]   | `QRCode.version`      | property                                                                                         | resolved symbol version                       |
+|  [01]   | `QRCode.save`         | `save(out, kind=None, **kw)`                                                                     | serialize to SVG/PNG/PDF/EPS/text (by `kind`) |
+|  [02]   | `QRCode.svg_inline`   | `svg_inline(**kw)` -> `str`                                                                      | inline SVG markup string                      |
+|  [03]   | `QRCode.svg_data_uri` | `svg_data_uri(xmldecl=False, encode_minimal=False, omit_charset=False, nl=False, **kw)` -> `str` | SVG `data:` URI                               |
+|  [04]   | `QRCode.png_data_uri` | `png_data_uri(**kw)` -> `str`                                                                    | PNG `data:` URI                               |
+|  [05]   | `QRCode.matrix_iter`  | `matrix_iter(scale=1, border=None, verbose=False)`                                               | iterate the module matrix                     |
+|  [06]   | `QRCode.symbol_size`  | `symbol_size(scale=1, border=None)`                                                              | rendered pixel/point dimensions               |
+|  [07]   | `QRCode.terminal`     | `terminal(out=None, border=None, compact=False)`                                                 | render to ANSI/TTY                            |
+|  [08]   | `QRCode.matrix`       | property                                                                                         | the boolean module matrix                     |
+|  [09]   | `QRCode.version`      | property                                                                                         | resolved symbol version                       |
 |  [10]   | `QRCode.error`        | property                                                                                         | resolved error-correction level               |
 |  [11]   | `QRCode.designator`   | property                                                                                         | version-and-error designator string           |
 |  [12]   | `QRCode.is_micro`     | property                                                                                         | Micro-QR kind flag                            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGING_QR]:
 - import: `import segno` at boundary scope only; module-level import is banned by the manifest import policy.

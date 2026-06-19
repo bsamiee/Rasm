@@ -2,7 +2,7 @@
 
 `pydantic` supplies Python model validation via `BaseModel` and `RootModel`, a `TypeAdapter` for validating arbitrary annotated types, `ConfigDict` for model-level behaviour control, decorator-based `field_validator`/`model_validator`/`field_serializer`/`computed_field`, alias routing via `AliasPath`/`AliasChoices`, typed network/URL/secret primitives, and `validate_call` for function-level argument validation.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pydantic`
 - package: `pydantic`
@@ -10,109 +10,109 @@
 - asset: runtime library
 - rail: validation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model base types
 - rail: validation
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]    | [RAIL]                                 |
 | :-----: | :------------ | :--------------- | :------------------------------------- |
-|   [1]   | `BaseModel`   | model base       | field-declared validated data model    |
-|   [2]   | `RootModel`   | root model       | single-field typed model               |
-|   [3]   | `TypeAdapter` | adapter class    | validate/serialize non-BaseModel types |
-|   [4]   | `ConfigDict`  | config TypedDict | model configuration options            |
+|  [01]   | `BaseModel`   | model base       | field-declared validated data model    |
+|  [02]   | `RootModel`   | root model       | single-field typed model               |
+|  [03]   | `TypeAdapter` | adapter class    | validate/serialize non-BaseModel types |
+|  [04]   | `ConfigDict`  | config TypedDict | model configuration options            |
 
 [PUBLIC_TYPE_SCOPE]: field construction
 - rail: validation
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [RAIL]                            |
 | :-----: | :--------------- | :--------------- | :-------------------------------- |
-|   [1]   | `Field`          | field factory    | field default, alias, constraints |
-|   [2]   | `PrivateAttr`    | private factory  | non-validated model attribute     |
-|   [3]   | `computed_field` | property deco    | typed computed property on model  |
-|   [4]   | `AliasPath`      | alias descriptor | dotted / indexed alias path       |
-|   [5]   | `AliasChoices`   | alias descriptor | multiple acceptable alias forms   |
-|   [6]   | `AliasGenerator` | alias generator  | callable-based alias strategy     |
+|  [01]   | `Field`          | field factory    | field default, alias, constraints |
+|  [02]   | `PrivateAttr`    | private factory  | non-validated model attribute     |
+|  [03]   | `computed_field` | property deco    | typed computed property on model  |
+|  [04]   | `AliasPath`      | alias descriptor | dotted / indexed alias path       |
+|  [05]   | `AliasChoices`   | alias descriptor | multiple acceptable alias forms   |
+|  [06]   | `AliasGenerator` | alias generator  | callable-based alias strategy     |
 
 [PUBLIC_TYPE_SCOPE]: validators and serializers
 - rail: validation
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                               |
 | :-----: | :----------------- | :------------ | :----------------------------------- |
-|   [1]   | `field_validator`  | decorator     | field-level validator function       |
-|   [2]   | `model_validator`  | decorator     | model-level validator (before/after) |
-|   [3]   | `field_serializer` | decorator     | field-level serializer override      |
-|   [4]   | `PlainValidator`   | annotation    | override entire field validation     |
-|   [5]   | `BeforeValidator`  | annotation    | pre-process annotation validator     |
-|   [6]   | `AfterValidator`   | annotation    | post-process annotation validator    |
-|   [7]   | `WrapValidator`    | annotation    | wrap-mode annotation validator       |
-|   [8]   | `PlainSerializer`  | annotation    | override field serialization         |
-|   [9]   | `WrapSerializer`   | annotation    | wrap-mode field serializer           |
+|  [01]   | `field_validator`  | decorator     | field-level validator function       |
+|  [02]   | `model_validator`  | decorator     | model-level validator (before/after) |
+|  [03]   | `field_serializer` | decorator     | field-level serializer override      |
+|  [04]   | `PlainValidator`   | annotation    | override entire field validation     |
+|  [05]   | `BeforeValidator`  | annotation    | pre-process annotation validator     |
+|  [06]   | `AfterValidator`   | annotation    | post-process annotation validator    |
+|  [07]   | `WrapValidator`    | annotation    | wrap-mode annotation validator       |
+|  [08]   | `PlainSerializer`  | annotation    | override field serialization         |
+|  [09]   | `WrapSerializer`   | annotation    | wrap-mode field serializer           |
 
 [PUBLIC_TYPE_SCOPE]: error types
 - rail: validation
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [RAIL]                           |
 | :-----: | :------------------------------ | :--------------- | :------------------------------- |
-|   [1]   | `ValidationError`               | validation error | structured field error container |
-|   [2]   | `PydanticUserError`             | config error     | invalid model configuration      |
-|   [3]   | `PydanticSchemaGenerationError` | schema error     | JSON Schema generation failure   |
-|   [4]   | `PydanticImportError`           | import error     | missing optional dependency      |
+|  [01]   | `ValidationError`               | validation error | structured field error container |
+|  [02]   | `PydanticUserError`             | config error     | invalid model configuration      |
+|  [03]   | `PydanticSchemaGenerationError` | schema error     | JSON Schema generation failure   |
+|  [04]   | `PydanticImportError`           | import error     | missing optional dependency      |
 
 [PUBLIC_TYPE_SCOPE]: network / constrained types (selection)
 - rail: validation
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [RAIL]                         |
 | :-----: | :------------ | :------------- | :----------------------------- |
-|   [1]   | `AnyUrl`      | annotated type | any URL string with validation |
-|   [2]   | `HttpUrl`     | annotated type | HTTP/HTTPS URL                 |
-|   [3]   | `AnyHttpUrl`  | annotated type | any HTTP URL                   |
-|   [4]   | `PostgresDsn` | annotated type | PostgreSQL connection string   |
-|   [5]   | `SecretStr`   | secret type    | str hidden in repr             |
-|   [6]   | `SecretBytes` | secret type    | bytes hidden in repr           |
-|   [7]   | `Json`        | annotated type | JSON-encoded string field      |
-|   [8]   | `EmailStr`    | annotated type | validated email address        |
+|  [01]   | `AnyUrl`      | annotated type | any URL string with validation |
+|  [02]   | `HttpUrl`     | annotated type | HTTP/HTTPS URL                 |
+|  [03]   | `AnyHttpUrl`  | annotated type | any HTTP URL                   |
+|  [04]   | `PostgresDsn` | annotated type | PostgreSQL connection string   |
+|  [05]   | `SecretStr`   | secret type    | str hidden in repr             |
+|  [06]   | `SecretBytes` | secret type    | bytes hidden in repr           |
+|  [07]   | `Json`        | annotated type | JSON-encoded string field      |
+|  [08]   | `EmailStr`    | annotated type | validated email address        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model operations
 - rail: validation
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                             |
 | :-----: | :-------------------------------------------------- | :-------------- | :--------------------------------- |
-|   [1]   | `BaseModel(**data)`                                 | constructor     | validate and construct model       |
-|   [2]   | `BaseModel.model_validate(obj, *, strict, context)` | class method    | validate dict or object            |
-|   [3]   | `BaseModel.model_validate_json(json_data)`          | class method    | validate JSON bytes or string      |
-|   [4]   | `BaseModel.model_dump(*, mode, exclude, include)`   | instance method | serialize model to dict            |
-|   [5]   | `BaseModel.model_dump_json(*, indent, exclude)`     | instance method | serialize model to JSON bytes      |
-|   [6]   | `BaseModel.model_copy(*, update, deep)`             | instance method | copy with optional field overrides |
-|   [7]   | `BaseModel.model_fields_set`                        | property        | set of fields explicitly provided  |
-|   [8]   | `BaseModel.model_json_schema(*, mode)`              | class method    | JSON Schema dict for model         |
+|  [01]   | `BaseModel(**data)`                                 | constructor     | validate and construct model       |
+|  [02]   | `BaseModel.model_validate(obj, *, strict, context)` | class method    | validate dict or object            |
+|  [03]   | `BaseModel.model_validate_json(json_data)`          | class method    | validate JSON bytes or string      |
+|  [04]   | `BaseModel.model_dump(*, mode, exclude, include)`   | instance method | serialize model to dict            |
+|  [05]   | `BaseModel.model_dump_json(*, indent, exclude)`     | instance method | serialize model to JSON bytes      |
+|  [06]   | `BaseModel.model_copy(*, update, deep)`             | instance method | copy with optional field overrides |
+|  [07]   | `BaseModel.model_fields_set`                        | property        | set of fields explicitly provided  |
+|  [08]   | `BaseModel.model_json_schema(*, mode)`              | class method    | JSON Schema dict for model         |
 
 [ENTRYPOINT_SCOPE]: TypeAdapter and validate_call
 - rail: validation
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]  | [RAIL]                               |
 | :-----: | :--------------------------------------------------- | :-------------- | :----------------------------------- |
-|   [1]   | `TypeAdapter(type, *, config)`                       | constructor     | adapter for arbitrary annotated type |
-|   [2]   | `TypeAdapter.validate_python(value, *, strict)`      | instance method | validate Python object               |
-|   [3]   | `TypeAdapter.validate_json(data, *, strict)`         | instance method | validate JSON bytes                  |
-|   [4]   | `TypeAdapter.dump_python(instance, *, mode)`         | instance method | serialize to Python                  |
-|   [5]   | `TypeAdapter.json_schema(*, mode)`                   | instance method | JSON Schema for the type             |
-|   [6]   | `validate_call(func, /, *, config, validate_return)` | decorator       | validate function arguments          |
-|   [7]   | `create_model(model_name, /, **field_definitions)`   | factory         | programmatic BaseModel subclass      |
+|  [01]   | `TypeAdapter(type, *, config)`                       | constructor     | adapter for arbitrary annotated type |
+|  [02]   | `TypeAdapter.validate_python(value, *, strict)`      | instance method | validate Python object               |
+|  [03]   | `TypeAdapter.validate_json(data, *, strict)`         | instance method | validate JSON bytes                  |
+|  [04]   | `TypeAdapter.dump_python(instance, *, mode)`         | instance method | serialize to Python                  |
+|  [05]   | `TypeAdapter.json_schema(*, mode)`                   | instance method | JSON Schema for the type             |
+|  [06]   | `validate_call(func, /, *, config, validate_return)` | decorator       | validate function arguments          |
+|  [07]   | `create_model(model_name, /, **field_definitions)`   | factory         | programmatic BaseModel subclass      |
 
 [ENTRYPOINT_SCOPE]: decorator hooks
 - rail: validation
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                           |
 | :-----: | :------------------------------------------------------- | :------------- | :------------------------------- |
-|   [1]   | `field_validator(field, /, *fields, mode, check_fields)` | decorator      | attach field validator to model  |
-|   [2]   | `model_validator(*, mode)`                               | decorator      | attach model-level validator     |
-|   [3]   | `field_serializer(field, /, *fields, mode, return_type)` | decorator      | attach field serializer to model |
-|   [4]   | `computed_field(func, /, *, alias, title, return_type)`  | decorator      | declare computed property field  |
+|  [01]   | `field_validator(field, /, *fields, mode, check_fields)` | decorator      | attach field validator to model  |
+|  [02]   | `model_validator(*, mode)`                               | decorator      | attach model-level validator     |
+|  [03]   | `field_serializer(field, /, *fields, mode, return_type)` | decorator      | attach field serializer to model |
+|  [04]   | `computed_field(func, /, *, alias, title, return_type)`  | decorator      | declare computed property field  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PYDANTIC_TOPOLOGY]:
 - namespaces: `pydantic` (all public API), `pydantic.dataclasses` (dataclass integration)

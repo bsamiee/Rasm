@@ -2,11 +2,11 @@
 
 One page owns the generic `addEventListener`/`removeEventListener` Stream bridge for the non-`WindowEventMap` event targets — `scopedEventStream`, one `Stream.asyncScoped` over an `Effect.acquireRelease` listener pair generic over the target's event type, the single ingress every host owner whose source is not `window`/`document` composes. `@effect/platform-browser` `BrowserStream.fromEventListenerWindow`/`fromEventListenerDocument` are keyed over `WindowEventMap`/`DocumentEventMap` and never reach `window.navigation`'s `navigate`, the `workbox-window` `Workbox` lifecycle target, or a `PerformanceObserver`; this owner is the one scoped resource those three name rather than three hand-rolled `acquireRelease` listener blocks. The page authors no decode and crosses no wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SCOPED_EVENT_STREAM]: the generic scoped `addEventListener`->`removeEventListener` `Stream` bridge over a non-`WindowEventMap` target.
+- [01]-[SCOPED_EVENT_STREAM]: the generic scoped `addEventListener`->`removeEventListener` `Stream` bridge over a non-`WindowEventMap` target.
 
-## [2]-[SCOPED_EVENT_STREAM]
+## [02]-[SCOPED_EVENT_STREAM]
 
 - Owner: `scopedEventStream`, the one `Stream.asyncScoped` bridge lifting an `addEventListener`/`removeEventListener` pair on an arbitrary `EventTarget`-shaped source into a back-pressured `Stream`, the listener registration and teardown owned by one `Effect.acquireRelease` so scope closure removes the listener exactly once.
 - Cases: the bridge is generic over the emitted event type `E` and the listener shape, so `window.navigation`'s `navigate` ingress (`NavigateEvent`, absent from `WindowEventMap`), the `workbox-window` `Workbox` lifecycle target (`WorkboxLifecycleEvent`), and a `PerformanceObserver` registration each compose this one owner instead of re-deriving the `Stream.asyncScoped`+`Effect.acquireRelease` skeleton; the `add`/`remove` pair arrives as a closure over the precise target so the element type stays exact — `Session/router.md`'s `navigate` stream, `Shell/serviceworker.md`'s `SwLifecycle` stream, and `Observability/vitals.md`'s vital stream each lift their target's native event shape through this bridge with zero `as any` and zero `EventListenerOrEventListenerObject` widening.

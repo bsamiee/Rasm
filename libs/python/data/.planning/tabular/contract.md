@@ -2,12 +2,12 @@
 
 The data-contract gate plus structural frame admission as one owner: `DataQuality` folds IDS-style `QualityRule` rows into one `pandera` schema recording a non-enforcing `SchemaClaim`, and `FrameAdmission` proves required structural `FieldShape`s resolve against the live agnostic schema before routing enforcement to that same `DataQuality`. `CheckKind` collapses the IDS-style predicate vocabulary into one tagged union; `QualityRule` is one column claim; `SchemaClaim` records the contract and its failure cases without raising — enforcement is the caller's `match` on `SchemaClaim.status`. `FieldShape` is a distinct structural shape (field presence plus dtype derived agnostically), not a re-mint of the quality claim. There is exactly one `SchemaClaim` and one pandera gate for the whole package.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUALITY]: the data-quality gate over pandera, the recorded non-enforcing schema claim.
-- [2]-[ADMISSION]: structural field shapes, narwhals frame admission, the contract route.
+- [01]-[QUALITY]: the data-quality gate over pandera, the recorded non-enforcing schema claim.
+- [02]-[ADMISSION]: structural field shapes, narwhals frame admission, the contract route.
 
-## [2]-[QUALITY]
+## [02]-[QUALITY]
 
 - Owner: `DataQuality` — the one data-quality validation owner over `pandera.polars`; `QualityRule` the row family modeling one column claim (dtype/nullable/unique/required plus a closed `CheckKind` predicate set), folded into a `pandera.polars.DataFrameSchema`. A new validation is one `QualityRule` row, never a `validate_nullable`/`validate_range`/`validate_unique` method family. `SchemaClaim` records the contract and its failure cases without raising; it never enforces.
 - Cases: `CheckKind` rows `cmp(op, v)` folding `ge`/`le`/`gt`/`lt`/`eq` through one `_CMP` `frozendict` (`Check.ge`/`le`/`gt`/`lt`/`equal_to`) so five comparison arms collapse to one table lookup · `in_range(lo, hi)` (`Check.in_range`) · `isin(values)` (`Check.isin`) · `unique`/`monotonic` (column flag / `Check.is_monotonic`), matched by `match`/`case` closed by `assert_never` into the concrete `pandera.Check`, so the IDS-style rule vocabulary is one closed switch over a table, never a per-check builder.
@@ -131,7 +131,7 @@ class DataQuality(Struct, frozen=True):
             return SchemaClaim(ClaimStatus.FAILED, len(self.rules), len(pairs), pairs, key)
 ```
 
-## [3]-[ADMISSION]
+## [03]-[ADMISSION]
 
 - Owner: `FieldShape` — the structural field/logical-type/nullable/source-evidence value object derived agnostically by `interop` `FrameInterop.schema_of` from any backend frame; `FrameAdmission` the one admission path over any `narwhals`-admitted backend. `FieldShape` is a distinct structural shape (field presence plus dtype), not a re-mint of the quality `SchemaClaim`. The data-contract enforcement is the `QUALITY` `DataQuality`/`SchemaClaim` co-located on this page; admission proves structure, quality records the contract.
 - Entry: `FrameAdmission.admit` lifts a native frame through `narwhals.from_native`, reads `collect_schema()`, asserts every required `FieldShape` resolves against the live agnostic schema, and returns a `RuntimeRail[AdmittedFrame]` — one admission path for every backend, never a per-backend branch. `FrameAdmission.enforce` then routes data-contract validation to `DataQuality.validate`, lowering the agnostic frame to a polars `LazyFrame` so the polars validation pushes into the scan.
@@ -184,7 +184,7 @@ class FrameAdmission(Struct, frozen=True):
         return self.quality.validate(nw.from_native(admitted.frame, eager_only=True).to_polars().lazy())
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [NARWHALS_ADMISSION]: the `narwhals` `from_native(..., eager_only=True)`/`collect_schema().names()`/`to_polars().lazy()`/`Implementation.name` surface the `FrameAdmission` admit/enforce path transcribes is catalogue-confirmed against the folder `narwhals` `.api`; the `implementation.name.lower()` backend tag resolves to `'pyarrow'` for the `PYARROW` member, never `'arrow'`. The `pandera.polars.DataFrameSchema`/`Column`/`Check` admission surface is catalogue-confirmed against the folder `pandera` `.api`.
 - [PANDERA_FAULT_SURFACE]: the `errors.SchemaErrors.failure_cases` frame (`column`/`check` columns) and the `errors.SchemaError.schema`/`.check` attributes the `_validate` failure arms bind directly are catalogue-confirmed against the folder `pandera` `.api`, alongside the `pandera.polars.{DataFrameSchema,Column}` native-polars backend the `_schema` fold targets; the two `except` arms and the lazy-pushdown validation are settled fence code.

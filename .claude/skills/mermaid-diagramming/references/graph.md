@@ -3,9 +3,9 @@
 Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchical radial). Interactivity via callbacks and URL navigation.
 
 [REFERENCE] classDef, linkStyle: [->styling.md](./styling.md)
-[REFERENCE] Validation: [->validation.md§4](./validation.md#4graph_diagrams)
+[REFERENCE] Validation: [->validation.md§04](./validation.md#04-graph_diagrams)
 
-## [1]-[FLOWCHART]
+## [01]-[FLOWCHART]
 
 **Declaration:** `flowchart LR|TB|RL|BT`
 
@@ -29,14 +29,14 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 | [INDEX] | [SYNTAX] | [TYPE]        | [SEMANTIC]     |
 | :-----: | -------- | ------------- | -------------- |
-|   [1]   | `-->`    | Arrow         | Directed flow  |
-|   [2]   | `---`    | Open          | Association    |
-|   [3]   | `-.->`   | Dotted arrow  | Optional/async |
-|   [4]   | `==>`    | Thick arrow   | Primary path   |
-|   [5]   | `~~~`    | Invisible     | Layout control |
-|   [6]   | `--o`    | Circle end    | Composition    |
-|   [7]   | `--x`    | Cross end     | Termination    |
-|   [8]   | `<-->`   | Bidirectional | Two-way flow   |
+|  [01]   | `-->`    | Arrow         | Directed flow  |
+|  [02]   | `---`    | Open          | Association    |
+|  [03]   | `-.->`   | Dotted arrow  | Optional/async |
+|  [04]   | `==>`    | Thick arrow   | Primary path   |
+|  [05]   | `~~~`    | Invisible     | Layout control |
+|  [06]   | `--o`    | Circle end    | Composition    |
+|  [07]   | `--x`    | Cross end     | Termination    |
+|  [08]   | `<-->`   | Bidirectional | Two-way flow   |
 
 **Length:** Extra dashes extend ranks — `----` (2), `-----` (3). Applies to dotted/thick variants.
 **Labels:** `-->|label|`, `-- label -->`, `---|label|`.
@@ -53,14 +53,14 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 | [INDEX] | [KEY]             | [TYPE]  |    [DEFAULT]    | [DESCRIPTION]                      |
 | :-----: | ----------------- | ------- | :-------------: | ---------------------------------- |
-|   [1]   | `curve`           | string  |     `basis`     | Edge style (12 curve types)        |
-|   [2]   | `nodeSpacing`     | number  |      `50`       | Horizontal gap between nodes       |
-|   [3]   | `rankSpacing`     | number  |      `50`       | Vertical gap between ranks         |
-|   [4]   | `htmlLabels`      | boolean |     `true`      | Enable HTML in labels              |
-|   [5]   | `wrappingWidth`   | number  |      `200`      | Max label width before wrap        |
-|   [6]   | `defaultRenderer` | string  | `dagre-wrapper` | `dagre-d3`, `dagre-wrapper`, `elk` |
+|  [01]   | `curve`           | string  |     `basis`     | Edge style (12 curve types)        |
+|  [02]   | `nodeSpacing`     | number  |      `50`       | Horizontal gap between nodes       |
+|  [03]   | `rankSpacing`     | number  |      `50`       | Vertical gap between ranks         |
+|  [04]   | `htmlLabels`      | boolean |     `true`      | Enable HTML in labels              |
+|  [05]   | `wrappingWidth`   | number  |      `200`      | Max label width before wrap        |
+|  [06]   | `defaultRenderer` | string  | `dagre-wrapper` | `dagre-d3`, `dagre-wrapper`, `elk` |
 
-## [2]-[BLOCK]
+## [02]-[BLOCK]
 
 **Declaration:** `block-beta`. Manual grid-based positioning.
 
@@ -68,7 +68,7 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 [IMPORTANT] Missing `:N` suffix causes layout errors. Specify span width explicitly.
 
-## [3]-[MINDMAP]
+## [03]-[MINDMAP]
 
 **Declaration:** `mindmap`. Indentation depth defines parent-child relationships in radial tree layout.
 
@@ -79,7 +79,7 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 [IMPORTANT] Indentation creates hierarchy — spaces or tabs, never mixed.
 
-## [4]-[INTERACTIVITY]
+## [04]-[INTERACTIVITY]
 
 **Callback:** `click nodeId callback "tooltip"` | `click nodeId call callback()`. Define JS functions before render.
 **URL:** `click nodeId "https://url" "tooltip"` | `click nodeId href "https://url" "tooltip" _blank`.

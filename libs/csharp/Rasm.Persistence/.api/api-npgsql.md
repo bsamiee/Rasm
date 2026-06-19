@@ -4,7 +4,7 @@
 batches, parameters, type mapping, name translation, schema inspection, and
 replication surfaces for provider store profiles.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql`
 - package: `Npgsql`
@@ -13,7 +13,7 @@ replication surfaces for provider store profiles.
 - asset: runtime library
 - rail: store-provider
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [CONNECTION_TYPES]: data source and command surfaces
 - rail: store-provider
@@ -33,15 +33,15 @@ The compact rows below preserve these member groups:
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                        |
 | :-----: | :------------------------------ | :------------------ | :---------------------------------- |
-|   [1]   | `NpgsqlDataSource`              | data source         | owns configured pool                |
-|   [2]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source                  |
-|   [3]   | `NpgsqlMultiHostDataSource`     | multi-host source   | owns multi-host pool                |
-|   [4]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store              |
-|   [5]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings           |
-|   [6]   | `NpgsqlCommand`                 | command             | executes statements                 |
-|   [7]   | `NpgsqlTransaction`             | transaction         | bounds atomic work                  |
-|   [8]   | `NpgsqlBatch`                   | batch command       | executes batched work               |
-|   [9]   | `NpgsqlBatchCommand`            | batch member        | carries batched command             |
+|  [01]   | `NpgsqlDataSource`              | data source         | owns configured pool                |
+|  [02]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source                  |
+|  [03]   | `NpgsqlMultiHostDataSource`     | multi-host source   | owns multi-host pool                |
+|  [04]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store              |
+|  [05]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings           |
+|  [06]   | `NpgsqlCommand`                 | command             | executes statements                 |
+|  [07]   | `NpgsqlTransaction`             | transaction         | bounds atomic work                  |
+|  [08]   | `NpgsqlBatch`                   | batch command       | executes batched work               |
+|  [09]   | `NpgsqlBatchCommand`            | batch member        | carries batched command             |
 |  [10]   | `NpgsqlParameter`               | parameter           | binds statement values              |
 |  [11]   | `NpgsqlDataReader`              | data reader         | reads result rows                   |
 |  [12]   | `NpgsqlException`               | provider exception  | reports provider failure            |
@@ -55,15 +55,15 @@ The compact rows below preserve these member groups:
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]  | [CAPABILITY]              |
 | :-----: | :------------------------------ | :-------------- | :------------------------ |
-|   [1]   | `NpgsqlDbType`                  | type classifier | classifies parameters     |
-|   [2]   | `NpgsqlParameter<T>`            | typed parameter | binds typed values        |
-|   [3]   | `INpgsqlTypeMapper`             | type mapper     | maps provider types       |
-|   [4]   | `INpgsqlNameTranslator`         | name translator | maps CLR names            |
-|   [5]   | `NpgsqlSnakeCaseNameTranslator` | name translator | maps snake case names     |
-|   [6]   | `PostgresType`                  | schema metadata | describes store types     |
-|   [7]   | `PostgresEnumType`              | schema metadata | describes enum types      |
-|   [8]   | `PostgresCompositeType`         | schema metadata | describes composite types |
-|   [9]   | `NpgsqlRange<T>`                | range value     | carries range values      |
+|  [01]   | `NpgsqlDbType`                  | type classifier | classifies parameters     |
+|  [02]   | `NpgsqlParameter<T>`            | typed parameter | binds typed values        |
+|  [03]   | `INpgsqlTypeMapper`             | type mapper     | maps provider types       |
+|  [04]   | `INpgsqlNameTranslator`         | name translator | maps CLR names            |
+|  [05]   | `NpgsqlSnakeCaseNameTranslator` | name translator | maps snake case names     |
+|  [06]   | `PostgresType`                  | schema metadata | describes store types     |
+|  [07]   | `PostgresEnumType`              | schema metadata | describes enum types      |
+|  [08]   | `PostgresCompositeType`         | schema metadata | describes composite types |
+|  [09]   | `NpgsqlRange<T>`                | range value     | carries range values      |
 |  [10]   | `NpgsqlInterval`                | interval value  | carries interval values   |
 
 [COPY_TYPES]: binary COPY surfaces
@@ -76,9 +76,9 @@ The binary COPY surfaces expose these members:
 
 | [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]     | [CAPABILITY]                     |
 | :-----: | :--------------------- | :----------------- | :------------------------------- |
-|   [1]   | `NpgsqlBinaryImporter` | binary-COPY writer | streams typed rows to PostgreSQL |
-|   [2]   | `NpgsqlBinaryExporter` | binary-COPY reader | reads typed rows from PostgreSQL |
-|   [3]   | `NpgsqlRawCopyStream`  | raw-COPY stream    | streams raw COPY bytes           |
+|  [01]   | `NpgsqlBinaryImporter` | binary-COPY writer | streams typed rows to PostgreSQL |
+|  [02]   | `NpgsqlBinaryExporter` | binary-COPY reader | reads typed rows from PostgreSQL |
+|  [03]   | `NpgsqlRawCopyStream`  | raw-COPY stream    | streams raw COPY bytes           |
 
 [REPLICATION_TYPES]: logical replication surfaces
 - rail: store-provider
@@ -95,35 +95,35 @@ Replication detail rows preserve these members:
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]       | [CAPABILITY]                    |
 | :-----: | :-------------------------------- | :------------------- | :------------------------------ |
-|   [1]   | `LogicalReplicationConnection`    | replication root     | opens logical stream            |
-|   [2]   | `NpgsqlLogSequenceNumber`         | LSN value            | carries WAL position            |
-|   [3]   | `ReplicationSlot`                 | slot metadata        | identifies slot                 |
-|   [4]   | `PgOutputReplicationSlot`         | slot handle          | attaches pgoutput slot          |
-|   [5]   | `PgOutputReplicationOptions`      | replication policy   | configures pgoutput             |
-|   [6]   | `TestDecodingOptions`             | replication policy   | rejected alternative output     |
-|   [7]   | `ReplicationMessage`              | replication message  | carries stream event            |
-|   [8]   | `PgOutputProtocolVersion`         | protocol classifier  | classifies protocol version     |
-|   [9]   | `PgOutputStreamingMode`           | streaming classifier | classifies streaming mode       |
+|  [01]   | `LogicalReplicationConnection`    | replication root     | opens logical stream            |
+|  [02]   | `NpgsqlLogSequenceNumber`         | LSN value            | carries WAL position            |
+|  [03]   | `ReplicationSlot`                 | slot metadata        | identifies slot                 |
+|  [04]   | `PgOutputReplicationSlot`         | slot handle          | attaches pgoutput slot          |
+|  [05]   | `PgOutputReplicationOptions`      | replication policy   | configures pgoutput             |
+|  [06]   | `TestDecodingOptions`             | replication policy   | rejected alternative output     |
+|  [07]   | `ReplicationMessage`              | replication message  | carries stream event            |
+|  [08]   | `PgOutputProtocolVersion`         | protocol classifier  | classifies protocol version     |
+|  [09]   | `PgOutputStreamingMode`           | streaming classifier | classifies streaming mode       |
 |  [10]   | `PgOutputReplicationMessage`      | message base         | roots pgoutput message family   |
 |  [11]   | insert/update messages            | message leaves       | insert/update leaf frames       |
 |  [12]   | delete/truncate/relation messages | message leaves       | delete/truncate/relation frames |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: data source builder configuration
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                                                          |
 | :-----: | :--------------------------------- | :----------------- | :------------------------------------------------------------------------------------ |
-|   [1]   | `NpgsqlDataSourceBuilder(string?)` | ctor               | creates builder from connection string                                                |
-|   [2]   | `Build`                            | builder call       | yields `NpgsqlDataSource`                                                             |
-|   [3]   | `BuildMultiHost`                   | builder call       | yields `NpgsqlMultiHostDataSource`                                                    |
-|   [4]   | `UseLoggerFactory`                 | builder config     | attaches `ILoggerFactory`                                                             |
-|   [5]   | `EnableParameterLogging`           | builder config     | logs parameter values; redaction-policy decision                                      |
-|   [6]   | `ConfigureTypeLoading`             | builder config     | tunes type-loading behavior via `NpgsqlTypeLoadingOptionsBuilder`                     |
-|   [7]   | `ConfigureTracing`                 | builder config     | tunes OTel tracing via `NpgsqlTracingOptionsBuilder`                                  |
-|   [8]   | `ConfigureJsonOptions`             | builder config     | sets `JsonSerializerOptions` for all JSON paths                                       |
-|   [9]   | `MapEnum<TEnum>`                   | builder mapping    | maps CLR enum to PostgreSQL enum type                                                 |
+|  [01]   | `NpgsqlDataSourceBuilder(string?)` | ctor               | creates builder from connection string                                                |
+|  [02]   | `Build`                            | builder call       | yields `NpgsqlDataSource`                                                             |
+|  [03]   | `BuildMultiHost`                   | builder call       | yields `NpgsqlMultiHostDataSource`                                                    |
+|  [04]   | `UseLoggerFactory`                 | builder config     | attaches `ILoggerFactory`                                                             |
+|  [05]   | `EnableParameterLogging`           | builder config     | logs parameter values; redaction-policy decision                                      |
+|  [06]   | `ConfigureTypeLoading`             | builder config     | tunes type-loading behavior via `NpgsqlTypeLoadingOptionsBuilder`                     |
+|  [07]   | `ConfigureTracing`                 | builder config     | tunes OTel tracing via `NpgsqlTracingOptionsBuilder`                                  |
+|  [08]   | `ConfigureJsonOptions`             | builder config     | sets `JsonSerializerOptions` for all JSON paths                                       |
+|  [09]   | `MapEnum<TEnum>`                   | builder mapping    | maps CLR enum to PostgreSQL enum type                                                 |
 |  [10]   | `MapEnum(Type, …)`                 | builder mapping    | maps enum by `Type`                                                                   |
 |  [11]   | `MapComposite<T>`                  | builder mapping    | maps CLR type to PostgreSQL composite type                                            |
 |  [12]   | `MapComposite(Type, …)`            | builder mapping    | maps composite by `Type`                                                              |
@@ -139,15 +139,15 @@ Replication detail rows preserve these members:
 
 | [INDEX] | [SURFACE]                           | [CALL_SHAPE]       | [CAPABILITY]                                   |
 | :-----: | :---------------------------------- | :----------------- | :--------------------------------------------- |
-|   [1]   | `NpgsqlDataSource.Create`           | static factory     | creates data source from string or builder     |
-|   [2]   | `OpenConnection`                    | data source call   | opens pooled connection                        |
-|   [3]   | `OpenConnectionAsync`               | async call         | opens pooled connection                        |
-|   [4]   | `CreateCommand`                     | factory call       | creates command (connection-less on fast path) |
-|   [5]   | `CreateBatch`                       | factory call       | creates batch (connection-less on fast path)   |
-|   [6]   | `NpgsqlDataSource.ReloadTypes`      | data source call   | reloads type registry after DDL changes        |
-|   [7]   | `NpgsqlDataSource.ReloadTypesAsync` | async call         | async reload type registry                     |
-|   [8]   | `NpgsqlDataSource.Clear`            | data source call   | clears all pooled connections                  |
-|   [9]   | `BeginTransaction`                  | connection call    | starts transaction                             |
+|  [01]   | `NpgsqlDataSource.Create`           | static factory     | creates data source from string or builder     |
+|  [02]   | `OpenConnection`                    | data source call   | opens pooled connection                        |
+|  [03]   | `OpenConnectionAsync`               | async call         | opens pooled connection                        |
+|  [04]   | `CreateCommand`                     | factory call       | creates command (connection-less on fast path) |
+|  [05]   | `CreateBatch`                       | factory call       | creates batch (connection-less on fast path)   |
+|  [06]   | `NpgsqlDataSource.ReloadTypes`      | data source call   | reloads type registry after DDL changes        |
+|  [07]   | `NpgsqlDataSource.ReloadTypesAsync` | async call         | async reload type registry                     |
+|  [08]   | `NpgsqlDataSource.Clear`            | data source call   | clears all pooled connections                  |
+|  [09]   | `BeginTransaction`                  | connection call    | starts transaction                             |
 |  [10]   | `BeginTransactionAsync`             | async call         | starts transaction                             |
 |  [11]   | `ExecuteReader`                     | command/batch call | reads rows                                     |
 |  [12]   | `ExecuteNonQuery`                   | command/batch call | writes changes                                 |
@@ -158,15 +158,15 @@ Replication detail rows preserve these members:
 
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]      | [CAPABILITY]                                                           |
 | :-----: | :--------------------------------------- | :---------------- | :--------------------------------------------------------------------- |
-|   [1]   | `BeginBinaryImport`                      | connection call   | opens binary-COPY import path (sync)                                   |
-|   [2]   | `BeginBinaryImportAsync`                 | async call        | opens binary-COPY import path (async)                                  |
-|   [3]   | `BeginBinaryExport`                      | connection call   | opens binary-COPY export path (sync)                                   |
-|   [4]   | `BeginBinaryExportAsync`                 | async call        | opens binary-COPY export path (async)                                  |
-|   [5]   | `BeginRawBinaryCopy`                     | connection call   | opens raw-COPY stream (zero-materialization pipe)                      |
-|   [6]   | `BeginRawBinaryCopyAsync`                | async call        | opens raw-COPY stream (async)                                          |
-|   [7]   | `NpgsqlBinaryImporter.StartRow`/`Async`  | importer call     | starts a row; must precede each column                                 |
-|   [8]   | `NpgsqlBinaryImporter.Write<T>`/`Async`  | importer call     | writes column value (bare, `NpgsqlDbType`, or `dataTypeName` overload) |
-|   [9]   | `NpgsqlBinaryImporter.WriteNull`/`Async` | importer call     | writes null column value                                               |
+|  [01]   | `BeginBinaryImport`                      | connection call   | opens binary-COPY import path (sync)                                   |
+|  [02]   | `BeginBinaryImportAsync`                 | async call        | opens binary-COPY import path (async)                                  |
+|  [03]   | `BeginBinaryExport`                      | connection call   | opens binary-COPY export path (sync)                                   |
+|  [04]   | `BeginBinaryExportAsync`                 | async call        | opens binary-COPY export path (async)                                  |
+|  [05]   | `BeginRawBinaryCopy`                     | connection call   | opens raw-COPY stream (zero-materialization pipe)                      |
+|  [06]   | `BeginRawBinaryCopyAsync`                | async call        | opens raw-COPY stream (async)                                          |
+|  [07]   | `NpgsqlBinaryImporter.StartRow`/`Async`  | importer call     | starts a row; must precede each column                                 |
+|  [08]   | `NpgsqlBinaryImporter.Write<T>`/`Async`  | importer call     | writes column value (bare, `NpgsqlDbType`, or `dataTypeName` overload) |
+|  [09]   | `NpgsqlBinaryImporter.WriteNull`/`Async` | importer call     | writes null column value                                               |
 |  [10]   | `NpgsqlBinaryImporter.WriteRow`/`Async`  | importer call     | writes complete row from `params object?[]`                            |
 |  [11]   | `NpgsqlBinaryImporter.Complete`/`Async`  | importer call     | commits COPY, returns `ulong` rows imported                            |
 |  [12]   | `NpgsqlBinaryExporter.StartRow`/`Async`  | exporter call     | advances to next row, returns column count                             |
@@ -180,14 +180,14 @@ Replication detail rows preserve these members:
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]                                   |
 | :-----: | :------------------------------ | :--------------- | :--------------------------------------------- |
-|   [1]   | `StartReplication`              | replication call | starts replication; returns `IAsyncEnumerable` |
-|   [2]   | `CreatePgOutputReplicationSlot` | replication call | creates pgoutput slot                          |
-|   [3]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN                 |
-|   [4]   | `SendStatusUpdate`              | replication call | sends feedback flush                           |
+|  [01]   | `StartReplication`              | replication call | starts replication; returns `IAsyncEnumerable` |
+|  [02]   | `CreatePgOutputReplicationSlot` | replication call | creates pgoutput slot                          |
+|  [03]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN                 |
+|  [04]   | `SendStatusUpdate`              | replication call | sends feedback flush                           |
 
 `PgOutputReplicationOptions` accepts publication names, protocol version, binary mode, streaming mode, messages, and two-phase policy. The binary importer commit edge is inverted: `Complete`/`CompleteAsync` commits; disposal without it cancels COPY and discards all buffered rows.
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STORE_PROFILE]:
 - profile: PostgreSQL is one admitted store profile

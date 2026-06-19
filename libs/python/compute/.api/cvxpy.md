@@ -2,7 +2,7 @@
 
 `cvxpy` supplies the disciplined-convex-programming modeling surface for the compute convex-optimization rail: a `Variable`/`Parameter`/`Expression` algebra composed under `Minimize`/`Maximize` and constraint relations into a `Problem`, then `solve`d through a pluggable solver backend (Clarabel by default) that returns the optimal value, primal variable values, and dual certificates. The package owner composes `Variable`, `Problem`, the atom library, and `problem.solve` into the convex-intent owner; it never re-implements the cone reduction or interior-point solve cvxpy and its backends already own.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `cvxpy`
 - package: `cvxpy`
@@ -13,63 +13,63 @@
 - entry points: none (library only)
 - capability: disciplined convex programming — variable/parameter expression algebra, a convex atom library, equality/inequality/SOC/SDP/exponential-cone constraints, `Minimize`/`Maximize` objectives, a `Problem` compiled to a conic form, multi-backend `solve` with primal/dual recovery, DPP-parametrized warm re-solves, and mixed-integer support
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: leaf, expression, objective, and problem roots
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]    | [CAPABILITY]                                                         |
-| :-----: | :----------- | :--------------- | :------------------------------------------------------------------ |
-|   [1]   | `Variable`   | decision leaf    | optimization variable: `Variable(shape=(), name=None, **attrs)`     |
-|   [2]   | `Parameter`  | symbolic constant| DPP parameter whose value is set before solve; enables warm re-solve|
-|   [3]   | `Constant`   | constant leaf    | a fixed numeric value lifted into the expression algebra            |
-|   [4]   | `Expression` | expression node  | abstract base of the convex/affine atom algebra (`+`/`@`/`*`/atoms) |
-|   [5]   | `Minimize`   | objective        | `Minimize(expr)` — convex objective                                 |
-|   [6]   | `Maximize`   | objective        | `Maximize(expr)` — concave objective                                |
-|   [7]   | `Problem`    | problem root     | `Problem(objective, constraints=[])` — compiled and solved          |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [CAPABILITY]                                                         |
+| :-----: | :----------- | :---------------- | :------------------------------------------------------------------- |
+|  [01]   | `Variable`   | decision leaf     | optimization variable: `Variable(shape=(), name=None, **attrs)`      |
+|  [02]   | `Parameter`  | symbolic constant | DPP parameter whose value is set before solve; enables warm re-solve |
+|  [03]   | `Constant`   | constant leaf     | a fixed numeric value lifted into the expression algebra             |
+|  [04]   | `Expression` | expression node   | abstract base of the convex/affine atom algebra (`+`/`@`/`*`/atoms)  |
+|  [05]   | `Minimize`   | objective         | `Minimize(expr)` — convex objective                                  |
+|  [06]   | `Maximize`   | objective         | `Maximize(expr)` — concave objective                                 |
+|  [07]   | `Problem`    | problem root      | `Problem(objective, constraints=[])` — compiled and solved           |
 
 [PUBLIC_TYPE_SCOPE]: constraint and cone types
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL]    | [TYPE_FAMILY]      | [CAPABILITY]                                                       |
-| :-----: | :---------- | :----------------- | :---------------------------------------------------------------- |
-|   [1]   | `Constraint`| constraint base    | abstract base produced by relational operators on expressions     |
-|   [2]   | `Zero`      | equality cone      | `expr == 0` membership                                            |
-|   [3]   | `NonNeg`    | inequality cone    | elementwise `expr >= 0` membership                               |
-|   [4]   | `SOC`       | second-order cone  | `SOC(t, X)` — `norm2(X) <= t` second-order-cone membership        |
-|   [5]   | `PSD`       | semidefinite cone  | `expr >> 0` — symmetric PSD constraint                           |
-|   [6]   | `ExpCone`   | exponential cone   | `ExpCone(x, y, z)` membership                                     |
-|   [7]   | `PowCone3D` | power cone         | three-dimensional power-cone membership                          |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [CAPABILITY]                                                  |
+| :-----: | :----------- | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `Constraint` | constraint base   | abstract base produced by relational operators on expressions |
+|  [02]   | `Zero`       | equality cone     | `expr == 0` membership                                        |
+|  [03]   | `NonNeg`     | inequality cone   | elementwise `expr >= 0` membership                            |
+|  [04]   | `SOC`        | second-order cone | `SOC(t, X)` — `norm2(X) <= t` second-order-cone membership    |
+|  [05]   | `PSD`        | semidefinite cone | `expr >> 0` — symmetric PSD constraint                        |
+|  [06]   | `ExpCone`    | exponential cone  | `ExpCone(x, y, z)` membership                                 |
+|  [07]   | `PowCone3D`  | power cone        | three-dimensional power-cone membership                       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: problem construction and solve
 - rail: convex optimization
 
 The relational operators `==`, `<=`, `>=`, `>>`, `<<` on `Expression` build `Constraint` objects; `Problem.solve` selects the backend by the `solver` keyword and returns the optimal value, writing primal values to `Variable.value` and duals to `Constraint.dual_value`.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                 | [CAPABILITY]                               |
-| :-----: | :-------------------- | :------------------------------------------------------------------------------------------- | :----------------------------------------- |
-|   [1]   | `Problem.solve`       | `solve(solver=None, warm_start=True, verbose=False, gp=False, qcp=False, **kwargs)` -> float | compile and solve; returns optimal value   |
-|   [2]   | `Problem.value`       | property                                                                                     | optimal objective value after solve        |
-|   [3]   | `Problem.status`      | property -> `str`                                                                             | `optimal`/`infeasible`/`unbounded`/inaccurate|
-|   [4]   | `Variable.value`      | property                                                                                      | primal solution after solve                |
-|   [5]   | `Constraint.dual_value`| property                                                                                     | dual certificate after solve               |
-|   [6]   | `installed_solvers`   | `installed_solvers()` -> `list[str]`                                                          | available solver backend names             |
-|   [7]   | `Problem.get_problem_data` | `get_problem_data(solver)`                                                               | the reduced conic problem data             |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                 | [CAPABILITY]                                  |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `Problem.solve`            | `solve(solver=None, warm_start=True, verbose=False, gp=False, qcp=False, **kwargs)` -> float | compile and solve; returns optimal value      |
+|  [02]   | `Problem.value`            | property                                                                                     | optimal objective value after solve           |
+|  [03]   | `Problem.status`           | property -> `str`                                                                            | `optimal`/`infeasible`/`unbounded`/inaccurate |
+|  [04]   | `Variable.value`           | property                                                                                     | primal solution after solve                   |
+|  [05]   | `Constraint.dual_value`    | property                                                                                     | dual certificate after solve                  |
+|  [06]   | `installed_solvers`        | `installed_solvers()` -> `list[str]`                                                         | available solver backend names                |
+|  [07]   | `Problem.get_problem_data` | `get_problem_data(solver)`                                                                   | the reduced conic problem data                |
 
 [ENTRYPOINT_SCOPE]: convex atom library (`cp.<atom>`)
 - rail: convex optimization
 
-| [INDEX] | [SURFACE]                                                       | [FAMILY]              | [RAIL]                                  |
-| :-----: | :-------------------------------------------------------------- | :-------------------- | :-------------------------------------- |
-|   [1]   | `sum`, `trace`, `multiply`, `matmul`, `reshape`, `vstack`, `hstack`, `diag` | affine atoms          | affine combinators preserving curvature |
-|   [2]   | `norm`, `norm1`, `norm2`, `norm_inf`, `pnorm`, `mixed_norm`, `tv` | norm atoms            | convex norms and total variation        |
-|   [3]   | `quad_form`, `sum_squares`, `quad_over_lin`, `huber`           | quadratic atoms       | quadratic and robust losses             |
-|   [4]   | `exp`, `log`, `log_sum_exp`, `entr`, `kl_div`, `rel_entr`, `logistic` | log/exp atoms         | exponential-cone-representable atoms     |
-|   [5]   | `max`, `min`, `maximum`, `minimum`, `abs`, `pos`, `neg`, `lambda_max`, `log_det` | elementwise/spectral  | extrema, spectral, and matrix atoms      |
+| [INDEX] | [SURFACE]                                                                        | [FAMILY]             | [RAIL]                                  |
+| :-----: | :------------------------------------------------------------------------------- | :------------------- | :-------------------------------------- |
+|  [01]   | `sum`, `trace`, `multiply`, `matmul`, `reshape`, `vstack`, `hstack`, `diag`      | affine atoms         | affine combinators preserving curvature |
+|  [02]   | `norm`, `norm1`, `norm2`, `norm_inf`, `pnorm`, `mixed_norm`, `tv`                | norm atoms           | convex norms and total variation        |
+|  [03]   | `quad_form`, `sum_squares`, `quad_over_lin`, `huber`                             | quadratic atoms      | quadratic and robust losses             |
+|  [04]   | `exp`, `log`, `log_sum_exp`, `entr`, `kl_div`, `rel_entr`, `logistic`            | log/exp atoms        | exponential-cone-representable atoms    |
+|  [05]   | `max`, `min`, `maximum`, `minimum`, `abs`, `pos`, `neg`, `lambda_max`, `log_det` | elementwise/spectral | extrema, spectral, and matrix atoms     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CONVEX_MODELING]:
 - import: `import cvxpy as cp` at boundary scope only; module-level import is banned by the manifest import policy.

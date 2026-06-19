@@ -2,7 +2,7 @@
 
 `react-compiler-runtime` provides the memo-cache slot management, optional hook-guard assertions, structural change detection, and render counter utilities that the React Compiler emits calls to when `target` is set to a custom runtime (instead of the built-in React 19 `c` export). It acts as the compiler-generated code's runtime substrate.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-compiler-runtime`
 - package: `react-compiler-runtime`
@@ -10,33 +10,33 @@
 - asset: compiler-emitted runtime helpers — memo cache, dispatcher guards, structural checks, render counters
 - rail: render
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cache and guard types
 - rail: render
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY] | [RAIL]                                                                   |
 | :-----: | :---------- | :------------ | :----------------------------------------------------------------------- |
-|   [1]   | `MemoCache` | cache array   | `Array<number \| typeof $empty>`                                         |
-|   [2]   | `GuardKind` | guard enum    | `PushGuardContext \| PopGuardContext \| PushExpectHook \| PopExpectHook` |
+|  [01]   | `MemoCache` | cache array   | `Array<number \| typeof $empty>`                                         |
+|  [02]   | `GuardKind` | guard enum    | `PushGuardContext \| PopGuardContext \| PushExpectHook \| PopExpectHook` |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: runtime helpers
 - rail: render
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                     |
 | :-----: | :----------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|   [1]   | `c`                                                                | cache hook     | `any` — compiler-emitted memo cache slot hook              |
-|   [2]   | `$reset($)`                                                        | cache reset    | clears all slots in a `MemoCache` for re-render            |
-|   [3]   | `$dispatcherGuard(kind)`                                           | guard fn       | push/pop hook-order enforcement context                    |
-|   [4]   | `$makeReadOnly()`                                                  | freeze fn      | marks a value as readonly in dev mode                      |
-|   [5]   | `$structuralCheck(oldValue, newValue, varName, fnName, kind, loc)` | check fn       | structural equality assertion for debugging                |
-|   [6]   | `useRenderCounter(name)`                                           | render hook    | increments a named render counter in dev                   |
-|   [7]   | `clearRenderCounterRegistry()`                                     | test utility   | resets all render counters between tests                   |
-|   [8]   | `renderCounterRegistry`                                            | registry       | `Map<string, Set<{ count: number }>>` — live render counts |
+|  [01]   | `c`                                                                | cache hook     | `any` — compiler-emitted memo cache slot hook              |
+|  [02]   | `$reset($)`                                                        | cache reset    | clears all slots in a `MemoCache` for re-render            |
+|  [03]   | `$dispatcherGuard(kind)`                                           | guard fn       | push/pop hook-order enforcement context                    |
+|  [04]   | `$makeReadOnly()`                                                  | freeze fn      | marks a value as readonly in dev mode                      |
+|  [05]   | `$structuralCheck(oldValue, newValue, varName, fnName, kind, loc)` | check fn       | structural equality assertion for debugging                |
+|  [06]   | `useRenderCounter(name)`                                           | render hook    | increments a named render counter in dev                   |
+|  [07]   | `clearRenderCounterRegistry()`                                     | test utility   | resets all render counters between tests                   |
+|  [08]   | `renderCounterRegistry`                                            | registry       | `Map<string, Set<{ count: number }>>` — live render counts |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RUNTIME_TOPOLOGY]:
 - `c` is a React hook (`use memo` protocol); it must be called at the top level of a compiled component — the compiler emits all `c(...)` calls unconditionally

@@ -2,7 +2,7 @@
 
 `DynamicData` supplies change-set caches, lists, live filtering, sorting, grouping, binding, aggregation, paging, virtualisation, and projection.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DynamicData`
 - package: `DynamicData`
@@ -14,36 +14,36 @@
 - asset: runtime library
 - rail: live-data
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [CACHE_AND_LIST_TYPES]: mutable live data sources
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                           | [RAIL]             |
 | :-----: | :--------------------------------- | :----------------- |
-|   [1]   | `SourceCache<TObject,TKey>`        | keyed source       |
-|   [2]   | `SourceList<T>`                    | ordered source     |
-|   [3]   | `ISourceCache<TObject,TKey>`       | cache contract     |
-|   [4]   | `ISourceList<T>`                   | list contract      |
-|   [5]   | `IObservableCache<TObject,TKey>`   | observable cache   |
-|   [6]   | `IObservableList<T>`               | observable list    |
-|   [7]   | `IIntermediateCache<TObject,TKey>` | intermediate cache |
-|   [8]   | `ChangeAwareCache<TObject,TKey>`   | change cache       |
+|  [01]   | `SourceCache<TObject,TKey>`        | keyed source       |
+|  [02]   | `SourceList<T>`                    | ordered source     |
+|  [03]   | `ISourceCache<TObject,TKey>`       | cache contract     |
+|  [04]   | `ISourceList<T>`                   | list contract      |
+|  [05]   | `IObservableCache<TObject,TKey>`   | observable cache   |
+|  [06]   | `IObservableList<T>`               | observable list    |
+|  [07]   | `IIntermediateCache<TObject,TKey>` | intermediate cache |
+|  [08]   | `ChangeAwareCache<TObject,TKey>`   | change cache       |
 
 [CHANGE_SET_TYPES]: change records and stream contracts
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                               | [RAIL]          |
 | :-----: | :------------------------------------- | :-------------- |
-|   [1]   | `IChangeSet<T>`                        | list changes    |
-|   [2]   | `IChangeSet<TObject,TKey>`             | cache changes   |
-|   [3]   | `Change<T>`                            | list change     |
-|   [4]   | `Change<TObject,TKey>`                 | cache change    |
-|   [5]   | `ChangeReason`                         | cache reason    |
-|   [6]   | `ListChangeReason`                     | list reason     |
-|   [7]   | `ISortedChangeSet<TObject,TKey>`       | sorted changes  |
-|   [8]   | `IGroupChangeSet<TObject,TKey,TGroup>` | grouped changes |
-|   [9]   | `IPagedChangeSet<TObject,TKey>`        | paged changes   |
+|  [01]   | `IChangeSet<T>`                        | list changes    |
+|  [02]   | `IChangeSet<TObject,TKey>`             | cache changes   |
+|  [03]   | `Change<T>`                            | list change     |
+|  [04]   | `Change<TObject,TKey>`                 | cache change    |
+|  [05]   | `ChangeReason`                         | cache reason    |
+|  [06]   | `ListChangeReason`                     | list reason     |
+|  [07]   | `ISortedChangeSet<TObject,TKey>`       | sorted changes  |
+|  [08]   | `IGroupChangeSet<TObject,TKey,TGroup>` | grouped changes |
+|  [09]   | `IPagedChangeSet<TObject,TKey>`        | paged changes   |
 |  [10]   | `IVirtualChangeSet<TObject,TKey>`      | virtual changes |
 
 [BINDING_TYPES]: UI binding targets and adaptors
@@ -51,44 +51,44 @@
 
 | [INDEX] | [SYMBOL]                                          | [RAIL]              |
 | :-----: | :------------------------------------------------ | :------------------ |
-|   [1]   | `ObservableCollectionExtended<T>`                 | bound collection    |
-|   [2]   | `IObservableCollection<T>`                        | collection contract |
-|   [3]   | `ObservableCollectionAdaptor<T>`                  | list adaptor        |
-|   [4]   | `ObservableCollectionAdaptor<TObject,TKey>`       | cache adaptor       |
-|   [5]   | `SortedObservableCollectionAdaptor<TObject,TKey>` | sorted adaptor      |
-|   [6]   | `BindingOptions`                                  | binding options     |
-|   [7]   | `SortAndBindOptions`                              | sorted binding      |
+|  [01]   | `ObservableCollectionExtended<T>`                 | bound collection    |
+|  [02]   | `IObservableCollection<T>`                        | collection contract |
+|  [03]   | `ObservableCollectionAdaptor<T>`                  | list adaptor        |
+|  [04]   | `ObservableCollectionAdaptor<TObject,TKey>`       | cache adaptor       |
+|  [05]   | `SortedObservableCollectionAdaptor<TObject,TKey>` | sorted adaptor      |
+|  [06]   | `BindingOptions`                                  | binding options     |
+|  [07]   | `SortAndBindOptions`                              | sorted binding      |
 
 [QUERY_TYPES]: sort, page, virtual, aggregate, and diagnostic model
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                    | [RAIL]            |
 | :-----: | :-------------------------- | :---------------- |
-|   [1]   | `SortExpressionComparer<T>` | sort comparer     |
-|   [2]   | `SortExpression<T>`         | sort expression   |
-|   [3]   | `PageRequest`               | page request      |
-|   [4]   | `PageContext<T>`            | page context      |
-|   [5]   | `VirtualRequest`            | virtual request   |
-|   [6]   | `VirtualResponse`           | virtual response  |
-|   [7]   | `IAggregateChangeSet<T>`    | aggregate changes |
-|   [8]   | `ChangeStatistics`          | diagnostics       |
-|   [9]   | `ChangeSummary`             | diagnostics       |
+|  [01]   | `SortExpressionComparer<T>` | sort comparer     |
+|  [02]   | `SortExpression<T>`         | sort expression   |
+|  [03]   | `PageRequest`               | page request      |
+|  [04]   | `PageContext<T>`            | page context      |
+|  [05]   | `VirtualRequest`            | virtual request   |
+|  [06]   | `VirtualResponse`           | virtual response  |
+|  [07]   | `IAggregateChangeSet<T>`    | aggregate changes |
+|  [08]   | `ChangeStatistics`          | diagnostics       |
+|  [09]   | `ChangeSummary`             | diagnostics       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CACHE_ENTRYPOINTS]: cache mutation and connection operations
 - rail: live-data
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT]                      | [RAIL]          |
 | :-----: | :--------------------- | :---------------------------------- | :-------------- |
-|   [1]   | `Connect`              | `SourceCache<TObject,TKey>`         | cache stream    |
-|   [2]   | `Connect`              | `SourceList<T>`                     | list stream     |
-|   [3]   | `Edit`                 | `ISourceCache<TObject,TKey>`        | cache mutation  |
-|   [4]   | `Edit`                 | `ISourceList<T>`                    | list mutation   |
-|   [5]   | `AddOrUpdate`          | `ISourceUpdater<TObject,TKey>`      | keyed upsert    |
-|   [6]   | `RemoveKey`            | `ICacheUpdater<TObject,TKey>`       | keyed removal   |
-|   [7]   | `Load`                 | `IObservableCollection<T>`          | collection load |
-|   [8]   | `SuspendNotifications` | `INotifyCollectionChangedSuspender` | batch bind      |
+|  [01]   | `Connect`              | `SourceCache<TObject,TKey>`         | cache stream    |
+|  [02]   | `Connect`              | `SourceList<T>`                     | list stream     |
+|  [03]   | `Edit`                 | `ISourceCache<TObject,TKey>`        | cache mutation  |
+|  [04]   | `Edit`                 | `ISourceList<T>`                    | list mutation   |
+|  [05]   | `AddOrUpdate`          | `ISourceUpdater<TObject,TKey>`      | keyed upsert    |
+|  [06]   | `RemoveKey`            | `ICacheUpdater<TObject,TKey>`       | keyed removal   |
+|  [07]   | `Load`                 | `IObservableCollection<T>`          | collection load |
+|  [08]   | `SuspendNotifications` | `INotifyCollectionChangedSuspender` | batch bind      |
 
 [QUERY_ENTRYPOINTS]: change-set query operations
 - rail: live-data
@@ -96,15 +96,15 @@
 
 | [INDEX] | [SURFACE]     | [RAIL]             |
 | :-----: | :------------ | :----------------- |
-|   [1]   | `Filter`      | predicate filter   |
-|   [2]   | `Sort`        | comparer sort      |
-|   [3]   | `Group`       | key grouping       |
-|   [4]   | `Transform`   | projection         |
-|   [5]   | `AutoRefresh` | refresh stream     |
-|   [6]   | `MergeMany`   | child stream merge |
-|   [7]   | `ExpireAfter` | timed expiry       |
-|   [8]   | `LimitSizeTo` | size bound         |
-|   [9]   | `Page`        | paging             |
+|  [01]   | `Filter`      | predicate filter   |
+|  [02]   | `Sort`        | comparer sort      |
+|  [03]   | `Group`       | key grouping       |
+|  [04]   | `Transform`   | projection         |
+|  [05]   | `AutoRefresh` | refresh stream     |
+|  [06]   | `MergeMany`   | child stream merge |
+|  [07]   | `ExpireAfter` | timed expiry       |
+|  [08]   | `LimitSizeTo` | size bound         |
+|  [09]   | `Page`        | paging             |
 |  [10]   | `Virtualise`  | virtualisation     |
 
 [BINDING_ENTRYPOINTS]: UI binding and disposal operations
@@ -112,14 +112,14 @@
 
 | [INDEX] | [SURFACE]                  | [SURFACE_ROOT]            | [RAIL]            |
 | :-----: | :------------------------- | :------------------------ | :---------------- |
-|   [1]   | `Bind`                     | `ObservableCacheEx`       | collection bind   |
-|   [2]   | `Bind`                     | `ObservableListEx`        | list bind         |
-|   [3]   | `ToObservableChangeSet`    | `ObservableCollectionEx`  | change conversion |
-|   [4]   | `BindToObservableList`     | `IObservableListEx`       | list target       |
-|   [5]   | `DisposeMany`              | `ObservableCacheEx`       | disposal          |
-|   [6]   | `AsyncDisposeMany`         | `ObservableCacheEx`       | async disposal    |
-|   [7]   | `ObserveCollectionChanges` | `ObservableCollectionEx`  | collection events |
-|   [8]   | `WhenValueChanged`         | `NotifyPropertyChangedEx` | property stream   |
+|  [01]   | `Bind`                     | `ObservableCacheEx`       | collection bind   |
+|  [02]   | `Bind`                     | `ObservableListEx`        | list bind         |
+|  [03]   | `ToObservableChangeSet`    | `ObservableCollectionEx`  | change conversion |
+|  [04]   | `BindToObservableList`     | `IObservableListEx`       | list target       |
+|  [05]   | `DisposeMany`              | `ObservableCacheEx`       | disposal          |
+|  [06]   | `AsyncDisposeMany`         | `ObservableCacheEx`       | async disposal    |
+|  [07]   | `ObserveCollectionChanges` | `ObservableCollectionEx`  | collection events |
+|  [08]   | `WhenValueChanged`         | `NotifyPropertyChangedEx` | property stream   |
 
 [AGGREGATE_ENTRYPOINTS]: computed stream summaries
 - rail: live-data
@@ -127,14 +127,14 @@
 
 | [INDEX] | [SURFACE] | [RAIL]    |
 | :-----: | :-------- | :-------- |
-|   [1]   | `Count`   | count     |
-|   [2]   | `Sum`     | sum       |
-|   [3]   | `Avg`     | average   |
-|   [4]   | `Min`     | minimum   |
-|   [5]   | `Max`     | maximum   |
-|   [6]   | `StdDev`  | deviation |
+|  [01]   | `Count`   | count     |
+|  [02]   | `Sum`     | sum       |
+|  [03]   | `Avg`     | average   |
+|  [04]   | `Min`     | minimum   |
+|  [05]   | `Max`     | maximum   |
+|  [06]   | `StdDev`  | deviation |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [LIVE_DATA_LAW]:
 - Package: `DynamicData`

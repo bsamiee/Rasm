@@ -2,11 +2,11 @@
 
 The durable work and signalling surfaces over the one `PgClient` — `WorkQueue`/`EventJournal`/`Notifications`, the jobs/DLQ, event-journal, and notification-channel surfaces; and `FeatureFlags`, the percentage-rollout buckets. Every variation is a row or literal on the owning axis, never a sibling surface. The asset-export codec fan-out the page once carried (`papaparse`/`exceljs`/`jspdf`/`jszip` over a `Schema.Literal` format axis, plus `sharp` the in-pipeline image transform) is now owned by `folder:persistence/object#OBJECT_STORE` as the streaming `ObjectStore.put` fan-out — this page references that owner for the codec concern and keeps only the job/journal/notification/flag surfaces; a `Job` whose payload is an asset export enqueues the work, and the `object-store` owner streams the encoded bytes. This is a node-only surface and crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[WORK_AND_SIGNALS]: owns jobs/DLQ, the event journal, notifications, and the feature-flag buckets; the asset-export codec fan-out is owned by `folder:persistence/object#OBJECT_STORE`, which this page references and enqueues work for.
+- [01]-[WORK_AND_SIGNALS]: owns jobs/DLQ, the event journal, notifications, and the feature-flag buckets; the asset-export codec fan-out is owned by `folder:persistence/object#OBJECT_STORE`, which this page references and enqueues work for.
 
-## [2]-[WORK_AND_SIGNALS]
+## [02]-[WORK_AND_SIGNALS]
 
 - Owner: `WorkQueue`/`EventJournal`/`Notifications`, the durable work and signalling surfaces; and `FeatureFlags`, the percentage-rollout buckets — every variation a row or literal on the owning axis, never a sibling surface. The asset-export codec axis is owned by `folder:persistence/object#OBJECT_STORE`; a `Job` enqueues an export and that owner streams the encoded bytes.
 - Cases: `WorkQueue` is the `Job` priority (`critical`/`high`/`normal`/`low`) and status (`queued`/`processing`/`complete`/`failed`/`cancelled`) surface drained by a `FOR UPDATE SKIP LOCKED` claim with `LISTEN`/`NOTIFY` as the wake signal, with `JobDlq` as the first-class dead-letter sourced from `job`|`event`; `EventJournal` is the retainable tenant-scoped event ledger; `Notifications` is the multi-channel (`email`/`webhook`/`inApp`) preference matrix with `mutedUntil` and the delivery state machine (`queued`/`sending`/`delivered`/`failed`/`dlq`); `FeatureFlags` evaluates a 0-100 integer rollout bucket per flag. An asset-export `Job` carries the export request in its payload and the `folder:persistence/object#OBJECT_STORE` `AssetCodec` fan-out streams the encoded bytes to the store — this page owns the work enqueue, that page owns the codec.

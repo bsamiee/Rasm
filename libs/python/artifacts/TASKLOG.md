@@ -2,7 +2,7 @@
 
 The folder's open and closed work, distilled from `IDEAS.md`. Open tasks are cards in `[1]-[OPEN]` with a `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` leader; closed tasks move to `[2]-[CLOSED]` with `[COMPLETE]`/`[DROPPED]`. Each task names the exact sub-domain or file it lands in.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [BLOCKED] Widen the imaging code arm to the full encoded-mark family on `figures/preview.md` — from `ENCODED_MARK_OWNER`.
 - BLOCKED on the `python-barcode` catalogue resolving on uv-sync. The segno QR/Micro-QR half is REALIZED: `figures/preview#PREVIEW` collapses `PreviewOp.QR` into one `PreviewOp.MARK` row carrying a `Symbology` `StrEnum` sub-axis (QR/Micro-QR settled fence code over segno `make`/`make_micro`/`save(kind="svg")`, the `is_qr` discriminant routing `_qr` vs `_barcode`). The linear (1D) `python-barcode` rows (`get_barcode_class`-resolved Code128/Code39/EAN13/EAN8/UPCA/ITF/Codabar/ISBN13/ISSN/PZN/GS1-128 over `SVGWriter`) stay a marked RESEARCH seam in `[3]-[RESEARCH]`. DataMatrix/PDF417 DROPPED (python-barcode is strictly linear). Close-condition: uv-sync resolves `python-barcode` and `ApiPackage.reflect` confirms `get_barcode_class`/`SVGWriter`/`PROVIDED_BARCODES`, settling the `_barcode` body and the linear `Symbology` rows.
@@ -30,6 +30,6 @@ The folder's open and closed work, distilled from `IDEAS.md`. Open tasks are car
 - The change is alignment-and-verification on the artifacts side: every `_emit` already returns `ContentIdentity.of(...)` and every producer contributes one `ArtifactReceipt` case consuming the runtime ports, so the outward edge is the single `HandoffAxis` model-asset case and the source surface is drift-clean by construction.
 - Aligned on the `compute/graduation` HandoffAxis task and the runtime `evidence` drift-detector task; the artifacts contribution is the pre-keyed outward consumer and the drift-clean source, never a second owner. Close-condition: the upstream graduation `HandoffAxis` task and the runtime `Structural.drift` detector land, then the artifacts sources confirm against the live drift query (the `ARCHITECTURE.md` charter lines 25-26 already assert both invariants).
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

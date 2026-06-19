@@ -2,7 +2,7 @@
 
 `Avalonia.AvaloniaEdit` and `AvaloniaEdit.TextMate` supply the `TextEditor` control, document model, folding, highlighting, completion, search, and TextMate grammar installation.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.AvaloniaEdit`
 - package: `Avalonia.AvaloniaEdit`
@@ -25,22 +25,22 @@
 - asset: runtime library
 - rail: editor
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [EDITOR_TYPES]: editor control and document model
 - rail: editor
 
 | [INDEX] | [SYMBOL]            | [RAIL]          |
 | :-----: | :------------------ | :-------------- |
-|   [1]   | `TextEditor`        | editor control  |
-|   [2]   | `TextEditorOptions` | editor options  |
-|   [3]   | `TextArea`          | editing surface |
-|   [4]   | `Caret`             | caret state     |
-|   [5]   | `Selection`         | selection model |
-|   [6]   | `TextDocument`      | document model  |
-|   [7]   | `DocumentLine`      | line model      |
-|   [8]   | `TextAnchor`        | position anchor |
-|   [9]   | `TextSegment`       | segment model   |
+|  [01]   | `TextEditor`        | editor control  |
+|  [02]   | `TextEditorOptions` | editor options  |
+|  [03]   | `TextArea`          | editing surface |
+|  [04]   | `Caret`             | caret state     |
+|  [05]   | `Selection`         | selection model |
+|  [06]   | `TextDocument`      | document model  |
+|  [07]   | `DocumentLine`      | line model      |
+|  [08]   | `TextAnchor`        | position anchor |
+|  [09]   | `TextSegment`       | segment model   |
 |  [10]   | `UndoStack`         | undo history    |
 
 [FEATURE_TYPES]: folding, highlighting, completion, and search
@@ -48,15 +48,15 @@
 
 | [INDEX] | [SYMBOL]                        | [RAIL]              |
 | :-----: | :------------------------------ | :------------------ |
-|   [1]   | `FoldingManager`                | folding owner       |
-|   [2]   | `FoldingSection`                | folded region       |
-|   [3]   | `NewFolding`                    | folding input       |
-|   [4]   | `XmlFoldingStrategy`            | XML folding         |
-|   [5]   | `HighlightingManager`           | definition registry |
-|   [6]   | `IHighlightingDefinition`       | definition contract |
-|   [7]   | `DocumentColorizingTransformer` | line colorizer      |
-|   [8]   | `IBackgroundRenderer`           | layer renderer      |
-|   [9]   | `CompletionWindow`              | completion popup    |
+|  [01]   | `FoldingManager`                | folding owner       |
+|  [02]   | `FoldingSection`                | folded region       |
+|  [03]   | `NewFolding`                    | folding input       |
+|  [04]   | `XmlFoldingStrategy`            | XML folding         |
+|  [05]   | `HighlightingManager`           | definition registry |
+|  [06]   | `IHighlightingDefinition`       | definition contract |
+|  [07]   | `DocumentColorizingTransformer` | line colorizer      |
+|  [08]   | `IBackgroundRenderer`           | layer renderer      |
+|  [09]   | `CompletionWindow`              | completion popup    |
 |  [10]   | `ICompletionData`               | completion item     |
 |  [11]   | `OverloadInsightWindow`         | overload insight    |
 |  [12]   | `SearchPanel`                   | search overlay      |
@@ -66,29 +66,29 @@
 
 | [INDEX] | [SYMBOL]                      | [RAIL]              |
 | :-----: | :---------------------------- | :------------------ |
-|   [1]   | `TextMate`                    | install extension   |
-|   [2]   | `TextMate.Installation`       | grammar session     |
-|   [3]   | `TextEditorModel`             | editor projection   |
-|   [4]   | `TextMateColoringTransformer` | token colorizer     |
-|   [5]   | `GenericLineTransformer`      | line transform base |
-|   [6]   | `DocumentSnapshot`            | tokenizer snapshot  |
+|  [01]   | `TextMate`                    | install extension   |
+|  [02]   | `TextMate.Installation`       | grammar session     |
+|  [03]   | `TextEditorModel`             | editor projection   |
+|  [04]   | `TextMateColoringTransformer` | token colorizer     |
+|  [05]   | `GenericLineTransformer`      | line transform base |
+|  [06]   | `DocumentSnapshot`            | tokenizer snapshot  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [EDITOR_ENTRYPOINTS]: editor control operations
 - rail: editor
 
 | [INDEX] | [SURFACE]            | [SURFACE_ROOT] | [RAIL]            |
 | :-----: | :------------------- | :------------- | :---------------- |
-|   [1]   | `Text`               | `TextEditor`   | text content      |
-|   [2]   | `Document`           | `TextEditor`   | document binding  |
-|   [3]   | `SyntaxHighlighting` | `TextEditor`   | xshd highlighting |
-|   [4]   | `Options`            | `TextEditor`   | behavior options  |
-|   [5]   | `WordWrap`           | `TextEditor`   | wrap posture      |
-|   [6]   | `IsReadOnly`         | `TextEditor`   | readonly posture  |
-|   [7]   | `ShowLineNumbers`    | `TextEditor`   | margin toggle     |
-|   [8]   | `Load`               | `TextEditor`   | stream load       |
-|   [9]   | `Save`               | `TextEditor`   | stream save       |
+|  [01]   | `Text`               | `TextEditor`   | text content      |
+|  [02]   | `Document`           | `TextEditor`   | document binding  |
+|  [03]   | `SyntaxHighlighting` | `TextEditor`   | xshd highlighting |
+|  [04]   | `Options`            | `TextEditor`   | behavior options  |
+|  [05]   | `WordWrap`           | `TextEditor`   | wrap posture      |
+|  [06]   | `IsReadOnly`         | `TextEditor`   | readonly posture  |
+|  [07]   | `ShowLineNumbers`    | `TextEditor`   | margin toggle     |
+|  [08]   | `Load`               | `TextEditor`   | stream load       |
+|  [09]   | `Save`               | `TextEditor`   | stream save       |
 |  [10]   | `AppendText`         | `TextEditor`   | content append    |
 |  [11]   | `Clear`              | `TextEditor`   | content clear     |
 |  [12]   | `ScrollTo`           | `TextEditor`   | caret navigation  |
@@ -102,28 +102,28 @@
 
 | [INDEX] | [SURFACE]               | [SURFACE_ROOT]   | [RAIL]           |
 | :-----: | :---------------------- | :--------------- | :--------------- |
-|   [1]   | `Install`               | `FoldingManager` | margin install   |
-|   [2]   | `Uninstall`             | `FoldingManager` | margin removal   |
-|   [3]   | `UpdateFoldings`        | `FoldingManager` | folding refresh  |
-|   [4]   | `CreateFolding`         | `FoldingManager` | manual fold      |
-|   [5]   | `GetFoldingsContaining` | `FoldingManager` | fold query       |
-|   [6]   | `AllFoldings`           | `FoldingManager` | fold enumeration |
+|  [01]   | `Install`               | `FoldingManager` | margin install   |
+|  [02]   | `Uninstall`             | `FoldingManager` | margin removal   |
+|  [03]   | `UpdateFoldings`        | `FoldingManager` | folding refresh  |
+|  [04]   | `CreateFolding`         | `FoldingManager` | manual fold      |
+|  [05]   | `GetFoldingsContaining` | `FoldingManager` | fold query       |
+|  [06]   | `AllFoldings`           | `FoldingManager` | fold enumeration |
 
 [TEXTMATE_ENTRYPOINTS]: grammar registry and theme application
 - rail: editor
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT]          | [RAIL]            |
 | :-----: | :----------------- | :---------------------- | :---------------- |
-|   [1]   | `InstallTextMate`  | `TextMate`              | session install   |
-|   [2]   | `RegistryOptions`  | `TextMate.Installation` | grammar registry  |
-|   [3]   | `SetGrammar`       | `TextMate.Installation` | scope selection   |
-|   [4]   | `SetGrammarFile`   | `TextMate.Installation` | file grammar      |
-|   [5]   | `SetTheme`         | `TextMate.Installation` | theme apply       |
-|   [6]   | `TryGetThemeColor` | `TextMate.Installation` | theme color query |
-|   [7]   | `AppliedTheme`     | `TextMate.Installation` | theme event       |
-|   [8]   | `Dispose`          | `TextMate.Installation` | session teardown  |
+|  [01]   | `InstallTextMate`  | `TextMate`              | session install   |
+|  [02]   | `RegistryOptions`  | `TextMate.Installation` | grammar registry  |
+|  [03]   | `SetGrammar`       | `TextMate.Installation` | scope selection   |
+|  [04]   | `SetGrammarFile`   | `TextMate.Installation` | file grammar      |
+|  [05]   | `SetTheme`         | `TextMate.Installation` | theme apply       |
+|  [06]   | `TryGetThemeColor` | `TextMate.Installation` | theme color query |
+|  [07]   | `AppliedTheme`     | `TextMate.Installation` | theme event       |
+|  [08]   | `Dispose`          | `TextMate.Installation` | session teardown  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EDITOR_LAW]:
 - Package: `Avalonia.AvaloniaEdit`

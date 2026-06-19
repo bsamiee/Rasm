@@ -3,9 +3,9 @@
 Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `stateDiagram-v2` (state machines), `requirementDiagram` (traceability).
 
 [REFERENCE] classDef, styling: [->styling.md](./styling.md)
-[REFERENCE] Validation: [->validation.md§6](./validation.md#6modeling_diagrams)
+[REFERENCE] Validation: [->validation.md§06](./validation.md#06-modeling_diagrams)
 
-## [1]-[CLASS_DIAGRAMS]
+## [01]-[CLASS_DIAGRAMS]
 
 **Declaration:** `classDiagram`.
 
@@ -23,7 +23,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Comma-separated generics (`~K,V~`) NOT supported in nested contexts.
 
-## [2]-[ENTITY_RELATIONSHIP]
+## [02]-[ENTITY_RELATIONSHIP]
 
 **Declaration:** `erDiagram`.
 
@@ -35,7 +35,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [IMPORTANT] Entity names UPPERCASE by convention. Reserved: `ONE`, `MANY`, `TO`, `U`, `1` (bug #7093).
 
-## [3]-[STATE_DIAGRAMS]
+## [03]-[STATE_DIAGRAMS]
 
 **Declaration:** `stateDiagram-v2` (v1 deprecated).
 
@@ -48,7 +48,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Place `classDef` at diagram root, not inside composites. Start/End `[*]` and containers reject styling.
 
-## [4]-[REQUIREMENT_DIAGRAMS]
+## [04]-[REQUIREMENT_DIAGRAMS]
 
 **Declaration:** `requirementDiagram`.
 
@@ -59,15 +59,15 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 **Relations:** `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces`. Syntax: `A - contains -> B`, reverse: `B <- contains - A`.
 **Direction:** `direction TB|BT|LR|RL`. Styling: `classDef`, `class`, `style`, `:::className`.
 
-## [5]-[CONFIG]
+## [05]-[CONFIG]
 
 | [INDEX] | [KEY]              | [TYPE]  | [DEFAULT] | [APPLIES_TO] |
 | :-----: | ------------------ | ------- | :-------: | ------------ |
-|   [1]   | `nodeSpacing`      | number  |    50     | Class, State |
-|   [2]   | `rankSpacing`      | number  |    50     | Class, State |
-|   [3]   | `padding`          | number  |   8-15    | All          |
-|   [4]   | `useMaxWidth`      | boolean |   true    | All          |
-|   [5]   | `layoutDirection`  | string  |    TB     | ER           |
-|   [6]   | `entityPadding`    | number  |    15     | ER           |
-|   [7]   | `minEntityWidth`   | number  |    100    | ER           |
-|   [8]   | `labelCompactMode` | boolean |   false   | State        |
+|  [01]   | `nodeSpacing`      | number  |    50     | Class, State |
+|  [02]   | `rankSpacing`      | number  |    50     | Class, State |
+|  [03]   | `padding`          | number  |   8-15    | All          |
+|  [04]   | `useMaxWidth`      | boolean |   true    | All          |
+|  [05]   | `layoutDirection`  | string  |    TB     | ER           |
+|  [06]   | `entityPadding`    | number  |    15     | ER           |
+|  [07]   | `minEntityWidth`   | number  |    100    | ER           |
+|  [08]   | `labelCompactMode` | boolean |   false   | State        |

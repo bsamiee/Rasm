@@ -2,12 +2,12 @@
 
 The Python-only graduation rail moving offline evidence outward across the graduation-evidence wire. `GraduationReceipt` carries the source package, the handoff axis, subject, evidence key, and residual limits across one handoff. `HandoffAxis` is the Literal-discriminated union of handoff kinds, and the geometry case carries the `GeometrySubject` literals so geometry-package evidence reaches the managed owner system through the one rail. Graduation is a Python-branch-only concept: the receipt describes a handoff against the wire and never names a C# interior owner row, mints a C# receipt, or authorizes product runtime behavior. The concrete C# owner that consumes each axis is confirmed on the graduation task, not encoded in a routing literal that drifts.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GRADUATION]: the graduation receipt and the handoff axis
-- [2]-[CROSS_OWNER]: the routing rules gating each axis to its managed owner
+- [01]-[GRADUATION]: the graduation receipt and the handoff axis
+- [02]-[CROSS_OWNER]: the routing rules gating each axis to its managed owner
 
-## [2]-[GRADUATION]
+## [02]-[GRADUATION]
 
 - Owner: `GraduationReceipt` — the source-package, axis, subject, evidence-key, and residual-limits record wired through runtime `ReceiptContributor`; `HandoffAxis` is the Literal-discriminated union of handoff kinds. The geometry case carries the `GeometrySubject` literal so geometry-package evidence crosses on the one rail. The axis is the wire vocabulary; the C# owner that consumes it is never named in the receipt.
 - Cases: `HandoffAxis` literals `solver`, `symbolic`, `model-asset`, `array-layout`, `unit-law`, `uncertainty-law`, `geometry`, and `convex-program`; the geometry axis carries the `GeometrySubject` literals `registration-transform`, `reconstructed-mesh`, `topology-graph`, `network-graph`, and `form-finding`. The `convex-program` axis carries the dual-certificate optimality proof distinct from the `solver` axis's first-order convergence verdict.
@@ -42,7 +42,7 @@ class GraduationReceipt(Struct, frozen=True):
         )
 ```
 
-## [3]-[CROSS_OWNER]
+## [03]-[CROSS_OWNER]
 
 Each axis crosses the graduation-evidence wire under its own admission gate. The wire axis is the only cross-language vocabulary the receipt carries; the concrete C# owner that consumes an axis is confirmed against the C# owner planning on the graduation task, never an interior owner-row spelling baked into this owner.
 

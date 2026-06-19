@@ -2,21 +2,21 @@
 
 LanguageExt owns result rails, effect execution, immutable traversal, schedule policy, and boundary state cells. A carrier is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at host, UI, native, command, or wire edges. Admitted domain values enter these surfaces; raw host, native, wire, and generated shapes do not.
 
-## [1]-[RAIL_CHOOSER]
+## [01]-[RAIL_CHOOSER]
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is earned only by a capability the narrower one cannot carry: accumulated faults, runtime context, resource lifetime, schedule, state, or carrier polymorphism.
 
 | [INDEX] | [SURFACE]             | [OWNS]                         | [REJECT]                    |
 | :-----: | :-------------------- | :----------------------------- | :-------------------------- |
-|   [1]   | `Option<T>`           | absence                        | hidden failure              |
-|   [2]   | `Fin<T>`              | synchronous fallibility        | thrown control flow         |
-|   [3]   | `Validation<E,T>`     | independent accumulated faults | early guard chain           |
-|   [4]   | `Eff<RT,T>`           | runtime capability             | service location            |
-|   [5]   | `IO<T>`               | deferred boundary work         | eager side effect           |
-|   [6]   | `Schedule`            | retry or repeat policy         | ad-hoc delay loop           |
-|   [7]   | `Seq<T>` and `Arr<T>` | immutable traversal            | mutable collection flow     |
-|   [8]   | `HashMap<K,V>`        | immutable keyed lookup         | mutable dictionary policy   |
-|   [9]   | `Atom<T>`             | boundary state cell            | domain accumulator          |
+|  [01]   | `Option<T>`           | absence                        | hidden failure              |
+|  [02]   | `Fin<T>`              | synchronous fallibility        | thrown control flow         |
+|  [03]   | `Validation<E,T>`     | independent accumulated faults | early guard chain           |
+|  [04]   | `Eff<RT,T>`           | runtime capability             | service location            |
+|  [05]   | `IO<T>`               | deferred boundary work         | eager side effect           |
+|  [06]   | `Schedule`            | retry or repeat policy         | ad-hoc delay loop           |
+|  [07]   | `Seq<T>` and `Arr<T>` | immutable traversal            | mutable collection flow     |
+|  [08]   | `HashMap<K,V>`        | immutable keyed lookup         | mutable dictionary policy   |
+|  [09]   | `Atom<T>`             | boundary state cell            | domain accumulator          |
 |  [10]   | `K<F,A>`              | carrier-polymorphic arrow      | duplicate carrier pipelines |
 
 `Option<T>` carries absence with zero failure semantics; promote to `Fin<T>` when the caller must know why; promote to `Validation<E,T>` only when independent faults must accumulate before reporting. `Fin<T>` is `Either<Error,A>` with the fail side pinned to `Error` — the narrowest carrier whose failure composes with effect lifts without a bridge; `Either<L,R>` is reserved for a left that is not `Error`.
@@ -32,7 +32,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 - Law: every two-case carrier orders failure strictly first — a `Min` is the first failure if any, else the least success.
 - Use: a projected scalar discriminant or the witness-form `Equals`/`CompareTo` to escape the reflective resolver.
 
-## [2]-[BOUNDARY_CONVERSION]
+## [02]-[BOUNDARY_CONVERSION]
 
 Every boundary converts once into the carrier that states the real outcome; reusable transforms keep that carrier and never re-project mid-pipeline.
 
@@ -64,7 +64,7 @@ public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
 - Law: reusable domain transforms keep the carrier; `.Value` and the `internal` `SuccValue`/`SuccessValue` accessors are never the exit.
 - Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail.
 
-## [3]-[TRAVERSAL_FLOW]
+## [03]-[TRAVERSAL_FLOW]
 
 Traversal is rail policy: the collection shape and the sequencing operator together decide how failures, effects, strictness, and resource boundaries compose.
 
@@ -104,21 +104,21 @@ public static Fin<Seq<Receipt>> TraverseRaw(Seq<string> raw) =>
 - Use: `Optional(x).ToFin(error)` at a nullable boundary to admit absence as failure.
 - Reject: boolean success/failure factories that duplicate `guard(...).ToFin()`.
 
-## [4]-[FAILURE_HANDLING]
+## [04]-[FAILURE_HANDLING]
 
 Apply carrier-qualified failure transforms before collapse; a rail transform never throws.
 
 | [INDEX] | [COMBINATOR]            | [CARRIERS]                        | [USE]                  |
 | :-----: | :---------------------- | :-------------------------------- | :--------------------- |
-|   [1]   | `.MapFail(f)`           | `Fin`, `Validation`, `Eff`, `Try` | map failure            |
-|   [2]   | `.BindFail(f)`          | `Fin`, `Validation`, `Try`        | recover rail           |
-|   [3]   | `.IfFail(f)`            | `Validation`, `Try`, `Eff`        | terminal fallback      |
-|   [4]   | `.BiBind(Succ:, Fail:)` | `Fin`, `Validation`               | branch both sides      |
-|   [5]   | `.BiMap(succ, fail)`    | `Fin`, `Validation`, `Option`     | map both sides         |
-|   [6]   | `.ToFin()`              | cross-rail                        | project to `Fin`       |
-|   [7]   | `.ToValidation()`       | cross-rail                        | project to validation  |
-|   [8]   | `.ToOption()`           | cross-rail                        | discard failure detail |
-|   [9]   | `.Match(Succ:, Fail:)`  | `Fin`, `Option`, `Either`         | terminal collapse      |
+|  [01]   | `.MapFail(f)`           | `Fin`, `Validation`, `Eff`, `Try` | map failure            |
+|  [02]   | `.BindFail(f)`          | `Fin`, `Validation`, `Try`        | recover rail           |
+|  [03]   | `.IfFail(f)`            | `Validation`, `Try`, `Eff`        | terminal fallback      |
+|  [04]   | `.BiBind(Succ:, Fail:)` | `Fin`, `Validation`               | branch both sides      |
+|  [05]   | `.BiMap(succ, fail)`    | `Fin`, `Validation`, `Option`     | map both sides         |
+|  [06]   | `.ToFin()`              | cross-rail                        | project to `Fin`       |
+|  [07]   | `.ToValidation()`       | cross-rail                        | project to validation  |
+|  [08]   | `.ToOption()`           | cross-rail                        | discard failure detail |
+|  [09]   | `.Match(Succ:, Fail:)`  | `Fin`, `Option`, `Either`         | terminal collapse      |
 
 [VALIDATION_MONOID]:
 - Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once, so a rail's failure slot never widens to `Seq<Error>`, and `Errors.None` is the monoid identity.
@@ -147,7 +147,7 @@ public static Validation<Error, RangeValue> AdmitRange(string raw, int start, in
 - Boundary: facet routing and code-keyed recovery are fault-family law; a carrier recovery transforms the rail, not the fault taxonomy.
 - Reject: `.ToOption()` before recovery where the error must survive.
 
-## [5]-[EFFECT_RUNTIME]
+## [05]-[EFFECT_RUNTIME]
 
 An effect carries the runtime; `Eff<RT,T>` and `IO<T>` defer boundary work until a single run at the composition edge.
 
@@ -246,15 +246,15 @@ public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =
 
 | [INDEX] | [OPERATOR]            | [CARRIER]                | [OWNS]                            |
 | :-----: | :-------------------- | :----------------------- | :-------------------------------- |
-|   [1]   | `>>`                  | `K<F,A>`                 | Kleisli sequence, discard-first   |
-|   [2]   | `>>>`                 | `K<F,A>`                 | applicative sequence              |
-|   [3]   | `*`                   | `K<F,A>`                 | functor map, applicative apply    |
-|   [4]   | `>> lower`, unary `+` | `K<F,A>`                 | downcast to the concrete rail     |
-|   [5]   | `\|`                  | `Validation` choice      | first success wins                |
-|   [6]   | `\|`                  | `Fallible` with `CatchM` | catch and recovery                |
-|   [7]   | `\|`                  | `Eff` with `Finally`     | finally composition, not choice   |
-|   [8]   | `\|`                  | `Schedule`               | schedule union                    |
-|   [9]   | `&`                   | `Validation`             | applicative product, fault append |
+|  [01]   | `>>`                  | `K<F,A>`                 | Kleisli sequence, discard-first   |
+|  [02]   | `>>>`                 | `K<F,A>`                 | applicative sequence              |
+|  [03]   | `*`                   | `K<F,A>`                 | functor map, applicative apply    |
+|  [04]   | `>> lower`, unary `+` | `K<F,A>`                 | downcast to the concrete rail     |
+|  [05]   | `\|`                  | `Validation` choice      | first success wins                |
+|  [06]   | `\|`                  | `Fallible` with `CatchM` | catch and recovery                |
+|  [07]   | `\|`                  | `Eff` with `Finally`     | finally composition, not choice   |
+|  [08]   | `\|`                  | `Schedule`               | schedule union                    |
+|  [09]   | `&`                   | `Validation`             | applicative product, fault append |
 |  [10]   | `+`                   | `Error`, monoidal `E`    | failure append                    |
 |  [11]   | `+`                   | `ScheduleTransformer`    | transformer composition           |
 |  [12]   | `\|`                  | `[Flags]` enum           | BCL bitwise OR                    |
@@ -262,7 +262,7 @@ public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =
 
 - Rule: use named methods when the owner is not obvious from the local type; `union` and `intersect` on `Schedule` are prelude functions, and schedule intersect is not `&`.
 
-## [6]-[STATE_RECEIPTS]
+## [06]-[STATE_RECEIPTS]
 
 State belongs at a boundary or session owner, not inside pure domain accumulation.
 
@@ -315,7 +315,7 @@ public readonly record struct Receipt(CodeValue Code, int Count) {
 }
 ```
 
-## [7]-[INTEROP]
+## [07]-[INTEROP]
 
 One implementation crosses carriers through `K<F,A>`; transformer stack order is a capability decision, and host values cross into rails at adapter edges.
 

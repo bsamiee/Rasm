@@ -2,7 +2,7 @@
 
 `geopandas` supplies geospatial tabular structures that extend pandas with a geometry column, CRS handling, vectorized Shapely operations, spatial joins, and multi-format IO. `GeoDataFrame` owns the table with an active geometry; `GeoSeries` owns a vectorized geometry column; module-level functions perform spatial joins, overlays, and file reads.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geopandas`
 - package: `geopandas`
@@ -11,7 +11,7 @@
 - rail: geospatial
 - capability: geometry-aware DataFrame and Series, CRS assignment and reprojection, vectorized predicates and constructive operations, spatial and nearest joins, overlay set algebra, dissolve aggregation, spatial indexing, and file/Parquet/Feather/PostGIS/Arrow IO
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `geopandas.GeoDataFrame` — pandas `DataFrame` with one or more geometry columns and a designated active geometry; owns CRS, spatial joins, overlays, dissolve, and geospatial IO; geometry accessor `.geometry`, name accessor `.active_geometry_name`.
@@ -39,7 +39,7 @@
 - `read_file`/`to_file` select the GDAL driver through pyogrio (default) or fiona; `read_parquet`/`to_parquet` and `read_feather`/`to_feather` use the GeoParquet/GeoArrow encoding for lossless round-trips.
 - `dissolve` is a spatial groupby-aggregate: it unions geometries per group and aggregates attributes with `aggfunc`, replacing manual group-then-union loops.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `geopandas`

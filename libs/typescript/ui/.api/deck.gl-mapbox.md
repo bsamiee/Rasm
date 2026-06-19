@@ -2,7 +2,7 @@
 
 `@deck.gl/mapbox` supplies `MapboxOverlay` — a MapLibre/Mapbox `IControl` that mounts deck.gl layers into a base map's rendering pipeline, either as an overlay on top of the map canvas or interleaved inside the map's WebGL2 layer stack (`interleaved: true`). The overlay synchronizes the deck.gl view state with the map's camera automatically and forwards picking via `pickObject`, `pickMultipleObjects`, and `pickObjects`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/mapbox`
 - package: `@deck.gl/mapbox`
@@ -10,56 +10,56 @@
 - asset: `dist/index.d.ts`
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: overlay class and props
 - rail: viewport
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                                  |
 | :-----: | :------------------- | :------------ | :------------------------------------------------------ |
-|   [1]   | `MapboxOverlay`      | class         | `IControl` wrapper around a `Deck` instance             |
-|   [2]   | `MapboxOverlayProps` | type alias    | `Omit<DeckProps, excluded> & { interleaved?: boolean }` |
+|  [01]   | `MapboxOverlay`      | class         | `IControl` wrapper around a `Deck` instance             |
+|  [02]   | `MapboxOverlayProps` | type alias    | `Omit<DeckProps, excluded> & { interleaved?: boolean }` |
 
 `MapboxOverlayProps` omits the following `DeckProps` keys: `width`, `height`, `gl`, `parent`, `canvas`, `_customRender`, `viewState`, `initialViewState`, `controller`.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and lifecycle
 - rail: viewport
 
 | [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                                            |
 | :-----: | :------------------------- | :------------- | :------------------------------------------------ |
-|   [1]   | `new MapboxOverlay(props)` | constructor    | `MapboxOverlayProps` — creates overlay control    |
-|   [2]   | `onAdd(map)`               | IControl       | called by map; returns `HTMLDivElement` container |
-|   [3]   | `onRemove()`               | IControl       | called by map; detaches and cleans up             |
-|   [4]   | `getDefaultPosition()`     | IControl       | returns default `ControlPosition`                 |
-|   [5]   | `finalize()`               | lifecycle      | removes from map and releases all resources       |
+|  [01]   | `new MapboxOverlay(props)` | constructor    | `MapboxOverlayProps` — creates overlay control    |
+|  [02]   | `onAdd(map)`               | IControl       | called by map; returns `HTMLDivElement` container |
+|  [03]   | `onRemove()`               | IControl       | called by map; detaches and cleans up             |
+|  [04]   | `getDefaultPosition()`     | IControl       | returns default `ControlPosition`                 |
+|  [05]   | `finalize()`               | lifecycle      | removes from map and releases all resources       |
 
 [ENTRYPOINT_SCOPE]: prop and layer update
 - rail: viewport
 
 | [INDEX] | [SURFACE]            | [ENTRY_FAMILY] | [RAIL]                                                |
 | :-----: | :------------------- | :------------- | :---------------------------------------------------- |
-|   [1]   | `setProps(props)`    | prop update    | partial `MapboxOverlayProps` update                   |
-|   [2]   | `filterProps(props)` | prop filter    | returns cleaned `MapboxOverlayProps` for internal use |
+|  [01]   | `setProps(props)`    | prop update    | partial `MapboxOverlayProps` update                   |
+|  [02]   | `filterProps(props)` | prop filter    | returns cleaned `MapboxOverlayProps` for internal use |
 
 [ENTRYPOINT_SCOPE]: picking forwarding
 - rail: viewport
 
 | [INDEX] | [SURFACE]                     | [ENTRY_FAMILY] | [RAIL]                                             |
 | :-----: | :---------------------------- | :------------- | :------------------------------------------------- |
-|   [1]   | `pickObject(params)`          | picking        | forwards `Deck.pickObject` with same params/return |
-|   [2]   | `pickMultipleObjects(params)` | picking        | forwards `Deck.pickMultipleObjects`                |
-|   [3]   | `pickObjects(params)`         | picking        | forwards `Deck.pickObjects`                        |
+|  [01]   | `pickObject(params)`          | picking        | forwards `Deck.pickObject` with same params/return |
+|  [02]   | `pickMultipleObjects(params)` | picking        | forwards `Deck.pickMultipleObjects`                |
+|  [03]   | `pickObjects(params)`         | picking        | forwards `Deck.pickObjects`                        |
 
 [ENTRYPOINT_SCOPE]: canvas access
 - rail: viewport
 
 | [INDEX] | [SURFACE]     | [ENTRY_FAMILY] | [RAIL]                                                      |
 | :-----: | :------------ | :------------- | :---------------------------------------------------------- |
-|   [1]   | `getCanvas()` | DOM query      | base map canvas when `interleaved`, else `Deck.getCanvas()` |
+|  [01]   | `getCanvas()` | DOM query      | base map canvas when `interleaved`, else `Deck.getCanvas()` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [MAPBOX_TOPOLOGY]:
 - `MapboxOverlay` implements the MapLibre/Mapbox `IControl` interface; add it via `map.addControl(overlay, position?)`

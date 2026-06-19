@@ -2,11 +2,11 @@
 
 Converter and naming registration for every store the suite opens. `ConverterRail` is the single registration row admitting every generated domain owner, the snake-case naming policy, the frozen NodaTime sqlite pattern table, and the `xmin`/integer concurrency token. The page spine is the two EF Core providers, EFCore.NamingConventions, Thinktecture.Runtime.Extensions.EntityFrameworkCore10, and the NodaTime provider plugin — every converter mounts once at model build, never per entity.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CONVERTER_RAIL]: converter and naming registration, sqlite pattern table, concurrency token, and compiled mount.
+- [01]-[CONVERTER_RAIL]: converter and naming registration, sqlite pattern table, concurrency token, and compiled mount.
 
-## [2]-[CONVERTER_RAIL]
+## [02]-[CONVERTER_RAIL]
 
 - Owner: `ConverterRail` static composition surface owning the converter and naming registration, the frozen `SqlitePatterns` NodaTime round-trip table, the concurrency-token rows, and the compiled-model mount.
 - Entry: `public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options)` is the one registration row every profile's options delegate folds in; `public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, IModel compiled)` mounts the frozen model; `public static string SqliteText<T>(T value)` and `public static Fin<T> SqliteValue<T>(string text)` round-trip a temporal CLR value through the keyed pattern table.

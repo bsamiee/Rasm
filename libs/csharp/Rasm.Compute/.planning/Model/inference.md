@@ -2,12 +2,12 @@
 
 Rasm.Compute model inference: the OrtValue-only run-mode fold over the shared session with its `BoundLoop` shared-arena zero-allocation hot path and device-resident chaining, one polymorphic `RunInput` admission keyed on carrier shape, the vectorized `TensorPrimitives` reduction kernels (argmax, mean-pool, L2-normalize), the `System.Numerics.Tensors` carrier bridge, and the version-stamped deterministic result cache read-through over the produced run. The page owns the `RunConfig`/`RunInput` run vocabulary, the `RunOps` run-mode fold and its `BoundLoop` capsule, the `CachePolicy`/`CacheIndexFact` cache rows, and the `CacheOps` key-derivation and policy-dispatched read-through; the run surfaces ride `Microsoft.ML.OnnxRuntime` and the reductions `System.Numerics.Tensors`, the cache rides `Microsoft.Extensions.Caching.Hybrid`, the `BoundLoop` sink allocates from the `Model/sessions#SESSION_CAPSULE` `SharedAllocator` arena, and the `ModelIdentity` from `Model/identity#MODEL_IDENTITY`, the `ExecutionProvider`/`ModelPrecision` from `Model/providers#EP_AXIS`, the `RunInput.Strings` egress completion from `Model/extension#EXTENSION_OPS`, the AppHost `CancelScope`/`ClockPolicy`, and the Persistence `ModelResultKey`/`ArtifactIndexRow`/vector-lane owners arrive settled. The `RunInput.Strings` ingress is the catalogued ingress the extension-ops string egress completes, and the `Embed` vector feeds the Persistence vector lane by reference.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[INFERENCE_MODES]: `OrtValue`-only run modes; one polymorphic input admission; vectorized reductions; cancellation rail; profiling artifacts; `ModelRun` receipt; device-resident shared-arena chaining; `System.Numerics.Tensors` bridge.
-- [2]-[RESULT_CACHE]: version-stamped deterministic keys; cache-policy rows; negative-result, content-addressed dedup, TTL-by-precision, and stampede facts.
+- [01]-[INFERENCE_MODES]: `OrtValue`-only run modes; one polymorphic input admission; vectorized reductions; cancellation rail; profiling artifacts; `ModelRun` receipt; device-resident shared-arena chaining; `System.Numerics.Tensors` bridge.
+- [02]-[RESULT_CACHE]: version-stamped deterministic keys; cache-policy rows; negative-result, content-addressed dedup, TTL-by-precision, and stampede facts.
 
-## [2]-[INFERENCE_MODES]
+## [02]-[INFERENCE_MODES]
 
 - Owner: `RunOps` — the run-mode fold over the shared session: single, bound-batch, named bound, windowed, embedding, classification, clash-scoring, and S.N.Tensors-bridge runs discriminated by intent payload shape; `RunInput` one polymorphic input admission keyed on carrier shape; `BoundLoop` the shared-arena device-resident hot path.
 - Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `InferBound` bound batch over a populated `OrtIoBinding` with an optional name-zip projection arm; the `BoundLoop` steady-state hot path with its shared-arena `CreateAllocatedTensorValue` sink and device-resident `ClearBound*`/`BindOutputToDevice`/`CreateTensorValueWithData` rebind; `Chunked` streaming windows over chunked inputs through `RecyclableMemoryStream.GetReadOnlySequence`; `Embed` mean-pool/CLS-slice + L2-normalized text-to-vector projection over an embedding model; `Classify` `TensorPrimitives.IndexOfMax`-over-logits run for BIM point-cloud→element classification and symbol recognition over the interchange `PointScan` encoding; `ClashScore` scalar-output run for clash false-positive scoring over a candidate `ClashPair` feature vector; `InferTensor` the `System.Numerics.Tensors` carrier bridge over `CreateTensorValueFromSystemNumericsTensorObject` and `GetTensorDataAsTensorSpan<T>` materializing to a detached `TResult` inside the native bracket.
@@ -193,7 +193,7 @@ public static class RunOps {
 }
 ```
 
-## [3]-[RESULT_CACHE]
+## [03]-[RESULT_CACHE]
 
 - Owner: `CachePolicy` `[SmartEnum<string>]` serve/store/cut/negative rows; `CacheOps` key derivation, checksum-echo validation, content-addressed dedup, and the policy-dispatched read-through; `CacheIndexFact` the one fact stream carrying hit/miss/evict/negative/dedup/stampede slots.
 - Cases: `Bypass`, `ReadThrough`, `WriteThrough`, `Refresh`, `Negative`.
@@ -253,6 +253,6 @@ public static class CacheOps {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [CANCELLATION]: the `RunOptions.Terminate` one-way latch aborts `Run`/`RunWithBinding` with the native `OnnxRuntimeException` `[ErrorCode:Fail] Exiting due to terminate flag being set to true`, which the `RunOps.Faulted` arm classifies by scope provenance into `ComputeFault.Cancelled`/`DeadlineExpired`; the open leaf is the latch-propagation latency and the deadline-poll cadence on the CoreML and CPU rows inside the live plugin ALC.

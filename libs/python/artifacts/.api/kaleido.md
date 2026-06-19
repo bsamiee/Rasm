@@ -2,7 +2,7 @@
 
 `kaleido` supplies the headless-Chrome static-image export surface for the artifacts visuals rail: a `Kaleido` pool manager plus sync/async figure-write and figure-calc functions that render Plotly (and Plotly-compatible) figures to PNG/SVG/PDF/JPEG bytes or files without an interactive browser. The package owner composes `Kaleido`, `write_fig`, and `calc_fig` into the Plotly static-render path; it never re-implements the Chromium render engine kaleido already drives.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `kaleido`
 - package: `kaleido`
@@ -13,17 +13,17 @@
 - entry points: none (library only)
 - capability: headless-Chrome static export of Plotly figures to PNG/SVG/PDF/JPEG, browser-pool management, sync and async render APIs, Chrome provisioning
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pool and page generator
 - rail: visuals
 
 | [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                         |
 | :-----: | :-------------- | :------------- | :--------------------------------------------------- |
-|   [1]   | `Kaleido`       | pool manager   | a managed pool of headless-Chrome tabs for rendering |
-|   [2]   | `PageGenerator` | page template  | the HTML page template injecting plotly.js/MathJax   |
+|  [01]   | `Kaleido`       | pool manager   | a managed pool of headless-Chrome tabs for rendering |
+|  [02]   | `PageGenerator` | page template  | the HTML page template injecting plotly.js/MathJax   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool construction and managed render
 - rail: visuals
@@ -32,10 +32,10 @@ Pool rows carry tab count, timeout, page generator, Plotly.js, MathJax, header, 
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                    | [CAPABILITY]                     |
 | :-----: | :------------------------------ | :------------------------------ | :------------------------------- |
-|   [1]   | `Kaleido`                       | render-pool policy              | build a render pool              |
-|   [2]   | `Kaleido.write_fig`             | figure, path, and render policy | render and write via the pool    |
-|   [3]   | `Kaleido.calc_fig`              | figure plus render policy       | render to bytes via the pool     |
-|   [4]   | `Kaleido.write_fig_from_object` | figure-generator input          | render from a fig-spec generator |
+|  [01]   | `Kaleido`                       | render-pool policy              | build a render pool              |
+|  [02]   | `Kaleido.write_fig`             | figure, path, and render policy | render and write via the pool    |
+|  [03]   | `Kaleido.calc_fig`              | figure plus render policy       | render to bytes via the pool     |
+|  [04]   | `Kaleido.write_fig_from_object` | figure-generator input          | render from a fig-spec generator |
 
 [ENTRYPOINT_SCOPE]: one-shot sync and async functions
 - rail: visuals
@@ -44,13 +44,13 @@ One-shot rows share figure, path, layout options, topojson, and Kaleido-options 
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]               | [CAPABILITY]                         |
 | :-----: | :------------------------------- | :------------------------- | :----------------------------------- |
-|   [1]   | `write_fig`                      | async write policy         | async write to file                  |
-|   [2]   | `write_fig_sync`                 | sync write policy          | sync write to file                   |
-|   [3]   | `calc_fig`                       | async bytes-render policy  | async render to bytes                |
-|   [4]   | `calc_fig_sync`                  | sync bytes-render policy   | sync render to bytes                 |
-|   [5]   | `get_chrome` / `get_chrome_sync` | sync or async provisioning | provision the headless Chrome binary |
+|  [01]   | `write_fig`                      | async write policy         | async write to file                  |
+|  [02]   | `write_fig_sync`                 | sync write policy          | sync write to file                   |
+|  [03]   | `calc_fig`                       | async bytes-render policy  | async render to bytes                |
+|  [04]   | `calc_fig_sync`                  | sync bytes-render policy   | sync render to bytes                 |
+|  [05]   | `get_chrome` / `get_chrome_sync` | sync or async provisioning | provision the headless Chrome binary |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VISUALS_EXPORT]:
 - import: `import kaleido` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -61,7 +61,7 @@ One-shot rows share figure, path, layout options, topojson, and Kaleido-options 
 - evidence: each export captures figure trace count, output format, scale, pool size, and output byte length as a visuals receipt.
 - boundary: kaleido owns Plotly static export; `vl-convert-python` owns Vega/Vega-Lite static export; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `kaleido`

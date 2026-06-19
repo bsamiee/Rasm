@@ -67,19 +67,19 @@ layer(${LAYER_NAME})('${SUITE_NAME}', (it) => {
 });
 ```
 
-## [1]-[PLACEHOLDER_REFERENCE]
+## [01]-[PLACEHOLDER_REFERENCE]
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                   |
 | :-----: | ---------------------- | ------------------------------------------- |
-|   [1]   | `MODULE_NAME`          | `DatabaseService`, `CacheService`           |
-|   [2]   | `BRIEF_DESCRIPTION`    | `PostgreSQL roundtrip, Redis cache ops`     |
-|   [3]   | `SOURCE_IMPORTS`       | `DatabaseService`, `CacheService`           |
-|   [4]   | `SOURCE_PATH`          | `platform/database`, `platform/cache`       |
-|   [5]   | `EFFECT_IMPORTS`       | `Effect, FastCheck as fc, Layer`            |
-|   [6]   | `CONTAINER_IMPORTS`    | `GenericContainer, Wait`                    |
-|   [7]   | `STATIC_CONSTANTS`     | `const DB_CONFIG = { ... } as const;`       |
-|   [8]   | `ARBITRARIES`          | `const _record = Arbitrary.make(Schema);`   |
-|   [9]   | `CONTAINER_SETUP`      | `const _pg = ...` (populated in beforeAll)  |
+|   [01]   | `MODULE_NAME`          | `DatabaseService`, `CacheService`           |
+|   [02]   | `BRIEF_DESCRIPTION`    | `PostgreSQL roundtrip, Redis cache ops`     |
+|   [03]   | `SOURCE_IMPORTS`       | `DatabaseService`, `CacheService`           |
+|   [04]   | `SOURCE_PATH`          | `platform/database`, `platform/cache`       |
+|   [05]   | `EFFECT_IMPORTS`       | `Effect, FastCheck as fc, Layer`            |
+|   [06]   | `CONTAINER_IMPORTS`    | `GenericContainer, Wait`                    |
+|   [07]   | `STATIC_CONSTANTS`     | `const DB_CONFIG = { ... } as const;`       |
+|   [08]   | `ARBITRARIES`          | `const _record = Arbitrary.make(Schema);`   |
+|   [09]   | `CONTAINER_SETUP`      | `const _pg = ...` (populated in beforeAll)  |
 |  [10]   | `LAYER_COMPOSITION`    | `const _layer = Svc.Default.pipe(...)`      |
 |  [11]   | `CONTAINER_START`      | `await container.start()`                   |
 |  [12]   | `CONTAINER_STOP`       | `await container.stop()`                    |

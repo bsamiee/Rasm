@@ -2,7 +2,7 @@
 
 `@opentelemetry/exporter-trace-otlp-http` supplies `OTLPTraceExporter`, the concrete browser `SpanExporter` that serializes `ReadableSpan[]` to OTLP/JSON and ships them to a collector over HTTP, satisfying the `SpanExporter` contract the `@effect/opentelemetry` `WebSdk` binds.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/exporter-trace-otlp-http`
 - package: `@opentelemetry/exporter-trace-otlp-http`
@@ -10,7 +10,7 @@
 - asset: runtime library
 - rail: tracing
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 The package's only own export is `OTLPTraceExporter`; `OTLPExporterConfigBase` and `OTLPExporterBase` are re-listed from `@opentelemetry/otlp-exporter-base` because the constructor config shape and the export/lifecycle base define the consumed contract, and the `[SOURCE_PACKAGE]` column names each symbol's owning package.
 
@@ -19,33 +19,33 @@ The package's only own export is `OTLPTraceExporter`; `OTLPExporterConfigBase` a
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [SOURCE_PACKAGE]                          | [RAIL]                                                |
 | :-----: | :----------------------- | :------------ | :---------------------------------------- | :---------------------------------------------------- |
-|   [1]   | `OTLPTraceExporter`      | class         | `@opentelemetry/exporter-trace-otlp-http` | browser `SpanExporter` over OTLP/HTTP                 |
-|   [2]   | `OTLPExporterConfigBase` | interface     | `@opentelemetry/otlp-exporter-base`       | `url`, `headers`, `concurrencyLimit`, `timeoutMillis` |
-|   [3]   | `OTLPExporterBase`       | class         | `@opentelemetry/otlp-exporter-base`       | shared export/forceFlush/shutdown delegate base       |
+|  [01]   | `OTLPTraceExporter`      | class         | `@opentelemetry/exporter-trace-otlp-http` | browser `SpanExporter` over OTLP/HTTP                 |
+|  [02]   | `OTLPExporterConfigBase` | interface     | `@opentelemetry/otlp-exporter-base`       | `url`, `headers`, `concurrencyLimit`, `timeoutMillis` |
+|  [03]   | `OTLPExporterBase`       | class         | `@opentelemetry/otlp-exporter-base`       | shared export/forceFlush/shutdown delegate base       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: OTLPTraceExporter construction and lifecycle
 - rail: tracing
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]   | [RAIL]                                      |
 | :-----: | :--------------------------------------- | :--------------- | :------------------------------------------ |
-|   [1]   | `new OTLPTraceExporter(config?)`         | exporter factory | browser trace exporter construction         |
-|   [2]   | `exporter.export(spans, resultCallback)` | span export      | serialize `ReadableSpan[]` and POST to OTLP |
-|   [3]   | `exporter.forceFlush()`                  | lifecycle        | resolve when pending exports drain          |
-|   [4]   | `exporter.shutdown()`                    | lifecycle        | stop exporter and release the delegate      |
+|  [01]   | `new OTLPTraceExporter(config?)`         | exporter factory | browser trace exporter construction         |
+|  [02]   | `exporter.export(spans, resultCallback)` | span export      | serialize `ReadableSpan[]` and POST to OTLP |
+|  [03]   | `exporter.forceFlush()`                  | lifecycle        | resolve when pending exports drain          |
+|  [04]   | `exporter.shutdown()`                    | lifecycle        | stop exporter and release the delegate      |
 
 [ENTRYPOINT_SCOPE]: `OTLPExporterConfigBase` fields
 - rail: tracing
 
 | [INDEX] | [FIELD]            | [TYPE]                                     | [DEFAULT]                          |
 | :-----: | :----------------- | :----------------------------------------- | :--------------------------------- |
-|   [1]   | `url`              | `string`                                   | `—` (delegate appends `v1/traces`) |
-|   [2]   | `headers`          | `Record<string, string> \| HeadersFactory` | `—`                                |
-|   [3]   | `concurrencyLimit` | `number`                                   | `—`                                |
-|   [4]   | `timeoutMillis`    | `number`                                   | `10000`                            |
+|  [01]   | `url`              | `string`                                   | `—` (delegate appends `v1/traces`) |
+|  [02]   | `headers`          | `Record<string, string> \| HeadersFactory` | `—`                                |
+|  [03]   | `concurrencyLimit` | `number`                                   | `—`                                |
+|  [04]   | `timeoutMillis`    | `number`                                   | `10000`                            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TRACE_EXPORT_TOPOLOGY]:
 - `OTLPTraceExporter` extends `OTLPExporterBase<ReadableSpan[]>` and implements `SpanExporter`; the browser build wraps the OTLP network export delegate over the Fetch/Beacon transport, never the Node `http`/`https` agent path.

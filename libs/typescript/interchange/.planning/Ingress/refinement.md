@@ -2,11 +2,11 @@
 
 The decode-enforcement vocabulary: the `Schema.brand` identity slots and `Schema.filter` bounds that make the versioning invariants decode-enforced rather than prose, extended with the decode-budget rows that harden the untrusted-ingress boundary. Each refinement is one row on `Codec/codec.md` `DecodeRail`; this page owns the brand, filter, and budget grammar every rail composes. The budgets are the security floor the `Ingress/quarantine.md` charter relies on — a breached recursion depth, frame count, or assembled-byte ceiling fails decode before a JSON-bomb, unbounded-recursion, or unbounded-frame-stream payload exhausts the runtime.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[REFINEMENT]: the brand identity slots, the filter bounds, and the decode budgets.
+- [01]-[REFINEMENT]: the brand identity slots, the filter bounds, and the decode budgets.
 
-## [2]-[REFINEMENT]
+## [02]-[REFINEMENT]
 
 - Owner: `SchemaRefinement`, the brand-and-filter decode-enforcement vocabulary every rail carries as rows — `Schema.brand` on the identity slots, `Schema.filter` on the envelope and header bounds, and `DecodeBudget` on the ingress ceilings. One owner carries identity, bound, and budget; a parallel refinement object per concern is the named defect.
 - Cases: `Schema.brand` on guid correlation identifiers, 16-byte content keys, smart-enum ordinal keys, and the RFC 6901 `JsonPointer` path so a raw string never enters an identity slot; `Schema.filter` on the HLC-logical number-envelope bound and the fixed-width snapshot-header discriminants so a breached envelope or malformed prefix fails decode rather than truncating. The `JsonPointer` brand is the path-and-from slot the `Codec/patch.md` `PatchOpWire` `move`/`copy`/`add`/`remove`/`replace`/`test` arms carry — the RFC 6901 form `Pointer.fromJSON` parses (`""` the document root, `/a/b` a token path, `~0`/`~1` the `~`/`/` escapes), so the patch rail resolves a branded `JsonPointer` against the target rather than admitting an unescaped raw `/`-joined string the `rfc6902` `Pointer` evaluator would reject. The decode budgets are three `Schema.filter`/`Stream` bounds — `maxDepth` capping the structured-text recursion the json-stj rail admits, `maxFrames` capping the artifact-frame stream length, and `maxAssembledBytes` capping the reassembled artifact ceiling — each a typed row, never a prose check.

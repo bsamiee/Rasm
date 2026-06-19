@@ -2,11 +2,11 @@
 
 Resource roots and transport resources. `ResourceRoot` admits file/object-store/scratch roots over `fsspec`/`universal-pathlib` with traversal-safe relative resolution, routing many-small-object reads through the `obstore` async fast-path while keeping the `fsspec` tree-walk semantics for the shared-pull tree; `TransportResource` is the one tagged union over HTTP/SSH generic-artifact acquisition. No durable store, daemon scheduler, app lifecycle hook, product store-root derivation, or AEC-collaboration transport (Speckle/OPC-UA/MQTT terminate C#-side and reach the companion through the canonical wire, never a second Python client leg) crosses this page.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RESOURCE]: resource roots, references, transport resources.
+- [01]-[RESOURCE]: resource roots, references, transport resources.
 
-## [2]-[RESOURCE]
+## [02]-[RESOURCE]
 
 - Owner: `ResourceRoot` — file/object-store/scratch roots over `fsspec` + `universal-pathlib` with safe relative resolution; `ResourceRef` the scheme/root/relative/owner value object; `TransportResource` the one tagged union over `httpx` HTTP and `asyncssh` SSH/SFTP generic-artifact acquisition (a remote-fetch transport row, never a durable store and never an AEC-collaboration client).
 - Cases: `TransportResource` cases `http=(url, retry_class)` · `ssh=(host, port, retry_class)` — keyword-constructed and matched by `match`/`case`, each binding a `Retry` row from `reliability/resilience#RESILIENCE`; `acquire(relative, modality)` takes the remote member to fetch and the same `relative` the filesystem `read` resolves; the read modality — whole-payload `bytes` (small) or chunk `AsyncIterator[bytes]` (large) — rides the `ReadModality` data discriminant the one entrypoint matches (`MODAL_ARITY`, one entrypoint owns all modalities, the modality a closed-enum value not a `streaming=True` knob), never a `read`/`stream` name-suffix split.
@@ -148,7 +148,7 @@ class TransportResource:
                     yield block
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [OBSTORE_CATALOGUE]: reflection-confirmed on the cp315 core (abi3 wheel) — `obstore.store.from_url(url, *, config=...) -> ObjectStore` is the constructor, `obstore.get_async(store, path, *, options=None)` returns a `GetResult`, and `GetResult.bytes() -> Bytes` (wrappable by `bytes(...)`) is the payload accessor backing the object-store fast-path. The `read` `obstore` `ReadModality.WHOLE` arm spelling is settled.
 - [STREAMING_ACQUISITION]: `obstore` `GetResult.stream(min_chunk_size=10MB) -> BytesStream` (PUBLIC_TYPES [2], IMPLEMENTATION_LAW: `.stream` is a method returning a `BytesStream` async iterator of `Bytes` chunks, the `min_chunk_size` bounding each non-terminal chunk — `STREAM_CHUNK` is passed explicitly so the chunk floor is the page constant, not the 10MB default; `GetResult.__aiter__` aliases `.stream` at the default size) and `open_reader` (streaming IO [1]) are the large-object streaming surface beside the small-read `GetResult.bytes()`; `httpx.AsyncClient.stream` (ENTRYPOINTS [5]) opens a streaming response-context and `Response.aiter_bytes` (ENTRYPOINTS [9]) yields the chunked body, both bounded by `httpx.Timeout` (PUBLIC_TYPES [9], per-phase connect/read/write/pool) and `httpx.Limits` (PUBLIC_TYPES [10], pool caps) per the catalogue streaming law (full-body reads reserved for small payloads). The chunk `AsyncIterator[bytes]` folds into the existing `evidence/identity#IDENTITY` `Source = bytes | Iterable[bytes] | tuple[ContentKey, ...]` union over the `case chunks:` incremental `digest.update(chunk)` arm — no second hashing pass, no whole-artifact buffer. The streaming `xxh3_128` updater rides the same `python_version<'3.15'` companion band the `[XXHASH_PARITY]` content-identity seed inherits; the streaming acquisition design is settled and only the cp315 `xxhash` wheel gates the end-to-end streaming hash. Spellings catalogue-confirmed.

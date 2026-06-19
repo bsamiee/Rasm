@@ -2,7 +2,7 @@
 
 `stac-geoparquet` (dist `stac-geoparquet`, import `stac_geoparquet`) supplies the STAC<->GeoParquet/Arrow interchange for the data STAC-catalog rail: an Arrow-centric surface (`stac_geoparquet.arrow.*`) that parses `pystac.Item` objects or STAC NDJSON into a `pyarrow.RecordBatchReader`, writes that table to GeoParquet (with STAC schema versioning), and rehydrates a STAC table back to item dicts, plus the legacy top-level geopandas trio (`to_geodataframe`/`to_item_collection`/`to_dict`). The package owner composes the `arrow` parse/write functions and `stac_table_to_items` into the STAC item-table owner; it never re-implements the STAC->Arrow schema mapping stac-geoparquet already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 - package: `stac-geoparquet`
 - import: `import stac_geoparquet` (dist name `stac-geoparquet`, import name `stac_geoparquet`); the Arrow surface lives under `stac_geoparquet.arrow.*`
@@ -13,51 +13,51 @@
 - entry points: console script `stac-geoparquet` (CLI); library use is import-only
 - capability: STAC item <-> Arrow/GeoParquet interchange — parse `pystac.Item`/STAC-NDJSON into a `pyarrow.RecordBatchReader`, write GeoParquet with the STAC GeoParquet schema versions, rehydrate a STAC table to item dicts and NDJSON, optional Delta Lake sink, a pgstac row reader, and a legacy geopandas `GeoDataFrame` round-trip
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interchange carriers and schema constants
 - rail: STAC catalog
 
 The interchange carrier is `pyarrow.RecordBatchReader` (zero-copy streaming); the schema axis is the string-literal `ACCEPTED_SCHEMA_OPTIONS` (`"FullFile"`/`"FirstBatch"`/an explicit `pa.Schema`) and the `*_PARQUET_SCHEMA_VERSION` GeoParquet version constants. The arrow internals are underscore-private; the public entry is the `stac_geoparquet.arrow` namespace.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [CAPABILITY]                                                  |
-| :-----: | :-------------------------------- | :----------------- | :----------------------------------------------------------- |
-|   [1]   | `pa.RecordBatchReader`            | Arrow carrier      | the streamed STAC item table (from/to the parse functions)   |
-|   [2]   | `arrow.ACCEPTED_SCHEMA_OPTIONS`   | schema axis        | `"FullFile"`/`"FirstBatch"`/explicit `pa.Schema` inference    |
-|   [3]   | `arrow.DEFAULT_PARQUET_SCHEMA_VERSION` / `SUPPORTED_PARQUET_SCHEMA_VERSIONS` | version constant | the STAC GeoParquet schema version set |
-|   [4]   | `arrow.DEFAULT_JSON_CHUNK_SIZE`   | chunk constant     | default NDJSON/item batch size                               |
-|   [5]   | `pgstac_reader.PgstacRowFactory`  | pgstac reader      | build STAC items from pgstac database rows                   |
+| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]    | [CAPABILITY]                                               |
+| :-----: | :--------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------- |
+|  [01]   | `pa.RecordBatchReader`                                                       | Arrow carrier    | the streamed STAC item table (from/to the parse functions) |
+|  [02]   | `arrow.ACCEPTED_SCHEMA_OPTIONS`                                              | schema axis      | `"FullFile"`/`"FirstBatch"`/explicit `pa.Schema` inference |
+|  [03]   | `arrow.DEFAULT_PARQUET_SCHEMA_VERSION` / `SUPPORTED_PARQUET_SCHEMA_VERSIONS` | version constant | the STAC GeoParquet schema version set                     |
+|  [04]   | `arrow.DEFAULT_JSON_CHUNK_SIZE`                                              | chunk constant   | default NDJSON/item batch size                             |
+|  [05]   | `pgstac_reader.PgstacRowFactory`                                             | pgstac reader    | build STAC items from pgstac database rows                 |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Arrow parse and GeoParquet write (`stac_geoparquet.arrow.*`)
 - rail: STAC catalog
 
 The Arrow functions are reachable only as `stac_geoparquet.arrow.X` (none are top-level). `parse_stac_items_to_arrow` takes the schema as a string literal; `parse_stac_ndjson_to_arrow` takes an explicit `pa.Schema`.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                          | [CAPABILITY]                              |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `arrow.parse_stac_items_to_arrow`      | `parse_stac_items_to_arrow(items, chunk_size=DEFAULT_JSON_CHUNK_SIZE, schema='FullFile', tmpdir=None)` -> `RecordBatchReader` | `pystac.Item`/dict iterable -> Arrow |
-|   [2]   | `arrow.parse_stac_ndjson_to_arrow`     | `parse_stac_ndjson_to_arrow(path, *, chunk_size=..., schema=None, limit=None)` -> `RecordBatchReader` | STAC NDJSON file -> Arrow              |
-|   [3]   | `arrow.to_parquet`                     | `to_parquet(table, output_path, *, schema_version=DEFAULT_PARQUET_SCHEMA_VERSION, collections=None, collection_metadata=None, filesystem=None, **kwargs)` | Arrow table -> GeoParquet         |
-|   [4]   | `arrow.parse_stac_items_to_parquet`    | `parse_stac_items_to_parquet(items, *, chunk_size=..., schema='FirstBatch', output_path, tmpdir=None, schema_version=..., filesystem=None, **kwargs)` -> `str` | items -> GeoParquet in one call |
-|   [5]   | `arrow.parse_stac_ndjson_to_parquet`   | `parse_stac_ndjson_to_parquet(input_path, output_path, *, chunk_size=..., schema=None, limit=None, schema_version=..., collections=None, collection_metadata=None, filesystem=None, **kwargs)` | NDJSON -> GeoParquet |
-|   [6]   | `arrow.parse_stac_ndjson_to_delta_lake`| `parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, ...)`                                     | NDJSON -> Delta Lake (optional dep)       |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                                                                                                                   | [CAPABILITY]                         |
+| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `arrow.parse_stac_items_to_arrow`       | `parse_stac_items_to_arrow(items, chunk_size=DEFAULT_JSON_CHUNK_SIZE, schema='FullFile', tmpdir=None)` -> `RecordBatchReader`                                                                  | `pystac.Item`/dict iterable -> Arrow |
+|  [02]   | `arrow.parse_stac_ndjson_to_arrow`      | `parse_stac_ndjson_to_arrow(path, *, chunk_size=..., schema=None, limit=None)` -> `RecordBatchReader`                                                                                          | STAC NDJSON file -> Arrow            |
+|  [03]   | `arrow.to_parquet`                      | `to_parquet(table, output_path, *, schema_version=DEFAULT_PARQUET_SCHEMA_VERSION, collections=None, collection_metadata=None, filesystem=None, **kwargs)`                                      | Arrow table -> GeoParquet            |
+|  [04]   | `arrow.parse_stac_items_to_parquet`     | `parse_stac_items_to_parquet(items, *, chunk_size=..., schema='FirstBatch', output_path, tmpdir=None, schema_version=..., filesystem=None, **kwargs)` -> `str`                                 | items -> GeoParquet in one call      |
+|  [05]   | `arrow.parse_stac_ndjson_to_parquet`    | `parse_stac_ndjson_to_parquet(input_path, output_path, *, chunk_size=..., schema=None, limit=None, schema_version=..., collections=None, collection_metadata=None, filesystem=None, **kwargs)` | NDJSON -> GeoParquet                 |
+|  [06]   | `arrow.parse_stac_ndjson_to_delta_lake` | `parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, ...)`                                                                                                                               | NDJSON -> Delta Lake (optional dep)  |
 
 [ENTRYPOINT_SCOPE]: rehydrate and legacy geopandas trio
 - rail: STAC catalog
 
 `stac_table_to_items` is a generator over plain item dicts (pair with `pystac.Item.from_dict` to rebuild the model). The geopandas trio (`to_dict`/`to_geodataframe`/`to_item_collection`) is the top-level re-export and remains supported.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              | [CAPABILITY]                              |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `arrow.stac_table_to_items`     | `stac_table_to_items(table)` -> `Iterable[dict]`                         | Arrow STAC table -> item dicts            |
-|   [2]   | `arrow.stac_table_to_ndjson`    | `stac_table_to_ndjson(table, dest)`                                       | Arrow STAC table -> NDJSON file           |
-|   [3]   | `to_geodataframe`               | `to_geodataframe(items, add_self_link=False, dtype_backend=None, datetime_precision='ns')` -> `GeoDataFrame` | items -> geopandas (legacy)  |
-|   [4]   | `to_item_collection`            | `to_item_collection(df)` -> `pystac.ItemCollection`                       | `GeoDataFrame` -> STAC (legacy)           |
-|   [5]   | `to_dict`                       | `to_dict(record)` -> `dict`                                              | a parquet row -> a STAC item dict         |
+| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                                 | [CAPABILITY]                      |
+| :-----: | :--------------------------- | :----------------------------------------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `arrow.stac_table_to_items`  | `stac_table_to_items(table)` -> `Iterable[dict]`                                                             | Arrow STAC table -> item dicts    |
+|  [02]   | `arrow.stac_table_to_ndjson` | `stac_table_to_ndjson(table, dest)`                                                                          | Arrow STAC table -> NDJSON file   |
+|  [03]   | `to_geodataframe`            | `to_geodataframe(items, add_self_link=False, dtype_backend=None, datetime_precision='ns')` -> `GeoDataFrame` | items -> geopandas (legacy)       |
+|  [04]   | `to_item_collection`         | `to_item_collection(df)` -> `pystac.ItemCollection`                                                          | `GeoDataFrame` -> STAC (legacy)   |
+|  [05]   | `to_dict`                    | `to_dict(record)` -> `dict`                                                                                  | a parquet row -> a STAC item dict |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STAC_GEOPARQUET]:
 - import: `import stac_geoparquet` at boundary scope only; module-level import is banned by the manifest import policy. The dist name is `stac-geoparquet`; the import name is `stac_geoparquet`; the canonical interchange surface is `stac_geoparquet.arrow.*`.

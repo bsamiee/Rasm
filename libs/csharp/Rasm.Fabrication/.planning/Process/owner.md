@@ -4,11 +4,11 @@ The polymorphic `Fabrication` owner closes the entire 3D-to-fabrication concern 
 
 Wire posture: HOST-LOCAL. The fabrication outputs cross only the in-process seam — the world-space `HiddenLineResult` edge sets to the AppUi `Viewport2D` consumer, the `Motion` toolpath/joint stream to the `Posting/program#CUT_PROGRAM` emitter, the `Placement` transforms to the same posting owner — never a browser or peer wire. The `FabricationPolicy`/`FabricationResult` unions and the shared atoms are host-local types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FABRICATION_OWNER]: owns the `FabricationPolicy`/`FabricationResult` unions, the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FabricationInput` atoms, and the one `Run` generated total `Switch` to the cluster kernels.
+- [01]-[FABRICATION_OWNER]: owns the `FabricationPolicy`/`FabricationResult` unions, the shared `Loop`/`Edge3`/`Move`/`PartTransform`/`FabricationInput` atoms, and the one `Run` generated total `Switch` to the cluster kernels.
 
-## [2]-[FABRICATION_OWNER]
+## [02]-[FABRICATION_OWNER]
 
 - Owner: `FabricationPolicy` `[Union]` the per-concern policy (`HiddenLine`/`Cam`/`Nest`) — the ONE discriminant the `Run` fold dispatches on; `FabricationResult` `[Union]` the per-case result (`HiddenLineResult`/`Motion`/`Placement`); `FabricationInput` the one input carrier every kernel reads, carrying the selected `Process`/`Machine` axis pair (the `Process/family#PROCESS_FAMILY` removal-modality/kinematic discriminant) and the `Nesting/nfp#NESTING` `Stock` union as input state beside the geometry/chain atoms; `Fabrication` the static surface whose ONE `Run` entrypoint discriminates by `FabricationPolicy` case onto the cluster kernel. The cluster kernels (`Hlr`, `Cam`, `Nest`) are sibling owners in their own sub-domains, dispatched from the generated total `Switch`, never sibling public surfaces beside `Run`.
 - Cases: `FabricationPolicy` cases `HiddenLine` · `Cam` · `Nest` (3); `FabricationResult` cases `HiddenLineResult` · `Motion` · `Placement` (3); each policy case pairs one-to-one with its result case across the fold, the union case the sole discriminant, never a parallel string-keyed kind.

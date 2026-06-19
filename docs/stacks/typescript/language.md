@@ -2,7 +2,7 @@
 
 TypeScript 7 on the `tsgo` native compiler is the active language surface, with the stable `tsc` peer-check as the dual-compiler floor. The workspace manifest owns `target`, `module`, `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, and `verbatimModuleSyntax`; this page is the language-feature law for choosing type-expression, inference, dispatch, and module forms before adding a local abstraction. Runtime-authority shape lives in `shapes.md`; rail and effect composition lives in `rails-and-effects.md`.
 
-## [1]-[ACTIVE_SURFACE]
+## [01]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Compiler: `tsgo` native canonical typecheck; stable `tsc` peer-check is the second floor
@@ -20,7 +20,7 @@ Treat source files as modern Effect-native TypeScript, not compatibility layers.
 - Law: a construct that diverges between the two compilers is rewritten to the form both accept, not gated behind a directive — the doctrine's deep `infer`-decomposition, tuple-budgeted recursion, and `as const satisfies` vocabularies are chosen partly because they are the constructs least exposed to checker divergence.
 - Reject: a `// @ts-expect-error` or `// @ts-ignore` masking a `tsc`/`tsgo` disagreement, a build that runs only one of the two checkers, and a type so baroque that only one compiler resolves it — collapse it to the form both prove.
 
-## [2]-[CANONICAL_CHOOSER]
+## [02]-[CANONICAL_CHOOSER]
 
 Use the active TypeScript surface directly. This chooser owns type-expression, inference, dispatch, and module forms. Runtime-authority construction (`Schema.Class`, `Model.Class`, `Data.TaggedEnum`) is owned by `shapes.md`; rail composition by `rails-and-effects.md`; JS-stdlib replacement by `system-apis.md`. Replace an older spelling or local machinery when the active surface owns the behavior.
 
@@ -28,51 +28,51 @@ Use the active TypeScript surface directly. This chooser owns type-expression, i
 
 | [INDEX] | [CONCERN]                        | [USE]                                              | [REPLACE]                               |
 | :-----: | :------------------------------- | :------------------------------------------------- | :-------------------------------------- |
-|   [1]   | type from a runtime authority    | `typeof anchor.Type`, `typeof vocab`               | standalone `type X = { ... }`           |
-|   [2]   | discriminant union from keys     | `keyof typeof vocabulary`                          | hand-listed string-literal union        |
-|   [3]   | per-key output type              | indexed access `(typeof V)[K]["field"]`            | parallel mapped declarations            |
-|   [4]   | function-shape decomposition     | `ReturnType`, `Parameters`                         | re-declared parameter/return interfaces |
-|   [5]   | structural validation            | `as const satisfies Record<...>`                   | untyped `as const` then manual checks   |
-|   [6]   | projection from a canonical type | `Pick`, `Omit`, `Partial`, `Extract`, `Exclude`    | parallel sibling interface declarations |
-|   [7]   | accessor/event-name family       | mapped type with template-literal key remapping    | N hand-written accessor signatures      |
-|   [8]   | deep structural transform        | one parameterized recursive type with depth budget | `DeepPartial`/`DeepReadonly` copies     |
+|  [01]   | type from a runtime authority    | `typeof anchor.Type`, `typeof vocab`               | standalone `type X = { ... }`           |
+|  [02]   | discriminant union from keys     | `keyof typeof vocabulary`                          | hand-listed string-literal union        |
+|  [03]   | per-key output type              | indexed access `(typeof V)[K]["field"]`            | parallel mapped declarations            |
+|  [04]   | function-shape decomposition     | `ReturnType`, `Parameters`                         | re-declared parameter/return interfaces |
+|  [05]   | structural validation            | `as const satisfies Record<...>`                   | untyped `as const` then manual checks   |
+|  [06]   | projection from a canonical type | `Pick`, `Omit`, `Partial`, `Extract`, `Exclude`    | parallel sibling interface declarations |
+|  [07]   | accessor/event-name family       | mapped type with template-literal key remapping    | N hand-written accessor signatures      |
+|  [08]   | deep structural transform        | one parameterized recursive type with depth budget | `DeepPartial`/`DeepReadonly` copies     |
 
 [DISPATCH_FORMS]: how a value-returning decision states its whole law as one total expression.
 
 | [INDEX] | [CONCERN]                         | [USE]                                          | [REPLACE]                               |
 | :-----: | :-------------------------------- | :--------------------------------------------- | :-------------------------------------- |
-|   [1]   | closed tagged domain fold         | `Data.taggedEnum().$match` / `Match.valueTags` | `switch (x._tag)` ladders               |
-|   [2]   | structural/predicate dispatch     | `Match.type().pipe(Match.when, ...)`           | `if`/`else` chains                      |
-|   [3]   | typed return constraint           | `Match.withReturnType` before any arm          | per-arm return-type drift               |
-|   [4]   | multi-dimension predicate         | `Match.whenAnd`/`whenOr`/`not`                 | nested boolean branching                |
-|   [5]   | literal-prefix routing            | `Match.discriminatorStartsWith`                | string `startsWith` chains              |
-|   [6]   | non-`_tag` discriminant fold      | `Match.discriminatorsExhaustive(field)`        | hand-keyed `Record` dispatch + assert   |
-|   [7]   | class-prototype narrowing         | `Match.instanceOf` + open terminal             | `instanceof` ladders                    |
-|   [8]   | completion stance                 | `Match.exhaustive` / `option` / `either`       | catch-all `orElse` masking a variant    |
-|   [9]   | keyed-domain classification       | vocabulary lookup / threshold iteration        | `Match.when` chains duplicating a vocab |
+|  [01]   | closed tagged domain fold         | `Data.taggedEnum().$match` / `Match.valueTags` | `switch (x._tag)` ladders               |
+|  [02]   | structural/predicate dispatch     | `Match.type().pipe(Match.when, ...)`           | `if`/`else` chains                      |
+|  [03]   | typed return constraint           | `Match.withReturnType` before any arm          | per-arm return-type drift               |
+|  [04]   | multi-dimension predicate         | `Match.whenAnd`/`whenOr`/`not`                 | nested boolean branching                |
+|  [05]   | literal-prefix routing            | `Match.discriminatorStartsWith`                | string `startsWith` chains              |
+|  [06]   | non-`_tag` discriminant fold      | `Match.discriminatorsExhaustive(field)`        | hand-keyed `Record` dispatch + assert   |
+|  [07]   | class-prototype narrowing         | `Match.instanceOf` + open terminal             | `instanceof` ladders                    |
+|  [08]   | completion stance                 | `Match.exhaustive` / `option` / `either`       | catch-all `orElse` masking a variant    |
+|  [09]   | keyed-domain classification       | vocabulary lookup / threshold iteration        | `Match.when` chains duplicating a vocab |
 |  [10]   | conditional return over a generic | conditional type + generic constraint          | 3+ overload signatures                  |
 
 [TYPE_PARAMETER_FORMS]: how a type parameter's distribution, variance, and inference are pinned.
 
 | [INDEX] | [CONCERN]                   | [USE]                                      | [REPLACE]                            |
 | :-----: | :-------------------------- | :----------------------------------------- | :----------------------------------- |
-|   [1]   | per-member union evaluation | naked `T extends ... ? ... : ...`          | manual union enumeration             |
-|   [2]   | union-as-unit evaluation    | `[T] extends [U]`                          | accidental distributive blow-up      |
-|   [3]   | multi-channel decomposition | multi-clause `infer A`/`infer E`/`infer R` | sequential conditional extraction    |
-|   [4]   | declaration-site variance   | `in`/`out` annotations                     | lazily-inferred variance surprises   |
-|   [5]   | inference position control  | `NoInfer<T>`                               | ambiguous two-position widening      |
-|   [6]   | recursion budget            | tuple accumulator at a depth limit         | unbudgeted recursion hitting the cap |
+|  [01]   | per-member union evaluation | naked `T extends ... ? ... : ...`          | manual union enumeration             |
+|  [02]   | union-as-unit evaluation    | `[T] extends [U]`                          | accidental distributive blow-up      |
+|  [03]   | multi-channel decomposition | multi-clause `infer A`/`infer E`/`infer R` | sequential conditional extraction    |
+|  [04]   | declaration-site variance   | `in`/`out` annotations                     | lazily-inferred variance surprises   |
+|  [05]   | inference position control  | `NoInfer<T>`                               | ambiguous two-position widening      |
+|  [06]   | recursion budget            | tuple accumulator at a depth limit         | unbudgeted recursion hitting the cap |
 
 [MODULE_FORMS]: how a module declares its public surface and consumes another.
 
 | [INDEX] | [CONCERN]                 | [USE]                                      | [REPLACE]                      |
 | :-----: | :------------------------ | :----------------------------------------- | :----------------------------- |
-|   [1]   | public surface            | one or two named exports                   | export sprawl, default exports |
-|   [2]   | type-only import          | `import type` under `verbatimModuleSyntax` | value import elided at emit    |
-|   [3]   | private substrate         | `_`-prefixed module-local declaration      | exported helper consumed once  |
-|   [4]   | cross-module package edge | the Nx browser/node/neutral tag graph      | ad-hoc cross-package import    |
+|  [01]   | public surface            | one or two named exports                   | export sprawl, default exports |
+|  [02]   | type-only import          | `import type` under `verbatimModuleSyntax` | value import elided at emit    |
+|  [03]   | private substrate         | `_`-prefixed module-local declaration      | exported helper consumed once  |
+|  [04]   | cross-module package edge | the Nx browser/node/neutral tag graph      | ad-hoc cross-package import    |
 
-## [3]-[LANGUAGE_FORM_CONTRACTS]
+## [03]-[LANGUAGE_FORM_CONTRACTS]
 
 Use these contracts when the chooser names the form but code still needs a placement rule.
 
@@ -242,7 +242,7 @@ const _admit = Schema.transformOrFail(Schema.String, Schema.Number, {
 })
 ```
 
-## [4]-[ABSTRACTION_COLLAPSE_TESTS]
+## [04]-[ABSTRACTION_COLLAPSE_TESTS]
 
 Use these tests before keeping a local abstraction beside a language or ecosystem primitive.
 

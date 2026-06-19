@@ -2,7 +2,7 @@
 
 `Clipper2Lib` supplies 2D polygon Boolean operations, path offsetting, rectangle clipping, Minkowski sum/difference, point-in-polygon testing, path simplification, and coordinate-conversion utilities for the fabrication toolpath, nesting, and offset owners; the public `Triangulate`/`TriangulateResult` surface is author-flagged buggy and stays out of `PolygonAlgebra`. The primary entry points are the static `Clipper` facade, the stateful `Clipper64` and `ClipperD` engines for subject/clip workflow, and `ClipperOffset` for inward/outward path inflation with configurable join and end styles. Coordinate geometry resolves through `int64`-native `Point64`/`Path64`/`Rect64` types and `double`-native `PointD`/`PathD`/`RectD` types; `ClipperD` scales doubles to int64 internally at caller-specified decimal precision.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Clipper2`
 - package: `Clipper2`
@@ -11,87 +11,87 @@
 - asset: runtime library
 - rail: fabrication
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate primitives
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY]    | [CAPABILITY]                       |
 | :-----: | :-------- | :--------------- | :--------------------------------- |
-|   [1]   | `Point64` | int64 point      | integer coordinate geometry        |
-|   [2]   | `PointD`  | double point     | floating-point coordinate geometry |
-|   [3]   | `Rect64`  | int64 rectangle  | bounding box and rect-clip input   |
-|   [4]   | `RectD`   | double rectangle | bounding box in double coordinates |
+|  [01]   | `Point64` | int64 point      | integer coordinate geometry        |
+|  [02]   | `PointD`  | double point     | floating-point coordinate geometry |
+|  [03]   | `Rect64`  | int64 rectangle  | bounding box and rect-clip input   |
+|  [04]   | `RectD`   | double rectangle | bounding box in double coordinates |
 
 [PUBLIC_TYPE_SCOPE]: path collections
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY]   | [CAPABILITY]                         |
 | :-----: | :-------- | :-------------- | :----------------------------------- |
-|   [1]   | `Path64`  | `List<Point64>` | single polygon or open path (int64)  |
-|   [2]   | `Paths64` | `List<Path64>`  | polygon set (int64)                  |
-|   [3]   | `PathD`   | `List<PointD>`  | single polygon or open path (double) |
-|   [4]   | `PathsD`  | `List<PathD>`   | polygon set (double)                 |
+|  [01]   | `Path64`  | `List<Point64>` | single polygon or open path (int64)  |
+|  [02]   | `Paths64` | `List<Path64>`  | polygon set (int64)                  |
+|  [03]   | `PathD`   | `List<PointD>`  | single polygon or open path (double) |
+|  [04]   | `PathsD`  | `List<PathD>`   | polygon set (double)                 |
 
 [PUBLIC_TYPE_SCOPE]: clipping enumerations
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [CAPABILITY]                    |
 | :-----: | :--------- | :------------ | :------------------------------ |
-|   [1]   | `ClipType` | clip enum     | Boolean operation selector      |
-|   [2]   | `FillRule` | fill enum     | winding / even-odd fill policy  |
-|   [3]   | `PathType` | path enum     | subject vs clip role assignment |
-|   [4]   | `JoinType` | join enum     | offset corner join style        |
-|   [5]   | `EndType`  | end enum      | open-path end cap style         |
+|  [01]   | `ClipType` | clip enum     | Boolean operation selector      |
+|  [02]   | `FillRule` | fill enum     | winding / even-odd fill policy  |
+|  [03]   | `PathType` | path enum     | subject vs clip role assignment |
+|  [04]   | `JoinType` | join enum     | offset corner join style        |
+|  [05]   | `EndType`  | end enum      | open-path end cap style         |
 
 [PUBLIC_TYPE_SCOPE]: clipping engines
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]   | [CAPABILITY]                           |
 | :-----: | :-------------- | :-------------- | :------------------------------------- |
-|   [1]   | `Clipper`       | static facade   | one-shot Boolean and offset operations |
-|   [2]   | `Clipper64`     | stateful engine | int64 subject/clip workflow            |
-|   [3]   | `ClipperD`      | stateful engine | double subject/clip workflow           |
-|   [4]   | `ClipperOffset` | offset engine   | polygon and open-path inflation        |
-|   [5]   | `ClipperBase`   | abstract base   | shared scan-line engine state          |
-|   [6]   | `Minkowski`     | static facade   | precision-bearing Minkowski sum/diff   |
+|  [01]   | `Clipper`       | static facade   | one-shot Boolean and offset operations |
+|  [02]   | `Clipper64`     | stateful engine | int64 subject/clip workflow            |
+|  [03]   | `ClipperD`      | stateful engine | double subject/clip workflow           |
+|  [04]   | `ClipperOffset` | offset engine   | polygon and open-path inflation        |
+|  [05]   | `ClipperBase`   | abstract base   | shared scan-line engine state          |
+|  [06]   | `Minkowski`     | static facade   | precision-bearing Minkowski sum/diff   |
 
 [PUBLIC_TYPE_SCOPE]: poly-tree result carriers
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [CAPABILITY]                        |
 | :-----: | :------------- | :----------------- | :---------------------------------- |
-|   [1]   | `PolyTree64`   | tree root (int64)  | nested polygon result (outer/holes) |
-|   [2]   | `PolyPath64`   | tree node (int64)  | one polygon node with child holes   |
-|   [3]   | `PolyTreeD`    | tree root (double) | nested polygon result (double)      |
-|   [4]   | `PolyPathD`    | tree node (double) | one polygon node with child holes   |
-|   [5]   | `PolyPathBase` | abstract base      | shared node enumeration and depth   |
+|  [01]   | `PolyTree64`   | tree root (int64)  | nested polygon result (outer/holes) |
+|  [02]   | `PolyPath64`   | tree node (int64)  | one polygon node with child holes   |
+|  [03]   | `PolyTreeD`    | tree root (double) | nested polygon result (double)      |
+|  [04]   | `PolyPathD`    | tree node (double) | one polygon node with child holes   |
+|  [05]   | `PolyPathBase` | abstract base      | shared node enumeration and depth   |
 
 [PUBLIC_TYPE_SCOPE]: result and error types
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                      |
 | :-----: | :--------------------- | :------------ | :-------------------------------- |
-|   [1]   | `PointInPolygonResult` | result enum   | inside / on-boundary / outside    |
-|   [2]   | `TriangulateResult`    | result enum   | triangulation success / failure   |
-|   [3]   | `ClipperLibException`  | exception     | domain error from clipping engine |
+|  [01]   | `PointInPolygonResult` | result enum   | inside / on-boundary / outside    |
+|  [02]   | `TriangulateResult`    | result enum   | triangulation success / failure   |
+|  [03]   | `ClipperLibException`  | exception     | domain error from clipping engine |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static Boolean operations — `Clipper` facade
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]   | [CAPABILITY]                  |
 | :-----: | :-------------------------------------------------- | :--------------- | :---------------------------- |
-|   [1]   | `Intersect(Paths64, Paths64, FillRule)`             | one-shot clip    | int64 intersection            |
-|   [2]   | `Intersect(PathsD, PathsD, FillRule, precision)`    | one-shot clip    | double intersection           |
-|   [3]   | `Union(Paths64, FillRule)`                          | one-shot clip    | int64 self-union              |
-|   [4]   | `Union(Paths64, Paths64, FillRule)`                 | one-shot clip    | int64 union                   |
-|   [5]   | `Union(PathsD, FillRule)`                           | one-shot clip    | double self-union             |
-|   [6]   | `Union(PathsD, PathsD, FillRule, precision)`        | one-shot clip    | double union                  |
-|   [7]   | `Difference(Paths64, Paths64, FillRule)`            | one-shot clip    | int64 difference              |
-|   [8]   | `Difference(PathsD, PathsD, FillRule, precision)`   | one-shot clip    | double difference             |
-|   [9]   | `Xor(Paths64, Paths64, FillRule)`                   | one-shot clip    | int64 exclusive-or            |
+|  [01]   | `Intersect(Paths64, Paths64, FillRule)`             | one-shot clip    | int64 intersection            |
+|  [02]   | `Intersect(PathsD, PathsD, FillRule, precision)`    | one-shot clip    | double intersection           |
+|  [03]   | `Union(Paths64, FillRule)`                          | one-shot clip    | int64 self-union              |
+|  [04]   | `Union(Paths64, Paths64, FillRule)`                 | one-shot clip    | int64 union                   |
+|  [05]   | `Union(PathsD, FillRule)`                           | one-shot clip    | double self-union             |
+|  [06]   | `Union(PathsD, PathsD, FillRule, precision)`        | one-shot clip    | double union                  |
+|  [07]   | `Difference(Paths64, Paths64, FillRule)`            | one-shot clip    | int64 difference              |
+|  [08]   | `Difference(PathsD, PathsD, FillRule, precision)`   | one-shot clip    | double difference             |
+|  [09]   | `Xor(Paths64, Paths64, FillRule)`                   | one-shot clip    | int64 exclusive-or            |
 |  [10]   | `Xor(PathsD, PathsD, FillRule, precision)`          | one-shot clip    | double exclusive-or           |
 |  [11]   | `BooleanOp(ClipType, Paths64?, Paths64?, FillRule)` | one-shot clip    | int64 generic Boolean         |
 |  [12]   | `BooleanOp(ClipType, PathsD, PathsD?, FillRule, p)` | one-shot clip    | double generic Boolean        |
@@ -103,15 +103,15 @@
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                        |
 | :-----: | :-------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|   [1]   | `InflatePaths(Paths64, delta, JoinType, EndType, …)`      | offset         | int64 polygon/open-path inflation                   |
-|   [2]   | `InflatePaths(PathsD, delta, JoinType, EndType, …)`       | offset         | double polygon/open-path inflation                  |
-|   [3]   | `RectClip(Rect64, Paths64)`                               | rect clip      | int64 paths clipped to rect                         |
-|   [4]   | `RectClip(Rect64, Path64)`                                | rect clip      | int64 single path clipped to rect                   |
-|   [5]   | `RectClip(RectD, PathsD, precision)`                      | rect clip      | double paths clipped to rect                        |
-|   [6]   | `RectClipLines(Rect64, Paths64)`                          | rect clip      | int64 open paths clipped to rect                    |
-|   [7]   | `RectClipLines(RectD, PathsD, precision)`                 | rect clip      | double open paths clipped to rect                   |
-|   [8]   | `MinkowskiSum(Path64, Path64, isClosed)`                  | morphology     | int64 Minkowski sum                                 |
-|   [9]   | `MinkowskiSum(PathD, PathD, isClosed)`                    | morphology     | double Minkowski sum (precision fixed at 2)         |
+|  [01]   | `InflatePaths(Paths64, delta, JoinType, EndType, …)`      | offset         | int64 polygon/open-path inflation                   |
+|  [02]   | `InflatePaths(PathsD, delta, JoinType, EndType, …)`       | offset         | double polygon/open-path inflation                  |
+|  [03]   | `RectClip(Rect64, Paths64)`                               | rect clip      | int64 paths clipped to rect                         |
+|  [04]   | `RectClip(Rect64, Path64)`                                | rect clip      | int64 single path clipped to rect                   |
+|  [05]   | `RectClip(RectD, PathsD, precision)`                      | rect clip      | double paths clipped to rect                        |
+|  [06]   | `RectClipLines(Rect64, Paths64)`                          | rect clip      | int64 open paths clipped to rect                    |
+|  [07]   | `RectClipLines(RectD, PathsD, precision)`                 | rect clip      | double open paths clipped to rect                   |
+|  [08]   | `MinkowskiSum(Path64, Path64, isClosed)`                  | morphology     | int64 Minkowski sum                                 |
+|  [09]   | `MinkowskiSum(PathD, PathD, isClosed)`                    | morphology     | double Minkowski sum (precision fixed at 2)         |
 |  [10]   | `MinkowskiDiff(Path64, Path64, isClosed)`                 | morphology     | int64 Minkowski difference                          |
 |  [11]   | `MinkowskiDiff(PathD, PathD, isClosed)`                   | morphology     | double Minkowski difference (precision fixed at 2)  |
 |  [12]   | `Ellipse(Point64, radiusX, radiusY, steps)`               | geometry       | int64 ellipse/circle path                           |
@@ -124,25 +124,25 @@
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|   [1]   | `Sum(Path64 pattern, Path64 path, isClosed)`               | morphology     | int64 Minkowski sum                             |
-|   [2]   | `Sum(PathD pattern, PathD path, isClosed, decimalPlaces)`  | morphology     | double Minkowski sum at caller precision        |
-|   [3]   | `Diff(Path64 pattern, Path64 path, isClosed)`              | morphology     | int64 Minkowski difference                      |
-|   [4]   | `Diff(PathD pattern, PathD path, isClosed, decimalPlaces)` | morphology     | double Minkowski difference at caller precision |
+|  [01]   | `Sum(Path64 pattern, Path64 path, isClosed)`               | morphology     | int64 Minkowski sum                             |
+|  [02]   | `Sum(PathD pattern, PathD path, isClosed, decimalPlaces)`  | morphology     | double Minkowski sum at caller precision        |
+|  [03]   | `Diff(Path64 pattern, Path64 path, isClosed)`              | morphology     | int64 Minkowski difference                      |
+|  [04]   | `Diff(PathD pattern, PathD path, isClosed, decimalPlaces)` | morphology     | double Minkowski difference at caller precision |
 
 [ENTRYPOINT_SCOPE]: static path measurement and analysis — `Clipper` facade
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CAPABILITY]                     |
 | :-----: | :---------------------------------------------- | :------------- | :------------------------------- |
-|   [1]   | `Area(Path64)` / `Area(Paths64)`                | measurement    | signed area (positive = CCW)     |
-|   [2]   | `Area(PathD)` / `Area(PathsD)`                  | measurement    | signed area (double)             |
-|   [3]   | `IsPositive(Path64)` / `IsPositive(PathD)`      | orientation    | CCW winding test                 |
-|   [4]   | `GetBounds(Path64)` / `GetBounds(Paths64)`      | bounds         | int64 axis-aligned bounding box  |
-|   [5]   | `GetBounds(PathD)` / `GetBounds(PathsD)`        | bounds         | double axis-aligned bounding box |
-|   [6]   | `PointInPolygon(Point64, Path64)`               | containment    | inside / on / outside test       |
-|   [7]   | `PointInPolygon(PointD, PathD, precision)`      | containment    | double containment test          |
-|   [8]   | `RamerDouglasPeucker(Path64, epsilon)`          | simplification | int64 polyline simplification    |
-|   [9]   | `RamerDouglasPeucker(PathD, epsilon)`           | simplification | double polyline simplification   |
+|  [01]   | `Area(Path64)` / `Area(Paths64)`                | measurement    | signed area (positive = CCW)     |
+|  [02]   | `Area(PathD)` / `Area(PathsD)`                  | measurement    | signed area (double)             |
+|  [03]   | `IsPositive(Path64)` / `IsPositive(PathD)`      | orientation    | CCW winding test                 |
+|  [04]   | `GetBounds(Path64)` / `GetBounds(Paths64)`      | bounds         | int64 axis-aligned bounding box  |
+|  [05]   | `GetBounds(PathD)` / `GetBounds(PathsD)`        | bounds         | double axis-aligned bounding box |
+|  [06]   | `PointInPolygon(Point64, Path64)`               | containment    | inside / on / outside test       |
+|  [07]   | `PointInPolygon(PointD, PathD, precision)`      | containment    | double containment test          |
+|  [08]   | `RamerDouglasPeucker(Path64, epsilon)`          | simplification | int64 polyline simplification    |
+|  [09]   | `RamerDouglasPeucker(PathD, epsilon)`           | simplification | double polyline simplification   |
 |  [10]   | `SimplifyPath(Path64, epsilon, isClosedPath)`   | simplification | int64 collinear simplification   |
 |  [11]   | `SimplifyPath(PathD, epsilon, isClosedPath)`    | simplification | double collinear simplification  |
 |  [12]   | `SimplifyPaths(Paths64, epsilon, isClosedPath)` | simplification | int64 path-set simplification    |
@@ -156,61 +156,61 @@
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CAPABILITY]                        |
 | :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------- |
-|   [1]   | `ScalePath(Path64, scale)` / `ScalePaths(…)`                  | conversion     | int64 coordinate scaling            |
-|   [2]   | `ScalePath64(PathD, scale)` / `ScalePaths64(…)`               | conversion     | double-to-int64 path conversion     |
-|   [3]   | `ScalePathD(Path64, scale)` / `ScalePathsD(…)`                | conversion     | int64-to-double path conversion     |
-|   [4]   | `TranslatePath(Path64, dx, dy)`                               | transform      | integer path translation            |
-|   [5]   | `TranslatePath(PathD, dx, dy)`                                | transform      | double path translation             |
-|   [6]   | `ReversePath(Path64)` / `ReversePath(PathD)`                  | transform      | winding reversal                    |
-|   [7]   | `MakePath(int[])` / `MakePath(long[])` / `MakePath(double[])` | factory        | interleaved-array path construction |
-|   [8]   | `PolyTreeToPaths64(PolyTree64)`                               | tree flatten   | nested result to flat Paths64       |
-|   [9]   | `PolyTreeToPathsD(PolyTreeD)`                                 | tree flatten   | nested result to flat PathsD        |
+|  [01]   | `ScalePath(Path64, scale)` / `ScalePaths(…)`                  | conversion     | int64 coordinate scaling            |
+|  [02]   | `ScalePath64(PathD, scale)` / `ScalePaths64(…)`               | conversion     | double-to-int64 path conversion     |
+|  [03]   | `ScalePathD(Path64, scale)` / `ScalePathsD(…)`                | conversion     | int64-to-double path conversion     |
+|  [04]   | `TranslatePath(Path64, dx, dy)`                               | transform      | integer path translation            |
+|  [05]   | `TranslatePath(PathD, dx, dy)`                                | transform      | double path translation             |
+|  [06]   | `ReversePath(Path64)` / `ReversePath(PathD)`                  | transform      | winding reversal                    |
+|  [07]   | `MakePath(int[])` / `MakePath(long[])` / `MakePath(double[])` | factory        | interleaved-array path construction |
+|  [08]   | `PolyTreeToPaths64(PolyTree64)`                               | tree flatten   | nested result to flat Paths64       |
+|  [09]   | `PolyTreeToPathsD(PolyTreeD)`                                 | tree flatten   | nested result to flat PathsD        |
 
 [ENTRYPOINT_SCOPE]: stateful clipping — `Clipper64` engine
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CAPABILITY]                 |
 | :-----: | :---------------------------------------------------------- | :------------- | :--------------------------- |
-|   [1]   | `AddSubject(Paths64)`                                       | input          | closed subject paths         |
-|   [2]   | `AddOpenSubject(Paths64)`                                   | input          | open subject paths           |
-|   [3]   | `AddClip(Paths64)`                                          | input          | clip paths                   |
-|   [4]   | `Execute(ClipType, FillRule, Paths64 closed)`               | operation      | closed-only int64 result     |
-|   [5]   | `Execute(ClipType, FillRule, Paths64 closed, Paths64 open)` | operation      | closed + open int64 result   |
-|   [6]   | `Execute(ClipType, FillRule, PolyTree64)`                   | operation      | tree-structured int64 result |
-|   [7]   | `Execute(ClipType, FillRule, PolyTree64, Paths64 open)`     | operation      | tree + open int64 result     |
-|   [8]   | `PreserveCollinear` / `ReverseSolution`                     | property       | engine behavior flags        |
+|  [01]   | `AddSubject(Paths64)`                                       | input          | closed subject paths         |
+|  [02]   | `AddOpenSubject(Paths64)`                                   | input          | open subject paths           |
+|  [03]   | `AddClip(Paths64)`                                          | input          | clip paths                   |
+|  [04]   | `Execute(ClipType, FillRule, Paths64 closed)`               | operation      | closed-only int64 result     |
+|  [05]   | `Execute(ClipType, FillRule, Paths64 closed, Paths64 open)` | operation      | closed + open int64 result   |
+|  [06]   | `Execute(ClipType, FillRule, PolyTree64)`                   | operation      | tree-structured int64 result |
+|  [07]   | `Execute(ClipType, FillRule, PolyTree64, Paths64 open)`     | operation      | tree + open int64 result     |
+|  [08]   | `PreserveCollinear` / `ReverseSolution`                     | property       | engine behavior flags        |
 
 [ENTRYPOINT_SCOPE]: stateful clipping — `ClipperD` engine
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                  |
 | :-----: | :-------------------------------------------------------- | :------------- | :---------------------------- |
-|   [1]   | `ClipperD(roundingDecimalPrecision = 2)`                  | constructor    | precision 1–8 decimal places  |
-|   [2]   | `AddSubject(PathD)` / `AddSubject(PathsD)`                | input          | closed subject paths (double) |
-|   [3]   | `AddOpenSubject(PathD)` / `AddOpenSubject(PathsD)`        | input          | open subject paths (double)   |
-|   [4]   | `AddClip(PathD)` / `AddClip(PathsD)`                      | input          | clip paths (double)           |
-|   [5]   | `Execute(ClipType, FillRule, PathsD closed)`              | operation      | closed-only double result     |
-|   [6]   | `Execute(ClipType, FillRule, PathsD closed, PathsD open)` | operation      | closed + open double result   |
-|   [7]   | `Execute(ClipType, FillRule, PolyTreeD)`                  | operation      | tree-structured double result |
-|   [8]   | `Execute(ClipType, FillRule, PolyTreeD, PathsD open)`     | operation      | tree + open double result     |
+|  [01]   | `ClipperD(roundingDecimalPrecision = 2)`                  | constructor    | precision 1–8 decimal places  |
+|  [02]   | `AddSubject(PathD)` / `AddSubject(PathsD)`                | input          | closed subject paths (double) |
+|  [03]   | `AddOpenSubject(PathD)` / `AddOpenSubject(PathsD)`        | input          | open subject paths (double)   |
+|  [04]   | `AddClip(PathD)` / `AddClip(PathsD)`                      | input          | clip paths (double)           |
+|  [05]   | `Execute(ClipType, FillRule, PathsD closed)`              | operation      | closed-only double result     |
+|  [06]   | `Execute(ClipType, FillRule, PathsD closed, PathsD open)` | operation      | closed + open double result   |
+|  [07]   | `Execute(ClipType, FillRule, PolyTreeD)`                  | operation      | tree-structured double result |
+|  [08]   | `Execute(ClipType, FillRule, PolyTreeD, PathsD open)`     | operation      | tree + open double result     |
 
 [ENTRYPOINT_SCOPE]: offset engine — `ClipperOffset`
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                            |
 | :-----: | :------------------------------------------------------ | :------------- | :-------------------------------------- |
-|   [1]   | `ClipperOffset(miterLimit, arcTolerance, …)`            | constructor    | offset engine with join and arc options |
-|   [2]   | `AddPath(Path64, JoinType, EndType)`                    | input          | single path registration                |
-|   [3]   | `AddPaths(Paths64, JoinType, EndType)`                  | input          | multi-path registration                 |
-|   [4]   | `Execute(double delta, Paths64 solution)`               | operation      | inflate to flat result                  |
-|   [5]   | `Execute(double delta, PolyTree64 solutionTree)`        | operation      | inflate to tree result                  |
-|   [6]   | `Execute(DeltaCallback64 callback, Paths64 solution)`   | operation      | per-vertex variable delta inflate       |
-|   [7]   | `Clear()`                                               | reset          | discard registered path groups          |
-|   [8]   | `ArcTolerance` / `MiterLimit`                           | property       | arc and miter precision tuning          |
-|   [9]   | `MergeGroups` / `PreserveCollinear` / `ReverseSolution` | property       | merge and winding behavior flags        |
+|  [01]   | `ClipperOffset(miterLimit, arcTolerance, …)`            | constructor    | offset engine with join and arc options |
+|  [02]   | `AddPath(Path64, JoinType, EndType)`                    | input          | single path registration                |
+|  [03]   | `AddPaths(Paths64, JoinType, EndType)`                  | input          | multi-path registration                 |
+|  [04]   | `Execute(double delta, Paths64 solution)`               | operation      | inflate to flat result                  |
+|  [05]   | `Execute(double delta, PolyTree64 solutionTree)`        | operation      | inflate to tree result                  |
+|  [06]   | `Execute(DeltaCallback64 callback, Paths64 solution)`   | operation      | per-vertex variable delta inflate       |
+|  [07]   | `Clear()`                                               | reset          | discard registered path groups          |
+|  [08]   | `ArcTolerance` / `MiterLimit`                           | property       | arc and miter precision tuning          |
+|  [09]   | `MergeGroups` / `PreserveCollinear` / `ReverseSolution` | property       | merge and winding behavior flags        |
 |  [10]   | `DeltaCallback` (delegate `DeltaCallback64`)            | property       | per-point variable offset callback      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COORDINATE_TOPOLOGY]:
 - `int64` path: `Point64.X` and `Point64.Y` are `long`; coordinates must be pre-scaled before clipping when originating from floating-point geometry

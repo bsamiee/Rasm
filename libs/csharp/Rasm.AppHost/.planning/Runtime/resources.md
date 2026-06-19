@@ -2,13 +2,13 @@
 
 Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-through port with per-lane keyed L2 topology and lane-keyed tag invalidation, delegate-row object pools that rent and recycle, and drainable queue rows that complete under the lifecycle conductor. The page owns the CacheLane axis, the PoolPolicy row shape with its concrete pool rows, and the DrainSpec/DrainQueue family; DeadlineClass and DrainBand bind lifetimes and rank as settled vocabulary, each lane's keyed L2 store and the serializer factory arrive as the single Persistence contribution, and lane counts leave as telemetry consequence.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CACHE_PORT]: One read-through entry; lane rows bind tags, lifetimes, options, and keyed L2.
-- [2]-[OBJECT_POOLS]: Delegate-row pool policy, concrete text pool, and rent/reset/leak tracking.
-- [3]-[DRAIN_QUEUES]: `DrainSpec` frozen rows, `DrainKind` topology, and fan-out/join/coalesce blocks.
+- [01]-[CACHE_PORT]: One read-through entry; lane rows bind tags, lifetimes, options, and keyed L2.
+- [02]-[OBJECT_POOLS]: Delegate-row pool policy, concrete text pool, and rent/reset/leak tracking.
+- [03]-[DRAIN_QUEUES]: `DrainSpec` frozen rows, `DrainKind` topology, and fan-out/join/coalesce blocks.
 
-## [2]-[CACHE_PORT]
+## [02]-[CACHE_PORT]
 
 - Owner: `CacheLane` `[SmartEnum<string>]` under the `LaneKeyPolicy` ordinal accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block and resolves each lane's keyed cache by its `Store` column.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
@@ -97,7 +97,7 @@ Cache semantics ride these rulings:
 - Guards: `MaximumPayloadBytes` is the lane's `MaxPayloadBytes` column — 1 MiB for `ModelResult`/`Projection` at the package default and 64 MiB for the `ArtifactBlob` lane whose blobs exceed the default — and `MaximumKeyLength` stays the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
 - Test double: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
 
-## [3]-[OBJECT_POOLS]
+## [03]-[OBJECT_POOLS]
 
 - Owner: `PoolPolicy<T>` — one delegate-row `PooledObjectPolicy<T>` with the `Pool` accessor that mints and owns its package pool; providers and pools stay package surfaces, never wrapped.
 - Entry: `T Get()` leases an instance through `Pool.Get`; `void Recycle(T pooled)` returns it through `Pool.Return`, where the package re-invokes `Return` to decide re-pooling.
@@ -133,7 +133,7 @@ public static class Pools {
 }
 ```
 
-## [4]-[DRAIN_QUEUES]
+## [04]-[DRAIN_QUEUES]
 
 - Owner: `DrainSpec` frozen rows carrying the `DrainKind` `[SmartEnum<string>]` topology discriminant, materialized through the `DrainQueue<T>` union; `DrainSurface` carries options projection, open, drain, and the fan-out/join/coalesce block builders as one extension surface.
 - Cases: `Pipe(DrainSpec Spec, Channel<T> Channel)` for simple producer-consumer seams; `Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail)` for every completion-propagating block graph — single-stage batch, `BroadcastBlock` fan-out, `JoinBlock` correlated-join, and `BatchedJoinBlock` dual-stream coalesce all land as `Network` whose `Row.Kind` names the topology.

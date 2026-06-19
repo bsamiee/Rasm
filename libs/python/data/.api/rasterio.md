@@ -2,7 +2,7 @@
 
 `rasterio` supplies a Pythonic NumPy-array interface over GDAL for raster geospatial data, reading and writing bands as `ndarray` with affine georeferencing. It provides `open`, `DatasetReader`, `MemoryFile`, and `Env` as primary owners, with windowed reads, masking, reprojection, vectorization, and merge operations on the `features`, `warp`, `mask`, `windows`, and `merge` submodules.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rasterio`
 - package: `rasterio`
@@ -11,7 +11,7 @@
 - rail: geospatial
 - capability: raster read/write as NumPy arrays, affine and CRS georeferencing, windowed and tiled access, in-memory and VSI datasets, reprojection and warping, raster/vector conversion, masking, and multi-dataset merge
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `rasterio.DatasetReader` — open raster dataset; band read, windowing, masking, sampling, and metadata.
@@ -54,7 +54,7 @@
 - `Env` scopes process-global GDAL state (drivers, AWS credentials, config); enter it around dataset work rather than mutating GDAL config directly.
 - `MemoryFile` enables read/write of in-memory or VSI-backed datasets; combine with VSI paths (`/vsicurl/`, `/vsizip/`) for remote and archive access.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rasterio`

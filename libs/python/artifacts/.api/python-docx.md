@@ -2,7 +2,7 @@
 
 `python-docx` supplies the Word `.docx` document surface for the artifacts office rail: a `Document` factory returning a document object whose content-add family (paragraphs, headings, tables, pictures, sections, page breaks) and style/section/property accessors drive OOXML word-processing document construction and editing. The package owner composes `Document`, the `add_*` family, and the style/section accessors into the office owner; it never re-implements OOXML parsing python-docx already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-docx`
 - package: `python-docx`
@@ -13,24 +13,24 @@
 - entry points: none (library only)
 - capability: `.docx` document construction and editing — paragraphs, runs, headings, tables, inline pictures, sections, styles, core properties, comments, page breaks
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and content types
 - rail: office
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]  | [CAPABILITY]                  |
 | :-----: | :------------------------- | :-------------- | :---------------------------- |
-|   [1]   | `document.Document`        | document object | root document object          |
-|   [2]   | `text.paragraph.Paragraph` | paragraph       | paragraph with runs and style |
-|   [3]   | `text.run.Run`             | run             | styled text run               |
-|   [4]   | `table.Table`              | table           | grid of cells                 |
-|   [5]   | `section.Section`          | section         | page-layout section           |
-|   [6]   | `ParagraphStyle`           | style           | named paragraph style         |
-|   [7]   | `CharacterStyle`           | style           | named character style         |
-|   [8]   | `shared.Inches`            | unit            | inch measurement value        |
-|   [9]   | `Pt` / `Cm` / `Length`     | unit            | point/centimeter/EMU units    |
+|  [01]   | `document.Document`        | document object | root document object          |
+|  [02]   | `text.paragraph.Paragraph` | paragraph       | paragraph with runs and style |
+|  [03]   | `text.run.Run`             | run             | styled text run               |
+|  [04]   | `table.Table`              | table           | grid of cells                 |
+|  [05]   | `section.Section`          | section         | page-layout section           |
+|  [06]   | `ParagraphStyle`           | style           | named paragraph style         |
+|  [07]   | `CharacterStyle`           | style           | named character style         |
+|  [08]   | `shared.Inches`            | unit            | inch measurement value        |
+|  [09]   | `Pt` / `Cm` / `Length`     | unit            | point/centimeter/EMU units    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open and content authoring
 - rail: office
@@ -39,28 +39,28 @@ Input rows use path-or-stream sources and optional style/unit policies; content 
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                   | [CAPABILITY]                                 |
 | :-----: | :------------------------ | :----------------------------- | :------------------------------------------- |
-|   [1]   | `Document`                | optional path or stream source | open or create a document (factory function) |
-|   [2]   | `Document.add_paragraph`  | text plus optional style       | add a paragraph                              |
-|   [3]   | `Document.add_heading`    | text plus heading level        | add a heading                                |
-|   [4]   | `Document.add_table`      | row/column count plus style    | add a table                                  |
-|   [5]   | `Document.add_picture`    | image source plus size policy  | add an inline picture                        |
-|   [6]   | `Document.add_section`    | section-start policy           | add a section                                |
-|   [7]   | `Document.add_page_break` | no-arg page-break insertion    | add a page break                             |
-|   [8]   | `Document.save`           | path or stream target          | serialize the document                       |
+|  [01]   | `Document`                | optional path or stream source | open or create a document (factory function) |
+|  [02]   | `Document.add_paragraph`  | text plus optional style       | add a paragraph                              |
+|  [03]   | `Document.add_heading`    | text plus heading level        | add a heading                                |
+|  [04]   | `Document.add_table`      | row/column count plus style    | add a table                                  |
+|  [05]   | `Document.add_picture`    | image source plus size policy  | add an inline picture                        |
+|  [06]   | `Document.add_section`    | section-start policy           | add a section                                |
+|  [07]   | `Document.add_page_break` | no-arg page-break insertion    | add a page break                             |
+|  [08]   | `Document.save`           | path or stream target          | serialize the document                       |
 
 [ENTRYPOINT_SCOPE]: accessors and properties
 - rail: office
 
 | [INDEX] | [SURFACE]                  | [CALL_SHAPE]                            | [CAPABILITY]                    |
 | :-----: | :------------------------- | :-------------------------------------- | :------------------------------ |
-|   [1]   | `Document.paragraphs`      | `paragraphs -> list[Paragraph]`         | document paragraphs             |
-|   [2]   | `Document.tables`          | `tables -> list[Table]`                 | document tables                 |
-|   [3]   | `Document.sections`        | `sections -> Sections`                  | document sections               |
-|   [4]   | `Document.styles`          | `styles -> Styles`                      | the style catalog               |
-|   [5]   | `Document.core_properties` | `core_properties -> CoreProperties`     | author/title/created metadata   |
-|   [6]   | `Paragraph.add_run`        | `add_run(text=None, style=None) -> Run` | add a styled run to a paragraph |
+|  [01]   | `Document.paragraphs`      | `paragraphs -> list[Paragraph]`         | document paragraphs             |
+|  [02]   | `Document.tables`          | `tables -> list[Table]`                 | document tables                 |
+|  [03]   | `Document.sections`        | `sections -> Sections`                  | document sections               |
+|  [04]   | `Document.styles`          | `styles -> Styles`                      | the style catalog               |
+|  [05]   | `Document.core_properties` | `core_properties -> CoreProperties`     | author/title/created metadata   |
+|  [06]   | `Paragraph.add_run`        | `add_run(text=None, style=None) -> Run` | add a styled run to a paragraph |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [OFFICE_DOCX]:
 - import: `import docx` at boundary scope only; module-level import is banned by the manifest import policy. The package distribution is `python-docx`; the import name is `docx`.
@@ -70,7 +70,7 @@ Input rows use path-or-stream sources and optional style/unit policies; content 
 - evidence: each document op captures paragraph count, table count, image count, section count, and output byte length as an office receipt.
 - boundary: python-docx owns `.docx`; Excel routes to `openpyxl`, PowerPoint to `python-pptx`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `python-docx`

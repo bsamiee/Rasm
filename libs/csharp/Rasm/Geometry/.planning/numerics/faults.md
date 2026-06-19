@@ -4,11 +4,11 @@ The consolidated geometry fault family (band 2400) and the one ordinal geometry 
 
 `GeometryFault` is the domain failure rail, not a wire payload — it crosses no transport; the consuming `Fin<T>` channel lowers it at the in-process seam. The ordinal band (2400) is the geometry domain's slice of the package fault space, contiguous so a reader scans the family by code.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FAULT_BAND]: `GeometryFault` `[Union]` (band 2400) — one closed family over every geometry failure, lowered into the `Error` rail through `ToError()`; `GeometryKeyPolicy` ordinal key accessor.
+- [01]-[FAULT_BAND]: `GeometryFault` `[Union]` (band 2400) — one closed family over every geometry failure, lowered into the `Error` rail through `ToError()`; `GeometryKeyPolicy` ordinal key accessor.
 
-## [2]-[FAULT_BAND]
+## [02]-[FAULT_BAND]
 
 - Owner: `GeometryFault` the closed `[Union]` lowered into the LanguageExt `Error` rail through its `ToError()` member, one case per reachable domain failure carrying its typed payload and its band-2400 ordinal `Code`; `GeometryKeyPolicy` the ordinal string-key comparer accessor the domain's string-keyed smart enums (`HealKind`, `SpatialKind`) bind through `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, so the one comparer policy is named once and never re-minted per enum.
 - Cases: the band-2400 family is the union of the cases the sibling clusters route — `DegenerateInput` (2401, empty/non-finite primitive set, `spatial`) · `IndexMismatch` (2402, refit primitive-count mismatch, `spatial`) · `NameCollision` (2410, non-injective re-anchor, `topology`) · `HashMismatch` (2411, dangling reconciliation reference, `topology`) · `UnrepairableMesh` (2420, a heal kernel cannot satisfy its post-condition within budget, `healing`) · `NativeAssetMissing` (2421, the boolean op invoked without its tier-3 native asset, `healing`) · `OverConstrained` (2430, redundant + inconsistent system, `constraints`) · `SingularSystem` (2431, damped normal matrix rank-deficient through the ladder, `constraints`) · `DegenerateOffset` (2440, a self-intersecting or zero-area offset input the wavefront cannot propagate, `offsetting`) · `SkeletonStalled` (2441, the straight-skeleton event queue stalls with pending events past the time budget, `offsetting`) · `DegenerateArrangement` (2450, two triangle soups whose intersection is non-manifold or whose cell classification is ambiguous, `arrangement`) · `IntersectionFault` (2460, a narrow-phase exact test on a degenerate primitive pair, `intersection`) · `FitFault` (2470, a RANSAC consensus never reaching the inlier-fraction floor within the sample budget, carrying the achieved fraction vs the floor, `fitting`) · `ParameterizationFault` (2480, a flattening solve that diverges or a non-disk-topology chart, `parameterization`) · `ProjectionFault` (2490, a BSP partition stall or a silhouette extraction over a non-manifold view, `projection`) · `DecimationFault` (2500, a QEM collapse that cannot satisfy the topology-preservation gate within the face budget, carrying the budget vs the achieved count, `simplification`) · `EncodingFault` (2510, a channel pack whose round-trip witness fails the content-hash identity, carrying the failing channel, `encoding`). The codes are sub-banded by sibling so a reader maps a code to its owning cluster: 2401–2409 spatial, 2410–2419 topology, 2420–2429 healing, 2430–2439 constraints, 2440–2449 offsetting, 2450–2459 arrangement, 2460–2469 intersection, 2470–2479 fitting, 2480–2489 parameterization, 2490–2499 projection, 2500–2509 simplification, 2510–2519 encoding.
@@ -107,11 +107,11 @@ public abstract partial record GeometryFault {
 }
 ```
 
-## [3]-[DENSITY_BAR]
+## [03]-[DENSITY_BAR]
 
 One owner for the whole geometry fault rail; a new failure is a case in its sibling's sub-band, never a sibling union. The `[RAIL]` cell names the channel each owner serves.
 
 | [INDEX] | [AXIS/CONCERN] | [OWNER]             | [KIND]                                                                                      | [RAIL]                                                                       | [CASES] |
 | :-----: | :------------- | :------------------ | :------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------- | :-----: |
-|   [1]   | Fault family   | `GeometryFault`     | `[Union]` band 2400 sub-banded by sibling + `Code`/`ToError` lowering into the `Error` rail | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   17    |
-|   [2]   | Key policy     | `GeometryKeyPolicy` | ordinal string-key comparer accessor                                                        | comparer (read by string-keyed smart enums)                                  |    —    |
+|  [01]   | Fault family   | `GeometryFault`     | `[Union]` band 2400 sub-banded by sibling + `Code`/`ToError` lowering into the `Error` rail | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   17    |
+|  [02]   | Key policy     | `GeometryKeyPolicy` | ordinal string-key comparer accessor                                                        | comparer (read by string-keyed smart enums)                                  |    —    |

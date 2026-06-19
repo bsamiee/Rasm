@@ -2,7 +2,7 @@
 
 `@simplewebauthn/browser` provides browser-side WebAuthn ceremony execution: `startRegistration` drives `navigator.credentials.create`, `startAuthentication` drives `navigator.credentials.get`, and a set of helper functions covers feature detection, abort control, and Base64URL encoding. Key JSON types (`PublicKeyCredentialCreationOptionsJSON`, `RegistrationResponseJSON`, `PublicKeyCredentialRequestOptionsJSON`, `AuthenticationResponseJSON`) are shared with the server package and serve as the wire boundary.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@simplewebauthn/browser`
 - package: `@simplewebauthn/browser`
@@ -10,22 +10,22 @@
 - asset: browser runtime library
 - rail: auth
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ceremony method options and responses (shared with server)
 - rail: auth
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :--------------------------------------- | :------------ | :--------------------------------- |
-|   [1]   | `PublicKeyCredentialCreationOptionsJSON` | interface     | registration options from server   |
-|   [2]   | `RegistrationResponseJSON`               | interface     | registration response to server    |
-|   [3]   | `PublicKeyCredentialRequestOptionsJSON`  | interface     | authentication options from server |
-|   [4]   | `AuthenticationResponseJSON`             | interface     | authentication response to server  |
-|   [5]   | `AuthenticatorAttestationResponseJSON`   | interface     | attestation response payload       |
-|   [6]   | `AuthenticatorAssertionResponseJSON`     | interface     | assertion response payload         |
-|   [7]   | `PublicKeyCredentialDescriptorJSON`      | interface     | credential descriptor JSON form    |
-|   [8]   | `AuthenticatorTransportFuture`           | string union  | extended transport vocabulary      |
-|   [9]   | `Base64URLString`                        | type alias    | `string` branded for Base64URL     |
+|  [01]   | `PublicKeyCredentialCreationOptionsJSON` | interface     | registration options from server   |
+|  [02]   | `RegistrationResponseJSON`               | interface     | registration response to server    |
+|  [03]   | `PublicKeyCredentialRequestOptionsJSON`  | interface     | authentication options from server |
+|  [04]   | `AuthenticationResponseJSON`             | interface     | authentication response to server  |
+|  [05]   | `AuthenticatorAttestationResponseJSON`   | interface     | attestation response payload       |
+|  [06]   | `AuthenticatorAssertionResponseJSON`     | interface     | assertion response payload         |
+|  [07]   | `PublicKeyCredentialDescriptorJSON`      | interface     | credential descriptor JSON form    |
+|  [08]   | `AuthenticatorTransportFuture`           | string union  | extended transport vocabulary      |
+|  [09]   | `Base64URLString`                        | type alias    | `string` branded for Base64URL     |
 |  [10]   | `PublicKeyCredentialHint`                | string union  | registration flow hint             |
 
 [PUBLIC_TYPE_SCOPE]: helper and error types
@@ -33,9 +33,9 @@
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :-------------- | :------------ | :--------------------------------- |
-|   [1]   | `WebAuthnError` | error class   | ceremony failure with code + cause |
+|  [01]   | `WebAuthnError` | error class   | ceremony failure with code + cause |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ceremony methods
 - rail: auth
@@ -108,7 +108,7 @@ export class WebAuthnError extends Error {
 }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [AUTH_TOPOLOGY]:
 - `startRegistration` calls `navigator.credentials.create`; `startAuthentication` calls `navigator.credentials.get`

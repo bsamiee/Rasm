@@ -2,13 +2,13 @@
 
 Scope: composition roots, external I/O boundaries, app runtime, persistence, compute, and product UI surfaces. Domain modules stay on LanguageExt rails, Thinktecture shapes, MathNet/CSparse numerics, and host SDK boundaries.
 
-## [1]-[COMPOSITION_MODES]
+## [01]-[COMPOSITION_MODES]
 
 | [INDEX] | [MODE]                                       |  [DEFAULT]   | [COMPOSITION]                                                |
 | :-----: | -------------------------------------------- | :----------: | ------------------------------------------------------------ |
-|   [1]   | Rhino/GH2 in-process plugin                  |     Yes      | `Eff.runtime<RT>()`, explicit factories, host-owned UI rails |
-|   [2]   | Companion process, test host, bridge service |      No      | Generic Host, `IServiceCollection`, Scrutor, exporters       |
-|   [3]   | Domain, analysis, geometry kernel            | No container | LanguageExt effects and direct constructors                  |
+|  [01]   | Rhino/GH2 in-process plugin                  |     Yes      | `Eff.runtime<RT>()`, explicit factories, host-owned UI rails |
+|  [02]   | Companion process, test host, bridge service |      No      | Generic Host, `IServiceCollection`, Scrutor, exporters       |
+|  [03]   | Domain, analysis, geometry kernel            | No container | LanguageExt effects and direct constructors                  |
 
 Composition packages enter through the owner rail that performs the runtime work: bootstrap, scheduling, persistence, observation, compute, or support confirmation. AppUi, AppHost, Compute, and Persistence are full platform packages, and each package family is selected as part of the rail that consumes it. Public surfaces expose provider-neutral product vocabulary while package APIs remain behind the rail that owns the behavior.
 
@@ -20,7 +20,7 @@ Package posture is exact:
 - Rejected packages are not fallback options for the same capability.
 - In-box surfaces use the BCL or SDK and do not receive package pins.
 
-## [2]-[PACKAGE_POSTURE]
+## [02]-[PACKAGE_POSTURE]
 
 Graph packages are executable restore inputs. Build-contract packages are implementation inputs for the full rail and remain provider-neutral at public boundaries.
 
@@ -44,23 +44,23 @@ Graph packages are executable restore inputs. Build-contract packages are implem
 - Build contract: `System.Numerics.Tensors`, `CommunityToolkit.HighPerformance`, `Microsoft.ML.OnnxRuntime`, `Grpc.Net.Client`, `Google.Protobuf`, `Grpc.Tools`, `UnitsNet`, `Microsoft.IO.RecyclableMemoryStream`.
 - Public rail: execution intent, substrate selection, tensor staging, ONNX/CoreML model execution, gRPC companion execution, units boundaries, stream pooling, measurement, progress, cache keys, and receipts.
 
-## [3]-[OWNER_GATES]
+## [03]-[OWNER_GATES]
 
 | [INDEX] | [CAPABILITY]                  | [OWNER]            | [PUBLIC_SHAPE]               |
 | :-----: | ----------------------------- | ------------------ | ---------------------------- |
-|   [1]   | Generic Host and Scrutor      | `Rasm.AppHost`     | runtime bootstrap rail       |
-|   [2]   | Health, telemetry, validation | `Rasm.AppHost`     | typed runtime receipts       |
-|   [3]   | HTTP resilience               | `Rasm.AppHost`     | outbound-hop policy          |
-|   [4]   | Retained UI and assets        | `Rasm.AppUi`       | shell/screen/command rail    |
-|   [5]   | UI debug overlays             | `Rasm.AppUi`       | diagnostics rail             |
-|   [6]   | SQLite and snapshots          | `Rasm.Persistence` | store and snapshot algebras  |
-|   [7]   | Redaction and support export  | `Rasm.Persistence` | classified export rail       |
-|   [8]   | Tensor, model, remote compute | `Rasm.Compute`     | execution substrate rail     |
-|   [9]   | Units and stream pooling      | `Rasm.Compute`     | measurement and receipt rail |
+|  [01]   | Generic Host and Scrutor      | `Rasm.AppHost`     | runtime bootstrap rail       |
+|  [02]   | Health, telemetry, validation | `Rasm.AppHost`     | typed runtime receipts       |
+|  [03]   | HTTP resilience               | `Rasm.AppHost`     | outbound-hop policy          |
+|  [04]   | Retained UI and assets        | `Rasm.AppUi`       | shell/screen/command rail    |
+|  [05]   | UI debug overlays             | `Rasm.AppUi`       | diagnostics rail             |
+|  [06]   | SQLite and snapshots          | `Rasm.Persistence` | store and snapshot algebras  |
+|  [07]   | Redaction and support export  | `Rasm.Persistence` | classified export rail       |
+|  [08]   | Tensor, model, remote compute | `Rasm.Compute`     | execution substrate rail     |
+|  [09]   | Units and stream pooling      | `Rasm.Compute`     | measurement and receipt rail |
 
 Package versions are resolved by the executable package graph. Public contracts name capabilities, rails, receipts, and provider-neutral identities instead of package-specific API types.
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
 - HTTP resilience owns typed outbound `HttpClient` policies only.
@@ -73,7 +73,7 @@ Package versions are resolved by the executable package graph. Public contracts 
 - Embedded panels, companion windows, explicit sidecars, and downstream app UI all enter through AppUi shell/screen/command/live/theme/asset rails. Provider-specific UI packages never create separate public app surfaces.
 - Vector, tensor, model, remote, stream, and units execution all enter through Compute-owned intent, substrate, receipt, and measurement rails. Provider-specific compute packages never create separate public execution services.
 
-## [5]-[BOUNDARIES]
+## [05]-[BOUNDARIES]
 
 - Central `PackageVersion` entries appear only when an owner consumes the package.
 - Public product vocabulary stays provider-neutral.

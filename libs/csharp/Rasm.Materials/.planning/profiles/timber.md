@@ -2,11 +2,11 @@
 
 THE TIMBER PROFILEFAMILY. The timber cross-section vocabulary — the sawn/glulam/CLT product columns (the rectangular section width/depth, the lamella thickness and count, the EN 14080 / APA PRG 320 strength-grade designation, the grain orientation) and the product-form discriminant — is a realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Timber` case. A glulam beam is a `Profile` row, never a `GlulamBeam` type: the section dimensions, the lamella columns, the grade receipt, and the product form are timber-`Profile` columns, and the `TimberSection` projection feeds the same `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry and steel families drive — a timber member extrudes through one `Profile` over the `RunPath`, never a per-family layout. The timber vocabulary grows by data — a new section is one `TimberRow` catalogue row, a new product form one `TimberForm` case — never a per-member type. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape and the `Rasm` kernel `PositiveMagnitude` for every length column; cmu/glazing land their own sibling vocabularies on their own pages.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TIMBER_FAMILY]: the `TimberForm` sawn/glulam/CLT discriminant, the `TimberGrade` strength-class axis, the `TimberSection` lamella/section record, the `TimberSection.ToUnit` projection, and the `ProfileCatalogue.BuildTimberRows` row table.
+- [01]-[TIMBER_FAMILY]: the `TimberForm` sawn/glulam/CLT discriminant, the `TimberGrade` strength-class axis, the `TimberSection` lamella/section record, the `TimberSection.ToUnit` projection, and the `ProfileCatalogue.BuildTimberRows` row table.
 
-## [2]-[TIMBER_FAMILY]
+## [02]-[TIMBER_FAMILY]
 
 - Owner: the timber unit vocabulary (`TimberForm` the product-form discriminant, `TimberGrade` the EN 14080/APA PRG 320 strength class, `TimberSection` the lamella/section record); `ProfileCatalogue.BuildTimberRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `TimberSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`.
 - Cases: form {sawn (solid-dimension lumber), glulam (glue-laminated lamellae), clt (cross-laminated plies)} — the timber product-form set; grade {gl24h, gl28h, gl32h, c24, c30} — the EN strength classes; a section is a `TimberSection` row over one `TimberForm`/`TimberGrade`, never a section subtype.
@@ -93,7 +93,7 @@ public static class ProfileCatalogue {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [TIMBER_ROW_TRANSCRIPTION]: REALIZED — EN 14080 carries the glulam strength classes (GL24h/GL28h/GL32h homogeneous, the combined `c` variants) with the standard 40–45 mm lamella thickness, EN 338 the C-class structural-sawn grades, and APA PRG 320 the CLT layup grades with the 3/5/7-ply cross-laminated lamellae at 20–40 mm; the catalogue carries the C24/C30 sawn sizes (38×89 through 63×175), the GL24h/GL28h/GL32h glulam sections, and the 3/5/7-ply CLT panels, the standard structural set keyed `timber.<designation>`, the remaining EN strength classes and the LVL/PSL/glulam-curved engineered products one further `TimberRow` data addition, each one row, never a new type. The CLT panel width is the full panel module the layup repeats, the sawn/glulam width the rectangular section breadth, the lamella thickness/count carrying the layup the gamma-method composite stiffness reads.
 - [IFCPROFILEDEF_TIMBER_ALIGNMENT]: every timber form maps to the `IfcRectangleProfileDef` rectangle subtype (`TimberForm.IfcSubtype` carries the spelling) — a sawn/glulam member is the `WidthMm`/`DepthMm` rectangle and a CLT panel the `WidthMm` panel module by `DepthMm` total thickness, the cross-ply layup carried in the `Lamellae`/`LamellaThicknessMm` columns and the material-profile-set layers rather than a profile variant; a timber member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` whose profile is the rectangle and whose `IfcMaterialProfileSetUsage` carries the grade/lamella receipt, the curved/tapered glulam a `SweptArea` extrusion the host materializes from the rectangle profile along the `RunPath`, never a per-product profile subtype. The probe is the `IfcMaterialProfileSetUsage` cardinal-point/orientation mapping at the `Rasm.Bim` boundary.

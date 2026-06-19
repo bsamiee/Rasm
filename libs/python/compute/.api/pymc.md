@@ -2,7 +2,7 @@
 
 `pymc` supplies a Python probabilistic programming interface over PyTensor — model context management, distribution families, sampling via NUTS/HMC/SMC/VI, and posterior predictive sampling — for the compute Bayesian-study rail. The package owner builds models inside a `pm.Model()` context and samples with `pm.sample`, returning `xarray.DataTree` posteriors; it never re-implements a distribution or sampler the package owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pymc`
 - package: `pymc`
@@ -11,32 +11,32 @@
 - rail: Bayesian-study
 - capability: PyTensor-backed probabilistic programming — declarative `Model` context, 60+ distribution families, NUTS/HMC/Metropolis/SMC step methods, ADVI/FullRank/SVGD variational families, and `xarray.DataTree` posterior output
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPE_SCOPE]: model and context types
 - rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                            |
 | :-----: | :-------------- | :------------- | :------------------------------------------------------ |
-|   [1]   | `Model`         | model context  | context manager for declaring random variables and data |
-|   [2]   | `Data`          | data container | mutable shared data tensor inside a model               |
-|   [3]   | `Deterministic` | deterministic  | records a named deterministic transformation            |
-|   [4]   | `Potential`     | log factor     | adds an arbitrary log factor to the joint               |
+|  [01]   | `Model`         | model context  | context manager for declaring random variables and data |
+|  [02]   | `Data`          | data container | mutable shared data tensor inside a model               |
+|  [03]   | `Deterministic` | deterministic  | records a named deterministic transformation            |
+|  [04]   | `Potential`     | log factor     | adds an arbitrary log factor to the joint               |
 
 [PUBLIC_TYPE_SCOPE]: continuous distribution families
 - rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]       | [SUPPORT]          | [CANONICAL_PARAMS]  |
 | :-----: | :------------- | :----------------- | :------------------ |
-|   [1]   | `Normal`       | real line          | `mu`, `sigma`       |
-|   [2]   | `Beta`         | (0, 1)             | `alpha`, `beta`     |
-|   [3]   | `Gamma`        | positive reals     | `alpha`, `beta`     |
-|   [4]   | `Exponential`  | positive reals     | `lam`               |
-|   [5]   | `StudentT`     | real line          | `nu`, `mu`, `sigma` |
-|   [6]   | `HalfNormal`   | non-negative reals | `sigma`             |
-|   [7]   | `HalfCauchy`   | non-negative reals | `beta`              |
-|   [8]   | `LogNormal`    | positive reals     | `mu`, `sigma`       |
-|   [9]   | `Uniform`      | bounded interval   | `lower`, `upper`    |
+|  [01]   | `Normal`       | real line          | `mu`, `sigma`       |
+|  [02]   | `Beta`         | (0, 1)             | `alpha`, `beta`     |
+|  [03]   | `Gamma`        | positive reals     | `alpha`, `beta`     |
+|  [04]   | `Exponential`  | positive reals     | `lam`               |
+|  [05]   | `StudentT`     | real line          | `nu`, `mu`, `sigma` |
+|  [06]   | `HalfNormal`   | non-negative reals | `sigma`             |
+|  [07]   | `HalfCauchy`   | non-negative reals | `beta`              |
+|  [08]   | `LogNormal`    | positive reals     | `mu`, `sigma`       |
+|  [09]   | `Uniform`      | bounded interval   | `lower`, `upper`    |
 |  [10]   | `Cauchy`       | real line          | `alpha`, `beta`     |
 |  [11]   | `Laplace`      | real line          | `mu`, `b`           |
 |  [12]   | `Logistic`     | real line          | `mu`, `s`           |
@@ -50,15 +50,15 @@
 
 | [INDEX] | [SYMBOL]           | [SUPPORT]                  | [CANONICAL_PARAMS]    |
 | :-----: | :----------------- | :------------------------- | :-------------------- |
-|   [1]   | `Bernoulli`        | {0, 1}                     | `p`                   |
-|   [2]   | `Binomial`         | non-negative integers      | `n`, `p`              |
-|   [3]   | `Categorical`      | finite set                 | `p`                   |
-|   [4]   | `Poisson`          | non-negative integers      | `mu`                  |
-|   [5]   | `NegativeBinomial` | non-negative integers      | `mu`, `alpha`         |
-|   [6]   | `Geometric`        | positive integers          | `p`                   |
-|   [7]   | `DiscreteUniform`  | integer range              | `lower`, `upper`      |
-|   [8]   | `MvNormal`         | real vector space          | `mu`, `cov`           |
-|   [9]   | `MvStudentT`       | real vector space          | `nu`, `mu`, `scale`   |
+|  [01]   | `Bernoulli`        | {0, 1}                     | `p`                   |
+|  [02]   | `Binomial`         | non-negative integers      | `n`, `p`              |
+|  [03]   | `Categorical`      | finite set                 | `p`                   |
+|  [04]   | `Poisson`          | non-negative integers      | `mu`                  |
+|  [05]   | `NegativeBinomial` | non-negative integers      | `mu`, `alpha`         |
+|  [06]   | `Geometric`        | positive integers          | `p`                   |
+|  [07]   | `DiscreteUniform`  | integer range              | `lower`, `upper`      |
+|  [08]   | `MvNormal`         | real vector space          | `mu`, `cov`           |
+|  [09]   | `MvStudentT`       | real vector space          | `nu`, `mu`, `scale`   |
 |  [10]   | `Dirichlet`        | probability simplex        | `a`                   |
 |  [11]   | `LKJCholeskyCov`   | Cholesky correlation       | `eta`, `n`, `sd_dist` |
 |  [12]   | `Wishart`          | positive-definite matrices | `nu`, `V`             |
@@ -68,48 +68,48 @@
 
 | [INDEX] | [SYMBOL]        | [SAMPLER_FAMILY] | [CAPABILITY]                                 |
 | :-----: | :-------------- | :--------------- | :------------------------------------------- |
-|   [1]   | `NUTS`          | gradient-based   | `(vars, max_treedepth, early_max_treedepth)` |
-|   [2]   | `HamiltonianMC` | gradient-based   | `(vars, path_length, max_steps)`             |
-|   [3]   | `Metropolis`    | gradient-free    | `(vars, proposal_dist, scaling, tune)`       |
-|   [4]   | `DEMetropolis`  | gradient-free    | differential-evolution Metropolis            |
-|   [5]   | `Slice`         | gradient-free    | slice sampling step method                   |
+|  [01]   | `NUTS`          | gradient-based   | `(vars, max_treedepth, early_max_treedepth)` |
+|  [02]   | `HamiltonianMC` | gradient-based   | `(vars, path_length, max_steps)`             |
+|  [03]   | `Metropolis`    | gradient-free    | `(vars, proposal_dist, scaling, tune)`       |
+|  [04]   | `DEMetropolis`  | gradient-free    | differential-evolution Metropolis            |
+|  [05]   | `Slice`         | gradient-free    | slice sampling step method                   |
 
 [PUBLIC_TYPE_SCOPE]: variational families
 - rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]       | [VI_FAMILY]   | [CAPABILITY]                       |
 | :-----: | :------------- | :------------ | :--------------------------------- |
-|   [1]   | `ADVI`         | mean-field VI | automatic differentiation VI       |
-|   [2]   | `FullRankADVI` | full-rank VI  | full-rank Gaussian ADVI            |
-|   [3]   | `SVGD`         | particle VI   | Stein variational gradient descent |
-|   [4]   | `ASVGD`        | amortized VI  | amortized SVGD                     |
+|  [01]   | `ADVI`         | mean-field VI | automatic differentiation VI       |
+|  [02]   | `FullRankADVI` | full-rank VI  | full-rank Gaussian ADVI            |
+|  [03]   | `SVGD`         | particle VI   | Stein variational gradient descent |
+|  [04]   | `ASVGD`        | amortized VI  | amortized SVGD                     |
 
-## [3]-[ENTRYPOINTS_AND_OPERATIONS]
+## [03]-[ENTRYPOINTS_AND_OPERATIONS]
 
 [ENTRYPOINT_SCOPE]: sampling and inference entrypoints
 - rail: Bayesian-study
 
 | [INDEX] | [SURFACE]                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                           |
 | :-----: | :------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|   [1]   | `sample(draws, *, tune, chains, cores, random_seed, step, nuts_sampler, initvals, init, return_inferencedata)` | MCMC           | primary MCMC entrypoint; returns `DataTree`      |
-|   [2]   | `sample_posterior_predictive(trace, model, *, var_names, random_seed, return_inferencedata)`                   | posterior      | posterior predictive samples from fitted model   |
-|   [3]   | `sample_prior_predictive(samples, model, *, var_names, random_seed)`                                           | prior          | prior predictive samples before conditioning     |
-|   [4]   | `sample_smc(draws, *, kernel, model)`                                                                          | SMC            | sequential Monte Carlo sampling                  |
-|   [5]   | `fit(n, method, model, random_seed, start, **kwargs)`                                                          | VI             | variational inference fit; returns approximation |
-|   [6]   | `find_MAP(start, vars, method, model, maxeval, seed)`                                                          | optimization   | MAP point estimate via gradient optimization     |
+|  [01]   | `sample(draws, *, tune, chains, cores, random_seed, step, nuts_sampler, initvals, init, return_inferencedata)` | MCMC           | primary MCMC entrypoint; returns `DataTree`      |
+|  [02]   | `sample_posterior_predictive(trace, model, *, var_names, random_seed, return_inferencedata)`                   | posterior      | posterior predictive samples from fitted model   |
+|  [03]   | `sample_prior_predictive(samples, model, *, var_names, random_seed)`                                           | prior          | prior predictive samples before conditioning     |
+|  [04]   | `sample_smc(draws, *, kernel, model)`                                                                          | SMC            | sequential Monte Carlo sampling                  |
+|  [05]   | `fit(n, method, model, random_seed, start, **kwargs)`                                                          | VI             | variational inference fit; returns approximation |
+|  [06]   | `find_MAP(start, vars, method, model, maxeval, seed)`                                                          | optimization   | MAP point estimate via gradient optimization     |
 
 [ENTRYPOINT_SCOPE]: diagnostics and log-probability
 - rail: Bayesian-study
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]   | [RAIL]                                        |
 | :-----: | :------------------------------------------- | :--------------- | :-------------------------------------------- |
-|   [1]   | `compute_log_likelihood(idata, model)`       | diagnostics      | per-observation log-likelihood from posterior |
-|   [2]   | `to_inference_data(trace, model)`            | conversion       | converts trace to `xarray.DataTree`           |
-|   [3]   | `predictions_to_inference_data(pred, idata)` | conversion       | attaches predictions to existing `DataTree`   |
-|   [4]   | `logp(rv, value)`                            | log-prob         | evaluates distribution log-probability        |
-|   [5]   | `draw(vars, draws, model, random_seed)`      | sampling utility | draws samples from a model variable           |
+|  [01]   | `compute_log_likelihood(idata, model)`       | diagnostics      | per-observation log-likelihood from posterior |
+|  [02]   | `to_inference_data(trace, model)`            | conversion       | converts trace to `xarray.DataTree`           |
+|  [03]   | `predictions_to_inference_data(pred, idata)` | conversion       | attaches predictions to existing `DataTree`   |
+|  [04]   | `logp(rv, value)`                            | log-prob         | evaluates distribution log-probability        |
+|  [05]   | `draw(vars, draws, model, random_seed)`      | sampling utility | draws samples from a model variable           |
 
-## [4]-[LOCAL_ADMISSION]
+## [04]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pymc`

@@ -2,7 +2,7 @@
 
 `typst` supplies the Rust-backed Typst typesetting surface for the artifacts documents rail: a free-function family that compiles, evaluates, and queries Typst markup into PDF/PNG/SVG/HTML output plus a reusable `Compiler` that caches fonts and world state across renders, with no LaTeX toolchain or external process. The package owner composes `compile`, `query`, and the `Compiler` class into the `DocumentMode.PDF_TYPST` path; it never re-implements the Typst layout engine the embedded compiler already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `typst`
 - package: `typst`
@@ -13,7 +13,7 @@
 - entry points: none (library only)
 - capability: Typst markup compilation to PDF/PNG/SVG/HTML, expression evaluation, document querying, PDF/A standard selection, system-input injection, font-path control, and a font-caching reusable `Compiler`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compiler and font roots
 - rail: documents
@@ -22,13 +22,13 @@ The free functions construct a single-shot `Compiler` internally; the owner hold
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [RAIL]                                        |
 | :-----: | :------------- | :-------------- | :-------------------------------------------- |
-|   [1]   | `Compiler`     | compiler        | reusable font-cached document compiler        |
-|   [2]   | `Fonts`        | font set        | resolved font collection (`families`/`fonts`) |
-|   [3]   | `FontInfo`     | font descriptor | one resolved font face                        |
-|   [4]   | `TypstError`   | diagnostic      | compile failure carrier                       |
-|   [5]   | `TypstWarning` | diagnostic      | compile warning carrier                       |
+|  [01]   | `Compiler`     | compiler        | reusable font-cached document compiler        |
+|  [02]   | `Fonts`        | font set        | resolved font collection (`families`/`fonts`) |
+|  [03]   | `FontInfo`     | font descriptor | one resolved font face                        |
+|  [04]   | `TypstError`   | diagnostic      | compile failure carrier                       |
+|  [05]   | `TypstWarning` | diagnostic      | compile warning carrier                       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module free functions
 - rail: documents
@@ -37,10 +37,10 @@ The free functions take `input` (source path or `bytes`) and share `root`, `font
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                                                                                                                                            | [CAPABILITY]                                       |
 | :-----: | :---------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
-|   [1]   | `compile`               | `compile(input, output=None, root=None, font_paths=..., ignore_system_fonts=False, format=None, ppi=None, sys_inputs=..., pdf_standards=..., package_path=None, timestamp=None, pretty=False, package_cache_path=None)` | compile markup to PDF/PNG/SVG/HTML `bytes` or file |
-|   [2]   | `compile_with_warnings` | same signature as `compile` -> `(output, warnings)`                                                                                                                                                                     | compile and return collected warnings              |
-|   [3]   | `eval`                  | `eval(input, expression, format=None, pretty=False, root=None, font_paths=..., ignore_system_fonts=False, sys_inputs=..., package_path=None, package_cache_path=None)`                                                  | evaluate a Typst expression against a document     |
-|   [4]   | `query`                 | `query(input, selector, field=None, one=False, format=None, root=None, font_paths=..., ignore_system_fonts=False, sys_inputs=..., package_path=None, package_cache_path=None)`                                          | query document elements by selector                |
+|  [01]   | `compile`               | `compile(input, output=None, root=None, font_paths=..., ignore_system_fonts=False, format=None, ppi=None, sys_inputs=..., pdf_standards=..., package_path=None, timestamp=None, pretty=False, package_cache_path=None)` | compile markup to PDF/PNG/SVG/HTML `bytes` or file |
+|  [02]   | `compile_with_warnings` | same signature as `compile` -> `(output, warnings)`                                                                                                                                                                     | compile and return collected warnings              |
+|  [03]   | `eval`                  | `eval(input, expression, format=None, pretty=False, root=None, font_paths=..., ignore_system_fonts=False, sys_inputs=..., package_path=None, package_cache_path=None)`                                                  | evaluate a Typst expression against a document     |
+|  [04]   | `query`                 | `query(input, selector, field=None, one=False, format=None, root=None, font_paths=..., ignore_system_fonts=False, sys_inputs=..., package_path=None, package_cache_path=None)`                                          | query document elements by selector                |
 
 [ENTRYPOINT_SCOPE]: `Compiler` methods
 - rail: documents
@@ -49,12 +49,12 @@ The `Compiler` constructor carries `input`, `root`, `font_paths`, `ignore_system
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                                                                          | [CAPABILITY]                          |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------ |
-|   [1]   | `Compiler.compile`               | `compile(input=None, output=None, format=None, ppi=None, sys_inputs=..., pdf_standards=..., root=None, timestamp=None, pretty=False)` | compile against the cached world      |
-|   [2]   | `Compiler.compile_with_warnings` | same signature -> `(output, warnings)`                                                                                                | compile and return collected warnings |
-|   [3]   | `Compiler.eval`                  | `eval(expression, format=None, pretty=False, root=None)`                                                                              | evaluate an expression                |
-|   [4]   | `Compiler.query`                 | `query(selector, field=None, one=False, format=None, root=None)`                                                                      | query elements by selector            |
+|  [01]   | `Compiler.compile`               | `compile(input=None, output=None, format=None, ppi=None, sys_inputs=..., pdf_standards=..., root=None, timestamp=None, pretty=False)` | compile against the cached world      |
+|  [02]   | `Compiler.compile_with_warnings` | same signature -> `(output, warnings)`                                                                                                | compile and return collected warnings |
+|  [03]   | `Compiler.eval`                  | `eval(expression, format=None, pretty=False, root=None)`                                                                              | evaluate an expression                |
+|  [04]   | `Compiler.query`                 | `query(selector, field=None, one=False, format=None, root=None)`                                                                      | query elements by selector            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DOCUMENT_PDF_TYPST]:
 - import: `import typst` at boundary scope only; module-level import is banned by the manifest import policy.

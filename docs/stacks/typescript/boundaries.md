@@ -2,28 +2,28 @@
 
 Foreign material crosses once: a boundary owner decodes bytes, sentinels, callbacks, promises, worker-affine work, state cells, and provider shapes into decoded values or typed Effect rails, and a Layer wires the capability graph so everything the interior receives — values, receipts, services, effects — is recoverable from declarations rather than from the foreign surface that produced it. The Layer graph is where requirement edges collapse to `never`; the Schema is where untyped input becomes domain material; the wire codec is the only site where protocol and interior schemas meet.
 
-## [1]-[SEAM_CHOOSER]
+## [01]-[SEAM_CHOOSER]
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and lifetime rows are read before transport rows.
 
 | [INDEX] | [FOREIGN_SIGNAL]        | [SEAM_OWNER]                          | [INTERIOR_FORM]                       | [REJECT]                     |
 | :-----: | :---------------------- | :------------------------------------ | :------------------------------------ | :--------------------------- |
-|   [1]   | untyped input payload   | `Schema.decodeUnknown`                | decoded owner in the rail             | interior revalidation        |
-|   [2]   | throwing async call     | `Effect.tryPromise`                   | typed `Effect` failure                | raw `Promise` in domain      |
-|   [3]   | null or sentinel        | `Option.fromNullable`                 | `Option<T>` or tagged family          | nullable payload past seam   |
-|   [4]   | cause-bearing absence   | tagged `Data.TaggedError`             | closed failure family                 | `Option.none` for a cause    |
-|   [5]   | resource lifetime       | `Effect.acquireRelease`               | scoped value, LIFO finalizer          | manual cleanup, leaked fiber |
-|   [6]   | worker/main-thread call | marshal `Effect`                      | `Effect` with captured runtime        | ambient main-thread read     |
-|   [7]   | high-frequency callback | `Queue`/`PubSub` or `SubscriptionRef` | drained `Stream` or latest cell       | blocked/mutating callback    |
-|   [8]   | event or subscription   | scoped `PubSub`/`Queue`               | drained `Stream` of decoded signals   | orphan handler               |
-|   [9]   | isolated-axis lifetime  | derived `Scope`/`Layer.fresh`         | one-axis-isolated instance            | shared cancellation/registry |
+|  [01]   | untyped input payload   | `Schema.decodeUnknown`                | decoded owner in the rail             | interior revalidation        |
+|  [02]   | throwing async call     | `Effect.tryPromise`                   | typed `Effect` failure                | raw `Promise` in domain      |
+|  [03]   | null or sentinel        | `Option.fromNullable`                 | `Option<T>` or tagged family          | nullable payload past seam   |
+|  [04]   | cause-bearing absence   | tagged `Data.TaggedError`             | closed failure family                 | `Option.none` for a cause    |
+|  [05]   | resource lifetime       | `Effect.acquireRelease`               | scoped value, LIFO finalizer          | manual cleanup, leaked fiber |
+|  [06]   | worker/main-thread call | marshal `Effect`                      | `Effect` with captured runtime        | ambient main-thread read     |
+|  [07]   | high-frequency callback | `Queue`/`PubSub` or `SubscriptionRef` | drained `Stream` or latest cell       | blocked/mutating callback    |
+|  [08]   | event or subscription   | scoped `PubSub`/`Queue`               | drained `Stream` of decoded signals   | orphan handler               |
+|  [09]   | isolated-axis lifetime  | derived `Scope`/`Layer.fresh`         | one-axis-isolated instance            | shared cancellation/registry |
 |  [10]   | session/singleton state | `SubscriptionRef` state family        | committed `Data.TaggedEnum` cell      | boolean lifecycle flag       |
 |  [11]   | keyed recomputation     | `Equivalence`-keyed memo / `RcMap`    | full-dimension cache key              | path-only/type-only cache    |
 |  [12]   | capability dependency   | `Layer` + `Effect.Service`            | provided context, `R = never` at root | service location             |
 |  [13]   | protocol payload        | `Schema.transform` codec              | decoded owner                         | codec-bearing domain owner   |
 |  [14]   | signed byte field       | raw-bytes-then-hash capture           | canonical octets plus hash            | parse-reserialize            |
 
-## [2]-[ADMISSION]
+## [02]-[ADMISSION]
 
 [DECODE_PROJECTION]:
 - Use: any untyped ingress — request body, env, provider row, foreign JSON — decoded exactly once through `Schema.decodeUnknown(schema)(input)`, with `{ errors: "all" }` when every parse failure must accumulate.
@@ -66,7 +66,7 @@ const admit = (raw: unknown): Effect.Effect<Option.Option<Payload>, RowFault> =>
   S.decodeUnknown(_Row)(raw).pipe(Effect.mapError((e) => new RowFault({ reason: "absent", detail: e.message })), Effect.flatMap(_route))
 ```
 
-## [3]-[LIFETIME]
+## [03]-[LIFETIME]
 
 [CAPSULE_OWNER]:
 - Use: connections, pools, file handles, sockets, leases, and external cursors.
@@ -98,7 +98,7 @@ class EventDrain extends Effect.Service<EventDrain>()("domain/EventDrain", {
 - Law: `Stream.groupedWithin(count, window)` batches by whichever threshold hits first and flushes partial chunks on time expiry, so the drain observes every published message; an interrupted drain leaves unprocessed messages in the queue as back-pressure, never silent loss.
 - Reject: an inline handler that cannot detach, a finalizer-owned unsubscribe split from its attach, and a foreign callback running arbitrary downstream domain logic.
 
-## [4]-[MARSHAL_AND_HANDOFF]
+## [04]-[MARSHAL_AND_HANDOFF]
 
 [HOST_MARSHAL]:
 - Use: worker-pool decode jobs, `postMessage`/`MessagePort` round trips, `requestAnimationFrame`/main-thread-affine reads, and any work pinned to a runtime that is not the calling fiber's.
@@ -151,7 +151,7 @@ const _bridge = <A>(runtime: Runtime.Runtime<never>, scope: Scope.Scope, work: E
 - Law: `Effect.cachedFunction(f, eq?)` and `RcMap`/`Effect.cachedInvalidateWithTTL` are the memo owners — the `Equivalence` keys the structured value directly, so a key that is itself a `Data.Class` or tagged value compares by `Equal.equals` with no projection step.
 - Reject: a path-only, type-only, or `Option`-partial cache key that omits a dimension the body reads; a `HashMap` keyed on a mutable foreign handle whose identity drifts under reconnection; a `Set<string>` dedupe ledger where `HashSet` of the tagged value coalesces structurally.
 
-## [5]-[STATE_CELLS]
+## [05]-[STATE_CELLS]
 
 A boundary lifecycle is a closed state family in one cell, never a boolean ladder; the transition stays pure and replayable, and waiters wake only from committed state.
 
@@ -194,7 +194,7 @@ const open = (cell: SubscriptionRef.SubscriptionRef<Gate>, acquire: Effect.Effec
   })
 ```
 
-## [6]-[LAYER_COMPOSITION]
+## [06]-[LAYER_COMPOSITION]
 
 [REQUIREMENT_ELIMINATION]:
 - Law: `Layer.provide(dep)` collapses a requirement edge retaining only consumer output — the provider vanishes; `Layer.provideMerge(dep)` collapses the edge and unions the provider output downstream; misclassifying an edge is a type error or a silent capability leak.
@@ -227,7 +227,7 @@ const _root = (region: string): Layer.Layer<typeof _Collector.Identifier | typeo
   )
 ```
 
-## [7]-[WIRE_CONTRACTS]
+## [07]-[WIRE_CONTRACTS]
 
 [PROTOCOL_EDGE]:
 - Law: wire shapes stay protocol-shaped at the edge — one `Schema.transform(wire, domain, { decode, encode })` is the only site where protocol and interior schemas meet, and interior owners carry no codec attributes or transport objects.

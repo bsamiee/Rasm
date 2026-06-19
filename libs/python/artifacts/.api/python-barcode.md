@@ -2,7 +2,7 @@
 
 `python-barcode` (dist `python-barcode`, import `barcode`) supplies the pure-Python linear (1D) barcode surface for the artifacts imaging rail beside the segno QR arm: a name-keyed symbology registry (`get`/`generate`/`get_barcode_class`) that builds a `Barcode` from a code string and renders it through a dependency-free `SVGWriter` or a Pillow-backed `ImageWriter`. The package owner composes `generate`, the symbology registry, and the writer pair into the linear-barcode path; it never re-implements the 1D encoding tables python-barcode already owns, and it routes QR and 2D-matrix symbologies elsewhere because this package is strictly linear.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 - package: `python-barcode`
 - import: `barcode` (dist name `python-barcode`, import name `barcode`)
@@ -13,47 +13,47 @@
 - entry points: console script `python-barcode` (CLI: `create`/`list`); library use is import-only
 - capability: linear (1D) barcode generation for the Code39/Code128/EAN/UPC/ITF/Codabar/ISBN/ISSN/PZN/GS1-128 symbologies, name-keyed symbology resolution, dependency-free SVG serialization, and Pillow-backed raster (PNG) serialization with configurable module geometry, quiet zone, and human-readable text
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: barcode base and writer roots
 - rail: imaging
 
 `Barcode.default_writer` is `SVGWriter`; the `ImageWriter` is defined only when Pillow is importable. Concrete symbology classes (`Code128`, `Code39`, `EAN13`, `EAN8`, `EAN14`, `JAN`, `UPCA`, `ITF`, `Codabar`, `ISBN10`, `ISBN13`, `ISSN`, `PZN`, `Gs1_128`) subclass `Barcode` and are resolved by name through the registry rather than imported individually.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                              |
-| :-----: | :------------------------ | :-------------- | :----------------------------------------------------------------------- |
-|   [1]   | `barcode.base.Barcode`    | symbology base  | abstract 1D barcode; class attribute `name`, `default_writer = SVGWriter` |
-|   [2]   | `barcode.writer.BaseWriter`| writer base     | abstract renderer; owns the module-geometry/quiet-zone/text option set    |
-|   [3]   | `barcode.writer.SVGWriter`| SVG writer      | default, dependency-free SVG (`xml.dom.minidom`)                          |
-|   [4]   | `barcode.writer.ImageWriter`| raster writer | Pillow-backed PNG/raster; present only when Pillow imports                |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                                              |
+| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `barcode.base.Barcode`       | symbology base | abstract 1D barcode; class attribute `name`, `default_writer = SVGWriter` |
+|  [02]   | `barcode.writer.BaseWriter`  | writer base    | abstract renderer; owns the module-geometry/quiet-zone/text option set    |
+|  [03]   | `barcode.writer.SVGWriter`   | SVG writer     | default, dependency-free SVG (`xml.dom.minidom`)                          |
+|  [04]   | `barcode.writer.ImageWriter` | raster writer  | Pillow-backed PNG/raster; present only when Pillow imports                |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: symbology registry and factory
 - rail: imaging
 
 `PROVIDED_BARCODES` is the sorted list of accepted name keys (`code128`, `code39`, `ean13`/`ean`, `ean8`, `ean14`/`gtin`, `jan`, `upc`/`upca`, `itf`, `codabar`/`nw-7`, `isbn13`/`isbn`/`gs1`, `isbn10`, `issn`, `pzn`, `gs1_128`, plus the `ean13-guard`/`ean8-guard` variants). `get`/`generate` resolve a name to a class and build the symbology in one call.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                | [CAPABILITY]                              |
-| :-----: | :-------------------- | :------------------------------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `get`                 | `get(name, code=None, writer=None, options=None)` -> `Barcode` or class    | resolve and build (or resolve the class)  |
-|   [2]   | `generate`            | `generate(name, code, writer=None, output=None, writer_options=None, text=None)` -> `str` or `None` | build and write in one call |
-|   [3]   | `get_barcode_class`   | `get_barcode_class(name)` -> `type[Barcode]`                               | resolve name to symbology class (alias of `get_class`) |
-|   [4]   | `PROVIDED_BARCODES`   | sorted `list[str]`                                                          | accepted symbology name keys              |
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                        | [CAPABILITY]                                           |
+| :-----: | :------------------ | :-------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `get`               | `get(name, code=None, writer=None, options=None)` -> `Barcode` or class                             | resolve and build (or resolve the class)               |
+|  [02]   | `generate`          | `generate(name, code, writer=None, output=None, writer_options=None, text=None)` -> `str` or `None` | build and write in one call                            |
+|  [03]   | `get_barcode_class` | `get_barcode_class(name)` -> `type[Barcode]`                                                        | resolve name to symbology class (alias of `get_class`) |
+|  [04]   | `PROVIDED_BARCODES` | sorted `list[str]`                                                                                  | accepted symbology name keys                           |
 
 [ENTRYPOINT_SCOPE]: `Barcode` render and serialize
 - rail: imaging
 
 `writer_options` flows the renderer geometry; human-readable text is suppressed by passing `text=""`, not a boolean flag. `save` appends the writer's extension; `write` streams to an open binary file; `render` returns the in-memory rendering.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                  | [CAPABILITY]                              |
-| :-----: | :------------------- | :----------------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `Barcode.save`       | `save(filename, options=None, text=None)` -> `str`           | serialize to a file (extension by writer) |
-|   [2]   | `Barcode.write`      | `write(fp, options=None, text=None)`                         | serialize to an open binary stream        |
-|   [3]   | `Barcode.render`     | `render(writer_options=None, text=None)`                     | in-memory rendering (SVG string / image)  |
-|   [4]   | `Barcode.name`       | class attribute                                              | symbology name                            |
+| [INDEX] | [SURFACE]        | [CALL_SHAPE]                                       | [CAPABILITY]                              |
+| :-----: | :--------------- | :------------------------------------------------- | :---------------------------------------- |
+|  [01]   | `Barcode.save`   | `save(filename, options=None, text=None)` -> `str` | serialize to a file (extension by writer) |
+|  [02]   | `Barcode.write`  | `write(fp, options=None, text=None)`               | serialize to an open binary stream        |
+|  [03]   | `Barcode.render` | `render(writer_options=None, text=None)`           | in-memory rendering (SVG string / image)  |
+|  [04]   | `Barcode.name`   | class attribute                                    | symbology name                            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGING_BARCODE]:
 - import: `import barcode` at boundary scope only; module-level import is banned by the manifest import policy. The dist name is `python-barcode`; the import name is `barcode`.

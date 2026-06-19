@@ -2,20 +2,20 @@
 
 `expression` owns result and absence rails, do-notation builders, and immutable traversal; `anyio` owns structured concurrency, cancellation scopes, and effect execution; `stamina` owns retry and backoff policy. A rail is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value or a raised exception happens only at the process, CLI, network, or persistence edge. Admitted domain values enter these surfaces; raw provider shapes, `None`-as-failure, and unclassified exceptions never travel the interior — they convert once at the owning boundary.
 
-## [1]-[RAIL_CHOOSER]
+## [01]-[RAIL_CHOOSER]
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is earned only by a capability the narrower one cannot carry: typed failure cause, accumulated faults, structured effects, or async cancellation.
 
 | [INDEX] | [SURFACE]                  | [OWNS]                         | [REJECT]                      |
 | :-----: | :------------------------- | :----------------------------- | :---------------------------- |
-|   [1]   | `Option[T]`                | non-failing absence            | `None`-as-hidden-failure      |
-|   [2]   | `Result[T, E]`             | typed fallibility              | raised control flow in domain |
-|   [3]   | `effect.result` builder    | sequential `bind` do-notation  | nested `bind` lambda ladders  |
-|   [4]   | `Try[T]`                   | captured-exception boundary    | bare `try`/`except` interior  |
-|   [5]   | `Block[T]` / `Map[K, V]`   | immutable traversal and lookup | mutable list/dict domain flow |
-|   [6]   | `anyio` task group / scope | structured async effect        | `asyncio.gather` task sets    |
-|   [7]   | `stamina.retry`            | retry and backoff policy       | ad-hoc sleep-and-loop retry   |
-|   [8]   | memory-object-stream agent | serialized boundary state cell | shared mutable global         |
+|  [01]   | `Option[T]`                | non-failing absence            | `None`-as-hidden-failure      |
+|  [02]   | `Result[T, E]`             | typed fallibility              | raised control flow in domain |
+|  [03]   | `effect.result` builder    | sequential `bind` do-notation  | nested `bind` lambda ladders  |
+|  [04]   | `Try[T]`                   | captured-exception boundary    | bare `try`/`except` interior  |
+|  [05]   | `Block[T]` / `Map[K, V]`   | immutable traversal and lookup | mutable list/dict domain flow |
+|  [06]   | `anyio` task group / scope | structured async effect        | `asyncio.gather` task sets    |
+|  [07]   | `stamina.retry`            | retry and backoff policy       | ad-hoc sleep-and-loop retry   |
+|  [08]   | memory-object-stream agent | serialized boundary state cell | shared mutable global         |
 
 `Option[T]` carries absence with zero failure semantics; promote to `Result[T, E]` when the caller must know why; the error type `E` is a closed fault vocabulary — a `Literal` set, `StrEnum`, or `@tagged_union` fault family — never a bare `str` for a domain that has more than one failure mode. `Try[T]` is `Result[T, Exception]` pinned to the exception side; it is the one carrier produced at a foreign boundary and immediately mapped into the domain fault vocabulary.
 
@@ -29,7 +29,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 - Law: `Result.map` and `Result.bind` are total over both arms — `map` transforms the `Ok` and passes `Error` through, `bind` chains the `Ok` and short-circuits the `Error` — so a transform never inspects the tag by hand.
 - Use: `result.is_ok()` / `result.is_error()` — both are methods called with parens, never properties — only at a terminal collapse; interior code composes through `map`/`bind`/`map_error` and never branches on the tag.
 
-## [2]-[BOUNDARY_CONVERSION]
+## [02]-[BOUNDARY_CONVERSION]
 
 Every boundary converts once into the carrier that states the real outcome; reusable transforms keep that carrier and never re-project mid-pipeline.
 
@@ -71,7 +71,7 @@ def admitted(raw: bytes, /) -> Result["Shape", AdmitFault]:
 - Law: reusable domain transforms keep the carrier; `.value` and direct attribute access on a rail are never the interior exit — they assert a proof the type does not carry.
 - Reject: mid-pipeline collapse inside a pure projection; a `match` on the rail tag inside an expression that stays railed.
 
-## [3]-[TRAVERSAL_FLOW]
+## [03]-[TRAVERSAL_FLOW]
 
 Traversal is rail policy: the collection owner and the sequencing operator together decide how failures, strictness, and order compose.
 
@@ -113,21 +113,21 @@ def traversed_accumulate(raws: Block[str], /) -> tuple[Block[int], Block[Travers
     return oks, errs
 ```
 
-## [4]-[FAILURE_HANDLING]
+## [04]-[FAILURE_HANDLING]
 
 Apply rail-qualified failure transforms before collapse; a rail transform never raises.
 
 | [INDEX] | [COMBINATOR]         | [CARRIER]          | [USE]                      |
 | :-----: | :------------------- | :----------------- | :------------------------- |
-|   [1]   | `.map_error(f)`      | `Result`, `Try`    | map the fault              |
-|   [2]   | `.or_else(other)`    | `Result`, `Option` | recover with a fallback    |
-|   [3]   | `.or_else_with(f)`   | `Result`, `Option` | recover from the fault     |
-|   [4]   | `.swap()`            | `Result`           | exchange `Ok` and `Error`  |
-|   [5]   | `.merge()`           | `Result`           | collapse same-typed arms   |
-|   [6]   | `.to_result(error)`  | `Option`           | project to `Result`        |
-|   [7]   | `.to_option()`       | `Result`           | discard fault detail       |
-|   [8]   | `.filter_with(p, f)` | `Result`           | guard with a fault on fail |
-|   [9]   | `.default_with(f)`   | `Result`, `Option` | terminal lazy fallback     |
+|  [01]   | `.map_error(f)`      | `Result`, `Try`    | map the fault              |
+|  [02]   | `.or_else(other)`    | `Result`, `Option` | recover with a fallback    |
+|  [03]   | `.or_else_with(f)`   | `Result`, `Option` | recover from the fault     |
+|  [04]   | `.swap()`            | `Result`           | exchange `Ok` and `Error`  |
+|  [05]   | `.merge()`           | `Result`           | collapse same-typed arms   |
+|  [06]   | `.to_result(error)`  | `Option`           | project to `Result`        |
+|  [07]   | `.to_option()`       | `Result`           | discard fault detail       |
+|  [08]   | `.filter_with(p, f)` | `Result`           | guard with a fault on fail |
+|  [09]   | `.default_with(f)`   | `Result`, `Option` | terminal lazy fallback     |
 
 [FAULT_VOCABULARY]:
 - Law: the failure type is a closed vocabulary the program owns — a `Literal` set for a handful of causes, a `StrEnum` when the causes are iterated or carried on the wire, a `@tagged_union` fault family when a cause carries a structured payload — and the family separates the two dispositions: expected, conjunctive faults that accumulate (every validation failure of one admission combines) and exceptional, disjunctive faults that abort (the first irrecoverable cause wins). The carrier choice realizes the disposition — `map2`/accumulating fold for the conjunctive set, `bind` short-circuit for the disjunctive set.
@@ -165,7 +165,7 @@ def guarded(score: int, low: int, high: int, /) -> Result[int, Fault]:
     return Ok(score) if low <= score <= high else Error(Fault(bounds=(low, high)))
 ```
 
-## [5]-[EFFECT_RUNTIME]
+## [05]-[EFFECT_RUNTIME]
 
 An async effect carries structured concurrency; `anyio` defers boundary work, owns cancellation scope, and runs the effect at one composition edge.
 
@@ -268,7 +268,7 @@ def admitted(url: str, /) -> Result[bytes, str]:
         return Error(f"<unreachable:{fault}>")
 ```
 
-## [6]-[STATE_RECEIPTS]
+## [06]-[STATE_RECEIPTS]
 
 State belongs at a boundary or session owner, not inside pure domain transforms.
 
@@ -351,7 +351,7 @@ def grouped_last(facts: Block[Fact], /) -> dict[str, Fact]:
     return facts.fold(lambda acc, fact: {**acc, fact.slot: fact}, {})
 ```
 
-## [7]-[INTEROP]
+## [07]-[INTEROP]
 
 One implementation crosses rails through the shared Kleisli surface; host values cross into rails at adapter edges only.
 

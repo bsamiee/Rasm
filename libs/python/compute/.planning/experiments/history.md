@@ -2,11 +2,11 @@
 
 The experiment-run persistence, resume, and comparison rail on the study spine. `RunHistory` carries the prior study receipts and re-runs only the incomplete grid cells of a study keyed by its design `ContentKey`, so a complete prior run short-circuits, an incomplete prior run evaluates only its remaining cells, and a fresh design runs the whole grid once. The comparison join reads two run receipts by content key and projects their completed-and-total cell counts. This rail rides the same param-axis and sample-grid spine as the study owner rather than a parallel experiment tracker.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RUN_HISTORY]: content-key-keyed run persistence, partial-cell resume, and run comparison on one `RunHistory` owner.
+- [01]-[RUN_HISTORY]: content-key-keyed run persistence, partial-cell resume, and run comparison on one `RunHistory` owner.
 
-## [2]-[RUN_HISTORY]
+## [02]-[RUN_HISTORY]
 
 - Owner: `RunHistory` — the experiment-run persistence and resume rail on the study spine; it carries the prior `StudyReceipt` cohort and re-runs only the incomplete grid cells. `resume` keys a study by its design `ContentKey`, short-circuits a complete prior run, evaluates the remaining cells of an incomplete prior run, and runs the whole grid for a fresh design. `compare` joins two run receipts by content key and projects their cell counts. No parallel experiment tracker stands beside it.
 - Entry: `RunHistory.resume` returns `RuntimeRail[StudyReceipt]` through one `boundary`; the partial-cell resume rebuilds the design from the study seed, finds the prior run on the same key, and folds the remaining responses into a merged receipt carrying the cumulative completed count. `RunHistory.compare` returns the completed-and-total cell counts for the two keyed runs.

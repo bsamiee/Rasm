@@ -2,12 +2,12 @@
 
 The 2D chart-to-render axis. `ChartSpec` is ONE owner collapsing the three 2D engines — declarative (altair Vega-Lite), imperative (plotly graph_objects), and publication (matplotlib) — into one tagged union; `ChartExport` carries the host-free static-export rows. The host-free posture is the decisive axis: vl-convert-python is the primary Vega/Vega-Lite engine (Rust-native, embedded V8/deno_runtime, inlined Vega sources, zero browser, SVG-first then resvg/svg2pdf to PNG/PDF) on the cp315 core, and kaleido is a host-Chrome-gated degraded path, never the default. vegafusion is the server-side Vega transform pre-pass executing a spec's DataFusion-backed data transforms before vl-convert render, gated `python_version<'3.15'` and crossing the runtime subprocess seam. matplotlib is gated `python_version<'3.15'`: it never resolves in the cp315-core process, so its offscreen Agg/PDF/SVG render runs on the runtime subprocess seam. Every render returns a `RuntimeRail[ContentKey]`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CHART]: the 2D `ChartSpec` union over the three charting engines.
-- [2]-[EXPORT]: host-free static-export backend rows with the vegafusion transform pre-pass.
+- [01]-[CHART]: the 2D `ChartSpec` union over the three charting engines.
+- [02]-[EXPORT]: host-free static-export backend rows with the vegafusion transform pre-pass.
 
-## [2]-[CHART]
+## [02]-[CHART]
 
 - Owner: `ChartSpec` the one chart axis discriminating engine; the declarative, imperative, and publication engines are cases on one owner, never a parallel per-engine chart class.
 - Cases: `ChartSpec` cases `Vega(spec)` (altair Vega-Lite grammar / raw Vega-Lite dict) · `Plotly(figure)` (plotly graph_objects) · `Matplotlib(figure)` (matplotlib `Figure`) — matched by `match`/`case`; altair compiles to the Vega-Lite spec the export axis consumes directly.
@@ -42,7 +42,7 @@ class ChartSpec:
         return ChartSpec(matplotlib=figure)
 ```
 
-## [3]-[EXPORT]
+## [03]-[EXPORT]
 
 - Owner: `ChartExport` the static-export dispatch over the chart case and target format; `ExportFormat` the closed `StrEnum`; the `_export_host_free` fold over the chart case IS the engine selection, vl-convert primary and kaleido host-Chrome-gated — no parallel engine enum.
 - Cases: vega-via-`vl-convert-python` `vegalite_to_svg`/`vegalite_to_png`/`vegalite_to_pdf` (primary, host-free, cp315-core) preceded by the gated `vegafusion` `runtime.pre_transform_spec` server-side transform pre-pass when the spec carries data transforms · plotly-via-`kaleido` `calc_fig_sync` figure-to-bytes (cp315-core, gated behind detected host Chrome via `get_chrome_sync`, never the default) · matplotlib-via-`Figure.savefig` on the Agg/PDF/SVG backends (gated `python_version<'3.15'`, run on the subprocess seam) — the engine is the chart-case fold arm, not a knob.
@@ -136,6 +136,6 @@ def _has_transforms(spec: dict[str, object]) -> bool:
     return "transform" in spec or any("transform" in layer for layer in spec.get("layer", ()) if isinstance(layer, dict))
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 No open items. The `vl-convert-python` `vegalite_to_svg`/`vegalite_to_png`/`vegalite_to_pdf`, the `kaleido` `get_chrome_sync`/`calc_fig_sync`, the `vegafusion` `runtime.pre_transform_spec`, and the `matplotlib` `Figure.savefig` Agg spellings each verify against the folder `.api` catalogue for the owning package. The `vegafusion` transform arm and the `matplotlib` render arm cross `anyio.to_process.run_sync` on the `python_version<'3.15'` band, importing the package at boundary scope inside the gated-band worker; the `vl-convert`/`kaleido` arms resolve on the cp315 core.

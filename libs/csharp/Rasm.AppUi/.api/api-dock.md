@@ -2,7 +2,7 @@
 
 `Dock.Avalonia` and `Dock.Model.ReactiveUI` supply docking controls, host windows, dock targets, selector overlays, and the ReactiveUI dock model with factory-created layouts, docks, documents, and tools.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Dock.Avalonia`
 - package: `Dock.Avalonia`
@@ -23,22 +23,22 @@
 - asset: runtime library
 - rail: docking
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [DOCK_CONTROLS]: docking visual tree
 - rail: docking
 
 | [INDEX] | [SYMBOL]                  | [RAIL]            |
 | :-----: | :------------------------ | :---------------- |
-|   [1]   | `DockControl`             | dock root control |
-|   [2]   | `RootDockControl`         | root view         |
-|   [3]   | `ProportionalDockControl` | split view        |
-|   [4]   | `DocumentDockControl`     | document dock     |
-|   [5]   | `ToolDockControl`         | tool dock         |
-|   [6]   | `DocumentControl`         | document host     |
-|   [7]   | `ToolControl`             | tool host         |
-|   [8]   | `DocumentTabStrip`        | document tabs     |
-|   [9]   | `ToolTabStrip`            | tool tabs         |
+|  [01]   | `DockControl`             | dock root control |
+|  [02]   | `RootDockControl`         | root view         |
+|  [03]   | `ProportionalDockControl` | split view        |
+|  [04]   | `DocumentDockControl`     | document dock     |
+|  [05]   | `ToolDockControl`         | tool dock         |
+|  [06]   | `DocumentControl`         | document host     |
+|  [07]   | `ToolControl`             | tool host         |
+|  [08]   | `DocumentTabStrip`        | document tabs     |
+|  [09]   | `ToolTabStrip`            | tool tabs         |
 |  [10]   | `ToolChromeControl`       | tool chrome       |
 |  [11]   | `PinnedDockControl`       | pinned dock       |
 |  [12]   | `ToolPinnedControl`       | pinned tools      |
@@ -48,15 +48,15 @@
 
 | [INDEX] | [SYMBOL]              | [RAIL]             |
 | :-----: | :-------------------- | :----------------- |
-|   [1]   | `HostWindow`          | floating host      |
-|   [2]   | `HostWindowTitleBar`  | host chrome        |
-|   [3]   | `DockTarget`          | local drop target  |
-|   [4]   | `GlobalDockTarget`    | global drop target |
-|   [5]   | `DockableControl`     | dockable region    |
-|   [6]   | `DragPreviewControl`  | drag preview       |
-|   [7]   | `DockSelectorOverlay` | selector overlay   |
-|   [8]   | `DockSelectorMode`    | selector mode      |
-|   [9]   | `IDockThemeManager`   | theme contract     |
+|  [01]   | `HostWindow`          | floating host      |
+|  [02]   | `HostWindowTitleBar`  | host chrome        |
+|  [03]   | `DockTarget`          | local drop target  |
+|  [04]   | `GlobalDockTarget`    | global drop target |
+|  [05]   | `DockableControl`     | dockable region    |
+|  [06]   | `DragPreviewControl`  | drag preview       |
+|  [07]   | `DockSelectorOverlay` | selector overlay   |
+|  [08]   | `DockSelectorMode`    | selector mode      |
+|  [09]   | `IDockThemeManager`   | theme contract     |
 |  [10]   | `IMdiLayoutManager`   | MDI layout         |
 
 [MODEL_TYPES]: ReactiveUI dock model
@@ -64,35 +64,35 @@
 
 | [INDEX] | [SYMBOL]                   | [RAIL]            |
 | :-----: | :------------------------- | :---------------- |
-|   [1]   | `Factory`                  | model factory     |
-|   [2]   | `DockableBase`             | dockable base     |
-|   [3]   | `DockBase`                 | dock base         |
-|   [4]   | `DockWindow`               | window model      |
-|   [5]   | `RootDock`                 | root model        |
-|   [6]   | `ProportionalDock`         | split model       |
-|   [7]   | `ProportionalDockSplitter` | splitter model    |
-|   [8]   | `DocumentDock`             | document dock     |
-|   [9]   | `ToolDock`                 | tool dock         |
+|  [01]   | `Factory`                  | model factory     |
+|  [02]   | `DockableBase`             | dockable base     |
+|  [03]   | `DockBase`                 | dock base         |
+|  [04]   | `DockWindow`               | window model      |
+|  [05]   | `RootDock`                 | root model        |
+|  [06]   | `ProportionalDock`         | split model       |
+|  [07]   | `ProportionalDockSplitter` | splitter model    |
+|  [08]   | `DocumentDock`             | document dock     |
+|  [09]   | `ToolDock`                 | tool dock         |
 |  [10]   | `Document`                 | document model    |
 |  [11]   | `Tool`                     | tool model        |
 |  [12]   | `IDockDispatcher`          | dispatch contract |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: dock control wiring
 - rail: docking
 
 | [INDEX] | [SURFACE]                       | [SURFACE_ROOT] | [RAIL]            |
 | :-----: | :------------------------------ | :------------- | :---------------- |
-|   [1]   | `Layout`                        | `DockControl`  | layout input      |
-|   [2]   | `Factory`                       | `DockControl`  | factory binding   |
-|   [3]   | `InitializeLayout`              | `DockControl`  | auto init         |
-|   [4]   | `InitializeFactory`             | `DockControl`  | factory init      |
-|   [5]   | `DefaultContext`                | `DockControl`  | context fallback  |
-|   [6]   | `IsDockingEnabled`              | `DockControl`  | drag gate         |
-|   [7]   | `HostWindowFactory`             | `DockControl`  | float window kind |
-|   [8]   | `EnableManagedWindowLayer`      | `DockControl`  | managed floats    |
-|   [9]   | `DockManager`                   | `DockControl`  | manager access    |
+|  [01]   | `Layout`                        | `DockControl`  | layout input      |
+|  [02]   | `Factory`                       | `DockControl`  | factory binding   |
+|  [03]   | `InitializeLayout`              | `DockControl`  | auto init         |
+|  [04]   | `InitializeFactory`             | `DockControl`  | factory init      |
+|  [05]   | `DefaultContext`                | `DockControl`  | context fallback  |
+|  [06]   | `IsDockingEnabled`              | `DockControl`  | drag gate         |
+|  [07]   | `HostWindowFactory`             | `DockControl`  | float window kind |
+|  [08]   | `EnableManagedWindowLayer`      | `DockControl`  | managed floats    |
+|  [09]   | `DockManager`                   | `DockControl`  | manager access    |
 |  [10]   | `RegisterExternalDockSurface`   | `DockControl`  | external surface  |
 |  [11]   | `ShowSelector` / `HideSelector` | `DockControl`  | selector overlay  |
 
@@ -101,19 +101,19 @@
 
 | [INDEX] | [SURFACE]                        | [SURFACE_ROOT] | [RAIL]          |
 | :-----: | :------------------------------- | :------------- | :-------------- |
-|   [1]   | `CreateLayout`                   | `Factory`      | layout root     |
-|   [2]   | `CreateRootDock`                 | `Factory`      | root dock       |
-|   [3]   | `CreateProportionalDock`         | `Factory`      | split dock      |
-|   [4]   | `CreateProportionalDockSplitter` | `Factory`      | splitter        |
-|   [5]   | `CreateDocumentDock`             | `Factory`      | document dock   |
-|   [6]   | `CreateToolDock`                 | `Factory`      | tool dock       |
-|   [7]   | `CreateDocument`                 | `Factory`      | document        |
-|   [8]   | `CreateTool`                     | `Factory`      | tool            |
-|   [9]   | `CreateDockWindow`               | `Factory`      | float window    |
+|  [01]   | `CreateLayout`                   | `Factory`      | layout root     |
+|  [02]   | `CreateRootDock`                 | `Factory`      | root dock       |
+|  [03]   | `CreateProportionalDock`         | `Factory`      | split dock      |
+|  [04]   | `CreateProportionalDockSplitter` | `Factory`      | splitter        |
+|  [05]   | `CreateDocumentDock`             | `Factory`      | document dock   |
+|  [06]   | `CreateToolDock`                 | `Factory`      | tool dock       |
+|  [07]   | `CreateDocument`                 | `Factory`      | document        |
+|  [08]   | `CreateTool`                     | `Factory`      | tool            |
+|  [09]   | `CreateDockWindow`               | `Factory`      | float window    |
 |  [10]   | `CreateList`                     | `Factory`      | dockable list   |
 |  [11]   | `DockControls` / `HostWindows`   | `Factory`      | live registries |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DOCKING_LAW]:
 - Package: `Dock.Avalonia`

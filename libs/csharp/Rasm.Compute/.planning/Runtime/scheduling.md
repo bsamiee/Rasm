@@ -2,15 +2,15 @@
 
 Rasm.Compute schedules every admitted intent through five bounded `WorkLane` channel rows behind one `LaneRuntime` enqueue capsule: lane choice is an intent field, full-mode and backpressure are row data, drops emit a correlated `Backpressure` receipt, queue depth reads `ChannelReader.Count`, and solve-path dispatch structurally returns a `LaneHandle` instead of executing work. The page owns the `WorkLane` axis, the work-item and handle shapes, the GH2 async-result ceiling, the `CpuBudget` record the three concurrency axes share, the `JobGraph` dependency-DAG scheduler layering speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store orchestration over the bounded lanes and keying every node on the content digest of its inputs so a re-run reconciles digests and recomputes only the moved subgraph while clean nodes replay cached receipts, and band-200 drain participation — over bounded System.Threading.Channels pipes, Thinktecture vocabulary, LanguageExt rails, NodaTime instants, and the AppHost drain, cancellation, clock, and schedule spine.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LANE_AXIS]: five bounded channel rows; capacity, full-mode, readers, rank as row data.
-- [2]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
-- [3]-[CPU_BUDGET]: one processor-budget record shared by all three concurrency axes.
-- [4]-[JOB_GRAPH]: dependency job-graph scheduler; speculative/preemptible; checkpoint; spill.
-- [5]-[DRAIN_CANCEL]: band-200 drain participation; one linked cancellation chain with provenance.
+- [01]-[LANE_AXIS]: five bounded channel rows; capacity, full-mode, readers, rank as row data.
+- [02]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
+- [03]-[CPU_BUDGET]: one processor-budget record shared by all three concurrency axes.
+- [04]-[JOB_GRAPH]: dependency job-graph scheduler; speculative/preemptible; checkpoint; spill.
+- [05]-[DRAIN_CANCEL]: band-200 drain participation; one linked cancellation chain with provenance.
 
-## [2]-[LANE_AXIS]
+## [02]-[LANE_AXIS]
 
 - Owner: `WorkLane` `[SmartEnum<string>]` five rows under the `ComputeKeyPolicy` ordinal accessor; `LaneHandle` readback handle; `WorkItem` channel element.
 - Cases: interactive, background, bulk, benchmark, capture-ingest.
@@ -54,7 +54,7 @@ public readonly record struct LaneHandle(CorrelationId Correlation, WorkLane Lan
 public readonly record struct WorkItem(AdmittedIntent Intent, LaneHandle Handle);
 ```
 
-## [3]-[SOLVE_GUARD]
+## [03]-[SOLVE_GUARD]
 
 - Owner: `LaneRuntime` — the one enqueue capsule over five bounded channels, the admission gate, and the pump readers.
 - Entry: `public IO<LaneHandle> Enqueue(AdmittedIntent intent)` — `IO` carries the enqueue effect, awaits fullness on Wait rows, and aborts fenced admission with `ComputeFault.ShutdownDrained`.
@@ -137,7 +137,7 @@ flowchart LR
     DrainParticipantPort -->|Drain| LaneRuntime
 ```
 
-## [4]-[CPU_BUDGET]
+## [04]-[CPU_BUDGET]
 
 - Owner: `CpuBudget` — the one processor-budget record the three concurrency axes read.
 - Entry: `public static CpuBudget Resolve(int processors, int hostReserve)` — pure clamp; the record freezes at composition and every derived field is arithmetic over the two inputs.
@@ -169,16 +169,16 @@ The posture row supplies `hostReserve` per host-profile row at composition:
 
 | [INDEX] | [PROFILE_ROW]      | [HOST_RESERVE] |
 | :-----: | :----------------- | :------------: |
-|   [1]   | rhino-plugin       |       2        |
-|   [2]   | gh2-plugin         |       2        |
-|   [3]   | standalone-desktop |       1        |
-|   [4]   | companion          |       1        |
-|   [5]   | sidecar            |       1        |
-|   [6]   | headless-service   |       0        |
-|   [7]   | web-service        |       0        |
-|   [8]   | test-host          |       0        |
+|  [01]   | rhino-plugin       |       2        |
+|  [02]   | gh2-plugin         |       2        |
+|  [03]   | standalone-desktop |       1        |
+|  [04]   | companion          |       1        |
+|  [05]   | sidecar            |       1        |
+|  [06]   | headless-service   |       0        |
+|  [07]   | web-service        |       0        |
+|  [08]   | test-host          |       0        |
 
-## [5]-[JOB_GRAPH]
+## [05]-[JOB_GRAPH]
 
 - Owner: `JobNode` the dependency-graph node record carrying its `AdmittedIntent`, upstream dependency set, input-bytes content seed, and scheduling columns; `JobState` `[SmartEnum<string>]` node-lifecycle rows; `JobGraph` the topological dependency-graph scheduler that admits a DAG of compute jobs, runs ready nodes onto the `LaneRuntime`, reconciles speculative, preemptible, fair-share, accelerator-affinity, and spill-to-store columns, and keys every node on the `Runtime/codecs#CONTENT_ADDRESSING` digest of its inputs so a re-run diffs digests and recomputes only the moved subgraph; `JobCheckpoint` the resume-state carrier the spill writes.
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · completed · spilled · faulted.
@@ -326,7 +326,7 @@ stateDiagram-v2
     Faulted --> [*]
 ```
 
-## [6]-[DRAIN_CANCEL]
+## [06]-[DRAIN_CANCEL]
 
 - Owner: `LaneDrain` — the participant fold projecting lane rows onto the drain conductor.
 - Cases: user cancel (handle scope), deadline expiry (scope deadline at the execution edge), shutdown drain (spine under the conductor) — provenance-preserved end to end through `CancelScope` path segments.
@@ -350,6 +350,6 @@ public static class LaneDrain {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [LANE_EVIDENCE]: the bounded-channel `itemDropped` callback runs on the writer thread synchronously, so the drop-path `Backpressure` projection allocates only the receipt envelope at the sink edge; the per-drop allocation profile under sustained `DropOldest` capture-ingest load is the implementation-time measurement that confirms the steady-state path stays envelope-only.

@@ -2,7 +2,7 @@
 
 `tree-sitter-typescript` supplies the compiled TypeScript and TSX grammars for the tree-sitter runtime: `language_typescript()` and `language_tsx()` factories returning grammar pointers. It is a grammar row consumed by the `tree-sitter` parser; it owns no parsing logic of its own.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tree-sitter-typescript`
 - package: `tree-sitter-typescript`
@@ -12,23 +12,23 @@
 - namespaces: `tree_sitter_typescript`
 - capability: compiled TypeScript and TSX grammar pointers
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: grammar family
 - rail: parsing
 - No named public types; the package surface is two factory functions only.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar operations
 - rail: parsing
 
 | [INDEX] | [SURFACE]             | [ENTRY_FAMILY] | [RAIL]                     |
 | :-----: | :-------------------- | :------------- | :------------------------- |
-|   [1]   | `language_typescript` | grammar        | TypeScript grammar pointer |
-|   [2]   | `language_tsx`        | grammar        | TSX grammar pointer        |
+|  [01]   | `language_typescript` | grammar        | TypeScript grammar pointer |
+|  [02]   | `language_tsx`        | grammar        | TSX grammar pointer        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PARSING_TOPOLOGY]:
 - grammar law: TypeScript and TSX are two grammar rows — `Language(tree_sitter_typescript.language_typescript())` and `Language(tree_sitter_typescript.language_tsx())` — constructed once and reused; the dialect is a grammar row, never a parser branch.

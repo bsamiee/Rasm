@@ -3,7 +3,7 @@
 `SQLitePCLRaw.bundle_e_sqlite3` admits the bundled SQLite native provider used
 by the embedded SQLite store profile.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3`
 - package: `SQLitePCLRaw.bundle_e_sqlite3`
@@ -12,58 +12,58 @@ by the embedded SQLite store profile.
 - asset: native provider bundle
 - rail: store-provider
 
-## [2]-[PACKAGE_ASSETS]
+## [02]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: bundle assets
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]             |
 | :-----: | :-------------------------------- | :------------------ | :----------------------- |
-|   [1]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle package      | admits native provider   |
-|   [2]   | `SQLitePCLRaw.core`               | core dependency     | exposes raw SQLite API   |
-|   [3]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries batteries asset  |
-|   [4]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | supplies native provider |
-|   [5]   | `SourceGear.sqlite3`              | native dependency   | supplies SQLite library  |
-|   [6]   | `Batteries_V2`                    | initializer         | initializes provider     |
+|  [01]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle package      | admits native provider   |
+|  [02]   | `SQLitePCLRaw.core`               | core dependency     | exposes raw SQLite API   |
+|  [03]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries batteries asset  |
+|  [04]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | supplies native provider |
+|  [05]   | `SourceGear.sqlite3`              | native dependency   | supplies SQLite library  |
+|  [06]   | `Batteries_V2`                    | initializer         | initializes provider     |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider initialization
 - rail: store-provider
 
 | [INDEX] | [SURFACE]        | [CALL_SHAPE]     | [CAPABILITY]          |
 | :-----: | :--------------- | :--------------- | :-------------------- |
-|   [1]   | `Batteries.Init` | initializer call | initializes SQLitePCL |
-|   [2]   | `Batteries_V2`   | initializer type | binds provider bundle |
-|   [3]   | native library   | runtime asset    | executes SQLite calls |
-|   [4]   | provider factory | runtime asset    | connects raw provider |
+|  [01]   | `Batteries.Init` | initializer call | initializes SQLitePCL |
+|  [02]   | `Batteries_V2`   | initializer type | binds provider bundle |
+|  [03]   | native library   | runtime asset    | executes SQLite calls |
+|  [04]   | provider factory | runtime asset    | connects raw provider |
 
 [ENTRYPOINT_SCOPE]: raw interop surface (`SQLitePCLRaw.core`, namespace `SQLitePCL`)
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE]    | [CAPABILITY]          |
 | :-----: | :---------------------------------------------------------------------------- | :-------------- | :-------------------- |
-|   [1]   | `raw.sqlite3_backup_init` / `_step` / `_remaining` / `_pagecount` / `_finish` | static raw call | pages live backup     |
-|   [2]   | `raw.sqlite3_snapshot_get` / `_open` / `_cmp` / `_recover` / `_free`          | static raw call | pins consistent view  |
-|   [3]   | `raw.sqlite3_db_config`                                                       | static raw call | configures connection |
-|   [4]   | `raw.sqlite3_wal_checkpoint_v2`                                               | static raw call | checkpoints WAL log   |
-|   [5]   | `raw.sqlite3_extended_result_codes`                                           | static raw call | arms extended codes   |
-|   [6]   | `raw.SQLITE_OK` / `raw.SQLITE_DONE`                                           | status constant | reports raw status    |
-|   [7]   | `sqlite3` / `sqlite3_backup` / `sqlite3_snapshot`                             | handle type     | owns native handle    |
+|  [01]   | `raw.sqlite3_backup_init` / `_step` / `_remaining` / `_pagecount` / `_finish` | static raw call | pages live backup     |
+|  [02]   | `raw.sqlite3_snapshot_get` / `_open` / `_cmp` / `_recover` / `_free`          | static raw call | pins consistent view  |
+|  [03]   | `raw.sqlite3_db_config`                                                       | static raw call | configures connection |
+|  [04]   | `raw.sqlite3_wal_checkpoint_v2`                                               | static raw call | checkpoints WAL log   |
+|  [05]   | `raw.sqlite3_extended_result_codes`                                           | static raw call | arms extended codes   |
+|  [06]   | `raw.SQLITE_OK` / `raw.SQLITE_DONE`                                           | status constant | reports raw status    |
+|  [07]   | `sqlite3` / `sqlite3_backup` / `sqlite3_snapshot`                             | handle type     | owns native handle    |
 
 [RAW_SIGNATURES]: verified `SQLitePCL.raw` member signatures (e_sqlite3 3.0.3)
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                       | [CAPABILITY]               |
 | :-----: | :------------------------------ | :------------------------- |
-|   [1]   | `sqlite3_db_config`             | per-connection config flag |
-|   [2]   | `sqlite3_wal_checkpoint_v2`     | WAL checkpoint with frames |
-|   [3]   | `sqlite3_extended_result_codes` | arms extended result codes |
-|   [4]   | `sqlite3_snapshot_get`          | pins read-view snapshot    |
-|   [5]   | `sqlite3_snapshot_open`         | opens pinned snapshot      |
-|   [6]   | `sqlite3_snapshot_cmp`          | orders snapshots           |
-|   [7]   | snapshot recover/free           | recovers / frees snapshot  |
-|   [8]   | backup API                      | pages live backup          |
+|  [01]   | `sqlite3_db_config`             | per-connection config flag |
+|  [02]   | `sqlite3_wal_checkpoint_v2`     | WAL checkpoint with frames |
+|  [03]   | `sqlite3_extended_result_codes` | arms extended result codes |
+|  [04]   | `sqlite3_snapshot_get`          | pins read-view snapshot    |
+|  [05]   | `sqlite3_snapshot_open`         | opens pinned snapshot      |
+|  [06]   | `sqlite3_snapshot_cmp`          | orders snapshots           |
+|  [07]   | snapshot recover/free           | recovers / frees snapshot  |
+|  [08]   | backup API                      | pages live backup          |
 
 ```csharp generated
 int sqlite3_db_config(sqlite3 db, int op, int val, out int result)
@@ -86,15 +86,15 @@ int sqlite3_backup_finish(sqlite3_backup backup)
 
 | [INDEX] | [CONSTANT]                              | [VALUE] | [CAPABILITY]                |
 | :-----: | :-------------------------------------- | ------: | :-------------------------- |
-|   [1]   | `SQLITE_DBCONFIG_DEFENSIVE`             |    1010 | defensive-mode hardening    |
-|   [2]   | `SQLITE_DBCONFIG_DQS_DML`               |    1013 | double-quoted DML rejection |
-|   [3]   | `SQLITE_DBCONFIG_DQS_DDL`               |    1014 | double-quoted DDL rejection |
-|   [4]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |    1003 | trigger enablement          |
-|   [5]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |    1015 | view enablement             |
-|   [6]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |    1005 | db_config extension arming  |
-|   [7]   | `SQLITE_OK`                             |       0 | status code                 |
-|   [8]   | `SQLITE_DONE`                           |     101 | status code                 |
-|   [9]   | `SQLITE_BUSY`                           |       5 | extended status code        |
+|  [01]   | `SQLITE_DBCONFIG_DEFENSIVE`             |    1010 | defensive-mode hardening    |
+|  [02]   | `SQLITE_DBCONFIG_DQS_DML`               |    1013 | double-quoted DML rejection |
+|  [03]   | `SQLITE_DBCONFIG_DQS_DDL`               |    1014 | double-quoted DDL rejection |
+|  [04]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |    1003 | trigger enablement          |
+|  [05]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |    1015 | view enablement             |
+|  [06]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |    1005 | db_config extension arming  |
+|  [07]   | `SQLITE_OK`                             |       0 | status code                 |
+|  [08]   | `SQLITE_DONE`                           |     101 | status code                 |
+|  [09]   | `SQLITE_BUSY`                           |       5 | extended status code        |
 |  [10]   | `SQLITE_CORRUPT`                        |      11 | extended status code        |
 |  [11]   | `SQLITE_NOTADB`                         |      26 | extended status code        |
 |  [12]   | `SQLITE_CHECKPOINT_PASSIVE`             |       0 | checkpoint mode             |
@@ -102,7 +102,7 @@ int sqlite3_backup_finish(sqlite3_backup backup)
 |  [14]   | `SQLITE_CHECKPOINT_RESTART`             |       2 | checkpoint mode             |
 |  [15]   | `SQLITE_CHECKPOINT_TRUNCATE`            |       3 | checkpoint mode             |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [NATIVE_ADMISSION]:
 - package role: SQLite native provider admission

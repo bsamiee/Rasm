@@ -3,7 +3,7 @@
 `EFCore.NamingConventions` supplies EF Core naming-convention extensions and
 convention services for relational model naming policy.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `EFCore.NamingConventions`
 - package: `EFCore.NamingConventions`
@@ -12,36 +12,36 @@ convention services for relational model naming policy.
 - asset: runtime library
 - rail: schema-tooling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [NAMING_TYPES]: naming-convention services
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]    | [CAPABILITY]            |
 | :-----: | :---------------------------- | :---------------- | :---------------------- |
-|   [1]   | `NamingConventionsExtensions` | builder extension | admits naming policy    |
-|   [2]   | `NamingConventionSetPlugin`   | convention plugin | applies model naming    |
-|   [3]   | `INameRewriter`               | rewriter contract | rewrites identifiers    |
-|   [4]   | `SnakeCaseNameRewriter`       | naming service    | writes snake case       |
-|   [5]   | `LowerCaseNameRewriter`       | naming service    | writes lower case       |
-|   [6]   | `UpperCaseNameRewriter`       | naming service    | writes upper case       |
-|   [7]   | `CamelCaseNameRewriter`       | naming service    | writes camel case       |
-|   [8]   | `UpperSnakeCaseNameRewriter`  | naming service    | writes upper snake case |
+|  [01]   | `NamingConventionsExtensions` | builder extension | admits naming policy    |
+|  [02]   | `NamingConventionSetPlugin`   | convention plugin | applies model naming    |
+|  [03]   | `INameRewriter`               | rewriter contract | rewrites identifiers    |
+|  [04]   | `SnakeCaseNameRewriter`       | naming service    | writes snake case       |
+|  [05]   | `LowerCaseNameRewriter`       | naming service    | writes lower case       |
+|  [06]   | `UpperCaseNameRewriter`       | naming service    | writes upper case       |
+|  [07]   | `CamelCaseNameRewriter`       | naming service    | writes camel case       |
+|  [08]   | `UpperSnakeCaseNameRewriter`  | naming service    | writes upper snake case |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: naming policy operations
 - rail: schema-tooling
 
 | [INDEX] | [SURFACE]                           | [CALL_SHAPE]      | [CAPABILITY]          |
 | :-----: | :---------------------------------- | :---------------- | :-------------------- |
-|   [1]   | `UseSnakeCaseNamingConvention`      | builder extension | applies naming policy |
-|   [2]   | `UseLowerCaseNamingConvention`      | builder extension | applies naming policy |
-|   [3]   | `UseUpperCaseNamingConvention`      | builder extension | applies naming policy |
-|   [4]   | `UseCamelCaseNamingConvention`      | builder extension | applies naming policy |
-|   [5]   | `UseUpperSnakeCaseNamingConvention` | builder extension | applies naming policy |
+|  [01]   | `UseSnakeCaseNamingConvention`      | builder extension | applies naming policy |
+|  [02]   | `UseLowerCaseNamingConvention`      | builder extension | applies naming policy |
+|  [03]   | `UseUpperCaseNamingConvention`      | builder extension | applies naming policy |
+|  [04]   | `UseCamelCaseNamingConvention`      | builder extension | applies naming policy |
+|  [05]   | `UseUpperSnakeCaseNamingConvention` | builder extension | applies naming policy |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [NAMING_POLICY]:
 - namespace: `Microsoft.EntityFrameworkCore`

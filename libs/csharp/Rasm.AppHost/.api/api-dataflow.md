@@ -4,7 +4,7 @@
 propagator blocks, grouping blocks, reservation contracts, backpressure, completion,
 and ordered handoff for AppHost drain.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Threading.Tasks.Dataflow`
 - package: `System.Threading.Tasks.Dataflow`
@@ -13,45 +13,45 @@ and ordered handoff for AppHost drain.
 - asset: runtime library
 - rail: work-queue
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: block family
 - rail: work-queue
 
 | [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]     | [CAPABILITY]          |
 | :-----: | :----------------------------------- | :----------------- | :-------------------- |
-|   [1]   | `BufferBlock<T>`                     | buffer block       | queues messages       |
-|   [2]   | `ActionBlock<T>`                     | execution block    | consumes messages     |
-|   [3]   | `TransformBlock<TInput,TOutput>`     | propagator block   | transforms messages   |
-|   [4]   | `TransformManyBlock<TInput,TOutput>` | propagator block   | expands messages      |
-|   [5]   | `BroadcastBlock<T>`                  | broadcast block    | fans out latest value |
-|   [6]   | `BatchBlock<T>`                      | grouping block     | batches messages      |
-|   [7]   | `JoinBlock<T1,T2>`                   | grouping block     | joins messages        |
-|   [8]   | `WriteOnceBlock<T>`                  | single-value block | publishes one value   |
-|   [9]   | `IDataflowBlock`                     | lifecycle contract | owns completion       |
+|  [01]   | `BufferBlock<T>`                     | buffer block       | queues messages       |
+|  [02]   | `ActionBlock<T>`                     | execution block    | consumes messages     |
+|  [03]   | `TransformBlock<TInput,TOutput>`     | propagator block   | transforms messages   |
+|  [04]   | `TransformManyBlock<TInput,TOutput>` | propagator block   | expands messages      |
+|  [05]   | `BroadcastBlock<T>`                  | broadcast block    | fans out latest value |
+|  [06]   | `BatchBlock<T>`                      | grouping block     | batches messages      |
+|  [07]   | `JoinBlock<T1,T2>`                   | grouping block     | joins messages        |
+|  [08]   | `WriteOnceBlock<T>`                  | single-value block | publishes one value   |
+|  [09]   | `IDataflowBlock`                     | lifecycle contract | owns completion       |
 |  [10]   | `IPropagatorBlock<TInput,TOutput>`   | block contract     | consumes and produces |
 |  [11]   | `IReceivableSourceBlock<T>`          | receive contract   | supports pull receive |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: block operations
 - rail: work-queue
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]      | [CAPABILITY]              |
 | :-----: | :--------------------- | :---------------- | :------------------------ |
-|   [1]   | `Post`                 | synchronous offer | offers message            |
-|   [2]   | `SendAsync`            | async offer       | awaits backpressure       |
-|   [3]   | `LinkTo`               | link operation    | connects dataflow blocks  |
-|   [4]   | `Complete`             | completion signal | stops input               |
-|   [5]   | `Completion`           | completion task   | awaits drain state        |
-|   [6]   | `Fault`                | fault signal      | faults block              |
-|   [7]   | `TryReceive`           | pull receive      | reads available message   |
-|   [8]   | `TryReceiveAll`        | pull drain        | drains available messages |
-|   [9]   | `OutputAvailableAsync` | readiness task    | awaits source readiness   |
+|  [01]   | `Post`                 | synchronous offer | offers message            |
+|  [02]   | `SendAsync`            | async offer       | awaits backpressure       |
+|  [03]   | `LinkTo`               | link operation    | connects dataflow blocks  |
+|  [04]   | `Complete`             | completion signal | stops input               |
+|  [05]   | `Completion`           | completion task   | awaits drain state        |
+|  [06]   | `Fault`                | fault signal      | faults block              |
+|  [07]   | `TryReceive`           | pull receive      | reads available message   |
+|  [08]   | `TryReceiveAll`        | pull drain        | drains available messages |
+|  [09]   | `OutputAvailableAsync` | readiness task    | awaits source readiness   |
 |  [10]   | `TriggerBatch`         | batch trigger     | forces batch emission     |
 |  [11]   | `Encapsulate`          | block composition | wraps target and source   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BLOCK_TOPOLOGY]:
 - namespaces: `System.Threading.Tasks.Dataflow`

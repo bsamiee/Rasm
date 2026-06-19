@@ -2,7 +2,7 @@
 
 `numpyro` supplies probabilistic programming primitives, distribution families, effect handlers, and JAX-native inference engines for the compute Bayesian-study rail. The package owner declares a model with `sample`, `plate`, and `param` sites, transforms it with effect handlers, then runs inference through `MCMC(NUTS(...))` or `SVI(model, guide, optim, loss)`; it never re-implements a sampler or distribution the package owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numpyro`
 - package: `numpyro`
@@ -12,22 +12,22 @@
 - installed: cp313 only (manifest pin `numpyro>=0.21.0; python_version<'3.15'`; jaxlib ships no cp315 wheel)
 - capability: effect-handler probabilistic programming on JAX — distribution families, MCMC (NUTS/HMC/SA/ensemble), variational inference (SVI/ELBO/autoguide), posterior-predictive sampling, and convergence diagnostics
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: MCMC inference family (`numpyro.infer`)
 - rail: Bayesian-study
 
 | [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]        | [CAPABILITY]                                                                                             |
 | :-----: | :----------------- | :-------------------- | :------------------------------------------------------------------------------------------------------- |
-|   [1]   | `MCMC`             | MCMC runner           | `(sampler, num_warmup, num_samples, num_chains, chain_method)`                                           |
-|   [2]   | `NUTS`             | gradient sampler      | `(model, step_size, adapt_step_size, adapt_mass_matrix, dense_mass, target_accept_prob, max_tree_depth)` |
-|   [3]   | `HMC`              | gradient sampler      | Hamiltonian Monte Carlo with tunable path length                                                         |
-|   [4]   | `SA`               | gradient-free sampler | Sample Adaptive algorithm                                                                                |
-|   [5]   | `BarkerMH`         | gradient sampler      | Barker Metropolis-Hastings                                                                               |
-|   [6]   | `AIES`             | ensemble sampler      | affine-invariant ensemble sampler                                                                        |
-|   [7]   | `DiscreteHMCGibbs` | mixed sampler         | Gibbs step for discrete variables plus HMC                                                               |
-|   [8]   | `HMCGibbs`         | mixed sampler         | HMC inner kernel with Gibbs outer step                                                                   |
-|   [9]   | `MixedHMC`         | mixed sampler         | mixed continuous/discrete HMC                                                                            |
+|  [01]   | `MCMC`             | MCMC runner           | `(sampler, num_warmup, num_samples, num_chains, chain_method)`                                           |
+|  [02]   | `NUTS`             | gradient sampler      | `(model, step_size, adapt_step_size, adapt_mass_matrix, dense_mass, target_accept_prob, max_tree_depth)` |
+|  [03]   | `HMC`              | gradient sampler      | Hamiltonian Monte Carlo with tunable path length                                                         |
+|  [04]   | `SA`               | gradient-free sampler | Sample Adaptive algorithm                                                                                |
+|  [05]   | `BarkerMH`         | gradient sampler      | Barker Metropolis-Hastings                                                                               |
+|  [06]   | `AIES`             | ensemble sampler      | affine-invariant ensemble sampler                                                                        |
+|  [07]   | `DiscreteHMCGibbs` | mixed sampler         | Gibbs step for discrete variables plus HMC                                                               |
+|  [08]   | `HMCGibbs`         | mixed sampler         | HMC inner kernel with Gibbs outer step                                                                   |
+|  [09]   | `MixedHMC`         | mixed sampler         | mixed continuous/discrete HMC                                                                            |
 |  [10]   | `HMCECS`           | scalable sampler      | HMC with energy-conserving subsampling                                                                   |
 |  [11]   | `Predictive`       | posterior sampling    | `(model, posterior_samples, guide, params, num_samples, return_sites)`                                   |
 
@@ -36,15 +36,15 @@
 
 | [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]      | [CAPABILITY]                                   |
 | :-----: | :----------------------------------- | :------------------ | :--------------------------------------------- |
-|   [1]   | `SVI`                                | VI runner           | `(model, guide, optim, loss, **static_kwargs)` |
-|   [2]   | `Trace_ELBO`                         | ELBO objective      | standard single-sample ELBO                    |
-|   [3]   | `TraceMeanField_ELBO`                | ELBO objective      | mean-field KL closed-form ELBO                 |
-|   [4]   | `TraceGraph_ELBO`                    | ELBO objective      | ELBO with variance-reduced score function      |
-|   [5]   | `TraceEnum_ELBO`                     | ELBO objective      | ELBO with discrete-variable enumeration        |
-|   [6]   | `RenyiELBO`                          | ELBO objective      | Renyi alpha-divergence ELBO bound              |
-|   [7]   | `ESS`                                | importance sampling | effective sample size for importance weights   |
-|   [8]   | `autoguide.AutoNormal`               | guide automate      | diagonal-normal mean-field guide               |
-|   [9]   | `autoguide.AutoDelta`                | guide automate      | MAP point-estimate guide                       |
+|  [01]   | `SVI`                                | VI runner           | `(model, guide, optim, loss, **static_kwargs)` |
+|  [02]   | `Trace_ELBO`                         | ELBO objective      | standard single-sample ELBO                    |
+|  [03]   | `TraceMeanField_ELBO`                | ELBO objective      | mean-field KL closed-form ELBO                 |
+|  [04]   | `TraceGraph_ELBO`                    | ELBO objective      | ELBO with variance-reduced score function      |
+|  [05]   | `TraceEnum_ELBO`                     | ELBO objective      | ELBO with discrete-variable enumeration        |
+|  [06]   | `RenyiELBO`                          | ELBO objective      | Renyi alpha-divergence ELBO bound              |
+|  [07]   | `ESS`                                | importance sampling | effective sample size for importance weights   |
+|  [08]   | `autoguide.AutoNormal`               | guide automate      | diagonal-normal mean-field guide               |
+|  [09]   | `autoguide.AutoDelta`                | guide automate      | MAP point-estimate guide                       |
 |  [10]   | `autoguide.AutoMultivariateNormal`   | guide automate      | full-covariance Gaussian guide                 |
 |  [11]   | `autoguide.AutoLaplaceApproximation` | guide automate      | Laplace approximation around the mode          |
 
@@ -53,15 +53,15 @@
 
 | [INDEX] | [SYMBOL]             | [DISTRIBUTION_CLASS] | [SUPPORT]                        |
 | :-----: | :------------------- | :------------------- | :------------------------------- |
-|   [1]   | `Normal`             | continuous           | real line                        |
-|   [2]   | `Beta`               | continuous           | (0, 1)                           |
-|   [3]   | `Gamma`              | continuous           | positive reals                   |
-|   [4]   | `StudentT`           | continuous           | real line                        |
-|   [5]   | `Exponential`        | continuous           | positive reals                   |
-|   [6]   | `HalfNormal`         | continuous           | non-negative reals               |
-|   [7]   | `HalfCauchy`         | continuous           | non-negative reals               |
-|   [8]   | `LogNormal`          | continuous           | positive reals                   |
-|   [9]   | `Uniform`            | continuous           | bounded interval                 |
+|  [01]   | `Normal`             | continuous           | real line                        |
+|  [02]   | `Beta`               | continuous           | (0, 1)                           |
+|  [03]   | `Gamma`              | continuous           | positive reals                   |
+|  [04]   | `StudentT`           | continuous           | real line                        |
+|  [05]   | `Exponential`        | continuous           | positive reals                   |
+|  [06]   | `HalfNormal`         | continuous           | non-negative reals               |
+|  [07]   | `HalfCauchy`         | continuous           | non-negative reals               |
+|  [08]   | `LogNormal`          | continuous           | positive reals                   |
+|  [09]   | `Uniform`            | continuous           | bounded interval                 |
 |  [10]   | `Dirichlet`          | multivariate         | probability simplex              |
 |  [11]   | `MultivariateNormal` | multivariate         | real vector space                |
 |  [12]   | `LKJCholesky`        | matrix               | Cholesky of correlation matrices |
@@ -71,22 +71,22 @@
 |  [16]   | `Poisson`            | discrete             | non-negative integers            |
 |  [17]   | `NegativeBinomial2`  | discrete             | non-negative integers            |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model primitive sites (`numpyro.<fn>`)
 - rail: Bayesian-study
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|   [1]   | `sample(name, fn, obs, rng_key, sample_shape, infer, obs_mask)` | sample site    | declares a random variable and records the site |
-|   [2]   | `plate(name, size, subsample_size, dim)`                        | independence   | declares a conditional-independence plate       |
-|   [3]   | `plate_stack(prefix, sizes, rightmost_dim)`                     | nested plate   | stacks plates over the rightmost dimensions     |
-|   [4]   | `param(name, init_value, **kwargs)`                             | VI parameter   | declares a variational parameter site           |
-|   [5]   | `deterministic(name, value)`                                    | deterministic  | records a deterministic function of latents     |
-|   [6]   | `factor(name, log_factor)`                                      | log factor     | adds an arbitrary log factor to the joint       |
-|   [7]   | `subsample(data, event_dim)`                                    | subsampling    | subsamples data for mini-batch inference        |
-|   [8]   | `module(name, nn, input_shape)`                                 | neural module  | registers a parameterized neural network site   |
-|   [9]   | `prng_key()`                                                    | RNG access     | draws a PRNG key inside an effectful model      |
+|  [01]   | `sample(name, fn, obs, rng_key, sample_shape, infer, obs_mask)` | sample site    | declares a random variable and records the site |
+|  [02]   | `plate(name, size, subsample_size, dim)`                        | independence   | declares a conditional-independence plate       |
+|  [03]   | `plate_stack(prefix, sizes, rightmost_dim)`                     | nested plate   | stacks plates over the rightmost dimensions     |
+|  [04]   | `param(name, init_value, **kwargs)`                             | VI parameter   | declares a variational parameter site           |
+|  [05]   | `deterministic(name, value)`                                    | deterministic  | records a deterministic function of latents     |
+|  [06]   | `factor(name, log_factor)`                                      | log factor     | adds an arbitrary log factor to the joint       |
+|  [07]   | `subsample(data, event_dim)`                                    | subsampling    | subsamples data for mini-batch inference        |
+|  [08]   | `module(name, nn, input_shape)`                                 | neural module  | registers a parameterized neural network site   |
+|  [09]   | `prng_key()`                                                    | RNG access     | draws a PRNG key inside an effectful model      |
 |  [10]   | `render_model(model, model_args, model_kwargs, ...)`            | model graph    | renders the model as a graphical-model diagram  |
 
 [ENTRYPOINT_SCOPE]: effect handlers and inference operations
@@ -94,21 +94,21 @@
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CAPABILITY]                                              |
 | :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|   [1]   | `handlers.seed(fn, rng_seed)`                               | effect handler | supplies a PRNG seed to a model's sample sites            |
-|   [2]   | `handlers.trace(fn)`                                        | effect handler | records every site's value, distribution, and log-density |
-|   [3]   | `handlers.substitute(fn, data)`                             | effect handler | replaces site values with supplied data                   |
-|   [4]   | `handlers.condition(fn, data)`                              | effect handler | conditions latent sites on observed values                |
-|   [5]   | `handlers.replay(fn, trace)`                                | effect handler | replays sites from a recorded trace                       |
-|   [6]   | `handlers.block(fn, hide, expose)`                          | effect handler | hides sites from outer handlers                           |
-|   [7]   | `handlers.reparam(fn, config)`                              | effect handler | applies a reparameterization to named sites               |
-|   [8]   | `handlers.do(fn, data)`                                     | effect handler | applies a causal intervention on sites                    |
-|   [9]   | `MCMC.run(rng_key, *args)` / `.get_samples()`               | inference run  | warms up, samples, then returns posterior draws           |
+|  [01]   | `handlers.seed(fn, rng_seed)`                               | effect handler | supplies a PRNG seed to a model's sample sites            |
+|  [02]   | `handlers.trace(fn)`                                        | effect handler | records every site's value, distribution, and log-density |
+|  [03]   | `handlers.substitute(fn, data)`                             | effect handler | replaces site values with supplied data                   |
+|  [04]   | `handlers.condition(fn, data)`                              | effect handler | conditions latent sites on observed values                |
+|  [05]   | `handlers.replay(fn, trace)`                                | effect handler | replays sites from a recorded trace                       |
+|  [06]   | `handlers.block(fn, hide, expose)`                          | effect handler | hides sites from outer handlers                           |
+|  [07]   | `handlers.reparam(fn, config)`                              | effect handler | applies a reparameterization to named sites               |
+|  [08]   | `handlers.do(fn, data)`                                     | effect handler | applies a causal intervention on sites                    |
+|  [09]   | `MCMC.run(rng_key, *args)` / `.get_samples()`               | inference run  | warms up, samples, then returns posterior draws           |
 |  [10]   | `SVI.run(rng_key, num_steps)` / `.get_params()`             | inference run  | optimizes the guide, returns the optimized parameters     |
 |  [11]   | `diagnostics.effective_sample_size(x)` / `.gelman_rubin(x)` | diagnostic     | ESS and R-hat convergence statistics                      |
 |  [12]   | `infer.init_to_median` family                               | init strategy  | `init_to_uniform/feasible/mean/median/sample/value`       |
 |  [13]   | `enable_x64()` / `set_platform(p)`                          | runtime config | enables 64-bit precision; selects the JAX backend device  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EFFECT_TOPOLOGY]:
 - A model is a plain Python function calling `sample`, `param`, `plate`, and `deterministic`; effect handlers are context managers or callables that intercept every site.

@@ -2,16 +2,16 @@
 
 The in-process reasoning surface for the runtime spine — the third agent front door beside the MCP server projection at `Agent/mcp.md` and the MCP client federation at `Agent/federation.md`: the host runs its own `IChatClient` tool-calling loop over its own capabilities with no external orchestrator. A `ReasoningSession` drives `IChatClient.GetStreamingResponseAsync` whose `ChatOptions.Tools` are the SAME brokered `CommandAIFunction` instances `Agent/mcp#METHOD_AXIS` mints — one tool-adoption seam, two front doors, never a second tool projection — so every model-invoked tool call routes through `CommandAlgebra.Run`, the `GrantBroker`, and the cost preview exactly as an operator or MCP tool call does. A `SemanticDiscovery` fold embeds each `CapabilityDescriptor` op surface through `IEmbeddingGenerator` and ranks by cosine similarity, adding `DiscoveryQuery.ByIntent(string)` as one new case on the `Agent/capability#DISCOVERY_FOLD` `[Union]` so an agent resolves intent to a capability by meaning rather than exact id and the flat lookup gains an intent-ranked path. The function-invocation transcript projects to `CommandReceipt` rows the `Runtime/determinism#EVENT_LOG` chains and the `#MACRO_ENGINE` records, so an agent reasoning run is a replayable, grant-metered, cost-bounded, content-addressed command sequence, never an opaque LLM call. One `ModelGovernance` middleware fold composes the `Microsoft.Extensions.AI` `ChatClientBuilder` decorators — `UseFunctionInvocation`/`UseDistributedCache`/`UseOpenTelemetry` — into the single model-governance owner: every model draw is metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the `Runtime/resources#CACHE_PORT` `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`, so a recorded reasoning turn replays from cache bit-identically and the in-process loop and the MCP server-sampling leg share one governance pipeline. The page owns the reasoning loop, the embedding-ranked intent discovery and its new query case, the replayable transcript, the model-governance middleware fold, and the gated experimental modal-input row; it consumes `CapabilityRegistry`/`DiscoveryQuery`/`CapabilityDescriptor`, `CommandAIFunction`/`McpRuntime`, `CommandAlgebra`/`CommandReceipt`, `GrantBroker`/`CostVector`/`CostUnit`, `EventLog`/`MacroEngine`/`DeterminismContext`, `CacheLane`/`HybridCache`, `TenantContext`, `ClockPolicy`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[REASONING_LOOP]: `ReasoningSession` over `IChatClient` streaming; `ChatOptions.Tools` is the brokered `CommandAIFunction`.
-- [2]-[SEMANTIC_DISCOVERY]: `IEmbeddingGenerator` cosine fold; the `DiscoveryQuery.ByIntent` case over the registry.
-- [3]-[REPLAYABLE_TRANSCRIPT]: Function-invocation transcript to `CommandReceipt` rows the `EventLog` chains and `MacroEngine` records.
-- [4]-[MODEL_GOVERNANCE]: One middleware fold: token-to-cost-to-ledger, cached-response replay, and two model front doors.
-- [5]-[MODAL_INPUT]: Gated `ModalClient` `[Union]` reading the same descriptor catalog.
-- [6]-[TS_PROJECTION]: Reasoning-session, transcript, and intent-match wire shapes the dashboard consumes.
+- [01]-[REASONING_LOOP]: `ReasoningSession` over `IChatClient` streaming; `ChatOptions.Tools` is the brokered `CommandAIFunction`.
+- [02]-[SEMANTIC_DISCOVERY]: `IEmbeddingGenerator` cosine fold; the `DiscoveryQuery.ByIntent` case over the registry.
+- [03]-[REPLAYABLE_TRANSCRIPT]: Function-invocation transcript to `CommandReceipt` rows the `EventLog` chains and `MacroEngine` records.
+- [04]-[MODEL_GOVERNANCE]: One middleware fold: token-to-cost-to-ledger, cached-response replay, and two model front doors.
+- [05]-[MODAL_INPUT]: Gated `ModalClient` `[Union]` reading the same descriptor catalog.
+- [06]-[TS_PROJECTION]: Reasoning-session, transcript, and intent-match wire shapes the dashboard consumes.
 
-## [2]-[REASONING_LOOP]
+## [02]-[REASONING_LOOP]
 
 - Owner: `ReasoningPolicy` the per-session loop-bound and tool-mode record; `ReasoningTurn` `[Union]` the streamed-turn disposition; `ReasoningSession` the static in-process agent-loop surface over `IChatClient.GetStreamingResponseAsync`.
 - Cases: `ReasoningTurn` = Thinking | ToolCalled | Message | Completed | Faulted — the disposition a streamed reasoning turn folds to as the chat client surfaces text, reasoning content, function calls, and the finish reason.
@@ -124,7 +124,7 @@ public static class ReasoningSession {
 }
 ```
 
-## [3]-[SEMANTIC_DISCOVERY]
+## [03]-[SEMANTIC_DISCOVERY]
 
 - Owner: `IntentMatch` the ranked descriptor-to-intent projection; `EmbeddingIndex` the frozen descriptor-embedding cell; `SemanticDiscovery` the static embedding-rank fold; the new `DiscoveryQuery.ByIntent(string)` case extending `Agent/capability#DISCOVERY_FOLD`.
 - Cases: `DiscoveryQuery` gains one case — `ByIntent(string Intent)` — alongside the settled `ById`/`BySurface`/`ByEffect`/`Permitting`/`All`, so the `Discover` switch is a total dispatch the new case breaks at compile time on every consumer arm; the registry's `Discover` fold gains the `byIntent` arm reading the embedding index.
@@ -200,7 +200,7 @@ public static class SemanticDiscovery {
 //         all: _ => byId.Values.ToSeq()));
 ```
 
-## [4]-[REPLAYABLE_TRANSCRIPT]
+## [04]-[REPLAYABLE_TRANSCRIPT]
 
 - Owner: `ReasoningTranscript` the function-invocation transcript record; `TranscriptDigest` the content-address of the whole reasoning turn; `TranscriptProjection` the static transcript-to-`CommandReceipt`-and-`LogEntry` fold over the `Runtime/determinism#EVENT_LOG` chain and the `#MACRO_ENGINE`.
 - Entry: `Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context)` returns `IO<(EventLog.Chain Chain, Seq<LogEntry> Entries)>` — folds each transcript tool-call row's `CommandReceipt` into the event-log chain through `EventLog.Append` so the reasoning turn's command sequence becomes a content-addressed, hash-chained log slice; `AsMacro(string macroId, Seq<LogEntry> entries, Seq<MacroParameter> parameters)` returns `Macro` — records the chained transcript slice as a reusable parameterized macro through `MacroEngine`-equivalent `Macro.Record`.
@@ -271,7 +271,7 @@ public static class TranscriptProjection {
 }
 ```
 
-## [5]-[MODEL_GOVERNANCE]
+## [05]-[MODEL_GOVERNANCE]
 
 - Owner: `GovernanceLedger` the per-turn token-and-cost cell; `GovernedClient` the composed delegating-pipeline handle; `ModelGovernance` the static middleware-fold surface composing the `Microsoft.Extensions.AI` `ChatClientBuilder` decorators into the one model-governance owner.
 - Entry: `Compose(GovernanceRuntime runtime, IChatClient inner)` returns `GovernedClient` — folds the inner `IChatClient` through `AsBuilder().UseOpenTelemetry(...).UseDistributedCache(...).UseFunctionInvocation(...).Build(sp)` so every model call rides the OTel span enclosing the cache lookup enclosing the function-invocation loop; `Charge(GovernanceRuntime runtime, GrantBroker broker, UsageDetails usage, CommandArguments arguments)` returns `Fin<CostVector>` — projects `ChatResponse.Usage` onto a `CostVector` charging `CostUnit.ModelTokens` through `GrantBroker.Admit` before the model commits.
@@ -358,7 +358,7 @@ flowchart LR
     Cache --> Log
 ```
 
-## [6]-[MODAL_INPUT]
+## [06]-[MODAL_INPUT]
 
 - Owner: `ModalKind` the modal-input feature row; `ModalClient` `[Union]` the two `[Experimental("MEAI001")]` modal clients behind a feature gate; `ModalIntake` the static modal-to-intent surface reading the same descriptor catalog.
 - Cases: `ModalClient` = Speech(`ISpeechToTextClient`) | Image(`IImageGenerator`) — a CLOSED 2-case family carrying DISTINCT surfaces, so a `[Union]` is the honest collapse, never a `[SmartEnum]` over a shared interface; speech transcribes an audio stream to a command intent the SEMANTIC_DISCOVERY fold resolves, image renders an intent-to-image draw the descriptor catalog gates.
@@ -408,7 +408,7 @@ public static class ModalIntake {
 }
 ```
 
-## [7]-[TS_PROJECTION]
+## [07]-[TS_PROJECTION]
 
 - Owner: `ReasoningTranscriptWire`, `ReasoningTurnWire`, `IntentMatchWire`, `GovernanceUsageWire` — the reasoning-session, transcript, intent-match, and token-usage wire shapes the dashboard consumes; the per-command receipts ride the existing `Runtime/ports#TS_PROJECTION` `ReceiptEnvelopeWire` and the `Agent/capability#TS_PROJECTION` `CapabilityCommandReceiptWire`, single-minted there and bound here as the transcript's tool-call payload, never re-authored.
 - Entry: the reasoning transcript crosses as the `ReasoningTranscriptWire` the dashboard reasoning timeline ingests, the turn sequence crosses as a literal-discriminated union the timeline renders, the intent matches cross as the ranked `IntentMatchWire[]` the command palette surfaces, and the token usage crosses as the `GovernanceUsageWire` the cost dashboard charts.
@@ -447,7 +447,7 @@ interface IntentMatchWire {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 The settled-fence members verify against the folder `.api/api-extensions-ai.md` (`Microsoft.Extensions.AI.Abstractions`) and `.api/api-extensions-ai-middleware.md` (`Microsoft.Extensions.AI`) catalogues: `IChatClient.GetStreamingResponseAsync(messages, options?, ct)` returning `IAsyncEnumerable<ChatResponseUpdate>` ([api-extensions-ai.md] entry `[2]`), `ChatOptions` carrying `Tools`/`ToolMode`/`Temperature`/`Seed`/`AllowMultipleToolCalls` (`ChatOptions` properties `[9]`/`[10]`/`[1]`/`[7]`/`[15]`), `IEmbeddingGenerator<TInput,TEmbedding>.GenerateAsync(values, options?, ct)` (embedding entry `[1]`) with the scalar `EmbeddingGeneratorExtensions.GenerateAsync` overload (`[3]`), `Embedding<TEmbedding>` (embedding type `[4]`) carrying the typed vector, `UsageDetails` (`[12]`) with `InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`, the `ChatClientBuilder.AsBuilder()`/`UseOpenTelemetry`/`UseDistributedCache`/`UseFunctionInvocation`/`Build` builder chain (middleware entries `[1]`/`[6]`/`[5]`/`[4]`/`[3]`), `FunctionInvokingChatClient.MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest`/`TerminateOnUnknownCalls` (decorator-tuning `[1]`/`[2]`/`[6]`), and the `[Experimental("MEAI001")]` `ISpeechToTextClient.GetTextAsync`/`IImageGenerator.GenerateAsync` modal clients (modal type `[1]`/`[3]`, modal entry `[1]`/`[5]`). The brokered `CommandAIFunction : AIFunction` tool-adoption seam and `ToolProjection.Project`/`Adopt` verify against `Agent/mcp#METHOD_AXIS`; the `CommandReceipt`/`CommandAlgebra.Run`/`CostVector`/`CostUnit.ModelTokens`/`GrantBroker.Admit`/`DiscoveryQuery`/`DiscoveryResult` vocabulary against `Agent/capability`; `EventLog.Append`/`VerifyChain`/`Macro.Record`/`ContentHash` against `Runtime/determinism#EVENT_LOG`/`#MACRO_ENGINE`; the `CacheLane.ModelResult` `HybridCache`-as-`IDistributedCache` against `Runtime/resources#CACHE_PORT`. Each card below states the binding shape over the catalogued members.
 

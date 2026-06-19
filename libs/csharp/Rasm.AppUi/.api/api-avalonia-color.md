@@ -2,7 +2,7 @@
 
 `Avalonia.Controls.ColorPicker` supplies color selection controls, color views, palette families, HSV/RGB primitives, and color-change events.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Controls.ColorPicker`
 - package: `Avalonia.Controls.ColorPicker`
@@ -13,60 +13,60 @@
 - asset: runtime library
 - rail: controls
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [COLOR_CONTROLS]: color editor surfaces
 - rail: controls
 
 | [INDEX] | [SYMBOL]         | [RAIL]           |
 | :-----: | :--------------- | :--------------- |
-|   [1]   | `ColorPicker`    | picker shell     |
-|   [2]   | `ColorView`      | editor surface   |
-|   [3]   | `ColorSpectrum`  | spectrum surface |
-|   [4]   | `ColorSlider`    | slider surface   |
-|   [5]   | `ColorPreviewer` | preview surface  |
+|  [01]   | `ColorPicker`    | picker shell     |
+|  [02]   | `ColorView`      | editor surface   |
+|  [03]   | `ColorSpectrum`  | spectrum surface |
+|  [04]   | `ColorSlider`    | slider surface   |
+|  [05]   | `ColorPreviewer` | preview surface  |
 
 [COLOR_MODELS]: color models and events
 - rail: controls
 
 | [INDEX] | [SYMBOL]                  | [RAIL]         |
 | :-----: | :------------------------ | :------------- |
-|   [1]   | `ColorModel`              | color model    |
-|   [2]   | `ColorComponent`          | component key  |
-|   [3]   | `HsvComponent`            | HSV component  |
-|   [4]   | `RgbComponent`            | RGB component  |
-|   [5]   | `AlphaComponentPosition`  | alpha position |
-|   [6]   | `ColorChangedEventArgs`   | change event   |
-|   [7]   | `ColorSpectrumShape`      | spectrum shape |
-|   [8]   | `ColorSpectrumComponents` | spectrum axes  |
+|  [01]   | `ColorModel`              | color model    |
+|  [02]   | `ColorComponent`          | component key  |
+|  [03]   | `HsvComponent`            | HSV component  |
+|  [04]   | `RgbComponent`            | RGB component  |
+|  [05]   | `AlphaComponentPosition`  | alpha position |
+|  [06]   | `ColorChangedEventArgs`   | change event   |
+|  [07]   | `ColorSpectrumShape`      | spectrum shape |
+|  [08]   | `ColorSpectrumComponents` | spectrum axes  |
 
 [PALETTE_TYPES]: palette families
 - rail: controls
 
 | [INDEX] | [SYMBOL]                   | [RAIL]           |
 | :-----: | :------------------------- | :--------------- |
-|   [1]   | `IColorPalette`            | palette contract |
-|   [2]   | `FlatColorPalette`         | flat palette     |
-|   [3]   | `FlatHalfColorPalette`     | compact flat     |
-|   [4]   | `FluentColorPalette`       | Fluent palette   |
-|   [5]   | `MaterialColorPalette`     | Material palette |
-|   [6]   | `MaterialHalfColorPalette` | compact material |
-|   [7]   | `SixteenColorPalette`      | fixed palette    |
+|  [01]   | `IColorPalette`            | palette contract |
+|  [02]   | `FlatColorPalette`         | flat palette     |
+|  [03]   | `FlatHalfColorPalette`     | compact flat     |
+|  [04]   | `FluentColorPalette`       | Fluent palette   |
+|  [05]   | `MaterialColorPalette`     | Material palette |
+|  [06]   | `MaterialHalfColorPalette` | compact material |
+|  [07]   | `SixteenColorPalette`      | fixed palette    |
 
 [PRIMITIVES_AND_CONVERTERS]: color helpers
 - rail: controls
 
 | [INDEX] | [SYMBOL]              | [RAIL]           |
 | :-----: | :-------------------- | :--------------- |
-|   [1]   | `Hsv`                 | HSV primitive    |
-|   [2]   | `Rgb`                 | RGB primitive    |
-|   [3]   | `ColorHelper`         | color metadata   |
-|   [4]   | `ColorPickerHelpers`  | bitmap helpers   |
-|   [5]   | `ColorToHexConverter` | hex conversion   |
-|   [6]   | `ToBrushConverter`    | brush conversion |
-|   [7]   | `ToColorConverter`    | color conversion |
+|  [01]   | `Hsv`                 | HSV primitive    |
+|  [02]   | `Rgb`                 | RGB primitive    |
+|  [03]   | `ColorHelper`         | color metadata   |
+|  [04]   | `ColorPickerHelpers`  | bitmap helpers   |
+|  [05]   | `ColorToHexConverter` | hex conversion   |
+|  [06]   | `ToBrushConverter`    | brush conversion |
+|  [07]   | `ToColorConverter`    | color conversion |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: color editor operations
 - rail: controls
@@ -74,30 +74,30 @@
 
 | [INDEX] | [SURFACE]               | [RAIL]          |
 | :-----: | :---------------------- | :-------------- |
-|   [1]   | `Color`                 | selected color  |
-|   [2]   | `HsvColor`              | selected HSV    |
-|   [3]   | `ColorChanged`          | change event    |
-|   [4]   | `HexInputAlphaPosition` | alpha placement |
-|   [5]   | `IsAlphaEnabled`        | alpha toggle    |
-|   [6]   | `IsColorPaletteVisible` | palette toggle  |
-|   [7]   | `Palette`               | palette source  |
-|   [8]   | `PaletteColumnCount`    | palette layout  |
+|  [01]   | `Color`                 | selected color  |
+|  [02]   | `HsvColor`              | selected HSV    |
+|  [03]   | `ColorChanged`          | change event    |
+|  [04]   | `HexInputAlphaPosition` | alpha placement |
+|  [05]   | `IsAlphaEnabled`        | alpha toggle    |
+|  [06]   | `IsColorPaletteVisible` | palette toggle  |
+|  [07]   | `Palette`               | palette source  |
+|  [08]   | `PaletteColumnCount`    | palette layout  |
 
 [PRIMITIVE_ENTRYPOINTS]: primitive and helper operations
 - rail: controls
 
 | [INDEX] | [SURFACE]                    | [SURFACE_ROOT]       | [RAIL]            |
 | :-----: | :--------------------------- | :------------------- | :---------------- |
-|   [1]   | `GetColor`                   | `IColorPalette`      | palette lookup    |
-|   [2]   | `ToHsvColor`                 | `Hsv`                | HSV conversion    |
-|   [3]   | `ToRgb`                      | `Hsv`                | RGB conversion    |
-|   [4]   | `ToColor`                    | `Rgb`                | color conversion  |
-|   [5]   | `ToHsv`                      | `Rgb`                | HSV conversion    |
-|   [6]   | `GetRelativeLuminance`       | `ColorHelper`        | contrast input    |
-|   [7]   | `ToDisplayName`              | `ColorHelper`        | display label     |
-|   [8]   | `CreateComponentBitmapAsync` | `ColorPickerHelpers` | bitmap generation |
+|  [01]   | `GetColor`                   | `IColorPalette`      | palette lookup    |
+|  [02]   | `ToHsvColor`                 | `Hsv`                | HSV conversion    |
+|  [03]   | `ToRgb`                      | `Hsv`                | RGB conversion    |
+|  [04]   | `ToColor`                    | `Rgb`                | color conversion  |
+|  [05]   | `ToHsv`                      | `Rgb`                | HSV conversion    |
+|  [06]   | `GetRelativeLuminance`       | `ColorHelper`        | contrast input    |
+|  [07]   | `ToDisplayName`              | `ColorHelper`        | display label     |
+|  [08]   | `CreateComponentBitmapAsync` | `ColorPickerHelpers` | bitmap generation |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COLOR_EDITOR_LAW]:
 - Package: `Avalonia.Controls.ColorPicker`

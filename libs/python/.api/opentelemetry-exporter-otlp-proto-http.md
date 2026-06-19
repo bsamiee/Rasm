@@ -2,7 +2,7 @@
 
 `opentelemetry-exporter-otlp-proto-http` supplies `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter`, which encode SDK span, metric, and log-record batches as protobuf and push them to an OTLP/HTTP endpoint using `requests`. These are the production-path exporters that wire into `BatchSpanProcessor`, `PeriodicExportingMetricReader`, and `BatchLogRecordProcessor` at the composition root.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-exporter-otlp-proto-http`
 - package: `opentelemetry-exporter-otlp-proto-http`
@@ -11,48 +11,48 @@
 - rail: observability
 - namespaces: `opentelemetry.exporter.otlp.proto.http.trace_exporter`, `opentelemetry.exporter.otlp.proto.http.metric_exporter`, `opentelemetry.exporter.otlp.proto.http._log_exporter`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exporter family
 - rail: observability
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [RAIL]                               |
 | :-----: | :------------------- | :-------------- | :----------------------------------- |
-|   [1]   | `OTLPSpanExporter`   | span exporter   | OTLP/HTTP span batch push            |
-|   [2]   | `OTLPMetricExporter` | metric exporter | OTLP/HTTP metric batch push          |
-|   [3]   | `OTLPLogExporter`    | log exporter    | OTLP/HTTP log record batch push      |
-|   [4]   | `Compression`        | enum            | `NONE`, `GZIP` transport compression |
+|  [01]   | `OTLPSpanExporter`   | span exporter   | OTLP/HTTP span batch push            |
+|  [02]   | `OTLPMetricExporter` | metric exporter | OTLP/HTTP metric batch push          |
+|  [03]   | `OTLPLogExporter`    | log exporter    | OTLP/HTTP log record batch push      |
+|  [04]   | `Compression`        | enum            | `NONE`, `GZIP` transport compression |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: OTLPSpanExporter
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                               |
 | :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------- |
-|   [1]   | `OTLPSpanExporter(endpoint, headers, timeout, compression, ...)` | construction   | OTLP span exporter with config       |
-|   [2]   | `OTLPSpanExporter.export(spans)`                                 | export         | push `ReadableSpan` batch to backend |
-|   [3]   | `OTLPSpanExporter.shutdown()`                                    | lifecycle      | flush and release HTTP session       |
+|  [01]   | `OTLPSpanExporter(endpoint, headers, timeout, compression, ...)` | construction   | OTLP span exporter with config       |
+|  [02]   | `OTLPSpanExporter.export(spans)`                                 | export         | push `ReadableSpan` batch to backend |
+|  [03]   | `OTLPSpanExporter.shutdown()`                                    | lifecycle      | flush and release HTTP session       |
 
 [ENTRYPOINT_SCOPE]: OTLPMetricExporter
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------ |
-|   [1]   | `OTLPMetricExporter(endpoint, headers, timeout, compression, preferred_temporality, preferred_aggregation, ...)` | construction   | metric exporter with temporality preference |
-|   [2]   | `OTLPMetricExporter.export(metrics_data)`                                                                        | export         | push `MetricsData` batch to backend         |
-|   [3]   | `OTLPMetricExporter.shutdown()`                                                                                  | lifecycle      | flush and release HTTP session              |
+|  [01]   | `OTLPMetricExporter(endpoint, headers, timeout, compression, preferred_temporality, preferred_aggregation, ...)` | construction   | metric exporter with temporality preference |
+|  [02]   | `OTLPMetricExporter.export(metrics_data)`                                                                        | export         | push `MetricsData` batch to backend         |
+|  [03]   | `OTLPMetricExporter.shutdown()`                                                                                  | lifecycle      | flush and release HTTP session              |
 
 [ENTRYPOINT_SCOPE]: OTLPLogExporter
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `OTLPLogExporter(endpoint, headers, timeout, compression, ...)` | construction   | OTLP log exporter with config             |
-|   [2]   | `OTLPLogExporter.export(log_records)`                           | export         | push `ReadableLogRecord` batch to backend |
-|   [3]   | `OTLPLogExporter.shutdown()`                                    | lifecycle      | flush and release HTTP session            |
+|  [01]   | `OTLPLogExporter(endpoint, headers, timeout, compression, ...)` | construction   | OTLP log exporter with config             |
+|  [02]   | `OTLPLogExporter.export(log_records)`                           | export         | push `ReadableLogRecord` batch to backend |
+|  [03]   | `OTLPLogExporter.shutdown()`                                    | lifecycle      | flush and release HTTP session            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EXPORTER_TOPOLOGY]:
 - all three exporters share the same constructor parameter set: `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`, `meter_provider`

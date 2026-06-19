@@ -2,7 +2,7 @@
 
 `ACadSharp`, `netDxf`, and `DocumentFormat.OpenXml` supply the drafting and sheet export rail: DWG/DXF round-trip through `CadDocument`/`DxfDocument` with typed entity, table, and IO surfaces, and OOXML document creation and editing through `WordprocessingDocument`, `SpreadsheetDocument`, and `PresentationDocument`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp`
 - package: `ACadSharp`
@@ -33,22 +33,22 @@
 - asset: runtime library
 - rail: drafting
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ACadSharp document and object model
 - rail: drafting
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [RAIL]                  |
 | :-----: | :------------------ | :----------------- | :---------------------- |
-|   [1]   | `CadDocument`       | document root      | drawing container       |
-|   [2]   | `CadObject`         | object base        | graph node              |
-|   [3]   | `CadSummaryInfo`    | metadata record    | document metadata       |
-|   [4]   | `CadSystemVariable` | system variable    | drawing header variable |
-|   [5]   | `ACadVersion`       | version enum       | DWG format selector     |
-|   [6]   | `Color`             | color value        | ACI and true-color      |
-|   [7]   | `Transparency`      | transparency value | alpha channel           |
-|   [8]   | `LineWeightType`    | lineweight enum    | pen weight vocabulary   |
-|   [9]   | `ObjectType`        | object type enum   | entity discriminant     |
+|  [01]   | `CadDocument`       | document root      | drawing container       |
+|  [02]   | `CadObject`         | object base        | graph node              |
+|  [03]   | `CadSummaryInfo`    | metadata record    | document metadata       |
+|  [04]   | `CadSystemVariable` | system variable    | drawing header variable |
+|  [05]   | `ACadVersion`       | version enum       | DWG format selector     |
+|  [06]   | `Color`             | color value        | ACI and true-color      |
+|  [07]   | `Transparency`      | transparency value | alpha channel           |
+|  [08]   | `LineWeightType`    | lineweight enum    | pen weight vocabulary   |
+|  [09]   | `ObjectType`        | object type enum   | entity discriminant     |
 |  [10]   | `DwgPreview`        | preview image      | DWG thumbnail           |
 
 [PUBLIC_TYPE_SCOPE]: ACadSharp entity family
@@ -56,15 +56,15 @@
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [RAIL]                |
 | :-----: | :----------- | :---------------- | :-------------------- |
-|   [1]   | `Entity`     | entity base       | geometric entity root |
-|   [2]   | `Line`       | geometry entity   | line segment          |
-|   [3]   | `Arc`        | geometry entity   | arc segment           |
-|   [4]   | `Circle`     | geometry entity   | circle                |
-|   [5]   | `Spline`     | geometry entity   | NURBS spline          |
-|   [6]   | `Polyline`   | geometry entity   | polyline family       |
-|   [7]   | `LwPolyline` | geometry entity   | lightweight polyline  |
-|   [8]   | `Hatch`      | geometry entity   | hatch fill            |
-|   [9]   | `MText`      | text entity       | multi-line text       |
+|  [01]   | `Entity`     | entity base       | geometric entity root |
+|  [02]   | `Line`       | geometry entity   | line segment          |
+|  [03]   | `Arc`        | geometry entity   | arc segment           |
+|  [04]   | `Circle`     | geometry entity   | circle                |
+|  [05]   | `Spline`     | geometry entity   | NURBS spline          |
+|  [06]   | `Polyline`   | geometry entity   | polyline family       |
+|  [07]   | `LwPolyline` | geometry entity   | lightweight polyline  |
+|  [08]   | `Hatch`      | geometry entity   | hatch fill            |
+|  [09]   | `MText`      | text entity       | multi-line text       |
 |  [10]   | `TextEntity` | text entity base  | single-line text      |
 |  [11]   | `Dimension`  | annotation entity | dimension family root |
 |  [12]   | `Insert`     | block entity      | block reference       |
@@ -76,15 +76,15 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                |
 | :-----: | :----------------------- | :------------ | :-------------------- |
-|   [1]   | `Layer`                  | table entry   | layer definition      |
-|   [2]   | `LineType`               | table entry   | linetype definition   |
-|   [3]   | `TextStyle`              | table entry   | text style definition |
-|   [4]   | `DimensionStyle`         | table entry   | dimension style       |
-|   [5]   | `BlockRecord`            | table entry   | block registry        |
-|   [6]   | `DwgReader`              | IO reader     | DWG parse entry       |
-|   [7]   | `DwgWriter`              | IO writer     | DWG emit entry        |
-|   [8]   | `DxfReader`              | IO reader     | DXF parse entry       |
-|   [9]   | `DxfWriter`              | IO writer     | DXF emit entry        |
+|  [01]   | `Layer`                  | table entry   | layer definition      |
+|  [02]   | `LineType`               | table entry   | linetype definition   |
+|  [03]   | `TextStyle`              | table entry   | text style definition |
+|  [04]   | `DimensionStyle`         | table entry   | dimension style       |
+|  [05]   | `BlockRecord`            | table entry   | block registry        |
+|  [06]   | `DwgReader`              | IO reader     | DWG parse entry       |
+|  [07]   | `DwgWriter`              | IO writer     | DWG emit entry        |
+|  [08]   | `DxfReader`              | IO reader     | DXF parse entry       |
+|  [09]   | `DxfWriter`              | IO writer     | DXF emit entry        |
 |  [10]   | `SvgWriter`              | IO writer     | SVG emit entry        |
 |  [11]   | `CadFileFormat`          | format enum   | file format selector  |
 |  [12]   | `CadReaderConfiguration` | reader config | read options          |
@@ -96,30 +96,30 @@
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [RAIL]                |
 | :-----: | :------------- | :----------------- | :-------------------- |
-|   [1]   | `DxfDocument`  | document root      | DXF drawing container |
-|   [2]   | `DxfObject`    | object base        | graph node            |
-|   [3]   | `AciColor`     | color value        | ACI palette entry     |
-|   [4]   | `Lineweight`   | lineweight value   | pen weight            |
-|   [5]   | `Transparency` | transparency value | alpha channel         |
-|   [6]   | `XData`        | extended data      | custom object data    |
-|   [7]   | `Matrix2`      | 2D matrix value    | transform             |
-|   [8]   | `Matrix4`      | 4D matrix value    | transform             |
-|   [9]   | `Vector3`      | 3D vector value    | coordinate            |
+|  [01]   | `DxfDocument`  | document root      | DXF drawing container |
+|  [02]   | `DxfObject`    | object base        | graph node            |
+|  [03]   | `AciColor`     | color value        | ACI palette entry     |
+|  [04]   | `Lineweight`   | lineweight value   | pen weight            |
+|  [05]   | `Transparency` | transparency value | alpha channel         |
+|  [06]   | `XData`        | extended data      | custom object data    |
+|  [07]   | `Matrix2`      | 2D matrix value    | transform             |
+|  [08]   | `Matrix4`      | 4D matrix value    | transform             |
+|  [09]   | `Vector3`      | 3D vector value    | coordinate            |
 
 [PUBLIC_TYPE_SCOPE]: netDxf entity and failure family
 - rail: drafting
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [RAIL]               |
 | :-----: | :-------------------------------- | :---------------- | :------------------- |
-|   [1]   | `EntityObject`                    | entity base       | entity root          |
-|   [2]   | `Line`                            | geometry entity   | line segment         |
-|   [3]   | `Arc`                             | geometry entity   | arc segment          |
-|   [4]   | `Circle`                          | geometry entity   | circle               |
-|   [5]   | `Spline`                          | geometry entity   | NURBS spline         |
-|   [6]   | `Polyline`                        | geometry entity   | polyline family      |
-|   [7]   | `Hatch`                           | geometry entity   | hatch fill           |
-|   [8]   | `MText`                           | text entity       | multi-line text      |
-|   [9]   | `Insert`                          | block entity      | block reference      |
+|  [01]   | `EntityObject`                    | entity base       | entity root          |
+|  [02]   | `Line`                            | geometry entity   | line segment         |
+|  [03]   | `Arc`                             | geometry entity   | arc segment          |
+|  [04]   | `Circle`                          | geometry entity   | circle               |
+|  [05]   | `Spline`                          | geometry entity   | NURBS spline         |
+|  [06]   | `Polyline`                        | geometry entity   | polyline family      |
+|  [07]   | `Hatch`                           | geometry entity   | hatch fill           |
+|  [08]   | `MText`                           | text entity       | multi-line text      |
+|  [09]   | `Insert`                          | block entity      | block reference      |
 |  [10]   | `Mesh`                            | mesh entity       | 3D mesh              |
 |  [11]   | `Dimension`                       | annotation entity | dimension base       |
 |  [12]   | `Viewport`                        | viewport entity   | paper-space viewport |
@@ -130,13 +130,13 @@
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]            |
 | :-----: | :--------------------------- | :------------- | :---------------- |
-|   [1]   | `WordprocessingDocument`     | Word document  | docx package root |
-|   [2]   | `SpreadsheetDocument`        | Excel document | xlsx package root |
-|   [3]   | `PresentationDocument`       | PowerPoint doc | pptx package root |
-|   [4]   | `WordprocessingDocumentType` | document type  | Word format enum  |
-|   [5]   | `SpreadsheetDocumentType`    | document type  | Excel format enum |
-|   [6]   | `PresentationDocumentType`   | document type  | PPT format enum   |
-|   [7]   | `OpenXmlPackage`             | package base   | package root base |
+|  [01]   | `WordprocessingDocument`     | Word document  | docx package root |
+|  [02]   | `SpreadsheetDocument`        | Excel document | xlsx package root |
+|  [03]   | `PresentationDocument`       | PowerPoint doc | pptx package root |
+|  [04]   | `WordprocessingDocumentType` | document type  | Word format enum  |
+|  [05]   | `SpreadsheetDocumentType`    | document type  | Excel format enum |
+|  [06]   | `PresentationDocumentType`   | document type  | PPT format enum   |
+|  [07]   | `OpenXmlPackage`             | package base   | package root base |
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml part and content-element family
 - rail: drafting
@@ -144,35 +144,35 @@
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]          | [RAIL]                                 |
 | :-----: | :--------------------------- | :--------------------- | :------------------------------------- |
-|   [1]   | `WorkbookPart`               | part                   | xlsx workbook part (AddWorkbookPart)   |
-|   [2]   | `WorksheetPart`              | part                   | xlsx sheet part (AddNewPart)           |
-|   [3]   | `MainDocumentPart`           | part                   | docx body part (AddMainDocumentPart)   |
-|   [4]   | `FontTablePart`              | part                   | embedded-font part (GetStream)         |
-|   [5]   | `Workbook` / `Sheets`        | content element        | xlsx workbook + sheet registry         |
-|   [6]   | `Sheet`                      | content element        | sheet registry entry (Id/SheetId/Name) |
-|   [7]   | `Worksheet` / `SheetData`    | content element        | xlsx sheet body + row container        |
-|   [8]   | `Row` / `Cell`               | content element        | xlsx row + cell                        |
-|   [9]   | `CellValue` / `CellValues`   | content element + enum | cell value + data-type enum            |
+|  [01]   | `WorkbookPart`               | part                   | xlsx workbook part (AddWorkbookPart)   |
+|  [02]   | `WorksheetPart`              | part                   | xlsx sheet part (AddNewPart)           |
+|  [03]   | `MainDocumentPart`           | part                   | docx body part (AddMainDocumentPart)   |
+|  [04]   | `FontTablePart`              | part                   | embedded-font part (GetStream)         |
+|  [05]   | `Workbook` / `Sheets`        | content element        | xlsx workbook + sheet registry         |
+|  [06]   | `Sheet`                      | content element        | sheet registry entry (Id/SheetId/Name) |
+|  [07]   | `Worksheet` / `SheetData`    | content element        | xlsx sheet body + row container        |
+|  [08]   | `Row` / `Cell`               | content element        | xlsx row + cell                        |
+|  [09]   | `CellValue` / `CellValues`   | content element + enum | cell value + data-type enum            |
 |  [10]   | `Document` / `Body`          | content element        | docx document + body                   |
 |  [11]   | `Paragraph` / `Run` / `Text` | content element        | docx paragraph/run/text run            |
 |  [12]   | `SpaceProcessingModeValues`  | enum                   | run-text whitespace preservation       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ACadSharp read and write operations
 - rail: drafting
 
 | [INDEX] | [SURFACE]                                          | [SURFACE_ROOT] | [RAIL]              |
 | :-----: | :------------------------------------------------- | :------------- | :------------------ |
-|   [1]   | `DwgReader(string, config)`                        | `DwgReader`    | DWG stream open     |
-|   [2]   | `DwgReader(Stream, config)`                        | `DwgReader`    | DWG stream open     |
-|   [3]   | `Read()`                                           | `DwgReader`    | DWG document parse  |
-|   [4]   | `DxfReader(string, config)`                        | `DxfReader`    | DXF stream open     |
-|   [5]   | `DxfReader(Stream, config)`                        | `DxfReader`    | DXF stream open     |
-|   [6]   | `Read()`                                           | `DxfReader`    | DXF document parse  |
-|   [7]   | `Write(string, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
-|   [8]   | `Write(Stream, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
-|   [9]   | `Write(string, CadDocument, ...)`                  | `DxfWriter`    | static DXF emit     |
+|  [01]   | `DwgReader(string, config)`                        | `DwgReader`    | DWG stream open     |
+|  [02]   | `DwgReader(Stream, config)`                        | `DwgReader`    | DWG stream open     |
+|  [03]   | `Read()`                                           | `DwgReader`    | DWG document parse  |
+|  [04]   | `DxfReader(string, config)`                        | `DxfReader`    | DXF stream open     |
+|  [05]   | `DxfReader(Stream, config)`                        | `DxfReader`    | DXF stream open     |
+|  [06]   | `Read()`                                           | `DxfReader`    | DXF document parse  |
+|  [07]   | `Write(string, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
+|  [08]   | `Write(Stream, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
+|  [09]   | `Write(string, CadDocument, ...)`                  | `DxfWriter`    | static DXF emit     |
 |  [10]   | `Write(Stream, CadDocument, ...)`                  | `DxfWriter`    | static DXF emit     |
 |  [11]   | `Write()`                                          | `DxfWriter`    | instance DXF emit   |
 |  [12]   | `DwgWriter(string, CadDocument)`                   | `DwgWriter`    | writer construction |
@@ -184,29 +184,29 @@
 
 | [INDEX] | [SURFACE]                          | [SURFACE_ROOT] | [RAIL]              |
 | :-----: | :--------------------------------- | :------------- | :------------------ |
-|   [1]   | `DxfDocument.Load(string)`         | `DxfDocument`  | file load           |
-|   [2]   | `DxfDocument.Load(Stream)`         | `DxfDocument`  | stream load         |
-|   [3]   | `Save(string)`                     | `DxfDocument`  | text file emit      |
-|   [4]   | `Save(string, isBinary)`           | `DxfDocument`  | binary/text emit    |
-|   [5]   | `Save(Stream)`                     | `DxfDocument`  | stream emit         |
-|   [6]   | `DxfDocument(DxfVersion)`          | `DxfDocument`  | versioned construct |
-|   [7]   | `Entities.*` collections           | `DxfDocument`  | entity access       |
-|   [8]   | `Layers` / `TextStyles` / `Blocks` | `DxfDocument`  | table access        |
+|  [01]   | `DxfDocument.Load(string)`         | `DxfDocument`  | file load           |
+|  [02]   | `DxfDocument.Load(Stream)`         | `DxfDocument`  | stream load         |
+|  [03]   | `Save(string)`                     | `DxfDocument`  | text file emit      |
+|  [04]   | `Save(string, isBinary)`           | `DxfDocument`  | binary/text emit    |
+|  [05]   | `Save(Stream)`                     | `DxfDocument`  | stream emit         |
+|  [06]   | `DxfDocument(DxfVersion)`          | `DxfDocument`  | versioned construct |
+|  [07]   | `Entities.*` collections           | `DxfDocument`  | entity access       |
+|  [08]   | `Layers` / `TextStyles` / `Blocks` | `DxfDocument`  | table access        |
 
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
 - rail: drafting
 
 | [INDEX] | [SURFACE]                                    | [SURFACE_ROOT]           | [RAIL]           |
 | :-----: | :------------------------------------------- | :----------------------- | :--------------- |
-|   [1]   | `Create(string, WordprocessingDocumentType)` | `WordprocessingDocument` | create docx      |
-|   [2]   | `Create(Stream, WordprocessingDocumentType)` | `WordprocessingDocument` | stream create    |
-|   [3]   | `Open(string, isEditable)`                   | `WordprocessingDocument` | open docx        |
-|   [4]   | `Open(Stream, isEditable)`                   | `WordprocessingDocument` | stream open      |
-|   [5]   | `CreateFromTemplate(string)`                 | `WordprocessingDocument` | template create  |
-|   [6]   | `Create(string, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | create xlsx      |
-|   [7]   | `Create(Stream, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | stream create    |
-|   [8]   | `Open(string, isEditable)`                   | `SpreadsheetDocument`    | open xlsx        |
-|   [9]   | `Open(Stream, isEditable)`                   | `SpreadsheetDocument`    | stream open      |
+|  [01]   | `Create(string, WordprocessingDocumentType)` | `WordprocessingDocument` | create docx      |
+|  [02]   | `Create(Stream, WordprocessingDocumentType)` | `WordprocessingDocument` | stream create    |
+|  [03]   | `Open(string, isEditable)`                   | `WordprocessingDocument` | open docx        |
+|  [04]   | `Open(Stream, isEditable)`                   | `WordprocessingDocument` | stream open      |
+|  [05]   | `CreateFromTemplate(string)`                 | `WordprocessingDocument` | template create  |
+|  [06]   | `Create(string, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | create xlsx      |
+|  [07]   | `Create(Stream, SpreadsheetDocumentType)`    | `SpreadsheetDocument`    | stream create    |
+|  [08]   | `Open(string, isEditable)`                   | `SpreadsheetDocument`    | open xlsx        |
+|  [09]   | `Open(Stream, isEditable)`                   | `SpreadsheetDocument`    | stream open      |
 |  [10]   | `Create(string, PresentationDocumentType)`   | `PresentationDocument`   | create pptx      |
 |  [11]   | `Open(string, isEditable)`                   | `PresentationDocument`   | open pptx        |
 |  [12]   | `Save` / `Dispose`                           | `OpenXmlPackage`         | commit and close |
@@ -216,15 +216,15 @@
 
 | [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]                 | [RAIL]                |
 | :-----: | :--------------------------------------------------- | :----------------------------- | :-------------------- |
-|   [1]   | `AddWorkbookPart()`                                  | `SpreadsheetDocument`          | workbook part create  |
-|   [2]   | `AddNewPart<WorksheetPart>()`                        | `WorkbookPart`                 | sheet part create     |
-|   [3]   | `GetIdOfPart(part)`                                  | `WorkbookPart`                 | relationship-id query |
-|   [4]   | `AddMainDocumentPart()`                              | `WordprocessingDocument`       | docx body part create |
-|   [5]   | `AddNewPart<FontTablePart>()` / `GetStream()`        | `WorkbookPart`/`FontTablePart` | embedded-font pack    |
-|   [6]   | `AppendChild(element)` / `Append(elements)`          | content element                | child-element insert  |
-|   [7]   | `part.Workbook` / `part.Worksheet` / `part.Document` | part                           | root-element assign   |
+|  [01]   | `AddWorkbookPart()`                                  | `SpreadsheetDocument`          | workbook part create  |
+|  [02]   | `AddNewPart<WorksheetPart>()`                        | `WorkbookPart`                 | sheet part create     |
+|  [03]   | `GetIdOfPart(part)`                                  | `WorkbookPart`                 | relationship-id query |
+|  [04]   | `AddMainDocumentPart()`                              | `WordprocessingDocument`       | docx body part create |
+|  [05]   | `AddNewPart<FontTablePart>()` / `GetStream()`        | `WorkbookPart`/`FontTablePart` | embedded-font pack    |
+|  [06]   | `AppendChild(element)` / `Append(elements)`          | content element                | child-element insert  |
+|  [07]   | `part.Workbook` / `part.Worksheet` / `part.Document` | part                           | root-element assign   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DRAFTING_TOPOLOGY]:
 - `ACadSharp`: 706 types across 35 namespaces; `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries

@@ -2,11 +2,11 @@
 
 The set-algebraic element query algebra: one polymorphic `ElementSet.Query` over a closed `ElementPredicate` union, folded by `Union`/`Intersect`/`Except`/`Where` into one set-algebraic expression — never a `GetWalls`/`GetByLevel`/`GetByMaterial` operation family. The query folds over the one `BimModel` the `Model/elements#ELEMENT_MODEL` `Project` produces and consumes the `Semantics/classification#CLASSIFICATION_AXIS` `Classification` axis as settled vocabulary, never re-deriving a classification mapping.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ELEMENT_SET]: `ElementPredicate` closed union, `ElementQuery` expression record, and the `ElementSet` set-algebraic fold.
+- [01]-[ELEMENT_SET]: `ElementPredicate` closed union, `ElementQuery` expression record, and the `ElementSet` set-algebraic fold.
 
-## [2]-[ELEMENT_SET]
+## [02]-[ELEMENT_SET]
 
 - Owner: `ElementSet` the set-algebraic query fold over a `BimModel` element collection owning union/intersection/difference/filter as a closed algebra over `ElementPredicate`; `ElementPredicate` `[Union]` the closed predicate family carrying each discriminant payload; `ElementQuery` the composed query record folding predicates into one set-algebraic expression.
 - Entry: `ElementSet.Query(BimModel model, ElementQuery query)` folds the composed predicate expression over the element collection into a result set — total, pure, no rail; the set-algebra combinators `Union`/`Intersect`/`Except`/`Where` compose `ElementSet` values so a complex selection is one expression, never an imperative accumulation loop.
@@ -58,6 +58,6 @@ public sealed record ElementSet(Seq<BimElement> Elements) {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SET_ALGEBRA]: the `ElementSet` set-algebraic fold (`Union`/`Intersect`/`Except`/`Where` over `ElementPredicate`) and the `ElementPredicate` union-arm payloads ground against the LanguageExt immutable-collection combinator surface and the `BimModel` element-collection shape; the recursive `All`/`Any` composite arms backing `ElementQuery.And`/`Or` confirm against the closed-union generated `Switch` total-dispatch contract carrying the `(model, element)` state tuple into every arm and the `Seq<ElementPredicate>.ForAll`/`Exists` recursive-fold spelling, so the new `ByDomain`/`ByPredefinedType`/`ByZone` arms break the generated `Switch` at every `Match` site until they are added; the `ByClassification` arm matches the typed `ClassificationRef.Code` `ClassificationCode` value-object by equality, the `ByPredefinedType` arm the typed `PredefinedType` value-object, never a stringly-keyed code, so the classification and predefined axes stay typed end-to-end; the `ByZone` arm reads the `model.Zones` index the `Model/zones#ZONE_GRAPH` overlay populates so the grouping query folds the many-to-many assignment graph rather than the single-parent containment tree.

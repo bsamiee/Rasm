@@ -2,7 +2,7 @@
 
 The initial-research stage installs a verbatim copy at the stack reports root when its first pipeline begins; every stage grade answers to this file.
 
-## [1]-[MECHANICS]
+## [01]-[MECHANICS]
 
 - A grade is the MINIMUM across the ladder's axes, stepped at 0.1; the mean is recorded for trend only and never gates anything.
 - Bars: 9.2 min-axis admits a stage; 9.5 min-axis finalizes a snippet set — enforced at the snippet-refinement convergence and re-checked at the corpus sweep. Prose and research stay at 9.2 throughout.
@@ -11,7 +11,7 @@ The initial-research stage installs a verbatim copy at the stack reports root wh
 - Producer grades admit; cold grades decide. A cold grader gives no weight to the producer's self-grade or effort, and re-derives the score from the artifact alone.
 - Convergence is a pass that ends with zero edits AND every unit at or above the bar; the final pass is always verification-only, and manufactured change in a refinement pass is itself a defect.
 
-## [2]-[RESEARCH_LADDER]
+## [02]-[RESEARCH_LADDER]
 
 Grades findings files, bedrocks, and distillates. Read each axis bottom-up; the score is the highest rung the file fully earns.
 
@@ -53,7 +53,7 @@ Automatic fails:
 - RF-3 — lateral drift: material a sibling lane's OWNS or a finalized page already owns.
 - RF-4 — meta-commentary, process residue, release label, or date residue.
 
-## [3]-[PAGE_LADDER]
+## [03]-[PAGE_LADDER]
 
 Grades prose stages: draft, rebuild, panel rewrite, enrich, optimize.
 
@@ -98,7 +98,7 @@ Automatic fails:
 - PF-2 — meta, process residue, route pointers, or origin residue anywhere.
 - PF-3 — page over its ceiling at stage exit.
 
-## [4]-[SNIPPET_LADDER]
+## [04]-[SNIPPET_LADDER]
 
 Grades snippet creation and refinement.
 
@@ -144,7 +144,7 @@ Automatic fails:
 - SF-3 — a project, host, or domain anchor.
 - SF-4 — a construction that cannot compile as written under the active surface.
 
-## [5]-[DRIFT_CHECKS]
+## [05]-[DRIFT_CHECKS]
 
 Every grader applies these regardless of ladder:
 - Lateral drift: material whose strongest claim belongs to a sibling lane's OWNS or a finalized page's territory.
@@ -159,12 +159,12 @@ Every grader applies these regardless of ladder:
 - Instance sizing: a demonstrated shape or stated law sized for the case in hand where the family is foreseeable — the absorbed-growth spelling exists and is not shown.
 - Descriptive register: prose that explains, narrates, or hedges where a declarative instruction carries the same content — rationale restated after the rule implies it, connective framing such as `this means` or `note that`, consequence prose that names no surface and changes no decision. Card lines instruct and reject; they never describe.
 
-## [6]-[BARS_BY_STAGE]
+## [06]-[BARS_BY_STAGE]
 
 | [INDEX] | [STAGE]            | [LADDER]  | [BAR]        |
 | :-----: | :----------------- | :-------- | :----------- |
-|   [1]   | initial to distill | research  | 9.2 min-axis |
-|   [2]   | draft to optimize  | page      | 9.2 min-axis |
-|   [3]   | snippet creation   | snippet   | 9.2 min-axis |
-|   [4]   | snippet refinement | snippet   | 9.5 min-axis |
-|   [5]   | corpus sweep       | all three | re-check     |
+|  [01]   | initial to distill | research  | 9.2 min-axis |
+|  [02]   | draft to optimize  | page      | 9.2 min-axis |
+|  [03]   | snippet creation   | snippet   | 9.2 min-axis |
+|  [04]   | snippet refinement | snippet   | 9.5 min-axis |
+|  [05]   | corpus sweep       | all three | re-check     |

@@ -2,7 +2,7 @@
 
 The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader plus a few bullets stating the capability, what it unlocks, and the gap or modern technique it draws on. An idea drives one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [DRL_NEST_POLICY]:
 - A deep-reinforcement-learning-guided nesting placement policy as a `NestPolicy` column carrying an injected placement-score delegate the app-platform consumer wires from the `Rasm.Compute/Model/inference#INFERENCE_MODES` OrtValue run-mode fold to rank placements over the same NFP primitive.
@@ -14,6 +14,6 @@ The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a brack
 - Unlocks exact drafted outlines of boolean-assembled solids (the true profile a mesh-facet silhouette only approximates); held forward and gated so the per-facet HLR kernel stays pure-managed and the folder carries no native asset.
 - Trickle-down realized against the C# branch `ROBUST_ARRANGEMENT_SUBSTRATE`: the kernel exact-arithmetic arrangement owner (`Rasm.Geometry/Meshing/arrangement#ARRANGEMENT` `Arrangement` `[Union]` over the settled `Meshing/delaunay#TESSELLATION` constrained-Delaunay + `Meshing/offset#STRAIGHT_SKELETON` substrates) is the managed exact path the silhouette composes — `Posting/projection` reads the kernel arrangement's exact kept-cell outline through `Arrangement.Apply`/`ToMesh` rather than a native CSG kernel, so the admission is no longer an external block but a compose-the-kernel-arrangement task held until the realized C# arrangement owner lands. The arrangement DESIGN page is authored (the compose-target anchor is settled); the per-facet HLR kernel stays the pure-managed default until the C# owner exists.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

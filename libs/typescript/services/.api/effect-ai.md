@@ -10,7 +10,7 @@ core defines the `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Chat`/`IdGenerato
 prompt/response/tool data model; all success/failure flows through the `AiError` union; all I/O is
 `Effect`/`Stream`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/ai`
 - package: `@effect/ai`
@@ -18,7 +18,7 @@ prompt/response/tool data model; all success/failure flows through the `AiError`
 - asset: provider-agnostic LLM service tags, prompt/response/tool data algebra, stateful chat, embeddings, tokenizer, GenAI OpenTelemetry conventions, MCP server
 - rail: ai-core
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 ### @effect/ai — service tags and model entry points
 
@@ -26,15 +26,15 @@ prompt/response/tool data model; all success/failure flows through the `AiError`
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]       | [CAPABILITY]                  |
 | :-----: | :-------------------------------------- | :------------------ | :---------------------------- |
-|   [1]   | `LanguageModel.LanguageModel`           | `Context.Tag` class | service tag                   |
-|   [2]   | `LanguageModel.Service`                 | interface           | generation contract           |
-|   [3]   | `LanguageModel.generateText`            | function            | text generation               |
-|   [4]   | `LanguageModel.generateObject`          | function            | schema-shaped generation      |
-|   [5]   | `LanguageModel.streamText`              | function            | streaming generation          |
-|   [6]   | `LanguageModel.make`                    | constructor         | provider service construction |
-|   [7]   | `LanguageModel.GenerateTextOptions`     | options interface   | text request options          |
-|   [8]   | `LanguageModel.GenerateObjectOptions`   | options interface   | object request options        |
-|   [9]   | `LanguageModel.ToolChoice<Tools>`       | union               | tool-selection policy         |
+|  [01]   | `LanguageModel.LanguageModel`           | `Context.Tag` class | service tag                   |
+|  [02]   | `LanguageModel.Service`                 | interface           | generation contract           |
+|  [03]   | `LanguageModel.generateText`            | function            | text generation               |
+|  [04]   | `LanguageModel.generateObject`          | function            | schema-shaped generation      |
+|  [05]   | `LanguageModel.streamText`              | function            | streaming generation          |
+|  [06]   | `LanguageModel.make`                    | constructor         | provider service construction |
+|  [07]   | `LanguageModel.GenerateTextOptions`     | options interface   | text request options          |
+|  [08]   | `LanguageModel.GenerateObjectOptions`   | options interface   | object request options        |
+|  [09]   | `LanguageModel.ToolChoice<Tools>`       | union               | tool-selection policy         |
 |  [10]   | `LanguageModel.GenerateTextResponse`    | class               | generated-text receipt        |
 |  [11]   | `LanguageModel.GenerateObjectResponse`  | class               | generated-object receipt      |
 |  [12]   | `LanguageModel.ProviderOptions`         | interface           | provider-normalized request   |
@@ -122,10 +122,10 @@ class GenerateObjectResponse<Tools extends Record<string, Tool.Any>, A> extends 
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]       | [RAIL]                                                       |
 | :-----: | :------------------------ | :------------------ | :----------------------------------------------------------- |
-|   [1]   | `Model.Model<P,Prov,Req>` | branded interface   | both a `Layer` and an `Effect<Layer>`; carries `provider`    |
-|   [2]   | `Model.make`              | constructor         | `(provider, layer) => Model` — tags a layer with provider id |
-|   [3]   | `Model.ProviderName`      | `Context.Tag` class | tag `"@effect/ai/Model/ProviderName"` → `string`             |
-|   [4]   | `Model.TypeId`            | unique const        | `"~@effect/ai/Model"`                                        |
+|  [01]   | `Model.Model<P,Prov,Req>` | branded interface   | both a `Layer` and an `Effect<Layer>`; carries `provider`    |
+|  [02]   | `Model.make`              | constructor         | `(provider, layer) => Model` — tags a layer with provider id |
+|  [03]   | `Model.ProviderName`      | `Context.Tag` class | tag `"@effect/ai/Model/ProviderName"` → `string`             |
+|  [04]   | `Model.TypeId`            | unique const        | `"~@effect/ai/Model"`                                        |
 
 ```ts contract
 interface Model<in out Provider, in out Provides, in out Requires>
@@ -145,11 +145,11 @@ declare const make: <const Provider extends string, Provides, Requires>(
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                                                     |
 | :-----: | :------------------------------ | :------------------ | :--------------------------------------------------------- |
-|   [1]   | `EmbeddingModel.EmbeddingModel` | `Context.Tag` class | tag `"@effect/ai/EmbeddingModel"` → `Service`              |
-|   [2]   | `EmbeddingModel.Service`        | interface           | `embed(input)` / `embedMany(input, {concurrency?})`        |
-|   [3]   | `EmbeddingModel.Result`         | interface           | `{ index, embeddings }`                                    |
-|   [4]   | `EmbeddingModel.make`           | constructor         | per-call batching + optional cache `{capacity,timeToLive}` |
-|   [5]   | `EmbeddingModel.makeDataLoader` | constructor         | windowed data-loader batching `{window, maxBatchSize?}`    |
+|  [01]   | `EmbeddingModel.EmbeddingModel` | `Context.Tag` class | tag `"@effect/ai/EmbeddingModel"` → `Service`              |
+|  [02]   | `EmbeddingModel.Service`        | interface           | `embed(input)` / `embedMany(input, {concurrency?})`        |
+|  [03]   | `EmbeddingModel.Result`         | interface           | `{ index, embeddings }`                                    |
+|  [04]   | `EmbeddingModel.make`           | constructor         | per-call batching + optional cache `{capacity,timeToLive}` |
+|  [05]   | `EmbeddingModel.makeDataLoader` | constructor         | windowed data-loader batching `{window, maxBatchSize?}`    |
 
 ```ts contract
 interface Service {
@@ -176,15 +176,15 @@ declare const makeDataLoader: (options: {
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                                               |
 | :-----: | :----------------------- | :------------------ | :----------------------------------------------------------------------------------- |
-|   [1]   | `Chat.Chat`              | `Context.Tag` class | tag `"@effect/ai/Chat"` → `Service`                                                  |
-|   [2]   | `Chat.Service`           | interface           | `history: Ref`, `export`, `exportJson`, `generateText`/`streamText`/`generateObject` |
-|   [3]   | `Chat.empty`             | constructor effect  | new empty chat session                                                               |
-|   [4]   | `Chat.fromPrompt`        | constructor         | seed chat from `Prompt.RawInput`                                                     |
-|   [5]   | `Chat.fromExport`        | constructor         | rehydrate from `export` payload (`unknown`)                                          |
-|   [6]   | `Chat.fromJson`          | constructor         | rehydrate from JSON string                                                           |
-|   [7]   | `Chat.Persistence`       | `Context.Tag` class | tag `"@effect/ai/Chat/Persisted"` → `Persistence.Service`                            |
-|   [8]   | `Chat.Persisted`         | interface           | extends `Service` + `id`, `save`                                                     |
-|   [9]   | `Chat.makePersisted`     | constructor         | persisted chat by `storeId`                                                          |
+|  [01]   | `Chat.Chat`              | `Context.Tag` class | tag `"@effect/ai/Chat"` → `Service`                                                  |
+|  [02]   | `Chat.Service`           | interface           | `history: Ref`, `export`, `exportJson`, `generateText`/`streamText`/`generateObject` |
+|  [03]   | `Chat.empty`             | constructor effect  | new empty chat session                                                               |
+|  [04]   | `Chat.fromPrompt`        | constructor         | seed chat from `Prompt.RawInput`                                                     |
+|  [05]   | `Chat.fromExport`        | constructor         | rehydrate from `export` payload (`unknown`)                                          |
+|  [06]   | `Chat.fromJson`          | constructor         | rehydrate from JSON string                                                           |
+|  [07]   | `Chat.Persistence`       | `Context.Tag` class | tag `"@effect/ai/Chat/Persisted"` → `Persistence.Service`                            |
+|  [08]   | `Chat.Persisted`         | interface           | extends `Service` + `id`, `save`                                                     |
+|  [09]   | `Chat.makePersisted`     | constructor         | persisted chat by `storeId`                                                          |
 |  [10]   | `Chat.layerPersisted`    | layer               | persistence backplane layer by `storeId`                                             |
 |  [11]   | `Chat.ChatNotFoundError` | tagged error        | persistence lookup miss                                                              |
 
@@ -208,33 +208,33 @@ declare const fromJson: (data: string) => Effect.Effect<Service, ParseError, Lan
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [CAPABILITY]         |
 | :-----: | :-------------------- | :------------------ | :------------------- |
-|   [1]   | `Tokenizer.Tokenizer` | `Context.Tag` class | tokenizer service    |
-|   [2]   | `Tokenizer.Service`   | interface           | tokenize or truncate |
-|   [3]   | `Tokenizer.make`      | constructor         | service construction |
+|  [01]   | `Tokenizer.Tokenizer` | `Context.Tag` class | tokenizer service    |
+|  [02]   | `Tokenizer.Service`   | interface           | tokenize or truncate |
+|  [03]   | `Tokenizer.make`      | constructor         | service construction |
 
 [PUBLIC_TYPE_SCOPE]: id generator
 - rail: ai-core
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]       | [CAPABILITY]         |
 | :-----: | :------------------------------- | :------------------ | :------------------- |
-|   [1]   | `IdGenerator.IdGenerator`        | `Context.Tag` class | id service           |
-|   [2]   | `IdGenerator.Service`            | interface           | id generation        |
-|   [3]   | `IdGenerator.MakeOptions`        | options interface   | generator policy     |
-|   [4]   | `IdGenerator.defaultIdGenerator` | value               | default service      |
-|   [5]   | `IdGenerator.make` / `.layer`    | constructor/layer   | service construction |
+|  [01]   | `IdGenerator.IdGenerator`        | `Context.Tag` class | id service           |
+|  [02]   | `IdGenerator.Service`            | interface           | id generation        |
+|  [03]   | `IdGenerator.MakeOptions`        | options interface   | generator policy     |
+|  [04]   | `IdGenerator.defaultIdGenerator` | value               | default service      |
+|  [05]   | `IdGenerator.make` / `.layer`    | constructor/layer   | service construction |
 
 [PUBLIC_TYPE_SCOPE]: telemetry
 - rail: ai-core
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CAPABILITY]               |
 | :-----: | :----------------------------------------- | :------------------ | :------------------------- |
-|   [1]   | `Telemetry.addGenAIAnnotations`            | function            | GenAI span annotation      |
-|   [2]   | `Telemetry.addSpanAttributes`              | function            | prefixed span attributes   |
-|   [3]   | `Telemetry.GenAITelemetryAttributeOptions` | options             | GenAI attribute payload    |
-|   [4]   | `Telemetry.SpanTransformer`                | interface           | span mutation callback     |
-|   [5]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | span transformer tag       |
-|   [6]   | `Telemetry.WellKnownSystem`                | union               | provider system vocabulary |
-|   [7]   | `Telemetry.WellKnownOperationName`         | union               | operation vocabulary       |
+|  [01]   | `Telemetry.addGenAIAnnotations`            | function            | GenAI span annotation      |
+|  [02]   | `Telemetry.addSpanAttributes`              | function            | prefixed span attributes   |
+|  [03]   | `Telemetry.GenAITelemetryAttributeOptions` | options             | GenAI attribute payload    |
+|  [04]   | `Telemetry.SpanTransformer`                | interface           | span mutation callback     |
+|  [05]   | `Telemetry.CurrentSpanTransformer`         | `Context.Tag` class | span transformer tag       |
+|  [06]   | `Telemetry.WellKnownSystem`                | union               | provider system vocabulary |
+|  [07]   | `Telemetry.WellKnownOperationName`         | union               | operation vocabulary       |
 
 ```ts contract
 // Tokenizer.Service
@@ -269,15 +269,15 @@ type WellKnownOperationName = "chat" | "embeddings" | "text_completion"
 
 | [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]     | [CAPABILITY]             |
 | :-----: | :---------------------------------------------------- | :---------------- | :----------------------- |
-|   [1]   | `Prompt.Prompt`                                       | branded interface | conversation value       |
-|   [2]   | `Prompt.RawInput`                                     | union             | accepted prompt input    |
-|   [3]   | `Prompt.make`                                         | constructor       | input normalization      |
-|   [4]   | `Prompt.empty` / `.fromMessages`                      | constructor       | prompt construction      |
-|   [5]   | `Prompt.fromResponseParts`                            | constructor       | response-to-prompt lift  |
-|   [6]   | `Prompt.merge`                                        | combinator        | prompt concatenation     |
-|   [7]   | `Prompt.setSystem` / `prependSystem` / `appendSystem` | combinator        | system-message placement |
-|   [8]   | `Prompt.Message`                                      | union             | message algebra          |
-|   [9]   | `Prompt.makeMessage` / `*Message`                     | constructor       | message construction     |
+|  [01]   | `Prompt.Prompt`                                       | branded interface | conversation value       |
+|  [02]   | `Prompt.RawInput`                                     | union             | accepted prompt input    |
+|  [03]   | `Prompt.make`                                         | constructor       | input normalization      |
+|  [04]   | `Prompt.empty` / `.fromMessages`                      | constructor       | prompt construction      |
+|  [05]   | `Prompt.fromResponseParts`                            | constructor       | response-to-prompt lift  |
+|  [06]   | `Prompt.merge`                                        | combinator        | prompt concatenation     |
+|  [07]   | `Prompt.setSystem` / `prependSystem` / `appendSystem` | combinator        | system-message placement |
+|  [08]   | `Prompt.Message`                                      | union             | message algebra          |
+|  [09]   | `Prompt.makeMessage` / `*Message`                     | constructor       | message construction     |
 |  [10]   | `Prompt.Part`                                         | union             | message-part algebra     |
 |  [11]   | `Prompt.makePart` / `*Part`                           | constructor       | part construction        |
 |  [12]   | `Prompt.FromJson`                                     | Schema transform  | JSON conversion          |
@@ -304,15 +304,15 @@ declare const makePart: <const Type extends Part["type"]>(type: Type, params: ..
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]  | [CAPABILITY]             |
 | :-----: | :------------------------------------------------------ | :------------- | :----------------------- |
-|   [1]   | `Response.AnyPart`                                      | union          | decoded part algebra     |
-|   [2]   | `Response.Part<Tools>`                                  | union          | settled response part    |
-|   [3]   | `Response.StreamPart<Tools>`                            | union          | streaming response part  |
-|   [4]   | `Response.makePart`                                     | constructor    | part construction        |
-|   [5]   | `Response.FinishReason`                                 | Schema literal | finish vocabulary        |
-|   [6]   | `Response.Usage`                                        | Schema class   | token usage receipt      |
-|   [7]   | `Response.ToolCallParts<Tools>`                         | mapped union   | toolkit call narrowing   |
-|   [8]   | `Response.ToolResultParts<Tools>`                       | mapped union   | toolkit result narrowing |
-|   [9]   | `Response.ProviderMetadata`                             | Schema record  | provider metadata        |
+|  [01]   | `Response.AnyPart`                                      | union          | decoded part algebra     |
+|  [02]   | `Response.Part<Tools>`                                  | union          | settled response part    |
+|  [03]   | `Response.StreamPart<Tools>`                            | union          | streaming response part  |
+|  [04]   | `Response.makePart`                                     | constructor    | part construction        |
+|  [05]   | `Response.FinishReason`                                 | Schema literal | finish vocabulary        |
+|  [06]   | `Response.Usage`                                        | Schema class   | token usage receipt      |
+|  [07]   | `Response.ToolCallParts<Tools>`                         | mapped union   | toolkit call narrowing   |
+|  [08]   | `Response.ToolResultParts<Tools>`                       | mapped union   | toolkit result narrowing |
+|  [09]   | `Response.ProviderMetadata`                             | Schema record  | provider metadata        |
 |  [10]   | `Response.TextPart` / `ToolCallPart` / `FinishPart` / … | Schema + ctor  | concrete part family     |
 |  [11]   | `Response.AllParts(toolkit)`                            | Schema factory | toolkit-aware schema     |
 
@@ -339,15 +339,15 @@ declare const makePart: <const Type extends AnyPart["type"]>(type: Type, params:
 
 | [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]     | [CAPABILITY]           |
 | :-----: | :------------------------------------------------------------- | :---------------- | :--------------------- |
-|   [1]   | `Tool.Tool<Name,Config,Req>`                                   | branded interface | user-defined tool      |
-|   [2]   | `Tool.Any`                                                     | interface         | erased tool bound      |
-|   [3]   | `Tool.ProviderDefined<Name,Cfg>`                               | branded interface | provider-executed tool |
-|   [4]   | `Tool.make`                                                    | constructor       | user tool construction |
-|   [5]   | `Tool.providerDefined`                                         | constructor       | provider tool modeling |
-|   [6]   | `Tool.fromTaggedRequest`                                       | constructor       | tagged-request lift    |
-|   [7]   | `Tool.FailureMode`                                             | union             | failure routing policy |
-|   [8]   | `Tool.Handler` / `HandlerResult` / `HandlerError`              | interface/type    | handler contract       |
-|   [9]   | `Tool.getJsonSchema` / `getDescription`                        | function          | schema and description |
+|  [01]   | `Tool.Tool<Name,Config,Req>`                                   | branded interface | user-defined tool      |
+|  [02]   | `Tool.Any`                                                     | interface         | erased tool bound      |
+|  [03]   | `Tool.ProviderDefined<Name,Cfg>`                               | branded interface | provider-executed tool |
+|  [04]   | `Tool.make`                                                    | constructor       | user tool construction |
+|  [05]   | `Tool.providerDefined`                                         | constructor       | provider tool modeling |
+|  [06]   | `Tool.fromTaggedRequest`                                       | constructor       | tagged-request lift    |
+|  [07]   | `Tool.FailureMode`                                             | union             | failure routing policy |
+|  [08]   | `Tool.Handler` / `HandlerResult` / `HandlerError`              | interface/type    | handler contract       |
+|  [09]   | `Tool.getJsonSchema` / `getDescription`                        | function          | schema and description |
 |  [10]   | `Tool.isUserDefined` / `isProviderDefined`                     | guard             | tool discrimination    |
 |  [11]   | `Tool.Title`/`Readonly`/`Destructive`/`Idempotent`/`OpenWorld` | annotation refs   | MCP-style annotations  |
 
@@ -356,11 +356,11 @@ declare const makePart: <const Type extends AnyPart["type"]>(type: Type, params:
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]          |
 | :-----: | :--------------------------- | :---------------- | :-------------------- |
-|   [1]   | `Toolkit.Toolkit<Tools>`     | branded interface | tool collection       |
-|   [2]   | `Toolkit.make`               | constructor       | toolkit construction  |
-|   [3]   | `Toolkit.merge`              | combinator        | toolkit composition   |
-|   [4]   | `Toolkit.WithHandler<Tools>` | interface         | handler-bound toolkit |
-|   [5]   | `Toolkit.empty`              | value             | empty toolkit         |
+|  [01]   | `Toolkit.Toolkit<Tools>`     | branded interface | tool collection       |
+|  [02]   | `Toolkit.make`               | constructor       | toolkit construction  |
+|  [03]   | `Toolkit.merge`              | combinator        | toolkit composition   |
+|  [04]   | `Toolkit.WithHandler<Tools>` | interface         | handler-bound toolkit |
+|  [05]   | `Toolkit.empty`              | value             | empty toolkit         |
 
 ```ts contract
 declare const make: <const Name extends string, Parameters, Success, Failure, Mode extends FailureMode | undefined = undefined, Dependencies extends Array<Context.Tag<any, any>> = []>(
@@ -404,14 +404,14 @@ interface WithHandler<in out Tools extends Record<string, Tool.Any>> {
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]      | [RAIL]                                                                                       |
 | :-----: | :-------------------------- | :----------------- | :------------------------------------------------------------------------------------------- |
-|   [1]   | `AiError.AiError`           | union + Schema     | `HttpRequestError \| HttpResponseError \| MalformedInput \| MalformedOutput \| UnknownError` |
-|   [2]   | `AiError.HttpRequestError`  | tagged error class | transport-layer request failure                                                              |
-|   [3]   | `AiError.HttpResponseError` | tagged error class | response failure (carries response detail)                                                   |
-|   [4]   | `AiError.MalformedInput`    | tagged error class | input does not match expected shape                                                          |
-|   [5]   | `AiError.MalformedOutput`   | tagged error class | output cannot be parsed/validated                                                            |
-|   [6]   | `AiError.UnknownError`      | tagged error class | catch-all runtime failure                                                                    |
-|   [7]   | `AiError.isAiError`         | guard              | `(u: unknown) => u is AiError`                                                               |
-|   [8]   | `AiError.TypeId`            | unique const       | `"~@effect/ai/AiError"`                                                                      |
+|  [01]   | `AiError.AiError`           | union + Schema     | `HttpRequestError \| HttpResponseError \| MalformedInput \| MalformedOutput \| UnknownError` |
+|  [02]   | `AiError.HttpRequestError`  | tagged error class | transport-layer request failure                                                              |
+|  [03]   | `AiError.HttpResponseError` | tagged error class | response failure (carries response detail)                                                   |
+|  [04]   | `AiError.MalformedInput`    | tagged error class | input does not match expected shape                                                          |
+|  [05]   | `AiError.MalformedOutput`   | tagged error class | output cannot be parsed/validated                                                            |
+|  [06]   | `AiError.UnknownError`      | tagged error class | catch-all runtime failure                                                                    |
+|  [07]   | `AiError.isAiError`         | guard              | `(u: unknown) => u is AiError`                                                               |
+|  [08]   | `AiError.TypeId`            | unique const       | `"~@effect/ai/AiError"`                                                                      |
 
 ```ts contract
 type AiError = HttpRequestError | HttpResponseError | MalformedInput | MalformedOutput | UnknownError
@@ -434,13 +434,13 @@ single composition-root layer swap.
 
 | [INDEX] | [PROVIDER]      | [PAGE]                   | [MODEL_ENTRY]                                                                     |
 | :-----: | :-------------- | :----------------------- | :-------------------------------------------------------------------------------- |
-|   [1]   | OpenAI          | `effect-ai-openai.md`    | `OpenAiLanguageModel.model` / `.modelWithTokenizer`; `OpenAiEmbeddingModel.model` |
-|   [2]   | Anthropic       | `effect-ai-anthropic.md` | `AnthropicLanguageModel.model` / `.modelWithTokenizer`                            |
-|   [3]   | Google (Gemini) | `effect-ai-google.md`    | `GoogleLanguageModel.model`                                                       |
-|   [4]   | OpenRouter      | (adapter page)           | `OpenRouterLanguageModel.model`                                                   |
-|   [5]   | Amazon Bedrock  | (adapter page)           | `AmazonBedrockLanguageModel.model`                                                |
+|  [01]   | OpenAI          | `effect-ai-openai.md`    | `OpenAiLanguageModel.model` / `.modelWithTokenizer`; `OpenAiEmbeddingModel.model` |
+|  [02]   | Anthropic       | `effect-ai-anthropic.md` | `AnthropicLanguageModel.model` / `.modelWithTokenizer`                            |
+|  [03]   | Google (Gemini) | `effect-ai-google.md`    | `GoogleLanguageModel.model`                                                       |
+|  [04]   | OpenRouter      | (adapter page)           | `OpenRouterLanguageModel.model`                                                   |
+|  [05]   | Amazon Bedrock  | (adapter page)           | `AmazonBedrockLanguageModel.model`                                                |
 
-## [3]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [SERVICE_TAG_LAW]:
 - Every capability is a `Context.Tag` class with a stable string id (`"@effect/ai/<Module>"`); resolve with `yield* LanguageModel.LanguageModel` or call the free `LanguageModel.generateText` which adds the tag to the `R` channel. Internal code references the tag, never a concrete provider type.

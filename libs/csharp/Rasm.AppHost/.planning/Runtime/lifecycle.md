@@ -2,15 +2,15 @@
 
 Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows under one total transition law, one Atom-backed `Lifecycle` capsule minting a `PhaseReceipt` on every CAS commit, a four-case `FaultSource` spine with crash-marker and upgrade boot probing, a rank-band drain conductor folding participant rows into one `DrainReceipt`, and one `CancelScope` spine beneath which every cancellation token is derived. The page owns the boot-minted `CorrelationId` identity, the phase family, the trigger vocabulary, the fault traps, the frozen drain bands with their store-dependency column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PHASE_FAMILY]: Eight phases, ten triggers, one CAS transition law, and receipted subscriptions.
-- [2]-[FAULT_SPINE]: Four fault sources, trap registrations, crash-marker, and upgrade boot probe.
-- [3]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
-- [4]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
-- [5]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
+- [01]-[PHASE_FAMILY]: Eight phases, ten triggers, one CAS transition law, and receipted subscriptions.
+- [02]-[FAULT_SPINE]: Four fault sources, trap registrations, crash-marker, and upgrade boot probe.
+- [03]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one unload receipt.
+- [04]-[CANCEL_SPINE]: One root source; derived scopes carry provenance and deadlines.
+- [05]-[TS_PROJECTION]: Phase, fault, and unload receipt wire shapes.
 
-## [2]-[PHASE_FAMILY]
+## [02]-[PHASE_FAMILY]
 
 - Owner: `CorrelationId` `[ValueObject<Guid>]` boot-minted root identity; `RuntimePhase` `[SmartEnum<string>]` eight rows under the `PhaseKeyPolicy` ordinal accessor; `PhaseTrigger` `[Union]` trigger vocabulary; `Lifecycle` boundary capsule owning the Atom-backed receipt cell; `LifecycleFault` fault family in the 1200 code band; `PhaseSubscription` LIFO detacher composite.
 - Cases: boot, ready, running, degraded, draining, unloaded, faulted, support-capture; ten trigger cases; `LifecycleFault` = Text | IllegalTransition.
@@ -183,7 +183,7 @@ stateDiagram-v2
     Unloaded --> [*]
 ```
 
-## [3]-[FAULT_SPINE]
+## [03]-[FAULT_SPINE]
 
 - Owner: `FaultSource` `[Union]` four cases; `BootMarker` crash and upgrade marker record; `FaultRecord` kind-discriminated wire-projection record; `FaultSpine` trap and probe surface.
 - Cases: Unhandled, UnobservedTask, Signalled, HostCrashMarker.
@@ -276,7 +276,7 @@ public static class FaultSpine {
 }
 ```
 
-## [4]-[DRAIN_CONDUCTOR]
+## [04]-[DRAIN_CONDUCTOR]
 
 - Owner: `DrainBand` `[SmartEnum<int>]` frozen rank bands with the store-dependency column; `DrainOutcome` `[SmartEnum<string>]` step vocabulary; `DrainConductor` ordered fold.
 - Cases: Interaction 100, Compute 200, Stores 300, Telemetry 400; outcomes flushed | escalated | straggled.
@@ -338,7 +338,7 @@ public static class DrainConductor {
 }
 ```
 
-## [5]-[CANCEL_SPINE]
+## [05]-[CANCEL_SPINE]
 
 - Owner: `CancelScope` — the one root source and every derived scope as provenance-carrying values.
 - Entry: `CancelScope Derive(string provenance, TimeProvider time, Option<Duration> deadline = default)` — linked-token derivation with provider-driven deadline expiry.
@@ -360,7 +360,7 @@ public sealed record CancelScope(string Provenance, CancellationTokenSource Sour
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `PhaseReceiptWire`, `BootMarkerWire`, `FaultRecordWire`, `DrainStepWire`, `DrainReceiptWire` — the dashboard-ingested shapes of the lifecycle receipts.
 - Packages: BCL inbox
@@ -387,7 +387,7 @@ interface DrainStepWire { readonly name: string; readonly band: number; readonly
 interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly final: RuntimePhaseKey; readonly at: string; readonly elapsed: string; readonly correlationId: string; }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [FAULT_PROBES]: standalone-row crash-flag marker path and schema beneath the per-user support root; SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger.
 - [DRAIN_CLASSIFIER]: `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates.

@@ -8,7 +8,7 @@ error function, etc.) for the numeric lane's statistical, analytical, and domain
 computation paths. Linear algebra, provider selection, and sparse solve surfaces
 are covered by `api-mathnet-providers.md`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
 - package: `MathNet.Numerics`
@@ -17,32 +17,32 @@ are covered by `api-mathnet-providers.md`.
 - asset: runtime library (managed; native providers are a separate concern)
 - rail: numeric
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: distribution seams
 - rail: numeric
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                           |
 | :-----: | :------------------------ | :------------ | :------------------------------------------------------------------------------------- |
-|   [1]   | `IDistribution`           | interface     | root distribution seam; `Mean`, `Variance`, entropy                                    |
-|   [2]   | `IUnivariateDistribution` | interface     | adds `CumulativeDistribution(x)`                                                       |
-|   [3]   | `IContinuousDistribution` | interface     | adds `Density`, `DensityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples`         |
-|   [4]   | `IDiscreteDistribution`   | interface     | adds `Probability`, `ProbabilityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples` |
+|  [01]   | `IDistribution`           | interface     | root distribution seam; `Mean`, `Variance`, entropy                                    |
+|  [02]   | `IUnivariateDistribution` | interface     | adds `CumulativeDistribution(x)`                                                       |
+|  [03]   | `IContinuousDistribution` | interface     | adds `Density`, `DensityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples`         |
+|  [04]   | `IDiscreteDistribution`   | interface     | adds `Probability`, `ProbabilityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples` |
 
 [PUBLIC_TYPE_SCOPE]: continuous distributions
 - rail: numeric
 
 | [INDEX] | [SYMBOL]            | [PARAMETERS]               | [CAPABILITY]                         |
 | :-----: | :------------------ | :------------------------- | :----------------------------------- |
-|   [1]   | `Normal`            | `mean, stdDev`             | Gaussian; PDF/CDF/sample/inverse CDF |
-|   [2]   | `LogNormal`         | `mu, sigma`                | log-normal                           |
-|   [3]   | `Gamma`             | `shape, rate`              | Gamma                                |
-|   [4]   | `Beta`              | `a, b`                     | Beta                                 |
-|   [5]   | `ChiSquared`        | `freedom`                  | chi-squared                          |
-|   [6]   | `StudentT`          | `location, scale, freedom` | Student's t                          |
-|   [7]   | `Exponential`       | `rate`                     | exponential                          |
-|   [8]   | `Weibull`           | `shape, scale`             | Weibull                              |
-|   [9]   | `ContinuousUniform` | `lower, upper`             | continuous uniform                   |
+|  [01]   | `Normal`            | `mean, stdDev`             | Gaussian; PDF/CDF/sample/inverse CDF |
+|  [02]   | `LogNormal`         | `mu, sigma`                | log-normal                           |
+|  [03]   | `Gamma`             | `shape, rate`              | Gamma                                |
+|  [04]   | `Beta`              | `a, b`                     | Beta                                 |
+|  [05]   | `ChiSquared`        | `freedom`                  | chi-squared                          |
+|  [06]   | `StudentT`          | `location, scale, freedom` | Student's t                          |
+|  [07]   | `Exponential`       | `rate`                     | exponential                          |
+|  [08]   | `Weibull`           | `shape, scale`             | Weibull                              |
+|  [09]   | `ContinuousUniform` | `lower, upper`             | continuous uniform                   |
 |  [10]   | `Cauchy`            | `location, scale`          | Cauchy / Lorentz                     |
 |  [11]   | `Laplace`           | `location, scale`          | Laplace                              |
 |  [12]   | `Rayleigh`          | `scale`                    | Rayleigh                             |
@@ -58,31 +58,31 @@ are covered by `api-mathnet-providers.md`.
 
 | [INDEX] | [SYMBOL]           | [PARAMETERS]       | [CAPABILITY]              |
 | :-----: | :----------------- | :----------------- | :------------------------ |
-|   [1]   | `Binomial`         | `p, n`             | binomial                  |
-|   [2]   | `Poisson`          | `lambda`           | Poisson                   |
-|   [3]   | `NegativeBinomial` | `r, p`             | negative binomial         |
-|   [4]   | `Bernoulli`        | `p`                | Bernoulli trial           |
-|   [5]   | `DiscreteUniform`  | `lower, upper`     | discrete uniform          |
-|   [6]   | `Geometric`        | `p`                | geometric                 |
-|   [7]   | `Hypergeometric`   | `population, k, n` | hypergeometric            |
-|   [8]   | `Categorical`      | `probabilities[]`  | categorical / multinoulli |
+|  [01]   | `Binomial`         | `p, n`             | binomial                  |
+|  [02]   | `Poisson`          | `lambda`           | Poisson                   |
+|  [03]   | `NegativeBinomial` | `r, p`             | negative binomial         |
+|  [04]   | `Bernoulli`        | `p`                | Bernoulli trial           |
+|  [05]   | `DiscreteUniform`  | `lower, upper`     | discrete uniform          |
+|  [06]   | `Geometric`        | `p`                | geometric                 |
+|  [07]   | `Hypergeometric`   | `population, k, n` | hypergeometric            |
+|  [08]   | `Categorical`      | `probabilities[]`  | categorical / multinoulli |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: distribution construction and sampling
 - rail: numeric
 
 | [INDEX] | [SURFACE]                                           | [CALL_SHAPE]  | [CAPABILITY]                                         |
 | :-----: | :-------------------------------------------------- | :------------ | :--------------------------------------------------- |
-|   [1]   | `new Normal(mean, stdDev)`                          | constructor   | Gaussian instance                                    |
-|   [2]   | `new Normal(mean, stdDev, randomSource)`            | constructor   | Gaussian with explicit RNG                           |
-|   [3]   | `IContinuousDistribution.Density(x)`                | instance      | PDF at x                                             |
-|   [4]   | `IContinuousDistribution.DensityLn(x)`              | instance      | log-PDF at x                                         |
-|   [5]   | `IUnivariateDistribution.CumulativeDistribution(x)` | instance      | CDF at x                                             |
-|   [6]   | `IContinuousDistribution.Sample()`                  | instance      | single random sample                                 |
-|   [7]   | `IContinuousDistribution.Samples(double[])`         | instance      | fill array with samples                              |
-|   [8]   | `IContinuousDistribution.Samples()`                 | instance      | lazy infinite sample sequence                        |
-|   [9]   | `IDiscreteDistribution.Probability(k)`              | instance      | PMF at k                                             |
+|  [01]   | `new Normal(mean, stdDev)`                          | constructor   | Gaussian instance                                    |
+|  [02]   | `new Normal(mean, stdDev, randomSource)`            | constructor   | Gaussian with explicit RNG                           |
+|  [03]   | `IContinuousDistribution.Density(x)`                | instance      | PDF at x                                             |
+|  [04]   | `IContinuousDistribution.DensityLn(x)`              | instance      | log-PDF at x                                         |
+|  [05]   | `IUnivariateDistribution.CumulativeDistribution(x)` | instance      | CDF at x                                             |
+|  [06]   | `IContinuousDistribution.Sample()`                  | instance      | single random sample                                 |
+|  [07]   | `IContinuousDistribution.Samples(double[])`         | instance      | fill array with samples                              |
+|  [08]   | `IContinuousDistribution.Samples()`                 | instance      | lazy infinite sample sequence                        |
+|  [09]   | `IDiscreteDistribution.Probability(k)`              | instance      | PMF at k                                             |
 |  [10]   | `IDiscreteDistribution.ProbabilityLn(k)`            | instance      | log-PMF at k                                         |
 |  [11]   | `IDiscreteDistribution.Sample()`                    | instance      | single integer sample                                |
 |  [12]   | `Normal.RandomSource`                               | instance prop | gets or sets the RNG (replaces with default on null) |
@@ -92,47 +92,47 @@ are covered by `api-mathnet-providers.md`.
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]  | [CAPABILITY]                                    |
 | :-----: | :------------------------------------------------- | :------------ | :---------------------------------------------- |
-|   [1]   | `Integrate.OnClosedInterval(f, a, b, targetError)` | static method | double-exponential quadrature with error target |
-|   [2]   | `Integrate.OnClosedInterval(f, a, b)`              | static method | double-exponential quadrature (default 1e-8)    |
-|   [3]   | `Integrate.OnRectangle(f2d, a, b, c, d, order)`    | static method | 2D Gauss-Legendre over `[a,b]×[c,d]`            |
+|  [01]   | `Integrate.OnClosedInterval(f, a, b, targetError)` | static method | double-exponential quadrature with error target |
+|  [02]   | `Integrate.OnClosedInterval(f, a, b)`              | static method | double-exponential quadrature (default 1e-8)    |
+|  [03]   | `Integrate.OnRectangle(f2d, a, b, c, d, order)`    | static method | 2D Gauss-Legendre over `[a,b]×[c,d]`            |
 
 [ENTRYPOINT_SCOPE]: root-finding (`FindRoots` class)
 - rail: numeric
 
 | [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]  | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------------- | :------------ | :--------------------------------------- |
-|   [1]   | `FindRoots.OfFunction(f, lower, upper, accuracy, maxIter)`     | static method | Brent + Bisection with bracket expansion |
-|   [2]   | `FindRoots.OfFunction(f, df, lower, upper, accuracy, maxIter)` | static method | Newton-Raphson with derivative           |
+|  [01]   | `FindRoots.OfFunction(f, lower, upper, accuracy, maxIter)`     | static method | Brent + Bisection with bracket expansion |
+|  [02]   | `FindRoots.OfFunction(f, df, lower, upper, accuracy, maxIter)` | static method | Newton-Raphson with derivative           |
 
 [ENTRYPOINT_SCOPE]: interpolation (`Interpolate` class)
 - rail: numeric
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]  | [CAPABILITY]                                      |
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------ |
-|   [1]   | `Interpolate.Common(points, values)`               | static method | Floater-Hormann rational; arbitrary unsorted data |
-|   [2]   | `Interpolate.RationalWithoutPoles(points, values)` | static method | Floater-Hormann rational; pole-free               |
+|  [01]   | `Interpolate.Common(points, values)`               | static method | Floater-Hormann rational; arbitrary unsorted data |
+|  [02]   | `Interpolate.RationalWithoutPoles(points, values)` | static method | Floater-Hormann rational; pole-free               |
 
 [ENTRYPOINT_SCOPE]: special functions (`SpecialFunctions` class)
 - rail: numeric
 
 | [INDEX] | [SURFACE]                                      | [CALL_SHAPE]  | [CAPABILITY]                         |
 | :-----: | :--------------------------------------------- | :------------ | :----------------------------------- |
-|   [1]   | `SpecialFunctions.Gamma(x)`                    | static method | Gamma function Γ(x)                  |
-|   [2]   | `SpecialFunctions.GammaLn(x)`                  | static method | log-Gamma ln Γ(x)                    |
-|   [3]   | `SpecialFunctions.GammaLowerRegularized(a, x)` | static method | regularized lower incomplete gamma   |
-|   [4]   | `SpecialFunctions.GammaUpperRegularized(a, x)` | static method | regularized upper incomplete gamma   |
-|   [5]   | `SpecialFunctions.Beta(a, b)`                  | static method | Beta function B(a,b)                 |
-|   [6]   | `SpecialFunctions.BetaRegularized(a, b, x)`    | static method | regularized incomplete beta I_x(a,b) |
-|   [7]   | `SpecialFunctions.Erf(x)`                      | static method | error function erf(x)                |
-|   [8]   | `SpecialFunctions.ErfInverse(x)`               | static method | inverse error function               |
-|   [9]   | `SpecialFunctions.Erfc(x)`                     | static method | complementary error function erfc(x) |
+|  [01]   | `SpecialFunctions.Gamma(x)`                    | static method | Gamma function Γ(x)                  |
+|  [02]   | `SpecialFunctions.GammaLn(x)`                  | static method | log-Gamma ln Γ(x)                    |
+|  [03]   | `SpecialFunctions.GammaLowerRegularized(a, x)` | static method | regularized lower incomplete gamma   |
+|  [04]   | `SpecialFunctions.GammaUpperRegularized(a, x)` | static method | regularized upper incomplete gamma   |
+|  [05]   | `SpecialFunctions.Beta(a, b)`                  | static method | Beta function B(a,b)                 |
+|  [06]   | `SpecialFunctions.BetaRegularized(a, b, x)`    | static method | regularized incomplete beta I_x(a,b) |
+|  [07]   | `SpecialFunctions.Erf(x)`                      | static method | error function erf(x)                |
+|  [08]   | `SpecialFunctions.ErfInverse(x)`               | static method | inverse error function               |
+|  [09]   | `SpecialFunctions.Erfc(x)`                     | static method | complementary error function erfc(x) |
 |  [10]   | `SpecialFunctions.Logistic(x)`                 | static method | logistic sigmoid 1/(1+e^-x)          |
 |  [11]   | `SpecialFunctions.LogisticLn(x)`               | static method | log-logistic                         |
 |  [12]   | `SpecialFunctions.Harmonic(t)`                 | static method | harmonic number H(t)                 |
 |  [13]   | `SpecialFunctions.BesselJ0(x)`                 | static method | Bessel J0                            |
 |  [14]   | `SpecialFunctions.BesselJ1(x)`                 | static method | Bessel J1                            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DISTRIBUTION_TOPOLOGY]:
 - namespace: `MathNet.Numerics.Distributions`

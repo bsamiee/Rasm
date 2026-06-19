@@ -2,14 +2,14 @@
 
 The animation rail is the temporal model: `Track` is the closed keyframe-track union over parameters, cameras, visibility, and transient-field indices, `Keyframe` carries a value and a motion-token easing, `Timeline` composes tracks under a deterministic playhead clock, and `Walkthrough` renders the timeline to an offline frame sequence through the offscreen encode rail. The page owns the track and keyframe vocabulary, the timeline composition and deterministic-playback sampler, the kinematic and transient-field scrub, and the offline walkthrough export; the substrate is the motion-token easing vocabulary for keyframe interpolation, the `Viewpoint` camera for camera tracks, the `SimField` frame index for transient scrub, the visuals encode rail for walkthrough frames, and the AppHost clock for the deterministic playhead. Playback is frame-indexed under the deterministic motion clock so a scrub and an offline render reproduce the same state.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TRACK_MODEL]: Keyframe-track union; keyframe value plus motion-token easing.
-- [2]-[TIMELINE]: Track composition; deterministic playhead; sample-at-time fold.
-- [3]-[SCRUB]: Kinematic playback; transient-field scrubbing by frame index.
-- [4]-[WALKTHROUGH]: Offline frame-sequence render to the encode rail.
+- [01]-[TRACK_MODEL]: Keyframe-track union; keyframe value plus motion-token easing.
+- [02]-[TIMELINE]: Track composition; deterministic playhead; sample-at-time fold.
+- [03]-[SCRUB]: Kinematic playback; transient-field scrubbing by frame index.
+- [04]-[WALKTHROUGH]: Offline frame-sequence render to the encode rail.
 
-## [2]-[TRACK_MODEL]
+## [02]-[TRACK_MODEL]
 
 - Owner: `Keyframe<T>` the timed value with its easing; `Track` `[Union]` the track-kind family; `Easing` the motion-token interpolation projection.
 - Cases: `Track` = Parameter | Camera | Visibility | FieldIndex | Color under the locked kind literals — a parameter track animates a typed scalar, a camera track the viewpoint camera, a visibility track an element-visibility step, a field-index track the transient simulation frame, a color track an OKLab-interpolated paint.
@@ -90,7 +90,7 @@ public abstract partial record Track {
 }
 ```
 
-## [3]-[TIMELINE]
+## [03]-[TIMELINE]
 
 - Owner: `Playhead` the deterministic playback clock; `Timeline` the track composition; `TimelineSample` the sampled state at the playhead.
 - Entry: `public TimelineSample SampleAt(Duration t, Func<double, double, double, double> lerpD, Func<ViewCamera, ViewCamera, double, ViewCamera> lerpCam, Func<Color, Color, double, Color> lerpColor)` — samples every track at the playhead into one composed state; the playhead advances by frame under the deterministic clock.
@@ -155,7 +155,7 @@ public sealed record Timeline(string Key, Seq<Track> Tracks, double FrameRate, P
 }
 ```
 
-## [4]-[SCRUB]
+## [04]-[SCRUB]
 
 - Owner: `ScrubState` the interactive playhead binding; `Scrub` the kinematic and transient-field scrub fold.
 - Entry: `public IO<TimelineSample> To(Timeline timeline, long frame, SurfaceScheduler scheduler)` — scrubs the playhead to an exact frame and emits the composed sample on the UI thread; the field-index track drives the transient simulation frame.
@@ -189,7 +189,7 @@ public static class Scrub {
 }
 ```
 
-## [5]-[WALKTHROUGH]
+## [05]-[WALKTHROUGH]
 
 - Owner: `WalkthroughSpec` the offline-render specification; `Walkthrough` the frame-sequence render fold.
 - Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec, Func<TimelineSample, SKImageInfo, Fin<SKImage>> frame)` — renders every frame of the timeline to the encode rail and seals one receipt for the sequence; the frame count is the timeline duration over the frame rate.
@@ -239,6 +239,6 @@ flowchart LR
     Walkthrough --> RenderReceipt
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [WALKTHROUGH_VIDEO]: the video-container emit — the frame sequence to an MP4/WebM container through an admitted encoder, resolved at implementation against an admitted video-codec package; the track and keyframe vocabulary, the timeline sampler, the deterministic playhead, the scrub fold, and the numbered-frame and bundle walkthrough outputs are settled, the video-container muxing is the unverified surface and the numbered-frame sequence ships today.

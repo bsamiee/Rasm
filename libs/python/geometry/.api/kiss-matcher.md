@@ -2,7 +2,7 @@
 
 `kiss_matcher` supplies the global, initialization-free point-cloud registration path for the scan-processing rail: a `KISSMatcher` estimator that extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN plus a graduated-non-convexity solver, and returns a `RegistrationSolution` rigid transform without an initial pose. A `KISSMatcherConfig` carries the voxel, normal, FPFH, and noise-bound parameters, and the matcher exposes per-stage timing and inlier counts as the registration receipt. The package owner composes `estimate` (or `match` plus `prune_and_solve`) into the global registration mode that seeds the fine `small_gicp` refinement; it never re-implements the keypoint extraction, the graph-theoretic outlier rejection, or the GNC pose solver.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `kiss-matcher`
 - package: `kiss-matcher`
@@ -13,7 +13,7 @@
 - entry points: none (library only)
 - capability: initialization-free global rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN-based outlier pruning, graduated-non-convexity and Quatro pose solving, and per-stage timing plus inlier receipts
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: estimator, config, and result family
 - rail: global-registration
@@ -22,9 +22,9 @@
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]       | [CAPABILITY]                                           |
 | :-----: | :--------------------- | :------------------ | :----------------------------------------------------- |
-|   [1]   | `KISSMatcher`          | global matcher      | end-to-end global registration plus stage accessors    |
-|   [2]   | `KISSMatcherConfig`    | parameter carrier   | voxel/normal/FPFH/noise-bound and solver-mode settings |
-|   [3]   | `RegistrationSolution` | registration result | `rotation`, `translation`, `valid` rigid transform     |
+|  [01]   | `KISSMatcher`          | global matcher      | end-to-end global registration plus stage accessors    |
+|  [02]   | `KISSMatcherConfig`    | parameter carrier   | voxel/normal/FPFH/noise-bound and solver-mode settings |
+|  [03]   | `RegistrationSolution` | registration result | `rotation`, `translation`, `valid` rigid transform     |
 
 [PUBLIC_TYPE_SCOPE]: `KISSMatcherConfig` fields
 - rail: global-registration
@@ -33,15 +33,15 @@ Construct with `KISSMatcherConfig(voxel_size=0.3, use_voxel_sampling=True, use_q
 
 | [INDEX] | [FIELD]                   | [PROPERTY_KIND] | [CAPABILITY]                                      |
 | :-----: | :------------------------ | :-------------- | :------------------------------------------------ |
-|   [1]   | `voxel_size`              | read/write      | downsampling voxel edge length                    |
-|   [2]   | `use_voxel_sampling`      | read/write      | toggle the voxel-grid downsample stage            |
-|   [3]   | `use_quatro`              | read/write      | switch the solver to Quatro for degenerate scenes |
-|   [4]   | `thr_linearity`           | read/write      | linearity threshold guarding degenerate geometry  |
-|   [5]   | `num_max_corr`            | read/write      | cap on retained correspondences                   |
-|   [6]   | `normal_radius`           | read/write      | absolute normal-estimation radius                 |
-|   [7]   | `fpfh_radius`             | read/write      | absolute Faster-PFH feature radius                |
-|   [8]   | `robin_noise_bound`       | read/write      | ROBIN outlier-pruning noise bound                 |
-|   [9]   | `robin_noise_bound_gain`  | read/write      | gain scaling the ROBIN noise bound                |
+|  [01]   | `voxel_size`              | read/write      | downsampling voxel edge length                    |
+|  [02]   | `use_voxel_sampling`      | read/write      | toggle the voxel-grid downsample stage            |
+|  [03]   | `use_quatro`              | read/write      | switch the solver to Quatro for degenerate scenes |
+|  [04]   | `thr_linearity`           | read/write      | linearity threshold guarding degenerate geometry  |
+|  [05]   | `num_max_corr`            | read/write      | cap on retained correspondences                   |
+|  [06]   | `normal_radius`           | read/write      | absolute normal-estimation radius                 |
+|  [07]   | `fpfh_radius`             | read/write      | absolute Faster-PFH feature radius                |
+|  [08]   | `robin_noise_bound`       | read/write      | ROBIN outlier-pruning noise bound                 |
+|  [09]   | `robin_noise_bound_gain`  | read/write      | gain scaling the ROBIN noise bound                |
 |  [10]   | `solver_noise_bound`      | read/write      | GNC solver noise bound                            |
 |  [11]   | `solver_noise_bound_gain` | read/write      | gain scaling the solver noise bound               |
 
@@ -50,11 +50,11 @@ Construct with `KISSMatcherConfig(voxel_size=0.3, use_voxel_sampling=True, use_q
 
 | [INDEX] | [FIELD]       | [PROPERTY_KIND] | [CAPABILITY]                             |
 | :-----: | :------------ | :-------------- | :--------------------------------------- |
-|   [1]   | `rotation`    | read            | 3x3 rotation matrix                      |
-|   [2]   | `translation` | read            | 3-vector translation                     |
-|   [3]   | `valid`       | read            | convergence/validity flag for the result |
+|  [01]   | `rotation`    | read            | 3x3 rotation matrix                      |
+|  [02]   | `translation` | read            | 3-vector translation                     |
+|  [03]   | `valid`       | read            | convergence/validity flag for the result |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`KISSMatcher.estimate`)
 - rail: global-registration
@@ -63,11 +63,11 @@ Construct the matcher from a voxel size or a `KISSMatcherConfig`, then call `est
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CAPABILITY]                         |
 | :-----: | :------------------------------------------- | :------------- | :----------------------------------- |
-|   [1]   | `KISSMatcher(voxel_size: float)`             | constructor    | matcher from a single voxel size     |
-|   [2]   | `KISSMatcher(config: KISSMatcherConfig)`     | constructor    | matcher from a full config           |
-|   [3]   | `estimate(src, tgt) -> RegistrationSolution` | pipeline       | full keypoint/match/prune/solve pass |
-|   [4]   | `print() -> None`                            | report         | print the registration summary       |
-|   [5]   | `clear() -> None` / `reset() -> None`        | lifecycle      | clear cached buffers between runs    |
+|  [01]   | `KISSMatcher(voxel_size: float)`             | constructor    | matcher from a single voxel size     |
+|  [02]   | `KISSMatcher(config: KISSMatcherConfig)`     | constructor    | matcher from a full config           |
+|  [03]   | `estimate(src, tgt) -> RegistrationSolution` | pipeline       | full keypoint/match/prune/solve pass |
+|  [04]   | `print() -> None`                            | report         | print the registration summary       |
+|  [05]   | `clear() -> None` / `reset() -> None`        | lifecycle      | clear cached buffers between runs    |
 
 [ENTRYPOINT_SCOPE]: decomposed match and solve
 - rail: global-registration
@@ -76,10 +76,10 @@ The pipeline decomposes into a `match` keypoint stage and a `prune_and_solve` or
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------- |
-|   [1]   | `match(src, tgt) -> tuple[list[NDArray], list[NDArray]]`            | match          | extract and match keypoint correspondences |
-|   [2]   | `prune_and_solve(src_matched, tgt_matched) -> RegistrationSolution` | prune+solve    | ROBIN prune plus GNC solve on matches      |
-|   [3]   | `solve(src_matched, tgt_matched) -> RegistrationSolution`           | solve          | GNC solve on already-pruned matches        |
-|   [4]   | `reset_solver() -> None`                                            | lifecycle      | reset the solver state                     |
+|  [01]   | `match(src, tgt) -> tuple[list[NDArray], list[NDArray]]`            | match          | extract and match keypoint correspondences |
+|  [02]   | `prune_and_solve(src_matched, tgt_matched) -> RegistrationSolution` | prune+solve    | ROBIN prune plus GNC solve on matches      |
+|  [03]   | `solve(src_matched, tgt_matched) -> RegistrationSolution`           | solve          | GNC solve on already-pruned matches        |
+|  [04]   | `reset_solver() -> None`                                            | lifecycle      | reset the solver state                     |
 
 [ENTRYPOINT_SCOPE]: stage keypoints, correspondences, and receipts
 - rail: global-registration
@@ -88,18 +88,18 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 
 | [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :----------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `get_keypoints_from_faster_pfh() -> tuple[list[NDArray], list[NDArray]]`       | keypoints      | Faster-PFH source/target keypoints        |
-|   [2]   | `get_keypoints_from_initial_matching() -> tuple[list[NDArray], list[NDArray]]` | keypoints      | initially matched source/target keypoints |
-|   [3]   | `get_processed_input_clouds() -> tuple[list[NDArray], list[NDArray]]`          | clouds         | downsampled source/target clouds          |
-|   [4]   | `get_initial_correspondences() -> list[tuple[int, int]]`                       | correspondence | source/target index pairs before pruning  |
-|   [5]   | `get_final_correspondences() -> list[tuple[int, int]]`                         | correspondence | inlier index pairs after pruning          |
-|   [6]   | `get_num_final_inliers() -> int`                                               | receipt        | retained inlier count                     |
-|   [7]   | `get_num_rotation_inliers() -> int`                                            | receipt        | rotation-consistent inlier count          |
-|   [8]   | `get_extraction_time()` / `get_matching_time()`                                | receipt        | keypoint and matching stage timings       |
-|   [9]   | `get_rejection_time()` / `get_solver_time()`                                   | receipt        | pruning and solver stage timings          |
+|  [01]   | `get_keypoints_from_faster_pfh() -> tuple[list[NDArray], list[NDArray]]`       | keypoints      | Faster-PFH source/target keypoints        |
+|  [02]   | `get_keypoints_from_initial_matching() -> tuple[list[NDArray], list[NDArray]]` | keypoints      | initially matched source/target keypoints |
+|  [03]   | `get_processed_input_clouds() -> tuple[list[NDArray], list[NDArray]]`          | clouds         | downsampled source/target clouds          |
+|  [04]   | `get_initial_correspondences() -> list[tuple[int, int]]`                       | correspondence | source/target index pairs before pruning  |
+|  [05]   | `get_final_correspondences() -> list[tuple[int, int]]`                         | correspondence | inlier index pairs after pruning          |
+|  [06]   | `get_num_final_inliers() -> int`                                               | receipt        | retained inlier count                     |
+|  [07]   | `get_num_rotation_inliers() -> int`                                            | receipt        | rotation-consistent inlier count          |
+|  [08]   | `get_extraction_time()` / `get_matching_time()`                                | receipt        | keypoint and matching stage timings       |
+|  [09]   | `get_rejection_time()` / `get_solver_time()`                                   | receipt        | pruning and solver stage timings          |
 |  [10]   | `get_processing_time()`                                                        | receipt        | total registration wall time              |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GLOBAL_REGISTRATION]:
 - import: `import kiss_matcher` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -109,7 +109,7 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 - evidence: each run captures `get_num_final_inliers`, `get_num_rotation_inliers`, the initial/final correspondence pairs, and the per-stage timings (`extraction`/`matching`/`rejection`/`solver`/`processing`) as the registration receipt feeding handoff and the fine-refinement decision.
 - boundary: `kiss_matcher` owns coarse initialization-free global registration; the resulting `RegistrationSolution` transform seeds fine `small_gicp` GICP/VGICP refinement, surface reconstruction and FPFH-free coarse alignment route to `open3d`, and general PLY/scan IO routes to `open3d`/`laspy` rather than this estimator.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `kiss-matcher`

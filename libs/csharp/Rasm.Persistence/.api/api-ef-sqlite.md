@@ -4,7 +4,7 @@
 SQLite options, relational services, SQL generation, migrations, scaffolding,
 query translation, and type mapping into one store-provider rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Sqlite`
 - package: `Microsoft.EntityFrameworkCore.Sqlite`
@@ -13,95 +13,95 @@ query translation, and type mapping into one store-provider rail.
 - asset: provider admission and runtime library
 - rail: store-provider
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PROVIDER_TYPES]: provider options and admission
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]     | [CAPABILITY]             |
 | :-----: | :---------------------------------------- | :----------------- | :----------------------- |
-|   [1]   | `SqliteDbContextOptionsBuilder`           | provider options   | configures SQLite store  |
-|   [2]   | `SqliteDbContextOptionsBuilderExtensions` | builder extension  | admits SQLite provider   |
-|   [3]   | `SqliteServiceCollectionExtensions`       | service extension  | admits provider services |
-|   [4]   | `SqliteOptionsExtension`                  | options extension  | carries provider policy  |
-|   [5]   | `SqliteDatabaseFacadeExtensions`          | database extension | exposes SQLite database  |
-|   [6]   | `SqliteDesignTimeServices`                | design services    | admits design tooling    |
+|  [01]   | `SqliteDbContextOptionsBuilder`           | provider options   | configures SQLite store  |
+|  [02]   | `SqliteDbContextOptionsBuilderExtensions` | builder extension  | admits SQLite provider   |
+|  [03]   | `SqliteServiceCollectionExtensions`       | service extension  | admits provider services |
+|  [04]   | `SqliteOptionsExtension`                  | options extension  | carries provider policy  |
+|  [05]   | `SqliteDatabaseFacadeExtensions`          | database extension | exposes SQLite database  |
+|  [06]   | `SqliteDesignTimeServices`                | design services    | admits design tooling    |
 
 [RELATIONAL_TYPES]: mapping, query, and migration surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]            |
 | :-----: | :----------------------------- | :------------------ | :---------------------- |
-|   [1]   | `SqliteTypeMappingSource`      | type mapper         | maps CLR values         |
-|   [2]   | `SqliteSqlGenerationHelper`    | SQL helper          | emits SQL identifiers   |
-|   [3]   | `SqliteQuerySqlGenerator`      | query generator     | emits query SQL         |
-|   [4]   | `SqliteMigrationsSqlGenerator` | migration generator | emits migration SQL     |
-|   [5]   | `SqliteUpdateSqlGenerator`     | update generator    | emits update SQL        |
-|   [6]   | `SqliteDatabaseCreator`        | database creator    | creates store database  |
-|   [7]   | `SqliteModelValidator`         | model validator     | validates store model   |
-|   [8]   | `SqliteMigrationDatabaseLock`  | migration lock      | protects migrations     |
-|   [9]   | `SqliteAnnotationNames`        | annotation names    | names provider metadata |
+|  [01]   | `SqliteTypeMappingSource`      | type mapper         | maps CLR values         |
+|  [02]   | `SqliteSqlGenerationHelper`    | SQL helper          | emits SQL identifiers   |
+|  [03]   | `SqliteQuerySqlGenerator`      | query generator     | emits query SQL         |
+|  [04]   | `SqliteMigrationsSqlGenerator` | migration generator | emits migration SQL     |
+|  [05]   | `SqliteUpdateSqlGenerator`     | update generator    | emits update SQL        |
+|  [06]   | `SqliteDatabaseCreator`        | database creator    | creates store database  |
+|  [07]   | `SqliteModelValidator`         | model validator     | validates store model   |
+|  [08]   | `SqliteMigrationDatabaseLock`  | migration lock      | protects migrations     |
+|  [09]   | `SqliteAnnotationNames`        | annotation names    | names provider metadata |
 
 [TRANSLATION_TYPES]: query translation surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]      | [CAPABILITY]            |
 | :-----: | :----------------------------------------- | :------------------ | :---------------------- |
-|   [1]   | `SqliteMethodCallTranslatorProvider`       | translator provider | translates methods      |
-|   [2]   | `SqliteMemberTranslatorProvider`           | translator provider | translates members      |
-|   [3]   | `SqliteDateTimeMethodTranslator`           | translator          | translates date methods |
-|   [4]   | `SqliteStringMethodTranslator`             | translator          | translates strings      |
-|   [5]   | `SqliteMathTranslator`                     | translator          | translates math calls   |
-|   [6]   | `SqliteRegexMethodTranslator`              | translator          | translates regex calls  |
-|   [7]   | `SqliteQueryableAggregateMethodTranslator` | translator          | translates aggregates   |
+|  [01]   | `SqliteMethodCallTranslatorProvider`       | translator provider | translates methods      |
+|  [02]   | `SqliteMemberTranslatorProvider`           | translator provider | translates members      |
+|  [03]   | `SqliteDateTimeMethodTranslator`           | translator          | translates date methods |
+|  [04]   | `SqliteStringMethodTranslator`             | translator          | translates strings      |
+|  [05]   | `SqliteMathTranslator`                     | translator          | translates math calls   |
+|  [06]   | `SqliteRegexMethodTranslator`              | translator          | translates regex calls  |
+|  [07]   | `SqliteQueryableAggregateMethodTranslator` | translator          | translates aggregates   |
 
 [INTERCEPTION_TYPES]: EF Core interception surfaces (`Microsoft.EntityFrameworkCore.Diagnostics`, base assembly)
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]   | [CAPABILITY]                     |
 | :-----: | :---------------------------- | :--------------- | :------------------------------- |
-|   [1]   | `ConnectionOpenedAsync`       | connection hook  | re-applies PRAGMA ladder         |
-|   [2]   | `ReaderExecutedAsync`         | command hook     | emits slow and burst facts       |
-|   [3]   | `SavingChangesAsync`          | save hook        | stamps changefeed in transaction |
-|   [4]   | `SavedChangesAsync`           | save hook        | invalidates and emits save fact  |
-|   [5]   | `TransactionCommittedAsync`   | transaction hook | emits transaction facts          |
-|   [6]   | `CommandExecutedEventData`    | event data       | carries slow-query duration      |
-|   [7]   | `DbContextEventData`          | event data       | carries context access           |
-|   [8]   | `ConnectionEndEventData`      | event data       | carries reopen duration          |
-|   [9]   | `TransactionEndEventData`     | event data       | carries commit duration          |
+|  [01]   | `ConnectionOpenedAsync`       | connection hook  | re-applies PRAGMA ladder         |
+|  [02]   | `ReaderExecutedAsync`         | command hook     | emits slow and burst facts       |
+|  [03]   | `SavingChangesAsync`          | save hook        | stamps changefeed in transaction |
+|  [04]   | `SavedChangesAsync`           | save hook        | invalidates and emits save fact  |
+|  [05]   | `TransactionCommittedAsync`   | transaction hook | emits transaction facts          |
+|  [06]   | `CommandExecutedEventData`    | event data       | carries slow-query duration      |
+|  [07]   | `DbContextEventData`          | event data       | carries context access           |
+|  [08]   | `ConnectionEndEventData`      | event data       | carries reopen duration          |
+|  [09]   | `TransactionEndEventData`     | event data       | carries commit duration          |
 |  [10]   | `InterceptionResult<TResult>` | result struct    | round-trips suppressed results   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                  | [CALL_SHAPE]       | [CAPABILITY]            |
 | :-----: | :------------------------- | :----------------- | :---------------------- |
-|   [1]   | `UseSqlite`                | builder extension  | applies provider policy |
-|   [2]   | `AddSqlite<TContext>`      | service extension  | registers context       |
-|   [3]   | `AddEntityFrameworkSqlite` | service extension  | registers EF services   |
-|   [4]   | `IsSqlite`                 | database extension | identifies provider     |
-|   [5]   | `MigrationsAssembly`       | provider option    | selects migration owner |
-|   [6]   | `CommandTimeout`           | provider option    | sets command timeout    |
-|   [7]   | `MinBatchSize`             | provider option    | sets batch lower bound  |
-|   [8]   | `MaxBatchSize`             | provider option    | sets batch upper bound  |
+|  [01]   | `UseSqlite`                | builder extension  | applies provider policy |
+|  [02]   | `AddSqlite<TContext>`      | service extension  | registers context       |
+|  [03]   | `AddEntityFrameworkSqlite` | service extension  | registers EF services   |
+|  [04]   | `IsSqlite`                 | database extension | identifies provider     |
+|  [05]   | `MigrationsAssembly`       | provider option    | selects migration owner |
+|  [06]   | `CommandTimeout`           | provider option    | sets command timeout    |
+|  [07]   | `MinBatchSize`             | provider option    | sets batch lower bound  |
+|  [08]   | `MaxBatchSize`             | provider option    | sets batch upper bound  |
 
 [ENTRYPOINT_SCOPE]: migration and model operations
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]        | [CAPABILITY]                   |
 | :-----: | :--------------------------------- | :------------------ | :----------------------------- |
-|   [1]   | `SqliteMigrationBuilderExtensions` | migration extension | identifies provider builder    |
-|   [2]   | `SqliteTableExtensions`            | metadata extension  | configures tables              |
-|   [3]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities            |
-|   [4]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation          |
-|   [5]   | `ConfigureDesignTimeServices`      | service hook        | registers design services      |
-|   [6]   | `EF.CompileAsyncQuery`             | compiled shape      | caches hot projection delegate |
+|  [01]   | `SqliteMigrationBuilderExtensions` | migration extension | identifies provider builder    |
+|  [02]   | `SqliteTableExtensions`            | metadata extension  | configures tables              |
+|  [03]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities            |
+|  [04]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation          |
+|  [05]   | `ConfigureDesignTimeServices`      | service hook        | registers design services      |
+|  [06]   | `EF.CompileAsyncQuery`             | compiled shape      | caches hot projection delegate |
 
 `EF.CompileAsyncQuery<TContext,TResult>` returns `Func<TContext,IAsyncEnumerable<TResult>>`; parameterized overloads extend through `TParam15`.
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STORE_PROFILE]:
 - profile: SQLite is one admitted store profile

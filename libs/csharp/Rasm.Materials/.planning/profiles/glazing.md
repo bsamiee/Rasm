@@ -2,11 +2,11 @@
 
 THE GLAZING PROFILEFAMILY. The glazing cross-section vocabulary — the insulating-glass-unit pane / spacer / cavity columns (the per-pane glass thickness, the spacer width and warm/cold-edge type, the cavity gas fill, the overall unit thickness) and the unit-build discriminant — is a realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Glazing` case. A double-glazed unit is a `Profile` row, never a `DoubleGlazedUnit` type: the pane stack, the spacer columns, the cavity fill, and the regional standard are glazing-`Profile` columns, and the `GlazingSection` projection feeds the same `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet` the IGU stack resolves to — a glazing unit is the IFC `IfcMaterialLayerSet` the layer-set assignment owner already models (pane / cavity / pane), never a per-family layout. The glazing vocabulary grows by data — a new unit is one `GlazingRow` catalogue row, a new build one `GlazingBuild` case — never a per-unit type. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape, `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet`/`MaterialLayer` for the pane-cavity-pane buildup, and the `Rasm` kernel `PositiveMagnitude`/`Dimension` for every length column; cmu/timber land their own sibling vocabularies on their own pages.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GLAZING_FAMILY]: the `GlazingBuild` double/triple discriminant, the `SpacerType` warm/cold-edge axis, the `GlazingSection` pane/spacer/cavity record, the `GlazingSection.ToUnit` projection and the `GlazingSection.ToLayerSet` IGU layer-set bridge, and the `ProfileCatalogue.BuildGlazingRows` row table.
+- [01]-[GLAZING_FAMILY]: the `GlazingBuild` double/triple discriminant, the `SpacerType` warm/cold-edge axis, the `GlazingSection` pane/spacer/cavity record, the `GlazingSection.ToUnit` projection and the `GlazingSection.ToLayerSet` IGU layer-set bridge, and the `ProfileCatalogue.BuildGlazingRows` row table.
 
-## [2]-[GLAZING_FAMILY]
+## [02]-[GLAZING_FAMILY]
 
 - Owner: the glazing unit vocabulary (`GlazingBuild` the double/triple discriminant, `SpacerType` the warm/cold-edge spacer axis, `GlazingSection` the pane/spacer/cavity record); `ProfileCatalogue.BuildGlazingRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `GlazingSection.ToUnit` projection and the `GlazingSection.ToLayerSet` IGU layer-set bridge.
 - Cases: build {double (pane-cavity-pane), triple (pane-cavity-pane-cavity-pane)} — the IGU unit-build set; spacer {warm-edge, cold-edge-aluminum} — the edge-seal type; a section is a `GlazingSection` row over one `GlazingBuild`/`SpacerType`, never a section subtype.
@@ -94,7 +94,7 @@ public static class ProfileCatalogue {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [GLAZING_ROW_TRANSCRIPTION]: REALIZED — the standard EN 1279 IGU builds carry the 4 mm/6 mm pane glass, the 6.4 mm laminated (66.2) safety pane, the 12/16/20 mm cavity, and the double `4-16-4` (24 mm overall) / triple `4-16-4-16-4` configurations with argon/krypton/air gas fill plus the low-E coated double; the catalogue carries the double argon/air/low-E/laminated and triple argon/krypton builds keyed `glazing.<designation>`, the remaining pane thicknesses, low-E coating tiers, and electrochromic/vacuum (VIG) variants one further `GlazingRow` data addition, each one row, never a new type. The overall unit thickness is the pane-count times pane plus cavity-count times cavity, the `IfcMaterialLayerSet` pane-cavity-pane stack the wire shape.
 - [IFCPROFILEDEF_GLAZING_ALIGNMENT]: glazing is the one family that is an `IfcMaterialLayerSet` rather than an `IfcProfileDef` profile — the `GlazingSection.ToLayerSet` bridge resolves the IGU to the `Construction/assembly#MATERIAL_ASSIGNMENT` `LayerSet` (pane / cavity / pane), so a glazing unit round-trips to IFC 4.3 as the `IfcMaterialLayerSet` the layer-set assignment owner serializes (`IfcMaterialLayer.LayerThickness` per pane/cavity, `IfcMaterialLayer.IsVentilated` false for the sealed cavity), the `SpacerType` edge-seal a `Pset_` thermal-bridge property on the element rather than a profile column, the laminated pane a two-`MaterialLayer` sub-stack within the pane thickness. The `ToUnit` rectangle projection serves only the catalogue keying and the frame-rebate module the host overrides; the wire shape is the layer set, not a rectangle profile. The probe is the per-coating `IfcSurfaceStyle`/low-E emissivity mapping at the `Rasm.Bim` boundary.

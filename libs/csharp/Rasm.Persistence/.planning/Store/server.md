@@ -4,15 +4,15 @@ Rasm.Persistence owns the self-provisioned PostgreSQL 18.4 server tier as five r
 
 Wire posture: this page is host-local — every owner emits raw provisioning SQL executed server-side against the deploy-image PostgreSQL, crossing no browser or peer wire, so it carries no `TS_PROJECTION` cluster. The tenancy primitive it consumes (`TenantContext`) crosses the wire only as `TenantContextWire` owned at `AppHost/runtime-ports#TS_PROJECTION`; this cluster reads `TenantId` as the `current_setting('rasm.tenant')::uuid` RLS predicate and never mints a client-facing projection.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TIMESCALE_PROVISIONING]: hypertable, continuous-aggregate, retention, and columnstore DDL.
-- [2]-[SEARCH_PROVISIONING]: diskann and BM25 index DDL over the preload-gated companions.
-- [3]-[CLUSTER_CONFIG]: deploy-time GUC fragments verified read-only against settings.
-- [4]-[TENANCY_RLS]: multi-tenancy axis, tenant lifecycle provisioning, and per-tenant quota.
-- [5]-[MIGRATION_BUNDLE]: idempotent script output and the self-contained deploy gate.
+- [01]-[TIMESCALE_PROVISIONING]: hypertable, continuous-aggregate, retention, and columnstore DDL.
+- [02]-[SEARCH_PROVISIONING]: diskann and BM25 index DDL over the preload-gated companions.
+- [03]-[CLUSTER_CONFIG]: deploy-time GUC fragments verified read-only against settings.
+- [04]-[TENANCY_RLS]: multi-tenancy axis, tenant lifecycle provisioning, and per-tenant quota.
+- [05]-[MIGRATION_BUNDLE]: idempotent script output and the self-contained deploy gate.
 
-## [2]-[TIMESCALE_PROVISIONING]
+## [02]-[TIMESCALE_PROVISIONING]
 
 - Owner: `TimescaleProvisioning` — the TimescaleDB raw-SQL provisioning fold over the `OpLogEntry`-rollup receipt table; one static surface folding the `[Union]` `TimescaleStep` build-step algebra into `MigrationBuilder.Sql` steps.
 - Cases: `TimescaleStep.Hypertable` over the rollup table; `TimescaleStep.ContinuousAggregate` carrying the materialized view plus its bgworker refresh policy as one DDL pair; `TimescaleStep.RetentionPolicy`; `TimescaleStep.ColumnstorePolicy`.
@@ -53,7 +53,7 @@ public static class TimescaleProvisioning {
 }
 ```
 
-## [3]-[SEARCH_PROVISIONING]
+## [03]-[SEARCH_PROVISIONING]
 
 - Owner: `SearchProvisioning` — the `vectorscale` diskann and `pg_search` BM25 index-DDL fold; one static surface folding a `[Union]` `IndexSpec` (`DiskAnn | Bm25`) build-spec algebra into `MigrationBuilder.Sql` index-build steps. The query-projection vocabulary (`pdb.*`/`@@@`/`pdb.score`/`pdb.snippet`/`pdb.snippets`/`pdb.snippet_positions`/`pdb.agg`) lives on the `[Union]` `Bm25Predicate` axis and the `SearchProvisioning` projection methods consumed at `Query/lanes#SEARCH_LANES`.
 - Cases: `IndexSpec.DiskAnn` over a `vector(N)` column carrying the full `vectorscale` build-options axis (`storage_layout`/`num_neighbors`/`search_list_size`/`max_alpha`/`num_dimensions`/`num_bits_per_dimension`) under one ops-class row; `IndexSpec.Bm25` over a `key_field`-anchored ordered text-column tuple. `Bm25Predicate` is the column-operator and `@@@`-builder projection axis (`|||`/`&&&`/`===`/`###` column operators; `pdb.parse`/`pdb.range_term`/`pdb.phrase_prefix`/`pdb.more_like_this`/`pdb.regex`/`pdb.all` builders; the `::pdb.fuzzy`/`::pdb.boost`/`::pdb.const`/`::pdb.slop` cast wrappers composing over any inner predicate).
@@ -164,7 +164,7 @@ public static class SearchProvisioning {
 }
 ```
 
-## [4]-[CLUSTER_CONFIG]
+## [04]-[CLUSTER_CONFIG]
 
 - Owner: `ClusterConfig` — the PG18 deploy-time GUC fragment table and its read-only verification probe; each row is a `(setting, value, fallback)` triple.
 - Cases: io_method with the io_uring value and the worker portable fallback; effective_io_concurrency; maintenance_io_concurrency; data_checksums; the `Preload` shared_preload_libraries row carrying the bgworker-preload companion set.
@@ -195,7 +195,7 @@ public static class ClusterConfig {
 }
 ```
 
-## [5]-[TENANCY_RLS]
+## [05]-[TENANCY_RLS]
 
 - Owner: `TenancyModel` — the multi-tenancy `[SmartEnum<string>]` axis under the `StoreKeyPolicy` ordinal comparer accessor; `TenantProvision` is the single per-model lifecycle owner, one `model.Switch` over the `TenantPhase` discriminant (`Apply`/`Destroy`/`Policy`) projecting create-DDL, teardown-DDL, and RLS-policy SQL from one fold; `TenantQuota` is the per-tenant resource-bound column the write path and interceptor enforce; `TenantReceipt` is the typed lifecycle evidence.
 - Cases: `TenancyModel` single | schema | rls | db-per-tenant; `TenantPhase` Apply | Destroy | Policy; `TenantQuota` carries the connection-cap, statement-timeout, and write-byte-rate bounds per tenant.
@@ -262,7 +262,7 @@ public static class TenantProvision {
 }
 ```
 
-## [6]-[MIGRATION_BUNDLE]
+## [06]-[MIGRATION_BUNDLE]
 
 - Owner: `MigrationBundle` — the service-deploy gate over idempotent `ScriptMigration` output, the self-contained `MigrationsBundle` executable artifact, and the `GetMigrations`/`HasPendingModelChanges` deploy gate.
 - Cases: a script-migration deploy applying idempotent output; a bundle-artifact deploy running the self-contained executable; a pending-change gate aborting a deploy with un-applied model changes.
@@ -285,7 +285,7 @@ public static class MigrationBundle {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [SERVER_PROVISIONING_PROBE]: the live-PG18 round-trip from Assay `ProvisionRun` evidence — the `create_hypertable`/`add_continuous_aggregate_policy`/`add_columnstore_policy` apply contract, the diskann-over-`vector` `storage_layout=memory_optimized` plus the `num_neighbors`/`search_list_size`/`num_bits_per_dimension` build-option apply, the `pg_search` 0.24.0 BM25 `@@@ pdb.parse`/`|||`/`pdb.score`/`pdb.snippet` query shape (the removed `paradedb.*` namespace asserted absent), the `pg_cron` server-side scheduler row, and the RLS `current_setting('rasm.tenant')` per-tenant isolation, proven against the installed extensions before the provisioning DDL pins.
 - [CLUSTER_CONFIG_PORTABILITY]: the `io_method=io_uring` GUC against the Forge-provisioned local PG18 runtime versus the `worker` portable fallback — whether the runtime kernel exposes io_uring, confirmed against the `pg_settings` observed value before the io-method triple's primary value is preferred over its fallback at deploy.

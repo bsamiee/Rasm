@@ -2,11 +2,11 @@
 
 The validated element-selection grammar admitting a structured query before `ifcopenshell.util.selector.filter_elements` — the typed boundary the `ifc-analysis:Path/analysis.md#ANALYSIS` quantity/pset arms and the `ifc-analysis:Path/costing.md#LIFECYCLE` take-off arms thread their free-form `query` string into today. `IfcSelector` compiles one `lark` EBNF grammar over the full IFC selection vocabulary — entity class, attribute predicate, pset/property predicate, classification reference, and spatial containment — folds the parse `Tree` through one `SelectorTransformer` into a frozen `SelectorQuery`, and lifts an `UnexpectedInput` parse failure into the runtime fault rail once at admission, so a malformed selector is a typed fault at the boundary, never a silent empty `filter_elements` match three arms deep. The validated query carries its canonical `filter_elements` string back out, so the grammar admits and re-serializes the selection without ever standing up a second selection engine: `ifcopenshell` still runs the filter, `lark` only owns the closed query vocabulary the string must parse against.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SELECTOR]: the one `lark`-grammar selector surface — EBNF grammar constant, `Transformer` fold to `SelectorQuery`, and the `parse` boundary lifting `UnexpectedInput` into the fault rail before the validated query drives `filter_elements`.
+- [01]-[SELECTOR]: the one `lark`-grammar selector surface — EBNF grammar constant, `Transformer` fold to `SelectorQuery`, and the `parse` boundary lifting `UnexpectedInput` into the fault rail before the validated query drives `filter_elements`.
 
-## [2]-[SELECTOR]
+## [02]-[SELECTOR]
 
 - Owner: `IfcSelector` — the boundary capsule holding the compiled `Lark` parser plus the `SelectorTransformer`, exposing one `parse` entry; `SelectorQuery` the frozen structured query the fold produces; `SelectorGrammar` the owner-authored EBNF constant that is the closed query vocabulary every terminal traces to; `SelectorTransformer` the `lark.Transformer` subclass folding the parse `Tree` bottom-up.
 - Cases: the grammar's `selection` is a `union` of `,`-joined `filter` groups, each an intersection of `clause` predicates over the five IFC selection axes — `entity` (an IFC class name, optionally `!`-negated), `attribute` (a dotted attribute name plus a comparator against a value or the `null`/`*` existence tokens), `pset` (a `/`-qualified pset-name `.` property-name predicate), `classification` (a `classification.<system>=<code>` reference), and `containment` (a `@<spatial-class>` decomposition filter). Each `clause` folds to one `SelectorPredicate` row; the closed `comparator` and `axis` vocabularies are `StrEnum` families matched by `match`/`assert_never`, never an open string.
@@ -210,7 +210,7 @@ class IfcSelector:
         return f"{lhs}{predicate.comparator.value}{predicate.value}"
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SELECTOR_FILTER_GRAMMAR]: the branch `ifcopenshell` catalogue confirms `util.selector.filter_elements(model, query)` is the selector-grammar element filter the validated `SelectorQuery.filter_string` feeds; the published `filter_elements` query syntax — `IfcWall, IfcSlab` union groups, `material=concrete` attribute predicates, `/Pset_WallCommon.IsExternal=TRUE` pset predicates, `classification.Uniclass=...` references, and the `IfcSpatialElement` decomposition filters — is the exact target string `_predicate_string` re-serializes to, the remaining published-syntax detail the live `ifcopenshell.util.selector` source confirms terminal-by-terminal against `SelectorGrammar`. The `SelectorGrammar` is the closed query vocabulary `lark.md#49` fixes: every terminal (`CLASS`/`DOTTED`/`NAME`/comparator family) traces to one IFC selection axis, and the parser admits the query before `filter_elements` ever runs, so a malformed selector is an `UnexpectedInput` fault at admission, never a silent empty match (`lark.md#51`–`#52` failure/boundary axes).
 - [TRANSFORMER_FOLD_BINDING]: the branch `lark` catalogue confirms `Transformer().transform(tree)` is the bottom-up fold and `v_args(inline=True)` binds rule children as positional fold-method arguments; the `@v_args(inline=True)`-on-class application binding every method, the `Token` `str()` coercion the comparator/value methods read, and the variadic-children shape of the optional `comparator value?` tail (zero, one, or two trailing children) confirm against the installed cp315 `lark==1.3.1` distribution — `lark` is pure-Python cp315-clean, so reflection resolves on the project venv directly with no companion-lane gate (`lark.md#63`).

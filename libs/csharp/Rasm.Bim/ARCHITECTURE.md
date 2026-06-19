@@ -4,7 +4,7 @@ The domain map of `Rasm.Bim` — the host-neutral AEC-DOMAIN BIM object model an
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Bim/
@@ -40,7 +40,7 @@ Rasm.Bim/
 
 Every sub-domain composes the one `BimModel` the `Exchange` import rail produces rather than a parallel model surface, lowers rejection onto the `Model/Faults` `BimFault` band, and consumes the `Model/Query` `ElementPredicate` algebra and the `Semantics/Classification` axis as settled vocabulary.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Exchange/tessellation  ⇄  python:geometry/mesh                # [TESSELLATION]: GLB tessellation rail / TessellationRequest

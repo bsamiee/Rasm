@@ -2,14 +2,14 @@
 
 Rasm.AppUi presents every modal and transient surface through one `DialogIntent` union resolved over a per-root ReactiveUI `Interaction` seam into DialogHost sessions: six intent cases return `Fin`-railed typed results with dismissal as a value, six `DialogTopology` rows bind one session root per admitted surface with one `TopLevelResolver` delegate carrying the per-surface service capsule both the toast and pick pipes resolve over, four `ToastRow` rows pass one suppression fold over `RuntimePhase` and `DegradationLevel` before presentation, and three `PickKind` rows route format-derived filters through host-agnostic pick pipes. The page owns the intent vocabulary, the session algebra, the notification policy with its queued-then-dropped receipts, and the picker and host-modality law over DialogHost.Avalonia, ReactiveUI, Avalonia, Thinktecture-generated vocabulary, LanguageExt rails, and NodaTime instants.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DIALOG_INTENTS]: One modal vocabulary; typed `Fin` results; dismissal is a value.
-- [2]-[SESSION_ALGEBRA]: Topology rows bind sessions, stacking, styling, registration.
-- [3]-[NOTIFICATIONS]: Toast rows, suppression fold over phase and level, receipts.
-- [4]-[PICKERS_HOST_MODALITY]: Pick rows, format-derived filters, host modality law.
+- [01]-[DIALOG_INTENTS]: One modal vocabulary; typed `Fin` results; dismissal is a value.
+- [02]-[SESSION_ALGEBRA]: Topology rows bind sessions, stacking, styling, registration.
+- [03]-[NOTIFICATIONS]: Toast rows, suppression fold over phase and level, receipts.
+- [04]-[PICKERS_HOST_MODALITY]: Pick rows, format-derived filters, host modality law.
 
-## [2]-[DIALOG_INTENTS]
+## [02]-[DIALOG_INTENTS]
 
 - Owner: `DialogIntent` `[Union]` — the one modal vocabulary across every admitted surface; `DialogFault` fault family in the 4130 code band.
 - Cases: Confirm → `Unit`, Form → template commit record, Pick → `Seq<string>`, Progress → `DeadlineOutcome`, Error → `Unit`, About → `Unit`; dismissal projects `Option<TResult>.None`; `DialogFault` = Text | ResultShape | PickerUnavailable.
@@ -42,7 +42,7 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
 }
 ```
 
-## [3]-[SESSION_ALGEBRA]
+## [03]-[SESSION_ALGEBRA]
 
 - Owner: `DialogTopology` — one per-surface root row binding identifier, stacking, close policy, styling token keys, toast pipe, pick pipe, and its `Interaction` seam; `DialogSurface` extension fold over the row.
 - Cases: six topology rows — avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; the web-browser case carries zero rows.
@@ -119,14 +119,14 @@ public static class DialogSurface {
 
 | [INDEX] | [SURFACE]        | [IDENTIFIER]       | [STACKED] | [CLICK_AWAY] | [BLUR] | [TOAST_PIPE]      | [PICK_PIPE]               |
 | :-----: | :--------------- | :----------------- | :-------: | :----------: | :----: | :---------------- | :------------------------ |
-|   [1]   | avalonia-desktop | desktop-root       |   true    |     true     |  true  | window root       | storage provider          |
-|   [2]   | rhino-panel      | rhino-panel-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
-|   [3]   | rhino-modal      | rhino-modal-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
-|   [4]   | gh2-companion    | gh2-companion-root |   true    |     true     | false  | companion window  | storage provider          |
-|   [5]   | sidecar-shell    | sidecar-root       |   true    |     true     |  true  | sidecar window    | storage provider          |
-|   [6]   | headless         | headless-root      |   true    |    false     | false  | receipt-only sink | none — typed fault        |
+|  [01]   | avalonia-desktop | desktop-root       |   true    |     true     |  true  | window root       | storage provider          |
+|  [02]   | rhino-panel      | rhino-panel-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
+|  [03]   | rhino-modal      | rhino-modal-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
+|  [04]   | gh2-companion    | gh2-companion-root |   true    |     true     | false  | companion window  | storage provider          |
+|  [05]   | sidecar-shell    | sidecar-root       |   true    |     true     |  true  | sidecar window    | storage provider          |
+|  [06]   | headless         | headless-root      |   true    |    false     | false  | receipt-only sink | none — typed fault        |
 
-## [4]-[NOTIFICATIONS]
+## [04]-[NOTIFICATIONS]
 
 - Owner: `ToastRow` linger rows, `ToastOutcome` outcome rows, the `ToastGate` suppression fold, and `ToastReceipt`, under the one `NoticeKeyPolicy` ordinal accessor.
 - Cases: Info 4s | Success 4s | Warning 6s | Error sticky; outcomes shown | queued | dropped.
@@ -199,7 +199,7 @@ flowchart LR
     Pipe --> Receipt
 ```
 
-## [5]-[PICKERS_HOST_MODALITY]
+## [05]-[PICKERS_HOST_MODALITY]
 
 - Owner: `PickKind` rows, the `PickFilter` projection, and the `PickOps` fold from port-projected format tuples.
 - Cases: open | save | folder.
@@ -226,6 +226,6 @@ public static class PickOps {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [EMBEDDED_TOPLEVEL]: the embedded-root service-capsule spelling the `TopLevelResolver` returns inside the rhino-panel root — the notification-manager construction surface and the storage-provider resolution across the embedded `TopLevel`, both uncatalogued for the embedded host and bound at the embed-capsule spike.

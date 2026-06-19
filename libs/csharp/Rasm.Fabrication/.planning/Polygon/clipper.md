@@ -4,11 +4,11 @@ The one 2D polygon-algebra substrate over Clipper2: `PolygonAlgebra` the single 
 
 Wire posture: HOST-LOCAL. `PolygonAlgebra` is a pure-managed in-process owner — Clipper2 is managed AnyCPU IL with no native asset and no RID burden. Its outputs are `Loop` sets the sibling fabrication kernels (`Toolpath/motion`, `Nesting/nfp`, `Posting/projection`, `Posting/program`) read; no result crosses a browser or peer wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[POLYGON_ALGEBRA]: owns `PolygonAlgebra` over Clipper2 — the `ClipOp`/`OffsetEnds` axes and the `Offset`/`Clip`/`MinkowskiSum`/`ClipOpenPath` operations covering offset/inflate, Boolean clip, Minkowski sum (NFP), and the open-path screen clip; the one Clipper2 owner.
+- [01]-[POLYGON_ALGEBRA]: owns `PolygonAlgebra` over Clipper2 — the `ClipOp`/`OffsetEnds` axes and the `Offset`/`Clip`/`MinkowskiSum`/`ClipOpenPath` operations covering offset/inflate, Boolean clip, Minkowski sum (NFP), and the open-path screen clip; the one Clipper2 owner.
 
-## [2]-[POLYGON_ALGEBRA]
+## [02]-[POLYGON_ALGEBRA]
 
 - Owner: `ClipOp` `[SmartEnum<string>]` the Boolean operation axis (`union`/`intersect`/`difference`/`xor`) mapping to the Clipper2 `ClipType` row; `OffsetEnds` `[SmartEnum<string>]` the offset end/join axis (`polygon`/`open-round`/`open-butt`/`open-square`) mapping to the Clipper2 `EndType`/`JoinType` row; `PolygonAlgebra` the static surface owning `Offset`, `Clip`, `MinkowskiSum`, `ClipOpenPath`, and `Simplify`, each boundary-mapping a `Loop`/`Edge3` to a Clipper2 path and folding the result back to `Loop` sets.
 - Cases: `ClipOp` rows `union` · `intersect` · `difference` · `xor` (4); `OffsetEnds` rows `polygon` (closed contour offset — kerf/contour rings) · `open-round` · `open-butt` · `open-square` (open-path offset — leads) (4); the four operations `Offset`/`Clip`/`MinkowskiSum`/`ClipOpenPath` are one owner each, never a per-caller bespoke routine.

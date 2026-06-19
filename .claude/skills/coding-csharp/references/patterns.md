@@ -4,7 +4,7 @@
 Anti-pattern codex with corrective examples for C# 14 / .NET 10 functional modules. All examples assume `using static LanguageExt.Prelude;`. For detection heuristics, see `validation.md`.
 
 ---
-## [1]-[ANTI_PATTERN_CODEX]
+## [01]-[ANTI_PATTERN_CODEX]
 >**Dictum:** *Each anti-pattern is a local decision that compounds into global drag.*
 
 **VAR_INFERENCE**
@@ -165,30 +165,30 @@ public readonly record struct UserId<TState> {
 [CORRECT]: COLLAPSE-IN-PLACE — merge the repetitive switch arms into a single arm parameterized by a `[Union]` case or `SmartEnum<T>` entry carrying the varying field as data. The "varying part" becomes a payload field on the case, NOT a new file, NOT a new helper, NOT a deletion. File proliferation, helper extraction, and functionality removal are always code smells. The fix is more polymorphism in the same surface, never less code.
 
 ---
-## [2]-[QUICK_REFERENCE]
+## [02]-[QUICK_REFERENCE]
 >**Dictum:** *Symptoms point to structural causes; fixes are architectural.*
 
-| [INDEX] | [PATTERN]                | [SYMPTOM]                              | [FIX]                                                        |
-| :-----: | :----------------------- | :------------------------------------- | ------------------------------------------------------------ |
-|   [1]   | VAR_INFERENCE            | `var` hides codomain semantics         | Explicit `Fin<T>` / `Option<T>` type                         |
-|   [2]   | POSITIONAL_ARGS          | Unnamed arguments at call site         | Named parameters at every invocation                         |
-|   [3]   | IMPERATIVE_BRANCH        | `if`/`else`/`for`/`while` in domain    | `Option`/`ToFin` + monadic `Bind`                            |
-|   [4]   | OVERLOAD_SPAM            | Sibling method families                | `params ReadOnlySpan<T>` + monoid constraint                 |
-|   [5]   | EXCEPTION_CONTROL_FLOW   | `try`/`catch`/`throw` in domain code   | `Fin<T>` / `Eff<RT,T>` error channel                         |
-|   [6]   | LINQ_HOT_PATH            | IEnumerable LINQ on hot path           | `TensorPrimitives` / span processing                         |
-|   [7]   | MUTABLE_ACCUMULATOR      | `foreach` + mutable accumulator        | Tail-recursive fold / `Seq<T>.Choose`                        |
-|   [8]   | VARIABLE_REASSIGNMENT    | `value = Process(value)` re-binding    | `Map` / `Bind` / `Pipe` chains                               |
-|   [9]   | CLOSURE_CAPTURE_HOT_PATH | Lambda captures outer variable         | `static` lambda + tuple threading                            |
-|  [10]   | EARLY_RETURN_GUARDS      | Sequential `if (!valid) return` guards | `Validation<Error,T>` applicative `.Apply()`                 |
-|  [11]   | PREMATURE_MATCH_COLLAPSE | `.Match` called mid-pipeline           | `Map`/`Bind`/`BiMap` within context                          |
-|  [12]   | API_SURFACE_INFLATION    | `Get`/`GetMany`/`TryGet` siblings      | `Execute<R>(query)` algebra pattern                          |
-|  [13]   | NULL_ARCHITECTURE        | `null` for multiple semantic states    | `Option<T>` / `Fin<T>` typed absence                         |
-|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation       | Runtime-record DI + constrained Scrutor scan policy          |
-|  [15]   | ANEMIC_DOMAIN            | Entity with only getters/setters       | Smart constructors + `with`-expressions                      |
-|  [16]   | GOD_FUNCTION             | Giant switch violating OCP             | `sealed abstract record` DU + `Fold` / `K<F,A>`              |
-|  [17]   | HELPER_SPAM              | `private` function, single call site   | Inline at call site or promote to owning type                |
-|  [18]   | DENSITY_OVER_VOLUME      | Repetitive arms, brute-force inline    | Fold algebra / `K<F,A>` generic pipeline                     |
-|  [19]   | PHANTOM_BYPASS           | Public ctor on phantom-parameterized   | Private ctor + `internal UnsafeWrap` factory                 |
-|  [20]   | DUAL_CANONICAL_SHAPE     | Two encodings for same domain concept  | One encoding per concept per bounded context                 |
+| [INDEX] | [PATTERN]                | [SYMPTOM]                                                       | [FIX]                                                              |
+| :-----: | :----------------------- | :-------------------------------------------------------------- | ------------------------------------------------------------------ |
+|  [01]   | VAR_INFERENCE            | `var` hides codomain semantics                                  | Explicit `Fin<T>` / `Option<T>` type                               |
+|  [02]   | POSITIONAL_ARGS          | Unnamed arguments at call site                                  | Named parameters at every invocation                               |
+|  [03]   | IMPERATIVE_BRANCH        | `if`/`else`/`for`/`while` in domain                             | `Option`/`ToFin` + monadic `Bind`                                  |
+|  [04]   | OVERLOAD_SPAM            | Sibling method families                                         | `params ReadOnlySpan<T>` + monoid constraint                       |
+|  [05]   | EXCEPTION_CONTROL_FLOW   | `try`/`catch`/`throw` in domain code                            | `Fin<T>` / `Eff<RT,T>` error channel                               |
+|  [06]   | LINQ_HOT_PATH            | IEnumerable LINQ on hot path                                    | `TensorPrimitives` / span processing                               |
+|  [07]   | MUTABLE_ACCUMULATOR      | `foreach` + mutable accumulator                                 | Tail-recursive fold / `Seq<T>.Choose`                              |
+|  [08]   | VARIABLE_REASSIGNMENT    | `value = Process(value)` re-binding                             | `Map` / `Bind` / `Pipe` chains                                     |
+|  [09]   | CLOSURE_CAPTURE_HOT_PATH | Lambda captures outer variable                                  | `static` lambda + tuple threading                                  |
+|  [10]   | EARLY_RETURN_GUARDS      | Sequential `if (!valid) return` guards                          | `Validation<Error,T>` applicative `.Apply()`                       |
+|  [11]   | PREMATURE_MATCH_COLLAPSE | `.Match` called mid-pipeline                                    | `Map`/`Bind`/`BiMap` within context                                |
+|  [12]   | API_SURFACE_INFLATION    | `Get`/`GetMany`/`TryGet` siblings                               | `Execute<R>(query)` algebra pattern                                |
+|  [13]   | NULL_ARCHITECTURE        | `null` for multiple semantic states                             | `Option<T>` / `Fin<T>` typed absence                               |
+|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation                                | Runtime-record DI + constrained Scrutor scan policy                |
+|  [15]   | ANEMIC_DOMAIN            | Entity with only getters/setters                                | Smart constructors + `with`-expressions                            |
+|  [16]   | GOD_FUNCTION             | Giant switch violating OCP                                      | `sealed abstract record` DU + `Fold` / `K<F,A>`                    |
+|  [17]   | HELPER_SPAM              | `private` function, single call site                            | Inline at call site or promote to owning type                      |
+|  [18]   | DENSITY_OVER_VOLUME      | Repetitive arms, brute-force inline                             | Fold algebra / `K<F,A>` generic pipeline                           |
+|  [19]   | PHANTOM_BYPASS           | Public ctor on phantom-parameterized                            | Private ctor + `internal UnsafeWrap` factory                       |
+|  [20]   | DUAL_CANONICAL_SHAPE     | Two encodings for same domain concept                           | One encoding per concept per bounded context                       |
 |  [21]   | FILE_EXTRACTION_REFLEX   | Splitting one module into many files when concept density fires | Collapse cases into one [Union]/SmartEnum + fold; densify in place |
-|  [22]   | LEGACY_SHIM              | [Obsolete] / Adapt* / *Backcompat surfaces | Break the API, update all call sites in the same change |
+|  [22]   | LEGACY_SHIM              | [Obsolete] / Adapt* / *Backcompat surfaces                      | Break the API, update all call sites in the same change            |

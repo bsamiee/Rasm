@@ -2,7 +2,7 @@
 
 `@aws-sdk/client-s3` provides the tree-shakeable command-style S3 client for Node.js: `S3Client` holds credentials and region configuration, and each operation is a separate `Command` class sent via `client.send()`. The package exports all command input/output types, service exception classes, paginators, and waiters. In domain code the Effect wrapper `@effect-aws/client-s3` is preferred; this package surfaces as the composition-root provider and as the type source for command inputs.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/client-s3`
 - package: `@aws-sdk/client-s3`
@@ -10,34 +10,34 @@
 - asset: `S3Client`, command classes, input/output types, service exception classes, paginators, waiters
 - rail: object-store
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and config family
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                               |
 | :-----: | :----------------------- | :------------ | :--------------------------------------------------------- |
-|   [1]   | `S3Client`               | class         | credential + region holder; dispatches commands via `send` |
-|   [2]   | `S3ClientConfig`         | interface     | `region`, `credentials`, `endpoint`, retry, logger, …      |
-|   [3]   | `S3ClientResolvedConfig` | interface     | fully resolved config after construction                   |
-|   [4]   | `ServiceInputTypes`      | union type    | union of all `*CommandInput` types                         |
-|   [5]   | `ServiceOutputTypes`     | union type    | union of all `*CommandOutput` types                        |
-|   [6]   | `S3ServiceException`     | base class    | base for all S3 service exceptions                         |
+|  [01]   | `S3Client`               | class         | credential + region holder; dispatches commands via `send` |
+|  [02]   | `S3ClientConfig`         | interface     | `region`, `credentials`, `endpoint`, retry, logger, …      |
+|  [03]   | `S3ClientResolvedConfig` | interface     | fully resolved config after construction                   |
+|  [04]   | `ServiceInputTypes`      | union type    | union of all `*CommandInput` types                         |
+|  [05]   | `ServiceOutputTypes`     | union type    | union of all `*CommandOutput` types                        |
+|  [06]   | `S3ServiceException`     | base class    | base for all S3 service exceptions                         |
 
 [PUBLIC_TYPE_SCOPE]: service exception family
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]   | [CAPABILITY]                             |
 | :-----: | :------------------------------- | :-------------- | :--------------------------------------- |
-|   [1]   | `AccessDenied`                   | exception class | IAM / ACL access denial                  |
-|   [2]   | `BucketAlreadyExists`            | exception class | bucket namespace collision               |
-|   [3]   | `BucketAlreadyOwnedByYou`        | exception class | re-create own bucket                     |
-|   [4]   | `EncryptionTypeMismatch`         | exception class | wrong encryption type on write           |
-|   [5]   | `IdempotencyParameterMismatch`   | exception class | inconsistent idempotent request params   |
-|   [6]   | `InvalidObjectState`             | exception class | archived / Glacier object access         |
-|   [7]   | `InvalidRequest`                 | exception class | bad request parameter or header          |
-|   [8]   | `InvalidWriteOffset`             | exception class | write offset does not match object size  |
-|   [9]   | `NoSuchBucket`                   | exception class | bucket does not exist                    |
+|  [01]   | `AccessDenied`                   | exception class | IAM / ACL access denial                  |
+|  [02]   | `BucketAlreadyExists`            | exception class | bucket namespace collision               |
+|  [03]   | `BucketAlreadyOwnedByYou`        | exception class | re-create own bucket                     |
+|  [04]   | `EncryptionTypeMismatch`         | exception class | wrong encryption type on write           |
+|  [05]   | `IdempotencyParameterMismatch`   | exception class | inconsistent idempotent request params   |
+|  [06]   | `InvalidObjectState`             | exception class | archived / Glacier object access         |
+|  [07]   | `InvalidRequest`                 | exception class | bad request parameter or header          |
+|  [08]   | `InvalidWriteOffset`             | exception class | write offset does not match object size  |
+|  [09]   | `NoSuchBucket`                   | exception class | bucket does not exist                    |
 |  [10]   | `NoSuchKey`                      | exception class | object key does not exist                |
 |  [11]   | `NoSuchUpload`                   | exception class | multipart upload ID not found            |
 |  [12]   | `NotFound`                       | exception class | head-bucket / head-object 404            |
@@ -50,15 +50,15 @@
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                           |
 | :-----: | :-------------------------- | :------------ | :----------------------------------------------------- |
-|   [1]   | `GetObjectCommand`          | command class | object download                                        |
-|   [2]   | `GetObjectCommandInput`     | input type    | `{ Bucket, Key, VersionId?, Range?, … }`               |
-|   [3]   | `GetObjectCommandOutput`    | output type   | `{ Body: SdkStream, ContentType?, ETag?, … }`          |
-|   [4]   | `PutObjectCommand`          | command class | object upload                                          |
-|   [5]   | `PutObjectCommandInput`     | input type    | `{ Bucket, Key, Body?, ContentType?, Metadata?, … }`   |
-|   [6]   | `PutObjectCommandOutput`    | output type   | `{ ETag?, VersionId?, … }`                             |
-|   [7]   | `DeleteObjectCommand`       | command class | single object deletion                                 |
-|   [8]   | `DeleteObjectsCommand`      | command class | batch object deletion                                  |
-|   [9]   | `HeadObjectCommand`         | command class | object metadata without body                           |
+|  [01]   | `GetObjectCommand`          | command class | object download                                        |
+|  [02]   | `GetObjectCommandInput`     | input type    | `{ Bucket, Key, VersionId?, Range?, … }`               |
+|  [03]   | `GetObjectCommandOutput`    | output type   | `{ Body: SdkStream, ContentType?, ETag?, … }`          |
+|  [04]   | `PutObjectCommand`          | command class | object upload                                          |
+|  [05]   | `PutObjectCommandInput`     | input type    | `{ Bucket, Key, Body?, ContentType?, Metadata?, … }`   |
+|  [06]   | `PutObjectCommandOutput`    | output type   | `{ ETag?, VersionId?, … }`                             |
+|  [07]   | `DeleteObjectCommand`       | command class | single object deletion                                 |
+|  [08]   | `DeleteObjectsCommand`      | command class | batch object deletion                                  |
+|  [09]   | `HeadObjectCommand`         | command class | object metadata without body                           |
 |  [10]   | `HeadBucketCommand`         | command class | bucket existence and access check                      |
 |  [11]   | `ListObjectsV2Command`      | command class | key enumeration (page-based)                           |
 |  [12]   | `ListObjectsV2CommandInput` | input type    | `{ Bucket, Prefix?, ContinuationToken?, MaxKeys?, … }` |
@@ -71,34 +71,34 @@
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                |
 | :-----: | :------------------------------- | :------------ | :-------------------------- |
-|   [1]   | `CreateMultipartUploadCommand`   | command class | initiate multipart upload   |
-|   [2]   | `UploadPartCommand`              | command class | upload one part             |
-|   [3]   | `UploadPartCopyCommand`          | command class | copy source range as a part |
-|   [4]   | `CompleteMultipartUploadCommand` | command class | assemble parts into object  |
-|   [5]   | `AbortMultipartUploadCommand`    | command class | cancel and clean up parts   |
-|   [6]   | `ListPartsCommand`               | command class | enumerate uploaded parts    |
-|   [7]   | `ListMultipartUploadsCommand`    | command class | enumerate open uploads      |
-|   [8]   | `RenameObjectCommand`            | command class | atomic object rename        |
+|  [01]   | `CreateMultipartUploadCommand`   | command class | initiate multipart upload   |
+|  [02]   | `UploadPartCommand`              | command class | upload one part             |
+|  [03]   | `UploadPartCopyCommand`          | command class | copy source range as a part |
+|  [04]   | `CompleteMultipartUploadCommand` | command class | assemble parts into object  |
+|  [05]   | `AbortMultipartUploadCommand`    | command class | cancel and clean up parts   |
+|  [06]   | `ListPartsCommand`               | command class | enumerate uploaded parts    |
+|  [07]   | `ListMultipartUploadsCommand`    | command class | enumerate open uploads      |
+|  [08]   | `RenameObjectCommand`            | command class | atomic object rename        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and dispatch
 - rail: object-store
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :-------------------------------------------- | :------------- | :------------------------------------------------------ |
-|   [1]   | `new S3Client(config: S3ClientConfig)`        | constructor    | credential + region holder                              |
-|   [2]   | `client.send(command, options?)`              | dispatch       | sends any `Command` instance; returns `Promise<Output>` |
-|   [3]   | `client.destroy()`                            | cleanup        | shuts down underlying sockets                           |
-|   [4]   | `paginateListObjectsV2(config, input)`        | paginator      | async generator over `ListObjectsV2` pages              |
-|   [5]   | `paginateListBuckets(config, input)`          | paginator      | async generator over `ListBuckets` pages                |
-|   [6]   | `paginateListParts(config, input)`            | paginator      | async generator over `ListParts` pages                  |
-|   [7]   | `paginateListMultipartUploads(config, input)` | paginator      | async generator over multipart upload pages             |
-|   [8]   | `waitUntilObjectExists(params, input)`        | waiter         | polls until object exists                               |
-|   [9]   | `waitUntilObjectNotExists(params, input)`     | waiter         | polls until object absent                               |
+|  [01]   | `new S3Client(config: S3ClientConfig)`        | constructor    | credential + region holder                              |
+|  [02]   | `client.send(command, options?)`              | dispatch       | sends any `Command` instance; returns `Promise<Output>` |
+|  [03]   | `client.destroy()`                            | cleanup        | shuts down underlying sockets                           |
+|  [04]   | `paginateListObjectsV2(config, input)`        | paginator      | async generator over `ListObjectsV2` pages              |
+|  [05]   | `paginateListBuckets(config, input)`          | paginator      | async generator over `ListBuckets` pages                |
+|  [06]   | `paginateListParts(config, input)`            | paginator      | async generator over `ListParts` pages                  |
+|  [07]   | `paginateListMultipartUploads(config, input)` | paginator      | async generator over multipart upload pages             |
+|  [08]   | `waitUntilObjectExists(params, input)`        | waiter         | polls until object exists                               |
+|  [09]   | `waitUntilObjectNotExists(params, input)`     | waiter         | polls until object absent                               |
 |  [10]   | `waitUntilBucketExists(params, input)`        | waiter         | polls until bucket exists                               |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [S3_CLIENT_TOPOLOGY]:
 - One `S3Client` instance per deployment scope; the instance is reusable and thread-safe.

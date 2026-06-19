@@ -4,7 +4,7 @@ The domain map of `data` — the host-free data-interchange companion. A `tabula
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 data/
@@ -26,7 +26,7 @@ data/
     └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 tabular/columnar  →  csharp:Rasm.Compute/Runtime   # [SHAPE]: DOE dataset / labelled-array study input

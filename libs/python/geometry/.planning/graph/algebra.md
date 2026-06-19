@@ -2,11 +2,11 @@
 
 AEC computational and numerical geometry. `ComputationalGeometry` is one dispatch surface over `compas`: graph/network adjacency, structural form-finding (dynamic relaxation over `compas_dr`, thrust-network analysis over `compas_tna`), best-fit/boolean/bbox numerical primitives, and mesh datastructure algebra. Form-found and network results graduate via the compute `HandoffAxis` geometry case. This is distinct from non-manifold topology (the `topology` sibling) and from raw mesh-file exchange at the data seam.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ALGEBRA]: network adjacency, structural form-finding, numerical primitives, and mesh datastructure algebra under one tagged union.
+- [01]-[ALGEBRA]: network adjacency, structural form-finding, numerical primitives, and mesh datastructure algebra under one tagged union.
 
-## [2]-[ALGEBRA]
+## [02]-[ALGEBRA]
 
 - Owner: `ComputationalGeometry` — the tagged union discriminating by algebra-kind; `AlgebraResult` the typed receipt carrying the kind, the result handles, and the graduation subject.
 - Cases: `ComputationalGeometry` cases `Network(vertices, edges)` (compas `Network` adjacency) · `FormFinding(mesh, anchors)` (dynamic relaxation over `compas_dr.solvers.dr_numpy`) · `Numerical(points, op)` (the `NumericalOp`-keyed `compas.geometry` free-function table) · `MeshAlgebra(mesh, op)` (compas `datastructures.Mesh` dual/subdivision) — matched by `match`/`case`, each dispatching to the compas surface that owns it; the numerical sub-op is the closed `NumericalOp` vocabulary, never a raw string literal inside the case payload.
@@ -99,7 +99,7 @@ def _dispatch(algebra: ComputationalGeometry) -> AlgebraResult:
             assert_never(unreachable)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [COMPAS_DATASTRUCTURE]: the `Network.from_nodes_and_edges` constructor arity, the `Mesh.from_json`/`Mesh.dual` round-trip, and the `Mesh.subdivide` verb spelling (the `mesh` arm's `op == "subdivide"` branch) confirm against the branch `compas` catalogue on the companion interpreter; `bestfit_plane`, `bbox_numpy`, and `json_dumps` are catalogue-confirmed.
 - [DR_NUMPY_ARITY]: the `compas_dr.solvers.dr_numpy` argument shape (mesh edge graph, fixed-anchor index set, force-density and load vectors) and the equilibrium/residual return confirm against the branch `compas_dr` catalogue; the `compas_tna` form/force-diagram entrypoints confirm before the thrust-network method is admitted as a `FormFinding` variant.

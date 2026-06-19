@@ -2,11 +2,11 @@
 
 The one pointer-gesture algebra shared by the viewport camera and any draggable surface. `GestureFold` folds drag/pinch/wheel pointer intents through the `@use-gesture/react` recognizer into one `CameraGesture` `Data.TaggedEnum`, and `applyGesture` folds an intent forward onto `CameraState` under one `Match.tagsExhaustive`. The viewport camera composes this fold rather than owning an orphaned per-surface pointer handler. The fold is pure; its result drives state through the `binding/atom.md` `AtomBinding`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GESTURE_ALGEBRA]: the shared `@use-gesture/react` pointer-gesture fold into the `CameraGesture` `Data.TaggedEnum`, and the `applyGesture` camera-state fold total under `Match.tagsExhaustive`.
+- [01]-[GESTURE_ALGEBRA]: the shared `@use-gesture/react` pointer-gesture fold into the `CameraGesture` `Data.TaggedEnum`, and the `applyGesture` camera-state fold total under `Match.tagsExhaustive`.
 
-## [2]-[GESTURE_ALGEBRA]
+## [02]-[GESTURE_ALGEBRA]
 
 - Owner: `CameraGesture`, the one `Data.TaggedEnum` over the pointer intents (`orbit`/`pan`/`dolly`/`frame`); `applyGesture`, the total fold from an intent onto `CameraState`; and `useGestureFold`, the `@use-gesture/react` `useGesture` recognizer binding that maps the raw `FullGestureState` drag/pinch/wheel events onto the `CameraGesture` tags through `recognizeDrag`, bound to a target ref so the canvas captures events directly. The algebra is shared, not per-surface.
 - Cases: `useGestureFold` maps a drag onto `orbit` or `pan` by the `shiftKey` modifier read off the `FullGestureState`, a pinch `offset[0]` scale onto `dolly`, and a wheel `delta[1]` onto `dolly`; `applyGesture` folds each tag onto `CameraState` total under `Match.tagsExhaustive` — `orbit` advances azimuth/elevation, `pan` shifts the target, `dolly` scales the distance with a floor, `frame` recomputes the camera from the mesh centroid and radius. A draggable surface composes the same `useGesture` recognizer keyed to its own intent set.

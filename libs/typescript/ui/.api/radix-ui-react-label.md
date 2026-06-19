@@ -2,7 +2,7 @@
 
 `@radix-ui/react-label` supplies the `Label` component, a thin accessible wrapper over the native `<label>` element built on `@radix-ui/react-primitive`. It forwards a ref to the underlying `HTMLLabelElement` and exposes the full HTML label prop surface via `LabelProps`, consumed by every form-field owner in the ui stack that needs a correctly associated accessible label.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@radix-ui/react-label`
 - package: `@radix-ui/react-label`
@@ -11,27 +11,27 @@
 - asset: accessible label primitive
 - rail: render
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: label family
 - rail: render
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]                                                             | [RAIL]                       |
 | :-----: | :----------- | :------------------------------------------------------------------------ | :--------------------------- |
-|   [1]   | `Label`      | `ForwardRefExoticComponent<LabelProps & RefAttributes<HTMLLabelElement>>` | accessible label root        |
-|   [2]   | `LabelProps` | interface extending `PrimitiveLabelProps`                                 | full HTML label prop surface |
+|  [01]   | `Label`      | `ForwardRefExoticComponent<LabelProps & RefAttributes<HTMLLabelElement>>` | accessible label root        |
+|  [02]   | `LabelProps` | interface extending `PrimitiveLabelProps`                                 | full HTML label prop surface |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: label construction
 - rail: render
 
 | [INDEX] | [SURFACE]                  | [ENTRY_FAMILY]  | [RAIL]                                                |
 | :-----: | :------------------------- | :-------------- | :---------------------------------------------------- |
-|   [1]   | `Label`                    | primary export  | renders `<label>`, forwards ref to `HTMLLabelElement` |
-|   [2]   | `Root` (alias for `Label`) | named re-export | Radix-style named default export                      |
+|  [01]   | `Label`                    | primary export  | renders `<label>`, forwards ref to `HTMLLabelElement` |
+|  [02]   | `Root` (alias for `Label`) | named re-export | Radix-style named default export                      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [LABEL_TOPOLOGY]:
 - `LabelProps` extends `PrimitiveLabelProps`, which is `React.ComponentPropsWithoutRef<typeof Primitive.label>`

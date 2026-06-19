@@ -2,7 +2,7 @@
 
 `@opentelemetry/sdk-metrics` supplies `MeterProvider`, `MetricReader`, `PeriodicExportingMetricReader`, instrument-type enums, aggregation temporality, metric data shapes, and exporter contracts for collecting and exporting OTel metrics in Node.js and browser services.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-metrics`
 - package: `@opentelemetry/sdk-metrics`
@@ -10,30 +10,30 @@
 - asset: runtime library
 - rail: metrics
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider
 - rail: metrics
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                          |
 | :-----: | :--------------------- | :------------ | :------------------------------ |
-|   [1]   | `MeterProvider`        | class         | root metric collection provider |
-|   [2]   | `MeterProviderOptions` | interface     | provider construction config    |
+|  [01]   | `MeterProvider`        | class         | root metric collection provider |
+|  [02]   | `MeterProviderOptions` | interface     | provider construction config    |
 
 [PUBLIC_TYPE_SCOPE]: readers and exporters
 - rail: metrics
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]  | [RAIL]                                   |
 | :-----: | :------------------------------------- | :------------- | :--------------------------------------- |
-|   [1]   | `MetricReader`                         | abstract class | base metric reader                       |
-|   [2]   | `PeriodicExportingMetricReader`        | class          | interval-driven push reader              |
-|   [3]   | `InMemoryMetricExporter`               | class          | test/in-memory exporter                  |
-|   [4]   | `ConsoleMetricExporter`                | class          | diagnostic console exporter              |
-|   [5]   | `IMetricReader`                        | interface      | metric reader contract                   |
-|   [6]   | `PushMetricExporter`                   | interface      | push exporter contract                   |
-|   [7]   | `MetricReaderOptions`                  | interface      | reader config (aggregation, cardinality) |
-|   [8]   | `PeriodicExportingMetricReaderOptions` | type           | interval exporter config                 |
-|   [9]   | `MetricCollectOptions`                 | interface      | collect call options                     |
+|  [01]   | `MetricReader`                         | abstract class | base metric reader                       |
+|  [02]   | `PeriodicExportingMetricReader`        | class          | interval-driven push reader              |
+|  [03]   | `InMemoryMetricExporter`               | class          | test/in-memory exporter                  |
+|  [04]   | `ConsoleMetricExporter`                | class          | diagnostic console exporter              |
+|  [05]   | `IMetricReader`                        | interface      | metric reader contract                   |
+|  [06]   | `PushMetricExporter`                   | interface      | push exporter contract                   |
+|  [07]   | `MetricReaderOptions`                  | interface      | reader config (aggregation, cardinality) |
+|  [08]   | `PeriodicExportingMetricReaderOptions` | type           | interval exporter config                 |
+|  [09]   | `MetricCollectOptions`                 | interface      | collect call options                     |
 |  [10]   | `MetricProducer`                       | interface      | external metric producer                 |
 
 [PUBLIC_TYPE_SCOPE]: enumerations and temporality
@@ -41,25 +41,25 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                             |
 | :-----: | :----------------------- | :------------ | :----------------------------------------------------------------- |
-|   [1]   | `AggregationTemporality` | enum          | `DELTA = 0`, `CUMULATIVE = 1`                                      |
-|   [2]   | `InstrumentType`         | enum          | `COUNTER`, `GAUGE`, `HISTOGRAM`, `UP_DOWN_COUNTER`, `OBSERVABLE_*` |
-|   [3]   | `DataPointType`          | enum          | data point variant discriminant                                    |
-|   [4]   | `AggregationType`        | enum          | aggregation algorithm selector                                     |
+|  [01]   | `AggregationTemporality` | enum          | `DELTA = 0`, `CUMULATIVE = 1`                                      |
+|  [02]   | `InstrumentType`         | enum          | `COUNTER`, `GAUGE`, `HISTOGRAM`, `UP_DOWN_COUNTER`, `OBSERVABLE_*` |
+|  [03]   | `DataPointType`          | enum          | data point variant discriminant                                    |
+|  [04]   | `AggregationType`        | enum          | aggregation algorithm selector                                     |
 
 [PUBLIC_TYPE_SCOPE]: metric data shapes
 - rail: metrics
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                         |
 | :-----: | :------------------------------- | :------------ | :----------------------------- |
-|   [1]   | `ResourceMetrics`                | interface     | top-level export envelope      |
-|   [2]   | `ScopeMetrics`                   | interface     | per-instrumentation-scope data |
-|   [3]   | `MetricData`                     | type          | union of metric data variants  |
-|   [4]   | `MetricDescriptor`               | interface     | metric name, unit, type        |
-|   [5]   | `DataPoint`                      | interface     | single metric measurement      |
-|   [6]   | `SumMetricData`                  | interface     | sum instrument data            |
-|   [7]   | `GaugeMetricData`                | interface     | gauge instrument data          |
-|   [8]   | `HistogramMetricData`            | interface     | histogram instrument data      |
-|   [9]   | `ExponentialHistogramMetricData` | interface     | exponential histogram data     |
+|  [01]   | `ResourceMetrics`                | interface     | top-level export envelope      |
+|  [02]   | `ScopeMetrics`                   | interface     | per-instrumentation-scope data |
+|  [03]   | `MetricData`                     | type          | union of metric data variants  |
+|  [04]   | `MetricDescriptor`               | interface     | metric name, unit, type        |
+|  [05]   | `DataPoint`                      | interface     | single metric measurement      |
+|  [06]   | `SumMetricData`                  | interface     | sum instrument data            |
+|  [07]   | `GaugeMetricData`                | interface     | gauge instrument data          |
+|  [08]   | `HistogramMetricData`            | interface     | histogram instrument data      |
+|  [09]   | `ExponentialHistogramMetricData` | interface     | exponential histogram data     |
 |  [10]   | `CollectionResult`               | interface     | collect return with errors     |
 
 [PUBLIC_TYPE_SCOPE]: aggregation and view
@@ -67,43 +67,43 @@
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :------------------------------- | :------------ | :--------------------------------- |
-|   [1]   | `AggregationSelector`            | type          | instrument-type -> aggregation map |
-|   [2]   | `AggregationTemporalitySelector` | type          | instrument-type -> temporality map |
-|   [3]   | `AggregationOption`              | type          | view aggregation option            |
-|   [4]   | `ViewOptions`                    | interface     | view config for a MeterProvider    |
-|   [5]   | `IAttributesProcessor`           | interface     | attribute allowlist/denylist       |
-|   [6]   | `TimeoutError`                   | class         | collect timeout failure            |
+|  [01]   | `AggregationSelector`            | type          | instrument-type -> aggregation map |
+|  [02]   | `AggregationTemporalitySelector` | type          | instrument-type -> temporality map |
+|  [03]   | `AggregationOption`              | type          | view aggregation option            |
+|  [04]   | `ViewOptions`                    | interface     | view config for a MeterProvider    |
+|  [05]   | `IAttributesProcessor`           | interface     | attribute allowlist/denylist       |
+|  [06]   | `TimeoutError`                   | class         | collect timeout failure            |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: MeterProvider lifecycle
 - rail: metrics
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :-------------------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `new MeterProvider(options?)`                 | constructor    | create provider with readers    |
-|   [2]   | `provider.getMeter(name, version?, options?)` | factory        | obtain a named Meter            |
-|   [3]   | `provider.shutdown(options?)`                 | lifecycle      | flush and shut down all readers |
-|   [4]   | `provider.forceFlush(options?)`               | lifecycle      | flush without shutdown          |
+|  [01]   | `new MeterProvider(options?)`                 | constructor    | create provider with readers    |
+|  [02]   | `provider.getMeter(name, version?, options?)` | factory        | obtain a named Meter            |
+|  [03]   | `provider.shutdown(options?)`                 | lifecycle      | flush and shut down all readers |
+|  [04]   | `provider.forceFlush(options?)`               | lifecycle      | flush without shutdown          |
 
 [ENTRYPOINT_SCOPE]: PeriodicExportingMetricReader construction
 - rail: metrics
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :--------------------------------------------------- | :------------- | :--------------------------- |
-|   [1]   | `new PeriodicExportingMetricReader(options)`         | constructor    | interval-based push reader   |
-|   [2]   | `new InMemoryMetricExporter(aggregationTemporality)` | constructor    | in-memory exporter for tests |
-|   [3]   | `new ConsoleMetricExporter(options?)`                | constructor    | console diagnostic exporter  |
+|  [01]   | `new PeriodicExportingMetricReader(options)`         | constructor    | interval-based push reader   |
+|  [02]   | `new InMemoryMetricExporter(aggregationTemporality)` | constructor    | in-memory exporter for tests |
+|  [03]   | `new ConsoleMetricExporter(options?)`                | constructor    | console diagnostic exporter  |
 
 [ENTRYPOINT_SCOPE]: attribute processor factories
 - rail: metrics
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :---------------------------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `createAllowListAttributesProcessor(allowList)` | factory        | retain only listed attribute keys |
-|   [2]   | `createDenyListAttributesProcessor(denyList)`   | factory        | drop listed attribute keys        |
+|  [01]   | `createAllowListAttributesProcessor(allowList)` | factory        | retain only listed attribute keys |
+|  [02]   | `createDenyListAttributesProcessor(denyList)`   | factory        | drop listed attribute keys        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [METRICS_TOPOLOGY]:
 - namespace: `@opentelemetry/sdk-metrics`; `MeterProvider` is the sole composition root

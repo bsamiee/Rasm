@@ -2,11 +2,11 @@
 
 Robust mesh algebra — the shared downstream primitive the tessellation, scan-reconstruction, and step hops compose. `MeshOp` is one tagged union discriminating by operation kind: watertight detection plus hole-fill plus winding/normal repair over `trimesh.repair`, exact union/difference/intersection boolean over the `trimesh.boolean` `manifold3d` backend, and mesh-file decode/encode across the `trimesh`/`rhino3dm`/`meshio` codec seam keyed by file format. Every arm returns a `MeshReceipt` carrying the watertight verdict, the volume, and the vertex/face counts; the boolean arm requires watertight input the repair arm guarantees. Reconstructed meshes graduate via the compute `HandoffAxis` geometry `reconstructed-mesh` subject. Mesh-file exchange aligns to the branch `data/mesh-exchange` seam, never a managed interior.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MESH]: the repair, boolean, and codec operations under one tagged union over the `trimesh`/`manifold3d`/`rhino3dm`/`meshio` surfaces.
+- [01]-[MESH]: the repair, boolean, and codec operations under one tagged union over the `trimesh`/`manifold3d`/`rhino3dm`/`meshio` surfaces.
 
-## [2]-[MESH]
+## [02]-[MESH]
 
 - Owner: `MeshOp` — the tagged union discriminating by operation; `BooleanOp` the closed `StrEnum` selecting the CSG verb so the boolean arm is one row rather than three; `MeshFormat` the closed `StrEnum` selecting the codec so the decode/encode arm is one row over the format set; `MeshReceipt` the typed receipt carrying the watertight verdict, volume, area, and vertex/face counts read off the result `trimesh.Trimesh`.
 - Cases: `MeshOp` cases `Repair(glb, weld)` (the `trimesh.repair` winding/normal/hole-fill conditioning pass plus the `process` merge-validate), `Boolean(meshes, op)` (the n-ary `trimesh.boolean` union/difference/intersection over the robust `manifold3d` engine), and `Codec(payload, src, dst)` (mesh-file decode/encode routing `trimesh.load`/`export` for the trimesh-native formats, `rhino3dm.File3dm` for `.3dm`, and `meshio.read`/`write` for the FEM/CAE formats) — matched by `match`/`assert_never`, each binding the package that owns the operation.
@@ -114,11 +114,11 @@ def _dispatch(op: MeshOp) -> MeshReceipt:
             assert_never(unreachable)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [TRIMESH_STREAM_INTAKE]: the `trimesh.util.wrap_as_stream(bytes)` byte-buffer-to-stream helper and the `trimesh.load(file_obj, file_type, force="mesh")` GLB intake forcing a single `Trimesh` confirm against the branch `trimesh` catalogue on the cp312 companion; the catalogue confirms `trimesh.load`/`load_mesh`/`repair.fix_winding`/`fix_normals`/`fill_holes`/`boolean.union`/`difference`/`intersection`/`is_watertight`/`volume`/`area`, leaving the `wrap_as_stream` helper spelling and the `Trimesh.merge_vertices` weld verb as the unconfirmed members.
 - [CODEC_CROSS_FORMAT]: the `.3dm` leg over `rhino3dm.File3dm.FromByteArray`/`File3dmObjectTable.Add(mesh, attributes)` and the FEM leg over `meshio.read`/`write` resolve the `Codec` arm's cross-format re-encode (the GLB-to-`.3dm` and GLB-to-`.vtk` round-trip) against the branch `rhino3dm`/`meshio` catalogues before the destination-format write replaces the trimesh-native `export` shown in the fence; the trimesh-native `MeshFormat` rows (`glb`/`ply`/`stl`/`obj`) encode through `Trimesh.export(file_type=dst)` and are catalogue-confirmed.
 
-## [4]-[UPSTREAM]
+## [04]-[UPSTREAM]
 
 - [WHEEL_BAND]: `manifold3d` ships cp310-cp314 wheels and rides the `python_version<'3.15'` companion band the branch manifest gates as the robust `trimesh.boolean` backend; `trimesh`/`rhino3dm`/`meshio` are pure-Python or prebuilt-wheel admitted, but the boolean arm's `manifold3d` backend resolves only on the companion the daemon hosts — the Forge `python312` lane (`forge-companion-env`), the cp312 floor inside the `<'3.15'` band. The cp315 project venv carries no `manifold3d` wheel, so the boolean arm runs companion-band only — repair and codec arms run on the cp315 core.

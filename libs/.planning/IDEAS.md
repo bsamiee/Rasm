@@ -2,7 +2,7 @@
 
 Cross-language ideas only — concepts that span two or more of C# / Python / TypeScript at the wire and the companion/offline seams, distilled from the three branch concerts rather than re-aggregated from branch content. Each idea is a card grounded in the wire law: a bracketed slug, the capability, what it unlocks, and the shared-owner seam it draws on. A concept that couples packages within one language lives in that branch's `IDEAS.md`, never here. `[1]-[OPEN]` holds the live concert; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [THE_CONCERT]: the flagship tri-language pipeline — one model authored in the C# host suite, computed across the Python science stack, and surfaced live in the TS web/edge platform.
 - A model sealed in `csharp:Rasm.Persistence` emits its canonical wire shapes once; the `python` companion recomputes them offline and the `typescript` web platform renders them, every leg decoding the one C#-owned wire vocabulary and reproducing the one content-identity seed bit-identically.
@@ -74,6 +74,6 @@ Cross-language ideas only — concepts that span two or more of C# / Python / Ty
 - Unlocks one agentic surface every runtime drives: the MCP tool catalog, the effect-hint gating, the cost preview, and the resumable progress stream all derive from the one descriptor source the SDK codegen also reads, so a new agent tool is one descriptor row that auto-projects to the MCP tool and the polyglot SDK, never a hand-authored client divorced from a descriptor.
 - Draws on the official MCP C# SDK owning the protocol and the `@effect/ai` `Toolkit`/`Tool.make` owning the agent-side decode: the existing `ONE_CAPABILITY_CATALOG` owns the descriptor-to-SDK leg, but the MCP agent-tool projection with effect-hints/cost-preview/progress/resume is now a concrete realized contract beyond bare codegen — the gap is that the agent-tool wire (`McpToolWire`/`CostPreviewWire`/`ProgressNotificationWire`/`ResumeTokenWire`) is its own decode surface the master tier must own so the C# host and the TS agent runtime meet at one tool catalog, the Python companion serving the same tools over its server-host leg.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

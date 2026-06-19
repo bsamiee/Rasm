@@ -3,7 +3,7 @@
 `Grpc.Tools` supplies build-time protocol generation, MSBuild targets, `.proto`
 item metadata, compiler binaries, import protos, and generated client seams.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Tools`
 - package: `Grpc.Tools`
@@ -12,53 +12,53 @@ item metadata, compiler binaries, import protos, and generated client seams.
 - asset: build tool package
 - rail: remote-contracts
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PACKAGE_ASSET_SCOPE]: MSBuild assets
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE] | [CAPABILITY]             |
 | :-----: | :---------------------------------------------- | :------------- | :----------------------- |
-|   [1]   | `build/Grpc.Tools.props`                        | MSBuild import | declares generator props |
-|   [2]   | `build/Grpc.Tools.targets`                      | MSBuild import | runs generator targets   |
-|   [3]   | `build/_grpc/_Grpc.Tools.props`                 | MSBuild import | declares gRPC props      |
-|   [4]   | `build/_grpc/_Grpc.Tools.targets`               | MSBuild import | runs gRPC target steps   |
-|   [5]   | `build/_protobuf/Google.Protobuf.Tools.props`   | MSBuild import | declares proto props     |
-|   [6]   | `build/_protobuf/Google.Protobuf.Tools.targets` | MSBuild import | runs proto target steps  |
-|   [7]   | `Protobuf.MSBuild.dll`                          | task assembly  | executes generator tasks |
-|   [8]   | `Grpc.CSharp.xml`                               | task metadata  | describes gRPC task      |
-|   [9]   | `Protobuf.CSharp.xml`                           | task metadata  | describes proto task     |
+|  [01]   | `build/Grpc.Tools.props`                        | MSBuild import | declares generator props |
+|  [02]   | `build/Grpc.Tools.targets`                      | MSBuild import | runs generator targets   |
+|  [03]   | `build/_grpc/_Grpc.Tools.props`                 | MSBuild import | declares gRPC props      |
+|  [04]   | `build/_grpc/_Grpc.Tools.targets`               | MSBuild import | runs gRPC target steps   |
+|  [05]   | `build/_protobuf/Google.Protobuf.Tools.props`   | MSBuild import | declares proto props     |
+|  [06]   | `build/_protobuf/Google.Protobuf.Tools.targets` | MSBuild import | runs proto target steps  |
+|  [07]   | `Protobuf.MSBuild.dll`                          | task assembly  | executes generator tasks |
+|  [08]   | `Grpc.CSharp.xml`                               | task metadata  | describes gRPC task      |
+|  [09]   | `Protobuf.CSharp.xml`                           | task metadata  | describes proto task     |
 
 [PACKAGE_ASSET_SCOPE]: compiler and import assets
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]  | [CAPABILITY]             |
 | :-----: | :--------------------------------- | :-------------- | :----------------------- |
-|   [1]   | `protoc`                           | compiler binary | emits message code       |
-|   [2]   | `grpc_csharp_plugin`               | compiler plugin | emits client code        |
-|   [3]   | `google/protobuf/any.proto`        | import proto    | supplies well-known type |
-|   [4]   | `google/protobuf/timestamp.proto`  | import proto    | supplies time type       |
-|   [5]   | `google/protobuf/duration.proto`   | import proto    | supplies duration type   |
-|   [6]   | `google/protobuf/empty.proto`      | import proto    | supplies empty type      |
-|   [7]   | `google/protobuf/field_mask.proto` | import proto    | supplies field mask type |
-|   [8]   | `google/protobuf/wrappers.proto`   | import proto    | supplies scalar wrappers |
+|  [01]   | `protoc`                           | compiler binary | emits message code       |
+|  [02]   | `grpc_csharp_plugin`               | compiler plugin | emits client code        |
+|  [03]   | `google/protobuf/any.proto`        | import proto    | supplies well-known type |
+|  [04]   | `google/protobuf/timestamp.proto`  | import proto    | supplies time type       |
+|  [05]   | `google/protobuf/duration.proto`   | import proto    | supplies duration type   |
+|  [06]   | `google/protobuf/empty.proto`      | import proto    | supplies empty type      |
+|  [07]   | `google/protobuf/field_mask.proto` | import proto    | supplies field mask type |
+|  [08]   | `google/protobuf/wrappers.proto`   | import proto    | supplies scalar wrappers |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: project inputs
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]                                             |
 | :-----: | :-------------------------- | :------------ | :------------------------------------------------------- |
-|   [1]   | `Protobuf` item             | MSBuild item  | declares proto input                                     |
-|   [2]   | `GrpcServices`              | item metadata | `Both`/`Client`/`Server`/`None` stub generation selector |
-|   [3]   | `ProtoRoot`                 | item metadata | scopes import roots                                      |
-|   [4]   | `AdditionalImportDirs`      | item metadata | resolves additional import paths                         |
-|   [5]   | `Access`                    | item metadata | `Public`/`Internal` class access modifier                |
-|   [6]   | `OutputDir`                 | item metadata | sets generated output directory                          |
-|   [7]   | `CompileOutputs`            | item metadata | `True`/`False` — includes generated code in compilation  |
-|   [8]   | `AdditionalProtocArguments` | item metadata | passes extra arguments to protoc                         |
-|   [9]   | `ProtoCompile`              | item metadata | `True`/`False` — compiles or import-only                 |
+|  [01]   | `Protobuf` item             | MSBuild item  | declares proto input                                     |
+|  [02]   | `GrpcServices`              | item metadata | `Both`/`Client`/`Server`/`None` stub generation selector |
+|  [03]   | `ProtoRoot`                 | item metadata | scopes import roots                                      |
+|  [04]   | `AdditionalImportDirs`      | item metadata | resolves additional import paths                         |
+|  [05]   | `Access`                    | item metadata | `Public`/`Internal` class access modifier                |
+|  [06]   | `OutputDir`                 | item metadata | sets generated output directory                          |
+|  [07]   | `CompileOutputs`            | item metadata | `True`/`False` — includes generated code in compilation  |
+|  [08]   | `AdditionalProtocArguments` | item metadata | passes extra arguments to protoc                         |
+|  [09]   | `ProtoCompile`              | item metadata | `True`/`False` — compiles or import-only                 |
 
 [ENTRYPOINT_SCOPE]: `Protobuf` item metadata decompile-verified rows
 - source: `Grpc.Tools` 2.81.1 — `Grpc.CSharp.xml` / `Protobuf.CSharp.xml` / `Google.Protobuf.Tools.targets`
@@ -67,28 +67,28 @@ item metadata, compiler binaries, import protos, and generated client seams.
 
 | [INDEX] | [MEMBER]                    | [SIGNATURE]                                                  |
 | :-----: | :-------------------------- | :----------------------------------------------------------- |
-|   [1]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`           |
-|   [2]   | `Access`                    | enum: `Public` (default), `Internal`                         |
-|   [3]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only              |
-|   [4]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir     |
-|   [5]   | `AdditionalImportDirs`      | string — semicolon-separated extra import directories        |
-|   [6]   | `OutputDir`                 | string — generated file output directory                     |
-|   [7]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation |
-|   [8]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`         |
+|  [01]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`           |
+|  [02]   | `Access`                    | enum: `Public` (default), `Internal`                         |
+|  [03]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only              |
+|  [04]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir     |
+|  [05]   | `AdditionalImportDirs`      | string — semicolon-separated extra import directories        |
+|  [06]   | `OutputDir`                 | string — generated file output directory                     |
+|  [07]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation |
+|  [08]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`         |
 
 [ENTRYPOINT_SCOPE]: generated outputs
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]   | [CAPABILITY]            |
 | :-----: | :--------------------------- | :------------- | :---------------------- |
-|   [1]   | generated message types      | generated code | carries remote payloads |
-|   [2]   | generated parser members     | generated code | parses remote payloads  |
-|   [3]   | generated descriptor members | generated code | describes remote schema |
-|   [4]   | generated client types       | generated code | calls remote services   |
-|   [5]   | generated async methods      | generated code | calls async operations  |
-|   [6]   | generated streaming methods  | generated code | calls stream operations |
+|  [01]   | generated message types      | generated code | carries remote payloads |
+|  [02]   | generated parser members     | generated code | parses remote payloads  |
+|  [03]   | generated descriptor members | generated code | describes remote schema |
+|  [04]   | generated client types       | generated code | calls remote services   |
+|  [05]   | generated async methods      | generated code | calls async operations  |
+|  [06]   | generated streaming methods  | generated code | calls stream operations |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATOR_ADMISSION]:
 - package role: build-only protocol generation

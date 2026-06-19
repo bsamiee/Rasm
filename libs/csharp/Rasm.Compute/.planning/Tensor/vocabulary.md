@@ -2,12 +2,12 @@
 
 The cpu-tensor vocabulary and the operation table: `Tensor<T>` spans and factories as the only tensor shapes, one `TensorDtype` map between `TensorElementType` and CLR carriers carrying the ONNX byte-width and quantization columns, and one `TensorOpFamily` table of one-hundred-thirteen rows over thirteen `TensorOpKind` rows under the closed `ToleranceClass` band as the equivalence-keyed operation catalogue. The page owns the `TensorDtype`/`QuantizationPolicy` vocabulary, the `TensorFault` bracketed-symbol fault family, the `TensorKeyPolicy` ordinal accessor, the `TensorVocabulary` admission fold with the `OrtByteSpan` egress-size law, and the `TensorOpKind`/`TensorOpFamily`/`ToleranceClass` operation axes; the dtype carriers ride `System.Numerics.Tensors` and `Microsoft.ML.OnnxRuntime`, the matrix rows lower through `Tensor/factor#KERNEL_LOWERING`, and the kernel-delegate bindings are owned by `Tensor/dispatch#KERNEL_DISPATCH`. The `TensorDtype`/`TensorFault`/`TensorKeyPolicy`/`TensorOpFamily` shapes cross to `Tensor/residency#ORT_BRIDGE`, `Tensor/layout#LAYOUT_ALGEBRA`, and `Tensor/dispatch#KERNEL_DISPATCH` as settled vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TENSOR_VOCABULARY]: tensor shapes, factories, dtype map, ONNX byte-width, quantization policy.
-- [2]-[OPERATION_TABLE]: `TensorOpKind`/`TensorOpFamily`/`ToleranceClass` vocabulary rows.
+- [01]-[TENSOR_VOCABULARY]: tensor shapes, factories, dtype map, ONNX byte-width, quantization policy.
+- [02]-[OPERATION_TABLE]: `TensorOpKind`/`TensorOpFamily`/`ToleranceClass` vocabulary rows.
 
-## [2]-[TENSOR_VOCABULARY]
+## [02]-[TENSOR_VOCABULARY]
 
 - Owner: `TensorDtype`
 - Cases: float32, float64, float16, bfloat16, int8, uint8, int32, int64, bool, string
@@ -80,7 +80,7 @@ public static class TensorVocabulary {
 }
 ```
 
-## [3]-[OPERATION_TABLE]
+## [03]-[OPERATION_TABLE]
 
 - Owner: `TensorOpFamily`
 - Cases: one-hundred-thirteen rows across thirteen `TensorOpKind` rows — elementwise, rounding, transcendental, reduction, statistics, bitwise, population, similarity, conversion, predicate, matrix, structural, geometry — each carrying its `ToleranceClass` equivalence column; the activation family (`ReLU`, `Gelu`, `SiLU`, `LogSoftMax` beside the direct `Sigmoid`/`Tanh`/`SoftMax` members), the four pooling rows (`MaxPool`/`AvgPool`/`GlobalMaxPool`/`GlobalAvgPool`), the magnitude-extremum reduction pair (`MaxMagnitude`/`MinMagnitude`), the fast-estimate elementwise rows (`ReciprocalEstimate`/`ReciprocalSqrtEstimate`), the widening conversion rows (`ConvertToSingle`/`ConvertToInteger`/`ConvertToIntegerNative`), the predicate-aggregate rows (`IsNaNAll`/`IsNaNAny`/`IsFiniteAll`/`IsFiniteAny`), the element-domain rows (`ComplexAbs`/`ComplexExp`/`ComplexLog`/`Conjugate` over `System.Numerics.Complex`, `QuaternionMultiply`/`QuaternionConjugate`/`QuaternionNormalize` over `System.Numerics.Quaternion`), and the six DDG geometry-operator rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carrying the linear DEC operators whose reverse-mode adjoint is the operator transpose over the `Tensor/dispatch#EQUIVALENCE_INTEROP` `Backward.Operator` apply, ride the existing kind axis as rows, never sibling op types

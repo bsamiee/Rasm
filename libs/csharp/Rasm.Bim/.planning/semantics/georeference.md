@@ -2,12 +2,12 @@
 
 The IFC4.3 coordinate-reference owner: one host-neutral `GeoReference` record (eastings, northings, orthogonal height, X-axis abscissa/ordinate rotation, scale, EPSG/CRS name) projected from `IfcMapConversion`/`IfcProjectedCRS`/`IfcCoordinateOperation`, reconciled into the canonical kernel frame by the `Exchange/format#FORMAT_AXIS` `FrameNormalization` so every federated model shares one georeferenced origin, and a datum-to-datum reprojection leg over the admitted `ProjNET` engine so a multi-CRS federation reconciles every model onto the shared projected frame by its full geodetic transform (ellipsoid, datum shift, projection) before the rigid map-conversion offset applies. The rigid map-conversion transform composes the kernel `Rasm` transform algebra, never a hand-rolled matrix; the `GeoReference` leg extends `FrameNormalization` with a translation/rotation/scale overload distinct from the existing up-axis/handedness `Canonicalize` signature rather than minting a new transform owner; the geodetic reprojection is the new datum-bridging leg the `IfcCoordinateOperation`/`IfcProjectedCRS` chain demands, the `ProjNET` `CoordinateSystemServices` SRID-keyed transformation owning the datum shift the kernel `Rasm` transform does not. The page composes the kernel `Rasm` transform algebra, the `ProjNET` `CoordinateSystemServices`/`MathTransform` surface, and the `Model/structure#ASSEMBLY_TREE` tree root as settled vocabulary so federated assemblies reconcile onto one frame. The page is HOST-NEUTRAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GEO_REFERENCE]: `GeoReference` record, the `IfcMapConversion`/`IfcProjectedCRS` `Project` body, and the `FrameNormalization.Georeference` CRS overload.
-- [2]-[GEODETIC_TRANSFORM]: the `GeoReference.Reproject` datum-to-datum leg over `ProjNET` `CoordinateSystemServices`/`MathTransform`, composed before the rigid map-conversion offset.
+- [01]-[GEO_REFERENCE]: `GeoReference` record, the `IfcMapConversion`/`IfcProjectedCRS` `Project` body, and the `FrameNormalization.Georeference` CRS overload.
+- [02]-[GEODETIC_TRANSFORM]: the `GeoReference.Reproject` datum-to-datum leg over `ProjNET` `CoordinateSystemServices`/`MathTransform`, composed before the rigid map-conversion offset.
 
-## [2]-[GEO_REFERENCE]
+## [02]-[GEO_REFERENCE]
 
 - Owner: `GeoReference` the host-neutral coordinate-reference record carrying the map-conversion translation (eastings/northings/orthogonal height), the X-axis abscissa/ordinate rotation, the scale, and the EPSG/CRS identity; `ProjectedCrs` the value-object EPSG-keyed CRS identity carrying the geodetic datum and map-projection name.
 - Entry: `GeoReference.Project(IfcSemanticModel semantic)` projects the model's `IfcMapConversion`/`IfcProjectedCRS` (the `Exchange/import#IMPORT_RAIL` `MapConversionRow` the `HasCoordinateOperation` extract carries) into the host-neutral `GeoReference` — a model carrying no map-conversion returns `GeoReference.Identity` so ingest never blocks; `GeoReference.ToTransform()` builds the rigid map-conversion transform over the kernel `Rasm` transform algebra so the CRS reconciles into the canonical kernel frame at ingest.
@@ -76,7 +76,7 @@ public static partial class FrameNormalization {
 }
 ```
 
-## [3]-[GEODETIC_TRANSFORM]
+## [03]-[GEODETIC_TRANSFORM]
 
 - Owner: the `GeoReference.Reproject` datum-bridging leg — a NET-NEW operation on the `GeoReference` owner (distinct from `ToTransform`, which stays the rigid map-conversion offset) reprojecting model ordinates from the source CRS datum to the target projected CRS over the admitted `ProjNET` `CoordinateSystemServices` before the rigid map-conversion offset applies; `CoordinateServices` the one process-wide `CoordinateSystemServices` SRID-keyed cache the `.api/api-projnet` `CRS_TRANSFORM` law names as the single CS/transformation owner.
 - Entry: `GeoReference.Reproject(Span<float> vertices, int stride)` applies the EPSG-keyed datum-to-datum transform in place when both the source and target `ProjectedCrs.Epsg` resolve and differ — the `SourceCrs.Epsg` and `Crs.Epsg` drive `CoordinateServices.CreateTransformation(sourceSrid, targetSrid)`, the resulting `ICoordinateTransformation.MathTransform` reprojecting each ordinate triple through `MathTransform.Transform(ref x, ref y, ref z)`; a model with no source CRS, a single CRS, or unresolved EPSG codes returns unchanged so the datum leg is additive and never blocks a single-datum federation.
@@ -107,7 +107,7 @@ public sealed partial record GeoReference {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [MAP_CONVERSION_PROJECTION]: the GeometryGym `IfcMapConversion` (`Eastings`/`Northings`/`OrthogonalHeight`/`XAxisAbscissa`/`XAxisOrdinate`/`Scale`/`SourceCRS`/`TargetCRS`), `IfcProjectedCRS` (`Name`/`GeodeticDatum`/`VerticalDatum`/`MapProjection`/`MapZone`), and the single `IfcGeometricRepresentationContext.HasCoordinateOperation` `IfcCoordinateOperation` the `GeoReference.Project` body reads are catalogued at `.api/api-geometrygym-ifc` (georeferencing entity scope + traversal entrypoint) so the `MapConversionRow` projection the `Exchange/import#IMPORT_RAIL` `MapConversion` extract carries matches the real entity members; `HasCoordinateOperation` is a single `IfcCoordinateOperation` reference (the `IfcMapConversion` is itself an `IfcCoordinateOperation`), narrowed by `as IfcMapConversion` at the extract, not a collection; `XAxisAbscissa`/`XAxisOrdinate`/`Scale` are non-nullable doubles GeometryGym defaults on parse, so the import extract guards only the degenerate `Scale == 0.0` onto the canonical `1.0`.
 - [KERNEL_TRANSFORM_COMPOSE]: the kernel `Rasm` `Transform.Translation`/`Transform.Rotation`/`Transform.Scale`/`Transform.Apply` and `Vector3`/`Vector3.UnitZ` member spellings the `GeoReference.ToTransform` and `FrameNormalization.Georeference` compose ground against the kernel `Rasm` transform-algebra owner at cross-folder alignment so the rigid map-conversion transform reuses the kernel transform rather than a hand-rolled matrix; the X-axis abscissa/ordinate direction-cosine-to-rotation conversion (`Math.Atan2(ordinate, abscissa)`, the IFC convention carrying the rotation as a direction rather than an angle) is settled and the kernel transform composition order (translation after rotation after scale) confirms against the kernel transform algebra; the datum `Reproject` leg runs over `ProjNET` `MathTransform` BEFORE the rigid offset so the kernel transform stays datum-free.

@@ -10,7 +10,7 @@ one module. The core cross-package owners (`Effect`, `Layer`, `Runtime`, `Stream
 `effect.md`; the `@effect/rpc` `Rpc`/`RpcClient`/`RpcGroup` and `@effect/platform` `HttpApi*` families the `AtomRpc`/
 `AtomHttpApi` namespaces re-expose are atom's transitive surface, off the `platform` consumption path.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect-atom/atom`
 - package: `@effect-atom/atom`
@@ -32,7 +32,7 @@ export * as Registry from "./Registry.js"
 export * as Result from "./Result.js"
 ```
 
-## [2]-[ATOM]
+## [02]-[ATOM]
 
 `@effect-atom/atom/Atom` — the reactive cell. `Atom<A>` is a read node carrying `keepAlive`/`lazy`/`idleTTL`
 metadata and a `read: (get: Context) => A`; `Writable<R, W>` extends it with a `write`. The module owns every
@@ -46,33 +46,33 @@ the `AtomRuntime`/`RuntimeFactory` layer-scoped sub-atom builders, the `Reset`/`
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]         |
 | :-----: | :------------------- | :------------ | :------------------- |
-|   [1]   | `Atom<A>`            | interface     | read cell            |
-|   [2]   | `Writable<R, W=R>`   | interface     | writable cell        |
-|   [3]   | `AtomRuntime<R, ER>` | interface     | layer-backed cells   |
-|   [4]   | `RuntimeFactory`     | interface     | runtime construction |
+|  [01]   | `Atom<A>`            | interface     | read cell            |
+|  [02]   | `Writable<R, W=R>`   | interface     | writable cell        |
+|  [03]   | `AtomRuntime<R, ER>` | interface     | layer-backed cells   |
+|  [04]   | `RuntimeFactory`     | interface     | runtime construction |
 
 [PUBLIC_TYPE_SCOPE]: read and write environments
 - rail: state-cell
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]      |
 | :-----: | :---------------- | :------------ | :---------------- |
-|   [1]   | `Context`         | interface     | read environment  |
-|   [2]   | `WriteContext<A>` | interface     | write environment |
-|   [3]   | `FnContext`       | interface     | result-fn context |
+|  [01]   | `Context`         | interface     | read environment  |
+|  [02]   | `WriteContext<A>` | interface     | write environment |
+|  [03]   | `FnContext`       | interface     | result-fn context |
 
 [PUBLIC_TYPE_SCOPE]: projections, brands, guards
 - rail: state-cell
 
 | [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]      | [CAPABILITY]             |
 | :-----: | :--------------------------------------------------------- | :----------------- | :----------------------- |
-|   [1]   | `AtomResultFn<Arg,A,E>`                                    | interface          | result function atom     |
-|   [2]   | `PullResult<A,E>`                                          | type alias         | stream pull result       |
-|   [3]   | `Type<T>` / `Success<T>` / `PullSuccess<T>` / `Failure<T>` | type projection    | atom type extraction     |
-|   [4]   | `WithoutSerializable<T>`                                   | type projection    | serializable drop        |
-|   [5]   | `Serializable<S>`                                          | interface          | serialization annotation |
-|   [6]   | `Reset` / `Interrupt`                                      | unique symbol      | result-fn write signals  |
-|   [7]   | `SerializableTypeId` / `ServerValueTypeId`                 | exported brand     | public brand ids         |
-|   [8]   | `isAtom` / `isWritable` / `isSerializable`                 | guard / refinement | erased-cell predicates   |
+|  [01]   | `AtomResultFn<Arg,A,E>`                                    | interface          | result function atom     |
+|  [02]   | `PullResult<A,E>`                                          | type alias         | stream pull result       |
+|  [03]   | `Type<T>` / `Success<T>` / `PullSuccess<T>` / `Failure<T>` | type projection    | atom type extraction     |
+|  [04]   | `WithoutSerializable<T>`                                   | type projection    | serializable drop        |
+|  [05]   | `Serializable<S>`                                          | interface          | serialization annotation |
+|  [06]   | `Reset` / `Interrupt`                                      | unique symbol      | result-fn write signals  |
+|  [07]   | `SerializableTypeId` / `ServerValueTypeId`                 | exported brand     | public brand ids         |
+|  [08]   | `isAtom` / `isWritable` / `isSerializable`                 | guard / refinement | erased-cell predicates   |
 
 ```ts contract
 // @effect-atom/atom/Atom — model + brands
@@ -140,15 +140,15 @@ interface FnContext { /* result/addFinalizer/mount/refresh/self/setSelf/set/setR
 
 | [INDEX] | [SYMBOL]          | [RESULT]                                                                          |
 | :-----: | :---------------- | :-------------------------------------------------------------------------------- |
-|   [1]   | `readable`        | `Atom<A>` from `read` fn                                                          |
-|   [2]   | `writable`        | `Writable<R, W>` from `read`+`write` fns                                          |
-|   [3]   | `make`            | overloaded: Effect/Stream → `Atom<Result>`, fn → `Atom<A>`, value → `Writable<A>` |
-|   [4]   | `fn`              | Effect/Stream result-function builder → `AtomResultFn<Arg, A, E>`                 |
-|   [5]   | `fnSync`          | sync result-function builder → `Writable<Option<A> \| A, Arg>`                    |
-|   [6]   | `pull`            | accumulating stream → `Writable<PullResult<A, E>, void>`                          |
-|   [7]   | `subscriptionRef` | `SubscriptionRef`/effect → `Writable`                                             |
-|   [8]   | `subscribable`    | `Subscribable`/effect → `Atom`                                                    |
-|   [9]   | `kvs`             | `KeyValueStore`-backed `Writable<A>` (schema + default)                           |
+|  [01]   | `readable`        | `Atom<A>` from `read` fn                                                          |
+|  [02]   | `writable`        | `Writable<R, W>` from `read`+`write` fns                                          |
+|  [03]   | `make`            | overloaded: Effect/Stream → `Atom<Result>`, fn → `Atom<A>`, value → `Writable<A>` |
+|  [04]   | `fn`              | Effect/Stream result-function builder → `AtomResultFn<Arg, A, E>`                 |
+|  [05]   | `fnSync`          | sync result-function builder → `Writable<Option<A> \| A, Arg>`                    |
+|  [06]   | `pull`            | accumulating stream → `Writable<PullResult<A, E>, void>`                          |
+|  [07]   | `subscriptionRef` | `SubscriptionRef`/effect → `Writable`                                             |
+|  [08]   | `subscribable`    | `Subscribable`/effect → `Atom`                                                    |
+|  [09]   | `kvs`             | `KeyValueStore`-backed `Writable<A>` (schema + default)                           |
 |  [10]   | `searchParam`     | URL search param → `Writable<string \| Option<A>>`                                |
 |  [11]   | `family`          | memoize `(arg) => T` cell builder                                                 |
 |  [12]   | `context`         | `({ memoMap }) => RuntimeFactory`                                                 |
@@ -205,15 +205,15 @@ const runtime: RuntimeFactory
 
 | [INDEX] | [SYMBOL]                                                        | [SHAPE]                                                         |
 | :-----: | :-------------------------------------------------------------- | :-------------------------------------------------------------- |
-|   [1]   | `keepAlive` / `autoDispose`                                     | `<A extends Atom<any>>(self: A) => A` (autoDispose reverts)     |
-|   [2]   | `setLazy`                                                       | dual `(lazy: boolean)` → same atom                              |
-|   [3]   | `setIdleTTL`                                                    | dual `(duration: DurationInput)` → same atom                    |
-|   [4]   | `withLabel`                                                     | dual `(name: string)` → same atom                               |
-|   [5]   | `initialValue`                                                  | dual → `readonly [Atom<A>, A]`                                  |
-|   [6]   | `map` / `transform`                                             | dual map over value / over `Context` → `Atom`/`Writable<B>`     |
-|   [7]   | `mapResult`                                                     | dual map over `Result.Success` → `Atom`/`Writable<Result<B,…>>` |
-|   [8]   | `withFallback`                                                  | dual; replace `Result` initial/failure with a fallback atom     |
-|   [9]   | `debounce`                                                      | dual `(duration)` → `WithoutSerializable<A>`                    |
+|  [01]   | `keepAlive` / `autoDispose`                                     | `<A extends Atom<any>>(self: A) => A` (autoDispose reverts)     |
+|  [02]   | `setLazy`                                                       | dual `(lazy: boolean)` → same atom                              |
+|  [03]   | `setIdleTTL`                                                    | dual `(duration: DurationInput)` → same atom                    |
+|  [04]   | `withLabel`                                                     | dual `(name: string)` → same atom                               |
+|  [05]   | `initialValue`                                                  | dual → `readonly [Atom<A>, A]`                                  |
+|  [06]   | `map` / `transform`                                             | dual map over value / over `Context` → `Atom`/`Writable<B>`     |
+|  [07]   | `mapResult`                                                     | dual map over `Result.Success` → `Atom`/`Writable<Result<B,…>>` |
+|  [08]   | `withFallback`                                                  | dual; replace `Result` initial/failure with a fallback atom     |
+|  [09]   | `debounce`                                                      | dual `(duration)` → `WithoutSerializable<A>`                    |
 |  [10]   | `serializable`                                                  | dual; attach `Serializable<S>` (key + schema)                   |
 |  [11]   | `withReactivity`                                                | `(keys) => <A>(atom) => A` (alias of `runtime.withReactivity`)  |
 |  [12]   | `makeRefreshOnSignal` / `refreshOnWindowFocus`                  | refresh-on-signal → `WithoutSerializable<A>`                    |
@@ -293,7 +293,7 @@ const set: <R, W>(self: Writable<R, W>, value: W) => Effect.Effect<void, never, 
 const update: <R, W>(self: Writable<R, W>, f: (_: R) => W) => Effect.Effect<void, never, AtomRegistry>
 ```
 
-## [3]-[RESULT]
+## [03]-[RESULT]
 
 `@effect-atom/atom/Result` — the three-state computation result an effect/stream atom holds. `Result<A, E>` is the
 union `Initial | Success | Failure`, each a `Result.Proto` carrying a `waiting` flag; `Failure` carries a
@@ -306,28 +306,28 @@ lifecycle helpers, the guard/refinement family, the `match`/`matchWithError`/`ma
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]             |
 | :-----: | :------------------ | :------------- | :----------------------- |
-|   [1]   | `Result<A, E>`      | union          | three-state result       |
-|   [2]   | `Result.Proto<A,E>` | interface      | shared result protocol   |
-|   [3]   | `Initial`           | interface      | initial variant          |
-|   [4]   | `Success`           | interface      | success variant          |
-|   [5]   | `Failure`           | interface      | failure variant          |
-|   [6]   | `Result.Success<R>` | type alias     | success extraction       |
-|   [7]   | `Result.Failure<R>` | type alias     | failure extraction       |
-|   [8]   | `With<R, A, E>`     | type alias     | variant-preserving retag |
-|   [9]   | `TypeId`            | internal brand | proto brand key          |
+|  [01]   | `Result<A, E>`      | union          | three-state result       |
+|  [02]   | `Result.Proto<A,E>` | interface      | shared result protocol   |
+|  [03]   | `Initial`           | interface      | initial variant          |
+|  [04]   | `Success`           | interface      | success variant          |
+|  [05]   | `Failure`           | interface      | failure variant          |
+|  [06]   | `Result.Success<R>` | type alias     | success extraction       |
+|  [07]   | `Result.Failure<R>` | type alias     | failure extraction       |
+|  [08]   | `With<R, A, E>`     | type alias     | variant-preserving retag |
+|  [09]   | `TypeId`            | internal brand | proto brand key          |
 
 [PUBLIC_TYPE_SCOPE]: result constructors and guards
 - rail: state-cell
 
 | [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [CAPABILITY]              |
 | :-----: | :-------------------------------------------------------- | :------------ | :------------------------ |
-|   [1]   | `isResult` / `isInitial` / `isNotInitial`                 | guard         | result-state refinement   |
-|   [2]   | `isSuccess` / `isFailure` / `isInterrupted` / `isWaiting` | guard         | result-state refinement   |
-|   [3]   | `initial` / `success`                                     | constructor   | initial or success value  |
-|   [4]   | `failure` / `fail`                                        | constructor   | failure value             |
-|   [5]   | `fromExit` / `fromExitWithPrevious`                       | constructor   | `Exit` conversion         |
-|   [6]   | `failureWithPrevious` / `failWithPrevious`                | constructor   | failure with history      |
-|   [7]   | `waitingFrom` / `waiting` / `touch` / `replacePrevious`   | lifecycle     | waiting/previous handling |
+|  [01]   | `isResult` / `isInitial` / `isNotInitial`                 | guard         | result-state refinement   |
+|  [02]   | `isSuccess` / `isFailure` / `isInterrupted` / `isWaiting` | guard         | result-state refinement   |
+|  [03]   | `initial` / `success`                                     | constructor   | initial or success value  |
+|  [04]   | `failure` / `fail`                                        | constructor   | failure value             |
+|  [05]   | `fromExit` / `fromExitWithPrevious`                       | constructor   | `Exit` conversion         |
+|  [06]   | `failureWithPrevious` / `failWithPrevious`                | constructor   | failure with history      |
+|  [07]   | `waitingFrom` / `waiting` / `touch` / `replacePrevious`   | lifecycle     | waiting/previous handling |
 
 ```ts contract
 // @effect-atom/atom/Result — union + proto
@@ -419,7 +419,7 @@ interface Schema<Success extends Schema_.Schema.All, Error extends Schema_.Schem
 const Schema: <Success extends Schema_.Schema.All = typeof Schema_.Never, Error extends Schema_.Schema.All = typeof Schema_.Never>(options: { readonly success?: Success | undefined; readonly error?: Error | undefined }) => Schema<Success, Error>
 ```
 
-## [4]-[REGISTRY]
+## [04]-[REGISTRY]
 
 `@effect-atom/atom/Registry` — the node store the cells live in. `Registry` is the mutable graph that holds each
 atom's `Node`, drives `get`/`set`/`modify`/`update`/`refresh`/`subscribe`, and owns `reset`/`dispose`. `make`
@@ -467,7 +467,7 @@ const toStreamResult: <A, E>(self: Registry, atom: Atom.Atom<Result.Result<A, E>
 const getResult: <A, E>(self: Registry, atom: Atom.Atom<Result.Result<A, E>>, options?: { readonly suspendOnWaiting?: boolean | undefined }) => Effect.Effect<A, E>
 ```
 
-## [5]-[ATOM_REF]
+## [05]-[ATOM_REF]
 
 `@effect-atom/atom/AtomRef` — a plain mutable reference outside the registry graph (synchronous, `Equal`-based
 subscription). `ReadonlyRef<A>` carries `key`/`value`/`subscribe`/`map`; `AtomRef<A>` adds `prop`/`set`/`update`;
@@ -500,7 +500,7 @@ const make: <A>(value: A) => AtomRef<A>
 const collection: <A>(items: Iterable<A>) => Collection<A>
 ```
 
-## [6]-[ATOM_RPC]
+## [06]-[ATOM_RPC]
 
 `@effect-atom/atom/AtomRpc` — projects an `@effect/rpc` `RpcGroup` into a `Context.Tag`-backed client whose
 procedures become atoms.
@@ -529,7 +529,7 @@ const Tag: <Self>() => <const Id extends string, Rpcs extends Rpc.Any, ER, RM = 
 }) => AtomRpcClient<Self, Id, Rpcs, ER>
 ```
 
-## [7]-[ATOM_HTTP_API]
+## [07]-[ATOM_HTTP_API]
 
 `@effect-atom/atom/AtomHttpApi` — the same client-as-atoms projection over an `@effect/platform` `HttpApi`.
 
@@ -555,7 +555,7 @@ const Tag: <Self>() => <const Id extends string, ApiId extends string, Groups ex
 }) => AtomHttpApiClient<Self, Id, Groups, ApiE, E>
 ```
 
-## [8]-[HYDRATION]
+## [08]-[HYDRATION]
 
 `@effect-atom/atom/Hydration` — SSR transfer.
 
@@ -573,7 +573,7 @@ const toValues: (state: ReadonlyArray<DehydratedAtom>) => Array<DehydratedAtomVa
 const hydrate: (registry: Registry.Registry, dehydratedState: Iterable<DehydratedAtom>) => void
 ```
 
-## [9]-[GAPS]
+## [09]-[GAPS]
 
 - `TypeId`/`WritableTypeId` (`Atom`, `Result`, `Registry`, `AtomRef`) are declared without `export` — module-internal brand keys, public only as the `[TypeId]` interface keys; only `SerializableTypeId`/`ServerValueTypeId` (`Atom`) are exported brand consts.
 - `Atom.AtomRuntime.atom`/`.fn` overload bodies are summarized (full Effect/Stream overload set per `Atom.d.ts:174-211`); `AtomRuntime.fn` adds a `reactivityKeys` option absent from the top-level `Atom.fn`. The `R`-required variants thread `Scope.Scope | R | AtomRegistry | Reactivity.Reactivity`.

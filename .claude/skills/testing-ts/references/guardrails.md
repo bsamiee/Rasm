@@ -2,7 +2,7 @@
 
 Two enforcement layers: **automated gates** (machine-checkable, zero-tolerance) and **design guardrails** (require judgment, enforced via review). Together they form defense-in-depth preventing circular, flaky, and implementation-confirming tests.
 
-## [1]-[AUTOMATED_GATES]
+## [01]-[AUTOMATED_GATES]
 
 ### [1.1]-[HOOK_RULES]
 
@@ -10,15 +10,15 @@ The PostToolUse hook (`.claude/hooks/validate-spec.sh`) validates every `*.spec.
 
 | [INDEX] | [RULE]             | [PATTERN]                                                      | [FIX]                                               |
 | :-----: | ------------------ | -------------------------------------------------------------- | --------------------------------------------------- |
-|   [1]   | LOC limit          | File exceeds 175 lines                                         | Pack properties, use `Effect.all` aggregation       |
-|   [2]   | No `any`           | `: any`, `as any`, `<any>`, `, any>`                           | Branded types via Schema                            |
-|   [3]   | No `let`/`var`     | `let x =`, `var x =`                                           | `const` only                                        |
-|   [4]   | No loops           | `for (`, `while (`                                             | `.map`, `.filter`, `Effect.forEach`                 |
-|   [5]   | No `try/catch`     | `try {`, `} catch (`                                           | Effect error channel (`.pipe(Effect.flip)`)         |
-|   [6]   | No `new Date()`    | `new Date(`                                                    | `as const` constants or `TestClock`                 |
-|   [7]   | No `if/else`       | `if (`, `} else`                                               | Ternary, `fc.pre()`, `Effect.fromNullable`          |
-|   [8]   | No custom matchers | `.toSucceed(`, `.toBeRight(`, `.toFail(`, `.toBeLeft(`         | `it.effect()` + standard `expect()`                 |
-|   [9]   | No default exports | `export default`                                               | Named exports only                                  |
+|   [01]   | LOC limit          | File exceeds 175 lines                                         | Pack properties, use `Effect.all` aggregation       |
+|   [02]   | No `any`           | `: any`, `as any`, `<any>`, `, any>`                           | Branded types via Schema                            |
+|   [03]   | No `let`/`var`     | `let x =`, `var x =`                                           | `const` only                                        |
+|   [04]   | No loops           | `for (`, `while (`                                             | `.map`, `.filter`, `Effect.forEach`                 |
+|   [05]   | No `try/catch`     | `try {`, `} catch (`                                           | Effect error channel (`.pipe(Effect.flip)`)         |
+|   [06]   | No `new Date()`    | `new Date(`                                                    | `as const` constants or `TestClock`                 |
+|   [07]   | No `if/else`       | `if (`, `} else`                                               | Ternary, `fc.pre()`, `Effect.fromNullable`          |
+|   [08]   | No custom matchers | `.toSucceed(`, `.toBeRight(`, `.toFail(`, `.toBeLeft(`         | `it.effect()` + standard `expect()`                 |
+|   [09]   | No default exports | `export default`                                               | Named exports only                                  |
 |  [10]   | No Object.freeze   | `Object.freeze(`                                               | `as const` for immutability                         |
 |  [11]   | Block syntax       | `Effect.sync/tap(() => expect(...)` without `=> {`             | `=> { expect(...); }` (returns void, not Assertion) |
 |  [12]   | Import order       | @effect/vitest -> ${WORKSPACE_SCOPE}/* -> effect -> vitest     | Reorder to match sequence                           |
@@ -30,63 +30,63 @@ Stryker injects code mutants (operator swaps, conditional negations, statement d
 
 | [INDEX] | [LEVEL] | [SCORE] | [ACTION]                                        |
 | :-----: | :-----: | :-----: | ----------------------------------------------- |
-|   [1]   |  high   |   80    | Target -- tests are contract-driven             |
-|   [2]   |   low   |   60    | Investigate -- likely mirrors implementation    |
-|   [3]   |  break  |   50    | Build fails -- test is circular or tautological |
+|   [01]   |  high   |   80    | Target -- tests are contract-driven             |
+|   [02]   |   low   |   60    | Investigate -- likely mirrors implementation    |
+|   [03]   |  break  |   50    | Build fails -- test is circular or tautological |
 
 **Kill strategies by mutant type:**
 
 | [INDEX] | [MUTANT_TYPE]            | [WHAT_KILLS_IT]                           |
 | :-----: | ------------------------ | ----------------------------------------- |
-|   [1]   | Arithmetic operator swap | Algebraic law with cross-validated result |
-|   [2]   | Conditional negation     | Property covering both branches           |
-|   [3]   | Statement deletion       | Test that depends on deleted operation    |
-|   [4]   | String mutation          | Known-answer vector comparison            |
+|   [01]   | Arithmetic operator swap | Algebraic law with cross-validated result |
+|   [02]   | Conditional negation     | Property covering both branches           |
+|   [03]   | Statement deletion       | Test that depends on deleted operation    |
+|   [04]   | String mutation          | Known-answer vector comparison            |
 
-## [2]-[ANTI_PATTERNS]
+## [02]-[ANTI_PATTERNS]
 
 Hook rules catch syntactic violations. These anti-patterns catch **semantic** issues that require judgment:
 
 | [INDEX] | [FORBIDDEN]                                                          | [REPLACEMENT]                                                                     |
 | :-----: | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-|   [1]   | Hardcoded test arrays                                                | `it.each(CONSTANT_TABLE)` or `Effect.forEach(VECTORS)`                            |
-|   [2]   | Magic numbers                                                        | Named constants with `as const`                                                   |
-|   [3]   | Re-deriving source logic                                             | Algebraic law or external oracle                                                  |
-|   [4]   | Hand-rolled arbitraries                                              | Schema-derived arbitrary from `effect`                                            |
-|   [5]   | Mock call-count assertions (`toHaveBeenCalledWith`) as primary test  | Test observable output or algebraic property                                      |
-|   [6]   | Deep `vi.mock` of internal modules (>10 lines of mock setup)         | `layer()` with `Layer.succeed(Tag, stub)` or integration test with testcontainers |
-|   [7]   | Testing mock wiring (did fn get called?)                             | Test return value shape, error tag, or behavioral property                        |
-|   [8]   | Thin wrapper mock factories (`_mkAudit = () => ({ log: vi.fn(…) })`) | Inline literal at `_provide` call site; reserve `_mk*` for 2+ configurable fields |
-|   [9]   | Duplicated `Effect.gen` + `pipe` + `_provide` across 3+ tests        | Extract `_transition`-style helper in `[FUNCTIONS]` section                       |
+|   [01]   | Hardcoded test arrays                                                | `it.each(CONSTANT_TABLE)` or `Effect.forEach(VECTORS)`                            |
+|   [02]   | Magic numbers                                                        | Named constants with `as const`                                                   |
+|   [03]   | Re-deriving source logic                                             | Algebraic law or external oracle                                                  |
+|   [04]   | Hand-rolled arbitraries                                              | Schema-derived arbitrary from `effect`                                            |
+|   [05]   | Mock call-count assertions (`toHaveBeenCalledWith`) as primary test  | Test observable output or algebraic property                                      |
+|   [06]   | Deep `vi.mock` of internal modules (>10 lines of mock setup)         | `layer()` with `Layer.succeed(Tag, stub)` or integration test with testcontainers |
+|   [07]   | Testing mock wiring (did fn get called?)                             | Test return value shape, error tag, or behavioral property                        |
+|   [08]   | Thin wrapper mock factories (`_mkAudit = () => ({ log: vi.fn(…) })`) | Inline literal at `_provide` call site; reserve `_mk*` for 2+ configurable fields |
+|   [09]   | Duplicated `Effect.gen` + `pipe` + `_provide` across 3+ tests        | Extract `_transition`-style helper in `[FUNCTIONS]` section                       |
 |  [10]   | Multi-line arbitrary definitions spanning 3+ lines                   | Compress to single `fc.tuple(…).map(…)` expression                                |
 
 **Mock compression pattern:** Mock factories constructing a single-field object (`{ method: vi.fn(() => Effect.void) }`) are thin wrappers adding indirection without value. Inline the literal directly into `_provide` or `Effect.provideService`. Reserve named `_mk*` factories for mocks with 2+ configurable fields or conditional behavior (e.g., `_mkDb({ a?: …, ns?: …, set?: … })`).
 
-## [3]-[ORACLE_INDEPENDENCE]
+## [03]-[ORACLE_INDEPENDENCE]
 
 A test is **implementation-confirming** when changing internal algorithm (preserving contract) breaks it. These tests create maintenance burden and catch zero real bugs. Six detection signals:
 
 | [INDEX] | [SIGNAL]                              | [FIX]                                        |
 | :-----: | ------------------------------------- | -------------------------------------------- |
-|   [1]   | Asserts internal data structures      | Assert output shape or behavioral property   |
-|   [2]   | Mirrors source code branching logic   | Use algebraic law (identity, inverse, etc.)  |
-|   [3]   | Hardcodes expected intermediate state | Generate inputs, assert only final invariant |
-|   [4]   | Breaks when refactoring internals     | Test externally observable contract          |
-|   [5]   | Tests private function directly       | Test via public API composition              |
-|   [6]   | Low mutation score (< 60%)            | Replace with algebraic or oracle-based test  |
+|   [01]   | Asserts internal data structures      | Assert output shape or behavioral property   |
+|   [02]   | Mirrors source code branching logic   | Use algebraic law (identity, inverse, etc.)  |
+|   [03]   | Hardcodes expected intermediate state | Generate inputs, assert only final invariant |
+|   [04]   | Breaks when refactoring internals     | Test externally observable contract          |
+|   [05]   | Tests private function directly       | Test via public API composition              |
+|   [06]   | Low mutation score (< 60%)            | Replace with algebraic or oracle-based test  |
 
 **Oracle classification:**
 
 | [INDEX] | [ORACLE_TYPE]            | [STATUS]     | [EXAMPLE]                               |
 | :-----: | ------------------------ | ------------ | --------------------------------------- |
-|   [1]   | Algebraic law            | Independent  | `g(f(x)) = x` (inverse)                 |
-|   [2]   | External reference impl  | Independent  | `createHash('sha256')` from node:crypto |
-|   [3]   | Standards vectors        | Independent  | NIST FIPS 180-4, RFC 4231, RFC 6902     |
-|   [4]   | Schema-derived arbitrary | Independent  | `Arbitrary.make(Schema)` for inputs     |
-|   [5]   | Manually computed        | Verify       | Hand-calculate, document derivation     |
-|   [6]   | Source output pasted     | **Circular** | **Replace** with law or oracle          |
+|   [01]   | Algebraic law            | Independent  | `g(f(x)) = x` (inverse)                 |
+|   [02]   | External reference impl  | Independent  | `createHash('sha256')` from node:crypto |
+|   [03]   | Standards vectors        | Independent  | NIST FIPS 180-4, RFC 4231, RFC 6902     |
+|   [04]   | Schema-derived arbitrary | Independent  | `Arbitrary.make(Schema)` for inputs     |
+|   [05]   | Manually computed        | Verify       | Hand-calculate, document derivation     |
+|   [06]   | Source output pasted     | **Circular** | **Replace** with law or oracle          |
 
-## [4]-[DETERMINISM_AND_ISOLATION]
+## [04]-[DETERMINISM_AND_ISOLATION]
 
 ### [4.1]-[TIME_DETERMINISM]
 
@@ -111,7 +111,7 @@ Use `it.scoped` for tests requiring `Scope`-managed resources (semaphores, circu
 
 Each `it.effect` / `it.effect.prop` runs in a fresh Effect runtime. Shared state between tests must be immutable (`as const`) or re-initialized per test. Layer-scoped suites (`layer(testLayer)('name', ...)`) share a service layer but each test gets isolated fiber execution.
 
-## [5]-[HUMAN_REVIEW]
+## [05]-[HUMAN_REVIEW]
 
 Three criteria automation cannot verify:
 

@@ -4,7 +4,7 @@ A runbook drives a responder from an observable operational symptom to triage, m
 
 The responder acts during an active operational condition, so the page supplies the exact response path, not background, severity routing, normal-task instruction, or a postmortem template. Local incident process carries severity names, response clocks, mutation permission, communication cadence, escalation thresholds, and profile tie-breakers. This standard carries response shape, not a universal severity taxonomy.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Write a runbook when every condition holds:
 - the starting point is an observable operational symptom a responder can name;
@@ -23,13 +23,13 @@ Route normal repeatable work, contribution workflow, severity and command policy
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let response diagrams or profile examples define section order implicitly.
 
-## [2]-[RESPONSE_BASELINES]
+## [02]-[RESPONSE_BASELINES]
 
 Use local operational truth for the values a responder invokes during an incident. A runbook must provide a clear response path, communication route, working record, impact assessment, mitigation path, and verification rule. A local incident process must map any provider terms into local response profiles before a runbook can use them.
 
 Local incident-process documents, policies, or operations corpora carry profile names, severity or priority terms, response clocks, mutation permission, escalation thresholds, communication requirements, and confirmation requirements. A runbook uses those values only when the local corpus maintains them. If no maintained local source exists, profile-dependent mutation is blocked until a source assigns mutation permission.
 
-## [3]-[RESPONSE_PROFILE]
+## [03]-[RESPONSE_PROFILE]
 
 A runbook declares the local response profile in `## [1][TRIGGER]`. The profile comes from the maintained incident process, not from this standard's vocabulary. It must resolve the impact class, response clock, mutation permission, escalation threshold, communication requirement, and confirmation requirement before the responder mutates state.
 
@@ -90,7 +90,7 @@ flowchart TB
 
 Text equivalent: start from the observable trigger, state impact, confirm safety and permission, run read-only triage, choose mitigation, rollback, or escalation from local profile rules, verify recovery or containment, and capture confirmation for handoff or review. `Escalation` is always present; only its triggering criteria vary by local profile.
 
-## [4]-[PLACEMENT]
+## [04]-[PLACEMENT]
 
 Place a runbook where a responder under pressure first looks:
 - Shared operational runbook: `docs/runbooks/<symptom-or-system>.md`.
@@ -99,7 +99,7 @@ Place a runbook where a responder under pressure first looks:
 
 Write one canonical runbook per operational trigger. When two runbooks share a triage or mitigation path, link the canonical one by topic rather than copy the path into both.
 
-## [5]-[REQUIRED_STRUCTURE]
+## [05]-[REQUIRED_STRUCTURE]
 
 Use the section set below; each `##` heading is a standalone retrieval unit a responder may open out of order. The base template includes response-critical universal sections, including confirmation capture, so agents do not publish empty profile-gated headings. Add conditional sections only when their trigger applies, and renumber headings in document order.
 
@@ -146,7 +146,7 @@ Runbook trigger/profile fields are stable: `Trigger`, `Impact class`, `Response 
 
 Conditional sections appear only when they change responder action: `Rollback or abort` is required when any action changes state, increases risk, is irreversible, the response profile requires an abort point, or rollback failure changes escalation; `Communication` is required when the local profile demands reader updates; `Follow-up cleanup` restores safe steady state after recovery and is not a postmortem. Omit an optional section rather than publishing it empty.
 
-## [6]-[CONTENT_REQUIREMENTS]
+## [06]-[CONTENT_REQUIREMENTS]
 
 A runbook must carry the concrete facts a cold responder needs, not prose that gestures at them:
 
@@ -168,7 +168,7 @@ A runbook must carry the concrete facts a cold responder needs, not prose that g
 
 State a concrete metric and threshold wherever recovery, impact, escalation, or abort turns on one — error rate below the alert threshold, latency under the stated budget, queue depth back to baseline — never a bare health or recovery adjective.
 
-## [7]-[ACTION_PATTERNS]
+## [07]-[ACTION_PATTERNS]
 
 Triage and mitigation steps carry command, expected signal, and branch or verification in the step body. This density prevents command-only instructions that hide the recovery condition:
 
@@ -197,7 +197,7 @@ Escalation route: data recovery source with confirmation attached; do not mutate
 
 Avoid generic mitigation catalogs. A published runbook may list mitigation classes only when the local operational corpus proves those classes for this trigger and each row carries local confirmation. Otherwise, state the one supported action, or state `Safe mutation: none`.
 
-## [8]-[SCOPE_RULES]
+## [08]-[SCOPE_RULES]
 
 Runbook scope follows these rules:
 - Start from an observable trigger: alert name, failed check, user-impact report, queue depth, breached latency or error budget, data-integrity symptom, deployment failure, or security signal.
@@ -219,7 +219,7 @@ Route-away: <topology map, lifecycle table, lookup catalog, normal task, agent r
 
 Omit the handoff for background-only links. Include it only when adjacent truth changes triage order, safe action, escalation route, verification, or responder routing. Do not use the record to decorate every topology link.
 
-## [9]-[TRIAGE_RULES]
+## [09]-[TRIAGE_RULES]
 
 Triage follows these rules:
 - Put every read-only observation before the first state-changing action.

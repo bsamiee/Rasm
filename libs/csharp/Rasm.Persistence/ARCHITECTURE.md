@@ -4,7 +4,7 @@ The domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine. O
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Persistence/
@@ -38,7 +38,7 @@ Rasm.Persistence/
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The `Version`, `Query/Federation`, and `Sync` rails plus the classification/cost catalog in `Store/Profiles` ride the existing op-log changefeed, content-addressed snapshots, and PostGIS lanes, and never admit a new engine.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 *                   →  typescript:projection              # [WIRE]: ElementSet stable receipt algebra
@@ -57,7 +57,7 @@ Sync                →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: Note
 Sync/annotation     →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: annotation collaboration op-log
 ```
 
-## [3]-[SPINE]
+## [03]-[SPINE]
 
 ```mermaid
 ---
@@ -83,7 +83,7 @@ flowchart LR
 
 `StorePlacement.Resolve` folds the `ResolvedProfile` into a placement, `StoreLocality.Admit` gates the volume, `StoreCeremony.Open` proves the store ready and mints the open receipt, every operation dispatches through the store rail into the interceptor spine, and the spine fans out to the op-log changefeed, cache invalidation, and the receipt sink. The op-log feeds the sync pump, and the `Version/commits` commit-DAG, the `Version/provenance` ledger, and the `Query/federation` entity graph all ride that one changefeed.
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, and app roots resolve host profile, paths, and dsn before any call enters.
 - Typed projection records are the only egress; entity types never cross the package boundary, and provider failure converts into `StoreFault` at exactly one site on the query rail.
@@ -92,7 +92,7 @@ flowchart LR
 - The `Version` rails (commits/timetravel/diff, provenance, snapshots, retention), the `Query/federation` rail, and the `Sync` rails (collaboration, annotation, schedule) plus the in-`Store/profiles` classification/cost catalog ride the existing op-log/content-addressed-snapshot/PostGIS substrate; durability stays here, op execution stays Compute, runtime policy stays AppHost.
 - No store operation runs on a Grasshopper solve hot path.
 
-## [5]-[PROHIBITIONS]
+## [05]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose.
 

@@ -4,11 +4,11 @@ The host-neutral portable cut-program emitter: `CutProgram` the typed dialect-ne
 
 Wire posture: HOST-LOCAL. The `CutProgram` text and AST are an in-process portable contract a downstream consumer writes to a file or streams to a controller — never a browser or peer wire. The portable cut-program is distinct from and coexists with the Rhino-native file I/O; neither is thinned to feed the other.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CUT_PROGRAM]: owns the `GCommand`/`LeadStyle`/`PostDialect` axes, the `GWord`/`CutProgram` dialect-neutral G-code AST, and the `Posting` fold — kerf-comp, lead-in/out, pierce-dwell, micro-tab/bridge, and cut-sequencing over the Geometry2D offset, rendered by the per-dialect `Emit` arm.
+- [01]-[CUT_PROGRAM]: owns the `GCommand`/`LeadStyle`/`PostDialect` axes, the `GWord`/`CutProgram` dialect-neutral G-code AST, and the `Posting` fold — kerf-comp, lead-in/out, pierce-dwell, micro-tab/bridge, and cut-sequencing over the Geometry2D offset, rendered by the per-dialect `Emit` arm.
 
-## [2]-[CUT_PROGRAM]
+## [02]-[CUT_PROGRAM]
 
 - Owner: `GCommand` `[SmartEnum<string>]` the closed command axis carrying its G/M code — the milling RS-274 words (`rapid`/`feed`/`arc-cw`/`arc-ccw`/`dwell`/`spindle`/`coolant`/`program-end`) plus the lathe (`css`/`thread-cycle`), thermal (`torch-on`/`torch-height`/`pierce`/`assist-gas`), and additive (`hotend-temp`/`hotend-wait`/`extrude`/`bed-temp`) words; `GWord` the one program block (the command plus its word-addressed parameters X/Y/Z/I/J/F/S/E); `LeadStyle` `[SmartEnum<string>]` the lead-in/out geometry axis (`none`/`line`/`arc`); `PostDialect` `[SmartEnum<string>]` the controller-dialect render axis (`linuxcnc`/`grbl`/`fanuc`/`haas`/`marlin`/`reprap`/`hypertherm`/`mazak`) selecting the `Emit` arm over the one AST; `PostPolicy` the conditioning knobs carrying the kerf width, lead style and radius, tab width and spacing, the selected `PostDialect`, the pierce-time/assist-pressure thermal conditioning, the melt-temp additive conditioning, and the `Profiles` part library plus the `Placed` part-transform resolver; `CutProgram` the typed dialect-neutral G-code AST plus the `Emit(PostDialect)` fold to controller text; `Posting` the static surface owning `Post` (the `Motion`/`Placement`-to-`CutProgram` fold), `Kerf` (the half-width offset), `Simplify` (the collinear-run collapse over the `Polygon/clipper#POLYGON_ALGEBRA` `SimplifyPaths` before the ring walk), `CutPath`/`LeadArc`/`TabbedRing` (the lead-in/out arc and micro-bridge gaps), `Pierce` (the thermal pierce-dwell-and-assist prologue), and `Sequence` (the crash-safe cut order over the `Encloses` containment depth).
 - Cases: `GCommand` rows `rapid` (G0) · `feed` (G1) · `arc-cw` (G2) · `arc-ccw` (G3) · `dwell` (G4) · `spindle` (M3/M5) · `coolant` (M8/M9) · `program-end` (M2/M30) · `css` (G96 constant-surface-speed) · `thread-cycle` (G92) · `torch-on` (M07) · `torch-height` (THC) · `pierce` (the pierce dwell) · `assist-gas` (the assist-gas on) · `hotend-temp` (M104) · `hotend-wait` (M109) · `extrude` (the E-axis extrusion) · `bed-temp` (M140) (18); `LeadStyle` rows `none` · `line` · `arc` (3); `PostDialect` rows `linuxcnc` · `grbl` · `fanuc` · `haas` · `marlin` · `reprap` · `hypertherm` · `mazak` (8), each selecting the dialect render over the one AST, the milling RS-274 render the `linuxcnc` arm unchanged.
@@ -208,6 +208,6 @@ public static class Posting {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [CUT_CONDITIONING] The cut-geometry fold is realized as the `Condition`/`Sequence`/`Kerf`/`CutPath`/`TabbedRing` author-kernel: kerf compensation routes the `Polygon/clipper#POLYGON_ALGEBRA` `Offset` (half-width inward for a `Winding == Negative` hole, outward for an outline, `FabricationFault.KerfCollision` on a collapsed ring), the lead-in/out arc grounds against the `LeadStyle` geometry as an `ArcCcw`/`Feed` `GWord` off the pierce point, the micro-tab gaps interrupt the `Feed` ring with `Rapid` blocks at every `TabSpacing` arc-length interval, and the crash-safe `Sequence` orders parts by the `Encloses` containment depth through the shared `Process/owner#FABRICATION_OWNER` `Loop.Covers` exact-`Orient2D` containment so an inner contour cuts before its enclosing outline. The settled assumption is the constant `Feed: 1.0` cut-feed scalar and the tab modulo-arc-length gate; the kerf and lead offsets ride the settled Geometry2D substrate and the containment the settled kernel predicate, no second offset owner and no Clipper2 containment re-mint.

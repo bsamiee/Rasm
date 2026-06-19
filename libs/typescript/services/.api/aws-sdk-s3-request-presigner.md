@@ -2,7 +2,7 @@
 
 `@aws-sdk/s3-request-presigner` generates presigned S3 URLs from an `S3Client` instance and a command, and exposes `S3RequestPresigner` for low-level `HttpRequest` signing when the command-style API does not apply. The primary entrypoint is the `getSignedUrl` function; `S3RequestPresigner` covers advanced scenarios where a pre-built `HttpRequest` must be signed directly.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@aws-sdk/s3-request-presigner`
 - package: `@aws-sdk/s3-request-presigner`
@@ -10,30 +10,30 @@
 - asset: `getSignedUrl` function, `S3RequestPresigner` class, `S3RequestPresignerOptions` type
 - rail: object-store
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: presigner type family
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]  | [CAPABILITY]                                                                                      |
 | :-----: | :-------------------------- | :------------- | :------------------------------------------------------------------------------------------------ |
-|   [1]   | `getSignedUrl`              | async function | generates presigned URL from `S3Client` + `Command`                                               |
-|   [2]   | `S3RequestPresigner`        | class          | low-level `HttpRequest` presigner implementing `RequestPresigner`                                 |
-|   [3]   | `S3RequestPresignerOptions` | type alias     | extends `SignatureV4MultiRegionInit` minus `service`/`uriEscapePath`, with optional `signingName` |
+|  [01]   | `getSignedUrl`              | async function | generates presigned URL from `S3Client` + `Command`                                               |
+|  [02]   | `S3RequestPresigner`        | class          | low-level `HttpRequest` presigner implementing `RequestPresigner`                                 |
+|  [03]   | `S3RequestPresignerOptions` | type alias     | extends `SignatureV4MultiRegionInit` minus `service`/`uriEscapePath`, with optional `signingName` |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: URL generation
 - rail: object-store
 
 | [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY]  | [CAPABILITY]                                                          |
 | :-----: | :-------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
-|   [1]   | `getSignedUrl(client, command, options?)`                             | presigned URL   | `Promise<string>`; `options` is `RequestPresigningArguments`          |
-|   [2]   | `new S3RequestPresigner(options)`                                     | constructor     | low-level presigner from `S3RequestPresignerOptions`                  |
-|   [3]   | `S3RequestPresigner.presign(request, options?)`                       | sign            | `Promise<IHttpRequest>` — signs an `HttpRequest`                      |
-|   [4]   | `S3RequestPresigner.presignWithCredentials(request, creds, options?)` | sign with creds | `Promise<IHttpRequest>` — signs with explicit `AwsCredentialIdentity` |
+|  [01]   | `getSignedUrl(client, command, options?)`                             | presigned URL   | `Promise<string>`; `options` is `RequestPresigningArguments`          |
+|  [02]   | `new S3RequestPresigner(options)`                                     | constructor     | low-level presigner from `S3RequestPresignerOptions`                  |
+|  [03]   | `S3RequestPresigner.presign(request, options?)`                       | sign            | `Promise<IHttpRequest>` — signs an `HttpRequest`                      |
+|  [04]   | `S3RequestPresigner.presignWithCredentials(request, creds, options?)` | sign with creds | `Promise<IHttpRequest>` — signs with explicit `AwsCredentialIdentity` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PRESIGNER_TOPOLOGY]:
 - `getSignedUrl` accepts any `Client<any, InputTypesUnion, MetadataBearer, any>` and any matching `Command`; in practice always called with `S3Client` and an S3 command such as `GetObjectCommand` or `PutObjectCommand`.

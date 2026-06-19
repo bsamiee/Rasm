@@ -2,11 +2,11 @@
 
 Local evidence production. `Receipt` is the one tagged-union evidence family (admitted/planned/emitted/rejected/drained rows); `ReceiptContributor` is the Protocol port every other package's typed receipt — data `QueryReceipt`, compute `GraduationReceipt`, geometry/artifacts `ArtifactReceipt` — wires through, never four parallel receipt rails. `Redaction` classifies fields before emission; the `structlog` processor chain injects OTel trace context and `psutil` supplies process facts. `Signals` carries both directions of the W3C trace-context seam: the outbound `trace_context` processor injects the active span's `trace_id`/`span_id` into every event, and the inbound `continue_inbound`/`attach` pair extracts the C#-minted parent off the gRPC carrier so the next measured span seeds from the host trace rather than minting a fresh root (the named cross-language drift defect). OTLP log egress rides the `observability/telemetry#TELEMETRY`-installed `LoggerProvider`; the package contributes receipts and structured facts, never the provider install, product telemetry export, or health.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RECEIPT]: the receipt union, the contributor port, redaction, signals, the inbound trace-context extract-and-continue.
+- [01]-[RECEIPT]: the receipt union, the contributor port, redaction, signals, the inbound trace-context extract-and-continue.
 
-## [2]-[RECEIPT]
+## [02]-[RECEIPT]
 
 - Owner: `Receipt` — the one evidence union with slot/kind metadata; `ReceiptContributor` the Protocol port the sibling typed receipts implement; `Redaction` the field-classification policy; `Signals` the static surface owning the `structlog` processor chain, the `psutil` process telemetry facts, and the inbound trace-context extract-and-continue, the trace context riding the processor chain rather than a cached tracer.
 - Cases: the three lifecycle phases share one `fact` case carrying `(Phase, owner, subject, facts)` — `admitted`/`planned`/`emitted` are a `Phase` literal value the case routes, not three identical-payload sibling cases; `rejected` carries `(owner, subject, BoundaryFault)` and `drained` carries `(owner, DrainReceipt)` because their payloads differ; correlation flows through `merge_contextvars`, never a per-case field.
@@ -109,7 +109,7 @@ class Signals:
                 assert_never(unreachable)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [OTLP_LOG_EGRESS]: reflection-confirmed — the `opentelemetry-sdk` `_logs.LogRecordProcessor`/`_logs.export.BatchLogRecordProcessor` log-egress wiring (no native `structlog` OTLP export) pairs with the `opentelemetry-exporter-otlp-proto-http` `OTLPLogExporter(endpoint, headers, timeout, compression, ...)` constructor, and `structlog.contextvars.merge_contextvars` is the bound-context processor. The provider/processor/exporter NOW INSTALL once at `observability/telemetry#TELEMETRY` (the composition-root install owner this campaign lands); this owner reads the installed `LoggerProvider` and wires no private `LogRecordProcessor`/`OTLPLogExporter`. The metric egress is the sibling `observability/metrics#METRIC` reading the installed `MeterProvider` over the same shared OTLP exporter family and one `Resource`. The log-egress wiring is settled.
 - [TRACE_INBOUND_EXTRACT]: reflection-confirmed against the branch `libs/python/.api/opentelemetry-api.md` — `propagate.extract(carrier, context)` (ENTRYPOINTS [6]) decodes the W3C `traceparent`/`tracestate` carrier into a `Context` (PUBLIC_TYPES [5]) resolved through `propagate.get_global_textmap()` (ENTRYPOINTS [8], the composite `observability/telemetry#TELEMETRY` installs via `set_global_textmap` ENTRYPOINTS [9]); the carrier is a plain `dict[str, str]` per the `DefaultGetter` (PUBLIC_TYPES [8]) contract, and `context.attach`/`context.detach` (ENTRYPOINTS [2]/[3]) are the token-paired scoped activation. The `transport/serve#SERVE` interceptor reads the carrier off `grpc.aio.ServicerContext.invocation_metadata()` projected to `dict[str, str]` and calls `continue_inbound` before the servicer body opens its span. Producer is `csharp:Rasm.AppHost/Observability/telemetry#CORRELATION_SPINE` (the `TraceContextPropagator`/`BaggagePropagator` composite registered as `Propagators.DefaultTextMapPropagator`); the extract resolving through the default no-op propagator before the install is the mechanical reason this sequences after `observability/telemetry#TELEMETRY`. Realizes the cross-`libs/` `ONE_DISTRIBUTED_TRACE` Python leg. Spellings settled.

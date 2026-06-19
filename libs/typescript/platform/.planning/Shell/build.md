@@ -2,11 +2,11 @@
 
 One page owns the build and asset-emit pipeline — `BuildPipeline`, the Vite plugin set, the styling and PWA-asset emit, and the production stripping of the development atom inspector. `BuildPipeline` produces the co-hosted same-origin bundle and EMITS the service-worker asset; `offline-cache`'s `ServiceWorkerHost` owns the worker's runtime lifecycle, never re-emitting the asset — the two are distinct altitudes over one concern. `BuildPipeline` is BUILD-TIME-ONLY — the main-thread-offload decode pool relocated to the operator-named `worker/` top-level leg, so `build-pipeline/` owns no worker runtime and the `decode.worker.ts` entry the bundle resolves is the `worker/` leg the `runtime-composition` `BrowserPlatform` spawner constructs. The page holds no domain state and authors no decode.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[BUILD_PIPELINE]: the Vite plugin set, the styling/PWA emit, and the SW asset.
+- [01]-[BUILD_PIPELINE]: the Vite plugin set, the styling/PWA emit, and the SW asset.
 
-## [2]-[BUILD_PIPELINE]
+## [02]-[BUILD_PIPELINE]
 
 - Owner: `BuildPipeline`, the build and PWA and styling pipeline producing the co-hosted same-origin asset bundle.
 - Cases: `BuildPipeline` produces the co-hosted same-origin asset bundle with its plugin set and the styling pipeline, EMITS the service-worker asset through `vite-plugin-pwa` (the `offline-cache` `ServiceWorkerHost` owns the install/activate/cache-strategy/background-sync runtime lifecycle of that asset), and strips the development-build atom inspector from the production bundle; the `offline-cache` `runtimeCachingManifest` and the precache `NavigationRoute` app-shell fallback are read by `vite-plugin-pwa` at build time, so the emitted worker asset carries the resolved `RuntimeCaching` array authored by the cache-strategy owner, never a per-route handler authored here.

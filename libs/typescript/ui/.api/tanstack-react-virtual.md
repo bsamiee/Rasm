@@ -2,7 +2,7 @@
 
 `@tanstack/react-virtual` supplies React hook wrappers over `@tanstack/virtual-core` that bind a `Virtualizer` to a React component's scroll element. `useVirtualizer` targets a container `Element`; `useWindowVirtualizer` targets `Window`. Both return a `ReactVirtualizer` — a `Virtualizer` extended with `containerRef` for `directDomUpdates` mode — and re-export the full `virtual-core` surface including `VirtualItem`, `VirtualizerOptions`, `Range`, `Rect`, and all default-observer/scroll helpers.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@tanstack/react-virtual`
 - package: `@tanstack/react-virtual`
@@ -10,66 +10,66 @@
 - asset: `dist/esm/index.d.ts` — re-exports `@tanstack/virtual-core`
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: react-specific extension types
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]  | [RAIL]                              |
 | :-----: | :----------------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `ReactVirtualizer<TScrollElement, TItemElement>` | extended class | `Virtualizer` + `containerRef`      |
-|   [2]   | `ReactVirtualizerOptions<TScrollElement, TItem>` | options type   | `VirtualizerOptions` + react fields |
+|  [01]   | `ReactVirtualizer<TScrollElement, TItemElement>` | extended class | `Virtualizer` + `containerRef`      |
+|  [02]   | `ReactVirtualizerOptions<TScrollElement, TItem>` | options type   | `VirtualizerOptions` + react fields |
 
 [PUBLIC_TYPE_SCOPE]: virtual-core item and range types
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------------------- | :------------ | :---------------------------------- |
-|   [1]   | `VirtualItem`                                      | interface     | rendered item descriptor            |
-|   [2]   | `Range`                                            | interface     | start/end/overscan/count window     |
-|   [3]   | `Rect`                                             | interface     | `{ width: number; height: number }` |
-|   [4]   | `ScrollToOptions`                                  | interface     | `{ align?, behavior? }`             |
-|   [5]   | `VirtualizerOptions<TScrollElement, TItemElement>` | interface     | full constructor options            |
+|  [01]   | `VirtualItem`                                      | interface     | rendered item descriptor            |
+|  [02]   | `Range`                                            | interface     | start/end/overscan/count window     |
+|  [03]   | `Rect`                                             | interface     | `{ width: number; height: number }` |
+|  [04]   | `ScrollToOptions`                                  | interface     | `{ align?, behavior? }`             |
+|  [05]   | `VirtualizerOptions<TScrollElement, TItemElement>` | interface     | full constructor options            |
 
 [PUBLIC_TYPE_SCOPE]: virtual-core utility types
 - rail: viewport
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                 |
 | :-----: | :------------------ | :------------ | :--------------------- |
-|   [1]   | `PartialKeys<T, K>` | type utility  | marks keys optional    |
-|   [2]   | `NoInfer<T>`        | type utility  | prevents type-widening |
+|  [01]   | `PartialKeys<T, K>` | type utility  | marks keys optional    |
+|  [02]   | `NoInfer<T>`        | type utility  | prevents type-widening |
 
 [PUBLIC_TYPE_SCOPE]: Virtualizer class
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                    |
 | :-----: | :------------------------------------------ | :------------ | :---------------------------------------- |
-|   [1]   | `Virtualizer<TScrollElement, TItemElement>` | class         | scroll-position aware item window manager |
+|  [01]   | `Virtualizer<TScrollElement, TItemElement>` | class         | scroll-position aware item window manager |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: React hooks
 - rail: viewport
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                               |
 | :-----: | :------------------------------ | :------------- | :----------------------------------- |
-|   [1]   | `useVirtualizer(options)`       | element hook   | `ReactVirtualizer<Element, Element>` |
-|   [2]   | `useWindowVirtualizer(options)` | window hook    | `ReactVirtualizer<Window, Element>`  |
+|  [01]   | `useVirtualizer(options)`       | element hook   | `ReactVirtualizer<Element, Element>` |
+|  [02]   | `useWindowVirtualizer(options)` | window hook    | `ReactVirtualizer<Window, Element>`  |
 
 [ENTRYPOINT_SCOPE]: Virtualizer instance operations
 - rail: viewport
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :--------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `getVirtualItems()`                | item query     | rendered `VirtualItem[]`           |
-|   [2]   | `getTotalSize()`                   | size query     | total scrollable axis size in px   |
-|   [3]   | `scrollToIndex(index, options?)`   | imperative     | scrolls to item at index           |
-|   [4]   | `scrollToOffset(offset, options?)` | imperative     | scrolls to pixel offset            |
-|   [5]   | `scrollBy(delta, options?)`        | imperative     | relative scroll by delta           |
-|   [6]   | `scrollToEnd(options?)`            | imperative     | scrolls to end of list             |
-|   [7]   | `measureElement(node)`             | measurement    | measures DOM element for item size |
-|   [8]   | `resizeItem(index, size)`          | measurement    | overrides item size imperatively   |
-|   [9]   | `takeSnapshot()`                   | serialization  | `VirtualItem[]` for cache restore  |
+|  [01]   | `getVirtualItems()`                | item query     | rendered `VirtualItem[]`           |
+|  [02]   | `getTotalSize()`                   | size query     | total scrollable axis size in px   |
+|  [03]   | `scrollToIndex(index, options?)`   | imperative     | scrolls to item at index           |
+|  [04]   | `scrollToOffset(offset, options?)` | imperative     | scrolls to pixel offset            |
+|  [05]   | `scrollBy(delta, options?)`        | imperative     | relative scroll by delta           |
+|  [06]   | `scrollToEnd(options?)`            | imperative     | scrolls to end of list             |
+|  [07]   | `measureElement(node)`             | measurement    | measures DOM element for item size |
+|  [08]   | `resizeItem(index, size)`          | measurement    | overrides item size imperatively   |
+|  [09]   | `takeSnapshot()`                   | serialization  | `VirtualItem[]` for cache restore  |
 |  [10]   | `getVirtualItemForOffset(offset)`  | point query    | `VirtualItem \| undefined`         |
 |  [11]   | `getDistanceFromEnd()`             | scroll state   | pixels remaining to end            |
 |  [12]   | `isAtEnd(threshold?)`              | scroll state   | boolean end detection              |
@@ -81,17 +81,17 @@
 
 | [INDEX] | [SURFACE]               | [ENTRY_FAMILY] | [RAIL]                               |
 | :-----: | :---------------------- | :------------- | :----------------------------------- |
-|   [1]   | `observeElementRect`    | observer       | attaches `ResizeObserver` on element |
-|   [2]   | `observeWindowRect`     | observer       | observes window size                 |
-|   [3]   | `observeElementOffset`  | observer       | attaches scroll listener on element  |
-|   [4]   | `observeWindowOffset`   | observer       | attaches scroll listener on window   |
-|   [5]   | `measureElement`        | measurement    | reads `ResizeObserverEntry` size     |
-|   [6]   | `elementScroll`         | scroll fn      | programmatic element scroll          |
-|   [7]   | `windowScroll`          | scroll fn      | programmatic window scroll           |
-|   [8]   | `defaultKeyExtractor`   | key fn         | `(index) => index`                   |
-|   [9]   | `defaultRangeExtractor` | range fn       | default visible-index extraction     |
+|  [01]   | `observeElementRect`    | observer       | attaches `ResizeObserver` on element |
+|  [02]   | `observeWindowRect`     | observer       | observes window size                 |
+|  [03]   | `observeElementOffset`  | observer       | attaches scroll listener on element  |
+|  [04]   | `observeWindowOffset`   | observer       | attaches scroll listener on window   |
+|  [05]   | `measureElement`        | measurement    | reads `ResizeObserverEntry` size     |
+|  [06]   | `elementScroll`         | scroll fn      | programmatic element scroll          |
+|  [07]   | `windowScroll`          | scroll fn      | programmatic window scroll           |
+|  [08]   | `defaultKeyExtractor`   | key fn         | `(index) => index`                   |
+|  [09]   | `defaultRangeExtractor` | range fn       | default visible-index extraction     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VIEWPORT_TOPOLOGY]:
 - `useVirtualizer` pre-fills `observeElementRect`, `observeElementOffset`, and `scrollToFn` — consumers provide `count`, `getScrollElement`, and `estimateSize` only

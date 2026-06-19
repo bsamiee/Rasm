@@ -16,7 +16,7 @@ description: >-
 Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and repository documentation standards for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + the active repo testkit; host-native runtime behavior belongs in the repo-declared runtime scenario rail. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
 
 ---
-## [1]-[WORKFLOW]
+## [01]-[WORKFLOW]
 >**Dictum:** *Classify first; falsify with fewer, stronger laws second.*
 
 <br>
@@ -32,21 +32,21 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 9. Validate with scoped cleanup first, then targeted build/test proof for touched rails.
 
 ---
-## [2]-[RAILS]
+## [02]-[RAILS]
 >**Dictum:** *Runtime ownership is executable proof, not a documentation escape hatch.*
 
 <br>
 
-| [INDEX] | [RAIL] | [LOCATION] | [OWNS] |
-| :-----: | ------ | ---------- | ------ |
-| [1] | Static spec | `tests/csharp/libs/<Project>/<MirrorPath>/<Source>.spec.cs` | Pure managed constructors, smart enums, unions, matrix/math rails, `Fin`/`Validation`, deterministic algorithms. |
-| [2] | Testkit | `tests/csharp/_testkit` | Universal law adapters, reusable generators, independent numeric oracles, serializers. |
-| [3] | Runtime scenario | `<repo-scenario-root>/<Project>/<MirrorPath>/scenarios/*` | Host runtime APIs, native validity, UI marshaling, document/canvas behavior. |
-| [4] | Mutation | `<test-runner> --mutation changed|full` | Explicit Stryker MTP survivor discovery for the configured managed target. |
-| [5] | Architecture | `tests/csharp/_architecture` | Assembly dependency direction and cycle laws. |
-| [6] | Tooling snapshot | `tests/csharp/_tooling` | Stable generated/config artifacts through Verify. |
-| [7] | Benchmark | `tests/csharp/_benchmarks` | Managed hot-path measurement outside xUnit. |
-| [8] | Fuzz | `tests/csharp/_fuzz` | Pure managed parser/token harnesses outside xUnit. |
+| [INDEX] | [RAIL]           | [LOCATION]                                                  | [OWNS]                                                                                                           |
+| :-----: | ---------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Static spec      | `tests/csharp/libs/<Project>/<MirrorPath>/<Source>.spec.cs` | Pure managed constructors, smart enums, unions, matrix/math rails, `Fin`/`Validation`, deterministic algorithms. |
+|  [02]   | Testkit          | `tests/csharp/_testkit`                                     | Universal law adapters, reusable generators, independent numeric oracles, serializers.                           |
+|  [03]   | Runtime scenario | `<repo-scenario-root>/<Project>/<MirrorPath>/scenarios/*`   | Host runtime APIs, native validity, UI marshaling, document/canvas behavior.                                     |
+|  [04]   | Mutation         | `<test-runner> --mutation changed                           | full`                                                                                                            | Explicit Stryker MTP survivor discovery for the configured managed target. |
+|  [05]   | Architecture     | `tests/csharp/_architecture`                                | Assembly dependency direction and cycle laws.                                                                    |
+|  [06]   | Tooling snapshot | `tests/csharp/_tooling`                                     | Stable generated/config artifacts through Verify.                                                                |
+|  [07]   | Benchmark        | `tests/csharp/_benchmarks`                                  | Managed hot-path measurement outside xUnit.                                                                      |
+|  [08]   | Fuzz             | `tests/csharp/_fuzz`                                        | Pure managed parser/token harnesses outside xUnit.                                                               |
 
 [CRITICAL]:
 - Do not move native behavior into static xUnit just to improve coverage.
@@ -65,7 +65,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - If a repo declares a static-vs-runtime classification list, treat it as the owner for that surface; static specs own pure managed laws and managed input guards, while native success belongs in runtime scenarios.
 
 ---
-## [3]-[SCENARIOS]
+## [03]-[SCENARIOS]
 >**Dictum:** *Scenario files are source-only runtime laws owned by tests.*
 
 <br>
@@ -84,20 +84,20 @@ Use the repo-declared scenario harness and injected scenario metadata. Do not de
 - When a scenario uses viewport evidence, set the active view and redraw before capture.
 
 ---
-## [4]-[SPEC_SHAPE]
+## [04]-[SPEC_SHAPE]
 >**Dictum:** *One generated input should exercise many assertions.*
 
 <br>
 
-| [INDEX] | [RULE] | [DETAIL] |
-| :-----: | ------ | -------- |
-| [1] | LOC | Target 175 LOC per normal spec; 176-225 when one owning source file has multiple real concepts and the result is denser than a split. Testkit files may reach 350 LOC. |
-| [2] | Layout | Imports, namespace, `[CONSTANTS]`, `[ALGEBRAIC]`, optional `[EDGE_CASES]`. |
-| [3] | Classes | Public xUnit test classes; spec-local generator classes stay non-public unless discovery requires public visibility. |
-| [4] | Attributes | `[Fact]`/`[Theory]` on their own line. No local analyzer suppressions for normal test shape. |
-| [5] | Generators | Route reusable value-object generators through production factories. Avoid parallel constructors. Use `Gen.Where(...).Select(...)`, never `Select+throw` — `throw` breaks CsCheck shrinking. |
-| [6] | Names | PascalCase law names; no underscores. |
-| [7] | Polymorphic-first | Before writing a second `[Fact]` that shares setup with an existing one, reach for a polymorphic pattern from [density-axes.md `[4][POLYMORPHIC_PATTERNS]`](references/density-axes.md). |
+| [INDEX] | [RULE]            | [DETAIL]                                                                                                                                                                                     |
+| :-----: | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | LOC               | Target 175 LOC per normal spec; 176-225 when one owning source file has multiple real concepts and the result is denser than a split. Testkit files may reach 350 LOC.                       |
+|  [02]   | Layout            | Imports, namespace, `[CONSTANTS]`, `[ALGEBRAIC]`, optional `[EDGE_CASES]`.                                                                                                                   |
+|  [03]   | Classes           | Public xUnit test classes; spec-local generator classes stay non-public unless discovery requires public visibility.                                                                         |
+|  [04]   | Attributes        | `[Fact]`/`[Theory]` on their own line. No local analyzer suppressions for normal test shape.                                                                                                 |
+|  [05]   | Generators        | Route reusable value-object generators through production factories. Avoid parallel constructors. Use `Gen.Where(...).Select(...)`, never `Select+throw` — `throw` breaks CsCheck shrinking. |
+|  [06]   | Names             | PascalCase law names; no underscores.                                                                                                                                                        |
+|  [07]   | Polymorphic-first | Before writing a second `[Fact]` that shares setup with an existing one, reach for a polymorphic pattern from [density-axes.md `[4][POLYMORPHIC_PATTERNS]`](references/density-axes.md).     |
 
 [CRITICAL]:
 - A spec is not strong because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
@@ -109,21 +109,21 @@ Use the repo-declared scenario harness and injected scenario metadata. Do not de
 - Filter `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` shows as ONE Stryker mutation target. Convert to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` from `SmartEnum.Items`) when Stryker survivors include per-case logic — Theory rows give N separately-killable targets.
 
 ---
-## [5]-[TOOL_RAIL]
+## [05]-[TOOL_RAIL]
 >**Dictum:** *Tool knowledge lives in docs; specs use the small contract.*
 
 <br>
 
-| [INDEX] | [TOOL] | [DOC] | [LOCAL_USE] |
-| :-----: | ------ | ----- | ----------- |
-| [1] | xUnit v3 | `docs/stacks/csharp/testing-libs/xunit/api.md` | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
-| [2] | CsCheck | `docs/stacks/csharp/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
-| [3] | coverlet | `docs/stacks/csharp/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
-| [4] | Stryker.NET | `docs/stacks/csharp/testing-libs/stryker/api.md` | Explicit mutation through the local test runner. |
-| [5] | Verify | `docs/stacks/csharp/testing-libs/verify/api.md` | Stable artifact snapshots only. |
-| [6] | ArchUnitNET | `docs/stacks/csharp/testing-libs/archunit/api.md` | Assembly boundary laws. |
-| [7] | BenchmarkDotNet | `docs/stacks/csharp/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
-| [8] | SharpFuzz | `docs/stacks/csharp/testing-libs/sharpfuzz/api.md` | Fuzz harness projects. |
+| [INDEX] | [TOOL]          | [DOC]                                                    | [LOCAL_USE]                                                                   |
+| :-----: | --------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+|  [01]   | xUnit v3        | `docs/stacks/csharp/testing-libs/xunit/api.md`           | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
+|  [02]   | CsCheck         | `docs/stacks/csharp/testing-libs/cscheck/api.md`         | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs.         |
+|  [03]   | coverlet        | `docs/stacks/csharp/testing-libs/coverlet/api.md`        | Opt-in managed coverage map.                                                  |
+|  [04]   | Stryker.NET     | `docs/stacks/csharp/testing-libs/stryker/api.md`         | Explicit mutation through the local test runner.                              |
+|  [05]   | Verify          | `docs/stacks/csharp/testing-libs/verify/api.md`          | Stable artifact snapshots only.                                               |
+|  [06]   | ArchUnitNET     | `docs/stacks/csharp/testing-libs/archunit/api.md`        | Assembly boundary laws.                                                       |
+|  [07]   | BenchmarkDotNet | `docs/stacks/csharp/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects.                                                   |
+|  [08]   | SharpFuzz       | `docs/stacks/csharp/testing-libs/sharpfuzz/api.md`       | Fuzz harness projects.                                                        |
 
 Current local facts:
 
@@ -135,7 +135,7 @@ Current local facts:
 - Treat Stryker zero discovery as a failed mutation rail; the managed target is 95% after discovery proof.
 
 ---
-## [6]-[VALIDATION]
+## [06]-[VALIDATION]
 >**Dictum:** *A failing law is evidence; investigate product behavior before weakening the test.*
 
 <br>

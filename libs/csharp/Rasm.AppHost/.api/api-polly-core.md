@@ -4,7 +4,7 @@
 context pooling, outcome values, predicate builders, strategy options, registry
 surfaces, and telemetry event contracts for non-HTTP and shared resilience rails.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.Core`
 - package: `Polly.Core`
@@ -20,22 +20,22 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 - asset: runtime library
 - rail: resilience
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline and execution family
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                      |
 | :-----: | :------------------------------ | :------------------ | :-------------------------- |
-|   [1]   | `ResiliencePipeline`            | executable pipeline | non-generic execution       |
-|   [2]   | `ResiliencePipeline<T>`         | executable pipeline | result-typed execution      |
-|   [3]   | `ResiliencePipelineBuilder`     | builder             | non-generic strategy chain  |
-|   [4]   | `ResiliencePipelineBuilder<T>`  | builder             | result-typed strategy chain |
-|   [5]   | `ResiliencePipelineBuilderBase` | builder base        | shared builder state        |
-|   [6]   | `ResilienceContext`             | execution context   | operation metadata          |
-|   [7]   | `ResilienceContextPool`         | context pool        | context reuse               |
-|   [8]   | `Outcome<T>`                    | result value        | exception/result outcome    |
-|   [9]   | `PredicateBuilder<T>`           | predicate builder   | handled outcome predicate   |
+|  [01]   | `ResiliencePipeline`            | executable pipeline | non-generic execution       |
+|  [02]   | `ResiliencePipeline<T>`         | executable pipeline | result-typed execution      |
+|  [03]   | `ResiliencePipelineBuilder`     | builder             | non-generic strategy chain  |
+|  [04]   | `ResiliencePipelineBuilder<T>`  | builder             | result-typed strategy chain |
+|  [05]   | `ResiliencePipelineBuilderBase` | builder base        | shared builder state        |
+|  [06]   | `ResilienceContext`             | execution context   | operation metadata          |
+|  [07]   | `ResilienceContextPool`         | context pool        | context reuse               |
+|  [08]   | `Outcome<T>`                    | result value        | exception/result outcome    |
+|  [09]   | `PredicateBuilder<T>`           | predicate builder   | handled outcome predicate   |
 |  [10]   | `ResiliencePropertyKey<T>`      | property key        | typed context property key  |
 |  [11]   | `FallbackActionArguments<T>`    | callback arguments  | fallback action carrier     |
 
@@ -44,56 +44,56 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                    |
 | :-----: | :--------------------------------- | :--------------- | :------------------------ |
-|   [1]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule            |
-|   [2]   | `TimeoutStrategyOptions`           | strategy options | execution timeout         |
-|   [3]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy    |
-|   [4]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution          |
-|   [5]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy           |
-|   [6]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup     |
-|   [7]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider   |
-|   [8]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation |
-|   [9]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control    |
+|  [01]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule            |
+|  [02]   | `TimeoutStrategyOptions`           | strategy options | execution timeout         |
+|  [03]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy    |
+|  [04]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution          |
+|  [05]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy           |
+|  [06]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup     |
+|  [07]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider   |
+|  [08]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation |
+|  [09]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control    |
 
 [PUBLIC_TYPE_SCOPE]: telemetry and rejection family
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                     |
 | :-----: | :--------------------------- | :------------------ | :------------------------- |
-|   [1]   | `ExecutionRejectedException` | rejection exception | strategy rejection         |
-|   [2]   | `TimeoutRejectedException`   | rejection exception | timeout rejection          |
-|   [3]   | `BrokenCircuitException`     | rejection exception | open circuit rejection     |
-|   [4]   | `IsolatedCircuitException`   | rejection exception | isolated circuit rejection |
-|   [5]   | `ResilienceEvent`            | telemetry value     | resilience event           |
-|   [6]   | `ResilienceTelemetrySource`  | telemetry source    | pipeline telemetry origin  |
-|   [7]   | `TelemetryListener`          | telemetry listener  | event listener             |
+|  [01]   | `ExecutionRejectedException` | rejection exception | strategy rejection         |
+|  [02]   | `TimeoutRejectedException`   | rejection exception | timeout rejection          |
+|  [03]   | `BrokenCircuitException`     | rejection exception | open circuit rejection     |
+|  [04]   | `IsolatedCircuitException`   | rejection exception | isolated circuit rejection |
+|  [05]   | `ResilienceEvent`            | telemetry value     | resilience event           |
+|  [06]   | `ResilienceTelemetrySource`  | telemetry source    | pipeline telemetry origin  |
+|  [07]   | `TelemetryListener`          | telemetry listener  | event listener             |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
 - rail: resilience
 
 | [INDEX] | [SURFACE]           | [ENTRY_FAMILY]    | [RAIL]                    |
 | :-----: | :------------------ | :---------------- | :------------------------ |
-|   [1]   | `AddRetry`          | builder extension | retry strategy            |
-|   [2]   | `AddTimeout`        | builder extension | timeout strategy          |
-|   [3]   | `AddCircuitBreaker` | builder extension | circuit-breaker strategy  |
-|   [4]   | `AddHedging`        | builder extension | hedging strategy          |
-|   [5]   | `AddFallback`       | builder extension | fallback strategy         |
-|   [6]   | `AddPipeline`       | builder extension | nested pipeline strategy  |
-|   [7]   | `AddStrategy`       | builder extension | custom strategy admission |
+|  [01]   | `AddRetry`          | builder extension | retry strategy            |
+|  [02]   | `AddTimeout`        | builder extension | timeout strategy          |
+|  [03]   | `AddCircuitBreaker` | builder extension | circuit-breaker strategy  |
+|  [04]   | `AddHedging`        | builder extension | hedging strategy          |
+|  [05]   | `AddFallback`       | builder extension | fallback strategy         |
+|  [06]   | `AddPipeline`       | builder extension | nested pipeline strategy  |
+|  [07]   | `AddStrategy`       | builder extension | custom strategy admission |
 
 [ENTRYPOINT_SCOPE]: execution operations
 - rail: resilience
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                     |
 | :-----: | :----------------------------- | :------------- | :------------------------- |
-|   [1]   | `Execute`                      | pipeline run   | synchronous execution      |
-|   [2]   | `ExecuteAsync`                 | pipeline run   | asynchronous execution     |
-|   [3]   | `ExecuteOutcomeAsync`          | pipeline run   | captured outcome execution |
-|   [4]   | `ResilienceContextPool.Get`    | context lease  | pooled context checkout    |
-|   [5]   | `ResilienceContextPool.Return` | context return | pooled context return      |
+|  [01]   | `Execute`                      | pipeline run   | synchronous execution      |
+|  [02]   | `ExecuteAsync`                 | pipeline run   | asynchronous execution     |
+|  [03]   | `ExecuteOutcomeAsync`          | pipeline run   | captured outcome execution |
+|  [04]   | `ResilienceContextPool.Get`    | context lease  | pooled context checkout    |
+|  [05]   | `ResilienceContextPool.Return` | context return | pooled context return      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RESILIENCE_TOPOLOGY]:
 - namespaces: pipeline, retry, timeout, circuit breaker, hedging, fallback, registry, telemetry

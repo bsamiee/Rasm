@@ -2,12 +2,12 @@
 
 The BCF 3.0 issue-exchange owner: one closed `BcfTopic`/`BcfComment`/`BcfViewpoint` record family anchored on IFC GlobalIds, a self-owned `.bcfzip` archive codec over the BCL `System.IO.Compression` `ZipArchive` surface and the BCF markup XML over the BCL `System.Xml` surface, plus a `BcfApi` REST projection riding Compute's transport. BCF is an issue/coordination container, never a geometry-or-model interchange row — the `.bcfzip` codec is self-owned in `coordination` and is NOT a row on the `Exchange/format#FORMAT_AXIS` geometry-format axis, because BCF carries issues and viewpoints, never a `BimModel` or `ImportedGeometry` import. Viewpoints anchor on the `Model/elements#ELEMENT_MODEL` `GlobalId`, so the issue payload aligns to element GlobalIds only, never to the geometry codec axis. The page composes the `Model/elements#ELEMENT_MODEL` `BimModel` GlobalIds and the `csharp:Compute/Runtime/channels#TRANSPORT_AXIS` transport as settled vocabulary. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[BCF_ARCHIVE]: `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec over `ZipArchive`, and the `BcfApi` REST projection.
-- [2]-[TS_PROJECTION]: the `BcfWire` host-free JSON producer the TS UI BCF anchor and live-binding decode — the topic/comment/viewpoint payload over the source-generated `BimWireContext` with the `BcfStatus` string discriminant and the `IfcGuid` component anchor.
+- [01]-[BCF_ARCHIVE]: `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec over `ZipArchive`, and the `BcfApi` REST projection.
+- [02]-[TS_PROJECTION]: the `BcfWire` host-free JSON producer the TS UI BCF anchor and live-binding decode — the topic/comment/viewpoint payload over the source-generated `BimWireContext` with the `BcfStatus` string discriminant and the `IfcGuid` component anchor.
 
-## [2]-[BCF_ARCHIVE]
+## [02]-[BCF_ARCHIVE]
 
 - Owner: `BcfTopic` the issue record anchored on its own GUID carrying title/status/type/priority/author and the comment and viewpoint sets; `BcfComment` the threaded comment record; `BcfViewpoint` the camera-and-selection record anchored on IFC GlobalId component selection and clipping; `BcfArchive` the `.bcfzip` codec reading and writing the BCF container over `ZipArchive`; `BcfApi` the REST projection of the same topic family riding Compute's transport.
 - Entry: `BcfArchive.Read(ReadOnlyMemory<byte> bcfzip)` folds the `.bcfzip` archive entries (`bcf.version`, `markup.bcf`, `viewpoint.bcfv`, `snapshot.png`) into the typed `BcfTopic` set, and `BcfArchive.Write(Seq<BcfTopic> topics)` emits the `.bcfzip` bytes — `Fin<T>` aborts on a malformed archive or a markup XML the BCF 3.0 schema rejects (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()` at the `Boundary` funnel; `BcfApi.Project(BcfTopic topic)` builds the BCF-API REST request the Compute transport issues, never a transport minted here.
@@ -125,7 +125,7 @@ public static class BcfArchive {
 }
 ```
 
-## [3]-[TS_PROJECTION]
+## [03]-[TS_PROJECTION]
 
 - Owner: `BcfWire` the host-free JSON wire producer of the `[2]-[BCF_ARCHIVE]` topic family — `BcfWire.Topics` the projected `Seq<BcfTopicWire>` payload carrying the topic/comment/viewpoint graph the `ts:ui/bcf-anchor` panel decodes, `BcfTopicWire`/`BcfCommentWire`/`BcfViewpointWire` the wire records mirroring the codec records with the `BcfStatus` string-stable discriminant and the IFC-GUID component anchor; `BcfWire.Encode`/`Decode` the `Exchange/wire#WIRE_PROJECTION` `BimWireOptions.Json`-bound codec so the BCF payload rides the same source-generated `BimWireContext` and `ThinktectureJsonConverterFactory` machinery the model snapshot rides, never a second serializer.
 - Entry: `BcfWire.Encode(Seq<BcfTopic> topics)` projects the codec topic set onto the wire payload and `BcfWire.Decode(ReadOnlyMemory<byte> json)` admits it back — `Fin<T>` aborts on a malformed payload (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()` at the `Boundary` funnel, the identical `Try.lift(...).Run().MapFail(...)` funnel the `[2]-[BCF_ARCHIVE]` codec carries; `BcfWire.Anchor(BcfViewpoint viewpoint)` projects the viewpoint `SelectedGlobalIds`/`VisibleGlobalIds` onto the element-GlobalId set the UI live-binding highlights, so a TS pick round-trips the exact `Model/elements#ELEMENT_MODEL` `GlobalId` selection the C# viewpoint carries.
@@ -191,7 +191,7 @@ public sealed record BcfWire(Seq<BcfTopicWire> Topics) {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [BCF_MARKUP_SCHEMA]: the BCF 3.0 `markup.bcf` / `viewpoint.bcfv` / `bcf.version` XML element grammar — the `Markup`/`Topic`/`Comment`/`Viewpoints` structure, the `PerspectiveCamera`/`OrthogonalCamera`/`Components`/`Component` viewpoint sub-grammar with the IFC-GUID `IfcGuid` component anchor, the `Visibility`/`Selection`/`ClippingPlanes` selection vocabulary, and the topic `TopicStatus`/`TopicType`/`Priority` enumerations — grounds against the published buildingSMART BCF-XML 3.0 schema so the `XDocument` element-name projection matches the container layout before the codec body is final; the `ZipArchive`/`XDocument` BCL surfaces are settled inbox.
 - [BCF_API_REST]: the BCF-API 3.0 REST resource shape — the topic/comment/viewpoint endpoint vocabulary and the JSON projection of the same topic family — grounds against the published buildingSMART BCF-API 3.0 specification so the `BcfApi.Project` request shape matches the REST resource model; the request issues over the `csharp:Compute/Runtime/channels#TRANSPORT_AXIS` transport at cross-folder alignment, never a transport minted here, and the file and REST forms carry one `BcfTopic` vocabulary.

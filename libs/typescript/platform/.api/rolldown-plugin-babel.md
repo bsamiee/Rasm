@@ -2,7 +2,7 @@
 
 `@rolldown/plugin-babel` supplies the Rolldown-Babel bridge: the default `babelPlugin(options)` factory returning a `Promise<Plugin>`, the `defineRolldownBabelPreset` helper, and the `RolldownBabelPreset` type. It is the transform host `@vitejs/plugin-react`'s `reactCompilerPreset` plugs into when `babel-plugin-react-compiler` runs the React Compiler memoization pass.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@rolldown/plugin-babel`
 - package: `@rolldown/plugin-babel`
@@ -10,50 +10,50 @@
 - asset: Rolldown plugin (returns `Promise<Plugin>`)
 - rail: babel-transform
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: preset and option types
 - rail: babel-transform
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [DESCRIPTION]                                             |
 | :-----: | :------------------------ | :------------ | :-------------------------------------------------------- |
-|   [1]   | `RolldownBabelPreset`     | type alias    | `{ preset, rolldown }` preset with Rolldown filter config |
-|   [2]   | `RolldownBabelPresetItem` | type alias    | `PresetItem \| RolldownBabelPreset` preset list element   |
-|   [3]   | `PluginOptions`           | interface     | factory options: presets, include/exclude, sourceMap      |
+|  [01]   | `RolldownBabelPreset`     | type alias    | `{ preset, rolldown }` preset with Rolldown filter config |
+|  [02]   | `RolldownBabelPresetItem` | type alias    | `PresetItem \| RolldownBabelPreset` preset list element   |
+|  [03]   | `PluginOptions`           | interface     | factory options: presets, include/exclude, sourceMap      |
 
 [PUBLIC_TYPE_SCOPE]: `PluginOptions` fields
 - rail: babel-transform
 
 | [INDEX] | [FIELD]          | [TYPE]                      | [DEFAULT]                             |
 | :-----: | :--------------- | :-------------------------- | :------------------------------------ |
-|   [1]   | `presets`        | `RolldownBabelPresetItem[]` | `[]`                                  |
-|   [2]   | `plugins`        | `InputOptions['plugins']`   | `—`                                   |
-|   [3]   | `include`        | Babel match pattern         | `/\.(?:[jt]sx?\|[cm][jt]s)(?:$\|\?)/` |
-|   [4]   | `exclude`        | Babel match pattern         | `/[\/\\]node_modules[\/\\]/`          |
-|   [5]   | `sourceMap`      | `boolean`                   | `true`                                |
-|   [6]   | `runtimeVersion` | `string`                    | `—`                                   |
-|   [7]   | `overrides`      | `InnerTransformOptions[]`   | `—`                                   |
+|  [01]   | `presets`        | `RolldownBabelPresetItem[]` | `[]`                                  |
+|  [02]   | `plugins`        | `InputOptions['plugins']`   | `—`                                   |
+|  [03]   | `include`        | Babel match pattern         | `/\.(?:[jt]sx?\|[cm][jt]s)(?:$\|\?)/` |
+|  [04]   | `exclude`        | Babel match pattern         | `/[\/\\]node_modules[\/\\]/`          |
+|  [05]   | `sourceMap`      | `boolean`                   | `true`                                |
+|  [06]   | `runtimeVersion` | `string`                    | `—`                                   |
+|  [07]   | `overrides`      | `InnerTransformOptions[]`   | `—`                                   |
 
 [PUBLIC_TYPE_SCOPE]: `RolldownBabelPreset` shape
 - rail: babel-transform
 
 | [INDEX] | [FIELD]                           | [TYPE]                                | [DESCRIPTION]                        |
 | :-----: | :-------------------------------- | :------------------------------------ | :----------------------------------- |
-|   [1]   | `preset`                          | `PresetItem`                          | the wrapped Babel preset item        |
-|   [2]   | `rolldown.filter`                 | `{ id?, moduleType?, code? }`         | Rolldown hook filters for the preset |
-|   [3]   | `rolldown.optimizeDeps`           | `{ include?: string[] }`              | dep-optimizer include hints          |
-|   [4]   | `rolldown.applyToEnvironmentHook` | `(environment) => boolean`            | per-environment activation predicate |
-|   [5]   | `rolldown.configResolvedHook`     | `(config: ResolvedConfig) => boolean` | resolved-config activation predicate |
+|  [01]   | `preset`                          | `PresetItem`                          | the wrapped Babel preset item        |
+|  [02]   | `rolldown.filter`                 | `{ id?, moduleType?, code? }`         | Rolldown hook filters for the preset |
+|  [03]   | `rolldown.optimizeDeps`           | `{ include?: string[] }`              | dep-optimizer include hints          |
+|  [04]   | `rolldown.applyToEnvironmentHook` | `(environment) => boolean`            | per-environment activation predicate |
+|  [05]   | `rolldown.configResolvedHook`     | `(config: ResolvedConfig) => boolean` | resolved-config activation predicate |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory and preset helper
 - rail: babel-transform
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [DESCRIPTION]                                    |
 | :-----: | :---------------------------------- | :------------- | :----------------------------------------------- |
-|   [1]   | `babelPlugin(options)`              | plugin factory | default export; async, returns `Promise<Plugin>` |
-|   [2]   | `defineRolldownBabelPreset(preset)` | preset helper  | identity helper typing a `RolldownBabelPreset`   |
+|  [01]   | `babelPlugin(options)`              | plugin factory | default export; async, returns `Promise<Plugin>` |
+|  [02]   | `defineRolldownBabelPreset(preset)` | preset helper  | identity helper typing a `RolldownBabelPreset`   |
 
 ```ts contract
 // @rolldown/plugin-babel
@@ -64,7 +64,7 @@ declare function defineRolldownBabelPreset(preset: RolldownBabelPreset): Rolldow
 export { type RolldownBabelPreset, babelPlugin as default, defineRolldownBabelPreset }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BABEL_BRIDGE_TOPOLOGY]:
 - `babelPlugin` is async and resolves to a single Rolldown `Plugin`; `await` it before placing it in the `plugins` array, never spread it.

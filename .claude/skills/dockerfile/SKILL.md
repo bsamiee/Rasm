@@ -24,7 +24,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 - *Orchestration:* docker-bake.hcl for monorepo multi-target builds
 - *Not:* Building/running containers, debugging runtime issues
 
-## [1]-[REQUIREMENTS]
+## [01]-[REQUIREMENTS]
 
 **Guidance:**
 - `Language` -- Language, version, framework, entry point, package manager (pnpm/npm/uv/go mod/maven/gradle)
@@ -37,7 +37,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 
 [REFERENCE]: [dockerfile_knowledge.md](./references/dockerfile_knowledge.md) -- Generation patterns, language substitution, cache mounts.
 
-## [2]-[MANDATORY_FEATURES]
+## [02]-[MANDATORY_FEATURES]
 
 **Guidance:**
 - `Syntax` -- `# syntax=docker/dockerfile:1` as first line (enables BuildKit frontend).
@@ -50,7 +50,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 - **Metadata:** OCI labels (`org.opencontainers.image.title/source/licenses/revision/created/version`), Pulumi-injectable ARGs (`GIT_SHA`, `BUILD_DATE`, `IMAGE_VERSION`)
 - **Runtime:** `HEALTHCHECK` with `--start-interval=2s` (exec-form CMD), `STOPSIGNAL SIGTERM`, non-privileged ports (>1024)
 
-## [3]-[PNPM_MONOREPO]
+## [03]-[PNPM_MONOREPO]
 
 **Guidance:**
 - `Fetch-first` -- `pnpm fetch --frozen-lockfile` downloads to store without installing (maximizes cache hits).
@@ -65,14 +65,14 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 
 [REFERENCE]: [dockerfile_knowledge.md](./references/dockerfile_knowledge.md) -- pnpm monorepo pattern, cache mount targets.
 
-## [4]-[DELIVERABLES]
+## [04]-[DELIVERABLES]
 
 | [INDEX] | [LANGUAGE]                | [ESTIMATED_SIZE] |
 | :-----: | ------------------------- | :--------------: |
-|   [1]   | **Node.js (slim-trixie)** |    80-200 MB     |
-|   [2]   | **Python (slim-trixie)**  |    50-250 MB     |
-|   [3]   | **Go (distroless)**       |     5-20 MB      |
-|   [4]   | **Java (JRE)**            |    200-350 MB    |
+|  [01]   | **Node.js (slim-trixie)** |    80-200 MB     |
+|  [02]   | **Python (slim-trixie)**  |    50-250 MB     |
+|  [03]   | **Go (distroless)**       |     5-20 MB      |
+|  [04]   | **Java (JRE)**            |    200-350 MB    |
 
 **Deliverables:** Validated Dockerfile + .dockerignore + validation summary.
 
@@ -86,7 +86,7 @@ docker buildx build \
     -t myapp:latest --push .
 ```
 
-## [5]-[VALIDATION]
+## [05]-[VALIDATION]
 
 **Severity classification:**
 - `Critical` -- Hardcoded secrets in ENV/ARG, cert bypass flags, no USER directive.
@@ -100,19 +100,19 @@ docker buildx build \
 
 | [INDEX] | [TOOL]       | [INSTALL]                                                                        |      [MIN_VERSION]       |
 | :-----: | ------------ | -------------------------------------------------------------------------------- | :----------------------: |
-|   [1]   | **hadolint** | Nix-provided on dev machines. VPS: `bash .claude/scripts/bootstrap-cli-tools.sh` |          2.14.0          |
-|   [2]   | **Checkov**  | Nix-provided on dev machines. VPS: `bash .claude/scripts/bootstrap-cli-tools.sh` | latest (Python 3.9-3.14) |
+|  [01]   | **hadolint** | Nix-provided on dev machines. VPS: `bash .claude/scripts/bootstrap-cli-tools.sh` |          2.14.0          |
+|  [02]   | **Checkov**  | Nix-provided on dev machines. VPS: `bash .claude/scripts/bootstrap-cli-tools.sh` | latest (Python 3.9-3.14) |
 
 **Troubleshooting:**
 
 | [INDEX] | [ERROR]                            | [FIX]                                                         |
 | :-----: | ---------------------------------- | ------------------------------------------------------------- |
-|   [1]   | **FROM must be first non-comment** | Move `ARG` defining base tag before `FROM`.                   |
-|   [2]   | **Unknown instruction**            | Check spelling (common: RUNS, COPIES, FRUM).                  |
-|   [3]   | **COPY failed: file not found**    | Verify path relative to build context, check .dockerignore.   |
-|   [4]   | **Hardcoded secrets detected**     | `--mount=type=secret,env=VAR` or runtime config.              |
-|   [5]   | **COPY --link not recognized**     | `# syntax=docker/dockerfile:1` as first line, Docker 23.0+.   |
-|   [6]   | **Heredoc not recognized**         | `# syntax=docker/dockerfile:1` as first line, BuildKit 0.10+. |
+|  [01]   | **FROM must be first non-comment** | Move `ARG` defining base tag before `FROM`.                   |
+|  [02]   | **Unknown instruction**            | Check spelling (common: RUNS, COPIES, FRUM).                  |
+|  [03]   | **COPY failed: file not found**    | Verify path relative to build context, check .dockerignore.   |
+|  [04]   | **Hardcoded secrets detected**     | `--mount=type=secret,env=VAR` or runtime config.              |
+|  [05]   | **COPY --link not recognized**     | `# syntax=docker/dockerfile:1` as first line, Docker 23.0+.   |
+|  [06]   | **Heredoc not recognized**         | `# syntax=docker/dockerfile:1` as first line, BuildKit 0.10+. |
 
 [REFERENCE]: [validation.md](./references/validation.md) -- Security rules, hadolint/Checkov catalogs, BuildKit version matrix.
 

@@ -5,7 +5,7 @@ configuration surfaces for cache and message-passing store profiles. `Microsoft.
 provides the `IDistributedCache`-backed `RedisCache` and its `RedisCacheOptions` for DI-wired
 distributed caching over the same multiplexer.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `StackExchange.Redis`
 - package: `StackExchange.Redis`
@@ -21,22 +21,22 @@ distributed caching over the same multiplexer.
 - asset: runtime library
 - rail: cache
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: multiplexer and connection family
 - rail: cache
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [CAPABILITY]                                |
 | :-----: | :----------------------- | :------------------- | :------------------------------------------ |
-|   [1]   | `ConnectionMultiplexer`  | multiplexer root     | manages all server connections              |
-|   [2]   | `IConnectionMultiplexer` | multiplexer contract | shared multiplexer capability               |
-|   [3]   | `ConfigurationOptions`   | configuration        | endpoint, auth, timeout, proxy policy       |
-|   [4]   | `IDatabase`              | database contract    | key-value, hash, list, set, geo, stream ops |
-|   [5]   | `ISubscriber`            | pub/sub contract     | subscribe, publish, channel queues          |
-|   [6]   | `IServer`                | server contract      | admin, scan, info, config operations        |
-|   [7]   | `ChannelMessageQueue`    | message queue        | async-enumerable pub/sub queue              |
-|   [8]   | `RedisValue`             | value struct         | polymorphic Redis value carrier             |
-|   [9]   | `RedisKey`               | key struct           | Redis key with prefix support               |
+|  [01]   | `ConnectionMultiplexer`  | multiplexer root     | manages all server connections              |
+|  [02]   | `IConnectionMultiplexer` | multiplexer contract | shared multiplexer capability               |
+|  [03]   | `ConfigurationOptions`   | configuration        | endpoint, auth, timeout, proxy policy       |
+|  [04]   | `IDatabase`              | database contract    | key-value, hash, list, set, geo, stream ops |
+|  [05]   | `ISubscriber`            | pub/sub contract     | subscribe, publish, channel queues          |
+|  [06]   | `IServer`                | server contract      | admin, scan, info, config operations        |
+|  [07]   | `ChannelMessageQueue`    | message queue        | async-enumerable pub/sub queue              |
+|  [08]   | `RedisValue`             | value struct         | polymorphic Redis value carrier             |
+|  [09]   | `RedisKey`               | key struct           | Redis key with prefix support               |
 |  [10]   | `RedisChannel`           | channel struct       | pub/sub channel with pattern support        |
 |  [11]   | `HashEntry`              | hash entry           | field-value pair for hashes                 |
 |  [12]   | `GeoEntry`               | geo entry            | member with longitude and latitude          |
@@ -53,39 +53,39 @@ distributed caching over the same multiplexer.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [CAPABILITY]                                |
 | :-----: | :------------------ | :---------------- | :------------------------------------------ |
-|   [1]   | `RedisCache`        | distributed cache | `IDistributedCache` over Redis              |
-|   [2]   | `RedisCacheOptions` | options           | connection string, options, prefix, factory |
+|  [01]   | `RedisCache`        | distributed cache | `IDistributedCache` over Redis              |
+|  [02]   | `RedisCacheOptions` | options           | connection string, options, prefix, factory |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: multiplexer lifecycle
 - rail: cache
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------- |
-|   [1]   | `ConnectionMultiplexer.Connect(configuration)`         | static factory | synchronous connect from options or string |
-|   [2]   | `ConnectionMultiplexer.ConnectAsync(configuration)`    | async factory  | async connect from options or string       |
-|   [3]   | `IConnectionMultiplexer.GetDatabase(db?, asyncState?)` | access         | obtains `IDatabase` for a logical database |
-|   [4]   | `IConnectionMultiplexer.GetSubscriber(asyncState?)`    | access         | obtains `ISubscriber`                      |
-|   [5]   | `IConnectionMultiplexer.GetServer(endpoint)`           | access         | obtains `IServer` for an endpoint          |
-|   [6]   | `IConnectionMultiplexer.GetEndPoints(configuredOnly?)` | discovery      | returns all configured endpoints           |
-|   [7]   | `IConnectionMultiplexer.IsConnected`                   | property       | true when any server is reachable          |
-|   [8]   | `ConfigurationOptions.Parse(configurationString)`      | factory        | parses connection string to options        |
+|  [01]   | `ConnectionMultiplexer.Connect(configuration)`         | static factory | synchronous connect from options or string |
+|  [02]   | `ConnectionMultiplexer.ConnectAsync(configuration)`    | async factory  | async connect from options or string       |
+|  [03]   | `IConnectionMultiplexer.GetDatabase(db?, asyncState?)` | access         | obtains `IDatabase` for a logical database |
+|  [04]   | `IConnectionMultiplexer.GetSubscriber(asyncState?)`    | access         | obtains `ISubscriber`                      |
+|  [05]   | `IConnectionMultiplexer.GetServer(endpoint)`           | access         | obtains `IServer` for an endpoint          |
+|  [06]   | `IConnectionMultiplexer.GetEndPoints(configuredOnly?)` | discovery      | returns all configured endpoints           |
+|  [07]   | `IConnectionMultiplexer.IsConnected`                   | property       | true when any server is reachable          |
+|  [08]   | `ConfigurationOptions.Parse(configurationString)`      | factory        | parses connection string to options        |
 
 [ENTRYPOINT_SCOPE]: database key-value and data structure operations
 - rail: cache
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]      | [CAPABILITY]                     |
 | :-----: | :---------------------------------------------- | :------------------ | :------------------------------- |
-|   [1]   | `StringGet(key, flags?)`                        | string read         | gets value by key                |
-|   [2]   | `StringSet(key, value, expiry?, when?, flags?)` | string write        | sets value with optional expiry  |
-|   [3]   | `StringGetSetExpiry(key, expiry)`               | atomic update       | gets value and sets new expiry   |
-|   [4]   | `HashGet(key, field, flags?)`                   | hash read           | gets one hash field              |
-|   [5]   | `HashGetAll(key, flags?)`                       | hash read           | gets all `HashEntry[]`           |
-|   [6]   | `HashSet(key, entries, flags?)`                 | hash write          | sets multiple `HashEntry[]`      |
-|   [7]   | `ListLeftPush(key, values, flags?)`             | list write          | prepends values                  |
-|   [8]   | `ListRightPop(key, flags?)`                     | list read           | pops from right                  |
-|   [9]   | `SetAdd(key, values, flags?)`                   | set write           | adds members                     |
+|  [01]   | `StringGet(key, flags?)`                        | string read         | gets value by key                |
+|  [02]   | `StringSet(key, value, expiry?, when?, flags?)` | string write        | sets value with optional expiry  |
+|  [03]   | `StringGetSetExpiry(key, expiry)`               | atomic update       | gets value and sets new expiry   |
+|  [04]   | `HashGet(key, field, flags?)`                   | hash read           | gets one hash field              |
+|  [05]   | `HashGetAll(key, flags?)`                       | hash read           | gets all `HashEntry[]`           |
+|  [06]   | `HashSet(key, entries, flags?)`                 | hash write          | sets multiple `HashEntry[]`      |
+|  [07]   | `ListLeftPush(key, values, flags?)`             | list write          | prepends values                  |
+|  [08]   | `ListRightPop(key, flags?)`                     | list read           | pops from right                  |
+|  [09]   | `SetAdd(key, values, flags?)`                   | set write           | adds members                     |
 |  [10]   | `SortedSetAdd(key, entries, flags?)`            | sorted set write    | adds scored members              |
 |  [11]   | `KeyExpire(key, expiry, flags?)`                | key policy          | sets key TTL                     |
 |  [12]   | `KeyDelete(keys, flags?)`                       | key removal         | deletes one or many keys         |
@@ -98,59 +98,59 @@ distributed caching over the same multiplexer.
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]  | [CAPABILITY]                             |
 | :-----: | :------------------------------------------------------ | :-------------- | :--------------------------------------- |
-|   [1]   | `ISubscriber.Subscribe(channel, handler, flags?)`       | subscribe       | attaches message handler                 |
-|   [2]   | `ISubscriber.SubscribeAsync(channel, handler?, flags?)` | async subscribe | async subscription with optional handler |
-|   [3]   | `ISubscriber.Publish(channel, message, flags?)`         | publish         | publishes message to channel             |
-|   [4]   | `ISubscriber.PublishAsync(channel, message, flags?)`    | async publish   | async publish                            |
-|   [5]   | `ISubscriber.Unsubscribe(channel, handler?, flags?)`    | unsubscribe     | removes subscription                     |
+|  [01]   | `ISubscriber.Subscribe(channel, handler, flags?)`       | subscribe       | attaches message handler                 |
+|  [02]   | `ISubscriber.SubscribeAsync(channel, handler?, flags?)` | async subscribe | async subscription with optional handler |
+|  [03]   | `ISubscriber.Publish(channel, message, flags?)`         | publish         | publishes message to channel             |
+|  [04]   | `ISubscriber.PublishAsync(channel, message, flags?)`    | async publish   | async publish                            |
+|  [05]   | `ISubscriber.Unsubscribe(channel, handler?, flags?)`    | unsubscribe     | removes subscription                     |
 
 [ENTRYPOINT_SCOPE]: DI-wired caching
 - rail: cache
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]   | [CAPABILITY]                                  |
 | :-----: | :---------------------------------------------------- | :--------------- | :-------------------------------------------- |
-|   [1]   | `RedisCacheOptions.Configuration`                     | options property | connection string                             |
-|   [2]   | `RedisCacheOptions.ConfigurationOptions`              | options property | `ConfigurationOptions` (preferred)            |
-|   [3]   | `RedisCacheOptions.ConnectionMultiplexerFactory`      | options property | `Func<Task<IConnectionMultiplexer>>`          |
-|   [4]   | `RedisCacheOptions.InstanceName`                      | options property | key prefix for cache partitioning             |
-|   [5]   | `services.AddStackExchangeRedisCache(options => ...)` | DI extension     | registers `RedisCache` as `IDistributedCache` |
+|  [01]   | `RedisCacheOptions.Configuration`                     | options property | connection string                             |
+|  [02]   | `RedisCacheOptions.ConfigurationOptions`              | options property | `ConfigurationOptions` (preferred)            |
+|  [03]   | `RedisCacheOptions.ConnectionMultiplexerFactory`      | options property | `Func<Task<IConnectionMultiplexer>>`          |
+|  [04]   | `RedisCacheOptions.InstanceName`                      | options property | key prefix for cache partitioning             |
+|  [05]   | `services.AddStackExchangeRedisCache(options => ...)` | DI extension     | registers `RedisCache` as `IDistributedCache` |
 
 [ENTRYPOINT_SCOPE]: RESP3 protocol and server-assisted client-side caching
 - rail: cache
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]     | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :----------------- | :----------------------------------------------------- |
-|   [1]   | `ConfigurationOptions.Protocol`                        | options property   | `RedisProtocol?` — selects `Resp3` for the connection  |
-|   [2]   | `IServer.Protocol`                                     | property           | the negotiated `RedisProtocol` after `HELLO` (per-server; `ConnectionMultiplexer` exposes no `Protocol`) |
-|   [3]   | `ISubscriber.Subscribe(RedisChannel.Literal("__redis__:invalidate"), …)` | subscribe | the RESP3 server-assisted client-side-caching invalidation push channel |
-|   [4]   | `IDatabase.Execute("CLIENT", "TRACKING", "ON", …)`     | raw command        | enables key-tracking so the server pushes invalidations (no typed member; rides `Execute`) |
-|   [5]   | `IServer.Execute("CLIENT", "TRACKINGINFO")`            | raw command        | reads the tracking redirect/bcast state (no typed member; rides `Execute`) |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                             |
+| :-----: | :----------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ConfigurationOptions.Protocol`                                          | options property | `RedisProtocol?` — selects `Resp3` for the connection                                                    |
+|  [02]   | `IServer.Protocol`                                                       | property         | the negotiated `RedisProtocol` after `HELLO` (per-server; `ConnectionMultiplexer` exposes no `Protocol`) |
+|  [03]   | `ISubscriber.Subscribe(RedisChannel.Literal("__redis__:invalidate"), …)` | subscribe        | the RESP3 server-assisted client-side-caching invalidation push channel                                  |
+|  [04]   | `IDatabase.Execute("CLIENT", "TRACKING", "ON", …)`                       | raw command      | enables key-tracking so the server pushes invalidations (no typed member; rides `Execute`)               |
+|  [05]   | `IServer.Execute("CLIENT", "TRACKINGINFO")`                              | raw command      | reads the tracking redirect/bcast state (no typed member; rides `Execute`)                               |
 
 [ENTRYPOINT_SCOPE]: keyspace-notification subscription
 - rail: cache
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]     | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :----------------- | :----------------------------------------------------- |
-|   [1]   | `IServer.ConfigSet("notify-keyspace-events", "KEA")`   | config write       | enables `__keyspace@N__`/`__keyevent@N__` event emission |
-|   [2]   | `IServer.ConfigGet("notify-keyspace-events")`          | config read        | reads the active notification flag set                 |
-|   [3]   | `ISubscriber.SubscribeAsync(RedisChannel.Pattern("__keyevent@*__:*"))` | async subscribe | returns the `ChannelMessageQueue` of keyevent transitions |
-|   [4]   | `ISubscriber.SubscribeAsync(RedisChannel.Pattern("__keyspace@*__:*"))` | async subscribe | the per-key keyspace-transition queue                  |
-|   [5]   | `ChannelMessageQueue : IAsyncEnumerable<ChannelMessage>` | async enumerate   | the queue IS the async stream — `await foreach (var m in queue.WithCancellation(token))`; also `ReadAsync(token)`/`TryRead(out m)`/`OnMessage(handler)` |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]  | [CAPABILITY]                                                                                                                                            |
+| :-----: | :--------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `IServer.ConfigSet("notify-keyspace-events", "KEA")`                   | config write    | enables `__keyspace@N__`/`__keyevent@N__` event emission                                                                                                |
+|  [02]   | `IServer.ConfigGet("notify-keyspace-events")`                          | config read     | reads the active notification flag set                                                                                                                  |
+|  [03]   | `ISubscriber.SubscribeAsync(RedisChannel.Pattern("__keyevent@*__:*"))` | async subscribe | returns the `ChannelMessageQueue` of keyevent transitions                                                                                               |
+|  [04]   | `ISubscriber.SubscribeAsync(RedisChannel.Pattern("__keyspace@*__:*"))` | async subscribe | the per-key keyspace-transition queue                                                                                                                   |
+|  [05]   | `ChannelMessageQueue : IAsyncEnumerable<ChannelMessage>`               | async enumerate | the queue IS the async stream — `await foreach (var m in queue.WithCancellation(token))`; also `ReadAsync(token)`/`TryRead(out m)`/`OnMessage(handler)` |
 
 [ENTRYPOINT_SCOPE]: Lua scripting and server functions
 - rail: cache
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]     | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :----------------- | :----------------------------------------------------- |
-|   [1]   | `LuaScript.Prepare(script)`                            | static factory     | parses `@name` parameter tokens into a `LuaScript`     |
-|   [2]   | `LuaScript.Load(IServer)`                              | server load        | `SCRIPT LOAD` returning a SHA1-cached `LoadedLuaScript` |
-|   [3]   | `IDatabase.ScriptEvaluate(LoadedLuaScript, parameters)` | atomic eval       | `EVALSHA` single-flight; one round-trip atomic script  |
-|   [4]   | `IDatabase.ScriptEvaluate(script, keys, values, flags?)` | atomic eval      | inline `EVAL` over explicit `RedisKey[]`/`RedisValue[]` |
-|   [5]   | `IServer.ScriptLoad(script)`                           | server load        | returns the script SHA1 `byte[]` for later `EVALSHA`   |
-|   [6]   | `IDatabase.Execute("FUNCTION", "LOAD", code)`          | raw command        | Redis 7 `FUNCTION LOAD` library register (no typed member; rides `Execute`) |
-|   [7]   | `IDatabase.Execute("FCALL", name, …)`                 | raw command        | invokes a loaded function (no typed member; rides `Execute`) |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `LuaScript.Prepare(script)`                              | static factory | parses `@name` parameter tokens into a `LuaScript`                          |
+|  [02]   | `LuaScript.Load(IServer)`                                | server load    | `SCRIPT LOAD` returning a SHA1-cached `LoadedLuaScript`                     |
+|  [03]   | `IDatabase.ScriptEvaluate(LoadedLuaScript, parameters)`  | atomic eval    | `EVALSHA` single-flight; one round-trip atomic script                       |
+|  [04]   | `IDatabase.ScriptEvaluate(script, keys, values, flags?)` | atomic eval    | inline `EVAL` over explicit `RedisKey[]`/`RedisValue[]`                     |
+|  [05]   | `IServer.ScriptLoad(script)`                             | server load    | returns the script SHA1 `byte[]` for later `EVALSHA`                        |
+|  [06]   | `IDatabase.Execute("FUNCTION", "LOAD", code)`            | raw command    | Redis 7 `FUNCTION LOAD` library register (no typed member; rides `Execute`) |
+|  [07]   | `IDatabase.Execute("FCALL", name, …)`                    | raw command    | invokes a loaded function (no typed member; rides `Execute`)                |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [REDIS_TOPOLOGY]:
 - `ConnectionMultiplexer` is the long-lived shared root; it is `IDisposable` and `IAsyncDisposable`

@@ -4,7 +4,7 @@
 pooled block management, stream diagnostics, capacity policy, and buffer lifetime
 events for execution payload staging.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IO.RecyclableMemoryStream`
 - package: `Microsoft.IO.RecyclableMemoryStream`
@@ -13,64 +13,64 @@ events for execution payload staging.
 - asset: runtime library
 - rail: staging
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: stream ownership
 - rail: staging
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]             |
 | :-----: | :-------------------------------------- | :------------- | :----------------------- |
-|   [1]   | `RecyclableMemoryStreamManager`         | manager        | owns stream pool         |
-|   [2]   | `RecyclableMemoryStream`                | pooled stream  | carries staged bytes     |
-|   [3]   | `RecyclableMemoryStreamManager.Options` | policy object  | configures pool behavior |
-|   [4]   | `RecyclableMemoryStreamManager.Events`  | ETW source     | emits pool counters      |
+|  [01]   | `RecyclableMemoryStreamManager`         | manager        | owns stream pool         |
+|  [02]   | `RecyclableMemoryStream`                | pooled stream  | carries staged bytes     |
+|  [03]   | `RecyclableMemoryStreamManager.Options` | policy object  | configures pool behavior |
+|  [04]   | `RecyclableMemoryStreamManager.Events`  | ETW source     | emits pool counters      |
 
 [PUBLIC_TYPE_SCOPE]: event contracts
 - rail: staging
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]             |
 | :-----: | :-------------------------------- | :------------- | :----------------------- |
-|   [1]   | `StreamCreatedEventArgs`          | event payload  | reports creation         |
-|   [2]   | `StreamDisposedEventArgs`         | event payload  | reports disposal         |
-|   [3]   | `StreamDoubleDisposedEventArgs`   | event payload  | reports double disposal  |
-|   [4]   | `StreamFinalizedEventArgs`        | event payload  | reports finalization     |
-|   [5]   | `StreamConvertedToArrayEventArgs` | event payload  | reports array conversion |
-|   [6]   | `StreamOverCapacityEventArgs`     | event payload  | reports capacity breach  |
-|   [7]   | `BlockCreatedEventArgs`           | event payload  | reports block allocation |
-|   [8]   | `LargeBufferCreatedEventArgs`     | event payload  | reports large allocation |
-|   [9]   | `BufferDiscardedEventArgs`        | event payload  | reports discard reason   |
+|  [01]   | `StreamCreatedEventArgs`          | event payload  | reports creation         |
+|  [02]   | `StreamDisposedEventArgs`         | event payload  | reports disposal         |
+|  [03]   | `StreamDoubleDisposedEventArgs`   | event payload  | reports double disposal  |
+|  [04]   | `StreamFinalizedEventArgs`        | event payload  | reports finalization     |
+|  [05]   | `StreamConvertedToArrayEventArgs` | event payload  | reports array conversion |
+|  [06]   | `StreamOverCapacityEventArgs`     | event payload  | reports capacity breach  |
+|  [07]   | `BlockCreatedEventArgs`           | event payload  | reports block allocation |
+|  [08]   | `LargeBufferCreatedEventArgs`     | event payload  | reports large allocation |
+|  [09]   | `BufferDiscardedEventArgs`        | event payload  | reports discard reason   |
 |  [10]   | `UsageReportEventArgs`            | event payload  | reports pool usage       |
 |  [11]   | `StreamLengthEventArgs`           | event payload  | reports stream length    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stream allocation
 - rail: staging
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]  | [CAPABILITY]           |
 | :-----: | :-------------------- | :------------ | :--------------------- |
-|   [1]   | `GetStream`           | factory call  | rents stream           |
-|   [2]   | `GetReadOnlySequence` | stream call   | exposes sequence view  |
-|   [3]   | `GetBuffer`           | stream call   | exposes buffer view    |
-|   [4]   | `TryGetBuffer`        | stream call   | exposes buffer segment |
-|   [5]   | `ToArray`             | stream call   | copies staged bytes    |
-|   [6]   | `WriteTo`             | stream call   | copies stream bytes    |
-|   [7]   | `Dispose`             | lifetime call | returns stream to pool |
+|  [01]   | `GetStream`           | factory call  | rents stream           |
+|  [02]   | `GetReadOnlySequence` | stream call   | exposes sequence view  |
+|  [03]   | `GetBuffer`           | stream call   | exposes buffer view    |
+|  [04]   | `TryGetBuffer`        | stream call   | exposes buffer segment |
+|  [05]   | `ToArray`             | stream call   | copies staged bytes    |
+|  [06]   | `WriteTo`             | stream call   | copies stream bytes    |
+|  [07]   | `Dispose`             | lifetime call | returns stream to pool |
 
 [ENTRYPOINT_SCOPE]: `GetStream` decompile-verified overloads
 - rail: staging-and-streams#STREAM_POOL
 
 | [INDEX] | [MEMBER]                                     | [SIGNATURE]                                                                                          |
 | :-----: | :------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|   [1]   | `GetStream()`                                | `RecyclableMemoryStream GetStream()`                                                                 |
-|   [2]   | `GetStream(Guid)`                            | `RecyclableMemoryStream GetStream(Guid id)`                                                          |
-|   [3]   | `GetStream(string?)`                         | `RecyclableMemoryStream GetStream(string? tag)`                                                      |
-|   [4]   | `GetStream(Guid,string?)`                    | `RecyclableMemoryStream GetStream(Guid id, string? tag)`                                             |
-|   [5]   | `GetStream(string?,long)`                    | `RecyclableMemoryStream GetStream(string? tag, long requiredSize)`                                   |
-|   [6]   | `GetStream(Guid,string?,long)`               | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize)`                          |
-|   [7]   | `GetStream(Guid,string?,long,bool)`          | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` |
-|   [8]   | `GetStream(string?,long,bool)`               | `RecyclableMemoryStream GetStream(string? tag, long requiredSize, bool asContiguousBuffer)`          |
-|   [9]   | `GetStream(Guid,string?,byte[],int,int)`     | `RecyclableMemoryStream GetStream(Guid id, string? tag, byte[] buffer, int offset, int count)`       |
+|  [01]   | `GetStream()`                                | `RecyclableMemoryStream GetStream()`                                                                 |
+|  [02]   | `GetStream(Guid)`                            | `RecyclableMemoryStream GetStream(Guid id)`                                                          |
+|  [03]   | `GetStream(string?)`                         | `RecyclableMemoryStream GetStream(string? tag)`                                                      |
+|  [04]   | `GetStream(Guid,string?)`                    | `RecyclableMemoryStream GetStream(Guid id, string? tag)`                                             |
+|  [05]   | `GetStream(string?,long)`                    | `RecyclableMemoryStream GetStream(string? tag, long requiredSize)`                                   |
+|  [06]   | `GetStream(Guid,string?,long)`               | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize)`                          |
+|  [07]   | `GetStream(Guid,string?,long,bool)`          | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` |
+|  [08]   | `GetStream(string?,long,bool)`               | `RecyclableMemoryStream GetStream(string? tag, long requiredSize, bool asContiguousBuffer)`          |
+|  [09]   | `GetStream(Guid,string?,byte[],int,int)`     | `RecyclableMemoryStream GetStream(Guid id, string? tag, byte[] buffer, int offset, int count)`       |
 |  [10]   | `GetStream(byte[])`                          | `RecyclableMemoryStream GetStream(byte[] buffer)`                                                    |
 |  [11]   | `GetStream(string?,byte[],int,int)`          | `RecyclableMemoryStream GetStream(string? tag, byte[] buffer, int offset, int count)`                |
 |  [12]   | `GetStream(Guid,string?,ReadOnlySpan<byte>)` | `RecyclableMemoryStream GetStream(Guid id, string? tag, ReadOnlySpan<byte> buffer)`                  |
@@ -82,15 +82,15 @@ events for execution payload staging.
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]    | [CAPABILITY]               |
 | :-----: | :-------------------------- | :-------------- | :------------------------- |
-|   [1]   | `BlockSize`                 | option property | sets block size            |
-|   [2]   | `LargeBufferMultiple`       | option property | sets large increment       |
-|   [3]   | `MaximumBufferSize`         | option property | caps buffer size           |
-|   [4]   | `MaximumSmallPoolFreeBytes` | option property | caps small pool retention  |
-|   [5]   | `MaximumLargePoolFreeBytes` | option property | caps large pool retention  |
-|   [6]   | `MaximumStreamCapacity`     | option property | caps stream capacity       |
-|   [7]   | `UseExponentialLargeBuffer` | option property | selects large growth curve |
-|   [8]   | `GenerateCallStacks`        | option property | enables allocation trace   |
-|   [9]   | `AggressiveBufferReturn`    | option property | returns buffers eagerly    |
+|  [01]   | `BlockSize`                 | option property | sets block size            |
+|  [02]   | `LargeBufferMultiple`       | option property | sets large increment       |
+|  [03]   | `MaximumBufferSize`         | option property | caps buffer size           |
+|  [04]   | `MaximumSmallPoolFreeBytes` | option property | caps small pool retention  |
+|  [05]   | `MaximumLargePoolFreeBytes` | option property | caps large pool retention  |
+|  [06]   | `MaximumStreamCapacity`     | option property | caps stream capacity       |
+|  [07]   | `UseExponentialLargeBuffer` | option property | selects large growth curve |
+|  [08]   | `GenerateCallStacks`        | option property | enables allocation trace   |
+|  [09]   | `AggressiveBufferReturn`    | option property | returns buffers eagerly    |
 |  [10]   | `ZeroOutBuffer`             | option property | clears buffers on cycle    |
 |  [11]   | `ThrowExceptionOnToArray`   | option property | rejects array copy         |
 |  [12]   | `UsageReport`               | manager event   | reports pool usage         |
@@ -100,15 +100,15 @@ events for execution payload staging.
 
 | [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                                                                              |
 | :-----: | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `BlockSize`                           | `int BlockSize { get; set; }` default `131072` (128KB)                                                                                   |
-|   [2]   | `LargeBufferMultiple`                 | `int LargeBufferMultiple { get; set; }` default `1048576` (1MB)                                                                          |
-|   [3]   | `MaximumBufferSize`                   | `int MaximumBufferSize { get; set; }` default `134217728` (128MB)                                                                        |
-|   [4]   | `MaximumSmallPoolFreeBytes`           | `long MaximumSmallPoolFreeBytes { get; set; }` default `0`                                                                               |
-|   [5]   | `MaximumLargePoolFreeBytes`           | `long MaximumLargePoolFreeBytes { get; set; }` default `0`                                                                               |
-|   [6]   | `UseExponentialLargeBuffer`           | `bool UseExponentialLargeBuffer { get; set; }` default `false`                                                                           |
-|   [7]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit)                                                                        |
-|   [8]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false`                                                                                  |
-|   [9]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false`                                                                              |
+|  [01]   | `BlockSize`                           | `int BlockSize { get; set; }` default `131072` (128KB)                                                                                   |
+|  [02]   | `LargeBufferMultiple`                 | `int LargeBufferMultiple { get; set; }` default `1048576` (1MB)                                                                          |
+|  [03]   | `MaximumBufferSize`                   | `int MaximumBufferSize { get; set; }` default `134217728` (128MB)                                                                        |
+|  [04]   | `MaximumSmallPoolFreeBytes`           | `long MaximumSmallPoolFreeBytes { get; set; }` default `0`                                                                               |
+|  [05]   | `MaximumLargePoolFreeBytes`           | `long MaximumLargePoolFreeBytes { get; set; }` default `0`                                                                               |
+|  [06]   | `UseExponentialLargeBuffer`           | `bool UseExponentialLargeBuffer { get; set; }` default `false`                                                                           |
+|  [07]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit)                                                                        |
+|  [08]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false`                                                                                  |
+|  [09]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false`                                                                              |
 |  [10]   | `ThrowExceptionOnToArray`             | `bool ThrowExceptionOnToArray { get; set; }` default `false`                                                                             |
 |  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false`                                                                                       |
 |  [12]   | `Options()` ctor                      | `Options()`                                                                                                                              |
@@ -119,21 +119,21 @@ events for execution payload staging.
 
 | [INDEX] | [MEMBER]                 | [SIGNATURE]                                                                              |
 | :-----: | :----------------------- | :--------------------------------------------------------------------------------------- |
-|   [1]   | `BlockCreated`           | `event EventHandler<BlockCreatedEventArgs>? BlockCreated`                                |
-|   [2]   | `LargeBufferCreated`     | `event EventHandler<LargeBufferCreatedEventArgs>? LargeBufferCreated`                    |
-|   [3]   | `StreamCreated`          | `event EventHandler<StreamCreatedEventArgs>? StreamCreated`                              |
-|   [4]   | `StreamDisposed`         | `event EventHandler<StreamDisposedEventArgs>? StreamDisposed`                            |
-|   [5]   | `StreamDoubleDisposed`   | `event EventHandler<StreamDoubleDisposedEventArgs>? StreamDoubleDisposed`                |
-|   [6]   | `StreamFinalized`        | `event EventHandler<StreamFinalizedEventArgs>? StreamFinalized`                          |
-|   [7]   | `StreamLength`           | `event EventHandler<StreamLengthEventArgs>? StreamLength`                                |
-|   [8]   | `StreamConvertedToArray` | `event EventHandler<StreamConvertedToArrayEventArgs>? StreamConvertedToArray`            |
-|   [9]   | `StreamOverCapacity`     | `event EventHandler<StreamOverCapacityEventArgs>? StreamOverCapacity`                    |
+|  [01]   | `BlockCreated`           | `event EventHandler<BlockCreatedEventArgs>? BlockCreated`                                |
+|  [02]   | `LargeBufferCreated`     | `event EventHandler<LargeBufferCreatedEventArgs>? LargeBufferCreated`                    |
+|  [03]   | `StreamCreated`          | `event EventHandler<StreamCreatedEventArgs>? StreamCreated`                              |
+|  [04]   | `StreamDisposed`         | `event EventHandler<StreamDisposedEventArgs>? StreamDisposed`                            |
+|  [05]   | `StreamDoubleDisposed`   | `event EventHandler<StreamDoubleDisposedEventArgs>? StreamDoubleDisposed`                |
+|  [06]   | `StreamFinalized`        | `event EventHandler<StreamFinalizedEventArgs>? StreamFinalized`                          |
+|  [07]   | `StreamLength`           | `event EventHandler<StreamLengthEventArgs>? StreamLength`                                |
+|  [08]   | `StreamConvertedToArray` | `event EventHandler<StreamConvertedToArrayEventArgs>? StreamConvertedToArray`            |
+|  [09]   | `StreamOverCapacity`     | `event EventHandler<StreamOverCapacityEventArgs>? StreamOverCapacity`                    |
 |  [10]   | `BufferDiscarded`        | `event EventHandler<BufferDiscardedEventArgs>? BufferDiscarded`                          |
 |  [11]   | `UsageReport`            | `event EventHandler<UsageReportEventArgs>? UsageReport`                                  |
 |  [12]   | `Events.Writer`          | `static Events Writer` (ETW `EventSource`, name `"Microsoft-IO-RecyclableMemoryStream"`) |
 |  [13]   | `Settings`               | `Options Settings { get; }` — exposes live `Options` reference                           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STREAM_POOL]:
 - namespace: `Microsoft.IO`

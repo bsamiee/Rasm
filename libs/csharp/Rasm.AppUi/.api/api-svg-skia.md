@@ -2,7 +2,7 @@
 
 `Svg.Controls.Skia.Avalonia` supplies Avalonia SVG controls backed by Svg.Skia document loading, scene graph rendering, animation invalidation, and Skia picture output.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Svg.Controls.Skia.Avalonia`
 - package: `Svg.Controls.Skia.Avalonia`
@@ -16,80 +16,80 @@
 - asset: restored SVG rendering library
 - rail: assets
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [AVALONIA_SVG_TYPES]: Avalonia control and image surfaces — rail: assets
 
 | [INDEX] | [SYMBOL]                       | [KIND]         |
 | :-----: | :----------------------------- | :------------- |
-|   [1]   | `Svg`                          | SVG control    |
-|   [2]   | `SvgImage`                     | image surface  |
-|   [3]   | `SvgSource`                    | SVG source     |
-|   [4]   | `SvgResourceExtension`         | XAML resource  |
-|   [5]   | `SvgImageExtension`            | XAML image     |
-|   [6]   | `SvgSourceTypeConverter`       | source convert |
-|   [7]   | `SvgCustomDrawOperation`       | draw operation |
-|   [8]   | `SvgSourceCustomDrawOperation` | source draw    |
+|  [01]   | `Svg`                          | SVG control    |
+|  [02]   | `SvgImage`                     | image surface  |
+|  [03]   | `SvgSource`                    | SVG source     |
+|  [04]   | `SvgResourceExtension`         | XAML resource  |
+|  [05]   | `SvgImageExtension`            | XAML image     |
+|  [06]   | `SvgSourceTypeConverter`       | source convert |
+|  [07]   | `SvgCustomDrawOperation`       | draw operation |
+|  [08]   | `SvgSourceCustomDrawOperation` | source draw    |
 
 [SVG_SKIA_TYPES]: document, scene, animation, and rendering surfaces — rail: assets
 
 | [INDEX] | [SYMBOL]                   | [KIND]                |
 | :-----: | :------------------------- | :-------------------- |
-|   [1]   | `SKSvg`                    | SVG document          |
-|   [2]   | `SKSvgSettings`            | load settings         |
-|   [3]   | `SvgSceneNode`             | scene node            |
-|   [4]   | `SvgParameters`            | render parameters     |
-|   [5]   | `SvgSceneDocument`         | retained document     |
-|   [6]   | `SvgSceneRenderer`         | scene renderer        |
-|   [7]   | `SvgAnimationController`   | animation control     |
-|   [8]   | `SvgInteractionDispatcher` | interaction dispatch  |
-|   [9]   | `SkiaSvgAssetLoader`       | asset loading         |
+|  [01]   | `SKSvg`                    | SVG document          |
+|  [02]   | `SKSvgSettings`            | load settings         |
+|  [03]   | `SvgSceneNode`             | scene node            |
+|  [04]   | `SvgParameters`            | render parameters     |
+|  [05]   | `SvgSceneDocument`         | retained document     |
+|  [06]   | `SvgSceneRenderer`         | scene renderer        |
+|  [07]   | `SvgAnimationController`   | animation control     |
+|  [08]   | `SvgInteractionDispatcher` | interaction dispatch  |
+|  [09]   | `SkiaSvgAssetLoader`       | asset loading         |
 |  [10]   | `ISvgAssetLoader`          | asset loader contract |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: Avalonia SVG control operations
 - rail: assets
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]            |
 | :-----: | :----------------- | :------------- | :---------------- |
-|   [1]   | `Path`             | `Svg`          | path source       |
-|   [2]   | `Source`           | `Svg`          | object source     |
-|   [3]   | `Stretch`          | `Svg`          | stretch policy    |
-|   [4]   | `StretchDirection` | `Svg`          | stretch direction |
-|   [5]   | `Size`             | `SvgImage`     | image size        |
-|   [6]   | `Source`           | `SvgImage`     | image source      |
-|   [7]   | `CurrentColor`     | `SvgImage`     | color override    |
-|   [8]   | `InvalidateVisual` | `Svg`          | redraw request    |
+|  [01]   | `Path`             | `Svg`          | path source       |
+|  [02]   | `Source`           | `Svg`          | object source     |
+|  [03]   | `Stretch`          | `Svg`          | stretch policy    |
+|  [04]   | `StretchDirection` | `Svg`          | stretch direction |
+|  [05]   | `Size`             | `SvgImage`     | image size        |
+|  [06]   | `Source`           | `SvgImage`     | image source      |
+|  [07]   | `CurrentColor`     | `SvgImage`     | color override    |
+|  [08]   | `InvalidateVisual` | `Svg`          | redraw request    |
 
 [LOAD_AND_RENDER_ENTRYPOINTS]: document load and render operations
 - rail: assets
 
 | [INDEX] | [SURFACE]               | [SURFACE_ROOT]           | [RAIL]          |
 | :-----: | :---------------------- | :----------------------- | :-------------- |
-|   [1]   | `Load`                  | `SKSvg`                  | stream load     |
-|   [2]   | `FromSvg`               | `SKSvg`                  | string load     |
-|   [3]   | `CreateFromSvgDocument` | `SKSvg`                  | document create |
-|   [4]   | `Save`                  | `SKSvg`                  | encoded output  |
-|   [5]   | `Draw`                  | `SKSvg`                  | canvas draw     |
-|   [6]   | `Picture`               | `SKSvg`                  | picture surface |
-|   [7]   | `TryGetPicturePoint`    | `SKSvg`                  | hit coordinates |
-|   [8]   | `Render`                | `SvgCustomDrawOperation` | picture draw    |
+|  [01]   | `Load`                  | `SKSvg`                  | stream load     |
+|  [02]   | `FromSvg`               | `SKSvg`                  | string load     |
+|  [03]   | `CreateFromSvgDocument` | `SKSvg`                  | document create |
+|  [04]   | `Save`                  | `SKSvg`                  | encoded output  |
+|  [05]   | `Draw`                  | `SKSvg`                  | canvas draw     |
+|  [06]   | `Picture`               | `SKSvg`                  | picture surface |
+|  [07]   | `TryGetPicturePoint`    | `SKSvg`                  | hit coordinates |
+|  [08]   | `Render`                | `SvgCustomDrawOperation` | picture draw    |
 
 [SCENE_ENTRYPOINTS]: retained scene and animation operations
 - rail: assets
 
 | [INDEX] | [SURFACE]                     | [SURFACE_ROOT]             | [RAIL]            |
 | :-----: | :---------------------------- | :------------------------- | :---------------- |
-|   [1]   | `TryEnsureRetainedSceneGraph` | `SKSvg`                    | scene build       |
-|   [2]   | `RetainedSceneGraph`          | `SKSvg`                    | scene access      |
-|   [3]   | `HasRetainedSceneGraph`       | `SKSvg`                    | scene presence    |
-|   [4]   | `AnimationController`         | `SKSvg`                    | animation control |
-|   [5]   | `AnimationInvalidated`        | `SKSvg`                    | animation event   |
-|   [6]   | `HitTestTopmostElement`       | `SvgInteractionDispatcher` | pointer dispatch  |
-|   [7]   | `HitTestSceneNodes`           | `SKSvg`                    | hit testing       |
+|  [01]   | `TryEnsureRetainedSceneGraph` | `SKSvg`                    | scene build       |
+|  [02]   | `RetainedSceneGraph`          | `SKSvg`                    | scene access      |
+|  [03]   | `HasRetainedSceneGraph`       | `SKSvg`                    | scene presence    |
+|  [04]   | `AnimationController`         | `SKSvg`                    | animation control |
+|  [05]   | `AnimationInvalidated`        | `SKSvg`                    | animation event   |
+|  [06]   | `HitTestTopmostElement`       | `SvgInteractionDispatcher` | pointer dispatch  |
+|  [07]   | `HitTestSceneNodes`           | `SKSvg`                    | hit testing       |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SVG_ASSET_LAW]:
 - Package: `Svg.Controls.Skia.Avalonia`

@@ -2,13 +2,13 @@
 
 The UnitsNet boundary for measured execution: twenty frozen `QuantityFamily` rows admit every unit-bearing input exactly once, canonicalize through `As`/`ToUnit`, and emit dual `UnitEvidence`; interior numerics stay raw doubles owned by Rasm core, and no quantity type crosses an interior signature or a wire. The page owns the `QuantityFamily` axis with canonical, display, and tolerance columns, the SI dimensional law, and the culture-scoped parse and format edges. The spine is UnitsNet, Thinktecture.Runtime.Extensions, and LanguageExt.Core over the settled configuration rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUANTITY_TABLE]: twenty frozen quantity rows; conversion exactly once at admission.
-- [2]-[DIMENSIONAL_LAW]: compound dimensional consistency and the SI baseline policy row.
-- [3]-[PARSE_FORMAT]: culture-scoped parse and format edges; dual unit evidence.
+- [01]-[QUANTITY_TABLE]: twenty frozen quantity rows; conversion exactly once at admission.
+- [02]-[DIMENSIONAL_LAW]: compound dimensional consistency and the SI baseline policy row.
+- [03]-[PARSE_FORMAT]: culture-scoped parse and format edges; dual unit evidence.
 
-## [2]-[QUANTITY_TABLE]
+## [02]-[QUANTITY_TABLE]
 
 - Owner: `QuantityFamily` `[SmartEnum<string>]` twenty rows; `QuantityKeyPolicy` single ordinal-ignore-case key accessor; `UnitMetadata` metadata-sourcing owner over `QuantityInfo.BaseUnitInfo`/`UnitInfos`.
 - Cases: length, area, volume, mass, duration, speed, acceleration, force, pressure, energy, power, temperature, angle, torque, ratio, density, area-moment-of-inertia, heat-transfer-coefficient, thermal-resistance, illuminance — each row carries `QuantityInfo` metadata, a `BaseUnitInfo.Value`-sourced canonical unit, an explicit display unit defaulting to canonical, and a tolerance column feeding equivalence proofs.
@@ -111,7 +111,7 @@ public sealed partial class QuantityFamily {
 }
 ```
 
-## [3]-[DIMENSIONAL_LAW]
+## [03]-[DIMENSIONAL_LAW]
 
 - Owner: `UnitPolicy` configuration-bound policy record; `UnitAlgebra` static dimensional surface.
 - Cases: speed, acceleration, force, pressure, energy, power, torque, density — eight compound relation rows, each verifying the composed `BaseDimensions` of its factors equals the compound row's declared dimensions; one reciprocal-pair row (heat-transfer-coefficient · thermal-resistance is dimensionless); one dimensionless-family row (ratio).
@@ -163,7 +163,7 @@ public static class UnitAlgebra {
 }
 ```
 
-## [4]-[PARSE_FORMAT]
+## [04]-[PARSE_FORMAT]
 
 - Owner: `UnitEvidence` dual-evidence projection record.
 - Entry: `Render(UnitPolicy policy)` — total display projection; formatting never round-trips into computation.
@@ -198,6 +198,6 @@ public sealed record UnitEvidence(
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [NEXT_MAJOR]: the UnitsNet next-major `QuantityInfo` and `QuantityValue` reshape against the frozen row record, run as a staged-restore reshape check before adoption.

@@ -4,7 +4,7 @@
 manager, typed release assets, channel and downgrade options, and the locator
 contract into the runtime provisioning and self-update rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Velopack`
 - package: `Velopack`
@@ -16,37 +16,37 @@ contract into the runtime provisioning and self-update rail.
 - asset: runtime library
 - rail: runtime provisioning and update
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: startup hook gate
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]       | [PACKAGE_ROLE] | [CAPABILITY]                      |
 | :-----: | :------------- | :------------- | :-------------------------------- |
-|   [1]   | `VelopackApp`  | builder gate   | install/update lifecycle dispatch |
-|   [2]   | `VelopackHook` | hook delegate  | versioned startup-event callback  |
+|  [01]   | `VelopackApp`  | builder gate   | install/update lifecycle dispatch |
+|  [02]   | `VelopackHook` | hook delegate  | versioned startup-event callback  |
 
 [PUBLIC_TYPE_SCOPE]: update manager and feed values
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]  | [CAPABILITY]                         |
 | :-----: | :------------------ | :-------------- | :----------------------------------- |
-|   [1]   | `UpdateManager`     | manager service | feed check, download, apply, restart |
-|   [2]   | `UpdateInfo`        | feed result     | target release plus delta chain      |
-|   [3]   | `VelopackAsset`     | release record  | identified package entry with hashes |
-|   [4]   | `VelopackAssetType` | asset kind enum | full/delta/portable/installer/msi    |
+|  [01]   | `UpdateManager`     | manager service | feed check, download, apply, restart |
+|  [02]   | `UpdateInfo`        | feed result     | target release plus delta chain      |
+|  [03]   | `VelopackAsset`     | release record  | identified package entry with hashes |
+|  [04]   | `VelopackAssetType` | asset kind enum | full/delta/portable/installer/msi    |
 
 [PUBLIC_TYPE_SCOPE]: option and locator contracts
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]   | [CAPABILITY]                          |
 | :-----: | :----------------- | :--------------- | :------------------------------------ |
-|   [1]   | `UpdateOptions`    | option value     | channel, downgrade, delta fallback    |
-|   [2]   | `IVelopackLocator` | locator contract | install paths, version, channel       |
-|   [3]   | `IUpdateSource`    | source contract  | release feed and entry download       |
-|   [4]   | `SemanticVersion`  | version value    | comparable major/minor/patch identity |
+|  [01]   | `UpdateOptions`    | option value     | channel, downgrade, delta fallback    |
+|  [02]   | `IVelopackLocator` | locator contract | install paths, version, channel       |
+|  [03]   | `IUpdateSource`    | source contract  | release feed and entry download       |
+|  [04]   | `SemanticVersion`  | version value    | comparable major/minor/patch identity |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: startup gate
 - rail: runtime provisioning and update
@@ -173,7 +173,7 @@ public interface IVelopackLocator
 }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GATE_TOPOLOGY]:
 - `VelopackApp.Build()` opens a fluent gate that registers install, update, obsolete, uninstall, first-run, and restart hooks before `Run()`.

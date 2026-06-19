@@ -6,7 +6,7 @@
 Diagnostics in C# 14 / .NET 10 remain compositional with `Fin<T>` / `Validation<Error,T>` / `Eff<RT,T>` and never force procedural collapse. Centralized runtime surfaces own telemetry identities; probes remain identity-preserving taps.
 
 ---
-## [1]-[DIAGNOSTIC_RUNTIME]
+## [01]-[DIAGNOSTIC_RUNTIME]
 >**Dictum:** *One module owns diagnostic state and probes; debug enrichment is compile-time gated.*
 
 <br>
@@ -105,7 +105,7 @@ public static class Probe {
 ```
 
 ---
-## [2]-[FAILURE_INTELLIGENCE]
+## [02]-[FAILURE_INTELLIGENCE]
 >**Dictum:** *Failure analysis is projection: flatten once, summarize once.*
 
 <br>
@@ -156,20 +156,20 @@ file static class ValidationExtensions {
 
 | [INDEX] | [SYMPTOM]                              | [CAUSE]                    | [FIX]                               |
 | :-----: | -------------------------------------- | -------------------------- | ----------------------------------- |
-|   [1]   | `Cannot convert K<F,A> to Concrete<A>` | downcast boundary omitted  | add `.As()` at consumption boundary |
-|   [2]   | `Type X !satisfy Fallible<X>`          | wrong effect algebra       | constrain to `Fin`/`Eff`/`Option`   |
-|   [3]   | `Operator '\|' cannot be applied`      | fallback on HKT wrapper    | downcast first, then apply `\|`     |
-|   [4]   | `Ambiguous pure/error overload`        | effect type inference lost | specify `pure<F,A>` / `error<F,A>`  |
+|  [01]   | `Cannot convert K<F,A> to Concrete<A>` | downcast boundary omitted  | add `.As()` at consumption boundary |
+|  [02]   | `Type X !satisfy Fallible<X>`          | wrong effect algebra       | constrain to `Fin`/`Eff`/`Option`   |
+|  [03]   | `Operator '\|' cannot be applied`      | fallback on HKT wrapper    | downcast first, then apply `\|`     |
+|  [04]   | `Ambiguous pure/error overload`        | effect type inference lost | specify `pure<F,A>` / `error<F,A>`  |
 
 **Source Generator Diagnostic Symptoms** -- `[LoggerMessage]` enforces EventId uniqueness, method partiality, and template-to-parameter name matching at compile time; `[GeneratedRegex]` enforces partial method form and validates regex syntax before the build completes.
 
 | [INDEX] | [DIAGNOSTIC] | [SYMPTOM]                                | [FIX]                              |
 | :-----: | :----------: | ---------------------------------------- | ---------------------------------- |
-|   [5]   | `SYSLIB1006` | Multiple `[LoggerMessage]` share EventId | unique EventId per method          |
-|   [6]   | `SYSLIB1015` | Template `{Foo}` has no matching param   | add param named matching `{Foo}`   |
-|   [7]   | `SYSLIB1025` | `[LoggerMessage]` method not `partial`   | mark method + class `partial`      |
-|   [8]   | `SYSLIB1040` | `[GeneratedRegex]` method not `partial`  | `static partial Regex Pattern();`  |
-|   [9]   | `SYSLIB1042` | Invalid pattern in `[GeneratedRegex]`    | fix regex; validated at build time |
+|  [05]   | `SYSLIB1006` | Multiple `[LoggerMessage]` share EventId | unique EventId per method          |
+|  [06]   | `SYSLIB1015` | Template `{Foo}` has no matching param   | add param named matching `{Foo}`   |
+|  [07]   | `SYSLIB1025` | `[LoggerMessage]` method not `partial`   | mark method + class `partial`      |
+|  [08]   | `SYSLIB1040` | `[GeneratedRegex]` method not `partial`  | `static partial Regex Pattern();`  |
+|  [09]   | `SYSLIB1042` | Invalid pattern in `[GeneratedRegex]`    | fix regex; validated at build time |
 
 ---
 ## [2A]-[EFF_STACK_TRACE_NAVIGATION]
@@ -183,14 +183,14 @@ When an `Eff<RT,T>` pipeline fails, the .NET stack trace interleaves LanguageExt
 
 | [INDEX] | [FRAME_PREFIX]                           | [WHY_IGNORE]                   |
 | :-----: | ---------------------------------------- | ------------------------------ |
-|   [1]   | `LanguageExt.Eff<RT,A>.Run*`             | Effect interpreter entry point |
-|   [2]   | `LanguageExt.Eff<RT,A>.Bind*`            | Monadic bind dispatch          |
-|   [3]   | `LanguageExt.Eff<RT,A>.Map*`             | Functor map dispatch           |
-|   [4]   | `LanguageExt.IO<A>.*`                    | IO thunk evaluation            |
-|   [5]   | `LanguageExt.Eff.Invoke*`                | Internal invocation machinery  |
-|   [6]   | `LanguageExt.Effects.Eff.*`              | Effect module static helpers   |
-|   [7]   | `System.Runtime.CompilerServices.Async*` | Async state machine plumbing   |
-|   [8]   | `System.Threading.Tasks.Task.*`          | TPL infrastructure             |
+|  [01]   | `LanguageExt.Eff<RT,A>.Run*`             | Effect interpreter entry point |
+|  [02]   | `LanguageExt.Eff<RT,A>.Bind*`            | Monadic bind dispatch          |
+|  [03]   | `LanguageExt.Eff<RT,A>.Map*`             | Functor map dispatch           |
+|  [04]   | `LanguageExt.IO<A>.*`                    | IO thunk evaluation            |
+|  [05]   | `LanguageExt.Eff.Invoke*`                | Internal invocation machinery  |
+|  [06]   | `LanguageExt.Effects.Eff.*`              | Effect module static helpers   |
+|  [07]   | `System.Runtime.CompilerServices.Async*` | Async state machine plumbing   |
+|  [08]   | `System.Threading.Tasks.Task.*`          | TPL infrastructure             |
 
 ```csharp
 // --- [EFF_STACK_TRACE_EXAMPLE] -----------------------------------------------
@@ -286,7 +286,7 @@ file static class SpanCorrelation {
 ```
 
 ---
-## [3]-[PERF_DIAGNOSTICS]
+## [03]-[PERF_DIAGNOSTICS]
 >**Dictum:** *Profile from runtime signals first; prove minimal-capture hot paths.*
 
 <br>
@@ -341,22 +341,22 @@ public static class ClosureDiagnostics {
 ```
 
 ---
-## [4]-[DIAGNOSTIC_CANON]
+## [04]-[DIAGNOSTIC_CANON]
 >**Dictum:** *Diagnostic constraints enforce compositional observability.*
 
 <br>
 
 | [INDEX] | [CONSTRAINT]                  | [MANDATE]                                                                    | [ENFORCEMENT_SURFACE]          |
 | :-----: | ----------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
-|   [1]   | **`CENTRALIZED_RUNTIME`**     | one module owns `ActivitySource`, `Meter`, `LoggerFactory`                   | single identity surface        |
-|   [2]   | **`IDENTITY_PROBES`**         | probes are taps (`Map`/`Match`), never terminal mid-pipeline                 | algebraic composition law      |
-|   [3]   | **`NO_INLINE_RUN`**           | no `.Run()` execution inside transformations                                 | referential transparency       |
-|   [4]   | **`ERROR_CHAIN_SINGLE_PASS`** | flatten and summarize errors once per projection                             | `O(n)` traversal guarantee     |
-|   [5]   | **`DEBUG_GATING`**            | debug enrichment only in `#if DEBUG` branches                                | zero release overhead          |
-|   [6]   | **`LOGGER_SOURCE_GEN`**       | diagnostics logs use `[LoggerMessage]`                                       | `CA1848`, `CA2254`             |
-|   [7]   | **`OS_PORTABLE_CLI`**         | profiling commands avoid platform-specific assumptions                       | cross-platform runbooks        |
-|   [8]   | **`HOT_PATH_PROOF`**          | static lambda enforcement for closure diagnostics                            | `IDE0320`, `CS8820`            |
-|   [9]   | **`TRACE_LIFECYCLE`**         | spans are bracket-disposed on all channels                                   | `CA2000` deterministic cleanup |
+|  [01]   | **`CENTRALIZED_RUNTIME`**     | one module owns `ActivitySource`, `Meter`, `LoggerFactory`                   | single identity surface        |
+|  [02]   | **`IDENTITY_PROBES`**         | probes are taps (`Map`/`Match`), never terminal mid-pipeline                 | algebraic composition law      |
+|  [03]   | **`NO_INLINE_RUN`**           | no `.Run()` execution inside transformations                                 | referential transparency       |
+|  [04]   | **`ERROR_CHAIN_SINGLE_PASS`** | flatten and summarize errors once per projection                             | `O(n)` traversal guarantee     |
+|  [05]   | **`DEBUG_GATING`**            | debug enrichment only in `#if DEBUG` branches                                | zero release overhead          |
+|  [06]   | **`LOGGER_SOURCE_GEN`**       | diagnostics logs use `[LoggerMessage]`                                       | `CA1848`, `CA2254`             |
+|  [07]   | **`OS_PORTABLE_CLI`**         | profiling commands avoid platform-specific assumptions                       | cross-platform runbooks        |
+|  [08]   | **`HOT_PATH_PROOF`**          | static lambda enforcement for closure diagnostics                            | `IDE0320`, `CS8820`            |
+|  [09]   | **`TRACE_LIFECYCLE`**         | spans are bracket-disposed on all channels                                   | `CA2000` deterministic cleanup |
 |  [10]   | **`BOUNDARY_MATCH_ONLY`**     | final pattern matching occurs only at API/program edge                       | no premature context collapse  |
 |  [11]   | **`EFF_TRACE_TRIAGE`**        | skip LanguageExt/IO/TPL frames; follow `MapFail` annotation chains           | domain-level failure path      |
 |  [12]   | **`HEAP_DIAG_TOOLCHAIN`**     | use `dotnet-dump` for retained objects, `dotnet-gcdump` for GC root analysis | `Atom<HashMap>` growth         |

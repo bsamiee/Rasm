@@ -2,7 +2,7 @@
 
 `duckdb` supplies an in-process analytical SQL engine with a connection-and-relation model over Arrow, Pandas, Polars, NumPy, CSV, JSON, and Parquet sources. `DuckDBPyConnection` owns query execution and registration; `DuckDBPyRelation` owns lazy relational algebra and aggregation; module-level functions proxy a default connection for one-shot use.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `duckdb`
 - package: `duckdb`
@@ -11,7 +11,7 @@
 - rail: query
 - capability: in-process SQL execution, lazy relational algebra, multi-frame ingest and egress (Arrow, Pandas, Polars, NumPy, Torch), CSV/JSON/Parquet readers and writers, user-defined functions, extensions, and prepared statements
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `duckdb.DuckDBPyConnection` — connection handle owning a database session; `execute`, `executemany`, `sql`, `query`, `table`, `view`, `register`, `unregister`, `from_df`, `from_arrow`, `from_parquet`, `from_csv_auto`, `create_function`, `install_extension`, `load_extension`, `begin`, `commit`, `rollback`, `interrupt`, `cursor`, `close`; fetch family `fetchone`/`fetchmany`/`fetchall`/`fetchnumpy`/`fetchdf`/`fetch_arrow_table`/`fetch_record_batch`.
@@ -52,7 +52,7 @@
 - Prepared parameters pass positionally as `?` or by `$name`; `execute(query, parameters)` binds them, never string interpolation.
 - User-defined functions register through `create_function` with explicit `parameters`/`return_type` and a `PythonExceptionHandling` policy; vectorised UDFs use Arrow `type='arrow'`.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `duckdb`

@@ -2,7 +2,7 @@
 
 `@bufbuild/protobuf` supplies the descriptor type system, generated message runtime, and wire-codec operations for Protobuf editions 2023/2024/proto2/proto3: descriptor interfaces (`DescMessage`, `DescService`, `DescField`, …), type extractors (`MessageShape`, `MessageInitShape`, `EnumShape`), `create` for zero-value instantiation, `toBinary`/`fromBinary` for binary codec, `toJson`/`fromJson`/`toJsonString` for JSON codec, and `Registry`/`FileRegistry` for type lookup.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@bufbuild/protobuf`
 - package: `@bufbuild/protobuf`
@@ -10,22 +10,22 @@
 - asset: runtime library
 - rail: wire
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: descriptor family
 - rail: wire
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]         | [RAIL]                              |
 | :-----: | :-------------- | :-------------------- | :---------------------------------- |
-|   [1]   | `DescFile`      | file descriptor       | proto file, edition, imports, types |
-|   [2]   | `DescMessage`   | message descriptor    | fields, oneofs, nested types        |
-|   [3]   | `DescField`     | field descriptor      | discriminated by `fieldKind`        |
-|   [4]   | `DescEnum`      | enum descriptor       | values, open/closed flag            |
-|   [5]   | `DescEnumValue` | enum-value descriptor | numeric value, localName            |
-|   [6]   | `DescService`   | service descriptor    | methods map, typeName               |
-|   [7]   | `DescMethod`    | method descriptor     | `methodKind`, input, output         |
-|   [8]   | `DescOneof`     | oneof descriptor      | grouped fields                      |
-|   [9]   | `DescExtension` | extension descriptor  | extendee, typeName                  |
+|  [01]   | `DescFile`      | file descriptor       | proto file, edition, imports, types |
+|  [02]   | `DescMessage`   | message descriptor    | fields, oneofs, nested types        |
+|  [03]   | `DescField`     | field descriptor      | discriminated by `fieldKind`        |
+|  [04]   | `DescEnum`      | enum descriptor       | values, open/closed flag            |
+|  [05]   | `DescEnumValue` | enum-value descriptor | numeric value, localName            |
+|  [06]   | `DescService`   | service descriptor    | methods map, typeName               |
+|  [07]   | `DescMethod`    | method descriptor     | `methodKind`, input, output         |
+|  [08]   | `DescOneof`     | oneof descriptor      | grouped fields                      |
+|  [09]   | `DescExtension` | extension descriptor  | extendee, typeName                  |
 |  [10]   | `AnyDesc`       | union of all descs    | kind-discriminated descriptor union |
 
 [PUBLIC_TYPE_SCOPE]: method-kind typed descriptors
@@ -33,81 +33,81 @@
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]        | [RAIL]                           |
 | :-----: | :------------------------------- | :------------------- | :------------------------------- |
-|   [1]   | `DescMethodUnary<I,O>`           | typed method desc    | `methodKind: "unary"`            |
-|   [2]   | `DescMethodServerStreaming<I,O>` | typed method desc    | `methodKind: "server_streaming"` |
-|   [3]   | `DescMethodClientStreaming<I,O>` | typed method desc    | `methodKind: "client_streaming"` |
-|   [4]   | `DescMethodBiDiStreaming<I,O>`   | typed method desc    | `methodKind: "bidi_streaming"`   |
-|   [5]   | `DescMethodStreaming<I,O>`       | union of 3 streaming | client/server/bidi union         |
+|  [01]   | `DescMethodUnary<I,O>`           | typed method desc    | `methodKind: "unary"`            |
+|  [02]   | `DescMethodServerStreaming<I,O>` | typed method desc    | `methodKind: "server_streaming"` |
+|  [03]   | `DescMethodClientStreaming<I,O>` | typed method desc    | `methodKind: "client_streaming"` |
+|  [04]   | `DescMethodBiDiStreaming<I,O>`   | typed method desc    | `methodKind: "bidi_streaming"`   |
+|  [05]   | `DescMethodStreaming<I,O>`       | union of 3 streaming | client/server/bidi union         |
 
 [PUBLIC_TYPE_SCOPE]: message type extractors
 - rail: wire
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]     | [RAIL]                                    |
 | :-----: | :-------------------------- | :---------------- | :---------------------------------------- |
-|   [1]   | `Message<TypeName>`         | base message type | `$typeName` + optional `$unknown` fields  |
-|   [2]   | `MessageShape<Desc>`        | decoded shape     | runtime JS type for a `DescMessage`       |
-|   [3]   | `MessageInitShape<Desc>`    | init shape        | partial init accepted by `create()`       |
-|   [4]   | `MessageJsonType<Desc>`     | JSON shape        | JSON type (requires `json_types=true`)    |
-|   [5]   | `EnumShape<Desc>`           | enum value type   | numeric or typed enum value               |
-|   [6]   | `EnumJsonType<Desc>`        | enum JSON type    | string enum name or null                  |
-|   [7]   | `ExtensionValueShape<Desc>` | extension value   | value type for an extension field         |
-|   [8]   | `UnknownField`              | unknown field     | `no`, `wireType`, `data` for unknown data |
+|  [01]   | `Message<TypeName>`         | base message type | `$typeName` + optional `$unknown` fields  |
+|  [02]   | `MessageShape<Desc>`        | decoded shape     | runtime JS type for a `DescMessage`       |
+|  [03]   | `MessageInitShape<Desc>`    | init shape        | partial init accepted by `create()`       |
+|  [04]   | `MessageJsonType<Desc>`     | JSON shape        | JSON type (requires `json_types=true`)    |
+|  [05]   | `EnumShape<Desc>`           | enum value type   | numeric or typed enum value               |
+|  [06]   | `EnumJsonType<Desc>`        | enum JSON type    | string enum name or null                  |
+|  [07]   | `ExtensionValueShape<Desc>` | extension value   | value type for an extension field         |
+|  [08]   | `UnknownField`              | unknown field     | `no`, `wireType`, `data` for unknown data |
 
 [PUBLIC_TYPE_SCOPE]: registry family
 - rail: wire
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]    | [RAIL]                              |
 | :-----: | :---------------- | :--------------- | :---------------------------------- |
-|   [1]   | `Registry`        | read registry    | lookup by fully qualified type name |
-|   [2]   | `MutableRegistry` | mutable registry | add/remove descriptors at runtime   |
-|   [3]   | `FileRegistry`    | file registry    | registry plus file lookup by name   |
+|  [01]   | `Registry`        | read registry    | lookup by fully qualified type name |
+|  [02]   | `MutableRegistry` | mutable registry | add/remove descriptors at runtime   |
+|  [03]   | `FileRegistry`    | file registry    | registry plus file lookup by name   |
 
 [PUBLIC_TYPE_SCOPE]: well-known types (`@bufbuild/protobuf/wkt`)
 - rail: wire
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                                                                  |
 | :-----: | :---------------- | :------------ | :---------------------------------------------------------------------- |
-|   [1]   | `FieldMask`       | WKT message   | `paths: string[]` repeated dotted-path set; `google.protobuf.FieldMask` |
-|   [2]   | `FieldMaskSchema` | `GenMessage`  | descriptor for `create`/`fromBinary`/`fromJson` of `FieldMask`          |
-|   [3]   | `Timestamp`       | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Timestamp`         |
-|   [4]   | `TimestampSchema` | `GenMessage`  | descriptor for `Timestamp` instantiation                                |
-|   [5]   | `Duration`        | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Duration`          |
-|   [6]   | `Any`             | WKT message   | `typeUrl: string`, `value: Uint8Array`; `google.protobuf.Any`           |
+|  [01]   | `FieldMask`       | WKT message   | `paths: string[]` repeated dotted-path set; `google.protobuf.FieldMask` |
+|  [02]   | `FieldMaskSchema` | `GenMessage`  | descriptor for `create`/`fromBinary`/`fromJson` of `FieldMask`          |
+|  [03]   | `Timestamp`       | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Timestamp`         |
+|  [04]   | `TimestampSchema` | `GenMessage`  | descriptor for `Timestamp` instantiation                                |
+|  [05]   | `Duration`        | WKT message   | `seconds: bigint`, `nanos: number`; `google.protobuf.Duration`          |
+|  [06]   | `Any`             | WKT message   | `typeUrl: string`, `value: Uint8Array`; `google.protobuf.Any`           |
 
 [PUBLIC_TYPE_SCOPE]: scalar types
 - rail: wire
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                               |
 | :-----: | :----------- | :------------ | :----------------------------------- |
-|   [1]   | `ScalarType` | numeric enum  | 14 scalar field kinds (no GROUP/MSG) |
+|  [01]   | `ScalarType` | numeric enum  | 14 scalar field kinds (no GROUP/MSG) |
 
 [PUBLIC_TYPE_SCOPE]: codec options
 - rail: wire
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                                 |
 | :-----: | :----------------------- | :------------ | :--------------------------------------------------------------------- |
-|   [1]   | `BinaryWriteOptions`     | write options | `writeUnknownFields` flag                                              |
-|   [2]   | `BinaryReadOptions`      | read options  | `readUnknownFields` flag                                               |
-|   [3]   | `JsonWriteOptions`       | write options | `alwaysEmitImplicit`, `enumAsInteger`, `useProtoFieldName`, `registry` |
-|   [4]   | `JsonReadOptions`        | read options  | `ignoreUnknownFields`, `registry`                                      |
-|   [5]   | `JsonWriteStringOptions` | write options | `JsonWriteOptions` + `prettySpaces`                                    |
+|  [01]   | `BinaryWriteOptions`     | write options | `writeUnknownFields` flag                                              |
+|  [02]   | `BinaryReadOptions`      | read options  | `readUnknownFields` flag                                               |
+|  [03]   | `JsonWriteOptions`       | write options | `alwaysEmitImplicit`, `enumAsInteger`, `useProtoFieldName`, `registry` |
+|  [04]   | `JsonReadOptions`        | read options  | `ignoreUnknownFields`, `registry`                                      |
+|  [05]   | `JsonWriteStringOptions` | write options | `JsonWriteOptions` + `prettySpaces`                                    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: message lifecycle
 - rail: wire
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]    | [RAIL]                                     |
 | :-----: | :---------------------------------------------------- | :---------------- | :----------------------------------------- |
-|   [1]   | `create(schema, init?)`                               | constructor       | zero-value message, optionally initialized |
-|   [2]   | `toBinary(schema, message, options?)`                 | binary serializer | `Uint8Array` from message                  |
-|   [3]   | `fromBinary(schema, bytes, options?)`                 | binary parser     | message from `Uint8Array`                  |
-|   [4]   | `mergeFromBinary(schema, target, bytes, options?)`    | binary merge      | merge bytes into existing message          |
-|   [5]   | `toJson(schema, message, options?)`                   | JSON serializer   | `JsonValue` from message                   |
-|   [6]   | `toJsonString(schema, message, options?)`             | JSON serializer   | JSON string from message                   |
-|   [7]   | `fromJson(schema, json, options?)`                    | JSON parser       | message from `JsonValue`                   |
-|   [8]   | `fromJsonString(schema, json, options?)`              | JSON parser       | message from JSON string                   |
-|   [9]   | `mergeFromJson(schema, target, json, options?)`       | JSON merge        | merge JSON into existing message           |
+|  [01]   | `create(schema, init?)`                               | constructor       | zero-value message, optionally initialized |
+|  [02]   | `toBinary(schema, message, options?)`                 | binary serializer | `Uint8Array` from message                  |
+|  [03]   | `fromBinary(schema, bytes, options?)`                 | binary parser     | message from `Uint8Array`                  |
+|  [04]   | `mergeFromBinary(schema, target, bytes, options?)`    | binary merge      | merge bytes into existing message          |
+|  [05]   | `toJson(schema, message, options?)`                   | JSON serializer   | `JsonValue` from message                   |
+|  [06]   | `toJsonString(schema, message, options?)`             | JSON serializer   | JSON string from message                   |
+|  [07]   | `fromJson(schema, json, options?)`                    | JSON parser       | message from `JsonValue`                   |
+|  [08]   | `fromJsonString(schema, json, options?)`              | JSON parser       | message from JSON string                   |
+|  [09]   | `mergeFromJson(schema, target, json, options?)`       | JSON merge        | merge JSON into existing message           |
 |  [10]   | `mergeFromJsonString(schema, target, json, options?)` | JSON merge        | merge JSON string into existing message    |
 |  [11]   | `enumToJson(descEnum, value)`                         | enum serializer   | enum value to JSON string/null             |
 |  [12]   | `enumFromJson(descEnum, json)`                        | enum parser       | JSON string/null to enum value             |
@@ -117,40 +117,40 @@
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]   | [RAIL]                                      |
 | :-----: | :-------------------------------------- | :--------------- | :------------------------------------------ |
-|   [1]   | `createRegistry(...input)`              | registry factory | read `Registry` from descriptors            |
-|   [2]   | `createMutableRegistry(...input)`       | registry factory | `MutableRegistry` with add/remove           |
-|   [3]   | `createFileRegistry(fileDescriptorSet)` | file registry    | `FileRegistry` from `FileDescriptorSet`     |
-|   [4]   | `createFileRegistry(proto, resolve)`    | file registry    | `FileRegistry` from single proto + resolver |
-|   [5]   | `createFileRegistry(...registries)`     | file registry    | merged `FileRegistry` from registries       |
+|  [01]   | `createRegistry(...input)`              | registry factory | read `Registry` from descriptors            |
+|  [02]   | `createMutableRegistry(...input)`       | registry factory | `MutableRegistry` with add/remove           |
+|  [03]   | `createFileRegistry(fileDescriptorSet)` | file registry    | `FileRegistry` from `FileDescriptorSet`     |
+|  [04]   | `createFileRegistry(proto, resolve)`    | file registry    | `FileRegistry` from single proto + resolver |
+|  [05]   | `createFileRegistry(...registries)`     | file registry    | merged `FileRegistry` from registries       |
 
 [ENTRYPOINT_SCOPE]: descriptor reflection walk
 - rail: wire
 
 The descriptor-evolution gate (`Contract/descriptor.md`) reads the descriptor surface through these iteration accessors and the `@bufbuild/protobuf/reflect` `nestedTypes` walker; `registry.files` is the file roster a `createFileRegistry(set)` yields, and every member below is a read-only property of the immutable descriptor interfaces.
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]   | [RAIL]                                                                  |
-| :-----: | :--------------------------------- | :--------------- | :--------------------------------------------------------------------- |
-|   [1]   | `registry.files`                   | file roster      | iterable of `DescFile` the registry resolved                           |
-|   [2]   | `nestedTypes(file)`                | recursive walker | `@bufbuild/protobuf/reflect`; yields `type.kind` message/enum/extension/service |
-|   [3]   | `file.messages` / `message.typeName` | message roster | top-level `DescMessage` iterable; fully qualified name                  |
-|   [4]   | `message.fields` / `field.name`    | field roster     | declaration-order `DescField` iterable; source field name              |
-|   [5]   | `field.number` / `field.localName` | field identity   | proto field number; ECMAScript-safe accessor name                      |
-|   [6]   | `field.fieldKind` / `field.listKind` | field kind     | `scalar`/`enum`/`message`/`list`/`map`; `list`-arm element kind         |
-|   [7]   | `file.enums` / `enum.values`       | enum roster      | `DescEnum` iterable; `DescEnumValue` iterable with `value.name`         |
-|   [8]   | `file.services` / `service.methods` | service roster  | `DescService` iterable; `DescMethod` iterable with `method.name`        |
-|   [9]   | `method.methodKind` / `method.input` / `method.output` | method shape | `unary`/`server_streaming`/…; input and output `DescMessage` |
-|  [10]   | `reflect(schema, message)`         | message reflect  | `@bufbuild/protobuf/reflect`; `reflected.fields`, `clear(field)`, `getOption` |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [RAIL]                                                                          |
+| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `registry.files`                                       | file roster      | iterable of `DescFile` the registry resolved                                    |
+|  [02]   | `nestedTypes(file)`                                    | recursive walker | `@bufbuild/protobuf/reflect`; yields `type.kind` message/enum/extension/service |
+|  [03]   | `file.messages` / `message.typeName`                   | message roster   | top-level `DescMessage` iterable; fully qualified name                          |
+|  [04]   | `message.fields` / `field.name`                        | field roster     | declaration-order `DescField` iterable; source field name                       |
+|  [05]   | `field.number` / `field.localName`                     | field identity   | proto field number; ECMAScript-safe accessor name                               |
+|  [06]   | `field.fieldKind` / `field.listKind`                   | field kind       | `scalar`/`enum`/`message`/`list`/`map`; `list`-arm element kind                 |
+|  [07]   | `file.enums` / `enum.values`                           | enum roster      | `DescEnum` iterable; `DescEnumValue` iterable with `value.name`                 |
+|  [08]   | `file.services` / `service.methods`                    | service roster   | `DescService` iterable; `DescMethod` iterable with `method.name`                |
+|  [09]   | `method.methodKind` / `method.input` / `method.output` | method shape     | `unary`/`server_streaming`/…; input and output `DescMessage`                    |
+|  [10]   | `reflect(schema, message)`                             | message reflect  | `@bufbuild/protobuf/reflect`; `reflected.fields`, `clear(field)`, `getOption`   |
 
 [ENTRYPOINT_SCOPE]: well-known-type helpers (`@bufbuild/protobuf/wkt`)
 - rail: wire
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                              |
 | :-----: | :--------------------------------- | :------------- | :-------------------------------------------------- |
-|   [1]   | `anyPack(schema, message)`         | Any pack       | wrap a typed message into `Any` (`typeUrl`+`value`) |
-|   [2]   | `anyUnpack(any, registryOrSchema)` | Any unpack     | unwrap `Any` by registry or descriptor schema       |
-|   [3]   | `anyUnpackTo(any, schema, target)` | Any unpack     | unwrap `Any` into an existing target message        |
+|  [01]   | `anyPack(schema, message)`         | Any pack       | wrap a typed message into `Any` (`typeUrl`+`value`) |
+|  [02]   | `anyUnpack(any, registryOrSchema)` | Any unpack     | unwrap `Any` by registry or descriptor schema       |
+|  [03]   | `anyUnpackTo(any, schema, target)` | Any unpack     | unwrap `Any` into an existing target message        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DESCRIPTOR_TOPOLOGY]:
 - descriptor objects are immutable read-only interfaces; `DescField` is a discriminated union on `fieldKind`: `"scalar"`, `"message"`, `"enum"`, `"list"`, `"map"`

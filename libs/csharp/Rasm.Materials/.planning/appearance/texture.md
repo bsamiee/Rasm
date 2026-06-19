@@ -2,11 +2,11 @@
 
 ONE `TextureUv` static sampling fold over the closed `TextureSource` `[Union]` (noise · checker · gradient · image · triplanar), addressed by the closed `AddressMode` band, filtered by the closed `FilterMode` band, and seeded by the author-kernel `ProceduralNoise` over the closed `NoiseBasis` band (Perlin gradient · OpenSimplex2 · Worley cellular) vendored inline from the FastNoiseLite algorithm, with fBm expressed as octave-summation of a basis (`Octaves > 1`) rather than a fourth basis. A texture variation is a `TextureSource` CASE, a sampling mode is an `AddressMode`/`FilterMode`/`NoiseBasis` ROW, a color is the one `Unicolour` carrier — never a parallel sampler, a per-filter method, a parallel fractal-vs-basis enum, or a second color register. The page consumes Wacton.Unicolour directly as the scene-linear color owner for every color output and composes the Rasm/Vectors `UnitInterval`/`Dimension` value-objects for UV coordinates and image extents — never re-minting a color space or a coordinate primitive. The color-bearing texture output resolves through the canonical `graph#MATERIAL_GRAPH` `PortValue.Color` carrier; the interior algebra threads the raw `ShadeVec4` four-lane scalar-field register, crossing the color axis only through the single explicit `ShadeVec4.AsColor`/`FromColor` boundary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis` bands, the `ProceduralNoise` author-kernel, the `TextureSource` union, the one `TextureUv` sampling fold, and the `ShadeVec4` register.
+- [01]-[TEXTURE_UV]: the `AddressMode`/`FilterMode`/`NoiseBasis` bands, the `ProceduralNoise` author-kernel, the `TextureSource` union, the one `TextureUv` sampling fold, and the `ShadeVec4` register.
 
-## [2]-[TEXTURE_UV]
+## [02]-[TEXTURE_UV]
 
 - Owner: `TextureUv` static sampling fold; `AddressMode`/`FilterMode`/`NoiseBasis` `[SmartEnum<int>]` bands; `ProceduralNoise` author-kernel; `TextureSource` `[Union]`.
 - Cases: address {repeat, clamp, mirror} · filter {nearest, bilinear, bicubic, trilinear} · noise-basis {perlin, simplex, worley} (fBm is octave-summation over a basis, `Octaves > 1`, not a fourth basis) · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
@@ -325,7 +325,7 @@ public static class TextureUv {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SIMPLEX_PATENT]: the noise kernel uses OpenSimplex2 (the FastNoiseLite default), not Perlin's patented Simplex — the patent (US 6,867,776, expired 2022) is moot, but OpenSimplex2 is the vendored basis regardless, with the skewed-lattice three-corner summation transcribed inline; a value/cubic basis lands as one `NoiseBasis` row binding one `ProceduralNoise.Sample` arm.
 - [MIP_GENERATION]: the `Image` case carries a pre-built mip pyramid (`Levels`); the box-filter downsample that generates it is the consumer's responsibility at texture import, not a sampler concern — the sampler reconstructs from the supplied pyramid and rails `<texture-level-undersized>` on a malformed payload rather than synthesizing levels at sample time.

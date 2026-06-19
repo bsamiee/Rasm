@@ -2,11 +2,11 @@
 
 THE STEEL PROFILEFAMILY. The steel cross-section vocabulary — the AISC Shapes Database v16.0 section-property columns (depth / flange-width / web-thickness / flange-thickness / fillet, the `Ix`/`Sx`/`Zx` strong-axis stiffness columns) and the `IfcProfileDef` I-shape/U-shape/L-shape/HSS subtype discriminant — is the second realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Steel` case. A wide-flange section is a `Profile` row, never a `WSection` type: the section shape, the dimensional columns, and the stiffness receipt are steel-`Profile` columns, and the `SteelSection` projection feeds the same `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry family drives — a steel member extrudes through one `Profile` over the `RunPath`, never a per-family layout. The steel vocabulary grows by data — a new section is one `SteelShape` catalogue row, a new subtype one `SteelClass` case — never a per-section type. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape and the `Rasm` kernel `Dimension` value-object for every length column; cmu/timber/glazing land their own sibling vocabularies on their own pages.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[STEEL_FAMILY]: the `SteelClass` subtype axis, the `SteelSection` section-property record, the `ProfileUnit` projection that flows a steel section through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildSteelRows` AISC row table.
+- [01]-[STEEL_FAMILY]: the `SteelClass` subtype axis, the `SteelSection` section-property record, the `ProfileUnit` projection that flows a steel section through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildSteelRows` AISC row table.
 
-## [2]-[STEEL_FAMILY]
+## [02]-[STEEL_FAMILY]
 
 - Owner: the steel section vocabulary (`SteelClass` the `IfcProfileDef` subtype discriminant, `SteelSection` the AISC section-property record); `ProfileCatalogue.BuildSteelRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `SteelSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`.
 - Cases: class {i-shape (W/M/S/HP), u-shape (C/MC channel), l-shape (L angle), hss-rect, hss-round, tee (WT/MT/ST)} — the closed `IfcProfileDef` parameterized-profile subtype set; a section is a `SteelSection` row over one `SteelClass`, never a section subtype.
@@ -92,7 +92,7 @@ public static class ProfileCatalogue {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [AISC_ROW_TRANSCRIPTION]: the AISC Shapes Database v16.0 carries all standard US steel shapes (1873-2016) with the depth/flange-width/web/flange-thickness/fillet dimensional columns and the `Ix`/`Sx`/`Zx`/`A` section-property columns in both US-customary and SI units; the five W-shape rows are the realized seed and the remaining W/M/S/HP/C/MC/L/HSS/WT rows are pure `SteelRow` data additions through `IShapeRows`, each one row, never a new type. The transcription reads the SI-unit AISC columns directly; a designation keys `steel.<edi-designation>`. The raw `SteelRow` carries plain doubles and admits once through `IShapeOf` into the kernel value-objects, so the catalogue seed validates every column rather than trusting a literal.
 - [POSITIVE_MAGNITUDE_ADMISSION]: the kernel value-objects admit through `key.AcceptValidated<TVO>(candidate:)` (the `Op` extension returning `Fin<TVO>` for any `IObjectFactory<TVO, double/int, ValidationError>`), not a `PositiveMagnitude.Of(value, context, key)` overload — no such `.Of(double, Context, Op)` exists on `Dimension`, `PositiveMagnitude`, or `UnitInterval`; the already-valid-literal route is the Thinktecture total `PositiveMagnitude.Create(value:)`. AISC v16.0 dimensional columns are fractional millimeters (`TwMm = 9.02`, `KMm = 24.4`), so every section column — depth/flange/web/fillet and the `Ix`/`Sx`/`Zx`/`A` stiffness columns — admits as the double-backed `PositiveMagnitude` (`> 0`, finite); the int-backed `Dimension` (`>= 1` discrete count) would truncate a fractional web thickness and corrupt the `FlangeSlenderness`/`WebSlenderness`/`IsCompact` design verdicts, so it is never the carrier for a continuous measured dimension. A non-positive or non-finite column rails the value-object's own `Fin`, so a malformed AISC row drops from `BuildSteelRows` through `Choose` rather than seeding a degenerate `Profile`.

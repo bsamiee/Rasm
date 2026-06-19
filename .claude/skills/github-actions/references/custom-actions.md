@@ -1,12 +1,12 @@
 # [H1][CUSTOM-ACTIONS]
 
-## [1]-[ACTION_TYPES]
+## [01]-[ACTION_TYPES]
 
 | [INDEX] | [TYPE]     | [RUNTIME]     | [STARTUP] | [PRE/POST] | [USE_CASE]             |
 | :-----: | ---------- | ------------- | :-------: | :--------: | ---------------------- |
-|   [1]   | Composite  | Shell/Actions |   Fast    |     No     | Step orchestration     |
-|   [2]   | Docker     | Container     |   Slow    | Dockerfile | Isolated environment   |
-|   [3]   | JavaScript | `node24`      |  Fastest  |    Yes     | GitHub API integration |
+|  [01]   | Composite  | Shell/Actions |   Fast    |     No     | Step orchestration     |
+|  [02]   | Docker     | Container     |   Slow    | Dockerfile | Isolated environment   |
+|  [03]   | JavaScript | `node24`      |  Fastest  |    Yes     | GitHub API integration |
 
 **Details:**
 1. Combine workflow steps; error propagation via `if: failure()`
@@ -16,13 +16,13 @@
 
 | [INDEX] | [QUESTION]                      | [ANSWER] | [RECOMMENDATION]                              |
 | :-----: | ------------------------------- | :------: | --------------------------------------------- |
-|   [1]   | **Shared steps only?**          |   Yes    | Composite action.                             |
-|   [2]   | **Custom runtime/tools?**       |   Yes    | Docker action.                                |
-|   [3]   | **GitHub API / complex logic?** |   Yes    | JavaScript action.                            |
-|   [4]   | **Full pipeline reuse?**        |   Yes    | Reusable workflow (`workflow_call`).          |
-|   [5]   | **SLSA L3 provenance?**         |   Yes    | Reusable workflow (`job_workflow_ref` claim). |
+|  [01]   | **Shared steps only?**          |   Yes    | Composite action.                             |
+|  [02]   | **Custom runtime/tools?**       |   Yes    | Docker action.                                |
+|  [03]   | **GitHub API / complex logic?** |   Yes    | JavaScript action.                            |
+|  [04]   | **Full pipeline reuse?**        |   Yes    | Reusable workflow (`workflow_call`).          |
+|  [05]   | **SLSA L3 provenance?**         |   Yes    | Reusable workflow (`job_workflow_ref` claim). |
 
-## [2]-[DIRECTORY_STRUCTURE]
+## [02]-[DIRECTORY_STRUCTURE]
 
 **Local actions** (monorepo pattern): `.github/actions/<name>/action.yml`
 
@@ -38,7 +38,7 @@
 
 [IMPORTANT] Monorepo pattern `.github/actions/` keeps actions co-located with consuming workflows. Each action is self-contained with own `action.yml`.
 
-## [3]-[METADATA]
+## [03]-[METADATA]
 
 ```yaml
 name: 'Action Name'
@@ -65,7 +65,7 @@ runs:
 
 [IMPORTANT] Composite inputs are always strings (no `type:` key). JavaScript actions support `pre:` and `post:` lifecycle steps for setup/cleanup.
 
-## [4]-[ERROR_PROPAGATION]
+## [04]-[ERROR_PROPAGATION]
 
 ```yaml
 runs:
@@ -85,7 +85,7 @@ runs:
 
 [CRITICAL] Composite actions require `shell:` on every `run:` step. `continue-on-error` behavior with input variables is unpredictable — test thoroughly.
 
-## [5]-[VERSIONING]
+## [05]-[VERSIONING]
 
 ```bash
 git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0
@@ -94,17 +94,17 @@ git tag -fa v1 -m "Update v1 to v1.0.0" && git push origin v1 --force
 
 Consumers reference: `@v1.0.0` (exact), `@v1` (latest v1.x), `@SHA` (most secure). [REFERENCE] SHA pinning protocol: [->version-discovery.md§SHA_PINNING_FORMAT](./version-discovery.md).
 
-## [6]-[RUNTIME]
+## [06]-[RUNTIME]
 
 | [INDEX] | [RUNTIME]       | [STATUS]                                                 |
 | :-----: | --------------- | -------------------------------------------------------- |
-|   [1]   | **`node24`**    | Required — use `using: 'node24'` for JavaScript actions. |
-|   [2]   | **`docker`**    | Stable — `using: 'docker'` with `image: 'Dockerfile'`.   |
-|   [3]   | **`composite`** | Stable — `using: 'composite'` with `steps:`.             |
+|  [01]   | **`node24`**    | Required — use `using: 'node24'` for JavaScript actions. |
+|  [02]   | **`docker`**    | Stable — `using: 'docker'` with `image: 'Dockerfile'`.   |
+|  [03]   | **`composite`** | Stable — `using: 'composite'` with `steps:`.             |
 
 **Toolkit:** `@actions/core@3.x`, `@actions/github@9.x`. Bundle with `@vercel/ncc@0.38.x build index.js --minify`.
 
-## [7]-[JAVASCRIPT_ACTIONS]
+## [07]-[JAVASCRIPT_ACTIONS]
 
 **Lifecycle:** `pre:` runs before job steps (setup). `main:` runs as the action step. `post:` runs after job completes (cleanup, even on failure).
 
@@ -128,7 +128,7 @@ core.setOutput('result', JSON.stringify({ status: 'ok', version: '1.0.0' }));
 core.setSecret(token);  // masks in all subsequent logs
 ```
 
-## [8]-[DOCKER_ACTIONS]
+## [08]-[DOCKER_ACTIONS]
 
 ```dockerfile
 FROM golang:1.23 AS builder
@@ -154,7 +154,7 @@ runs:
 
 [IMPORTANT] Docker actions only run on Linux runners. Container startup adds 5-30s overhead. Prefer distroless/scratch base images.
 
-## [9]-[LOCAL_ACTION_CACHING]
+## [09]-[LOCAL_ACTION_CACHING]
 
 ```yaml
 # Composite action — split cache for deterministic control
@@ -181,10 +181,10 @@ steps:
 
 | [INDEX] | [STRATEGY]               | [TOOL]                     | [SCOPE]                                    |
 | :-----: | ------------------------ | -------------------------- | ------------------------------------------ |
-|   [1]   | **Unit test composites** | Workflow with known inputs | Test each step outcome in isolation.       |
-|   [2]   | **Integration test**     | `nektos/act`               | Run full action locally against Docker.    |
-|   [3]   | **CI validation**        | Dedicated test workflow    | `.github/workflows/test-action.yml` on PR. |
-|   [4]   | **Output validation**    | `actions/github-script`    | Assert outputs match expected values.      |
+|  [01]   | **Unit test composites** | Workflow with known inputs | Test each step outcome in isolation.       |
+|  [02]   | **Integration test**     | `nektos/act`               | Run full action locally against Docker.    |
+|  [03]   | **CI validation**        | Dedicated test workflow    | `.github/workflows/test-action.yml` on PR. |
+|  [04]   | **Output validation**    | `actions/github-script`    | Assert outputs match expected values.      |
 
 ## [11]-[MARKETPLACE]
 

@@ -2,7 +2,7 @@
 
 Three nesting levels: event -> matcher group -> hook handler.
 
-## [1]-[STRUCTURE]
+## [01]-[STRUCTURE]
 
 ```json
 {
@@ -19,23 +19,23 @@ Three nesting levels: event -> matcher group -> hook handler.
 **Command fields:** `command` (shell command/path), `async` (background, no decision control).
 **Prompt/Agent fields:** `prompt` (instructions, `$ARGUMENTS` = hook input JSON), `model` (fast model default).
 
-## [2]-[MATCHERS]
+## [02]-[MATCHERS]
 
 **Tool matchers** (PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure):
 
 | [INDEX] | [PATTERN]  | [EXAMPLE]           | [MATCHES]                    |
 | :-----: | ---------- | ------------------- | ---------------------------- |
-|   [1]   | Exact      | `"Bash"`            | Bash tool only               |
-|   [2]   | Regex OR   | `"Edit\|Write"`     | Edit or Write                |
-|   [3]   | Regex wild | `"Notebook.*"`      | NotebookRead, NotebookEdit   |
-|   [4]   | Empty/`*`  | `""`                | All tools (catch-all)        |
-|   [5]   | MCP        | `"mcp__memory__.*"` | All tools from memory server |
+|  [01]   | Exact      | `"Bash"`            | Bash tool only               |
+|  [02]   | Regex OR   | `"Edit\|Write"`     | Edit or Write                |
+|  [03]   | Regex wild | `"Notebook.*"`      | NotebookRead, NotebookEdit   |
+|  [04]   | Empty/`*`  | `""`                | All tools (catch-all)        |
+|  [05]   | MCP        | `"mcp__memory__.*"` | All tools from memory server |
 
 **Session matchers:** `"startup"`, `"resume"`, `"clear"`, `"compact"` (SessionStart); `"init"`, `"maintenance"` (Setup); `"clear"`, `"logout"`, `"prompt_input_exit"`, `"bypass_permissions_disabled"`, `"other"` (SessionEnd).
 **Other matchers:** Notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, `"elicitation_dialog"`. SubagentStart/Stop: agent type name. PreCompact: `"manual"|"auto"`.
 **No matcher support:** UserPromptSubmit, Stop, TeammateIdle, TaskCompleted — always fire.
 
-## [3]-[JSON_RESPONSES]
+## [03]-[JSON_RESPONSES]
 
 **Universal output (exit 0):** `continue` (false halts Claude), `stopReason` (message on halt), `suppressOutput` (hide stdout), `systemMessage` (warning to user).
 
@@ -47,7 +47,7 @@ Three nesting levels: event -> matcher group -> hook handler.
 
 **Context injection** (SessionStart, Setup, UserPromptSubmit): Plain stdout or `additionalContext` in JSON. SessionStart supports `CLAUDE_ENV_FILE`. Setup stdout becomes context visible to Claude.
 
-## [4]-[HOOK_TYPES]
+## [04]-[HOOK_TYPES]
 
 **Command hooks:** Deterministic shell scripts. JSON stdin, exit codes + optional JSON stdout.
 **Prompt hooks:** Single-turn LLM evaluation. Response: `{"ok": true}` or `{"ok": false, "reason": "..."}`.
@@ -57,14 +57,14 @@ Three nesting levels: event -> matcher group -> hook handler.
 
 [IMPORTANT] TeammateIdle does NOT support prompt or agent hooks — exit codes only.
 
-## [5]-[TESTING]
+## [05]-[TESTING]
 
 | [INDEX] | [METHOD]    | [COMMAND]                                         |
 | :-----: | ----------- | ------------------------------------------------- |
-|   [1]   | List hooks  | `/hooks` interactive manager                      |
-|   [2]   | Debug mode  | `claude --debug` — shows hook match/execution     |
-|   [3]   | Verbose     | `Ctrl+O` toggle — shows hook output in transcript |
-|   [4]   | Direct test | `echo '{"tool_name":"Bash"}' \| python hook.py`   |
-|   [5]   | Disable all | `"disableAllHooks": true` in settings             |
+|  [01]   | List hooks  | `/hooks` interactive manager                      |
+|  [02]   | Debug mode  | `claude --debug` — shows hook match/execution     |
+|  [03]   | Verbose     | `Ctrl+O` toggle — shows hook output in transcript |
+|  [04]   | Direct test | `echo '{"tool_name":"Bash"}' \| python hook.py`   |
+|  [05]   | Disable all | `"disableAllHooks": true` in settings             |
 
-[REFERENCE] Validation checklist: [->validation.md§1](./validation.md#1schema_gate)
+[REFERENCE] Validation checklist: [->validation.md§01](./validation.md#01-schema_gate)

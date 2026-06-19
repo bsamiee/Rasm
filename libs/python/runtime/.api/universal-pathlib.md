@@ -2,7 +2,7 @@
 
 `universal-pathlib` supplies `UPath`: a `pathlib.Path`-shaped object over any fsspec backend, resolving protocol and `storage_options` at construction so local, memory, S3, GCS, and HTTP roots share one path API. It is the runtime path-object face over the fsspec filesystem surface.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `universal-pathlib`
 - package: `universal-pathlib`
@@ -12,34 +12,34 @@
 - namespaces: `upath`, `upath.implementations`, `upath.registry`
 - capability: fsspec-backed `pathlib`-shaped path objects with protocol and `storage_options` resolution
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: path family
 - rail: resources
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                       |
 | :-----: | :--------------------- | :------------ | :--------------------------- |
-|   [1]   | `UPath`                | path          | fsspec-backed universal path |
-|   [2]   | `UnsupportedOperation` | fault         | unsupported path operation   |
+|  [01]   | `UPath`                | path          | fsspec-backed universal path |
+|  [02]   | `UnsupportedOperation` | fault         | unsupported path operation   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: path operations
 - rail: resources
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :-------------------------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `UPath(url, protocol=..., **storage_options)` | build          | construct a backend-resolved path |
-|   [2]   | `UPath.fs`                                    | filesystem     | underlying fsspec filesystem      |
-|   [3]   | `UPath.path`                                  | path           | backend-relative path string      |
-|   [4]   | `UPath.protocol`                              | metadata       | resolved protocol                 |
-|   [5]   | `UPath.storage_options`                       | metadata       | resolved backend options          |
-|   [6]   | `UPath.open`                                  | access         | open the target                   |
-|   [7]   | `UPath.glob` / `UPath.rglob`                  | traverse       | pattern enumeration               |
-|   [8]   | `UPath.iterdir`                               | traverse       | directory listing                 |
-|   [9]   | `UPath.joinpath` / `/`                        | compose        | child path composition            |
+|  [01]   | `UPath(url, protocol=..., **storage_options)` | build          | construct a backend-resolved path |
+|  [02]   | `UPath.fs`                                    | filesystem     | underlying fsspec filesystem      |
+|  [03]   | `UPath.path`                                  | path           | backend-relative path string      |
+|  [04]   | `UPath.protocol`                              | metadata       | resolved protocol                 |
+|  [05]   | `UPath.storage_options`                       | metadata       | resolved backend options          |
+|  [06]   | `UPath.open`                                  | access         | open the target                   |
+|  [07]   | `UPath.glob` / `UPath.rglob`                  | traverse       | pattern enumeration               |
+|  [08]   | `UPath.iterdir`                               | traverse       | directory listing                 |
+|  [09]   | `UPath.joinpath` / `/`                        | compose        | child path composition            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RESOURCES_TOPOLOGY]:
 - path law: a resource reference is one `UPath` carrying its protocol and `storage_options`; path arithmetic (`/`, `joinpath`, `glob`) is backend-agnostic and the same code serves local and cloud roots.

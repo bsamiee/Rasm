@@ -4,7 +4,7 @@ The domain map of `platform` — the browser host-free platform substrate and SP
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 platform/
@@ -42,7 +42,7 @@ platform/
     └── grant.ts          # PermissionStatus.change -> PermissionState fold patching per-kind cell
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 transport/transport      ←  csharp:Rasm.Compute/Runtime        # [WIRE]: ArtifactFrameWire reassembly
@@ -60,6 +60,6 @@ transport/socket         →  typescript:interchange/codec       # [WIRE]: inbou
 shell/sync               →  typescript:interchange/transport   # [TRANSPORT]: offline queue drain resolved-intent replay
 ```
 
-## [3]-[ALTITUDE]
+## [03]-[ALTITUDE]
 
 The folder is the browser AppHost-analog: it owns runtime composition and host policy, never domain state, decode, or UI components. The infrastructure owners, the runtime-state spine (`AppLifecycle`, `CapabilityRank`), the `Connectivity` edge, the `BrowserCapability` permission edge, the `SocketTransport` modality, and the `DecodeWorkerPool` leg are platform-bound host owners, never one of the closed five app-services. `Shell/capability` is the single permission-grant owner the host policies resolve through, feeding `Runtime/rank` a denied-storage health input; `Transport/socket` is the single bidirectional-socket owner the `WebTransport`/CRDT-push-back legs compose. `Runtime/lifecycle` is the one page-lifecycle axis the former `visibilitychange` ingresses project from; `Runtime/connectivity` is the one online/offline owner read by `Runtime/rank`, `Shell/sync`, `Config/flags`, and `Observability/telemetry`. `Config/config` is the single env boundary, `Observability/telemetry` the single instrument owner and collector path, `Session/store` the single browser-local store, and uncaught faults reconstruct as the `interchange` typed fault family. The PWA shell splits at the build edge — `Shell/build` build-time-only, `Shell/serviceworker` the SW lifecycle, `Shell/sync` the redial drain — and `Transport/decode` hosts the residency-wire decode and the single content-key mint.

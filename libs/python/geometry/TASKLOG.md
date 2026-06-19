@@ -2,7 +2,7 @@
 
 Open and closed work for `geometry`, distilled from `IDEAS.md`. Each task card leads with a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` open; `[COMPLETE]` or `[DROPPED]` closed — and carries the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations. `[1]-[OPEN]` holds live work; `[2]-[CLOSED]` records finished or dropped tasks.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [BLOCKED] Add the IFC-bytes non-manifold topology constructor — from the `graph/nonmanifold.md` `IFC_BYTES_CONSTRUCTOR` residual. Blocked-gated on a `topologicpy` companion-interpreter assay confirming the `Topology.ByIFCFile(file)` constructor arity; the sharpened RESEARCH gate is landed, the arm fence waits.
 - Resolve the `Topology.ByIFCFile(file)` constructor arity (does it accept an `ifcopenshell.file` object or strictly a path string? the catalogue's bare `(file)` spelling is ambiguous) against the three-path resolution authored at `nonmanifold.md#3-IFC_BYTES_CONSTRUCTOR`: (1) hand the `ifcopenshell.open`-over-`guess_format` model object straight in if `ByIFCFile` accepts it; (2) the `IFC` integration facade's model-object entry; (3) the `Topology.ByOCCTShape(shape)` handle bridge. The temp-file detour is the FORBIDDEN form; the IFC-bytes arm is ONE `TopologyOp.CONSTRUCT` growth on the existing owner, never a new owner.
@@ -16,7 +16,7 @@ Open and closed work for `geometry`, distilled from `IDEAS.md`. Each task card l
 - The lane owner stays branch-side; geometry is the consumer that hands its kernels across the boundary, never a second concurrency surface in geometry; the offloaded callable is picklable on the `to_process` fallback path. The `daemon.md#DAEMON`, `registration.md#REGISTRATION`, and `repair.md#MESH` Growth bullets already carry the gated hand-off seam; `ingestion.md`/`reconstruction.md` carry it as the two remaining consumers.
 - Close-condition: the runtime `execution/lanes#LANES` `LanePolicy` CPU-offload variant lands on the branch runtime owner; the geometry-side realization is then a uniform one-call growth across the five owner fences.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 [COMPLETE] `scan/ingestion.md` — the `ScanIngestion` raw-scan preprocessing pipeline owner. One `IngestStage`-discriminated `pdal` `Reader | Filter | Writer` stage graph (`filters.smrf`/`filters.pmf` ground classify, `filters.outlier` removal, `filters.decimation`/`filters.voxeldownsize`, `filters.range` crop) over `Pipeline.execute`/`arrays`, plus the `ScanSource`-discriminated `pye57` E57 structured-scan-plus-pose path, folding cleaned structured arrays into one registration-ready `o3d.t.geometry.PointCloud` `registration.py` consumes. The inbound boundary is the data-branch `data/spatial/mesh#POINTCLOUD` `pyarrow.Table` (never a pdal `Pipeline` object across the seam, never re-owning `laspy` LAS decode); `pdal`/`pye57` ride the `<'3.15'` companion band (function-local import), and the `open3d` egress shares the manifest-admission delta with `reconstruction.md`. Resolves the branch-flagged `pye57`-catalogue-present-consumer-absent gap.
 

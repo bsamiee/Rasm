@@ -2,26 +2,26 @@
 
 Density is the ratio of verified behavior to test LOC. Techniques ordered by coverage multiplier.
 
-## [1]-[TECHNIQUE_CATALOG]
+## [01]-[TECHNIQUE_CATALOG]
 
 | [INDEX] | [TECHNIQUE]              | [MULTIPLIER]  | [MECHANISM]                                                  |
 | :-----: | ------------------------ | ------------- | ------------------------------------------------------------ |
-|   [1]   | `it.effect.prop` PBT     | 50-200x       | Single universally-quantified property                       |
-|   [2]   | Property packing         | 2-4x          | Multiple laws sharing one arbitrary shape                    |
-|   [3]   | `Effect.all` aggregation | Nx1           | N independent ops, single structural expect                  |
-|   [4]   | Table-driven vectors     | Nx1           | N vectors, single parameterized test body                    |
-|   [5]   | Symmetric iteration      | 2x            | `[[x,y],[y,x]] as const` + forEach                           |
-|   [6]   | Statistical batching     | Bulk          | `fc.sample()` + distribution analysis                        |
-|   [7]   | Schema-derived arbs      | Synced        | `Arbitrary.make(S)` eliminates hand-rolled gens              |
-|   [8]   | `fc.pre()` filtering     | Constrain     | Preconditions without if/else branching                      |
-|   [9]   | Model-based commands     | Stateful      | Arbitrary command interleavings via fc.commands()            |
+|   [01]   | `it.effect.prop` PBT     | 50-200x       | Single universally-quantified property                       |
+|   [02]   | Property packing         | 2-4x          | Multiple laws sharing one arbitrary shape                    |
+|   [03]   | `Effect.all` aggregation | Nx1           | N independent ops, single structural expect                  |
+|   [04]   | Table-driven vectors     | Nx1           | N vectors, single parameterized test body                    |
+|   [05]   | Symmetric iteration      | 2x            | `[[x,y],[y,x]] as const` + forEach                           |
+|   [06]   | Statistical batching     | Bulk          | `fc.sample()` + distribution analysis                        |
+|   [07]   | Schema-derived arbs      | Synced        | `Arbitrary.make(S)` eliminates hand-rolled gens              |
+|   [08]   | `fc.pre()` filtering     | Constrain     | Preconditions without if/else branching                      |
+|   [09]   | Model-based commands     | Stateful      | Arbitrary command interleavings via fc.commands()            |
 |  [10]   | External oracle vectors  | Authoritative | RFC/NIST vectors as `as const` + forEach                     |
 |  [11]   | `fc.scheduler()` races   | Concurrent    | Adversarial interleaving of async/fiber operations           |
 |  [12]   | Orchestration extraction | LOC/3         | Extract repeated service-call pattern to helper, merge tests |
 
 **Selection heuristic:** Start at [1]. Drop to lower-multiplier techniques only when the property shape or cost prevents a higher one.
 
-## [2]-[PROPERTY_BASED_TESTING]
+## [02]-[PROPERTY_BASED_TESTING]
 
 ```typescript
 it.effect.prop('inverse', { x: _json, y: _json }, ({ x, y }) =>
@@ -36,13 +36,13 @@ it.effect.prop('inverse', { x: _json, y: _json }, ({ x, y }) =>
 
 | [INDEX] | [TECHNIQUE]        | [NUMRUNS] | [RATIONALE]                          |
 | :-----: | ------------------ | :-------: | ------------------------------------ |
-|   [1]   | Algebraic PBT      |  100-200  | Cheap generation, high value per run |
-|   [2]   | Schema-derived PBT |  50-100   | Moderate generation cost             |
-|   [3]   | Model-based        |   15-30   | Expensive setup per command sequence |
-|   [4]   | Security isolation |    50     | Costly cross-tenant operations       |
-|   [5]   | Scheduler races    |   15-30   | Each run explores different ordering |
+|   [01]   | Algebraic PBT      |  100-200  | Cheap generation, high value per run |
+|   [02]   | Schema-derived PBT |  50-100   | Moderate generation cost             |
+|   [03]   | Model-based        |   15-30   | Expensive setup per command sequence |
+|   [04]   | Security isolation |    50     | Costly cross-tenant operations       |
+|   [05]   | Scheduler races    |   15-30   | Each run explores different ordering |
 
-## [3]-[PROPERTY_PACKING]
+## [03]-[PROPERTY_PACKING]
 
 **Pack when:** Same arbitrary parameters, same numRuns, laws form a logical group.
 **Split when:** Different arbitrary shapes, mixed success/failure expectations, unrelated operations.
@@ -65,7 +65,7 @@ it.effect.prop('hash/compare laws', { x: _nonempty, y: _nonempty }, ({ x, y }) =
 
 **Density gain:** 4 laws in ~12 LOC vs 4 separate tests at ~8 LOC each (12 vs 32).
 
-## [4]-[EFFECT_ALL_AGGREGATION]
+## [04]-[EFFECT_ALL_AGGREGATION]
 
 ```typescript
 it.effect('RFC ops', () => Effect.all([
@@ -83,7 +83,7 @@ it.effect('error codes', () => Effect.all([
 ]).pipe(Effect.map((codes) => expect(codes).toEqual(['INVALID_RECORD', 'MISSING_TYPE']))));
 ```
 
-## [5]-[TABLE_DRIVEN_TESTS]
+## [05]-[TABLE_DRIVEN_TESTS]
 
 ```typescript
 const RFC6902_VECTORS = [
@@ -99,7 +99,7 @@ it.effect('RFC6902 vectors', () =>
 ```
 
 Prefer `Effect.forEach` over `it.each` when the test body uses an Effect pipeline.
-## [6]-[SYMMETRIC_PROPERTIES]
+## [06]-[SYMMETRIC_PROPERTIES]
 
 ```typescript
 Effect.forEach([[x, y], [y, x]] as const, ([source, target]) =>
@@ -111,7 +111,7 @@ Effect.forEach([[x, y], [y, x]] as const, ([source, target]) =>
 
 Applies to: inverse laws, commutative operations, bidirectional codecs.
 
-## [7]-[ADVANCED_GENERATION]
+## [07]-[ADVANCED_GENERATION]
 
 ### [7.1]-[PRECONDITION_FILTERING]
 
@@ -140,7 +140,7 @@ const _input = fc.oneof(
 
 Diagnostic output for shrink traces: add `ctx: fc.context()` to arbitrary record, call `ctx.log()`.
 
-## [8]-[STATISTICAL_TESTING]
+## [08]-[STATISTICAL_TESTING]
 
 ```typescript
 const samples = fc.sample(_nonempty, { numRuns: 600 });
@@ -150,7 +150,7 @@ const results = yield* Effect.forEach(samples, (v) => Module.encrypt(v));
 
 **When:** Randomness quality (IV uniqueness, hash distribution), large input space coverage.
 
-## [9]-[MODEL_BASED_TESTING]
+## [09]-[MODEL_BASED_TESTING]
 
 ```typescript
 it.effect('model-based', () => Effect.promise(() => fc.assert(
@@ -171,9 +171,9 @@ Structural `toEqual` on `Effect.all` results kills more mutants than individual 
 
 | [INDEX] | [METRIC]                  | [TARGET] | [MEASUREMENT]                                    |
 | :-----: | ------------------------- | -------- | ------------------------------------------------ |
-|   [1]   | Generated cases per suite | 2,500+   | Sum of numRuns across all `it.effect.prop` calls |
-|   [2]   | Test-to-source LOC ratio  | ~1.2     | Test LOC / source LOC (lower = denser)           |
-|   [3]   | Assertions per test       | 2-6      | Property packing sweet spot                      |
+|   [01]   | Generated cases per suite | 2,500+   | Sum of numRuns across all `it.effect.prop` calls |
+|   [02]   | Test-to-source LOC ratio  | ~1.2     | Test LOC / source LOC (lower = denser)           |
+|   [03]   | Assertions per test       | 2-6      | Property packing sweet spot                      |
 
 [REFERENCE] Hard thresholds (LOC cap, coverage, mutation): SKILL.md section 2.
 

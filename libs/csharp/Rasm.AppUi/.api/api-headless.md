@@ -2,7 +2,7 @@
 
 `Avalonia.Headless` and `Avalonia.Headless.XUnit` supply the headless windowing platform, unit-test sessions, isolation levels, synthetic input, frame capture, and xUnit fact/theory attributes for UI evidence.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Headless`
 - package: `Avalonia.Headless`
@@ -20,63 +20,63 @@
 - asset: test-scoped restore under `tests/csharp/libs/Rasm.AppUi`
 - rail: evidence
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PLATFORM_TYPES]: headless platform and session surfaces
 - rail: evidence
 
 | [INDEX] | [SYMBOL]                             | [RAIL]            |
 | :-----: | :----------------------------------- | :---------------- |
-|   [1]   | `AvaloniaHeadlessPlatform`           | platform owner    |
-|   [2]   | `AvaloniaHeadlessPlatformOptions`    | platform options  |
-|   [3]   | `AvaloniaHeadlessPlatformExtensions` | builder extension |
-|   [4]   | `HeadlessUnitTestSession`            | session owner     |
-|   [5]   | `AvaloniaTestApplicationAttribute`   | app binding       |
-|   [6]   | `AvaloniaTestIsolationAttribute`     | isolation binding |
-|   [7]   | `AvaloniaTestIsolationLevel`         | isolation level   |
+|  [01]   | `AvaloniaHeadlessPlatform`           | platform owner    |
+|  [02]   | `AvaloniaHeadlessPlatformOptions`    | platform options  |
+|  [03]   | `AvaloniaHeadlessPlatformExtensions` | builder extension |
+|  [04]   | `HeadlessUnitTestSession`            | session owner     |
+|  [05]   | `AvaloniaTestApplicationAttribute`   | app binding       |
+|  [06]   | `AvaloniaTestIsolationAttribute`     | isolation binding |
+|  [07]   | `AvaloniaTestIsolationLevel`         | isolation level   |
 
 [WINDOW_TYPES]: headless window, input, and capture surfaces
 - rail: evidence
 
 | [INDEX] | [SYMBOL]                          | [RAIL]            |
 | :-----: | :-------------------------------- | :---------------- |
-|   [1]   | `HeadlessWindowExtensions`        | input and capture |
-|   [2]   | `HeadlessWindowImpl`              | window impl       |
-|   [3]   | `IHeadlessWindow`                 | window contract   |
-|   [4]   | `HeadlessPlatformRenderInterface` | render stub       |
-|   [5]   | `HeadlessClipboardImplStub`       | clipboard stub    |
-|   [6]   | `HeadlessCursorFactoryStub`       | cursor stub       |
-|   [7]   | `HeadlessPlatformTypeface`        | typeface stub     |
+|  [01]   | `HeadlessWindowExtensions`        | input and capture |
+|  [02]   | `HeadlessWindowImpl`              | window impl       |
+|  [03]   | `IHeadlessWindow`                 | window contract   |
+|  [04]   | `HeadlessPlatformRenderInterface` | render stub       |
+|  [05]   | `HeadlessClipboardImplStub`       | clipboard stub    |
+|  [06]   | `HeadlessCursorFactoryStub`       | cursor stub       |
+|  [07]   | `HeadlessPlatformTypeface`        | typeface stub     |
 
 [XUNIT_TYPES]: xUnit fact, theory, and framework surfaces
 - rail: evidence
 
 | [INDEX] | [SYMBOL]                                | [RAIL]            |
 | :-----: | :-------------------------------------- | :---------------- |
-|   [1]   | `AvaloniaFactAttribute`                 | UI fact           |
-|   [2]   | `AvaloniaTheoryAttribute`               | UI theory         |
-|   [3]   | `AvaloniaTestFrameworkAttribute`        | framework binding |
-|   [4]   | `AvaloniaTestFramework`                 | framework owner   |
-|   [5]   | `AvaloniaTestCase`                      | dispatched case   |
-|   [6]   | `AvaloniaDelayEnumeratedTheoryTestCase` | delayed theory    |
-|   [7]   | `AvaloniaTestCaseRunner`                | case runner       |
-|   [8]   | `AvaloniaTestRunner`                    | test runner       |
+|  [01]   | `AvaloniaFactAttribute`                 | UI fact           |
+|  [02]   | `AvaloniaTheoryAttribute`               | UI theory         |
+|  [03]   | `AvaloniaTestFrameworkAttribute`        | framework binding |
+|  [04]   | `AvaloniaTestFramework`                 | framework owner   |
+|  [05]   | `AvaloniaTestCase`                      | dispatched case   |
+|  [06]   | `AvaloniaDelayEnumeratedTheoryTestCase` | delayed theory    |
+|  [07]   | `AvaloniaTestCaseRunner`                | case runner       |
+|  [08]   | `AvaloniaTestRunner`                    | test runner       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [SESSION_ENTRYPOINTS]: platform boot and session dispatch
 - rail: evidence
 
 | [INDEX] | [SURFACE]               | [SURFACE_ROOT]                       | [RAIL]            |
 | :-----: | :---------------------- | :----------------------------------- | :---------------- |
-|   [1]   | `UseHeadless`           | `AvaloniaHeadlessPlatformExtensions` | platform boot     |
-|   [2]   | `UseHeadlessDrawing`    | `AvaloniaHeadlessPlatformOptions`    | stub vs Skia draw |
-|   [3]   | `FrameBufferFormat`     | `AvaloniaHeadlessPlatformOptions`    | pixel format      |
-|   [4]   | `StartNew`              | `HeadlessUnitTestSession`            | session start     |
-|   [5]   | `GetOrStartForAssembly` | `HeadlessUnitTestSession`            | shared session    |
-|   [6]   | `Dispatch`              | `HeadlessUnitTestSession`            | UI-thread run     |
-|   [7]   | `DisposeAsync`          | `HeadlessUnitTestSession`            | session teardown  |
-|   [8]   | `ForceRenderTimerTick`  | `AvaloniaHeadlessPlatform`           | manual frame tick |
+|  [01]   | `UseHeadless`           | `AvaloniaHeadlessPlatformExtensions` | platform boot     |
+|  [02]   | `UseHeadlessDrawing`    | `AvaloniaHeadlessPlatformOptions`    | stub vs Skia draw |
+|  [03]   | `FrameBufferFormat`     | `AvaloniaHeadlessPlatformOptions`    | pixel format      |
+|  [04]   | `StartNew`              | `HeadlessUnitTestSession`            | session start     |
+|  [05]   | `GetOrStartForAssembly` | `HeadlessUnitTestSession`            | shared session    |
+|  [06]   | `Dispatch`              | `HeadlessUnitTestSession`            | UI-thread run     |
+|  [07]   | `DisposeAsync`          | `HeadlessUnitTestSession`            | session teardown  |
+|  [08]   | `ForceRenderTimerTick`  | `AvaloniaHeadlessPlatform`           | manual frame tick |
 
 [CAPTURE_ENTRYPOINTS]: frame capture and scaling
 - rail: evidence
@@ -84,9 +84,9 @@
 
 | [INDEX] | [SURFACE]              | [RAIL]            |
 | :-----: | :--------------------- | :---------------- |
-|   [1]   | `CaptureRenderedFrame` | render and grab   |
-|   [2]   | `GetLastRenderedFrame` | last frame bitmap |
-|   [3]   | `SetRenderScaling`     | DPI scaling       |
+|  [01]   | `CaptureRenderedFrame` | render and grab   |
+|  [02]   | `GetLastRenderedFrame` | last frame bitmap |
+|  [03]   | `SetRenderScaling`     | DPI scaling       |
 
 [INPUT_ENTRYPOINTS]: synthetic keyboard, mouse, and drag input
 - rail: evidence
@@ -94,28 +94,28 @@
 
 | [INDEX] | [SURFACE]        | [RAIL]       |
 | :-----: | :--------------- | :----------- |
-|   [1]   | `KeyPress`       | key down     |
-|   [2]   | `KeyRelease`     | key up       |
-|   [3]   | `KeyPressQwerty` | physical key |
-|   [4]   | `KeyTextInput`   | text input   |
-|   [5]   | `MouseDown`      | button down  |
-|   [6]   | `MouseUp`        | button up    |
-|   [7]   | `MouseMove`      | pointer move |
-|   [8]   | `MouseWheel`     | wheel delta  |
-|   [9]   | `DragDrop`       | drag event   |
+|  [01]   | `KeyPress`       | key down     |
+|  [02]   | `KeyRelease`     | key up       |
+|  [03]   | `KeyPressQwerty` | physical key |
+|  [04]   | `KeyTextInput`   | text input   |
+|  [05]   | `MouseDown`      | button down  |
+|  [06]   | `MouseUp`        | button up    |
+|  [07]   | `MouseMove`      | pointer move |
+|  [08]   | `MouseWheel`     | wheel delta  |
+|  [09]   | `DragDrop`       | drag event   |
 
 [XUNIT_ENTRYPOINTS]: test attribute surfaces
 - rail: evidence
 
 | [INDEX] | [SURFACE]                   | [SURFACE_ROOT]                     | [RAIL]             |
 | :-----: | :-------------------------- | :--------------------------------- | :----------------- |
-|   [1]   | `[AvaloniaFact]`            | `AvaloniaFactAttribute`            | UI-thread fact     |
-|   [2]   | `[AvaloniaTheory]`          | `AvaloniaTheoryAttribute`          | UI-thread theory   |
-|   [3]   | `FrameworkType`             | `AvaloniaTestFrameworkAttribute`   | framework redirect |
-|   [4]   | `[AvaloniaTestApplication]` | `AvaloniaTestApplicationAttribute` | app entry type     |
-|   [5]   | `[AvaloniaTestIsolation]`   | `AvaloniaTestIsolationAttribute`   | isolation pick     |
+|  [01]   | `[AvaloniaFact]`            | `AvaloniaFactAttribute`            | UI-thread fact     |
+|  [02]   | `[AvaloniaTheory]`          | `AvaloniaTheoryAttribute`          | UI-thread theory   |
+|  [03]   | `FrameworkType`             | `AvaloniaTestFrameworkAttribute`   | framework redirect |
+|  [04]   | `[AvaloniaTestApplication]` | `AvaloniaTestApplicationAttribute` | app entry type     |
+|  [05]   | `[AvaloniaTestIsolation]`   | `AvaloniaTestIsolationAttribute`   | isolation pick     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EVIDENCE_LAW]:
 - Package: `Avalonia.Headless` + `Avalonia.Headless.XUnit`

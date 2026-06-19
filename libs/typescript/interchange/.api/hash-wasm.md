@@ -2,7 +2,7 @@
 
 `hash-wasm` supplies WebAssembly hash implementations across the xxHash family (32-bit, 64-bit, XXH3, 128-bit), CRC, and cryptographic digests, exposing both one-shot `Promise<string>` functions and `create*` factories that resolve a stateful `IHasher` for chunked incremental hashing; `createXXHash128` produces the 128-bit content-key digest used as the content-addressed frame key, replacing the prior `xxhash-wasm` rail so one wasm owns the 32/64/128-bit surface.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `hash-wasm`
 - package: `hash-wasm`
@@ -10,51 +10,51 @@
 - asset: WASM binaries base64-embedded in JS modules; no external `.wasm` fetch
 - rail: content-hash
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hasher and input types
 - rail: content-hash
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]     | [RAIL]                                               |
 | :-----: | :------------ | :---------------- | :--------------------------------------------------- |
-|   [1]   | `IHasher`     | stateful hasher   | incremental session with save/load and size metadata |
-|   [2]   | `IDataType`   | input union       | `string \| Buffer \| ITypedArray`                    |
-|   [3]   | `ITypedArray` | typed-array union | `Uint8Array \| Uint16Array \| Uint32Array`           |
+|  [01]   | `IHasher`     | stateful hasher   | incremental session with save/load and size metadata |
+|  [02]   | `IDataType`   | input union       | `string \| Buffer \| ITypedArray`                    |
+|  [03]   | `ITypedArray` | typed-array union | `Uint8Array \| Uint16Array \| Uint32Array`           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: xxHash 128-bit content key
 - rail: content-hash
 
 | [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]   | [RAIL]                             |
 | :-----: | :--------------------------------------------------------------------------------- | :--------------- | :--------------------------------- |
-|   [1]   | `createXXHash128(seedLow?: number, seedHigh?: number): Promise<IHasher>`           | 128-bit factory  | resolves a stateful 128-bit hasher |
-|   [2]   | `xxhash128(data: IDataType, seedLow?: number, seedHigh?: number): Promise<string>` | 128-bit one-shot | data to 32-char hexadecimal string |
+|  [01]   | `createXXHash128(seedLow?: number, seedHigh?: number): Promise<IHasher>`           | 128-bit factory  | resolves a stateful 128-bit hasher |
+|  [02]   | `xxhash128(data: IDataType, seedLow?: number, seedHigh?: number): Promise<string>` | 128-bit one-shot | data to 32-char hexadecimal string |
 
 [ENTRYPOINT_SCOPE]: xxHash family factories
 - rail: content-hash
 
 | [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :---------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `createXXHash32(seed?: number): Promise<IHasher>`                       | 32-bit factory | resolves a stateful 32-bit hasher |
-|   [2]   | `createXXHash64(seedLow?: number, seedHigh?: number): Promise<IHasher>` | 64-bit factory | resolves a stateful 64-bit hasher |
-|   [3]   | `createXXHash3(seedLow?: number, seedHigh?: number): Promise<IHasher>`  | XXH3 factory   | resolves a stateful XXH3 hasher   |
+|  [01]   | `createXXHash32(seed?: number): Promise<IHasher>`                       | 32-bit factory | resolves a stateful 32-bit hasher |
+|  [02]   | `createXXHash64(seedLow?: number, seedHigh?: number): Promise<IHasher>` | 64-bit factory | resolves a stateful 64-bit hasher |
+|  [03]   | `createXXHash3(seedLow?: number, seedHigh?: number): Promise<IHasher>`  | XXH3 factory   | resolves a stateful XXH3 hasher   |
 
 [ENTRYPOINT_SCOPE]: IHasher instance operations
 - rail: content-hash
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                         |
 | :-----: | :----------------------------------------- | :------------- | :--------------------------------------------- |
-|   [1]   | `init(): IHasher`                          | reset          | reinitializes state to default, returns `this` |
-|   [2]   | `update(data: IDataType): IHasher`         | chain method   | feeds a chunk, returns `this`                  |
-|   [3]   | `digest(outputType?: "hex"): string`       | finalize       | 32-char hexadecimal digest                     |
-|   [4]   | `digest(outputType: "binary"): Uint8Array` | finalize       | 16-byte `Uint8Array` digest                    |
-|   [5]   | `save(): Uint8Array`                       | snapshot       | serializes internal state for later `load`     |
-|   [6]   | `load(state: Uint8Array): IHasher`         | restore        | resumes a `save()` state, returns `this`       |
-|   [7]   | `blockSize`                                | property       | block size in bytes (`512` for XXHash128)      |
-|   [8]   | `digestSize`                               | property       | digest size in bytes (`16` for XXHash128)      |
+|  [01]   | `init(): IHasher`                          | reset          | reinitializes state to default, returns `this` |
+|  [02]   | `update(data: IDataType): IHasher`         | chain method   | feeds a chunk, returns `this`                  |
+|  [03]   | `digest(outputType?: "hex"): string`       | finalize       | 32-char hexadecimal digest                     |
+|  [04]   | `digest(outputType: "binary"): Uint8Array` | finalize       | 16-byte `Uint8Array` digest                    |
+|  [05]   | `save(): Uint8Array`                       | snapshot       | serializes internal state for later `load`     |
+|  [06]   | `load(state: Uint8Array): IHasher`         | restore        | resumes a `save()` state, returns `this`       |
+|  [07]   | `blockSize`                                | property       | block size in bytes (`512` for XXHash128)      |
+|  [08]   | `digestSize`                               | property       | digest size in bytes (`16` for XXHash128)      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [HASH_TOPOLOGY]:
 - every entry is async; `create*` factories and one-shot functions both return a `Promise`, and the `IHasher` handle is unavailable until that `Promise` resolves

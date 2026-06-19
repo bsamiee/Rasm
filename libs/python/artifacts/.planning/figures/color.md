@@ -2,11 +2,11 @@
 
 The color-science owner feeding consistent, perceptually-correct color into the visual sub-domains and managing the ICC/LUT egress. `Colorimetry` is ONE owner over colour-science (NumFOCUS-affiliated, BSD-3, NumPy-backed, pure-Python, host-free): CIE color, spectral distributions, 30+ color-space conversions, the CIECAM02 / CAM16 appearance models, and a `MANAGED` ICC/LUT/CCTF color-management arm. It hands palettes and color-space conversions to `figures/chart#CHART`, `figures/scene#SCENE`, `figures/table#TABLE`, and the PDF output, so every visual artifact draws color from one owner rather than each engine picking color ad hoc, and the managed arm attaches an ICC profile and rendering intent to the raster egress so output is color-managed rather than naive sRGB. colour-science is admitted in the manifest; this page closes the `COLOR_MANAGED_VISUAL_PIPELINE` and `ICC_COLOR_MANAGED_OUTPUT` ideas.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[COLOR]: colour-science color, spectral, appearance, palette, and ICC/LUT color-management owner; `RenderingIntent` is the carried intent `IntEnum` sub-owner whose member value is the ICC intent constant.
+- [01]-[COLOR]: colour-science color, spectral, appearance, palette, and ICC/LUT color-management owner; `RenderingIntent` is the carried intent `IntEnum` sub-owner whose member value is the ICC intent constant.
 
-## [2]-[COLOR]
+## [02]-[COLOR]
 
 - Owner: `Colorimetry` the one color owner discriminating operation; `ColorOp` the closed `StrEnum` over the color operations; colour-science is the conversion, appearance-model, and LUT/CCTF engine, pillow `ImageCms` the ICC raster apply on the gated band; `RenderingIntent` the `IntEnum` whose member value is the ICC intent ordinal passed directly to `ImageCms` `renderingIntent`, never a parallel intent table.
 - Cases: `ColorOp` rows `CONVERT` (color-space conversion via the universal `colour.convert` gateway) · `SPECTRAL` (spectral-distribution to tristimulus/display via `colour.sd_to_XYZ`/`XYZ_to_sRGB`) · `APPEARANCE` (CIECAM02 appearance correlates via `colour.XYZ_to_CIECAM02`, CAM16 via the universal `colour.convert` gateway) · `PALETTE` (perceptually-uniform, colorblind-safe palette derivation interpolating in Oklab via `colour.XYZ_to_Oklab`/`Oklab_to_XYZ` and `XYZ_to_sRGB`) · `MANAGED` (ICC source/destination-profile transform with a `RenderingIntent` row over pillow `ImageCms` on the gated band, plus the colour-science `read_LUT`/`LUTSequence`/`cctf_encoding`/`cctf_decoding` tone-curve chain and a `delta_E` gamut-distance check on the core) — matched by `match`/`case`.
@@ -95,7 +95,7 @@ def _icc_apply(raster: object, src_profile: bytes, dst_profile: bytes, intent: i
     return sink.getvalue()
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ICC_TRANSFORM] [RESEARCH]: the pillow `ImageCms` catalogue lists `ImageCmsProfile` ONLY — `buildTransform`, `applyTransform`, and the four rendering-intent constants (`INTENT_PERCEPTUAL`/`INTENT_RELATIVE_COLORIMETRIC`/`INTENT_SATURATION`/`INTENT_ABSOLUTE_COLORIMETRIC`) are NOT yet reflected in the folder `.api` catalogue for `pillow`. The `_icc_apply` `buildTransform(src, dst, "RGB", "RGB", renderingIntent=...)`/`applyTransform(image, transform)` body and the `RenderingIntent` integer payloads stay a marked RESEARCH seam until a pillow `ImageCms` reflection pass lands on the gated `python_version<'3.15'` band; the `RenderingIntent` `IntEnum` carries the documented intent ordinals (0=perceptual, 1=relative, 2=saturation, 3=absolute) as a placeholder until the `ImageCms.INTENT_*` constant spellings confirm. Close-condition: `assay api` reflection over pillow `ImageCms` on the gated band confirms `buildTransform`/`applyTransform`/`INTENT_*`. The ICC raster apply is the one gated leg crossing the subprocess seam (pillow band).
 - [COLORIMETRY]: the colour-science `convert` universal gateway, `sd_to_XYZ`, `XYZ_to_sRGB`, `XYZ_to_CIECAM02`, `XYZ_to_Oklab`, `Oklab_to_XYZ`, `read_LUT`, `LUTSequence`/`LUTSequence.apply`, `cctf_encoding`, `cctf_decoding`, and `delta_E` spellings verify against the folder `.api` catalogue for `colour-science` (`0.4.7` reflected, cp315-core pure-Python); the APPEARANCE arm routes CIECAM02/CAM16 through the universal `convert` gateway keyed by `params["model"]`, the perceptually-uniform palette interpolates in Oklab and projects back to sRGB, and the `MANAGED` LUT/CCTF tone-curve chain folds `read_LUT`->`LUTSequence.apply` and `cctf_encoding`/`cctf_decoding` on the core before the gated ICC apply. The `delta_E` gamut-distance check is a settled colour-science call.

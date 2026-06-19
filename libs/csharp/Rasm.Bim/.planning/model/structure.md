@@ -2,11 +2,11 @@
 
 The host-neutral spatial-structure tree and the closed decomposition algebra: the project-to-site-to-building-to-storey-to-space-to-element hierarchy as a portable `BimAssembly` tree, plus the `AssemblyRel` union mirroring `IfcRelAggregates`/`IfcRelNests`/`IfcRelContainedInSpatialStructure`/`IfcRelVoidsElement`/`IfcRelConnectsElements`. The assembly is the host-neutral counterpart to the Rhino-native block/layer capture; the two coexist at the universal IFC contract, neither thinned to feed the other.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ASSEMBLY_TREE]: `SpatialContainer` node, `AssemblyRel` decomposition union, `BimAssembly` tree, and the `Assemble` fold.
+- [01]-[ASSEMBLY_TREE]: `SpatialContainer` node, `AssemblyRel` decomposition union, `BimAssembly` tree, and the `Assemble` fold.
 
-## [2]-[ASSEMBLY_TREE]
+## [02]-[ASSEMBLY_TREE]
 
 - Owner: `BimAssembly` the host-neutral spatial-structure tree mirroring the IFC spatial hierarchy projected from the `IfcSemanticModel.SpatialNode` family; `SpatialContainer` the tree-node record carrying the spatial entity-type string (the spatial-container vocabulary — `IfcProject`/`IfcSite`/`IfcBuilding`/`IfcBuildingStorey`/`IfcSpace` — is distinct from the `Model/elements#ELEMENT_MODEL` `IfcClass` element vocabulary, so the node keeps the raw entity-type rather than forcing the element discriminant), the GlobalId, and the contained-element/child-container sets derived from the `AssemblyRel.Aggregates` graph; `AssemblyRel` `[Union]` the closed decomposition-relationship family mirroring the IFC `IfcRel*` relationships.
 - Entry: `BimAssembly.Assemble(IfcSemanticModel semantic)` folds the spatial hierarchy and the decomposition relationships into the host-neutral assembly tree, resolving the root as the `IfcProject` node (falling back to the non-aggregated whole when the schema omits the project node) — `Fin<T>` aborts on a missing spatial root (`Model/faults#FAULT_BAND` `BimFault.DanglingReference`) lowered with `.ToError()`; the tree is traversable by GlobalId and queryable through the `Model/query#ELEMENT_SET` spatial-container predicate.
@@ -53,6 +53,6 @@ public sealed record BimAssembly(
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ASSEMBLY_PROJECTION]: the `BimAssembly.Assemble` fold projecting the IFC spatial hierarchy and the `IfcRel*` decomposition relationships into the host-neutral tree and the `AssemblyRel` union arms ground against the GeometryGym spatial-structure and relationship entity surface; the `Exchange/import#IMPORT_RAIL` `Semantic` extract populates only the `AssemblyRel.Aggregates` arm from `IfcRelAggregates`, so the `Nests`/`ContainedIn`/`Voids`/`Connects` arms confirm their `IfcRelNests`/`IfcRelContainedInSpatialStructure`/`IfcRelVoidsElement`/`IfcRelConnectsElements` extract spellings against the GeometryGym surface before the `IfcSemanticModel.Decomposition` family carries every closed-union arm.

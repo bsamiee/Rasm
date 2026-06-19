@@ -2,13 +2,13 @@
 
 The cloud-native STAC discovery owner: one `StacCatalog` over `pystac-client` that resolves WHICH cloud assets cover a query region, the discovery layer the geospatial and object-store egress lanes lack above the raster/vector claims (`spatial/geospatial.md#GEO`) and the archival byte-window read (`tabular/egress.md#EGRESS`). `StacCatalog.discover` folds the one `StacQuery` tagged-union axis — bbox/datetime/collection/CQL2-filter discriminants — onto the single keyword-only `pystac_client.Client.search`, pages the lazy `ItemSearch` into the `pystac.Item` model, and emits a `StacReceipt` keyed by runtime `ContentIdentity` over the matched item-id set plus the `ItemSearch.matched` count. The discovered collection encodes as a `stac-geoparquet` columnar Arrow `RecordBatchReader` (`[3]-[TABLE]`) the `tabular/columnar.md#SCAN` scan and the `tabular/query.md#QUERY` engine consume, and the asset hrefs fold (`[4]-[ASSETS]`) into the `tabular/egress.md#EGRESS` `ObjectEgress.GetRange` archival-byte fast-path and the `gridded/tensor.md#TENSOR` `TensorStore.virtual` virtual-reference cube — reading those settled fence contracts, never a second object-store transport or a second virtual-cube builder. Every bundle keys by exactly one runtime `ContentIdentity`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CATALOG]: the `StacCatalog` discovery owner over `pystac-client` `Client.open`/`search`, the `StacQuery` tagged-union search axis, `ItemSearch` paging into `pystac.Item`.
-- [2]-[TABLE]: the discovered item collection encoded as a `stac-geoparquet` columnar Arrow `RecordBatchReader` the `tabular/columnar` scan and `tabular/query` engine consume.
-- [3]-[ASSETS]: the asset-href fold into `tabular/egress` `ObjectEgress.GetRange` and `gridded/tensor` `TensorStore.virtual`, the `StacReceipt` keyed by `ContentIdentity`.
+- [01]-[CATALOG]: the `StacCatalog` discovery owner over `pystac-client` `Client.open`/`search`, the `StacQuery` tagged-union search axis, `ItemSearch` paging into `pystac.Item`.
+- [02]-[TABLE]: the discovered item collection encoded as a `stac-geoparquet` columnar Arrow `RecordBatchReader` the `tabular/columnar` scan and `tabular/query` engine consume.
+- [03]-[ASSETS]: the asset-href fold into `tabular/egress` `ObjectEgress.GetRange` and `gridded/tensor` `TensorStore.virtual`, the `StacReceipt` keyed by `ContentIdentity`.
 
-## [2]-[CATALOG]
+## [02]-[CATALOG]
 
 - Owner: `StacCatalog` — the one cloud-native discovery owner, a `Client.open`-bound STAC API root; `StacQuery` the tagged-union search axis (bbox/datetime/collection/CQL2-filter), folded by `match`/`case` closed by `assert_never` onto the single keyword-only `Client.search(*, bbox=, datetime=, collections=, filter=, filter_lang=, max_items=, limit=)`. A new search modality is one `StacQuery` case, never a `search_bbox`/`search_datetime`/`search_cql2` method family — bbox vs datetime vs collection vs CQL2 filter are parameter rows on the one `search`, the exact discrimination `pystac-client.md` L64 mandates.
 - Cases: `StacQuery` rows `Bbox(west, south, east, north)` (spatial selection through `search(bbox=(w,s,e,n))`) · `Datetime(start, end)` (temporal selection through `search(datetime="<start>/<end>")` the RFC-3339 interval) · `Collection(ids)` (collection-scoped discovery through `search(collections=[...])`) · `Cql2Filter(predicate)` (the CQL2-JSON predicate through `search(filter=..., filter_lang="cql2-json")` — eo:cloud_cover/gsd/proj:epsg property predicates the STAC API evaluates server-side), each carrying its `params()` projection that contributes exactly its own keyword arguments so an n-axis query unions the per-case keyword dicts rather than forking a method per axis combination.
@@ -119,7 +119,7 @@ class StacCatalog(Struct, frozen=True):
         )
 ```
 
-## [3]-[TABLE]
+## [03]-[TABLE]
 
 - Owner: the `stac_table` encoder — the discovered `pystac.ItemCollection` to a `stac-geoparquet` columnar Arrow `pyarrow.RecordBatchReader`, the one carrier the `tabular/columnar.md#SCAN` scan and the `tabular/query.md#QUERY` engine consume. Encoding is the `stac_geoparquet.arrow.parse_stac_items_to_arrow` parse over the in-memory items; GeoParquet egress is `stac_geoparquet.arrow.to_parquet` keyed by a `schema_version` from `SUPPORTED_PARQUET_SCHEMA_VERSIONS`; rehydration is `stac_geoparquet.arrow.stac_table_to_items` paired with `pystac.Item.from_dict` — never a hand-built Arrow schema where the `ACCEPTED_SCHEMA_OPTIONS` inference applies, never a hand-rolled parquet writer where `to_parquet` versions the schema, never the legacy geopandas trio where the zero-copy Arrow path is the canonical carrier.
 - Cases: the schema axis is the `ACCEPTED_SCHEMA_OPTIONS` string literal — `"FullFile"` scans every batch for the widest schema (the discovery default, correctness over a heterogeneous multi-collection result) and `"FirstBatch"` infers from the first batch (the lower-latency single-collection fast-path) — a parameter row on `parse_stac_items_to_arrow`, not a parallel parse function.
@@ -177,7 +177,7 @@ def stac_table_rehydrate(table: "pa.Table") -> "RuntimeRail[tuple[object, ...]]"
     return boundary("stac.rehydrate", _rehydrate)
 ```
 
-## [4]-[ASSETS]
+## [04]-[ASSETS]
 
 - Owner: the asset-href fold — a fold over the discovered `pystac.Item` asset hrefs INTO the `tabular/egress.md#EGRESS` `ObjectEgress.GetRange` archival byte-window fast-path and the `gridded/tensor.md#TENSOR` `TensorStore.virtual` virtual-reference cube, NOT a new owner. The fold reads only the intersecting COG/COPC byte windows through the existing settled `GetRange` fence and lazily references discovered cube assets through the existing settled `virtual`/`_virtual_cube` fence, re-keying through the one `StacReceipt`; never a second object-store transport, never a second virtual-cube builder.
 - Cases: the fold discriminates the asset role by media type — a `MediaType.COG`/`MediaType.GEOTIFF` raster asset folds to the `ObjectEgress.GetRange(path, start, end)` archival byte-window read (the COG header/overview/tile byte ranges the consumer requests), while the set of cube-bearing asset hrefs folds to `TensorStore.virtual(sources, ref)` building the one virtual-reference datacube over the source URLs — the media type IS the route, a `pystac.MediaType` row, never a parallel per-asset egress class.
@@ -239,6 +239,6 @@ def fold_virtual_cube(items: "Iterable[object]", ref: ResourceRef, *, media_type
     return boundary("stac.assets.virtual", _fold)
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [STAC_DISTRIBUTION_SYNC]: the three `pystac-client`/`pystac`/`stac-geoparquet` catalogues are reflection-grade authored from the canonical sources and lock-resolved (all three pure-Python `py3-none-any`, cp315-clean, ungated), but the live distributions are pending a `uv sync` into the active venv — the member surfaces the fences transcribe (`Client.search(*, bbox=, datetime=, collections=, filter=, filter_lang=, max_items=, limit=)` returning `ItemSearch`, `ItemSearch.{item_collection,matched}`, `arrow.parse_stac_items_to_arrow(items, schema=)` returning a `pa.RecordBatchReader`, `arrow.to_parquet(table, output_path, schema_version=)`, `arrow.stac_table_to_items(table)`, `pystac.Item.{assets,from_dict}`, `pystac.MediaType`) confirm against the synced distributions before they settle. The two version-sensitive open spellings: the `Client.open(url, headers=...)` header-injection keyword (`pystac-client.md` L39) the API auth boundary binds — and the `modifier=`/`request_modifier=` href-signing extension if a SAS-token endpoint admits it, the optional auth row the `headers` field generalizes — and the `stac_geoparquet.arrow` GeoParquet schema-version constant name (`DEFAULT_PARQUET_SCHEMA_VERSION` vs `SUPPORTED_PARQUET_SCHEMA_VERSIONS`, `stac-geoparquet.md` L27) the egress stamps — both confirm against the live `arrow`/`Client` surfaces before the receipt treats the header injection and the schema version as settled discovery evidence. The CQL2-JSON `filter_lang="cql2-json"` value and the `eo:cloud_cover`/`proj:epsg` property predicates are STAC API conformance-class surfaces the server evaluates, confirmed against the target endpoint's advertised conformance before the `Cql2Filter` arm treats the predicate as accepted.

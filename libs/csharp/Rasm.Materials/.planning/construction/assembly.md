@@ -2,12 +2,12 @@
 
 THE HOST-NEUTRAL ELEMENT AND THE IFC MATERIAL-ASSIGNMENT OWNER. One `Element` is a single placed unit — a `profile#PROFILE_OWNER` `Profile` at a `Placement` with an orientation and a cut — and one `MaterialAssignment` `[Union]` closes the IFC 4.3 material-assignment trichotomy every architectural element carries: `LayerSet` (material-plus-thickness layers, walls/slabs/IGUs), `ProfileSet` (one material per extruded `Profile`, members), `ConstituentSet` (keyword-tagged components, curtain walls/composite assemblies). An `Element` carries exactly one assignment, the assignment selecting how the element resolves to a placement stream — a wall is a `LayerSet` buildup, a beam a `ProfileSet` extrusion, a curtain wall a `ConstituentSet`. The model is HOST-NEUTRAL: a `Placement` carries a station/elevation/run/rise/path-angle scalar tuple plus the orientation and cut, never a `Rhino.Geometry` curve or transform — the host boundary materializes the placement stream at the app root, this owner produces only the portable data the wire and the appearance engine consume, and the assignment serializes to IFC 4.3 (`IfcMaterialLayerSet`/`IfcMaterialProfileSet`/`IfcMaterialConstituentSet`) for `Rasm.Bim`. The page composes `profile#PROFILE_OWNER` for the `Profile` shape, the `Rasm` kernel for the scalar length algebra, and the `Appearance/graph#MATERIAL_LIBRARY` `MaterialId` a placed element's `Profile` maps to; the `Construction/layout#ASSEMBLY_FOLD` resolves an assignment to a placement stream.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ELEMENT_MODEL]: the `Element` placed-unit shape, the `Placement` scalar tuple, the `RunPath` line/arc length algebra, and the `ConstructionFault` band-2350 union.
-- [2]-[MATERIAL_ASSIGNMENT]: the `MaterialAssignment` `[Union]` layer-set/profile-set/constituent-set trichotomy, the element-to-assignment composition, and the IFC 4.3 alignment.
+- [01]-[ELEMENT_MODEL]: the `Element` placed-unit shape, the `Placement` scalar tuple, the `RunPath` line/arc length algebra, and the `ConstructionFault` band-2350 union.
+- [02]-[MATERIAL_ASSIGNMENT]: the `MaterialAssignment` `[Union]` layer-set/profile-set/constituent-set trichotomy, the element-to-assignment composition, and the IFC 4.3 alignment.
 
-## [2]-[ELEMENT_MODEL]
+## [02]-[ELEMENT_MODEL]
 
 - Owner: `Element` placed-unit shape; `Placement` the host-neutral scalar tuple; `RunPath` `[Union]` the path geometry; `ConstructionFault` `[Union]` band 2350.
 - Cases: path {line (length), arc (radius, sweep)} — the closed `RunPath` set; an element is a `Profile` placed at a `Placement` carrying one `MaterialAssignment`, never a path subtype.
@@ -72,7 +72,7 @@ public static class RunPathAlgebra {
 }
 ```
 
-## [3]-[MATERIAL_ASSIGNMENT]
+## [03]-[MATERIAL_ASSIGNMENT]
 
 - Owner: `MaterialAssignment` `[Union]` closing the IFC 4.3 material-assignment trichotomy; `MaterialLayer` the layer-set row; `MaterialConstituent` the constituent row; the element-to-assignment composition.
 - Cases: `LayerSet` (a `Seq<MaterialLayer>` of material-plus-thickness layers, walls/slabs/IGUs — `IfcMaterialLayerSet`) · `ProfileSet` (one `MaterialId` per extruded `Profile`, members — `IfcMaterialProfileSet`) · `ConstituentSet` (a `Seq<MaterialConstituent>` of keyword-tagged components, curtain walls/composites — `IfcMaterialConstituentSet`).
@@ -117,7 +117,7 @@ public abstract partial record MaterialAssignment {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [IFC_MATERIAL_ASSIGNMENT]: the IFC 4.3 material-assignment trichotomy is the canonical host-neutral model — `IfcMaterialLayerSet` (walls and slabs), `IfcMaterialProfileSet` (extruded members), `IfcMaterialConstituentSet` (components); `IfcMaterialList` is deprecated and never admitted. The `MaterialAssignment` union is the single closed owner; the probe is the per-case IFC member-shape mapping for the `Rasm.Bim` wire (`IfcMaterialLayer.LayerThickness`/`IfcMaterialProfile.Profile`/`IfcMaterialConstituent.Category`), authored as portable data here and serialized at the BIM boundary. The masonry run becomes layout-resolution of a `LayerSet` or `ProfileSet`, the largest construction capability the linear-run-only model lacked.
 - [LAYER_BUILDUP_GEOMETRY]: a `LayerSet` buildup resolves to a stacked placement stream where each layer offsets by its cumulative thickness along the path normal; the `Construction/layout#ASSEMBLY_FOLD` reads `LayerSet.TotalThickness` and the per-layer offset to fold the wall plies into a placement stream the host materializes. The probe is the per-layer offset projection (the cumulative-thickness fold), queued with the layout stages.

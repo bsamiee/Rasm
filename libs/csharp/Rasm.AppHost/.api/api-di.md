@@ -2,7 +2,7 @@
 
 `Microsoft.Extensions.DependencyInjection` supplies service registration, provider construction, scope ownership, keyed service lookup, and boundary activation.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.DependencyInjection`
 - package: `Microsoft.Extensions.DependencyInjection`
@@ -12,32 +12,32 @@
 - asset: runtime library
 - rail: composition
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider implementation
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]     | [RAIL]               |
 | :-----: | :-------------------------------------------- | :---------------- | :------------------- |
-|   [1]   | `DefaultServiceProviderFactory`               | provider factory  | host provider bridge |
-|   [2]   | `ServiceCollectionContainerBuilderExtensions` | provider builder  | root provider build  |
-|   [3]   | `ServiceProvider`                             | resolved provider | service resolution   |
-|   [4]   | `ServiceProviderOptions`                      | validation policy | provider proof       |
+|  [01]   | `DefaultServiceProviderFactory`               | provider factory  | host provider bridge |
+|  [02]   | `ServiceCollectionContainerBuilderExtensions` | provider builder  | root provider build  |
+|  [03]   | `ServiceProvider`                             | resolved provider | service resolution   |
+|  [04]   | `ServiceProviderOptions`                      | validation policy | provider proof       |
 
 [PUBLIC_TYPE_SCOPE]: composition contracts
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]          | [RAIL]                  |
 | :-----: | :--------------------------------------- | :--------------------- | :---------------------- |
-|   [1]   | `IServiceCollection`                     | descriptor collection  | registration boundary   |
-|   [2]   | `ServiceCollection`                      | mutable collection     | registration staging    |
-|   [3]   | `ServiceDescriptor`                      | descriptor algebra     | registration identity   |
-|   [4]   | `ServiceLifetime`                        | lifetime enum          | scope policy            |
-|   [5]   | `IServiceScope`                          | disposable scope       | scoped lifetime         |
-|   [6]   | `AsyncServiceScope`                      | async disposable scope | async lifetime          |
-|   [7]   | `IServiceScopeFactory`                   | scope factory          | scope construction      |
-|   [8]   | `IServiceProviderFactory<TBuilder>`      | provider factory seam  | host builder interop    |
-|   [9]   | `IServiceProviderIsService`              | availability probe     | optional resolution     |
+|  [01]   | `IServiceCollection`                     | descriptor collection  | registration boundary   |
+|  [02]   | `ServiceCollection`                      | mutable collection     | registration staging    |
+|  [03]   | `ServiceDescriptor`                      | descriptor algebra     | registration identity   |
+|  [04]   | `ServiceLifetime`                        | lifetime enum          | scope policy            |
+|  [05]   | `IServiceScope`                          | disposable scope       | scoped lifetime         |
+|  [06]   | `AsyncServiceScope`                      | async disposable scope | async lifetime          |
+|  [07]   | `IServiceScopeFactory`                   | scope factory          | scope construction      |
+|  [08]   | `IServiceProviderFactory<TBuilder>`      | provider factory seam  | host builder interop    |
+|  [09]   | `IServiceProviderIsService`              | availability probe     | optional resolution     |
 |  [10]   | `IServiceProviderIsKeyedService`         | keyed availability     | keyed optional lookup   |
 |  [11]   | `IKeyedServiceProvider`                  | keyed lookup contract  | keyed policy resolution |
 |  [12]   | `KeyedService`                           | keyed sentinel         | enumerable keyed lookup |
@@ -47,22 +47,22 @@
 |  [16]   | `ActivatorUtilities`                     | boundary activator     | explicit construction   |
 |  [17]   | `ActivatorUtilitiesConstructorAttribute` | constructor selector   | activation selection    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
 - rail: composition
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]           | [RAIL]                 |
 | :-----: | :--------------------------- | :----------------------- | :--------------------- |
-|   [1]   | `BuildServiceProvider`       | provider build           | root provider creation |
-|   [2]   | `AddSingleton`               | lifetime registration    | singleton admission    |
-|   [3]   | `AddScoped`                  | lifetime registration    | scoped admission       |
-|   [4]   | `AddTransient`               | lifetime registration    | transient admission    |
-|   [5]   | `AddKeyedSingleton`          | keyed registration       | keyed singleton policy |
-|   [6]   | `AddKeyedScoped`             | keyed registration       | keyed scoped policy    |
-|   [7]   | `AddKeyedTransient`          | keyed registration       | keyed transient policy |
-|   [8]   | `TryAdd`                     | idempotent descriptor    | default registration   |
-|   [9]   | `TryAddEnumerable`           | enumerable descriptor    | ordered extension set  |
+|  [01]   | `BuildServiceProvider`       | provider build           | root provider creation |
+|  [02]   | `AddSingleton`               | lifetime registration    | singleton admission    |
+|  [03]   | `AddScoped`                  | lifetime registration    | scoped admission       |
+|  [04]   | `AddTransient`               | lifetime registration    | transient admission    |
+|  [05]   | `AddKeyedSingleton`          | keyed registration       | keyed singleton policy |
+|  [06]   | `AddKeyedScoped`             | keyed registration       | keyed scoped policy    |
+|  [07]   | `AddKeyedTransient`          | keyed registration       | keyed transient policy |
+|  [08]   | `TryAdd`                     | idempotent descriptor    | default registration   |
+|  [09]   | `TryAddEnumerable`           | enumerable descriptor    | ordered extension set  |
 |  [10]   | `TryAddKeyed{Lifetime}`      | idempotent keyed entry   | keyed default policy   |
 |  [11]   | `Replace`                    | descriptor replacement   | explicit override      |
 |  [12]   | `RemoveAll`                  | descriptor removal       | unkeyed contract reset |
@@ -75,20 +75,20 @@
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]        | [RAIL]                    |
 | :-----: | :--------------------------- | :-------------------- | :------------------------ |
-|   [1]   | `GetService<T>`              | optional lookup       | nullable contract lookup  |
-|   [2]   | `GetRequiredService<T>`      | required lookup       | required contract lookup  |
-|   [3]   | `GetServices<T>`             | enumerable lookup     | ordered extension lookup  |
-|   [4]   | `GetKeyedService<T>`         | optional keyed lookup | keyed policy lookup       |
-|   [5]   | `GetRequiredKeyedService<T>` | required keyed lookup | required keyed policy     |
-|   [6]   | `GetKeyedServices<T>`        | keyed enumerable      | keyed extension lookup    |
-|   [7]   | `CreateScope`                | scope factory         | synchronous scope         |
-|   [8]   | `CreateAsyncScope`           | async scope factory   | asynchronous disposal     |
-|   [9]   | `CreateFactory`              | activation compiler   | cached constructor plan   |
+|  [01]   | `GetService<T>`              | optional lookup       | nullable contract lookup  |
+|  [02]   | `GetRequiredService<T>`      | required lookup       | required contract lookup  |
+|  [03]   | `GetServices<T>`             | enumerable lookup     | ordered extension lookup  |
+|  [04]   | `GetKeyedService<T>`         | optional keyed lookup | keyed policy lookup       |
+|  [05]   | `GetRequiredKeyedService<T>` | required keyed lookup | required keyed policy     |
+|  [06]   | `GetKeyedServices<T>`        | keyed enumerable      | keyed extension lookup    |
+|  [07]   | `CreateScope`                | scope factory         | synchronous scope         |
+|  [08]   | `CreateAsyncScope`           | async scope factory   | asynchronous disposal     |
+|  [09]   | `CreateFactory`              | activation compiler   | cached constructor plan   |
 |  [10]   | `CreateInstance`             | activation factory    | explicit boundary object  |
 |  [11]   | `GetServiceOrCreateInstance` | activation fallback   | optional service fallback |
 |  [12]   | `MakeReadOnly`               | collection lock       | registration freeze       |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COMPOSITION_TOPOLOGY]:
 - namespaces: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`

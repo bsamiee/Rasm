@@ -4,7 +4,7 @@
 scaffolding, model scaffolding, compiled-model generation, C# code generation,
 operation reporting, and reverse-engineering assets for store-profile tooling.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Design`
 - package: `Microsoft.EntityFrameworkCore.Design`
@@ -13,63 +13,63 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 - asset: design-time library
 - rail: schema-tooling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: design-time service surfaces
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]               |
 | :-----: | :-------------------------------------- | :------------------- | :------------------------- |
-|   [1]   | `DesignTimeServicesBuilder`             | service builder      | composes design services   |
-|   [2]   | `DesignTimeServiceCollectionExtensions` | service extension    | registers design services  |
-|   [3]   | `OperationExecutor`                     | tool executor        | dispatches tool operations |
-|   [4]   | `DbContextOperations`                   | context operations   | drives context tooling     |
-|   [5]   | `MigrationsOperations`                  | migration operations | drives migration tooling   |
-|   [6]   | `OperationReporter`                     | reporter             | emits tool messages        |
+|  [01]   | `DesignTimeServicesBuilder`             | service builder      | composes design services   |
+|  [02]   | `DesignTimeServiceCollectionExtensions` | service extension    | registers design services  |
+|  [03]   | `OperationExecutor`                     | tool executor        | dispatches tool operations |
+|  [04]   | `DbContextOperations`                   | context operations   | drives context tooling     |
+|  [05]   | `MigrationsOperations`                  | migration operations | drives migration tooling   |
+|  [06]   | `OperationReporter`                     | reporter             | emits tool messages        |
 
 [PUBLIC_TYPE_SCOPE]: migration and model outputs
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]     | [CAPABILITY]             |
 | :-----: | :-------------------------------- | :----------------- | :----------------------- |
-|   [1]   | `MigrationsScaffolder`            | migration tool     | scaffolds migrations     |
-|   [2]   | `ReverseEngineerScaffolder`       | model tool         | scaffolds store model    |
-|   [3]   | `ScaffoldedMigration`             | scaffold output    | carries migration files  |
-|   [4]   | `ScaffoldedModel`                 | scaffold output    | carries model files      |
-|   [5]   | `ScaffoldedFile`                  | file output        | carries generated file   |
-|   [6]   | `ModelCodeGenerationOptions`      | generation policy  | configures model output  |
-|   [7]   | `ModelReverseEngineerOptions`     | reverse policy     | configures store inspect |
-|   [8]   | `MigrationsCodeGeneratorSelector` | generator selector | selects code generator   |
+|  [01]   | `MigrationsScaffolder`            | migration tool     | scaffolds migrations     |
+|  [02]   | `ReverseEngineerScaffolder`       | model tool         | scaffolds store model    |
+|  [03]   | `ScaffoldedMigration`             | scaffold output    | carries migration files  |
+|  [04]   | `ScaffoldedModel`                 | scaffold output    | carries model files      |
+|  [05]   | `ScaffoldedFile`                  | file output        | carries generated file   |
+|  [06]   | `ModelCodeGenerationOptions`      | generation policy  | configures model output  |
+|  [07]   | `ModelReverseEngineerOptions`     | reverse policy     | configures store inspect |
+|  [08]   | `MigrationsCodeGeneratorSelector` | generator selector | selects code generator   |
 
 [PUBLIC_TYPE_SCOPE]: C# generation surfaces
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE] | [CAPABILITY]         |
 | :-----: | :---------------------------------- | :------------- | :------------------- |
-|   [1]   | `CSharpHelper`                      | C# helper      | emits C# fragments   |
-|   [2]   | `CSharpMigrationOperationGenerator` | C# generator   | emits migration code |
-|   [3]   | `CSharpSnapshotGenerator`           | C# generator   | emits model snapshot |
-|   [4]   | `CSharpDbContextGeneratorBase`      | C# generator   | emits DbContext code |
-|   [5]   | `CSharpEntityTypeGeneratorBase`     | C# generator   | emits entity code    |
-|   [6]   | `MigrationsBundle`                  | bundle tool    | packages migrations  |
+|  [01]   | `CSharpHelper`                      | C# helper      | emits C# fragments   |
+|  [02]   | `CSharpMigrationOperationGenerator` | C# generator   | emits migration code |
+|  [03]   | `CSharpSnapshotGenerator`           | C# generator   | emits model snapshot |
+|  [04]   | `CSharpDbContextGeneratorBase`      | C# generator   | emits DbContext code |
+|  [05]   | `CSharpEntityTypeGeneratorBase`     | C# generator   | emits entity code    |
+|  [06]   | `MigrationsBundle`                  | bundle tool    | packages migrations  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: design operations
 - rail: schema-tooling
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]   | [CAPABILITY]             |
 | :-----: | :------------------------------- | :------------- | :----------------------- |
-|   [1]   | `AddDbContextDesignTimeServices` | service call   | registers context design |
-|   [2]   | `AddMigration`                   | tool operation | scaffolds migration      |
-|   [3]   | `RemoveMigration`                | tool operation | removes migration        |
-|   [4]   | `ScriptMigration`                | tool operation | scripts migrations       |
-|   [5]   | `HasPendingModelChanges`         | tool operation | compares model state     |
-|   [6]   | `GetMigrations`                  | tool operation | lists migrations         |
-|   [7]   | `ScaffoldContext`                | tool operation | scaffolds context        |
-|   [8]   | `Optimize`                       | tool operation | scaffolds compiled model |
+|  [01]   | `AddDbContextDesignTimeServices` | service call   | registers context design |
+|  [02]   | `AddMigration`                   | tool operation | scaffolds migration      |
+|  [03]   | `RemoveMigration`                | tool operation | removes migration        |
+|  [04]   | `ScriptMigration`                | tool operation | scripts migrations       |
+|  [05]   | `HasPendingModelChanges`         | tool operation | compares model state     |
+|  [06]   | `GetMigrations`                  | tool operation | lists migrations         |
+|  [07]   | `ScaffoldContext`                | tool operation | scaffolds context        |
+|  [08]   | `Optimize`                       | tool operation | scaffolds compiled model |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TOOL_ADMISSION]:
 - dependency role: tool-only design package

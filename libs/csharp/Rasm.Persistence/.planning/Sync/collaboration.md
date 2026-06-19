@@ -2,15 +2,15 @@
 
 Rasm.Persistence owns local-first synchronization and collaboration: the op-log changefeed with HLC stamping and the logical-replication decode-fold that materializes a running pgoutput stream into op-log entries, the merge law that adjudicates LWW per column family and dispatches the `crdt` column family into the settled `Crdt.Apply` join-semilattice, the three-case `SyncTransport` axis widened by topology and direction fields, ephemeral presence, the dedicated lossy awareness lane, partial-replication working-set checkout, and blob transfer composing the settled `BlobRemote` contract under the ArtifactSync frame constants. AppHost vocabulary — the `ReceiptSinkPort` `Advance` algebra, `ClockPolicy`, `ScheduleEntry`, `DeadlineClass`, `DataClassification`, `CorrelationId`, and the `AppHost/Observability/telemetry#CORRELATION_SPINE` propagation fold — arrives settled and composes inside the fences. The `OpLogEntry` envelope carries a `TraceContext` W3C trace-context slot so an op committed under an active span anchors the `ONE_DISTRIBUTED_TRACE` concert seam on the op-log; the stamp reads `Activity.Current` once and the replication pump extract-and-continues the parent span, so a write that crosses runtimes reads end-to-end on one trace id rather than three collector silos. Transport variance lands as case rows and two fields, so the merge law and the op-log shape stay transport-invariant and a new transport touches zero entity or query surface; the pgoutput decode is the one path a running PostgreSQL changefeed travels into the one op-log shape, never a second feed. The `SpeckleLikeDiff` transport binds the instance `Speckle.Sdk` `IOperations.Send`/`Receive` marshal delegates on `SyncSession`, resolved from the `AddSpeckleSdk` container so the rail never reaches for a static `Operations.Send`; `Operations.Send` returns `(string rootObjId, IReadOnlyDictionary<string, ObjectReference>)` where `rootObjId` is the content hash mapping onto the existing `UInt128 ContentKey` with zero second identity, and `Speckle.Sdk`'s repacked Polly/channel/serialisation-V2 transitive closure runs COMPANION / OUTSIDE-RHINO so the in-Rhino assembly touches only the marshal delegate slot and never loads `Speckle.Sdk` or `Speckle.Objects`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[OPLOG_CHANGEFEED]: op-log shape, HLC stamping, transfer manifests, and tag-transition cursor mechanics.
-- [2]-[MERGE_LAW]: LWW adjudication, conflict receipts, idempotent apply fold, and crdt dispatch.
-- [3]-[TRANSPORT_AXIS]: three transport cases widened by topology/direction; pgoutput decode-fold pump.
-- [4]-[PRESENCE_AND_BLOB]: presence rows, awareness lane, working-set checkout, and settled blob-contract framing.
-- [5]-[TS_PROJECTION]: MessagePack wire shapes for segments, conflicts, presence, crdt ops, and rejection.
+- [01]-[OPLOG_CHANGEFEED]: op-log shape, HLC stamping, transfer manifests, and tag-transition cursor mechanics.
+- [02]-[MERGE_LAW]: LWW adjudication, conflict receipts, idempotent apply fold, and crdt dispatch.
+- [03]-[TRANSPORT_AXIS]: three transport cases widened by topology/direction; pgoutput decode-fold pump.
+- [04]-[PRESENCE_AND_BLOB]: presence rows, awareness lane, working-set checkout, and settled blob-contract framing.
+- [05]-[TS_PROJECTION]: MessagePack wire shapes for segments, conflicts, presence, crdt ops, and rejection.
 
-## [2]-[OPLOG_CHANGEFEED]
+## [02]-[OPLOG_CHANGEFEED]
 
 - Owner: `SyncOpKind` `[SmartEnum<string>]` under the `SyncKeyPolicy` ordinal accessor; `TraceContext` `[ComplexValueObject]` — the W3C trace-context carrier (`traceparent` 16-byte trace-id, opaque `tracestate`) the envelope slot rides, its `Empty` value sentinel the no-active-span CASE; `OpLogEntry` — the one op-log record serving every synced entity kind, now carrying the `TraceContext` envelope slot beside `ContentKey`; `SyncCursor` carrying both the HLC cell and the WAL LSN watermark; the `OpLog` stamp-and-diff surface.
 - Cases: 3 kind rows — upsert, delete (tombstone), presence; entity-kind variance rides the `EntityKind` column, never a second table shape; before-image variance rides the `Image` column, never a second record.
@@ -112,11 +112,11 @@ public static class OpLog {
 
 | [INDEX] | [POLICY]              | [VALUE]                        | [BINDING]                                                |
 | :-----: | :-------------------- | :----------------------------- | :------------------------------------------------------- |
-|   [1]   | cursor replay cadence | `Every` 15 s                   | one `ScheduleEntry` row per peer process, lease none     |
-|   [2]   | tombstone retention   | age-bound class on delete rows | retention sweep rows fold over the op-log artifact class |
-|   [3]   | LSN watermark         | `SyncCursor.Lsn`               | the idempotency key the pump acknowledges after apply    |
+|  [01]   | cursor replay cadence | `Every` 15 s                   | one `ScheduleEntry` row per peer process, lease none     |
+|  [02]   | tombstone retention   | age-bound class on delete rows | retention sweep rows fold over the op-log artifact class |
+|  [03]   | LSN watermark         | `SyncCursor.Lsn`               | the idempotency key the pump acknowledges after apply    |
 
-## [3]-[MERGE_LAW]
+## [03]-[MERGE_LAW]
 
 - Owner: `ConflictReceipt`, `ConflictOutcome` `[Union]`, `SyncApplyReceipt`, `SyncSession` — the one session capsule of policy values and delegate rows, including the `SpeckleSend`/`SpeckleReceive` marshal delegates that bind the DI-resolved instance `IOperations.Send`/`Receive`; the `SyncMerge` fold surface routing LWW per column family and the `crdt` column family into the settled `Crdt.Apply`.
 - Cases: 4 outcome cases — LocalWin, RemoteWin, Merged, Rejected — every case carrying its `ConflictReceipt`; the convergent `crdt` family supersedes the scalar adjudication on its column family and converges by merge, never by discarding the loser.
@@ -208,11 +208,11 @@ public static class SyncMerge {
 
 | [INDEX] | [POLICY]              | [VALUE]                                              | [BINDING]                                                  |
 | :-----: | :-------------------- | :--------------------------------------------------- | :--------------------------------------------------------- |
-|   [1]   | scalar default        | LWW by `(Physical, Logical, OriginStoreId)`          | total order on the stamp tuple, deterministic across peers |
-|   [2]   | crdt column family    | `Version/commits#CRDT_ALGEBRA` `Crdt.Apply`          | join-semilattice merge, superset of `Adjudicate`           |
-|   [3]   | conservation identity | `batch = applied + skipped + conflicted + converged` | a breach is a typed merge fault on the receipt stream      |
+|  [01]   | scalar default        | LWW by `(Physical, Logical, OriginStoreId)`          | total order on the stamp tuple, deterministic across peers |
+|  [02]   | crdt column family    | `Version/commits#CRDT_ALGEBRA` `Crdt.Apply`          | join-semilattice merge, superset of `Adjudicate`           |
+|  [03]   | conservation identity | `batch = applied + skipped + conflicted + converged` | a breach is a typed merge fault on the receipt stream      |
 
-## [4]-[TRANSPORT_AXIS]
+## [04]-[TRANSPORT_AXIS]
 
 - Owner: `SyncTopology` and `SyncDirection` keyless vocabularies; `SyncTransport` `[Union]`; the `SyncPump` dispatch surface with the `SubtreeFetch` graph-checkout bridge and the `Offer` Speckle-diff arm; the `ReplicationPump` decode-fold owning the running pgoutput message family; `GraphDiff` is the named set-difference diff-algebra `SubtreeFetch` and `Offer` both dial — the closure-manifest set-difference over `Holds` membership that yields the missing content-key set; `SubtreeFetch` is the one graph-checkout route whose `root` argument discriminates breadth — a true graph root copies the whole graph, a chosen sub-root checks out only that sub-root's descendants — fetching only the keys the target lacks rather than the whole graph.
 - Cases: 3 transport cases — PgLogicalReplication, HttpDelta, SpeckleLikeDiff — widened by the `Topology` and `Direction` fields; fan-in, fan-out, and capture direction are field values, never new cases; `GraphDiff` carries the two diff operands — the source closure manifest and the target `Holds` predicate — never a new transport case.
@@ -402,16 +402,16 @@ public static class ReplicationPump {
 
 | [INDEX] | [POLICY]                        | [VALUE]                                           | [BINDING]                                                                                                                            |
 | :-----: | :------------------------------ | :------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | generated-column replication    | `PublishGeneratedColumns` on STORED columns only  | pairs the STORED generated-column schema law                                                                                         |
-|   [2]   | idle slot reclamation           | config-sourced `IdleSlotTimeout`                  | server setting verified by the provisioning probe rows                                                                               |
-|   [3]   | replication conflict statistics | subscription-stats read view                      | the live-replication research gate carries the columns                                                                               |
-|   [4]   | session admission               | schema-fingerprint equality                       | mismatch is the typed `SyncRejectionWire` refusal                                                                                    |
-|   [5]   | LSN acknowledgement cadence     | per-commit `SetReplicationStatus` + 10 s feedback | at-least-once apply-then-ack; redelivery is normal                                                                                   |
-|   [6]   | graph checkout granularity      | `GraphDiff` set-difference over `Holds`           | one `SubtreeFetch` dials it; `root` discriminates whole-graph vs sub-root breadth; wire family at `Compute/remote#PROTO_VOCABULARY`  |
-|   [7]   | Speckle offer diff              | `GraphDiff`/`OpLog.TransferSet` over `HasObjects` | `Offer` dials the one diff algebra; `SpeckleSend` marshals the missing set; `rootObjId` maps to `ContentKey`; SDK runs OUTSIDE-RHINO |
-|   [8]   | Speckle marshal binding         | DI-resolved instance `IOperations.Send`/`Receive` | `AddSpeckleSdk` container; never static `Operations.Send`; `Base`/`DataObject` mapped to closed Rasm types at the seam               |
+|  [01]   | generated-column replication    | `PublishGeneratedColumns` on STORED columns only  | pairs the STORED generated-column schema law                                                                                         |
+|  [02]   | idle slot reclamation           | config-sourced `IdleSlotTimeout`                  | server setting verified by the provisioning probe rows                                                                               |
+|  [03]   | replication conflict statistics | subscription-stats read view                      | the live-replication research gate carries the columns                                                                               |
+|  [04]   | session admission               | schema-fingerprint equality                       | mismatch is the typed `SyncRejectionWire` refusal                                                                                    |
+|  [05]   | LSN acknowledgement cadence     | per-commit `SetReplicationStatus` + 10 s feedback | at-least-once apply-then-ack; redelivery is normal                                                                                   |
+|  [06]   | graph checkout granularity      | `GraphDiff` set-difference over `Holds`           | one `SubtreeFetch` dials it; `root` discriminates whole-graph vs sub-root breadth; wire family at `Compute/remote#PROTO_VOCABULARY`  |
+|  [07]   | Speckle offer diff              | `GraphDiff`/`OpLog.TransferSet` over `HasObjects` | `Offer` dials the one diff algebra; `SpeckleSend` marshals the missing set; `rootObjId` maps to `ContentKey`; SDK runs OUTSIDE-RHINO |
+|  [08]   | Speckle marshal binding         | DI-resolved instance `IOperations.Send`/`Receive` | `AddSpeckleSdk` container; never static `Operations.Send`; `Base`/`DataObject` mapped to closed Rasm types at the seam               |
 
-## [5]-[PRESENCE_AND_BLOB]
+## [05]-[PRESENCE_AND_BLOB]
 
 - Owner: `PresenceRow` and the `Presence` surface — ephemeral collaboration rows on the op-log shape; `AwarenessBeat` and the `Awareness` surface — the dedicated low-latency lossy awareness channel carrying cursor, selection, camera-frustum, active-node-focus, and follow-mode beats off the durable op-log; `WorkingSet` and the `Replication` surface — the partial-replication subgraph-checkout and working-set op-stream subscription; blob transfer composes the settled `BlobRemote` contract record, never a second blob shape.
 - Entry: `public static IO<OpLogEntry> Beat(ReceiptSinkPort sink, ClockPolicy clocks, Guid storeId, SnapshotCodec codec, PresenceRow row, ReadOnlyMemory<byte> payload)` — presence is one changefeed row, never a transport; `public static Channel<AwarenessBeat> AwarenessLane()` is the dedicated lossy fan-out channel and `public static IO<WorkingSet> Checkout(ReplicationQuery query, Func<ReplicationQuery, IO<Seq<UInt128>>> resolve, Func<Seq<UInt128>, IO<Seq<OpLogEntry>>> fetch, SyncCursor cursor, ClockPolicy clocks)` materializes a subgraph working set.
@@ -553,13 +553,13 @@ public static class Replication {
 
 | [INDEX] | [POLICY]           | [VALUE]                                         | [BINDING]                                          |
 | :-----: | :----------------- | :---------------------------------------------- | :------------------------------------------------- |
-|   [1]   | presence heartbeat | `Every` 15 s                                    | one `ScheduleEntry` row per active editing surface |
-|   [2]   | presence TTL       | 45 s — 3 × heartbeat                            | `Ttl`                                              |
-|   [3]   | presence lane      | capacity 64, DropOldest, single reader          | `Lane`                                             |
-|   [4]   | awareness lane     | capacity 256, DropOldest, multi reader/writer   | `AwarenessLane` — lossy, never durable             |
-|   [5]   | blob framing       | 64 KiB frames, Crc32 per frame, XxHash128 whole | `FrameHash` incremental `Append`/`GetCurrentHash`  |
+|  [01]   | presence heartbeat | `Every` 15 s                                    | one `ScheduleEntry` row per active editing surface |
+|  [02]   | presence TTL       | 45 s — 3 × heartbeat                            | `Ttl`                                              |
+|  [03]   | presence lane      | capacity 64, DropOldest, single reader          | `Lane`                                             |
+|  [04]   | awareness lane     | capacity 256, DropOldest, multi reader/writer   | `AwarenessLane` — lossy, never durable             |
+|  [05]   | blob framing       | 64 KiB frames, Crc32 per frame, XxHash128 whole | `FrameHash` incremental `Append`/`GetCurrentHash`  |
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `OpLogEntryWire`, `SyncCursorWire`, `SyncSegmentWire`, `SyncRejectionWire`, `ConflictOutcomeKind`, `ConflictReceiptWire`, `PresenceRowWire` — the sync wire surface the dashboard and companion peers decode; the `crdt` column-family `OpLogEntryWire.payload` carries the `Version/commits#CRDT_WIRE` `CrdtOpWire` union, the single-mint owner this page consumes and never re-declares.
 - Packages: BCL inbox.
@@ -632,6 +632,6 @@ interface PresenceRowWire {
 
 The `crdt` column-family `OpLogEntryWire.payload` decodes through the `Version/commits#CRDT_WIRE` `CrdtOpWire` union — the single-mint `op`-discriminated owner carrying the `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave` arms over `HlcWire` cells. This page consumes that shape and declares no parallel `CrdtOpWire`.
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [LIVE_REPLICATION]: Assay provision PG18 evidence finalized the pgoutput message-family decode-fold, the `PgOutputProtocolVersion.V4` + `PgOutputStreamingMode.Parallel` + `binary: true` non-obsolete `Options` spelling, the `ReplicationTuple` drain over the `IsDBNull`/`IsUnchangedToastedValue` three-state, the xid-keyed staging with `StreamCommitMessage`/`StreamAbortMessage` release, and the `SetReplicationStatus`/`SendStatusUpdate` LSN acknowledgement. The genuine tier-3 residue is a live PG18 root with a configured publication and subscription emitting a running stream end-to-end: `publish_generated_columns` on STORED columns, the idle-slot timeout setting, and the subscription conflict-stat read-view columns observed against a second live writer, with the applied-LSN watermark verified durable across a forced reconnect window — the one probe that strictly requires a long-lived live-server replication session.

@@ -2,11 +2,11 @@
 
 The async-observable metric spine. `Metrics` is the one static surface registering the measured-execution instrument set against the `MeterProvider` `observability/telemetry#TELEMETRY` installs at the composition root — it constructs no provider, reader, or exporter of its own, reading the installed meter through `metrics.get_meter` so all three signals carry the one shared `Resource`. The instruments read live `DrainReceipt` and `psutil.Process` state through observable callbacks — companion request duration as a histogram, lane drain counts folded from `DrainReceipt`, process RSS and CPU as gauges — so lane saturation, retry exhaustion, and companion latency surface as first-class metrics rather than log fields. The package mints the local metric stream only; the provider install, product telemetry export, and health stay `observability/telemetry#TELEMETRY` / AppHost-owned.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[METRIC]: the installed-meter read, the observable instrument set, the drain-counter and process-gauge callbacks, the request-duration histogram.
+- [01]-[METRIC]: the installed-meter read, the observable instrument set, the drain-counter and process-gauge callbacks, the request-duration histogram.
 
-## [2]-[METRIC]
+## [02]-[METRIC]
 
 - Owner: `Metrics` — the static surface owning the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider`; `MetricState` the frozen carrier the observable callbacks read, holding the latest `DrainReceipt` fold and the `psutil.Process` handle so a callback never reconstructs live state under a lane lock. The provider, the `PeriodicExportingMetricReader`/`OTLPMetricExporter`, and the `RUNTIME_RESOURCE` are NOT owned here — they install once at `observability/telemetry#TELEMETRY` and `Metrics` reads the registered meter.
 - Entry: `Metrics.install` obtains the installed meter through `metrics.get_meter` (the `observability/telemetry#TELEMETRY` `set_meter_provider` install having already run, gated on the `execution/admission#CONTEXT` `emit_otel` row so a non-emitting profile reads the API no-op meter) and creates the four instruments once — `companion.request.duration` a synchronous `Histogram` the serve leg records per call, `lane.drained` an `ObservableCounter` whose callback yields one `Observation` per `DrainReceipt` count column, `process.memory.rss` and `process.cpu.utilization` `ObservableGauge` instruments reading `psutil`; `Metrics.observe` folds a fresh `DrainReceipt` into the shared `MetricState` the observable counter callback reads, never holding the lane's task-group lock.

@@ -2,7 +2,7 @@
 
 `@effect/workflow` is the durable-workflow engine for Effect: a `Workflow` is a named, payload/success/error-schema'd unit whose `execute` body survives process restarts, replays deterministically, and resumes from durable checkpoints. The page owns the full module surface — the `Workflow` definition and its result algebra, run-once `Activity` units with retry/compensation, the `WorkflowEngine`/`WorkflowInstance` durable kernel services, the durable primitives (`DurableClock`, `DurableDeferred`, `DurableQueue`, `DurableRateLimiter`), and the RPC/HTTP proxy derivation (`WorkflowProxy`/`WorkflowProxyServer`). It is the single durable-execution owner; no hand-rolled state machine, saga, or retry loop survives.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/workflow`
 - package: `@effect/workflow`
@@ -26,22 +26,22 @@ export * as WorkflowProxy from "./WorkflowProxy.js"
 export * as WorkflowProxyServer from "./WorkflowProxyServer.js"
 ```
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: Workflow module
 - rail: durable-work
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]   | [RAIL]                          |
 | :-----: | :------------------------------------------------- | :-------------- | :------------------------------ |
-|   [1]   | `Workflow.Workflow<Name, Payload, Success, Error>` | interface       | workflow definition             |
-|   [2]   | `Workflow.Any`                                     | interface       | erased workflow upper bound     |
-|   [3]   | `Workflow.AnyStructSchema`                         | interface       | payload schema upper bound      |
-|   [4]   | `Workflow.AnyTaggedRequestSchema`                  | interface       | tagged-request payload bound    |
-|   [5]   | `Workflow.Execution<Name>`                         | interface       | per-name execution marker       |
-|   [6]   | `Workflow.Requirements<Workflows>`                 | type            | context-union extractor         |
-|   [7]   | `Workflow.Payload<W>` / `Success<W>` / `Error<W>`  | type            | namespace type-level extractors |
-|   [8]   | `Workflow.Result<A, E>`                            | union           | `Complete<A,E> \| Suspended`    |
-|   [9]   | `Workflow.ResultEncoded<A, E>`                     | union           | encoded result shape            |
+|  [01]   | `Workflow.Workflow<Name, Payload, Success, Error>` | interface       | workflow definition             |
+|  [02]   | `Workflow.Any`                                     | interface       | erased workflow upper bound     |
+|  [03]   | `Workflow.AnyStructSchema`                         | interface       | payload schema upper bound      |
+|  [04]   | `Workflow.AnyTaggedRequestSchema`                  | interface       | tagged-request payload bound    |
+|  [05]   | `Workflow.Execution<Name>`                         | interface       | per-name execution marker       |
+|  [06]   | `Workflow.Requirements<Workflows>`                 | type            | context-union extractor         |
+|  [07]   | `Workflow.Payload<W>` / `Success<W>` / `Error<W>`  | type            | namespace type-level extractors |
+|  [08]   | `Workflow.Result<A, E>`                            | union           | `Complete<A,E> \| Suspended`    |
+|  [09]   | `Workflow.ResultEncoded<A, E>`                     | union           | encoded result shape            |
 |  [10]   | `Workflow.Complete<A, E>`                          | class           | terminal-exit result case       |
 |  [11]   | `Workflow.Suspended`                               | class           | suspended result case           |
 |  [12]   | `Workflow.CompleteEncoded<A, E>`                   | interface       | encoded complete case           |
@@ -54,28 +54,28 @@ export * as WorkflowProxyServer from "./WorkflowProxyServer.js"
 
 | [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]   | [RAIL]                           |
 | :-----: | :--------------------------------------------------- | :-------------- | :------------------------------- |
-|   [1]   | `Activity.Activity<Success, Error, R>`               | interface       | run-once unit (extends `Effect`) |
-|   [2]   | `Activity.Any`                                       | interface       | erased activity bound            |
-|   [3]   | `Activity.CurrentAttempt`                            | reference class | attempt-counter annotation       |
-|   [4]   | `DurableClock.DurableClock`                          | interface       | durable timer                    |
-|   [5]   | `DurableDeferred.DurableDeferred<Success, Error>`    | interface       | durable one-shot result          |
-|   [6]   | `DurableDeferred.Token`                              | branded string  | deferred completion token        |
-|   [7]   | `DurableDeferred.TokenParsed`                        | schema class    | parsed token struct              |
-|   [8]   | `DurableQueue.DurableQueue<Payload, Success, Error>` | interface       | durable work queue               |
+|  [01]   | `Activity.Activity<Success, Error, R>`               | interface       | run-once unit (extends `Effect`) |
+|  [02]   | `Activity.Any`                                       | interface       | erased activity bound            |
+|  [03]   | `Activity.CurrentAttempt`                            | reference class | attempt-counter annotation       |
+|  [04]   | `DurableClock.DurableClock`                          | interface       | durable timer                    |
+|  [05]   | `DurableDeferred.DurableDeferred<Success, Error>`    | interface       | durable one-shot result          |
+|  [06]   | `DurableDeferred.Token`                              | branded string  | deferred completion token        |
+|  [07]   | `DurableDeferred.TokenParsed`                        | schema class    | parsed token struct              |
+|  [08]   | `DurableQueue.DurableQueue<Payload, Success, Error>` | interface       | durable work queue               |
 
 [PUBLIC_TYPE_SCOPE]: Engine / proxy
 - rail: durable-work
 
 | [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]    | [RAIL]                           |
 | :-----: | :--------------------------------------------------- | :--------------- | :------------------------------- |
-|   [1]   | `WorkflowEngine.WorkflowEngine`                      | TagClass service | durable-execution kernel         |
-|   [2]   | `WorkflowEngine.WorkflowInstance`                    | TagClass service | per-execution runtime state      |
-|   [3]   | `WorkflowEngine.Encoded`                             | interface        | erased engine impl shape         |
-|   [4]   | `WorkflowProxy.ConvertRpcs<Workflows, Prefix>`       | type             | workflow→Rpc mapping             |
-|   [5]   | `WorkflowProxy.ConvertHttpApi<Workflows>`            | type             | workflow→HttpApiEndpoint mapping |
-|   [6]   | `WorkflowProxyServer.RpcHandlers<Workflows, Prefix>` | type             | derived rpc handler union        |
+|  [01]   | `WorkflowEngine.WorkflowEngine`                      | TagClass service | durable-execution kernel         |
+|  [02]   | `WorkflowEngine.WorkflowInstance`                    | TagClass service | per-execution runtime state      |
+|  [03]   | `WorkflowEngine.Encoded`                             | interface        | erased engine impl shape         |
+|  [04]   | `WorkflowProxy.ConvertRpcs<Workflows, Prefix>`       | type             | workflow→Rpc mapping             |
+|  [05]   | `WorkflowProxy.ConvertHttpApi<Workflows>`            | type             | workflow→HttpApiEndpoint mapping |
+|  [06]   | `WorkflowProxyServer.RpcHandlers<Workflows, Prefix>` | type             | derived rpc handler union        |
 
-## [3]-[WORKFLOW]
+## [03]-[WORKFLOW]
 
 The `Workflow` interface carries the four schema axes (`Name`, `Payload`, `Success`, `Error`) and the full execution/lifecycle method surface. All execution methods require `WorkflowEngine` plus the schemas' `Context`.
 
@@ -241,7 +241,7 @@ export declare class SuspendOnFailure extends Context.ReferenceClass<SuspendOnFa
 
 `CaptureDefects` defaults to `true` (defects captured into the result). `SuspendOnFailure` set to `true` suspends the workflow on any error for later `Workflow.resume(executionId)`.
 
-## [4]-[ACTIVITY]
+## [04]-[ACTIVITY]
 
 `Activity` is the run-once unit inside a workflow body. The interface extends `Effect.Effect`, so an activity is directly yieldable; `execute`/`executeEncoded` carry the `Scope` requirement for explicit-scope use.
 
@@ -293,7 +293,7 @@ export declare const raceAll: <const Activities extends NonEmptyReadonlyArray<An
 >
 ```
 
-## [5]-[ENGINE]
+## [05]-[ENGINE]
 
 `WorkflowEngine` is the durable-execution kernel (a `Context.TagClass`); `WorkflowInstance` is the per-execution runtime state tag. `layerMemory` provides an in-memory engine for testing; `makeUnsafe` builds an engine from an `Encoded` impl.
 
@@ -346,7 +346,7 @@ export declare const makeUnsafe: (options: Encoded) => WorkflowEngine["Type"]
 export declare const layerMemory: Layer.Layer<WorkflowEngine>
 ```
 
-## [6]-[DURABLE_PRIMITIVES]
+## [06]-[DURABLE_PRIMITIVES]
 
 [ENTRYPOINT_SCOPE]: DurableClock
 - rail: durable-work
@@ -521,7 +521,7 @@ export declare const rateLimit: (options: {
 }) => Activity.Activity<typeof Schema.Void, typeof RateLimiter.RateLimitStoreError, RateLimiter.RateLimiter>
 ```
 
-## [7]-[PROXY]
+## [07]-[PROXY]
 
 `WorkflowProxy` derives an `RpcGroup` or `HttpApiGroup` from a workflow set; `WorkflowProxyServer` provides the matching handler layers. Each workflow yields three operations: the base execution, a `${Name}Discard` fire-and-forget, and a `${Name}Resume` resume-by-execution-id.
 

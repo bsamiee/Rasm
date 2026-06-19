@@ -4,7 +4,7 @@
 and `NodaTime.Testing` supply deterministic time, log capture, metric capture, and
 clock/time-zone fakes as tests-only seams over the runtime contracts.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.TimeProvider.Testing`
 - package: `Microsoft.Extensions.TimeProvider.Testing`
@@ -31,83 +31,83 @@ clock/time-zone fakes as tests-only seams over the runtime contracts.
 - asset: test library
 - rail: testing seams
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: deterministic time family
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]      | [CAPABILITY]                              |
 | :-----: | :----------------- | :------------------ | :---------------------------------------- |
-|   [1]   | `FakeTimeProvider` | `TimeProvider` fake | manual and auto-advanced clock and timers |
-|   [2]   | `FakeClock`        | `IClock` fake       | programmable NodaTime instant source      |
+|  [01]   | `FakeTimeProvider` | `TimeProvider` fake | manual and auto-advanced clock and timers |
+|  [02]   | `FakeClock`        | `IClock` fake       | programmable NodaTime instant source      |
 
 [PUBLIC_TYPE_SCOPE]: log capture family
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                     |
 | :-----: | :-------------------------------------- | :---------------- | :------------------------------- |
-|   [1]   | `FakeLogger`                            | `ILogger` fake    | record capture and level control |
-|   [2]   | `FakeLogCollector`                      | record sink       | snapshot and async record stream |
-|   [3]   | `FakeLogRecord`                         | record value      | level, state, scopes, timestamp  |
-|   [4]   | `FakeLogCollectorOptions`               | option value      | filters, sink, time provider     |
-|   [5]   | `FakeLoggerProvider`                    | provider          | logger factory integration       |
-|   [6]   | `FakeLoggerServiceCollectionExtensions` | service extension | fake logging registration        |
-|   [7]   | `FakeLoggerBuilderExtensions`           | builder extension | logging builder registration     |
+|  [01]   | `FakeLogger`                            | `ILogger` fake    | record capture and level control |
+|  [02]   | `FakeLogCollector`                      | record sink       | snapshot and async record stream |
+|  [03]   | `FakeLogRecord`                         | record value      | level, state, scopes, timestamp  |
+|  [04]   | `FakeLogCollectorOptions`               | option value      | filters, sink, time provider     |
+|  [05]   | `FakeLoggerProvider`                    | provider          | logger factory integration       |
+|  [06]   | `FakeLoggerServiceCollectionExtensions` | service extension | fake logging registration        |
+|  [07]   | `FakeLoggerBuilderExtensions`           | builder extension | logging builder registration     |
 
 [PUBLIC_TYPE_SCOPE]: metric capture family
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]    | [CAPABILITY]                         |
 | :-----: | :------------------------ | :---------------- | :----------------------------------- |
-|   [1]   | `MetricCollector<T>`      | instrument tap    | measurement capture per instrument   |
-|   [2]   | `CollectedMeasurement<T>` | measurement value | value, tags, timestamp               |
-|   [3]   | `MeasurementExtensions`   | query extension   | tag filtering and counter evaluation |
+|  [01]   | `MetricCollector<T>`      | instrument tap    | measurement capture per instrument   |
+|  [02]   | `CollectedMeasurement<T>` | measurement value | value, tags, timestamp               |
+|  [03]   | `MeasurementExtensions`   | query extension   | tag filtering and counter evaluation |
 
 [PUBLIC_TYPE_SCOPE]: NodaTime fake zone family
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]     | [CAPABILITY]                    |
 | :-----: | :----------------------------- | :----------------- | :------------------------------ |
-|   [1]   | `FakeDateTimeZoneSource`       | zone source fake   | builder-defined zone provider   |
-|   [2]   | `SingleTransitionDateTimeZone` | zone fake          | one-transition zone             |
-|   [3]   | `MultiTransitionDateTimeZone`  | zone fake          | scripted transition sequence    |
-|   [4]   | `DurationConstruction`         | value construction | literal duration construction   |
-|   [5]   | `LocalDateConstruction`        | value construction | literal local date construction |
+|  [01]   | `FakeDateTimeZoneSource`       | zone source fake   | builder-defined zone provider   |
+|  [02]   | `SingleTransitionDateTimeZone` | zone fake          | one-transition zone             |
+|  [03]   | `MultiTransitionDateTimeZone`  | zone fake          | scripted transition sequence    |
+|  [04]   | `DurationConstruction`         | value construction | literal duration construction   |
+|  [05]   | `LocalDateConstruction`        | value construction | literal local date construction |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: time control
 - rail: testing seams
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                   | [CAPABILITY]                           |
 | :-----: | :------------------ | :----------------------------- | :------------------------------------- |
-|   [1]   | `SetUtcNow`         | `DateTimeOffset` value         | jumps the fake clock                   |
-|   [2]   | `Advance`           | `TimeSpan` or `Duration` delta | moves time and fires due timers        |
-|   [3]   | `AdjustTime`        | `DateTimeOffset` value         | shifts time without timer side effects |
-|   [4]   | `AutoAdvanceAmount` | property on `FakeTimeProvider` | per-read automatic advancement         |
-|   [5]   | `SetLocalTimeZone`  | `TimeZoneInfo` value           | controls local zone projection         |
-|   [6]   | `FromUtc`           | static `FakeClock` factory     | constructs clock at a UTC instant      |
-|   [7]   | `AdvanceSeconds`    | unit-suffixed advance family   | advances by ticks through days         |
-|   [8]   | `Reset`             | `Instant` value                | rebases the fake clock                 |
+|  [01]   | `SetUtcNow`         | `DateTimeOffset` value         | jumps the fake clock                   |
+|  [02]   | `Advance`           | `TimeSpan` or `Duration` delta | moves time and fires due timers        |
+|  [03]   | `AdjustTime`        | `DateTimeOffset` value         | shifts time without timer side effects |
+|  [04]   | `AutoAdvanceAmount` | property on `FakeTimeProvider` | per-read automatic advancement         |
+|  [05]   | `SetLocalTimeZone`  | `TimeZoneInfo` value           | controls local zone projection         |
+|  [06]   | `FromUtc`           | static `FakeClock` factory     | constructs clock at a UTC instant      |
+|  [07]   | `AdvanceSeconds`    | unit-suffixed advance family   | advances by ticks through days         |
+|  [08]   | `Reset`             | `Instant` value                | rebases the fake clock                 |
 
 [ENTRYPOINT_SCOPE]: log and metric capture
 - rail: testing seams
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]                            | [CAPABILITY]                      |
 | :-----: | :---------------------------- | :-------------------------------------- | :-------------------------------- |
-|   [1]   | `AddFakeLogging`              | service or logging-builder registration | installs fake logger pipeline     |
-|   [2]   | `GetSnapshot`                 | optional clear flag                     | reads captured log records        |
-|   [3]   | `GetLogsAsync`                | cancellation token                      | streams records asynchronously    |
-|   [4]   | `LatestRecord`                | collector property                      | reads the newest record           |
-|   [5]   | `ControlLevel`                | level plus enabled flag                 | toggles logger level response     |
-|   [6]   | `GetMeasurementSnapshot`      | optional clear flag                     | reads captured measurements       |
-|   [7]   | `WaitForMeasurementsAsync`    | min count plus token or timeout         | awaits measurement arrival        |
-|   [8]   | `RecordObservableInstruments` | collector command                       | polls observable instruments      |
-|   [9]   | `ContainsTags`                | tag filter over measurements            | subset tag filter on measurements |
+|  [01]   | `AddFakeLogging`              | service or logging-builder registration | installs fake logger pipeline     |
+|  [02]   | `GetSnapshot`                 | optional clear flag                     | reads captured log records        |
+|  [03]   | `GetLogsAsync`                | cancellation token                      | streams records asynchronously    |
+|  [04]   | `LatestRecord`                | collector property                      | reads the newest record           |
+|  [05]   | `ControlLevel`                | level plus enabled flag                 | toggles logger level response     |
+|  [06]   | `GetMeasurementSnapshot`      | optional clear flag                     | reads captured measurements       |
+|  [07]   | `WaitForMeasurementsAsync`    | min count plus token or timeout         | awaits measurement arrival        |
+|  [08]   | `RecordObservableInstruments` | collector command                       | polls observable instruments      |
+|  [09]   | `ContainsTags`                | tag filter over measurements            | subset tag filter on measurements |
 |  [10]   | `MatchesTags`                 | tag filter over measurements            | exact tag match on measurements   |
 |  [11]   | `EvaluateAsCounter<T>`        | measurement aggregation                 | folds deltas into a counter total |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SEAM_TOPOLOGY]:
 - restore scope: all three packages restore under the AppHost test closure only

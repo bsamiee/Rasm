@@ -2,7 +2,7 @@
 
 `ifcdiff` supplies the IFC model-comparison surface for the geometry ifc-analysis rail: a structured diff between two `ifcopenshell.file` models — added/deleted/changed elements across geometry, properties, and structure — through the `IfcDiff` owner over `deepdiff`, emitting a per-element change record the analysis owner graduates as as-designed-versus-revision evidence. It rides the `ifcopenshell` companion lane (`0.8.5`, depends `ifcopenshell`/`deepdiff`).
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifcdiff`
 - package: `ifcdiff`
@@ -13,29 +13,29 @@
 - entry points: none (library only)
 - capability: structured comparison of two IFC models — added, deleted, and changed elements keyed by GlobalId, with geometry/property/structure change classification through `deepdiff`, and a JSON change-report export
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: diff owner
 - rail: model-diff
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE] | [CAPABILITY]                                             |
 | :-----: | :------------------------ | :------------- | :------------------------------------------------------- |
-|   [1]   | `IfcDiff`                 | diff root      | drives the two-model comparison, holds the change result |
-|   [2]   | `IfcDiff.change_register` | change map     | GlobalId-keyed added/deleted/changed element record      |
+|  [01]   | `IfcDiff`                 | diff root      | drives the two-model comparison, holds the change result |
+|  [02]   | `IfcDiff.change_register` | change map     | GlobalId-keyed added/deleted/changed element record      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: diff execution and export
 - rail: model-diff
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]            | [CAPABILITY]                             |
 | :-----: | :--------------------------------- | :---------------------- | :--------------------------------------- |
-|   [1]   | `IfcDiff(old_file, new_file, ...)` | two `ifcopenshell.file` | construct the comparison over two models |
-|   [2]   | `IfcDiff.diff()`                   | none                    | run the structured comparison            |
-|   [3]   | `IfcDiff.export(path)`             | path                    | write the change register to JSON        |
-|   [4]   | `IfcDiff.change_register`          | none                    | the GlobalId-keyed change map post-diff  |
+|  [01]   | `IfcDiff(old_file, new_file, ...)` | two `ifcopenshell.file` | construct the comparison over two models |
+|  [02]   | `IfcDiff.diff()`                   | none                    | run the structured comparison            |
+|  [03]   | `IfcDiff.export(path)`             | path                    | write the change register to JSON        |
+|  [04]   | `IfcDiff.change_register`          | none                    | the GlobalId-keyed change map post-diff  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DIFF_TOPOLOGY]:
 - import: `import ifcdiff` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -43,7 +43,7 @@
 - evidence: each diff captures the old/new model identities, the added/deleted/changed counts, and the per-element change kind as a diff receipt; the change register graduates as revision-comparison evidence.
 - boundary: `ifcdiff` owns IFC model comparison; a hand-rolled `by_type`/attribute-walk diff is the deleted form; model transformation stays `ifcpatch`, 5D cost stays `ifc5d`, IFC parse stays `ifcopenshell`.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `ifcdiff`

@@ -2,11 +2,11 @@
 
 The fused hybrid-retrieval owner — `HybridSearch`, the single Reciprocal-Rank-Fusion surface fusing semantic (vector/HNSW), lexical (BM25), trigram, and phonetic retrieval over the one `SqlBoundary` Postgres client, then re-scoring the fused candidate set through a terminal `rerank` stage. It is a first-class search domain distinct from raw persistence: the four retrieval signals are per-signal ranked arms on one RRF owner, never four parallel search services and never folded into persistence. RRF is scale-invariant across the heterogeneous signal scores, so each arm contributes a rank rather than a raw score and the fragile per-signal normalization the weighted-sum needed is dropped. The owner rides the persistence `PgClient` and crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FUSED_RANK]: owns the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank surface and the post-fusion `rerank` stage axis.
+- [01]-[FUSED_RANK]: owns the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank surface and the post-fusion `rerank` stage axis.
 
-## [2]-[FUSED_RANK]
+## [02]-[FUSED_RANK]
 
 - Owner: `HybridSearch`, the single RRF owner over four retrieval signals — `semantic` (vector cosine distance over an embedding column with HNSW `efSearch` tuning), `lexical` (BM25 over a `pg_search` index), `trigram` (`pg_trgm` similarity), and `phonetic` (a phonetic-key match) — each one ranked arm on the one owner, never a parallel search service; the fused candidate set then passes through one ordered two-stage pipeline whose terminal `rerank` stage is a `RerankModel` row, never a second retriever.
 - Cases: one SQL round-trip fans the four signals out through the `hybridQuery` per-signal `RANK() OVER (ORDER BY ...)` scaffold (`pgvector` `<=>` cosine, BM25 `paradedb.score` over the `@@@` match, `pg_trgm` `similarity`, `fuzzystrmatch` `dmetaphone`), every id carrying all four per-signal rank columns so a candidate strong in one modality fuses cleanly; the fused rank is the Reciprocal Rank Fusion `SUM(weight / (rrfK + rank))` over a `SearchWeights` row, scale-invariant so a per-signal score normalization is unnecessary; the trigram and phonetic signals catch the typo and homophone matches the BM25 lexical signal misses. The `rerank` stage then re-scores the bounded candidate set the SQL narrowed — a `RerankModel` row over a `RerankFeatureVector` (the four signal contributions plus rank-margin and staleness), collect-then-`Order`-reorder so the sort is GLOBAL across the candidate set, never chunk-local, promoting a candidate strong on a cross-feature interaction the linear RRF sum cannot express; the result is one re-ordered `SearchHit` stream.

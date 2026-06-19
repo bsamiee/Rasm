@@ -2,11 +2,11 @@
 
 The headless form-validity owner distinct in kind from the field-control behavior. `FormBinding` folds one `effect` `Schema` over the raw `FormData` through `Schema.decodeUnknownEither`, projects the `ParseError` into a per-path field-error map, and feeds the `react-aria-components` `Form` `validationBehavior: "aria"` surface so a form is one schema and the accessibility error region is the decoded validity. The page composes the `role-behavior.md` `inputs` role family for the field controls and holds no domain state; a valid decode crosses the `interchange` `CommandGateway` as one intent, never a transport directly.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FORM_BINDING]: the `Schema.decodeUnknownEither` form-validity fold over one `effect` `Schema`, and the per-field ARIA error projection onto the `react-aria-components` `Form` surface.
+- [01]-[FORM_BINDING]: the `Schema.decodeUnknownEither` form-validity fold over one `effect` `Schema`, and the per-field ARIA error projection onto the `react-aria-components` `Form` surface.
 
-## [2]-[FORM_BINDING]
+## [02]-[FORM_BINDING]
 
 - Owner: `FormBinding<A>`, the headless form owner over one `Schema.Schema<A, Record<string, string>>` field shape — `validate` decodes the raw `FormData` through `Schema.decodeUnknownEither` into either the typed value or a `ParseResult.ParseError`, `errorMap` projects the `ParseError` into a per-path `Record<string, string>` the `react-aria-components` `Form` `validationBehavior: "aria"` resolves onto each `FieldError` slot, and `submit` crosses the decoded value into the `interchange` `CommandGateway` as one intent. The schema is the single source of field validity; the react-stately field-state hooks own the headless control state.
 - Cases: `validate` reads the submitted `FormData` as a `Record<string, string>` and runs `Schema.decodeUnknownEither(schema)`, returning `Either.right(value)` on a clean decode or `Either.left(parseError)` otherwise; `errorMap` walks the `ParseError` into the `{ [path]: message }` map keyed by the field name so `Form`'s `validationBehavior: "aria"` writes each message into the matching field's `aria-describedby` error region and no field re-implements a validator; `submit` short-circuits on `Either.left` (rendering the error map) and dials the `CommandGateway` on `Either.right`. The `inputs` `RoleBehavior` family (field/radio/select/slider) owns the control state through the react-stately `useNumberFieldState`/`useSelectState`/`useComboBoxState`/`useRadioGroupState`/`useSliderState` hooks; the schema owns the validity, the role owns the behavior.

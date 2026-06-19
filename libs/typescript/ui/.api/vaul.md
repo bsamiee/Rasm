@@ -2,7 +2,7 @@
 
 `vaul` provides the `Drawer` compound component for building bottom-sheet and directional drawer overlays built on top of `@radix-ui/react-dialog`. It supports snap points, velocity-based swiping, directional opening (`top`, `bottom`, `left`, `right`), background scale, and nested drawers. The public surface is the `Drawer` namespace object plus flat named component and type exports.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vaul`
 - package: `vaul`
@@ -10,50 +10,50 @@
 - asset: runtime component library
 - rail: overlay
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: drawer prop types
 - rail: overlay
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                             |
 | :-----: | :--------------------- | :------------ | :----------------------------------------------------------------- |
-|   [1]   | `DialogProps`          | type alias    | full root props union; `WithFadeFromProps \| WithoutFadeFromProps` |
-|   [2]   | `WithFadeFromProps`    | interface     | requires `snapPoints` + `fadeFromIndex`                            |
-|   [3]   | `WithoutFadeFromProps` | interface     | `snapPoints?`; `fadeFromIndex` must be absent                      |
-|   [4]   | `ContentProps`         | type alias    | `React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>`   |
-|   [5]   | `HandleProps`          | type alias    | `React.ComponentPropsWithoutRef<'div'> & { preventCycle? }`        |
-|   [6]   | `PortalProps`          | type alias    | `React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>`    |
+|  [01]   | `DialogProps`          | type alias    | full root props union; `WithFadeFromProps \| WithoutFadeFromProps` |
+|  [02]   | `WithFadeFromProps`    | interface     | requires `snapPoints` + `fadeFromIndex`                            |
+|  [03]   | `WithoutFadeFromProps` | interface     | `snapPoints?`; `fadeFromIndex` must be absent                      |
+|  [04]   | `ContentProps`         | type alias    | `React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>`   |
+|  [05]   | `HandleProps`          | type alias    | `React.ComponentPropsWithoutRef<'div'> & { preventCycle? }`        |
+|  [06]   | `PortalProps`          | type alias    | `React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal>`    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Drawer compound component (namespace)
 - rail: overlay
 
 | [INDEX] | [SURFACE]            | [ENTRY_FAMILY] | [RAIL]                                                                                                                                               |
 | :-----: | :------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `Drawer.Root`        | root component | full `DialogProps`; `direction?`, `snapPoints?`, `fadeFromIndex?`, `activeSnapPoint?`, `shouldScaleBackground?`, `dismissible?`, `modal?`, `nested?` |
-|   [2]   | `Drawer.Content`     | subcomponent   | `ContentProps`; `ForwardRefExoticComponent`                                                                                                          |
-|   [3]   | `Drawer.Overlay`     | subcomponent   | `DialogPrimitive.DialogOverlayProps`; `ForwardRefExoticComponent`                                                                                    |
-|   [4]   | `Drawer.Trigger`     | subcomponent   | `DialogPrimitive.DialogTriggerProps`; `ForwardRefExoticComponent`                                                                                    |
-|   [5]   | `Drawer.Close`       | subcomponent   | `DialogPrimitive.DialogCloseProps`; `ForwardRefExoticComponent`                                                                                      |
-|   [6]   | `Drawer.Portal`      | subcomponent   | `PortalProps`; portals content outside DOM tree                                                                                                      |
-|   [7]   | `Drawer.Handle`      | subcomponent   | `HandleProps`; drag handle; `preventCycle?` stops snap cycling                                                                                       |
-|   [8]   | `Drawer.Title`       | subcomponent   | `DialogPrimitive.DialogTitleProps`; `ForwardRefExoticComponent`                                                                                      |
-|   [9]   | `Drawer.Description` | subcomponent   | `DialogPrimitive.DialogDescriptionProps`; `ForwardRefExoticComponent`                                                                                |
+|  [01]   | `Drawer.Root`        | root component | full `DialogProps`; `direction?`, `snapPoints?`, `fadeFromIndex?`, `activeSnapPoint?`, `shouldScaleBackground?`, `dismissible?`, `modal?`, `nested?` |
+|  [02]   | `Drawer.Content`     | subcomponent   | `ContentProps`; `ForwardRefExoticComponent`                                                                                                          |
+|  [03]   | `Drawer.Overlay`     | subcomponent   | `DialogPrimitive.DialogOverlayProps`; `ForwardRefExoticComponent`                                                                                    |
+|  [04]   | `Drawer.Trigger`     | subcomponent   | `DialogPrimitive.DialogTriggerProps`; `ForwardRefExoticComponent`                                                                                    |
+|  [05]   | `Drawer.Close`       | subcomponent   | `DialogPrimitive.DialogCloseProps`; `ForwardRefExoticComponent`                                                                                      |
+|  [06]   | `Drawer.Portal`      | subcomponent   | `PortalProps`; portals content outside DOM tree                                                                                                      |
+|  [07]   | `Drawer.Handle`      | subcomponent   | `HandleProps`; drag handle; `preventCycle?` stops snap cycling                                                                                       |
+|  [08]   | `Drawer.Title`       | subcomponent   | `DialogPrimitive.DialogTitleProps`; `ForwardRefExoticComponent`                                                                                      |
+|  [09]   | `Drawer.Description` | subcomponent   | `DialogPrimitive.DialogDescriptionProps`; `ForwardRefExoticComponent`                                                                                |
 
 [ENTRYPOINT_SCOPE]: flat named exports
 - rail: overlay
 
 | [INDEX] | [SURFACE]    | [ENTRY_FAMILY] | [RAIL]                                                 |
 | :-----: | :----------- | :------------- | :----------------------------------------------------- |
-|   [1]   | `Root`       | root component | same as `Drawer.Root`                                  |
-|   [2]   | `NestedRoot` | root component | nested drawer root; forwards `onDrag` + `onOpenChange` |
-|   [3]   | `Content`    | subcomponent   | same as `Drawer.Content`                               |
-|   [4]   | `Overlay`    | subcomponent   | same as `Drawer.Overlay`                               |
-|   [5]   | `Handle`     | subcomponent   | same as `Drawer.Handle`                                |
-|   [6]   | `Portal`     | subcomponent   | same as `Drawer.Portal`                                |
+|  [01]   | `Root`       | root component | same as `Drawer.Root`                                  |
+|  [02]   | `NestedRoot` | root component | nested drawer root; forwards `onDrag` + `onOpenChange` |
+|  [03]   | `Content`    | subcomponent   | same as `Drawer.Content`                               |
+|  [04]   | `Overlay`    | subcomponent   | same as `Drawer.Overlay`                               |
+|  [05]   | `Handle`     | subcomponent   | same as `Drawer.Handle`                                |
+|  [06]   | `Portal`     | subcomponent   | same as `Drawer.Portal`                                |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DRAWER_TOPOLOGY]:
 - built on `@radix-ui/react-dialog`; `Drawer.Root` is the controlled open/close boundary

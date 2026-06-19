@@ -2,7 +2,7 @@
 
 The cross-package open and closed work for the TypeScript branch — the wiring, guards, and seams no single folder owns, distilled from the branch concert in `IDEAS.md`. Per-folder work lives in each folder's `TASKLOG.md`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or wiring to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [QUEUED] Wire the mutation gate and the descriptor codegen rail into the root dev-tooling manifest.
 - Land `@stryker-mutator/core`, `@stryker-mutator/typescript-checker`, `@stryker-mutator/vitest-runner`, and `@bufbuild/buf` in the root dev-tooling manifest — they resolve from the workspace catalog but are absent from the root manifest the folders flagged — so the per-package mutation gate and the `interchange` descriptor `buf generate` rail resolve.
@@ -82,6 +82,6 @@ The cross-package open and closed work for the TypeScript branch — the wiring,
 - Wires the `edge` folder's HttpApi transcription to a verified catalogue; the branch `effect-platform.md` out-of-scope note narrows to "no browser/neutral owner stands up a server" since `edge` now does, and the note names `edge/.api/effect-platform.md` as the HttpApi owner.
 - Lands with the `edge` folder stand-up; until it lands the `edge` `HttpApi` fences stay RESEARCH-gated, not settled fence code.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

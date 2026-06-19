@@ -2,11 +2,11 @@
 
 Rasm.Compute model identity: ONNX model identity and provenance — the checksum-derived `ModelIdentity` record with nested `Slot` schema rows and the `CustomMetadata`/`Initializers` self-description channels, the `ModelSource` four-case acquisition union collapsing to one byte admission, and the one shared `ModelFingerprint` ordinal-keyvalue projection both this owner and the execution-provider axis ride. The page owns the `ModelSource`/`ModelIdentity`/`ModelFingerprint` vocabulary and the `Snapshot`/`Accepts`/`Initializer` admission fold; identity derives from the model bytes through `System.IO.Hashing` `XxHash128`/`XxHash3`, the slot schema reads `Microsoft.ML.OnnxRuntime` `InferenceSession` metadata, the `ModelLoad` receipt rides the `ComputeReceipt` rail, and `NodaTime` `Instant` and the Persistence `ArtifactIndexRow` arrive settled. The `ModelIdentity`/`ModelFingerprint`/`Slot` shapes cross to `Model/sessions#SESSION_CAPSULE`, `Model/providers#EP_AXIS`, `Model/inference#INFERENCE_MODES`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary, and the `Checksum` is the deterministic cache and result-key seed `Model/inference#RESULT_CACHE` consumes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MODEL_IDENTITY]: checksum identity; acquisition union; schema snapshot; admission law; custom-metadata and initializer admission; shared ordinal-keyvalue fingerprint.
+- [01]-[MODEL_IDENTITY]: checksum identity; acquisition union; schema snapshot; admission law; custom-metadata and initializer admission; shared ordinal-keyvalue fingerprint.
 
-## [2]-[MODEL_IDENTITY]
+## [02]-[MODEL_IDENTITY]
 
 - Owner: `ModelIdentity` identity record with nested `Slot` schema rows and the `CustomMetadata`/`Initializers` self-description channels; `ModelSource` `[Union]` four acquisition cases collapsing to one byte admission; `ModelFingerprint` the one shared ordinal-keyvalue projection both this owner and `ExecutionProvider` ride.
 - Cases: `LocalFile`, `EmbeddedResource`, `PersistenceBlob`, `RemoteFetch`.

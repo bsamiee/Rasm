@@ -4,7 +4,7 @@
 Concurrency in C# 14 / .NET 10 (`using static LanguageExt.Prelude;` assumed) is boundary architecture — domain transforms stay pure; coordination belongs at the effectful shell. **[Schematic]** hosted periodic work uses `repeat(Schedule, eff)` or `IO.Repeat` — not unpinned generic-host packages.
 
 ---
-## [1]-[COORDINATION_ALGEBRA]
+## [01]-[COORDINATION_ALGEBRA]
 >**Dictum:** *Acquire-use-release, cancellation, and bounded fan-out belong in one compositional surface.*
 
 `Bracket` encodes acquire/use/release as a first-class effect -- `Fin` is guaranteed on every exit path including cancellation, replacing `try/finally` in domain code. `WithTimeout` composes a deadline into any `Eff` pipeline by scoping a linked `CancellationTokenSource` inside `Bracket`, ensuring the CTS is disposed even when the timeout fires. `ParallelBounded` is the approved boundary adapter for ad-hoc fan-out when a full `Channel<T>` topology is disproportionate -- it caps concurrency via `SemaphoreSlim` while preserving `IO<A>` composability.
@@ -74,7 +74,7 @@ public static class Coordination {
 ```
 
 ---
-## [2]-[CHANNEL_TOPOLOGIES]
+## [02]-[CHANNEL_TOPOLOGIES]
 >**Dictum:** *Backpressure is explicit at construction; error propagation is terminal.*
 
 `BoundedChannelOptions` locks topology at construction -- capacity, `FullMode`, and reader/writer cardinality are structural decisions, not runtime tuning. `RunStage` is the canonical pipeline primitive: a `Fin<TOut>` failure calls `writer.Complete(error.ToException())`, terminating the downstream stage immediately rather than leaving the writer open. Setting `AllowSynchronousContinuations = false` prevents reader callbacks from executing on the writer's thread, avoiding unpredictable latency spikes in producer-critical paths.
@@ -124,13 +124,13 @@ public static class ChannelTopology {
 
 | [INDEX] | [FULL_MODE]      | [SEMANTICS]              | [PRIMARY_USE]          |
 | :-----: | :--------------- | ------------------------ | ---------------------- |
-|   [1]   | **`Wait`**       | Awaits available space   | Lossless event pipes   |
-|   [2]   | **`DropOldest`** | Oldest item evicted      | Latest-state telemetry |
-|   [3]   | **`DropNewest`** | Newest item evicted      | Earliest causality     |
-|   [4]   | **`DropWrite`**  | Incoming write discarded | Best-effort signals    |
+|  [01]   | **`Wait`**       | Awaits available space   | Lossless event pipes   |
+|  [02]   | **`DropOldest`** | Oldest item evicted      | Latest-state telemetry |
+|  [03]   | **`DropNewest`** | Newest item evicted      | Earliest causality     |
+|  [04]   | **`DropWrite`**  | Incoming write discarded | Best-effort signals    |
 
 ---
-## [3]-[ASYNC_STREAM_BOUNDARIES]
+## [03]-[ASYNC_STREAM_BOUNDARIES]
 >**Dictum:** *`await foreach` is a sanctioned boundary primitive; token and continuation policy are explicit.*
 
 `[EnumeratorCancellation]` on the token parameter makes cancellation cooperative at call sites via `WithCancellation`; `ConfigureAwait(false)` is mandatory throughout. The C# async iterator spec requires statement-form `if` + `yield return` -- these are the only permitted imperative constructs at this boundary, each annotated with `[BOUNDARY ADAPTER]`. Batching via `Seq<T>` preserves immutability: the binding evolves through `Add` on each iteration, keeping the body as close to pure accumulation as the spec allows.
@@ -202,22 +202,22 @@ public static class AsyncStreams {
 ```
 
 ---
-## [4]-[CONCURRENCY_CANON]
+## [04]-[CONCURRENCY_CANON]
 >**Dictum:** *Canon constraints codify non-negotiable concurrency guarantees.*
 
 Every row maps to a Roslyn analyzer or architectural invariant -- enforcement is compile-time, not review-time. `RESOURCE_LIFECYCLE` and `TOKEN_THREADING` catch the highest-severity bugs: leaked handles exhaust OS resources, lost tokens make graceful shutdown impossible. `DOMAIN_STATE` and `IMMUTABLE_ACCUM` enforce the boundary between coordination (shell) and pure computation (domain).
 
 | [INDEX] | [CONSTRAINT]             | [MANDATE]                        | [ENFORCER]              |
 | :-----: | :----------------------- | -------------------------------- | ----------------------- |
-|   [1]   | **`RESOURCE_LIFECYCLE`** | Bracket-form acquire/use/release | CA2000                  |
-|   [2]   | **`TOKEN_THREADING`**    | Async APIs forward cancel tokens | MA0032 (strict), CA2016 |
-|   [3]   | **`ASYNC_OBSERVATION`**  | Spawned work joined via WhenAll  | VSTHRD110               |
-|   [4]   | **`AWAIT_INTENT`**       | ConfigureAwait(false) on lib     | VSTHRD111               |
-|   [5]   | **`LOCK_DISCIPLINE`**    | Lock for sync only; never await  | MA0158                  |
-|   [6]   | **`SEMAPHORE_SCOPE`**    | WaitAsync(token) + Release       | Bounded exclusion       |
-|   [7]   | **`CHANNEL_EXPLICIT`**   | Bounded + explicit full mode     | Deterministic BP        |
-|   [8]   | **`ERROR_PROPAGATION`**  | Stage failure completes writer   | Downstream signal       |
-|   [9]   | **`DOMAIN_STATE`**       | Atom/Ref, not lock choreography  | Compositional inv.      |
+|  [01]   | **`RESOURCE_LIFECYCLE`** | Bracket-form acquire/use/release | CA2000                  |
+|  [02]   | **`TOKEN_THREADING`**    | Async APIs forward cancel tokens | MA0032 (strict), CA2016 |
+|  [03]   | **`ASYNC_OBSERVATION`**  | Spawned work joined via WhenAll  | VSTHRD110               |
+|  [04]   | **`AWAIT_INTENT`**       | ConfigureAwait(false) on lib     | VSTHRD111               |
+|  [05]   | **`LOCK_DISCIPLINE`**    | Lock for sync only; never await  | MA0158                  |
+|  [06]   | **`SEMAPHORE_SCOPE`**    | WaitAsync(token) + Release       | Bounded exclusion       |
+|  [07]   | **`CHANNEL_EXPLICIT`**   | Bounded + explicit full mode     | Deterministic BP        |
+|  [08]   | **`ERROR_PROPAGATION`**  | Stage failure completes writer   | Downstream signal       |
+|  [09]   | **`DOMAIN_STATE`**       | Atom/Ref, not lock choreography  | Compositional inv.      |
 |  [10]   | **`IMMUTABLE_ACCUM`**    | Fold/aggregate, not reassignment | Referential transp.     |
 |  [11]   | **`NO_TASKRUN_FANOUT`**  | No Task.Run fan-out as policy    | CSP0014                 |
 |  [12]   | **`NO_FIRE_FORGET`**     | Every task awaited or composed   | CSP0301                 |
@@ -225,7 +225,7 @@ Every row maps to a Roslyn analyzer or architectural invariant -- enforcement is
 |  [14]   | **`NO_TIMER_DOMAIN`**    | Timer construction boundary-only | CSP0401                 |
 
 ---
-## [5]-[ATOMIC_COORDINATION]
+## [05]-[ATOMIC_COORDINATION]
 >**Dictum:** *Race conditions are structural defects; Atom CAS makes them algebraically impossible.*
 
 `Atom<T>` eliminates race conditions via Compare-And-Swap: every `Swap` applies a pure `A -> A` function -- if the underlying value changed between read and write, the runtime retries automatically. The optional validator rejects transitions violating domain invariants; a spike in rejections indicates a contention hotspot requiring partition or promotion to `Ref<T>` + `atomic`. `Swap` functions execute potentially multiple times under contention -- they MUST be side-effect-free. The same CAS primitive scales from in-process session tracking to distributed leader election and idempotent deduplication; only the boundary transport changes. See `effects.md` [7] for `Atom`/`Ref`/`atomic`/`snapshot`/`serial` foundations.
@@ -333,13 +333,13 @@ public static class AtomicCoordination {
 
 | [INDEX] | [PATTERN]        | [DISTRIBUTED_USE]                       | [LOCAL_PRIMITIVE]             |
 | :-----: | :--------------- | --------------------------------------- | ----------------------------- |
-|   [1]   | Message queue    | Cross-node `Channel<T>` + transport     | `Channel<T>` ([2])            |
-|   [2]   | Leader election  | CAS + external lock at boundary         | `Atom<Option<NodeId>>`        |
-|   [3]   | Idempotent dedup | CAS + external unique constraint        | `Atom<HashMap<EventId, _>>`   |
-|   [4]   | Retry / backoff  | `Schedule` algebra across network calls | `Schedule` (`effects.md` [8]) |
+|  [01]   | Message queue    | Cross-node `Channel<T>` + transport     | `Channel<T>` ([2])            |
+|  [02]   | Leader election  | CAS + external lock at boundary         | `Atom<Option<NodeId>>`        |
+|  [03]   | Idempotent dedup | CAS + external unique constraint        | `Atom<HashMap<EventId, _>>`   |
+|  [04]   | Retry / backoff  | `Schedule` algebra across network calls | `Schedule` (`effects.md` [8]) |
 
 ---
-## [6]-[HAZARDS]
+## [06]-[HAZARDS]
 >**Dictum:** *Thread pool starvation is a distributed deadlock; detect structurally, not symptomatically.*
 
 Sync-over-async (`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`) blocks a thread-pool thread waiting for a continuation that itself needs a thread-pool thread. Under load, all threads deadlock -- the CLR injects ~1-2 threads/second, far too slow for burst recovery. Monitor starvation via `ThreadPool.PendingWorkItemCount` exposed as `ObservableGauge`; alert when pending items exceed `ThreadCount * 2` sustained over 5 seconds.
@@ -357,7 +357,7 @@ public static IO<string> FetchData(HttpClient client, string url) =>
 [IMPORTANT]: **VSTHRD111 rationale** -- library code runs without a `SynchronizationContext` (no UI thread, no ASP.NET Classic per-request context). Without `ConfigureAwait(false)`, continuations attempt to marshal back to the captured context. In environments where a context exists (consumed as a dependency by UI or legacy hosts), this causes deadlocks when a synchronous caller blocks the context thread while the continuation waits for that same thread. `ConfigureAwait(false)` eliminates the unnecessary thread-hop and makes the library context-agnostic. VSTHRD111 enforces this at error severity -- every `await` in `*.cs` files under library scope must include `.ConfigureAwait(false)`. ASP.NET Core controllers and top-level application code are exempt because the framework pipeline does not install a `SynchronizationContext`.
 
 ---
-## [7]-[RULES]
+## [07]-[RULES]
 >**Dictum:** *Rules compress into constraints.*
 
 - [ALWAYS] `Bracket` for resource acquire/use/release -- `try/finally` only at `[BOUNDARY ADAPTER]` sites.
@@ -411,18 +411,18 @@ public static Eff<RT, Unit> PeriodicCleanup<RT>(Eff<RT, Unit> cleanup) =>
 ```
 
 ---
-## [8]-[QUICK_REFERENCE]
+## [08]-[QUICK_REFERENCE]
 
 | [INDEX] | [PATTERN]               | [WHEN]                              | [KEY_TRAIT]                          |
 | :-----: | :---------------------- | :---------------------------------- | ------------------------------------ |
-|   [1]   | `Bracket`               | Resource acquire/use/release        | `IO.Bracket` + guaranteed `Fin`      |
-|   [2]   | `WithTimeout`           | Deadline-scoped `Eff` pipeline      | Linked CTS inside `Bracket`          |
-|   [3]   | `Channel<T>` bounded    | Backpressure-native fan-out         | `BoundedChannelOptions` + `FullMode` |
-|   [4]   | `RunStage`              | Channel pipeline stage              | `Fin<TOut>` failure completes writer |
-|   [5]   | `await foreach` + batch | Async stream consumption            | `[EnumeratorCancellation]` + `Seq`   |
-|   [6]   | `Atom<T>` CAS           | Lock-free state / leader election   | `Swap` + optional validator          |
-|   [7]   | `Atom<HashMap<K,V>>`    | Concurrent map / idempotent dedup   | CAS retry + immutable inner          |
-|   [8]   | `Ref<T>` + `atomic`     | Multi-ref transactional consistency | STM commit/rollback                  |
-|   [9]   | `ParallelBounded`       | Ad-hoc bounded fan-out              | `SemaphoreSlim` + `IO<Seq<T>>`       |
+|  [01]   | `Bracket`               | Resource acquire/use/release        | `IO.Bracket` + guaranteed `Fin`      |
+|  [02]   | `WithTimeout`           | Deadline-scoped `Eff` pipeline      | Linked CTS inside `Bracket`          |
+|  [03]   | `Channel<T>` bounded    | Backpressure-native fan-out         | `BoundedChannelOptions` + `FullMode` |
+|  [04]   | `RunStage`              | Channel pipeline stage              | `Fin<TOut>` failure completes writer |
+|  [05]   | `await foreach` + batch | Async stream consumption            | `[EnumeratorCancellation]` + `Seq`   |
+|  [06]   | `Atom<T>` CAS           | Lock-free state / leader election   | `Swap` + optional validator          |
+|  [07]   | `Atom<HashMap<K,V>>`    | Concurrent map / idempotent dedup   | CAS retry + immutable inner          |
+|  [08]   | `Ref<T>` + `atomic`     | Multi-ref transactional consistency | STM commit/rollback                  |
+|  [09]   | `ParallelBounded`       | Ad-hoc bounded fan-out              | `SemaphoreSlim` + `IO<Seq<T>>`       |
 |  [10]   | `IO.liftAsync`          | Async boundary wrapping             | Avoids sync-over-async starvation    |
 |  [11]   | `ConsumeChannel`        | Eff-to-channel cancellation bridge  | Token accessor + `ReadAllAsync`      |

@@ -2,22 +2,22 @@
 
 Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it.
 
-## [1]-[SEAM_CHOOSER]
+## [01]-[SEAM_CHOOSER]
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and lifetime rows are read before transport rows.
 
 | [INDEX] | [FOREIGN_SIGNAL]     | [SEAM_OWNER]        | [INTERIOR_FORM]                   | [REJECT]               |
 | :-----: | :------------------- | :------------------ | :-------------------------------- | :--------------------- |
-|   [1]   | native resource      | capsule owner       | `Fin<T>` value projection         | raw handle field       |
-|   [2]   | borrowed live memory | scoped view         | detached value copy               | escaping span          |
-|   [3]   | null or sentinel     | admission projector | `Option<T>` or closed family      | nullable payload       |
-|   [4]   | callback or event    | subscription value  | channel-fed admitted signal       | orphan handler         |
-|   [5]   | thread-affine call   | marshal effect      | `Eff<RT,T>` with captured context | ambient thread check   |
-|   [6]   | session or singleton | token-gated cell    | committed state family            | boolean lifecycle flag |
-|   [7]   | protocol payload     | wire contract       | admitted owner                    | codec-bearing owner    |
-|   [8]   | signed byte field    | byte contract       | canonical octets plus hash        | parse-reserialize      |
+|  [01]   | native resource      | capsule owner       | `Fin<T>` value projection         | raw handle field       |
+|  [02]   | borrowed live memory | scoped view         | detached value copy               | escaping span          |
+|  [03]   | null or sentinel     | admission projector | `Option<T>` or closed family      | nullable payload       |
+|  [04]   | callback or event    | subscription value  | channel-fed admitted signal       | orphan handler         |
+|  [05]   | thread-affine call   | marshal effect      | `Eff<RT,T>` with captured context | ambient thread check   |
+|  [06]   | session or singleton | token-gated cell    | committed state family            | boolean lifecycle flag |
+|  [07]   | protocol payload     | wire contract       | admitted owner                    | codec-bearing owner    |
+|  [08]   | signed byte field    | byte contract       | canonical octets plus hash        | parse-reserialize      |
 
-## [2]-[ADMISSION]
+## [02]-[ADMISSION]
 
 [SENTINEL_PROJECTION]:
 - Use: any foreign null, invalid handle, detached row, missing key, default struct, or not-found code.
@@ -53,7 +53,7 @@ public static class ForeignAdmission {
 }
 ```
 
-## [3]-[LIFETIME]
+## [03]-[LIFETIME]
 
 [CAPSULE_OWNER]:
 - Use: native handles, foreign objects, pinned buffers, leases, pooled values, and external cursors.
@@ -123,7 +123,7 @@ public static class ViewBoundary {
 - Law: leases, rentals, and pools expose logical extents, not pool vocabulary; return or release occurs exactly once on every exit path, including rejected and cancelled acquisitions.
 - Reject: parent and child scopes both disposing one cancellation source, handle, or subscription set; pooled arrays or rate permits escaping as public state.
 
-## [4]-[EVENTS_THREADS]
+## [04]-[EVENTS_THREADS]
 
 [SUBSCRIPTION_VALUE]:
 - Use: events, callbacks, observers, waits, notifications, and foreign lifecycle hooks.
@@ -167,7 +167,7 @@ public static class SignalBoundary {
 }
 ```
 
-## [5]-[STATE_CELLS]
+## [05]-[STATE_CELLS]
 
 [TOKEN_LIFECYCLE]:
 - Use: session, singleton, wake, and cross-call boundary lifetime.
@@ -249,7 +249,7 @@ public static class DrainBoundary {
 - Accept: content, policy, capability, version, and foreign identity feed one stable key.
 - Reject: path-only, type-only, or option-partial caches.
 
-## [6]-[WIRE_CONTRACTS]
+## [06]-[WIRE_CONTRACTS]
 
 [PROTOCOL_EDGE]:
 - Use: payload records, envelopes, serializer contracts, persisted packets, and remote frames.

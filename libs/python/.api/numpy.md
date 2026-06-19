@@ -2,7 +2,7 @@
 
 `numpy` supplies the N-dimensional array type `ndarray`, a complete dtype hierarchy, ufuncs for element-wise math, and submodules for linear algebra (`linalg`), discrete Fourier transforms (`fft`), and random sampling (`random.Generator`). It is the primary numerical substrate for array creation, shape manipulation, broadcasting, reduction, and numerical kernels consumed across compute and geometry owners.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `numpy`
 - package: `numpy`
@@ -10,22 +10,22 @@
 - asset: runtime library
 - rail: compute
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: array family
 - rail: compute
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]     | [RAIL]                             |
 | :-----: | :--------------- | :---------------- | :--------------------------------- |
-|   [1]   | `ndarray`        | n-d array         | primary array container            |
-|   [2]   | `dtype`          | type descriptor   | element type for array creation    |
-|   [3]   | `ufunc`          | universal func    | element-wise C-dispatch operations |
-|   [4]   | `matrix`         | 2-d array subtype | legacy 2-d multiplication surface  |
-|   [5]   | `memmap`         | file-backed array | memory-mapped array I/O            |
-|   [6]   | `recarray`       | record array      | field-named structured array       |
-|   [7]   | `flatiter`       | flat iterator     | row-major element iteration        |
-|   [8]   | `ndindex`        | index iterator    | multi-dimensional index scan       |
-|   [9]   | `ndenumerate`    | enum iterator     | (index, value) iteration           |
+|  [01]   | `ndarray`        | n-d array         | primary array container            |
+|  [02]   | `dtype`          | type descriptor   | element type for array creation    |
+|  [03]   | `ufunc`          | universal func    | element-wise C-dispatch operations |
+|  [04]   | `matrix`         | 2-d array subtype | legacy 2-d multiplication surface  |
+|  [05]   | `memmap`         | file-backed array | memory-mapped array I/O            |
+|  [06]   | `recarray`       | record array      | field-named structured array       |
+|  [07]   | `flatiter`       | flat iterator     | row-major element iteration        |
+|  [08]   | `ndindex`        | index iterator    | multi-dimensional index scan       |
+|  [09]   | `ndenumerate`    | enum iterator     | (index, value) iteration           |
 |  [10]   | `nditer`         | advanced iterator | controlled multi-array iteration   |
 |  [11]   | `broadcast`      | broadcast state   | broadcast shape computation        |
 |  [12]   | `poly1d`         | polynomial        | polynomial arithmetic              |
@@ -36,15 +36,15 @@
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                     |
 | :-----: | :----------------------------- | :--------------- | :------------------------- |
-|   [1]   | `generic`                      | scalar base      | root of all scalar types   |
-|   [2]   | `bool_`                        | boolean          | numpy boolean scalar       |
-|   [3]   | `int8`/`int16`/`int32`/`int64` | signed int       | fixed-width integers       |
-|   [4]   | `uint8`..`uint64`              | unsigned int     | fixed-width unsigned ints  |
-|   [5]   | `float16`/`float32`/`float64`  | float            | IEEE 754 float scalars     |
-|   [6]   | `complex64`/`complex128`       | complex          | complex scalar types       |
-|   [7]   | `datetime64`                   | datetime scalar  | ns-resolution datetime     |
-|   [8]   | `timedelta64`                  | timedelta scalar | duration scalar            |
-|   [9]   | `str_`                         | Unicode string   | fixed-width Unicode scalar |
+|  [01]   | `generic`                      | scalar base      | root of all scalar types   |
+|  [02]   | `bool_`                        | boolean          | numpy boolean scalar       |
+|  [03]   | `int8`/`int16`/`int32`/`int64` | signed int       | fixed-width integers       |
+|  [04]   | `uint8`..`uint64`              | unsigned int     | fixed-width unsigned ints  |
+|  [05]   | `float16`/`float32`/`float64`  | float            | IEEE 754 float scalars     |
+|  [06]   | `complex64`/`complex128`       | complex          | complex scalar types       |
+|  [07]   | `datetime64`                   | datetime scalar  | ns-resolution datetime     |
+|  [08]   | `timedelta64`                  | timedelta scalar | duration scalar            |
+|  [09]   | `str_`                         | Unicode string   | fixed-width Unicode scalar |
 |  [10]   | `bytes_`                       | byte string      | fixed-width bytes scalar   |
 
 [PUBLIC_TYPE_SCOPE]: info and error types
@@ -52,38 +52,38 @@
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                          |
 | :-----: | :--------- | :-------------- | :------------------------------ |
-|   [1]   | `finfo`    | float info      | float dtype precision metadata  |
-|   [2]   | `iinfo`    | int info        | int dtype bounds metadata       |
-|   [3]   | `errstate` | context manager | floating-point error mode scope |
+|  [01]   | `finfo`    | float info      | float dtype precision metadata  |
+|  [02]   | `iinfo`    | int info        | int dtype bounds metadata       |
+|  [03]   | `errstate` | context manager | floating-point error mode scope |
 
 [PUBLIC_TYPE_SCOPE]: submodule classes
 - rail: compute
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [RAIL]                       |
 | :-----: | :-------------------- | :--------------- | :--------------------------- |
-|   [1]   | `linalg.LinAlgError`  | linear alg error | singular/non-converging ops  |
-|   [2]   | `random.Generator`    | RNG generator    | stateful PRNG surface        |
-|   [3]   | `random.BitGenerator` | bit source       | PRNG state engine base       |
-|   [4]   | `random.PCG64`        | bit source       | PCG-64 PRNG engine           |
-|   [5]   | `random.MT19937`      | bit source       | Mersenne-Twister engine      |
-|   [6]   | `random.SeedSequence` | seed spawner     | reproducible seed derivation |
+|  [01]   | `linalg.LinAlgError`  | linear alg error | singular/non-converging ops  |
+|  [02]   | `random.Generator`    | RNG generator    | stateful PRNG surface        |
+|  [03]   | `random.BitGenerator` | bit source       | PRNG state engine base       |
+|  [04]   | `random.PCG64`        | bit source       | PCG-64 PRNG engine           |
+|  [05]   | `random.MT19937`      | bit source       | Mersenne-Twister engine      |
+|  [06]   | `random.SeedSequence` | seed spawner     | reproducible seed derivation |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
 - rail: compute
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                        |
 | :-----: | :--------------------------- | :------------- | :---------------------------- |
-|   [1]   | `zeros(shape, dtype)`        | creation       | zero-filled array             |
-|   [2]   | `ones(shape, dtype)`         | creation       | one-filled array              |
-|   [3]   | `empty(shape, dtype)`        | creation       | uninitialized array           |
-|   [4]   | `full(shape, fill_value)`    | creation       | constant-filled array         |
-|   [5]   | `arange(start, stop, step)`  | range creation | evenly spaced integers/floats |
-|   [6]   | `linspace(start, stop, num)` | range creation | evenly spaced floats          |
-|   [7]   | `logspace(start, stop, num)` | range creation | log-spaced floats             |
-|   [8]   | `eye(N, M, k)`               | creation       | identity / shifted diagonal   |
-|   [9]   | `meshgrid(*xi)`              | creation       | coordinate grid from 1-D axes |
+|  [01]   | `zeros(shape, dtype)`        | creation       | zero-filled array             |
+|  [02]   | `ones(shape, dtype)`         | creation       | one-filled array              |
+|  [03]   | `empty(shape, dtype)`        | creation       | uninitialized array           |
+|  [04]   | `full(shape, fill_value)`    | creation       | constant-filled array         |
+|  [05]   | `arange(start, stop, step)`  | range creation | evenly spaced integers/floats |
+|  [06]   | `linspace(start, stop, num)` | range creation | evenly spaced floats          |
+|  [07]   | `logspace(start, stop, num)` | range creation | log-spaced floats             |
+|  [08]   | `eye(N, M, k)`               | creation       | identity / shifted diagonal   |
+|  [09]   | `meshgrid(*xi)`              | creation       | coordinate grid from 1-D axes |
 |  [10]   | `load(file)`                 | I/O            | load `.npy`/`.npz` from path  |
 |  [11]   | `loadtxt(fname)`             | I/O            | load text-file array          |
 
@@ -92,15 +92,15 @@
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :-------------------------- | :------------- | :------------------------------ |
-|   [1]   | `reshape(a, newshape)`      | shape          | change array shape              |
-|   [2]   | `ravel(a)`                  | shape          | 1-D contiguous view             |
-|   [3]   | `transpose(a, axes)`        | shape          | permute axes                    |
-|   [4]   | `swapaxes(a, ax1, ax2)`     | shape          | swap two axes                   |
-|   [5]   | `moveaxis(a, source, dest)` | shape          | move axis to new position       |
-|   [6]   | `expand_dims(a, axis)`      | shape          | insert a new axis               |
-|   [7]   | `squeeze(a, axis)`          | shape          | remove size-1 axes              |
-|   [8]   | `concatenate(arrays, axis)` | join           | join arrays along existing axis |
-|   [9]   | `stack(arrays, axis)`       | join           | stack arrays along new axis     |
+|  [01]   | `reshape(a, newshape)`      | shape          | change array shape              |
+|  [02]   | `ravel(a)`                  | shape          | 1-D contiguous view             |
+|  [03]   | `transpose(a, axes)`        | shape          | permute axes                    |
+|  [04]   | `swapaxes(a, ax1, ax2)`     | shape          | swap two axes                   |
+|  [05]   | `moveaxis(a, source, dest)` | shape          | move axis to new position       |
+|  [06]   | `expand_dims(a, axis)`      | shape          | insert a new axis               |
+|  [07]   | `squeeze(a, axis)`          | shape          | remove size-1 axes              |
+|  [08]   | `concatenate(arrays, axis)` | join           | join arrays along existing axis |
+|  [09]   | `stack(arrays, axis)`       | join           | stack arrays along new axis     |
 |  [10]   | `hstack`/`vstack`/`dstack`  | join           | horizontal/vertical/depth join  |
 |  [11]   | `split(a, indices, axis)`   | split          | split into sub-arrays           |
 
@@ -109,15 +109,15 @@
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :---------------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `sum`/`prod`/`cumsum`/`cumprod`     | reduction      | aggregation along axes            |
-|   [2]   | `mean`/`std`/`var`                  | statistics     | mean, std dev, variance           |
-|   [3]   | `min`/`max`/`argmin`/`argmax`       | reduction      | extrema and their indices         |
-|   [4]   | `dot(a, b)`                         | linear alg     | vector/matrix dot product         |
-|   [5]   | `matmul(x1, x2)`                    | linear alg     | matrix multiplication (`@`)       |
-|   [6]   | `inner`/`outer`/`tensordot`         | linear alg     | inner, outer, tensor contractions |
-|   [7]   | `where(cond, x, y)`                 | selection      | conditional element selection     |
-|   [8]   | `clip(a, a_min, a_max)`             | elementwise    | bound values to interval          |
-|   [9]   | `sort(a, axis)`/`argsort`           | sort           | sort or return sort indices       |
+|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`     | reduction      | aggregation along axes            |
+|  [02]   | `mean`/`std`/`var`                  | statistics     | mean, std dev, variance           |
+|  [03]   | `min`/`max`/`argmin`/`argmax`       | reduction      | extrema and their indices         |
+|  [04]   | `dot(a, b)`                         | linear alg     | vector/matrix dot product         |
+|  [05]   | `matmul(x1, x2)`                    | linear alg     | matrix multiplication (`@`)       |
+|  [06]   | `inner`/`outer`/`tensordot`         | linear alg     | inner, outer, tensor contractions |
+|  [07]   | `where(cond, x, y)`                 | selection      | conditional element selection     |
+|  [08]   | `clip(a, a_min, a_max)`             | elementwise    | bound values to interval          |
+|  [09]   | `sort(a, axis)`/`argsort`           | sort           | sort or return sort indices       |
 |  [10]   | `unique(ar)`                        | set ops        | unique elements with counts       |
 |  [11]   | `exp`/`log`/`sqrt`/`power`          | ufunc          | exponential/logarithm/power       |
 |  [12]   | `sin`/`cos`/`tan`                   | ufunc          | trigonometric operations          |
@@ -128,15 +128,15 @@
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :-------------------------- | :------------- | :--------------------------- |
-|   [1]   | `linalg.solve(a, b)`        | linear solver  | exact solution to `Ax = b`   |
-|   [2]   | `linalg.inv(a)`             | inversion      | matrix inverse               |
-|   [3]   | `linalg.det(a)`             | determinant    | matrix determinant           |
-|   [4]   | `linalg.eig(a)`/`eigh(a)`   | eigen          | eigenvalues and eigenvectors |
-|   [5]   | `linalg.svd(a)`/`svdvals`   | decomposition  | singular value decomposition |
-|   [6]   | `linalg.qr(a)`              | decomposition  | QR factorisation             |
-|   [7]   | `linalg.cholesky(a)`        | decomposition  | Cholesky factorisation       |
-|   [8]   | `linalg.norm(x, ord, axis)` | norm           | vector and matrix norms      |
-|   [9]   | `linalg.lstsq(a, b)`        | least squares  | minimum-norm least-squares   |
+|  [01]   | `linalg.solve(a, b)`        | linear solver  | exact solution to `Ax = b`   |
+|  [02]   | `linalg.inv(a)`             | inversion      | matrix inverse               |
+|  [03]   | `linalg.det(a)`             | determinant    | matrix determinant           |
+|  [04]   | `linalg.eig(a)`/`eigh(a)`   | eigen          | eigenvalues and eigenvectors |
+|  [05]   | `linalg.svd(a)`/`svdvals`   | decomposition  | singular value decomposition |
+|  [06]   | `linalg.qr(a)`              | decomposition  | QR factorisation             |
+|  [07]   | `linalg.cholesky(a)`        | decomposition  | Cholesky factorisation       |
+|  [08]   | `linalg.norm(x, ord, axis)` | norm           | vector and matrix norms      |
+|  [09]   | `linalg.lstsq(a, b)`        | least squares  | minimum-norm least-squares   |
 |  [10]   | `linalg.pinv(a)`            | pseudo-inverse | Moore-Penrose pseudo-inverse |
 
 [ENTRYPOINT_SCOPE]: fft submodule
@@ -144,29 +144,29 @@
 
 | [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :------------------------- | :------------- | :----------------------------- |
-|   [1]   | `fft.fft(a, n, axis)`      | transform      | 1-D complex DFT                |
-|   [2]   | `fft.ifft(a, n, axis)`     | transform      | 1-D inverse DFT                |
-|   [3]   | `fft.rfft`/`irfft`         | transform      | real-input 1-D FFT/inverse     |
-|   [4]   | `fft.fft2`/`ifft2`         | transform      | 2-D DFT/inverse                |
-|   [5]   | `fft.fftn`/`ifftn`         | transform      | N-D DFT/inverse                |
-|   [6]   | `fft.fftfreq(n, d)`        | frequency      | DFT sample frequencies         |
-|   [7]   | `fft.fftshift`/`ifftshift` | shift          | shift zero-frequency to center |
+|  [01]   | `fft.fft(a, n, axis)`      | transform      | 1-D complex DFT                |
+|  [02]   | `fft.ifft(a, n, axis)`     | transform      | 1-D inverse DFT                |
+|  [03]   | `fft.rfft`/`irfft`         | transform      | real-input 1-D FFT/inverse     |
+|  [04]   | `fft.fft2`/`ifft2`         | transform      | 2-D DFT/inverse                |
+|  [05]   | `fft.fftn`/`ifftn`         | transform      | N-D DFT/inverse                |
+|  [06]   | `fft.fftfreq(n, d)`        | frequency      | DFT sample frequencies         |
+|  [07]   | `fft.fftshift`/`ifftshift` | shift          | shift zero-frequency to center |
 
 [ENTRYPOINT_SCOPE]: random.Generator
 - rail: compute
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                      |
 | :-----: | :----------------------------------- | :------------- | :-------------------------- |
-|   [1]   | `random.default_rng(seed)`           | factory        | create default `Generator`  |
-|   [2]   | `Generator.integers(low, high)`      | sampling       | discrete uniform integers   |
-|   [3]   | `Generator.random(size)`             | sampling       | uniform floats [0, 1)       |
-|   [4]   | `Generator.normal(loc, scale, size)` | sampling       | normal distribution         |
-|   [5]   | `Generator.uniform(low, high, size)` | sampling       | continuous uniform          |
-|   [6]   | `Generator.choice(a, size, replace)` | sampling       | random selection from array |
-|   [7]   | `Generator.shuffle(x)`               | permutation    | in-place shuffle            |
-|   [8]   | `Generator.permutation(x)`           | permutation    | permuted copy               |
+|  [01]   | `random.default_rng(seed)`           | factory        | create default `Generator`  |
+|  [02]   | `Generator.integers(low, high)`      | sampling       | discrete uniform integers   |
+|  [03]   | `Generator.random(size)`             | sampling       | uniform floats [0, 1)       |
+|  [04]   | `Generator.normal(loc, scale, size)` | sampling       | normal distribution         |
+|  [05]   | `Generator.uniform(low, high, size)` | sampling       | continuous uniform          |
+|  [06]   | `Generator.choice(a, size, replace)` | sampling       | random selection from array |
+|  [07]   | `Generator.shuffle(x)`               | permutation    | in-place shuffle            |
+|  [08]   | `Generator.permutation(x)`           | permutation    | permuted copy               |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COMPUTE_TOPOLOGY]:
 - namespaces: `numpy`, `numpy.linalg`, `numpy.fft`, `numpy.random`, `numpy.ma`, `numpy.polynomial`, `numpy.testing`

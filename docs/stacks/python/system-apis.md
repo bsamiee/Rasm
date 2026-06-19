@@ -2,25 +2,25 @@
 
 Standard-library APIs replace local machinery only when they own the concern. They do not replace `expression` rails, `pydantic`/`msgspec` admission, the numeric route owners, or the structured-concurrency owner. This page is the stdlib-owner-replacement law: the high-churn surface where a yearly stdlib delta retires a local helper, kept separate from the stable language-form law so the language page does not churn with each stdlib addition. A row names the owning stdlib surface and the local pattern, loop, or wrapper it deletes.
 
-## [1]-[SMELL_LOOKUP]
+## [01]-[SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell; the owning section card states the placement law.
 
 | [INDEX] | [SMELL]                            | [OWNER]                         |
 | :-----: | :--------------------------------- | :------------------------------ |
-|   [1]   | stringly `os.walk`/`os.path` flow  | `pathlib.Path` algebra          |
-|   [2]   | manual chunked hash loop           | `hashlib.file_digest`           |
-|   [3]   | local chunk/batch helper loop      | `itertools.batched`             |
-|   [4]   | `zip` product fold                 | `math.sumprod`                  |
-|   [5]   | timestamp-prefixed UUID wrapper    | `uuid.uuid7`                    |
-|   [6]   | ambiguous `re.match` prefix check  | `re.prefixmatch`                |
-|   [7]   | `datetime.strptime` slicing        | `date.strptime`/`time.strptime` |
-|   [8]   | subprocess or bespoke zstd adapter | `compression.zstd`              |
-|   [9]   | `bytes(buffer)` + `clear()`        | `bytearray.take_bytes`          |
+|  [01]   | stringly `os.walk`/`os.path` flow  | `pathlib.Path` algebra          |
+|  [02]   | manual chunked hash loop           | `hashlib.file_digest`           |
+|  [03]   | local chunk/batch helper loop      | `itertools.batched`             |
+|  [04]   | `zip` product fold                 | `math.sumprod`                  |
+|  [05]   | timestamp-prefixed UUID wrapper    | `uuid.uuid7`                    |
+|  [06]   | ambiguous `re.match` prefix check  | `re.prefixmatch`                |
+|  [07]   | `datetime.strptime` slicing        | `date.strptime`/`time.strptime` |
+|  [08]   | subprocess or bespoke zstd adapter | `compression.zstd`              |
+|  [09]   | `bytes(buffer)` + `clear()`        | `bytearray.take_bytes`          |
 |  [10]   | `os.cpu_count()` worker sizing     | `os.process_cpu_count`          |
 |  [11]   | negated-priority heap wrapper      | max-heap `heapq` APIs           |
 
-## [2]-[PATHS_AND_FILES]
+## [02]-[PATHS_AND_FILES]
 
 [PATH_ALGEBRA]:
 - Owner: `pathlib.Path` and `PurePath` — `Path.walk`, `Path.copy`, `Path.move`, `Path.info`, `Path.from_uri`, `PurePath.full_match`, `PurePath.with_segments`, `os.path.splitroot`, and `os.path.realpath(strict=os.path.ALLOW_MISSING)`.
@@ -33,7 +33,7 @@ This table is a lookup by repeated local smell; the owning section card states t
 - Replace: `mkstemp` unlink ladders, `onerror` tuple handlers, `os.read` copy slices, `__file__` extraction loops, path use of `guess_type`, and reserved-name tables.
 - Gate: persisted text I/O states `encoding="utf-8"` (or `encoding="locale"` only at a genuine locale boundary), never relying on an implicit default at a durable seam.
 
-## [3]-[TEXT_REGEX_TIME]
+## [03]-[TEXT_REGEX_TIME]
 
 [REGEX]:
 - Owner: `re` with `re.prefixmatch`, `re.PatternError`, and compiled module-level patterns.
@@ -50,7 +50,7 @@ This table is a lookup by repeated local smell; the owning section card states t
 - Replace: f-string pre-parsing, rendered-string reparsing, and string concatenation hiding template policy.
 - Boundary: template structure (segments, interpolations, conversions) is a language-form concern owned by `language.md`; this row owns only the render-time stdlib consumption.
 
-## [4]-[NUMERIC_PRIMITIVES]
+## [04]-[NUMERIC_PRIMITIVES]
 
 [SCALAR_MATH]:
 - Owner: `math.integer`, `math.fma`, `math.fmax`/`math.fmin`, `math.isnormal`/`math.issubnormal`/`math.signbit`, `math.sumprod`, `fractions.Fraction.from_number`, and `statistics.kde`.
@@ -61,7 +61,7 @@ This table is a lookup by repeated local smell; the owning section card states t
 - Owner: `uuid.uuid7`, `uuid.NIL`, `uuid.MAX`, `Counter` XOR, max-heap `heapq` APIs, and `operator.is_none`.
 - Replace: timestamp-prefixed UUID wrappers, magic UUID boundary literals, manual count-difference folds, negated-priority heap wrappers, and one-off `lambda x: x is None`.
 
-## [5]-[BINARY_AND_INTEGRITY]
+## [05]-[BINARY_AND_INTEGRITY]
 
 [BUFFERS]:
 - Owner: `collections.abc.Buffer`, `inspect.BufferFlags`, `array`/`memoryview` complex codes, `os.readinto`, `bytearray.take_bytes`, `ctypes.memoryview_at`, and pickle protocol-5 out-of-band buffers.
@@ -73,7 +73,7 @@ This table is a lookup by repeated local smell; the owning section card states t
 - Replace: subprocess or bespoke zstd adapters, local Z85 codecs, padding-bit postchecks, pre/post encode formatting, manual chunked hash loops, and recompress-to-checksum loops.
 - Gate: a wire digest streams through `hashlib.file_digest` (file) or one `hashlib` one-shot (in-memory); a non-cryptographic cache key uses a fast non-cryptographic hash, never SHA for a cache key.
 
-## [6]-[ITERATION_AND_FUNCTIONAL]
+## [06]-[ITERATION_AND_FUNCTIONAL]
 
 [ITERATION]:
 - Owner: `itertools.batched`, `functools.Placeholder`, `zip(strict=True)`, and `map(strict=True)`.
@@ -84,6 +84,6 @@ This table is a lookup by repeated local smell; the owning section card states t
 - Owner: `importlib.resources.as_file`, `tomllib` (TOML 1.1.0), and `ContextVar.set` token context manager.
 - Replace: `__file__` extraction loops, `tomli`/parser shims, and `reset(token)` `finally` blocks.
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [STDLIB_FLOOR]: every row assumes the interpreter floor in `language.md`'s ACTIVE_SURFACE; a row whose owning API regresses below the floor moves to the language page's replacement column with the older spelling. The floor is the single fact this page reads from the language owner.

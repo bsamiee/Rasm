@@ -2,11 +2,11 @@
 
 The graph-payload owner over a rustworkx fast-path with a networkx compat row. `GraphPayload` carries graph kind/nodes/edges/attrs/directionality over a `GraphBackend` axis (`rustworkx` `PyGraph`/`PyDiGraph` fast-path, `networkx` `Graph`/`DiGraph` compat); `GraphAlgorithm` is one tagged-union algorithm intent (traversal/shortest-path/centrality/community); `GraphResult` is one discriminated typed receipt whose shape recovers the algorithm class. The backend is recovered from the source shape, never a knob — rustworkx is the default, networkx the interop row when a caller hands a networkx graph or asks for a networkx-only codec. Node-link JSON, GraphML, and tabular edge-list egress emit keyed by runtime `ContentIdentity`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GRAPH]: graph payloads, backend-dispatched algorithms, typed result receipts, graph egress.
+- [01]-[GRAPH]: graph payloads, backend-dispatched algorithms, typed result receipts, graph egress.
 
-## [2]-[GRAPH]
+## [02]-[GRAPH]
 
 - Owner: `GraphPayload` — graph kind/nodes/edges/attrs/directionality over a `GraphBackend` axis; `GraphAlgorithm` the tagged-union algorithm intent; `GraphResult` the discriminated typed receipt; node-link JSON / GraphML / tabular edge-list egress.
 - Entry: `GraphPayload.of` admits a `rustworkx.PyGraph`/`PyDiGraph` or `networkx.Graph`/`DiGraph` and returns the frozen owner with its backend recovered from the source shape; `GraphPayload.analyze` runs a `GraphAlgorithm` and returns a `RuntimeRail[GraphResult]`; `write_node_link` emits keyed by `ContentIdentity`.

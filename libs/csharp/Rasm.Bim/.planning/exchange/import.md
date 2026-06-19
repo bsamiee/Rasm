@@ -2,12 +2,12 @@
 
 The foreign-bytes ingest rail: one `BimIo` import fold over the `format#FORMAT_AXIS` `InterchangeFormat` rows, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the STL/3MF/OBJ/PLY mesh-text arm, the in-process semantic IFC/IFC5/STEP graph ingest through GeometryGym, the AP242/native-companion two-hop route, and the Speckle `Base` object-graph seam folding a deserialized `Speckle.Sdk.Models.Base` tree onto the same `ImportedGeometry`/`IfcSemanticModel` carriers — never tessellated BRep. The page composes the kernel `Rasm` geometry and consumes the `format#FORMAT_AXIS` codec/frame rows as settled vocabulary; an IFC/native/Speckle-non-mesh geometry request routes to `tessellation#TESSELLATION_BRIDGE`. The page is HOST-LOCAL in posture; the Speckle seam composes `Speckle.Sdk`/`Speckle.Objects` and runs only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh decode and in-process semantic IFC/IFC5/STEP graph.
-- [2]-[SPECKLE_SEAM]: Speckle `Base` object-graph fold — display-mesh decode and host-object semantic projection onto the canonical carriers.
+- [01]-[IMPORT_RAIL]: foreign-bytes ingest — managed mesh decode and in-process semantic IFC/IFC5/STEP graph.
+- [02]-[SPECKLE_SEAM]: Speckle `Base` object-graph fold — display-mesh decode and host-object semantic projection onto the canonical carriers.
 
-## [2]-[IMPORT_RAIL]
+## [02]-[IMPORT_RAIL]
 
 - Owner: `BimIo` — the import fold over `InterchangeFormat`, dispatching the managed glTF/GLB mesh-and-scene decode through SharpGLTF, the STL/3MF/OBJ/PLY mesh-text arm that faults until its reader package catalogues, the in-process semantic IFC/IFC5 ingest through GeometryGym over `DatabaseIfc`/`Extract<T>`, and the AP242/native-companion two-hop route; `ImportedGeometry` the decoded mesh-scene carrier, `IfcSemanticModel` the IFC model-graph projection.
 - Entry: `BimIo.ImportGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` for the managed glTF and mesh-text path; `BimIo.ImportIfc(...)` for the in-process IFC/IFC5 semantic graph — `Fin<T>` aborts on a codec reject (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) or a companion-required geometry request (`BimFault.CapabilityMiss`), each lowered with `.ToError()`, the foreign decode arity discriminating on the row's `InterchangeCodec` so a path lands one decode without a call-site type branch, projecting the package exception onto `BimFault.ModelRejected` at the boundary so domain code never sees the SharpGLTF `ModelException` or the GeometryGym parse fault.
@@ -205,7 +205,7 @@ public static partial class BimIo {
 }
 ```
 
-## [3]-[SPECKLE_SEAM]
+## [03]-[SPECKLE_SEAM]
 
 - Owner: `BimIo.ImportSpeckle` — the Speckle object-graph arm of the import fold, folding a deserialized `Speckle.Sdk.Models.Base` tree onto the canonical `ImportedGeometry` mesh-scene carrier and the `IfcSemanticModel` graph; there is no `SpeckleImporter` type and no parallel decode family — the seam is a third entrypoint on the existing `BimIo` capsule, symmetric to `ImportGeometry`/`ImportIfc`, consuming the receive-side `Base` the Persistence `csharp:Persistence/Sync/collaboration#SPECKLE_SYNC` `IOperations.Receive` returns.
 - Entry: `BimIo.ImportSpeckle(Base root, ClockPolicy clocks)` projecting the display-mesh geometry, and `BimIo.ImportSpeckleSemantic(Base root, ClockPolicy clocks)` projecting the host-object semantic graph — `Fin<T>` aborts on a graph with no displayable geometry or a malformed display mesh, projecting the Speckle exception onto `BimFault.ModelRejected` at the boundary so domain code never sees a `Speckle.Sdk.SpeckleException`; the `Base` arrives already deserialized, so the seam mints no transport, no `IOperations` reference, and no second graph walk beyond the package-owned traversal.
@@ -286,7 +286,7 @@ public static partial class BimIo {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [NATIVE_FORMAT_BRIDGES]: the Revit `.rvt`, Navisworks `.nwc`/`.nwd`, and DWG/DXF native readers ride the `native-companion` codec through the Compute companion process (the managed C# branch has no native loader); the STL/3MF/OBJ/PLY mesh-text decode is managed-in-intent but the reader packages are uncatalogued, so the `mesh-text` import arm faults until its decode member spellings ground against the admitted mesh-text libraries.
 - [SPECKLE_CATALOGUE]: the `Speckle.Sdk`/`Speckle.Objects` member spellings the `ImportSpeckle` fold composes — `Speckle.Sdk.Models.Base` (`id`/`applicationId`/`speckle_type`/`GetTotalChildrenCount`), `Speckle.Sdk.Models.Extensions.BaseExtensions.Flatten`/`Traverse`/`TryGetDisplayValue`/`IsDisplayableObject` with the `BaseRecursionBreaker` delegate, `Speckle.Sdk.Models.GraphTraversal.TraversalContext.Parent`/`PropName`/`Current`, `Speckle.Sdk.Common.Units.GetConversionFactor`/`Meters`, `Speckle.Objects.Geometry.Mesh` (`vertices`/`faces`/`vertexNormals` `List<double>`/`List<int>`, length-prefixed n-gon `faces`, `units`, `VerticesCount`), `Speckle.Objects.Geometry.Brep` (`displayValue` `List<Mesh>`), `Speckle.Objects.IDisplayValue<out T>`, and `Speckle.Objects.Data.DataObject` (`name`/`displayValue` `List<Base>`/`properties` `Dictionary<string, object?>`) and its host-object subtypes — are decompile-verified against the `Speckle.Sdk`/`Speckle.Objects` 3.21.1 assemblies and catalogued at `csharp:Persistence/.api/api-speckle` (the cross-folder sync owner), and land as a `Rasm.Bim/.api/api-speckle` folder catalogue at alignment so the seam's external members are folder-local verified; the catalogue records the `Mesh.vertexNormals` flat-normal member and the `DataObject.properties` `Dictionary<string, object?>` shape the cross-folder catalogue elides.

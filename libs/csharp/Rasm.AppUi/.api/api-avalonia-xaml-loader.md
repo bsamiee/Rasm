@@ -2,7 +2,7 @@
 
 `Avalonia.Markup.Xaml.Loader` supplies runtime XAML parsing through `AvaloniaRuntimeXamlLoader`, enabling hot-reload and dev-loop loading of XAML from strings, streams, and assembly resources without ahead-of-time compilation.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Markup.Xaml.Loader`
 - package: `Avalonia.Markup.Xaml.Loader`
@@ -11,27 +11,27 @@
 - asset: dev-loop library (`PrivateAssets="all"`)
 - rail: dev-loop
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime XAML loader
 - rail: dev-loop
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                   |
 | :-----: | :-------------------------- | :------------ | :----------------------- |
-|   [1]   | `AvaloniaRuntimeXamlLoader` | static loader | runtime XAML parse entry |
+|  [01]   | `AvaloniaRuntimeXamlLoader` | static loader | runtime XAML parse entry |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: XAML parse and load operations
 - rail: dev-loop
 
 | [INDEX] | [SURFACE]                             | [SURFACE_ROOT]              | [RAIL]                  |
 | :-----: | :------------------------------------ | :-------------------------- | :---------------------- |
-|   [1]   | `Load(string, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | string XAML parse       |
-|   [2]   | `Load(Stream, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | stream XAML parse       |
-|   [3]   | `Load(object, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | existing-object inflate |
+|  [01]   | `Load(string, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | string XAML parse       |
+|  [02]   | `Load(Stream, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | stream XAML parse       |
+|  [03]   | `Load(object, Assembly?, Uri?, bool)` | `AvaloniaRuntimeXamlLoader` | existing-object inflate |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [XAML_LOADER_TOPOLOGY]:
 - namespace: `Avalonia.Markup.Xaml`; 417 types across 21 namespaces in the assembly, one public entry in the declared namespace

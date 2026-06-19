@@ -2,7 +2,7 @@
 
 `effect` supplies the universal computation substrate: the three-channel `Effect<A, E, R>` type, the `Layer` dependency-injection graph, `ManagedRuntime` for app-boundary discharge, typed concurrency primitives (`Fiber`, `Ref`, `SubscriptionRef`, `Schedule`), push/pull `Stream`, the `Schema` wire-codec and domain-shape system, metric and tracing observability, and the closed value-algebra (`Data.taggedEnum`, `Match`, `Option`, `Either`, `Exit`, `Config`). Deep imports per concept (`effect/Effect`, `effect/Layer`, …) with a barrel re-export at `effect`; most combinators carry dual data-first/data-last overloads — the data-last curried arm is the `pipe`-composable form shown throughout.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `effect`
 - package: `effect`
@@ -12,7 +12,7 @@
 
 ---
 
-## [2]-[CORE_COMPUTATION]
+## [02]-[CORE_COMPUTATION]
 
 ### Effect
 
@@ -116,7 +116,7 @@ export declare const Service: <Self = never>() => [Self] extends [never] ? Missi
 
 ---
 
-## [3]-[CONTEXT_AND_LAYER]
+## [03]-[CONTEXT_AND_LAYER]
 
 ### Context / Tag
 
@@ -167,7 +167,7 @@ export declare const empty:         Layer<never>
 
 ---
 
-## [4]-[RUNTIME]
+## [04]-[RUNTIME]
 
 ### Runtime
 
@@ -222,7 +222,7 @@ export declare const make:          (executionStrategy?: ExecutionStrategy.Execu
 
 ---
 
-## [5]-[CONCURRENCY_STATE]
+## [05]-[CONCURRENCY_STATE]
 
 ### Fiber
 
@@ -275,7 +275,7 @@ export declare const whileOutput: <Out>(f: Predicate<NoInfer<Out>>) => <In, R>(s
 
 ---
 
-## [6]-[STREAM]
+## [06]-[STREAM]
 
 ```ts
 // effect/Stream
@@ -302,7 +302,7 @@ The canonical store pattern is `Stream.runFold` into an immutable keyed map per 
 
 ---
 
-## [7]-[SCHEMA]
+## [07]-[SCHEMA]
 
 ```ts
 // effect/Schema
@@ -341,7 +341,7 @@ export declare const TreeFormatter:  { readonly formatError: (error: ParseError)
 
 ---
 
-## [8]-[OBSERVABILITY]
+## [08]-[OBSERVABILITY]
 
 ### Metric
 
@@ -383,7 +383,7 @@ export declare const Tracer: Context.Tag<Tracer, Tracer>
 
 ---
 
-## [9]-[VALUE_ALGEBRA]
+## [09]-[VALUE_ALGEBRA]
 
 ### Data
 

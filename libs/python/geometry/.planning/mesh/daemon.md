@@ -2,11 +2,11 @@
 
 The persistent IfcOpenShell tessellation daemon — the load-bearing cross-boundary owner. `TessellationDaemon` drives source bytes plus a deflection/tolerance policy into per-element GLB and a lightweight semantic header through the `ifcopenshell.geom.iterator` and the native `ifcopenshell.geom.serializers.gltf` serializer, hosted by the runtime `ServerHost` over the existing C# `ComputeService`/`ArtifactSync` gRPC contract. Output is content-addressed via runtime `ContentIdentity` reproducing the C# `InterchangeIdentity` XxHash128 seed with deflection/tolerance folded into the cache key, framed by the 64 KiB `ArtifactSync` leg with per-frame Crc32 and whole-artifact XxHash128.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DAEMON]: the tessellation request owner, the warm OCCT pool, and the native GLB serializer.
+- [01]-[DAEMON]: the tessellation request owner, the warm OCCT pool, and the native GLB serializer.
 
-## [2]-[DAEMON]
+## [02]-[DAEMON]
 
 - Owner: `TessellationDaemon` — the boundary capsule driving the `ifcopenshell.geom.iterator` over a command queue, the OCCT kernel kept warm across requests per `daemon#3-RESEARCH`; `TessellationRequest` the source-bytes + `SourceFormat` + `IdentityPolicy` carrier keyed by `ContentIdentity`; `MeshResult` the per-element GLB and the semantic header projection in one carrier, so one `tessellate` call emits both outputs by reference.
 - Cases: `SourceFormat` rows `IFC` (the IfcOpenShell hybrid-CGAL+OCCT kernel over an `ifcopenshell.file`, drained through the native `serializers.gltf`) and the `STEP`/`IGES` rows that delegate the full OCCT B-rep-to-GLB hop to the `step-bridge` owner on `cad#BRIDGE`; the daemon discriminates source-format by `match`/`assert_never` and threads one tessellation queue rather than parallel daemons. The `IFC` arm opens the byte stream in memory through `ifcopenshell.file.from_string` (the SPF-text in-memory loader, no disk round-trip), iterates, serializes, and keys the GLB itself; the CAD arms call `StepBridge.tessellate`, which returns the content-keyed GLB from the OCCT XCAF reader and the native `RWGltf_CafWriter` directly, so the daemon never feeds an OCCT shape through the IFC iterator. The IFC arm projects the model `schema_identifier` and `IfcProject` header into the semantic field; the CAD arms carry an empty header, since a B-rep model holds no IFC schema.
@@ -105,7 +105,7 @@ class TessellationDaemon:
         return MeshResult(ContentIdentity.of("glb", glb, request.policy), glb, 1, 0, {})
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SERIALIZER_LIFECYCLE]: the `geom.serializers.gltf(buffer, settings, serializer_settings)` constructor arity, the `serializers.buffer().get_value()` retrieval, and the `writeHeader`/`write`/`finalize` order against an iterator-fed `ShapeElementType` confirm against the branch `ifcopenshell` catalogue on the companion interpreter; the `iterator.initialize()`/`get()`/`next()` drain protocol and the per-shape `geometry.faces` triangle count confirm against the same catalogue.
 - [IN_MEMORY_FORMAT_BAND]: `ifcopenshell.file.from_string(s)` is the in-memory loader confirmed against the branch `ifcopenshell` catalogue, decoding the SPF text wire form (the dominant IFC source the C# rail hands across) with no disk round-trip — the temp-file `open(path)` detour is the deleted form. The open residual: the in-memory admission of the non-SPF IFC encodings (the IFC-SQLite and zipped-IFC variants `guess_format` discriminates on a path) — whether a sqlite/zipped byte stream loads through a `from_string`-equivalent in-memory entry or whether those rarer encodings are the one band the wire normalizes to SPF text upstream; a runtime-action band confirmation on the companion interpreter, not a fence blocker for the SPF-text path the daemon serves.

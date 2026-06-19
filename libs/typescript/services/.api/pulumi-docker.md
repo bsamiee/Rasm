@@ -2,7 +2,7 @@
 
 `@pulumi/docker` supplies Pulumi resource classes for Docker engine management: `Image` for building and pushing images with a `DockerBuild` context, `Container` for lifecycle-managed containers, `RemoteImage` for pulling registry images, `RegistryImage` for pushing images to registries, `Network` for Docker networks, `Volume` for volumes, and lookup functions `getLogs`, `getNetwork`, `getRemoteImage`, and `getRegistryImage` for querying existing Docker objects.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/docker`
 - package: `@pulumi/docker`
@@ -10,110 +10,110 @@
 - asset: Docker image build/push, container lifecycle, network, volume, registry resource classes, lookup functions
 - rail: deployment
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image resource family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [RAIL]                                                  |
 | :-----: | :------------------ | :------------- | :------------------------------------------------------ |
-|   [1]   | `Image`             | resource class | build and push a Docker image                           |
-|   [2]   | `ImageArgs`         | args interface | `imageName` (required), `build`, `registry`, `skipPush` |
-|   [3]   | `RemoteImage`       | resource class | pull or build an image from a registry                  |
-|   [4]   | `RemoteImageArgs`   | args interface | `name` (required), `build`, `pullTriggers`              |
-|   [5]   | `RegistryImage`     | resource class | push image to and manage lifecycle in registry          |
-|   [6]   | `RegistryImageArgs` | args interface | `name`, `keepRemotely`, `authConfig`, `build`           |
+|  [01]   | `Image`             | resource class | build and push a Docker image                           |
+|  [02]   | `ImageArgs`         | args interface | `imageName` (required), `build`, `registry`, `skipPush` |
+|  [03]   | `RemoteImage`       | resource class | pull or build an image from a registry                  |
+|  [04]   | `RemoteImageArgs`   | args interface | `name` (required), `build`, `pullTriggers`              |
+|  [05]   | `RegistryImage`     | resource class | push image to and manage lifecycle in registry          |
+|  [06]   | `RegistryImageArgs` | args interface | `name`, `keepRemotely`, `authConfig`, `build`           |
 
 [PUBLIC_TYPE_SCOPE]: Image output properties
 - rail: deployment
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]                 | [RAIL]                                                      |
 | :-----: | :--------------------- | :---------------------------- | :---------------------------------------------------------- |
-|   [1]   | `Image.imageName`      | `Output<string>`              | fully qualified image name `repository[:tag]`               |
-|   [2]   | `Image.repoDigest`     | `Output<string>`              | manifest digest `repository@<alg>:<hash>` or local image ID |
-|   [3]   | `Image.baseImageName`  | `Output<string>`              | base image name after push                                  |
-|   [4]   | `Image.context`        | `Output<string>`              | build context path                                          |
-|   [5]   | `Image.dockerfile`     | `Output<string>`              | Dockerfile path                                             |
-|   [6]   | `Image.platform`       | `Output<string \| undefined>` | target platform, e.g. `linux/amd64`                         |
-|   [7]   | `Image.registryServer` | `Output<string>`              | registry server hostname                                    |
+|  [01]   | `Image.imageName`      | `Output<string>`              | fully qualified image name `repository[:tag]`               |
+|  [02]   | `Image.repoDigest`     | `Output<string>`              | manifest digest `repository@<alg>:<hash>` or local image ID |
+|  [03]   | `Image.baseImageName`  | `Output<string>`              | base image name after push                                  |
+|  [04]   | `Image.context`        | `Output<string>`              | build context path                                          |
+|  [05]   | `Image.dockerfile`     | `Output<string>`              | Dockerfile path                                             |
+|  [06]   | `Image.platform`       | `Output<string \| undefined>` | target platform, e.g. `linux/amd64`                         |
+|  [07]   | `Image.registryServer` | `Output<string>`              | registry server hostname                                    |
 
 [PUBLIC_TYPE_SCOPE]: build input types
 - rail: deployment
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]   | [RAIL]                                                                        |
 | :-----: | :--------------- | :-------------- | :---------------------------------------------------------------------------- |
-|   [1]   | `DockerBuild`    | input interface | `context`, `dockerfile`, `args`, `platform`, `cacheFrom`, `target`, `network` |
-|   [2]   | `Registry`       | input interface | `server`, `username`, `password`                                              |
-|   [3]   | `CacheFrom`      | input interface | `images: string[]` — list of images for layer cache                           |
-|   [4]   | `BuilderVersion` | const enum      | Docker builder version selector                                               |
+|  [01]   | `DockerBuild`    | input interface | `context`, `dockerfile`, `args`, `platform`, `cacheFrom`, `target`, `network` |
+|  [02]   | `Registry`       | input interface | `server`, `username`, `password`                                              |
+|  [03]   | `CacheFrom`      | input interface | `images: string[]` — list of images for layer cache                           |
+|  [04]   | `BuilderVersion` | const enum      | Docker builder version selector                                               |
 
 [PUBLIC_TYPE_SCOPE]: container resource family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [RAIL]                                                                           |
 | :-----: | :-------------- | :------------- | :------------------------------------------------------------------------------- |
-|   [1]   | `Container`     | resource class | lifecycle-managed Docker container                                               |
-|   [2]   | `ContainerArgs` | args interface | `image` (required), `name`, `command`, `ports`, `envs`, `volumes`, `networkMode` |
+|  [01]   | `Container`     | resource class | lifecycle-managed Docker container                                               |
+|  [02]   | `ContainerArgs` | args interface | `image` (required), `name`, `command`, `ports`, `envs`, `volumes`, `networkMode` |
 
 [PUBLIC_TYPE_SCOPE]: Container output properties
 - rail: deployment
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]      | [RAIL]                               |
 | :-----: | :------------------------ | :----------------- | :----------------------------------- |
-|   [1]   | `Container.command`       | `Output<string[]>` | resolved start command               |
-|   [2]   | `Container.bridge`        | `Output<string>`   | network bridge interface             |
-|   [3]   | `Container.containerLogs` | `Output<string>`   | container logs when `attach` is done |
+|  [01]   | `Container.command`       | `Output<string[]>` | resolved start command               |
+|  [02]   | `Container.bridge`        | `Output<string>`   | network bridge interface             |
+|  [03]   | `Container.containerLogs` | `Output<string>`   | container logs when `attach` is done |
 
 [PUBLIC_TYPE_SCOPE]: network and volume resource family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [RAIL]                              |
 | :-----: | :------------ | :------------- | :---------------------------------- |
-|   [1]   | `Network`     | resource class | Docker network                      |
-|   [2]   | `NetworkArgs` | args interface | `name`, `driver`, `ipv6`, `options` |
-|   [3]   | `Volume`      | resource class | Docker volume                       |
-|   [4]   | `VolumeArgs`  | args interface | `name`, `driver`, `driverOpts`      |
+|  [01]   | `Network`     | resource class | Docker network                      |
+|  [02]   | `NetworkArgs` | args interface | `name`, `driver`, `ipv6`, `options` |
+|  [03]   | `Volume`      | resource class | Docker volume                       |
+|  [04]   | `VolumeArgs`  | args interface | `name`, `driver`, `driverOpts`      |
 
 [PUBLIC_TYPE_SCOPE]: Network output properties
 - rail: deployment
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]                  | [RAIL]                |
 | :-----: | :----------------- | :----------------------------- | :-------------------- |
-|   [1]   | `Network.name`     | `Output<string>`               | network name          |
-|   [2]   | `Network.driver`   | `Output<string>`               | network driver        |
-|   [3]   | `Network.scope`    | `Output<string>`               | network scope         |
-|   [4]   | `Network.ipv6`     | `Output<boolean \| undefined>` | IPv6 enabled flag     |
-|   [5]   | `Network.internal` | `Output<boolean>`              | internal-only network |
+|  [01]   | `Network.name`     | `Output<string>`               | network name          |
+|  [02]   | `Network.driver`   | `Output<string>`               | network driver        |
+|  [03]   | `Network.scope`    | `Output<string>`               | network scope         |
+|  [04]   | `Network.ipv6`     | `Output<boolean \| undefined>` | IPv6 enabled flag     |
+|  [05]   | `Network.internal` | `Output<boolean>`              | internal-only network |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resource constructors
 - rail: deployment
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------------ |
-|   [1]   | `new Image(name, args: ImageArgs, opts?)`                 | constructor    | build + optional push; `imageName` required |
-|   [2]   | `new RemoteImage(name, args: RemoteImageArgs, opts?)`     | constructor    | pull or build image; `name` required        |
-|   [3]   | `new RegistryImage(name, args: RegistryImageArgs, opts?)` | constructor    | push image to registry                      |
-|   [4]   | `new Container(name, args: ContainerArgs, opts?)`         | constructor    | start container; `image` required           |
-|   [5]   | `new Network(name, args: NetworkArgs, opts?)`             | constructor    | create Docker network                       |
-|   [6]   | `new Volume(name, args: VolumeArgs, opts?)`               | constructor    | create Docker volume                        |
+|  [01]   | `new Image(name, args: ImageArgs, opts?)`                 | constructor    | build + optional push; `imageName` required |
+|  [02]   | `new RemoteImage(name, args: RemoteImageArgs, opts?)`     | constructor    | pull or build image; `name` required        |
+|  [03]   | `new RegistryImage(name, args: RegistryImageArgs, opts?)` | constructor    | push image to registry                      |
+|  [04]   | `new Container(name, args: ContainerArgs, opts?)`         | constructor    | start container; `image` required           |
+|  [05]   | `new Network(name, args: NetworkArgs, opts?)`             | constructor    | create Docker network                       |
+|  [06]   | `new Volume(name, args: VolumeArgs, opts?)`               | constructor    | create Docker volume                        |
 
 [ENTRYPOINT_SCOPE]: lookup functions
 - rail: deployment
 
 | [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                      |
 | :-----: | :-------------------------------------------------------------------- | :------------- | :-------------------------- |
-|   [1]   | `getLogs(args: GetLogsArgs, opts?): Promise<GetLogsResult>`           | async lookup   | fetch container log lines   |
-|   [2]   | `getLogsOutput(args, opts?): Output<GetLogsResult>`                   | output lookup  | same, `Output`-wrapped      |
-|   [3]   | `getNetwork(args: GetNetworkArgs, opts?): Promise<GetNetworkResult>`  | async lookup   | fetch network by name       |
-|   [4]   | `getNetworkOutput(args, opts?): Output<GetNetworkResult>`             | output lookup  | same, `Output`-wrapped      |
-|   [5]   | `getRemoteImage(args, opts?): Promise<GetRemoteImageResult>`          | async lookup   | fetch remote image metadata |
-|   [6]   | `getRemoteImageOutput(args, opts?): Output<GetRemoteImageResult>`     | output lookup  | same, `Output`-wrapped      |
-|   [7]   | `getRegistryImage(args, opts?): Promise<GetRegistryImageResult>`      | async lookup   | fetch registry image digest |
-|   [8]   | `getRegistryImageOutput(args, opts?): Output<GetRegistryImageResult>` | output lookup  | same, `Output`-wrapped      |
+|  [01]   | `getLogs(args: GetLogsArgs, opts?): Promise<GetLogsResult>`           | async lookup   | fetch container log lines   |
+|  [02]   | `getLogsOutput(args, opts?): Output<GetLogsResult>`                   | output lookup  | same, `Output`-wrapped      |
+|  [03]   | `getNetwork(args: GetNetworkArgs, opts?): Promise<GetNetworkResult>`  | async lookup   | fetch network by name       |
+|  [04]   | `getNetworkOutput(args, opts?): Output<GetNetworkResult>`             | output lookup  | same, `Output`-wrapped      |
+|  [05]   | `getRemoteImage(args, opts?): Promise<GetRemoteImageResult>`          | async lookup   | fetch remote image metadata |
+|  [06]   | `getRemoteImageOutput(args, opts?): Output<GetRemoteImageResult>`     | output lookup  | same, `Output`-wrapped      |
+|  [07]   | `getRegistryImage(args, opts?): Promise<GetRegistryImageResult>`      | async lookup   | fetch registry image digest |
+|  [08]   | `getRegistryImageOutput(args, opts?): Output<GetRegistryImageResult>` | output lookup  | same, `Output`-wrapped      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGE_TOPOLOGY]:
 - `Image.repoDigest` is the unique per-build identifier; it is `repository@sha256:<hash>` for pushed images and `sha256:<hash>` for local-only images; pass `repoDigest` (not `imageName`) to container orchestration resources to force updates on image rebuild

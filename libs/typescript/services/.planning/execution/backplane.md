@@ -2,11 +2,11 @@
 
 The runner placement and durable-scheduling substrate beneath the cluster — `RunnerBackplane`, the four-row protocol/message-storage/runner-storage/runner-health backplane with the snowflake id source; and `ScheduledWork`, the cluster-singleton and shard-pinned durable-cron owner. The backplane is the placement and durability substrate the cluster-backed `WorkflowEngine` layers onto; the runner protocol is selected by topology row, never branched in code. This cluster crosses no .NET wire and carries no wire type.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RUNNER_AND_SCHEDULING]: owns the four-row runner backplane, the snowflake id source, the cluster singletons, and the shard-pinned durable cron.
+- [01]-[RUNNER_AND_SCHEDULING]: owns the four-row runner backplane, the snowflake id source, the cluster singletons, and the shard-pinned durable cron.
 
-## [2]-[RUNNER_AND_SCHEDULING]
+## [02]-[RUNNER_AND_SCHEDULING]
 
 - Owner: `RunnerBackplane`, the runner placement and durable storage backplane, and `ScheduledWork`, the cluster-wide singleton and durable-cron scheduling owner.
 - Cases: `RunnerBackplane` owns four explicit rows rather than one Redis-or-SQL hand-wave. The runner protocol is the placement transport — the HTTP runner for production k8s topologies, the socket runner for node-to-node clusters, the single runner for one-process deployments, and the test runner for the ephemeral harness — one closed protocol vocabulary read by topology. Message storage and runner storage are the durable backing — the SQL message store and the SQL runner store over the `persistence/store#STORE_BOUNDARY` Postgres client as the production rows, with the in-memory and no-op stores as the sibling test rows. Runner health and discovery is the liveness row — ping-based health for socket and single-process clusters and the k8s health client for native runner-address resolution and pod liveness, with the no-op health as the test row. The distributed id source threading message and entity identity is the runner-unique `Snowflake.Snowflake` each draw resolves through `Sharding.getSnowflake`, the shard manager's own id source, never a parallel generator handle. `ScheduledWork` is the jobs half the request-driven cluster does not cover — a cluster singleton (`Sharding.registerSingleton`) registers an exactly-one-runner background loop (the leader-elected sweep, reconcile, and garbage-collection jobs) pinned to one shard group so it never double-runs, and a durable cron registers a shard-pinned scheduled execution with the same exactly-once contract as a workflow.

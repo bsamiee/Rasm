@@ -2,11 +2,11 @@
 
 The chunked N-D tensor store over one `TensorBackend` axis. `TensorStore` owns the dense `zarr` store (chunk grid plus codec pipeline plus region write), the bounded-memory `cubed` plan that streams blockwise within an `allowed_mem` budget, the ragged `awkward` row for variable-length nested arrays, the transactional `icechunk` versioned-store row, and the `virtualizarr` virtual-reference row that makes archival HDF5/NetCDF/GeoTIFF byte ranges queryable as zero-copy virtual zarr stores. `TensorChunking` carries the chunk grid; `TensorCodec` the compression pipeline; `TensorRegion` the slice; `TensorReceipt` the typed write receipt keyed by runtime `ContentIdentity`. The backend is recovered from the source shape and the requested memory bound, never a parallel store class.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TENSOR]: the chunked N-D tensor store over a `TensorBackend` axis — codec/region rows, ragged + cubed, the versioned and virtual-reference dimensions.
+- [01]-[TENSOR]: the chunked N-D tensor store over a `TensorBackend` axis — codec/region rows, ragged + cubed, the versioned and virtual-reference dimensions.
 
-## [2]-[TENSOR]
+## [02]-[TENSOR]
 
 - Owner: `TensorStore` — one chunked N-D tensor store over a `TensorBackend` axis: the dense `zarr` store, the bounded-memory `cubed` plan, the ragged `awkward` row, the transactional `icechunk` versioned-store row, and the `virtualizarr` virtual-reference row. `TensorChunking` carries the chunk grid; `TensorCodec` the compression pipeline; `TensorRegion` the slice; `TensorReceipt` the typed write receipt.
 - Entry: `TensorStore.create` opens a `zarr` array/group rooted at a `ResourceRef` with a `TensorChunking` grid and `TensorCodec` pipeline; `TensorStore.write_region` writes a `TensorRegion` slice (orthogonal/block selection) and folds a `TensorReceipt` keyed by `ContentIdentity`; `TensorStore.plan` lifts the same store into a `cubed.Array` under a `Spec(allowed_mem=...)` for bounded-memory blockwise reductions that materialize back through `cubed.to_zarr`; `TensorStore.ragged` admits an `awkward.Array` and round-trips through `ak.to_parquet`/`ak.from_parquet`.
@@ -194,7 +194,7 @@ def _virtual_cube(sources: "tuple[str, ...]", ref: ResourceRef, concat_dim: str)
     )
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ZARR_PIPELINE]: the `zarr` v3 `create_array(store=, shape=, dtype=, chunks=, shards=, serializer=, compressors=)` slot arity, the `codecs.{BytesCodec,ShardingCodec,BloscCodec,ZstdCodec,GzipCodec}` constructor names, the `Array.set_orthogonal_selection`/`storage.LocalStore`/`open_array` surface are catalogue-confirmed against the folder `zarr` `.api`; the one open seam is the `Array.nbytes_stored()` byte-count method and the `ArrayBytesCodec`/`BytesBytesCodec` ABC split the `pipeline()` return annotates — the catalogue captures the codec types but not the `nbytes_stored` accessor, confirmed against the live v3 distribution.
 - [CUBED_AWKWARD]: the `cubed` `from_zarr`/`to_zarr`/`Spec(allowed_mem=...)`/`sum`/`mean`/`nansum`/`std` bounded-plan surface and the `awkward` `from_iter`/`to_parquet`/`Array` ragged surface are catalogue-confirmed against the folder `cubed`/`awkward` `.api`; both are settled fence code.

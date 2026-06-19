@@ -2,11 +2,11 @@
 
 Bounded structured-concurrency lanes and stage orchestration. `LanePolicy` owns bounded `anyio` task groups with capacity and cancellation scopes, returning a `DrainReceipt`; `StagePlan` owns multi-stage DAG orchestration over the same task-group spine. Watch-triggered and scheduled work enter the same bounded task group through `watchfiles` and the `apscheduler` `Trigger` union, draining through the same receipt — never a second scheduler surface, cron owned solely by `apscheduler`. The one lane admits I/O-bound coroutines, CPU-bound kernels offloaded into per-subinterpreter execution under PEP 734, and content-keyed work that short-circuits on a cache hit, all under one `CapacityLimiter` and one `DrainReceipt`. Bare `asyncio` is never imported; `anyio` owns every concurrency primitive.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LANE]: bounded anyio task groups, the CPU-bound subinterpreter offload, the content-keyed cache short-circuit, drain receipts, the stage DAG.
+- [01]-[LANE]: bounded anyio task groups, the CPU-bound subinterpreter offload, the content-keyed cache short-circuit, drain receipts, the stage DAG.
 
-## [2]-[LANE]
+## [02]-[LANE]
 
 - Owner: `LanePolicy` — bounded `anyio` task groups with capacity and cancellation scopes; `DrainReceipt` the accepted/completed/cancelled/rejected/hit counts; `StagePlan` the multi-stage DAG (stage edges, per-stage retry, partial re-run) over the same task-group spine; `watchfiles` and the `apscheduler` `Trigger` union are lane sources, not a separate scheduler.
 - Entry: `LanePolicy.run` opens one `anyio.create_task_group` under a `CapacityLimiter` and a `fail_after` deadline, accepting either bare `Work[T]` coroutines or `(ContentKey, Work[T])` pairs so a unit whose key already carries an `Ok` result short-circuits without invoking the coroutine, returning a `DrainReceipt`; `LanePolicy.offload` routes a caller-supplied CPU kernel into per-subinterpreter execution through `anyio.to_interpreter.run_sync` under the same `CapacityLimiter`, never importing the kernel, draining through the same `DrainReceipt`; `StagePlan.execute` topologically orders the stage DAG through `graphlib.TopologicalSorter` and drives each stage through the same `LanePolicy.run`, threading the stage's `RetryClass` into the work-builder so each stage's coroutines bind the right `reliability/resilience#RESILIENCE` `guard`, one `DrainReceipt` per stage; `fired` yields one tick per `apscheduler` `Trigger` fire time and `watchfiles.awatch` yields one tick per filesystem change, both feeding work into the same lane.
@@ -121,6 +121,6 @@ async def fired(trigger: Trigger) -> AsyncIterator[None]:
         yield None
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 [APSCHEDULER_CATALOGUE], [INTERPRETER_OFFLOAD], and [CONTENT_LANE_CACHE] are reflection-confirmed on the cp315 core (`apscheduler` 3.11.2, `anyio.to_interpreter`, `concurrent.interpreters` per PEP 734): the `triggers.cron.CronTrigger`/`triggers.interval.IntervalTrigger`/`triggers.date.DateTrigger` namespaces, the `Trigger.get_next_fire_time(previous_fire_time, now)` 2-argument contract returning a timezone-aware `datetime` or `None` at exhaustion, `CronTrigger.from_crontab` as the sole cron-string intake (no `aiocron`), the `anyio.to_interpreter.run_sync(func, *args, limiter=None)` subinterpreter offload raising `BrokenWorkerInterpreter` on worker failure, and the `expression.collections.Map.add(key, value)`/`key in map` cache surface are settled. No open RESEARCH seam remains on this page.

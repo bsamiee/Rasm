@@ -2,7 +2,7 @@
 
 `@radix-ui/react-slot` supplies the `Slot` component and `createSlot` factory that merge their own props and ref onto a single child element, and the `Slottable` marker that designates which child within a compound component receives the slot merge. These primitives are consumed by every Radix UI component that forwards its render to an asChild pattern and by any ui-stack owner that needs polymorphic element composition.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@radix-ui/react-slot`
 - package: `@radix-ui/react-slot`
@@ -11,35 +11,35 @@
 - asset: asChild slot primitives
 - rail: render
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: slot family
 - rail: render
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]                                                       | [RAIL]                                             |
 | :-----: | :----------------------- | :------------------------------------------------------------------ | :------------------------------------------------- |
-|   [1]   | `Slot`                   | `ForwardRefExoticComponent<SlotProps & RefAttributes<HTMLElement>>` | asChild merge root                                 |
-|   [2]   | `SlotProps<Elem, Props>` | props type                                                          | `Props & { children?: ReactNode }`                 |
-|   [3]   | `Slottable`              | `SlottableComponent`                                                | marks child as slot merge target                   |
-|   [4]   | `SlottableProps`         | union type                                                          | `SlottableRenderFnProps \| SlottableChildrenProps` |
-|   [5]   | `SlottableChildrenProps` | plain children shape                                                | `{ children: ReactNode }`                          |
-|   [6]   | `SlottableRenderFnProps` | render-fn shape                                                     | `{ child: ReactNode; children: (s) => ReactNode }` |
-|   [7]   | `SlottableComponent`     | interface                                                           | `FC<SlottableProps> & { __radixId: symbol }`       |
+|  [01]   | `Slot`                   | `ForwardRefExoticComponent<SlotProps & RefAttributes<HTMLElement>>` | asChild merge root                                 |
+|  [02]   | `SlotProps<Elem, Props>` | props type                                                          | `Props & { children?: ReactNode }`                 |
+|  [03]   | `Slottable`              | `SlottableComponent`                                                | marks child as slot merge target                   |
+|  [04]   | `SlottableProps`         | union type                                                          | `SlottableRenderFnProps \| SlottableChildrenProps` |
+|  [05]   | `SlottableChildrenProps` | plain children shape                                                | `{ children: ReactNode }`                          |
+|  [06]   | `SlottableRenderFnProps` | render-fn shape                                                     | `{ child: ReactNode; children: (s) => ReactNode }` |
+|  [07]   | `SlottableComponent`     | interface                                                           | `FC<SlottableProps> & { __radixId: symbol }`       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: slot construction
 - rail: render
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]    | [RAIL]                                           |
 | :-----: | :----------------------------------- | :---------------- | :----------------------------------------------- |
-|   [1]   | `Slot`                               | default slot      | merges props+ref onto one HTML child element     |
-|   [2]   | `Root` (alias for `Slot`)            | named re-export   | Radix-style named default export                 |
-|   [3]   | `createSlot<Elem, Props>(ownerName)` | slot factory      | creates a typed `ForwardRefExoticComponent` slot |
-|   [4]   | `Slottable`                          | marker component  | designates the merge-target child                |
-|   [5]   | `createSlottable(ownerName)`         | slottable factory | creates a named `SlottableComponent`             |
+|  [01]   | `Slot`                               | default slot      | merges props+ref onto one HTML child element     |
+|  [02]   | `Root` (alias for `Slot`)            | named re-export   | Radix-style named default export                 |
+|  [03]   | `createSlot<Elem, Props>(ownerName)` | slot factory      | creates a typed `ForwardRefExoticComponent` slot |
+|  [04]   | `Slottable`                          | marker component  | designates the merge-target child                |
+|  [05]   | `createSlottable(ownerName)`         | slottable factory | creates a named `SlottableComponent`             |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SLOT_TOPOLOGY]:
 - `Slot` accepts exactly one React child; that child receives all `Slot` props merged onto it

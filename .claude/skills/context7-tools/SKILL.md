@@ -12,7 +12,7 @@ Query Context7 library documentation. Matches MCP tool structure (resolve-librar
 
 [IMPORTANT] Context7 pulls up-to-date, version-specific documentation from source. Supports private documents (early access). Community-driven library coverage.
 
-## [1]-[COMMANDS]
+## [01]-[COMMANDS]
 
 | [CMD]   | [ARGS]                 | [RETURNS]                       |
 | ------- | ---------------------- | ------------------------------- |
@@ -20,7 +20,7 @@ Query Context7 library documentation. Matches MCP tool structure (resolve-librar
 | docs    | `<library-id> <query>` | Documentation filtered by query |
 | lookup  | `<library> <query>`    | Resolve + docs in one call      |
 
-## [2]-[USAGE]
+## [02]-[USAGE]
 
 ```bash
 # Resolve library -> see options
@@ -39,7 +39,7 @@ uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py lookup react "hook
 uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py lookup vite "v7 migration guide"
 ```
 
-## [3]-[ARGUMENTS]
+## [03]-[ARGUMENTS]
 
 **resolve**: `<library> [query]`
 - `library` — Library name to search (required, e.g., `effect`, `react`, `vite`)
@@ -53,29 +53,29 @@ uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py lookup vite "v7 mi
 - `library` — Library name (required)
 - `query` — Topic to fetch docs for (required)
 
-## [4]-[SELECTION_LOGIC]
+## [04]-[SELECTION_LOGIC]
 
 `lookup` auto-selects library by: VIP status -> highest benchmark score.
 
 Use `resolve` first when disambiguation needed (e.g., multiple React packages).
 
-## [5]-[OUTPUT]
+## [05]-[OUTPUT]
 
 Commands return JSON or plain text.
 
 | [INDEX] | [CMD]     | [RESPONSE]                                            |
 | :-----: | --------- | ----------------------------------------------------- |
-|   [1]   | `resolve` | JSON array: `[{id, title, score, vip}]`               |
-|   [2]   | `docs`    | Plain text documentation prefixed with `[library-id]` |
-|   [3]   | `lookup`  | Plain text documentation (same as docs)               |
+|  [01]   | `resolve` | JSON array: `[{id, title, score, vip}]`               |
+|  [02]   | `docs`    | Plain text documentation prefixed with `[library-id]` |
+|  [03]   | `lookup`  | Plain text documentation (same as docs)               |
 
-## [6]-[ENVIRONMENT]
+## [06]-[ENVIRONMENT]
 
 | [VAR]              | [REQUIRED] | [DESCRIPTION]                  |
 | ------------------ | ---------- | ------------------------------ |
 | `CONTEXT7_API_KEY` | No         | Optional bearer token for auth |
 
-## [7]-[ERROR_HANDLING]
+## [07]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Connection errors print `[ERROR] <message>` and exit 1

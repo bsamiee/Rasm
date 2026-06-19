@@ -2,7 +2,7 @@
 
 `Avalonia.Desktop` supplies desktop platform detection and native desktop boot assets for the retained shell rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Desktop`
 - package: `Avalonia.Desktop`
@@ -12,53 +12,53 @@
 - asset: backend dependency graph
 - rail: desktop-shell
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [BOOTSTRAP_EXTENSIONS]: desktop platform extension family
 - rail: desktop-shell
 
 | [INDEX] | [SYMBOL]                           | [RAIL]          |
 | :-----: | :--------------------------------- | :-------------- |
-|   [1]   | `AppBuilderDesktopExtensions`      | platform detect |
-|   [2]   | `AvaloniaNativePlatformExtensions` | native backend  |
-|   [3]   | `AvaloniaX11PlatformExtensions`    | X11 backend     |
-|   [4]   | `Win32ApplicationExtensions`       | Win32 backend   |
-|   [5]   | `SkiaApplicationExtensions`        | Skia renderer   |
+|  [01]   | `AppBuilderDesktopExtensions`      | platform detect |
+|  [02]   | `AvaloniaNativePlatformExtensions` | native backend  |
+|  [03]   | `AvaloniaX11PlatformExtensions`    | X11 backend     |
+|  [04]   | `Win32ApplicationExtensions`       | Win32 backend   |
+|  [05]   | `SkiaApplicationExtensions`        | Skia renderer   |
 
 [BACKEND_ASSETS]: admitted desktop payload packages
 - rail: desktop-shell
 
 | [INDEX] | [SYMBOL]          | [RAIL]            |
 | :-----: | :---------------- | :---------------- |
-|   [1]   | `Avalonia.Native` | macOS native host |
-|   [2]   | `Avalonia.Win32`  | Windows backend   |
-|   [3]   | `Avalonia.X11`    | Linux X11 backend |
-|   [4]   | `Avalonia.Skia`   | raster renderer   |
+|  [01]   | `Avalonia.Native` | macOS native host |
+|  [02]   | `Avalonia.Win32`  | Windows backend   |
+|  [03]   | `Avalonia.X11`    | Linux X11 backend |
+|  [04]   | `Avalonia.Skia`   | raster renderer   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [BUILDER_ENTRYPOINTS]: desktop builder operations
 - rail: desktop-shell
 
 | [INDEX] | [SURFACE]           | [SURFACE_ROOT]                     | [RAIL]             |
 | :-----: | :------------------ | :--------------------------------- | :----------------- |
-|   [1]   | `UsePlatformDetect` | `AppBuilderDesktopExtensions`      | platform detect    |
-|   [2]   | `UseAvaloniaNative` | `AvaloniaNativePlatformExtensions` | native backend     |
-|   [3]   | `UseX11`            | `AvaloniaX11PlatformExtensions`    | X11 backend        |
-|   [4]   | `UseWin32`          | `Win32ApplicationExtensions`       | Win32 backend      |
-|   [5]   | `UseSkia`           | `SkiaApplicationExtensions`        | renderer admission |
+|  [01]   | `UsePlatformDetect` | `AppBuilderDesktopExtensions`      | platform detect    |
+|  [02]   | `UseAvaloniaNative` | `AvaloniaNativePlatformExtensions` | native backend     |
+|  [03]   | `UseX11`            | `AvaloniaX11PlatformExtensions`    | X11 backend        |
+|  [04]   | `UseWin32`          | `Win32ApplicationExtensions`       | Win32 backend      |
+|  [05]   | `UseSkia`           | `SkiaApplicationExtensions`        | renderer admission |
 
 [RUNTIME_ASSETS]: desktop asset identity
 - rail: desktop-shell
 
 | [INDEX] | [SURFACE]                 | [SURFACE_ROOT]    | [RAIL]            |
 | :-----: | :------------------------ | :---------------- | :---------------- |
-|   [1]   | `libAvaloniaNative.dylib` | `Avalonia.Native` | macOS native load |
-|   [2]   | `Avalonia.Win32.dll`      | `Avalonia.Win32`  | Windows host load |
-|   [3]   | `Avalonia.X11.dll`        | `Avalonia.X11`    | Linux host load   |
-|   [4]   | `Avalonia.Skia.dll`       | `Avalonia.Skia`   | renderer load     |
+|  [01]   | `libAvaloniaNative.dylib` | `Avalonia.Native` | macOS native load |
+|  [02]   | `Avalonia.Win32.dll`      | `Avalonia.Win32`  | Windows host load |
+|  [03]   | `Avalonia.X11.dll`        | `Avalonia.X11`    | Linux host load   |
+|  [04]   | `Avalonia.Skia.dll`       | `Avalonia.Skia`   | renderer load     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DESKTOP_ADMISSION]:
 - Package: `Avalonia.Desktop`

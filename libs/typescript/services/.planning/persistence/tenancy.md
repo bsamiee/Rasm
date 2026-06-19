@@ -2,11 +2,11 @@
 
 The multi-tenant RLS scoping axis over the one `PgClient` — `TenantScope`, scoping every entity by `app_id` FK through the `app.current_tenant` GUC the RLS predicate reads, the tenant lifecycle vocabulary, and the purge-handler family, set per request at the connection boundary. The tenant key is consumed as the RLS predicate input, never re-minted branch-side. RLS scoping rides the one `PgClient` GUC, never a branch-side WHERE-clause filter. This is a node-only surface and crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TENANCY]: owns the multi-tenant RLS axis, the tenant lifecycle vocabulary, and the purge-handler family.
+- [01]-[TENANCY]: owns the multi-tenant RLS axis, the tenant lifecycle vocabulary, and the purge-handler family.
 
-## [2]-[TENANCY]
+## [02]-[TENANCY]
 
 - Owner: `TenantScope`, the multi-tenant RLS axis carrying `withTenant` (the per-request GUC-binding decorator) and `purge` (the handler family), over the `TenantLifecycle` and `PurgeTarget` vocabularies.
 - Cases: every entity is RLS-scoped by `app_id` FK against the `app.current_tenant` GUC the row-level-security predicate reads (`current_setting('app.current_tenant')`); the tenant lifecycle is `active`/`suspended`/`archived`/`purging`; the purge handler family is sessions/api-keys/assets/event-journal/job-dlq/kv-store/mfa-secrets/oauth-accounts/archive/purge-tenant, run in FK-dependency order under the one client.

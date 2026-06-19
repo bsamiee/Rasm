@@ -2,11 +2,11 @@
 
 The single fault family and Result/Option rail for the whole branch. `BoundaryFault` is the one tagged union every package returns through, discriminating the seven ingress classes and carrying an `Aggregate` case so an accumulating boundary keeps every member structurally addressable; `RuntimeRail` is the carrier whose monadic algebra selects abort versus accumulate; `boundary`/`async_boundary` is the single exception-to-fault conversion surface, one sync and one awaitable entry over the same fault lift so a subprocess-seam or coroutine boundary never grows a parallel async rail. Domain logic returns `Result`/`Option` and never raises; exceptions convert to a fault exactly once at the owning boundary, and interior code receives only the rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FAULT]: the boundary-fault tagged union with the aggregate combination law, the rail carrier, the fail-fast and accumulating traversals, the one sync/async exception-to-fault conversion.
+- [01]-[FAULT]: the boundary-fault tagged union with the aggregate combination law, the rail carrier, the fail-fast and accumulating traversals, the one sync/async exception-to-fault conversion.
 
-## [2]-[FAULT]
+## [02]-[FAULT]
 
 - Owner: `BoundaryFault` — the single closed fault family discriminating `config`, `resource`, `deadline`, `api`, `import_`, `wire`, and `boundary` ingress classes plus an `aggregate` case holding typed members; `RuntimeRail` the `Result`/`Option` alias every fallible function returns; `boundary` the one exception-to-fault conversion at ingress/egress.
 - Cases: each non-aggregate case is a frozen `case()` keyword-constructed with its typed payload — `config`/`resource`/`api`/`import_`/`boundary` carry `(subject, detail)`, `deadline` carries `(subject, budget)`, `wire` carries `(subject, code)`; `aggregate` carries `tuple[BoundaryFault, ...]` so the conjunctive boundary combines members without flattening to a string. `BoundaryFault.of` is the one factory with logic — it maps a caught exception's subject and type name into the `boundary` case.

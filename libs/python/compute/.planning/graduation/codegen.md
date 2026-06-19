@@ -2,11 +2,11 @@
 
 The typed-stub generator that decodes the C# graduation-evidence bundle shape. `StubCodegen` consumes the offline-seam bundle the C# side seals, decodes it once with msgspec, and projects each owner descriptor into a `msgspec.Struct` stub through the stdlib `ast` builder, so downstream Python composes against the C# owner row by import rather than by re-typing it. The bundle shape is consumed at the boundary and never re-minted: this owner reads the evidence bundle, owner, and field descriptors the C# graduation evidence already carries and adds zero shape. It emits type stubs only, never runtime behavior, and imports nothing from a C# interior.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[STUB_CODEGEN]: the evidence-bundle decode and the per-field-kind annotation fold on one `StubCodegen` owner.
+- [01]-[STUB_CODEGEN]: the evidence-bundle decode and the per-field-kind annotation fold on one `StubCodegen` owner.
 
-## [2]-[STUB_CODEGEN]
+## [02]-[STUB_CODEGEN]
 
 - Owner: `StubCodegen` — the one generator consuming the C# graduation-evidence bundle shape and emitting typed Python stubs; it reads `EvidenceBundle`, `OwnerDescriptor`, and `FieldDescriptor` (the shape the C# graduation evidence carries) and projects each descriptor into a `msgspec.Struct` stub through the stdlib `ast` builder. The bundle is decoded once with msgspec and never re-minted.
 - Cases: one `FieldKind` literal per primitive the C# seam emits — `i32`, `i64`, `f64`, `bool`, `string`, `key`, `array`, `nested` — folded by `match` to the Python annotation (`int`, `float`, `bool`, `str`, `ContentKey`, `tuple[..., ...]`, the nested stub name). A new managed field kind is one literal and one match arm, never a parallel emitter.

@@ -2,15 +2,15 @@
 
 One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is the fifteen-row series axis dispatching onto four `ChartCanvas` rows with a live `GeoOverlay` land-swap fold, `ChartAxisKind` owns the five scale rows, one `ChartPolicy` record owns interaction and styling keys, `ChartStream` rows bind `DataSource` feeds through window and downsampling folds with a persisted `BoardState` board snapshot, and `DashboardTile` composes boards with a `CrossFilter` linked-brushing fold persisted as versioned blobs. The package spine is LiveCharts on the admitted Skia stack over DynamicData change-sets; paints, motion, and label roles arrive as token keys resolved at mount; capture and export are consumed rails. Benchmark and activity-timeline dashboards are named layout rows over the analytical and receipt feeds.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SERIES_TABLE]: Fifteen series rows; canvas dispatch; live geo-overlay land swap.
-- [2]-[AXES_SECTIONS]: Five scale rows; label formats; sections; shared-scale pairing.
-- [3]-[CHART_INTERACTION]: One policy record; zoom, anchors, intent routing, dashboard canvas.
-- [4]-[STREAM_BINDING]: Feed rows; downsampling fold; sync law; board-state persistence.
-- [5]-[DASHBOARD_TILES]: Tile union; placement fold; cross-filter brushing; layout persistence.
+- [01]-[SERIES_TABLE]: Fifteen series rows; canvas dispatch; live geo-overlay land swap.
+- [02]-[AXES_SECTIONS]: Five scale rows; label formats; sections; shared-scale pairing.
+- [03]-[CHART_INTERACTION]: One policy record; zoom, anchors, intent routing, dashboard canvas.
+- [04]-[STREAM_BINDING]: Feed rows; downsampling fold; sync law; board-state persistence.
+- [05]-[DASHBOARD_TILES]: Tile union; placement fold; cross-filter brushing; layout persistence.
 
-## [2]-[SERIES_TABLE]
+## [02]-[SERIES_TABLE]
 
 - Owner: `ChartSeriesSpec`
 - Cases: line, step-line, scatter, column, row, stacked-area, stacked-column, heat, candlestick, box, pie, polar-line, gauge-angular, gauge-background, geo-map — canvas rows cartesian, pie, polar, map materialize as `CartesianChart`, `PieChart`, `PolarChart`, `GeoMap` control templates selected by the `ChartCanvas` key.
@@ -85,7 +85,7 @@ public static class GeoOverlay {
 }
 ```
 
-## [3]-[AXES_SECTIONS]
+## [03]-[AXES_SECTIONS]
 
 - Owner: `ChartAxisKind`
 - Cases: numeric, instant, duration, logarithmic, polar — mapping to `XamlAxis`, `XamlDateTimeAxis`, `XamlTimeSpanAxis`, `XamlLogarithmicAxis`, `XamlPolarAxis`, with the polar row riding `PolarAxesCollection` on the polar canvas and all cartesian rows riding `AxesCollection`.
@@ -110,7 +110,7 @@ public sealed partial class ChartAxisKind {
 public readonly record struct ChartSection(double From, double To, string PaintKey);
 ```
 
-## [4]-[CHART_INTERACTION]
+## [04]-[CHART_INTERACTION]
 
 - Owner: `ChartPolicy`
 - Cases: `ChartAnchor` rows hidden, top, bottom, left, right, auto — one anchor vocabulary shared by the tooltip and legend columns.
@@ -162,7 +162,7 @@ public sealed record ChartPolicy(
 }
 ```
 
-## [5]-[STREAM_BINDING]
+## [05]-[STREAM_BINDING]
 
 - Owner: `ChartStream`; `BoardState` board snapshot record persisting tile arrangement plus brush state over the concrete `DockSerializer`.
 - Cases: feed rows compute-receipt-stream, persistence-analytical, host-document-events, fake-deterministic — each row binds one `DataSource` case with its window, bucket, and cadence values.
@@ -249,10 +249,10 @@ public sealed record BoardState(
 
 | [INDEX] | [FEED_ROW]             | [SOURCE_CASE]        | [WINDOW] | [BUCKETS] | [CADENCE] |
 | :-----: | ---------------------- | -------------------- | :------: | :-------: | :-------: |
-|   [1]   | compute-receipt-stream | ComputeReceiptStream |  120 s   |    512    |  250 ms   |
-|   [2]   | persistence-analytical | PersistenceQuery     |   none   |     0     |    1 s    |
-|   [3]   | host-document-events   | HostDocumentEvents   |  300 s   |    256    |  500 ms   |
-|   [4]   | fake-deterministic     | FakeDeterministic    |   none   |     0     |   none    |
+|  [01]   | compute-receipt-stream | ComputeReceiptStream |  120 s   |    512    |  250 ms   |
+|  [02]   | persistence-analytical | PersistenceQuery     |   none   |     0     |    1 s    |
+|  [03]   | host-document-events   | HostDocumentEvents   |  300 s   |    256    |  500 ms   |
+|  [04]   | fake-deterministic     | FakeDeterministic    |   none   |     0     |   none    |
 
 Window, bucket, and cadence values live on these rows and nowhere else; a bucket value below three is the passthrough case the `Lttb` guard encodes.
 
@@ -267,7 +267,7 @@ flowchart LR
     DashboardTile --> DashboardLayout
 ```
 
-## [6]-[DASHBOARD_TILES]
+## [06]-[DASHBOARD_TILES]
 
 - Owner: `DashboardTile`
 - Cases: `DashboardTile.Chart` | `DashboardTile.Stat` | `DashboardTile.Gauge` | `DashboardTile.Table` | `DashboardTile.Custom`; named dashboards benchmark, activity-timeline, and analytical-flow.
@@ -469,11 +469,11 @@ public sealed class CrossFilter {
 
 | [INDEX] | [DASHBOARD_ROW]   | [TILES]                      | [FEEDS]                                         |
 | :-----: | ----------------- | ---------------------------- | ----------------------------------------------- |
-|   [1]   | benchmark         | column + box + stat          | persistence-analytical                          |
-|   [2]   | activity-timeline | step-line + heat + table     | compute-receipt-stream + persistence-analytical |
-|   [3]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                          |
+|  [01]   | benchmark         | column + box + stat          | persistence-analytical                          |
+|  [02]   | activity-timeline | step-line + heat + table     | compute-receipt-stream + persistence-analytical |
+|  [03]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                          |
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [GEO_PAYLOAD]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `GeoMap` land records is the cross-package wire boundary the geo row never re-mints; the `.api` catalogue verifies the `SourceGenMapChart` binding members `ActiveMap` (`DrawnMap`), `MapProjection`, `Series`, `Stroke`, and `Fill` that carry the projected land geometry and token paints, and the `GeoLand` record plus the `IChangeSet<GeoLand, string>` projection are settled; the heat-land series constructor, the land-record shape the series carries, the heat-ramp and gradient-stop members, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface resolved at implementation against the decompiled core assembly and the settled Compute wire contract — the surface binds through the `GeoOverlay.Bind` `swap` delegate at composition rather than a transcribed member.
 - [GEO_OVERLAY_DELTAS]: the `swap` delegate `GeoOverlay.Bind` invokes folds the verified DynamicData `Change<GeoLand, string>` into the unverified heat-series mutation — the `Change` accessor spellings (`Reason` over `ChangeReason`, `Current`, `Key`), the `ChangeReason` add/update/remove case spellings the swap dispatches, and the heat-series land-collection mutability that the in-place swap re-assigns resolve at implementation against the decompiled DynamicData and LiveChartsCore.SkiaSharpView surfaces; the in-place swap law keyed by GeoJSON feature name, the `GeoLand` record, the `IChangeSet<GeoLand, string>` enumerable contract, and the `GeoOverlay.Bind` change-set fold are settled, the `Change` accessor and heat-series mutation spellings inside the `swap` delegate are the unverified surface bound at composition.

@@ -2,11 +2,11 @@
 
 The one classical computer-algebra derivation and code-generation owner. `SymbolicDerivation` lambdifies a sympy expression to a numpy-callable closure and generates the C source the graduation gate consumes as the kernel-handoff artifact. This is the one ungated solver route because sympy is pure-Python and imports on cp315; symbolic differentiation and algebra are in-scope, and no learned or generative symbolic search enters this owner. The derivation graduates outward on the symbolic `HandoffAxis` case.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DERIVATION]: one sympy lambdify-and-codegen derivation producing the numpy callable and the C handoff artifact on one `SymbolicDerivation` owner.
+- [01]-[DERIVATION]: one sympy lambdify-and-codegen derivation producing the numpy callable and the C handoff artifact on one `SymbolicDerivation` owner.
 
-## [2]-[DERIVATION]
+## [02]-[DERIVATION]
 
 - Owner: `SymbolicDerivation` — the ungated `sympy.lambdify` plus `sympy.utilities.codegen.codegen` surface producing the C# handoff artifact; `callable_` is the numpy-callable closure and `c_source` is the C emission the C# graduation gate consumes. One derivation of an expression yields both artifacts from one common-subexpression pass, so the numpy study callable and the C kernel handoff share one lowering rather than two parallel entries.
 - Entry: `SymbolicDerivation.of` builds the free symbols with `sympy.symbols`, lambdifies the expression over the numpy module under `cse=True`, and runs `codegen` for the C source; `derive` returns `RuntimeRail[SymbolicDerivation]`. The graduation gate reads the C source as the kernel-handoff artifact through the symbolic `HandoffAxis` case.
@@ -48,7 +48,7 @@ def derive(expr: object, symbols: tuple[str, ...], *, name: str = "kernel", lang
     return boundary("symbolic.derive", lambda: SymbolicDerivation.of(expr, symbols, name=name, language=language))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SYMPY_CODEGEN]: `sympy` is pure-Python and cp315-clean; the `symbols`/`lambdify`/`utilities.codegen.codegen`/`cse`/`diff`/`simplify` spellings are reflected and verify against the `.api` catalogue. This is the one ungated solver route.
 - [JAX_LAMBDIFY]: `sympy.lambdify(modules="jax")` emits a differentiable JAX callable, a bridge between this owner and the JAX autodiff family in `solvers/sensitivity.md#SENSITIVITY`; the bridge gates on the jaxlib `python_version<'3.15'` floor and verifies against the `.api` catalogue once jaxlib resolves.

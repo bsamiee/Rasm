@@ -66,19 +66,19 @@ layer(_contractLayer)('contract: ${SUITE_NAME}', (it) => {
 });
 ```
 
-## [1]-[PLACEHOLDER_REFERENCE]
+## [01]-[PLACEHOLDER_REFERENCE]
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                           |
 | :-----: | ---------------------- | --------------------------------------------------- |
-|   [1]   | `PKG_A`, `PKG_B`       | `server`, `database`                                |
-|   [2]   | `BRIEF_DESCRIPTION`    | `schema compatibility, service tag shape`           |
-|   [3]   | `PKG_A_IMPORTS`        | `{ UserSchema, UserService }`                       |
-|   [4]   | `PKG_A_PATH`           | `server`                                            |
-|   [5]   | `PKG_B_IMPORTS`        | `{ UserRow }`                                       |
-|   [6]   | `PKG_B_PATH`           | `database`                                          |
-|   [7]   | `PKG_A_SCHEMA`         | `UserSchema`                                        |
-|   [8]   | `PKG_B_SCHEMA`         | `UserRow`                                           |
-|   [9]   | `SERVICE_TAG_A`        | `UserService`                                       |
+|   [01]   | `PKG_A`, `PKG_B`       | `server`, `database`                                |
+|   [02]   | `BRIEF_DESCRIPTION`    | `schema compatibility, service tag shape`           |
+|   [03]   | `PKG_A_IMPORTS`        | `{ UserSchema, UserService }`                       |
+|   [04]   | `PKG_A_PATH`           | `server`                                            |
+|   [05]   | `PKG_B_IMPORTS`        | `{ UserRow }`                                       |
+|   [06]   | `PKG_B_PATH`           | `database`                                          |
+|   [07]   | `PKG_A_SCHEMA`         | `UserSchema`                                        |
+|   [08]   | `PKG_B_SCHEMA`         | `UserRow`                                           |
+|   [09]   | `SERVICE_TAG_A`        | `UserService`                                       |
 |  [10]   | `MINIMAL_IMPL_A`       | `{ findById: () => Effect.succeed(stubUser) }`      |
 |  [11]   | `SERVICE_TAG_B`        | `DatabaseClient`                                    |
 |  [12]   | `MINIMAL_IMPL_B`       | `{ query: () => Effect.succeed([]) }`               |
@@ -94,7 +94,7 @@ layer(_contractLayer)('contract: ${SUITE_NAME}', (it) => {
 |  [22]   | `EDGE_CASE_EFFECTS`    | `S.decodeUnknown(PkgA)({}).pipe(Effect.flip)`       |
 |  [23]   | `EXPECTED`             | `[expect.objectContaining({ _tag: 'ParseError' })]` |
 
-## [2]-[CONVENTIONS]
+## [02]-[CONVENTIONS]
 
 - **No `vi.mock`** -- contract tests use real schemas and service tags
 - **`Layer.succeed(Tag, impl)`** for minimal fakes -- not full mock objects

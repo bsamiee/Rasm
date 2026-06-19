@@ -2,17 +2,17 @@
 
 `projection` is the host-free read-side fold-algebra owner of the TypeScript branch. It folds every decoded `interchange` feed into `SubscriptionRef`-backed keyed maps under one stream policy, consuming the C# wire only — it owns no geometry, dials no transport, and re-mints no shared identity. The domain map is in `ARCHITECTURE.md`, the forward concepts in `IDEAS.md`, and the open work in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[POLICY](.planning/fold/policy.md): the one `StreamPolicy` and the `withPolicy` decorator every fold pipes its source through.
-- [2]-[COMBINATORS](.planning/fold/combinators.md): the `foldStream` scalar primitive and the `keyedFold` keyed-map combinator built on it.
-- [3]-[PROJECTION](.planning/fold/projection.md): the `Projection<A>` `Subscribable` adapter and `derive` — the atom-bridge read face every store exposes.
-- [4]-[WATERMARK](.planning/query/watermark.md): event-time projection, the `Watermark` mark, and the `allowedLateness` horizon.
-- [5]-[WINDOW](.planning/query/window.md): `WindowKind`/`bucketSet`/`windowFold` Z-set signed-delta IVM over `d2ts`.
-- [6]-[REACTIVE](.planning/query/reactive.md): the `LiveQuery`/`queryStore` versionless `d2mini` reactive-query surface folded into a `SubscriptionRef`.
-- [7]-[ASOF](.planning/query/asof.md): the `AsOf` coordinate (Version/EventTime/Stable) and the `asOfQuery` `reconstructAt` projection.
-- [8]-[DIFF](.planning/query/diff.md): the `asOfDiff` two-coordinate snapshot diff the conflict inspector reads.
-- [9]-[MERGE](.planning/convergence/merge.md): `opMerge` LWW-by-HLC, tombstone guard, and the `ConflictOutcomeKind` ledger.
+- [01]-[POLICY](.planning/fold/policy.md): the one `StreamPolicy` and the `withPolicy` decorator every fold pipes its source through.
+- [02]-[COMBINATORS](.planning/fold/combinators.md): the `foldStream` scalar primitive and the `keyedFold` keyed-map combinator built on it.
+- [03]-[PROJECTION](.planning/fold/projection.md): the `Projection<A>` `Subscribable` adapter and `derive` — the atom-bridge read face every store exposes.
+- [04]-[WATERMARK](.planning/query/watermark.md): event-time projection, the `Watermark` mark, and the `allowedLateness` horizon.
+- [05]-[WINDOW](.planning/query/window.md): `WindowKind`/`bucketSet`/`windowFold` Z-set signed-delta IVM over `d2ts`.
+- [06]-[REACTIVE](.planning/query/reactive.md): the `LiveQuery`/`queryStore` versionless `d2mini` reactive-query surface folded into a `SubscriptionRef`.
+- [07]-[ASOF](.planning/query/asof.md): the `AsOf` coordinate (Version/EventTime/Stable) and the `asOfQuery` `reconstructAt` projection.
+- [08]-[DIFF](.planning/query/diff.md): the `asOfDiff` two-coordinate snapshot diff the conflict inspector reads.
+- [09]-[MERGE](.planning/convergence/merge.md): `opMerge` LWW-by-HLC, tombstone guard, and the `ConflictOutcomeKind` ledger.
 - [10]-[PRESENCE](.planning/convergence/presence.md): the `ConflictPresenceStore` and the ephemeral-TTL presence row.
 - [11]-[LAW](.planning/convergence/law.md): the `fast-check` permutation law proving cross-peer strong eventual consistency.
 - [12]-[RETENTION](.planning/convergence/retention.md): the `Frontier` antichain and `finalizeBelow` unifying every keyed-map TTL under one horizon.
@@ -25,7 +25,7 @@
 - [19]-[CORRELATION](.planning/evidence/correlation.md): the `EvidenceProjection` store and content-keyed evidence correlation.
 - [20]-[AVAILABILITY](.planning/evidence/availability.md): the `AvailabilityStore` read gate the gateway dials against.
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Domain libraries this folder owns exclusively; versions are centralized in the one workspace catalog and corroborated by the adjacent `.api/` folder.
 
@@ -33,7 +33,7 @@ Domain libraries this folder owns exclusively; versions are centralized in the o
 - `@electric-sql/d2ts`: the multi-dimensional-versioned differential-dataflow operator graph carrying the frontier antichain; the `query` event-time engine (`watermark`, `window`) and the `convergence/retention` antichain are founded on it.
 - `@electric-sql/d2mini`: the versionless browser-resident incremental-query runtime backing the `query/reactive` surface, never the event-time frontier engine.
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 TypeScript substrate libraries this folder consumes; package charters and API evidence live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` folder.
 

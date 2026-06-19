@@ -4,7 +4,7 @@
 values, rate-limiter callbacks, and builder extensions for concurrency and rate
 limiting inside resilience pipelines.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.RateLimiting`
 - package: `Polly.RateLimiting`
@@ -15,37 +15,37 @@ limiting inside resilience pipelines.
 - asset: runtime library
 - rail: resilience
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: rate-limit family
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]       | [RAIL]                |
 | :-----: | :----------------------------------------------- | :------------------ | :-------------------- |
-|   [1]   | `RateLimiterStrategyOptions`                     | strategy options    | rate-limiter policy   |
-|   [2]   | `RateLimiterArguments`                           | callback arguments  | limiter lease request |
-|   [3]   | `OnRateLimiterRejectedArguments`                 | callback arguments  | rejection callback    |
-|   [4]   | `RateLimiterRejectedException`                   | rejection exception | rejected execution    |
-|   [5]   | `RateLimiterResiliencePipelineBuilderExtensions` | builder extension   | limiter admission     |
-|   [6]   | `ConcurrencyLimiterOptions`                      | option value        | permit/queue policy   |
+|  [01]   | `RateLimiterStrategyOptions`                     | strategy options    | rate-limiter policy   |
+|  [02]   | `RateLimiterArguments`                           | callback arguments  | limiter lease request |
+|  [03]   | `OnRateLimiterRejectedArguments`                 | callback arguments  | rejection callback    |
+|  [04]   | `RateLimiterRejectedException`                   | rejection exception | rejected execution    |
+|  [05]   | `RateLimiterResiliencePipelineBuilderExtensions` | builder extension   | limiter admission     |
+|  [06]   | `ConcurrencyLimiterOptions`                      | option value        | permit/queue policy   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: limiter operations
 - rail: resilience
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]    | [RAIL]                         |
 | :-----: | :----------------------------------------- | :---------------- | :----------------------------- |
-|   [1]   | `AddConcurrencyLimiter(limit, queueLimit)` | builder extension | simple concurrency cap         |
-|   [2]   | `AddConcurrencyLimiter(options)`           | builder extension | configured concurrency limiter |
-|   [3]   | `AddRateLimiter(rateLimiter)`              | builder extension | concrete limiter admission     |
-|   [4]   | `AddRateLimiter(options)`                  | builder extension | strategy option admission      |
-|   [5]   | `RateLimiter`                              | option delegate   | lease producer callback        |
-|   [6]   | `DefaultRateLimiterOptions`                | option value      | default concurrency options    |
-|   [7]   | `OnRejected`                               | option delegate   | rejection callback             |
-|   [8]   | `RetryAfter`                               | exception value   | retry-after projection         |
+|  [01]   | `AddConcurrencyLimiter(limit, queueLimit)` | builder extension | simple concurrency cap         |
+|  [02]   | `AddConcurrencyLimiter(options)`           | builder extension | configured concurrency limiter |
+|  [03]   | `AddRateLimiter(rateLimiter)`              | builder extension | concrete limiter admission     |
+|  [04]   | `AddRateLimiter(options)`                  | builder extension | strategy option admission      |
+|  [05]   | `RateLimiter`                              | option delegate   | lease producer callback        |
+|  [06]   | `DefaultRateLimiterOptions`                | option value      | default concurrency options    |
+|  [07]   | `OnRejected`                               | option delegate   | rejection callback             |
+|  [08]   | `RetryAfter`                               | exception value   | retry-after projection         |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RATE_LIMIT_TOPOLOGY]:
 - namespaces: `Polly.RateLimiting`, `System.Threading.RateLimiting`

@@ -2,24 +2,24 @@
 
 Compute is one measured engine. A typed intent admits once — shape, dtype row, canonical units — routes through one benchmark-gated substrate fold whose caps derive from the settled budget record, executes on a budgeted lane, and exits as a typed route receipt carrying the taken row, every vetoed row with its reason, and dual evidence for every normalizing admission. Tensors are one owner with two view polarities over three memory gates; staging memory is a closed five-class allocation axis; byte payloads ride one process stream pool whose events fold to a conservation ledger; inference is a fingerprinted session plus a residency lattice where copies are legal at exactly two named points; physical numerics convert exactly once at admission. Growth lands as rows: a new memory source is a gate row, a new accelerator a residency row, a new fast path a claim row, a new op family an intent case.
 
-## [1]-[COMPUTE_CHOOSER]
+## [01]-[COMPUTE_CHOOSER]
 
 This table routes a compute concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                     | [OWNER]                            | [REJECTED_FORM]                |
 | :-----: | :---------------------------- | :--------------------------------- | :----------------------------- |
-|   [1]   | rank-N numeric payload        | `Tensor<T>` + span views           | local NDArray wrapper          |
-|   [2]   | flat numeric kernel           | `TensorPrimitives` kernel row      | element loop                   |
-|   [3]   | scratch and staging buffers   | five-class allocation row          | `new T[]` per request          |
-|   [4]   | byte payloads across IO seams | one process stream pool            | raw growable `MemoryStream`    |
-|   [5]   | model execution               | fingerprinted session + `OrtValue` | per-call dictionary marshal    |
-|   [6]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
-|   [7]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
-|   [8]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
-|   [9]   | compute evidence              | typed route receipt                | generic ledger                 |
+|   [01]   | rank-N numeric payload        | `Tensor<T>` + span views           | local NDArray wrapper          |
+|   [02]   | flat numeric kernel           | `TensorPrimitives` kernel row      | element loop                   |
+|   [03]   | scratch and staging buffers   | five-class allocation row          | `new T[]` per request          |
+|   [04]   | byte payloads across IO seams | one process stream pool            | raw growable `MemoryStream`    |
+|   [05]   | model execution               | fingerprinted session + `OrtValue` | per-call dictionary marshal    |
+|   [06]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
+|   [07]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
+|   [08]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
+|   [09]   | compute evidence              | typed route receipt                | generic ledger                 |
 |  [10]   | physical numerics             | quantity admission + dual evidence | literal conversion factor      |
 
-## [2]-[TENSOR_LAW]
+## [02]-[TENSOR_LAW]
 
 [VIEW_ALGEBRA]:
 - Law: `Tensor<T>` is the sole rank-N owner, `TensorSpan<T>`/`ReadOnlyTensorSpan<T>` the two view polarities, `TensorDimensionSpan<T>` the per-dimension cursor — kernels take `in ReadOnlyTensorSpan<T>` and write `in TensorSpan<T>`, every composition member carries a destination overload beside its allocating form so owned-buffer pipelines never allocate, and an API that retains tensor data retains the owner and re-projects per use — a cached span is the foreclosed defect, so every interior surface is projection-blind to where memory came from.
@@ -99,7 +99,7 @@ public sealed record KernelRow(string Symbol, ToleranceClass Tolerance, Func<Rea
 }
 ```
 
-## [3]-[STAGING]
+## [03]-[STAGING]
 
 [CLASS_AXIS]:
 - Law: five classes close the staging axis — `stackalloc` under one declared cap and never inside a loop, `SpanOwner<T>` for scoped rents of unbounded size (escape is a compile error and `Dispose` the guaranteed return), `MemoryOwner<T>` for storable rents that cross awaits, `ArrayPoolBufferWriter<T>` where the final size is unknown (`MemoryBufferWriter<T>` is the fixed-capacity sibling that fails past its window rather than renting), and the stream pool for byte payloads crossing IO and codec seams — a `new T[]` in a staging path is the unpooled, unreceipted sixth spelling.
@@ -183,7 +183,7 @@ public static class StreamPool {
 }
 ```
 
-## [4]-[INFERENCE_LANE]
+## [04]-[INFERENCE_LANE]
 
 [VALUE_RESIDENCY]:
 - Law: `OrtValue` is the sole model-boundary carrier and the lattice runs managed span → memory-backed value → device residency → output value → span view, with copies legal at exactly two points — string tensors and explicit edge export; per-call dictionary marshal and managed dense-tensor copies are the rejected rows, and a new accelerator is residency rows plus binding columns with zero loop edits.
@@ -283,7 +283,7 @@ public sealed class BoundLoop : IDisposable {
 }
 ```
 
-## [5]-[MEASURED_DISPATCH]
+## [05]-[MEASURED_DISPATCH]
 
 [INTENT_AND_FOLD]:
 - Law: a typed compute intent is the single solve-path entry — payload by staging class, kernel symbol, dtype and length class, canonical-unit parameters, budget reference — and the discriminant is recoverable from the value itself; a fast-flag or execution-hint parameter re-describing what the value encodes is the rejected arity form, and modalities are cases of one closed intent family under one total fold.
@@ -364,7 +364,7 @@ public static class MassEngine {
 }
 ```
 
-## [6]-[UNITS_BOUNDARY]
+## [06]-[UNITS_BOUNDARY]
 
 [CANONICAL_SEAM]:
 - Law: unit families convert exactly once at admission — `As(unit)` to the family canonical, the interior computes on canonical scalars, display converts only at egress — and the boundary rows are non-throwing: `Quantity.TryParse`, `Quantity.TryFrom`, `Quantity.TryFromUnitAbbreviation`, `UnitConverter.TryConvert`, with throwing forms vetoed at boundaries and abbreviation parsing pinning its format provider because the overload is culture-sensitive by design.

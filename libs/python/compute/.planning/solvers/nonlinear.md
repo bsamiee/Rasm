@@ -2,12 +2,12 @@
 
 The nonlinear routes of the one numeric solver and the loop-kernel accelerator. `NonlinearIntent` discriminates root-finding, minimisation, fixed-point iteration, and nonlinear least-squares over Optimistix on the JAX floor with a numpy central-difference floor reachable for every route, all four sharing one table-driven Optimistix dispatch and every route folding into the one `SolverReceipt`. `accelerate` is the one numba LLVM JIT row that wraps a numpy loop kernel, distinct from the Array-API backend dispatch because numba is a loop-kernel compiler, not an array backend. Optimistix solves are implicit-function-theorem differentiable, so a downstream sensitivity reads the adjoint through the solve.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[NONLINEAR]: root/minimise/fixed-point/least-squares routes over Optimistix + scipy
-- [2]-[ACCELERATOR]: the one numba LLVM JIT loop-kernel row
+- [01]-[NONLINEAR]: root/minimise/fixed-point/least-squares routes over Optimistix + scipy
+- [02]-[ACCELERATOR]: the one numba LLVM JIT loop-kernel row
 
-## [2]-[NONLINEAR]
+## [02]-[NONLINEAR]
 
 - Owner: `NonlinearIntent` — the nonlinear-route cases on the one solver; `RootFind(residual_fn, x0)`, `Minimise(objective, x0)`, `FixedPoint(step_fn, x0)`, and `NonlinearLeastSquares(residual_fn, x0)` each discriminate the engine. The Optimistix tier runs `optimistix.root_find`/`optimistix.minimise`/`optimistix.fixed_point`/`optimistix.least_squares` with a `Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt` solver and reads `optimistix.Solution.stats` (step count, final residual) into `SolverReceipt`. The four routes share one Optimistix dispatch keyed on the tag inside `_optimistix_receipt` — the operation, the solver, and the residual probe are the row, built behind the gated import because the solver instances reference the resolved `optx` — never four parallel helper bodies. The numpy floor reports the gradient-norm or step residual at `x0` over a central-difference probe and is reachable for every route, so a cp315 run without the optimistix wheel never returns `Error(Import)`.
 - Entry: `NonlinearIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the minimise, root, and fixed-point routes fold the final residual and iteration count into `SolverReceipt.Iterative`, and the least-squares route folds the rank and step count into `SolverReceipt.LeastSquares`. The Optimistix solve carries an implicit-function-theorem adjoint, so `solvers/sensitivity.md#SENSITIVITY` differentiates through the converged solution rather than through the iteration trace.
@@ -101,7 +101,7 @@ def _floor_receipt(tag: str, fn: Callable[..., object], x0: np.ndarray) -> Solve
     return SolverReceipt.LeastSquares(float(probe), int(x0.size), 0) if tag == "least_squares" else SolverReceipt.Iterative(float(probe), 0, _TOL)
 ```
 
-## [3]-[ACCELERATOR]
+## [03]-[ACCELERATOR]
 
 - Owner: `accelerate` — the one numba LLVM JIT row that wraps a numpy loop kernel; it is distinct from the Array-API backend dispatch in `numerics/array.md#PAYLOAD` because numba compiles a Python loop to machine code, where JAX is an array backend resolved through `array_namespace`. The `backend="none"` passthrough is the unconditional floor; `backend="numba"` wraps the kernel through `numba.njit(cache=True)`.
 - Packages: `numba` (`njit`), `numpy` (the loop-kernel floor).
@@ -127,7 +127,7 @@ def accelerate(kernel: Callable[..., np.ndarray], *, backend: Literal["numba", "
             assert_never(unreachable)
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [OPTIMISTIX_SOLVE]: `optimistix` resolves on the gated `python_version<'3.15'` band riding the jaxlib floor; the `root_find`/`minimise`/`fixed_point`/`least_squares`/`Newton`/`BFGS`/`FixedPointIteration`/`LevenbergMarquardt`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Optimistix solve carries an implicit-function-theorem adjoint consumed by `solvers/sensitivity.md#SENSITIVITY`.
 - [NUMBA_JIT]: `numba`/`llvmlite` carry the `python_version<'3.15'` marker; the `njit(cache=True)` spelling verifies against the `.api` catalogue once the numba wheel resolves. The `backend="none"` passthrough runs unconditionally on cp315.

@@ -4,7 +4,7 @@
 filters, batching, levels, message templates, property values, failure listeners,
 formatters, and log context for projection.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog`
 - package: `Serilog`
@@ -13,22 +13,22 @@ formatters, and log context for projection.
 - asset: runtime library
 - rail: telemetry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger configuration family
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                  |
 | :-----: | :--------------------------------- | :--------------------- | :---------------------- |
-|   [1]   | `ILogger`                          | logger contract        | structured event emit   |
-|   [2]   | `Log`                              | static logger          | process logger facade   |
-|   [3]   | `LoggerConfiguration`              | configuration root     | logger construction     |
-|   [4]   | `LoggerSinkConfiguration`          | sink configuration     | sink admission          |
-|   [5]   | `LoggerAuditSinkConfiguration`     | audit configuration    | audit sink admission    |
-|   [6]   | `LoggerEnrichmentConfiguration`    | enricher configuration | property enrichment     |
-|   [7]   | `LoggerFilterConfiguration`        | filter configuration   | event filtering         |
-|   [8]   | `LoggerDestructuringConfiguration` | destructuring setup    | payload shaping         |
-|   [9]   | `LoggerMinimumLevelConfiguration`  | level setup            | event floor             |
+|  [01]   | `ILogger`                          | logger contract        | structured event emit   |
+|  [02]   | `Log`                              | static logger          | process logger facade   |
+|  [03]   | `LoggerConfiguration`              | configuration root     | logger construction     |
+|  [04]   | `LoggerSinkConfiguration`          | sink configuration     | sink admission          |
+|  [05]   | `LoggerAuditSinkConfiguration`     | audit configuration    | audit sink admission    |
+|  [06]   | `LoggerEnrichmentConfiguration`    | enricher configuration | property enrichment     |
+|  [07]   | `LoggerFilterConfiguration`        | filter configuration   | event filtering         |
+|  [08]   | `LoggerDestructuringConfiguration` | destructuring setup    | payload shaping         |
+|  [09]   | `LoggerMinimumLevelConfiguration`  | level setup            | event floor             |
 |  [10]   | `LoggerSettingsConfiguration`      | settings setup         | external settings input |
 |  [11]   | `LoggingLevelSwitch`               | level switch           | dynamic level floor     |
 |  [12]   | `BatchingOptions`                  | batch policy           | batched sink behavior   |
@@ -38,15 +38,15 @@ formatters, and log context for projection.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]        | [RAIL]                  |
 | :-----: | :------------------------ | :------------------- | :---------------------- |
-|   [1]   | `LogEvent`                | event value          | structured event        |
-|   [2]   | `LogEventLevel`           | level enum           | event severity          |
-|   [3]   | `MessageTemplate`         | template value       | message shape           |
-|   [4]   | `LogEventProperty`        | property value       | named event property    |
-|   [5]   | `EventProperty`           | property pair        | property deconstruction |
-|   [6]   | `ScalarValue`             | scalar property      | scalar payload          |
-|   [7]   | `SequenceValue`           | sequence property    | array payload           |
-|   [8]   | `StructureValue`          | structure property   | object payload          |
-|   [9]   | `DictionaryValue`         | dictionary property  | map payload             |
+|  [01]   | `LogEvent`                | event value          | structured event        |
+|  [02]   | `LogEventLevel`           | level enum           | event severity          |
+|  [03]   | `MessageTemplate`         | template value       | message shape           |
+|  [04]   | `LogEventProperty`        | property value       | named event property    |
+|  [05]   | `EventProperty`           | property pair        | property deconstruction |
+|  [06]   | `ScalarValue`             | scalar property      | scalar payload          |
+|  [07]   | `SequenceValue`           | sequence property    | array payload           |
+|  [08]   | `StructureValue`          | structure property   | object payload          |
+|  [09]   | `DictionaryValue`         | dictionary property  | map payload             |
 |  [10]   | `IDestructuringPolicy`    | destructuring policy | object shaping          |
 |  [11]   | `ILogEventEnricher`       | enricher contract    | event enrichment        |
 |  [12]   | `ILogEventFilter`         | filter contract      | event filtering         |
@@ -57,22 +57,22 @@ formatters, and log context for projection.
 |  [17]   | `Matching`                | filter helpers       | property/source filters |
 |  [18]   | `SelfLog`                 | internal diagnostic  | logger diagnostics      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: logging operations
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                   |
 | :-----: | :--------------------------- | :------------------- | :----------------------- |
-|   [1]   | `WriteTo`                    | sink chain           | sink configuration       |
-|   [2]   | `AuditTo`                    | audit sink chain     | audit sink configuration |
-|   [3]   | `Sink`                       | sink registration    | sink admission           |
-|   [4]   | `Logger`                     | sub-logger setup     | sub-pipeline admission   |
-|   [5]   | `Conditional`                | sink predicate       | conditional sink         |
-|   [6]   | `FallbackChain`              | sink fallback        | fallback sinks           |
-|   [7]   | `Enrich.With`                | enricher admission   | enricher chain           |
-|   [8]   | `Enrich.WithProperty`        | property enrichment  | fixed property           |
-|   [9]   | `Enrich.FromLogContext`      | context enrichment   | ambient properties       |
+|  [01]   | `WriteTo`                    | sink chain           | sink configuration       |
+|  [02]   | `AuditTo`                    | audit sink chain     | audit sink configuration |
+|  [03]   | `Sink`                       | sink registration    | sink admission           |
+|  [04]   | `Logger`                     | sub-logger setup     | sub-pipeline admission   |
+|  [05]   | `Conditional`                | sink predicate       | conditional sink         |
+|  [06]   | `FallbackChain`              | sink fallback        | fallback sinks           |
+|  [07]   | `Enrich.With`                | enricher admission   | enricher chain           |
+|  [08]   | `Enrich.WithProperty`        | property enrichment  | fixed property           |
+|  [09]   | `Enrich.FromLogContext`      | context enrichment   | ambient properties       |
 |  [10]   | `Filter.ByExcluding`         | filter predicate     | event exclusion          |
 |  [11]   | `Filter.ByIncludingOnly`     | filter predicate     | event inclusion          |
 |  [12]   | `MinimumLevel.ControlledBy`  | level switch         | dynamic level floor      |
@@ -86,15 +86,15 @@ formatters, and log context for projection.
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                    |
 | :-----: | :------------------------ | :----------------- | :------------------------ |
-|   [1]   | `Write`                   | event emission     | level-bound event         |
-|   [2]   | `Verbose`                 | event emission     | verbose event             |
-|   [3]   | `Debug`                   | event emission     | debug event               |
-|   [4]   | `Information`             | event emission     | information event         |
-|   [5]   | `Warning`                 | event emission     | warning event             |
-|   [6]   | `Error`                   | event emission     | error event               |
-|   [7]   | `Fatal`                   | event emission     | fatal event               |
-|   [8]   | `ForContext`              | context logger     | property/source context   |
-|   [9]   | `LogContext.PushProperty` | ambient context    | scoped property           |
+|  [01]   | `Write`                   | event emission     | level-bound event         |
+|  [02]   | `Verbose`                 | event emission     | verbose event             |
+|  [03]   | `Debug`                   | event emission     | debug event               |
+|  [04]   | `Information`             | event emission     | information event         |
+|  [05]   | `Warning`                 | event emission     | warning event             |
+|  [06]   | `Error`                   | event emission     | error event               |
+|  [07]   | `Fatal`                   | event emission     | fatal event               |
+|  [08]   | `ForContext`              | context logger     | property/source context   |
+|  [09]   | `LogContext.PushProperty` | ambient context    | scoped property           |
 |  [10]   | `LogContext.Push`         | ambient context    | scoped enricher           |
 |  [11]   | `LogContext.Clone`        | ambient context    | captured context          |
 |  [12]   | `LogContext.Suspend`      | ambient context    | temporary context removal |
@@ -105,7 +105,7 @@ formatters, and log context for projection.
 |  [17]   | `SelfLog.Enable`          | self diagnostic    | internal error output     |
 |  [18]   | `CloseAndFlush`           | logger lifecycle   | final sink flush          |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SERILOG_TOPOLOGY]:
 - namespaces: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`

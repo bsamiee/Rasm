@@ -4,11 +4,11 @@ The BIM fault rail: `BimFault` a closed `[Union]` band for the BIM-and-exchange 
 
 Wire posture: HOST-LOCAL. `BimFault` rides the `Fin<T>` rail every Bim entrypoint returns — `BimModel.Project`, `ElementSet.Query` (total, no rail), `Classification.Classify`, `BimAssembly.Assemble`, `BimIo.ImportGeometry`/`ImportIfc`/`ImportSpeckle`/`ImportSpeckleSemantic`, `BimExport.Export`/`ExportIfc`, `TessellationRequest.Plan`, `InterchangeFormat.Detect`, `KhrExtension.Register`, the `Review/validation#IDS_FACETS` audit, the `Review/issues#BCF_ARCHIVE` codec, the `Semantics/properties#PROPERTY_SETS` round-trip, the `Semantics/georeference#GEO_REFERENCE` projection, and the `Exchange/wire#WIRE_PROJECTION` admission — and never sits between wire and rail. The folder carries no fault-band string-comparer accessor: `BimFault` dispatches through its generated total `Switch`, keys no `FrozenDictionary`, and a `[KeyMemberComparer]` on the fault is the deleted form.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FAULT_BAND]: owns the `BimFault` `[Union]` band-2600 (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) with `Code`/`ToError`, the typed band every Bim `Fin.Fail` lowers through `.ToError()`, composing the kernel band `GeometryFault` for the shared degenerate-geometry failure a tessellated artifact carries.
+- [01]-[FAULT_BAND]: owns the `BimFault` `[Union]` band-2600 (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) with `Code`/`ToError`, the typed band every Bim `Fin.Fail` lowers through `.ToError()`, composing the kernel band `GeometryFault` for the shared degenerate-geometry failure a tessellated artifact carries.
 
-## [2]-[FAULT_BAND]
+## [02]-[FAULT_BAND]
 
 - Owner: `BimFault` the closed `[Union]` fault band (band 2600) for BIM-and-exchange failures, mirroring the sibling `Rasm.Fabrication/Process/faults#FAULT_BAND` `FabricationFault` and `Rasm.Materials` `ProfileFault` band shapes — one case per failure carrying its detail, a `Code`/`Message` state-threaded `Switch`, and a `ToError()` that lowers the case into the `Fin<T>` failure channel.
 - Cases: `BimFault` arms `ModelRejected` (a codec-admitted payload the semantic projection rejects or a captured native package exception, produced by `Exchange/import#IMPORT_RAIL`·`Exchange/export#EXPORT_RAIL`·`Exchange/format#FORMAT_AXIS` `KhrExtension.Register`) · `UnmappedClass` (an IFC entity-type string the closed `IfcClass`/`Classification` vocabulary does not carry, produced by `Model/elements#ELEMENT_MODEL` `Project`·`Semantics/classification#CLASSIFICATION_AXIS` `Classify`·`Model/zones#ZONE_GRAPH` `Project`·`Model/structural#ANALYSIS_MODEL` `MemberOf`) · `DanglingReference` (a GlobalId a spatial host, type binding, or `AssemblyRel` arm names but the graph never declares, produced by `Model/structure#ASSEMBLY_TREE`·`Review/diff#MODEL_DIFF`) · `CodecReject` (a capability miss, a catalogue-pending codec, or an unresolved `Detect` format, produced by `Exchange/import#IMPORT_RAIL`·`Exchange/export#EXPORT_RAIL`·`Exchange/format#FORMAT_AXIS` `Detect`) · `CapabilityMiss` (an in-process evaluation the managed branch owns no kernel for, produced by `Exchange/import#IMPORT_RAIL`·`Exchange/tessellation#TESSELLATION_BRIDGE` `Plan`) (5); the shared degenerate-geometry failure (an empty or non-finite tessellated vertex set re-imported from the companion GLB) routes the kernel `Rasm` `GeometryFault`, never re-cased here.
@@ -58,6 +58,6 @@ public abstract partial record BimFault {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [GEOMETRY_FAULT_COMPOSE]: the kernel `Rasm` `GeometryFault.DegenerateInput` member spelling and band the `BimFault` owner composes for the shared empty/non-finite tessellated-geometry failure confirms against the kernel `Rasm/faults#FAULT_BAND` owner at cross-folder alignment, so a re-imported companion GLB carrying a degenerate vertex set lowers the kernel `GeometryFault.DegenerateInput(...).ToError()` onto the same `Fin<ImportedGeometry>` rail rather than a sixth Bim arm; `BimFault` and `GeometryFault` are both `Expected`-derived union values whose band IS the `Expected` `Code`, so a bare typed case lifts directly with `.ToError()`.

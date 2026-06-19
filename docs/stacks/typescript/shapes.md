@@ -4,24 +4,24 @@ Every concept takes exactly one runtime authority, and five discriminants select
 
 The named defect class this page refuses: loose-schema spam (a fresh `Schema.Struct` per shape), branded-type nonsense (a standalone `type Id = string & Brand` or a module-level `const _Id = Schema.brand(...)` export), const spam (N parallel one-use `Schema.Literal`/`Schema.brand` consts before a class), parallel projection structs (`TaskInsert`/`TaskUpdate` redeclaring what the model derives), the standalone `type`/`interface` that mirrors a runtime shape (`type Wire = typeof Schema.Type`, the single-method `interface` shadowing a service), the per-tag constructor `Record` restating a `Data.TaggedEnum`'s own constructor namespace, and the `Record<string, V>` key whose `string` discards the closed-membership the vocabulary already proves.
 
-## [1]-[OWNER_CHOOSER]
+## [01]-[OWNER_CHOOSER]
 
 When a concept matches several signatures, the most specific row wins.
 
 | [INDEX] | [CONCEPT_SIGNATURE]                         | [OWNER]                                   | [IDENTITY] |
 | :-----: | :------------------------------------------ | :---------------------------------------- | :--------- |
-|   [1]   | invariant-bearing scalar                    | `Schema.brand` field modifier             | brand      |
-|   [2]   | N fields, one concept, decode authority     | `Schema.Class`                            | structural |
-|   [3]   | persisted entity with SQL projections       | `Model.Class`                             | structural |
-|   [4]   | bounded vocabulary, behavior rows           | `as const satisfies Record<...>`          | key        |
-|   [5]   | closed alternatives, per-occurrence payload | `Data.TaggedEnum`                         | tag        |
-|   [6]   | cross-cutting boundary failure              | `Data.TaggedError` / `Schema.TaggedError` | tag        |
-|   [7]   | wire-to-domain bidirectional projection     | `Schema.transform`                        | structural |
-|   [8]   | interior product, no decode, no boundary    | inferred `as const` plain object          | structural |
-|   [9]   | foreign wire enum or ordinal at the seam    | `Schema.Literal` / `Schema.Enums` at edge | ordinal    |
+|  [01]   | invariant-bearing scalar                    | `Schema.brand` field modifier             | brand      |
+|  [02]   | N fields, one concept, decode authority     | `Schema.Class`                            | structural |
+|  [03]   | persisted entity with SQL projections       | `Model.Class`                             | structural |
+|  [04]   | bounded vocabulary, behavior rows           | `as const satisfies Record<...>`          | key        |
+|  [05]   | closed alternatives, per-occurrence payload | `Data.TaggedEnum`                         | tag        |
+|  [06]   | cross-cutting boundary failure              | `Data.TaggedError` / `Schema.TaggedError` | tag        |
+|  [07]   | wire-to-domain bidirectional projection     | `Schema.transform`                        | structural |
+|  [08]   | interior product, no decode, no boundary    | inferred `as const` plain object          | structural |
+|  [09]   | foreign wire enum or ordinal at the seam    | `Schema.Literal` / `Schema.Enums` at edge | ordinal    |
 |  [10]   | foreign code must add variants              | interface or class hierarchy              | declared   |
 
-## [2]-[DECISION_LAW]
+## [02]-[DECISION_LAW]
 
 [OWNER_SELECTION]:
 - `SelectOwner(concept)`: choose by decode-versus-interior, field coverage, invariant, identity regime, variant arity, payload timing, and openness; high-churn intermediate values stay inferred plain objects until the seam where decode makes them domain material.
@@ -51,7 +51,7 @@ When a concept matches several signatures, the most specific row wins.
 - `UseManualHierarchy(axis)`: hand-roll an interface or class hierarchy only when foreign code must add variants without editing the owner; otherwise the closed `Data.TaggedEnum` is the family.
 - `UseSeamEnum(wire)`: permit `Schema.Literal` or `Schema.Enums` over a foreign ordinal only at the boundary; re-close into the domain owner on decode.
 
-## [3]-[CLASS_AUTHORITY]
+## [03]-[CLASS_AUTHORITY]
 
 [SINGLE_SOURCE]:
 - Law: one `Schema.Class` is the sole authority for a value object — decode through `Schema.decodeUnknown`, encode through `Schema.encode`, cross-field invariants through `Schema.filter` co-located on the struct, and every projection through `Schema.pick`/`omit`/`partial`.
@@ -121,7 +121,7 @@ const _EntityKey   = Entity.pipe(S.pick("id", "tenantId"))
 const _EntityPatch = Entity.pipe(S.omit("id", "tenantId", "createdAt", "updatedAt"), S.partialWith({ exact: true }))
 ```
 
-## [4]-[VOCABULARIES]
+## [04]-[VOCABULARIES]
 
 [VOCABULARY_DECLARATION]:
 - Law: a bounded keyed domain is one `as const satisfies Record<...>` whose keys fix membership and whose columns carry behavior — status, retryability, schedule, log level, weight — read by indexed access, never re-derived.
@@ -158,7 +158,7 @@ const _backoff = (level: _Level) =>
   pipe(N.divide(Severity[level].weight, Severity.critical.weight), Option.map(Duration.seconds), Option.getOrElse(() => Duration.zero))
 ```
 
-## [5]-[TAGGED_UNIONS]
+## [05]-[TAGGED_UNIONS]
 
 [FAMILY_SELECTION]:
 - Law: a closed family is one `Data.TaggedEnum` — variants carry per-occurrence payload, `$match` is the exhaustive fold, `$is` the narrowing refinement, and the constructor (`Family.Variant({...})`) the sole ingress.
@@ -238,7 +238,7 @@ class GatewayFault extends Data.TaggedError("GatewayFault")<{
 }
 ```
 
-## [6]-[TRANSFORM_CODECS]
+## [06]-[TRANSFORM_CODECS]
 
 [BIDIRECTIONAL_PROJECTION]:
 - Law: a wire-to-domain projection is one `Schema.transform(fromSchema, toSchema, { decode, encode })` — the transform is the projection, not a post-processing step, and decode/encode preserve round-trip fidelity.

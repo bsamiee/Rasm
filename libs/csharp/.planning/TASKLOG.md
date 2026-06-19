@@ -2,7 +2,7 @@
 
 The cross-package C# work no single folder owns, plus the mature-folder open work that carries no `.planning/` scaffold. Per-folder work lives in each package `TASKLOG.md`; this node carries the cross-folder seam arbitrations, the mature `Rasm` cleanup, and the host-boundary seams the future app root composes. Cross-language amendments (the CRDT wire-vocabulary change, the SDK-codegen consumption) live in `libs/.planning/TASKLOG.md` and are referenced as wire seams, never restated. Each task is a card whose leader carries a status marker — `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` open, `[COMPLETE]`/`[DROPPED]` closed.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [QUEUED] Capture the two-sided clash-seam golden fixture between the kernel spatial index and the Compute clash compute.
 - The node-link acceleration layout is the AGREED frozen contract: `Rasm.Geometry/Spatial/index#CLASH_SEAM` `SpatialIndex.ToAcceleration`/`NodeLinkProjection` emits the per-node interleaved AABB plus the `(FirstChild << 21) | ChildCount` descriptor with a leaf primitive-id tail, and `Compute/Solver/clash#CLASH_AND_TWIN` `ClashScale.BvhPairs` decodes it by a proper BVH descent over the contiguous `[FirstChild, FirstChild+ChildCount)` child range — the prior flat per-primitive O(N²) decode is the deleted form on both pages.
@@ -119,6 +119,6 @@ The cross-package C# work no single folder owns, plus the mature-folder open wor
 - No package change — every row already lives in `Directory.Packages.props`; the gap is the design-page owner only, not admission, README registration, or catalogue. The `Bridge` stack (`StreamJsonRpc`/`Nerdbank.MessagePack`/`PolyType`/`Nerdbank.Streams`) is correctly out of branch scope — owned by `tools/rhino-bridge`, not a `libs/` library.
 - Coverage honesty closure: the manifest-to-owner reconciliation is complete once the symbolic design-page owner lands; no other admitted-but-unowned C# package remains.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

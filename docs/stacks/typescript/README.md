@@ -4,20 +4,20 @@ This folder is the TypeScript stack router. It routes language, shape, surface, 
 
 Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, combinator, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
-## [1]-[ATLAS]
+## [01]-[ATLAS]
 
 This table is the lookup by reader decision.
 
 | [INDEX] | [DECISION]             | [READ]                                            | [STATE]   |
 | :-----: | :--------------------- | :------------------------------------------------ | :-------- |
-|   [1]   | language shape         | [language](language.md)                           | finalized |
-|   [2]   | domain shape           | [shapes](shapes.md)                               | finalized |
-|   [3]   | surface and dispatch   | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
-|   [4]   | result and effect flow | [rails and effects](rails-and-effects.md)         | finalized |
-|   [5]   | host and wire boundary | [boundaries](boundaries.md)                       | finalized |
-|   [6]   | system API replacement | [system APIs](system-apis.md)                     | finalized |
+|  [01]   | language shape         | [language](language.md)                           | finalized |
+|  [02]   | domain shape           | [shapes](shapes.md)                               | finalized |
+|  [03]   | surface and dispatch   | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
+|  [04]   | result and effect flow | [rails and effects](rails-and-effects.md)         | finalized |
+|  [05]   | host and wire boundary | [boundaries](boundaries.md)                       | finalized |
+|  [06]   | system API replacement | [system APIs](system-apis.md)                     | finalized |
 
-## [2]-[DOCTRINE]
+## [02]-[DOCTRINE]
 
 Sixteen laws in five groups govern every TypeScript decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: decode-once makes the interior total over valid values; tagged unions plus exhaustive `Match` convert change into compile-time pressure; vocabulary-as-values makes behavior recoverable from declarations alone; Schema-derivation makes every secondary surface provably consistent with its single source. Density is the consequence, not the goal — when one Schema carries the family, every remaining declaration is load-bearing. The atlas is sized for large systems: total lines and public surface grow sublinearly with capability because every owner is declared with the capacity to absorb the family it anchors — growth lands as variants, vocabulary rows, and policy values inside existing owners, never as new surfaces beside them. Enforcement is doctrine-first: `tsconfig` strictness, the lint configuration, and the Nx module-boundary graph encode these laws — the doctrine authors the tool, never the reverse. Lint and type findings against these laws are architecture pressure: fix the shape, not the diagnostic.
 
@@ -47,27 +47,27 @@ Sixteen laws in five groups govern every TypeScript decision in this stack. Conc
 - `ONE_HOP_RESOLUTION` — a name resolves to its semantics in one hop: no alias-to-type-to-const chains, no forwarding helpers, no helper or util shells, no convenience wrappers that rename or forward an external API. A `_`-prefixed symbol that takes two jumps to trace, or a `const X = _X` re-export, marks a layer to delete.
 - `COMPOSED_IMPLEMENTATION` — a feature of any complexity is implemented by composing the page owners — one Schema, typed Effect rails, `Match` dispatch surfaces, Layer boundaries, vocabulary policy — before any new scaffold is named. The pages are one body, and the same concern resolves identically wherever it appears. A need with no composed spelling marks a missing variant in an owning page's law: the law extends first, the feature lands second. Snippets show this composition at full operator depth. Flat code — logic below the operator depth the Effect ecosystem reaches — is surface sprawl in time: it re-derives, line by line, what a deeper composed form states once.
 
-## [3]-[COLLAPSE_SCAN]
+## [03]-[COLLAPSE_SCAN]
 
 Run this scan on every edit. Any signal triggers the move; three or more instances make it mandatory.
 
 | [INDEX] | [SIGNAL]                                              | [MOVE]                                             |
 | :-----: | :---------------------------------------------------- | :------------------------------------------------- |
-|   [1]   | sibling names share a prefix or suffix                | one modality-polymorphic entrypoint                |
-|   [2]   | same return rail, signatures differ only by arity     | input-shape discrimination on a non-empty tuple    |
-|   [3]   | functions differ only by a literal                    | parameterize; the literal becomes a vocabulary row |
-|   [4]   | boolean parameter selects between two bodies          | one derived body or one vocabulary value           |
-|   [5]   | function calls exactly one other function             | delete the hop                                     |
-|   [6]   | parallel `Match.when`/`if` arms classify into tiers   | vocabulary lookup or threshold iteration           |
-|   [7]   | several schemas or types model one concept            | one Schema plus `pick`/`omit`/`partial`/`extend`   |
-|   [8]   | standalone `type`/`interface` mirrors a runtime shape | derive via `typeof anchor.Type`/`keyof typeof`     |
-|   [9]   | standalone branded-primitive export                   | inline `Schema.brand` as a field modifier          |
+|  [01]   | sibling names share a prefix or suffix                | one modality-polymorphic entrypoint                |
+|  [02]   | same return rail, signatures differ only by arity     | input-shape discrimination on a non-empty tuple    |
+|  [03]   | functions differ only by a literal                    | parameterize; the literal becomes a vocabulary row |
+|  [04]   | boolean parameter selects between two bodies          | one derived body or one vocabulary value           |
+|  [05]   | function calls exactly one other function             | delete the hop                                     |
+|  [06]   | parallel `Match.when`/`if` arms classify into tiers   | vocabulary lookup or threshold iteration           |
+|  [07]   | several schemas or types model one concept            | one Schema plus `pick`/`omit`/`partial`/`extend`   |
+|  [08]   | standalone `type`/`interface` mirrors a runtime shape | derive via `typeof anchor.Type`/`keyof typeof`     |
+|  [09]   | standalone branded-primitive export                   | inline `Schema.brand` as a field modifier          |
 |  [10]   | one-use module-level `const` that is not an anchor    | inline into the owning rail                        |
 |  [11]   | wrapper renames or forwards a package API             | use the package surface directly                   |
 |  [12]   | the same 2-4 combinators recur together               | one parameterized rail transformer                 |
 |  [13]   | absence modeled as `null`/`undefined` in domain       | `Option<T>`, decoded by `Schema.optionalWith`      |
 
-## [4]-[RULE_ENFORCEMENT]
+## [04]-[RULE_ENFORCEMENT]
 
 TypeScript has a structural type system but no totality checker for open shapes, so the strict compiler, the lint configuration, and the Nx module-boundary graph are the doctrine's compiled form, legislated harder than a language with a closed-family checker needs. `tsconfig` strictness (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`), the dual-compiler `tsgo`/`tsc` typecheck floor, the lint rule set, and the `@nx/enforce-module-boundaries` browser/node/neutral tag graph are the enforcement surfaces; the manifest owns every rule pin. The loop is one-directional — a doctrine page legislates, a gate enforces; a rule never introduces law of its own.
 
@@ -76,7 +76,7 @@ TypeScript has a structural type system but no totality checker for open shapes,
 - Shape law: a rule describes the semantic shape of the anti-pattern — trigger, predicate, exemption — never a path or one-off symbol; every rule ships with positive spans that fire and valid dense code that must not.
 - Finding law: a true positive is architecture pressure — fix the shape, never the diagnostic; a false positive or a fix that adds ceremony without improving the system is rule pressure — refine the rule. A `// @ts-expect-error`, a `// eslint-disable`, or an `as` cast that adds ceremony without improving correctness is itself the defect.
 
-## [5]-[PAGE_CRAFT]
+## [05]-[PAGE_CRAFT]
 
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
@@ -96,7 +96,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
 - Manifest truth: package versions, admitted packages, the workspace catalog, tool settings, and the module-boundary tag graph live in `pnpm-workspace.yaml`, the per-package manifests, and tool configuration; no package-named pages; a package is named only where it changes the implementation choice.
 
-## [6]-[CORPUS_LAW]
+## [06]-[CORPUS_LAW]
 
 How the corpus accretes. The folder is one cohesive body, not isolated pages; atlas order is implementation order. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 

@@ -2,13 +2,13 @@
 
 One composition root per process folds a frozen module table into the service graph and freezes it. Composition owns three axes: the `ModuleContribution` row — assembly, scan, descriptor, contributor, registrar, and decoration columns — the one-pass receipted composition fold, and admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery. One descriptor algebra serves every seam: `ServiceDescriptor.Describe` and `DescribeKeyed` rows carry registrations, and `TryAddEnumerable` ordered sets carry every fan-in family. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration and `FluentValidation.DependencyInjectionExtensions` validator discovery at the root.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MODULE_TABLE]: Frozen contribution rows with one descriptor algebra for every fan-in seam.
-- [2]-[SCAN_AND_DECORATE]: One-pass scan, decoration, and keyed registration fold with receipted freeze.
-- [3]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
+- [01]-[MODULE_TABLE]: Frozen contribution rows with one descriptor algebra for every fan-in seam.
+- [02]-[SCAN_AND_DECORATE]: One-pass scan, decoration, and keyed registration fold with receipted freeze.
+- [03]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
 
-## [2]-[MODULE_TABLE]
+## [02]-[MODULE_TABLE]
 
 - Owner: `ModuleContribution` — the frozen per-process module-table row; modules contribute registrations and never resolve services.
 - Auto: `Contributors` rows apply through `TryAddEnumerable` — one ordered descriptor algebra carries every multi-implementation fan-in family.
@@ -56,7 +56,7 @@ public readonly record struct ContributionReceipt(
 
 Module keys are `nameof`-derived assembly symbols, never free literals; the receipt's `Module` field repeats the row key so receipt streams group by module without positional reconstruction.
 
-## [3]-[SCAN_AND_DECORATE]
+## [03]-[SCAN_AND_DECORATE]
 
 - Owner: `CompositionSurface` — one fold composes scan, descriptor admission, decoration, and freeze in one pass over the table.
 - Entry: `Fin<Seq<ContributionReceipt>> Compose(params ReadOnlySpan<ModuleContribution> modules)` — `Fin` aborts on the first rejected module with module provenance in the failure.
@@ -122,7 +122,7 @@ public static class CompositionSurface {
 
 The fold is the only writer of the collection: scan first inside each module so the scanned count derives from the collection delta, descriptor rows next, decorations after the descriptors so every `DecorationRow` finds its target contract within the module or in an earlier row, registrars last.
 
-## [4]-[BOUNDARY_ACTIVATION]
+## [04]-[BOUNDARY_ACTIVATION]
 
 - Owner: `BoundaryActivation` — admission-edge activation, availability probing, async-scope ownership, keyed decoration, and validator discovery over the frozen graph.
 - Entry: `Fin<T> Activate<T>(params object[] dependencies)` — empty arity resolves the registered contract, supplied arity invokes the cached constructor plan.

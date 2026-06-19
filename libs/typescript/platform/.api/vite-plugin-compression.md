@@ -2,7 +2,7 @@
 
 `vite-plugin-compression` compresses Vite build output using gzip, brotli, deflate, or deflateRaw via Node's built-in `zlib`, emitting `.gz` (or custom extension) companion files alongside the originals. The default export is the plugin factory function.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vite-plugin-compression`
 - package: `vite-plugin-compression`
@@ -10,42 +10,42 @@
 - asset: Vite plugin (returns `Plugin`)
 - rail: asset-optimize
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options and algorithm family
 - rail: asset-optimize
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [DESCRIPTION]                                             |
 | :-----: | :---------------------- | :------------- | :-------------------------------------------------------- |
-|   [1]   | `VitePluginCompression` | options object | full plugin configuration                                 |
-|   [2]   | `Algorithm`             | string union   | `'gzip' \| 'brotliCompress' \| 'deflate' \| 'deflateRaw'` |
-|   [3]   | `CompressionOptions`    | type alias     | `Partial<ZlibOptions> \| Partial<BrotliOptions>`          |
+|  [01]   | `VitePluginCompression` | options object | full plugin configuration                                 |
+|  [02]   | `Algorithm`             | string union   | `'gzip' \| 'brotliCompress' \| 'deflate' \| 'deflateRaw'` |
+|  [03]   | `CompressionOptions`    | type alias     | `Partial<ZlibOptions> \| Partial<BrotliOptions>`          |
 
 [PUBLIC_TYPE_SCOPE]: VitePluginCompression fields
 - rail: asset-optimize
 
 | [INDEX] | [FIELD]              | [TYPE]                                  | [DEFAULT]                          |
 | :-----: | :------------------- | :-------------------------------------- | :--------------------------------- |
-|   [1]   | `verbose`            | `boolean`                               | `true`                             |
-|   [2]   | `threshold`          | `number`                                | `1025`                             |
-|   [3]   | `filter`             | `RegExp \| ((file: string) => boolean)` | `/\.(js\|mjs\|json\|css\|html)$/i` |
-|   [4]   | `disable`            | `boolean`                               | `false`                            |
-|   [5]   | `algorithm`          | `Algorithm`                             | `'gzip'`                           |
-|   [6]   | `ext`                | `string`                                | `'.gz'`                            |
-|   [7]   | `compressionOptions` | `CompressionOptions`                    | —                                  |
-|   [8]   | `deleteOriginFile`   | `boolean`                               | `false`                            |
-|   [9]   | `success`            | `() => void`                            | —                                  |
+|  [01]   | `verbose`            | `boolean`                               | `true`                             |
+|  [02]   | `threshold`          | `number`                                | `1025`                             |
+|  [03]   | `filter`             | `RegExp \| ((file: string) => boolean)` | `/\.(js\|mjs\|json\|css\|html)$/i` |
+|  [04]   | `disable`            | `boolean`                               | `false`                            |
+|  [05]   | `algorithm`          | `Algorithm`                             | `'gzip'`                           |
+|  [06]   | `ext`                | `string`                                | `'.gz'`                            |
+|  [07]   | `compressionOptions` | `CompressionOptions`                    | —                                  |
+|  [08]   | `deleteOriginFile`   | `boolean`                               | `false`                            |
+|  [09]   | `success`            | `() => void`                            | —                                  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory
 - rail: asset-optimize
 
 | [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [DESCRIPTION]                         |
 | :-----: | :------------------ | :------------- | :------------------------------------ |
-|   [1]   | `default(options?)` | plugin factory | default export; returns Vite `Plugin` |
+|  [01]   | `default(options?)` | plugin factory | default export; returns Vite `Plugin` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COMPRESSION_TOPOLOGY]:
 - only files whose size exceeds `threshold` bytes and whose path matches `filter` are compressed

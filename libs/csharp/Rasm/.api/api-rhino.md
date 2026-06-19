@@ -2,7 +2,7 @@
 
 `Rhino.Geometry` supplies the value-type geometry vocabulary the kernel composes through `Rasm.Vectors` — points, vectors, transforms, intervals, bounding volumes, primitive solids, curves, and meshes — never re-minted and never reached through a document, view, command, or display surface.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: host assembly `RhinoCommon`
 - package: `RhinoCommon`
@@ -12,36 +12,36 @@
 - asset: host assembly
 - rail: host-rhino
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: point, vector, and transform surface
 - rail: host-rhino
 
 | [INDEX] | [SYMBOL]     | [CAPABILITY]     |
 | :-----: | :----------- | :--------------- |
-|   [1]   | `Point3d`    | double point     |
-|   [2]   | `Point3f`    | single point     |
-|   [3]   | `Vector3d`   | double vector    |
-|   [4]   | `Vector3f`   | single vector    |
-|   [5]   | `Transform`  | affine transform |
-|   [6]   | `Quaternion` | rotation rotor   |
-|   [7]   | `Interval`   | scalar span      |
-|   [8]   | `Plane`      | oriented frame   |
+|  [01]   | `Point3d`    | double point     |
+|  [02]   | `Point3f`    | single point     |
+|  [03]   | `Vector3d`   | double vector    |
+|  [04]   | `Vector3f`   | single vector    |
+|  [05]   | `Transform`  | affine transform |
+|  [06]   | `Quaternion` | rotation rotor   |
+|  [07]   | `Interval`   | scalar span      |
+|  [08]   | `Plane`      | oriented frame   |
 
 [PUBLIC_TYPE_SCOPE]: bounding and primitive-solid surface
 - rail: host-rhino
 
 | [INDEX] | [SYMBOL]      | [CAPABILITY]       |
 | :-----: | :------------ | :----------------- |
-|   [1]   | `BoundingBox` | axis-aligned box   |
-|   [2]   | `Box`         | oriented box       |
-|   [3]   | `Sphere`      | sphere primitive   |
-|   [4]   | `Cylinder`    | cylinder primitive |
-|   [5]   | `Cone`        | cone primitive     |
-|   [6]   | `Torus`       | torus primitive    |
-|   [7]   | `Circle`      | circle primitive   |
-|   [8]   | `Arc`         | arc primitive      |
-|   [9]   | `Ray3d`       | ray primitive      |
+|  [01]   | `BoundingBox` | axis-aligned box   |
+|  [02]   | `Box`         | oriented box       |
+|  [03]   | `Sphere`      | sphere primitive   |
+|  [04]   | `Cylinder`    | cylinder primitive |
+|  [05]   | `Cone`        | cone primitive     |
+|  [06]   | `Torus`       | torus primitive    |
+|  [07]   | `Circle`      | circle primitive   |
+|  [08]   | `Arc`         | arc primitive      |
+|  [09]   | `Ray3d`       | ray primitive      |
 |  [10]   | `Line`        | segment primitive  |
 
 [PUBLIC_TYPE_SCOPE]: curve, mesh, and brep surface
@@ -49,44 +49,44 @@
 
 | [INDEX] | [SYMBOL]       | [CAPABILITY]      |
 | :-----: | :------------- | :---------------- |
-|   [1]   | `Curve`        | curve geometry    |
-|   [2]   | `NurbsCurve`   | nurbs curve       |
-|   [3]   | `Polyline`     | polyline geometry |
-|   [4]   | `Mesh`         | mesh geometry     |
-|   [5]   | `MeshFace`     | mesh face record  |
-|   [6]   | `Brep`         | boundary geometry |
-|   [7]   | `GeometryBase` | geometry root     |
+|  [01]   | `Curve`        | curve geometry    |
+|  [02]   | `NurbsCurve`   | nurbs curve       |
+|  [03]   | `Polyline`     | polyline geometry |
+|  [04]   | `Mesh`         | mesh geometry     |
+|  [05]   | `MeshFace`     | mesh face record  |
+|  [06]   | `Brep`         | boundary geometry |
+|  [07]   | `GeometryBase` | geometry root     |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: vector, transform, and bounds operations
 - rail: host-rhino
 
 | [INDEX] | [SURFACE]       | [SURFACE_ROOT] | [CAPABILITY]      |
 | :-----: | :-------------- | :------------- | :---------------- |
-|   [1]   | `CrossProduct`  | `Vector3d`     | vector cross      |
-|   [2]   | `Unitize`       | `Vector3d`     | normalize         |
-|   [3]   | `Multiply`      | `Transform`    | compose transform |
-|   [4]   | `TryGetInverse` | `Transform`    | invert transform  |
-|   [5]   | `Union`         | `BoundingBox`  | bounds merge      |
-|   [6]   | `Contains`      | `BoundingBox`  | point test        |
-|   [7]   | `ClosestPoint`  | `Plane`        | frame projection  |
+|  [01]   | `CrossProduct`  | `Vector3d`     | vector cross      |
+|  [02]   | `Unitize`       | `Vector3d`     | normalize         |
+|  [03]   | `Multiply`      | `Transform`    | compose transform |
+|  [04]   | `TryGetInverse` | `Transform`    | invert transform  |
+|  [05]   | `Union`         | `BoundingBox`  | bounds merge      |
+|  [06]   | `Contains`      | `BoundingBox`  | point test        |
+|  [07]   | `ClosestPoint`  | `Plane`        | frame projection  |
 
 [ENTRYPOINT_SCOPE]: curve and mesh operations
 - rail: host-rhino
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [CAPABILITY]     |
 | :-----: | :----------------- | :------------- | :--------------- |
-|   [1]   | `PointAt`          | `Curve`        | curve evaluation |
-|   [2]   | `ClosestPoint`     | `Curve`        | curve projection |
-|   [3]   | `Vertices`         | `Mesh`         | vertex access    |
-|   [4]   | `Faces`            | `Mesh`         | face access      |
-|   [5]   | `Normals`          | `Mesh`         | normal access    |
-|   [6]   | `TopologyVertices` | `Mesh`         | adjacency access |
-|   [7]   | `Faces`            | `Brep`         | brep face access |
-|   [8]   | `Edges`            | `Brep`         | brep edge access |
+|  [01]   | `PointAt`          | `Curve`        | curve evaluation |
+|  [02]   | `ClosestPoint`     | `Curve`        | curve projection |
+|  [03]   | `Vertices`         | `Mesh`         | vertex access    |
+|  [04]   | `Faces`            | `Mesh`         | face access      |
+|  [05]   | `Normals`          | `Mesh`         | normal access    |
+|  [06]   | `TopologyVertices` | `Mesh`         | adjacency access |
+|  [07]   | `Faces`            | `Brep`         | brep face access |
+|  [08]   | `Edges`            | `Brep`         | brep edge access |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GEOMETRY_VALUE_LAW]:
 - Package: `RhinoCommon` (`Rhino.Geometry`)

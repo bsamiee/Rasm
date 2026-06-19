@@ -2,12 +2,12 @@
 
 Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-case union (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every case is a pure layout fold from `CustomVisualData` to an `SKPath` run, materialized through the one offscreen draw capsule and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the single suite-wide wide-gamut vocabulary the codec working-space consumes. The page owns the custom-visual union, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row color-space axis the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SKIA_KINDS]: Fourteen custom-visual cases; layout folds; render-hash twins.
-- [2]-[COLOR_SPACE]: Four wide-gamut rows; working-space factory; encode-format tag.
+- [01]-[SKIA_KINDS]: Fourteen custom-visual cases; layout folds; render-hash twins.
+- [02]-[COLOR_SPACE]: Four wide-gamut rows; working-space factory; encode-format tag.
 
-## [2]-[SKIA_KINDS]
+## [02]-[SKIA_KINDS]
 
 - Owner: `CustomVisual` [Union] · `CustomVisualData` · `CustomVisuals`
 - Cases: Sankey · Treemap · Waterfall · Funnel · ParallelCoordinates · Radar · Network · Gantt · Sunburst · Hexbin · GeoArc · Trip · Extrusion · Terrain — the four flow-diagram kinds plus the five analytical-chart kinds (multi-axis parallel-coordinates, polar radar, force-laid network, time-tracked gantt, hierarchical sunburst) and the five deck.gl-class geo-layer kinds (hexagonal binning, great-circle arcs, time-ordered trips, pseudo-3D extruded columns, height-shaded terrain) projected through one equirectangular `Project`
@@ -419,22 +419,22 @@ flowchart LR
 
 | [INDEX] | [KIND]               | [DATA_FIELD]   | [LAYOUT_PRIMITIVE]                         |
 | :-----: | :------------------- | :------------- | :----------------------------------------- |
-|   [1]   | sankey               | Flows          | cubic ribbon `SKPath.CubicTo`              |
-|   [2]   | treemap              | Nodes          | squarified `SKPath.AddRect`                |
-|   [3]   | waterfall            | Steps          | bridged column `SKPath.AddRect`            |
-|   [4]   | funnel               | Nodes          | trapezoid `SKPath.LineTo`                  |
-|   [5]   | parallel-coordinates | Series         | normalized polyline `SKPath.LineTo`        |
-|   [6]   | radar                | Series         | polar polygon `SKPath.LineTo`+`Close`      |
-|   [7]   | network              | Edges,Vertices | edge line + node `SKPath.AddCircle`        |
-|   [8]   | gantt                | Spans          | track bar `SKPath.AddRoundRect`            |
-|   [9]   | sunburst             | Wedges         | ring arc `SKPath.AddArc`+`ArcTo`           |
+|  [01]   | sankey               | Flows          | cubic ribbon `SKPath.CubicTo`              |
+|  [02]   | treemap              | Nodes          | squarified `SKPath.AddRect`                |
+|  [03]   | waterfall            | Steps          | bridged column `SKPath.AddRect`            |
+|  [04]   | funnel               | Nodes          | trapezoid `SKPath.LineTo`                  |
+|  [05]   | parallel-coordinates | Series         | normalized polyline `SKPath.LineTo`        |
+|  [06]   | radar                | Series         | polar polygon `SKPath.LineTo`+`Close`      |
+|  [07]   | network              | Edges,Vertices | edge line + node `SKPath.AddCircle`        |
+|  [08]   | gantt                | Spans          | track bar `SKPath.AddRoundRect`            |
+|  [09]   | sunburst             | Wedges         | ring arc `SKPath.AddArc`+`ArcTo`           |
 |  [10]   | hexbin               | Points         | binned hexagon `SKPath.LineTo`+`Close`     |
 |  [11]   | geo-arc              | Arcs           | great-circle `SKPath.QuadTo`               |
 |  [12]   | trip                 | Trips          | time-path polyline `SKPath.LineTo`         |
 |  [13]   | extrusion            | Points         | pseudo-3D column `SKPath.LineTo`+`AddRect` |
 |  [14]   | terrain              | Points         | grid height-shade `SKPath.AddRect`         |
 
-## [3]-[COLOR_SPACE]
+## [03]-[COLOR_SPACE]
 
 - Owner: `ColorSpaceAxis` SmartEnum · `ColorSpaceKeyPolicy` comparer accessor
 - Cases: srgb · display-p3 · rec2020 · scrgb-float — the baseline plus three wide-gamut rows
@@ -483,7 +483,7 @@ public sealed partial class ColorSpaceAxis {
 
 | [INDEX] | [ROW]       | [TRANSFER]                      | [PRIMARIES]                 | [SURFACE]  |
 | :-----: | :---------- | :------------------------------ | :-------------------------- | :--------- |
-|   [1]   | srgb        | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.Srgb`      | `Rgba8888` |
-|   [2]   | display-p3  | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.DisplayP3` | `Rgba8888` |
-|   [3]   | rec2020     | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.Rec2020`   | `Rgba8888` |
-|   [4]   | scrgb-float | `SKColorSpaceTransferFn.Linear` | `SKColorSpaceXyz.Srgb`      | `RgbaF16`  |
+|  [01]   | srgb        | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.Srgb`      | `Rgba8888` |
+|  [02]   | display-p3  | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.DisplayP3` | `Rgba8888` |
+|  [03]   | rec2020     | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.Rec2020`   | `Rgba8888` |
+|  [04]   | scrgb-float | `SKColorSpaceTransferFn.Linear` | `SKColorSpaceXyz.Srgb`      | `RgbaF16`  |

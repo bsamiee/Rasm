@@ -2,17 +2,17 @@
 
 `platform` is the host-free browser/edge platform substrate and the SPA browser entry of the TypeScript branch — the browser `AppHost` analog. It owns the runtime composition root and one runtime, the browser platform bindings, the runtime-state spine (the page-lifecycle `Phase` axis, the capability-rank cell, the connectivity edge, the generic scoped-event-stream bridge), the OIDC/PKCE auth-session boot edge, the single typed runtime-config boundary, the self-telemetry export edge with the OTLP `WebSdk` and trace `Sampler`, the build-time-only asset pipeline, the `Transport/decode` main-thread-offload decode leg, the local offline store, client routing and navigation, the service-worker plus offline-first cache with redial drain, the global crash/error-boundary fault sink, the feature-flag/remote-config read-side with the SSE flag-stream, and the web-vitals performance budget. It imports `ui`, `interchange`, and `projection` and consumes the C#-owned wire only (decode, never re-mint); `ui` never imports `platform`; it owns no geometry and no domain state. The infrastructure owners — including the runtime-state spine and the `Transport/decode` decode leg — are platform-bound HOST owners, never app-services, so the closed five-app-service budget is unchanged. This README routes the design pages and lists the external packages; the domain folder-map is `ARCHITECTURE.md`, the forward pool `IDEAS.md`, and the open work `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[COMPOSITION](.planning/Runtime/composition.md): Layer graph, one runtime, and the `BrowserRuntime.runMain` `./web` entry.
-- [2]-[BINDINGS](.planning/Runtime/bindings.md): HTTP/key-value/worker platform bindings.
-- [3]-[EVENTS](.planning/Runtime/events.md): Generic `addEventListener` `Stream` bridge for non-`WindowEventMap` targets.
-- [4]-[LIFECYCLE](.planning/Runtime/lifecycle.md): One `Phase` enum folding `visibilitychange`, `pagehide(freeze)`, and `beforeunload`.
-- [5]-[RANK](.planning/Runtime/rank.md): One closed `Rank` fold with escalate-fast/recover-slow hysteresis.
-- [6]-[CONNECTIVITY](.planning/Runtime/connectivity.md): Online/offline cell, the redial edge, and the native `SyncManager` wake.
-- [7]-[CONFIG](.planning/Config/config.md): One `Config` schema and `ConfigProvider` boundary.
-- [8]-[FLAGS](.planning/Config/flags.md): `FlagSet` decode and bucket evaluation.
-- [9]-[STREAM](.planning/Config/stream.md): Native `EventSource` SSE flag-delta ingress patching the `FlagSet` cell.
+- [01]-[COMPOSITION](.planning/Runtime/composition.md): Layer graph, one runtime, and the `BrowserRuntime.runMain` `./web` entry.
+- [02]-[BINDINGS](.planning/Runtime/bindings.md): HTTP/key-value/worker platform bindings.
+- [03]-[EVENTS](.planning/Runtime/events.md): Generic `addEventListener` `Stream` bridge for non-`WindowEventMap` targets.
+- [04]-[LIFECYCLE](.planning/Runtime/lifecycle.md): One `Phase` enum folding `visibilitychange`, `pagehide(freeze)`, and `beforeunload`.
+- [05]-[RANK](.planning/Runtime/rank.md): One closed `Rank` fold with escalate-fast/recover-slow hysteresis.
+- [06]-[CONNECTIVITY](.planning/Runtime/connectivity.md): Online/offline cell, the redial edge, and the native `SyncManager` wake.
+- [07]-[CONFIG](.planning/Config/config.md): One `Config` schema and `ConfigProvider` boundary.
+- [08]-[FLAGS](.planning/Config/flags.md): `FlagSet` decode and bucket evaluation.
+- [09]-[STREAM](.planning/Config/stream.md): Native `EventSource` SSE flag-delta ingress patching the `FlagSet` cell.
 - [10]-[SOCKET](.planning/Transport/socket.md): One `BrowserSocket` duplex `Channel` `SocketTransport` owner, the decoded inbound frame stream, and the outbound write over the one scoped resource.
 - [11]-[MODALITY](.planning/Transport/modality.md): Closed `TransportModality` `Data.TaggedEnum` (WebSocket/WebTransport) growth axis under the reused `projection` `StreamPolicy` reconnect.
 - [12]-[DECODE](.planning/Transport/decode.md): Transferable-buffer decode offload pool, the residency-manifest decode, and the single content-key mint.
@@ -31,7 +31,7 @@
 - [25]-[CAPABILITY](.planning/Shell/capability.md): One Permissions-backed `BrowserCapability` owner over the notification/clipboard/geolocation/persistent-storage `CapabilityKind` axis, the per-kind `PermissionState` cell, and the storage-persist quota grant feeding `Runtime/rank`.
 - [26]-[GRANT](.planning/Shell/grant.md): `PermissionStatus.change`->`PermissionState` fold over `scopedEventStream` patching the per-kind cell.
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Domain packages this folder uses, planned or implemented; versions are centralized in the one language workspace catalog and never pinned here. API evidence lives in the folder `.api/`. The no-admission entries record native-API concerns so a future reach for the named package is the rejected reflex rather than an open gap.
 
@@ -82,7 +82,7 @@ Domain packages this folder uses, planned or implemented; versions are centraliz
 - `workbox-window` — the Workbox registration and lifecycle event target
 - NO-ADMISSION: `web-vitals` — `PerformanceBudget` captures via the native `PerformanceObserver` API
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Branch-level substrate packages this folder consumes; charters and API evidence live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` branch.
 

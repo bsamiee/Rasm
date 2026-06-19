@@ -2,21 +2,21 @@
 
 `runtime` is the host-free execution foundation every `libs/python` sibling composes. It mints shared value shapes once and references no sibling: the single content-identity owner reproducing the C# `XxHash128` seed bit-identically, the one boundary-fault and `Result`/`Option` rail, the one resilience policy, caller-owned context and settings admission, resource roots and bounded structured-concurrency lanes, local receipts and the contributor port, the inbound companion gRPC server-runtime decoding the C#-owned protobuf wire, the `msgspec.msgpack` op-log delta, the capability-descriptor SDK, external-API and structural-parsing evidence, and the private daemon entrypoint grammar. The companion owns no wire vocabulary and decodes only C#-minted shapes (single-mint invariant). `ARCHITECTURE.md` carries the domain map, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[RECEIPTS](.planning/observability/receipts.md)
-- [2]-[METRICS](.planning/observability/metrics.md)
-- [3]-[TELEMETRY](.planning/observability/telemetry.md)
-- [4]-[FAULTS](.planning/reliability/faults.md)
-- [5]-[RESILIENCE](.planning/reliability/resilience.md)
-- [6]-[ROOTS](.planning/transport/roots.md)
-- [7]-[SERVE](.planning/transport/serve.md)
-- [8]-[ADMISSION](.planning/execution/admission.md)
-- [9]-[LANES](.planning/execution/lanes.md)
+- [01]-[RECEIPTS](.planning/observability/receipts.md)
+- [02]-[METRICS](.planning/observability/metrics.md)
+- [03]-[TELEMETRY](.planning/observability/telemetry.md)
+- [04]-[FAULTS](.planning/reliability/faults.md)
+- [05]-[RESILIENCE](.planning/reliability/resilience.md)
+- [06]-[ROOTS](.planning/transport/roots.md)
+- [07]-[SERVE](.planning/transport/serve.md)
+- [08]-[ADMISSION](.planning/execution/admission.md)
+- [09]-[LANES](.planning/execution/lanes.md)
 - [10]-[IDENTITY](.planning/evidence/identity.md)
 - [11]-[EVIDENCE](.planning/evidence/evidence.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every domain library this folder owns directly, planned or implemented. Versions are centralized in the one root manifest; this list carries no pin. `xxhash` and `lz4` ride the `python_version<'3.15'` companion band (no cp315 wheel); `lz4` gates the single install-conditional leg at `transport/serve#CRDT_DECODE`. Every other row is a cp315-clean manifest dependency.
 
@@ -50,7 +50,7 @@ Every domain library this folder owns directly, planned or implemented. Versions
 [COMPRESSION]:
 - `lz4`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Branch-wide substrate packages this folder consumes; the canonical registry and API evidence live at `libs/python/.planning/README.md` and `libs/python/.api/`.
 

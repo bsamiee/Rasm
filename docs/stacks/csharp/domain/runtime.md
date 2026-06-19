@@ -2,21 +2,21 @@
 
 A process is one composed value. A closed modality row resolves boot, lifetime, signal, and drain variance through one fold; one sealed composition root folds module-contributed descriptor rows and makes post-seal drift a throw, not a review item; configuration admits once through derived keys into a validated frozen policy cell that consumers read as a value; lifecycle, drain, and degradation are total state machines over single cells whose every consumer is a projection; caches and pools bound rebuild cost under explicit validity and reset predicates and are never systems of record; and every temporal behavior derives from one clock seam and one schedule catalog. Growth lands as rows — a new process shape, module, policy record, drain band, rank, retention lane, or schedule is one declaration inside an existing owner, never new scaffolding beside it.
 
-## [1]-[RUNTIME_CHOOSER]
+## [01]-[RUNTIME_CHOOSER]
 
 This table routes a runtime concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                      | [REJECTED_FORM]                 |
 | :-----: | :------------------------ | :------------------------------------------- | :------------------------------ |
-|   [1]   | process-shape variance    | modality row + one boot fold                 | per-modality bootstrap files    |
-|   [2]   | service registration      | module descriptor rows + sealed fold         | extension-call scatter          |
-|   [3]   | configuration and options | derived keys + generated stack + frozen cell | monitor reads in consumers      |
-|   [4]   | lifecycle and shutdown    | one phase cell + banded drain ledger         | parallel token reads, flat stop |
-|   [5]   | capability state          | health rank fold                             | per-component degraded flags    |
-|   [6]   | rebuild-cost bounding     | cache and pool retention rows                | hand-rolled caches and limiters |
-|   [7]   | time and cadence          | one clock seam + schedule catalog            | ambient now, per-job timers     |
+|   [01]   | process-shape variance    | modality row + one boot fold                 | per-modality bootstrap files    |
+|   [02]   | service registration      | module descriptor rows + sealed fold         | extension-call scatter          |
+|   [03]   | configuration and options | derived keys + generated stack + frozen cell | monitor reads in consumers      |
+|   [04]   | lifecycle and shutdown    | one phase cell + banded drain ledger         | parallel token reads, flat stop |
+|   [05]   | capability state          | health rank fold                             | per-component degraded flags    |
+|   [06]   | rebuild-cost bounding     | cache and pool retention rows                | hand-rolled caches and limiters |
+|   [07]   | time and cadence          | one clock seam + schedule catalog            | ambient now, per-job timers     |
 
-## [2]-[MODALITY_AXIS]
+## [02]-[MODALITY_AXIS]
 
 [MODALITY_FOLD]:
 - Law: boot, lifetime, signal, and drain variance is one closed modality vocabulary — each row carries its `HostApplicationBuilderSettings` identity and its signal-ownership registrations, one fold consumes the row, and a new process shape is one row, never a bootstrap file.
@@ -66,7 +66,7 @@ public static class Boot {
 }
 ```
 
-## [3]-[COMPOSITION_ROOT]
+## [03]-[COMPOSITION_ROOT]
 
 [DESCRIPTOR_FOLD]:
 - Law: a module yields `ServiceDescriptor` rows — `Describe`/`DescribeKeyed` plus a lifetime value is the complete registration algebra — and the root is the only caller of any registration spelling; a planned-but-dormant module is a real key over an empty row set, so the capability inventory stays enumerable and activation is a one-row diff.
@@ -120,7 +120,7 @@ public static class Root {
 }
 ```
 
-## [4]-[OPTIONS_ADMISSION]
+## [04]-[OPTIONS_ADMISSION]
 
 [ADMISSION_STACK]:
 - Law: precedence is per-key last-source-wins, never per-file — absence is an explicit off-value in the record because upstream key deletion is impossible; complete the rank before the first typed read, since `ConfigurationManager` materializes each source at `Add`.
@@ -166,7 +166,7 @@ public static class PolicyCell {
 }
 ```
 
-## [5]-[LIFECYCLE_DRAIN]
+## [05]-[LIFECYCLE_DRAIN]
 
 [PHASE_SPINE]:
 - Law: one closed phase family lives in one cell advanced only by lifecycle hooks, lifetime tokens, background-fault routing, the rank fold, and the band walk; every up/degraded/draining question is a cell projection, and phase-keyed behavior is a total fold whose new phase is one case plus the rows the compiler then demands.
@@ -227,7 +227,7 @@ public sealed class LifecycleSpine(IHostApplicationLifetime lifetime, IOptions<H
 }
 ```
 
-## [6]-[DEGRADATION]
+## [06]-[DEGRADATION]
 
 [RANK_ALGEBRA]:
 - Law: severity is registration policy, never contributor code — `FailureStatus` grades one probe unhealthy or degraded, and registering one dependency twice under short and long timeouts turns latency bands into rank pressure with no contributor measuring time; per-row `Delay`/`Period` overrides group into one timer per cadence class.
@@ -279,7 +279,7 @@ public sealed class DegradationFold : IHealthCheckPublisher {
 }
 ```
 
-## [7]-[RETENTION_LANES]
+## [07]-[RETENTION_LANES]
 
 [CACHE_LAW]:
 - Law: every cached read is `GetOrCreateAsync` over (derived key, explicit `TState`, static factory, options row, tags) — get-then-set pairs are stampede-unsafe by construction, a set is a read-through with a constant factory, and batch removal verbs fold the singular forms.
@@ -327,7 +327,7 @@ public static class Lanes {
 }
 ```
 
-## [8]-[TIME_CADENCE]
+## [08]-[TIME_CADENCE]
 
 [CLOCK_SEAM]:
 - Law: two authorities, one frozen seam record — `TimeProvider` owns elapsed time, timers, and timestamps; `IClock` owns the current instant — registered once at the root with the home zone, every temporal capability a derivation; an ambient now-read is the universal defect, and derivation purity audits as an absence.

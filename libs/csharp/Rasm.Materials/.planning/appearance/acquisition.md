@@ -2,11 +2,11 @@
 
 THE MEASURED-MATERIAL IMPORT PATH. One `Acquisition` static fold over the closed `CaptureSource` `[Union]` (measured-brdf · svbrdf-map · spectral-reflectance) lands an acquired real-world material as a `graph#MATERIAL_LIBRARY` `MaterialParameters` row carrying measured provenance, so the appearance engine shades real captured materials rather than authored approximations. An acquired material is NEVER a second material owner: `Acquisition.Import` takes the capture data and returns a `MaterialParameters` row the SAME `graph#MATERIAL_LIBRARY` registers and the SAME `bsdf#LOBE_FAMILY` shades — a goniophotometer BRDF, a neural SVBRDF map, and a spectral-reflectance curve all produce one `MaterialParameters` row, never a `MeasuredMaterial`/`AcquiredBrdf` type. The import is a data-import concern distinct from the measured-spectral grounding of existing rows: it admits the capture, fits the closed parameter vector by the algorithms-doc dense route, grounds the base color through the `bsdf#SPECTRAL_UPSAMPLE` `Spd` construction, and gates the round-trip in-gamut through the white-furnace harness. The page composes `bsdf#SPECTRAL_UPSAMPLE` for the `Spd`→scene-linear color, `graph#MATERIAL_LIBRARY` `MaterialParameters` for the produced row, Wacton.Unicolour directly for the spectral→XYZ→Acescg conversion, and the `MaterialFault` band-2450 rail for a malformed or out-of-gamut capture.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ACQUISITION]: the `CaptureSource` `[Union]` capture family, the `BrdfSample`/`Provenance` capture records, the `Acquisition.Import` fit-and-ground fold producing a `MaterialParameters` row, and the measured-provenance receipt.
+- [01]-[ACQUISITION]: the `CaptureSource` `[Union]` capture family, the `BrdfSample`/`Provenance` capture records, the `Acquisition.Import` fit-and-ground fold producing a `MaterialParameters` row, and the measured-provenance receipt.
 
-## [2]-[ACQUISITION]
+## [02]-[ACQUISITION]
 
 - Owner: `Acquisition` static import fold; `CaptureSource` `[Union]` (measured-brdf · svbrdf-map · spectral-reflectance); `BrdfSample` the goniophotometer angular-reflectance record; `Provenance` the measured-provenance receipt.
 - Cases: capture {`MeasuredBrdf` (an isotropic angular `Seq<BrdfSample>` over incident/outgoing zenith), `SvbrdfMap` (a per-texel `Seq<MaterialParameters>` field from a neural fit), `SpectralReflectance` (a `Spd` reflectance curve)} — the closed capture family; a capture is a `CaptureSource` case, never a capture subtype.
@@ -74,7 +74,7 @@ public static class Acquisition {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [EPFL_RGL_BRDF_LOADER]: the EPFL RGL measured-BRDF program publishes isotropic spectral BRDFs (195 wavelengths, the `brdf-loader` `.bsdf` binary format with a header, theta/phi parameterization, and a Rough-Quadtree spectral payload); the binary decode is an UPSTREAM host-edge concern — no managed `.bsdf` reader is vendored, so the decode lands at the `Rasm.Bim`/app-root import boundary and feeds this owner the decoded `Seq<BrdfSample>`. The `FitBrdf` arm consumes the decoded samples; until a managed `.bsdf` reader is admitted (or the C++ `brdf-loader` is bound), the binary-format read stays [UPSTREAM-BLOCKED] on the missing reader, the angular-sample import the realized internal path.
 - [SVBRDF_NEURAL_FIT]: single-image and multi-image neural SVBRDF acquisition (the deep-material-capture shift) produces a per-texel parameter field as an `.exr`/tensor map; the `SvbrdfMap` arm averages the field to one row today, the realized internal seam. The per-texel field driving a `texture#TEXTURE_UV` `Image` source (a spatially-varying material rather than one averaged row) is the growth path — the field becomes a texture the `graph#MATERIAL_GRAPH` `Texture` node samples, riding the existing graph fold, never a second material owner. The neural inference itself is an UPSTREAM model-runtime concern outside the design.

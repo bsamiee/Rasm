@@ -2,7 +2,7 @@
 
 `Wacton.Unicolour` supplies a 40-space colour model via the `Unicolour` type, with construction from any `ColourSpace` discriminant, lazy-evaluated conversion accessors for all spaces, perceptual delta-E metrics, gamut mapping, mixing, spectral SPD intake, and configurable working spaces through `Configuration`, `RgbConfiguration`, and `XyzConfiguration`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour`
 - package: `Wacton.Unicolour`
@@ -11,7 +11,7 @@
 - asset: netstandard2.0
 - rail: colour
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ColourSpace enum — RGB and hue-based spaces
 - rail: colour
@@ -20,15 +20,15 @@
 
 | [INDEX] | [MEMBER]    | [USED_BY]                     |
 | :-----: | :---------- | :---------------------------- |
-|   [1]   | `Rgb`       | COLOR_SPACE_AXIS construction |
-|   [2]   | `Rgb255`    | COLOR_SPACE_AXIS              |
-|   [3]   | `RgbLinear` | #BSDF_MODEL linear light      |
-|   [4]   | `Hsb`       |                               |
-|   [5]   | `Hsl`       |                               |
-|   [6]   | `Hwb`       |                               |
-|   [7]   | `Hsi`       |                               |
-|   [8]   | `Hsluv`     | perceptual hue-saturation     |
-|   [9]   | `Hpluv`     |                               |
+|  [01]   | `Rgb`       | COLOR_SPACE_AXIS construction |
+|  [02]   | `Rgb255`    | COLOR_SPACE_AXIS              |
+|  [03]   | `RgbLinear` | #BSDF_MODEL linear light      |
+|  [04]   | `Hsb`       |                               |
+|  [05]   | `Hsl`       |                               |
+|  [06]   | `Hwb`       |                               |
+|  [07]   | `Hsi`       |                               |
+|  [08]   | `Hsluv`     | perceptual hue-saturation     |
+|  [09]   | `Hpluv`     |                               |
 |  [10]   | `Okhsv`     |                               |
 |  [11]   | `Okhsl`     |                               |
 |  [12]   | `Okhwb`     |                               |
@@ -38,15 +38,15 @@
 
 | [INDEX] | [MEMBER]  | [USED_BY]                    |
 | :-----: | :-------- | :--------------------------- |
-|   [1]   | `Xyz`     | #PHOTOMETRIC tristimulus     |
-|   [2]   | `Xyy`     | chromaticity construction    |
-|   [3]   | `Wxy`     | dominant wavelength          |
-|   [4]   | `Lab`     | delta-E76/94/2000, gamut map |
-|   [5]   | `Lchab`   | chroma-reduction gamut map   |
-|   [6]   | `Luv`     |                              |
-|   [7]   | `Lchuv`   |                              |
-|   [8]   | `Lms`     | chromatic adaptation         |
-|   [9]   | `Ipt`     |                              |
+|  [01]   | `Xyz`     | #PHOTOMETRIC tristimulus     |
+|  [02]   | `Xyy`     | chromaticity construction    |
+|  [03]   | `Wxy`     | dominant wavelength          |
+|  [04]   | `Lab`     | delta-E76/94/2000, gamut map |
+|  [05]   | `Lchab`   | chroma-reduction gamut map   |
+|  [06]   | `Luv`     |                              |
+|  [07]   | `Lchuv`   |                              |
+|  [08]   | `Lms`     | chromatic adaptation         |
+|  [09]   | `Ipt`     |                              |
 |  [10]   | `Ictcp`   | DeltaE.Itp (HDR perceptual)  |
 |  [11]   | `Jzazbz`  |                              |
 |  [12]   | `Jzczhz`  | DeltaE.Z                     |
@@ -60,15 +60,15 @@
 
 | [INDEX] | [MEMBER] | [USED_BY]                      |
 | :-----: | :------- | :----------------------------- |
-|   [1]   | `Oklab`  | DeltaE.Ok, gamut mixing        |
-|   [2]   | `Oklch`  | OklchChromaReduction gamut map |
-|   [3]   | `Oklrab` |                                |
-|   [4]   | `Oklrch` |                                |
-|   [5]   | `Xyb`    |                                |
-|   [6]   | `Ypbpr`  |                                |
-|   [7]   | `Ycbcr`  |                                |
-|   [8]   | `Ycgco`  |                                |
-|   [9]   | `Yuv`    |                                |
+|  [01]   | `Oklab`  | DeltaE.Ok, gamut mixing        |
+|  [02]   | `Oklch`  | OklchChromaReduction gamut map |
+|  [03]   | `Oklrab` |                                |
+|  [04]   | `Oklrch` |                                |
+|  [05]   | `Xyb`    |                                |
+|  [06]   | `Ypbpr`  |                                |
+|  [07]   | `Ycbcr`  |                                |
+|  [08]   | `Ycgco`  |                                |
+|  [09]   | `Yuv`    |                                |
 |  [10]   | `Yiq`    |                                |
 |  [11]   | `Ydbdr`  |                                |
 |  [12]   | `Tsl`    |                                |
@@ -78,15 +78,15 @@
 
 | [INDEX] | [SIGNATURE]                                                                                   | [USED_BY]                                         |
 | :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------------------------ |
-|   [1]   | `new Unicolour(ColourSpace, double, double, double, double alpha = 1.0)`                      | COLOR_SPACE_AXIS                                  |
-|   [2]   | `new Unicolour(ColourSpace, (double first, double second, double third), double alpha = 1.0)` |                                                   |
-|   [3]   | `new Unicolour(ColourSpace, (double first, double second, double third, double alpha))`       |                                                   |
-|   [4]   | `new Unicolour(Configuration, ColourSpace, double, double, double, double alpha = 1.0)`       | COLOR_SPACE_AXIS with Display P3 / Rec2020 config |
-|   [5]   | `new Unicolour(string hex)`                                                                   |                                                   |
-|   [6]   | `new Unicolour(Configuration, string hex)`                                                    |                                                   |
-|   [7]   | `new Unicolour(ColourSpace, double grey, double alpha = 1.0)`                                 |                                                   |
-|   [8]   | `new Unicolour(Chromaticity, double luminance = 1.0)`                                         | #PHOTOMETRIC white-point construction             |
-|   [9]   | `new Unicolour(Configuration, Chromaticity, double luminance = 1.0)`                          |                                                   |
+|  [01]   | `new Unicolour(ColourSpace, double, double, double, double alpha = 1.0)`                      | COLOR_SPACE_AXIS                                  |
+|  [02]   | `new Unicolour(ColourSpace, (double first, double second, double third), double alpha = 1.0)` |                                                   |
+|  [03]   | `new Unicolour(ColourSpace, (double first, double second, double third, double alpha))`       |                                                   |
+|  [04]   | `new Unicolour(Configuration, ColourSpace, double, double, double, double alpha = 1.0)`       | COLOR_SPACE_AXIS with Display P3 / Rec2020 config |
+|  [05]   | `new Unicolour(string hex)`                                                                   |                                                   |
+|  [06]   | `new Unicolour(Configuration, string hex)`                                                    |                                                   |
+|  [07]   | `new Unicolour(ColourSpace, double grey, double alpha = 1.0)`                                 |                                                   |
+|  [08]   | `new Unicolour(Chromaticity, double luminance = 1.0)`                                         | #PHOTOMETRIC white-point construction             |
+|  [09]   | `new Unicolour(Configuration, Chromaticity, double luminance = 1.0)`                          |                                                   |
 |  [10]   | `new Unicolour(double cct, Locus locus = Locus.Blackbody, double luminance = 1.0)`            | #PHOTOMETRIC blackbody                            |
 |  [11]   | `new Unicolour(Spd)`                                                                          | #PHOTOMETRIC spectral power distribution → XYZ    |
 |  [12]   | `new Unicolour(Configuration, Spd)`                                                           |                                                   |
@@ -97,15 +97,15 @@
 
 | [INDEX] | [MEMBER]             | [TYPE]      | [USED_BY]                              |
 | :-----: | :------------------- | :---------- | :------------------------------------- |
-|   [1]   | `.Rgb`               | `Rgb`       | sRGB byte output                       |
-|   [2]   | `.RgbLinear`         | `RgbLinear` | #BSDF_MODEL linear-light pipeline      |
-|   [3]   | `.Xyz`               | `Xyz`       | #PHOTOMETRIC tristimulus               |
-|   [4]   | `.Xyy`               | `Xyy`       | chromaticity, dominant wavelength      |
-|   [5]   | `.Lab`               | `Lab`       | delta-E, perceptual sort               |
-|   [6]   | `.Lchab`             | `Lchab`     | chroma-reduction gamut mapping         |
-|   [7]   | `.Oklab`             | `Oklab`     | DeltaE.Ok, perceptual interpolation    |
-|   [8]   | `.Oklch`             | `Oklch`     | OklchChromaReduction gamut mapping     |
-|   [9]   | `.Ictcp`             | `Ictcp`     | DeltaE.Itp (HDR), Rec.2100             |
+|  [01]   | `.Rgb`               | `Rgb`       | sRGB byte output                       |
+|  [02]   | `.RgbLinear`         | `RgbLinear` | #BSDF_MODEL linear-light pipeline      |
+|  [03]   | `.Xyz`               | `Xyz`       | #PHOTOMETRIC tristimulus               |
+|  [04]   | `.Xyy`               | `Xyy`       | chromaticity, dominant wavelength      |
+|  [05]   | `.Lab`               | `Lab`       | delta-E, perceptual sort               |
+|  [06]   | `.Lchab`             | `Lchab`     | chroma-reduction gamut mapping         |
+|  [07]   | `.Oklab`             | `Oklab`     | DeltaE.Ok, perceptual interpolation    |
+|  [08]   | `.Oklch`             | `Oklch`     | OklchChromaReduction gamut mapping     |
+|  [09]   | `.Ictcp`             | `Ictcp`     | DeltaE.Itp (HDR), Rec.2100             |
 |  [10]   | `.Jzczhz`            | `Jzczhz`    | DeltaE.Z                               |
 |  [11]   | `.Cam02`             | `Cam02`     | DeltaE.Cam02                           |
 |  [12]   | `.Cam16`             | `Cam16`     | DeltaE.Cam16                           |
@@ -121,15 +121,15 @@
 
 | [INDEX] | [MEMBER]              | [TYPE]          | [USED_BY]                |
 | :-----: | :-------------------- | :-------------- | :----------------------- |
-|   [1]   | `.Chromaticity`       | `Chromaticity`  | white-point comparison   |
-|   [2]   | `.DominantWavelength` | `double`        | spectral locus tagging   |
-|   [3]   | `.ExcitationPurity`   | `double`        | spectral locus tagging   |
-|   [4]   | `.Temperature`        | `Temperature`   | blackbody CCT readout    |
-|   [5]   | `.IsInPointerGamut`   | `bool`          | real-surface gamut check |
-|   [6]   | `.IsInMacAdamLimits`  | `bool`          | spectral limits check    |
-|   [7]   | `.IsImaginary`        | `bool`          | outside spectral locus   |
-|   [8]   | `.Hex`                | `string`        |                          |
-|   [9]   | `.Alpha`              | `Alpha`         |                          |
+|  [01]   | `.Chromaticity`       | `Chromaticity`  | white-point comparison   |
+|  [02]   | `.DominantWavelength` | `double`        | spectral locus tagging   |
+|  [03]   | `.ExcitationPurity`   | `double`        | spectral locus tagging   |
+|  [04]   | `.Temperature`        | `Temperature`   | blackbody CCT readout    |
+|  [05]   | `.IsInPointerGamut`   | `bool`          | real-surface gamut check |
+|  [06]   | `.IsInMacAdamLimits`  | `bool`          | spectral limits check    |
+|  [07]   | `.IsImaginary`        | `bool`          | outside spectral locus   |
+|  [08]   | `.Hex`                | `string`        |                          |
+|  [09]   | `.Alpha`              | `Alpha`         |                          |
 |  [10]   | `.Configuration`      | `Configuration` | config round-trip        |
 
 [PUBLIC_TYPE_SCOPE]: DeltaE enum — all 12 members
@@ -139,15 +139,15 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 
 | [INDEX] | [MEMBER]            | [USED_BY]                         |
 | :-----: | :------------------ | :-------------------------------- |
-|   [1]   | `Cie76`             | baseline perceptual diff          |
-|   [2]   | `Cie94`             | graphic-arts weighting            |
-|   [3]   | `Cie94Textiles`     |                                   |
-|   [4]   | `Ciede2000`         | industry-standard appearance diff |
-|   [5]   | `CmcAcceptability`  |                                   |
-|   [6]   | `CmcPerceptibility` |                                   |
-|   [7]   | `Itp`               | HDR perceptual diff               |
-|   [8]   | `Z`                 | HDR perceptual diff (Safdar 2021) |
-|   [9]   | `Hyab`              |                                   |
+|  [01]   | `Cie76`             | baseline perceptual diff          |
+|  [02]   | `Cie94`             | graphic-arts weighting            |
+|  [03]   | `Cie94Textiles`     |                                   |
+|  [04]   | `Ciede2000`         | industry-standard appearance diff |
+|  [05]   | `CmcAcceptability`  |                                   |
+|  [06]   | `CmcPerceptibility` |                                   |
+|  [07]   | `Itp`               | HDR perceptual diff               |
+|  [08]   | `Z`                 | HDR perceptual diff (Safdar 2021) |
+|  [09]   | `Hyab`              |                                   |
 |  [10]   | `Ok`                | perceptual mixing                 |
 |  [11]   | `Cam02`             | appearance model                  |
 |  [12]   | `Cam16`             | appearance model                  |
@@ -159,31 +159,31 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]       | [CAPABILITY]         |
 | :-----: | :---------------------- | :----------------- | :------------------- |
-|   [1]   | `Configuration.Default` | static preset      | baseline sRGB/D65    |
-|   [2]   | `Configuration..ctor`   | configuration ctor | custom working space |
+|  [01]   | `Configuration.Default` | static preset      | baseline sRGB/D65    |
+|  [02]   | `Configuration..ctor`   | configuration ctor | custom working space |
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]     | [CAPABILITY]              |
 | :-----: | :----------------------------- | :--------------- | :------------------------ |
-|   [1]   | `RgbConfiguration.StandardRgb` | static preset    | sRGB                      |
-|   [2]   | `RgbConfiguration.DisplayP3`   | static preset    | COLOR_SPACE_AXIS display  |
-|   [3]   | `RgbConfiguration.Rec2020`     | static preset    | COLOR_SPACE_AXIS wide RGB |
-|   [4]   | `RgbConfiguration.Rec2100Pq`   | static preset    | #PHOTOMETRIC PQ transfer  |
-|   [5]   | `RgbConfiguration.A98`         | static preset    | Adobe RGB                 |
-|   [6]   | `RgbConfiguration.ProPhoto`    | static preset    | ProPhoto / ROMM RGB       |
-|   [7]   | `RgbConfiguration.Aces20651`   | static preset    | ACES 2065-1               |
-|   [8]   | `RgbConfiguration.Acescg`      | static preset    | ACEScg scene-linear AP1   |
-|   [9]   | `RgbConfiguration..ctor`       | custom primaries | RGB working space         |
+|  [01]   | `RgbConfiguration.StandardRgb` | static preset    | sRGB                      |
+|  [02]   | `RgbConfiguration.DisplayP3`   | static preset    | COLOR_SPACE_AXIS display  |
+|  [03]   | `RgbConfiguration.Rec2020`     | static preset    | COLOR_SPACE_AXIS wide RGB |
+|  [04]   | `RgbConfiguration.Rec2100Pq`   | static preset    | #PHOTOMETRIC PQ transfer  |
+|  [05]   | `RgbConfiguration.A98`         | static preset    | Adobe RGB                 |
+|  [06]   | `RgbConfiguration.ProPhoto`    | static preset    | ProPhoto / ROMM RGB       |
+|  [07]   | `RgbConfiguration.Aces20651`   | static preset    | ACES 2065-1               |
+|  [08]   | `RgbConfiguration.Acescg`      | static preset    | ACEScg scene-linear AP1   |
+|  [09]   | `RgbConfiguration..ctor`       | custom primaries | RGB working space         |
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE] | [CAPABILITY]      |
 | :-----: | :--------------------- | :----------- | :---------------- |
-|   [1]   | `XyzConfiguration.D65` | D65 preset   | default white     |
-|   [2]   | `XyzConfiguration.D50` | D50 preset   | ICC profile white |
+|  [01]   | `XyzConfiguration.D65` | D65 preset   | default white     |
+|  [02]   | `XyzConfiguration.D50` | D50 preset   | ICC profile white |
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE] | [CAPABILITY]    |
 | :-----: | :---------------------- | :----------- | :-------------- |
-|   [1]   | `DynamicRange.Standard` | SDR preset   | standard range  |
-|   [2]   | `DynamicRange.High`     | HDR preset   | HDR default     |
-|   [3]   | `DynamicRange..ctor`    | range ctor   | custom HDR span |
+|  [01]   | `DynamicRange.Standard` | SDR preset   | standard range  |
+|  [02]   | `DynamicRange.High`     | HDR preset   | HDR default     |
+|  [03]   | `DynamicRange..ctor`    | range ctor   | custom HDR span |
 
 [PUBLIC_TYPE_SCOPE]: Spd, GamutMap, Chromaticity, WhitePoint
 - rail: colour
@@ -192,40 +192,40 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 
 | [INDEX] | [SURFACE]   | [CALL_SHAPE]         | [CAPABILITY]             |
 | :-----: | :---------- | :------------------- | :----------------------- |
-|   [1]   | `Spd..ctor` | coefficient ctor     | #PHOTOMETRIC custom SPD  |
-|   [2]   | `Spd.D65`   | static SPD reference | D65 reference illuminant |
+|  [01]   | `Spd..ctor` | coefficient ctor     | #PHOTOMETRIC custom SPD  |
+|  [02]   | `Spd.D65`   | static SPD reference | D65 reference illuminant |
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]      | [CAPABILITY]              |
 | :-----: | :------------------------------ | :---------------- | :------------------------ |
-|   [1]   | `GamutMap.RgbClipping`          | channel clipping  | fast gamut clamp          |
-|   [2]   | `GamutMap.OklchChromaReduction` | chroma reduction  | perceptual gamut mapping  |
-|   [3]   | `GamutMap.WxyPurityReduction`   | purity reduction  | spectral gamut mapping    |
-|   [4]   | `Unicolour.Mix`                 | interpolation     | single mixed colour       |
-|   [5]   | `Unicolour.Palette`             | interpolation set | generated colour sequence |
+|  [01]   | `GamutMap.RgbClipping`          | channel clipping  | fast gamut clamp          |
+|  [02]   | `GamutMap.OklchChromaReduction` | chroma reduction  | perceptual gamut mapping  |
+|  [03]   | `GamutMap.WxyPurityReduction`   | purity reduction  | spectral gamut mapping    |
+|  [04]   | `Unicolour.Mix`                 | interpolation     | single mixed colour       |
+|  [05]   | `Unicolour.Palette`             | interpolation set | generated colour sequence |
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]       | [CAPABILITY]                        |
 | :-----: | :-------------------------- | :----------------- | :---------------------------------- |
-|   [1]   | `Chromaticity`              | chromaticity value | white point and wavelength geometry |
-|   [2]   | `Chromaticity.FromUv(u, v)` | static conversion  | UCS conversion                      |
+|  [01]   | `Chromaticity`              | chromaticity value | white point and wavelength geometry |
+|  [02]   | `Chromaticity.FromUv(u, v)` | static conversion  | UCS conversion                      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Unicolour — primary operations
 - rail: colour
 
 | [INDEX] | [SURFACE]                                             | [CALL_SHAPE]                             | [RAIL]                            |
 | :-----: | :---------------------------------------------------- | :--------------------------------------- | :-------------------------------- |
-|   [1]   | `new Unicolour(ColourSpace, double, double, double)`  | ctor                                     | colour construction               |
-|   [2]   | `new Unicolour(Configuration, ColourSpace, ...)`      | ctor                                     | custom working-space construction |
-|   [3]   | `new Unicolour(string hex)`                           | ctor                                     | hex intake                        |
-|   [4]   | `new Unicolour(Spd)`                                  | ctor                                     | spectral intake                   |
-|   [5]   | `new Unicolour(Pigment[], double[])`                  | ctor                                     | Kubelka-Munk mix                  |
-|   [6]   | `Unicolour.Difference(Unicolour, DeltaE)`             | instance call → `double`                 | perceptual delta                  |
-|   [7]   | `Unicolour.Contrast(Unicolour)`                       | instance call → `double`                 | WCAG contrast                     |
-|   [8]   | `Unicolour.Mix(Unicolour, ColourSpace, double, ...)`  | instance call → `Unicolour`              | interpolation                     |
-|   [9]   | `Unicolour.Palette(Unicolour, ColourSpace, int, ...)` | instance call → `IEnumerable<Unicolour>` | palette generation                |
+|  [01]   | `new Unicolour(ColourSpace, double, double, double)`  | ctor                                     | colour construction               |
+|  [02]   | `new Unicolour(Configuration, ColourSpace, ...)`      | ctor                                     | custom working-space construction |
+|  [03]   | `new Unicolour(string hex)`                           | ctor                                     | hex intake                        |
+|  [04]   | `new Unicolour(Spd)`                                  | ctor                                     | spectral intake                   |
+|  [05]   | `new Unicolour(Pigment[], double[])`                  | ctor                                     | Kubelka-Munk mix                  |
+|  [06]   | `Unicolour.Difference(Unicolour, DeltaE)`             | instance call → `double`                 | perceptual delta                  |
+|  [07]   | `Unicolour.Contrast(Unicolour)`                       | instance call → `double`                 | WCAG contrast                     |
+|  [08]   | `Unicolour.Mix(Unicolour, ColourSpace, double, ...)`  | instance call → `Unicolour`              | interpolation                     |
+|  [09]   | `Unicolour.Palette(Unicolour, ColourSpace, int, ...)` | instance call → `IEnumerable<Unicolour>` | palette generation                |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COLOUR_TOPOLOGY]:
 - namespace: `Wacton.Unicolour`
@@ -256,15 +256,15 @@ All `Unicolour` construction routes are on `Wacton.Unicolour.Unicolour`. Alpha d
 
 | [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                 | [CAPABILITY]                          |
 | :-----: | :------------------------------------------ | :--------------------------- | :------------------------------------ |
-|   [1]   | `Unicolour(ColourSpace, …)`                 | space triple ctor            | COLOR_SPACE_AXIS construction         |
-|   [2]   | `Unicolour(ColourSpace, …)`                 | space tuple ctor             | tuple-based colour construction       |
-|   [3]   | `Unicolour(Configuration, ColourSpace, …)`  | configured space ctor        | custom working-space construction     |
-|   [4]   | `Unicolour(string hex)`                     | hex ctor                     | hex intake                            |
-|   [5]   | `Unicolour(Configuration, string hex)`      | configured hex ctor          | hex intake in a custom working space  |
-|   [6]   | `Unicolour(ColourSpace, double grey, …)`    | grey ctor                    | single-channel construction           |
-|   [7]   | `Unicolour(Chromaticity, …)`                | chromaticity ctor            | #PHOTOMETRIC white-point construction |
-|   [8]   | `Unicolour(Configuration, Chromaticity, …)` | configured chromaticity ctor | custom white-point construction       |
-|   [9]   | `Unicolour(double cct, Locus, …)`           | CCT ctor                     | #PHOTOMETRIC blackbody                |
+|  [01]   | `Unicolour(ColourSpace, …)`                 | space triple ctor            | COLOR_SPACE_AXIS construction         |
+|  [02]   | `Unicolour(ColourSpace, …)`                 | space tuple ctor             | tuple-based colour construction       |
+|  [03]   | `Unicolour(Configuration, ColourSpace, …)`  | configured space ctor        | custom working-space construction     |
+|  [04]   | `Unicolour(string hex)`                     | hex ctor                     | hex intake                            |
+|  [05]   | `Unicolour(Configuration, string hex)`      | configured hex ctor          | hex intake in a custom working space  |
+|  [06]   | `Unicolour(ColourSpace, double grey, …)`    | grey ctor                    | single-channel construction           |
+|  [07]   | `Unicolour(Chromaticity, …)`                | chromaticity ctor            | #PHOTOMETRIC white-point construction |
+|  [08]   | `Unicolour(Configuration, Chromaticity, …)` | configured chromaticity ctor | custom white-point construction       |
+|  [09]   | `Unicolour(double cct, Locus, …)`           | CCT ctor                     | #PHOTOMETRIC blackbody                |
 |  [10]   | `Unicolour(Spd)`                            | SPD ctor                     | spectral power distribution to XYZ    |
 |  [11]   | `Unicolour(Configuration, Spd)`             | configured SPD ctor          | custom spectral intake                |
 |  [12]   | `Unicolour(Pigment[], double[])`            | pigment mix ctor             | Kubelka-Munk pigment mixing           |
@@ -338,11 +338,11 @@ Entry point: `double Unicolour.Difference(Unicolour reference, DeltaE deltaE)` a
 
 | [INDEX] | [SURFACE]                    | [TYPE_FAMILY]      | [CAPABILITY]         |
 | :-----: | :--------------------------- | :----------------- | :------------------- |
-|   [1]   | `Configuration.Default`      | static preset      | baseline policy      |
-|   [2]   | `Configuration..ctor`        | configuration ctor | custom working space |
-|   [3]   | `Configuration.Rgb`          | property           | RGB working space    |
-|   [4]   | `Configuration.Xyz`          | property           | XYZ working space    |
-|   [5]   | `Configuration.DynamicRange` | property           | HDR/SDR tone policy  |
+|  [01]   | `Configuration.Default`      | static preset      | baseline policy      |
+|  [02]   | `Configuration..ctor`        | configuration ctor | custom working space |
+|  [03]   | `Configuration.Rgb`          | property           | RGB working space    |
+|  [04]   | `Configuration.Xyz`          | property           | XYZ working space    |
+|  [05]   | `Configuration.DynamicRange` | property           | HDR/SDR tone policy  |
 
 ---
 
@@ -352,15 +352,15 @@ Static presets on `RgbConfiguration` keep exact capitalization. The custom const
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]     | [CAPABILITY]                |
 | :-----: | :----------------------- | :--------------- | :-------------------------- |
-|   [1]   | `StandardRgb`            | static preset    | sRGB / COLOR_SPACE_AXIS     |
-|   [2]   | `DisplayP3`              | static preset    | COLOR_SPACE_AXIS display-p3 |
-|   [3]   | `Rec2020`                | static preset    | COLOR_SPACE_AXIS rec2020    |
-|   [4]   | `Rec2100Pq`              | static preset    | #PHOTOMETRIC PQ transfer    |
-|   [5]   | `Rec2100Hlg`             | static preset    | #PHOTOMETRIC HLG transfer   |
-|   [6]   | `A98`                    | static preset    | Adobe RGB                   |
-|   [7]   | `ProPhoto`               | static preset    | ProPhoto / ROMM RGB         |
-|   [8]   | `Aces20651`              | static preset    | ACES 2065-1 scene-linear    |
-|   [9]   | `Acescg`                 | static preset    | ACEScg scene-linear AP1     |
+|  [01]   | `StandardRgb`            | static preset    | sRGB / COLOR_SPACE_AXIS     |
+|  [02]   | `DisplayP3`              | static preset    | COLOR_SPACE_AXIS display-p3 |
+|  [03]   | `Rec2020`                | static preset    | COLOR_SPACE_AXIS rec2020    |
+|  [04]   | `Rec2100Pq`              | static preset    | #PHOTOMETRIC PQ transfer    |
+|  [05]   | `Rec2100Hlg`             | static preset    | #PHOTOMETRIC HLG transfer   |
+|  [06]   | `A98`                    | static preset    | Adobe RGB                   |
+|  [07]   | `ProPhoto`               | static preset    | ProPhoto / ROMM RGB         |
+|  [08]   | `Aces20651`              | static preset    | ACES 2065-1 scene-linear    |
+|  [09]   | `Acescg`                 | static preset    | ACEScg scene-linear AP1     |
 |  [10]   | `Acescct`                | static preset    | ACEScct log                 |
 |  [11]   | `Acescc`                 | static preset    | ACEScc log                  |
 |  [12]   | `Rec709`                 | static preset    | Rec.709 RGB                 |
@@ -374,11 +374,11 @@ Static presets on `RgbConfiguration` keep exact capitalization. The custom const
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]         | [CAPABILITY]              |
 | :-----: | :---------------------------- | :------------------- | :------------------------ |
-|   [1]   | `XyzConfiguration.D65`        | static preset        | default white             |
-|   [2]   | `XyzConfiguration.D50`        | static preset        | ICC profile white         |
-|   [3]   | `XyzConfiguration..ctor`      | custom configuration | #PHOTOMETRIC custom white |
-|   [4]   | `XyzConfiguration.WhitePoint` | property             | white-point policy        |
-|   [5]   | `XyzConfiguration.Observer`   | property             | CIE observer policy       |
+|  [01]   | `XyzConfiguration.D65`        | static preset        | default white             |
+|  [02]   | `XyzConfiguration.D50`        | static preset        | ICC profile white         |
+|  [03]   | `XyzConfiguration..ctor`      | custom configuration | #PHOTOMETRIC custom white |
+|  [04]   | `XyzConfiguration.WhitePoint` | property             | white-point policy        |
+|  [05]   | `XyzConfiguration.Observer`   | property             | CIE observer policy       |
 
 ---
 
@@ -388,11 +388,11 @@ Static presets on `RgbConfiguration` keep exact capitalization. The custom const
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]  | [CAPABILITY]      |
 | :-----: | :---------------------------- | :------------ | :---------------- |
-|   [1]   | `DynamicRange.Standard`       | static preset | SDR range         |
-|   [2]   | `DynamicRange.High`           | static preset | HDR default range |
-|   [3]   | `DynamicRange..ctor`          | range ctor    | custom HDR range  |
-|   [4]   | `DynamicRange.WhiteLuminance` | property      | reference white   |
-|   [5]   | `DynamicRange.MaxLuminance`   | property      | maximum luminance |
+|  [01]   | `DynamicRange.Standard`       | static preset | SDR range         |
+|  [02]   | `DynamicRange.High`           | static preset | HDR default range |
+|  [03]   | `DynamicRange..ctor`          | range ctor    | custom HDR range  |
+|  [04]   | `DynamicRange.WhiteLuminance` | property      | reference white   |
+|  [05]   | `DynamicRange.MaxLuminance`   | property      | maximum luminance |
 
 `Rec2100Pq` and `Rec2100Hlg` use the `FromLinear`/`ToLinear` delegates that call into internal `Pq` and `Hlg` OETF/EOTF kernels, scaled by `DynamicRange.WhiteLuminance / 203` at construction. The tone-curve math is inside the library; the consumer sets `DynamicRange` in `Configuration` only.
 
@@ -404,10 +404,10 @@ Static presets on `RgbConfiguration` keep exact capitalization. The custom const
 
 | [INDEX] | [SURFACE]     | [CALL_SHAPE]        | [CAPABILITY]                       |
 | :-----: | :------------ | :------------------ | :--------------------------------- |
-|   [1]   | `Spd..ctor`   | coefficient ctor    | #PHOTOMETRIC custom illuminant SPD |
-|   [2]   | `Spd.D65`     | static SPD          | D65 reference illuminant           |
-|   [3]   | `Spd.IsValid` | property            | interval validation                |
-|   [4]   | `Xyz.FromSpd` | internal conversion | SPD-to-XYZ projection              |
+|  [01]   | `Spd..ctor`   | coefficient ctor    | #PHOTOMETRIC custom illuminant SPD |
+|  [02]   | `Spd.D65`     | static SPD          | D65 reference illuminant           |
+|  [03]   | `Spd.IsValid` | property            | interval validation                |
+|  [04]   | `Xyz.FromSpd` | internal conversion | SPD-to-XYZ projection              |
 
 **SPD construction path:** `new Unicolour(Configuration, Spd)` → internal `SpdToXyzTuple` → `Xyz.FromSpd(spd, xyzConfig.Observer, xyzConfig.WhitePoint)` → XYZ triplet. The reflectance → XYZ path uses `Pigment[]`/`KubelkaMunk` with `Spd` illuminant, not the `Spd` ctor directly.
 
@@ -419,14 +419,14 @@ Static presets on `RgbConfiguration` keep exact capitalization. The custom const
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]             |
 | :-----: | :------------------------------ | :--------------- | :----------------------- |
-|   [1]   | `GamutMap.RgbClipping`          | channel clipping | fast clamp               |
-|   [2]   | `GamutMap.OklchChromaReduction` | chroma reduction | perceptual quality       |
-|   [3]   | `GamutMap.WxyPurityReduction`   | purity reduction | spectral gamut reduction |
+|  [01]   | `GamutMap.RgbClipping`          | channel clipping | fast clamp               |
+|  [02]   | `GamutMap.OklchChromaReduction` | chroma reduction | perceptual quality       |
+|  [03]   | `GamutMap.WxyPurityReduction`   | purity reduction | spectral gamut reduction |
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]      | [CAPABILITY]              |
 | :-----: | :------------------ | :---------------- | :------------------------ |
-|   [1]   | `Unicolour.Mix`     | interpolation     | single colour output      |
-|   [2]   | `Unicolour.Palette` | interpolation set | generated colour sequence |
+|  [01]   | `Unicolour.Mix`     | interpolation     | single colour output      |
+|  [02]   | `Unicolour.Palette` | interpolation set | generated colour sequence |
 
 Gamut mapping is exposed only through `GamutMapping.ToRgbGamut` (internal static). Public access is via `Unicolour.IsInRgbGamut` check + `Mix`/`Palette` for interpolated output, or by constructing with a mapped space. No public `MapToGamut` instance method exists — the three `GamutMap` rows feed only the internal `GamutMapping` kernel.
 
@@ -438,8 +438,8 @@ Gamut mapping is exposed only through `GamutMapping.ToRgbGamut` (internal static
 
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]       | [CAPABILITY]                        |
 | :-----: | :--------------------------------------- | :----------------- | :---------------------------------- |
-|   [1]   | `Chromaticity`                           | chromaticity value | white-point and wavelength geometry |
-|   [2]   | `Chromaticity.FromUv(u, v)`              | static conversion  | UCS conversion                      |
-|   [3]   | `WhitePoint`                             | wrapper class      | illuminant white point              |
-|   [4]   | `Illuminant.D65` / `Illuminant.D50`      | static illuminants | standard white points               |
-|   [5]   | `Observer.Degree2` / `Observer.Degree10` | static observers   | CIE observer selection              |
+|  [01]   | `Chromaticity`                           | chromaticity value | white-point and wavelength geometry |
+|  [02]   | `Chromaticity.FromUv(u, v)`              | static conversion  | UCS conversion                      |
+|  [03]   | `WhitePoint`                             | wrapper class      | illuminant white point              |
+|  [04]   | `Illuminant.D65` / `Illuminant.D50`      | static illuminants | standard white points               |
+|  [05]   | `Observer.Degree2` / `Observer.Degree10` | static observers   | CIE observer selection              |

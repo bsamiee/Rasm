@@ -2,11 +2,11 @@
 
 The one unit-bearing uncertain-quantity owner. `UncertainQuantity` threads a correlated `uncertainties.UFloat` magnitude through the pint unit algebra via the native `pint.Measurement` bridge, so unit conversion and first-order error propagation compose on one value. `PropagationMode` discriminates a scalar magnitude, a correlated vector sharing one covariance, and an expression propagated through the uncertainties graph. The owner recovers the joint covariance and correlation provenance after propagation. pint and uncertainties are both cp315-clean, so this owner is reflected; linear first-order propagation is the boundary, and a large-uncertainty regime routes to the study Monte-Carlo sampler.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUANTITY]: correlated first-order uncertainty threaded through the pint unit algebra on one `UncertainQuantity` owner.
+- [01]-[QUANTITY]: correlated first-order uncertainty threaded through the pint unit algebra on one `UncertainQuantity` owner.
 
-## [2]-[QUANTITY]
+## [02]-[QUANTITY]
 
 - Owner: `UncertainQuantity` — the ONE quantity-evidence owner threading correlated uncertainty through the pint unit algebra; a `pint.Measurement` (value-and-error `Quantity` over the shared `UnitRegistry`) carries the unit dimension and the `uncertainties.UFloat` magnitude in one object, so unit conversion and first-order propagation compose on the same value. `Magnitude` discriminates a scalar `UFloat` from a correlated cell carrying its peer tags; `PropagationMode` discriminates the propagation across scalar, correlated, and expression cases. No parallel uncertain type stands beside the unit-bearing one.
 - Entry: `UncertainQuantity.of` admits a nominal, standard deviation, and unit into a `pint.Measurement` and returns `RuntimeRail[UncertainQuantity]`; `correlated` admits a vector with one shared covariance through `uncertainties.correlated_values`; `convert` runs the pint conversion preserving the relative error; `propagate` folds a derived expression through the uncertainties graph with the standard deviation flowing by the chain rule; `claim` projects the unit dimension, nominal, standard deviation, relative error, and correlation provenance into a `QuantityReceipt`.
@@ -174,7 +174,7 @@ def correlation_provenance(quantities: Sequence[UncertainQuantity]) -> RuntimeRa
     return boundary("quantity.correlation", lambda: np.asarray(correlation_matrix([q.magnitude.cell for q in quantities]), dtype=np.float64))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [PINT_MEASUREMENT]: `pint` and `uncertainties` are cp315-clean and reflected; the `pint.Measurement(value, error, units)` value-and-error bridge, `Quantity.to`/`.dimensionality`/`.magnitude`/`.units`, `DimensionalityError`, and the `ufloat`/`correlated_values(nominals, covariance, tags=...)`/`covariance_matrix`/`correlation_matrix`/`wrap`/`umath` spellings plus `UFloat.nominal_value`/`.std_dev`/`.error_components` verify against the `.api` catalogue.
 - [MONTE_CARLO_BRIDGE]: the large-uncertainty regime routes to the GUM-supplement-1 Monte-Carlo path on the `experiments/study.md#STUDY` sampler rather than a parallel surrogate; `mcerp` Monte-Carlo and `soerp` second-order propagation are candidate study-method bridges verified against the `.api` catalogue once admitted.

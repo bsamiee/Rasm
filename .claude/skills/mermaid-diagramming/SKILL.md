@@ -28,7 +28,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 - *[CHARTS]* — Pie, quadrant, sankey, xy, radar, gantt, treemap. Load for: data visualization, project timelines.
 - *[ARCHITECTURE]* — C4, architecture-beta, packet-beta, timeline, gitgraph, kanban. Load for: system views, infrastructure, network protocols, version control flow, project boards.
 
-## [1]-[INSTRUCTIONS]
+## [01]-[INSTRUCTIONS]
 
 **Required Tasks:**
 1. Read [→global-config.md](./references/global-config.md): Frontmatter YAML, ELK layout (required for ALL diagrams).
@@ -37,18 +37,18 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 
 **References:**
 
-| Domain        | File                                                                   |
-| ------------- | ---------------------------------------------------------------------- |
-| Configuration | [global-config.md](references/global-config.md)                        |
-| Styling       | [styling.md](references/styling.md)                                    |
-| Validation    | [validation.md](references/validation.md)                              |
-| Graph         | [graph.md](references/graph.md)                                        |
-| Interaction   | [interaction.md](references/interaction.md)                            |
-| Modeling      | [modeling.md](references/modeling.md)                                  |
-| Charts        | [charts.md](references/charts.md)                                      |
-| Architecture  | [architecture.md](references/architecture.md)                          |
+| Domain        | File                                                                     |
+| ------------- | ------------------------------------------------------------------------ |
+| Configuration | [global-config.md](references/global-config.md)                          |
+| Styling       | [styling.md](references/styling.md)                                      |
+| Validation    | [validation.md](references/validation.md)                                |
+| Graph         | [graph.md](references/graph.md)                                          |
+| Interaction   | [interaction.md](references/interaction.md)                              |
+| Modeling      | [modeling.md](references/modeling.md)                                    |
+| Charts        | [charts.md](references/charts.md)                                        |
+| Architecture  | [architecture.md](references/architecture.md)                            |
 | Template      | [architecture-beta.template.md](templates/architecture-beta.template.md) |
-| Template      | [c4-container.template.md](templates/c4-container.template.md)         |
+| Template      | [c4-container.template.md](templates/c4-container.template.md)           |
 
 **Guidance:**
 - `Config First` — Frontmatter YAML must precede diagram declaration. Mermaid parses config before nodes.
@@ -59,7 +59,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 - *Load Sequence* — global-config.md → styling.md → {category}.md → compose. Never skip configuration.
 - *Frontmatter Only* — `%%{init:...}%%` directives deprecated v10.5.0. Use YAML frontmatter exclusively.
 
-## [2]-[DIAGRAM_SELECTION]
+## [02]-[DIAGRAM_SELECTION]
 
 | [CATEGORY]   | [TYPES]                                              | [REFERENCE]                                      |
 | :----------- | ---------------------------------------------------- | ------------------------------------------------ |
@@ -73,15 +73,15 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 
 | [INDEX] | [TYPE]       | [HEADER]             | [DIR] | [CATEGORY]   |
 | :-----: | ------------ | -------------------- | :---: | ------------ |
-|   [1]   | Flowchart    | `flowchart LR`       |  LR   | Graph        |
-|   [2]   | Mindmap      | `mindmap`            |   —   | Graph        |
-|   [3]   | Block        | `block-beta`         |   —   | Graph        |
-|   [4]   | Sequence     | `sequenceDiagram`    |  TB   | Interaction  |
-|   [5]   | Journey      | `journey`            |   —   | Interaction  |
-|   [6]   | State        | `stateDiagram-v2`    |  TB   | Modeling     |
-|   [7]   | ER           | `erDiagram`          |  LR   | Modeling     |
-|   [8]   | Class        | `classDiagram`       |  TB   | Modeling     |
-|   [9]   | Requirement  | `requirementDiagram` |   —   | Modeling     |
+|  [01]   | Flowchart    | `flowchart LR`       |  LR   | Graph        |
+|  [02]   | Mindmap      | `mindmap`            |   —   | Graph        |
+|  [03]   | Block        | `block-beta`         |   —   | Graph        |
+|  [04]   | Sequence     | `sequenceDiagram`    |  TB   | Interaction  |
+|  [05]   | Journey      | `journey`            |   —   | Interaction  |
+|  [06]   | State        | `stateDiagram-v2`    |  TB   | Modeling     |
+|  [07]   | ER           | `erDiagram`          |  LR   | Modeling     |
+|  [08]   | Class        | `classDiagram`       |  TB   | Modeling     |
+|  [09]   | Requirement  | `requirementDiagram` |   —   | Modeling     |
 |  [10]   | Pie          | `pie`                |   —   | Charts       |
 |  [11]   | Quadrant     | `quadrantChart`      |   —   | Charts       |
 |  [12]   | Sankey       | `sankey-beta`        |   —   | Charts       |
@@ -103,7 +103,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 **Best-Practices:**
 - *Category Match* — Select by primary concern: flow→Graph, time→Interaction, structure→Modeling, data→Charts, system→Architecture.
 
-## [3]-[VALIDATION]
+## [03]-[VALIDATION]
 
 [VERIFY] Before diagram creation:
 - [ ] Frontmatter: valid YAML with `config:` key (before diagram declaration).

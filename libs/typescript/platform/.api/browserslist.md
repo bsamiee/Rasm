@@ -2,7 +2,7 @@
 
 `browserslist` resolves browser queries (e.g. `> 0.5%, last 2 versions, not dead`) to a flat list of `"browser version"` strings in Can I Use format, consumed by build tooling (Vite `target`, Lightning CSS, PostCSS Autoprefixer) to derive the supported browser set from `.browserslistrc`, `package.json#browserslist`, or the `BROWSERSLIST` environment variable.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `browserslist`
 - package: `browserslist`
@@ -10,57 +10,57 @@
 - asset: runtime library + build-tool integration
 - rail: browser-target
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration and query types
 - rail: browser-target
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [RAIL]                                     |
 | :-----: | :------------------ | :---------------- | :----------------------------------------- |
-|   [1]   | `Options`           | options interface | query execution options (path, env, stats) |
-|   [2]   | `Query`             | query AST node    | `compose`, `type`, `query`, `not` fields   |
-|   [3]   | `Config`            | config map        | `defaults` + named environment sections    |
-|   [4]   | `LoadConfigOptions` | load options      | `config`, `path`, `env` for `loadConfig`   |
-|   [5]   | `StatsOptions`      | stats union       | string path, `'my stats'`, Stats object    |
+|  [01]   | `Options`           | options interface | query execution options (path, env, stats) |
+|  [02]   | `Query`             | query AST node    | `compose`, `type`, `query`, `not` fields   |
+|  [03]   | `Config`            | config map        | `defaults` + named environment sections    |
+|  [04]   | `LoadConfigOptions` | load options      | `config`, `path`, `env` for `loadConfig`   |
+|  [05]   | `StatsOptions`      | stats union       | string path, `'my stats'`, Stats object    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: default function
 - rail: browser-target
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                                  |
 | :-----: | :------------------------------ | :------------- | :-------------------------------------- |
-|   [1]   | `browserslist(queries?, opts?)` | resolver       | `string[]` of `"browser version"` pairs |
+|  [01]   | `browserslist(queries?, opts?)` | resolver       | `string[]` of `"browser version"` pairs |
 
 [ENTRYPOINT_SCOPE]: static namespace utilities
 - rail: browser-target
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                     |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------------------- |
-|   [1]   | `browserslist.coverage(browsers, stats?)` | coverage query | aggregate market share percentage          |
-|   [2]   | `browserslist.parse(queries?, opts?)`     | query parser   | `Query[]` AST without execution            |
-|   [3]   | `browserslist.loadConfig(options)`        | config loader  | raw query strings from nearest config file |
-|   [4]   | `browserslist.clearCaches()`              | cache reset    | clear internal can-i-use and config caches |
-|   [5]   | `browserslist.parseConfig(string)`        | config parser  | `Config` from raw config file content      |
-|   [6]   | `browserslist.readConfig(file)`           | config reader  | `Config` from file path                    |
-|   [7]   | `browserslist.findConfig(...segments)`    | config finder  | `Config \| undefined` from path segments   |
-|   [8]   | `browserslist.findConfigFile(...segs)`    | config finder  | config file path string or `undefined`     |
+|  [01]   | `browserslist.coverage(browsers, stats?)` | coverage query | aggregate market share percentage          |
+|  [02]   | `browserslist.parse(queries?, opts?)`     | query parser   | `Query[]` AST without execution            |
+|  [03]   | `browserslist.loadConfig(options)`        | config loader  | raw query strings from nearest config file |
+|  [04]   | `browserslist.clearCaches()`              | cache reset    | clear internal can-i-use and config caches |
+|  [05]   | `browserslist.parseConfig(string)`        | config parser  | `Config` from raw config file content      |
+|  [06]   | `browserslist.readConfig(file)`           | config reader  | `Config` from file path                    |
+|  [07]   | `browserslist.findConfig(...segments)`    | config finder  | `Config \| undefined` from path segments   |
+|  [08]   | `browserslist.findConfigFile(...segs)`    | config finder  | config file path string or `undefined`     |
 
 [ENTRYPOINT_SCOPE]: environment variables (NodeJS.ProcessEnv augmentation)
 - rail: browser-target
 
 | [INDEX] | [SYMBOL]                        | [ENTRY_FAMILY] | [RAIL]                                   |
 | :-----: | :------------------------------ | :------------- | :--------------------------------------- |
-|   [1]   | `BROWSERSLIST`                  | env override   | overrides the query directly             |
-|   [2]   | `BROWSERSLIST_CONFIG`           | env override   | path to explicit config file             |
-|   [3]   | `BROWSERSLIST_ENV`              | env override   | selects named config environment section |
-|   [4]   | `BROWSERSLIST_ROOT_PATH`        | env override   | pins config search root in monorepos     |
-|   [5]   | `BROWSERSLIST_DISABLE_CACHE`    | env flag       | disables can-i-use data caching          |
-|   [6]   | `BROWSERSLIST_IGNORE_OLD_DATA`  | env flag       | suppresses stale can-i-use data warnings |
-|   [7]   | `BROWSERSLIST_DANGEROUS_EXTEND` | env flag       | allows third-party config extends        |
-|   [8]   | `BROWSERSLIST_STATS`            | env override   | path or object for custom usage stats    |
+|  [01]   | `BROWSERSLIST`                  | env override   | overrides the query directly             |
+|  [02]   | `BROWSERSLIST_CONFIG`           | env override   | path to explicit config file             |
+|  [03]   | `BROWSERSLIST_ENV`              | env override   | selects named config environment section |
+|  [04]   | `BROWSERSLIST_ROOT_PATH`        | env override   | pins config search root in monorepos     |
+|  [05]   | `BROWSERSLIST_DISABLE_CACHE`    | env flag       | disables can-i-use data caching          |
+|  [06]   | `BROWSERSLIST_IGNORE_OLD_DATA`  | env flag       | suppresses stale can-i-use data warnings |
+|  [07]   | `BROWSERSLIST_DANGEROUS_EXTEND` | env flag       | allows third-party config extends        |
+|  [08]   | `BROWSERSLIST_STATS`            | env override   | path or object for custom usage stats    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [QUERY_TOPOLOGY]:
 - `null` or omitted `queries` falls back to the project config or the `defaults` query

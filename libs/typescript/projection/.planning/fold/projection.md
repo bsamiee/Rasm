@@ -2,12 +2,12 @@
 
 `Projection<A>` is the one `Subscribable<A>` read face every store exposes — the `{ get, changes }` contract the `@effect-atom/atom` bridge consumes verbatim through `Atom.subscribable`, lifting any store's raw `SubscriptionRef` into a derived concept the `ui` boundary binds without reaching the ref interior. `projectStore` is the single lift that turns a `SubscriptionRef<HashMap>` into its baseline `Projection`; `derive` is the single combinator that maps one `Projection` into a projected view — a filtered map, a sorted slice, a scalar gate — as one new `Projection` carrying its own `get` snapshot and `changes` stream. Every store in the folder (`feedStore` of `evidence/cells#LIVE_CELLS`, `causalStore` of `causality/vector#VERSION_VECTOR`, the `convergence/merge#LWW_MERGE` CRDT fold, `availabilityStore` of `evidence/availability#AVAILABILITY_GATE`, the `evidence/correlation#EVIDENCE` projection, `queryStore` of `query/reactive#REACTIVE_QUERY`) presents its read as one `Projection` row, and every derived read the `ui` would otherwise recombine at the bind site is one `derive` row at the `projection` altitude — the `projection` half of the branch `ONE_FOLD_ONE_BINDING` concert. The face dials no transport, owns no fold, and adds no second snapshot: the `changes` stream is the store's own `SubscriptionRef.changes`, deduplicated by `Stream.changes`, never a re-fold.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROJECTION]: `Projection<A>` — the `Subscribable<A>` read alias; `projectStore`, `derive`, and `deriveEffect` lift, compose, and snapshot stores into `Projection` surfaces.
-- [2]-[BINDING_SEAM]: The `Atom.subscribable` consumer contract — the bind law the `Projection` face produces against and the boundary discipline that keeps the raw `SubscriptionRef` interior off the bind site.
+- [01]-[PROJECTION]: `Projection<A>` — the `Subscribable<A>` read alias; `projectStore`, `derive`, and `deriveEffect` lift, compose, and snapshot stores into `Projection` surfaces.
+- [02]-[BINDING_SEAM]: The `Atom.subscribable` consumer contract — the bind law the `Projection` face produces against and the boundary discipline that keeps the raw `SubscriptionRef` interior off the bind site.
 
-## [2]-[PROJECTION]
+## [02]-[PROJECTION]
 
 - Owner: `Projection<A>`, the type alias for `Subscribable.Subscribable<A>` — the `{ get: Effect<A>, changes: Stream<A> }` read contract — that names the folder's read face once so no store re-declares the pair; `projectStore`, the lift that reads a `SubscriptionRef<HashMap<K, V>>` and returns it as `Projection<HashMap<K, V>>` deduplicated through `Stream.changes`; `derive`, the combinator that maps one `Projection<A>` into a `Projection<B>` under a pure `view` arm, snapshotting `get` through `Effect.map` and the `changes` stream through `Stream.map` then `Stream.changes`; `deriveEffect`, the variant whose `view` arm is itself effectful, capturing the ambient context through `Effect.context` and providing it into the projected `get` (`Effect.provide`) and `changes` (`Stream.provideContext`) so the resulting `Subscribable<B, E>` carries no `R` tail.
 - Cases: a store with a stable read is one `projectStore` row; a derived read — the `availabilityStore` `isEnabled` scalar gate, the `evidenceProjection` `byContentKey` slice, an as-of projection of the keyed map — is one `derive` row whose `view` is a pure projection of the held value; a derived read whose projection requires an effect (a content-key digest assembly, a scoped lookup) is one `deriveEffect` row. `derive` never re-folds the source: it maps the held snapshot and the change events the store already emits, so the projected `changes` stream fires only when the projected value actually differs, the `Stream.changes` dedup collapsing a source event that leaves the view equal.
@@ -55,7 +55,7 @@ const deriveEffect = <A, B, E, R>(
 export { derive, deriveEffect, projectStore, type Projection };
 ```
 
-## [3]-[BINDING_SEAM]
+## [03]-[BINDING_SEAM]
 
 - Owner: the `Atom.subscribable` consumer contract — the produced read law the `ui` folder binds against. The seam is documentation of the boundary the `Projection` face produces, not an imported surface: the fold interior names `@effect-atom/atom` nowhere, and the `ui` folder names `SubscriptionRef` nowhere.
 - Cases: a store-baseline bind is `Atom.subscribable(() => projectStore(ref))`; a derived-read bind is `Atom.subscribable(() => derive(storeProjection, view))`; each binds one `Subscribable<A>` and reads its `get`/`changes` contract, never the `SubscriptionRef` `Synchronized`-ref interior (which carries `modify`/`update` write capability the read face must not surface to `ui`).

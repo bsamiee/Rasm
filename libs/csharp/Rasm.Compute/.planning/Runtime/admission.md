@@ -2,13 +2,13 @@
 
 Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec` policy record, routes it over one four-row `Substrate` axis whose availability predicates, cost ranks, payload caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[INTENT_FAMILY]: six intent cases, one shared `Spec` record, one boundary admission fold.
-- [2]-[SUBSTRATE_AXIS]: four substrate rows; predicates, ranks, caps, load, fallback as columns.
-- [3]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
+- [01]-[INTENT_FAMILY]: six intent cases, one shared `Spec` record, one boundary admission fold.
+- [02]-[SUBSTRATE_AXIS]: four substrate rows; predicates, ranks, caps, load, fallback as columns.
+- [03]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
 
-## [2]-[INTENT_FAMILY]
+## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` six cases with the nested `Spec` shared-policy record; `AdmittedIntent` admitted carrier; `IntentAdmission` boundary fold.
 - Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | Pipeline | Generate; `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`.
@@ -92,7 +92,7 @@ public static class IntentAdmission {
 }
 ```
 
-## [3]-[SUBSTRATE_AXIS]
+## [03]-[SUBSTRATE_AXIS]
 
 - Owner: `Substrate` `[SmartEnum<string>]` four rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
 - Cases: cpu-tensor, onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), genai (token-streaming over the model-lane GenAI session), remote-grpc.
@@ -179,7 +179,7 @@ public sealed partial class Substrate {
 }
 ```
 
-## [4]-[DISPATCH_SPINE]
+## [04]-[DISPATCH_SPINE]
 
 - Owner: `ComputeFault` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract in the 2200 code band beside LifecycleFault 1200 and HopFault 4500; `SelectionHop` and `SelectionReceipt` evidence records; `SubstrateSelection` ordered-predicate fold; `DispatchTable` total row dispatch.
 - Cases: Text plus the twelve domain cases SubstrateUnavailable | PayloadOverBounds | DeadlineExpired | Cancelled | ShutdownDrained | ModelRejected | ExtensionAssetMissing | EndpointUnreachable | RetryOwnerConflict | AllocationOverClass | EquivalenceMiss | CacheCorrupt.

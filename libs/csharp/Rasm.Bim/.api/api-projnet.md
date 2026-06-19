@@ -6,7 +6,7 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 `MathTransform` numeric pipeline the `Semantics/georeference#GEO_REFERENCE`
 `GEODETIC_TRANSFORM` datum-bridging cluster composes over the rigid map-conversion frame.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ProjNET`
 - package: `ProjNET`
@@ -20,7 +20,7 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 - asset: NetTopologySuite-ecosystem peer (MIT); thread-safe `CoordinateSystemServices` cache
 - rail: geometry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system services and factories
 - package: `ProjNET`
@@ -29,11 +29,11 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 
 | [INDEX] | [SYMBOL]                          | [RAIL]   | [CAPABILITY]                                                                                              |
 | :-----: | :-------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------- |
-|   [1]   | `CoordinateSystemServices`        | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`                |
-|   [2]   | `CoordinateSystemFactory`         | geometry | builds CS objects; `CreateFromWkt`, `CreateGeographicCoordinateSystem`, `CreateProjectedCoordinateSystem` |
-|   [3]   | `CoordinateTransformationFactory` | geometry | builds transformations; `CreateFromCoordinateSystems(source, target)`                                     |
-|   [4]   | `ICoordinateTransformation`       | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`                          |
-|   [5]   | `MathTransform`                   | geometry | numeric transform pipeline; `Transform`, `Inverse`, `DimSource`, `DimTarget`                              |
+|  [01]   | `CoordinateSystemServices`        | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`                |
+|  [02]   | `CoordinateSystemFactory`         | geometry | builds CS objects; `CreateFromWkt`, `CreateGeographicCoordinateSystem`, `CreateProjectedCoordinateSystem` |
+|  [03]   | `CoordinateTransformationFactory` | geometry | builds transformations; `CreateFromCoordinateSystems(source, target)`                                     |
+|  [04]   | `ICoordinateTransformation`       | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`                          |
+|  [05]   | `MathTransform`                   | geometry | numeric transform pipeline; `Transform`, `Inverse`, `DimSource`, `DimTarget`                              |
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system models and units
 - package: `ProjNET`
@@ -42,13 +42,13 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 
 | [INDEX] | [SYMBOL]                     | [RAIL]   | [CAPABILITY]                                                                                                 |
 | :-----: | :--------------------------- | :------- | :----------------------------------------------------------------------------------------------------------- |
-|   [1]   | `CoordinateSystem`           | geometry | abstract CS base; `WKT`, `Authority`, `AuthorityCode`, `Dimension`                                           |
-|   [2]   | `GeographicCoordinateSystem` | geometry | lat/lon CS; `AngularUnit`, `HorizontalDatum`, `PrimeMeridian`, static `WGS84`                                |
-|   [3]   | `ProjectedCoordinateSystem`  | geometry | planar CS; `GeographicCoordinateSystem`, `LinearUnit`, `Projection`, `WGS84_UTM(zone, north)`, `WebMercator` |
-|   [4]   | `HorizontalDatum`            | geometry | geodetic datum; `Ellipsoid`, `Wgs84Parameters` (Bursa-Wolf 7-param shift)                                    |
-|   [5]   | `Ellipsoid`                  | geometry | reference ellipsoid; `SemiMajorAxis`, `InverseFlattening`, static `WGS84`/`GRS80`                            |
-|   [6]   | `Projection`                 | geometry | map-projection parameter set; named projection + `ProjectionParameter` list                                  |
-|   [7]   | `LinearUnit` / `AngularUnit` | geometry | unit definitions; static `Metre`, `Degrees`, conversion factor                                               |
+|  [01]   | `CoordinateSystem`           | geometry | abstract CS base; `WKT`, `Authority`, `AuthorityCode`, `Dimension`                                           |
+|  [02]   | `GeographicCoordinateSystem` | geometry | lat/lon CS; `AngularUnit`, `HorizontalDatum`, `PrimeMeridian`, static `WGS84`                                |
+|  [03]   | `ProjectedCoordinateSystem`  | geometry | planar CS; `GeographicCoordinateSystem`, `LinearUnit`, `Projection`, `WGS84_UTM(zone, north)`, `WebMercator` |
+|  [04]   | `HorizontalDatum`            | geometry | geodetic datum; `Ellipsoid`, `Wgs84Parameters` (Bursa-Wolf 7-param shift)                                    |
+|  [05]   | `Ellipsoid`                  | geometry | reference ellipsoid; `SemiMajorAxis`, `InverseFlattening`, static `WGS84`/`GRS80`                            |
+|  [06]   | `Projection`                 | geometry | map-projection parameter set; named projection + `ProjectionParameter` list                                  |
+|  [07]   | `LinearUnit` / `AngularUnit` | geometry | unit definitions; static `Metre`, `Degrees`, conversion factor                                               |
 
 [PUBLIC_TYPE_SCOPE]: WKT/SRID I/O
 - package: `ProjNET`
@@ -57,10 +57,10 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 
 | [INDEX] | [SYMBOL]                    | [RAIL]   | [CAPABILITY]                                                         |
 | :-----: | :-------------------------- | :------- | :------------------------------------------------------------------- |
-|   [1]   | `CoordinateSystemWktReader` | geometry | parses an OGC WKT string into a `CoordinateSystem` (`Parse(string)`) |
-|   [2]   | `SridReader`                | geometry | SRID-to-WKT lookup from the bundled `SRID.csv` EPSG table            |
+|  [01]   | `CoordinateSystemWktReader` | geometry | parses an OGC WKT string into a `CoordinateSystem` (`Parse(string)`) |
+|  [02]   | `SridReader`                | geometry | SRID-to-WKT lookup from the bundled `SRID.csv` EPSG table            |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a transformation by EPSG/SRID
 - package: `ProjNET`
@@ -69,11 +69,11 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 
 | [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]                                                                       | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------------------------- | :--------------------------------------------- |
-|   [1]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(int srid)` → `CoordinateSystem`                                                  | resolves a CS from an EPSG/SRID code           |
-|   [2]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(string authority, long code)` → `CoordinateSystem`                               | resolves a CS by authority + code              |
-|   [3]   | `CoordinateSystemServices.CreateTransformation`               | `(int sourceSrid, int targetSrid)` → `ICoordinateTransformation`                   | builds a transformation between two SRIDs      |
-|   [4]   | `CoordinateSystemFactory.CreateFromWkt`                       | `(string wkt)` → `CoordinateSystem`                                                | parses a WKT CS definition                     |
-|   [5]   | `CoordinateTransformationFactory.CreateFromCoordinateSystems` | `(CoordinateSystem source, CoordinateSystem target)` → `ICoordinateTransformation` | builds a transformation between two CS objects |
+|  [01]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(int srid)` → `CoordinateSystem`                                                  | resolves a CS from an EPSG/SRID code           |
+|  [02]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(string authority, long code)` → `CoordinateSystem`                               | resolves a CS by authority + code              |
+|  [03]   | `CoordinateSystemServices.CreateTransformation`               | `(int sourceSrid, int targetSrid)` → `ICoordinateTransformation`                   | builds a transformation between two SRIDs      |
+|  [04]   | `CoordinateSystemFactory.CreateFromWkt`                       | `(string wkt)` → `CoordinateSystem`                                                | parses a WKT CS definition                     |
+|  [05]   | `CoordinateTransformationFactory.CreateFromCoordinateSystems` | `(CoordinateSystem source, CoordinateSystem target)` → `ICoordinateTransformation` | builds a transformation between two CS objects |
 
 [ENTRYPOINT_SCOPE]: transform coordinates
 - package: `ProjNET`
@@ -82,15 +82,15 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                    | [CAPABILITY]                                    |
 | :-----: | :---------------------------------------- | :---------------------------------------------- | :---------------------------------------------- |
-|   [1]   | `MathTransform.Transform`                 | `(double x, double y)` → `(double x, double y)` | transforms one 2D coordinate                    |
-|   [2]   | `MathTransform.Transform`                 | `(ref double x, ref double y, ref double z)`    | transforms one 3D coordinate in place           |
-|   [3]   | `MathTransform.Transform`                 | `(double[] point)` → `double[]`                 | transforms a single ordinate array              |
-|   [4]   | `MathTransform.TransformList`             | `(IList<double[]>)` → `IList<double[]>`         | transforms a batch of coordinates               |
-|   [5]   | `MathTransform.Inverse`                   | `()` → `MathTransform`                          | the reverse transform (target → source)         |
-|   [6]   | `MathTransform.DimSource`/`DimTarget`     | property                                        | source/target ordinate dimensionality           |
-|   [7]   | `ICoordinateTransformation.MathTransform` | property                                        | the numeric transform of a built transformation |
+|  [01]   | `MathTransform.Transform`                 | `(double x, double y)` → `(double x, double y)` | transforms one 2D coordinate                    |
+|  [02]   | `MathTransform.Transform`                 | `(ref double x, ref double y, ref double z)`    | transforms one 3D coordinate in place           |
+|  [03]   | `MathTransform.Transform`                 | `(double[] point)` → `double[]`                 | transforms a single ordinate array              |
+|  [04]   | `MathTransform.TransformList`             | `(IList<double[]>)` → `IList<double[]>`         | transforms a batch of coordinates               |
+|  [05]   | `MathTransform.Inverse`                   | `()` → `MathTransform`                          | the reverse transform (target → source)         |
+|  [06]   | `MathTransform.DimSource`/`DimTarget`     | property                                        | source/target ordinate dimensionality           |
+|  [07]   | `ICoordinateTransformation.MathTransform` | property                                        | the numeric transform of a built transformation |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_BOUNDARY]:
 - ships a single managed `ProjNet.dll`; no P/Invoke, no native PROJ dependency, no `runtimes/` assets

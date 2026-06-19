@@ -4,7 +4,7 @@ The domain map of `Rasm.AppHost` — the APP-PLATFORM runtime spine. One domain-
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.AppHost/
@@ -38,7 +38,7 @@ Rasm.AppHost/
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Agent/Capability.cs         →  typescript:interchange/codec         # [CONTENT_KEY]: CapabilityDescriptor command-shape
@@ -60,7 +60,7 @@ Runtime                     →  csharp:Rasm.AppUi/Editing/notebook   # [PORT]: 
 Runtime                     →  csharp:Rasm.Persistence/Query/cache  # [PORT]: TenantId RLS + cache L2 partition
 ```
 
-## [3]-[SPINE]
+## [03]-[SPINE]
 
 ```mermaid
 ---
@@ -86,7 +86,7 @@ flowchart LR
 
 `ProfileSurface.Resolve` materializes the one `ResolvedProfile` record, `ProfileBoot.Boot` configures the Generic Host builder, `ConfigSource.Compose` mounts the ranked source chain, `PolicyBinding` and `OptionsAdmission` publish validated frozen policy, `CompositionSurface.Compose` folds the module table and freezes the graph, and the `Lifecycle` cell transitions to Ready then Running. Telemetry, health, support, and outbound rails run beside the cell and surface through the seven port records; `DrainConductor.Drain` folds ranked participants into one `DrainReceipt` ending at Unloaded.
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment, host events, and app-root-only pins (OTLP exporter, the MCP HTTP transport, the WASM/industrial-protocol runtimes, Kestrel/gRPC surfaces, Serilog host bridge and sinks).
@@ -96,7 +96,7 @@ flowchart LR
 - AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
-## [5]-[PROHIBITIONS]
+## [05]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose.
 

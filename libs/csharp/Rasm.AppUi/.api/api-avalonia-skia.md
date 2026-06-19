@@ -2,7 +2,7 @@
 
 `Avalonia.Skia` supplies the Skia render backend: the `UseSkia` builder extension, `SkiaOptions`, SkiaSharp API leases, type converters, and canvas render helpers.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Skia`
 - package: `Avalonia.Skia`
@@ -13,84 +13,84 @@
 - asset: runtime library
 - rail: visuals
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [BACKEND_TYPES]: backend boot and options
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                    | [RAIL]            |
 | :-----: | :-------------------------- | :---------------- |
-|   [1]   | `SkiaApplicationExtensions` | builder extension |
-|   [2]   | `SkiaOptions`               | backend options   |
-|   [3]   | `SkiaPlatform`              | platform boot     |
+|  [01]   | `SkiaApplicationExtensions` | builder extension |
+|  [02]   | `SkiaOptions`               | backend options   |
+|  [03]   | `SkiaPlatform`              | platform boot     |
 
 [LEASE_TYPES]: SkiaSharp API lease contracts
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                             | [RAIL]             |
 | :-----: | :----------------------------------- | :----------------- |
-|   [1]   | `ISkiaSharpApiLeaseFeature`          | lease feature      |
-|   [2]   | `ISkiaSharpApiLease`                 | canvas lease       |
-|   [3]   | `ISkiaSharpPlatformGraphicsApiLease` | platform GPU lease |
+|  [01]   | `ISkiaSharpApiLeaseFeature`          | lease feature      |
+|  [02]   | `ISkiaSharpApiLease`                 | canvas lease       |
+|  [03]   | `ISkiaSharpPlatformGraphicsApiLease` | platform GPU lease |
 
 [HELPER_TYPES]: conversion and render helpers
 - rail: visuals
 
 | [INDEX] | [SYMBOL]               | [RAIL]             |
 | :-----: | :--------------------- | :----------------- |
-|   [1]   | `SkiaSharpExtensions`  | type conversion    |
-|   [2]   | `DrawingContextHelper` | visual-to-canvas   |
-|   [3]   | `ImageSavingHelper`    | `SKImage` encoding |
-|   [4]   | `PixelFormatHelper`    | format resolution  |
+|  [01]   | `SkiaSharpExtensions`  | type conversion    |
+|  [02]   | `DrawingContextHelper` | visual-to-canvas   |
+|  [03]   | `ImageSavingHelper`    | `SKImage` encoding |
+|  [04]   | `PixelFormatHelper`    | format resolution  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [BACKEND_ENTRYPOINTS]: backend boot and tuning
 - rail: visuals
 
 | [INDEX] | [SURFACE]                 | [SURFACE_ROOT]              | [RAIL]           |
 | :-----: | :------------------------ | :-------------------------- | :--------------- |
-|   [1]   | `UseSkia`                 | `SkiaApplicationExtensions` | backend select   |
-|   [2]   | `MaxGpuResourceSizeBytes` | `SkiaOptions`               | GPU cache cap    |
-|   [3]   | `UseOpacitySaveLayer`     | `SkiaOptions`               | opacity layering |
-|   [4]   | `Initialize`              | `SkiaPlatform`              | manual boot      |
-|   [5]   | `DefaultDpi`              | `SkiaPlatform`              | DPI anchor       |
+|  [01]   | `UseSkia`                 | `SkiaApplicationExtensions` | backend select   |
+|  [02]   | `MaxGpuResourceSizeBytes` | `SkiaOptions`               | GPU cache cap    |
+|  [03]   | `UseOpacitySaveLayer`     | `SkiaOptions`               | opacity layering |
+|  [04]   | `Initialize`              | `SkiaPlatform`              | manual boot      |
+|  [05]   | `DefaultDpi`              | `SkiaPlatform`              | DPI anchor       |
 
 [LEASE_ENTRYPOINTS]: raw SkiaSharp access through render interface leases
 - rail: visuals
 
 | [INDEX] | [SURFACE]                     | [SURFACE_ROOT]              | [RAIL]         |
 | :-----: | :---------------------------- | :-------------------------- | :------------- |
-|   [1]   | `Lease`                       | `ISkiaSharpApiLeaseFeature` | lease open     |
-|   [2]   | `SkCanvas`                    | `ISkiaSharpApiLease`        | raw canvas     |
-|   [3]   | `GrContext`                   | `ISkiaSharpApiLease`        | GPU context    |
-|   [4]   | `SkSurface`                   | `ISkiaSharpApiLease`        | raw surface    |
-|   [5]   | `CurrentOpacity`              | `ISkiaSharpApiLease`        | opacity state  |
-|   [6]   | `TryLeasePlatformGraphicsApi` | `ISkiaSharpApiLease`        | platform lease |
+|  [01]   | `Lease`                       | `ISkiaSharpApiLeaseFeature` | lease open     |
+|  [02]   | `SkCanvas`                    | `ISkiaSharpApiLease`        | raw canvas     |
+|  [03]   | `GrContext`                   | `ISkiaSharpApiLease`        | GPU context    |
+|  [04]   | `SkSurface`                   | `ISkiaSharpApiLease`        | raw surface    |
+|  [05]   | `CurrentOpacity`              | `ISkiaSharpApiLease`        | opacity state  |
+|  [06]   | `TryLeasePlatformGraphicsApi` | `ISkiaSharpApiLease`        | platform lease |
 
 [CONVERSION_ENTRYPOINTS]: Avalonia-to-SkiaSharp type bridges
 - rail: visuals
 
 | [INDEX] | [SURFACE]             | [SURFACE_ROOT]        | [RAIL]         |
 | :-----: | :-------------------- | :-------------------- | :------------- |
-|   [1]   | `ToSKPoint`           | `SkiaSharpExtensions` | point bridge   |
-|   [2]   | `ToSKRect`            | `SkiaSharpExtensions` | rect bridge    |
-|   [3]   | `ToSKMatrix`          | `SkiaSharpExtensions` | matrix bridge  |
-|   [4]   | `ToSKColor`           | `SkiaSharpExtensions` | color bridge   |
-|   [5]   | `ToSkColorType`       | `SkiaSharpExtensions` | pixel format   |
-|   [6]   | `ToAvaloniaRect`      | `SkiaSharpExtensions` | reverse bridge |
-|   [7]   | `ToSKSamplingOptions` | `SkiaSharpExtensions` | interpolation  |
+|  [01]   | `ToSKPoint`           | `SkiaSharpExtensions` | point bridge   |
+|  [02]   | `ToSKRect`            | `SkiaSharpExtensions` | rect bridge    |
+|  [03]   | `ToSKMatrix`          | `SkiaSharpExtensions` | matrix bridge  |
+|  [04]   | `ToSKColor`           | `SkiaSharpExtensions` | color bridge   |
+|  [05]   | `ToSkColorType`       | `SkiaSharpExtensions` | pixel format   |
+|  [06]   | `ToAvaloniaRect`      | `SkiaSharpExtensions` | reverse bridge |
+|  [07]   | `ToSKSamplingOptions` | `SkiaSharpExtensions` | interpolation  |
 
 [RENDER_ENTRYPOINTS]: visual rendering onto raw canvases
 - rail: visuals
 
 | [INDEX] | [SURFACE]             | [SURFACE_ROOT]         | [RAIL]           |
 | :-----: | :-------------------- | :--------------------- | :--------------- |
-|   [1]   | `RenderAsync`         | `DrawingContextHelper` | visual-to-canvas |
-|   [2]   | `TryCreateDashEffect` | `DrawingContextHelper` | dash effect      |
-|   [3]   | `SaveImage`           | `ImageSavingHelper`    | image encode     |
+|  [01]   | `RenderAsync`         | `DrawingContextHelper` | visual-to-canvas |
+|  [02]   | `TryCreateDashEffect` | `DrawingContextHelper` | dash effect      |
+|  [03]   | `SaveImage`           | `ImageSavingHelper`    | image encode     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BACKEND_LAW]:
 - Package: `Avalonia.Skia`

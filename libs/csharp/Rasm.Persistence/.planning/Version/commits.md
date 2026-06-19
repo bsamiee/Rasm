@@ -2,14 +2,14 @@
 
 Rasm.Persistence content-addressed history: a content-addressed commit-DAG with named branches, lightweight commits, and merge-base computation; a convergent op-based/delta-state CRDT replacing the LWW `Adjudicate` scalar with RGA sequence, add-wins observed-remove set, multi-value register, PN-counter, and LWW-by-HLC register types over the parametric DAG; an HLC `Hlc` stamp that is the one causal-ordering primitive shared by the op-log, the CRDT merge, and the wire seam; a `CrdtOpWire` op/CRDT encoding (HLC cell, op kinds, causal metadata) that amends the one-wire-vocabulary law field-for-field across the version-control owner and the AppHost wire seam; and the version-control wire projection of commit, branch, version-vector, op, conflict, blame, and Merkle range shapes. The op-log (`OpLogEntry`, HLC stamp, `Closure` manifest), the content-addressed snapshot identity (`Snapshots.ContentAddress`, `XxHash128`), the MessagePack codec profile (`ThinktectureMessageFormatterResolver`, `GeneratedMessagePackResolver`, `Lz4BlockArray`, `UntrustedData` restore lane), and the merge receipts (`ConflictReceipt`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive from AppHost. The `ContentParityCorpus` on `#CRDT_WIRE` mints the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` — the frozen HLC-cell, commit-key, CRDT-op, element-set-receipt, and embedding-seed bytes every cross-runtime parity harness reconciles against the one `XxHash128` seed.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[COMMIT_DAG]: content-addressed commit-DAG, named branches, merge-base, and version vectors.
-- [2]-[CRDT_ALGEBRA]: RGA, OR-set, MV-register, PN-counter, and LWW convergent CRDT.
-- [3]-[CRDT_WIRE]: HLC stamp, `CrdtOp` codec, and `CrdtOpWire` op-log payload amendment.
-- [4]-[TS_PROJECTION]: commit, branch, version-vector, op, conflict, blame, and Merkle wire shapes.
+- [01]-[COMMIT_DAG]: content-addressed commit-DAG, named branches, merge-base, and version vectors.
+- [02]-[CRDT_ALGEBRA]: RGA, OR-set, MV-register, PN-counter, and LWW convergent CRDT.
+- [03]-[CRDT_WIRE]: HLC stamp, `CrdtOp` codec, and `CrdtOpWire` op-log payload amendment.
+- [04]-[TS_PROJECTION]: commit, branch, version-vector, op, conflict, blame, and Merkle wire shapes.
 
-## [2]-[COMMIT_DAG]
+## [02]-[COMMIT_DAG]
 
 - Owner: `CommitNode` content-addressed commit record; `BranchRef` named-branch pointer with per-branch ACL; `VersionVector` per-origin sequence map; `MerkleRange` reconciliation node; `CommitGraph` static surface owning hash, parent-link, merge-base, vector-compare, Merkle range-fold, and the recursive anti-entropy descent.
 - Cases: `CommitGraph.Order` compares two `VersionVector` values into `Before | After | Concurrent | Equal`; `MerkleRange` folds a content-key range into one `XxHash128` digest over its sorted children so a peer compares one digest before descending, and `CommitGraph.Reconcile` recursively bisects only divergent subranges.
@@ -162,15 +162,15 @@ public static class CommitGraph {
 }
 ```
 
-| [INDEX] | [POLICY]                | [VALUE]                          | [BINDING]                                         |
-| :-----: | :---------------------- | :------------------------------- | :------------------------------------------------ |
-|   [1]   | commit column family    | `commit`                         | one `OpLogEntry` per commit on the changefeed     |
-|   [2]   | branch column family    | `branch`                         | one `OpLogEntry` per ref mutation                 |
-|   [3]   | merkle fan-out          | 16 children per range            | `CommitGraph.Fanout`                              |
-|   [4]   | merge-commit parentage  | two parents, vector join         | `VersionVector.Join` is the per-slot max          |
+| [INDEX] | [POLICY]               | [VALUE]                  | [BINDING]                                     |
+| :-----: | :--------------------- | :----------------------- | :-------------------------------------------- |
+|  [01]   | commit column family   | `commit`                 | one `OpLogEntry` per commit on the changefeed |
+|  [02]   | branch column family   | `branch`                 | one `OpLogEntry` per ref mutation             |
+|  [03]   | merkle fan-out         | 16 children per range    | `CommitGraph.Fanout`                          |
+|  [04]   | merge-commit parentage | two parents, vector join | `VersionVector.Join` is the per-slot max      |
 
 
-## [3]-[CRDT_ALGEBRA]
+## [03]-[CRDT_ALGEBRA]
 
 - Owner: `CrdtField` `[Union]` — the convergent op-based/delta-state field family carrying the six replicated data types; `CrdtOp` the delta payload an `OpLogEntry` carries; `Crdt` the merge-fold surface whose `Merge` is commutative, associative, and idempotent over the op multiset, plus the version-vector-gated tombstone compaction.
 - Cases: `LwwRegister` (last-write-wins-by-HLC scalar), `MvRegister` (concurrent-keep multi-value register), `OrSet` (add-wins observed-remove set with per-element unique tags), `PnCounter` (positive-negative per-origin counter), `RgaSequence` (replicated growable array with tombstone-stable ordering), `EphemeralMap` (the convergent presence type — an add-wins observed-remove map of `(Guid Origin) → (ReadOnlyMemory<byte> State, Hlc Cell)` whose entries self-evict at the liveness horizon so a live-multiplayer cursor/selection/camera/follow surface converges and a departed peer drops without a tombstone) on `CrdtField`; `Set | Write | Add | Remove | Increment | InsertAfter | Delete | Maintain | Beat | Leave` on `CrdtOp`.
@@ -303,17 +303,17 @@ public static class Crdt {
 }
 ```
 
-| [INDEX] | [TYPE]        | [CRDT_CLASS]                        | [CONVERGENCE]                                  |
-| :-----: | :------------ | :---------------------------------- | :--------------------------------------------- |
-|   [1]   | LwwRegister   | last-write-wins by (HLC, origin)    | total order on the stamp tuple; superset of `Adjudicate` |
-|   [2]   | MvRegister    | multi-value concurrent-keep         | causal anti-chain; dominated writes collapse   |
-|   [3]   | OrSet         | add-wins observed-remove set        | per-element tag-set union minus observed removes |
-|   [4]   | PnCounter     | positive-negative per-origin        | per-origin max of monotone partial counts      |
-|   [5]   | RgaSequence   | replicated growable array           | tombstone-stable causal order; `Compact` reclaims at quiescence |
-|   [6]   | EphemeralMap  | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Beat` supersedes, `Leave` evicts, `Compact` self-expires at the liveness horizon |
+| [INDEX] | [TYPE]       | [CRDT_CLASS]                          | [CONVERGENCE]                                                                                            |
+| :-----: | :----------- | :------------------------------------ | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | LwwRegister  | last-write-wins by (HLC, origin)      | total order on the stamp tuple; superset of `Adjudicate`                                                 |
+|  [02]   | MvRegister   | multi-value concurrent-keep           | causal anti-chain; dominated writes collapse                                                             |
+|  [03]   | OrSet        | add-wins observed-remove set          | per-element tag-set union minus observed removes                                                         |
+|  [04]   | PnCounter    | positive-negative per-origin          | per-origin max of monotone partial counts                                                                |
+|  [05]   | RgaSequence  | replicated growable array             | tombstone-stable causal order; `Compact` reclaims at quiescence                                          |
+|  [06]   | EphemeralMap | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Beat` supersedes, `Leave` evicts, `Compact` self-expires at the liveness horizon |
 
 
-## [4]-[CRDT_WIRE]
+## [04]-[CRDT_WIRE]
 
 - Owner: `Hlc` the hybrid-logical-clock stamp value — the one causal-ordering primitive the op-log stamp, the CRDT merge, the commit cell, and the wire all read; `CrdtOpWire` the `[MessagePack.Union]` op/CRDT encoding the `OpLogEntry.Payload` carries for `column-family=crdt` rows; `CrdtWire` the static codec surface owning the byte-canonical content key, the `Encode`/`Decode` pair through the settled `ThinktectureMessageFormatterResolver`+`GeneratedMessagePackResolver` chain, and the `UntrustedData` restore-lane decode; `ContentParityCorpus` the frozen-golden-bytes fixture owner minting the Persistence leg of the `ONE_WIRE_FIXTURE_CORPUS` — one `ParityVector` table keyed by the one `XxHash128` seed every cross-runtime parity harness reconciles against.
 - Cases: 10 op rows — `set | write | add | remove | increment | insertAfter | delete | maintain | beat | leave` on `CrdtOpWire`; the `[Key]` sequence IS the wire schema, dense and append-only, a retired key never reassigned; the `beat`/`leave` arms carry the `EphemeralMap` presence delta so the TS projection version-vector and the UI presence surface decode live-multiplayer state on the one wire vocabulary, and the Python CRDT decode reconstructs the same self-expiring presence map.
@@ -499,26 +499,26 @@ public static class ContentParityCorpus {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                          | [BINDING]                                            |
-| :-----: | :--------------------- | :------------------------------- | :--------------------------------------------------- |
-|   [1]   | crdt column family     | `crdt`                           | `OpLogEntry.Payload` carries `CrdtOpWire`            |
-|   [2]   | wire-law owner         | `AppHost/runtime-ports#WIRE_LAW` | breaking descriptor change; LWW survives as `set`    |
-|   [3]   | restore decode lane    | `UntrustedData` depth 64         | synced delta crossed a rest boundary                 |
-|   [4]   | op content key         | `XxHash128` over canonical bytes | reproducible across peers; one identity              |
-|   [5]   | presence union tags    | `beat`=8, `leave`=9              | `EphemeralMap` delta; append-only `[MessagePack.Union]` |
+| [INDEX] | [POLICY]            | [VALUE]                          | [BINDING]                                               |
+| :-----: | :------------------ | :------------------------------- | :------------------------------------------------------ |
+|  [01]   | crdt column family  | `crdt`                           | `OpLogEntry.Payload` carries `CrdtOpWire`               |
+|  [02]   | wire-law owner      | `AppHost/runtime-ports#WIRE_LAW` | breaking descriptor change; LWW survives as `set`       |
+|  [03]   | restore decode lane | `UntrustedData` depth 64         | synced delta crossed a rest boundary                    |
+|  [04]   | op content key      | `XxHash128` over canonical bytes | reproducible across peers; one identity                 |
+|  [05]   | presence union tags | `beat`=8, `leave`=9              | `EphemeralMap` delta; append-only `[MessagePack.Union]` |
 
-| [INDEX] | [PARITY_VECTOR]    | [CANONICAL_SHAPE]                                              | [SEED / CROSS-PAGE]                                            |
-| :-----: | :----------------- | :------------------------------------------------------------ | :------------------------------------------------------------- |
-|   [1]   | `hlc.zero`         | `Int64LE` ticks then `UInt64LE` logical (16 bytes)            | `SeedCell = (Instant.FromUnixTimeTicks(0), 0)`; layout VERIFIED |
-|   [2]   | `commit.genesis`   | sorted parents `UInt128LE` ‖ sorted op-keys `UInt128LE` ‖ HLC cell | `CommitGraph.Commit` canonical preimage @ `#COMMIT_DAG`         |
-|   [3]   | `crdt.set.seed`    | `CrdtWire.EncodeCompanion(CrdtOp.Set)` MessagePack under `None`  | `SeedOrigin = Guid.Empty`; uncompressed cross-runtime lane     |
-|   [4]   | `elementset.empty` | distinct-sorted `UInt128LE`-packed keys                       | `Query/federation#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt`   |
-|   [5]   | `embedding.seed`   | `EmbeddingIdentity.Of` `ContentHash` `UInt128LE` ‖ UTF8 model-id ‖ arity key | `Query/lanes#SEARCH_LANES` `EmbeddingIdentity.Of` (`XxHash128` content × model-id × arity) |
+| [INDEX] | [PARITY_VECTOR]    | [CANONICAL_SHAPE]                                                            | [SEED / CROSS-PAGE]                                                                        |
+| :-----: | :----------------- | :--------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `hlc.zero`         | `Int64LE` ticks then `UInt64LE` logical (16 bytes)                           | `SeedCell = (Instant.FromUnixTimeTicks(0), 0)`; layout VERIFIED                            |
+|  [02]   | `commit.genesis`   | sorted parents `UInt128LE` ‖ sorted op-keys `UInt128LE` ‖ HLC cell           | `CommitGraph.Commit` canonical preimage @ `#COMMIT_DAG`                                    |
+|  [03]   | `crdt.set.seed`    | `CrdtWire.EncodeCompanion(CrdtOp.Set)` MessagePack under `None`              | `SeedOrigin = Guid.Empty`; uncompressed cross-runtime lane                                 |
+|  [04]   | `elementset.empty` | distinct-sorted `UInt128LE`-packed keys                                      | `Query/federation#ELEMENT_SET_ALGEBRA` `ElementSetAlgebra.Receipt`                         |
+|  [05]   | `embedding.seed`   | `EmbeddingIdentity.Of` `ContentHash` `UInt128LE` ‖ UTF8 model-id ‖ arity key | `Query/lanes#SEARCH_LANES` `EmbeddingIdentity.Of` (`XxHash128` content × model-id × arity) |
 
 The `XxHash128` digest column of each `ParityVector` is host-frozen: the byte SHAPE, field order, and seed convention above are ground truth and authorable now, the OBSERVED literal digest bytes stamping on the host-validation pass. The Python (`runtime/evidence/identity`) and TS (`interchange/Codec/frame`) reconciliation legs land in their own units against this corpus.
 
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `CommitNodeWire`, `BranchRefWire`, `VersionVectorWire`, `HlcWire`, `VectorOrderKind`, `CrdtOpWire`, `MerkleRangeWire`, `MergeConflictWire`, `BlameRowWire`, `RangeDiffWire` — the version-control wire surface the dashboard and peers decode.
 - Packages: BCL inbox.

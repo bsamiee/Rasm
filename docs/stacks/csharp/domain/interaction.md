@@ -2,26 +2,26 @@
 
 Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, receipts, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — consuming runtime phases, concurrency change-sets, validation outcomes, and visuals tokens with zero new infrastructure.
 
-## [1]-[INTERACTION_CHOOSER]
+## [01]-[INTERACTION_CHOOSER]
 
 This table routes an interaction concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                   | [OWNER]                            | [REJECTED_FORM]                 |
 | :-----: | :-------------------------- | :--------------------------------- | :------------------------------ |
-|   [1]   | process UI modality         | surface row + one mount fold       | per-host boot fork              |
-|   [2]   | screens and navigation      | catalog row + nav-verb union       | per-surface router              |
-|   [3]   | dock arrangement            | factory verbs + workspace rails    | view-layer layout mutation      |
-|   [4]   | view state and activation   | OAPH + `WhenActivated` scope       | constructor stream wiring       |
-|   [5]   | view-model question         | `Interaction<TInput,TOutput>`      | view-model-owned dialog         |
-|   [6]   | user-facing validity        | `ValidationRule` state projection  | screen-side re-validation       |
-|   [7]   | interactive verbs           | one command-intent row table       | per-surface command registries  |
-|   [8]   | verb availability           | seeded `CombineLatest` fold        | `CanExecute(parameter)` logic   |
-|   [9]   | live collection to screen   | `SortAndBind` edge + row contract  | snapshot re-query               |
+|   [01]   | process UI modality         | surface row + one mount fold       | per-host boot fork              |
+|   [02]   | screens and navigation      | catalog row + nav-verb union       | per-surface router              |
+|   [03]   | dock arrangement            | factory verbs + workspace rails    | view-layer layout mutation      |
+|   [04]   | view state and activation   | OAPH + `WhenActivated` scope       | constructor stream wiring       |
+|   [05]   | view-model question         | `Interaction<TInput,TOutput>`      | view-model-owned dialog         |
+|   [06]   | user-facing validity        | `ValidationRule` state projection  | screen-side re-validation       |
+|   [07]   | interactive verbs           | one command-intent row table       | per-surface command registries  |
+|   [08]   | verb availability           | seeded `CombineLatest` fold        | `CanExecute(parameter)` logic   |
+|   [09]   | live collection to screen   | `SortAndBind` edge + row contract  | snapshot re-query               |
 |  [10]   | modal and notice            | presentation gate + dialog session | free-floating modal window      |
 |  [11]   | theme application           | one idempotent variant fold        | captured brush, per-window swap |
 |  [12]   | automation, locale, gesture | intent-key derivation              | literal names at surfaces       |
 
-## [2]-[SURFACE_MOUNT]
+## [02]-[SURFACE_MOUNT]
 
 [MOUNT_LAW]:
 - Law: every modality is a row of one closed surface table — backend fold fragment, shutdown policy, frame class, interactive gate — and mounting any screen is one fold over (catalog row × surface row); a per-host boot fork, a handle null-check at a call site, or a test-mode flag inside a screen is the rejected form, and a new modality is one row with zero screen edits.
@@ -66,7 +66,7 @@ public static class Mount {
 }
 ```
 
-## [3]-[SCREEN_SPINE]
+## [03]-[SCREEN_SPINE]
 
 [CATALOG_LAW]:
 - Law: one catalog row per screen — key, dock role, view-model factory — is read by five consumers: router push, dock placement, deep-link grammar, workspace restore, and generated per-screen verb rows in the command table; a consumer needing a field extends the row, never a side table on the same key, so adding a screen touches exactly one declaration.
@@ -133,7 +133,7 @@ public static class Spine {
 }
 ```
 
-## [4]-[VIEW_STATE]
+## [04]-[VIEW_STATE]
 
 [REACTIVE_LAW]:
 - Law: derived state is a fold over property streams — `WhenAnyValue` into `ToProperty` — with the knob triad load-bearing: `initialValue` deletes the `default(T)` flash, `deferSubscription: true` makes expensive derivation pay-on-read, and the scheduler stays the installed main-thread value; property streams replay their current value at subscription, while a raw event projection does not and seeds at admission — the emit-on-subscribe contract every availability input downstream assumes.
@@ -181,7 +181,7 @@ public sealed class EditScreen : ReactiveValidationObject, IActivatableViewModel
 }
 ```
 
-## [5]-[COMMAND_TABLE]
+## [05]-[COMMAND_TABLE]
 
 [ROW_LAW]:
 - Law: one frozen row table owns the verb vocabulary — intent key, effect, availability inputs, gesture, placements — and every surface is a pure projection: menus fold by placement, key tables by gesture, the palette by localized header, tray and dock bars by tag; per-surface command registries are deleted, a new command is one row that updates N surfaces by construction, and the OS menu bar and tray render one `NativeMenu` graph — two placements of one model — where a `Click` handler beside a `Command` double-fires.
@@ -247,7 +247,7 @@ public static class CommandTable {
 }
 ```
 
-## [6]-[BINDING_EDGE]
+## [06]-[BINDING_EDGE]
 
 [EDGE_LAW]:
 - Law: change-set mechanics arrive settled; this seam owns the last hop — `SortAndBind` with `SortAndBindOptions` into one bound collection: replace-not-remove preserves row identity and selection through in-place edits, the reset threshold collapses bulk storms into one notification, `UseBinarySearch` is legal only on a sort key immutable for the row's lifetime, `InitialCapacity` pre-sizes known cardinality, and rows owning resources take `DisposeMany` immediately upstream of the bind so removal disposes the row model instead of leaking subscriptions at churn rate.
@@ -301,7 +301,7 @@ public static class BindingEdge {
 }
 ```
 
-## [7]-[PRESENTATION_GATE]
+## [07]-[PRESENTATION_GATE]
 
 [GATE_LAW]:
 - Law: dialog-versus-notice is a severity split under one law — blocking decisions are awaited sessions with typed receipts, ambient facts are non-blocking notices — and both pass one suppression fold whose posture column rides moment rows derived once from the settled phase and rank cells; a call site never inspects phase, nothing user-facing escapes the gate, and resume edges flush held items in arrival order with stale entries aged out by a declared horizon.
@@ -359,7 +359,7 @@ public static class PresentationGate {
 }
 ```
 
-## [8]-[SURFACE_DERIVATION]
+## [08]-[SURFACE_DERIVATION]
 
 [VARIANT_APPLICATION]:
 - Law: one application-level fold maps (platform color values × pinned override × density × contrast preference) onto `RequestedThemeVariant`, palette rows, and `DensityStyle` atomically — idempotent on `PlatformColorValues` record equality, so OS signal bursts need no debounce — and the override short-circuits the fold rather than unsubscribing the platform edge (`GetColorValues` plus `ColorValuesChanged`, one application-level subscription).

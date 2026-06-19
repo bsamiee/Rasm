@@ -4,7 +4,7 @@
 metering integration, dependency-injection pipeline registration, and builder
 extensions that add telemetry to resilience pipelines.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.Extensions`
 - package: `Polly.Extensions`
@@ -14,38 +14,38 @@ extensions that add telemetry to resilience pipelines.
 - asset: runtime library
 - rail: resilience telemetry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: telemetry configuration family
 - rail: resilience telemetry
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]      | [RAIL]                   |
 | :-----: | :--------------------------------------------- | :----------------- | :----------------------- |
-|   [1]   | `TelemetryResiliencePipelineBuilderExtensions` | builder extension  | pipeline telemetry setup |
-|   [2]   | `TelemetryOptions`                             | option value       | telemetry configuration  |
-|   [3]   | `SeverityProviderArguments`                    | callback argument  | event severity selection |
-|   [4]   | `EnrichmentContext<TKey,TValue>`               | enrichment context | telemetry enrichment     |
-|   [5]   | `MeteringEnricher`                             | enricher           | metric enrichment        |
-|   [6]   | `PollyServiceCollectionExtensions`             | DI extension       | pipeline registration    |
+|  [01]   | `TelemetryResiliencePipelineBuilderExtensions` | builder extension  | pipeline telemetry setup |
+|  [02]   | `TelemetryOptions`                             | option value       | telemetry configuration  |
+|  [03]   | `SeverityProviderArguments`                    | callback argument  | event severity selection |
+|  [04]   | `EnrichmentContext<TKey,TValue>`               | enrichment context | telemetry enrichment     |
+|  [05]   | `MeteringEnricher`                             | enricher           | metric enrichment        |
+|  [06]   | `PollyServiceCollectionExtensions`             | DI extension       | pipeline registration    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: telemetry operations
 - rail: resilience telemetry
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]    | [RAIL]                        |
 | :-----: | :----------------------------------- | :---------------- | :---------------------------- |
-|   [1]   | `ConfigureTelemetry(loggerFactory)`  | builder extension | logger-backed telemetry       |
-|   [2]   | `ConfigureTelemetry(options)`        | builder extension | option-backed telemetry       |
-|   [3]   | `TelemetryOptions.LoggerFactory`     | option value      | logging provider              |
-|   [4]   | `TelemetryOptions.MeteringEnrichers` | option value      | metric dimension enrichment   |
-|   [5]   | `TelemetryOptions.ResultFormatter`   | option value      | result value formatting       |
-|   [6]   | `TelemetryOptions.SeverityProvider`  | option value      | event severity classification |
-|   [7]   | `AddResiliencePipeline`              | DI extension      | keyed pipeline registration   |
-|   [8]   | `AddResiliencePipelines`             | DI extension      | bulk pipeline registration    |
-|   [9]   | `AddResiliencePipelineRegistry`      | DI extension      | registry registration         |
+|  [01]   | `ConfigureTelemetry(loggerFactory)`  | builder extension | logger-backed telemetry       |
+|  [02]   | `ConfigureTelemetry(options)`        | builder extension | option-backed telemetry       |
+|  [03]   | `TelemetryOptions.LoggerFactory`     | option value      | logging provider              |
+|  [04]   | `TelemetryOptions.MeteringEnrichers` | option value      | metric dimension enrichment   |
+|  [05]   | `TelemetryOptions.ResultFormatter`   | option value      | result value formatting       |
+|  [06]   | `TelemetryOptions.SeverityProvider`  | option value      | event severity classification |
+|  [07]   | `AddResiliencePipeline`              | DI extension      | keyed pipeline registration   |
+|  [08]   | `AddResiliencePipelines`             | DI extension      | bulk pipeline registration    |
+|  [09]   | `AddResiliencePipelineRegistry`      | DI extension      | registry registration         |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
 - namespaces: `Polly`, `Polly.Telemetry`

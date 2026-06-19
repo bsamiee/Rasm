@@ -2,12 +2,12 @@
 
 The host-neutral BIM element vocabulary on three folded axes of one product-type concept: the `IfcClass` `[SmartEnum<string>]` entity-class breadth discriminated by a seven-case `IfcDomain` partition, the `PredefinedType` `[ValueObject<string>]` sub-class discriminant validated against each row's frozen valid-predefined set, and the `BimType` type-occurrence factoring an `IfcMappedItem` references — all carried on the one `BimElement` record, the `BimModel` element-collection owner, and the `BimModel.Project` fold from the `IfcSemanticModel` graph. The element model is HOST-NEUTRAL — the geometry handle binds the kernel `Rasm` geometry by reference and never carries a RhinoCommon type — and projects from the `Exchange/import#IMPORT_RAIL` `IfcSemanticModel` graph consumed as settled vocabulary, never re-minting the semantic-graph shape. The vocabulary is ONE owner widened on all three axes, never three parallel surfaces: a new entity class is one `IfcClass` row, a new sub-class kind is one frozen valid-predefined entry, and a 4000-window model carries one `BimType` plus 4000 occurrence references rather than 4000 inlined geometries.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ELEMENT_MODEL]: `BimElement` element record, `IfcClass`/`IfcDomain` entity-class vocabulary, `PredefinedType` discriminant, `BimModel` collection, and the `Project` fold.
-- [2]-[BIM_TYPE]: `BimType` type-object record carrying the `IfcElementType`/`IfcTypeProduct` discriminant, the type-bound property/material/predefined bindings, and the `IfcRepresentationMap` instanced-geometry library.
+- [01]-[ELEMENT_MODEL]: `BimElement` element record, `IfcClass`/`IfcDomain` entity-class vocabulary, `PredefinedType` discriminant, `BimModel` collection, and the `Project` fold.
+- [02]-[BIM_TYPE]: `BimType` type-object record carrying the `IfcElementType`/`IfcTypeProduct` discriminant, the type-bound property/material/predefined bindings, and the `IfcRepresentationMap` instanced-geometry library.
 
-## [2]-[ELEMENT_MODEL]
+## [02]-[ELEMENT_MODEL]
 
 - Owner: `BimElement` the single host-neutral element record carrying the `IfcClass` discriminant, the `PredefinedType` sub-class discriminant, the stable `GlobalId`, the kernel-geometry handle, and the property/quantity/material/classification/type bindings; `IfcClass` `[SmartEnum<string>]` the closed buildingSMART entity-class vocabulary keyed on the IFC entity-type string, each row carrying its `IfcDomain` and its frozen valid-predefined set; `IfcDomain` the seven-case buildingSMART discipline partition; `PredefinedType` `[ValueObject<string>]` the sub-class discriminant admitted once against the class row's valid set; `BimModel` the element-collection owner wrapping the projected element graph with the schema/model-view header.
 - Entry: `BimModel.Project(IfcSemanticModel semantic, ClockPolicy clocks)` projects the in-process IFC semantic graph into the host-neutral `BimModel` element collection — `Fin<T>` aborts on an unmapped entity class (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a missing spatial host (`BimFault.DanglingReference`), each lowered with `.ToError()`; the `ProductRow.PredefinedType` string admits through `IfcClass.AdmitPredefined` against the row's frozen valid set with the `USERDEFINED`/`OBJECTTYPE` fallback, the geometry handle binds the kernel `Rasm` geometry by reference, never re-tessellating, and the `BimType` resolves lazily from `TypeGlobalId` against the model's `Types` index.
@@ -141,7 +141,7 @@ public sealed record BimModel(
 }
 ```
 
-## [3]-[BIM_TYPE]
+## [03]-[BIM_TYPE]
 
 - Owner: `BimType` the host-neutral type-object record promoting the thin `Exchange/import#IMPORT_RAIL` `TypeRow` into a first-class owner carrying the `IfcElementType`/`IfcTypeProduct` discriminant, the type-bound `PropertySet`/material/`PredefinedType` bindings the occurrence inherits, and the `IfcRepresentationMap` instanced-geometry key an `IfcMappedItem` occurrence references; `BimTypeKind` the `[SmartEnum<string>]` over the IFC type-object class string so a 4000-identical-window model carries one `BimType` plus 4000 occurrence references.
 - Entry: `BimType.Project(IfcSemanticModel.TypeRow row)` projects one type row into the typed `BimType`, admitting the type's own predefined token through the resolved `IfcClass.AdmitPredefined` and threading the representation-map content key — `Fin<T>` aborts on an unmapped type class (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) lowered with `.ToError()`; `BimModel.TypeOf(element)` resolves an occurrence's `TypeGlobalId` against the model's `Types` index so the `Semantics/properties#PROPERTY_SETS` `QTO_TYPEDRIVENOVERRIDE` inheritance fold reads a typed source rather than a re-filtered flat row set.
@@ -186,7 +186,7 @@ public sealed record BimType(
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [ELEMENT_PROJECTION]: the `BimModel.Project` fold over the `IfcSemanticModel` product/property/quantity/material/type rows and the `IfcClass` closed-vocabulary case list ground against the GeometryGym entity-class surface (`.api/api-geometrygym-ifc` architectural built-element / MEP distribution / structural-analysis / infrastructure-geotechnics families) and the `GeometryHandle` shape at cross-folder alignment with the kernel `Rasm` geometry owner; the per-class `IfcXxxTypeEnum` valid-predefined value sets the `IfcClass` rows freeze confirm against the GeometryGym per-class predefined enum members so the `AdmitPredefined` valid-set check matches the schema before the row table is final.
 - [GEOMETRY_HANDLE]: the `GeometryHandle` the `BimElement` carries — the by-reference binding to the kernel `Rasm` geometry the tessellation bridge re-imports — confirms its shape against the kernel geometry owner so the element model never re-tessellates and never carries a host-bound geometry type.

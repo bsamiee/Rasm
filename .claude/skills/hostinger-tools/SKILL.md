@@ -12,7 +12,7 @@ Invokes Hostinger API through Python wrapper using `HOSTINGER_TOKEN` env var. Ba
 
 [IMPORTANT] Zero-arg commands default to `page=1`, `limit=30`. Uses `--key value` flag syntax. Hostinger also provides an MCP server and n8n node for automation.
 
-## [1]-[VPS_CORE]
+## [01]-[VPS_CORE]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-list
@@ -25,7 +25,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-actions --id
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-action-view --id 1196440 --action-id 71183700
 ```
 
-## [2]-[VPS_CONFIG]
+## [02]-[VPS_CONFIG]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-hostname-set --id 1196440 --hostname myserver.example.com
@@ -37,7 +37,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-ptr-create -
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-ptr-delete --id 1196440 --ip-id 1154886
 ```
 
-## [3]-[VPS_RECOVERY]
+## [03]-[VPS_RECOVERY]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recovery-start --id 1196440 --root-password "TempPass123!"
@@ -45,7 +45,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recovery-sto
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recreate --id 1196440 --template-id 1007 --password "NewPass123!"
 ```
 
-## [4]-[DOCKER]
+## [04]-[DOCKER]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-list --id 1196440
@@ -60,7 +60,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-update --
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-delete --id 1196440 --project myapp
 ```
 
-## [5]-[FIREWALL]
+## [05]-[FIREWALL]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-list
@@ -75,7 +75,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-rule-up
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-rule-delete --id 12345 --rule-id 67890
 ```
 
-## [6]-[SSH_KEYS]
+## [06]-[SSH_KEYS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-list
@@ -85,7 +85,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-attach -
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-attached --vps-id 1196440
 ```
 
-## [7]-[SCRIPTS]
+## [07]-[SCRIPTS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-list
@@ -95,7 +95,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-update --
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-delete --id 12345
 ```
 
-## [8]-[SNAPSHOTS]
+## [08]-[SNAPSHOTS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py snapshot-view --id 1196440
@@ -106,7 +106,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py backup-list --id
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py backup-restore --id 1196440 --backup-id 67890
 ```
 
-## [9]-[DNS]
+## [09]-[DNS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py dns-records --domain example.com
@@ -183,10 +183,10 @@ Commands return: `{"status": "success|error", ...}`.
 
 | [INDEX] | [PATTERN]       | [RESPONSE]                 |
 | :-----: | --------------- | -------------------------- |
-|   [1]   | List commands   | `{items: object[]}`        |
-|   [2]   | View commands   | `{id: int, item: object}`  |
-|   [3]   | Action commands | `{id: int, action: bool}`  |
-|   [4]   | Create commands | `{id: int, created: bool}` |
+|  [01]   | List commands   | `{items: object[]}`        |
+|  [02]   | View commands   | `{id: int, item: object}`  |
+|  [03]   | Action commands | `{id: int, action: bool}`  |
+|  [04]   | Create commands | `{id: int, created: bool}` |
 
 ## [17]-[ENVIRONMENT]
 

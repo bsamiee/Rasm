@@ -2,7 +2,7 @@
 
 This standard carries the presentation layer: markers, alignment, whitespace, and the heading idiom that render a chosen container. It does not choose containers, decompose tables, write prose, or judge claim confidence. Keep this layer minimal: markers and styling earn their place by aiding an agent or reader, never by decorating the page.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Apply this standard when rendering a container that [information-structure.md](information-structure.md) has already chosen:
 - status, result, and change markers in records, checklists, tables, and reports
@@ -14,7 +14,7 @@ Apply this standard when rendering a container that [information-structure.md](i
 
 Container selection, table construction, and structured-record fields belong to the form standard; sentence mechanics, terminology, and `must`/`should`/`may` belong to the craft standard. Formatting renders lifecycle and status semantics after another standard defines them; it does not create new lifecycle meaning.
 
-## [2]-[STATUS_RESULT_MARKERS]
+## [02]-[STATUS_RESULT_MARKERS]
 
 Render an inline status, result, change, or compact state as a bracketed token so an agent can filter on an exact string. Use a closed set; do not invent tokens, emojis, checkmarks, crossmarks, or decorative alternates. By default, a record's `Status:` field carries the plain lifecycle value the form standard defines (`COMPLETE`, `BLOCKED`); a type standard may require the bracketed lifecycle marker in `Status:` when exact rendered filtering is part of that produced record's contract.
 
@@ -22,48 +22,48 @@ Render an inline status, result, change, or compact state as a bracketed token s
 
 | [INDEX] | [FAMILY]         | [TOKENS]                                                                    |
 | :-----: | :--------------- | :-------------------------------------------------------------------------- |
-|   [1]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                          |
-|   [2]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                          |
-|   [3]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[COMPLETE]`, `[DROPPED]`, `[RETIRED]` |
-|   [4]   | Compact glyph    | `[O]`, `[X]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`        |
-|   [5]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`       |
-|   [6]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]` |
+|  [01]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                          |
+|  [02]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                          |
+|  [03]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[COMPLETE]`, `[DROPPED]`              |
+|  [04]   | Compact glyph    | `[O]`, `[X]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`        |
+|  [05]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`       |
+|  [06]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]` |
 
 Token use is separate from the closed set so the table remains scannable:
 
 | [INDEX] | [FAMILY]         | [USE]                      | [REJECT]                             |
 | :-----: | :--------------- | :------------------------- | :----------------------------------- |
-|   [1]   | Result           | gate or check outcome      | lifecycle, boolean, or runtime state |
-|   [2]   | Change           | delta reporting            | status or claim-confidence state     |
-|   [3]   | Lifecycle marker | inline `Status` mirror     | result, check, or domain status      |
-|   [4]   | Compact glyph    | dense cell marker          | boolean, lifecycle, or prose status  |
-|   [5]   | Explicit state   | runtime or operation state | lifecycle unless locally declared    |
+|  [01]   | Result           | gate or check outcome      | lifecycle, boolean, or runtime state |
+|  [02]   | Change           | delta reporting            | status or claim-confidence state     |
+|  [03]   | Lifecycle marker | inline `Status` mirror     | result, check, or domain status      |
+|  [04]   | Compact glyph    | dense cell marker          | boolean, lifecycle, or prose status  |
+|  [05]   | Explicit state   | runtime or operation state | lifecycle unless locally declared    |
 
 [COMPACT_GLYPH_MAP]:
 
 | [INDEX] | [GLYPH] | [MEANING]                                        | [TEXT_EQUIVALENT]          | [REJECT]                     |
 | :-----: | :------ | :----------------------------------------------- | :------------------------- | :--------------------------- |
-|   [1]   | `[O]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`         |
-|   [2]   | `[X]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion          |
-|   [3]   | `[!]`   | attention, warning, or risk marker               | `attention`                | claim-confidence gap         |
-|   [4]   | `[?]`   | input value unknown                              | `unknown`                  | missing claim detail         |
-|   [5]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment           |
-|   [6]   | `[-]`   | removed, deleted, disabled, or decreased         | `removed`                  | subtraction expression       |
-|   [7]   | `[=]`   | unchanged, same, or matched                      | `unchanged`                | equality claim without basis |
-|   [8]   | `[/]`   | skipped, bypassed, or intentionally not run      | `skipped`                  | partial completion           |
-|   [9]   | `[~]`   | partial, approximate, or changed-in-progress     | `partial` or `approximate` | unsupported uncertainty      |
+|  [01]   | `[O]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`         |
+|  [02]   | `[X]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion          |
+|  [03]   | `[!]`   | attention, warning, or risk marker               | `attention`                | claim-confidence gap         |
+|  [04]   | `[?]`   | input value unknown                              | `unknown`                  | missing claim detail         |
+|  [05]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment           |
+|  [06]   | `[-]`   | removed, deleted, disabled, or decreased         | `removed`                  | subtraction expression       |
+|  [07]   | `[=]`   | unchanged, same, or matched                      | `unchanged`                | equality claim without basis |
+|  [08]   | `[/]`   | skipped, bypassed, or intentionally not run      | `skipped`                  | partial completion           |
+|  [09]   | `[~]`   | partial, approximate, or changed-in-progress     | `partial` or `approximate` | unsupported uncertainty      |
 |  [10]   | `[$]`   | cached, saved, materialized, or stored result    | `cached` or `stored`       | cost or price                |
 
 [ABSENCE_VALUES]:
 
 | [INDEX] | [VALUE]     | [USE]                                            | [REJECT]                              |
 | :-----: | :---------- | :----------------------------------------------- | :------------------------------------ |
-|   [1]   | `—`         | empty or absent table value                      | not-applicable result or skipped gate |
-|   [2]   | `n/a`       | domain vocabulary requires a not-applicable term | generic missing data                  |
-|   [3]   | `[N/A]`     | result itself is not applicable                  | missing source value                  |
-|   [4]   | `[SKIP]`    | gate intentionally did not run                   | unknown gate result                   |
-|   [5]   | `[UNKNOWN]` | value should exist but is not known              | literal null                          |
-|   [6]   | `[NULL]`    | literal null value is the fact                   | absent value                          |
+|  [01]   | `—`         | empty or absent table value                      | not-applicable result or skipped gate |
+|  [02]   | `n/a`       | domain vocabulary requires a not-applicable term | generic missing data                  |
+|  [03]   | `[N/A]`     | result itself is not applicable                  | missing source value                  |
+|  [04]   | `[SKIP]`    | gate intentionally did not run                   | unknown gate result                   |
+|  [05]   | `[UNKNOWN]` | value should exist but is not known              | literal null                          |
+|  [06]   | `[NULL]`    | literal null value is the fact                   | absent value                          |
 
 [USE_RULES]:
 - Prefer the most specific family. Do not use two tokens that mean the same thing in one column.
@@ -93,10 +93,10 @@ Render progress as a bar only after [information-structure.md](information-struc
 
 | [INDEX] | [CASE]                                 | [PERCENT]       | [FILLED_CELLS]     |
 | :-----: | :------------------------------------- | :-------------- | :----------------- |
-|   [1]   | numerator is `0`                       | `0%`            | `0`                |
-|   [2]   | nonzero incomplete value floors to `0` | `<1%`           | `0`                |
-|   [3]   | numerator equals denominator           | `100%`          | `20`               |
-|   [4]   | ordinary incomplete value              | floored integer | floored cell count |
+|  [01]   | numerator is `0`                       | `0%`            | `0`                |
+|  [02]   | nonzero incomplete value floors to `0` | `<1%`           | `0`                |
+|  [03]   | numerator equals denominator           | `100%`          | `20`               |
+|  [04]   | ordinary incomplete value              | floored integer | floored cell count |
 
 Accepted Unicode example:
 
@@ -127,7 +127,7 @@ The marker is not a decoration. Omit it when the document cannot define the nume
 - Accessibility: provide a text equivalent when meaning is not recoverable from adjacent text; provide a basis when the glyph claims a completed state or progress.
 - Rejected forms: decorative glyphs, emojis, checkmark or crossmark substitution, FIGlet-style banners, ornamental frames, separator carpets, copied terminal animations, ANSI color output, photo-to-ASCII art, and standalone glyph legends that do not change reader action.
 
-## [3]-[INVOCATION_MARKERS]
+## [03]-[INVOCATION_MARKERS]
 
 Reserve invocation markers for instruction files and prompt files where an agent must weight a constraint above surrounding text. Use them only for invariants that change agent behavior. Prefer `CRITICAL` and `NEVER` for hard boundaries, `IMPORTANT` and `ALWAYS` for load-bearing defaults.
 
@@ -142,7 +142,7 @@ GitHub alerts use this surface grammar in ordinary rendered documentation. [info
 
 An alert is not an invocation marker. Do not write `[IMPORTANT]:` in ordinary documentation, and do not write `> [!IMPORTANT]` in instruction files when an invocation marker is the intended weighting surface.
 
-## [4]-[TABLE_STYLING]
+## [04]-[TABLE_STYLING]
 
 Once form chooses a table, style it for scanning.
 
@@ -157,7 +157,7 @@ Table styling uses these groups:
 
 [SURFACE]:
 - Every table column header is a bracketed uppercase rubric such as `[SOURCE_PATH]`, `[REQUIRED_GATE]`, or `[STATUS]`; compound rubrics use underscores and avoid spaces.
-- Every enumerable Markdown table starts with `[INDEX]`, center-aligned, with body rows numbered `[1]` through `[n]`.
+- Every enumerable Markdown table starts with `[INDEX]`, center-aligned, with body rows numbered `[01]` through `[NN]`. Use `[00]` only when the row is a real zero-indexed marker; `[O]` remains the compact affirmative glyph, not a zero marker.
 - A non-enumerable matrix may use a short bracketed stub rubric instead only when row order or row identity is not enumerable.
 - Align the first column left, or, when it is a pure index, center it; the form standard sets what the stub column may contain.
 - A centered non-index cell must be a compact marker or a value whose visible text is three letters or fewer, such as `yes`, `no`, `n/a`, `—`, `[O]`, or `[X]`. Do not center whole words such as `accepted`, `Supported`, `Standard`, `Contract`, or `Required`.
@@ -166,25 +166,25 @@ Table styling uses these groups:
 
 | [INDEX] | [TRIGGER]                   | [RENDER]                       | [REPAIR_CONTAINER]                              |
 | :-----: | :-------------------------- | :----------------------------- | :---------------------------------------------- |
-|   [1]   | absent value                | `—`                            | table cell                                      |
-|   [2]   | not-applicable domain value | `n/a` or declared domain value | table cell                                      |
-|   [3]   | literal pipe                | escaped `\|`                   | same cell                                       |
-|   [4]   | nested or multiline facts   | short token in cell            | definition block or subsection-per-record block |
-|   [5]   | reader-facing qualification | visible note after table       | prose, note block, or row-owned record          |
-|   [6]   | source-only author hint     | hidden comment before block    | never table row or cell                         |
+|  [01]   | absent value                | `—`                            | table cell                                      |
+|  [02]   | not-applicable domain value | `n/a` or declared domain value | table cell                                      |
+|  [03]   | literal pipe                | escaped `\|`                   | same cell                                       |
+|  [04]   | nested or multiline facts   | short token in cell            | definition block or subsection-per-record block |
+|  [05]   | reader-facing qualification | visible note after table       | prose, note block, or row-owned record          |
+|  [06]   | source-only author hint     | hidden comment before block    | never table row or cell                         |
 
 The GFM separator row encodes the four alignment classes — left-align with `:---`, right-align with `---:`, center with `:---:`. A template:
 
 ```markdown template
 | [INDEX] | [ITEM] | [COUNT] | [RESULT] | [CHECK] |
 | :-----: | :----- | ------: | :------- | :-----: |
-|   [1]   | Mesh   |      42 | [PASS]   |   [O]   |
-|   [2]   | Solver |       — | [N/A]    |    —    |
+|  [01]   | Mesh   |      42 | [PASS]   |   [O]   |
+|  [02]   | Solver |       — | [N/A]    |    —    |
 ```
 
 The index column is centered, the text column (`[ITEM]`) is left-aligned, the numeric column (`[COUNT]`) is right-aligned, full result tokens in `[RESULT]` are left-aligned, and the compact result/check column is centered. A column containing full lifecycle words, long code spans, or prose-like status text is text and stays left-aligned.
 
-## [5]-[LIST_WHITESPACE_DISCIPLINE]
+## [05]-[LIST_WHITESPACE_DISCIPLINE]
 
 [LIST_MARKERS]:
 - Use `-` for bullets; do not use `*` or `+`.
@@ -243,19 +243,19 @@ Section cardinality uses these groups:
 - `Reading rule`: required for two-axis, intersection, or derived cells.
 ```
 
-## [6]-[HEADING_IDIOM]
+## [06]-[HEADING_IDIOM]
 
 Use one bracketed heading format throughout repo-internal standards-controlled documentation and instruction files. Public or registry README files may use plain reader-facing headings when [reference/readme.md](reference/readme.md) declares that exception:
 - H1: `# [DOCUMENT_TITLE]`; the H1 carries only the semantic title label and never a heading-tier prefix.
-- H2: `## [N]-[SECTION_LABEL]`; `N` is the section number in document order.
-- H3: `### [N.M]-[SUBSECTION_LABEL]`; `N.M` is the parent section number plus the subsection number.
-- Extra qualifiers on the same line use the same concise bracket discipline: `## [N]-[PRIMARY]-[EXTRA]`; never trailing prose after the label brackets.
+- H2: `## [NN]-[SECTION_LABEL]`; `NN` is the zero-padded section number in document order, with single-digit sections rendered as `[01]` through `[09]` and the rare zero section rendered as `[00]`.
+- H3: `### [NN.M]-[SUBSECTION_LABEL]`; `NN.M` is the zero-padded parent section number plus the subsection number.
+- Extra qualifiers on the same line use the same concise bracket discipline: `## [NN]-[PRIMARY]-[EXTRA]`; never trailing prose after the label brackets.
 
 Labels are uppercase, use underscores for compounds, and preferably contain 1 or 2 semantic words. Use at most 3 words for normal headings; go longer only when a verified source name, command family, or document type would lose meaning if shortened. Do not mix bracketed heading labels with sentence-style headings. Examples inside fenced templates use the same bracketed grammar with placeholders only where the author must replace the label.
 
 Reject heading theater such as `# [H1][NAME]`, bracket tokens outside the allowed marker families, and decorative `<br>` spacing used to simulate layout. Allowed marker families are headings, standalone group labels, table rubrics, inline status/result/change/state/lifecycle markers, compact glyphs, invocation markers, and GitHub alert markers.
 
-## [7]-[ANCHORS_COMMENTS]
+## [07]-[ANCHORS_COMMENTS]
 
 Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are the local convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
 
@@ -267,7 +267,7 @@ Use these source-notation rules:
 - Comment placement: put a hidden comment immediately before the block it annotates, separated by the same blank-line rules as the surrounding block. Keep comments one line when possible; multi-line comments are allowed only for generated source-view notes that would be noisy when rendered.
 - Comment limits: never use a hidden comment as the only carrier of safety, claim confidence, intent, current-data replacement, or required constraints. Do not put comments inside table rows or cells; use visible prose, a table note, or a definition block instead.
 
-## [8]-[BOUNDARIES]
+## [08]-[BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries container choice, table construction, code-block intent labels, progress eligibility, and structured-record fields; this standard styles what it builds.
 - [style-guide.md](style-guide.md) carries sentence mechanics, terminology, and requirement modals.

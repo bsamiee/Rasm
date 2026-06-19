@@ -2,15 +2,15 @@
 
 The presentation rail is the client-facing design-review deliverable: `ReviewTour` is an ordered `TourStop` sequence each binding one saved `Render/viewport#VIEWPOINT_CODEC` `Viewpoint`, a per-stop dwell `Duration` and a per-transition `Theme/motion#MOTION_AXIS` token, `TourPlayhead` drives the inter-stop camera interpolation on the `Theme/animation#TRACK_MODEL` `Track`/`Scrub` clock so a tour scrubs re-entrantly with no drift exactly as the timeline does, `NarrationTrack` shapes a stop's caption through the `Theme/typography#ROLE_AXIS` role vocabulary, `WalkthroughRender` emits the tour offline through the `Render/capture#DOCUMENT_EXPORT` `VisualDestination` over the timeline `Walkthrough` fold, and `TourSource` is the one closed family discriminating a `SavedSequence` of viewpoint keys from a `TopicTour` that folds a `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic` set into stops at the package edge. The page owns the tour and stop vocabulary, the playhead camera-interpolation fold, the narration projection, the offline walkthrough render, and the topic-to-tour projection; the substrate is the saved `Viewpoint` receipt for camera state, the animation `Playhead`/`ScrubState` for the re-entrant clock, the motion-token easing for every transition, the typography role for every caption, the visuals codec and destination for the offline render, and the `Rasm.Bim` BCF topic contract composed only at the boundary. A tour mints no second camera-snapshot shape, no tour-local stopwatch, no tour-local raster path, and no second BCF schema — every concern is a projection over a settled owner.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TOUR_MODEL]: `ReviewTour` ordered stop sequence; `TourStop` viewpoint + dwell + transition.
-- [2]-[TOUR_PLAYHEAD]: Camera-interpolation fold over the animation Track/Scrub re-entrant clock.
-- [3]-[NARRATION]: Per-stop caption projected onto the typography role vocabulary; shaped runs.
-- [4]-[TOUR_SOURCE]: `TourSource` closed family; saved-sequence and BCF-topic-set projections.
-- [5]-[WALKTHROUGH_RENDER]: Offline tour render through the visuals destination over the timeline fold.
+- [01]-[TOUR_MODEL]: `ReviewTour` ordered stop sequence; `TourStop` viewpoint + dwell + transition.
+- [02]-[TOUR_PLAYHEAD]: Camera-interpolation fold over the animation Track/Scrub re-entrant clock.
+- [03]-[NARRATION]: Per-stop caption projected onto the typography role vocabulary; shaped runs.
+- [04]-[TOUR_SOURCE]: `TourSource` closed family; saved-sequence and BCF-topic-set projections.
+- [05]-[WALKTHROUGH_RENDER]: Offline tour render through the visuals destination over the timeline fold.
 
-## [2]-[TOUR_MODEL]
+## [02]-[TOUR_MODEL]
 
 - Owner: `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `ReviewTour` `[ValueObject]` the ordered non-empty `Seq<TourStop>` with its tour key; `TourFault` the construction fault rail in the 4300 code band.
 - Cases: a stop binds exactly one `Viewpoint` receipt, one dwell duration, one transition token, and one `NarrationTrack` — there is no stop-kind axis because every stop is the same shape; the tour-source variation lives on `TOUR_SOURCE`, never on the stop.
@@ -67,7 +67,7 @@ public sealed record ReviewTour(TourKey Key, Seq<TourStop> Stops) {
 }
 ```
 
-## [3]-[TOUR_PLAYHEAD]
+## [03]-[TOUR_PLAYHEAD]
 
 - Owner: `TourSegment` the active-and-next stop bracket carrying the elapsed-within-segment phase; `TourPlayhead` the state-threaded fold over the animation `Playhead` clock projecting the tour to its sampled camera; `TourSample` the composed camera-plus-narration state at the playhead.
 - Entry: `public TourSample SampleAt(ReviewTour tour, Duration t, Func<ViewCamera, ViewCamera, double, ViewCamera> lerpCam)` — folds the tour offset table to find the bracketing stop pair around `t`, eases the transition phase through the motion token, and interpolates the bracketing viewpoints' cameras into the sampled camera; the dwell holds the current stop's camera, the transition eases toward the next.
@@ -129,7 +129,7 @@ public static class TourPlayhead {
 }
 ```
 
-## [4]-[NARRATION]
+## [04]-[NARRATION]
 
 - Owner: `NarrationTrack` the per-stop caption record carrying its title and body keyed to the typography role vocabulary; `NarrationShaper` the projection folding a track onto shaped role rows the visuals canvas draws.
 - Entry: `public Seq<NarrationRow> Resolve(FontChain chain)` — projects the track's title and body onto the resolved `TextStyleRow` for the `Title` and `Body` roles so a caption is one role-keyed row run, never a per-tour font choice.
@@ -169,7 +169,7 @@ public static class NarrationShaper {
 }
 ```
 
-## [5]-[TOUR_SOURCE]
+## [05]-[TOUR_SOURCE]
 
 - Owner: `TourSource` `[Union]` the one closed tour-origin family; `SavedSequence` the ordered saved-viewpoint-key projection; `TopicTour` the BCF-topic-set projection folding a `Rasm.Bim` topic set into stops at the package edge.
 - Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, a topic tour folds a coordination `BcfTopic` set into stops binding each topic's first viewpoint through the viewpoint codec; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
@@ -220,7 +220,7 @@ public abstract partial record TourSource {
 }
 ```
 
-## [6]-[WALKTHROUGH_RENDER]
+## [06]-[WALKTHROUGH_RENDER]
 
 - Owner: `WalkthroughTour` the offline tour-render fold projecting a `ReviewTour` through the animation `Walkthrough` rail onto one `Render/capture#DOCUMENT_EXPORT` `VisualDestination`; `TourFrame` the per-frame composed state binding the sampled viewpoint and narration onto the supplied frame delegate.
 - Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, ReviewTour tour, double fps, VisualDestination destination, Func<ViewCamera, ViewCamera, double, ViewCamera> lerpCam, Func<TourSample, SKImageInfo, Fin<SKImage>> frame, int width, int height)` — steps the tour playhead frame by frame from zero to the tour total, samples the camera-and-narration state at each frame through `lerpCam`, renders each `width`x`height` frame through the supplied frame delegate, and seals one `RenderReceipt` of kind walkthrough through the visuals encode sink — the frame count is the tour total over the frame rate.

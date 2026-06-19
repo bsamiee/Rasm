@@ -2,7 +2,7 @@
 
 `workbox-window` supplies the browser-side companion to Workbox service workers. The `Workbox` class manages service worker registration, lifecycle event observation, skip-waiting coordination, and bidirectional `postMessage` communication. `messageSW` is the standalone function for sending a message to an arbitrary `ServiceWorker`. The lifecycle event map exposes eight typed events for update-notification UI. `WorkboxEventTarget` is a minimal `EventTarget` shim for environments without constructable `EventTarget`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `workbox-window`
 - package: `workbox-window`
@@ -10,53 +10,53 @@
 - asset: browser-side service worker registration and lifecycle client
 - rail: service-worker-client
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: event types and shim
 - rail: service-worker-client
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [DESCRIPTION]                                    |
 | :-----: | :----------------------------- | :------------ | :----------------------------------------------- |
-|   [1]   | `Workbox`                      | class         | registration, lifecycle, and messaging owner     |
-|   [2]   | `WorkboxEventTarget`           | class         | minimal `EventTarget` shim base of `Workbox`     |
-|   [3]   | `WorkboxEvent<K>`              | class         | `Event` subclass shim with `type`/`target`/`sw`  |
-|   [4]   | `WorkboxMessageEvent`          | interface     | `{ data, originalEvent, ports }`                 |
-|   [5]   | `WorkboxLifecycleEvent`        | interface     | adds optional `isUpdate`                         |
-|   [6]   | `WorkboxLifecycleWaitingEvent` | interface     | adds `wasWaitingBeforeRegister`                  |
-|   [7]   | `WorkboxLifecycleEventMap`     | interface     | seven lifecycle event-name to event-type entries |
-|   [8]   | `WorkboxEventMap`              | interface     | lifecycle map plus `message`                     |
-|   [9]   | `ListenerCallback`             | type alias    | `(event: WorkboxEvent<any>) => any`              |
+|  [01]   | `Workbox`                      | class         | registration, lifecycle, and messaging owner     |
+|  [02]   | `WorkboxEventTarget`           | class         | minimal `EventTarget` shim base of `Workbox`     |
+|  [03]   | `WorkboxEvent<K>`              | class         | `Event` subclass shim with `type`/`target`/`sw`  |
+|  [04]   | `WorkboxMessageEvent`          | interface     | `{ data, originalEvent, ports }`                 |
+|  [05]   | `WorkboxLifecycleEvent`        | interface     | adds optional `isUpdate`                         |
+|  [06]   | `WorkboxLifecycleWaitingEvent` | interface     | adds `wasWaitingBeforeRegister`                  |
+|  [07]   | `WorkboxLifecycleEventMap`     | interface     | seven lifecycle event-name to event-type entries |
+|  [08]   | `WorkboxEventMap`              | interface     | lifecycle map plus `message`                     |
+|  [09]   | `ListenerCallback`             | type alias    | `(event: WorkboxEvent<any>) => any`              |
 
 [PUBLIC_TYPE_SCOPE]: lifecycle event names (`WorkboxEventMap` keys)
 - rail: service-worker-client
 
 | [INDEX] | [EVENT]       | [EVENT_TYPE]                   | [DESCRIPTION]                                   |
 | :-----: | :------------ | :----------------------------- | :---------------------------------------------- |
-|   [1]   | `installing`  | `WorkboxLifecycleEvent`        | registered SW entered `installing`              |
-|   [2]   | `installed`   | `WorkboxLifecycleEvent`        | registered SW entered `installed`               |
-|   [3]   | `waiting`     | `WorkboxLifecycleWaitingEvent` | SW installed but not yet activating             |
-|   [4]   | `activating`  | `WorkboxLifecycleEvent`        | registered SW entered `activating`              |
-|   [5]   | `activated`   | `WorkboxLifecycleEvent`        | registered SW entered `activated`               |
-|   [6]   | `controlling` | `WorkboxLifecycleEvent`        | new controller `scriptURL` matches the instance |
-|   [7]   | `redundant`   | `WorkboxLifecycleEvent`        | registered SW entered `redundant`               |
-|   [8]   | `message`     | `WorkboxMessageEvent`          | a `postMessage` was received                    |
+|  [01]   | `installing`  | `WorkboxLifecycleEvent`        | registered SW entered `installing`              |
+|  [02]   | `installed`   | `WorkboxLifecycleEvent`        | registered SW entered `installed`               |
+|  [03]   | `waiting`     | `WorkboxLifecycleWaitingEvent` | SW installed but not yet activating             |
+|  [04]   | `activating`  | `WorkboxLifecycleEvent`        | registered SW entered `activating`              |
+|  [05]   | `activated`   | `WorkboxLifecycleEvent`        | registered SW entered `activated`               |
+|  [06]   | `controlling` | `WorkboxLifecycleEvent`        | new controller `scriptURL` matches the instance |
+|  [07]   | `redundant`   | `WorkboxLifecycleEvent`        | registered SW entered `redundant`               |
+|  [08]   | `message`     | `WorkboxMessageEvent`          | a `postMessage` was received                    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Workbox` instance and standalone messaging
 - rail: service-worker-client
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]  | [DESCRIPTION]                                          |
 | :-----: | :------------------------------ | :-------------- | :----------------------------------------------------- |
-|   [1]   | `new Workbox(scriptURL, opts?)` | constructor     | `scriptURL: string \| TrustedScriptURL`, register opts |
-|   [2]   | `register(options?)`            | registration    | resolves `ServiceWorkerRegistration \| undefined`      |
-|   [3]   | `update()`                      | update probe    | checks for an updated registered worker                |
-|   [4]   | `active`                        | getter promise  | resolves once the registered SW is `activated`         |
-|   [5]   | `controlling`                   | getter promise  | resolves once the registered SW controls the page      |
-|   [6]   | `getSW()`                       | sw accessor     | resolves the matching SW as soon as one is available   |
-|   [7]   | `messageSW(data)`               | message send    | posts `data`, resolves with the worker reply           |
-|   [8]   | `messageSkipWaiting()`          | skip-waiting    | posts `{ type: 'SKIP_WAITING' }` to the waiting worker |
-|   [9]   | `addEventListener(type, fn)`    | listener add    | typed by `WorkboxEventMap[K]`                          |
+|  [01]   | `new Workbox(scriptURL, opts?)` | constructor     | `scriptURL: string \| TrustedScriptURL`, register opts |
+|  [02]   | `register(options?)`            | registration    | resolves `ServiceWorkerRegistration \| undefined`      |
+|  [03]   | `update()`                      | update probe    | checks for an updated registered worker                |
+|  [04]   | `active`                        | getter promise  | resolves once the registered SW is `activated`         |
+|  [05]   | `controlling`                   | getter promise  | resolves once the registered SW controls the page      |
+|  [06]   | `getSW()`                       | sw accessor     | resolves the matching SW as soon as one is available   |
+|  [07]   | `messageSW(data)`               | message send    | posts `data`, resolves with the worker reply           |
+|  [08]   | `messageSkipWaiting()`          | skip-waiting    | posts `{ type: 'SKIP_WAITING' }` to the waiting worker |
+|  [09]   | `addEventListener(type, fn)`    | listener add    | typed by `WorkboxEventMap[K]`                          |
 |  [10]   | `removeEventListener(type, fn)` | listener remove | typed by `WorkboxEventMap[K]`                          |
 |  [11]   | `messageSW(sw, data)`           | standalone fn   | posts to an arbitrary `ServiceWorker`                  |
 
@@ -82,7 +82,7 @@ declare class WorkboxEventTarget {
 }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
 - `register` delays registration until after `window.load` by default; `immediate: true` bypasses the load gate and is not recommended.

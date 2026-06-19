@@ -4,13 +4,13 @@ Rasm.Compute symbolic lane head: the closed computer-algebra owner over the admi
 
 The canonical content key this page mints is the single identity the lane composes by: `Symbolic/dimensional#DIMENSION_PROOF` reads the parsed `SymbolicExpr` DU payloads (`Sum`/`Product`/`Power`/`Function`) for its SI base-dimension fold, and `Symbolic/lowering#LOWERING` keys its read-through `CompiledExpr` cache and its `Solver/optimizer#OPTIMIZER_LANE` symbolic-Jacobian `OperatorRow` off this same `XxHash128` over the simplified form — the differentiate operation and the canonical key both live here, the delegate carrier and the cache plumbing live on `Symbolic/lowering#LOWERING`, and the dimension monomial lives on `Symbolic/dimensional#DIMENSION_PROOF`, three distinct concerns over one shared value. The page is host-local and carries no TS_PROJECTION cluster: the `SymbolicExpr` is an interior value that never sits between wire and rail; its only cross-surface contribution is the content key the branch `csharp:IDEAS#SYMBOLIC_PARAMETRIC_ALGEBRA` seam crosses by reference to the Persistence cost-catalog/QTO-formula consumers, aligned at the key, never coupled into a sibling interior. `FParsec` is consumed transitively through `Infix.parse` and is never called directly — a registry row only. The single statement exemption is the boundary capsule's `FSharpOption` match arms and the `Build` parser, which must read the foreign `Option`/`Choice` carriers in language-owned control flow to project them into the rail; every other operation is a generated `Switch` fold or a `Bind` chain. An in-proc symbolic-regression fit is the rejected form — offline formula discovery belongs to the Python branch, and this page owns only the analytic algebra over an already-known expression.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SYMBOLIC_EXPR]: `SymbolicExpr` `[ValueObject]`; the F# `Expression` boundary capsule; canonical key.
-- [2]-[BUILD_ADMISSION]: `BuildSpec` `[Union]` parse/structured entry; the `SymbolicFault` 2213–2215 rail.
-- [3]-[OPERATION_FOLD]: `SymbolicOp` `[Union]` over the twelve-module surface; one total `Apply` switch.
+- [01]-[SYMBOLIC_EXPR]: `SymbolicExpr` `[ValueObject]`; the F# `Expression` boundary capsule; canonical key.
+- [02]-[BUILD_ADMISSION]: `BuildSpec` `[Union]` parse/structured entry; the `SymbolicFault` 2213–2215 rail.
+- [03]-[OPERATION_FOLD]: `SymbolicOp` `[Union]` over the twelve-module surface; one total `Apply` switch.
 
-## [2]-[SYMBOLIC_EXPR]
+## [02]-[SYMBOLIC_EXPR]
 
 - Owner: `SymbolicExpr` `[ValueObject]` over the F# `Expression`, identity-bearing through its canonical `XxHash128` content key (not the F# `NoComparison` DU); `ExpressionCapsule` the one boundary owner projecting the `FSharpOption<Expression>` parse carrier and the `FSharpOption<Func<…>>` compile carrier into the rail; `SymbolicKeyPolicy` the ordinal equality/comparer accessor so the free-symbol set folds and sorts deterministically; `FloatBox` the projector collapsing the `FloatingPoint` evaluation DU to a `Fin<double>`.
 - Cases: the wrapped `Expression` DU carries fourteen cases (`Number of BigRational` · `Approximation` · `Identifier of Symbol` · `Argument` · `Constant` · `Sum of Expression list` · `Product of Expression list` · `Power of Expression*Expression` · `Function of Function*Expression` · `FunctionN` · `ComplexInfinity` · `PositiveInfinity` · `NegativeInfinity` · `Undefined`); the `FloatingPoint` projection carries ten arms collapsed to one `Fin<double>` at the `Real`/`PosInf`/`NegInf` numeric leaves and a `non-real` fault on the `Complex`/vector/matrix/`Undef`/`ComplexInf` arms.
@@ -98,7 +98,7 @@ public static class ExpressionCapsule {
 }
 ```
 
-## [3]-[BUILD_ADMISSION]
+## [03]-[BUILD_ADMISSION]
 
 - Owner: `BuildSpec` `[Union]` the single admission carrier discriminating an infix-string parse (`Infix`) from a structured atom/operator construction (`Structured`) so one `Build` entry serves both inputs by shape; `Build` the one polymorphic entrypoint folding the spec; `SymbolicFault` the abstract base record nested on `ComputeFault` collecting the symbolic-lane failure class, with the three new arms (`ParseRejected` 2213, `SymbolUndefined` 2214, `NonDifferentiable` 2215) extending the verified-next-free 2200 band beside `Text` 2200 … `CacheCorrupt` 2212 — the base every symbolic-lane arm derives from, so `Symbolic/dimensional#DIMENSION_PROOF`'s `DimensionMismatch` (2216) lands as one more `SymbolicFault` arm rather than a second fault family.
 - Cases: `BuildSpec` cases `Infix(string Source)` · `Structured(Expression Tree)` (2); `SymbolicFault` arms `ParseRejected` (2213, infix-string `Infix.tryParse` returned `None` or `Undefined`) · `SymbolUndefined` (2214, an evaluation/substitution reduced to a non-real `FloatingPoint` or referenced an unbound free symbol) · `NonDifferentiable` (2215, a `Calculus.differentiate`/`Compile` step declined — a non-differentiable node or a compile-unsupported `FunctionN`), with 2216 the next-free code `Symbolic/dimensional#DIMENSION_PROOF` claims for `DimensionMismatch`.
@@ -145,7 +145,7 @@ public static class SymbolicBuild {
 }
 ```
 
-## [4]-[OPERATION_FOLD]
+## [04]-[OPERATION_FOLD]
 
 - Owner: `SymbolicOp` `[Union]` the closed operation family over the verified twelve-module `MathNet.Symbolics` surface, each case carrying its operand data so one total `Apply` switch dispatches every algebraic transform; `SymbolicForm` `[SmartEnum<string>]` the simplification-axis rows naming the normalization route (`rational` · `algebraic` · `trigonometric` · `polynomial-collected`) folded into one `Simplify` arm; `Apply` the one static fold over `SymbolicOp` returning `Fin<SymbolicExpr>` (or `Fin<double>` for the evaluation arms) so a new transform is a case, never a method.
 - Cases: `SymbolicOp` cases `Differentiate(string Symbol)` · `Taylor(string Symbol, int Order, double At)` · `TangentLine(string Symbol, double At)` · `Simplify(SymbolicForm Form, string Symbol)` · `Substitute(Map<string, Expression> Bindings)` · `Approximate(Map<string, double> Bindings)` · `PartialFraction(string Symbol, Seq<SymbolicExpr> DenominatorFactors)` · `Gcd(SymbolicExpr Other, string Symbol)` · `Coefficients(string Symbol)` (9 transform/projection cases over the algebra) plus the `Evaluate`/`Compile`/`Infix`/`LaTeX` terminals owned at their home clusters; `SymbolicForm` rows `rational` (`Rational.simplify symbol e`) · `algebraic` (`Algebraic.expand e`) · `trigonometric` (`Trigonometric.simplify e`) · `polynomial-collected` (`Polynomial.collectTerms symbol e`) (4) — the `rational`/`polynomial-collected` rows are symbol-relative (the `Simplify.Symbol` field carries the collection variable), the `algebraic`/`trigonometric` rows are whole-expression and ignore it, so the `SymbolicForm.Normalize(symbol, e)` delegate is one shape over both.

@@ -2,7 +2,7 @@
 
 `AsyncImageLoader.Avalonia` supplies the `AdvancedImage` control, attached `ImageLoader` properties, and cached web image loaders for asynchronous bitmap sourcing.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AsyncImageLoader.Avalonia`
 - package: `AsyncImageLoader.Avalonia`
@@ -12,43 +12,43 @@
 - asset: runtime library
 - rail: images
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [CONTROL_TYPES]: image control and attached surfaces
 - rail: images
 
 | [INDEX] | [SYMBOL]                     | [RAIL]              |
 | :-----: | :--------------------------- | :------------------ |
-|   [1]   | `AdvancedImage`              | async image control |
-|   [2]   | `AdvancedImage.ImageWrapper` | drawable wrapper    |
-|   [3]   | `ImageLoader`                | attached loader     |
-|   [4]   | `ImageBrushLoader`           | brush loader        |
+|  [01]   | `AdvancedImage`              | async image control |
+|  [02]   | `AdvancedImage.ImageWrapper` | drawable wrapper    |
+|  [03]   | `ImageLoader`                | attached loader     |
+|  [04]   | `ImageBrushLoader`           | brush loader        |
 
 [LOADER_TYPES]: loader contracts and caches
 - rail: images
 
 | [INDEX] | [SYMBOL]                    | [RAIL]          |
 | :-----: | :-------------------------- | :-------------- |
-|   [1]   | `IAsyncImageLoader`         | loader contract |
-|   [2]   | `IAdvancedAsyncImageLoader` | storage-aware   |
-|   [3]   | `BaseWebImageLoader`        | HTTP loader     |
-|   [4]   | `RamCachedWebImageLoader`   | memory cache    |
-|   [5]   | `DiskCachedWebImageLoader`  | disk cache      |
+|  [01]   | `IAsyncImageLoader`         | loader contract |
+|  [02]   | `IAdvancedAsyncImageLoader` | storage-aware   |
+|  [03]   | `BaseWebImageLoader`        | HTTP loader     |
+|  [04]   | `RamCachedWebImageLoader`   | memory cache    |
+|  [05]   | `DiskCachedWebImageLoader`  | disk cache      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: AdvancedImage properties
 - rail: images
 
 | [INDEX] | [SURFACE]                         | [SURFACE_ROOT]  | [RAIL]          |
 | :-----: | :-------------------------------- | :-------------- | :-------------- |
-|   [1]   | `Source`                          | `AdvancedImage` | URL/URI input   |
-|   [2]   | `Loader`                          | `AdvancedImage` | loader override |
-|   [3]   | `FallbackImage`                   | `AdvancedImage` | failure bitmap  |
-|   [4]   | `CurrentImage`                    | `AdvancedImage` | resolved image  |
-|   [5]   | `IsLoading`                       | `AdvancedImage` | load state      |
-|   [6]   | `Stretch` / `StretchDirection`    | `AdvancedImage` | layout policy   |
-|   [7]   | `ShouldLoaderChangeTriggerUpdate` | `AdvancedImage` | reload policy   |
+|  [01]   | `Source`                          | `AdvancedImage` | URL/URI input   |
+|  [02]   | `Loader`                          | `AdvancedImage` | loader override |
+|  [03]   | `FallbackImage`                   | `AdvancedImage` | failure bitmap  |
+|  [04]   | `CurrentImage`                    | `AdvancedImage` | resolved image  |
+|  [05]   | `IsLoading`                       | `AdvancedImage` | load state      |
+|  [06]   | `Stretch` / `StretchDirection`    | `AdvancedImage` | layout policy   |
+|  [07]   | `ShouldLoaderChangeTriggerUpdate` | `AdvancedImage` | reload policy   |
 
 [ATTACHED_ENTRYPOINTS]: attached loading on plain Image controls
 - rail: images
@@ -56,20 +56,20 @@
 
 | [INDEX] | [SURFACE]                 | [RAIL]          |
 | :-----: | :------------------------ | :-------------- |
-|   [1]   | `SetSource` / `GetSource` | attached source |
-|   [2]   | `GetIsLoading`            | load state      |
-|   [3]   | `AsyncImageLoader`        | global loader   |
+|  [01]   | `SetSource` / `GetSource` | attached source |
+|  [02]   | `GetIsLoading`            | load state      |
+|  [03]   | `AsyncImageLoader`        | global loader   |
 
 [LOADER_ENTRYPOINTS]: loader operations
 - rail: images
 
 | [INDEX] | [SURFACE]           | [SURFACE_ROOT]            | [RAIL]            |
 | :-----: | :------------------ | :------------------------ | :---------------- |
-|   [1]   | `ProvideImageAsync` | `BaseWebImageLoader`      | bitmap resolution |
-|   [2]   | `ProvideImageAsync` | `RamCachedWebImageLoader` | cached resolution |
-|   [3]   | `Dispose`           | `BaseWebImageLoader`      | HTTP teardown     |
+|  [01]   | `ProvideImageAsync` | `BaseWebImageLoader`      | bitmap resolution |
+|  [02]   | `ProvideImageAsync` | `RamCachedWebImageLoader` | cached resolution |
+|  [03]   | `Dispose`           | `BaseWebImageLoader`      | HTTP teardown     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGE_LAW]:
 - Package: `AsyncImageLoader.Avalonia`

@@ -2,17 +2,17 @@
 
 `Rasm.Persistence` is the APP-PLATFORM durable-state spine: a host-neutral C# backbone that owns every durable store, lane, and rail. It consumes AppHost ports (`clock`, `telemetry`, `receipts`, `drain`, `classification`) and Compute artifact frames as settled vocabulary. The package owns the store-profile engine axis, the lifecycle/lease/placement ceremony, cloud object-store residence, the self-provisioned PostgreSQL server tier, the schema/query rails, the embedded-SQLite floor, snapshot codecs, cache indexes, sync and collaboration transports, version control with CRDT and time-travel, the federated entity graph, provenance, annotation, catalog/cost, schedule interchange, and redaction/retention. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[ENGINE](.planning/Store/engine.md)
-- [2]-[PROFILES](.planning/Store/profiles.md)
-- [3]-[REMOTE](.planning/Store/remote.md)
-- [4]-[SERVER](.planning/Store/server.md)
-- [5]-[IDENTITY](.planning/Schema/identity.md)
-- [6]-[MIGRATION](.planning/Schema/migration.md)
-- [7]-[DDL](.planning/Schema/ddl.md)
-- [8]-[CONVERTERS](.planning/Schema/converters.md)
-- [9]-[RAIL](.planning/Query/rail.md)
+- [01]-[ENGINE](.planning/Store/engine.md)
+- [02]-[PROFILES](.planning/Store/profiles.md)
+- [03]-[REMOTE](.planning/Store/remote.md)
+- [04]-[SERVER](.planning/Store/server.md)
+- [05]-[IDENTITY](.planning/Schema/identity.md)
+- [06]-[MIGRATION](.planning/Schema/migration.md)
+- [07]-[DDL](.planning/Schema/ddl.md)
+- [08]-[CONVERTERS](.planning/Schema/converters.md)
+- [09]-[RAIL](.planning/Query/rail.md)
 - [10]-[LANES](.planning/Query/lanes.md)
 - [11]-[CACHE](.planning/Query/cache.md)
 - [12]-[FEDERATION](.planning/Query/federation.md)
@@ -26,7 +26,7 @@
 - [20]-[ANNOTATION](.planning/Sync/annotation.md)
 - [21]-[SCHEDULE](.planning/Sync/schedule.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every Persistence-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below.
 
@@ -91,7 +91,7 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `K4os.Compression.LZ4`
 - `Sep`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting C# substrate libraries Persistence consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
 

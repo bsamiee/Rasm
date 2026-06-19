@@ -2,11 +2,11 @@
 
 THE FIRST REALIZED PROFILEFAMILY. The masonry family vocabulary — the void-class / bond / orientation / cut / closure / special-shape algebra and the regional `ProfileCatalogue` rows — is the realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Masonry` case. A masonry unit is a `Profile` row, never a `Brick` type: the coring void class, the bond course template, the unit orientation, and the regional standard are masonry-`Profile` columns, and the bond/orientation algebra is the data the `Construction/layout#ASSEMBLY_FOLD` course fold reads. The masonry vocabulary grows by data — a new bond is one `BondName` row, a new orientation one `Orientation` case, a new special shape one `SpecialShape` entry — never a per-bond layout method. A `BondKind.Generated` bond is structurally distinct from a template bond: the generated interpreter is the named probe, and until it lands a generated bond rails `ProfileFault.Bond` rather than silently producing an empty course. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape and the `Rasm` kernel `Dimension` value-object; a cmu/steel/timber/glazing family lands its own sibling vocabulary on its own page.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROFILE_FAMILY]: the masonry unit/coring/bond/orientation/cut/closure/special-shape vocabulary, the `BondName` template/generated catalogue, and the `ProfileCatalogue.BuildMasonryRows` regional row table.
+- [01]-[PROFILE_FAMILY]: the masonry unit/coring/bond/orientation/cut/closure/special-shape vocabulary, the `BondName` template/generated catalogue, and the `ProfileCatalogue.BuildMasonryRows` regional row table.
 
-## [2]-[PROFILE_FAMILY]
+## [02]-[PROFILE_FAMILY]
 
 - Owner: the masonry unit vocabulary (`Coring`, `CoringClass`, `BondName`, `BondKind`, `Orientation`, `Cut`, `ClosureRule`, `SpecialShape`); `CourseTemplate` the bond course shape; `ProfileCatalogue.BuildMasonryRows` the registered-row seed `profile#PROFILE_OWNER` composes.
 - Cases: coring {solid/cored/perforated/hollow void classes} · bond {template + generated kinds} · orientation {stretcher/header/soldier/sailor/rowlock/shiner} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/voussoir}.
@@ -139,7 +139,7 @@ public static class ProfileCatalogue {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [GENERATED_BOND_INTERPRETER]: the typed generated-bond interpreter algebra `BondName` owns — `BondKind.Generated` rows (herringbone/basket-weave/pinwheel/diaper/quetta) carry no template course set and require a geometric interpreter that derives course placement from the bond geometry rather than a wrapped template index. Until it lands, a generated bond rails `ProfileFault.Bond`; the probe is the interpreter, not a re-architecture of the catalogue.
 - [MASONRY_ROW_TRANSCRIPTION]: REALIZED — the regional masonry cross-section catalogue (the us/uk/din/au/is regional rows) seeds through `ProfileCatalogue.BuildMasonryRows(context)` over the `MasonryRow` raw-double table, the dimension/coursing/joint columns admitting once through `ProfileUnit.Of` into the kernel-`PositiveMagnitude`-composed `ProfileUnit` and the `BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape` algebra realized as the masonry vocabulary; the five regional rows are the seed the `Construction/layout#ASSEMBLY_FOLD` course fold consumes and a new region is one `MasonryRow` data addition. The standard module/joint values transcribe the ASTM C216 / BS EN 771-1 / DIN 105 / AS 4773 / IS 1077 published dimensions; a non-positive column rails the `ProfileUnit.Of` `Fin` so a malformed row drops through `Choose` rather than seeding a degenerate `Profile`.

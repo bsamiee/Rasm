@@ -2,11 +2,11 @@
 
 Rasm.Persistence AS-OF time travel: an engine reconstructing, diffing, blaming, scrubbing, checkpointing, and branching-from-past over the HLC op-log and the content-addressed snapshots. Every reconstruction folds the `OpLogEntry` stream up to an HLC bound against the nearest content-addressed checkpoint; `ClockPolicy`, `CorrelationId`, and `TenantContext` arrive from AppHost.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TIME_TRAVEL]: AS-OF reconstruction, checkpoint, range diff, blame, scrub, and branch-from-past.
+- [01]-[TIME_TRAVEL]: AS-OF reconstruction, checkpoint, range diff, blame, scrub, and branch-from-past.
 
-## [2]-[TIME_TRAVEL]
+## [02]-[TIME_TRAVEL]
 
 - Owner: `AsOfQuery` reconstruction request; `Checkpoint` a sealed materialized-state fold anchor; `RangeDiff` two-instant delta record; `BlameRow` per-node authorship attribution; `ScrubFrame` a replay frame; `TimeTravel` the static surface owning AS-OF materialization, checkpoint sealing, range diff, blame fold, scrub iteration, and branch-from-past.
 - Cases: `AsOfQuery` reconstructs at an `Instant` by folding every op whose HLC `Physical` precedes the cut; `Checkpoint` seals the materialized state content address at a commit boundary so a deep history folds from the nearest checkpoint; `RangeDiff` projects added/removed/changed entity keys between two cuts; `BlameRow` attributes the surviving value of one entity-key column-family to the winning `OpLogEntry`; `ScrubFrame` is one step in the ordered replay sequence.
@@ -101,9 +101,9 @@ public static class TimeTravel {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                          | [BINDING]                                            |
-| :-----: | :--------------------- | :------------------------------- | :--------------------------------------------------- |
-|   [1]   | checkpoint anchor      | sealed snapshot content address  | `Snapshots.ContentAddress`; fold floor               |
-|   [2]   | as-of cut ceiling      | `(Cut, ulong.MaxValue)` HLC      | every op at-or-before the instant folds              |
-|   [3]   | change-key diff        | `CrdtField` content-key inequality | two AS-OF folds, never a stored delta chain        |
+| [INDEX] | [POLICY]          | [VALUE]                            | [BINDING]                                   |
+| :-----: | :---------------- | :--------------------------------- | :------------------------------------------ |
+|  [01]   | checkpoint anchor | sealed snapshot content address    | `Snapshots.ContentAddress`; fold floor      |
+|  [02]   | as-of cut ceiling | `(Cut, ulong.MaxValue)` HLC        | every op at-or-before the instant folds     |
+|  [03]   | change-key diff   | `CrdtField` content-key inequality | two AS-OF folds, never a stored delta chain |
 

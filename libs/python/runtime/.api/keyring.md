@@ -2,7 +2,7 @@
 
 `keyring` supplies a platform-agnostic secret storage facade: top-level functions for `get_password`, `set_password`, `delete_password`, and `get_credential` dispatch to the highest-priority available `KeyringBackend` (macOS Keychain, SecretService, Windows Credential Manager, or fallback), with explicit backend selection, pluggable backend extension, and a `Credential` protocol for structured username-plus-password retrieval.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `keyring`
 - package: `keyring`
@@ -10,75 +10,75 @@
 - asset: runtime library
 - rail: secrets
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: backend family
 - rail: secrets
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [RAIL]                          |
 | :-----: | :--------------------------- | :------------ | :------------------------------ |
-|   [1]   | `backend.KeyringBackend`     | abstract base | backend contract for all stores |
-|   [2]   | `backend.Crypter`            | protocol      | encrypt/decrypt extension point |
-|   [3]   | `backend.NullCrypter`        | no-op impl    | passthrough crypter             |
-|   [4]   | `backend.SchemeSelectable`   | mixin         | scheme-based backend selection  |
-|   [5]   | `backend.KeyringBackendMeta` | metaclass     | backend registration metaclass  |
+|  [01]   | `backend.KeyringBackend`     | abstract base | backend contract for all stores |
+|  [02]   | `backend.Crypter`            | protocol      | encrypt/decrypt extension point |
+|  [03]   | `backend.NullCrypter`        | no-op impl    | passthrough crypter             |
+|  [04]   | `backend.SchemeSelectable`   | mixin         | scheme-based backend selection  |
+|  [05]   | `backend.KeyringBackendMeta` | metaclass     | backend registration metaclass  |
 
 [PUBLIC_TYPE_SCOPE]: credentials family
 - rail: secrets
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                 |
 | :-----: | :-------------------------------- | :------------ | :------------------------------------- |
-|   [1]   | `credentials.Credential`          | protocol      | username + password access contract    |
-|   [2]   | `credentials.SimpleCredential`    | impl          | plain username/password pair           |
-|   [3]   | `credentials.EnvironCredential`   | impl          | env-var-backed credential              |
-|   [4]   | `credentials.AnonymousCredential` | impl          | password-only credential (no username) |
+|  [01]   | `credentials.Credential`          | protocol      | username + password access contract    |
+|  [02]   | `credentials.SimpleCredential`    | impl          | plain username/password pair           |
+|  [03]   | `credentials.EnvironCredential`   | impl          | env-var-backed credential              |
+|  [04]   | `credentials.AnonymousCredential` | impl          | password-only credential (no username) |
 
 [PUBLIC_TYPE_SCOPE]: errors family
 - rail: secrets
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]                        |
 | :-----: | :--------------------------- | :------------- | :---------------------------- |
-|   [1]   | `errors.KeyringError`        | base exception | all keyring failures          |
-|   [2]   | `errors.KeyringLocked`       | exception      | backend locked or unavailable |
-|   [3]   | `errors.PasswordSetError`    | exception      | set operation failed          |
-|   [4]   | `errors.PasswordDeleteError` | exception      | delete operation failed       |
-|   [5]   | `errors.InitError`           | exception      | backend initialization failed |
-|   [6]   | `errors.NoKeyringError`      | exception      | no viable backend found       |
+|  [01]   | `errors.KeyringError`        | base exception | all keyring failures          |
+|  [02]   | `errors.KeyringLocked`       | exception      | backend locked or unavailable |
+|  [03]   | `errors.PasswordSetError`    | exception      | set operation failed          |
+|  [04]   | `errors.PasswordDeleteError` | exception      | delete operation failed       |
+|  [05]   | `errors.InitError`           | exception      | backend initialization failed |
+|  [06]   | `errors.NoKeyringError`      | exception      | no viable backend found       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: top-level facade
 - rail: secrets
 
 | [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]  | [RAIL]                          |
 | :-----: | :----------------------------------------------------------- | :-------------- | :------------------------------ |
-|   [1]   | `get_password(service_name, username) -> str\|None`          | secret read     | retrieve password or `None`     |
-|   [2]   | `set_password(service_name, username, password)`             | secret write    | store password string           |
-|   [3]   | `delete_password(service_name, username)`                    | secret delete   | remove stored password          |
-|   [4]   | `get_credential(service_name, username) -> Credential\|None` | structured read | retrieve username+password pair |
-|   [5]   | `get_keyring() -> KeyringBackend`                            | backend query   | return active backend instance  |
-|   [6]   | `set_keyring(keyring)`                                       | backend set     | override active backend         |
+|  [01]   | `get_password(service_name, username) -> str\|None`          | secret read     | retrieve password or `None`     |
+|  [02]   | `set_password(service_name, username, password)`             | secret write    | store password string           |
+|  [03]   | `delete_password(service_name, username)`                    | secret delete   | remove stored password          |
+|  [04]   | `get_credential(service_name, username) -> Credential\|None` | structured read | retrieve username+password pair |
+|  [05]   | `get_keyring() -> KeyringBackend`                            | backend query   | return active backend instance  |
+|  [06]   | `set_keyring(keyring)`                                       | backend set     | override active backend         |
 
 [ENTRYPOINT_SCOPE]: backend management
 - rail: secrets
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]  | [RAIL]                              |
 | :-----: | :---------------------------------- | :-------------- | :---------------------------------- |
-|   [1]   | `core.init_backend(limit=None)`     | backend init    | initialize best available backend   |
-|   [2]   | `core.disable()`                    | backend disable | disable keyring (sets fail backend) |
-|   [3]   | `backend.get_all_keyring() -> list` | backend list    | enumerate all registered backends   |
+|  [01]   | `core.init_backend(limit=None)`     | backend init    | initialize best available backend   |
+|  [02]   | `core.disable()`                    | backend disable | disable keyring (sets fail backend) |
+|  [03]   | `backend.get_all_keyring() -> list` | backend list    | enumerate all registered backends   |
 
 [ENTRYPOINT_SCOPE]: KeyringBackend abstract interface
 - rail: secrets
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]  | [RAIL]                     |
 | :-----: | :------------------------------------------------------ | :-------------- | :------------------------- |
-|   [1]   | `get_password(service, username) -> str\|None`          | abstract method | read secret from store     |
-|   [2]   | `set_password(service, username, password) -> None`     | abstract method | write secret to store      |
-|   [3]   | `delete_password(service, username) -> None`            | abstract method | remove secret from store   |
-|   [4]   | `get_credential(service, username) -> Credential\|None` | abstract method | read structured credential |
+|  [01]   | `get_password(service, username) -> str\|None`          | abstract method | read secret from store     |
+|  [02]   | `set_password(service, username, password) -> None`     | abstract method | write secret to store      |
+|  [03]   | `delete_password(service, username) -> None`            | abstract method | remove secret from store   |
+|  [04]   | `get_credential(service, username) -> Credential\|None` | abstract method | read structured credential |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SECRETS_TOPOLOGY]:
 - top-level functions (`get_password`, `set_password`, etc.) delegate to the active backend via `get_keyring()`

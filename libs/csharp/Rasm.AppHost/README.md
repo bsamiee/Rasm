@@ -2,17 +2,17 @@
 
 `Rasm.AppHost` is the APP-PLATFORM runtime spine — the host-neutral C# backbone that `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. It owns host-profile variance, lifecycle/drain/cancellation, time/deadlines/scheduling, configuration/composition, resource lanes, four-signal observability, outbound resilience, the seven inward port records, post-fetch provisioning, the companion/sidecar control host, and a capability-and-extensibility platform: a self-describing op catalog, command algebra, grant/cost broker, polyglot SDK codegen, MCP projection, plugin sandbox, solver contract, live external binding, and determinism/replay. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[PROFILES](.planning/Runtime/profiles.md)
-- [2]-[LIFECYCLE](.planning/Runtime/lifecycle.md)
-- [3]-[TIME](.planning/Runtime/time.md)
-- [4]-[RESOURCES](.planning/Runtime/resources.md)
-- [5]-[MODULES](.planning/Runtime/modules.md)
-- [6]-[CONFIG](.planning/Runtime/config.md)
-- [7]-[PORTS](.planning/Runtime/ports.md)
-- [8]-[DETERMINISM](.planning/Runtime/determinism.md)
-- [9]-[MCP](.planning/Agent/mcp.md)
+- [01]-[PROFILES](.planning/Runtime/profiles.md)
+- [02]-[LIFECYCLE](.planning/Runtime/lifecycle.md)
+- [03]-[TIME](.planning/Runtime/time.md)
+- [04]-[RESOURCES](.planning/Runtime/resources.md)
+- [05]-[MODULES](.planning/Runtime/modules.md)
+- [06]-[CONFIG](.planning/Runtime/config.md)
+- [07]-[PORTS](.planning/Runtime/ports.md)
+- [08]-[DETERMINISM](.planning/Runtime/determinism.md)
+- [09]-[MCP](.planning/Agent/mcp.md)
 - [10]-[REASONING](.planning/Agent/reasoning.md)
 - [11]-[FEDERATION](.planning/Agent/federation.md)
 - [12]-[CAPABILITY](.planning/Agent/capability.md)
@@ -26,7 +26,7 @@
 - [20]-[HEALTH](.planning/Observability/health.md)
 - [21]-[BUNDLES](.planning/Observability/bundles.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every AppHost-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below.
 
@@ -100,7 +100,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `FluentModbus`
 - `System.IO.Ports`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting C# substrate libraries AppHost consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
 

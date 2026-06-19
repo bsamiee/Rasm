@@ -2,11 +2,11 @@
 
 The one array-native computational-geometry owner over `scipy.spatial`. `SpatialQuery` discriminates nearest-neighbour and radius search over a `cKDTree`, convex hull and Delaunay triangulation over Qhull, Voronoi tessellation, and the alpha-shape boundary extraction folded from the Delaunay circumradius, every query folding into one typed `SpatialReceipt` keyed by the `ArrayPayload` content identity. The brute-force neighbour floor runs unconditionally on cp315 where the scipy wheel is absent; the hull, Delaunay, Voronoi, and `cKDTree` paths gate on the scipy `python_version<'3.15'` marker. The owner produces point-cloud and sample-set neighbourhood evidence the study spine reads and that aligns to the geometry-branch scan companion at the wire, distinct from the geometry branch's own `open3d` mesh owner which this owner never re-implements.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUERY]: nearest-neighbour/radius search, convex hull, Delaunay, Voronoi, and the alpha-shape boundary fold on one `SpatialQuery` owner.
+- [01]-[QUERY]: nearest-neighbour/radius search, convex hull, Delaunay, Voronoi, and the alpha-shape boundary fold on one `SpatialQuery` owner.
 
-## [2]-[QUERY]
+## [02]-[QUERY]
 
 - Owner: `SpatialQuery` — the array-native computational-geometry cases over a point set; `Neighbours(points, queries, k)` over `scipy.spatial.cKDTree.query` with a numpy brute-force floor, `Radius(points, queries, radius)` over `cKDTree.query_ball_point`, `Hull(points)` over `scipy.spatial.ConvexHull`, `Triangulate(points)` over `scipy.spatial.Delaunay`, `Tessellate(points)` over `scipy.spatial.Voronoi`, and `AlphaShape(points, alpha)` folding the boundary from the Delaunay simplices by the circumradius threshold. `solve` returns `RuntimeRail[SpatialReceipt]`, and `_dispatch` matches the six routes total. Every query keys by the `ArrayPayload` content identity of its point set, so a repeated query on identical points is a cache hit by reference.
 - Entry: `SpatialQuery.solve` enters one `boundary(f"spatial.{query.tag}", ...)`; the neighbour route folds the per-query distance-and-index pair into `SpatialReceipt.Proximity`, the hull and Delaunay routes fold the simplex count and the measure (hull volume/area, triangulation simplex count) into `SpatialReceipt.Complex`, the Voronoi route folds the ridge and region counts into `SpatialReceipt.Complex`, and the alpha-shape route folds the retained boundary-facet count into `SpatialReceipt.Boundary`. Both `cKDTree` neighbour routes — k-nearest (`query`) and radius (`query_ball_point`) — reach the numpy brute-force pairwise-distance floor when the scipy wheel is absent, so a cp315 run never returns `Error(Import)` for either neighbour query.
@@ -183,7 +183,7 @@ def _circumradius(simplex: np.ndarray) -> float:
     return float(np.linalg.norm(center_local))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SCIPY_SPATIAL]: the `scipy.spatial.cKDTree(points).query(x, k)` (`(distance, index)` pair), `cKDTree.query_ball_point(x, r)` (per-query index list), `ConvexHull(points).simplices`/`.volume`/`.area`, `Delaunay(points).simplices`/`.points`/`.find_simplex`, and `Voronoi(points).vertices`/`.regions`/`.ridge_points` spellings carry the `python_version<'3.15'` marker and are not yet in `compute/.api/scipy.md` (which catalogues `scipy.linalg`/`sparse`/`optimize`/`integrate`/`interpolate` only — `scipy.spatial`, `scipy.signal`, and `scipy.stats` are named by their owners but not yet captured in the entrypoint tables); they verify against the `.api` catalogue under a uv-sync reflection pass once `scipy.spatial` is captured. The numpy brute-force neighbour floor (the `_neighbours` and `_radius` `ImportError` arms) runs unconditionally on cp315, so both the k-nearest and radius neighbour queries return a `SpatialReceipt` rather than `Error(Import)` where the scipy wheel is absent; the hull, Delaunay, and Voronoi routes carry no floor because Qhull is the gated capability itself.
 - [ALPHA_CIRCUMRADIUS]: the `_circumradius` solve over the simplex edge basis and the `_facet_indices` boundary-facet fold are the one local algorithm; no `scipy.spatial` alpha-shape primitive exists, so the circumradius-threshold reconstruction stays a hand-authored kernel beside the scipy queries and reflects against numpy alone.

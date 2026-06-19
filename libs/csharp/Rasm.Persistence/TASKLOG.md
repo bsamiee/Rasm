@@ -2,9 +2,9 @@
 
 The open and closed work for the durable-state spine, distilled from `IDEAS.md`. Each open task carries a status marker and the capability-to-build, packages, integration points/boundaries, and key considerations; one idea spawns one or more tasks across one or more files. Closed cards record already-settled cleanup.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 [COMPLETE] T-TRACE-CHANGEFEED -- `Sync/collaboration#OPLOG_CHANGEFEED` + `#TRANSPORT_AXIS`, `Version/provenance#LINEAGE_CDC`, `Store/remote#ARTIFACT_SYNC_FEED` own the W3C trace-context envelope slot: the `TraceContext` `[ComplexValueObject]` carrier + `OpLogEntry.Trace`/`CdcEnvelope.Trace` slots, `OpLog.Stamp` captures `Activity.Current` once, `ReplicationPump.Resumed` extract-and-continues the parent span, `Announce` brackets a producer span, and the wire slot is append-only optional — realizing `ONE_DISTRIBUTED_TRACE` with the AppHost `CORRELATION_SPINE` populating the bytes, no second correlation owner.
 

@@ -2,11 +2,11 @@
 
 The cpu-tensor layout algebra: one `LayoutForm` algebra over the layout member surface with the `ReshapeOp` request union owning the whole shape-edit family under one total dispatch whose plural-result verb is a `Traverse` arm of the same entrypoint. The page owns the `LayoutForm` row vocabulary, the `ReshapeOp` request union over the fourteen shape-edit verbs, the `TensorLayout.Reform` named-transition surface, and the `TensorLayout.Apply` total-dispatch entrypoint; the layout members ride `System.Numerics.Tensors`, and the `TensorDtype`/`TensorFault`/`TensorKeyPolicy` arrive settled from `Tensor/vocabulary#TENSOR_VOCABULARY`. The `LayoutForm` rows are the geometry-encoding wire-shape targets `Tensor/residency#GEOMETRY_ENCODING` reads and the nchw↔nhwc permute rows the CoreML image-model route consumes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LAYOUT_ALGEBRA]: `LayoutForm` rows; permute table; `ReshapeOp` request union over the layout family.
+- [01]-[LAYOUT_ALGEBRA]: `LayoutForm` rows; permute table; `ReshapeOp` request union over the layout family.
 
-## [2]-[LAYOUT_ALGEBRA]
+## [02]-[LAYOUT_ALGEBRA]
 
 - Owner: `LayoutForm`; `ReshapeOp` the `[Union]` request family owning the whole shape-edit surface under one total dispatch.
 - Cases: dense, nxc, vertex-face, nchw, nhwc — and the reshape verbs `Permute` | `Transpose` | `Squeeze` | `Unsqueeze` | `Reshape` | `Flatten` | `Densify` | `Broadcast` | `Concatenate` | `Stack` | `Split` | `Reverse` | `Resize` | `Slice`.

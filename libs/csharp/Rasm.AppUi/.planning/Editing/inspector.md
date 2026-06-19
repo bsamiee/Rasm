@@ -2,16 +2,16 @@
 
 Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule, eleven ranked `EditorFactory` rows resolving every editable shape, an `EditFault`/`EditReceipt` commit rail with the preview-versus-commit law, the options-inspector composite binding policy records to user-settings writes and `ReloadReceipt` outcomes, a side-by-side conflict projection over Persistence conflict receipts, and grammar-scoped `CodePane` rows with a completion projection. The page owns the editor-row axis, the edit fault and outcome vocabulary, the inspector policy values, and the conflict and completion projections. The spine is bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, Avalonia.AvaloniaEdit with AvaloniaEdit.TextMate, ReactiveUI.Validation, UnitsNet, Thinktecture.Runtime.Extensions, NodaTime, System.Reactive, and LanguageExt.Core.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, descriptor filters, focus receipts.
-- [2]-[EDITOR_FACTORIES]: Eleven ranked editor rows with total shape match.
-- [3]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
-- [4]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
-- [5]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
-- [6]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
+- [01]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, descriptor filters, focus receipts.
+- [02]-[EDITOR_FACTORIES]: Eleven ranked editor rows with total shape match.
+- [03]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
+- [04]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
+- [05]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
+- [06]-[CODE_EDITING]: Grammar-scoped code panes and completion projection.
 
-## [2]-[INSPECTOR_SURFACE]
+## [02]-[INSPECTOR_SURFACE]
 
 - Owner: `InspectorPolicy` policy record; `InspectorSurface` static boundary capsule.
 - Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink)` — `IDisposable` detacher composed LIFO by the activation scope.
@@ -73,7 +73,7 @@ public static partial class InspectorSurface {
 }
 ```
 
-## [3]-[EDITOR_FACTORIES]
+## [03]-[EDITOR_FACTORIES]
 
 - Owner: `EditorKeyPolicy` single ordinal-ignore-case key accessor; `EditorFactory` `[SmartEnum<string>]` eleven rows.
 - Cases: quantity, value-object, optional, color, choice, path, collection, boolean, numeric, text, nested — rank equals declaration order, the match walk takes the first accepting row, and nested is the total fallback for record shapes.
@@ -139,7 +139,7 @@ public sealed partial class EditorFactory {
 }
 ```
 
-## [4]-[COMMIT_VALIDATION]
+## [04]-[COMMIT_VALIDATION]
 
 - Owner: `EditFault` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract; `EditOutcome` `[Union]`; `EditReceipt` record; `EditGate` static admission surface.
 - Cases: `EditFault` Text, Parse, Invariant, UnmatchedShape, StoreRejected, HostRejected, Aggregate — codes 4700-4799, `Combine` folds independent faults into Aggregate; `EditOutcome` Observed, Committed, Reverted, Rejected, HostRouted.
@@ -236,7 +236,7 @@ public static class EditGate {
 }
 ```
 
-## [5]-[OPTIONS_INSPECTOR]
+## [05]-[OPTIONS_INSPECTOR]
 
 - Owner: `OptionsInspector<T>` binding record; `InspectorSurface` extension `Attach`/`Banner`.
 - Cases: banner keys per `ReloadOutcome` case — options-applied, options-unchanged, options-restart-required, options-rejected; restart-required is the frozen-row path rendered as a typed outcome, never a toast.
@@ -296,7 +296,7 @@ flowchart LR
     ReloadOutcome --> Banner
 ```
 
-## [6]-[CONFLICT_RESOLUTION]
+## [06]-[CONFLICT_RESOLUTION]
 
 - Owner: `ConflictPane<TReceipt>` projection record with its `Project` fold; `ThreeWay` the base-local-remote hunk differ; `ConflictSide` the resolution-side axis; `GeometryDiff` the geometry-delta projection.
 - Cases: kind keys local-win, remote-win, merged, rejected arrive as projection values from the Persistence conflict union; `ConflictSide` = local | remote | base; seven resolution intent keys — conflict.accept-local, conflict.accept-remote, conflict.merge, conflict.discard, conflict.hunk-local, conflict.hunk-remote, conflict.preview-resolve.
@@ -379,7 +379,7 @@ public static class ThreeWay {
 }
 ```
 
-## [7]-[CODE_EDITING]
+## [07]-[CODE_EDITING]
 
 - Owner: `CodePane` document-editor row record; `CompletionRow` completion projection.
 - Cases: grammar scopes source.rasm, source.rasm-expression, source.json — the Rasm-DSL scopes register through the custom `IRegistryOptions` implementation row.
@@ -427,7 +427,7 @@ public sealed record CompletionRow(string Key, string Detail) {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [NAME_BLOCK_ARGS]: the `CustomNameBlock` event args type and its property-key and settable-name-control members that the `Rename` delegate narrows to apply the `RenderName` localization projection — the `CustomNameBlock` event surface and the pure `RenderName` string projection are fenced.
 - [RECORD_DRAFT]: immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis against a generated mutable draft partial, with `SetPropertyValue` landing on the draft and commit rebuilding the record.

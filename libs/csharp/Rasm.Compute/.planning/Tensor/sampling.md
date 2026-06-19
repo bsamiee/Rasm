@@ -2,11 +2,11 @@
 
 Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scattered reconstruction: the kernels with no library surface — the seed-explicit state-serializable Sobol/Halton low-discrepancy sampler carrying the equidistributed-versus-independent discriminant as a type axis, and the radial-basis design-matrix `Scatter` reconstruction into the rank-revealing route — built and gated in-house, every estimate leaving as a replicate family carrying its spread. The lane is host-local and crosses no wire. In-place numeric kernels — the `LowDiscrepancy` direction-number gray-code draw loop and the `OnlineStat` Welford increment — are this page's statement exemption.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[OWNED_BUILDS]: owned Sobol/Halton low-discrepancy sampler; radial-basis scatter reconstruction.
+- [01]-[OWNED_BUILDS]: owned Sobol/Halton low-discrepancy sampler; radial-basis scatter reconstruction.
 
-## [2]-[OWNED_BUILDS]
+## [02]-[OWNED_BUILDS]
 
 - Owner: the owned-build lane with no library surface — `LowDiscrepancy` the owned seed-explicit Sobol/Halton sampling family carrying the equidistributed-versus-independent discriminant as a type axis, and `Scatter` the radial-basis design-matrix reconstruction into the rank-revealing route.
 - Cases: `SequenceFamily` `[Union]` cases `Equidistributed(int Base)` · `Independent(ulong Stream)` (2); `Scramble` `[SmartEnum<string>]` cases none · digital-shift (2).

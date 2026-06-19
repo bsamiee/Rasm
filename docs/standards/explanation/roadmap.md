@@ -4,7 +4,7 @@ A roadmap document is the maintained sequence for target work inside one scope. 
 
 The controlling rule: roadmap hierarchy is data, not section structure. Produced roadmap files use H2 sections only for page regions. Milestones are cohesive bodies, phases are nested list rows inside a milestone, and tasks are checkbox rows inside a phase.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a roadmap when future agents need to understand ordered implementation work:
 - active build, refactor, migration, integration, hardening, or documentation sequence;
@@ -22,7 +22,7 @@ Route current structure to [architecture.md](architecture.md), ambiguous approac
 - Adjacent checks: architecture for current structure, design or `SPEC.<slug>.md` for ambiguous task detail, confirmation owners for completion confirmation, and live target route only when mutable target sequencing data is owned outside Markdown.
 - Maintenance triggers: task status changes, confirmation route changes, active task insertion, milestone or phase split, dependency change, terminal disposition, adjacent spec move, or live target route change.
 
-## [2]-[PLANNING_FOLDER]
+## [02]-[PLANNING_FOLDER]
 
 Roadmaps may live in a scope-local `.planning/` folder when the scope needs target files without mixing target sequence into ordinary README or architecture routes.
 
@@ -39,7 +39,7 @@ Keep `.planning/` flat by default. `README.md` appears only when 2 or more targe
 
 The `.planning/` folder is scope-local: a root `.planning/` covers the repository or workspace, and a nested `.planning/` covers only the directory or package boundary that contains it.
 
-## [3]-[PRODUCED_STRUCTURE]
+## [03]-[PRODUCED_STRUCTURE]
 
 Produced roadmap files use this page outline. Do not add H3 or H4 headings to represent milestones, phases, tasks, returnable groups, or task detail.
 
@@ -63,7 +63,7 @@ Produced roadmap files use this page outline. Do not add H3 or H4 headings to re
 `Current position` carries the minimum state needed to resume work without scanning every task field first.
 
 ```markdown template
-## [1]-[CURRENT_POSITION]
+## [01]-[CURRENT_POSITION]
 
 State: [ACTIVE]
 Sequence type: <Package build | Feature build | Refactor or collapse | Integration or migration | Hardening sequence>
@@ -150,7 +150,7 @@ Omit absent optional fields instead of writing `none`, `n/a`, empty placeholders
 `Active work` contains one or more milestone bodies. A roadmap may have one milestone. Each milestone remains a cohesive body; do not promote phases, tasks, or task fields to headings.
 
 ```markdown template
-## [4]-[ACTIVE_WORK]
+## [04]-[ACTIVE_WORK]
 
 Milestone:
 - ID: M-0010
@@ -203,7 +203,7 @@ Multiple milestone bodies may appear in `Active work` only when each milestone h
 `Terminal work` preserves returnable, dropped, or canceled work only when deleting it would lose useful sequencing, successor, or return information. It is one cohesive body and never uses headings to nest milestone, phase, or task hierarchy.
 
 ```markdown template
-## [5]-[TERMINAL_WORK]
+## [05]-[TERMINAL_WORK]
 
 Terminal item:
 - ID: X-<original-id>-<N>

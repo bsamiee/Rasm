@@ -2,11 +2,11 @@
 
 The one resilience policy table for the whole branch. `Retry` is the single `stamina`-backed policy table the fault rail and the transport/concurrency clusters consume — one row per retryable resource class carrying attempts, the total timeout budget, and the exact retryable exception set, with exponential backoff and jitter riding the `stamina` defaults. The policy lives in one persistent `Map` keyed by class, the on-retry signal registers once and feeds the receipt surface, and non-transient faults surface immediately as `Error(BoundaryFault)` and are never retried.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RESILIENCE]: the one `Retry` policy table, one persistent-map row per retryable class, the bound-caller entry, and the one-shot on-retry instrumentation.
+- [01]-[RESILIENCE]: the one `Retry` policy table, one persistent-map row per retryable class, the bound-caller entry, and the one-shot on-retry instrumentation.
 
-## [2]-[RESILIENCE]
+## [02]-[RESILIENCE]
 
 - Owner: `Retry` — the one resilience policy row over `stamina`, carrying the retryable class, attempts, the total timeout budget, and the exact retryable exception set; `RetryClass` the closed `StrEnum` vocabulary; `POLICIES` the one `expression` `Map[RetryClass, Retry]` the fault, transport, and concurrency clusters read through `guard`, never a second retry owner.
 - Cases: `RetryClass` rows `OBJECT_STORE` · `HTTP` · `SSH` · `WIRE` · `SCAN`, each one row in `POLICIES` carrying its own attempts, timeout budget, and exception set as behavior columns — the class is the key, the policy is the value, and the row carries its behavior rather than a flag the caller re-derives.

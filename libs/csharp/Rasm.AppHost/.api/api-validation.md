@@ -4,7 +4,7 @@
 rule sets, child and polymorphic validation, validation contexts, descriptors, results,
 failures, exceptions, global options, and scanner facts.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation`
 - package: `FluentValidation`
@@ -13,22 +13,22 @@ failures, exceptions, global options, and scanner facts.
 - asset: runtime library
 - rail: validation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validator and rule family
 - rail: validation
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]       | [RAIL]                 |
 | :-----: | :------------------------------------------ | :------------------ | :--------------------- |
-|   [1]   | `AbstractValidator<T>`                      | validator base      | rule graph owner       |
-|   [2]   | `InlineValidator<T>`                        | inline validator    | inline rule graph      |
-|   [3]   | `IValidator<T>`                             | typed contract      | typed validation       |
-|   [4]   | `IValidator`                                | untyped contract    | context validation     |
-|   [5]   | `IValidatorDescriptor`                      | descriptor contract | rule inspection        |
-|   [6]   | `ValidatorDescriptor<T>`                    | descriptor value    | rule metadata          |
-|   [7]   | `IRuleBuilder<T,TProperty>`                 | rule builder        | property rule setup    |
-|   [8]   | `IRuleBuilderOptions<T,TProperty>`          | rule option         | rule continuation      |
-|   [9]   | `IRuleBuilderInitialCollection<T,TElement>` | collection builder  | collection rules       |
+|  [01]   | `AbstractValidator<T>`                      | validator base      | rule graph owner       |
+|  [02]   | `InlineValidator<T>`                        | inline validator    | inline rule graph      |
+|  [03]   | `IValidator<T>`                             | typed contract      | typed validation       |
+|  [04]   | `IValidator`                                | untyped contract    | context validation     |
+|  [05]   | `IValidatorDescriptor`                      | descriptor contract | rule inspection        |
+|  [06]   | `ValidatorDescriptor<T>`                    | descriptor value    | rule metadata          |
+|  [07]   | `IRuleBuilder<T,TProperty>`                 | rule builder        | property rule setup    |
+|  [08]   | `IRuleBuilderOptions<T,TProperty>`          | rule option         | rule continuation      |
+|  [09]   | `IRuleBuilderInitialCollection<T,TElement>` | collection builder  | collection rules       |
 |  [10]   | `IValidationRule`                           | rule contract       | rule metadata          |
 |  [11]   | `IValidationContext`                        | context contract    | validation input       |
 |  [12]   | `ValidationContext<T>`                      | context value       | validation input state |
@@ -40,15 +40,15 @@ failures, exceptions, global options, and scanner facts.
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [RAIL]                     |
 | :-----: | :-------------------------------------------- | :------------------ | :------------------------- |
-|   [1]   | `ValidationResult`                            | result value        | validation receipt         |
-|   [2]   | `ValidationFailure`                           | failure value       | field failure              |
-|   [3]   | `ValidationException`                         | exception value     | throw-on-failure path      |
-|   [4]   | `Severity`                                    | severity enum       | failure severity           |
-|   [5]   | `CascadeMode`                                 | cascade enum        | stop/continue policy       |
-|   [6]   | `ApplyConditionTo`                            | condition enum      | condition scope            |
-|   [7]   | `ValidatorOptions`                            | global options root | global validation policy   |
-|   [8]   | `ValidatorConfiguration`                      | global config       | selector/message policy    |
-|   [9]   | `ValidatorSelectorOptions`                    | selector options    | rule selector factories    |
+|  [01]   | `ValidationResult`                            | result value        | validation receipt         |
+|  [02]   | `ValidationFailure`                           | failure value       | field failure              |
+|  [03]   | `ValidationException`                         | exception value     | throw-on-failure path      |
+|  [04]   | `Severity`                                    | severity enum       | failure severity           |
+|  [05]   | `CascadeMode`                                 | cascade enum        | stop/continue policy       |
+|  [06]   | `ApplyConditionTo`                            | condition enum      | condition scope            |
+|  [07]   | `ValidatorOptions`                            | global options root | global validation policy   |
+|  [08]   | `ValidatorConfiguration`                      | global config       | selector/message policy    |
+|  [09]   | `ValidatorSelectorOptions`                    | selector options    | rule selector factories    |
 |  [10]   | `AssemblyScanner`                             | validator scanner   | validator discovery        |
 |  [11]   | `AssemblyScanner.AssemblyScanResult`          | scan result         | discovered validator       |
 |  [12]   | `LanguageManager`                             | localization policy | error-message localization |
@@ -59,32 +59,32 @@ failures, exceptions, global options, and scanner facts.
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]         | [RAIL]                    |
 | :-----: | :------------------------------------- | :-------------------- | :------------------------ |
-|   [1]   | `DefaultValidatorExtensions`           | rule extensions       | built-in validators       |
-|   [2]   | `DefaultValidatorOptions`              | rule options          | message/severity/options  |
-|   [3]   | `IPropertyValidator<T,TProperty>`      | property validator    | sync property validation  |
-|   [4]   | `IAsyncPropertyValidator<T,TProperty>` | property validator    | async property validation |
-|   [5]   | `PropertyValidator<T,TProperty>`       | validator base        | custom sync validator     |
-|   [6]   | `AsyncPropertyValidator<T,TProperty>`  | validator base        | custom async validator    |
-|   [7]   | `PolymorphicValidator<T,TProperty>`    | inheritance validator | subtype validation        |
-|   [8]   | `IChildValidatorAdaptor`               | child adapter         | nested validation         |
-|   [9]   | `EmailValidationMode`                  | validator option      | email rule policy         |
+|  [01]   | `DefaultValidatorExtensions`           | rule extensions       | built-in validators       |
+|  [02]   | `DefaultValidatorOptions`              | rule options          | message/severity/options  |
+|  [03]   | `IPropertyValidator<T,TProperty>`      | property validator    | sync property validation  |
+|  [04]   | `IAsyncPropertyValidator<T,TProperty>` | property validator    | async property validation |
+|  [05]   | `PropertyValidator<T,TProperty>`       | validator base        | custom sync validator     |
+|  [06]   | `AsyncPropertyValidator<T,TProperty>`  | validator base        | custom async validator    |
+|  [07]   | `PolymorphicValidator<T,TProperty>`    | inheritance validator | subtype validation        |
+|  [08]   | `IChildValidatorAdaptor`               | child adapter         | nested validation         |
+|  [09]   | `EmailValidationMode`                  | validator option      | email rule policy         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: rule graph operations
 - rail: validation
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                   |
 | :-----: | :------------------------ | :----------------- | :----------------------- |
-|   [1]   | `RuleFor`                 | property rule      | property validation      |
-|   [2]   | `RuleForEach`             | collection rule    | item validation          |
-|   [3]   | `RuleSet`                 | rule grouping      | named validation set     |
-|   [4]   | `Include`                 | rule composition   | validator inclusion      |
-|   [5]   | `SetValidator`            | child validator    | nested validation        |
-|   [6]   | `SetAsyncValidator`       | child validator    | async nested validation  |
-|   [7]   | `ChildRules`              | inline child rules | nested inline rules      |
-|   [8]   | `SetInheritanceValidator` | polymorphic rules  | subtype validation       |
-|   [9]   | `DependentRules`          | dependency rules   | ordered rule branch      |
+|  [01]   | `RuleFor`                 | property rule      | property validation      |
+|  [02]   | `RuleForEach`             | collection rule    | item validation          |
+|  [03]   | `RuleSet`                 | rule grouping      | named validation set     |
+|  [04]   | `Include`                 | rule composition   | validator inclusion      |
+|  [05]   | `SetValidator`            | child validator    | nested validation        |
+|  [06]   | `SetAsyncValidator`       | child validator    | async nested validation  |
+|  [07]   | `ChildRules`              | inline child rules | nested inline rules      |
+|  [08]   | `SetInheritanceValidator` | polymorphic rules  | subtype validation       |
+|  [09]   | `DependentRules`          | dependency rules   | ordered rule branch      |
 |  [10]   | `When`                    | condition branch   | positive condition       |
 |  [11]   | `Unless`                  | condition branch   | negative condition       |
 |  [12]   | `WhenAsync`               | async condition    | async positive condition |
@@ -95,15 +95,15 @@ failures, exceptions, global options, and scanner facts.
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY]       | [RAIL]                  |
 | :-----: | :----------------- | :------------------- | :---------------------- |
-|   [1]   | `NotNull`          | null validator       | required value          |
-|   [2]   | `NotEmpty`         | empty validator      | required content        |
-|   [3]   | `Length`           | string validator     | length range            |
-|   [4]   | `Matches`          | regex validator      | pattern match           |
-|   [5]   | `EmailAddress`     | string validator     | email shape             |
-|   [6]   | `Equal`            | comparison validator | equality comparison     |
-|   [7]   | `NotEqual`         | comparison validator | inequality comparison   |
-|   [8]   | `LessThan`         | comparison validator | upper bound             |
-|   [9]   | `GreaterThan`      | comparison validator | lower bound             |
+|  [01]   | `NotNull`          | null validator       | required value          |
+|  [02]   | `NotEmpty`         | empty validator      | required content        |
+|  [03]   | `Length`           | string validator     | length range            |
+|  [04]   | `Matches`          | regex validator      | pattern match           |
+|  [05]   | `EmailAddress`     | string validator     | email shape             |
+|  [06]   | `Equal`            | comparison validator | equality comparison     |
+|  [07]   | `NotEqual`         | comparison validator | inequality comparison   |
+|  [08]   | `LessThan`         | comparison validator | upper bound             |
+|  [09]   | `GreaterThan`      | comparison validator | lower bound             |
 |  [10]   | `InclusiveBetween` | range validator      | inclusive range         |
 |  [11]   | `ExclusiveBetween` | range validator      | exclusive range         |
 |  [12]   | `IsInEnum`         | enum validator       | enum value              |
@@ -119,15 +119,15 @@ failures, exceptions, global options, and scanner facts.
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]      | [RAIL]                   |
 | :-----: | :------------------------------------ | :------------------ | :----------------------- |
-|   [1]   | `Validate`                            | sync execution      | validation result        |
-|   [2]   | `ValidateAsync`                       | async execution     | async validation result  |
-|   [3]   | `ValidateAndThrow`                    | exception execution | throws validation errors |
-|   [4]   | `CreateDescriptor`                    | metadata extraction | rule descriptor          |
-|   [5]   | `ValidationContext.CreateWithOptions` | context factory     | selector strategy        |
-|   [6]   | `IncludeProperties`                   | selector strategy   | property subset          |
-|   [7]   | `IncludeRuleSets`                     | selector strategy   | ruleset subset           |
-|   [8]   | `IncludeAllRuleSets`                  | selector strategy   | all rulesets             |
-|   [9]   | `ThrowOnFailures`                     | selector strategy   | exception mode           |
+|  [01]   | `Validate`                            | sync execution      | validation result        |
+|  [02]   | `ValidateAsync`                       | async execution     | async validation result  |
+|  [03]   | `ValidateAndThrow`                    | exception execution | throws validation errors |
+|  [04]   | `CreateDescriptor`                    | metadata extraction | rule descriptor          |
+|  [05]   | `ValidationContext.CreateWithOptions` | context factory     | selector strategy        |
+|  [06]   | `IncludeProperties`                   | selector strategy   | property subset          |
+|  [07]   | `IncludeRuleSets`                     | selector strategy   | ruleset subset           |
+|  [08]   | `IncludeAllRuleSets`                  | selector strategy   | all rulesets             |
+|  [09]   | `ThrowOnFailures`                     | selector strategy   | exception mode           |
 |  [10]   | `ValidationContext.AddFailure`        | failure emission    | custom failure           |
 |  [11]   | `ValidationResult.ToDictionary`       | result projection   | grouped failures         |
 
@@ -136,16 +136,16 @@ failures, exceptions, global options, and scanner facts.
 
 | [INDEX] | [SURFACE]              | [ENTRY_FAMILY]       | [RAIL]                  |
 | :-----: | :--------------------- | :------------------- | :---------------------- |
-|   [1]   | `Cascade`              | cascade option       | stop/continue policy    |
-|   [2]   | `WithMessage`          | message option       | failure message         |
-|   [3]   | `WithErrorCode`        | error-code option    | failure code            |
-|   [4]   | `WithName`             | display-name option  | display name            |
-|   [5]   | `OverridePropertyName` | property-name option | failure property name   |
-|   [6]   | `WithState`            | state option         | custom failure state    |
-|   [7]   | `WithSeverity`         | severity option      | failure severity        |
-|   [8]   | `Configure`            | rule mutation        | low-level rule mutation |
+|  [01]   | `Cascade`              | cascade option       | stop/continue policy    |
+|  [02]   | `WithMessage`          | message option       | failure message         |
+|  [03]   | `WithErrorCode`        | error-code option    | failure code            |
+|  [04]   | `WithName`             | display-name option  | display name            |
+|  [05]   | `OverridePropertyName` | property-name option | failure property name   |
+|  [06]   | `WithState`            | state option         | custom failure state    |
+|  [07]   | `WithSeverity`         | severity option      | failure severity        |
+|  [08]   | `Configure`            | rule mutation        | low-level rule mutation |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VALIDATION_TOPOLOGY]:
 - namespaces: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`

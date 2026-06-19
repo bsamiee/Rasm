@@ -4,20 +4,20 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 
 | [INDEX] | [PATTERN]               |  [S]  | [USE_WHEN]                                                |
 | :-----: | :---------------------- | :---: | :-------------------------------------------------------- |
-|   [1]   | Shebang + macOS re-exec |  S1   | Entry point — env resolution, Homebrew fallback           |
-|   [2]   | Shell compat matrix     |  S2   | Feature selection — bash/zsh/dash/ash semantic divergence |
-|   [3]   | Coreutil divergence     |  S3   | Cross-platform — GNU vs BSD flag differences              |
-|   [4]   | Platform dispatch       |  S4   | Runtime binding — OS-keyed function resolution            |
-|   [5]   | Container environments  |  S5   | Alpine, Wolfi, distroless — PID 1 + image selection       |
-|   [6]   | Signal/trap portability |  S6   | Cross-shell trap semantics — EXIT, ERR, subshell          |
+|  [01]   | Shebang + macOS re-exec |  S1   | Entry point — env resolution, Homebrew fallback           |
+|  [02]   | Shell compat matrix     |  S2   | Feature selection — bash/zsh/dash/ash semantic divergence |
+|  [03]   | Coreutil divergence     |  S3   | Cross-platform — GNU vs BSD flag differences              |
+|  [04]   | Platform dispatch       |  S4   | Runtime binding — OS-keyed function resolution            |
+|  [05]   | Container environments  |  S5   | Alpine, Wolfi, distroless — PID 1 + image selection       |
+|  [06]   | Signal/trap portability |  S6   | Cross-shell trap semantics — EXIT, ERR, subshell          |
 
-## [1]-[SHEBANG_AND_MACOS_REEXEC]
+## [01]-[SHEBANG_AND_MACOS_REEXEC]
 
 | [INDEX] | [SHEBANG]             | [USE_WHEN]                          |
 | :-----: | :-------------------- | :---------------------------------- |
-|   [1]   | `#!/usr/bin/env bash` | Default — portable across OSes      |
-|   [2]   | `#!/bin/bash`         | Security policy mandates abs paths  |
-|   [3]   | `#!/bin/sh`           | POSIX-only, system init, containers |
+|  [01]   | `#!/usr/bin/env bash` | Default — portable across OSes      |
+|  [02]   | `#!/bin/bash`         | Security policy mandates abs paths  |
+|  [03]   | `#!/bin/sh`           | POSIX-only, system init, containers |
 
 `env -S` (GNU coreutils 8.30+) supports flag passthrough — macOS and busybox `env` lack it entirely. Avoid in cross-platform shebangs; handle flags in the script body.
 
@@ -34,21 +34,21 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 }
 ```
 
-## [2]-[SHELL_COMPATIBILITY_MATRIX]
+## [02]-[SHELL_COMPATIBILITY_MATRIX]
 
 Cross-shell semantic divergences — not feature presence but behavioral differences that cause silent bugs:
 
 | [INDEX] | [FEATURE]            | [BASH_5.2+]        | [ZSH_5.9+]            | [DASH/ASH]         |
 | :-----: | :------------------- | :----------------- | :-------------------- | :----------------- |
-|   [1]   | Array indexing       | 0-indexed          | **1-indexed** default | No arrays          |
-|   [2]   | `local -n` (nameref) | Yes                | No                    | No                 |
-|   [3]   | `${var,,}` case fold | Yes                | `${(L)var}` (differ)  | No                 |
-|   [4]   | `[[ ]]` conditionals | Yes                | Yes (subtly differs)  | No — `[ ]` only    |
-|   [5]   | Process substitution | `<(cmd)`           | `<(cmd)` (compat)     | No                 |
-|   [6]   | `set -o pipefail`    | Yes                | Yes                   | **Not yet** (dash) |
-|   [7]   | Here-strings `<<<`   | Yes                | Yes                   | No                 |
-|   [8]   | `$BASH_SOURCE`       | Yes                | `$0` (differs)        | `$0` (differs)     |
-|   [9]   | Brace expansion      | `{a,b}`, `{1..10}` | Yes                   | No                 |
+|  [01]   | Array indexing       | 0-indexed          | **1-indexed** default | No arrays          |
+|  [02]   | `local -n` (nameref) | Yes                | No                    | No                 |
+|  [03]   | `${var,,}` case fold | Yes                | `${(L)var}` (differ)  | No                 |
+|  [04]   | `[[ ]]` conditionals | Yes                | Yes (subtly differs)  | No — `[ ]` only    |
+|  [05]   | Process substitution | `<(cmd)`           | `<(cmd)` (compat)     | No                 |
+|  [06]   | `set -o pipefail`    | Yes                | Yes                   | **Not yet** (dash) |
+|  [07]   | Here-strings `<<<`   | Yes                | Yes                   | No                 |
+|  [08]   | `$BASH_SOURCE`       | Yes                | `$0` (differs)        | `$0` (differs)     |
+|  [09]   | Brace expansion      | `{a,b}`, `{1..10}` | Yes                   | No                 |
 |  [10]   | `shopt` / `setopt`   | `shopt`            | `setopt` (differ)     | No                 |
 |  [11]   | `coproc`             | 4.0+ (not POSIX)   | `coproc` (differ)     | No — `mkfifo`      |
 |  [12]   | `${ cmd; }` (nofork) | **5.3+ only**      | No                    | No                 |
@@ -66,19 +66,19 @@ Adoption bottleneck: dash (Debian/Ubuntu `/bin/sh`) has not shipped `pipefail`. 
 _has_pipefail() { (set -o pipefail 2>/dev/null); }
 ```
 
-## [3]-[COREUTIL_DIVERGENCE]
+## [03]-[COREUTIL_DIVERGENCE]
 
 | [INDEX] | [CMD]      | [GNU]                      | [BSD_(macOS)]                   | [PORTABLE]                             |
 | :-----: | :--------- | :------------------------- | :------------------------------ | :------------------------------------- |
-|   [1]   | `date`     | `date -d "2024-01-01" +%s` | `date -jf "%Y-%m-%d" "..." +%s` | `EPOCHSECONDS` / `printf '%(%s)T'`     |
-|   [2]   | `sed -i`   | `sed -i 's/a/b/' f`        | `sed -i '' 's/a/b/' f`          | `sd` or temp+mv                        |
-|   [3]   | `stat`     | `stat -c '%s' f`           | `stat -f '%z' f`                | `wc -c < f`                            |
-|   [4]   | `readlink` | `readlink -f path`         | `readlink path` (no `-f`)       | `realpath` (POSIX 2024) or `cd+pwd -P` |
-|   [5]   | `mktemp`   | `mktemp -d -t pfx.XXXXXX`  | `mktemp -d -t pfx`              | `mktemp -d "${TMPDIR:-/tmp}/p.XXXXXX"` |
-|   [6]   | `sort -V`  | Version sort               | N/A                             | `sort -t. -k1,1n -k2,2n -k3,3n`        |
-|   [7]   | `grep -P`  | PCRE2                      | N/A                             | `rg` or `grep -E`                      |
-|   [8]   | `base64`   | `base64 -w 0`              | No `-w`                         | `base64 \| tr -d '\n'`                 |
-|   [9]   | `xargs`    | `xargs -r` (skip-empty)    | No `-r`                         | `xargs` + empty guard                  |
+|  [01]   | `date`     | `date -d "2024-01-01" +%s` | `date -jf "%Y-%m-%d" "..." +%s` | `EPOCHSECONDS` / `printf '%(%s)T'`     |
+|  [02]   | `sed -i`   | `sed -i 's/a/b/' f`        | `sed -i '' 's/a/b/' f`          | `sd` or temp+mv                        |
+|  [03]   | `stat`     | `stat -c '%s' f`           | `stat -f '%z' f`                | `wc -c < f`                            |
+|  [04]   | `readlink` | `readlink -f path`         | `readlink path` (no `-f`)       | `realpath` (POSIX 2024) or `cd+pwd -P` |
+|  [05]   | `mktemp`   | `mktemp -d -t pfx.XXXXXX`  | `mktemp -d -t pfx`              | `mktemp -d "${TMPDIR:-/tmp}/p.XXXXXX"` |
+|  [06]   | `sort -V`  | Version sort               | N/A                             | `sort -t. -k1,1n -k2,2n -k3,3n`        |
+|  [07]   | `grep -P`  | PCRE2                      | N/A                             | `rg` or `grep -E`                      |
+|  [08]   | `base64`   | `base64 -w 0`              | No `-w`                         | `base64 \| tr -d '\n'`                 |
+|  [09]   | `xargs`    | `xargs -r` (skip-empty)    | No `-r`                         | `xargs` + empty guard                  |
 |  [10]   | `cp`       | `cp --reflink=auto`        | `cp -c` (APFS clone)            | `cp` (plain)                           |
 
 ```bash
@@ -108,7 +108,7 @@ _parse_date() {
 }
 ```
 
-## [4]-[PLATFORM_DISPATCH]
+## [04]-[PLATFORM_DISPATCH]
 
 Resolve platform at init. Bind OS-specific functions once. All call sites dispatch through a uniform key — zero runtime branching after initialization. Tool probes (`_HAS_RG`, `_resolve_tool`) and bash version probes (`_HAS_INSITU`) are owned by `variable-features.md` and `version-features.md` respectively.
 
@@ -176,18 +176,18 @@ _grep_pcre() {
 }
 ```
 
-## [5]-[CONTAINER_ENVIRONMENTS]
+## [05]-[CONTAINER_ENVIRONMENTS]
 
 ### [5.1]-[IMAGE_SELECTION_MATRIX]
 
 | [INDEX] | [IMAGE]               | [SHELL]      | [BASH]                  | [USE_WHEN]                         |
 | :-----: | :-------------------- | :----------- | :---------------------- | :--------------------------------- |
-|   [1]   | Alpine 3.21           | busybox ash  | `apk add bash` -> 5.2.x | Minimal footprint, build stages    |
-|   [2]   | Debian bookworm-slim  | bash 5.2.15  | Pre-installed           | Default production base            |
-|   [3]   | Debian trixie-slim    | bash 5.2.37  | Pre-installed           | Next-gen production base           |
-|   [4]   | Wolfi (wolfi-base)    | bash + ash   | Pre-installed           | Supply-chain-hardened builds       |
-|   [5]   | Chainguard distroless | **No shell** | N/A                     | Production runtime — no shell exec |
-|   [6]   | Google distroless     | **No shell** | N/A                     | Production runtime — no shell exec |
+|  [01]   | Alpine 3.21           | busybox ash  | `apk add bash` -> 5.2.x | Minimal footprint, build stages    |
+|  [02]   | Debian bookworm-slim  | bash 5.2.15  | Pre-installed           | Default production base            |
+|  [03]   | Debian trixie-slim    | bash 5.2.37  | Pre-installed           | Next-gen production base           |
+|  [04]   | Wolfi (wolfi-base)    | bash + ash   | Pre-installed           | Supply-chain-hardened builds       |
+|  [05]   | Chainguard distroless | **No shell** | N/A                     | Production runtime — no shell exec |
+|  [06]   | Google distroless     | **No shell** | N/A                     | Production runtime — no shell exec |
 
 Wolfi-base ships bash by default — more predictable than Alpine for build stages. Distroless images contain no shell — portability shifts to "what shell does the build image have?" Loadable builtins (`enable -f`) are distribution-dependent (Arch: included; Debian: `bash-builtins` pkg; macOS/Alpine: build from source) — never depend on them in portable scripts.
 
@@ -215,19 +215,19 @@ _exec_service() { exec "$@"; }
 # handling reaping + signal forwarding natively — prefer over in-script forwarding
 ```
 
-## [6]-[SIGNAL_AND_TRAP_PORTABILITY]
+## [06]-[SIGNAL_AND_TRAP_PORTABILITY]
 
 | [INDEX] | [BEHAVIOR]           | [BASH_5.2+]             | [DASH/ASH]       | [ZSH_5.9+]  |
 | :-----: | :------------------- | :---------------------- | :--------------- | :---------- |
-|   [1]   | EXIT on signal death | Fires                   | **No**           | **No**      |
-|   [2]   | Subshell traps       | Inherited               | **Reset**        | Inherited   |
-|   [3]   | ERR trap             | `set -E` for fn scope   | N/A              | `TRAPZERR`  |
-|   [4]   | DEBUG trap           | `set -T` for fn scope   | N/A              | `TRAPDEBUG` |
-|   [5]   | `$?` in EXIT trap    | Last cmd exit code      | Last cmd         | Last cmd    |
-|   [6]   | Signal in `wait`     | Interrupts, re-waitable | Interrupts, lost | Interrupts  |
-|   [7]   | Trapped → subshell   | **Reset to default**    | Reset            | Reset       |
-|   [8]   | Ignored → subshell   | Inherited (SIG_IGN)     | Inherited        | Inherited   |
-|   [9]   | Ignored → `exec`     | Inherited (POSIX req)   | Inherited        | Inherited   |
+|  [01]   | EXIT on signal death | Fires                   | **No**           | **No**      |
+|  [02]   | Subshell traps       | Inherited               | **Reset**        | Inherited   |
+|  [03]   | ERR trap             | `set -E` for fn scope   | N/A              | `TRAPZERR`  |
+|  [04]   | DEBUG trap           | `set -T` for fn scope   | N/A              | `TRAPDEBUG` |
+|  [05]   | `$?` in EXIT trap    | Last cmd exit code      | Last cmd         | Last cmd    |
+|  [06]   | Signal in `wait`     | Interrupts, re-waitable | Interrupts, lost | Interrupts  |
+|  [07]   | Trapped → subshell   | **Reset to default**    | Reset            | Reset       |
+|  [08]   | Ignored → subshell   | Inherited (SIG_IGN)     | Inherited        | Inherited   |
+|  [09]   | Ignored → `exec`     | Inherited (POSIX req)   | Inherited        | Inherited   |
 
 Critical gap: dash and zsh do NOT fire EXIT on signal death. Trapped signals reset in subshells and across `exec`; ignored signals (`trap ''`) inherit both (POSIX SIG_IGN requirement) — `_critical_section` below exploits this for child-safe signal masking. Portable scripts must explicitly trap each signal with re-raise to preserve 128+N exit codes for orchestrator classification:
 

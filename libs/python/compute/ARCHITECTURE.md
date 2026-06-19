@@ -4,7 +4,7 @@ The domain map of `compute` — the host-free offline scientific-evidence packag
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 compute/
@@ -38,7 +38,7 @@ compute/
     └── codegen.py             # StubCodegen — ast-builder stub emitter decoding C# evidence-bundle shape
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 *                   →  csharp:Rasm.Compute       # [GRADUATION]: HandoffAxis graduation evidence
@@ -52,13 +52,13 @@ experiments/study   ←  python:data/tabular       # [SHAPE]: DOE dataset / labe
 numerics/array      ←  python:data/tabular       # [SHAPE]: ArrayPayload from xarray/dask labelled-array
 ```
 
-## [3]-[ORGANIZATION]
+## [03]-[ORGANIZATION]
 
 The sub-domains are independent numeric-science concerns that meet only through the one solve receipt, the one study spine, and the one graduation rail. `numerics/array` admits any backend array; `solvers` discriminates every numeric route and folds one `SolverReceipt`; `solvers/sensitivity` reads the implicit-function-theorem adjoint through the autodifferentiable solvers; `optimization` is the offline-optimization sub-domain spanning three sibling owners discriminated by problem structure — `design` drives an Equinox-parameterized objective to a stationary point through Optimistix over the autodifferentiable solves and the implicit-adjoint gradient, `program` solves the constrained, global, and discrete math programs the gradient loop cannot reach over `scipy.optimize`, and `convex` returns a dual-certificate proof of global optimality for disciplined-convex programs over a conic backend, each composing the solver/sensitivity/assembly owners rather than re-owning them; `numerics/interval`, `analysis/signal`, and `analysis/symbolic` are independent evidence producers, `analysis/signal` carrying both stationary-spectrum and multiresolution-wavelet cases on one owner; `numerics/quantity` threads uncertainty through the unit algebra; `experiments` orchestrates the study spine with SALib-owned sensitivity; `experiments/model` validates and exports classical estimators; `experiments/inference` owns gradient-MCMC posteriors; and `graduation` is the single rail every useful result crosses outward.
 
 The `analysis/spatial` and `solvers/mesh` owners close the former gaps: `analysis/spatial` houses array-native computational geometry over `scipy.spatial` — `SpatialQuery` discriminates KD-tree neighbour and radius search, convex hull, Delaunay, Voronoi, and the alpha-shape boundary fold, each query keyed by content identity. `solvers/mesh` houses simulation mesh-and-field interchange and weak-form assembly beside the FEM solver route — `MeshField` carries the mesh topology and per-node/per-cell field arrays, lowers a weak form to the sparse stiffness/load pair the quadrature FEM route and a Diffrax field problem consume, and `MeshExchange` rounds the mesh-and-field through the meshio format registry. Each is named by its domain concept, never a rail or axis file-naming scheme.
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - `compute` is not a production compute runtime, benchmark authority, substrate selector, tensor-session owner, or product-receipt owner; it owns offline evidence that graduates through the one rail.
 - Columnar and labelled-array interchange ownership stays in the `data` branch; `compute` composes the `xarray`/`dask` shapes as study inputs and never re-catalogues them.

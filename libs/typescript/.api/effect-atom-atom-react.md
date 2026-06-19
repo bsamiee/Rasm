@@ -15,7 +15,7 @@ binding's OWN surface: the React modules `Hooks`, `RegistryContext`, `ScopedAtom
 `ReactHydration`. Cross-package owners (`Atom.*`, `Result.*`, `AtomRef.*`, `Registry.*`,
 `Hydration.*`, `Exit`, `React`) resolve against `effect-atom.md` and `ui-stack.md`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect-atom/atom-react`
 - package: `@effect-atom/atom-react`
@@ -46,7 +46,7 @@ subpaths `./Hooks`, `./RegistryContext`, `./ScopedAtom`, `./ReactHydration` (eac
 `default` triple). `Hooks`/`RegistryContext`/`ScopedAtom` are ALSO hoisted onto the barrel;
 `ReactHydration` is subpath-only.
 
-## [2]-[HOOKS]
+## [02]-[HOOKS]
 
 `Hooks.d.ts` — flat-exported subscription hooks. `Mode` discriminates the writer return when the
 atom value is a `Result` (`"value"` setter, `"promise"` resolving to `Result.Result.Success<R>`,
@@ -87,7 +87,7 @@ const useAtomRefProp:      <A, K extends keyof A>(ref: AtomRef.AtomRef<A>, prop:
 const useAtomRefPropValue: <A, K extends keyof A>(ref: AtomRef.AtomRef<A>, prop: K) => A[K]
 ```
 
-## [3]-[REGISTRY_CONTEXT]
+## [03]-[REGISTRY_CONTEXT]
 
 `RegistryContext.d.ts` — flat-exported. One `Registry` (page `effect-atom.md` §Registry) per
 React subtree. `RegistryProvider` constructs and provides it; `scheduleTask` is the default React
@@ -105,7 +105,7 @@ const RegistryProvider: (options: {
 }) => React.FunctionComponentElement<React.ProviderProps<Registry.Registry>>
 ```
 
-## [4]-[SCOPED_ATOM]
+## [04]-[SCOPED_ATOM]
 
 `ScopedAtom.d.ts` — exported as the `ScopedAtom` namespace. A per-component-tree scoped atom: the
 factory builds an atom (optionally from a provided `Input`), `use()` reads it under the nearest
@@ -128,7 +128,7 @@ interface ScopedAtom<A extends Atom.Atom<any>, Input = never> {
 const make: <A extends Atom.Atom<any>, Input = never>(f: (() => A) | ((input: Input) => A)) => ScopedAtom<A, Input>
 ```
 
-## [5]-[REACT_HYDRATION]
+## [05]-[REACT_HYDRATION]
 
 `ReactHydration.d.ts` — the SSR boundary component. Consumes `Hydration.DehydratedAtom` (page
 `effect-atom.md` §Hydration) produced server-side by `Hydration.dehydrate` and rehydrates the

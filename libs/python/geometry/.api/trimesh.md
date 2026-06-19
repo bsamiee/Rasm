@@ -2,7 +2,7 @@
 
 `trimesh` supplies the triangle-mesh modeling and exchange surface for the geometry rail: a `Trimesh` body with cached geometric/topological properties, a `Scene` graph of named geometries, a `PointCloud`, the polymorphic `load` reader across `obj`/`ply`/`stl`/`glb`/`off`/`dxf`, primitive `creation` constructors, manifold-backed `boolean` CSG, ICP and non-rigid `registration`, mesh `repair`/`smoothing`/`remesh`, and `proximity`/`sample` queries. The package owner composes `load`, `Trimesh.export`, and the `creation`/`boolean`/`registration` modules into the mesh owner; it never re-implements mesh IO codecs, the manifold boolean kernel, or convex hull.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `trimesh`
 - package: `trimesh`
@@ -13,17 +13,17 @@
 - entry points: none (library only)
 - capability: mesh and scene IO across `obj`/`ply`/`stl`/`glb`/`gltf`/`off`/`dxf`/`xyz`, primitive creation, convex hull and decomposition, manifold boolean CSG, ICP and non-rigid registration, Laplacian/Taubin/Humphrey smoothing, quadric decimation and subdivision remeshing, hole repair and normal fixing, signed-distance and closest-point proximity, and surface sampling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry roots (`trimesh`)
 - rail: mesh
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                            |
 | :-----: | :----------- | :------------ | :------------------------------------------------------ |
-|   [1]   | `Trimesh`    | triangle mesh | vertices/faces with topology, mass, boolean, repair     |
-|   [2]   | `Scene`      | scene graph   | named geometries, transforms, dump/export/to_mesh       |
-|   [3]   | `PointCloud` | point cloud   | vertices/colors with kdtree query and convex hull       |
-|   [4]   | `Geometry`   | geometry root | abstract base for `Trimesh`/`Scene`/`PointCloud`/`Path` |
+|  [01]   | `Trimesh`    | triangle mesh | vertices/faces with topology, mass, boolean, repair     |
+|  [02]   | `Scene`      | scene graph   | named geometries, transforms, dump/export/to_mesh       |
+|  [03]   | `PointCloud` | point cloud   | vertices/colors with kdtree query and convex hull       |
+|  [04]   | `Geometry`   | geometry root | abstract base for `Trimesh`/`Scene`/`PointCloud`/`Path` |
 
 [PUBLIC_TYPE_SCOPE]: cached mesh property axes (`Trimesh`)
 - rail: mesh
@@ -32,17 +32,17 @@
 
 | [INDEX] | [PROPERTY]                                | [PROPERTY_FAMILY] | [CAPABILITY]                            |
 | :-----: | :---------------------------------------- | :---------------- | :-------------------------------------- |
-|   [1]   | `volume` / `area` / `center_mass`         | mass property     | enclosed volume, surface area, centroid |
-|   [2]   | `mass_properties` / `moment_inertia`      | inertia           | full inertia tensor and principal axes  |
-|   [3]   | `is_watertight` / `is_winding_consistent` | validity          | manifold and orientation status         |
-|   [4]   | `is_convex` / `is_volume` / `is_empty`    | validity          | convexity and solidity flags            |
-|   [5]   | `convex_hull` / `bounding_box_oriented`   | derived solid     | convex hull and oriented bound          |
-|   [6]   | `face_normals` / `vertex_normals`         | normals           | per-face and per-vertex normals         |
-|   [7]   | `edges_unique` / `face_adjacency`         | topology          | unique edges and face adjacency graph   |
-|   [8]   | `facets` / `vertex_defects`               | topology          | coplanar facet groups, angle defects    |
-|   [9]   | `kdtree` / `triangles_tree`               | spatial index     | vertex kdtree and triangle R-tree       |
+|  [01]   | `volume` / `area` / `center_mass`         | mass property     | enclosed volume, surface area, centroid |
+|  [02]   | `mass_properties` / `moment_inertia`      | inertia           | full inertia tensor and principal axes  |
+|  [03]   | `is_watertight` / `is_winding_consistent` | validity          | manifold and orientation status         |
+|  [04]   | `is_convex` / `is_volume` / `is_empty`    | validity          | convexity and solidity flags            |
+|  [05]   | `convex_hull` / `bounding_box_oriented`   | derived solid     | convex hull and oriented bound          |
+|  [06]   | `face_normals` / `vertex_normals`         | normals           | per-face and per-vertex normals         |
+|  [07]   | `edges_unique` / `face_adjacency`         | topology          | unique edges and face adjacency graph   |
+|  [08]   | `facets` / `vertex_defects`               | topology          | coplanar facet groups, angle defects    |
+|  [09]   | `kdtree` / `triangles_tree`               | spatial index     | vertex kdtree and triangle R-tree       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: load, export, and primitive creation
 - rail: mesh
@@ -51,15 +51,15 @@
 
 | [INDEX] | [SURFACE]                                   | [CALL_SHAPE]             | [CAPABILITY]                        |
 | :-----: | :------------------------------------------ | :----------------------- | :---------------------------------- |
-|   [1]   | `trimesh.load(file_obj, file_type=None)`    | path/bytes plus type     | polymorphic mesh/scene/path read    |
-|   [2]   | `trimesh.load_mesh(file_obj)`               | path plus type           | force a `Trimesh` result            |
-|   [3]   | `trimesh.load_scene(file_obj)`              | path plus type           | force a `Scene` result              |
-|   [4]   | `trimesh.available_formats()`               | none                     | enumerate supported extensions      |
-|   [5]   | `mesh.export(file_obj, file_type)`          | path plus type           | write mesh to any registered format |
-|   [6]   | `scene.export(file_type)`                   | type                     | write scene (e.g. `glb`)            |
-|   [7]   | `creation.box(extents, transform)`          | extents plus transform   | axis-aligned box mesh               |
-|   [8]   | `creation.cylinder(radius, height)`         | radius plus height       | cylinder mesh                       |
-|   [9]   | `creation.icosphere(subdivisions, radius)`  | subdivisions plus radius | geodesic sphere mesh                |
+|  [01]   | `trimesh.load(file_obj, file_type=None)`    | path/bytes plus type     | polymorphic mesh/scene/path read    |
+|  [02]   | `trimesh.load_mesh(file_obj)`               | path plus type           | force a `Trimesh` result            |
+|  [03]   | `trimesh.load_scene(file_obj)`              | path plus type           | force a `Scene` result              |
+|  [04]   | `trimesh.available_formats()`               | none                     | enumerate supported extensions      |
+|  [05]   | `mesh.export(file_obj, file_type)`          | path plus type           | write mesh to any registered format |
+|  [06]   | `scene.export(file_type)`                   | type                     | write scene (e.g. `glb`)            |
+|  [07]   | `creation.box(extents, transform)`          | extents plus transform   | axis-aligned box mesh               |
+|  [08]   | `creation.cylinder(radius, height)`         | radius plus height       | cylinder mesh                       |
+|  [09]   | `creation.icosphere(subdivisions, radius)`  | subdivisions plus radius | geodesic sphere mesh                |
 |  [10]   | `creation.extrude_polygon(polygon, height)` | polygon plus height      | extrude a Shapely polygon           |
 |  [11]   | `creation.revolve(linestring, angle)`       | profile plus angle       | revolve a 2D profile                |
 |  [12]   | `creation.sweep_polygon(polygon, path)`     | polygon plus path        | sweep a profile along a path        |
@@ -71,15 +71,15 @@ Boolean rows route to the `manifold3d` backend and return a new `Trimesh`; smoot
 
 | [INDEX] | [SURFACE]                                          | [CALL_SHAPE]         | [CAPABILITY]                     |
 | :-----: | :------------------------------------------------- | :------------------- | :------------------------------- |
-|   [1]   | `boolean.union(meshes)`                            | mesh sequence        | n-ary watertight union           |
-|   [2]   | `boolean.difference(meshes)`                       | mesh sequence        | n-ary difference                 |
-|   [3]   | `boolean.intersection(meshes)`                     | mesh sequence        | n-ary intersection               |
-|   [4]   | `mesh.convex_decomposition()`                      | none                 | approximate convex decomposition |
-|   [5]   | `repair.fill_holes(mesh)`                          | mesh                 | fill boundary holes              |
-|   [6]   | `repair.fix_normals(mesh)`                         | mesh                 | consistent outward normals       |
-|   [7]   | `repair.fix_winding(mesh)`                         | mesh                 | consistent face winding          |
-|   [8]   | `smoothing.filter_taubin(mesh)`                    | mesh plus lambda/nu  | Taubin shrink-free smoothing     |
-|   [9]   | `smoothing.filter_laplacian(mesh)`                 | mesh plus iterations | Laplacian smoothing              |
+|  [01]   | `boolean.union(meshes)`                            | mesh sequence        | n-ary watertight union           |
+|  [02]   | `boolean.difference(meshes)`                       | mesh sequence        | n-ary difference                 |
+|  [03]   | `boolean.intersection(meshes)`                     | mesh sequence        | n-ary intersection               |
+|  [04]   | `mesh.convex_decomposition()`                      | none                 | approximate convex decomposition |
+|  [05]   | `repair.fill_holes(mesh)`                          | mesh                 | fill boundary holes              |
+|  [06]   | `repair.fix_normals(mesh)`                         | mesh                 | consistent outward normals       |
+|  [07]   | `repair.fix_winding(mesh)`                         | mesh                 | consistent face winding          |
+|  [08]   | `smoothing.filter_taubin(mesh)`                    | mesh plus lambda/nu  | Taubin shrink-free smoothing     |
+|  [09]   | `smoothing.filter_laplacian(mesh)`                 | mesh plus iterations | Laplacian smoothing              |
 |  [10]   | `smoothing.filter_humphrey(mesh)`                  | mesh plus alpha/beta | Humphrey classes smoothing       |
 |  [11]   | `mesh.simplify_quadric_decimation(face_count)`     | target faces         | quadric decimation               |
 |  [12]   | `remesh.subdivide_to_size(verts, faces, max_edge)` | vertices/faces       | edge-length subdivision          |
@@ -91,20 +91,20 @@ Registration rows return a transform plus cost; proximity rows return distances/
 
 | [INDEX] | [SURFACE]                                   | [CALL_SHAPE]         | [CAPABILITY]                         |
 | :-----: | :------------------------------------------ | :------------------- | :----------------------------------- |
-|   [1]   | `registration.mesh_other(mesh, other)`      | mesh plus target     | align mesh to mesh by ICP            |
-|   [2]   | `registration.icp(a, b)`                    | point sets plus init | iterative closest point              |
-|   [3]   | `registration.procrustes(a, b)`             | point sets           | rigid Procrustes fit                 |
-|   [4]   | `registration.nricp_amberg(source, target)` | source plus target   | non-rigid Amberg deformation         |
-|   [5]   | `proximity.closest_point(mesh, points)`     | mesh plus points     | closest surface points and distances |
-|   [6]   | `proximity.signed_distance(mesh, points)`   | mesh plus points     | signed distance field samples        |
-|   [7]   | `sample.sample_surface(mesh, count)`        | mesh plus count      | area-weighted surface samples        |
-|   [8]   | `sample.sample_surface_even(mesh, count)`   | mesh plus count      | blue-noise even surface samples      |
-|   [9]   | `mesh.contains(points)`                     | points               | inside/outside test                  |
+|  [01]   | `registration.mesh_other(mesh, other)`      | mesh plus target     | align mesh to mesh by ICP            |
+|  [02]   | `registration.icp(a, b)`                    | point sets plus init | iterative closest point              |
+|  [03]   | `registration.procrustes(a, b)`             | point sets           | rigid Procrustes fit                 |
+|  [04]   | `registration.nricp_amberg(source, target)` | source plus target   | non-rigid Amberg deformation         |
+|  [05]   | `proximity.closest_point(mesh, points)`     | mesh plus points     | closest surface points and distances |
+|  [06]   | `proximity.signed_distance(mesh, points)`   | mesh plus points     | signed distance field samples        |
+|  [07]   | `sample.sample_surface(mesh, count)`        | mesh plus count      | area-weighted surface samples        |
+|  [08]   | `sample.sample_surface_even(mesh, count)`   | mesh plus count      | blue-noise even surface samples      |
+|  [09]   | `mesh.contains(points)`                     | points               | inside/outside test                  |
 |  [10]   | `mesh.section(plane_normal, plane_origin)`  | plane                | planar cross-section path            |
 |  [11]   | `mesh.slice_plane(plane_origin, normal)`    | plane                | half-space clip                      |
 |  [12]   | `mesh.split(only_watertight)`               | flag                 | disconnected-component split         |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [MESH_TOPOLOGY]:
 - import: `import trimesh` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -116,7 +116,7 @@ Registration rows return a transform plus cost; proximity rows return distances/
 - evidence: each load captures format, vertex/face count, and `is_watertight`; each boolean and registration captures the operation, input counts, and result validity as a mesh receipt; `mass_properties` carries volume, area, center of mass, and inertia.
 - boundary: trimesh owns triangle-mesh modeling, exchange, and mesh-mesh registration; `.3dm`/OpenNURBS exchange routes to `rhino3dm`, point-cloud scan registration and reconstruction to `open3d`, fine GICP to `small_gicp`, and the watertight CSG kernel to `manifold3d`.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `trimesh`

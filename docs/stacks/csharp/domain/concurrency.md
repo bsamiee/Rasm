@@ -2,25 +2,25 @@
 
 Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop receipts, and a drain band — and every loss is receipted, so written = consumed + receipted loss + receipted residue closes from declarations alone; unreceipted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
 
-## [1]-[CONCURRENCY_CHOOSER]
+## [01]-[CONCURRENCY_CHOOSER]
 
 This table routes a throughput concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                     | [OWNER]                                | [REJECTED_FORM]                 |
 | :-----: | :---------------------------- | :------------------------------------- | :------------------------------ |
-|   [1]   | producer hand-off             | lane row from the closed table         | inline channel options per site |
-|   [2]   | async parallel consumption    | `Parallel.ForEachAsync` over a lane    | task spawn per item             |
-|   [3]   | cpu associative aggregate     | total-spelling PLINQ                   | bare `AsParallel()`             |
-|   [4]   | outbound pacing and admission | limiter row + typed verdict            | semaphore gate                  |
-|   [5]   | identical concurrent intents  | keyed single-flight cell               | duplicate spend                 |
-|   [6]   | time or combination logic     | one declared observable chain          | event-handler mesh              |
-|   [7]   | cadence-bound delivery        | delivery-edge triple                   | raw push to a slow observer     |
-|   [8]   | live collection state         | source + one change-set chain          | snapshot re-query               |
-|   [9]   | global invalidation           | one of five resolution rows            | per-consumer root subscriptions |
+|   [01]   | producer hand-off             | lane row from the closed table         | inline channel options per site |
+|   [02]   | async parallel consumption    | `Parallel.ForEachAsync` over a lane    | task spawn per item             |
+|   [03]   | cpu associative aggregate     | total-spelling PLINQ                   | bare `AsParallel()`             |
+|   [04]   | outbound pacing and admission | limiter row + typed verdict            | semaphore gate                  |
+|   [05]   | identical concurrent intents  | keyed single-flight cell               | duplicate spend                 |
+|   [06]   | time or combination logic     | one declared observable chain          | event-handler mesh              |
+|   [07]   | cadence-bound delivery        | delivery-edge triple                   | raw push to a slow observer     |
+|   [08]   | live collection state         | source + one change-set chain          | snapshot re-query               |
+|   [09]   | global invalidation           | one of five resolution rows            | per-consumer root subscriptions |
 |  [10]   | cross-process exclusivity     | heartbeat lease + staleness inequality | read-then-write claim           |
 |  [11]   | shutdown loss accounting      | two-phase participation + `DrainFact`  | unreceipted teardown            |
 
-## [2]-[CHANNEL_LANES]
+## [02]-[CHANNEL_LANES]
 
 [LANE_ROWS]:
 - Law: a lane is one declared policy row over capacity, full-mode, reader arity, continuation inlining, comparer, drain band, and receipt sink — one frozen row table per process, producers reference rows by name, and inline `BoundedChannelOptions` at a call site makes the backpressure decision unrecoverable from declarations.
@@ -34,12 +34,12 @@ This table routes a throughput concern to its owning surface; the most specific 
 
 | [INDEX] | [ROW]        | [SHAPE]                                   | [DELETES]                      |
 | :-----: | :----------- | :---------------------------------------- | :----------------------------- |
-|   [1]   | mailbox      | capacity 1, `DropOldest`                  | hand-rolled latest-value locks |
-|   [2]   | ordered-work | bounded, `Wait`, single consumer          | semaphore-plus-queue pairs     |
-|   [3]   | handshake    | capacity 0, `Wait`                        | completion-source ping-pong    |
-|   [4]   | shed-ingest  | bounded, `DropWrite`                      | try-lock admission scatter     |
-|   [5]   | control      | prioritized, `(priority, sequence)` order | parallel urgent/normal queues  |
-|   [6]   | firehose     | unbounded, single reader                  | fire-and-forget task per event |
+|   [01]   | mailbox      | capacity 1, `DropOldest`                  | hand-rolled latest-value locks |
+|   [02]   | ordered-work | bounded, `Wait`, single consumer          | semaphore-plus-queue pairs     |
+|   [03]   | handshake    | capacity 0, `Wait`                        | completion-source ping-pong    |
+|   [04]   | shed-ingest  | bounded, `DropWrite`                      | try-lock admission scatter     |
+|   [05]   | control      | prioritized, `(priority, sequence)` order | parallel urgent/normal queues  |
+|   [06]   | firehose     | unbounded, single reader                  | fire-and-forget task per event |
 
 ```csharp conceptual
 [SmartEnum]
@@ -97,7 +97,7 @@ public sealed record LaneRow(string Name, Option<int> Capacity, BoundedChannelFu
 - Law: `DataflowBlock.NullTarget<T>()` is the declared absorb row — receiptless discard admitted only behind a predicate-guarded `LinkTo`, so discard is a routing decision, never a default; `Encapsulate(target, source)` folds a multi-block segment into one propagator presentable as one row with one ingress and one egress.
 - Reject: `BufferBlock` — a lane row is denser; `WriteOnceBlock` — a single-assignment cell owns publish-once; standalone `ActionBlock` — lane plus reader loop separates buffering policy from execution policy and keeps drain receipted.
 
-## [3]-[PARALLELISM_BUDGET]
+## [03]-[PARALLELISM_BUDGET]
 
 [BUDGET_RECORD]:
 - Law: one frozen budget record owns every concurrency axis — cpu workers, io degree, partitions, permits, lane capacities, batch size, drain budgets, heartbeat, staleness — and every degree, permit, capacity, and window in the process derives arithmetically from it; a literal degree at a call site makes the posture unrebalanceable without a code hunt.
@@ -157,7 +157,7 @@ public static class Budgeted {
 - Law: release-on-drain is a cooperative-phase step ordered before the owner's lanes force-drain — successors observe release while the owner is alive to complete it, and a release scheduled after forced teardown races process death, reproducing the stale-lease window the protocol exists to prevent.
 - Law: a contender steals only when heartbeat staleness observed from the medium at decision time exceeds the budget's threshold — under the staleness inequality a draining-but-alive owner is structurally unstealable, because it either heartbeats or releases before the threshold can elapse.
 
-## [4]-[RATE_LIMITING]
+## [04]-[RATE_LIMITING]
 
 [LIMITER_ROWS]:
 - Law: four limiters are four policy rows over one acquisition contract — `ConcurrencyLimiter` gates in-flight work and returns permits on lease disposal; the token bucket prices sustained rate as `TokensPerPeriod` over `ReplenishmentPeriod` and burst as `TokenLimit`, and declaring one without deriving the other is half a policy; a fixed window admits 2x the rate across a boundary, which `SlidingWindowRateLimiter` segments amortize.
@@ -205,7 +205,7 @@ public static class AdmissionGate {
 - Law: `WithTranslatedKey(keyAdapter, leaveOpen)` re-keys one partitioned limiter at a boundary — one permit pool under two key vocabularies, every verb routed through the thread-safe adapter on every acquisition path, `leaveOpen` deciding whether disposing the translation disposes the inner limiter.
 - Law: verdicts close into one family — admitted, queued, coalesced, shed with retry-after, evicted — each carrying its evidence, so backoff, telemetry, and drain dispatch on verdict shape, never on which subsystem said no.
 
-## [5]-[REACTIVE_STREAMS]
+## [05]-[REACTIVE_STREAMS]
 
 [STREAM_ADMISSION]:
 - Law: an observable chain earns admission only where time or combination algebra changes the design — two or more time or combination operators, one multicast lifetime, or time logic that must run under a virtual clock; a `Select`/`Where`-only chain buys push hazards while using none of the algebra and belongs on rails or lanes.
@@ -260,12 +260,12 @@ The worlds cross at four canonical seams — `OnNext` has no park position, so t
 
 | [INDEX] | [CROSSING]     | [SPELLING]                                      | [EVIDENCE]                 |
 | :-----: | :------------- | :---------------------------------------------- | :------------------------- |
-|   [1]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
-|   [2]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
-|   [3]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop receipts              |
-|   [4]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
+|   [01]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
+|   [02]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
+|   [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop receipts              |
+|   [04]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
 
-## [6]-[CHANGE_SETS]
+## [06]-[CHANGE_SETS]
 
 [SOURCE_LAW]:
 - Law: two sources own all live collection state — `SourceCache<TObject, TKey>` keyed, `SourceList<T>` ordered — and everything downstream is `IObservable<IChangeSet<...>>`; the change-set is the only state transport, and a materialized intermediate — snapshot, re-source, re-`Connect` — severs the incremental delta path.
@@ -313,7 +313,7 @@ public static class LiveSet {
 - Law: aggregation folds incrementally — `Count`, `Sum`, `Avg`, `Max`, `StdDev` adjust on deltas, and `TrueForAll`/`TrueForAny` fold per-item observables into live invariants without re-querying the set.
 - Law: list-shaped membership composes as set algebra — `Or`, `And`, `Xor`, `Except` over live operand lists, where adding a source to the operand list extends the union with zero new wiring; `DeferUntilLoaded` and `StartWithEmpty` are the two startup rows preventing premature-empty rendering and combinator deadlock.
 
-## [7]-[DRAIN_PARTICIPATION]
+## [07]-[DRAIN_PARTICIPATION]
 
 [PARTICIPATION_CONTRACT]:
 - Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep receipted as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; abort paths complete with the coded typed fault so every drain-side observation classifies without string matching.

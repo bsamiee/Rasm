@@ -2,11 +2,11 @@
 
 Point-cloud and 3D-scan registration. `ScanRegistration` is one registration owner discriminating by mode row: the `kiss_matcher` initialization-free global bootstrap (Faster-PFH keypoints, ROBIN outlier pruning, GNC solving — no initial pose), coarse-to-fine `multi_scale_icp` over the open3d tensor backend with robust kernels, colored point-to-plane ICP, the `small_gicp` VGICP parallel speed path, and multiway pose-graph optimization, with the robust point-to-plane estimator and voxel/correspondence schedule as the shared pre-step. The `kiss_matcher` `GLOBAL` solution seeds the fine modes and the multiway pairwise edges. Registration transforms graduate via the compute `HandoffAxis` geometry case; reconstruction and mesh repair route the `mesh-utility` sub-domain.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[REGISTRATION]: mode-discriminated registration, the global RANSAC+FPFH bootstrap, the multiway pose-graph, and the shared estimation pre-step.
+- [01]-[REGISTRATION]: mode-discriminated registration, the global RANSAC+FPFH bootstrap, the multiway pose-graph, and the shared estimation pre-step.
 
-## [2]-[REGISTRATION]
+## [02]-[REGISTRATION]
 
 - Owner: `ScanRegistration` — the frozen owner discriminating by `RegistrationMode` row over a pair of `o3d.t.geometry.PointCloud` clouds; `RegistrationResult` the 4x4 transform plus fitness and inlier RMSE receipt.
 - Cases: `RegistrationMode` rows `GLOBAL` (the `kiss_matcher` initialization-free Faster-PFH/ROBIN/GNC global pose) · `MULTISCALE` (coarse-to-fine `t.pipelines.multi_scale_icp` with a robust point-to-plane estimator) · `COLORED_ICP` (colored point-to-plane over open3d) · `VGICP` (the `small_gicp` voxelized parallel speed path) · `MULTIWAY` (pose-graph optimization over multi-station sessions) — matched by `match`/`assert_never`, each binding the engine and estimator that owns it.
@@ -115,7 +115,7 @@ class ScanRegistration(Struct, frozen=True):
         return RegistrationResult(RegistrationMode.MULTIWAY, tuple(graph.nodes[-1].pose.flatten()), 1.0, 0.0)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [TENSOR_MULTISCALE]: the `t.pipelines.registration.multi_scale_icp(source, target, voxel_sizes, criteria_list, max_correspondence_distances, init_source_to_target=eye, estimation_method=...)` signature is folder-`.api`-confirmed (`open3d.md` tensor-registration rows) — `voxel_sizes` and `max_correspondence_distances` are `o3d.utility.DoubleVector`, `criteria_list` is a `list[ICPConvergenceCriteria]` (one per scale, NOT an `IntVector` of iteration counts), and `init_source_to_target` defaults to identity so the arm passes `estimation_method=plane` by keyword; the `TransformationEstimationForColoredICP(lambda_geometric, kernel)` arity and the tensor `icp(source, target, max_correspondence_distance, estimation_method=...)` keyword are catalogue-confirmed against the same rows. The only live-run residual is the per-scale `ICPConvergenceCriteria` relative-fitness/relative-rmse tuning, an owner-local heuristic, not a catalogue dependency.
 - [GLOBAL_KISS_ARITY]: the `KISSMatcher.estimate(src, tgt)` array-overload dtype/shape (the catalogue's `float64 (3, n)` array form versus the `float32 (3, 1)` sequence form) and the `RegistrationSolution.rotation`/`.translation`/`.valid` readouts plus `get_num_final_inliers` confirm against the branch `kiss_matcher` catalogue on the cp312 companion; the `open3d` `global_optimization` option triple (`GlobalOptimizationLevenbergMarquardt`/`GlobalOptimizationConvergenceCriteria`/`GlobalOptimizationOption`) and `PoseGraphNode.pose` 4x4 readout confirm against the branch `open3d` catalogue.

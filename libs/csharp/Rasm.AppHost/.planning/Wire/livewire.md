@@ -2,16 +2,16 @@
 
 The reactive bidirectional external-binding studio for the runtime spine: one industrial-transport axis carries every two-way edge — OPC-UA, Modbus, MQTT, serial, REST, GraphQL, spreadsheet, ERP/PLM — as rows whose adapter reads and writes through one binding contract, a binding spec pairs an external source with an internal target and a direction, every inbound value coerces its unit at the edge through the Compute unit algebra before it enters the suite, a write-back transaction commits an outbound value with an acknowledgement receipt and rolls back on rejection, and a binding-health lifecycle tracks connect, subscribe, stale, and fault states per binding. The page owns the transport axis, the binding spec and direction, the edge unit coercion, the write-back transaction, and the binding-health lifecycle; it consumes `QuantityFamily`/`UnitAlgebra`/`UnitPolicy`, `OutboundHop`/`OutboundSurface`, `SchedulePort`/`ScheduleEntry`, `CommandAlgebra`, `DeadlineClass`, `DegradationLevel`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TRANSPORT_AXIS]: Eight industrial-transport rows with one read/write adapter contract.
-- [2]-[TRANSPORT_BINDING]: Per-case `Read`/`Write` dispatch; OPC-UA session/subscription and MQTT client.
-- [3]-[BINDING_SPEC]: Source-target binding, direction, edge unit coercion, and poll/subscribe cadence.
-- [4]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, and rollback.
-- [5]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
-- [6]-[TS_PROJECTION]: Binding-status and write-receipt wire shapes the studio dashboard consumes.
+- [01]-[TRANSPORT_AXIS]: Eight industrial-transport rows with one read/write adapter contract.
+- [02]-[TRANSPORT_BINDING]: Per-case `Read`/`Write` dispatch; OPC-UA session/subscription and MQTT client.
+- [03]-[BINDING_SPEC]: Source-target binding, direction, edge unit coercion, and poll/subscribe cadence.
+- [04]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, and rollback.
+- [05]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
+- [06]-[TS_PROJECTION]: Binding-status and write-receipt wire shapes the studio dashboard consumes.
 
-## [2]-[TRANSPORT_AXIS]
+## [02]-[TRANSPORT_AXIS]
 
 - Owner: `ExternalTransport` `[SmartEnum<string>]` the eight-row industrial-transport axis under the `CapabilityKeyPolicy` accessor; `TransportRow` per-transport policy record; `TransportRows` the frozen row set with the total dispatch; `WireFault` `[Union]` fault family in the 4720 band; `ExternalValue` the at-edge value carrier.
 - Cases: opc-ua, modbus, mqtt, serial, rest, graphql, spreadsheet, erp-plm — each carrying its read shape (poll versus subscribe), its write capability, and the outbound hop class its bytes ride; `WireFault` = Text | ConnectRejected | ReadFailed | WriteRejected | UnitRejected | StaleSource.
@@ -105,7 +105,7 @@ public static class TransportRows {
 }
 ```
 
-## [3]-[TRANSPORT_BINDING]
+## [03]-[TRANSPORT_BINDING]
 
 - Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication` — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
 - Cases: read dispatch is the eight-arm `Transport.Switch` — OPC-UA, MQTT, and OPC-UA-PubSub drain their lane's `ReadAllAsync` head, Modbus reads its register window through `ModbusClient.ReadHoldingRegistersAsync<short>`, serial reads its line frame through `SerialPort.ReadLine`/`ReadExisting`, REST/GraphQL/spreadsheet/ERP-PLM read once through `OutboundHop.HttpApi`; write dispatch is the same eight-arm `Switch` — OPC-UA writes one `WriteValue`, MQTT publishes one `MqttApplicationMessage`, Modbus writes through `WriteMultipleRegistersAsync`, serial writes one `WriteLine`, the HTTP transports ride a `PutAsync` body, the non-writable spreadsheet rejects at the row.
@@ -511,7 +511,7 @@ flowchart LR
     Http[REST/GraphQL/spreadsheet/ERP-PLM HttpClient] -->|HttpApi hop| Coerce
 ```
 
-## [4]-[BINDING_SPEC]
+## [04]-[BINDING_SPEC]
 
 - Owner: `BindingDirection` `[Flags]` the read/write direction; `BindingSpec` the source-target binding record; `CoercedValue` the unit-coerced inbound value; `LiveWire` the static reactive binding-engine surface.
 - Cases: direction flags Inbound, Outbound, Bidirectional — bidirectional binds both legs; the binding pairs one external address with one internal target through the transport row.
@@ -623,7 +623,7 @@ public static class LiveWire {
 }
 ```
 
-## [5]-[WRITE_BACK]
+## [05]-[WRITE_BACK]
 
 - Owner: `WriteBack` `[Union]` the write-back transaction disposition; `WriteReceipt` the per-write evidence record; `WriteBackSurface` the static commit-or-rollback surface.
 - Cases: write-back dispositions Acknowledged | Rejected | RolledBack | Coalesced — Acknowledged carries the source ack, Rejected carries the source's write rejection, RolledBack restores the prior external value, Coalesced folds a write arriving before the prior write acknowledged.
@@ -682,7 +682,7 @@ public static class WriteBackSurface {
 }
 ```
 
-## [6]-[BINDING_HEALTH]
+## [06]-[BINDING_HEALTH]
 
 - Owner: `BindingState` `[SmartEnum<string>]` the per-binding lifecycle vocabulary; `BindingHealth` the static health-contribution surface projecting binding state onto the health fold.
 - Cases: 5 state rows — connecting, subscribed, polling, stale, faulted — in lifecycle order; a binding transitions connecting to subscribed/polling on connect, to stale on a missed read past its staleness window, to faulted on a transport fault.
@@ -739,7 +739,7 @@ stateDiagram-v2
     Faulted --> Connecting : breaker-gated reconnect
 ```
 
-## [7]-[TS_PROJECTION]
+## [07]-[TS_PROJECTION]
 
 - Owner: `BindingStatusWire`/`CoercedValueWire`/`WriteReceiptWire` the host-free JSON wire records the live-wire studio dashboard decodes; `WriteBackWire` the disposition projection of the `[5]-[WRITE_BACK]` `WriteBack` `[Union]` carrying the kind discriminant; `LiveWireProjection` the static producer projecting the binding-engine records onto the wire shapes; `LiveWireContext`/`LiveWireOptions` the json-stj serializer registering the wire records and the disposition union beside the existing `ReceiptEnvelopeWire` machinery.
 - Entry: `LiveWireProjection.Status(BindingSpec spec, BindingState state, Option<Instant> lastGood)` projects the binding status, `LiveWireProjection.Coerced(CoercedValue value, string sourceUnit)` projects the unit coercion, and `LiveWireProjection.Receipt(WriteReceipt receipt)` projects the write receipt onto `WriteReceiptWire` with the `WriteBack` union lowered to `WriteBackWire` by its disposition kind; the write receipt also reconstructs through the existing `ReceiptEnvelopeWire` so the studio's evidence timeline reads one envelope vocabulary.
@@ -863,7 +863,7 @@ interface WriteReceiptWire {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [TRANSPORT_CLIENTS]: the MQTT member surface at `TRANSPORT_BINDING` is settled fence code verified against the pinned `MQTTnet` 5.1.0.1559 catalogue `.api/api-mqtt.md` — `MqttClientFactory.CreateMqttClient()` returning `IMqttClient`, `CreateClientOptionsBuilder`/`CreateSubscribeOptionsBuilder`/`CreateApplicationMessageBuilder`, `ConnectAsync(MqttClientOptions, ct)`/`SubscribeAsync(MqttClientSubscribeOptions, ct)`/`PublishAsync(MqttApplicationMessage, ct)`/`ApplicationMessageReceivedAsync`, `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` a `ReadOnlySequence<byte>` decoded through the `System.Text.EncodingExtensions.GetString(this Encoding, in ReadOnlySequence<byte>)` overload, the `WithTopicFilter(string, MqttQualityOfServiceLevel, bool, bool, MqttRetainHandling)` subscribe filter, and `MqttClientPublishResult.IsSuccess` — all rows present in the catalogue. The high-level managed `Opc.Ua.Client` surface the OPC-UA leg composes (`Session.CreateAsync(ApplicationConfiguration, ReverseConnectManager, ConfiguredEndpoint, bool, bool, string, uint, IUserIdentity, IList<string>, CancellationToken)`, `bool Session.AddSubscription`, `Subscription(ITelemetryContext)` with `int PublishingInterval`/`uint KeepAliveCount`/`uint LifetimeCount`/`double CurrentPublishingInterval` plus `void AddItem` and `Subscription.CreateAsync`, `MonitoredItem(ITelemetryContext)` with `NodeId StartNodeId`/`uint AttributeId`/`MonitoringMode`/`int SamplingInterval`, the `event MonitoredItemNotificationEventHandler Notification` and `void DetachNotificationEventHandlers`, `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `DataValue Value` carries `object Value`/`StatusCode`/`DateTime SourceTimestamp`, the inherited `SessionClient.ReadAsync`/`WriteAsync` with `WriteResponse.Results` a `StatusCodeCollection`, and `NodeId.Parse(string)`/`new Variant(double)`/`new DataValue(Variant)`/`Attributes.Value`/`StatusCode.IsGood`) is settled fence code against the `OPCFoundation.NetStandard.Opc.Ua` 1.5.378.145 catalogue `.api/api-opcua.md`, which now carries the `Opc.Ua.Client` managed-client cluster (the `Session`/`Subscription`/`MonitoredItem` member tables, the address-space/value primitive scope, and the `[MANAGED_CLIENT_LAW]` rail) promoted by `TASKLOG#T-OPCUA-MANAGED-CLIENT-CATALOG`, so the `OpcUaLane` member spellings are catalogue-of-record (decompile correction: `CurrentPublishingInterval` is `double`). The `ModbusLane` body is settled fence code against `.api/api-modbus.md` — `ModbusClient.ReadHoldingRegistersAsync<short>(unitId, startAddress, count, ct)` returning `Task<Memory<short>>`, `ReadInputRegistersAsync<short>`, `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)`, the `ModbusEndianness` byte-order column the `Decode` fold reads, and the `ModbusException` boundary projection — the register-read/write surface declares on the `ModbusClient` BASE (rows [1]/[4]) and the TCP/RTU clients inherit it, so the bind references the base-typed surface; the synchronous reads return `Span<T>` and the async reads return `Task<Memory<T>>`, the arity the `[GENERIC_SPAN_ARITY]` `.api/api-modbus.md` residual confirms at the assay binder. The `SerialLane` body is settled fence code against `.api/api-serialport.md` — `new SerialPort(portName, baudRate, parity, dataBits, stopBits)`, `Open`/`Close`/`ReadLine`/`ReadExisting`/`WriteLine`, the `DataReceived`/`ErrorReceived` events, and the `BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake`/`NewLine` line-policy properties carried as `PollPolicy.Line`. The `PubSubLane` body is settled fence code against `.api/api-opcua.md` — `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop`, the `DataReceived` `SubscribedDataEventArgs` dataset fan, and the `WireProtocol` (mqtt-json/mqtt-uadp/udp-uadp) profile column over `UaPubSubApplication.SupportedTransportProfiles`. The `FluentModbus` transitive `System.IO.Ports` declaration (5.0.0) is floated to the explicit `Directory.Packages.props` pin (10.0.9) — the explicit pin is retained, never aligned down to the transitive. A missing protocol is one `ExternalTransport` row plus its admitted client, never a transport-page client reimplementation.
 - [UNIT_COERCION]: the `QuantityFamily.Admit(double value, string unit, UnitPolicy policy, Guid correlation)` and `QuantityFamily.Render(double canonicalValue, UnitPolicy policy, Option<Enum> target)` overloads the edge coercion and write rendering read resolve against the finalized Compute/units#QUANTITY_TABLE surface, so the binding's coercion is the suite's single unit truth and carries no unit math of its own.

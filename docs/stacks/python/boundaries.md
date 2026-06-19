@@ -2,22 +2,22 @@
 
 Foreign material crosses once: a boundary owner projects native handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. The seam is the only site that names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners.
 
-## [1]-[SEAM_CHOOSER]
+## [01]-[SEAM_CHOOSER]
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and lifetime rows are read before transport rows.
 
 | [INDEX] | [FOREIGN_SIGNAL]     | [SEAM_OWNER]        | [INTERIOR_FORM]                         | [REJECT]                   |
 | :-----: | :------------------- | :------------------ | :-------------------------------------- | :------------------------- |
-|   [1]   | native handle or FFI | capsule owner       | `Result[T, Fault]` value projection     | raw `ctypes` handle field  |
-|   [2]   | borrowed live memory | scoped view         | detached `bytes`/value copy             | escaping `memoryview`      |
-|   [3]   | null or sentinel     | admission projector | `Option[T]` or closed family            | `None`-as-failure payload  |
-|   [4]   | callback or event    | subscription value  | stream-fed admitted signal              | orphan handler             |
-|   [5]   | thread-affine call   | marshal effect      | `Result` over `from_thread`/`to_thread` | ambient thread check       |
-|   [6]   | session or singleton | token-gated cell    | closed lifecycle family                 | boolean lifecycle flag     |
-|   [7]   | protocol payload     | wire converter      | admitted owner                          | codec-bearing domain owner |
-|   [8]   | signed byte field    | byte contract       | canonical octets plus hash              | parse-then-reserialize     |
+|  [01]   | native handle or FFI | capsule owner       | `Result[T, Fault]` value projection     | raw `ctypes` handle field  |
+|  [02]   | borrowed live memory | scoped view         | detached `bytes`/value copy             | escaping `memoryview`      |
+|  [03]   | null or sentinel     | admission projector | `Option[T]` or closed family            | `None`-as-failure payload  |
+|  [04]   | callback or event    | subscription value  | stream-fed admitted signal              | orphan handler             |
+|  [05]   | thread-affine call   | marshal effect      | `Result` over `from_thread`/`to_thread` | ambient thread check       |
+|  [06]   | session or singleton | token-gated cell    | closed lifecycle family                 | boolean lifecycle flag     |
+|  [07]   | protocol payload     | wire converter      | admitted owner                          | codec-bearing domain owner |
+|  [08]   | signed byte field    | byte contract       | canonical octets plus hash              | parse-then-reserialize     |
 
-## [2]-[ADMISSION]
+## [02]-[ADMISSION]
 
 [SENTINEL_PROJECTION]:
 - Use: any foreign `None`, missing key, default value, not-found code, or provider absence token.
@@ -59,7 +59,7 @@ def admitted(state: RawState, /) -> Result[Option["Payload"], AdmitFault]:
             return Error("<absent>")
 ```
 
-## [3]-[LIFETIME]
+## [03]-[LIFETIME]
 
 [CAPSULE_OWNER]:
 - Use: native handles, FFI pointers, pinned buffers, pooled values, external cursors, and any foreign object with an explicit release.
@@ -100,7 +100,7 @@ def projected[T](address: int, size: int, copy: Callable[[memoryview], T], /) ->
 - Accept: a `memoryview` or `collections.abc.Buffer` consumed inside one synchronous projection that returns owned material.
 - Reject: storing a `memoryview` on a frozen owner; returning a view; carrying a foreign buffer across an `await` where the foreign owner can free it mid-suspension.
 
-## [4]-[EVENTS_AND_THREADS]
+## [04]-[EVENTS_AND_THREADS]
 
 [SUBSCRIPTION_VALUE]:
 - Use: events, callbacks, observers, file watches, notifications, and foreign lifecycle hooks.
@@ -145,7 +145,7 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
     return lambda: emitter.off_change(handler)
 ```
 
-## [5]-[STATE_CELLS]
+## [05]-[STATE_CELLS]
 
 [TOKEN_LIFECYCLE]:
 - Use: session, singleton, wake, and cross-call boundary lifetime.
@@ -162,7 +162,7 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
 - Law: a memo key encodes every dimension that changes output — content, policy, capability, and foreign identity feed one hashable composite (a `frozendict` or `tuple`), and a `frozenset` of the policy axes joins it.
 - Reject: a path-only, type-only, or option-partial cache key; a mutable `dict` as the memo store where the agent or a `frozendict` snapshot serializes.
 
-## [6]-[WIRE_CONTRACTS]
+## [06]-[WIRE_CONTRACTS]
 
 [PROTOCOL_EDGE]:
 - Use: payload structs, envelopes, serializer contracts, persisted packets, and remote frames.
@@ -213,6 +213,6 @@ def decoded(raw: bytes, /) -> Result[Frame, WireFault]:
 - Boundary: a receipt carries the coordinate and the hash, never the payload bytes.
 - Reject: parse-and-reserialize between verification, signing, or forwarding; a per-site encoder choice; a `GetHashCode`-style process-randomized hash persisted as stable identity (use `hashlib` or `xxhash` for persistent fingerprints).
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [HOST_TOKEN]: the exact spelling of the `anyio` blocking-portal token capture for `from_thread.run` from a non-anyio foreign thread is confirmed against the `runtime` package `anyio` catalogue at capture; the seam's portal-vs-token form follows the catalogued surface.

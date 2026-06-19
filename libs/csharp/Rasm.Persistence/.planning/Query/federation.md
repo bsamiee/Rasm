@@ -2,16 +2,16 @@
 
 Rasm.Persistence owns the source-agnostic federated entity graph and the universal BIM query currency that rides it: `FederatedEntity` keys every element by a stable composite identity (geometry refs, property sets, classification, spatial containment, provenance) across every source document; `ElementSet` is the polymorphic, composable, stable selection receipt every clash/IDS/MVD/QTO surface consumes; `CrossDocLink` resolves typed inter-document references with pin-versus-float semantics and transitive impact analysis; `RulePlan` lowers a declarative rule DSL into a predicate/query plan emitting typed pass/fail/element-set/viewpoint receipts; `FusionRank` fuses the world-class pgvector HNSW, PostGIS GiST, and pg_search/FTS indexes into one scored result with per-hit lineage; and `FederatedPlan` pushes one selection AST across multiple stores with cost-based engine selection and partial-pushdown. The federated graph rides the existing PostGIS GiST + jsonb + ltree substrate on the `PostgresServer` profile, the content-addressed identity (`XxHash128`), the op-log changefeed, and the structural-diff node identity; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive settled.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ENTITY_GRAPH]: source-agnostic federated entity keyed by stable composite identity.
-- [2]-[ELEMENT_SET_ALGEBRA]: polymorphic composable selection over the graph; stable set receipts.
-- [3]-[CROSS_DOC_LINKS]: typed inter-doc links, pin/float, and transitive impact propagation.
-- [4]-[RULE_PLAN]: declarative rule DSL to predicate/query plan; typed result receipts.
-- [5]-[FUSION_RANK]: HNSW + GiST + FTS fused into one scored result with lineage.
-- [6]-[FEDERATED_PLAN]: one selection AST across stores; cost-based engine and partial-pushdown.
+- [01]-[ENTITY_GRAPH]: source-agnostic federated entity keyed by stable composite identity.
+- [02]-[ELEMENT_SET_ALGEBRA]: polymorphic composable selection over the graph; stable set receipts.
+- [03]-[CROSS_DOC_LINKS]: typed inter-doc links, pin/float, and transitive impact propagation.
+- [04]-[RULE_PLAN]: declarative rule DSL to predicate/query plan; typed result receipts.
+- [05]-[FUSION_RANK]: HNSW + GiST + FTS fused into one scored result with lineage.
+- [06]-[FEDERATED_PLAN]: one selection AST across stores; cost-based engine and partial-pushdown.
 
-## [2]-[ENTITY_GRAPH]
+## [02]-[ENTITY_GRAPH]
 
 - Owner: `FederatedEntity` the source-agnostic element record keyed by stable composite identity; `EntityIdentity` the five-axis identity value; `SourceRef` the originating-document pointer; `EntityGraph` the static surface owning identity derivation, upsert-into-the-graph, spatial-containment fold, and the source-agnostic merge of one element across documents.
 - Cases: identity composes geometry-ref hash, property-set hash, classification key, spatial-containment ltree path, and provenance origin; a federated entity merges every `SourceRef` projecting the same `EntityIdentity` so one element appears once regardless of source-document count; a `Sync/collaboration#TRANSPORT_AXIS` `SpeckleReceive` graph enters as one `SourceRef` of `SourceKind.ExternalImport` so a Speckle `DataObject` mapped to closed Rasm types at the marshal seam federates as one source projection, never a Speckle-specific entity family.
@@ -84,15 +84,15 @@ public static class EntityGraph {
 }
 ```
 
-| [INDEX] | [AXIS]              | [RESIDENCE]                      | [INDEX_ROUTE]                                      |
-| :-----: | :------------------ | :------------------------------- | :------------------------------------------------- |
-|   [1]   | geometry ref        | `geometry` GiST column           | `Query/lanes#GEO_LANES` spatial predicates          |
-|   [2]   | property sets       | merged jsonb column              | `Query/lanes#DOCUMENT_LANE` `@?`/`@@` predicates    |
-|   [3]   | classification      | `tsvector` generated + ltree key | `Query/lanes#SEARCH_LANES` + classification catalog |
-|   [4]   | spatial containment | `ltree` hierarchy path           | `lquery` ancestor/descendant predicates            |
-|   [5]   | provenance          | `Version/provenance#CAUSAL_DAG` head ref | lineage join dimension                             |
+| [INDEX] | [AXIS]              | [RESIDENCE]                              | [INDEX_ROUTE]                                       |
+| :-----: | :------------------ | :--------------------------------------- | :-------------------------------------------------- |
+|  [01]   | geometry ref        | `geometry` GiST column                   | `Query/lanes#GEO_LANES` spatial predicates          |
+|  [02]   | property sets       | merged jsonb column                      | `Query/lanes#DOCUMENT_LANE` `@?`/`@@` predicates    |
+|  [03]   | classification      | `tsvector` generated + ltree key         | `Query/lanes#SEARCH_LANES` + classification catalog |
+|  [04]   | spatial containment | `ltree` hierarchy path                   | `lquery` ancestor/descendant predicates             |
+|  [05]   | provenance          | `Version/provenance#CAUSAL_DAG` head ref | lineage join dimension                              |
 
-## [3]-[ELEMENT_SET_ALGEBRA]
+## [03]-[ELEMENT_SET_ALGEBRA]
 
 - Owner: `ElementSet` the polymorphic composable selection record carrying a stable content-addressed set receipt; `SetExpr` `[Union]` the selection algebra; `ElementSetAlgebra` the static surface owning literal selection, the boolean/spatial/property/classification combinators, and the stable-receipt fold.
 - Cases: `Literal | ByClassification | BySpatial | ByProperty | ByRule | Union | Intersect | Difference | Closure` on `SetExpr`.
@@ -151,7 +151,7 @@ public static class ElementSetAlgebra {
 }
 ```
 
-## [4]-[CROSS_DOC_LINKS]
+## [04]-[CROSS_DOC_LINKS]
 
 - Owner: `CrossDocLink` the typed inter-document reference record carrying pin-versus-float semantics; `LinkKind` the reference-type vocabulary; `ImpactNode` a transitive-impact-analysis node; `LinkStore` the static surface owning link upsert, pin/float resolution, transitive forward/backward impact, and change-propagation fold.
 - Cases: `Reference | Override | Aggregation | Constraint | Derivation` on `LinkKind`; pin freezes the link at a specific source commit while float tracks the source head; a change to a pinned source emits a stale-pin impact while a change to a floated source propagates transitively.
@@ -216,7 +216,7 @@ public static class LinkStore {
 }
 ```
 
-## [5]-[RULE_PLAN]
+## [05]-[RULE_PLAN]
 
 - Owner: `RuleAst` `[Union]` the declarative rule DSL parsed shape; `RuleResult` `[Union]` the typed result family; `RulePlan` the static surface lowering a rule AST into a predicate/query plan over the federated graph and the element-set algebra, emitting the typed result; `IdsSpecification`/`IdsFacet`/`IdsRequirement`/`IdsImport` the buildingSMART IDS 1.0 importer projecting a published IDS document's facets into `RuleAst` rows and emitting `IdsConformance` audit receipts.
 - Cases: `Select | Where | Requires | Forbids | Clash | Quantity | Property` on `RuleAst`; `Pass | Fail | Selection | Viewpoint | Quantity` on `RuleResult`; `Entity | Attribute | Classification | Property | Material | PartOf` on `IdsFacet`; `Required | Prohibited | Optional` on `IdsCardinality`.
@@ -409,7 +409,7 @@ public static class IdsImport {
 }
 ```
 
-## [6]-[FUSION_RANK]
+## [06]-[FUSION_RANK]
 
 - Owner: `FusionCandidate` a scored hit carrying its per-index rank and lineage; `FusionWeights` the per-index reciprocal-rank-fusion weight policy; `FusionRank` the static surface fusing the pgvector HNSW, PostGIS GiST, and pg_search/FTS index results into one scored result with per-hit provenance.
 - Cases: each candidate carries its rank in the vector branch, the spatial branch, and the lexical branch (absent where the branch did not return it) plus the federated entity key and its provenance head.
@@ -476,7 +476,7 @@ public static class FusionRank {
 }
 ```
 
-## [7]-[FEDERATED_PLAN]
+## [07]-[FEDERATED_PLAN]
 
 - Owner: `PlanNode` `[Union]` the cross-store query AST; `EngineCost` the per-engine cost estimate row; `FederatedPlan` the static surface owning predicate pushdown across stores, cost-based engine selection, partial-pushdown splitting, and the cross-store join fold.
 - Cases: `Scan | Filter | Join | Aggregate | Pushdown | Materialize` on `PlanNode`; cost-based selection picks the engine (pg relational, pg GiST, pg jsonb, DuckDB analytical, pgvector) whose estimated cost is lowest for a node, and partial-pushdown splits a node into a pushed sub-plan and a residual local fold.
@@ -543,7 +543,7 @@ public static class FederatedPlan {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [IDS_FACET_SCHEMA]: the buildingSMART IDS 1.0 XSD element/attribute shape the `IdsImport.Facet` reader projects — the `specification` `name`/`identifier`/`ifcVersion` attributes, the `applicability`/`requirements` element split, the per-facet `simpleValue`/`restriction` child grammar (`entity.name`, `attribute.name`/`value`, `classification.system`/`value`, `property.propertySet`/`baseName`/`dataType`/`value`, `material.value`, `partOf.relation`/`entity`), and the `requirement` `cardinality` attribute (`required`/`prohibited`/`optional`) — confirmed against the published IDS 1.0 schema before the `Facet` element-name dispatch and the `IdsConformance` receipt shape pin; the `restriction`-based pattern/enumeration facet values lower to a richer `SetExpr.ByProperty` predicate than the `simpleValue` equality the fence carries today.
 - [SPATIAL_CLASH_PUSHDOWN]: the PostGIS `ST_3DIntersects`/`ST_3DDWithin` pushdown for a `Clash` rule over a GiST-indexed `geometry`/`geometryz` column on PG18 — the index-route the planner observes for a two-set spatial intersection and the incremental-clash form re-testing only the structural-diff changed-node set against the GiST index rather than the full cross-product.

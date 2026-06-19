@@ -1,6 +1,6 @@
 # [H1][BEST-PRACTICES]
 
-## [1]-[SECURITY]
+## [01]-[SECURITY]
 
 [CRITICAL]:
 - [ALWAYS] SHA-pin every `uses:` reference — format: `owner/repo@<SHA> # vN.N.N`. [REFERENCE] Pinning protocol and incident history: [->version-discovery.md](./version-discovery.md).
@@ -13,9 +13,9 @@
 
 | [INDEX] | [TRIGGER]             | [SECRETS] | [CODE_CONTEXT] | [RISK]              |
 | :-----: | --------------------- | :-------: | -------------- | ------------------- |
-|   [1]   | `pull_request`        |    No     | PR branch      | No secret access    |
-|   [2]   | `pull_request_target` |    Yes    | Default        | Gate PR checkouts   |
-|   [3]   | `workflow_run`        |    Yes    | Default        | Validate conclusion |
+|  [01]   | `pull_request`        |    No     | PR branch      | No secret access    |
+|  [02]   | `pull_request_target` |    Yes    | Default        | Gate PR checkouts   |
+|  [03]   | `workflow_run`        |    Yes    | Default        | Validate conclusion |
 
 [IMPORTANT] **Secure-by-Default (Dec 8, 2025 — enforced):** `pull_request_target` workflows now anchor execution to default-branch definitions. `GITHUB_REF` resolves to `refs/heads/main`; `GITHUB_SHA` points to default branch HEAD at run start. Environment policy evaluation aligns with the execution ref. This cuts off "pwn request" attacks by pinning workflow source to a trusted branch. [->advanced-triggers.md§PULL_REQUEST_TARGET](./advanced-triggers.md).
 
@@ -23,15 +23,15 @@
 
 | [INDEX] | [SCOPE]           | [LEVELS]            | [COMMON_USE]                       |
 | :-----: | ----------------- | ------------------- | ---------------------------------- |
-|   [1]   | `actions`         | read / write / none | Manage workflow runs               |
-|   [2]   | `attestations`    | read / write / none | Build provenance, SBOM attestation |
-|   [3]   | `checks`          | read / write / none | Check runs and suites              |
-|   [4]   | `contents`        | read / write / none | Repo content, commits, releases    |
-|   [5]   | `deployments`     | read / write / none | Create/manage deployments          |
-|   [6]   | `discussions`     | read / write / none | GitHub Discussions                 |
-|   [7]   | `id-token`        | write / none        | OIDC federation (no read level)    |
-|   [8]   | `issues`          | read / write / none | Issues and comments                |
-|   [9]   | `models`          | read / none         | GitHub Models inference API        |
+|  [01]   | `actions`         | read / write / none | Manage workflow runs               |
+|  [02]   | `attestations`    | read / write / none | Build provenance, SBOM attestation |
+|  [03]   | `checks`          | read / write / none | Check runs and suites              |
+|  [04]   | `contents`        | read / write / none | Repo content, commits, releases    |
+|  [05]   | `deployments`     | read / write / none | Create/manage deployments          |
+|  [06]   | `discussions`     | read / write / none | GitHub Discussions                 |
+|  [07]   | `id-token`        | write / none        | OIDC federation (no read level)    |
+|  [08]   | `issues`          | read / write / none | Issues and comments                |
+|  [09]   | `models`          | read / none         | GitHub Models inference API        |
 |  [10]   | `packages`        | read / write / none | Upload/publish packages (GHCR)     |
 |  [11]   | `pages`           | read / write / none | GitHub Pages builds                |
 |  [12]   | `pull-requests`   | read / write / none | PRs, labels, reviews               |
@@ -40,26 +40,26 @@
 
 Shorthand: `permissions: read-all` / `permissions: write-all` / `permissions: {}` (deny-all). `write` implies `read` for all scopes except `id-token`.
 
-## [2]-[SUPPLY_CHAIN]
+## [02]-[SUPPLY_CHAIN]
 
 | [INDEX] | [CONTROL]             | [IMPLEMENTATION]                                                              |
 | :-----: | --------------------- | ----------------------------------------------------------------------------- |
-|   [1]   | **SHA pinning**       | [->version-discovery.md§SHA_PINNING_FORMAT](./version-discovery.md)           |
-|   [2]   | **Harden-Runner**     | Audit mode first -> generate baseline -> enforce block mode with allowlist.   |
-|   [3]   | **SLSA provenance**   | `actions/attest-build-provenance` = L2; reusable workflow caller = L3.        |
-|   [4]   | **SBOM attestation**  | `anchore/sbom-action` (SPDX-JSON) + `actions/attest-sbom` -> registry.        |
-|   [5]   | **Cosign signing**    | `sigstore/cosign-installer` keyless via OIDC — `cosign sign --yes`.           |
-|   [6]   | **Immutable actions** | [->version-discovery.md§IMMUTABLE_ACTIONS](./version-discovery.md)            |
-|   [7]   | **Dependency review** | `actions/dependency-review-action` on PRs — license + vulnerability gates.    |
-|   [8]   | **Secret scanning**   | Push protection blocks detected secrets pre-merge; up to 500 custom patterns. |
-|   [9]   | **Auto-maintenance**  | [->version-discovery.md§AUTOMATED_MAINTENANCE](./version-discovery.md)        |
+|  [01]   | **SHA pinning**       | [->version-discovery.md§SHA_PINNING_FORMAT](./version-discovery.md)           |
+|  [02]   | **Harden-Runner**     | Audit mode first -> generate baseline -> enforce block mode with allowlist.   |
+|  [03]   | **SLSA provenance**   | `actions/attest-build-provenance` = L2; reusable workflow caller = L3.        |
+|  [04]   | **SBOM attestation**  | `anchore/sbom-action` (SPDX-JSON) + `actions/attest-sbom` -> registry.        |
+|  [05]   | **Cosign signing**    | `sigstore/cosign-installer` keyless via OIDC — `cosign sign --yes`.           |
+|  [06]   | **Immutable actions** | [->version-discovery.md§IMMUTABLE_ACTIONS](./version-discovery.md)            |
+|  [07]   | **Dependency review** | `actions/dependency-review-action` on PRs — license + vulnerability gates.    |
+|  [08]   | **Secret scanning**   | Push protection blocks detected secrets pre-merge; up to 500 custom patterns. |
+|  [09]   | **Auto-maintenance**  | [->version-discovery.md§AUTOMATED_MAINTENANCE](./version-discovery.md)        |
 ### [2.1]-[OIDC_FEDERATION]
 
 | [INDEX] | [PROVIDER] | [ACTION]                                | [KEY_INPUTS]                                    |
 | :-----: | ---------- | --------------------------------------- | ----------------------------------------------- |
-|   [1]   | **AWS**    | `aws-actions/configure-aws-credentials` | `role-to-assume`, `aws-region`                  |
-|   [2]   | **GCP**    | `google-github-actions/auth`            | `workload_identity_provider`, `service_account` |
-|   [3]   | **Azure**  | `azure/login`                           | `client-id`, `tenant-id`, `subscription-id`     |
+|  [01]   | **AWS**    | `aws-actions/configure-aws-credentials` | `role-to-assume`, `aws-region`                  |
+|  [02]   | **GCP**    | `google-github-actions/auth`            | `workload_identity_provider`, `service_account` |
+|  [03]   | **Azure**  | `azure/login`                           | `client-id`, `tenant-id`, `subscription-id`     |
 
 Prerequisite: `permissions: { id-token: write }` at job level. Subject claims include repo, branch, environment for fine-grained trust policies. Short-lived tokens per session — zero rotation overhead.
 
@@ -67,13 +67,13 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 
 | [INDEX] | [TYPE]               | [SCOPE]            |  [LIFETIME]  | [CROSS_REPO] | [USE_CASE]           |
 | :-----: | -------------------- | ------------------ | :----------: | :----------: | -------------------- |
-|   [1]   | **`GITHUB_TOKEN`**   | Current repo       | Job duration |      No      | Standard in-repo CI. |
-|   [2]   | **Fine-grained PAT** | Selected repos     | Up to 1 year |     Yes      | Personal automation. |
-|   [3]   | **GitHub App token** | Installation repos |    1 hour    |     Yes      | Org-wide automation. |
+|  [01]   | **`GITHUB_TOKEN`**   | Current repo       | Job duration |      No      | Standard in-repo CI. |
+|  [02]   | **Fine-grained PAT** | Selected repos     | Up to 1 year |     Yes      | Personal automation. |
+|  [03]   | **GitHub App token** | Installation repos |    1 hour    |     Yes      | Org-wide automation. |
 
 [IMPORTANT] Prefer App tokens over PATs — scoped, auditable, account-independent.
 
-## [3]-[PERFORMANCE]
+## [03]-[PERFORMANCE]
 
 [IMPORTANT]:
 - [ALWAYS] `actions/cache` or setup action built-in cache (`cache: 'pnpm'`) — v5 backend is ~80% faster uploads.
@@ -95,22 +95,22 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 
 | [INDEX] | [LAYER]             | [PATH]               | [CACHE_KEY]                                                |
 | :-----: | ------------------- | -------------------- | ---------------------------------------------------------- |
-|   [1]   | **pnpm store**      | `$(pnpm store path)` | `${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}` |
-|   [2]   | **Nx computation**  | `.nx/cache`          | `${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}`   |
-|   [3]   | **Docker BuildKit** | GHA cache backend    | `cache-from: type=gha` / `cache-to: type=gha,mode=max`     |
+|  [01]   | **pnpm store**      | `$(pnpm store path)` | `${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}` |
+|  [02]   | **Nx computation**  | `.nx/cache`          | `${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}`   |
+|  [03]   | **Docker BuildKit** | GHA cache backend    | `cache-from: type=gha` / `cache-to: type=gha,mode=max`     |
 ### [3.1]-[WORKFLOW_AND_RUNNER_LIMITS]
 
 | [INDEX] | [LIMIT]                         | [VALUE]                                             |
 | :-----: | ------------------------------- | --------------------------------------------------- |
-|   [1]   | **Matrix jobs**                 | 256 per workflow run (hard limit).                  |
-|   [2]   | **Job execution (hosted)**      | 6 hours max per job.                                |
-|   [3]   | **Job execution (self-hosted)** | 5 days max per job.                                 |
-|   [4]   | **Workflow run time**           | 35 days max per run.                                |
-|   [5]   | **Job queue time**              | 24 hours before auto-cancel.                        |
-|   [6]   | **GITHUB_OUTPUT**               | 1 MB per job; 50 MB total per workflow run.         |
-|   [7]   | **GITHUB_STEP_SUMMARY**         | 1 MiB per step; max 20 summaries displayed per job. |
-|   [8]   | **Artifact (individual)**       | 10 GB per artifact.                                 |
-|   [9]   | **Artifacts per job**           | 500 max.                                            |
+|  [01]   | **Matrix jobs**                 | 256 per workflow run (hard limit).                  |
+|  [02]   | **Job execution (hosted)**      | 6 hours max per job.                                |
+|  [03]   | **Job execution (self-hosted)** | 5 days max per job.                                 |
+|  [04]   | **Workflow run time**           | 35 days max per run.                                |
+|  [05]   | **Job queue time**              | 24 hours before auto-cancel.                        |
+|  [06]   | **GITHUB_OUTPUT**               | 1 MB per job; 50 MB total per workflow run.         |
+|  [07]   | **GITHUB_STEP_SUMMARY**         | 1 MiB per step; max 20 summaries displayed per job. |
+|  [08]   | **Artifact (individual)**       | 10 GB per artifact.                                 |
+|  [09]   | **Artifacts per job**           | 500 max.                                            |
 |  [10]   | **Cache**                       | 10 GB per repository.                               |
 |  [11]   | **Workflow queue rate**         | 500 runs / 10 seconds per repository.               |
 |  [12]   | **API rate (GITHUB_TOKEN)**     | 1,000 requests / hour per repository.               |
@@ -119,10 +119,10 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 
 | [INDEX] | [PLAN]         | [CONCURRENT_JOBS] | [macOS] |
 | :-----: | -------------- | :---------------: | :-----: |
-|   [1]   | **Free**       |        20         |    5    |
-|   [2]   | **Pro**        |        40         |    5    |
-|   [3]   | **Team**       |        60         |    5    |
-|   [4]   | **Enterprise** |        500        |   50    |
+|  [01]   | **Free**       |        20         |    5    |
+|  [02]   | **Pro**        |        40         |    5    |
+|  [03]   | **Team**       |        60         |    5    |
+|  [04]   | **Enterprise** |        500        |   50    |
 
 Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
@@ -130,11 +130,11 @@ Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
 | [INDEX] | [TYPE]        | [SPEC]          | [NOTES]                                                    |
 | :-----: | ------------- | --------------- | ---------------------------------------------------------- |
-|   [1]   | **Standard**  | 2 vCPU / 7 GB   | Default `ubuntu-latest`.                                   |
-|   [2]   | **4-core**    | 4 vCPU / 16 GB  | Team/Enterprise plans; SSD-backed.                         |
-|   [3]   | **8-64-core** | 8-64 vCPU       | Up to 256 GB RAM; SSD-backed.                              |
-|   [4]   | **GPU (T4)**  | 4 vCPU / 28 GB  | Tesla T4 / 16 GB VRAM; $0.07/min.                          |
-|   [5]   | **ARM64**     | 4 vCPU (Cobalt) | `ubuntu-24.04-arm` — free for public repos; ~37% cost cut. |
+|  [01]   | **Standard**  | 2 vCPU / 7 GB   | Default `ubuntu-latest`.                                   |
+|  [02]   | **4-core**    | 4 vCPU / 16 GB  | Team/Enterprise plans; SSD-backed.                         |
+|  [03]   | **8-64-core** | 8-64 vCPU       | Up to 256 GB RAM; SSD-backed.                              |
+|  [04]   | **GPU (T4)**  | 4 vCPU / 28 GB  | Tesla T4 / 16 GB VRAM; $0.07/min.                          |
+|  [05]   | **ARM64**     | 4 vCPU (Cobalt) | `ubuntu-24.04-arm` — free for public repos; ~37% cost cut. |
 
 [IMPORTANT] ARM64 labels: `ubuntu-24.04-arm`, `ubuntu-22.04-arm`. No `-arm64` suffix — the canonical format is `-arm`. Free for public repos; Team/Enterprise for private repos.
 
@@ -147,17 +147,17 @@ Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 - Install via Helm: `oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller`.
 - Runner Groups: security boundaries controlling which orgs/repos access which runners.
 
-## [4]-[CONTAINER_SERVICES]
+## [04]-[CONTAINER_SERVICES]
 
 | [INDEX] | [SERVICE]    | [IMAGE]       | [HEALTH_CMD]      | [ENV]                                   |
 | :-----: | ------------ | ------------- | ----------------- | --------------------------------------- |
-|   [1]   | **Postgres** | `postgres:17` | `pg_isready`      | `POSTGRES_PASSWORD`, `POSTGRES_DB`      |
-|   [2]   | **Redis**    | `redis:7`     | `redis-cli ping`  | _(none)_                                |
-|   [3]   | **MySQL**    | `mysql:8`     | `mysqladmin ping` | `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE` |
+|  [01]   | **Postgres** | `postgres:17` | `pg_isready`      | `POSTGRES_PASSWORD`, `POSTGRES_DB`      |
+|  [02]   | **Redis**    | `redis:7`     | `redis-cli ping`  | _(none)_                                |
+|  [03]   | **MySQL**    | `mysql:8`     | `mysqladmin ping` | `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE` |
 
 Networking: service name as hostname inside container jobs (`postgres://postgres:5432`). VM runners use `localhost` with port mapping.
 
-## [5]-[ORGANIZATIONAL_CONTROLS]
+## [05]-[ORGANIZATIONAL_CONTROLS]
 
 - **Required workflows via rulesets**: org/enterprise-level CI enforcement; replaces deprecated `required_workflows` feature.
 - **Ruleset features**: branch targeting, bypass rules for admins, evaluation/dry-run mode before enforcement.
@@ -173,19 +173,19 @@ Networking: service name as hostname inside container jobs (`postgres://postgres
 - Status reports support Markdown (up to 1,024 characters).
 - Integrations: Datadog, ServiceNow, Honeycomb — external gates for canary metrics, change management, SLO verification.
 
-## [6]-[ANTI_PATTERNS]
+## [06]-[ANTI_PATTERNS]
 
 | [INDEX] | [ANTI_PATTERN]                                | [FIX]                                                                    |
 | :-----: | --------------------------------------------- | ------------------------------------------------------------------------ |
-|   [1]   | **`permissions: write-all`**                  | Explicit minimal permissions per job.                                    |
-|   [2]   | **`@main` / `@latest` / `@v1`**               | SHA-pin with version comment; Dependabot auto-updates.                   |
-|   [3]   | **No timeout on jobs**                        | `timeout-minutes:` on every job.                                         |
-|   [4]   | **`actions/cache@v3`/`v4`**                   | v5 required — Node 24 runtime, faster backend (~80% upload speedup).     |
-|   [5]   | **`set-output` / `save-state`**               | `>> $GITHUB_OUTPUT` / `>> $GITHUB_STATE`.                                |
-|   [6]   | **Long-lived cloud credentials**              | OIDC federation (`id-token: write`).                                     |
-|   [7]   | **PATs for cross-repo ops**                   | `actions/create-github-app-token` — scoped, auditable, 1-hour TTL.       |
-|   [8]   | **No harden-runner**                          | `step-security/harden-runner` as first step; detected tj-actions breach. |
-|   [9]   | **No SBOM for containers**                    | `anchore/sbom-action` + `actions/attest-sbom`.                           |
+|  [01]   | **`permissions: write-all`**                  | Explicit minimal permissions per job.                                    |
+|  [02]   | **`@main` / `@latest` / `@v1`**               | SHA-pin with version comment; Dependabot auto-updates.                   |
+|  [03]   | **No timeout on jobs**                        | `timeout-minutes:` on every job.                                         |
+|  [04]   | **`actions/cache@v3`/`v4`**                   | v5 required — Node 24 runtime, faster backend (~80% upload speedup).     |
+|  [05]   | **`set-output` / `save-state`**               | `>> $GITHUB_OUTPUT` / `>> $GITHUB_STATE`.                                |
+|  [06]   | **Long-lived cloud credentials**              | OIDC federation (`id-token: write`).                                     |
+|  [07]   | **PATs for cross-repo ops**                   | `actions/create-github-app-token` — scoped, auditable, 1-hour TTL.       |
+|  [08]   | **No harden-runner**                          | `step-security/harden-runner` as first step; detected tj-actions breach. |
+|  [09]   | **No SBOM for containers**                    | `anchore/sbom-action` + `actions/attest-sbom`.                           |
 |  [10]   | **Intel-only CI**                             | ARM64 matrix: `ubuntu-24.04-arm` — free for public repos.                |
 |  [11]   | **`cancel-in-progress` on deploy**            | Serialize deploys: `cancel-in-progress: false` (state corruption).       |
 |  [12]   | **Checkout PR head in `pull_request_target`** | Environment protection gate with required reviewers.                     |

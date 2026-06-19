@@ -2,11 +2,11 @@
 
 The interchange format vocabulary: one `InterchangeFormat` `[SmartEnum<string>]` table discriminating import (foreign bytes to BIM semantic graph or geometry) from export (artifact to foreign bytes), the `InterchangeCodec`/`KhrExtension` codec-and-extension axes, and the per-importer `FrameNormalization` coercing every imported coordinate onto the canonical kernel frame. The page composes the kernel `Rasm` geometry as settled vocabulary; the `import#IMPORT_RAIL` ingest and `export#EXPORT_RAIL` emit read these rows to dispatch a codec without a call-site branch. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FORMAT_AXIS]: format/codec/extension rows; capability, companion, and frame-normalization columns.
+- [01]-[FORMAT_AXIS]: format/codec/extension rows; capability, companion, and frame-normalization columns.
 
-## [2]-[FORMAT_AXIS]
+## [02]-[FORMAT_AXIS]
 
 - Owner: `InterchangeKeyPolicy` ordinal accessor; `InterchangeFormat` `[SmartEnum<string>]` rows carrying media-type, extension set, `CanImport`/`CanExport` capability, codec-owner discriminant, `TessellationRequiresCompanion`, and the `UpAxis`/`Handedness` ingest-frame columns; `InterchangeCodec` codec-owner vocabulary discriminating the managed package or companion that reads and writes the row; `UpAxis`/`Handedness` the per-importer local-frame enums; `FrameNormalization` the static reconciliation surface coercing every imported coordinate into the canonical kernel frame.
 - Auto: `Detect` resolves a row from a key, media type, file path, or a bare dotted extension through the frozen indices so a path, a wire media-type, or a `.glb`-style bare extension (which `Path.GetExtension` returns empty for) lands one row with zero call-site branching; `Companion` reads the `TessellationRequiresCompanion` column so the import fold routes an IFC/AP242/native geometry request to the companion bridge and a managed glTF/mesh decode inline without an `if (ifc)` branch; `FrameNormalization.Canonicalize` reads the row's `UpAxis`/`Handedness` columns and applies the one basis change mapping glTF Y-up right-handed, IFC/Rhino Z-up right-handed, and every other importer frame onto the canonical kernel Z-up right-handed frame.
@@ -178,7 +178,7 @@ public static partial class FrameNormalization {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [GLTF_EXTENSIONS]: the ratified Khronos KHR/EXT extension rows ride the `KhrExtension` axis on the codec extension column carrying only their `KhrSlot`/`KhrEncoder` discriminant, never a named SharpGLTF Schema2 extension type — the catalogued `SharpGLTF.Core` assembly serializes every `KHR_materials_*` and texture extension `internal`, authored and read only through the public `Material`/`MaterialChannel`/`Texture`/`Node`/`ModelRoot` surface and never named directly, with `TextureTransform`/`XmpPackets`/`PunctualLight` the only public extension types; every in-box material/texture/scene/metadata row therefore carries `Registrar=None` because SharpGLTF auto-registers the in-box set, and the `Registrar` closure is reserved for a caller-supplied custom extension class implemented from `JsonSerializable` (the only `ExtensionsFactory.RegisterExtension<TParent, TExt>(name)` path), so a `RegisterExtension<Material, MaterialSpecular>(...)` over an internal type is the rejected form; the `KHR_draco_mesh_compression`/`KHR_meshopt_compression`/`KHR_mesh_quantization` rows carry a `KhrEncoder` discriminant and route the encode through `Openize.Drako` (`Draco.Encode(DracoPointCloud, DracoEncodeOptions)` over a `DracoMesh` built from `PointAttribute.Wrap`) and `Alimer.Bindings.MeshOptimizer` (the `unsafe static extern Meshopt.EncodeVertexBuffer`/`EncodeIndexBuffer` pinned-pointer surface over the interleaved vertex/index buffers), both verified against those package surfaces; the glTF-to-Draco attribute mapping and the meshopt bufferView framing into the `EXT_meshopt_compression` extension block ground at the codec admission gate.
 - [USD_COEXISTENCE]: the OpenUSD stage I/O for the `usd`/`usdz` rows rides the OpenUSD Core Spec 1.0 scene-graph as a host-neutral peer coexistence axis — USD carries the scene graph, IFC carries the BIM semantics, so the USD codec is a scene-graph peer, never a BIM-semantic replacement; the `usd-stage` codec stage-read/stage-write member spellings ground against the admitted OpenUSD managed surface at the next alignment.

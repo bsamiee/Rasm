@@ -2,7 +2,7 @@
 
 A contributing guide tells a prospective contributor which contribution paths the project accepts, how normal changes move from intent to review, what confirmation proves the work, and how pull requests converge. It is a contributor workflow document, not onboarding, architecture, gate taxonomy, roadmap, incident response, repository policy, support policy, or vulnerability-disclosure policy. Keep adjacent concerns in their routes and link them only where the contributor must act on the boundary.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a contributing guide when readers need accepted contribution paths, normal-change workflow, contributor-facing quality-gate confirmation, pull-request confirmation, review-collaboration rules, or security-report routing.
 
@@ -29,7 +29,7 @@ Route away adjacent concerns before authoring the workflow:
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let contribution-path examples define section order implicitly.
 
-## [2]-[SOURCE_PRECEDENCE]
+## [02]-[SOURCE_PRECEDENCE]
 
 Anchor contribution obligations to project truth first. A guide may mention a host surface, commit format, sign-off, code of conduct, license, contribution location, review route, or security route only when repository configuration, host settings, workflow files, templates, CODEOWNERS, or maintained policy proves the project uses it.
 
@@ -41,7 +41,7 @@ Use this source order for contributor-facing claims:
 
 Do not import a `feat:` or `fix:` prefix rule, `Signed-off-by` line, contribution location, branch-protection claim, required-check claim, response-time promise, or security-reporting path from external examples alone. If host or policy confirmation is unavailable during authoring, state the missing configuration and omit the obligation from the contributor workflow.
 
-## [3]-[REQUIRED_STRUCTURE]
+## [03]-[REQUIRED_STRUCTURE]
 
 The published guide uses a required base plus conditional additions. Each `##` heading is a standalone retrieval unit; renumber headings in document order after inserting or omitting conditional sections.
 
@@ -86,13 +86,13 @@ Place conditional sections where the contributor needs them: `Before you start` 
 
 Required sections carry one purpose each. `Scope` states accepted surfaces and route-away topics; `Ways to contribute` selects the first artifact; `Setup workflow` reaches a first-gate-passing tree and states enforced workflow facts; `Quality gates` names contributor-facing results; `Pull requests` records review confirmation; `Review` makes threads converge; `Security reports` routes private vulnerability detail; `Boundaries` names adjacent routes; `Result check` verifies the published guide. Omit placeholders, template instructions, maintenance route notes, and speculative routes.
 
-## [4]-[SCOPE]
+## [04]-[SCOPE]
 
 `Scope` states what the project accepts before it teaches any workflow. It carries the accepted contribution surface, the public or private entry route for each surface, topics routed away, and the highest-risk contribution boundary, such as security-sensitive, breaking, or cross-scope work that requires direction first.
 
 Do not publish broad encouragement without a reviewable path. A contribution guide that invites work the project cannot review creates contributor waste and route ambiguity. When no maintained route exists for an excluded topic, route the contributor to source-routing consultation instead of inventing policy in `CONTRIBUTING`.
 
-## [5]-[WAYS_CONTRIBUTE]
+## [05]-[WAYS_CONTRIBUTE]
 
 `Ways to contribute` is a selector for the first reviewable artifact. Each accepted path names the contributor intent, entry artifact, gated prerequisite, and scope bound, so a contributor can choose the first action without reading the whole guide.
 
@@ -132,7 +132,7 @@ Show a near-miss only when authors tend to publish vague path bounds:
 
 Use the same compact contrast labels in every contributing example: `Accepted`, `Rejected`, `Near miss`, and `Reason`. Do not substitute `Good`, `Bad`, or project-local taste labels; the contrast record exists to show the action difference.
 
-## [6]-[BEFORE_YOU_START]
+## [06]-[BEFORE_YOU_START]
 
 Include `Before you start` only when a contributor must accept or complete a prerequisite before opening a contribution path. Carry the route and acceptance action, not the policy body.
 
@@ -144,7 +144,7 @@ Include `Before you start` only when a contributor must accept or complete a pre
 
 Do not embed prerequisite knowledge, first-task guidance, or readiness here; route those to onboarding. Do not embed the full code-of-conduct text, license body, sign-off certification body, or contributor-license-agreement. Route each to its maintained material.
 
-## [7]-[SETUP_WORKFLOW]
+## [07]-[SETUP_WORKFLOW]
 
 `Setup workflow` states the commands a contributor on the normal path runs to reach a working tree that passes the first gate. Link deeper onboarding, architecture, build, platform, or reference material instead of embedding it. A setup command that was not checked during guide maintenance stays provisional beside the command under [proof.md](../proof.md).
 
@@ -159,7 +159,7 @@ Use ordered steps for commands that must run in order. Use bullets or definition
 
 State each branch condition before its action: `If <signal>, do <action>`. Do not claim continuous integration, required status checks, branch protection, source-routing response time, commit-convention enforcement, sign-off enforcement, or automation behavior unless repository or host configuration proves it.
 
-## [8]-[QUALITY_GATES]
+## [08]-[QUALITY_GATES]
 
 `Quality gates` names the runnable command or maintained review gate that proves a contributor's change and the result to attach. Publish a gate mapping only when the repository proves concrete commands or maintained review gates; otherwise, delete the section's table or record and state the missing route.
 
@@ -194,7 +194,7 @@ Show a gap in the row or record where the contributor reports a result, not in a
 
 Delete the gate mapping when no maintained gate or review route exists. A polished list of unproved commands is filler, not contributor guidance.
 
-## [9]-[GETTING_HELP]
+## [09]-[GETTING_HELP]
 
 Include `Getting help` only for contribution blockers that prevent a contributor from completing a reviewable path: setup command failure, missing permission, unclear route, inaccessible required gate, or a review question that needs maintained material direction. Link the maintained discussion or source-routing contact route only when the project publishes one. Do not use this section for user support, onboarding, repository-policy questions, incident response, roadmap task negotiation, or vulnerability reports; route those topics elsewhere.
 

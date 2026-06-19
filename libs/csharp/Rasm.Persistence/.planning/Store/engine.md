@@ -2,14 +2,14 @@
 
 The embedded engine floor of Rasm.Persistence: four policy tables and one receipted verb family over Microsoft.Data.Sqlite on the SQLitePCLRaw e_sqlite3 bundle, with zero wrapper types between policy and provider. The page owns the frozen PRAGMA axis, the verified compile-flag surface with its admission gate, the maintenance verbs that surface upward as the StoreOp.Maintain arm set, the function and collation registration rows, blob streaming, and the loadable-extension and encryption gates. AppHost vocabulary arrives settled: every fact stamps from `ClockPolicy`, cadence rides `ScheduleEntry` rows under the maintenance lease, and `DataClassification` gates the encryption row.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PRAGMA_TABLE]: frozen engine policy rows, before/after facts, and one resolve override.
-- [2]-[COMPILE_SURFACE]: verified compile-flag admission, probe receipt, and absent-flag routing.
-- [3]-[MAINTENANCE_OPS]: receipted verbs, function rows, blob streams, and snapshot bracket.
-- [4]-[EXTENSION_GATES]: loadable-extension law; vector, sqlean, and encryption gates.
+- [01]-[PRAGMA_TABLE]: frozen engine policy rows, before/after facts, and one resolve override.
+- [02]-[COMPILE_SURFACE]: verified compile-flag admission, probe receipt, and absent-flag routing.
+- [03]-[MAINTENANCE_OPS]: receipted verbs, function rows, blob streams, and snapshot bracket.
+- [04]-[EXTENSION_GATES]: loadable-extension law; vector, sqlean, and encryption gates.
 
-## [2]-[PRAGMA_TABLE]
+## [02]-[PRAGMA_TABLE]
 
 - Owner: `SqlitePragma` `[SmartEnum<string>]` frozen policy table; `SqliteFact` with `SqliteFactKind` is the page-wide fact stream every cluster emits onto.
 - Cases: journal_mode | synchronous | foreign_keys | busy_timeout | cache_size | mmap_size | temp_store | wal_autocheckpoint | journal_size_limit | auto_vacuum
@@ -87,7 +87,7 @@ public static class PragmaOps {
 }
 ```
 
-## [3]-[COMPILE_SURFACE]
+## [03]-[COMPILE_SURFACE]
 
 - Owner: `SqliteCompileSurface`
 - Entry: `public static IO<(Seq<SqliteFact> Facts, Fin<Unit> Admission)> Probe(SqliteConnection connection, ClockPolicy clocks)` — `Fin<Unit>` aborts the open ceremony when an expected engine capability is absent.
@@ -140,13 +140,13 @@ public static class SqliteCompileSurface {
 
 | [INDEX] | [ABSENT_FLAG]                         | [NAMED_OWNER]                                                  |
 | :-----: | ------------------------------------- | -------------------------------------------------------------- |
-|   [1]   | SESSION + PREUPDATE_HOOK (changesets) | the op-log HLC changefeed owns diffing                         |
-|   [2]   | NORMALIZE (normalized SQL text)       | command-interceptor slow-query receipts own statement evidence |
-|   [3]   | DBSTAT virtual table                  | maintenance facts own page-level diagnostics                   |
-|   [4]   | SOUNDEX                               | the sqlean-fuzzy deferred gate owns phonetics                  |
-|   [5]   | GEOPOLY                               | PostGIS geometry lanes own geodesy                             |
+|  [01]   | SESSION + PREUPDATE_HOOK (changesets) | the op-log HLC changefeed owns diffing                         |
+|  [02]   | NORMALIZE (normalized SQL text)       | command-interceptor slow-query receipts own statement evidence |
+|  [03]   | DBSTAT virtual table                  | maintenance facts own page-level diagnostics                   |
+|  [04]   | SOUNDEX                               | the sqlean-fuzzy deferred gate owns phonetics                  |
+|  [05]   | GEOPOLY                               | PostGIS geometry lanes own geodesy                             |
 
-## [4]-[MAINTENANCE_OPS]
+## [04]-[MAINTENANCE_OPS]
 
 - Owner: `SqliteMaintenance`
 - Cases: quick-check | integrity-check | foreign-key-check | optimize | incremental-vacuum | vacuum-into | checkpoint | backup | snapshot — the Maintain-flagged `SqliteFactKind` rows.
@@ -244,7 +244,7 @@ public static class SqliteMaintenance {
 }
 ```
 
-## [5]-[EXTENSION_GATES]
+## [05]-[EXTENSION_GATES]
 
 - Owner: `ExtensionGate`
 - Cases: vec0 gated | sqlean-regexp, sqlean-crypto, sqlean-fuzzy, sqlean-uuid, sqlean-stats, sqlean-text deferred | sqlcipher research
@@ -307,7 +307,7 @@ public static class ExtensionOps {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set; the `SQLite3Provider_sqlcipher` keying surface for the `EncryptionGate.Sqlcipher` ceremony rows — the connection-string keying keyword versus the inline `PRAGMA key` form, key-literal escaping, and the pooled-physical-open application point.
 - [DB_CONFIG_OPS]: the live ordering of the `DbConfig.Hardened` set against pooled physical opens — whether defensive mode and the double-quoted-string-literal DDL/DML rejection must precede the migration ladder or apply after schema creation, and the interaction of `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` enablement with the db_config extension-arming path on the same connection.

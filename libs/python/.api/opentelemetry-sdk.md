@@ -2,7 +2,7 @@
 
 `opentelemetry-sdk` supplies the concrete `TracerProvider`, `MeterProvider`, `LoggerProvider`, and their supporting processor, exporter, sampler, and resource types that replace the no-op API implementations at application startup. It owns the in-process pipeline from span/metric/log creation through batching to the exporter boundary, and the `Resource` model that labels all telemetry signals with service identity attributes.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-sdk`
 - package: `opentelemetry-sdk`
@@ -11,22 +11,22 @@
 - rail: observability
 - namespaces: `opentelemetry.sdk.trace`, `opentelemetry.sdk.trace.export`, `opentelemetry.sdk.trace.sampling`, `opentelemetry.sdk.metrics`, `opentelemetry.sdk.metrics.export`, `opentelemetry.sdk._logs`, `opentelemetry.sdk._logs.export`, `opentelemetry.sdk.resources`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace SDK family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :---------------------------------------- | :------------ | :--------------------------------- |
-|   [1]   | `sdk.trace.TracerProvider`                | provider      | SDK tracer provider implementation |
-|   [2]   | `sdk.trace.Tracer`                        | tracer        | SDK tracer implementation          |
-|   [3]   | `sdk.trace.Span`                          | span          | SDK mutable span implementation    |
-|   [4]   | `sdk.trace.ReadableSpan`                  | span view     | immutable span for exporters       |
-|   [5]   | `sdk.trace.SpanProcessor`                 | abstract      | span lifecycle hook contract       |
-|   [6]   | `sdk.trace.SpanLimits`                    | config        | attribute/event/link count caps    |
-|   [7]   | `sdk.trace.SynchronousMultiSpanProcessor` | processor     | sequential multi-processor         |
-|   [8]   | `sdk.trace.ConcurrentMultiSpanProcessor`  | processor     | concurrent multi-processor         |
-|   [9]   | `sdk.trace.RandomIdGenerator`             | id generator  | cryptographic random id source     |
+|  [01]   | `sdk.trace.TracerProvider`                | provider      | SDK tracer provider implementation |
+|  [02]   | `sdk.trace.Tracer`                        | tracer        | SDK tracer implementation          |
+|  [03]   | `sdk.trace.Span`                          | span          | SDK mutable span implementation    |
+|  [04]   | `sdk.trace.ReadableSpan`                  | span view     | immutable span for exporters       |
+|  [05]   | `sdk.trace.SpanProcessor`                 | abstract      | span lifecycle hook contract       |
+|  [06]   | `sdk.trace.SpanLimits`                    | config        | attribute/event/link count caps    |
+|  [07]   | `sdk.trace.SynchronousMultiSpanProcessor` | processor     | sequential multi-processor         |
+|  [08]   | `sdk.trace.ConcurrentMultiSpanProcessor`  | processor     | concurrent multi-processor         |
+|  [09]   | `sdk.trace.RandomIdGenerator`             | id generator  | cryptographic random id source     |
 |  [10]   | `sdk.trace.Event`                         | value         | timestamped span event record      |
 
 [PUBLIC_TYPE_SCOPE]: trace export and sampling family
@@ -34,15 +34,15 @@
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [RAIL]                                     |
 | :-----: | :------------------------------------- | :------------ | :----------------------------------------- |
-|   [1]   | `sdk.trace.export.BatchSpanProcessor`  | processor     | async batching span processor              |
-|   [2]   | `sdk.trace.export.SimpleSpanProcessor` | processor     | synchronous one-by-one processor           |
-|   [3]   | `sdk.trace.export.SpanExporter`        | abstract      | exporter contract for spans                |
-|   [4]   | `sdk.trace.export.SpanExportResult`    | enum          | `SUCCESS`, `FAILURE`                       |
-|   [5]   | `sdk.trace.export.ConsoleSpanExporter` | exporter      | stdout span exporter for dev               |
-|   [6]   | `sdk.trace.sampling.Sampler`           | abstract      | sampling decision contract                 |
-|   [7]   | `sdk.trace.sampling.SamplingResult`    | value         | decision with attributes/trace state       |
-|   [8]   | `sdk.trace.sampling.TraceIdRatioBased` | sampler       | probabilistic ratio sampler                |
-|   [9]   | `sdk.trace.sampling.ParentBased`       | sampler       | parent-decision-aware sampler              |
+|  [01]   | `sdk.trace.export.BatchSpanProcessor`  | processor     | async batching span processor              |
+|  [02]   | `sdk.trace.export.SimpleSpanProcessor` | processor     | synchronous one-by-one processor           |
+|  [03]   | `sdk.trace.export.SpanExporter`        | abstract      | exporter contract for spans                |
+|  [04]   | `sdk.trace.export.SpanExportResult`    | enum          | `SUCCESS`, `FAILURE`                       |
+|  [05]   | `sdk.trace.export.ConsoleSpanExporter` | exporter      | stdout span exporter for dev               |
+|  [06]   | `sdk.trace.sampling.Sampler`           | abstract      | sampling decision contract                 |
+|  [07]   | `sdk.trace.sampling.SamplingResult`    | value         | decision with attributes/trace state       |
+|  [08]   | `sdk.trace.sampling.TraceIdRatioBased` | sampler       | probabilistic ratio sampler                |
+|  [09]   | `sdk.trace.sampling.ParentBased`       | sampler       | parent-decision-aware sampler              |
 |  [10]   | `sdk.trace.sampling.StaticSampler`     | sampler       | always-on/always-off sampler               |
 |  [11]   | `sdk.trace.sampling.Decision`          | enum          | `DROP`, `RECORD_ONLY`, `RECORD_AND_SAMPLE` |
 
@@ -51,15 +51,15 @@
 
 | [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [RAIL]                                |
 | :-----: | :------------------------------------------------- | :------------ | :------------------------------------ |
-|   [1]   | `sdk.metrics.MeterProvider`                        | provider      | SDK meter provider implementation     |
-|   [2]   | `sdk.metrics.Meter`                                | meter         | SDK meter implementation              |
-|   [3]   | `sdk.metrics.export.MetricReader`                  | abstract      | metric collection contract            |
-|   [4]   | `sdk.metrics.export.MetricExporter`                | abstract      | metric exporter contract              |
-|   [5]   | `sdk.metrics.export.MetricExportResult`            | enum          | `SUCCESS`, `FAILURE`                  |
-|   [6]   | `sdk.metrics.export.PeriodicExportingMetricReader` | reader        | periodic push reader                  |
-|   [7]   | `sdk.metrics.export.InMemoryMetricReader`          | reader        | in-memory reader for testing          |
-|   [8]   | `sdk.metrics.export.ConsoleMetricExporter`         | exporter      | stdout metric exporter for dev        |
-|   [9]   | `sdk.metrics.export.AggregationTemporality`        | enum          | `CUMULATIVE`, `DELTA`                 |
+|  [01]   | `sdk.metrics.MeterProvider`                        | provider      | SDK meter provider implementation     |
+|  [02]   | `sdk.metrics.Meter`                                | meter         | SDK meter implementation              |
+|  [03]   | `sdk.metrics.export.MetricReader`                  | abstract      | metric collection contract            |
+|  [04]   | `sdk.metrics.export.MetricExporter`                | abstract      | metric exporter contract              |
+|  [05]   | `sdk.metrics.export.MetricExportResult`            | enum          | `SUCCESS`, `FAILURE`                  |
+|  [06]   | `sdk.metrics.export.PeriodicExportingMetricReader` | reader        | periodic push reader                  |
+|  [07]   | `sdk.metrics.export.InMemoryMetricReader`          | reader        | in-memory reader for testing          |
+|  [08]   | `sdk.metrics.export.ConsoleMetricExporter`         | exporter      | stdout metric exporter for dev        |
+|  [09]   | `sdk.metrics.export.AggregationTemporality`        | enum          | `CUMULATIVE`, `DELTA`                 |
 |  [10]   | `sdk.metrics.view.View`                            | config        | instrument-to-aggregation mapping     |
 |  [11]   | `sdk.metrics.Exemplar`                             | value         | representative sampled measurement    |
 |  [12]   | `sdk.metrics.ExemplarFilter`                       | abstract      | exemplar inclusion policy             |
@@ -72,57 +72,57 @@
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :------------------------------------------ | :------------ | :--------------------------------- |
-|   [1]   | `sdk._logs.LoggerProvider`                  | provider      | SDK logger provider implementation |
-|   [2]   | `sdk._logs.Logger`                          | logger        | SDK logger implementation          |
-|   [3]   | `sdk._logs.ReadableLogRecord`               | log view      | immutable log record for exporters |
-|   [4]   | `sdk._logs.LogRecordProcessor`              | abstract      | log record pipeline hook           |
-|   [5]   | `sdk._logs.LoggingHandler`                  | bridge        | stdlib `logging` → OTel log bridge |
-|   [6]   | `sdk._logs.export.BatchLogRecordProcessor`  | processor     | async batching log processor       |
-|   [7]   | `sdk._logs.export.LogRecordExporter`        | abstract      | exporter contract for log records  |
-|   [8]   | `sdk._logs.export.LogRecordExportResult`    | enum          | `SUCCESS`, `FAILURE`               |
-|   [9]   | `sdk._logs.export.ConsoleLogRecordExporter` | exporter      | stdout log exporter for dev        |
+|  [01]   | `sdk._logs.LoggerProvider`                  | provider      | SDK logger provider implementation |
+|  [02]   | `sdk._logs.Logger`                          | logger        | SDK logger implementation          |
+|  [03]   | `sdk._logs.ReadableLogRecord`               | log view      | immutable log record for exporters |
+|  [04]   | `sdk._logs.LogRecordProcessor`              | abstract      | log record pipeline hook           |
+|  [05]   | `sdk._logs.LoggingHandler`                  | bridge        | stdlib `logging` → OTel log bridge |
+|  [06]   | `sdk._logs.export.BatchLogRecordProcessor`  | processor     | async batching log processor       |
+|  [07]   | `sdk._logs.export.LogRecordExporter`        | abstract      | exporter contract for log records  |
+|  [08]   | `sdk._logs.export.LogRecordExportResult`    | enum          | `SUCCESS`, `FAILURE`               |
+|  [09]   | `sdk._logs.export.ConsoleLogRecordExporter` | exporter      | stdout log exporter for dev        |
 |  [10]   | `sdk.resources.Resource`                    | value         | service identity key-value labels  |
 |  [11]   | `sdk.resources.OTELResourceDetector`        | detector      | env-var resource auto-detection    |
 |  [12]   | `sdk.resources.ProcessResourceDetector`     | detector      | process resource auto-detection    |
 |  [13]   | `sdk.resources.OsResourceDetector`          | detector      | OS resource auto-detection         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: TracerProvider construction and lifecycle
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                  |
 | :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------- |
-|   [1]   | `TracerProvider(sampler, resource, span_limits, ...)`    | construction   | provider with full config               |
-|   [2]   | `TracerProvider.add_span_processor(span_processor)`      | config         | attach additional span processor        |
-|   [3]   | `TracerProvider.shutdown()`                              | lifecycle      | flush and shut down all processors      |
-|   [4]   | `BatchSpanProcessor(span_exporter, max_queue_size, ...)` | construction   | batching processor with capacity config |
-|   [5]   | `SimpleSpanProcessor(span_exporter)`                     | construction   | synchronous single-span processor       |
-|   [6]   | `TraceIdRatioBased(rate)`                                | construction   | sampler for given fraction of traces    |
-|   [7]   | `ParentBased(root, remote_sampled_parent, ...)`          | construction   | parent-decision-routed sampler          |
-|   [8]   | `SpanLimits(max_attributes, max_events, max_links, ...)` | construction   | per-span attribute and event caps       |
+|  [01]   | `TracerProvider(sampler, resource, span_limits, ...)`    | construction   | provider with full config               |
+|  [02]   | `TracerProvider.add_span_processor(span_processor)`      | config         | attach additional span processor        |
+|  [03]   | `TracerProvider.shutdown()`                              | lifecycle      | flush and shut down all processors      |
+|  [04]   | `BatchSpanProcessor(span_exporter, max_queue_size, ...)` | construction   | batching processor with capacity config |
+|  [05]   | `SimpleSpanProcessor(span_exporter)`                     | construction   | synchronous single-span processor       |
+|  [06]   | `TraceIdRatioBased(rate)`                                | construction   | sampler for given fraction of traces    |
+|  [07]   | `ParentBased(root, remote_sampled_parent, ...)`          | construction   | parent-decision-routed sampler          |
+|  [08]   | `SpanLimits(max_attributes, max_events, max_links, ...)` | construction   | per-span attribute and event caps       |
 
 [ENTRYPOINT_SCOPE]: MeterProvider construction and lifecycle
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `MeterProvider(metric_readers, resource, views, ...)`                      | construction   | provider with readers and views |
-|   [2]   | `MeterProvider.shutdown()`                                                 | lifecycle      | flush and stop all readers      |
-|   [3]   | `PeriodicExportingMetricReader(exporter, export_interval_millis)`          | construction   | push reader on timer            |
-|   [4]   | `View(instrument_type, instrument_name, aggregation, attribute_keys, ...)` | construction   | instrument filter and routing   |
+|  [01]   | `MeterProvider(metric_readers, resource, views, ...)`                      | construction   | provider with readers and views |
+|  [02]   | `MeterProvider.shutdown()`                                                 | lifecycle      | flush and stop all readers      |
+|  [03]   | `PeriodicExportingMetricReader(exporter, export_interval_millis)`          | construction   | push reader on timer            |
+|  [04]   | `View(instrument_type, instrument_name, aggregation, attribute_keys, ...)` | construction   | instrument filter and routing   |
 
 [ENTRYPOINT_SCOPE]: Resource construction
 - rail: observability
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :--------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `Resource(attributes, schema_url)` | construction   | explicit service identity resource |
-|   [2]   | `Resource.create(attributes)`      | construction   | resource merged with defaults      |
-|   [3]   | `Resource.merge(other)`            | merge          | combine two resources              |
-|   [4]   | `OTELResourceDetector().detect()`  | detection      | read `OTEL_RESOURCE_ATTRIBUTES`    |
+|  [01]   | `Resource(attributes, schema_url)` | construction   | explicit service identity resource |
+|  [02]   | `Resource.create(attributes)`      | construction   | resource merged with defaults      |
+|  [03]   | `Resource.merge(other)`            | merge          | combine two resources              |
+|  [04]   | `OTELResourceDetector().detect()`  | detection      | read `OTEL_RESOURCE_ATTRIBUTES`    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SDK_TOPOLOGY]:
 - provider composition: `TracerProvider` and `MeterProvider` accept `resource` and processor/reader lists at construction; processors and readers cannot be added after provider is registered globally

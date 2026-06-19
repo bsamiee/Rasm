@@ -2,7 +2,7 @@
 
 `clarabel` supplies the Rust-native conic interior-point solver for the compute convex-optimization rail: a `DefaultSolver` that takes a quadratic-plus-conic problem in standard form (`P`, `q`, `A`, `b`, a cone list) plus `DefaultSettings`, runs the primal-dual interior-point method, and returns a `DefaultSolution` carrying the primal `x`, dual `z`/`s`, solve status, and objective. It is the default conic backend behind `cvxpy` and the source of its dual-certificate proof of optimality. The package owner composes `DefaultSolver`, the cone constructors, and `solve` into the convex backend; it never re-implements the interior-point iteration Clarabel owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `clarabel`
 - package: `clarabel`
@@ -13,52 +13,52 @@
 - entry points: none (library only)
 - capability: primal-dual interior-point solve of quadratic programs over the zero, nonnegative, second-order, exponential, power, positive-semidefinite, and generalized-power cones; sparse CSC problem input; pluggable settings; primal/dual solution recovery with infeasibility and unboundedness certificates
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver, settings, and solution roots
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                                                |
-| :-----: | :---------------- | :-------------- | :------------------------------------------------------------------------- |
-|   [1]   | `DefaultSolver`   | solver          | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve |
-|   [2]   | `DefaultSettings` | settings        | tolerances, iteration cap, equilibration, direct/indirect KKT, verbosity    |
-|   [3]   | `DefaultSolution` | result carrier  | `x`, `z`, `s`, `status`, `obj_val`, `obj_val_dual`, `solve_time`, iterations |
-|   [4]   | `SolverStatus`    | status enum     | `Solved`/`PrimalInfeasible`/`DualInfeasible`/`MaxIterations`/`AlmostSolved`/… |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                  |
+| :-----: | :---------------- | :------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve   |
+|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, equilibration, direct/indirect KKT, verbosity      |
+|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `obj_val_dual`, `solve_time`, iterations  |
+|  [04]   | `SolverStatus`    | status enum    | `Solved`/`PrimalInfeasible`/`DualInfeasible`/`MaxIterations`/`AlmostSolved`/… |
 
 [PUBLIC_TYPE_SCOPE]: cone constructors
 - rail: convex optimization
 
 The `cones` argument is an ordered list of cone objects whose total dimension matches the row count of `A`/`b`; the row blocks of the constraint stack are partitioned in cone-list order.
 
-| [INDEX] | [SYMBOL]                       | [CONE]               | [CAPABILITY]                                          |
-| :-----: | :----------------------------- | :------------------- | :---------------------------------------------------- |
-|   [1]   | `ZeroConeT(dim)`               | zero cone            | equality rows `s = 0`                                 |
-|   [2]   | `NonnegativeConeT(dim)`        | nonnegative cone     | elementwise `s >= 0`                                  |
-|   [3]   | `SecondOrderConeT(dim)`        | second-order cone    | norm cone `s_0 >= norm2(s_1:)`                        |
-|   [4]   | `ExponentialConeT()`           | exponential cone     | 3-dimensional exponential cone                        |
-|   [5]   | `PowerConeT(alpha)`            | power cone           | 3-dimensional power cone with exponent `alpha`        |
-|   [6]   | `GenPowerConeT(alpha, dim2)`   | generalized power cone | generalized power cone                              |
-|   [7]   | `PSDTriangleConeT(dim)`        | semidefinite cone    | PSD constraint over the upper-triangle vectorization  |
+| [INDEX] | [SYMBOL]                     | [CONE]                 | [CAPABILITY]                                         |
+| :-----: | :--------------------------- | :--------------------- | :--------------------------------------------------- |
+|  [01]   | `ZeroConeT(dim)`             | zero cone              | equality rows `s = 0`                                |
+|  [02]   | `NonnegativeConeT(dim)`      | nonnegative cone       | elementwise `s >= 0`                                 |
+|  [03]   | `SecondOrderConeT(dim)`      | second-order cone      | norm cone `s_0 >= norm2(s_1:)`                       |
+|  [04]   | `ExponentialConeT()`         | exponential cone       | 3-dimensional exponential cone                       |
+|  [05]   | `PowerConeT(alpha)`          | power cone             | 3-dimensional power cone with exponent `alpha`       |
+|  [06]   | `GenPowerConeT(alpha, dim2)` | generalized power cone | generalized power cone                               |
+|  [07]   | `PSDTriangleConeT(dim)`      | semidefinite cone      | PSD constraint over the upper-triangle vectorization |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solve entry point
 - rail: convex optimization
 
 `P` and `A` are `scipy.sparse.csc_matrix` (CSC); `P` is the upper-triangular quadratic cost, `q` the linear cost, and `A`/`b`/`cones` the conic constraint stack `A x + s = b, s in K`. `DefaultSolver.solve()` runs the interior-point method and stores the result; `DefaultSolver.solution` returns the `DefaultSolution`.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                            | [CAPABILITY]                              |
-| :-----: | :------------------------- | :----------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `DefaultSolver`            | `DefaultSolver(P, q, A, b, cones, settings)`           | construct from standard-form QP + cones   |
-|   [2]   | `DefaultSolver.solve`      | `solve()` -> `DefaultSolution`                         | run the interior-point solve              |
-|   [3]   | `DefaultSolution.x`        | attribute                                              | primal solution vector                    |
-|   [4]   | `DefaultSolution.z`        | attribute                                              | dual solution (conic multipliers)         |
-|   [5]   | `DefaultSolution.s`        | attribute                                              | primal slack vector                       |
-|   [6]   | `DefaultSolution.status`   | attribute -> `SolverStatus`                            | termination status                        |
-|   [7]   | `DefaultSolution.obj_val`  | attribute                                              | primal objective value                    |
-|   [8]   | `DefaultSolution.obj_val_dual` | attribute                                          | dual objective value (gap = primal − dual)|
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                 | [CAPABILITY]                               |
+| :-----: | :----------------------------- | :------------------------------------------- | :----------------------------------------- |
+|  [01]   | `DefaultSolver`                | `DefaultSolver(P, q, A, b, cones, settings)` | construct from standard-form QP + cones    |
+|  [02]   | `DefaultSolver.solve`          | `solve()` -> `DefaultSolution`               | run the interior-point solve               |
+|  [03]   | `DefaultSolution.x`            | attribute                                    | primal solution vector                     |
+|  [04]   | `DefaultSolution.z`            | attribute                                    | dual solution (conic multipliers)          |
+|  [05]   | `DefaultSolution.s`            | attribute                                    | primal slack vector                        |
+|  [06]   | `DefaultSolution.status`       | attribute -> `SolverStatus`                  | termination status                         |
+|  [07]   | `DefaultSolution.obj_val`      | attribute                                    | primal objective value                     |
+|  [08]   | `DefaultSolution.obj_val_dual` | attribute                                    | dual objective value (gap = primal − dual) |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CONIC_SOLVE]:
 - import: `import clarabel` at boundary scope only; module-level import is banned by the manifest import policy.

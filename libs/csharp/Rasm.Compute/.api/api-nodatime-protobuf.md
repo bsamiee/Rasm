@@ -5,7 +5,7 @@ between NodaTime temporal values and protobuf wire types: `Instant`/`Duration`
 against `google.protobuf` well-known types, and `LocalDate`/`LocalTime`/
 `IsoDayOfWeek` against `Google.Type` common protos.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.Protobuf`
 - package: `NodaTime.Serialization.Protobuf`
@@ -14,41 +14,41 @@ against `google.protobuf` well-known types, and `LocalDate`/`LocalTime`/
 - asset: runtime library
 - rail: remote-contracts
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: conversion extension owners
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]    | [CAPABILITY]                  |
 | :-----: | :------------------- | :---------------- | :---------------------------- |
-|   [1]   | `NodaExtensions`     | extension surface | projects NodaTime to protobuf |
-|   [2]   | `ProtobufExtensions` | extension surface | projects protobuf to NodaTime |
+|  [01]   | `NodaExtensions`     | extension surface | projects NodaTime to protobuf |
+|  [02]   | `ProtobufExtensions` | extension surface | projects protobuf to NodaTime |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: NodaTime to protobuf projection (`NodaExtensions`)
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]                  | [CAPABILITY]              |
 | :-----: | :-------------------- | :---------------------------- | :------------------------ |
-|   [1]   | `ToTimestamp`         | `Instant` extension           | emits `Timestamp`         |
-|   [2]   | `ToProtobufDuration`  | NodaTime `Duration` extension | emits protobuf `Duration` |
-|   [3]   | `ToDate`              | `LocalDate` extension         | emits `Google.Type.Date`  |
-|   [4]   | `ToTimeOfDay`         | `LocalTime` extension         | emits `TimeOfDay`         |
-|   [5]   | `ToProtobufDayOfWeek` | `IsoDayOfWeek` extension      | emits `DayOfWeek` enum    |
+|  [01]   | `ToTimestamp`         | `Instant` extension           | emits `Timestamp`         |
+|  [02]   | `ToProtobufDuration`  | NodaTime `Duration` extension | emits protobuf `Duration` |
+|  [03]   | `ToDate`              | `LocalDate` extension         | emits `Google.Type.Date`  |
+|  [04]   | `ToTimeOfDay`         | `LocalTime` extension         | emits `TimeOfDay`         |
+|  [05]   | `ToProtobufDayOfWeek` | `IsoDayOfWeek` extension      | emits `DayOfWeek` enum    |
 
 [ENTRYPOINT_SCOPE]: protobuf to NodaTime projection (`ProtobufExtensions`)
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]        | [CALL_SHAPE]                  | [CAPABILITY]              |
 | :-----: | :--------------- | :---------------------------- | :------------------------ |
-|   [1]   | `ToInstant`      | `Timestamp` extension         | emits `Instant`           |
-|   [2]   | `ToNodaDuration` | protobuf `Duration` extension | emits NodaTime `Duration` |
-|   [3]   | `ToLocalDate`    | `Google.Type.Date` extension  | emits `LocalDate`         |
-|   [4]   | `ToLocalTime`    | `TimeOfDay` extension         | emits `LocalTime`         |
-|   [5]   | `ToIsoDayOfWeek` | `DayOfWeek` enum extension    | emits `IsoDayOfWeek`      |
+|  [01]   | `ToInstant`      | `Timestamp` extension         | emits `Instant`           |
+|  [02]   | `ToNodaDuration` | protobuf `Duration` extension | emits NodaTime `Duration` |
+|  [03]   | `ToLocalDate`    | `Google.Type.Date` extension  | emits `LocalDate`         |
+|  [04]   | `ToLocalTime`    | `TimeOfDay` extension         | emits `LocalTime`         |
+|  [05]   | `ToIsoDayOfWeek` | `DayOfWeek` enum extension    | emits `IsoDayOfWeek`      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CONVERSION_CONTRACTS]:
 - namespace: `NodaTime.Serialization.Protobuf`

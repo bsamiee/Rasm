@@ -2,21 +2,21 @@
 
 Python `>=3.15` is the active typing surface. This page is the static-evidence law: declarations, predicates, payloads, and signatures carry type proof where they are declared, and callers never repair downstream what the declaration could have preserved. Each section owns one concern family: the chooser table names the form and the spelling it replaces, the family card states the placement law, and the snippet proves the rule.
 
-## [1]-[TYPE_EVIDENCE]
+## [01]-[TYPE_EVIDENCE]
 
 Static evidence belongs at the declaration, predicate, or branch owner.
 
 | [INDEX] | [CONCERN]             | [USE]                                        | [REPLACE]                           |
 | :-----: | :-------------------- | :------------------------------------------- | :---------------------------------- |
-|   [1]   | generic shape         | inline type parameters and `type` aliases    | `TypeVar`, `ParamSpec`, `TypeAlias` |
-|   [2]   | generic defaults      | type parameter defaults and `NoDefault`      | overload families for defaults      |
-|   [3]   | variadic generics     | `*Ts` with bound, variance, `infer_variance` | rank-specific generic classes       |
-|   [4]   | type expressions      | `TypeForm`                                   | `object` or broad `type[Any]` forms |
-|   [5]   | type predicates       | `TypeIs`                                     | one-way predicates plus `cast`      |
-|   [6]   | non-subtype narrowing | `TypeGuard`                                  | `bool` helpers plus `cast`          |
-|   [7]   | typed disjointness    | `@typing.disjoint_base`                      | prose-only disjointness             |
-|   [8]   | method override       | `@typing.override`                           | unmarked subclass overrides         |
-|   [9]   | self type             | `typing.Self`                                | bound `TypeVar` self boilerplate    |
+|  [01]   | generic shape         | inline type parameters and `type` aliases    | `TypeVar`, `ParamSpec`, `TypeAlias` |
+|  [02]   | generic defaults      | type parameter defaults and `NoDefault`      | overload families for defaults      |
+|  [03]   | variadic generics     | `*Ts` with bound, variance, `infer_variance` | rank-specific generic classes       |
+|  [04]   | type expressions      | `TypeForm`                                   | `object` or broad `type[Any]` forms |
+|  [05]   | type predicates       | `TypeIs`                                     | one-way predicates plus `cast`      |
+|  [06]   | non-subtype narrowing | `TypeGuard`                                  | `bool` helpers plus `cast`          |
+|  [07]   | typed disjointness    | `@typing.disjoint_base`                      | prose-only disjointness             |
+|  [08]   | method override       | `@typing.override`                           | unmarked subclass overrides         |
+|  [09]   | self type             | `typing.Self`                                | bound `TypeVar` self boilerplate    |
 |  [10]   | structural ports      | `Protocol`                                   | nominal ABC shells                  |
 |  [11]   | value-sensitive APIs  | `Literal`                                    | checker plugins for flags           |
 |  [12]   | finality              | `@typing.final` and `Final`                  | prose-only finality                 |
@@ -112,21 +112,21 @@ def projected(value: Member, prefix: str, /) -> str:
             assert_never(unreachable)
 ```
 
-## [2]-[PAYLOADS_AND_SIGNATURES]
+## [02]-[PAYLOADS_AND_SIGNATURES]
 
 Payload exactness and call contracts live in the shape and signature, not in prose or runtime repair.
 
 | [INDEX] | [CONCERN]            | [USE]                            | [REPLACE]                           |
 | :-----: | :------------------- | :------------------------------- | :---------------------------------- |
-|   [1]   | typed mappings       | `TypedDict` shapes               | `dict[str, Any]` payloads           |
-|   [2]   | required keys        | `Required[]` and `NotRequired[]` | split total/non-total mirror shapes |
-|   [3]   | read-only keys       | `ReadOnly[T]`                    | prose-only immutable key contracts  |
-|   [4]   | payload closure      | `closed=` and `extra_items=`     | implicit structural extra keys      |
-|   [5]   | kwargs payload       | `Unpack[TypedDict]`              | homogeneous `**kwargs`              |
-|   [6]   | callable shape       | inline `**P` and `Concatenate`   | `Callable[..., Any]` erasure        |
-|   [7]   | keyword callables    | `Callable[[Unpack[TD]], R]`      | callback `Protocol` shells          |
-|   [8]   | positional API       | `/` parameters                   | `*args` parsing                     |
-|   [9]   | decorator signatures | parameter-preserving decorators  | erased wrapper signatures           |
+|  [01]   | typed mappings       | `TypedDict` shapes               | `dict[str, Any]` payloads           |
+|  [02]   | required keys        | `Required[]` and `NotRequired[]` | split total/non-total mirror shapes |
+|  [03]   | read-only keys       | `ReadOnly[T]`                    | prose-only immutable key contracts  |
+|  [04]   | payload closure      | `closed=` and `extra_items=`     | implicit structural extra keys      |
+|  [05]   | kwargs payload       | `Unpack[TypedDict]`              | homogeneous `**kwargs`              |
+|  [06]   | callable shape       | inline `**P` and `Concatenate`   | `Callable[..., Any]` erasure        |
+|  [07]   | keyword callables    | `Callable[[Unpack[TD]], R]`      | callback `Protocol` shells          |
+|  [08]   | positional API       | `/` parameters                   | `*args` parsing                     |
+|  [09]   | decorator signatures | parameter-preserving decorators  | erased wrapper signatures           |
 
 [PAYLOAD_SHAPE]:
 - Use when: keyword or dictionary payload shape is part of the static callable, boundary, or data contract.

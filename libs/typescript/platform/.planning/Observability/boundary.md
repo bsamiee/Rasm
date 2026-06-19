@@ -2,11 +2,11 @@
 
 One page owns the React render-tree fault integration — `ErrorBoundaryBinding`, the `react-error-boundary` `ErrorBoundary` integration whose `onError` emits the render-tree fault into `CrashTelemetry` over a captured `Runtime` snapshot, and `useCrashEscalation`, the one `ui`-facing escalation hook a leaf composes to surface a caught domain fault into the nearest boundary. The binding marshals through the SAME `capture` path the global handlers use; an accepted recovery resets the boundary and runs `CrashTelemetry.recover`. The page composes `react-error-boundary` and the `fault-capture` `CrashTelemetry` owner, holds no domain state, and authors no decode.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ERROR_BOUNDARY_BINDING]: the react-error-boundary integration and the escalation hook.
+- [01]-[ERROR_BOUNDARY_BINDING]: the react-error-boundary integration and the escalation hook.
 
-## [2]-[ERROR_BOUNDARY_BINDING]
+## [02]-[ERROR_BOUNDARY_BINDING]
 
 - Owner: `ErrorBoundaryBinding`, the `react-error-boundary` `ErrorBoundary` integration emitting render faults into `CrashTelemetry`, and `useCrashEscalation`, the imperative escalation hook surfacing a caught domain fault into the nearest boundary.
 - Cases: `ErrorBoundaryBinding` wraps each render subtree in the `react-error-boundary` `ErrorBoundary` over a captured `Runtime` snapshot (`Runtime.runFork` bridges the React callback into the `CrashTelemetry` effect interior — the SPA's one `ManagedRuntime`, never a per-boundary runtime), its `onError(error, info)` runs `capture` for the render-tree fault carrying the React `componentStack` as evidence, and its `fallbackRender` reads the recovery-affordance cell so the user sees a re-mount affordance rather than a white screen; an accepted recovery calls `resetErrorBoundary` and runs `CrashTelemetry.recover`, which resets the recovery cell to `Healthy`; `useCrashEscalation` exposes the `react-error-boundary` `useErrorBoundary` `showBoundary` as the imperative counterpart of the `onError` sink, so a fault a component owns escalates to the SAME fallback the render crash reaches.

@@ -4,7 +4,7 @@
 
 ---
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 The default `otplib` entry re-exports a curated set from the functional module, the class module, the type module, `@otplib/core`, `@otplib/totp`, `@otplib/hotp`, and the two default plugins.
 
@@ -27,7 +27,7 @@ The subpath entries narrow the surface: `otplib/functional` exports `OTPStrategy
 
 ---
 
-## [2]-[FUNCTIONAL_ENTRYPOINTS]
+## [02]-[FUNCTIONAL_ENTRYPOINTS]
 
 The functional API takes a single options object discriminated by `strategy`. `generate`/`verify` are async; `generateSync`/`verifySync` require a sync-capable crypto plugin and throw `HMACError` otherwise.
 
@@ -49,7 +49,7 @@ declare function verifySync(options: OTPVerifyOptions): VerifyResult
 
 ---
 
-## [3]-[FUNCTIONAL_OPTIONS]
+## [03]-[FUNCTIONAL_OPTIONS]
 
 `OTPGenerateOptions` carries every field for both strategies; `OTPVerifyOptions` extends it with `token` and the tolerance/replay fields. TOTP fields (`epoch`, `t0`, `period`, `epochTolerance`, `afterTimeStep`) and HOTP fields (`counter`, `counterTolerance`) coexist on the shape and are selected by `strategy`.
 
@@ -85,7 +85,7 @@ The `OTPFunctionalOptions` and `OTPVerifyFunctionalOptions` aliases re-exported 
 
 ---
 
-## [4]-[OTP_CLASS]
+## [04]-[OTP_CLASS]
 
 `OTP` is the unified wrapper that internally routes to TOTP or HOTP based on its constructed `strategy`. `getStrategy` reports the active strategy; `generateURI` builds an `otpauth://` URI for QR provisioning.
 
@@ -128,7 +128,7 @@ declare class OTP {
 
 ---
 
-## [5]-[STRATEGY_CLASSES]
+## [05]-[STRATEGY_CLASSES]
 
 `TOTP` (`@otplib/totp`) and `HOTP` (`@otplib/hotp`) are the strategy-specific wrappers. Both store options at construction and accept per-call overrides. `TOTP.toURI` and `HOTP.toURI` emit provisioning URIs; the TOTP module also exports time-window helpers.
 
@@ -187,7 +187,7 @@ declare class HOTP {
 
 ---
 
-## [6]-[VERIFY_RESULT]
+## [06]-[VERIFY_RESULT]
 
 Verification returns a discriminated union on `valid`. TOTP's valid result carries `delta`, `epoch`, and `timeStep`; HOTP's valid result carries only `delta`. The unified `VerifyResult` is the union of both.
 
@@ -209,7 +209,7 @@ type HOTPVerifyResultInvalid = { readonly valid: false }
 
 ---
 
-## [7]-[PLUGINS_AND_RAILS]
+## [07]-[PLUGINS_AND_RAILS]
 
 `@otplib/core` defines the `CryptoPlugin` and `Base32Plugin` contracts plus the `OTPResult` rail and value brands. `NobleCryptoPlugin` (`@noble/hashes`-backed, sync HMAC) and `ScureBase32Plugin` (`@scure/base`-backed) are the defaults bound when no plugin is supplied. `HashAlgorithm` is `"sha1" | "sha256" | "sha512"`; `Digits` is `number`.
 
@@ -248,7 +248,7 @@ declare class ScureBase32Plugin implements Base32Plugin { readonly name: "scure"
 
 ---
 
-## [8]-[IMPLEMENTATION_LAW]
+## [08]-[IMPLEMENTATION_LAW]
 
 [STRATEGY_DISPATCH]:
 - One canonical options shape carries both TOTP and HOTP fields; `strategy` (`'totp'` default) selects the algorithm at the functional and `OTP`-class boundary. The strategy-specific `TOTP`/`HOTP` classes pre-bind the strategy and reject the foreign fields.

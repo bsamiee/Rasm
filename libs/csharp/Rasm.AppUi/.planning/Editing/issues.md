@@ -2,14 +2,14 @@
 
 The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Viewpoint` view-state with a `Rasm.Bim`-owned BCF topic consumed at the boundary, `CommentThread` is a CRDT op-log comment conversation co-edited through the notebook replicated-document law, `IssueTile` projects each issue onto the dashboard tile family, and `IssueBoard` is the board projection owning the issue-to-viewpoint binding. The page owns the UI issue projection, the comment-thread CRDT, the snapshot tile, and the topic-to-viewpoint binding; the substrate is the `Render/viewport.md#VIEWPOINT_CODEC` `Viewpoint` receipt, the `Editing/notebook.md#CRDT_COEDIT` op-log, the `charts-dashboards` dashboard tiles, and the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge. AppUi composes the BCF topic plus its own `Viewpoint` and CRDT owners into the board and never re-mints a BCF semantic schema, so the round-trip persists through the Persistence op-log changefeed already owned and a second BCF model or a direct BCF-XML writer inside `coordination/` is the rejected form.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ISSUE_MODEL]: Issue composing the `Viewpoint`, the BCF topic, and the snapshot.
-- [2]-[COMMENT_THREAD]: CRDT op-log comment conversation over the replicated-document law.
-- [3]-[ISSUE_TILE]: Dashboard-tile projection of the issue list with status brushing.
-- [4]-[BOARD_PROJECTION]: Board owning the issue-to-viewpoint binding and the BCF round-trip.
+- [01]-[ISSUE_MODEL]: Issue composing the `Viewpoint`, the BCF topic, and the snapshot.
+- [02]-[COMMENT_THREAD]: CRDT op-log comment conversation over the replicated-document law.
+- [03]-[ISSUE_TILE]: Dashboard-tile projection of the issue list with status brushing.
+- [04]-[BOARD_PROJECTION]: Board owning the issue-to-viewpoint binding and the BCF round-trip.
 
-## [2]-[ISSUE_MODEL]
+## [02]-[ISSUE_MODEL]
 
 - Owner: `IssueStatus` `[SmartEnum<string>]` the coordination lifecycle; `Issue` the board issue record; `IssueBinding` the topic-to-viewpoint binding; `IssueFault` the fault family in the 5000 band.
 - Cases: `IssueStatus` = open, in-progress, resolved, closed, reopened; `IssueFault` = Text | TopicMalformed | ViewpointUnbound | CommentConflict in the 5000 code band.
@@ -113,7 +113,7 @@ flowchart LR
     Issue -->|ToTopic| BcfTopic
 ```
 
-## [3]-[COMMENT_THREAD]
+## [03]-[COMMENT_THREAD]
 
 - Owner: `CommentOp` `[Union]` the replicated comment operation; `CommentThread` the conflict-free replicated comment conversation.
 - Entry: `public CommentThread Apply(CommentOp op)` — applies one replicated comment op idempotently; `public CommentThread Merge(CommentThread other)` — folds another replica's comment log into this one, converging without conflict.
@@ -173,7 +173,7 @@ public sealed record CommentThread(
 }
 ```
 
-## [4]-[ISSUE_TILE]
+## [04]-[ISSUE_TILE]
 
 - Owner: `IssueTile` the dashboard-tile projection of an issue; `IssueFilter` the cross-filter status bitset.
 - Entry: `public static Seq<IssueTile> Project(IssueBoard board, IssueFilter filter)` — projects the board's issues onto the dashboard tile family under the status cross-filter; the tile list is the dashboard's issue lane, never a second list owner.
@@ -200,7 +200,7 @@ public static class IssueTiles {
 }
 ```
 
-## [5]-[BOARD_PROJECTION]
+## [05]-[BOARD_PROJECTION]
 
 - Owner: `IssueBoard` the board projection owning the issue set and the BCF round-trip.
 - Entry: `public static Fin<IssueBoard> Load(Seq<BcfTopic> topics, ClockPolicy clocks)` — folds a `Rasm.Bim`-read BCF topic set into the board issues; `public Fin<Seq<BcfTopic>> Save()` — projects the board issues back onto the BCF topic set for the `Rasm.Bim` archive writer, so the board round-trips through the openBIM container.
@@ -227,6 +227,6 @@ public sealed record IssueBoard(string Key, Seq<Issue> Issues) {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary — the topic GUID/title/status/type/priority/author/creation-instant columns, the comment GUID/author/text/viewpoint-guid/date columns, and the viewpoint `CameraPosition`/`CameraDirection`/`CameraUpVector`/`FieldOfView`/`SelectedGlobalIds`/`VisibleGlobalIds`/`Snapshot` columns anchored on IFC GlobalIds — resolves at implementation against the finalized `Rasm.Bim` issue-exchange surface, including the `Rasm.Bim.Coordination` namespace and the `BcfStatus` enum spelling; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `Vector3` camera-position-and-direction-to-`ViewCamera` eye-target-up correspondence and the GlobalId visibility set) is the board's own boundary mapping over the consumed contract, the board issue model, the comment-thread CRDT, the dashboard tile projection, and the issue-to-viewpoint binding are settled, the exact `Rasm.Bim` BCF record column spellings and namespace are the unverified surface composed at the package edge, never re-minted.

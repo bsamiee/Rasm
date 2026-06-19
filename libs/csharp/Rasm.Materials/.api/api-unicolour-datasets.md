@@ -2,7 +2,7 @@
 
 `Wacton.Unicolour.Datasets` supplies named-colour lists, ColorChecker and Macbeth reference sets, perceptual colourmaps, and academic reference datasets as static `Unicolour` and `Pigment` tables for material colour validation. It carries no observer CMFs, illuminant SPDs, or generic reflectance; spectral upsampling and measured-spectral construction stay on the main `Wacton.Unicolour` colour owner.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour.Datasets`
 - package: `Wacton.Unicolour.Datasets`
@@ -11,37 +11,37 @@
 - asset: runtime library
 - rail: colour-datasets
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reference and named-colour set carriers
 - rail: colour-datasets
 
 | [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]    | [CAPABILITY]                                      |
 | :-----: | :--------------- | :---------------- | :------------------------------------------------ |
-|   [1]   | `Macbeth`        | reference set     | 24-patch ColorChecker / Macbeth `Unicolour` table |
-|   [2]   | `MacAdam`        | reference set     | MacAdam optimal-colour limit loci as `Unicolour`  |
-|   [3]   | `EbnerFairchild` | reference set     | Ebner-Fairchild constant-hue `Unicolour` loci     |
-|   [4]   | `HungBerns`      | reference set     | Hung-Berns constant-hue `Unicolour` loci          |
-|   [5]   | `IsccNbs`        | reference set     | ISCC-NBS centroid `Unicolour` colour names        |
-|   [6]   | `Css`            | named-colour list | 148 CSS named `Unicolour` colours                 |
-|   [7]   | `Xkcd`           | named-colour list | 949 xkcd survey named `Unicolour` colours         |
-|   [8]   | `Nord`           | named-colour list | Nord 16-swatch palette as `Unicolour`             |
-|   [9]   | `ArtistPaint`    | pigment set       | Golden artist-paint `Pigment` reflectance set     |
+|  [01]   | `Macbeth`        | reference set     | 24-patch ColorChecker / Macbeth `Unicolour` table |
+|  [02]   | `MacAdam`        | reference set     | MacAdam optimal-colour limit loci as `Unicolour`  |
+|  [03]   | `EbnerFairchild` | reference set     | Ebner-Fairchild constant-hue `Unicolour` loci     |
+|  [04]   | `HungBerns`      | reference set     | Hung-Berns constant-hue `Unicolour` loci          |
+|  [05]   | `IsccNbs`        | reference set     | ISCC-NBS centroid `Unicolour` colour names        |
+|  [06]   | `Css`            | named-colour list | 148 CSS named `Unicolour` colours                 |
+|  [07]   | `Xkcd`           | named-colour list | 949 xkcd survey named `Unicolour` colours         |
+|  [08]   | `Nord`           | named-colour list | Nord 16-swatch palette as `Unicolour`             |
+|  [09]   | `ArtistPaint`    | pigment set       | Golden artist-paint `Pigment` reflectance set     |
 
 [PUBLIC_TYPE_SCOPE]: perceptual colourmap carriers
 - rail: colour-datasets
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]     | [CAPABILITY]                                   |
 | :-----: | :---------------- | :----------------- | :--------------------------------------------- |
-|   [1]   | `Colourmap`       | colourmap base     | `abstract` `Map`, `MapWithClipping`, `Palette` |
-|   [2]   | `Colourmaps`      | colourmap registry | static handles to all 15 `Colourmap` instances |
-|   [3]   | `Viridis`         | colourmap          | matplotlib viridis perceptual map              |
-|   [4]   | `Plasma`          | colourmap          | matplotlib plasma perceptual map               |
-|   [5]   | `Inferno`         | colourmap          | matplotlib inferno perceptual map              |
-|   [6]   | `Magma`           | colourmap          | matplotlib magma perceptual map                |
-|   [7]   | `Cividis`         | colourmap          | matplotlib cividis perceptual map              |
-|   [8]   | `Mako`            | colourmap          | seaborn mako perceptual map                    |
-|   [9]   | `Rocket`          | colourmap          | seaborn rocket perceptual map                  |
+|  [01]   | `Colourmap`       | colourmap base     | `abstract` `Map`, `MapWithClipping`, `Palette` |
+|  [02]   | `Colourmaps`      | colourmap registry | static handles to all 15 `Colourmap` instances |
+|  [03]   | `Viridis`         | colourmap          | matplotlib viridis perceptual map              |
+|  [04]   | `Plasma`          | colourmap          | matplotlib plasma perceptual map               |
+|  [05]   | `Inferno`         | colourmap          | matplotlib inferno perceptual map              |
+|  [06]   | `Magma`           | colourmap          | matplotlib magma perceptual map                |
+|  [07]   | `Cividis`         | colourmap          | matplotlib cividis perceptual map              |
+|  [08]   | `Mako`            | colourmap          | seaborn mako perceptual map                    |
+|  [09]   | `Rocket`          | colourmap          | seaborn rocket perceptual map                  |
 |  [10]   | `Crest`           | colourmap          | seaborn crest perceptual map                   |
 |  [11]   | `Flare`           | colourmap          | seaborn flare perceptual map                   |
 |  [12]   | `Vlag`            | colourmap          | seaborn vlag diverging map                     |
@@ -51,41 +51,41 @@
 |  [16]   | `Turbo`           | colourmap          | Google turbo perceptual map                    |
 |  [17]   | `Cubehelix`       | colourmap          | Green cubehelix monotonic-luminance map        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Colourmap` sampling
 - rail: colour-datasets
 
 | [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE]    | [CAPABILITY]                                 |
 | :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------- |
-|   [1]   | `Colourmap.Map(double x)`                                                                     | abstract sample | maps `x` in `[0, 1]` to a `Unicolour`        |
-|   [2]   | `Colourmap.MapWithClipping(double x, Unicolour? lowerClipColour, Unicolour? upperClipColour)` | clamped sample  | clamps out-of-range `x` to clip colours      |
-|   [3]   | `Colourmap.Palette(int count)`                                                                | sequence call   | evenly spaced `IEnumerable<Unicolour>`       |
-|   [4]   | `Colourmap.Config`                                                                            | static field    | sRGB, D65 working `Configuration`            |
-|   [5]   | `Colourmap.Black` / `Colourmap.White`                                                         | static field    | default lower and upper clip `Unicolour`     |
-|   [6]   | `<Colourmap>.Lookup`                                                                          | static field    | source `IEnumerable<Unicolour>` lookup table |
+|  [01]   | `Colourmap.Map(double x)`                                                                     | abstract sample | maps `x` in `[0, 1]` to a `Unicolour`        |
+|  [02]   | `Colourmap.MapWithClipping(double x, Unicolour? lowerClipColour, Unicolour? upperClipColour)` | clamped sample  | clamps out-of-range `x` to clip colours      |
+|  [03]   | `Colourmap.Palette(int count)`                                                                | sequence call   | evenly spaced `IEnumerable<Unicolour>`       |
+|  [04]   | `Colourmap.Config`                                                                            | static field    | sRGB, D65 working `Configuration`            |
+|  [05]   | `Colourmap.Black` / `Colourmap.White`                                                         | static field    | default lower and upper clip `Unicolour`     |
+|  [06]   | `<Colourmap>.Lookup`                                                                          | static field    | source `IEnumerable<Unicolour>` lookup table |
 
 [ENTRYPOINT_SCOPE]: `Colourmaps` registry handles
 - rail: colour-datasets
 
 | [INDEX] | [SURFACE]                                      | [CALL_SHAPE] | [CAPABILITY]                      |
 | :-----: | :--------------------------------------------- | :----------- | :-------------------------------- |
-|   [1]   | `Colourmaps.Viridis` .. `Colourmaps.Cubehelix` | static field | named `Colourmap` instance handle |
+|  [01]   | `Colourmaps.Viridis` .. `Colourmaps.Cubehelix` | static field | named `Colourmap` instance handle |
 
 [ENTRYPOINT_SCOPE]: reference and named-colour set members
 - rail: colour-datasets
 
 | [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]    | [CAPABILITY]                                         |
 | :-----: | :------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------- |
-|   [1]   | `Macbeth.DarkSkin` .. `Macbeth.Black`                                     | static field    | 24 named ColorChecker patch `Unicolour` values       |
-|   [2]   | `Macbeth.Natural` / `Miscellaneous` / `PrimaryAndSecondary` / `Greyscale` | static field    | six-patch ColorChecker row `IEnumerable<Unicolour>`  |
-|   [3]   | `Macbeth.All`                                                             | static property | all 24 patches as `IEnumerable<Unicolour>`           |
-|   [4]   | `MacAdam.Limits10` .. `MacAdam.Limits95`                                  | static field    | per-luminance MacAdam limit `IEnumerable<Unicolour>` |
-|   [5]   | `MacAdam.All`                                                             | static property | all MacAdam limit loci as `IEnumerable<Unicolour>`   |
-|   [6]   | `EbnerFairchild.AllHue0` .. `AllHue336`                                   | static field    | per-hue constant-hue `IEnumerable<Unicolour>` loci   |
-|   [7]   | `EbnerFairchild.All`                                                      | static property | all Ebner-Fairchild loci as `IEnumerable<Unicolour>` |
-|   [8]   | `HungBerns.AllRed` .. `AllMagentaRed`, `All25` .. `AllRef`                | static field    | per-hue and per-chroma `IEnumerable<Unicolour>` rows |
-|   [9]   | `HungBerns.All`                                                           | static property | all Hung-Berns loci as `IEnumerable<Unicolour>`      |
+|  [01]   | `Macbeth.DarkSkin` .. `Macbeth.Black`                                     | static field    | 24 named ColorChecker patch `Unicolour` values       |
+|  [02]   | `Macbeth.Natural` / `Miscellaneous` / `PrimaryAndSecondary` / `Greyscale` | static field    | six-patch ColorChecker row `IEnumerable<Unicolour>`  |
+|  [03]   | `Macbeth.All`                                                             | static property | all 24 patches as `IEnumerable<Unicolour>`           |
+|  [04]   | `MacAdam.Limits10` .. `MacAdam.Limits95`                                  | static field    | per-luminance MacAdam limit `IEnumerable<Unicolour>` |
+|  [05]   | `MacAdam.All`                                                             | static property | all MacAdam limit loci as `IEnumerable<Unicolour>`   |
+|  [06]   | `EbnerFairchild.AllHue0` .. `AllHue336`                                   | static field    | per-hue constant-hue `IEnumerable<Unicolour>` loci   |
+|  [07]   | `EbnerFairchild.All`                                                      | static property | all Ebner-Fairchild loci as `IEnumerable<Unicolour>` |
+|  [08]   | `HungBerns.AllRed` .. `AllMagentaRed`, `All25` .. `AllRef`                | static field    | per-hue and per-chroma `IEnumerable<Unicolour>` rows |
+|  [09]   | `HungBerns.All`                                                           | static property | all Hung-Berns loci as `IEnumerable<Unicolour>`      |
 |  [10]   | `IsccNbs.VividPink` .. (267 centroids)                                    | static field    | named ISCC-NBS centroid `Unicolour` values           |
 |  [11]   | `IsccNbs.All`                                                             | static property | all 267 centroids as `IEnumerable<Unicolour>`        |
 |  [12]   | `Css.AliceBlue` .. (148 colours)                                          | static field    | named CSS `Unicolour` values                         |
@@ -99,7 +99,7 @@
 |  [20]   | `ArtistPaint.All`                                                         | static property | all 19 pigments as `IEnumerable<Pigment>`            |
 |  [21]   | `ArtistPaint.Configuration`                                               | static field    | sRGB, D50 working `Configuration` for the pigments   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DATASET_TOPOLOGY]:
 - namespace: `Wacton.Unicolour.Datasets`; every dataset is a static table of `Unicolour` or `Pigment` values built on the main `Wacton.Unicolour` colour owner.

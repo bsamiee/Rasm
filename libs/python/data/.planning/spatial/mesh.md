@@ -2,12 +2,12 @@
 
 The mesh-file exchange owner over a `MeshBackend` axis, plus the point-cloud interchange row. `MeshPayload` carries mesh-file identity/cell-block topology/units/metadata/preview-export over `meshio.read`/`write` for FE volume/cell-block meshes and `trimesh.load`/`Trimesh.export` for surface meshes; the backend is recovered from the source extension, never a knob, and the cell-block topology folds both engines onto one `cell_blocks` field. `PointCloud` is the LAS/LAZ/COPC interchange row over `laspy` (LAS/LAZ point-record decode/encode) and `pdal` (the COPC octree-chunked spatial-subset pipeline), bridging to a numpy/Arrow columnar point-record table that feeds the geometry scan-processing/registration companion at the mesh seam. This is file exchange and identity — the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here. Every payload keys by runtime `ContentIdentity`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MESH]: mesh-file identity, cell-block topology, units, GLB preview export.
-- [2]-[POINTCLOUD]: the LAS/LAZ/COPC point-cloud interchange row and the columnar point-record bridge.
+- [01]-[MESH]: mesh-file identity, cell-block topology, units, GLB preview export.
+- [02]-[POINTCLOUD]: the LAS/LAZ/COPC point-cloud interchange row and the columnar point-record bridge.
 
-## [2]-[MESH]
+## [02]-[MESH]
 
 - Owner: `MeshPayload` — mesh-file identity/cell-block topology/units/metadata/preview-export over a `MeshBackend` axis: `meshio.read`/`write` for FE volume/cell-block meshes, `trimesh.load`/`Trimesh.export` for surface meshes. `MeshBackend` is recovered from the source extension; the cell-block topology folds both engines onto one `cell_blocks` field (meshio `CellBlock.type`, trimesh's single `triangle` block).
 - Entry: `MeshPayload.read` admits a mesh file and returns the frozen owner keyed by `ContentIdentity` with the backend recovered from the source shape; `MeshPayload.preview` emits a `glb` preview render through whichever engine owns the loaded mesh; `MeshPayload.write` round-trips through the format the requested extension selects. Read/preview/write all return a `RuntimeRail`, never raising in the boundary.
@@ -96,7 +96,7 @@ def _export(ref: ResourceRef, out: ResourceRef, fmt: str) -> ContentKey:
     return ContentIdentity.of("mesh.export", out.path.read_bytes())
 ```
 
-## [3]-[POINTCLOUD]
+## [03]-[POINTCLOUD]
 
 - Owner: `PointCloud` — the LAS/LAZ/COPC interchange row over `laspy` (LAS/LAZ point-record decode/encode) and `pdal` (the COPC octree-chunked spatial-subset pipeline); `PointBounds` the optional octree subset box; the point records cross to the geometry scan companion as a columnar `pyarrow.Table` (`x`/`y`/`z` plus the LAS dimension columns), never a laspy- or pdal-specific object. `PointFormat` carries the LAS point-format id and the CRS WKT recovered from the header.
 - Entry: `PointCloud.read` admits a LAS/LAZ `ResourceRef` and returns the frozen owner keyed by `ContentIdentity` over the point coordinates, the backend the source extension selects (`.las`/`.laz` -> laspy, `.copc.laz` -> pdal octree); `PointCloud.subset` reads a COPC octree spatial subset over a `PointBounds` box through the `pdal` COPC reader rather than a full read; `PointCloud.to_arrow` folds the laspy `LasData` dimensions into one `pyarrow.Table` columnar bridge; `PointCloud.write` round-trips LAS/LAZ through `laspy`. All return a `RuntimeRail`.
@@ -190,7 +190,7 @@ def _copc_subset(ref: ResourceRef, bounds: PointBounds) -> pa.Table:
     return pa.table({name: structured[name] for name in structured.dtype.names})
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [LASPY_SURFACE]: the `laspy` `read(path)`/`LasData.{x,y,z}`/`LasData.header.{point_count,point_format,parse_crs}`/`PointFormat.{id,dimension_names}`/`LasData.write(path)` surface the `PointCloud` LAS/LAZ arm transcribes confirms against a folder `laspy` `.api` catalogue authored on admission; `laspy` (2.7.0) is cp315-clean and lock-resolved but is uninstalled on the authoring host, so the LAS point-record member surface stays a catalogue-pending settled form until the catalogue lands by reflection against the installed distribution.
 - [PDAL_COPC]: the `pdal` `Reader.copc(path, bounds=)`/`Pipeline.{execute,arrays}` COPC octree-subset surface the `_copc_subset` arm binds rides the `python_version<'3.15'` gated band (sdist-only, no cp315 wheel) and imports function-local; the catalogue is unauthorable on the cp315 core, so the COPC subset member surface stays a marked RESEARCH item — never settled fence code — until the `pdal` provenance installs on a `<3.15` companion host and the catalogue captures the `Reader.copc` bounds-option spelling and the `Pipeline.arrays` structured-array egress. A module-top `pdal` import on this cp315-core page is the floor-violating form.

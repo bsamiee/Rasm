@@ -2,11 +2,11 @@
 
 Rasm.Persistence geometry-aware structural diff/merge: a tree-edit-distance node-identity matching engine doing three-way merge and typed conflict classification over the durable object graph. `StructuralMerge` content-addresses canonical adjacency bytes through `GraphNode.GeometryHash` so a moved-control-point morph and a topology break are distinguished by hash; merge receipts (`ConflictReceipt`) arrive settled from the codec profile.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[STRUCTURAL_DIFF]: tree-edit node-identity match, three-way merge, and typed conflict classes.
+- [01]-[STRUCTURAL_DIFF]: tree-edit node-identity match, three-way merge, and typed conflict classes.
 
-## [2]-[STRUCTURAL_DIFF]
+## [02]-[STRUCTURAL_DIFF]
 
 - Owner: `GraphNode` an identity-keyed node in the model graph; `EditOp` `[Union]` the tree-edit-distance operation family; `MergeConflict` `[Union]` the typed conflict-class family; `StructuralMerge` the static surface owning node-identity matching, the cheapest-edit-script tree diff, the three-way merge, and the topological brep/mesh delta classification.
 - Cases: `Match | Insert | Delete | Update | Move` on `EditOp`; `ParallelEdit | DeleteUpdate | MoveMove | TypeChange | TopologyBreak` on `MergeConflict`.
@@ -106,6 +106,6 @@ public static class StructuralMerge {
 ```
 
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [CANONICAL_BYTE_IDENTITY] — `StructuralMerge` `GraphNode.GeometryHash` content-addresses the canonical adjacency bytes whose FROZEN field order is owned by `Rasm.Geometry/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY` — `int32-LE VertexCount` · `int32-LE EdgeCount` · `(int32-LE Min, int32-LE Max)` per sorted edge endpoint pair · `int32-LE FaceCount` · per lowest-vertex-rotated face cycle `(int32-LE CycleLength, int32-LE Vertex…)` · every integer little-endian, contiguous, no padding — read VERBATIM before `XxHash128.HashToUInt128`, never a second divergent encoding. The shared FROZEN golden-bytes fixture both packages assert against is the single-triangle topology (`VertexCount=3`; edges `(0,1),(0,2),(1,2)`; face cycle `[0,1,2]`) whose 52-byte canonical stream is `03 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00` and whose `XxHash128` digest is `0x9462A71A5DD13DCFA3B1D6D225FCBE70` (16-byte LE `70 be fc 25 d2 d6 b1 a3 cf 3d d1 5d 1a a7 62 94`); a tier-2 cross-package byte-equality harness feeds this reference through both `NamingHashOps.Encode` and the Persistence `GeometryHash` path and asserts the stream bytes AND the digest, with the morph case (moved control points, same adjacency → equal hash) and the topology-break case (changed adjacency → distinct hash) as the two discriminating laws.

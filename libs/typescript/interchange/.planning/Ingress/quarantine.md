@@ -2,11 +2,11 @@
 
 The contract-drift tolerance terminal for untrusted ingress: the decode fold that classifies every decode outcome as `Identical`, `Additive`, or `Breaking` drift, emits a structured drift-report built from the Effect Schema `ArrayFormatter` error paths, enforces the `Ingress/refinement.md` decode budgets, and sanitizes DOM-bound text through `isomorphic-dompurify`. `QuarantineFold` is the single tolerance terminal every decode passes through; a `Breaking` drift surfaces as a typed `FaultDetail.Quarantine` carrying the exact failing field path the UI renders and the platform telemetry-ships.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DRIFT_TERMINAL]: the drift classifier, the structured report, the budget gate, and the sanitizer.
+- [01]-[DRIFT_TERMINAL]: the drift classifier, the structured report, the budget gate, and the sanitizer.
 
-## [2]-[DRIFT_TERMINAL]
+## [02]-[DRIFT_TERMINAL]
 
 - Owner: `QuarantineFold`, the single tolerance terminal every decode passes through, classifying the decode outcome into the `ContractDrift` `Data.TaggedEnum` and emitting a `DriftReport` from the `ParseError` paths. The fold layers tolerance over the settled wire shape, never modifying it; an `Additive` drift skip-decodes and survives, a `Breaking` drift faults through `Ingress/fault.md`, an `Identical` decode passes through unchanged.
 - Cases: the fold decodes once leniently (`onExcessProperty: "preserve"`) for the value and once strictly (`onExcessProperty: "error"`) for the drift probe, so an extra additive member classifies `Additive` and the stream survives with the decoded value and the report attached, a structural `Breaking` drift (a removed required field, a changed type, a budget breach) carries the `DriftReport` and faults, and a clean decode classifies `Identical`. The `ISSUE_DRIFT` vocabulary keys each `ArrayFormatter` issue tag to its `DriftClass` — an `Unexpected` excess-property issue is additive, a `Missing`/`Type`/`Forbidden` issue is breaking — so the classifier never restates the tag knowledge inline and a `Breaking` drift carries the exact failing field path the UI renders and the platform telemetry-ships, never an opaque marker discarding the diagnostic. A transport disconnect is a `Transport/transport.md` `FaultDetail`, never a drift class on this fold.

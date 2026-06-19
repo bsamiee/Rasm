@@ -2,15 +2,15 @@
 
 This file routes the TypeScript branch planning corpus and registers the branch-level cross-cutting packages — those shared across two or more folders and trimmed from per-folder registries. The branch is the host-free web/edge platform of the workspace: five packages meeting only at wire contracts and offline/companion seams, consuming the C# wire as settled vocabulary and authoring no wire shape. Package topology and dependency direction are in `ARCHITECTURE.md`, the cross-package concert in `IDEAS.md`, and cross-package open work in `TASKLOG.md`.
 
-## [1]-[FOLDER_ROUTER]
+## [01]-[FOLDER_ROUTER]
 
-- [1]-[INTERCHANGE](../interchange/README.md): wire boundary and inbound dependency root — Transport, Codec, Contract, Ingress.
-- [2]-[PROJECTION](../projection/README.md): read-side fold-algebra owner — fold, query, convergence, causality, evidence.
-- [3]-[UI](../ui/README.md): browser UI/UX/components library — binding, interaction, theming, overlay, render.
-- [4]-[PLATFORM](../platform/README.md): browser AppHost-analog and SPA entry — Runtime, Config, Transport, Session, Observability, Shell.
-- [5]-[SERVICES](../services/README.md): node tier and deploy-time IaC — persistence, search, execution, messaging, security, agent, provisioning.
+- [01]-[INTERCHANGE](../interchange/README.md): wire boundary and inbound dependency root — Transport, Codec, Contract, Ingress.
+- [02]-[PROJECTION](../projection/README.md): read-side fold-algebra owner — fold, query, convergence, causality, evidence.
+- [03]-[UI](../ui/README.md): browser UI/UX/components library — binding, interaction, theming, overlay, render.
+- [04]-[PLATFORM](../platform/README.md): browser AppHost-analog and SPA entry — Runtime, Config, Transport, Session, Observability, Shell.
+- [05]-[SERVICES](../services/README.md): node tier and deploy-time IaC — persistence, search, execution, messaging, security, agent, provisioning.
 
-## [2]-[SUBSTRATE_PACKAGES]
+## [02]-[SUBSTRATE_PACKAGES]
 
 The cross-domain TypeScript foundation every folder builds on: the Effect runtime, the reactive bridge, observability, the React view core, the sanitizer, content identity, the wire-codegen toolchain, and the test stack. Versions are centralized in the one workspace catalog; this registry carries no pin. Each substrate package carries one catalogue at the branch `libs/typescript/.api/<slug>.md`, authored once and never duplicated into a folder `.api/`; a consuming folder names it in the folder README `## [3]-[SUBSTRATE_PACKAGES]` section.
 
@@ -44,7 +44,7 @@ The cross-domain TypeScript foundation every folder builds on: the Effect runtim
 - `fast-check` — the algebraic property-testing arbitrary spine driving the convergence, window-fold, and durable law harnesses.
 - `@stryker-mutator/core` — the mutation kill-ratio gate over the law spines, one `stryker.config.mjs` per package; its `@stryker-mutator/typescript-checker` and `@stryker-mutator/vitest-runner` plugins are co-admitted at this one branch registration and never re-listed in a folder roster.
 
-## [3]-[API_CATALOGUE_FORM]
+## [03]-[API_CATALOGUE_FORM]
 
 The branch-uniform shape of every `<pkg>/.api/<package>.md` catalogue, applying the [1]-[DOC_SET] one-catalogue-per-external-library mandate so a cold grade verifies a fence against exactly one file named for the package it spells. The catalogue is the verified-spelling resource a planning pass reads to transcribe an external member; an unverified member stays a RESEARCH item, never settled fence code.
 
@@ -53,6 +53,6 @@ The branch-uniform shape of every `<pkg>/.api/<package>.md` catalogue, applying 
 - A package two or more folders use is a cross-cutting package: it carries one catalogue at the branch `libs/typescript/.api/<slug>.md` (see [2]), never duplicated into a folder `.api/`, and each consuming folder names it in its README `[SUBSTRATE_PACKAGES]` section. A folder-local package keeps its catalogue in the folder `.api/`. The `@effect-atom/atom` core and its `@effect-atom/atom-react` React binding are both branch substrate, so both live at the branch `.api/`; a folder consuming the React binding names both in `[SUBSTRATE_PACKAGES]`.
 - A catalogue cross-reference names its real target: a sibling catalogue by its package filename (`effect.md`, `effect-atom.md`, `effect-platform.md`), and a design-page owner-symbol by `sub-domain/page#CLUSTER`. A stale `api-<name>.md` cross-reference scheme, an absent target page, or a defunct sub-domain or package name is the rejected form a cold grade fails — the catalogue carries no source-trace, tool-invocation, reflection-process, or bundle-fence-tool narration, only the verified surface and its real-named anchors.
 
-## [4]-[ROOT_DEV_TOOLING]
+## [04]-[ROOT_DEV_TOOLING]
 
 A branch concern the folders flagged: the mutation gate and the descriptor codegen rail resolve their packages from the workspace catalog but require an honest landing in the root dev-tooling manifest before any folder transcribes. The `@stryker-mutator/core` plus `typescript-checker` and `vitest-runner` trio and the `@bufbuild/buf` descriptor CLI are present in the catalog yet absent from the root manifest; the `TASKLOG.md` carries the wiring task that closes this gap. The strictness floor, the folder-stratum module-boundary fence, the `projection/**` `@connectrpc/*` ban, the `ui/**` `../platform` ban, and the `./provisioning` subpath isolation are centralized at the monorepo root, never per-package config.

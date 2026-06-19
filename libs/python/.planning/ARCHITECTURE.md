@@ -4,7 +4,7 @@ The branch domain map of `libs/python` — the host-free peer packages of the sc
 
 Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
-## [1]-[PACKAGE_MAP]
+## [01]-[PACKAGE_MAP]
 
 ```text codemap
 libs/python/
@@ -15,7 +15,7 @@ libs/python/
 └── artifacts/  # Self-contained artifact-production utility under one ArtifactReceipt
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 runtime   ←  csharp:Rasm              # [CONTENT_KEY]: XxHash128 content-identity seed decode parity
@@ -26,7 +26,7 @@ geometry  ⇄  csharp:Rasm.Compute      # [WIRE]: ComputeService/ArtifactSync GL
 compute   →  csharp:Rasm.Compute      # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
-## [3]-[DEPENDENCY_DIRECTION]
+## [03]-[DEPENDENCY_DIRECTION]
 
 The direction is stated once, here. `runtime` is the foundation: it mints `ContentIdentity`/`ContentKey`, `BoundaryFault`/`RuntimeRail`, `Retry`, `RuntimeContext`/`SettingsAdmission`, `ResourceRoot`/`TransportResource`, `LanePolicy`/`StagePlan`, `Receipt`/`ReceiptContributor`, and `ServerHost`/`Credential`, and references no sibling. `compute`, `data`, `geometry`, and `artifacts` compose those owners at their boundary as settled vocabulary and never re-mint a second content-identity, receipt, retry, transport, or wire owner. No package imports another package's interior.
 
@@ -34,6 +34,6 @@ Two consumer-to-consumer compositions exist and are named here so neither is rea
 
 The cross-language wire — the companion gRPC contract the geometry daemon serves, the content-identity seed parity with C#, the two-hop IFC/STEP tessellation rail, and the graduation-evidence seam — couples Python to C# only at the wire and lives on the owning folder tasks and the cross-`libs/` ledger, never on a Python-branch surface.
 
-## [4]-[INTERPRETER_FLOOR]
+## [04]-[INTERPRETER_FLOOR]
 
 The branch runs a `>=3.15` core on the normal-GIL CPython build (`Py_GIL_DISABLED=0`) for `runtime`, `compute`, `data`, and `artifacts`, with one sanctioned divergence: a `python_version<'3.13'` companion floor homing the native geometry/IFC and gRPC-codegen stack. The companion floor is provided by the Forge companion lane (`forge-companion-env`, python312, source-building the companion native libs), not a Rasm-owned environment gate to admit: it carries the compiled geometry/IFC cores (`ifcopenshell`, `open3d`, `small-gicp`, `topologicpy`, isolating the copyleft `ifcopenshell` wheel at the process boundary). The gRPC stack splits by provenance: `grpcio-tools` (the `protoc` compiler) is companion-lane-only, while `grpcio` (the `grpc.aio` runtime) and `protobuf` resolve transitively on the cp315 core through `specklepy` — so a `runtime` page needing only the `grpc.aio` server leg sits on the core, and only proto codegen assumes the companion interpreter. Two floors are Rasm-owned and manifest-declared, distinct from the Forge lane: the `python_version<'3.15'` gated band (`compas`/`compas_dr`/`compas_tna`/`manifold3d` and the scientific stack) and the `python_version<'3.13'` artifacts native render path (`vtk`/`pyvista`). The OCCT CAD-STEP reader (`pythonocc-core`) has no PyPI distribution and is an honest deferral. Every package consumes the floor as settled.

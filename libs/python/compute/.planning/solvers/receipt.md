@@ -2,11 +2,11 @@
 
 The one method-discriminated solve receipt folded across every solver route. `SolverReceipt` is a single tagged union whose `Literal` tag is the solve method (direct, iterative, least-squares, eigen) and carries a per-case payload, so the linear, nonlinear, quadrature, and differential routes emit one receipt and the discriminant lives in the case rather than in flat shared fields. The four per-case constructors are the canonical tagged-union factories; there is no single `.of`, and there is never a receipt type per solver. `SolverReceipt.contribute` emits one observability row, and a graduated solve produces a `GraduationReceipt` solver or symbolic subject.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RECEIPT]: the unified method-discriminated solve receipt and the convergence fold.
+- [01]-[RECEIPT]: the unified method-discriminated solve receipt and the convergence fold.
 
-## [2]-[RECEIPT]
+## [02]-[RECEIPT]
 
 - Owner: `SolverReceipt` — the ONE `@tagged_union` solve receipt over every route; the `Literal` tag is the solve method, read directly through `.method`. Each method case carries its own tuple payload, so `direct` carries `(residual, condition, converged)`, `iterative` carries `(residual, iterations, tol, converged)`, `least_squares` carries `(residual, rank, iterations, converged)`, and `eigen` carries `(spectral_residual, k, condition, converged)`. The discriminant lives in the case, never in a flat shared struct and never in a parallel vocabulary enum beside the tag.
 - Entry: the four static constructors `Direct`, `Iterative`, `LeastSquares`, and `Eigen` are the canonical factories every solver route folds into; `.converged` is a total `match` over the four cases reading the per-case convergence flag, and `.method` reads the tag as the method literal. One `match` folds the scipy, lineax, optimistix, diffrax, and scikit-fem paths into the same receipt.

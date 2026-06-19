@@ -2,7 +2,7 @@
 
 `SkiaSharp` supplies raster surfaces, canvases, paths, paints, images, codecs, streams, text, colors, shaders, and GPU drawing primitives.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp`
 - package: `SkiaSharp`
@@ -12,58 +12,58 @@
 - asset: platform runtime libraries
 - rail: visuals
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [DRAWING_TYPES]: canvas, paint, and geometry — rail: visuals
 
 | [INDEX] | [SYMBOL]        | [KIND]          |
 | :-----: | :-------------- | :-------------- |
-|   [1]   | `SKCanvas`      | drawing surface |
-|   [2]   | `SKPaint`       | paint state     |
-|   [3]   | `SKPath`        | vector path     |
-|   [4]   | `SKPathMeasure` | path measure    |
-|   [5]   | `SKRect`        | bounds value    |
-|   [6]   | `SKRoundRect`   | rounded bounds  |
-|   [7]   | `SKPoint`       | point value     |
-|   [8]   | `SKMatrix`      | transform value |
+|  [01]   | `SKCanvas`      | drawing surface |
+|  [02]   | `SKPaint`       | paint state     |
+|  [03]   | `SKPath`        | vector path     |
+|  [04]   | `SKPathMeasure` | path measure    |
+|  [05]   | `SKRect`        | bounds value    |
+|  [06]   | `SKRoundRect`   | rounded bounds  |
+|  [07]   | `SKPoint`       | point value     |
+|  [08]   | `SKMatrix`      | transform value |
 
 [SURFACE_AND_IMAGE_TYPES]: pixel and image ownership — rail: visuals
 
 | [INDEX] | [SYMBOL]      | [KIND]          |
 | :-----: | :------------ | :-------------- |
-|   [1]   | `SKSurface`   | draw target     |
-|   [2]   | `SKImage`     | immutable image |
-|   [3]   | `SKBitmap`    | mutable bitmap  |
-|   [4]   | `SKPixmap`    | pixel map       |
-|   [5]   | `SKImageInfo` | image metadata  |
-|   [6]   | `SKCodec`     | decode codec    |
-|   [7]   | `SKData`      | byte buffer     |
-|   [8]   | `SKDocument`  | document output |
+|  [01]   | `SKSurface`   | draw target     |
+|  [02]   | `SKImage`     | immutable image |
+|  [03]   | `SKBitmap`    | mutable bitmap  |
+|  [04]   | `SKPixmap`    | pixel map       |
+|  [05]   | `SKImageInfo` | image metadata  |
+|  [06]   | `SKCodec`     | decode codec    |
+|  [07]   | `SKData`      | byte buffer     |
+|  [08]   | `SKDocument`  | document output |
 
 [TEXT_AND_FONT_TYPES]: text and typeface surface — rail: visuals
 
 | [INDEX] | [SYMBOL]            | [KIND]          |
 | :-----: | :------------------ | :-------------- |
-|   [1]   | `SKFont`            | font object     |
-|   [2]   | `SKTypeface`        | typeface object |
-|   [3]   | `SKFontManager`     | font registry   |
-|   [4]   | `SKFontMetrics`     | font metrics    |
-|   [5]   | `SKTextBlob`        | shaped text     |
-|   [6]   | `SKTextBlobBuilder` | text builder    |
+|  [01]   | `SKFont`            | font object     |
+|  [02]   | `SKTypeface`        | typeface object |
+|  [03]   | `SKFontManager`     | font registry   |
+|  [04]   | `SKFontMetrics`     | font metrics    |
+|  [05]   | `SKTextBlob`        | shaped text     |
+|  [06]   | `SKTextBlobBuilder` | text builder    |
 
 [PAINT_PIPELINE_TYPES]: color, shader, filter, and runtime render surfaces — rail: visuals
 
 | [INDEX] | [SYMBOL]                 | [KIND]          |
 | :-----: | :----------------------- | :-------------- |
-|   [1]   | `SKColor`                | byte color      |
-|   [2]   | `SKColorF`               | float color     |
-|   [3]   | `SKColors`               | color constants |
-|   [4]   | `SKColorSpace`           | color space     |
-|   [5]   | `SKColorSpaceXyz`        | ICC primaries   |
-|   [6]   | `SKColorSpaceTransferFn` | transfer curve  |
-|   [7]   | `SKShader`               | shader object   |
-|   [8]   | `SKShaderTileMode`       | gradient tile   |
-|   [9]   | `SKImageFilter`          | image filter    |
+|  [01]   | `SKColor`                | byte color      |
+|  [02]   | `SKColorF`               | float color     |
+|  [03]   | `SKColors`               | color constants |
+|  [04]   | `SKColorSpace`           | color space     |
+|  [05]   | `SKColorSpaceXyz`        | ICC primaries   |
+|  [06]   | `SKColorSpaceTransferFn` | transfer curve  |
+|  [07]   | `SKShader`               | shader object   |
+|  [08]   | `SKShaderTileMode`       | gradient tile   |
+|  [09]   | `SKImageFilter`          | image filter    |
 |  [10]   | `SKColorFilter`          | color filter    |
 |  [11]   | `SKPathEffect`           | path effect     |
 |  [12]   | `SKMaskFilter`           | mask filter     |
@@ -73,39 +73,39 @@
 
 | [INDEX] | [SYMBOL]               | [KIND]        |
 | :-----: | :--------------------- | :------------ |
-|   [1]   | `SKEncodedImageFormat` | encode format |
-|   [2]   | `SKColorType`          | pixel layout  |
-|   [3]   | `SKAlphaType`          | alpha mode    |
+|  [01]   | `SKEncodedImageFormat` | encode format |
+|  [02]   | `SKColorType`          | pixel layout  |
+|  [03]   | `SKAlphaType`          | alpha mode    |
 
 [GPU_TYPES]: GPU context and backend surface — rail: visuals
 
 | [INDEX] | [SYMBOL]                | [KIND]           |
 | :-----: | :---------------------- | :--------------- |
-|   [1]   | `GRContext`             | GPU context      |
-|   [2]   | `GRRecordingContext`    | GPU recording    |
-|   [3]   | `GRBackendRenderTarget` | backend target   |
-|   [4]   | `GRBackendTexture`      | backend texture  |
-|   [5]   | `GRGlInterface`         | OpenGL interface |
-|   [6]   | `GRMtlBackendContext`   | Metal backend    |
-|   [7]   | `GRVkBackendContext`    | Vulkan backend   |
-|   [8]   | `GRD3DBackendContext`   | Direct3D backend |
+|  [01]   | `GRContext`             | GPU context      |
+|  [02]   | `GRRecordingContext`    | GPU recording    |
+|  [03]   | `GRBackendRenderTarget` | backend target   |
+|  [04]   | `GRBackendTexture`      | backend texture  |
+|  [05]   | `GRGlInterface`         | OpenGL interface |
+|  [06]   | `GRMtlBackendContext`   | Metal backend    |
+|  [07]   | `GRVkBackendContext`    | Vulkan backend   |
+|  [08]   | `GRD3DBackendContext`   | Direct3D backend |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [CANVAS_ENTRYPOINTS]: drawing and transform operations
 - rail: visuals
 
 | [INDEX] | [SURFACE]       | [SURFACE_ROOT] | [RAIL]          |
 | :-----: | :-------------- | :------------- | :-------------- |
-|   [1]   | `DrawPath`      | `SKCanvas`     | path draw       |
-|   [2]   | `DrawText`      | `SKCanvas`     | text draw       |
-|   [3]   | `DrawImage`     | `SKCanvas`     | image draw      |
-|   [4]   | `DrawRect`      | `SKCanvas`     | rectangle draw  |
-|   [5]   | `DrawRoundRect` | `SKCanvas`     | round rect draw |
-|   [6]   | `DrawCircle`    | `SKCanvas`     | circle draw     |
-|   [7]   | `DrawLine`      | `SKCanvas`     | line draw       |
-|   [8]   | `DrawColor`     | `SKCanvas`     | fill draw       |
-|   [9]   | `ClipPath`      | `SKCanvas`     | clip path       |
+|  [01]   | `DrawPath`      | `SKCanvas`     | path draw       |
+|  [02]   | `DrawText`      | `SKCanvas`     | text draw       |
+|  [03]   | `DrawImage`     | `SKCanvas`     | image draw      |
+|  [04]   | `DrawRect`      | `SKCanvas`     | rectangle draw  |
+|  [05]   | `DrawRoundRect` | `SKCanvas`     | round rect draw |
+|  [06]   | `DrawCircle`    | `SKCanvas`     | circle draw     |
+|  [07]   | `DrawLine`      | `SKCanvas`     | line draw       |
+|  [08]   | `DrawColor`     | `SKCanvas`     | fill draw       |
+|  [09]   | `ClipPath`      | `SKCanvas`     | clip path       |
 |  [10]   | `Save`          | `SKCanvas`     | state save      |
 |  [11]   | `Restore`       | `SKCanvas`     | state restore   |
 |  [12]   | `Translate`     | `SKCanvas`     | transform       |
@@ -117,15 +117,15 @@
 
 | [INDEX] | [SURFACE]    | [SURFACE_ROOT] | [RAIL]         |
 | :-----: | :----------- | :------------- | :------------- |
-|   [1]   | `Create`     | `SKSurface`    | surface create |
-|   [2]   | `Snapshot`   | `SKSurface`    | snapshot image |
-|   [3]   | `Decode`     | `SKBitmap`     | bitmap decode  |
-|   [4]   | `Encode`     | `SKBitmap`     | bitmap encode  |
-|   [5]   | `GetPixels`  | `SKCodec`      | codec decode   |
-|   [6]   | `FromBitmap` | `SKImage`      | image create   |
-|   [7]   | `ReadPixels` | `SKImage`      | pixel read     |
-|   [8]   | `ReadPixels` | `SKPixmap`     | pixel read     |
-|   [9]   | `SetPixel`   | `SKBitmap`     | pixel write    |
+|  [01]   | `Create`     | `SKSurface`    | surface create |
+|  [02]   | `Snapshot`   | `SKSurface`    | snapshot image |
+|  [03]   | `Decode`     | `SKBitmap`     | bitmap decode  |
+|  [04]   | `Encode`     | `SKBitmap`     | bitmap encode  |
+|  [05]   | `GetPixels`  | `SKCodec`      | codec decode   |
+|  [06]   | `FromBitmap` | `SKImage`      | image create   |
+|  [07]   | `ReadPixels` | `SKImage`      | pixel read     |
+|  [08]   | `ReadPixels` | `SKPixmap`     | pixel read     |
+|  [09]   | `SetPixel`   | `SKBitmap`     | pixel write    |
 |  [10]   | `Encode`     | `SKImage`      | image encode   |
 |  [11]   | `ColorSpace` | `SKImage`      | image space    |
 |  [12]   | `ToArray`    | `SKData`       | byte buffer    |
@@ -135,15 +135,15 @@
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]            |
 | :-----: | :----------------- | :------------- | :---------------- |
-|   [1]   | `CreatePdf`        | `SKDocument`   | PDF backend       |
-|   [2]   | `CreateXps`        | `SKDocument`   | XPS backend       |
-|   [3]   | `BeginPage`        | `SKDocument`   | page open         |
-|   [4]   | `EndPage`          | `SKDocument`   | page commit       |
-|   [5]   | `Close`            | `SKDocument`   | document finalize |
-|   [6]   | `Abort`            | `SKDocument`   | document abort    |
-|   [7]   | `CreateSrgb`       | `SKColorSpace` | sRGB space        |
-|   [8]   | `CreateSrgbLinear` | `SKColorSpace` | linear space      |
-|   [9]   | `CreateRgb`        | `SKColorSpace` | ICC-primary space |
+|  [01]   | `CreatePdf`        | `SKDocument`   | PDF backend       |
+|  [02]   | `CreateXps`        | `SKDocument`   | XPS backend       |
+|  [03]   | `BeginPage`        | `SKDocument`   | page open         |
+|  [04]   | `EndPage`          | `SKDocument`   | page commit       |
+|  [05]   | `Close`            | `SKDocument`   | document finalize |
+|  [06]   | `Abort`            | `SKDocument`   | document abort    |
+|  [07]   | `CreateSrgb`       | `SKColorSpace` | sRGB space        |
+|  [08]   | `CreateSrgbLinear` | `SKColorSpace` | linear space      |
+|  [09]   | `CreateRgb`        | `SKColorSpace` | ICC-primary space |
 |  [10]   | `Equal`            | `SKColorSpace` | space identity    |
 |  [11]   | `WithColorSpace`   | `SKImageInfo`  | space retag       |
 
@@ -152,29 +152,29 @@
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT]    | [RAIL]          |
 | :-----: | :--------------------- | :---------------- | :-------------- |
-|   [1]   | `MeasureText`          | `SKFont`          | text measure    |
-|   [2]   | `CreateTypeface`       | `SKFontManager`   | typeface lookup |
-|   [3]   | `Create`               | `SKTextBlob`      | shaped text     |
-|   [4]   | `Parse`                | `SKColor`         | color parse     |
-|   [5]   | `CreateColor`          | `SKShader`        | color shader    |
-|   [6]   | `CreateLinearGradient` | `SKShader`        | gradient shader |
-|   [7]   | `CreateBlur`           | `SKImageFilter`   | blur filter     |
-|   [8]   | `CreateDash`           | `SKPathEffect`    | dashed stroke   |
-|   [9]   | `CreateShader`         | `SKRuntimeEffect` | runtime shader  |
+|  [01]   | `MeasureText`          | `SKFont`          | text measure    |
+|  [02]   | `CreateTypeface`       | `SKFontManager`   | typeface lookup |
+|  [03]   | `Create`               | `SKTextBlob`      | shaped text     |
+|  [04]   | `Parse`                | `SKColor`         | color parse     |
+|  [05]   | `CreateColor`          | `SKShader`        | color shader    |
+|  [06]   | `CreateLinearGradient` | `SKShader`        | gradient shader |
+|  [07]   | `CreateBlur`           | `SKImageFilter`   | blur filter     |
+|  [08]   | `CreateDash`           | `SKPathEffect`    | dashed stroke   |
+|  [09]   | `CreateShader`         | `SKRuntimeEffect` | runtime shader  |
 
 [GPU_ENTRYPOINTS]: GPU context creation
 - rail: visuals
 
 | [INDEX] | [SURFACE]        | [SURFACE_ROOT]   | [RAIL]           |
 | :-----: | :--------------- | :--------------- | :--------------- |
-|   [1]   | `CreateGl`       | `GRContext`      | OpenGL context   |
-|   [2]   | `CreateMetal`    | `GRContext`      | Metal context    |
-|   [3]   | `CreateVulkan`   | `GRContext`      | Vulkan context   |
-|   [4]   | `CreateDirect3D` | `GRContext`      | Direct3D context |
-|   [5]   | `Create`         | `GRGlInterface`  | GL interface     |
-|   [6]   | `Dispose`        | `SKNativeObject` | native release   |
+|  [01]   | `CreateGl`       | `GRContext`      | OpenGL context   |
+|  [02]   | `CreateMetal`    | `GRContext`      | Metal context    |
+|  [03]   | `CreateVulkan`   | `GRContext`      | Vulkan context   |
+|  [04]   | `CreateDirect3D` | `GRContext`      | Direct3D context |
+|  [05]   | `Create`         | `GRGlInterface`  | GL interface     |
+|  [06]   | `Dispose`        | `SKNativeObject` | native release   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VISUALS_LAW]:
 - Package: `SkiaSharp`

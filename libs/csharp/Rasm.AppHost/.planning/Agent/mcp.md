@@ -2,14 +2,14 @@
 
 The Model Context Protocol serving surface for the runtime spine: the official `ModelContextProtocol` SDK owns the protocol — JSON-RPC framing, transport, the initialize handshake, error-code mapping, and SSE-resumable long-running requests — and this page projects the capability registry onto the SDK's tool/resource/prompt surface. Each `CapabilityDescriptor` projects to one `Microsoft.Extensions.AI` `AIFunction` that `McpServerTool.Create` adopts, so one descriptor source drives the MCP tool surface, in-process `IChatClient` function-calling, and the SDK codegen. A brokered dry-run prices any tool call before invocation, dispatch routes through the command algebra, server-initiated sampling rides `IChatClient`, elicitation gathers structured input mid-call, and the SDK's task primitives carry a long-running call with status/poll/result and cancellation over the cancel spine. The page owns the method axis, the descriptor-to-`AIFunction` tool projection, the brokered dispatch, the sampling and elicitation legs, and the agent-session roster; it consumes `CapabilityRegistry`/`DiscoveryQuery`, `CommandAlgebra`/`GrantBroker`, `ControlInbound.DispatchTool`, `CancelScope`, `TenantContext`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[METHOD_AXIS]: MCP method vocabulary with tool, resource, and prompt projection from the registry.
-- [2]-[TOOL_DISPATCH]: Dry-run cost preview, brokered dispatch, and structured tool result.
-- [3]-[STREAM_PROGRESS]: Server-stream progress fan with cancellation, backpressure, and resumable handles.
-- [4]-[TS_PROJECTION]: MCP tool-catalog and progress-frame wire shapes the agent transport consumes.
+- [01]-[METHOD_AXIS]: MCP method vocabulary with tool, resource, and prompt projection from the registry.
+- [02]-[TOOL_DISPATCH]: Dry-run cost preview, brokered dispatch, and structured tool result.
+- [03]-[STREAM_PROGRESS]: Server-stream progress fan with cancellation, backpressure, and resumable handles.
+- [04]-[TS_PROJECTION]: MCP tool-catalog and progress-frame wire shapes the agent transport consumes.
 
-## [2]-[METHOD_AXIS]
+## [02]-[METHOD_AXIS]
 
 - Owner: `McpMethod` `[SmartEnum<string>]` the MCP method vocabulary under the `CapabilityKeyPolicy` accessor; `ToolProjection` the descriptor-to-tool fold; `McpTool` the projected tool descriptor; `McpResource` the projected resource handle; `McpPrompt` the projected prompt template.
 - Cases: 8 method rows — initialize, tools-list, tools-call, resources-list, resources-read, prompts-list, prompts-get, ping — the closed MCP request surface; tool/resource/prompt projections fold the registry's `DiscoveryResult` rows.
@@ -106,7 +106,7 @@ public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool, TenantCo
 }
 ```
 
-## [3]-[TOOL_DISPATCH]
+## [03]-[TOOL_DISPATCH]
 
 - Owner: `McpFault` `[Union]` fault family in the 4640 band (the JSON-RPC error-code band the MCP transport maps); `CostPreview` the dry-run pricing record; `ToolResult` the structured tool-call result; `McpDispatch` the static brokered-dispatch surface.
 - Cases: `McpFault` = Text | UnknownTool | InvalidArguments | CostRejected | Cancelled — each mapping to a JSON-RPC error code at the transport edge.
@@ -175,7 +175,7 @@ public static class McpDispatch {
 }
 ```
 
-## [4]-[STREAM_PROGRESS]
+## [04]-[STREAM_PROGRESS]
 
 - Owner: `ProgressFrame` `[Union]` the progress-notification vocabulary; `ResumeToken` the resumable-handle record; `AgentSession` the per-agent progress-and-backpressure cell; `StreamProgress` the static progress-fan surface over the SDK's SSE-resumable transport and task primitives.
 - Cases: `ProgressFrame` = Started | Progress | Partial | Completed | Failed | Cancelled — the frame sequence a long tool call emits as SDK progress notifications.
@@ -265,7 +265,7 @@ stateDiagram-v2
     Cancelled --> [*]
 ```
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `McpToolWire`, `ProgressNotificationWire`, `ProgressFrameWire`, `CostPreviewWire`, `ResumeTokenWire`, `ToolResultWire` — the MCP tool-catalog, progress, resume-cursor, and structured-result wire shapes the agent transport consumes; `ProgressNotificationWire` is the SDK's live `notifications/progress` value the transport emits and `ProgressFrameWire` is the interior frame reconstruction the host buffers for replay; `ToolResultWire` is the `ToolResult` record (`Tool`/`Content`/`IsError`/`Correlation`) projected as the `TPayload` of the existing `ReceiptEnvelopeWire`, single-minted here so the agent transport decodes it rather than re-authoring the payload shape.
 - Entry: the tool catalog crosses as the standard MCP `tools/list` JSON the agent transport reads, the progress frames cross as the server-stream frame sequence, and the cost preview crosses as the dry-run pricing the agent reads before a call.
@@ -326,7 +326,7 @@ interface ToolResultWire {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 The settled-fence members the cards compose verify against the folder `.api/api-mcp.md` (`ModelContextProtocol`/`ModelContextProtocol.Core`/`ModelContextProtocol.AspNetCore`) and `.api/api-extensions-ai.md` (`Microsoft.Extensions.AI.Abstractions`) catalogues — `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)`, `McpServerToolCreateOptions`, `ProgressNotificationValue`, `WithTools(IEnumerable<McpServerTool>)`, `AddMcpServer`/`WithHttpTransport`/`MapMcp`, the `StdioServerTransport`/`StreamServerTransport` transport types, `ApprovalRequiredAIFunction`, and the `AIFunction : AIFunctionDeclaration : AITool` chain (`JsonSchema`/`ReturnJsonSchema`/`InvokeAsync`). The server long-running surface (`McpServer.SampleAsync`/`AsSamplingChatClient`/`ElicitAsync`/`ElicitAsync<T>`/`GetTaskAsync`/`GetTaskResultAsync<T>`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`, `McpServerOptions.TaskStore`/`SendTaskStatusNotifications`, the `MessageContext` base declaring `.Server`/`.Services`/`.User`/`.Items` with `RequestContext<T> : MessageContext` adding `.Params`/`EnablePollingAsync`) and the host-package `WithStdioServerTransport()` builder extension are now catalogued in `.api/api-mcp.md` — the `McpServerOptions` property scope carries `TaskStore`/`SendTaskStatusNotifications` rows [9]/[10], the `McpServer` session long-running verb entrypoint table and the `MessageContext`/`RequestContext<T>` request-context type table are present, and `WithStdioServerTransport` is row [14] on the host-package `McpServerBuilderExtensions` — so every member below is catalogue-verified. Each settled card states the projection's binding shape over the catalogued members.
 

@@ -2,11 +2,11 @@
 
 The one classical-ML model-asset validation and export owner. `ModelAsset` carries the file identity, checksum, io-names, preprocessing, model-card, and validation over onnx and onnxruntime, and exports a fitted scikit-learn estimator to ONNX through skl2onnx. `ValidationCheck` folds graph well-formedness, io-name binding, and a smoke inference over the declared io-names; `ModelAssetManifest` is the validation value object that backs the graduation seam. The owner validates and exports a classical estimator graph; authoring or training a neural model is out of charter. onnx, onnxruntime, and skl2onnx gate on the `python_version<'3.15'` marker.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ASSET]: ONNX graph validation, io-binding, smoke inference, and the sklearn-to-ONNX export on one `ModelAsset` owner.
+- [01]-[ASSET]: ONNX graph validation, io-binding, smoke inference, and the sklearn-to-ONNX export on one `ModelAsset` owner.
 
-## [2]-[ASSET]
+## [02]-[ASSET]
 
 - Owner: `ModelAsset` — the file-identity, checksum, io-names, preprocessing, model-card, and validation owner over onnx, onnxruntime, and skl2onnx; `ModelAssetManifest` is the io-names, preprocessing, model-card, and validation value object backing the graduation seam, every field carried by the struct. `ValidationCheck` discriminates `Structural` (`onnx.checker.check_model` graph well-formedness), `IoBinding` (declared io-names match the `InferenceSession` graph), and `Smoke` (a zero-tensor inference returns finite output), folded total in `validate`. `ExportSource` discriminates the export entry, currently `Sklearn` (a fitted estimator with its input feature shape).
 - Entry: `ModelAsset.validate` loads the ONNX graph, folds the `ValidationCheck` cases over the declared io-names through an `onnxruntime.InferenceSession`, derives the checksum through `ContentIdentity.of`, and returns `RuntimeRail[ModelAssetManifest]` proving the asset loads and infers before the C# model lane accepts it; `ModelAsset.export` matches an `ExportSource` and runs the skl2onnx export validated before graduation.
@@ -130,6 +130,6 @@ class ModelAsset(Struct, frozen=True):
         return self._load_and_run(self.ref.path)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ONNX_SESSION]: the `onnx.load`/`checker.check_model`/`ModelProto.opset_import`/`graph.node`, `onnxruntime.InferenceSession`/`get_inputs`/`get_outputs`/`run`, and `skl2onnx.convert_sklearn`/`common.data_types.FloatTensorType` spellings carry the `python_version<'3.15'` marker (no cp315 wheel); the validate and export bodies verify against the `.api` catalogue once the onnx, onnxruntime, and skl2onnx wheels resolve.

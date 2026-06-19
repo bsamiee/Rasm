@@ -11,7 +11,7 @@ Execute Tavily AI web operations through unified Python CLI.
 
 [IMPORTANT] `search` requires `--query`; `extract` requires `--urls`; `crawl`/`map` require `--url`; `research` requires `--query`. 1Password injects API key automatically.
 
-## [1]-[COMMANDS]
+## [01]-[COMMANDS]
 
 | [CMD]    | [REQUIRED_ARG] | [PURPOSE]                             |
 | -------- | -------------- | ------------------------------------- |
@@ -21,7 +21,7 @@ Execute Tavily AI web operations through unified Python CLI.
 | map      | `--url URL`    | Map website URL structure             |
 | research | `--query TEXT` | Multi-step deep research with report  |
 
-## [2]-[USAGE]
+## [02]-[USAGE]
 
 ```bash
 # Search
@@ -46,7 +46,7 @@ uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py research --query "Nx 2
 uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py research --query "Effect vs RxJS comparison" --model pro
 ```
 
-## [3]-[ARGUMENTS]
+## [03]-[ARGUMENTS]
 
 **search**: `--query TEXT [options]`
 - `--query` — Search query (required)
@@ -86,25 +86,25 @@ uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py research --query "Effe
 - `--query` — Research question (required)
 - `--model` — Research agent: `mini`, `pro`, `auto` (default: `auto`)
 
-## [4]-[OUTPUT]
+## [04]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
 | [INDEX] | [CMD]      | [RESPONSE]                             |
 | :-----: | ---------- | -------------------------------------- |
-|   [1]   | `search`   | `{query, results[], images[], answer}` |
-|   [2]   | `extract`  | `{urls[], results[], failed[]}`        |
-|   [3]   | `crawl`    | `{base_url, results[], urls_crawled}`  |
-|   [4]   | `map`      | `{base_url, urls[], total_mapped}`     |
-|   [5]   | `research` | `{query, report, sources[]}`           |
+|  [01]   | `search`   | `{query, results[], images[], answer}` |
+|  [02]   | `extract`  | `{urls[], results[], failed[]}`        |
+|  [03]   | `crawl`    | `{base_url, results[], urls_crawled}`  |
+|  [04]   | `map`      | `{base_url, urls[], total_mapped}`     |
+|  [05]   | `research` | `{query, report, sources[]}`           |
 
-## [5]-[ENVIRONMENT]
+## [05]-[ENVIRONMENT]
 
 | [VAR]            | [REQUIRED] | [DESCRIPTION]                       |
 | ---------------- | ---------- | ----------------------------------- |
 | `TAVILY_API_KEY` | Yes        | Tavily API key (1Password injected) |
 
-## [6]-[ERROR_HANDLING]
+## [06]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Rate limit (429): retry after backoff

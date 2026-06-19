@@ -2,11 +2,11 @@
 
 Rasm.Compute model session capsule: the one shared `InferenceSession` per model checksum with its EP-context warm-start route generalized into a device-keyed fleet-shared compiled context, the shared-device-allocator lease map, and the lifecycle/warmup/drain rows. The page owns the `SessionPolicy` lifecycle record and the `ModelSessions` boundary capsule with its OrtEnv boot gate, resident-session map, shared-device-allocator lease, and the compatibility-gated `Open`/`Lease`/`Unload`/`Boot`/`SharedAllocator`/`Compile` fold; the session and allocator surfaces ride `Microsoft.ML.OnnxRuntime`, the `Boot` thread pool reads the AppHost `CpuBudget` row, the drain and warmup rows ride the AppHost `DrainParticipantPort`/`ScheduleEntry` surfaces, the warm-start blob crosses to the Persistence blob lane as an `ArtifactIndexRow`, and the `ModelIdentity` identity from `Model/identity#MODEL_IDENTITY`, the `ExecutionProvider`/`ModelPrecision` axis from `Model/providers#EP_AXIS`, the `CustomOps.Register` fold from `Model/extension#EXTENSION_OPS`, and `NodaTime` `Instant`/`Duration` arrive settled. The shared-arena lease is the arena `Model/inference#INFERENCE_MODES` `RunOps.BoundLoop` threads into `CreateAllocatedTensorValue`/`RebindDevice`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SESSION_CAPSULE]: one shared session per model; lifecycle, warmup, drain rows; shared-device-allocator lease; compatibility-gated warm-start.
+- [01]-[SESSION_CAPSULE]: one shared session per model; lifecycle, warmup, drain rows; shared-device-allocator lease; compatibility-gated warm-start.
 
-## [2]-[SESSION_CAPSULE]
+## [02]-[SESSION_CAPSULE]
 
 - Owner: `SessionPolicy` lifecycle policy record; `ModelSessions` boundary capsule owning the OrtEnv boot gate, the resident-session map, the shared-device-allocator lease map, and the drain and warmup rows.
 - Entry: `public static Fin<(InferenceSession Session, Option<ArtifactIndexRow> WarmStart)> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string modelPath, string artifactDir, ClockPolicy clocks)` — `Fin` aborts on rejected admission; a hit shares the resident session with `None` warm-start evidence and a first open carries the compiled EP-context row; `modelPath` feeds the autoEP compatibility probe so an incompatible warm-start blob degrades to a fresh compile.

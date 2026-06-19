@@ -2,7 +2,7 @@
 
 The cross-package Python concert: higher-order concepts that couple two or more of the five packages or deepen a shared branch owner, distilled from the folder ideas. A concept grounded in one folder's domain stays on that folder's `IDEAS.md`; a concept crossing a language boundary stays in the cross-`libs/` `IDEAS.md` and is referenced as a wire seam, never restated here. `[1]-[OPEN]` holds the live concert as cards — a bracketed slug, the capability, what it unlocks, and the cross-package gap it draws on; `[2]-[CLOSED]` records dispositions.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [CONTENT_ADDRESSED_REUSE_FABRIC]:
 - Fold the runtime `ContentIdentity` seed into the runtime lane admission so a unit of work admitted as a `(ContentKey, Work[T])` pair short-circuits when the key already carries a result, and key every consumer's most expensive output — a `compute` graduated sub-result, a `geometry` tessellated GLB, a `data` egress bundle, an `artifacts` document — by that same key.
@@ -49,6 +49,6 @@ The cross-package Python concert: higher-order concepts that couple two or more 
 - Unlocks the one-catalogue-per-library `[1]-[DOC_SET]` invariant holding: the field fence's `xarray` CF-selection/groupby/resample spellings are already catalogue-backed (`data/.api/xarray.md`), so that fence settles immediately; only the inverse-design fence's `optax.OptaxMinimiser` first-order-descent spelling waits on `compute/.api/optax.md` if that axis admits — every other named member is catalogue-backed today.
 - Draws on the gap that the branch coverage audit must distinguish the realized historical gap (the JAX/inference/graph/field-IO catalogues now present) from the live residual (the lone `optax.md`, conditional), captured on the resolving interpreter: the cp315 core for the pure-Python rows and the gated `<'3.15'` band for `optax` (native jaxlib chain), drawn from a uv-sync reflection pass via the runtime `evidence/evidence` `ApiPackage.reflect` surface, never guessed.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

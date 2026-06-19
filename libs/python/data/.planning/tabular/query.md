@@ -2,11 +2,11 @@
 
 The relational query owner over one `QuerySpec` axis materializing to uniform Arrow. `QueryEngine` discriminates the `QuerySpec` tagged-union axis — DuckDB SQL, the chained DuckDB relational API, and the dataframe-agnostic narwhals surface — onto one `pyarrow.Table` result; the frontend IS the spec shape, never a parallel backend `StrEnum` knob. The admitted Ibis backend-agnostic expression-IR and the ADBC/ConnectorX remote transport land as additional `QuerySpec` cases on this same owner, acquiring connections through the runtime `TransportResource`. The result fold is spec-agnostic, so the egress, content-key, and `QueryReceipt` are shared with the `columnar` scan owner.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUERY]: the relational query engine over one `QuerySpec` axis materializing to uniform Arrow.
+- [01]-[QUERY]: the relational query engine over one `QuerySpec` axis materializing to uniform Arrow.
 
-## [2]-[QUERY]
+## [02]-[QUERY]
 
 - Owner: `QueryEngine` — the one relational query owner over `duckdb`/`narwhals`/`ibis`/ADBC discriminating by the `QuerySpec` tagged-union axis (the single discriminant; the frontend IS the spec shape). `QuerySpec` cases `Sql` (relational SQL) · `Rel` (the chained relational API) · `Agnostic` (the dataframe-agnostic expression surface) · `Ir` (the Ibis backend-agnostic expression IR) · `Remote` (ADBC/ConnectorX remote SQL-to-Arrow transport). A new query frontend is one `QuerySpec` case, never a `sql_query`/`rel_query`/`nw_query`/`ibis_query` method family.
 - Cases: `QuerySpec.Sql(text)` runs `duckdb.connect().sql(text)` over registered Arrow/Delta inputs and binds the result with `to_arrow_table()` (zero-copy Arrow) · `Rel(filter, project, group_by)` chains `from_arrow(...).filter(...).project(...).aggregate(...)` returning a `DuckDBPyRelation`, terminal `to_arrow_table()` · `Agnostic(select, filter, group_by)` admits any native frame via `narwhals.from_native`, composes `filter`/`group_by`/`agg`/`select` against `narwhals.col`/`narwhals.Expr` (a grouped select folds each selected column through a `sum` aggregation expression, never a bare column reference `group_by` rejects), and lands Arrow through `narwhals.DataFrame.to_arrow` · `Ir(expr, backend_uri)` binds one `ibis` expression to the backend `ibis.connect(backend_uri)` selects (DuckDB the default when `backend_uri` is `None`) and materializes through `BaseBackend.to_pyarrow(expr)` — the same lazy SQL-via-`sqlglot` expression compiles to DuckDB/DataFusion/Polars/remote SQL with no rewrite · `Remote(sql, transport, driver)` acquires the remote connection through the runtime `TransportResource`, dispatching the ADBC `dbapi.connect(driver, uri).cursor().execute(sql).fetch_arrow_table()` path on the cp315 core and the `connectorx.read_sql(uri, sql, return_type="arrow")` partitioned path when the `<3.15` band is live, both terminating in the uniform `pyarrow.Table`.
@@ -115,7 +115,7 @@ def _remote(sql: str, dsn: str, driver: RemoteDriver) -> pa.Table:
     return cx.read_sql(dsn, sql, return_type="arrow")
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [IBIS_BACKEND_NAMESPACE]: the `ibis` `connect(uri)`/`BaseBackend.to_pyarrow(expr)` surface the `Ir` arm transcribes is catalogue-confirmed against the folder `ibis-framework` `.api`; the `ibis.duckdb.connect()` default-backend namespace accessor the no-`backend_uri` branch binds is the one spelling the catalogue lists only as the implicit DuckDB default, so the default-backend access confirms the `ibis.duckdb` submodule entry against the live distribution before the unbound-default branch treats it as settled.
 - [REMOTE_TRANSPORT_DSN]: the `adbc-driver-manager` `dbapi.connect(uri=)`/`Connection.cursor()`/`Cursor.execute(sql)`/`fetch_arrow_table()` and the `<3.15`-gated `connectorx` `read_sql(conn, query, return_type="arrow")` surfaces the `Remote` arm transcribes are catalogue-confirmed against the folder `adbc-driver-manager`/`connectorx` `.api`; the one open seam is the `dsn` derivation from the runtime `TransportResource` — the `Remote` arm receives a resolved DSN string, and the `TransportResource`-to-DSN projection lands on the runtime `roots` seam rather than re-minting a second transport owner here.

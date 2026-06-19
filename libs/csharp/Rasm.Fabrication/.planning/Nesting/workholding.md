@@ -4,11 +4,11 @@ The workholding owner: `Workholding` the static surface conditioning a cut seque
 
 Wire posture: HOST-LOCAL. The conditioned `Move` stream and the keep-out verdict cross only the in-process seam to the `Toolpath/motion#CAM_MOTION` toolpath and the `Posting/program#CUT_PROGRAM` emitter — never a browser or peer wire. The `Fixture`/`Clamp`/`ExclusionZone` records are host-local types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[WORKHOLDING]: owns the `Clamp`/`ExclusionZone`/`Fixture` placement model and the `Workholding` fold — the safety-margin exclusion offset over the Geometry2D substrate, the toolpath keep-out clip, and the fixture-constrained cut sequence composing the posting `Sequence`.
+- [01]-[WORKHOLDING]: owns the `Clamp`/`ExclusionZone`/`Fixture` placement model and the `Workholding` fold — the safety-margin exclusion offset over the Geometry2D substrate, the toolpath keep-out clip, and the fixture-constrained cut sequence composing the posting `Sequence`.
 
-## [2]-[WORKHOLDING]
+## [02]-[WORKHOLDING]
 
 - Owner: `Clamp` the placed workholding device carrying its footprint `Loop`, a safety margin, a clamp height, and a `HoldingClass`-keyed `Kind` footprint-shape column (the workholding kind — hard clamp, vise, chuck, vacuum table, magnet, sacrificial bed — that conditions the footprint inflation, never a parallel device enum); `ExclusionZone` the keep-out polygon (the clamp footprint inflated by its margin and kind through `Offset`) the toolpath and sequence respect, with the exact `Orient2D` `Covers` containment; `Fixture` the placement set — the clamps holding one job plus the `Zones` derived exclusion set over the one offset substrate; `Workholding` the static surface owning `Zone` (the per-clamp exclusion offset keyed by the `Kind` footprint shape), `Clears` (the toolpath keep-out test), and `Condition` (the fixture-constrained move conditioning composing the posting `Sequence`).
 - Cases: the workholding `Kind` footprint-shape column rows `clamp` (the footprint inflated by the margin) · `vise` (a two-jaw paired footprint) · `chuck` (a revolved-jaw envelope for a `BarStock` nest) · `vacuum-table` (a full-bed keep-out only at the part-edge margin) · `magnet` (a point footprint) · `sacrificial-bed` (a zero-keep-out bed the part rests on) (6), the `Machine.HoldingClass` selecting the row, the keep-out kernel reading the inflated footprint regardless of kind; a candidate move or contour is `Clear` (no exclusion zone covers its footprint) or `Blocked` (a keep-out zone covers it — a planned exclusion, routed `FabricationFault.KerfCollision` when a required cut cannot avoid a clamp) — the two-state verdict the exact `Orient2D` containment decides, never a parallel collision pass; the cut sequence is the inner-before-outer order under the keep-out, composing the posting `Sequence`, never a second sequencer.

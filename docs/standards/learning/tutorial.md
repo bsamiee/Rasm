@@ -4,7 +4,7 @@ A tutorial teaches one learner outcome by guiding the learner through concrete a
 
 A learning path orders multiple tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. This standard carries lesson shape, learner-path ordering, and execution confirmation; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a tutorial when every condition holds:
 - the reader is learning the subject, not performing routine work.
@@ -24,7 +24,7 @@ Route elsewhere by topic when the reader is a competent operator completing a kn
 - Adjacent checks: check how-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, architecture, code documentation, and README only when a lesson consumes their fact after or inside the learning path.
 - Maintenance triggers: update the tutorial when start state, fixture, command, tested stack, generated artifact, support target, lesson order, learner trap, result gate, or adjacent learning route changes.
 
-## [2]-[REQUIRED_STRUCTURE]
+## [02]-[REQUIRED_STRUCTURE]
 
 A single tutorial uses this spine. `Learner-trap recovery` appears only when the author observed recoverable failures or can name a documented learner trap that does not fit a step-local `If wrong` field.
 
@@ -101,19 +101,19 @@ A learning path index uses this spine when multiple tested lessons compose one b
 
 <Lead: one sentence naming the skill outcome, difficulty, lesson count, and whether stack confirmation is lesson-local or shared.>
 
-## [1]-[READER]
+## [01]-[READER]
 
-## [2]-[OUTCOME]
+## [02]-[OUTCOME]
 
-## [3]-[PREREQUISITES]
+## [03]-[PREREQUISITES]
 
-## [4]-[PATH]
+## [04]-[PATH]
 
-## [5]-[COMPLETION]
+## [05]-[COMPLETION]
 
-## [6]-[BOUNDARIES]
+## [06]-[BOUNDARIES]
 
-## [7]-[END_STATE_PREVIEW]
+## [07]-[END_STATE_PREVIEW]
 
 An end-state preview must show the final artifact, not decorate the opening. Exact output is enough when the result is textual:
 
@@ -150,7 +150,7 @@ Text equivalent: the completed request route validates an incoming payload, writ
 
 Reject a generic success diagram that does not prove the learner's final artifact.
 
-## [8]-[STEP_RECORDS]
+## [08]-[STEP_RECORDS]
 
 Each step is a checkpoint record, not a bare instruction line. A step must leave the learner in a verified working state. Render steps as numbered checkpoint records; add H3 milestone sets only when a longer tutorial needs skimmable boundaries, and keep actual steps numbered under the set.
 
@@ -178,7 +178,7 @@ State each term in the step that first needs it. Use fixed inputs, deterministic
 - Rejected step: `3. Run the check.`
 - Reason: the rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: omit prompts, use long flags, use full file paths where needed, and use realistic placeholders.
 
-## [9]-[EXECUTION_VOCABULARY]
+## [09]-[EXECUTION_VOCABULARY]
 
 A published tutorial's core success path must be author-run from start state to result. Use execution tags only for draft or blocked lessons, or for optional side effects outside the core path that depend on hardware, credentials, validator access, or live services the author could not exercise.
 

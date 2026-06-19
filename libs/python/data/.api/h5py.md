@@ -2,7 +2,7 @@
 
 `h5py` supplies a Pythonic interface to HDF5 files exposing groups, datasets, attributes, and virtual datasets with NumPy-style slicing and dtype semantics. `File` owns the on-disk container, `Group` owns the hierarchical namespace, `Dataset` owns typed n-dimensional array storage, and `AttributeManager` owns per-object metadata.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `h5py`
 - package: `h5py`
@@ -11,7 +11,7 @@
 - rail: array
 - capability: HDF5 file IO, hierarchical group namespace, typed chunked/compressed dataset storage, NumPy-style slicing, attribute metadata, special dtypes (vlen, enum, string, reference), virtual datasets, dimension scales, and SWMR access
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `h5py.File` — top-level HDF5 container and root group; `File(name, mode='r', driver=None, libver=None, userblock_size=None, swmr=False, rdcc_nslots=None, rdcc_nbytes=None, rdcc_w0=None, track_order=None, ...)`; properties `filename`, `mode`, `driver`, `libver`, `swmr_mode`, `userblock_size`, `meta_block_size`.
@@ -52,7 +52,7 @@
 - `require_dataset`/`require_group` are idempotent get-or-create entries; `create_*` raises on an existing name, so the require form replaces existence-check branching.
 - SWMR mode (`swmr=True` or `swmr_mode`) admits a single writer and multiple concurrent readers; `Dataset.refresh()`/`flush()` synchronise the reader and writer views.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `h5py`

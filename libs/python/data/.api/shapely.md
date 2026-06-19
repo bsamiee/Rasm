@@ -2,7 +2,7 @@
 
 `shapely` supplies GEOS-backed planar geometry: construction, predicates, set operations, constructive transforms, measurement, and spatial indexing. It provides the `Geometry` hierarchy (`Point`, `LineString`, `LinearRing`, `Polygon`, `MultiPoint`, `MultiLineString`, `MultiPolygon`, `GeometryCollection`) plus a NumPy-vectorized top-level function namespace, with `STRtree` as the bulk spatial index.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `shapely`
 - package: `shapely`
@@ -11,7 +11,7 @@
 - rail: geospatial
 - capability: planar geometry construction, vectorized binary/unary predicates, set and constructive operations, measurement, linear referencing, WKT/WKB/GeoJSON/ragged-array interchange, STRtree indexing, and affine transforms
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `shapely.Geometry` — abstract base; instance properties `area`, `length`, `bounds`, `centroid`, `geom_type`, `is_empty`, `is_valid`, `has_z`, `has_m`, `coords`, `xy`, `wkt`, `wkb`.
@@ -52,7 +52,7 @@
 - `from_ragged_array`/`to_ragged_array` are the zero-copy bridge to flat coordinate plus offset arrays for Arrow and GeoArrow interoperability.
 - `affinity` functions operate on single geometries with explicit transform matrices; `transform` applies an arbitrary coordinate function across a geometry.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `shapely`

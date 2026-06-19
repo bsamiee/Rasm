@@ -2,14 +2,14 @@
 
 The capability-brokered plugin sandbox for the runtime spine: a two-row isolation axis runs a plugin under a WASM component instance or an out-of-process child, every plugin holds zero ambient authority and reaches host capability only through a brokered grant handle, resource quotas cap CPU, memory, wall-time, and egress per plugin, a kill-or-quarantine rail evicts a misbehaving plugin, and a supply-chain gate admits only a signature-verified, SLSA-attested, semver-compatible artifact before it ever loads. The page owns the isolation axis, the grant broker handle, the quota cell, the kill-quarantine rail, and the supply-chain admission gate; it consumes `CapabilityDescriptor`/`GrantBroker`/`GrantScope`, `CommandAlgebra`, `OutboundHop.CompanionSpawn`/`Discovery`, `PeerAdmission`, `CancelScope`, `DegradationCell`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ISOLATION_AXIS]: WASM-component and process isolation rows with no-ambient-authority load law.
-- [2]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
-- [3]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell with kill and quarantine rail.
-- [4]-[SUPPLY_CHAIN]: Signature, SLSA-attestation, and semver admission before load.
+- [01]-[ISOLATION_AXIS]: WASM-component and process isolation rows with no-ambient-authority load law.
+- [02]-[GRANT_HANDLE]: Capability-brokered grant handle with per-call authority mediation.
+- [03]-[QUOTA_CONTROL]: CPU/memory/wall/egress quota cell with kill and quarantine rail.
+- [04]-[SUPPLY_CHAIN]: Signature, SLSA-attestation, and semver admission before load.
 
-## [2]-[ISOLATION_AXIS]
+## [02]-[ISOLATION_AXIS]
 
 - Owner: `SandboxIsolation` `[SmartEnum<string>]` the two-row isolation topology under the `CapabilityKeyPolicy` accessor; `SandboxRow` per-isolation policy record; `SandboxRows` the frozen row set with the total dispatch; `PluginInstance` the loaded-plugin capsule; `SandboxFault` `[Union]` fault family in the 4660 band.
 - Cases: wasm-component, process — wasm-component runs the plugin as a WebAssembly component instance with a linear-memory boundary and import-only host access, process runs the plugin as an out-of-process child reached over the local-ipc hop with OS-level isolation; `SandboxFault` = Text | LoadRejected | NoAuthority | QuotaExceeded | Quarantined.
@@ -92,7 +92,7 @@ public static class SandboxRows {
 }
 ```
 
-## [3]-[GRANT_HANDLE]
+## [03]-[GRANT_HANDLE]
 
 - Owner: `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation record; `GrantHandleSurface` the static mediation surface.
 - Entry: `Invoke(PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments)` returns `IO<ToolResult>` — every host call from a plugin routes through the broker: the handle's scope is checked against the descriptor, the quota is charged, and the call dispatches through the command algebra exactly as an agent call does.
@@ -134,7 +134,7 @@ public static class GrantHandleSurface {
 }
 ```
 
-## [4]-[QUOTA_CONTROL]
+## [04]-[QUOTA_CONTROL]
 
 - Owner: `QuotaShape` the per-plugin resource-ceiling record; `QuotaCell` the live-metering boundary capsule; `Quarantine` `[Union]` the eviction disposition; `QuotaControl` the static enforcement surface.
 - Cases: `Quarantine` = Active | Killed | Quarantined | Released — Active is the running plugin, Killed terminates immediately, Quarantined disables the grant handle and holds the artifact for inspection, Released reinstates after review.
@@ -201,7 +201,7 @@ public static class QuotaControl {
 }
 ```
 
-## [5]-[SUPPLY_CHAIN]
+## [05]-[SUPPLY_CHAIN]
 
 - Owner: `PluginArtifact` the candidate plugin record; `Attestation` the SLSA-provenance record; `SemverGate` the version-compatibility check; `SupplyChainFault` `[Union]` fault family in the 4680 band; `SupplyChainGate` the static admission surface.
 - Entry: `Admit(PluginArtifact artifact)` returns `Fin<PluginArtifact>` — the gate verifies the artifact signature against the trusted publisher set, validates the SLSA provenance attestation, and checks semver compatibility against the host contract version before the artifact ever loads; a single rejected check fails closed.
@@ -291,7 +291,7 @@ flowchart TD
     Active -->|suspect| Quarantined[Quarantine.Quarantined]
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [WASM_RUNTIME]: the `wasmtime-dotnet` embedding component instantiation, the WASI-Preview-2 component-model import table scoped to the granted descriptors (clocks/files/sockets/http granted explicitly), and the `Store` fuel and linear-memory counters the quota cell reads confirm against the runtime package at the integrated host; the scope-derived import set and the `componentize-dotnet` WIT-generated host bindings are the open distinction the live runtime resolves.
 - [SIGNATURE_VERIFY]: the artifact signature-verification primitive (the detached-signature check against the pinned publisher public key) and the SLSA in-toto provenance attestation parse confirm against the admitted cryptography surface; the verification reads only the signature, attestation, and manifest and never executes the artifact, so the gate carries no execution residual.

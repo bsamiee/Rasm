@@ -2,7 +2,7 @@
 
 `vegafusion` supplies the Rust-backed server-side Vega transform engine for the artifacts charts rail: a module-level `runtime` (`VegaFusionRuntime`) whose `pre_transform_*` family executes a Vega spec's data transforms before render and a `ChartState` that maintains interactive transform state, plus an Arrow IPC transformer family that feeds inline datasets. The package owner composes `runtime.pre_transform_spec`, `pre_transform_datasets`, and `new_chart_state` into the chart `EXPORT` path; it never re-implements the Vega transform pipeline the embedded DataFusion engine already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vegafusion`
 - package: `vegafusion`
@@ -13,7 +13,7 @@
 - entry points: none (library only)
 - capability: server-side Vega data-transform pre-evaluation, transformed-dataset extraction, interactive chart-state maintenance over inline datasets, gRPC runtime connection, Arrow IPC dataset feeding, timezone configuration, and column-usage analysis
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime and chart-state roots
 - rail: charts
@@ -22,11 +22,11 @@ The module `__all__` exports `runtime` (singleton `VegaFusionRuntime`), `set_loc
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]     | [RAIL]                                         |
 | :-----: | :------------ | :---------------- | :--------------------------------------------- |
-|   [1]   | `runtime`     | runtime singleton | `VegaFusionRuntime` transform-execution owner  |
-|   [2]   | `ChartState`  | interactive state | `new_chart_state` return; transform/watch plan |
-|   [3]   | `transformer` | submodule         | dataframe-to-Arrow-IPC conversion family       |
+|  [01]   | `runtime`     | runtime singleton | `VegaFusionRuntime` transform-execution owner  |
+|  [02]   | `ChartState`  | interactive state | `new_chart_state` return; transform/watch plan |
+|  [03]   | `transformer` | submodule         | dataframe-to-Arrow-IPC conversion family       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `runtime` transform execution
 - rail: charts
@@ -35,14 +35,14 @@ The `pre_transform_*` rows share `spec`, `local_tz`, `default_input_tz`, `row_li
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                                                                                                                                                                                  | [CAPABILITY]                           |
 | :-----: | :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------- |
-|   [1]   | `runtime.pre_transform_spec`     | `pre_transform_spec(spec, local_tz=None, default_input_tz=None, row_limit=None, preserve_interactivity=True, inline_datasets=None, keep_signals=None, keep_datasets=None)` -> `(spec, warnings)`                                              | pre-evaluate transforms in a Vega spec |
-|   [2]   | `runtime.pre_transform_datasets` | `pre_transform_datasets(spec, datasets, local_tz=None, default_input_tz=None, row_limit=None, inline_datasets=None, trim_unused_columns=False, dataset_format='auto')` -> `(dataframes, warnings)`                                            | extract transformed datasets           |
-|   [3]   | `runtime.pre_transform_extract`  | `pre_transform_extract(spec, local_tz=None, default_input_tz=None, preserve_interactivity=True, extract_threshold=20, extracted_format='arro3', inline_datasets=None, keep_signals=None, keep_datasets=None)` -> `(spec, datasets, warnings)` | split spec and extracted data tables   |
-|   [4]   | `runtime.new_chart_state`        | `new_chart_state(spec, local_tz=None, default_input_tz=None, row_limit=None, inline_datasets=None)` -> `ChartState`                                                                                                                           | open an interactive chart state        |
-|   [5]   | `runtime.grpc_connect`           | `grpc_connect(url)`                                                                                                                                                                                                                           | route execution to a gRPC runtime      |
-|   [6]   | `runtime.clear_cache`            | `clear_cache()`                                                                                                                                                                                                                               | clear the transform cache              |
-|   [7]   | `runtime.cache_capacity`         | property                                                                                                                                                                                                                                      | cache capacity policy                  |
-|   [8]   | `runtime.memory_limit`           | property                                                                                                                                                                                                                                      | runtime memory cap                     |
+|  [01]   | `runtime.pre_transform_spec`     | `pre_transform_spec(spec, local_tz=None, default_input_tz=None, row_limit=None, preserve_interactivity=True, inline_datasets=None, keep_signals=None, keep_datasets=None)` -> `(spec, warnings)`                                              | pre-evaluate transforms in a Vega spec |
+|  [02]   | `runtime.pre_transform_datasets` | `pre_transform_datasets(spec, datasets, local_tz=None, default_input_tz=None, row_limit=None, inline_datasets=None, trim_unused_columns=False, dataset_format='auto')` -> `(dataframes, warnings)`                                            | extract transformed datasets           |
+|  [03]   | `runtime.pre_transform_extract`  | `pre_transform_extract(spec, local_tz=None, default_input_tz=None, preserve_interactivity=True, extract_threshold=20, extracted_format='arro3', inline_datasets=None, keep_signals=None, keep_datasets=None)` -> `(spec, datasets, warnings)` | split spec and extracted data tables   |
+|  [04]   | `runtime.new_chart_state`        | `new_chart_state(spec, local_tz=None, default_input_tz=None, row_limit=None, inline_datasets=None)` -> `ChartState`                                                                                                                           | open an interactive chart state        |
+|  [05]   | `runtime.grpc_connect`           | `grpc_connect(url)`                                                                                                                                                                                                                           | route execution to a gRPC runtime      |
+|  [06]   | `runtime.clear_cache`            | `clear_cache()`                                                                                                                                                                                                                               | clear the transform cache              |
+|  [07]   | `runtime.cache_capacity`         | property                                                                                                                                                                                                                                      | cache capacity policy                  |
+|  [08]   | `runtime.memory_limit`           | property                                                                                                                                                                                                                                      | runtime memory cap                     |
 
 [ENTRYPOINT_SCOPE]: `ChartState` and transformer helpers
 - rail: charts
@@ -51,17 +51,17 @@ The `pre_transform_*` rows share `spec`, `local_tz`, `default_input_tz`, `row_li
 
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                         | [CAPABILITY]                       |
 | :-----: | :-------------------------------- | :--------------------------------------------------- | :--------------------------------- |
-|   [1]   | `ChartState.get_transformed_spec` | `get_transformed_spec()` -> `dict`                   | the fully pre-transformed spec     |
-|   [2]   | `ChartState.get_client_spec`      | `get_client_spec()` -> `dict`                        | the client-side render spec        |
-|   [3]   | `ChartState.get_server_spec`      | `get_server_spec()` -> `dict`                        | the server-side transform spec     |
-|   [4]   | `ChartState.update`               | `update(client_updates)` -> `list[VariableUpdate]`   | apply interactive variable updates |
-|   [5]   | `ChartState.get_watch_plan`       | `get_watch_plan()` -> `CommPlan`                     | the signal/dataset watch plan      |
-|   [6]   | `transformer.to_arrow_ipc_bytes`  | `to_arrow_ipc_bytes(data, stream=False)` -> `bytes`  | dataframe to Arrow IPC bytes       |
-|   [7]   | `transformer.to_arrow_table`      | `to_arrow_table(data)` -> `pa.Table`                 | dataframe to a pyarrow table       |
-|   [8]   | `get_column_usage`                | `get_column_usage(spec)` -> `dict[str, list[str]     | None]`                             | per-dataset referenced-column analysis |
-|   [9]   | `set_local_tz` / `get_local_tz`   | `set_local_tz(local_tz)` / `get_local_tz()` -> `str` | configure the runtime timezone     |
+|  [01]   | `ChartState.get_transformed_spec` | `get_transformed_spec()` -> `dict`                   | the fully pre-transformed spec     |
+|  [02]   | `ChartState.get_client_spec`      | `get_client_spec()` -> `dict`                        | the client-side render spec        |
+|  [03]   | `ChartState.get_server_spec`      | `get_server_spec()` -> `dict`                        | the server-side transform spec     |
+|  [04]   | `ChartState.update`               | `update(client_updates)` -> `list[VariableUpdate]`   | apply interactive variable updates |
+|  [05]   | `ChartState.get_watch_plan`       | `get_watch_plan()` -> `CommPlan`                     | the signal/dataset watch plan      |
+|  [06]   | `transformer.to_arrow_ipc_bytes`  | `to_arrow_ipc_bytes(data, stream=False)` -> `bytes`  | dataframe to Arrow IPC bytes       |
+|  [07]   | `transformer.to_arrow_table`      | `to_arrow_table(data)` -> `pa.Table`                 | dataframe to a pyarrow table       |
+|  [08]   | `get_column_usage`                | `get_column_usage(spec)` -> `dict[str, list[str]     | None]`                             | per-dataset referenced-column analysis |
+|  [09]   | `set_local_tz` / `get_local_tz`   | `set_local_tz(local_tz)` / `get_local_tz()` -> `str` | configure the runtime timezone     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CHARTS_EXPORT]:
 - import: `import vegafusion` at boundary scope only; module-level import is banned by the manifest import policy. The manifest gates the row `python_version<'3.15'`; the chart owner dispatches the transform arm onto the runtime subprocess lane, and the gated-band worker imports `vegafusion` at module scope.

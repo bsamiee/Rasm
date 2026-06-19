@@ -2,7 +2,7 @@
 
 The folder's forward pool of higher-order concepts, each grounded in artifact production and the host-free companion charter. Open ideas are cards in `[1]-[OPEN]`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition. Each idea drives one or more `TASKLOG.md` tasks.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [ENCODED_MARK_OWNER]-[BLOCKED]:
 - BLOCKED on the `python-barcode` catalogue resolving on uv-sync. The segno QR/Micro-QR half is REALIZED on `figures/preview#PREVIEW` (the `MARK` `PreviewOp` row carrying the `Symbology` `StrEnum` sub-axis, settled fence code); the linear (1D) `python-barcode` rows (`get_barcode_class`-resolved `Code128`/`Code39`/`EAN13`/`EAN8`/`UPCA`/`ITF`/`Codabar`/`ISBN13`/`ISSN`/`PZN`/`GS1_128`) stay a marked RESEARCH seam until the package syncs and `assay api` reflection confirms the registry. Close-condition: uv-sync resolves `python-barcode` and `ApiPackage.reflect` confirms `get_barcode_class`/`SVGWriter`/`PROVIDED_BARCODES`, settling the `.api/python-barcode.md` catalogue and the linear `Symbology` rows.
@@ -21,6 +21,6 @@ The folder's forward pool of higher-order concepts, each grounded in artifact pr
 - Unlocks the branch invariant that no package grows a private handoff or re-mints a canonical concept: the artifacts producers consume `ContentIdentity`/`RuntimeRail`/`Receipt`/`ReceiptContributor` from runtime and contribute one `ArtifactReceipt` case, so the drift guard finds zero re-mints and the outward figure path is the single `HandoffAxis` model-asset case.
 - Draws on the branch `ONE_GRADUATION_RAIL_OUTWARD` and master `CROSS_PACKAGE_DRIFT_GUARD` seeding: the artifacts contribution is verification-and-alignment, the figure-handoff edge and the drift-clean source surface, never a new owner.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

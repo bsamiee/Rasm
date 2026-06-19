@@ -2,17 +2,17 @@
 
 `Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, and inference, including the generative token-streaming run and embedding retrieval. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, wire channels, and the field/result/geometry-delta codecs with the GPU-ready residency payload. `Rasm.Compute` consumes the `Rasm` geometry kernel, AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[VOCABULARY](.planning/Tensor/vocabulary.md)
-- [2]-[LAYOUT](.planning/Tensor/layout.md)
-- [3]-[DISPATCH](.planning/Tensor/dispatch.md)
-- [4]-[RESIDENCY](.planning/Tensor/residency.md)
-- [5]-[MEMORY](.planning/Tensor/memory.md)
-- [6]-[BLAS](.planning/Tensor/blas.md)
-- [7]-[FACTOR](.planning/Tensor/factor.md)
-- [8]-[QUADRATURE](.planning/Tensor/quadrature.md)
-- [9]-[SAMPLING](.planning/Tensor/sampling.md)
+- [01]-[VOCABULARY](.planning/Tensor/vocabulary.md)
+- [02]-[LAYOUT](.planning/Tensor/layout.md)
+- [03]-[DISPATCH](.planning/Tensor/dispatch.md)
+- [04]-[RESIDENCY](.planning/Tensor/residency.md)
+- [05]-[MEMORY](.planning/Tensor/memory.md)
+- [06]-[BLAS](.planning/Tensor/blas.md)
+- [07]-[FACTOR](.planning/Tensor/factor.md)
+- [08]-[QUADRATURE](.planning/Tensor/quadrature.md)
+- [09]-[SAMPLING](.planning/Tensor/sampling.md)
 - [10]-[EXPRESSION](.planning/Symbolic/expression.md)
 - [11]-[DIMENSIONAL](.planning/Symbolic/dimensional.md)
 - [12]-[LOWERING](.planning/Symbolic/lowering.md)
@@ -38,7 +38,7 @@
 - [32]-[CODECS](.planning/Runtime/codecs.md)
 - [33]-[PAYLOAD](.planning/Runtime/payload.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every Compute-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; API evidence lives in the adjacent `.api/` folder.
 
@@ -76,7 +76,7 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.AI.Abstractions`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting C# substrate libraries Compute consumes; these are owned at the monorepo substrate layer. Package charters and API evidence live in `libs/csharp/.planning/README.md` and the adjacent `.api/` folder.
 

@@ -4,7 +4,7 @@ The domain map of `Rasm.Compute` — the APP-PLATFORM measured-execution package
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Compute/
@@ -50,7 +50,7 @@ Rasm.Compute/
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Fin<T>` aborts at admission, `Validation<ComputeFault,T>` accumulates, `IO<T>` carries effects, `Option<T>` carries absence. The `ComputeFault` union projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant`/`Duration`, and AppHost `ClockPolicy` owns both clocks.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Runtime           ⇄  python:geometry/mesh                 # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
@@ -74,7 +74,7 @@ Runtime           ⇄  python:compute/graduation            # [GRADUATION]: Hand
 Runtime           ←  python:data/tabular                  # [SHAPE]: DOE dataset / labelled-array study input
 ```
 
-## [3]-[SPINE]
+## [03]-[SPINE]
 
 ```mermaid
 ---

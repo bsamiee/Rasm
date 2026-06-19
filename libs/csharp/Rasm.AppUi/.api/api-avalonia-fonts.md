@@ -2,7 +2,7 @@
 
 `Avalonia.Fonts.Inter` supplies the embedded Inter font collection and app-builder font admission surface.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
 - package: `Avalonia.Fonts.Inter`
@@ -14,43 +14,43 @@
 - asset: embedded TTF resources
 - rail: typography
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [FONT_TYPES]: font collection surface
 - rail: typography
 
 | [INDEX] | [SYMBOL]                 | [RAIL]           |
 | :-----: | :----------------------- | :--------------- |
-|   [1]   | `InterFontCollection`    | Inter assets     |
-|   [2]   | `EmbeddedFontCollection` | embedded loading |
-|   [3]   | `IFontCollection`        | font contract    |
-|   [4]   | `FontManager`            | font registry    |
+|  [01]   | `InterFontCollection`    | Inter assets     |
+|  [02]   | `EmbeddedFontCollection` | embedded loading |
+|  [03]   | `IFontCollection`        | font contract    |
+|  [04]   | `FontManager`            | font registry    |
 
 [FONT_ASSETS]: embedded Inter faces
 - rail: typography
 
 | [INDEX] | [SYMBOL]             | [RAIL]        |
 | :-----: | :------------------- | :------------ |
-|   [1]   | `Inter-Thin.ttf`     | lightest face |
-|   [2]   | `Inter-Light.ttf`    | light face    |
-|   [3]   | `Inter-Regular.ttf`  | regular face  |
-|   [4]   | `Inter-Medium.ttf`   | medium face   |
-|   [5]   | `Inter-SemiBold.ttf` | semibold face |
-|   [6]   | `Inter-Bold.ttf`     | bold face     |
+|  [01]   | `Inter-Thin.ttf`     | lightest face |
+|  [02]   | `Inter-Light.ttf`    | light face    |
+|  [03]   | `Inter-Regular.ttf`  | regular face  |
+|  [04]   | `Inter-Medium.ttf`   | medium face   |
+|  [05]   | `Inter-SemiBold.ttf` | semibold face |
+|  [06]   | `Inter-Bold.ttf`     | bold face     |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [FONT_ENTRYPOINTS]: font admission operations
 - rail: typography
 
 | [INDEX] | [SURFACE]           | [SURFACE_ROOT]        | [RAIL]             |
 | :-----: | :------------------ | :-------------------- | :----------------- |
-|   [1]   | `WithInterFont`     | `AppBuilderExtension` | Inter admission    |
-|   [2]   | `ConfigureFonts`    | `AppBuilder`          | font configuration |
-|   [3]   | `AddFontCollection` | `FontManager`         | collection load    |
-|   [4]   | constructor         | `InterFontCollection` | asset collection   |
+|  [01]   | `WithInterFont`     | `AppBuilderExtension` | Inter admission    |
+|  [02]   | `ConfigureFonts`    | `AppBuilder`          | font configuration |
+|  [03]   | `AddFontCollection` | `FontManager`         | collection load    |
+|  [04]   | constructor         | `InterFontCollection` | asset collection   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TYPOGRAPHY_LAW]:
 - Package: `Avalonia.Fonts.Inter`

@@ -2,24 +2,24 @@
 
 A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a tagged-union request under one total `match`, arity collapses into one iterable-or-scalar parameter the body discriminates by shape, and the discriminant is the value, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior; optional context enters as `Option[T]` or one frozen settings owner whose default derives from the policy. Five dispatch forms are selected by where ownership lives — one `Protocol` core, one `frozendict` table, one `match`, one closed-family fold, one `@singledispatch` over a genuinely open type set — while the rail stays orthogonal to the form. The named defect this page refuses is surface spam: parallel near-identical functions, `get`/`get_many`/`get_by_id` families, stringly-typed dispatch ladders, one-method classes, thin rename wrappers, and barrel re-export files.
 
-## [1]-[FORM_CHOOSER]
+## [01]-[FORM_CHOOSER]
 
 When a concern matches several rows, the most specific wins; the rail axis is read after the form is fixed.
 
 | [INDEX] | [CONCERN_SIGNATURE]                         | [FORM]                               | [REJECTED_FORM]                       |
 | :-----: | :------------------------------------------ | :----------------------------------- | :------------------------------------ |
-|   [1]   | verb family, shared preamble                | request tagged union + total `match` | sibling `create`/`update` functions   |
-|   [2]   | one verb, varying arity                     | one iterable parameter, shape-tested | per-arity overload family             |
-|   [3]   | closed family owns the behavior             | case fold method on the owner        | external `match` repeated per call    |
-|   [4]   | key is a value, result is static data       | module-level `frozendict` table      | `if`/`elif` returning constants       |
-|   [5]   | receiver is foreign, behavior is local      | one function over the foreign value  | wrapper class renaming the receiver   |
-|   [6]   | input shape, not nominal tag, discriminates | structural `match` patterns          | `isinstance` ladder over open input   |
-|   [7]   | one body serving every rail                 | rail-polymorphic function            | `run_result`/`run_option` sibling set |
-|   [8]   | open type set, foreign code adds arms       | `functools.singledispatch`           | `match` editing the owner per type    |
-|   [9]   | optional context with identity              | one `Option[Context]`                | `a=None, b=None, strict=False` tail   |
+|  [01]   | verb family, shared preamble                | request tagged union + total `match` | sibling `create`/`update` functions   |
+|  [02]   | one verb, varying arity                     | one iterable parameter, shape-tested | per-arity overload family             |
+|  [03]   | closed family owns the behavior             | case fold method on the owner        | external `match` repeated per call    |
+|  [04]   | key is a value, result is static data       | module-level `frozendict` table      | `if`/`elif` returning constants       |
+|  [05]   | receiver is foreign, behavior is local      | one function over the foreign value  | wrapper class renaming the receiver   |
+|  [06]   | input shape, not nominal tag, discriminates | structural `match` patterns          | `isinstance` ladder over open input   |
+|  [07]   | one body serving every rail                 | rail-polymorphic function            | `run_result`/`run_option` sibling set |
+|  [08]   | open type set, foreign code adds arms       | `functools.singledispatch`           | `match` editing the owner per type    |
+|  [09]   | optional context with identity              | one `Option[Context]`                | `a=None, b=None, strict=False` tail   |
 |  [10]   | replaceable capability, many implementers   | one `Protocol` port                  | concrete dependency hardcoded inline  |
 
-## [2]-[ENTRYPOINT_LAW]
+## [02]-[ENTRYPOINT_LAW]
 
 [REQUEST_COLLAPSE]:
 - Law: one concern exposes one entrypoint; a verb family is a `@tagged_union` with one `case()` per verb under one total `match`.
@@ -62,7 +62,7 @@ def dispatched(request: Request, ledger: "Ledger", /) -> Result["Receipt", Reque
             assert_never(unreachable)
 ```
 
-## [3]-[MODAL_ARITY]
+## [03]-[MODAL_ARITY]
 
 [ARITY_ABSORPTION]:
 - Law: singular, multi-item, and empty call sites collapse into one parameter typed `T | Iterable[T]`; the body normalizes once at the head and the rest of the function sees one shape, so arity is a property of the argument, never of the signature.
@@ -101,7 +101,7 @@ def reduced(items: "Request | Iterable[Request]", ledger: "Ledger", /) -> Result
     )
 ```
 
-## [4]-[PARAMETER_ALGEBRA]
+## [04]-[PARAMETER_ALGEBRA]
 
 [POLICY_VALUES]:
 - Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed and no `if`/`match` reconstructs at the call site what the value already encodes.
@@ -147,7 +147,7 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
     return policy.step(value, context.default_value(policy.canonical))
 ```
 
-## [5]-[DISPATCH_FORMS]
+## [05]-[DISPATCH_FORMS]
 
 [FORM_SELECTION]:
 - Law: the five forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
@@ -211,7 +211,7 @@ def _(value: str, /) -> str:
     return f"<str:{value}>"
 ```
 
-## [6]-[RAIL_POLYMORPHIC_DISPATCH]
+## [06]-[RAIL_POLYMORPHIC_DISPATCH]
 
 [ONE_RAIL_SURFACE]:
 - Law: the form selects which arm runs; the rail the arms return selects how results combine — orthogonal axes. One function whose body composes through `bind`/`map` serves `Result` and `Option` by member-name overlap over the union `Result[T, E] | Option[T]`, not by a shared higher-kinded carrier — `expression` exposes no common monadic supertype — so the per-rail sibling family is the rejected form while the neutral body stays restricted to the literal `map`/`bind`/`default_value` names both carriers expose.
@@ -241,7 +241,7 @@ def joined(left: Result[int, str], right: Result[int, str], /) -> Result[int, st
     return left.map2(right, lambda a, b: a + b)
 ```
 
-## [7]-[TYPE_LEVEL_DISPATCH]
+## [07]-[TYPE_LEVEL_DISPATCH]
 
 [PROTOCOL_PORT]:
 - Law: a `Protocol` is the open boundary — the inversion of the closed `match`: the `match` is closed over one owner's cases, the protocol is open over the unbounded family of implementers, resolved structurally with no registration, no nominal base, no `isinstance`.
@@ -288,7 +288,7 @@ def refreshed[S: ShapeStore](store: S, key: str, value: str, /) -> Result[S, str
     return store.loaded(key).map(lambda shape: replace(shape, value=value)).bind(store.stored)
 ```
 
-## [8]-[ASPECTS]
+## [08]-[ASPECTS]
 
 [WEAVE_TAXONOMY]:
 - Law: a definition-time aspect is a property of the function — declared by a signature-preserving decorator, present at every call site; a call-site aspect is a property of one invocation — attached as a scope or combinator around the call it modifies.

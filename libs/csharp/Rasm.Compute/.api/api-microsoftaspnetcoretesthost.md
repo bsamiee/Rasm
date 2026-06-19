@@ -6,7 +6,7 @@ socket, the handler source the `RemoteTransport.InProcess` row injects to dial a
 `GrpcChannel` against the suite gRPC services without a live remote — the
 test-only seam that proves cross-process hand-off in-process.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.TestHost`
 - package: `Microsoft.AspNetCore.TestHost`
@@ -15,84 +15,84 @@ test-only seam that proves cross-process hand-off in-process.
 - asset: runtime library (test-only)
 - rail: in-process-transport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: server and handler contracts
 - rail: in-process-transport
 
 | [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]   | [CAPABILITY]                           |
 | :-----: | :----------------------- | :--------------- | :------------------------------------- |
-|   [1]   | `TestServer`             | in-memory server | owns the pipeline and handler source   |
-|   [2]   | `TestServerOptions`      | server policy    | configures the in-memory server        |
-|   [3]   | `ClientHandler`          | message handler  | `HttpMessageHandler` over the pipeline |
-|   [4]   | `RequestBuilder`         | request shaper   | builds a single in-memory request      |
-|   [5]   | `WebSocketClient`        | socket client    | opens an in-memory web socket          |
-|   [6]   | `HttpResetTestException` | reset signal     | carries an HTTP/2 reset error code     |
+|  [01]   | `TestServer`             | in-memory server | owns the pipeline and handler source   |
+|  [02]   | `TestServerOptions`      | server policy    | configures the in-memory server        |
+|  [03]   | `ClientHandler`          | message handler  | `HttpMessageHandler` over the pipeline |
+|  [04]   | `RequestBuilder`         | request shaper   | builds a single in-memory request      |
+|  [05]   | `WebSocketClient`        | socket client    | opens an in-memory web socket          |
+|  [06]   | `HttpResetTestException` | reset signal     | carries an HTTP/2 reset error code     |
 
 [PUBLIC_TYPE_SCOPE]: composition and entry-point contracts
 - rail: in-process-transport
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]  | [CAPABILITY]                         |
 | :-----: | :-------------------------------- | :-------------- | :----------------------------------- |
-|   [1]   | `WebHostBuilderExtensions`        | builder seam    | registers the test server            |
-|   [2]   | `HostBuilderTestServerExtensions` | host seam       | reads the test server off an `IHost` |
-|   [3]   | `WebHostBuilderFactory`           | builder factory | builds from an assembly entry point  |
+|  [01]   | `WebHostBuilderExtensions`        | builder seam    | registers the test server            |
+|  [02]   | `HostBuilderTestServerExtensions` | host seam       | reads the test server off an `IHost` |
+|  [03]   | `WebHostBuilderFactory`           | builder factory | builds from an assembly entry point  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: server lifecycle and handler operations
 - rail: in-process-transport
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE]  | [CAPABILITY]                          |
 | :-----: | :---------------------------------------------- | :------------ | :------------------------------------ |
-|   [1]   | `TestServer(IServiceProvider)`                  | constructor   | builds over a provider                |
-|   [2]   | `TestServer(IWebHostBuilder)`                   | constructor   | builds over a configured host builder |
-|   [3]   | `TestServer.CreateHandler()`                    | factory call  | returns `HttpMessageHandler`          |
-|   [4]   | `TestServer.CreateHandler(Action<HttpContext>)` | factory call  | returns a context-tuned handler       |
-|   [5]   | `TestServer.CreateClient()`                     | factory call  | returns `HttpClient` over the handler |
-|   [6]   | `TestServer.CreateWebSocketClient()`            | factory call  | returns `WebSocketClient`             |
-|   [7]   | `TestServer.SendAsync`                          | dispatch call | runs one context through the pipeline |
-|   [8]   | `TestServer.Dispose`                            | lifetime call | tears the in-memory server down       |
+|  [01]   | `TestServer(IServiceProvider)`                  | constructor   | builds over a provider                |
+|  [02]   | `TestServer(IWebHostBuilder)`                   | constructor   | builds over a configured host builder |
+|  [03]   | `TestServer.CreateHandler()`                    | factory call  | returns `HttpMessageHandler`          |
+|  [04]   | `TestServer.CreateHandler(Action<HttpContext>)` | factory call  | returns a context-tuned handler       |
+|  [05]   | `TestServer.CreateClient()`                     | factory call  | returns `HttpClient` over the handler |
+|  [06]   | `TestServer.CreateWebSocketClient()`            | factory call  | returns `WebSocketClient`             |
+|  [07]   | `TestServer.SendAsync`                          | dispatch call | runs one context through the pipeline |
+|  [08]   | `TestServer.Dispose`                            | lifetime call | tears the in-memory server down       |
 
 [ENTRYPOINT_SCOPE]: server policy properties
 - rail: in-process-transport
 
 | [INDEX] | [SURFACE]                             | [CALL_SHAPE]    | [CAPABILITY]                          |
 | :-----: | :------------------------------------ | :-------------- | :------------------------------------ |
-|   [1]   | `TestServer.BaseAddress`              | option property | sets the request base `Uri`           |
-|   [2]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`   |
-|   [3]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection` |
-|   [4]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access       |
-|   [5]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context   |
-|   [6]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`           |
+|  [01]   | `TestServer.BaseAddress`              | option property | sets the request base `Uri`           |
+|  [02]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`   |
+|  [03]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection` |
+|  [04]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access       |
+|  [05]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context   |
+|  [06]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`           |
 
 [ENTRYPOINT_SCOPE]: builder and host registration operations
 - rail: in-process-transport
 
 | [INDEX] | [SURFACE]                                                  | [CALL_SHAPE] | [CAPABILITY]                        |
 | :-----: | :--------------------------------------------------------- | :----------- | :---------------------------------- |
-|   [1]   | `IWebHostBuilder.UseTestServer()`                          | builder call | registers the test server           |
-|   [2]   | `IWebHostBuilder.UseTestServer(Action<TestServerOptions>)` | builder call | registers with policy               |
-|   [3]   | `IWebHostBuilder.ConfigureTestServices`                    | builder call | overrides registered services       |
-|   [4]   | `IWebHostBuilder.ConfigureTestContainer<TContainer>`       | builder call | overrides the container             |
-|   [5]   | `IWebHost.GetTestServer()`                                 | accessor     | reads the server off a built host   |
-|   [6]   | `IWebHost.GetTestClient()`                                 | accessor     | reads an `HttpClient` off the host  |
-|   [7]   | `IHost.GetTestServer()`                                    | accessor     | reads the server off a generic host |
-|   [8]   | `IHost.GetTestClient()`                                    | accessor     | reads an `HttpClient` off the host  |
+|  [01]   | `IWebHostBuilder.UseTestServer()`                          | builder call | registers the test server           |
+|  [02]   | `IWebHostBuilder.UseTestServer(Action<TestServerOptions>)` | builder call | registers with policy               |
+|  [03]   | `IWebHostBuilder.ConfigureTestServices`                    | builder call | overrides registered services       |
+|  [04]   | `IWebHostBuilder.ConfigureTestContainer<TContainer>`       | builder call | overrides the container             |
+|  [05]   | `IWebHost.GetTestServer()`                                 | accessor     | reads the server off a built host   |
+|  [06]   | `IWebHost.GetTestClient()`                                 | accessor     | reads an `HttpClient` off the host  |
+|  [07]   | `IHost.GetTestServer()`                                    | accessor     | reads the server off a generic host |
+|  [08]   | `IHost.GetTestClient()`                                    | accessor     | reads an `HttpClient` off the host  |
 
 [ENTRYPOINT_SCOPE]: request, socket, and entry-point operations
 - rail: in-process-transport
 
 | [INDEX] | [SURFACE]                                            | [CALL_SHAPE]  | [CAPABILITY]                        |
 | :-----: | :--------------------------------------------------- | :------------ | :---------------------------------- |
-|   [1]   | `RequestBuilder.AddHeader`                           | builder call  | appends a request header            |
-|   [2]   | `RequestBuilder.And`                                 | builder call  | tunes the `HttpRequestMessage`      |
-|   [3]   | `RequestBuilder.SendAsync(string)`                   | dispatch call | sends with a named HTTP method      |
-|   [4]   | `WebSocketClient.ConnectAsync`                       | dispatch call | opens an in-memory socket           |
-|   [5]   | `WebSocketClient.SubProtocols`                       | accessor      | reads negotiated sub-protocols      |
-|   [6]   | `WebHostBuilderFactory.CreateFromAssemblyEntryPoint` | factory call  | builds from an assembly entry point |
+|  [01]   | `RequestBuilder.AddHeader`                           | builder call  | appends a request header            |
+|  [02]   | `RequestBuilder.And`                                 | builder call  | tunes the `HttpRequestMessage`      |
+|  [03]   | `RequestBuilder.SendAsync(string)`                   | dispatch call | sends with a named HTTP method      |
+|  [04]   | `WebSocketClient.ConnectAsync`                       | dispatch call | opens an in-memory socket           |
+|  [05]   | `WebSocketClient.SubProtocols`                       | accessor      | reads negotiated sub-protocols      |
+|  [06]   | `WebHostBuilderFactory.CreateFromAssemblyEntryPoint` | factory call  | builds from an assembly entry point |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IN_PROCESS_HANDLER]:
 - namespace: `Microsoft.AspNetCore.TestHost`

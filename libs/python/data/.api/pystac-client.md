@@ -2,7 +2,7 @@
 
 `pystac-client` (dist `pystac-client`, import `pystac_client`) supplies the live STAC API client for the data STAC-catalog rail: a `Client` (a `pystac.Catalog` bound to a STAC API root) whose one polymorphic `search(...)` returns an `ItemSearch` that lazily pages the `/search` endpoint into `pystac.Item` objects, plus `collection_search`/`get_collections` for collection discovery. The package owner composes `Client.open`, `search`, and the `ItemSearch` paging surface into the STAC discovery owner; it never re-implements the STAC API paging, CQL2 filtering, or conformance negotiation pystac-client already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 - package: `pystac-client`
 - import: `import pystac_client` (dist name `pystac-client`, import name `pystac_client`)
@@ -13,50 +13,50 @@
 - entry points: console script `stac-client` (CLI); library use is import-only
 - capability: STAC API client over a catalog root — conformance-negotiated item search with bbox/datetime/intersects/CQL2 filter/sortby/fields/ids parameters, lazy result paging into `pystac.Item`, total-match counts, collection discovery and free-text collection search, and request modifiers for auth/signing
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client, search, and collection roots
 - rail: STAC catalog
 
 `Client` extends `pystac.Catalog`; `CollectionClient` extends `pystac.Collection`. `ItemSearch`/`CollectionSearch` are lazy result iterators that page the API on demand.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [CAPABILITY]                                                          |
-| :-----: | :------------------ | :---------------- | :------------------------------------------------------------------- |
-|   [1]   | `Client`            | API catalog root  | a `pystac.Catalog` bound to a STAC API; owns `search`/collection access |
-|   [2]   | `ItemSearch`        | item result page  | lazy paging of `/search` into `pystac.Item`; match counts             |
-|   [3]   | `CollectionClient`  | live collection   | a `pystac.Collection` with live `get_items`/`get_item`                |
-|   [4]   | `CollectionSearch`  | collection result | lazy paging of `/collections` with free-text and filter parameters    |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]     | [CAPABILITY]                                                            |
+| :-----: | :----------------- | :---------------- | :---------------------------------------------------------------------- |
+|  [01]   | `Client`           | API catalog root  | a `pystac.Catalog` bound to a STAC API; owns `search`/collection access |
+|  [02]   | `ItemSearch`       | item result page  | lazy paging of `/search` into `pystac.Item`; match counts               |
+|  [03]   | `CollectionClient` | live collection   | a `pystac.Collection` with live `get_items`/`get_item`                  |
+|  [04]   | `CollectionSearch` | collection result | lazy paging of `/collections` with free-text and filter parameters      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client open and search
 - rail: STAC catalog
 
 `search` is keyword-only; `max_items` caps the total result count across pages while `limit` is the per-page request size. The same `search` call discriminates by which parameters are supplied — bbox vs intersects vs CQL2 `filter` are rows, not parallel methods.
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                                                          | [CAPABILITY]                              |
-| :-----: | :----------------------- | :------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `Client.open`            | `open(url, headers=None, parameters=None, modifier=None, request_modifier=None, stac_io=None, timeout=None)` -> `Client` | open a STAC API root                  |
-|   [2]   | `Client.search`          | `search(*, method='POST', max_items=None, limit=None, ids=None, collections=None, bbox=None, intersects=None, datetime=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `ItemSearch` | item search |
-|   [3]   | `Client.get_collections` | `get_collections()` -> `Iterator[Collection]`                                                                        | iterate the API's collections             |
-|   [4]   | `Client.get_collection`  | `get_collection(collection_id)` -> `Collection \| CollectionClient \| None`                                          | fetch one collection (cached)             |
-|   [5]   | `Client.collection_search`| `collection_search(*, max_collections=None, limit=None, bbox=None, datetime=None, q=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `CollectionSearch` | free-text collection search |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                                                                                                                       | [CAPABILITY]                  |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------- |
+|  [01]   | `Client.open`              | `open(url, headers=None, parameters=None, modifier=None, request_modifier=None, stac_io=None, timeout=None)` -> `Client`                                                                                           | open a STAC API root          |
+|  [02]   | `Client.search`            | `search(*, method='POST', max_items=None, limit=None, ids=None, collections=None, bbox=None, intersects=None, datetime=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `ItemSearch` | item search                   |
+|  [03]   | `Client.get_collections`   | `get_collections()` -> `Iterator[Collection]`                                                                                                                                                                      | iterate the API's collections |
+|  [04]   | `Client.get_collection`    | `get_collection(collection_id)` -> `Collection \| CollectionClient \| None`                                                                                                                                        | fetch one collection (cached) |
+|  [05]   | `Client.collection_search` | `collection_search(*, max_collections=None, limit=None, bbox=None, datetime=None, q=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `CollectionSearch`                              | free-text collection search   |
 
 [ENTRYPOINT_SCOPE]: `ItemSearch` result paging
 - rail: STAC catalog
 
 `item_collection()` (and `item_collection_as_dict()`) is the canonical materialization; `items()`/`items_as_dicts()` stream lazily; `pages()` yields whole `ItemCollection` pages. `get_all_items` is deprecated (emits `FutureWarning`) — use `item_collection()`.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                         | [CAPABILITY]                              |
-| :-----: | :------------------------------ | :--------------------------------------------------- | :---------------------------------------- |
-|   [1]   | `ItemSearch.item_collection`    | `item_collection()` -> `ItemCollection`              | materialize all results (canonical)       |
-|   [2]   | `ItemSearch.items`              | `items()` -> `Iterator[Item]`                        | lazily stream items across pages          |
-|   [3]   | `ItemSearch.items_as_dicts`     | `items_as_dicts()` -> `Iterator[dict]`               | lazily stream raw item dicts              |
-|   [4]   | `ItemSearch.item_collection_as_dict` | `item_collection_as_dict()` -> `dict`           | materialize as a GeoJSON dict             |
-|   [5]   | `ItemSearch.pages`              | `pages()` -> `Iterator[ItemCollection]`              | iterate whole result pages                |
-|   [6]   | `ItemSearch.matched`            | `matched()` -> `int \| None`                         | total matching item count (if reported)   |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                            | [CAPABILITY]                            |
+| :-----: | :----------------------------------- | :-------------------------------------- | :-------------------------------------- |
+|  [01]   | `ItemSearch.item_collection`         | `item_collection()` -> `ItemCollection` | materialize all results (canonical)     |
+|  [02]   | `ItemSearch.items`                   | `items()` -> `Iterator[Item]`           | lazily stream items across pages        |
+|  [03]   | `ItemSearch.items_as_dicts`          | `items_as_dicts()` -> `Iterator[dict]`  | lazily stream raw item dicts            |
+|  [04]   | `ItemSearch.item_collection_as_dict` | `item_collection_as_dict()` -> `dict`   | materialize as a GeoJSON dict           |
+|  [05]   | `ItemSearch.pages`                   | `pages()` -> `Iterator[ItemCollection]` | iterate whole result pages              |
+|  [06]   | `ItemSearch.matched`                 | `matched()` -> `int \| None`            | total matching item count (if reported) |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STAC_CLIENT]:
 - import: `import pystac_client` at boundary scope only; module-level import is banned by the manifest import policy. The dist name is `pystac-client`; the import name is `pystac_client`.

@@ -15,7 +15,7 @@ Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool
 
 [IMPORTANT] This platform is `additive_external` and STANDALONE. It shares one live RhinoWIP session with the Rasm rhino-bridge but the two never couple: the bridge suppresses this platform's listener autostart (`RHINO_MCP_AUTOSTART_PORT=0`) and only reports its presence as `mcp.platform.version` / `mcp.listener` capability facts. The bridge is the deterministic typed-verification boundary; this platform is the interactive conversational host. Use MCP for exploration, scripting, and graph authoring; never as a substitute for `[RhinoScenario]` closure.
 
-## [1]-[WHEN_TO_USE_MCP_VS_BRIDGE]
+## [01]-[WHEN_TO_USE_MCP_VS_BRIDGE]
 
 | [INTENT]                                         | [SURFACE]                                             |
 | ------------------------------------------------ | ----------------------------------------------------- |
@@ -29,7 +29,7 @@ Drives McNeel `Rhino-MCP-Platform` through the `mcp__rhino-mcp-platform__*` tool
 
 [IMPORTANT] Promotion path: MCP observation -> typed `[RhinoScenario]` -> authoring certificate -> reviewed `ReferenceEvidence` -> `bridge verify`. MCP is the microscope; the bridge certificate and reviewed references are the proof boundary.
 
-## [2]-[SLOT_LIFECYCLE]
+## [02]-[SLOT_LIFECYCLE]
 
 Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting it uses the last-used/open Rhino, auto-spawning one only if none is running. Slot state is lazy and stateful — `list_slots` is what prunes crashed Rhinos and adopts user-started ones since the last call.
 
@@ -41,7 +41,7 @@ Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting 
 
 [IMPORTANT] Poll `list_slots` before assuming a held `slot` is live. Adopted (user-started) slots return `cannot_close_adopted` and are non-disposable — treat them as borrowed, never force-close them.
 
-## [3]-[SCRIPTING]—[RUN_CSHARP/PYTHON/COMMAND]
+## [03]-[SCRIPTING]—[RUN_CSHARP/PYTHON/COMMAND]
 
 The universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/error captured.
 
@@ -58,7 +58,7 @@ The universal escape hatch: full RhinoCommon scoped to the slot's doc, stdout/er
 
 [IMPORTANT] `error: null` is necessary but NOT sufficient for success: error detection is heuristic string-matching (`Traceback`, `error CS`, `Compile Error`, `Exception:`) over scraped command-window text, so a silent failure or a no-op can read as success. Assert post-conditions explicitly — re-query `g2_get_canvas_graph` / `list_objects` / the written `.3dm` — rather than trusting a null error. Capture is fire-and-harvest, not streaming: always `print` / `Console.WriteLine` explicit, self-serialized structured results; never rely on return-value capture. `run_command` hard-blocks if a prior command awaits interactive input — prefer scripting over `run_command` for any non-trivial geometry to avoid stranding a slot in an interactive prompt.
 
-## [4]-[DOCUMENT_IO]
+## [04]-[DOCUMENT_IO]
 
 Headless, no dialogs. All bound to the slot's doc.
 
@@ -68,14 +68,14 @@ Headless, no dialogs. All bound to the slot's doc.
 | `save_doc`  | `path` (.3dm abs)                | overwrite with WriteUserData, dialogs suppressed; → `{path, objects}` |
 | `close_doc` | `path?`                          | save-then-close if path given, else discard; → status string          |
 
-## [5]-[SCENE_QUERY_SELECTION_MATERIALS]
+## [05]-[SCENE_QUERY_SELECTION_MATERIALS]
 
 | [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]              |
 | :-----: | :------------------- | :------------------- | :-------------------------- |
-|   [1]   | `list_objects`       | object filters       | object query payload        |
-|   [2]   | `get_selection`      | —                    | selected object payload     |
-|   [3]   | `set_selection`      | selection filters    | selection count and warning |
-|   [4]   | `set_layer_material` | layer material write | material status             |
+|  [01]   | `list_objects`       | object filters       | object query payload        |
+|  [02]   | `get_selection`      | —                    | selected object payload     |
+|  [03]   | `set_selection`      | selection filters    | selection count and warning |
+|  [04]   | `set_layer_material` | layer material write | material status             |
 
 [SCENE_QUERY_SHAPES]:
 - Filters: `names[]?`, `layer?`, `geometryType?`, `includeHidden=false`, `includeLocked=true`, `limit=1000`.
@@ -84,14 +84,14 @@ Headless, no dialogs. All bound to the slot's doc.
 - Material write: `layer`, `color?`, `transparency?` 0-1, `gloss?` 0-1, and `applyToLayerColor=true`.
 - `geometryType` vocabulary: `point`, `pointset`, `curve`, `surface`, `brep`, `mesh`, `annotation`, `light`, `block`.
 
-## [6]-[VIEWPORT_AND_CAMERA]
+## [06]-[VIEWPORT_AND_CAMERA]
 
 | [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]           |
 | :-----: | :------------------- | :------------------- | :----------------------- |
-|   [1]   | `get_viewport_image` | viewport capture     | metadata plus JPEG block |
-|   [2]   | `set_camera`         | camera or bbox frame | active viewport camera   |
-|   [3]   | `zoom_to_layer`      | layer path           | layer union bbox zoom    |
-|   [4]   | `zoom_to_object`     | object GUIDs         | object union bbox zoom   |
+|  [01]   | `get_viewport_image` | viewport capture     | metadata plus JPEG block |
+|  [02]   | `set_camera`         | camera or bbox frame | active viewport camera   |
+|  [03]   | `zoom_to_layer`      | layer path           | layer union bbox zoom    |
+|  [04]   | `zoom_to_object`     | object GUIDs         | object union bbox zoom   |
 
 [VIEWPORT_CAPTURE_SHAPE]:
 - Size: `width=480` up to `1280`, `height=270` up to `720`.
@@ -101,7 +101,7 @@ Headless, no dialogs. All bound to the slot's doc.
 
 [IMPORTANT] On an empty/off-screen capture, read `scene.boundingBox` and object counts before re-framing with `boxMin`/`boxMax` or `view`. The JPEG block costs context tokens: capture at the minimum resolution sufficient to diagnose, keep the `480x270` default first, and escalate toward the `1280x720` ceiling only after a metadata-only pass.
 
-## [7]-[GRASSHOPPER_GRAPH_AUTHORING]-[g2_*]
+## [07]-[GRASSHOPPER_GRAPH_AUTHORING]-[g2_*]
 
 `g2_*` is the Grasshopper graph-authoring surface for Rasm MCP work. It authors `Grasshopper2` canvas and document objects through McNeel's interactive MCP platform; bridge scenarios remain the typed verification boundary.
 
@@ -119,16 +119,16 @@ Discovery operations use GH2 component lookup and port-inspection tools:
 
 | [INDEX] | [TOOL]                  | [INPUT_SCOPE]   | [OUTPUT_SCOPE]        |
 | :-----: | :---------------------- | :-------------- | :-------------------- |
-|   [1]   | `g2_start`              | -               | canvas startup        |
-|   [2]   | `g2_search_components`  | component query | component candidates  |
-|   [3]   | `g2_describe_component` | component name  | port contract records |
+|  [01]   | `g2_start`              | -               | canvas startup        |
+|  [02]   | `g2_search_components`  | component query | component candidates  |
+|  [03]   | `g2_describe_component` | component name  | port contract records |
 
 Placement operations create canvas objects from component and slider inputs:
 
 | [INDEX] | [TOOL]               | [INPUT_SCOPE]       | [OUTPUT_SCOPE]   |
 | :-----: | :------------------- | :------------------ | :--------------- |
-|   [1]   | `g2_place_component` | component selector  | placed component |
-|   [2]   | `g2_place_slider`    | slider value policy | placed slider    |
+|  [01]   | `g2_place_component` | component selector  | placed component |
+|  [02]   | `g2_place_slider`    | slider value policy | placed slider    |
 
 [GH_GRAPH_BATCH_SHAPE]:
 - Component placement: `selector` prefers `Guid`; `x=100`, `y=100`, and `solve=true` are default placement inputs.
@@ -140,10 +140,10 @@ Wiring and solving operations connect objects, apply batches, and resolve the ca
 
 | [INDEX] | [TOOL]            | [INPUT_SCOPE] | [OUTPUT_SCOPE]       |
 | :-----: | :---------------- | :------------ | :------------------- |
-|   [1]   | `g2_connect`      | single wire   | wire result          |
-|   [2]   | `g2_connect_many` | wire batch    | batch wire result    |
-|   [3]   | `g2_apply_graph`  | graph batch   | placement and wiring |
-|   [4]   | `g2_solve_canvas` | solve policy  | solve status         |
+|  [01]   | `g2_connect`      | single wire   | wire result          |
+|  [02]   | `g2_connect_many` | wire batch    | batch wire result    |
+|  [03]   | `g2_apply_graph`  | graph batch   | placement and wiring |
+|  [04]   | `g2_solve_canvas` | solve policy  | solve status         |
 
 [GH_CANVAS_READBACK_SHAPE]:
 - Canvas readback: `g2_get_canvas_graph` accepts `include_data=true` and `sample_size=3`.
@@ -154,11 +154,11 @@ Inspection and cleanup operations read or clear the current canvas:
 
 | [INDEX] | [TOOL]                | [INPUT_SCOPE] | [OUTPUT_SCOPE] |
 | :-----: | :-------------------- | :------------ | :------------- |
-|   [1]   | `g2_get_canvas_graph` | readback      | graph payload  |
-|   [2]   | `g2_clear_canvas`     | confirmation  | removal count  |
+|  [01]   | `g2_get_canvas_graph` | readback      | graph payload  |
+|  [02]   | `g2_clear_canvas`     | confirmation  | removal count  |
 
 [IMPORTANT] Prefer `selector` by `Guid` from `g2_search_components`; a name match returning multiple candidates yields `{Error:"ambiguous", Candidates[]}`. Call `g2_describe_component` before placing or wiring to learn input and output ports. For closed-loop iteration, read back `g2_get_canvas_graph` because object `Messages[]` carry per-component warnings/errors and slider `DisplaySummary` carries computed values. Use `g2_apply_graph` to build a whole definition in one call; `g2_connect` and `g2_connect_many` accept numeric index, `Name`, `UserName`, or `DisplayName` for ports, and `""` or `"0"` for pure params such as sliders.
 
-## [8]-[PRECONDITIONS]
+## [08]-[PRECONDITIONS]
 
 [IMPORTANT] Assert the OFFICIAL McNeel platform, not the community `rhinomcp` fork. The official ship is assembly `RhinoMcpPlatform`, namespace `RhMcp`, with a pinned PlugIn GUID; the bridge's `bridge status` capability facts (`mcp.platform.version`, `mcp.listener`) match only the official platform. If `bridge status` reports the platform absent while these tools register, a fork is loaded — its behavior is not guaranteed by this skill. The bridge README `[10]-[INTEGRATIONS]` owns the full boundary contract.

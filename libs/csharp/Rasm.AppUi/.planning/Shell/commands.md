@@ -2,15 +2,15 @@
 
 Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only command vocabulary in the package, and menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation folds over it. The page owns the intent row shape with its payload union, the typed availability algebra over the degradation vocabulary, the execution receipt family sealed through the receipt sink, the palette and remote invocation folds, and the command wire contract, over ReactiveUI commands, System.Reactive streams, LanguageExt rails, NodaTime durations, and the settled AppHost port records.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[INTENT_TABLE]: One frozen row table, payload shapes, per-surface deck freeze.
-- [2]-[AVAILABILITY_ALGEBRA]: Typed availability inputs fold into one `CanExecute` stream.
-- [3]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink envelope.
-- [4]-[PALETTE_AND_REMOTE]: Derivation folds, span-ranked palette search, remote and control verbs.
-- [5]-[TS_PROJECTION]: Intent, availability, invocation, and receipt wire shapes.
+- [01]-[INTENT_TABLE]: One frozen row table, payload shapes, per-surface deck freeze.
+- [02]-[AVAILABILITY_ALGEBRA]: Typed availability inputs fold into one `CanExecute` stream.
+- [03]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink envelope.
+- [04]-[PALETTE_AND_REMOTE]: Derivation folds, span-ranked palette search, remote and control verbs.
+- [05]-[TS_PROJECTION]: Intent, availability, invocation, and receipt wire shapes.
 
-## [2]-[INTENT_TABLE]
+## [02]-[INTENT_TABLE]
 
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.
 - Cases: `CommandPayload` = None | Single | Many | Text under the locked kind literals none, single, many, text — parameterized intents discriminate on payload shape, never on name suffixes.
@@ -91,7 +91,7 @@ public sealed record CommandDeck(
 }
 ```
 
-## [3]-[AVAILABILITY_ALGEBRA]
+## [03]-[AVAILABILITY_ALGEBRA]
 
 - Owner: `CommandGate` — the one availability fold from typed input streams to the `CanExecute` stream every materialized command consumes.
 - Entry: `public IObservable<bool> CanExecute(IObservable<CommandIntent.Availability> inputs)` — one gate stream per row, derived, never hand-written at call sites.
@@ -122,7 +122,7 @@ public static class CommandGate {
 }
 ```
 
-## [4]-[EXECUTION_RECEIPTS]
+## [04]-[EXECUTION_RECEIPTS]
 
 - Owner: `CommandOutcome` `[Union]` total result vocabulary; `CommandReceipt` execution evidence record; `CommandExecution` — the materialize-run-seal fold, the batch-combine projection, and the telemetry contribution.
 - Cases: `CommandOutcome` = Completed | Cancelled | Rejected | Faulted under the locked kind literals completed, cancelled, rejected, faulted.
@@ -205,7 +205,7 @@ public static class CommandExecution {
 }
 ```
 
-## [5]-[PALETTE_AND_REMOTE]
+## [05]-[PALETTE_AND_REMOTE]
 
 - Owner: `CommandProjections` — one polymorphic derivation fold, one span-ranked palette search over the frozen index, one remote admission entry.
 - Entry: `public IO<CommandReceipt> Invoke(string key, JsonElement payload)` — the single remote, deep-link, and journal-replay route; an unknown key or an inadmissible row seals a `Rejected` receipt with zero elapsed.
@@ -256,9 +256,9 @@ The ControlService operational verbs surface as ordinary table rows on companion
 
 | [INDEX] | [INTENT_KEY]            | [EXECUTE_BINDING]                                    |
 | :-----: | :---------------------- | :--------------------------------------------------- |
-|   [1]   | control.capture-support | SupportTrigger.ExternalCommand admission             |
-|   [2]   | control.set-degradation | OperatorOverride force input to the degradation fold |
-|   [3]   | control.reload-options  | ReloadOutcome transition on the options rail         |
+|  [01]   | control.capture-support | SupportTrigger.ExternalCommand admission             |
+|  [02]   | control.set-degradation | OperatorOverride force input to the degradation fold |
+|  [03]   | control.reload-options  | ReloadOutcome transition on the options rail         |
 
 ```mermaid
 flowchart LR
@@ -271,7 +271,7 @@ flowchart LR
     CommandReceipt --> CommandReceiptWire
 ```
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `CommandIntentWire`, `CommandAvailabilityWire`, `CommandInvocationWire`, `CommandPayloadWire`, `CommandOutcomeWire`, `CommandReceiptWire` — the command wire contract the TS layer consumes today while `SurfaceHost` WebBrowser stays a designed-only growth case.
 - Packages: BCL inbox
@@ -297,6 +297,6 @@ interface CommandInvocationWire { readonly key: string; readonly payload: Comman
 interface CommandReceiptWire { readonly key: string; readonly surface: string; readonly elapsed: string; readonly outcome: CommandOutcomeWire; readonly payloadDigest: string; readonly correlation: string; }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [WIRE_DECODE]: Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode.

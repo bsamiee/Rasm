@@ -2,7 +2,7 @@
 
 `maplibre-gl` supplies the WebGL-accelerated interactive map engine: `Map` (exported also as `MapLibreMap`), camera/view controls, `LngLat`, `LngLatBounds`, `MercatorCoordinate`, event types, source classes (`GeoJSONSource`, `VectorTileSource`, `RasterTileSource`, `ImageSource`, `CanvasSource`), UI controls (`NavigationControl`, `AttributionControl`, `ScaleControl`, `GeolocateControl`, `Popup`, `Marker`), and the full `@maplibre/maplibre-gl-style-spec` type surface via `export type *`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `maplibre-gl`
 - package: `maplibre-gl`
@@ -11,55 +11,55 @@
 - namespace: `maplibregl` (UMD ambient)
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: map and camera types
 - rail: viewport
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                            |
 | :-----: | :-------------------- | :------------ | :------------------------------------------------ |
-|   [1]   | `Map` / `MapLibreMap` | class         | primary map instance (alias of internal `Map$1`)  |
-|   [2]   | `MapOptions`          | type alias    | constructor options (`container` required)        |
-|   [3]   | `IControl`            | interface     | `{ onAdd(map), onRemove(), getDefaultPosition? }` |
-|   [4]   | `Evented`             | class         | base event emitter for map and sources            |
+|  [01]   | `Map` / `MapLibreMap` | class         | primary map instance (alias of internal `Map$1`)  |
+|  [02]   | `MapOptions`          | type alias    | constructor options (`container` required)        |
+|  [03]   | `IControl`            | interface     | `{ onAdd(map), onRemove(), getDefaultPosition? }` |
+|  [04]   | `Evented`             | class         | base event emitter for map and sources            |
 
 [PUBLIC_TYPE_SCOPE]: geographic primitives
 - rail: viewport
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                         |
 | :-----: | :------------------- | :------------ | :--------------------------------------------- |
-|   [1]   | `LngLat`             | class         | longitude/latitude coordinate                  |
-|   [2]   | `LngLatBounds`       | class         | geographic bounding box                        |
-|   [3]   | `MercatorCoordinate` | class         | web-mercator tile coordinate                   |
-|   [4]   | `Point`              | class         | 2D pixel point (from `@mapbox/point-geometry`) |
+|  [01]   | `LngLat`             | class         | longitude/latitude coordinate                  |
+|  [02]   | `LngLatBounds`       | class         | geographic bounding box                        |
+|  [03]   | `MercatorCoordinate` | class         | web-mercator tile coordinate                   |
+|  [04]   | `Point`              | class         | 2D pixel point (from `@mapbox/point-geometry`) |
 
 [PUBLIC_TYPE_SCOPE]: source classes
 - rail: viewport
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                 |
 | :-----: | :-------------------- | :------------ | :--------------------- |
-|   [1]   | `GeoJSONSource`       | class         | GeoJSON data source    |
-|   [2]   | `VectorTileSource`    | class         | MVT vector tile source |
-|   [3]   | `RasterTileSource`    | class         | raster tile source     |
-|   [4]   | `RasterDEMTileSource` | class         | terrain DEM source     |
-|   [5]   | `ImageSource`         | class         | static image source    |
-|   [6]   | `CanvasSource`        | class         | HTML canvas source     |
-|   [7]   | `VideoSource`         | class         | video source           |
+|  [01]   | `GeoJSONSource`       | class         | GeoJSON data source    |
+|  [02]   | `VectorTileSource`    | class         | MVT vector tile source |
+|  [03]   | `RasterTileSource`    | class         | raster tile source     |
+|  [04]   | `RasterDEMTileSource` | class         | terrain DEM source     |
+|  [05]   | `ImageSource`         | class         | static image source    |
+|  [06]   | `CanvasSource`        | class         | HTML canvas source     |
+|  [07]   | `VideoSource`         | class         | video source           |
 
 [PUBLIC_TYPE_SCOPE]: UI controls and overlays
 - rail: viewport
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                      |
 | :-----: | :------------------- | :------------ | :-------------------------- |
-|   [1]   | `NavigationControl`  | class         | zoom and rotate control     |
-|   [2]   | `AttributionControl` | class         | attribution display control |
-|   [3]   | `ScaleControl`       | class         | distance scale bar          |
-|   [4]   | `GeolocateControl`   | class         | geolocation trigger control |
-|   [5]   | `LogoControl`        | class         | MapLibre logo control       |
-|   [6]   | `FullscreenControl`  | class         | fullscreen toggle control   |
-|   [7]   | `TerrainControl`     | class         | terrain on/off control      |
-|   [8]   | `GlobeControl`       | class         | globe/map projection toggle |
-|   [9]   | `Popup`              | class         | tooltip/info popup overlay  |
+|  [01]   | `NavigationControl`  | class         | zoom and rotate control     |
+|  [02]   | `AttributionControl` | class         | attribution display control |
+|  [03]   | `ScaleControl`       | class         | distance scale bar          |
+|  [04]   | `GeolocateControl`   | class         | geolocation trigger control |
+|  [05]   | `LogoControl`        | class         | MapLibre logo control       |
+|  [06]   | `FullscreenControl`  | class         | fullscreen toggle control   |
+|  [07]   | `TerrainControl`     | class         | terrain on/off control      |
+|  [08]   | `GlobeControl`       | class         | globe/map projection toggle |
+|  [09]   | `Popup`              | class         | tooltip/info popup overlay  |
 |  [10]   | `Marker`             | class         | DOM marker overlay          |
 
 [PUBLIC_TYPE_SCOPE]: event types
@@ -67,57 +67,57 @@
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [RAIL]                       |
 | :-----: | :--------------- | :------------ | :--------------------------- |
-|   [1]   | `MapMouseEvent`  | class         | mouse interaction on the map |
-|   [2]   | `MapTouchEvent`  | class         | touch interaction on the map |
-|   [3]   | `MapWheelEvent`  | class         | wheel/pinch zoom event       |
-|   [4]   | `GeoJSONFeature` | class         | picked feature from the map  |
+|  [01]   | `MapMouseEvent`  | class         | mouse interaction on the map |
+|  [02]   | `MapTouchEvent`  | class         | touch interaction on the map |
+|  [03]   | `MapWheelEvent`  | class         | wheel/pinch zoom event       |
+|  [04]   | `GeoJSONFeature` | class         | picked feature from the map  |
 
 [PUBLIC_TYPE_SCOPE]: interaction handlers
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                        |
 | :-----: | :--------------------------------- | :------------ | :---------------------------- |
-|   [1]   | `ScrollZoomHandler`                | class         | scroll/pinch zoom             |
-|   [2]   | `BoxZoomHandler`                   | class         | shift-drag zoom box           |
-|   [3]   | `DragRotateHandler`                | class         | right-drag / ctrl-drag rotate |
-|   [4]   | `DragPanHandler`                   | class         | drag-pan interaction          |
-|   [5]   | `KeyboardHandler`                  | class         | keyboard navigation           |
-|   [6]   | `DoubleClickZoomHandler`           | class         | double-click zoom             |
-|   [7]   | `TwoFingersTouchZoomRotateHandler` | class         | two-finger pinch/rotate       |
-|   [8]   | `CooperativeGesturesHandler`       | class         | cooperative gesture mode      |
+|  [01]   | `ScrollZoomHandler`                | class         | scroll/pinch zoom             |
+|  [02]   | `BoxZoomHandler`                   | class         | shift-drag zoom box           |
+|  [03]   | `DragRotateHandler`                | class         | right-drag / ctrl-drag rotate |
+|  [04]   | `DragPanHandler`                   | class         | drag-pan interaction          |
+|  [05]   | `KeyboardHandler`                  | class         | keyboard navigation           |
+|  [06]   | `DoubleClickZoomHandler`           | class         | double-click zoom             |
+|  [07]   | `TwoFingersTouchZoomRotateHandler` | class         | two-finger pinch/rotate       |
+|  [08]   | `CooperativeGesturesHandler`       | class         | cooperative gesture mode      |
 
 [PUBLIC_TYPE_SCOPE]: request and protocol types
 - rail: viewport
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                                                                                    |
 | :-----: | :------------------ | :------------ | :-------------------------------------------------------------------------------------------------------- |
-|   [1]   | `RequestParameters` | type alias    | `{ url, headers?, method?, body?, type?, credentials?, cache?, referrerPolicy?, collectResourceTiming? }` |
-|   [2]   | `AddProtocolAction` | type alias    | `(req, abortController) => Promise<GetResourceResponse<any>>`                                             |
-|   [3]   | `AJAXError`         | class         | HTTP error with `status`, `statusText`, `url`, `body`                                                     |
+|  [01]   | `RequestParameters` | type alias    | `{ url, headers?, method?, body?, type?, credentials?, cache?, referrerPolicy?, collectResourceTiming? }` |
+|  [02]   | `AddProtocolAction` | type alias    | `(req, abortController) => Promise<GetResourceResponse<any>>`                                             |
+|  [03]   | `AJAXError`         | class         | HTTP error with `status`, `statusText`, `url`, `body`                                                     |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: map construction
 - rail: viewport
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :----------------- | :------------- | :---------------------------------- |
-|   [1]   | `new Map(options)` | constructor    | `MapOptions` — `container` required |
+|  [01]   | `new Map(options)` | constructor    | `MapOptions` — `container` required |
 
 [ENTRYPOINT_SCOPE]: camera operations (on `Map` instance)
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]  | [RAIL]                           |
 | :-----: | :------------------------------------------ | :-------------- | :------------------------------- |
-|   [1]   | `setCenter(lnglat)` / `getCenter()`         | camera mutator  | current map center               |
-|   [2]   | `setZoom(zoom)` / `getZoom()`               | camera mutator  | current zoom level               |
-|   [3]   | `setBearing(bearing)` / `getBearing()`      | camera mutator  | current bearing in degrees       |
-|   [4]   | `setPitch(pitch)` / `getPitch()`            | camera mutator  | current pitch in degrees         |
-|   [5]   | `fitBounds(bounds, options?)`               | camera mutator  | fits map to given `LngLatBounds` |
-|   [6]   | `flyTo(options)`                            | animated camera | smooth fly animation             |
-|   [7]   | `easeTo(options)`                           | animated camera | eased camera transition          |
-|   [8]   | `jumpTo(options)`                           | instant camera  | instant camera reposition        |
-|   [9]   | `panTo(lnglat, options?)`                   | animated camera | pan to coordinate                |
+|  [01]   | `setCenter(lnglat)` / `getCenter()`         | camera mutator  | current map center               |
+|  [02]   | `setZoom(zoom)` / `getZoom()`               | camera mutator  | current zoom level               |
+|  [03]   | `setBearing(bearing)` / `getBearing()`      | camera mutator  | current bearing in degrees       |
+|  [04]   | `setPitch(pitch)` / `getPitch()`            | camera mutator  | current pitch in degrees         |
+|  [05]   | `fitBounds(bounds, options?)`               | camera mutator  | fits map to given `LngLatBounds` |
+|  [06]   | `flyTo(options)`                            | animated camera | smooth fly animation             |
+|  [07]   | `easeTo(options)`                           | animated camera | eased camera transition          |
+|  [08]   | `jumpTo(options)`                           | instant camera  | instant camera reposition        |
+|  [09]   | `panTo(lnglat, options?)`                   | animated camera | pan to coordinate                |
 |  [10]   | `zoomTo(zoom, options?)` / `zoomIn/zoomOut` | animated camera | zoom to level or step            |
 |  [11]   | `rotateTo(bearing, options?)`               | animated camera | rotate to bearing                |
 
@@ -126,15 +126,15 @@
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]  | [RAIL]                          |
 | :-----: | :-------------------------------------- | :-------------- | :------------------------------ |
-|   [1]   | `addSource(id, source)`                 | source mutation | adds data source                |
-|   [2]   | `removeSource(id)`                      | source mutation | removes source                  |
-|   [3]   | `getSource(id)`                         | source query    | `Source \| undefined`           |
-|   [4]   | `addLayer(layer, beforeId?)`            | layer mutation  | adds style layer                |
-|   [5]   | `removeLayer(id)`                       | layer mutation  | removes style layer             |
-|   [6]   | `getLayer(id)`                          | layer query     | `StyleLayer \| undefined`       |
-|   [7]   | `moveLayer(id, beforeId?)`              | layer mutation  | reorders layer in stack         |
-|   [8]   | `setPaintProperty(layer, name, value)`  | style mutation  | updates paint property          |
-|   [9]   | `setLayoutProperty(layer, name, value)` | style mutation  | updates layout property         |
+|  [01]   | `addSource(id, source)`                 | source mutation | adds data source                |
+|  [02]   | `removeSource(id)`                      | source mutation | removes source                  |
+|  [03]   | `getSource(id)`                         | source query    | `Source \| undefined`           |
+|  [04]   | `addLayer(layer, beforeId?)`            | layer mutation  | adds style layer                |
+|  [05]   | `removeLayer(id)`                       | layer mutation  | removes style layer             |
+|  [06]   | `getLayer(id)`                          | layer query     | `StyleLayer \| undefined`       |
+|  [07]   | `moveLayer(id, beforeId?)`              | layer mutation  | reorders layer in stack         |
+|  [08]   | `setPaintProperty(layer, name, value)`  | style mutation  | updates paint property          |
+|  [09]   | `setLayoutProperty(layer, name, value)` | style mutation  | updates layout property         |
 |  [10]   | `setFilter(layer, filter?)`             | style mutation  | updates layer filter expression |
 
 [ENTRYPOINT_SCOPE]: query and event operations (on `Map` instance)
@@ -142,29 +142,29 @@
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `queryRenderedFeatures(point, options?)`  | feature query  | features at pixel point        |
-|   [2]   | `querySourceFeatures(sourceId, options?)` | feature query  | features from source           |
-|   [3]   | `project(lnglat)` / `unproject(point)`    | coordinate     | geographic ↔ pixel conversion  |
-|   [4]   | `addControl(control, position?)`          | UI control     | adds `IControl` to map         |
-|   [5]   | `removeControl(control)`                  | UI control     | removes `IControl`             |
-|   [6]   | `on(type, listener)` / `off`              | event wiring   | map event subscription         |
-|   [7]   | `once(type, listener)`                    | event wiring   | single-fire event subscription |
+|  [01]   | `queryRenderedFeatures(point, options?)`  | feature query  | features at pixel point        |
+|  [02]   | `querySourceFeatures(sourceId, options?)` | feature query  | features from source           |
+|  [03]   | `project(lnglat)` / `unproject(point)`    | coordinate     | geographic ↔ pixel conversion  |
+|  [04]   | `addControl(control, position?)`          | UI control     | adds `IControl` to map         |
+|  [05]   | `removeControl(control)`                  | UI control     | removes `IControl`             |
+|  [06]   | `on(type, listener)` / `off`              | event wiring   | map event subscription         |
+|  [07]   | `once(type, listener)`                    | event wiring   | single-fire event subscription |
 
 [ENTRYPOINT_SCOPE]: global utilities
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :--------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `addProtocol(customProtocol, fn)`        | protocol       | registers custom tile protocol |
-|   [2]   | `removeProtocol(customProtocol)`         | protocol       | removes custom tile protocol   |
-|   [3]   | `setRTLTextPlugin(url, lazy)`            | plugin         | configures right-to-left text  |
-|   [4]   | `getRTLTextPluginStatus()`               | plugin         | current plugin load status     |
-|   [5]   | `prewarm()`                              | worker         | pre-initializes worker pool    |
-|   [6]   | `clearPrewarmedResources()`              | worker         | releases prewarmed resources   |
-|   [7]   | `getWorkerCount()` / `setWorkerCount(n)` | worker         | WebWorker pool size control    |
-|   [8]   | `getVersion()`                           | metadata       | library version string         |
+|  [01]   | `addProtocol(customProtocol, fn)`        | protocol       | registers custom tile protocol |
+|  [02]   | `removeProtocol(customProtocol)`         | protocol       | removes custom tile protocol   |
+|  [03]   | `setRTLTextPlugin(url, lazy)`            | plugin         | configures right-to-left text  |
+|  [04]   | `getRTLTextPluginStatus()`               | plugin         | current plugin load status     |
+|  [05]   | `prewarm()`                              | worker         | pre-initializes worker pool    |
+|  [06]   | `clearPrewarmedResources()`              | worker         | releases prewarmed resources   |
+|  [07]   | `getWorkerCount()` / `setWorkerCount(n)` | worker         | WebWorker pool size control    |
+|  [08]   | `getVersion()`                           | metadata       | library version string         |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VIEWPORT_TOPOLOGY]:
 - `Map` extends `Camera` extends `Evented`; handler instances (`scrollZoom`, `boxZoom`, `dragRotate`, `dragPan`, `keyboard`, `doubleClickZoom`, `touchZoomRotate`) are accessible as properties after construction

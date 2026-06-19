@@ -2,26 +2,26 @@
 
 A store is one declared profile and one operation rail. Engine, placement, and codec are orthogonal axes crossed by one profile row — provider admission, capability slots, write authority, naming policy, and converter admission are row columns — so a new deployment topology is rows with zero new store code. The context is a pooled unit-of-work capsule that never escapes its bracket, and every store interaction is a value in one closed op family whose arity is the input value's shape. Boot folds schema state to one typed verdict — a store whose schema is newer than the compiled model is a typed rejection carrying the unknown identifiers, never a best-effort open — and a schema change is a typed value classified physically, gated at generation, and split into expand and contract waves. Identity mints once at admission, every secondary key surface derives from one selector, and write mass self-emits its facts and its invalidation inside the statement that caused them. Growth lands as rows: a new engine is one profile row, a new operation one request case, a new aggregate one configuration block, a new hot query one compiled-delegate row.
 
-## [1]-[STORE_CHOOSER]
+## [01]-[STORE_CHOOSER]
 
 This table routes a persistence concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]               | [OWNER]                                | [REJECTED_FORM]                 |
 | :-----: | :---------------------- | :------------------------------------- | :------------------------------ |
-|   [1]   | deployment topology     | profile row on three axes              | per-topology store code         |
-|   [2]   | context lifetime        | pooled factory + per-acquisition stamp | injected long-lived context     |
-|   [3]   | domain types in columns | one generated-converter admission      | hand-written converter per type |
-|   [4]   | aggregate document      | complex-type mapping declaration       | owned-entity JSON               |
-|   [5]   | save observation        | interceptor spine rows                 | service-layer try/catch         |
-|   [6]   | schema state at boot    | migration verdict fold                 | best-effort open                |
-|   [7]   | destructive change      | generation-time class gate + waves     | apply-time gating               |
-|   [8]   | row identity            | identity policy row + one key selector | per-surface key respelling      |
-|   [9]   | store operations        | one op family + one bracket            | repository per aggregate        |
+|   [01]   | deployment topology     | profile row on three axes              | per-topology store code         |
+|   [02]   | context lifetime        | pooled factory + per-acquisition stamp | injected long-lived context     |
+|   [03]   | domain types in columns | one generated-converter admission      | hand-written converter per type |
+|   [04]   | aggregate document      | complex-type mapping declaration       | owned-entity JSON               |
+|   [05]   | save observation        | interceptor spine rows                 | service-layer try/catch         |
+|   [06]   | schema state at boot    | migration verdict fold                 | best-effort open                |
+|   [07]   | destructive change      | generation-time class gate + waves     | apply-time gating               |
+|   [08]   | row identity            | identity policy row + one key selector | per-surface key respelling      |
+|   [09]   | store operations        | one op family + one bracket            | repository per aggregate        |
 |  [10]   | pagination              | keyset page op, `Option<Cursor>` input | offset paging                   |
 |  [11]   | write mass              | set-based, copy, and merge lanes       | tracked-graph loops             |
 |  [12]   | read-through cache      | derived tag grammar port row           | free-string invalidation        |
 
-## [2]-[PROFILE_AXIS]
+## [02]-[PROFILE_AXIS]
 
 [AXIS_ROWS]:
 - Law: a store is one profile row crossing three orthogonal axes — engine carries the provider-admission delegate plus capability columns, placement carries write, migrate, and read-ahead authority, codec carries naming policy and converter admission — and a new topology is one row; interior code never branches on the provider, and provider probes are test assertions only.
@@ -90,7 +90,7 @@ public sealed record StoreProfile(EngineRow Engine, Placement Placement, QueryTr
 }
 ```
 
-## [3]-[MODEL_LAW]
+## [03]-[MODEL_LAW]
 
 [DOCUMENT_SHAPE]:
 - Law: complex types are the document owner — value semantics end-to-end, so one value legally aliases into two slots and content equality translates in queries; one declaration chooses table splitting into prefixed columns or `ToJson` into a document column, and that declaration silently decides the write lane: complex document interiors are legal set-based targets, owned-entity JSON is foreclosed from that lane and rejected for new models.
@@ -132,7 +132,7 @@ public sealed class EntryShape : IEntityTypeConfiguration<Entry> {
 }
 ```
 
-## [4]-[INTERCEPTOR_SPINE]
+## [04]-[INTERCEPTOR_SPINE]
 
 [SPINE_ALTITUDES]:
 - Law: one spine, three altitudes, admitted through `AddInterceptors` as profile rows — singleton/compilation (`IMaterializationInterceptor`, `IQueryExpressionInterceptor`), unit-of-work (`ISaveChangesInterceptor` over the tracked graph), wire (`IDbCommandInterceptor` plus the connection and transaction pair); registration order is execution order, and per-contract aggregators compose registrations into one composite.
@@ -167,7 +167,7 @@ public sealed class SaveGate(Disposition disposition) : ISaveChangesInterceptor 
 }
 ```
 
-## [5]-[MIGRATION_ALGEBRA]
+## [05]-[MIGRATION_ALGEBRA]
 
 [MIGRATION_VALUE]:
 - Law: a migration is data before action — `UpOperations` and `DownOperations` materialize without a store, `TargetModel` and `ActiveProvider` read from the artifact — so every audit folds over operations and parsing generated SQL is the rejected form; identifiers are timestamp-prefixed, so identifier order is application order and the applied maximum is the store's schema stamp.
@@ -223,15 +223,15 @@ public static class SchemaGate {
 
 | [INDEX] | [UP_OPERATION]                                  | [PHYSICAL_CLASS] | [DISPOSITION]         |
 | :-----: | :---------------------------------------------- | :--------------- | :-------------------- |
-|   [1]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
-|   [2]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
-|   [3]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
-|   [4]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
-|   [5]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
-|   [6]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
-|   [7]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
+|   [01]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
+|   [02]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
+|   [03]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
+|   [04]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
+|   [05]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
+|   [06]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
+|   [07]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
 
-## [6]-[IDENTITY_AXIS]
+## [06]-[IDENTITY_AXIS]
 
 [IDENTITY_ROWS]:
 - Law: identity is one closed three-row axis — time-ordered surrogate, content-hash, natural — and every row carries four columns: generator, transcription, ordering semantics, collision law; mixing rows per aggregate is normal, mixing rows per surface of one aggregate is the defect.
@@ -268,7 +268,7 @@ public sealed record IdentityRow(string Axis, Collision Collision, bool Ordered,
 }
 ```
 
-## [7]-[OPERATION_RAIL]
+## [07]-[OPERATION_RAIL]
 
 [BRACKET_LAW]:
 - Law: store operations form one closed request family dispatched by one rail — a repository per aggregate multiplies surfaces while every body repeats the same bracket; the bracket composes pool acquisition, execution strategy, transaction, tracking posture, provenance, and fault conversion as policy rows, so a new operation is a case plus an arm and a new cross-cutting concern is one bracket row touching zero ops.
@@ -333,7 +333,7 @@ public static class StoreRail {
 }
 ```
 
-## [8]-[BULK_LANE]
+## [08]-[BULK_LANE]
 
 [WRITE_MASS]:
 - Law: high-volume mutation is one lane with three intensities — set-based statement for predicate-shaped work, bulk copy for collection-shaped ingestion, merge for source-against-target reconciliation — all enlisted in the rail's ambient transaction and all self-emitting: the statement that mutates produces the facts and the tag-cut before commit, deleting change-data capture, polled outboxes, and triggers in one move.

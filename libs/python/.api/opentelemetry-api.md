@@ -2,7 +2,7 @@
 
 `opentelemetry-api` supplies the provider, tracer, span, metric instrument, and log API contracts as abstract classes and no-op implementations, plus the context propagation, baggage, and `TextMapPropagator` surfaces that consuming owners depend on at the API boundary. It installs `get_tracer_provider`, `get_meter_provider`, `get_logger_provider`, and `propagate.extract`/`inject` as the global resolution points; SDK providers are registered at startup and never imported in library code.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `opentelemetry-api`
 - package: `opentelemetry-api`
@@ -11,22 +11,22 @@
 - rail: observability
 - namespaces: `opentelemetry.trace`, `opentelemetry.metrics`, `opentelemetry._logs`, `opentelemetry.context`, `opentelemetry.propagate`, `opentelemetry.propagators.textmap`, `opentelemetry.baggage`, `opentelemetry.attributes`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: trace family
 - rail: observability
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                                 |
 | :-----: | :------------------- | :------------ | :----------------------------------------------------- |
-|   [1]   | `TracerProvider`     | abstract      | tracer factory contract                                |
-|   [2]   | `Tracer`             | abstract      | span creation contract                                 |
-|   [3]   | `Span`               | abstract      | active span operation contract                         |
-|   [4]   | `SpanContext`        | value         | immutable trace/span/flag triple                       |
-|   [5]   | `StatusCode`         | enum          | `UNSET`, `OK`, `ERROR`                                 |
-|   [6]   | `Status`             | value         | status code plus optional message                      |
-|   [7]   | `SpanKind`           | enum          | `INTERNAL`, `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER` |
-|   [8]   | `TraceFlags`         | value         | sampled and parent flags bitfield                      |
-|   [9]   | `TraceState`         | value         | W3C trace state key-value list                         |
+|  [01]   | `TracerProvider`     | abstract      | tracer factory contract                                |
+|  [02]   | `Tracer`             | abstract      | span creation contract                                 |
+|  [03]   | `Span`               | abstract      | active span operation contract                         |
+|  [04]   | `SpanContext`        | value         | immutable trace/span/flag triple                       |
+|  [05]   | `StatusCode`         | enum          | `UNSET`, `OK`, `ERROR`                                 |
+|  [06]   | `Status`             | value         | status code plus optional message                      |
+|  [07]   | `SpanKind`           | enum          | `INTERNAL`, `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER` |
+|  [08]   | `TraceFlags`         | value         | sampled and parent flags bitfield                      |
+|  [09]   | `TraceState`         | value         | W3C trace state key-value list                         |
 |  [10]   | `Link`               | value         | cross-trace span link                                  |
 |  [11]   | `NonRecordingSpan`   | no-op         | API-only no-op span                                    |
 |  [12]   | `NoOpTracer`         | no-op         | no-op tracer for API-only use                          |
@@ -37,15 +37,15 @@
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                           |
 | :-----: | :------------------------ | :------------ | :------------------------------- |
-|   [1]   | `MeterProvider`           | abstract      | meter factory contract           |
-|   [2]   | `Meter`                   | abstract      | instrument creation contract     |
-|   [3]   | `Counter`                 | abstract      | monotonically increasing count   |
-|   [4]   | `UpDownCounter`           | abstract      | bidirectional count              |
-|   [5]   | `Histogram`               | abstract      | value distribution recording     |
-|   [6]   | `ObservableCounter`       | abstract      | async monotonic count            |
-|   [7]   | `ObservableGauge`         | abstract      | async current value              |
-|   [8]   | `ObservableUpDownCounter` | abstract      | async bidirectional count        |
-|   [9]   | `Observation`             | value         | (value, attributes) for async    |
+|  [01]   | `MeterProvider`           | abstract      | meter factory contract           |
+|  [02]   | `Meter`                   | abstract      | instrument creation contract     |
+|  [03]   | `Counter`                 | abstract      | monotonically increasing count   |
+|  [04]   | `UpDownCounter`           | abstract      | bidirectional count              |
+|  [05]   | `Histogram`               | abstract      | value distribution recording     |
+|  [06]   | `ObservableCounter`       | abstract      | async monotonic count            |
+|  [07]   | `ObservableGauge`         | abstract      | async current value              |
+|  [08]   | `ObservableUpDownCounter` | abstract      | async bidirectional count        |
+|  [09]   | `Observation`             | value         | (value, attributes) for async    |
 |  [10]   | `CallbackOptions`         | value         | timeout hint for async callbacks |
 
 [PUBLIC_TYPE_SCOPE]: logs and context family
@@ -53,32 +53,32 @@
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                             |
 | :-----: | :------------------ | :------------ | :--------------------------------- |
-|   [1]   | `LoggerProvider`    | abstract      | logger factory contract            |
-|   [2]   | `Logger`            | abstract      | log record emission contract       |
-|   [3]   | `LogRecord`         | value         | structured log record carrier      |
-|   [4]   | `SeverityNumber`    | enum          | severity levels `TRACE1`..`FATAL4` |
-|   [5]   | `Context`           | value         | immutable propagation context      |
-|   [6]   | `Token`             | value         | context attachment token           |
-|   [7]   | `TextMapPropagator` | abstract      | carrier-based context propagator   |
-|   [8]   | `DefaultGetter`     | value         | default HTTP-header carrier getter |
-|   [9]   | `DefaultSetter`     | value         | default HTTP-header carrier setter |
+|  [01]   | `LoggerProvider`    | abstract      | logger factory contract            |
+|  [02]   | `Logger`            | abstract      | log record emission contract       |
+|  [03]   | `LogRecord`         | value         | structured log record carrier      |
+|  [04]   | `SeverityNumber`    | enum          | severity levels `TRACE1`..`FATAL4` |
+|  [05]   | `Context`           | value         | immutable propagation context      |
+|  [06]   | `Token`             | value         | context attachment token           |
+|  [07]   | `TextMapPropagator` | abstract      | carrier-based context propagator   |
+|  [08]   | `DefaultGetter`     | value         | default HTTP-header carrier getter |
+|  [09]   | `DefaultSetter`     | value         | default HTTP-header carrier setter |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: trace API
 - rail: observability
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :-------------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `trace.get_tracer_provider()`                 | provider       | global tracer provider         |
-|   [2]   | `trace.set_tracer_provider(tracer_provider)`  | provider       | install global tracer provider |
-|   [3]   | `trace.get_tracer(name, version, ...)`        | tracer         | obtain instrumentation tracer  |
-|   [4]   | `trace.get_current_span(context)`             | span           | current active span            |
-|   [5]   | `trace.set_span_in_context(span, context)`    | context        | embed span into context        |
-|   [6]   | `trace.use_span(span, end_on_exit, ...)`      | context mgr    | legacy span context manager    |
-|   [7]   | `trace.format_trace_id(trace_id)`             | utility        | hex-format trace id            |
-|   [8]   | `trace.format_span_id(span_id)`               | utility        | hex-format span id             |
-|   [9]   | `Tracer.start_span(name, context, kind, ...)` | span creation  | create detached span           |
+|  [01]   | `trace.get_tracer_provider()`                 | provider       | global tracer provider         |
+|  [02]   | `trace.set_tracer_provider(tracer_provider)`  | provider       | install global tracer provider |
+|  [03]   | `trace.get_tracer(name, version, ...)`        | tracer         | obtain instrumentation tracer  |
+|  [04]   | `trace.get_current_span(context)`             | span           | current active span            |
+|  [05]   | `trace.set_span_in_context(span, context)`    | context        | embed span into context        |
+|  [06]   | `trace.use_span(span, end_on_exit, ...)`      | context mgr    | legacy span context manager    |
+|  [07]   | `trace.format_trace_id(trace_id)`             | utility        | hex-format trace id            |
+|  [08]   | `trace.format_span_id(span_id)`               | utility        | hex-format span id             |
+|  [09]   | `Tracer.start_span(name, context, kind, ...)` | span creation  | create detached span           |
 |  [10]   | `Tracer.start_as_current_span(name, ...)`     | span creation  | create and activate span       |
 |  [11]   | `Span.set_attribute(key, value)`              | span mutation  | attach typed attribute         |
 |  [12]   | `Span.add_event(name, attributes, timestamp)` | span mutation  | record timestamped event       |
@@ -91,15 +91,15 @@
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :------------------------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `metrics.get_meter_provider()`                     | provider       | global meter provider           |
-|   [2]   | `metrics.set_meter_provider(meter_provider)`       | provider       | install global meter provider   |
-|   [3]   | `metrics.get_meter(name, version, ...)`            | meter          | obtain instrumentation meter    |
-|   [4]   | `Meter.create_counter(name, unit, description)`    | instrument     | create monotonic counter        |
-|   [5]   | `Meter.create_up_down_counter(name, ...)`          | instrument     | create bidirectional counter    |
-|   [6]   | `Meter.create_histogram(name, ...)`                | instrument     | create histogram recorder       |
-|   [7]   | `Meter.create_observable_counter(name, callbacks)` | instrument     | create async observable counter |
-|   [8]   | `Meter.create_observable_gauge(name, callbacks)`   | instrument     | create async observable gauge   |
-|   [9]   | `Counter.add(amount, attributes)`                  | record         | increment counter               |
+|  [01]   | `metrics.get_meter_provider()`                     | provider       | global meter provider           |
+|  [02]   | `metrics.set_meter_provider(meter_provider)`       | provider       | install global meter provider   |
+|  [03]   | `metrics.get_meter(name, version, ...)`            | meter          | obtain instrumentation meter    |
+|  [04]   | `Meter.create_counter(name, unit, description)`    | instrument     | create monotonic counter        |
+|  [05]   | `Meter.create_up_down_counter(name, ...)`          | instrument     | create bidirectional counter    |
+|  [06]   | `Meter.create_histogram(name, ...)`                | instrument     | create histogram recorder       |
+|  [07]   | `Meter.create_observable_counter(name, callbacks)` | instrument     | create async observable counter |
+|  [08]   | `Meter.create_observable_gauge(name, callbacks)`   | instrument     | create async observable gauge   |
+|  [09]   | `Counter.add(amount, attributes)`                  | record         | increment counter               |
 |  [10]   | `Histogram.record(amount, attributes)`             | record         | record histogram measurement    |
 
 [ENTRYPOINT_SCOPE]: context and propagation
@@ -107,27 +107,27 @@
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :----------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `context.get_current()`                    | context        | current active context         |
-|   [2]   | `context.attach(context)`                  | context        | activate context, return token |
-|   [3]   | `context.detach(token)`                    | context        | restore previous context       |
-|   [4]   | `context.get_value(key, context)`          | context        | read value from context        |
-|   [5]   | `context.set_value(key, value, context)`   | context        | derive context with new value  |
-|   [6]   | `propagate.extract(carrier, context)`      | propagation    | decode context from carrier    |
-|   [7]   | `propagate.inject(carrier, context)`       | propagation    | encode context into carrier    |
-|   [8]   | `propagate.get_global_textmap()`           | propagation    | global composite propagator    |
-|   [9]   | `propagate.set_global_textmap(propagator)` | propagation    | install composite propagator   |
+|  [01]   | `context.get_current()`                    | context        | current active context         |
+|  [02]   | `context.attach(context)`                  | context        | activate context, return token |
+|  [03]   | `context.detach(token)`                    | context        | restore previous context       |
+|  [04]   | `context.get_value(key, context)`          | context        | read value from context        |
+|  [05]   | `context.set_value(key, value, context)`   | context        | derive context with new value  |
+|  [06]   | `propagate.extract(carrier, context)`      | propagation    | decode context from carrier    |
+|  [07]   | `propagate.inject(carrier, context)`       | propagation    | encode context into carrier    |
+|  [08]   | `propagate.get_global_textmap()`           | propagation    | global composite propagator    |
+|  [09]   | `propagate.set_global_textmap(propagator)` | propagation    | install composite propagator   |
 
 [ENTRYPOINT_SCOPE]: logs API
 - rail: observability
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :------------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `_logs.get_logger_provider()`                | provider       | global logger provider         |
-|   [2]   | `_logs.set_logger_provider(logger_provider)` | provider       | install global logger provider |
-|   [3]   | `_logs.get_logger(name, version, ...)`       | logger         | obtain instrumentation logger  |
-|   [4]   | `Logger.emit(record)`                        | emit           | emit a `LogRecord`             |
+|  [01]   | `_logs.get_logger_provider()`                | provider       | global logger provider         |
+|  [02]   | `_logs.set_logger_provider(logger_provider)` | provider       | install global logger provider |
+|  [03]   | `_logs.get_logger(name, version, ...)`       | logger         | obtain instrumentation logger  |
+|  [04]   | `Logger.emit(record)`                        | emit           | emit a `LogRecord`             |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [OBSERVABILITY_TOPOLOGY]:
 - provider singletons: `get_tracer_provider()`, `get_meter_provider()`, `get_logger_provider()` return no-op providers until SDK providers are installed via `set_*`; library code never calls `set_*`

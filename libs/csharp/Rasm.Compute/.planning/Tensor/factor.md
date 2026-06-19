@@ -2,12 +2,12 @@
 
 Rasm.Compute sparse-solve and kernel-lowering lane: the `SparseFormat` ingestion axis over the CSR-backed MathNet storage reality, the `FactoredOp` sparse-factor capability owner recovering transpose-solve/rank-1-edit/inertia/reentrancy from the factor kind, the `IterativeMethod` closed solver-factory axis with the `Iterator<double>` criterion stack and the independently-recomputed true-residual witness, the `SolveTerminal` partition preserving the caller's retry, and the `KernelLowering` binding table giving the tensor-lane matrix and structural rows a real GEMM/im2col/pool kernel plus the `ShardPlan` block-decomposition column the dense GEMM reads. Every library refuses its own gates — `Iterator<T>` exposes no iteration count — so the criterion stack re-imposes each and every result leaves as a typed `ComputeReceipt` carrying the route variant, the scale-derived tolerance, and the recomputed true relative residual against the original operator. A distributed solve crosses solely through the `Runtime/channels#PROTO_VOCABULARY` `Solve` rpc, which the `ShardPlan.Blocked` row-block sub-solve dials by reference.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SPARSE_SOLVE]: CSR ingestion axis; `FactoredOp` capability owner; criterion-stack iterative.
-- [2]-[KERNEL_LOWERING]: tensor matrix/structural rows lower onto real GEMM/im2col/pool; shard fan-out.
+- [01]-[SPARSE_SOLVE]: CSR ingestion axis; `FactoredOp` capability owner; criterion-stack iterative.
+- [02]-[KERNEL_LOWERING]: tensor matrix/structural rows lower onto real GEMM/im2col/pool; shard fan-out.
 
-## [2]-[SPARSE_SOLVE]
+## [02]-[SPARSE_SOLVE]
 
 - Owner: `SparseFormat` `[SmartEnum<string>]` ingestion-axis rows; `FactorKind` `[SmartEnum<string>]` direct-factor rows carrying the capability columns (rank-1 edit, transpose-solve, inertia, reentrancy) and the fill-formula and transpose-solve-recovery delegate as row data; `IterativeMethod` `[SmartEnum<string>]` closed solver-factory axis with the `IterationPolicy` record (tolerance · max-iter · criterion stack · preconditioner); `FactoredOp` the typed sparse-operator value owning the factorization instance, cached `ColumnOrdering` permutation, symbolic fill counts, solution dimension, and kind discriminant; `Edit` `[Union]` the structural-edit dialect; `SparseOps` direct-and-iterative sparse-solve fold over CSR-backed MathNet storage and CSparse CSC direct factorizations, ingestion and direct dispatch each driven by one `FrozenDictionary` factory fold.
 - Cases: `SparseFormat` rows csr · csc · coo · dok (4); `FactorKind` rows spd · ldl · lu · qr (4); `IterativeMethod` rows bicgstab · gpbicg · tfqmr · mlk-bicgstab (4); `Edit` cases `Pin` · `Prune` · `Bump` · `Revalue` (4); `SparseOps.DirectSolvers` rows spd · lu · qr (3); `SparseOps.Ingestors` rows csr · csc · coo · dok (4).
@@ -205,7 +205,7 @@ public static class SparseOps {
 ```
 
 
-## [3]-[KERNEL_LOWERING]
+## [03]-[KERNEL_LOWERING]
 
 - Owner: `KernelLowering` — the binding table that lowers the tensor-lane matrix and structural rows onto a real numeric kernel, plus the `ShardPlan` block-decomposition column the dense GEMM reads.
 - Cases: `KernelLowering` rows MatMul→GEMM (live) · Conv1D/Conv2D/Conv3D→im2col-then-GEMM (live, one `ConvWindow` descriptor carries the spatial geometry) · MaxPool/AvgPool/GlobalAvgPool→strided-window fold; `ConvWindow(int[] Kernel, int[] Stride, int[] Padding, int[] Dilation, int Channels, int Filters, int[] Spatial)` the lowering geometry descriptor; `ShardPlan` cases `Single` (local `Matrix<double>.Multiply` leaf) · `Blocked(int Tile, ComputeService.ComputeServiceClient Compute, LinearProvider Provider, FactorizationKind Kind, ModelResultIndex Reuse, CorrelationId Correlation, IClock Clock, Duration Deadline, CancellationToken Cancel)` (distributed row-block fan-out dialing the `Solve` rpc per block under a per-call deadline); `ShardBlock(int Start, int Height, Matrix<double> Solution, UInt128 ContentAddress, ComputeReceipt.Factorization Receipt)` the per-block join carrier.
@@ -375,6 +375,6 @@ public static class KernelLowering {
 ```
 
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [SHARD_FANOUT]: the `ShardPlan.Blocked` fan-out dials the `Runtime/channels#PROTO_VOCABULARY` `Solve` rpc through the `ComputeService.ComputeServiceClient` stub by reference, builds `SolveRequest` field-for-field (`matrix`/`rhs`/`factorization_kind`/`sparse_format`/`shard_tile`), no-copy-wraps the RHS through `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)`, content-addresses each row-block by writing the request once through `MessageExtensions.WriteTo(Span<byte>)` into a pooled `SpanOwner<byte>` rent folded through `XxHash128.HashToUInt128` against the provider `SolveDedupKey` and the Persistence `ModelResultIndex` for sub-block reuse, dials under a per-call `WithDeadline`/`WithCancellationToken` bound from the clock and budget, joins the per-node `SolveResponse` solutions via the associative `ShardBlock.Join` `SetSubMatrix` into a private join target, and aggregates the per-shard `Factorization` receipts on the `Fin<Matrix<double>>` rail. The open leaf is the live in-host stub dial: the Grpc.Tools-compiled `ComputeService` client and the `Solve`-stub call resolve only inside the running integrated host plugin ALC, so `ShardPlan.SubSolve` against the live stub is the cross-lane probe that grounds the fan-out; the `SolveRequest`/`SolveResponse` field shapes (`matrix=1 GeometryPayload`, `rhs=2 bytes`, `factorization_kind=3 string`, `sparse_format=4 string`, `shard_tile=5 int32`; `solution=1 bytes`, `provider=2 string`, `decomposition=3 string`, `rows=4 int64`, `cols=5 int64`, `nnz=6 int64`) are the `Runtime/channels#PROTO_VOCABULARY` rows consumed by reference, and the `GeometryPayload.OfDense(Matrix<double>)` dense envelope and the Persistence `ModelResultIndex.Lookup`/`Publish` content-address seam compose their owning lanes.

@@ -2,14 +2,14 @@
 
 One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement, NodaTime `IClock` owns semantic instants, and one injected `ClockPolicy` record pairs them — consumer capsules bind the pair at construction. `DeadlineClass` is the nine-row bound vocabulary that every duration literal in the four packages traces to, `SchedulePort` is the suite's single scheduler — Cronos cron rows and fixed-period rows carry every scheduled concern, with maintenance-lease policy values deciding cross-process ownership — and `FencingToken` rides that maintenance lease as the monotone single-writer correctness proof a timeout alone cannot give. BCL temporal shapes cross only at the admission seam, receipts stamp `Instant` and `Duration`, and the test row swaps deterministic fakes through the same record.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
-- [2]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
-- [3]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
-- [4]-[FENCING_TOKEN]: Monotone single-writer token; Kleppmann reject-lower over the lease.
+- [01]-[CLOCK_SPLIT]: One injected clock pair; elapsed versus semantic time with sentinel admission.
+- [02]-[DEADLINE_TAXONOMY]: Nine deadline rows; every suite duration literal traces here.
+- [03]-[SCHEDULE_PORT]: The suite scheduler with cron and period rows and lease values.
+- [04]-[FENCING_TOKEN]: Monotone single-writer token; Kleppmann reject-lower over the lease.
 
-## [2]-[CLOCK_SPLIT]
+## [02]-[CLOCK_SPLIT]
 
 - Owner: `ClockPolicy`
 - Entry: `public static Option<Instant> Admit(DateTimeOffset raw)` — `Option<T>` carries absence; a platform sentinel never travels inward.
@@ -54,7 +54,7 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock) {
 }
 ```
 
-## [3]-[DEADLINE_TAXONOMY]
+## [03]-[DEADLINE_TAXONOMY]
 
 - Owner: `DeadlineClass`
 - Cases: startup, ready-probe, health-probe, drain-cooperative, drain-forced, hop-attempt, hop-total, support-window, cache-ttl
@@ -125,7 +125,7 @@ public static class DeadlineOps {
 }
 ```
 
-## [4]-[SCHEDULE_PORT]
+## [04]-[SCHEDULE_PORT]
 
 - Owner: `ScheduleEntry`
 - Cases: `OccurrenceSpec.Cron(CronExpression Expression)` | `OccurrenceSpec.Every(Duration Period)` | `OccurrenceSpec.Annual(AnnualDate Date, LocalTime At, DateTimeZone Zone)`
@@ -291,16 +291,16 @@ Consumers register rows, never ports — the registered set at composition:
 
 | [INDEX] | [CONSUMER_ROW]            | [SPEC]                    | [DEADLINE]        | [LEASE]           |
 | :-----: | ------------------------- | ------------------------- | :---------------- | :---------------- |
-|   [1]   | persistence-maintenance   | config-sourced cron       | consumer-declared | maintenance-lease |
-|   [2]   | support-scheduled-capture | config-sourced cron       | support-window    | none              |
-|   [3]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |
-|   [4]   | compute-model-warmup      | consumer-declared         | consumer-declared | none              |
-|   [5]   | watchdog-heartbeat        | `Every` 3 × health-probe  | health-probe      | none              |
-|   [6]   | fleet-rollup              | `@yearly`+jitter          | support-window    | none              |
+|  [01]   | persistence-maintenance   | config-sourced cron       | consumer-declared | maintenance-lease |
+|  [02]   | support-scheduled-capture | config-sourced cron       | support-window    | none              |
+|  [03]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |
+|  [04]   | compute-model-warmup      | consumer-declared         | consumer-declared | none              |
+|  [05]   | watchdog-heartbeat        | `Every` 3 × health-probe  | health-probe      | none              |
+|  [06]   | fleet-rollup              | `@yearly`+jitter          | support-window    | none              |
 
 The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share. The fleet-rollup row registers through `ScheduleEntry.Spread` so its `@yearly`+jitter occurrence carries a deterministic `XxHash3`-derived seed off the row key — every fleet node computes the identical seed from the shared key, the `H` field distributes the nodes across the cadence window, and each rollup run emits its `DeadlineReceipt` through the same `Run` path under the support-window deadline with no fleet-specific instrument; a not-met rollup folds through `Heartbeat` into `SupportTrigger.WatchdogTimeout` like every other watched row.
 
-## [5]-[FENCING_TOKEN]
+## [05]-[FENCING_TOKEN]
 
 - Owner: `FencingToken` `[ValueObject<ulong>]` monotone single-writer token; `LeaseElection` static acquire-and-fence surface extending `LeasePolicy.Maintenance`.
 - Entry: `Admits(FencingToken incoming)` is the Kleppmann reject-lower predicate the resource enforces — a write carrying a token strictly below the latest accepted one is rejected; `Acquire(LeaseElection.Runtime runtime)` returns `Fin<FencingToken>` minting one strictly-increasing token per maintenance-lease acquisition.

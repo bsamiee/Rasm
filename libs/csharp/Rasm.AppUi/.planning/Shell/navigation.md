@@ -2,14 +2,14 @@
 
 Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over the `ShellRoot` router capsule with two view-resolution hosts, one `ShellDockFactory` folds route-keyed `DockableRow` rows into the Dock model graph so dockables are screens, `LayoutLedger` flows layout checkpoints as versioned hashed blobs through `LayoutPersistence` delegates with cadence, drain, support, telemetry, and crash-restore registrations on the AppHost ports, `ShellChrome` derives menu, toolbar, status, and tray rows from intent keys per `SurfaceHost` row, and `AdaptiveLayout` owns the breakpoint table. The page owns the routing spine, dock layouts with checkpoint-cadence, external-dock-surface, and crash-restore values, chrome derivation, and adaptive layout over ReactiveUI, Dock.Avalonia, Dock.Model.ReactiveUI, Xaml.Behaviors.Avalonia, PanAndZoom, Thinktecture vocabulary, and LanguageExt rails.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ROUTING_SPINE]: One route union over the shell root; two view-resolution hosts.
-- [2]-[DOCK_LAYOUTS]: Dockables fold from route rows; checkpoint, restore, external dock.
-- [3]-[SHELL_CHROME]: Chrome rows derive from intent keys per surface row.
-- [4]-[ADAPTIVE_LAYOUT]: One breakpoint table; behavior-attached responsive policy values.
+- [01]-[ROUTING_SPINE]: One route union over the shell root; two view-resolution hosts.
+- [02]-[DOCK_LAYOUTS]: Dockables fold from route rows; checkpoint, restore, external dock.
+- [03]-[SHELL_CHROME]: Chrome rows derive from intent keys per surface row.
+- [04]-[ADAPTIVE_LAYOUT]: One breakpoint table; behavior-attached responsive policy values.
 
-## [2]-[ROUTING_SPINE]
+## [02]-[ROUTING_SPINE]
 
 - Owner: `NavRequest` `[Union]` five-verb navigation vocabulary with the deep-link grammar; `ShellRoot` shell-root capsule owning `IScreen`, the router cell, and the ordinal-frozen route index.
 - Cases: Push, Pop, Replace, Reset, Modal
@@ -88,7 +88,7 @@ public sealed class ShellRoot(
 }
 ```
 
-## [3]-[DOCK_LAYOUTS]
+## [03]-[DOCK_LAYOUTS]
 
 - Owner: `DockableRow` registration row; `ShellDockFactory` boundary capsule over the Dock model graph; `ShellPolicy` policy anchor; `LayoutCheckpoint` versioned blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, telemetry, and registration fold surface.
 - Entry: `public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last)` — `IO` carries the serialize-hash-persist effect; the unchanged-hash skip rides `Option<T>`.
@@ -231,7 +231,7 @@ flowchart LR
     LayoutPersistence -->|"Restore"| ShellDockFactory
 ```
 
-## [4]-[SHELL_CHROME]
+## [04]-[SHELL_CHROME]
 
 - Owner: `ChromeKeyPolicy` comparer accessor; `ChromeSlot` `[SmartEnum<string>]` four-slot chrome vocabulary; `ChromeRow` derivation row; `ShellChrome` projection fold.
 - Cases: menu, toolbar, status, tray
@@ -272,15 +272,15 @@ Visibility matrix — the value source for every `Visible` predicate and for `Fl
 
 | [INDEX] | [HOST_ROW]            | [MENU] | [TOOLBAR] | [STATUS] | [TRAY] | [FLOATING] |
 | :-----: | --------------------- | :----: | :-------: | :------: | :----: | :--------: |
-|   [1]   | AvaloniaDesktopWindow |   on   |    on     |    on    |  off   |    open    |
-|   [2]   | RhinoPanel            |  off   |    on     |   off    |  off   | suppressed |
-|   [3]   | RhinoModal            |  off   |    on     |   off    |  off   |    open    |
-|   [4]   | Gh2CompanionWindow    |  off   |    on     |    on    |  off   |    open    |
-|   [5]   | SidecarShell          |   on   |    on     |    on    |   on   |    open    |
-|   [6]   | WebBrowser            |  off   |    off    |   off    |  off   | suppressed |
-|   [7]   | Headless              |  off   |    off    |   off    |  off   |    open    |
+|  [01]   | AvaloniaDesktopWindow |   on   |    on     |    on    |  off   |    open    |
+|  [02]   | RhinoPanel            |  off   |    on     |   off    |  off   | suppressed |
+|  [03]   | RhinoModal            |  off   |    on     |   off    |  off   |    open    |
+|  [04]   | Gh2CompanionWindow    |  off   |    on     |    on    |  off   |    open    |
+|  [05]   | SidecarShell          |   on   |    on     |    on    |   on   |    open    |
+|  [06]   | WebBrowser            |  off   |    off    |   off    |  off   | suppressed |
+|  [07]   | Headless              |  off   |    off    |   off    |  off   |    open    |
 
-## [5]-[ADAPTIVE_LAYOUT]
+## [05]-[ADAPTIVE_LAYOUT]
 
 - Owner: `BreakpointRow` responsive tier row; `AdaptiveLayout` resolve fold over the ascending table.
 - Entry: `public static BreakpointRow Resolve(double width)` — pure fold; the widest admitted row wins.
@@ -308,6 +308,6 @@ public static class AdaptiveLayout {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [EXTERNAL_DOCK_HOST]: the embedded external-dock drop overlay registers against the live Rhino panel root; `RegisterExternalDockSurface(IExternalDockSurface)`, `ShowSelector(DockSelectorMode)`/`HideSelector()`, and `GlobalDockTarget` member shapes are decompile-confirmed, the in-host cross-boundary drag confirmation rides the surface-hosts EMBED_SPIKE.

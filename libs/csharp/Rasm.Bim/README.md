@@ -2,17 +2,17 @@
 
 `Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[FAULTS](.planning/Model/faults.md): `BimFault` closed `[Union]` (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) every Bim entrypoint lowers onto the `Fin<T>` rail through `.ToError()`.
-- [2]-[ELEMENTS](.planning/Model/elements.md): `BimElement` record, the `IfcClass`/`IfcDomain` entity-class vocabulary, the `PredefinedType` sub-class discriminant, `BimType` type-occurrence factoring, `BimModel` collection, and the `Project` fold from the IFC semantic graph.
-- [3]-[QUERY](.planning/Model/query.md): set-algebraic `ElementSet` query over a closed `ElementPredicate` union with `ByDomain`/`ByPredefinedType`/`ByZone` discrimination arms.
-- [4]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD-bound standard-systems classification axis, local code-shape policy, `BsddResolution` live dictionary resolution, and the `IfcRelAssociatesClassification` round-trip.
-- [5]-[COMPOSITION](.planning/Semantics/composition.md): host-neutral `BimMaterial` construction-material composition — `BimMaterialComposition` `[Union]` over the IFC layered/profiled/constituent material sets and the thickness-keyed `MaterialLayer`.
-- [6]-[APPEARANCE](.planning/Semantics/appearance.md): `BimAppearance` host-neutral PBR record projected from `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
-- [7]-[STRUCTURE](.planning/Model/structure.md): host-neutral spatial-structure tree and the closed `AssemblyRel` decomposition algebra.
-- [8]-[ZONES](.planning/Model/zones.md): cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem`, distinct from the single-parent containment tree, with the `ByZone` query arm.
-- [9]-[PROPERTIES](.planning/Semantics/properties.md): typed `PropertySet`/`QuantitySet` keyed vocabulary, type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
+- [01]-[FAULTS](.planning/Model/faults.md): `BimFault` closed `[Union]` (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`) every Bim entrypoint lowers onto the `Fin<T>` rail through `.ToError()`.
+- [02]-[ELEMENTS](.planning/Model/elements.md): `BimElement` record, the `IfcClass`/`IfcDomain` entity-class vocabulary, the `PredefinedType` sub-class discriminant, `BimType` type-occurrence factoring, `BimModel` collection, and the `Project` fold from the IFC semantic graph.
+- [03]-[QUERY](.planning/Model/query.md): set-algebraic `ElementSet` query over a closed `ElementPredicate` union with `ByDomain`/`ByPredefinedType`/`ByZone` discrimination arms.
+- [04]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD-bound standard-systems classification axis, local code-shape policy, `BsddResolution` live dictionary resolution, and the `IfcRelAssociatesClassification` round-trip.
+- [05]-[COMPOSITION](.planning/Semantics/composition.md): host-neutral `BimMaterial` construction-material composition — `BimMaterialComposition` `[Union]` over the IFC layered/profiled/constituent material sets and the thickness-keyed `MaterialLayer`.
+- [06]-[APPEARANCE](.planning/Semantics/appearance.md): `BimAppearance` host-neutral PBR record projected from `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
+- [07]-[STRUCTURE](.planning/Model/structure.md): host-neutral spatial-structure tree and the closed `AssemblyRel` decomposition algebra.
+- [08]-[ZONES](.planning/Model/zones.md): cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem`, distinct from the single-parent containment tree, with the `ByZone` query arm.
+- [09]-[PROPERTIES](.planning/Semantics/properties.md): typed `PropertySet`/`QuantitySet` keyed vocabulary, type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
 - [10]-[VALIDATION](.planning/Review/validation.md): IDS v1.0 `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `ElementPredicate` algebra, the XSD parse, and the `IdsAudit` receipt.
 - [11]-[ISSUES](.planning/Review/issues.md): BCF 3.0 `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec, and the `BcfApi` REST projection.
 - [12]-[DIFF](.planning/Review/diff.md): `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms joined by GlobalId plus content-key.
@@ -28,7 +28,7 @@
 - [22]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
 - [23]-[WIRE](.planning/Exchange/wire.md): host-free `BimWire` JSON projection of the generated owners through the Thinktecture converters, the source-generated `BimWireContext`, and the content-keyed `BimModel` snapshot the Python and TypeScript peers decode.
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 The IFC/glTF/STEP interchange and geodetic domain packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
 
@@ -52,7 +52,7 @@ The IFC/glTF/STEP interchange and geodetic domain packages this folder consumes 
 [GEODETIC]:
 - `ProjNET`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 The C# substrate registry cards this folder consumes; full registry and version ownership live in `libs/csharp/.planning/README.md`, with decompile evidence in the folder `.api/`.
 

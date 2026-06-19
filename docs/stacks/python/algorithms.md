@@ -2,21 +2,21 @@
 
 Numeric work is admitted once and routed by operand shape: raw arrays cross into a finite-checked owner at one boundary, the interior is total over admitted operands, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route is one composed `admit -> route -> solve -> witness -> receipt` lifecycle written once; a per-module pipeline re-deriving the chain is the rejected form. `numpy` owns array admission and dense element-wise primitives; `scipy.linalg` owns dense factorization, spectral decomposition, and quadrature; `scipy.sparse.linalg` owns sparse direct and iterative solves; `sympy` owns symbolic derivation lowered to a `numpy` kernel through `lambdify`; `pint` owns dimensional admission and `uncertainties` owns error propagation. Every library refuses its own gates — no constructor checks finiteness, `numpy` arithmetic returns `nan`/`inf` silently under the default `errstate`, a near-singular solve yields a garbage vector with no signal — so admission re-imposes each refused gate as an explicit predicate, and every result leaves as a domain receipt carrying its route, its scale-derived tolerance, and the recomputed true relative residual against the original operator, never a raw `ndarray` or factorization handle. The in-place library kernels — `cho_solve`/`lu_solve` writing into pre-sized scratch, `numpy.errstate` blocks fencing a probe — are this page's named statement exemption.
 
-## [1]-[ROUTE_SPINE]
+## [01]-[ROUTE_SPINE]
 
 The operand shape selects the route before any solve; the most specific shape wins, and the table is one lifecycle's route step, never a family of pipelines.
 
 | [INDEX] | [OPERAND_SHAPE]                        | [OWNING_ROUTE]                         | [CONDITIONING_FALLBACK]               |
 | :-----: | :------------------------------------- | :------------------------------------- | :------------------------------------ |
-|   [1]   | dense symmetric positive-definite      | `scipy.linalg.cho_factor`              | shift `ε·I`, then symmetric `eigh`    |
-|   [2]   | dense square general                   | `scipy.linalg.lu_factor`               | rank-revealing `svd` pseudo-inverse   |
-|   [3]   | dense overdetermined                   | `scipy.linalg.lstsq` (thin QR)         | `svd` truncated pseudo-inverse        |
-|   [4]   | symmetric or Hermitian spectrum        | `scipy.linalg.eigh`                    | generalized `eigh` with `b=` operator |
-|   [5]   | nonsymmetric spectrum                  | `scipy.linalg.eig`                     | residual witness, no resort           |
-|   [6]   | rank, norm, or condition evidence only | retained `scipy.linalg.svd` factors    | one factorization answers all three   |
-|   [7]   | sparse SPD or symmetric, fixed pattern | `scipy.sparse.linalg.splu` (held)      | `cg` while structure unproven         |
-|   [8]   | sparse nonsymmetric, fixed pattern     | `scipy.sparse.linalg.splu` (held)      | `gmres` + witness gate                |
-|   [9]   | huge sparse or changing pattern        | `scipy.sparse.linalg.gmres`/`bicgstab` | verdict-routed direct `spsolve`       |
+|  [01]   | dense symmetric positive-definite      | `scipy.linalg.cho_factor`              | shift `ε·I`, then symmetric `eigh`    |
+|  [02]   | dense square general                   | `scipy.linalg.lu_factor`               | rank-revealing `svd` pseudo-inverse   |
+|  [03]   | dense overdetermined                   | `scipy.linalg.lstsq` (thin QR)         | `svd` truncated pseudo-inverse        |
+|  [04]   | symmetric or Hermitian spectrum        | `scipy.linalg.eigh`                    | generalized `eigh` with `b=` operator |
+|  [05]   | nonsymmetric spectrum                  | `scipy.linalg.eig`                     | residual witness, no resort           |
+|  [06]   | rank, norm, or condition evidence only | retained `scipy.linalg.svd` factors    | one factorization answers all three   |
+|  [07]   | sparse SPD or symmetric, fixed pattern | `scipy.sparse.linalg.splu` (held)      | `cg` while structure unproven         |
+|  [08]   | sparse nonsymmetric, fixed pattern     | `scipy.sparse.linalg.splu` (held)      | `gmres` + witness gate                |
+|  [09]   | huge sparse or changing pattern        | `scipy.sparse.linalg.gmres`/`bicgstab` | verdict-routed direct `spsolve`       |
 |  [10]   | symbolic operator, repeated evaluation | `sympy.lambdify(..., "numpy")` kernel  | dense route on the lowered callable   |
 
 Recover the fallback from the route value and record it on the receipt, never a caller-named entrypoint: a fill ratio (symbolic factor nonzeros over input nonzeros, read from the `splu` object's `nnz` before the numeric sweep) routes direct versus iterative, and the regularized least-squares case (the design matrix stacked over a `√λ`-scaled identity under `lstsq`) is the derived consequence of the conditioning budget exceeding the inverse cap. `scipy.linalg` and `scipy.sparse.linalg` are distinct namespaces, so hybrid routing is integrator-authored and carries its own residual validation. The fallback is a rebind onto the same lifecycle: primary and conditioning routes converge on the one witness gate, and the receipt records the taken path.
@@ -61,7 +61,7 @@ def solved(route: FactorRoute, b: np.ndarray, cap: float, /) -> Result[np.ndarra
             assert_never(unreachable)
 ```
 
-## [2]-[ADMISSION_GATES]
+## [02]-[ADMISSION_GATES]
 
 [FINITE_ADMISSION]:
 - Law: gate every operand on one all-finite predicate over the flat array before factoring — `numpy.isfinite(a).all()` in a single vectorized pass, with a NaN-any then Inf-any split when the typed rejection must name its cause; no factorization rejects `nan`/`inf`, a non-finite entry propagates silently into a corrupted factor, and a Python-level per-element loop forfeits the one-pass vectorized admission the contiguous layout grants.
@@ -92,7 +92,7 @@ def admitted(a: np.ndarray, /) -> Result[np.ndarray, AdmitFault]:
 - Law: check the least-squares residual rank from `lstsq`'s returned `rank` against the expected column count; a rank-deficient design matrix returns a minimum-norm solution silently, and the rank is the only signal.
 - Use: `scipy.linalg.lstsq` (LAPACK `gelsd`, SVD-based) over the normal-equations route in near-dependent columns; the normal equations square the condition number.
 
-## [3]-[DENSE_FACTOR_LAW]
+## [03]-[DENSE_FACTOR_LAW]
 
 [RANK_AND_TOLERANCE]:
 - Law: derive every threshold from operator and right-hand-side scale — `σ_max` from the SVD, `‖A‖_F` via `numpy.linalg.norm`, `‖b‖∞` — and carry it as one named policy value on the receipt; a bare per-module absolute literal in `1e-4..1e-8` is the rejected form, unreplayable and uncomparable across operators.
@@ -130,7 +130,7 @@ def refined(a: np.ndarray, b: np.ndarray, x: np.ndarray, tol: float, cap: int, /
     return Ok(refined_x) if np.isfinite(residual) and residual <= tol else Error("<stalled>")
 ```
 
-## [4]-[SPARSE_AND_ITERATIVE]
+## [04]-[SPARSE_AND_ITERATIVE]
 
 [SPARSE_ROUTE]:
 - Law: a fixed-pattern sparse operator factors once through `scipy.sparse.linalg.splu` and reuses the held object for every right-hand side; the `splu` result's `nnz` over the input `nnz` is the fill ratio read before the numeric sweep, and a fill ratio above the budget routes to an iterative solve instead.
@@ -156,7 +156,7 @@ def witnessed(a: np.ndarray, x: np.ndarray, b: np.ndarray, cap: float, /) -> Res
     return Error("<non-finite-residual>") if not np.isfinite(residual) else Ok(x) if residual <= cap else Error("<residual-exceeded>")
 ```
 
-## [5]-[SYMBOLIC_UNITS_UNCERTAINTY]
+## [05]-[SYMBOLIC_UNITS_UNCERTAINTY]
 
 [SYMBOLIC_LOWERING]:
 - Law: `sympy` owns the symbolic derivation — differentiation, simplification, common-subexpression elimination through `sympy.cse` — and the closed-form result lowers to a vectorized `numpy` kernel through `sympy.lambdify(args, expr, "numpy")` exactly once at the boundary; the interior calls the lowered callable, never re-evaluates the symbolic tree per sample.
@@ -168,6 +168,6 @@ def witnessed(a: np.ndarray, x: np.ndarray, b: np.ndarray, cap: float, /) -> Res
 - Law: `uncertainties.ufloat` (or `unumpy` arrays) carries correlated error through a derivation when error propagation is the deliverable; it is a boundary-and-receipt concern, never threaded through the dense factorization hot path where it defeats BLAS.
 - Reject: stringly-typed unit suffixes on field names; manual error-propagation arithmetic where `uncertainties` derives the partials; mixing a dimensioned quantity into a BLAS call.
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [NUMERIC_CATALOGUE]: the `compute` package `.api` catalogues for `numpy`, `scipy`, `sympy`, `pint`, and `uncertainties` are capture-pending; the dense and sparse LAPACK route spellings here are the stable public surface and the catalogue capture confirms the exact return-tuple arity and the `info`/`rank` field names per provider version.

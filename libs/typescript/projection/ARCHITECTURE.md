@@ -4,7 +4,7 @@ The domain map of `projection` — the read-side fold-algebra owner of the TypeS
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 projection/
@@ -37,7 +37,7 @@ projection/
 
 `fold` is the foundation every sub-domain composes; `query` is the read-model engine tier (event-time IVM, versionless reactive, as-of); `convergence` is the SEC CRDT plus retention; `causality` unifies concurrency detection, causal delivery, and clock confidence; `evidence` is the receipt-and-confidence projection.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 *                      ←  csharp:Rasm.Persistence      # [WIRE]: ElementSet stable receipt algebra
@@ -54,7 +54,7 @@ fold/policy            ⇄  typescript:platform/config   # [PORT]: StreamPolicy 
 causality/vector       →  typescript:ui/overlay        # [WIRE]: CrdtField.EphemeralMap beat/leave over HlcWire
 ```
 
-## [3]-[CHARTERS]
+## [03]-[CHARTERS]
 
 - `convergence/merge` and `convergence/presence` ride one `ConflictPresenceStore`: the durable LWW-converged op-log state and the ephemeral-TTL presence row are distinct in kind, folded separately, and a presence op never mutates the live geometry cell; `convergence/law` proves the fold's delivery-order independence as mutation-killable evidence.
 - `causality/vector` is the read model the C# stamp surrenders: the HLC keeps O(1) width by erasing concurrency into a total order, so the version-vector slot map a browser peer reconstructs off the wire is the only place `Concurrent` is recoverable, fused with the `causality/skew` band into a `concurrent-uncertain` ordering input the desktop AppUi cannot produce.

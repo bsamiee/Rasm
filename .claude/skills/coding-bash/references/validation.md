@@ -1,19 +1,19 @@
 # [H1][VALIDATION]
 
-## [1]-[VALIDATION_PIPELINE]
+## [01]-[VALIDATION_PIPELINE]
 
 Validation is sequential — each gate must pass before the next runs. `bash -n` catches unclosed quotes, missing `done`/`fi`, and heredoc mismatches, but CANNOT detect unquoted expansions, unused variables, or unreachable code. ShellCheck fills the semantic gap. Tests prove runtime behavior. Coverage quantifies untested surface.
 
 | [INDEX] | [GATE]           | [COMMAND]                                     | [CATCHES]                          | [MISSES]                  |
 | :-----: | :--------------- | :-------------------------------------------- | :--------------------------------- | :------------------------ |
-|   [1]   | **Syntax**       | `bash -n script.sh`                           | Parse err, unclosed blocks         | Semantic+runtime defects  |
-|   [2]   | **Static: err**  | `shellcheck -S error -s bash script.sh`       | Unquoted `$@`, parse-adjacent      | Style/info-level patterns |
-|   [3]   | **Static: full** | `shellcheck -s bash script.sh`                | All 4 severity levels              | Runtime/integration bugs  |
-|   [4]   | **Unit tests**   | `bats tests/`                                 | Functional regressions, edge cases | Untested paths            |
-|   [5]   | **Coverage**     | `kcov --include-path=. coverage/ bats tests/` | Dead code, untested branches       | Semantic correctness      |
-|   [6]   | **Quality gate** | Exit 1 on coverage < threshold                | Enforcement                        | -                         |
+|  [01]   | **Syntax**       | `bash -n script.sh`                           | Parse err, unclosed blocks         | Semantic+runtime defects  |
+|  [02]   | **Static: err**  | `shellcheck -S error -s bash script.sh`       | Unquoted `$@`, parse-adjacent      | Style/info-level patterns |
+|  [03]   | **Static: full** | `shellcheck -s bash script.sh`                | All 4 severity levels              | Runtime/integration bugs  |
+|  [04]   | **Unit tests**   | `bats tests/`                                 | Functional regressions, edge cases | Untested paths            |
+|  [05]   | **Coverage**     | `kcov --include-path=. coverage/ bats tests/` | Dead code, untested branches       | Semantic correctness      |
+|  [06]   | **Quality gate** | Exit 1 on coverage < threshold                | Enforcement                        | -                         |
 
-## [2]-[CRITICAL_SC_CODES]
+## [02]-[CRITICAL_SC_CODES]
 
 **SC2086 — Unquoted variable (info severity, security-critical impact)**
 Unquoted `$var` undergoes word splitting AND pathname globbing. An input containing `* /etc/passwd` expands to every file in CWD plus `/etc/passwd`. Under `rm`, this is arbitrary file deletion. SC2086 is classified "info" because quoting is occasionally intentionally omitted (arithmetic contexts, `[[ ]]` RHS patterns) — the severity does NOT reflect the risk. Treat every SC2086 as a potential injection vector until proven safe.
@@ -39,19 +39,19 @@ BusyBox `sh` implements `[[ ]]` but omits glob pattern matching on the RHS. `[[ 
 **SC2046 — Unquoted command substitution (warning)**
 `$(cmd)` without quotes undergoes word splitting and globbing — same injection class as SC2086 but with the added risk that `cmd`'s output is attacker-influenced. Filenames with spaces, glob characters, or IFS-matching bytes cause silent data corruption.
 
-## [3]-[SC_CODE_REFERENCE]
+## [03]-[SC_CODE_REFERENCE]
 
 | [INDEX] | [CODE]     | [SEV] | [ISSUE]                          | [FIX]                                      |
 | :-----: | ---------- | :---- | :------------------------------- | :----------------------------------------- |
-|   [1]   | **SC2086** | info  | Unquoted variable                | `"${var}"`                                 |
-|   [2]   | **SC2046** | warn  | Unquoted `$()`                   | `"$(cmd)"` or `mapfile -t arr < <(cmd)`    |
-|   [3]   | **SC2155** | warn  | `local v=$(cmd)` masks `$?`      | `local v; v=$(cmd)`                        |
-|   [4]   | **SC2164** | warn  | `cd` without guard               | `cd dir \|\| exit 1`                       |
-|   [5]   | **SC2068** | error | Unquoted `$@`                    | `"$@"`                                     |
-|   [6]   | **SC2329** | warn  | Unused function                  | Remove, call, or disable (dispatch-table)  |
-|   [7]   | **SC2006** | style | Backticks                        | `$(cmd)`                                   |
-|   [8]   | **SC2116** | style | Useless echo `$(echo $v)`        | `$v` directly                              |
-|   [9]   | **SC2162** | info  | `read` without `-r`              | `IFS= read -r line`                        |
+|  [01]   | **SC2086** | info  | Unquoted variable                | `"${var}"`                                 |
+|  [02]   | **SC2046** | warn  | Unquoted `$()`                   | `"$(cmd)"` or `mapfile -t arr < <(cmd)`    |
+|  [03]   | **SC2155** | warn  | `local v=$(cmd)` masks `$?`      | `local v; v=$(cmd)`                        |
+|  [04]   | **SC2164** | warn  | `cd` without guard               | `cd dir \|\| exit 1`                       |
+|  [05]   | **SC2068** | error | Unquoted `$@`                    | `"$@"`                                     |
+|  [06]   | **SC2329** | warn  | Unused function                  | Remove, call, or disable (dispatch-table)  |
+|  [07]   | **SC2006** | style | Backticks                        | `$(cmd)`                                   |
+|  [08]   | **SC2116** | style | Useless echo `$(echo $v)`        | `$v` directly                              |
+|  [09]   | **SC2162** | info  | `read` without `-r`              | `IFS= read -r line`                        |
 |  [10]   | **SC2181** | style | `cmd; if [ $? ]`                 | `cmd && action \|\| handle_error`          |
 |  [11]   | **SC2327** | warn  | Capture + redirect clash         | Separate redirect from capture             |
 |  [12]   | **SC2328** | warn  | Redirect steals from `$()`       | Restructure command                        |
@@ -62,7 +62,7 @@ BusyBox `sh` implements `[[ ]]` but omits glob pattern matching on the RHS. `[[ 
 |  [17]   | **SC3030** | warn  | Arrays in sh script              | Fix shebang to `bash`                      |
 |  [18]   | **SC3037** | warn  | `echo` flags in sh               | `printf` — paradigm requires it regardless |
 
-## [4]-[SHELLCHECKRC]
+## [04]-[SHELLCHECKRC]
 
 ```bash
 # .shellcheckrc — paradigm-aligned defaults
@@ -91,7 +91,7 @@ disable:
 severity: style
 ```
 
-## [5]-[DIRECTIVES]
+## [05]-[DIRECTIVES]
 
 ```bash
 # Correct: justification explains WHY suppression is safe
@@ -121,16 +121,16 @@ Directive reference:
 | `# shellcheck source=/dev/null`               | Skip unresolvable source     |
 | `# shellcheck enable=require-variable-braces` | Enable optional check inline |
 
-## [6]-[IDIOMATIC_PATTERNS]
+## [06]-[IDIOMATIC_PATTERNS]
 
 | [INDEX] | [PATTERN]                               | [ELIMINATES]           | [REPLACES]                 |
 | :-----: | :-------------------------------------- | :--------------------- | :------------------------- |
-|   [1]   | `mapfile -t arr < <(cmd)`               | SC2207 (unquoted arr)  | `arr=( $(cmd) )`           |
-|   [2]   | `readarray -d '' -t f < <(fd --print0)` | SC2207, word splitting | `for f in $(find …)`       |
-|   [3]   | `[[ -v MAP["$k"] ]]`                    | SC2086 in `[ ]`        | `[ -n "${MAP[$k]:-}" ]`    |
-|   [4]   | `printf -v ts '%(%F)T' -1`              | SC2046 from `$(date)`  | `ts=$(date +%F)`           |
-|   [5]   | `local v; v=$(cmd)`                     | SC2155 masked exit     | `local v=$(cmd)`           |
-|   [6]   | `[[ "$v" =~ pat ]] && BASH_REMATCH[1]`  | SC2046 from grep       | `$(echo "$v" \| rg -oP …)` |
+|  [01]   | `mapfile -t arr < <(cmd)`               | SC2207 (unquoted arr)  | `arr=( $(cmd) )`           |
+|  [02]   | `readarray -d '' -t f < <(fd --print0)` | SC2207, word splitting | `for f in $(find …)`       |
+|  [03]   | `[[ -v MAP["$k"] ]]`                    | SC2086 in `[ ]`        | `[ -n "${MAP[$k]:-}" ]`    |
+|  [04]   | `printf -v ts '%(%F)T' -1`              | SC2046 from `$(date)`  | `ts=$(date +%F)`           |
+|  [05]   | `local v; v=$(cmd)`                     | SC2155 masked exit     | `local v=$(cmd)`           |
+|  [06]   | `[[ "$v" =~ pat ]] && BASH_REMATCH[1]`  | SC2046 from grep       | `$(echo "$v" \| rg -oP …)` |
 
 **Env contract validation** — declare-once, validate-all pattern from container entrypoints:
 
@@ -155,7 +155,7 @@ _assert_match() { [[ "$1" =~ $2 ]]  || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO
 
 Inline assertions with automatic caller location via `FUNCNAME[1]`/`BASH_LINENO[0]`. Use in `_self_test()` to validate dispatch table integrity, nameref output functions, and env contract parsing without external test frameworks.
 
-## [7]-[STRICT_MODE_INTERACTIONS]
+## [07]-[STRICT_MODE_INTERACTIONS]
 
 `set -Eeuo pipefail` + `shopt -s inherit_errexit` creates constraints that ShellCheck assumes may not be active:
 
@@ -167,7 +167,7 @@ Inline assertions with automatic caller location via `FUNCNAME[1]`/`BASH_LINENO[
 | `$(cmd)` in `[[ ]]`      | `inherit_errexit` propagates into cmd sub       | Failures inside `[[ $(cmd) ]]` now fatal |
 | `$@` unquoted + `set -u` | `set -u` catches unset but NOT empty `$@`       | SC2068 still required — `"$@"` always    |
 
-## [8]-[CI_INTEGRATION]
+## [08]-[CI_INTEGRATION]
 
 ```yaml
 # .github/workflows/shell-quality.yml

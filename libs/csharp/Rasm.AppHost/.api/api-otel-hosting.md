@@ -2,7 +2,7 @@
 
 `OpenTelemetry.Extensions.Hosting` supplies Generic Host registration for OpenTelemetry tracing, metrics, logging, resource configuration, and provider lifetime.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Extensions.Hosting`
 - package: `OpenTelemetry.Extensions.Hosting`
@@ -11,35 +11,35 @@
 - asset: runtime library
 - rail: telemetry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hosting integration
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                   |
 | :-----: | :-------------------------------- | :------------ | :----------------------- |
-|   [1]   | `OpenTelemetryBuilder`            | host builder  | telemetry provider setup |
-|   [2]   | `OpenTelemetryServicesExtensions` | DI extension  | service registration     |
+|  [01]   | `OpenTelemetryBuilder`            | host builder  | telemetry provider setup |
+|  [02]   | `OpenTelemetryServicesExtensions` | DI extension  | service registration     |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: hosting operations
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]    | [RAIL]                  |
 | :-----: | :------------------------------ | :---------------- | :---------------------- |
-|   [1]   | `AddOpenTelemetry`              | DI extension      | opens telemetry builder |
-|   [2]   | `OpenTelemetryBuilder.Services` | service access    | exposes service graph   |
-|   [3]   | `ConfigureResource`             | resource delegate | resource identity setup |
-|   [4]   | `WithTracing()`                 | tracing admission | default trace provider  |
-|   [5]   | `WithTracing(Action)`           | tracing delegate  | trace provider setup    |
-|   [6]   | `WithMetrics()`                 | metrics admission | default meter provider  |
-|   [7]   | `WithMetrics(Action)`           | metrics delegate  | meter provider setup    |
-|   [8]   | `WithLogging()`                 | logging admission | default logger provider |
-|   [9]   | `WithLogging(Action)`           | logging delegate  | logger provider setup   |
+|  [01]   | `AddOpenTelemetry`              | DI extension      | opens telemetry builder |
+|  [02]   | `OpenTelemetryBuilder.Services` | service access    | exposes service graph   |
+|  [03]   | `ConfigureResource`             | resource delegate | resource identity setup |
+|  [04]   | `WithTracing()`                 | tracing admission | default trace provider  |
+|  [05]   | `WithTracing(Action)`           | tracing delegate  | trace provider setup    |
+|  [06]   | `WithMetrics()`                 | metrics admission | default meter provider  |
+|  [07]   | `WithMetrics(Action)`           | metrics delegate  | meter provider setup    |
+|  [08]   | `WithLogging()`                 | logging admission | default logger provider |
+|  [09]   | `WithLogging(Action)`           | logging delegate  | logger provider setup   |
 |  [10]   | `WithLogging(Action, Options)`  | logging delegate  | logger options setup    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [HOSTING_TELEMETRY_TOPOLOGY]:
 - namespaces: `OpenTelemetry`, `Microsoft.Extensions.DependencyInjection`

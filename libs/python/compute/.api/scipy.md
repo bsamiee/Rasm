@@ -2,7 +2,7 @@
 
 `scipy` supplies the dense/sparse linear algebra, optimization, integration, interpolation, and signal/statistics surfaces for the compute numeric-intent solver rail. The package owner routes each `NumericIntent` case onto a scipy submodule callable — `scipy.linalg.solve`, `scipy.sparse.linalg.spsolve`, `scipy.optimize.minimize`, `scipy.integrate.solve_ivp`, `scipy.interpolate.CubicSpline` — and captures tolerances and residuals as study evidence; it never re-implements a numeric routine scipy owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `scipy`
 - package: `scipy`
@@ -11,42 +11,42 @@
 - rail: solvers
 - capability: scientific solver suite — dense and sparse linear algebra, nonlinear optimization, numerical integration, interpolation, statistics, and signal processing
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: sparse containers and solver result types
 - rail: solvers
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]      | [CAPABILITY]                            |
 | :-----: | :----------------------------------- | :----------------- | :-------------------------------------- |
-|   [1]   | `scipy.sparse.csr_array`             | sparse format      | compressed-sparse-row container         |
-|   [2]   | `scipy.sparse.csc_array`             | sparse format      | compressed-sparse-column container      |
-|   [3]   | `scipy.sparse.coo_array`             | sparse format      | coordinate-list container               |
-|   [4]   | `scipy.sparse.dia_array`             | sparse format      | diagonal-storage container              |
-|   [5]   | `scipy.sparse.bsr_array`             | sparse format      | block-sparse-row container              |
-|   [6]   | `scipy.sparse.lil_array`             | sparse format      | row-based incremental-build container   |
-|   [7]   | `scipy.sparse.linalg.LinearOperator` | matvec abstraction | matrix-free linear operator             |
-|   [8]   | `scipy.optimize.OptimizeResult`      | result carrier     | solution, success flag, and diagnostics |
-|   [9]   | `scipy.optimize.Bounds`              | constraint         | variable lower/upper bounds             |
+|  [01]   | `scipy.sparse.csr_array`             | sparse format      | compressed-sparse-row container         |
+|  [02]   | `scipy.sparse.csc_array`             | sparse format      | compressed-sparse-column container      |
+|  [03]   | `scipy.sparse.coo_array`             | sparse format      | coordinate-list container               |
+|  [04]   | `scipy.sparse.dia_array`             | sparse format      | diagonal-storage container              |
+|  [05]   | `scipy.sparse.bsr_array`             | sparse format      | block-sparse-row container              |
+|  [06]   | `scipy.sparse.lil_array`             | sparse format      | row-based incremental-build container   |
+|  [07]   | `scipy.sparse.linalg.LinearOperator` | matvec abstraction | matrix-free linear operator             |
+|  [08]   | `scipy.optimize.OptimizeResult`      | result carrier     | solution, success flag, and diagnostics |
+|  [09]   | `scipy.optimize.Bounds`              | constraint         | variable lower/upper bounds             |
 |  [10]   | `scipy.optimize.LinearConstraint`    | constraint         | `lb <= A x <= ub` linear constraint     |
 |  [11]   | `scipy.optimize.NonlinearConstraint` | constraint         | nonlinear `lb <= f(x) <= ub` constraint |
 |  [12]   | `scipy.interpolate.BSpline`          | spline carrier     | knot/coefficient B-spline value         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `scipy.linalg` dense factorization and solve
 - rail: solvers
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]  | [RESULT]                        |
 | :-----: | :--------------------------------------- | :-------------- | :------------------------------ |
-|   [1]   | `solve(a, b, assume_a)`                  | dense solve     | solution of `a x = b`           |
-|   [2]   | `inv(a)`                                 | dense solve     | matrix inverse                  |
-|   [3]   | `det(a)`                                 | scalar          | determinant                     |
-|   [4]   | `lu_factor(a)` \| `lu_solve(lu_piv, b)`  | factorization   | LU factor and back-substitution |
-|   [5]   | `cholesky(a, lower)`                     | factorization   | Cholesky factor                 |
-|   [6]   | `cho_factor(a)` \| `cho_solve(c_low, b)` | factorization   | Cholesky factor and solve       |
-|   [7]   | `qr(a, mode, pivoting)`                  | factorization   | QR factor                       |
-|   [8]   | `svd(a, full_matrices, compute_uv)`      | factorization   | singular value decomposition    |
-|   [9]   | `eig(a, b, left, right)`                 | eigensolver     | general eigenvalues/vectors     |
+|  [01]   | `solve(a, b, assume_a)`                  | dense solve     | solution of `a x = b`           |
+|  [02]   | `inv(a)`                                 | dense solve     | matrix inverse                  |
+|  [03]   | `det(a)`                                 | scalar          | determinant                     |
+|  [04]   | `lu_factor(a)` \| `lu_solve(lu_piv, b)`  | factorization   | LU factor and back-substitution |
+|  [05]   | `cholesky(a, lower)`                     | factorization   | Cholesky factor                 |
+|  [06]   | `cho_factor(a)` \| `cho_solve(c_low, b)` | factorization   | Cholesky factor and solve       |
+|  [07]   | `qr(a, mode, pivoting)`                  | factorization   | QR factor                       |
+|  [08]   | `svd(a, full_matrices, compute_uv)`      | factorization   | singular value decomposition    |
+|  [09]   | `eig(a, b, left, right)`                 | eigensolver     | general eigenvalues/vectors     |
 |  [10]   | `eigh(a, b, eigvals_only)`               | eigensolver     | symmetric eigenvalues/vectors   |
 |  [11]   | `lstsq(a, b, lapack_driver)`             | least squares   | minimum-norm least-squares fit  |
 |  [12]   | `pinv(a, atol, rtol)`                    | dense solve     | Moore-Penrose pseudoinverse     |
@@ -58,15 +58,15 @@
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [RESULT]                      |
 | :-----: | :------------------------------------------------- | :-------------- | :---------------------------- |
-|   [1]   | `sparse.diags(diagonals, offsets, shape)`          | construct       | banded sparse array           |
-|   [2]   | `sparse.eye_array(m, k, format)`                   | construct       | sparse identity               |
-|   [3]   | `sparse.kron(A, B, format)`                        | construct       | sparse Kronecker product      |
-|   [4]   | `sparse.hstack(blocks)` \| `sparse.vstack(blocks)` | construct       | block-stacked sparse array    |
-|   [5]   | `sparse.random_array(shape, density)`              | construct       | random sparse array           |
-|   [6]   | `sparse.linalg.spsolve(A, b)`                      | direct solve    | sparse `A x = b` solution     |
-|   [7]   | `sparse.linalg.splu(A)`                            | factorization   | sparse LU factor object       |
-|   [8]   | `sparse.linalg.factorized(A)`                      | factorization   | reusable solve closure        |
-|   [9]   | `sparse.linalg.cg(A, b, rtol, M)`                  | iterative solve | conjugate-gradient solution   |
+|  [01]   | `sparse.diags(diagonals, offsets, shape)`          | construct       | banded sparse array           |
+|  [02]   | `sparse.eye_array(m, k, format)`                   | construct       | sparse identity               |
+|  [03]   | `sparse.kron(A, B, format)`                        | construct       | sparse Kronecker product      |
+|  [04]   | `sparse.hstack(blocks)` \| `sparse.vstack(blocks)` | construct       | block-stacked sparse array    |
+|  [05]   | `sparse.random_array(shape, density)`              | construct       | random sparse array           |
+|  [06]   | `sparse.linalg.spsolve(A, b)`                      | direct solve    | sparse `A x = b` solution     |
+|  [07]   | `sparse.linalg.splu(A)`                            | factorization   | sparse LU factor object       |
+|  [08]   | `sparse.linalg.factorized(A)`                      | factorization   | reusable solve closure        |
+|  [09]   | `sparse.linalg.cg(A, b, rtol, M)`                  | iterative solve | conjugate-gradient solution   |
 |  [10]   | `sparse.linalg.gmres(A, b, restart)`               | iterative solve | GMRES solution                |
 |  [11]   | `sparse.linalg.bicgstab(A, b, rtol)`               | iterative solve | BiCGSTAB solution             |
 |  [12]   | `sparse.linalg.lsqr(A, b, atol, btol)`             | least squares   | sparse least-squares solution |
@@ -78,15 +78,15 @@
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]  | [RESULT]                           |
 | :-----: | :---------------------------------------------------- | :-------------- | :--------------------------------- |
-|   [1]   | `minimize(fun, x0, method, jac, bounds, constraints)` | minimize        | `OptimizeResult` local minimum     |
-|   [2]   | `minimize_scalar(fun, bracket, bounds, method)`       | minimize        | scalar-function minimum            |
-|   [3]   | `least_squares(fun, x0, jac, bounds, method)`         | least squares   | nonlinear least-squares solution   |
-|   [4]   | `curve_fit(f, xdata, ydata, p0, bounds)`              | least squares   | fitted parameters and covariance   |
-|   [5]   | `root(fun, x0, method, jac)`                          | root find       | vector-root `OptimizeResult`       |
-|   [6]   | `root_scalar(f, method, bracket, x0)`                 | root find       | scalar-root result                 |
-|   [7]   | `brentq(f, a, b, xtol, rtol)`                         | root find       | bracketed scalar root              |
-|   [8]   | `newton(func, x0, fprime, tol)`                       | root find       | Newton/secant scalar root          |
-|   [9]   | `fsolve(func, x0, fprime)`                            | root find       | hybrd vector root                  |
+|  [01]   | `minimize(fun, x0, method, jac, bounds, constraints)` | minimize        | `OptimizeResult` local minimum     |
+|  [02]   | `minimize_scalar(fun, bracket, bounds, method)`       | minimize        | scalar-function minimum            |
+|  [03]   | `least_squares(fun, x0, jac, bounds, method)`         | least squares   | nonlinear least-squares solution   |
+|  [04]   | `curve_fit(f, xdata, ydata, p0, bounds)`              | least squares   | fitted parameters and covariance   |
+|  [05]   | `root(fun, x0, method, jac)`                          | root find       | vector-root `OptimizeResult`       |
+|  [06]   | `root_scalar(f, method, bracket, x0)`                 | root find       | scalar-root result                 |
+|  [07]   | `brentq(f, a, b, xtol, rtol)`                         | root find       | bracketed scalar root              |
+|  [08]   | `newton(func, x0, fprime, tol)`                       | root find       | Newton/secant scalar root          |
+|  [09]   | `fsolve(func, x0, fprime)`                            | root find       | hybrd vector root                  |
 |  [10]   | `linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)`          | linear program  | HiGHS LP solution                  |
 |  [11]   | `milp(c, integrality, bounds, constraints)`           | integer program | mixed-integer LP solution          |
 |  [12]   | `differential_evolution(func, bounds, strategy)`      | global optimize | stochastic global minimum          |
@@ -98,15 +98,15 @@
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RESULT]                           |
 | :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------- |
-|   [1]   | `integrate.quad(func, a, b, epsabs, epsrel)`                  | quadrature     | scalar integral plus error         |
-|   [2]   | `integrate.dblquad(func, a, b, gfun, hfun)`                   | quadrature     | double integral                    |
-|   [3]   | `integrate.nquad(func, ranges, opts)`                         | quadrature     | n-dimensional integral             |
-|   [4]   | `integrate.quad_vec(f, a, b, epsabs, workers)`                | quadrature     | vector-valued integral             |
-|   [5]   | `integrate.solve_ivp(fun, t_span, y0, method)`                | ODE integrator | initial-value ODE solution         |
-|   [6]   | `integrate.odeint(func, y0, t)`                               | ODE integrator | LSODA ODE solution                 |
-|   [7]   | `integrate.simpson(y, x, dx)`                                 | sampled rule   | Simpson-rule integral              |
-|   [8]   | `integrate.trapezoid(y, x, dx)`                               | sampled rule   | trapezoidal integral               |
-|   [9]   | `interpolate.interp1d(x, y, kind)`                            | interpolant    | callable 1-D interpolant           |
+|  [01]   | `integrate.quad(func, a, b, epsabs, epsrel)`                  | quadrature     | scalar integral plus error         |
+|  [02]   | `integrate.dblquad(func, a, b, gfun, hfun)`                   | quadrature     | double integral                    |
+|  [03]   | `integrate.nquad(func, ranges, opts)`                         | quadrature     | n-dimensional integral             |
+|  [04]   | `integrate.quad_vec(f, a, b, epsabs, workers)`                | quadrature     | vector-valued integral             |
+|  [05]   | `integrate.solve_ivp(fun, t_span, y0, method)`                | ODE integrator | initial-value ODE solution         |
+|  [06]   | `integrate.odeint(func, y0, t)`                               | ODE integrator | LSODA ODE solution                 |
+|  [07]   | `integrate.simpson(y, x, dx)`                                 | sampled rule   | Simpson-rule integral              |
+|  [08]   | `integrate.trapezoid(y, x, dx)`                               | sampled rule   | trapezoidal integral               |
+|  [09]   | `interpolate.interp1d(x, y, kind)`                            | interpolant    | callable 1-D interpolant           |
 |  [10]   | `interpolate.CubicSpline(x, y, bc_type)`                      | interpolant    | C2 cubic-spline interpolant        |
 |  [11]   | `interpolate.PchipInterpolator(x, y)`                         | interpolant    | shape-preserving cubic interpolant |
 |  [12]   | `interpolate.make_interp_spline(x, y, k)`                     | interpolant    | `BSpline` interpolant              |
@@ -116,45 +116,45 @@
 [ENTRYPOINT_SCOPE]: `scipy.signal` filter design, spectral estimation, and resampling
 - rail: signal
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]    | [RESULT]                              |
-| :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------ |
-|   [1]   | `butter(N, Wn, btype, output='sos')`                     | IIR design        | Butterworth SOS / b,a coefficients    |
-|   [2]   | `firwin(numtaps, cutoff, window, pass_zero)`             | FIR design        | windowed-FIR tap coefficients         |
-|   [3]   | `sosfiltfilt(sos, x, axis)`                              | zero-phase filter | forward-backward SOS-filtered signal  |
-|   [4]   | `filtfilt(b, a, x, axis)`                                | zero-phase filter | forward-backward b,a-filtered signal  |
-|   [5]   | `welch(x, fs, nperseg, noverlap)`                        | spectral estimate | Welch PSD `(f, Pxx)`                   |
-|   [6]   | `spectrogram(x, fs, nperseg, noverlap)`                  | spectral estimate | time-frequency `(f, t, Sxx)`          |
-|   [7]   | `resample_poly(x, up, down, axis)`                       | resample          | polyphase rational resample           |
-|   [8]   | `find_peaks(x, height, distance, prominence)`            | peak detect       | peak indices and properties           |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]    | [RESULT]                             |
+| :-----: | :-------------------------------------------- | :---------------- | :----------------------------------- |
+|  [01]   | `butter(N, Wn, btype, output='sos')`          | IIR design        | Butterworth SOS / b,a coefficients   |
+|  [02]   | `firwin(numtaps, cutoff, window, pass_zero)`  | FIR design        | windowed-FIR tap coefficients        |
+|  [03]   | `sosfiltfilt(sos, x, axis)`                   | zero-phase filter | forward-backward SOS-filtered signal |
+|  [04]   | `filtfilt(b, a, x, axis)`                     | zero-phase filter | forward-backward b,a-filtered signal |
+|  [05]   | `welch(x, fs, nperseg, noverlap)`             | spectral estimate | Welch PSD `(f, Pxx)`                 |
+|  [06]   | `spectrogram(x, fs, nperseg, noverlap)`       | spectral estimate | time-frequency `(f, t, Sxx)`         |
+|  [07]   | `resample_poly(x, up, down, axis)`            | resample          | polyphase rational resample          |
+|  [08]   | `find_peaks(x, height, distance, prominence)` | peak detect       | peak indices and properties          |
 
 [ENTRYPOINT_SCOPE]: `scipy.stats.qmc` quasi-Monte-Carlo sampling
 - rail: experiments
 
 `Sobol`/`Halton`/`LatinHypercube` are `QMCEngine` subclasses whose `random(n)` draws a low-discrepancy sample on the unit hypercube; `scale` affinely maps the sample to the bounds box and `discrepancy` scores the sample uniformity.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [RESULT]                                |
-| :-----: | :--------------------------------------------------- | :--------------- | :-------------------------------------- |
-|   [1]   | `qmc.Sobol(d, scramble, seed)` -> `.random(n)`       | QMC engine       | scrambled Sobol low-discrepancy sample  |
-|   [2]   | `qmc.Halton(d, scramble, seed)` -> `.random(n)`      | QMC engine       | Halton low-discrepancy sample           |
-|   [3]   | `qmc.LatinHypercube(d, scramble, seed)` -> `.random(n)` | QMC engine    | Latin-hypercube stratified sample       |
-|   [4]   | `qmc.scale(sample, l_bounds, u_bounds)`              | affine map       | sample scaled to the bounds box         |
-|   [5]   | `qmc.discrepancy(sample, method)`                    | uniformity score | low-discrepancy quality metric          |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]   | [RESULT]                               |
+| :-----: | :------------------------------------------------------ | :--------------- | :------------------------------------- |
+|  [01]   | `qmc.Sobol(d, scramble, seed)` -> `.random(n)`          | QMC engine       | scrambled Sobol low-discrepancy sample |
+|  [02]   | `qmc.Halton(d, scramble, seed)` -> `.random(n)`         | QMC engine       | Halton low-discrepancy sample          |
+|  [03]   | `qmc.LatinHypercube(d, scramble, seed)` -> `.random(n)` | QMC engine       | Latin-hypercube stratified sample      |
+|  [04]   | `qmc.scale(sample, l_bounds, u_bounds)`                 | affine map       | sample scaled to the bounds box        |
+|  [05]   | `qmc.discrepancy(sample, method)`                       | uniformity score | low-discrepancy quality metric         |
 
 [ENTRYPOINT_SCOPE]: `scipy.spatial` neighbour search, hull, and tessellation
 - rail: spatial
 
 `cKDTree` is the compiled KD-tree; `ConvexHull`/`Delaunay`/`Voronoi` are Qhull-backed tessellation carriers whose attributes expose simplices, vertices, and adjacency; `distance.cdist` is the pairwise distance matrix.
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]    | [RESULT]                                |
-| :-----: | :------------------------------------------------------- | :---------------- | :-------------------------------------- |
-|   [1]   | `cKDTree(data)` -> `.query(x, k)`                        | neighbour search  | k-nearest indices and distances         |
-|   [2]   | `cKDTree.query_ball_point(x, r)`                         | radius search     | indices within radius `r`               |
-|   [3]   | `ConvexHull(points)` -> `.simplices`/`.volume`/`.area`   | hull              | facet simplices, hull volume and area   |
-|   [4]   | `Delaunay(points)` -> `.simplices`/`.points`/`.find_simplex(p)` | triangulation | simplex table, points, point-location   |
-|   [5]   | `Voronoi(points)` -> `.vertices`/`.regions`/`.ridge_points` | tessellation   | Voronoi vertices, regions, ridge graph  |
-|   [6]   | `distance.cdist(XA, XB, metric)`                         | distance matrix   | pairwise distance matrix                |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]   | [RESULT]                               |
+| :-----: | :-------------------------------------------------------------- | :--------------- | :------------------------------------- |
+|  [01]   | `cKDTree(data)` -> `.query(x, k)`                               | neighbour search | k-nearest indices and distances        |
+|  [02]   | `cKDTree.query_ball_point(x, r)`                                | radius search    | indices within radius `r`              |
+|  [03]   | `ConvexHull(points)` -> `.simplices`/`.volume`/`.area`          | hull             | facet simplices, hull volume and area  |
+|  [04]   | `Delaunay(points)` -> `.simplices`/`.points`/`.find_simplex(p)` | triangulation    | simplex table, points, point-location  |
+|  [05]   | `Voronoi(points)` -> `.vertices`/`.regions`/`.ridge_points`     | tessellation     | Voronoi vertices, regions, ridge graph |
+|  [06]   | `distance.cdist(XA, XB, metric)`                                | distance matrix  | pairwise distance matrix               |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SOLVER_TOPOLOGY]:
 - dense linear: `scipy.linalg` owns factorizations (`lu_factor`, `cholesky`, `qr`, `svd`), direct solve (`solve`, `inv`, `lstsq`, `pinv`), eigensolvers (`eig`, `eigh`), and matrix functions (`expm`).

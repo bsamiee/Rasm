@@ -4,7 +4,7 @@
 jitter, and DST-correct next/previous occurrence calculation over UTC instants and
 explicit time zones for AppHost schedule rails.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Cronos`
 - package: `Cronos`
@@ -13,42 +13,42 @@ explicit time zones for AppHost schedule rails.
 - asset: runtime library
 - rail: schedule
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cron expression family
 - rail: schedule
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [RAIL]                 |
 | :-----: | :--------------------- | :------------- | :--------------------- |
-|   [1]   | `CronExpression`       | schedule value | occurrence calculation |
-|   [2]   | `CronFormat`           | format enum    | field-count admission  |
-|   [3]   | `CronFormatException`  | parse failure  | invalid expression     |
-|   [4]   | `MissingSeedException` | jitter failure | `H` without seed       |
+|  [01]   | `CronExpression`       | schedule value | occurrence calculation |
+|  [02]   | `CronFormat`           | format enum    | field-count admission  |
+|  [03]   | `CronFormatException`  | parse failure  | invalid expression     |
+|  [04]   | `MissingSeedException` | jitter failure | `H` without seed       |
 
 [PUBLIC_TYPE_SCOPE]: format cases
 - rail: schedule
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                     |
 | :-----: | :-------------------------- | :------------ | :------------------------- |
-|   [1]   | `CronFormat.Standard`       | five fields   | minute-resolution schedule |
-|   [2]   | `CronFormat.IncludeSeconds` | six fields    | second-resolution schedule |
+|  [01]   | `CronFormat.Standard`       | five fields   | minute-resolution schedule |
+|  [02]   | `CronFormat.IncludeSeconds` | six fields    | second-resolution schedule |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and template construction
 - rail: schedule
 
 | [INDEX] | [SURFACE]                         | [ENTRY_FAMILY]   | [RAIL]                       |
 | :-----: | :-------------------------------- | :--------------- | :--------------------------- |
-|   [1]   | `Parse(expression)`               | throwing parse   | five-field standard parse    |
-|   [2]   | `Parse(expression, format)`       | throwing parse   | format-selected parse        |
-|   [3]   | `Parse(expression, jitterSeed)`   | throwing parse   | seeded `H` jitter parse      |
-|   [4]   | `Parse(expr, format, jitterSeed)` | throwing parse   | format plus jitter parse     |
-|   [5]   | `TryParse(expression, out)`       | guarded parse    | non-throwing standard parse  |
-|   [6]   | `TryParse(expr, format, out)`     | guarded parse    | non-throwing format parse    |
-|   [7]   | `TryParse(expr, seed, out)`       | guarded parse    | non-throwing jitter parse    |
-|   [8]   | `TryParse(expr, fmt, seed, out)`  | guarded parse    | non-throwing full parse      |
-|   [9]   | `Yearly`..`EveryMinute`           | static template  | five-field canonical values  |
+|  [01]   | `Parse(expression)`               | throwing parse   | five-field standard parse    |
+|  [02]   | `Parse(expression, format)`       | throwing parse   | format-selected parse        |
+|  [03]   | `Parse(expression, jitterSeed)`   | throwing parse   | seeded `H` jitter parse      |
+|  [04]   | `Parse(expr, format, jitterSeed)` | throwing parse   | format plus jitter parse     |
+|  [05]   | `TryParse(expression, out)`       | guarded parse    | non-throwing standard parse  |
+|  [06]   | `TryParse(expr, format, out)`     | guarded parse    | non-throwing format parse    |
+|  [07]   | `TryParse(expr, seed, out)`       | guarded parse    | non-throwing jitter parse    |
+|  [08]   | `TryParse(expr, fmt, seed, out)`  | guarded parse    | non-throwing full parse      |
+|  [09]   | `Yearly`..`EveryMinute`           | static template  | five-field canonical values  |
 |  [10]   | `EverySecond`                     | static template  | six-field canonical value    |
 |  [11]   | `YearlyWithJitter(seed)` family   | jitter template  | seeded template construction |
 |  [12]   | `@yearly`..`@every_second` macros | macro expression | named schedule intake        |
@@ -58,21 +58,21 @@ explicit time zones for AppHost schedule rails.
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]     | [RAIL]                      |
 | :-----: | :----------------------------------------- | :----------------- | :-------------------------- |
-|   [1]   | `GetNextOccurrence(fromUtc)`               | point query        | next UTC instant            |
-|   [2]   | `GetNextOccurrence(fromUtc, zone)`         | point query        | next zoned instant          |
-|   [3]   | `GetNextOccurrence(from, zone)`            | offset point query | next `DateTimeOffset`       |
-|   [4]   | `GetPreviousOccurrence(fromUtc)`           | point query        | previous UTC instant        |
-|   [5]   | `GetPreviousOccurrence(fromUtc, zone)`     | point query        | previous zoned instant      |
-|   [6]   | `GetPreviousOccurrence(from, zone)`        | offset point query | previous `DateTimeOffset`   |
-|   [7]   | `GetOccurrences(fromUtc, toUtc)`           | range query        | lazy ascending UTC window   |
-|   [8]   | `GetOccurrences(fromUtc, toUtc, zone)`     | range query        | lazy ascending zoned window |
-|   [9]   | `GetOccurrences(from, to, zone)`           | offset range query | lazy ascending offsets      |
+|  [01]   | `GetNextOccurrence(fromUtc)`               | point query        | next UTC instant            |
+|  [02]   | `GetNextOccurrence(fromUtc, zone)`         | point query        | next zoned instant          |
+|  [03]   | `GetNextOccurrence(from, zone)`            | offset point query | next `DateTimeOffset`       |
+|  [04]   | `GetPreviousOccurrence(fromUtc)`           | point query        | previous UTC instant        |
+|  [05]   | `GetPreviousOccurrence(fromUtc, zone)`     | point query        | previous zoned instant      |
+|  [06]   | `GetPreviousOccurrence(from, zone)`        | offset point query | previous `DateTimeOffset`   |
+|  [07]   | `GetOccurrences(fromUtc, toUtc)`           | range query        | lazy ascending UTC window   |
+|  [08]   | `GetOccurrences(fromUtc, toUtc, zone)`     | range query        | lazy ascending zoned window |
+|  [09]   | `GetOccurrences(from, to, zone)`           | offset range query | lazy ascending offsets      |
 |  [10]   | `GetOccurrencesDescending(fromUtc, toUtc)` | range query        | lazy descending window      |
 |  [11]   | `GetOccurrencesDescending(.., zone)`       | range query        | descending zoned/offset     |
 |  [12]   | `ToString`                                 | text projection    | normalized expression text  |
 |  [13]   | `Equals` / `==` / `!=`                     | value equality     | schedule identity           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SCHEDULE_TOPOLOGY]:
 - namespace: `Cronos` only; four public types

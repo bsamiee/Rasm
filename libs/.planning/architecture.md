@@ -2,7 +2,7 @@
 
 The canonical monorepo hierarchy law — the strata, the dependency direction, the universal-vs-Rhino-capture rule, the geometry/mesh/IFC flow, the `.planning/` lifecycle, the per-language roles, and the cross-language wire seams. This Tier-0 law owns the cross-cutting topology that no single branch or package can own; it is distinct from the authoring standard (`README.md`, which owns the doc-set tiers and page grammar) and the campaign method (`campaign-method.md`, which owns the planning loop). Per-package detail — owner registries, source trees, intra-package seams — lives in each folder `ARCHITECTURE.md` and is never restated here. Tier-0 is the only tier that names a language; branches and folders consume this topology as settled vocabulary.
 
-## [1]-[STRATA]
+## [01]-[STRATA]
 
 The repository is one tri-language AEC platform organized into strict strata. Each stratum depends only upward; each package is a genuine higher-order domain, never a weak or mini sibling. The C# branch carries the durable host-bound source and the geometry/AEC capability; Python and TypeScript are host-free peer runtimes that consume the wire.
 
@@ -26,7 +26,7 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 - Folder(s): (future apps/plugins/services) `apps` by concern `apps/rhino`, `apps/grasshopper`, `apps/<X>`
 - Compose APP-PLATFORM + HOST-BOUNDARY into product shells that declare intent, bind host edges, and emit output.
 
-## [2]-[DEPENDENCY_DIRECTION]
+## [02]-[DEPENDENCY_DIRECTION]
 
 Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base and the app shells at the leaf.
 
@@ -35,7 +35,7 @@ Dependency is strictly upward through the strata; the graph is acyclic with the 
 - No host-neutral package (KERNEL, AEC-DOMAIN, APP-PLATFORM) references a HOST-BOUNDARY package. `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and are composed at the app roots.
 - `Rasm.AppUi` is the app-platform consuming leaf; it is NOT the app composition root. The product composition that binds host boundaries (Rhino/GH2) lives at the future APP stratum, never inside app-platform. A scaffold `.csproj` that references `Rasm.Rhino`/`Rasm.Grasshopper` from `Rasm.AppUi` is redrawn to the strata: AppUi references the kernel, AppHost, Compute, and Persistence, and the host boundaries enter at the app root that composes a live host.
 
-## [3]-[UNIVERSAL_VS_CAPTURE]
+## [03]-[UNIVERSAL_VS_CAPTURE]
 
 "Universal" never means host-free C#. The entire C# branch is RhinoCommon-aware, the kernel included. Universal means the portable cross-runtime contracts the host-free runtimes consume: content-identity, geometry payload/GLB, IFC/BIM semantics, material-profile-as-data, and the typed receipts. The host-free peers (Python, TypeScript) consume those contracts; they never consume RhinoCommon.
 
@@ -43,7 +43,7 @@ Dependency is strictly upward through the strata; the graph is acyclic with the 
 - `Rasm.Rhino/Exchange` and `Rasm.Rhino` drafting stay rich Rhino features and are NOT thinned. Rhino owns Make2D, sheet layout, and native file I/O; `Rasm.Bim` independently owns the universal IFC/exchange semantic model. The two coexist — Rhino-native capture and host-neutral semantics — and neither is gutted to feed the other.
 - A host-neutral AEC-domain or app-platform owner expresses the universal contract; the host boundary expresses the native surface; they meet only at the contract, never by one re-implementing the other.
 
-## [4]-[GEOMETRY_FLOW]
+## [04]-[GEOMETRY_FLOW]
 
 Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes meet only at the wire. No concern is owned twice within a runtime, and no runtime re-implements a peer's geometry.
 
@@ -52,7 +52,7 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 - `Rasm` and Python geometry meet only at the wire: content-identity plus the GLB/GeometryPayload tessellation rail. TypeScript consumes that wire for web render and owns no geometry.
 - Meshing has one owner per runtime: Rasm-DEC (C#), Py-scan (Python), TS-render (TypeScript). IFC has one semantic owner per runtime: `Rasm.Bim` (C# semantics) and Python `ifcopenshell` (offline evaluation); they meet at the wire, never by duplication.
 
-## [5]-[PLANNING_LIFECYCLE]
+## [05]-[PLANNING_LIFECYCLE]
 
 `.planning/` is a transient greenfield scaffold, not a permanent fixture. It exists to bring an under-developed folder to the decision-complete bar and dissolves as source lands; the eventual source tree is authored only when code is written.
 
@@ -62,7 +62,7 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 - The one exception is a genuinely-new unbuilt sub-domain inside an otherwise-mature package: it keeps its scaffold in that sub-domain folder (the robust-geometry `Rasm/Geometry/.planning/` is the canonical instance), because a package-root `.planning/` would wrongly imply the mature siblings (`Vectors/`, `Analysis/`, `Domain/`) are also in planning.
 - `Rasm.Rhino` and `Rasm.Grasshopper` are out of scope: self-contained, durable, host-bound code with no `.planning/`.
 
-## [6]-[PER_LANGUAGE_ROLES]
+## [06]-[PER_LANGUAGE_ROLES]
 
 The three branches are first-class peers, each a complete library adoptable in any monorepo, coupled only at the wire. Their roles are distinct in kind, not a name-mirror of one another.
 
@@ -72,7 +72,7 @@ The three branches are first-class peers, each a complete library adoptable in a
 
 Within each language the same organization principle holds: real higher-order domain folders (no weak or mini sibling — a small isolated concern folds into the bigger concept it belongs to), source-mirroring sub-domain organization, OOP capsules at boundaries and FP-ROP internals. A branch re-derives its topology from the finalized owner set, never from a stale layout.
 
-## [7]-[CROSS_LANGUAGE_WIRE]
+## [07]-[CROSS_LANGUAGE_WIRE]
 
 The branches couple ONLY through the wire contracts and the companion/offline seams; coupling beyond them is a defect. This section states the wire law; the concrete integration point for any one seam lives as a boundary/wire consideration on the task that builds it, not in a standalone cross-reference ledger that drifts.
 

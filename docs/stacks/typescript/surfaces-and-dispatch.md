@@ -2,25 +2,25 @@
 
 A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `Data.TaggedEnum` under one `$match` so a new verb breaks every site instead of growing a sibling, arity collapses into a non-empty tuple, `Effect.forEach`, and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into `as const satisfies Record` vocabularies whose rows carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the vocabulary owner. Match terminals are selected by what unmatched input means — `exhaustive` when it is a compile error, `option` when it is absence, `either` when it is observable evidence — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one Effect pipeline dispatching success, typed failure, and context at once. Aspects split at one seam: decode and brand below the admission boundary on the single Schema, retry and lifetime above it as effect transformers.
 
-## [1]-[FORM_CHOOSER]
+## [01]-[FORM_CHOOSER]
 
 When a concern matches several rows, the most specific wins; the carrier axis is read after the form is fixed.
 
 | [INDEX] | [CONCERN_SIGNATURE]                          | [FORM]                                        | [REJECTED_FORM]                      |
 | :-----: | :------------------------------------------- | :-------------------------------------------- | :----------------------------------- |
-|   [1]   | verb family, shared preamble                 | request `Data.TaggedEnum` + `$match`          | sibling `create`/`update` methods    |
-|   [2]   | one verb, varying arity                      | `[T, ...ReadonlyArray<T>]` + `Effect.forEach` | per-arity overload family            |
-|   [3]   | closed tagged domain projection              | `Match.tagsExhaustive` / `$match`             | distributed `switch (x._tag)`        |
-|   [4]   | keyed domain is the behavior                 | `as const satisfies Record` vocabulary lookup | repeated full-coverage `Match`       |
-|   [5]   | non-`_tag` literal discriminant              | `Match.discriminatorsExhaustive(field)`       | hand-keyed `Record` + assert         |
-|   [6]   | structural / multi-dimension predicate       | `Match.whenAnd`/`whenOr`/`not`                | nested boolean branching             |
-|   [7]   | input shape, not nominal type, discriminates | `Match.type().pipe(Match.when, ...)`          | `if`-chain over open input           |
-|   [8]   | one body over success / fail / context       | one Effect pipeline                           | per-channel sibling family           |
-|   [9]   | optional context with identity               | one `Option<ContextRecord>`                   | `a?: T, b?: T, mode?: boolean` tail  |
+|  [01]   | verb family, shared preamble                 | request `Data.TaggedEnum` + `$match`          | sibling `create`/`update` methods    |
+|  [02]   | one verb, varying arity                      | `[T, ...ReadonlyArray<T>]` + `Effect.forEach` | per-arity overload family            |
+|  [03]   | closed tagged domain projection              | `Match.tagsExhaustive` / `$match`             | distributed `switch (x._tag)`        |
+|  [04]   | keyed domain is the behavior                 | `as const satisfies Record` vocabulary lookup | repeated full-coverage `Match`       |
+|  [05]   | non-`_tag` literal discriminant              | `Match.discriminatorsExhaustive(field)`       | hand-keyed `Record` + assert         |
+|  [06]   | structural / multi-dimension predicate       | `Match.whenAnd`/`whenOr`/`not`                | nested boolean branching             |
+|  [07]   | input shape, not nominal type, discriminates | `Match.type().pipe(Match.when, ...)`          | `if`-chain over open input           |
+|  [08]   | one body over success / fail / context       | one Effect pipeline                           | per-channel sibling family           |
+|  [09]   | optional context with identity               | one `Option<ContextRecord>`                   | `a?: T, b?: T, mode?: boolean` tail  |
 |  [10]   | partial classification, absence is valid     | `Match.value(...).pipe(..., Match.option)`    | catch-all `orElse` masking a variant |
 |  [11]   | typestate-carrying verb family               | `Data.TaggedEnum` `WithGenerics`              | per-state request union copy         |
 
-## [2]-[ENTRYPOINT_LAW]
+## [02]-[ENTRYPOINT_LAW]
 
 [REQUEST_COLLAPSE]:
 - Law: one concern exposes one entrypoint; a verb family is a `Data.TaggedEnum` with one variant per verb under one `$match`.
@@ -62,7 +62,7 @@ const admit = (raw: unknown): Effect.Effect<_Receipt, _Fault | ParseResult.Parse
   S.decodeUnknown(_Wire)(raw).pipe(Effect.map(_admit), Effect.flatMap(dispatch(_ledger))) // decode prologue, then one dispatch
 ```
 
-## [3]-[MODAL_ARITY]
+## [03]-[MODAL_ARITY]
 
 [ARITY_ABSORPTION]:
 - Law: singular, multi-item, and empty call sites collapse into one signature; a non-empty tuple `readonly [T, ...ReadonlyArray<T>]` is the arity-polymorphic input that proves at least one element at the type level, and `Effect.forEach` carries the plural rail.
@@ -93,7 +93,7 @@ const ingest = (entries: ReadonlyArray<_Raw>, step: (raw: _Raw) => Effect.Effect
   )
 ```
 
-## [4]-[PARAMETER_ALGEBRA]
+## [04]-[PARAMETER_ALGEBRA]
 
 [VOCABULARY_VALUES]:
 - Law: a policy parameter arrives as one vocabulary row carrying its own behavior; the entrypoint reads the row through indexed access and invokes its columns, and no `if`/`Match` reconstructs at dispatch what the row already encodes.
@@ -130,7 +130,7 @@ const _withPolicy = (via: _Via) => {
 }
 ```
 
-## [5]-[MATCH_DISPATCH]
+## [05]-[MATCH_DISPATCH]
 
 [TERMINAL_SELECTION]:
 - Law: the completion operator is an explicit architectural decision — `Match.exhaustive` when an unmatched case is a compile error over a closed tagged domain, `Match.option` when it is valid absence yielding `Option<A>`, `Match.either` when it is observable evidence preserving `Left(Remaining)`.
@@ -173,7 +173,7 @@ const projectPolicy = Match.type<Phase>().pipe(
 - Use: the bridge as a `static` method on the fault class so no per-caller projection exists; `Effect.sandbox` surfaces `Cause<unknown>`, `Cause.match` folds with the join, and `Effect.unsandbox` re-promotes to the typed error channel.
 - Reject: a duplicated status-to-error or cause-to-error projection across call sites; a per-discriminant constructor `Record` standing in for the bridge fold; `catchAllCause` where re-promotion must preserve the typed rail for downstream retry.
 
-## [6]-[CARRIER_POLYMORPHIC_DISPATCH]
+## [06]-[CARRIER_POLYMORPHIC_DISPATCH]
 
 [ONE_CARRIER_SURFACE]:
 - Law: the form selects which arm runs, the Effect the arms return selects how results combine — orthogonal axes; one entrypoint returning `Effect.Effect<A, E, R>` dispatches success, typed failure, and context at once, and the per-channel sibling family is the rejected form.
@@ -213,7 +213,7 @@ const assemble = (source: _Source, band: _Band, tag: _Tag): Effect.Effect<Compos
   )
 ```
 
-## [7]-[ASPECTS]
+## [07]-[ASPECTS]
 
 [WEAVE_SEAM]:
 - Law: a decode-time aspect is a property of the Schema — brand, filter, refinement woven into the single source; a composition-time aspect is a property of one call site — retry, timeout, telemetry attached as effect transformers in the pipeline.

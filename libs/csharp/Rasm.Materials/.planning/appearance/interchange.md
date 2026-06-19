@@ -2,12 +2,12 @@
 
 THE MATERIAL WIRE VOCABULARY and THE MATERIALX NODE-GRAPH INTERCHANGE. One `MaterialWire` is the canonical OpenPBR-vector material wire shape every host-free peer decodes — a `MaterialId` key, the closed OpenPBR Surface 1.1 parameter groups (`base`/`specular`/`transmission`/`subsurface`/`coat`/`fuzz`/`thin_film`/`emission`/`geometry`), the named `ConductorMetal`, the `Provenance` receipt, and the resolved `SurfaceShade` preview — minted ONCE in C# and decoded, NEVER re-minted, by the TypeScript web/edge platform and the Python companion. One `MtlxDocument` is the MaterialX 1.39 `.mtlx` node-graph interchange shape: the `graph#MATERIAL_GRAPH` `AppearanceNode` union and `PortValue` polarities project onto the MaterialX node categories and typed ports so a `MaterialGraph` serializes to and from a DCC-portable `.mtlx` document, with the `bsdf#OPENPBR_SLAB` `SlabStack` lowered to the MaterialX `open_pbr_surface` node. C# OWNS the material wire vocabulary; the TS and Py consumers DECODE the `MaterialWire`/`MtlxDocument` and never re-derive the OpenPBR parameter algebra or the MaterialX node schema — a second mint of either shape in a peer is the named cross-language drift defect (`architecture.md#CROSS_LANGUAGE_WIRE`). The page composes `graph#MATERIAL_LIBRARY` `MaterialParameters` for the parameter source, `bsdf#OPENPBR_SLAB` `SlabStack`/`OpenPbrSurface` for the OpenPBR vector, `bsdf#CONDUCTOR_IOR` `ConductorMetal` for the metal grounding, `graph#MATERIAL_GRAPH` for the node-graph source, and the `MaterialFault` band-2450 rail for a malformed projection.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MATERIAL_WIRE]: the `MaterialWire` canonical OpenPBR-vector wire shape, the `OpenPbrGroupsWire` parameter-group projection, the `WireProvenance` receipt, and the C#-mints / peers-decode single-mint law plus the TS and Python decode contracts.
-- [2]-[MATERIALX_DOCUMENT]: the `MtlxDocument`/`MtlxNode` MaterialX 1.39 node-graph shape, the `NodeCategory` axis, the `AppearanceNode`→MaterialX projection, and the `.mtlx` serialize/admit fold.
+- [01]-[MATERIAL_WIRE]: the `MaterialWire` canonical OpenPBR-vector wire shape, the `OpenPbrGroupsWire` parameter-group projection, the `WireProvenance` receipt, and the C#-mints / peers-decode single-mint law plus the TS and Python decode contracts.
+- [02]-[MATERIALX_DOCUMENT]: the `MtlxDocument`/`MtlxNode` MaterialX 1.39 node-graph shape, the `NodeCategory` axis, the `AppearanceNode`→MaterialX projection, and the `.mtlx` serialize/admit fold.
 
-## [2]-[MATERIAL_WIRE]
+## [02]-[MATERIAL_WIRE]
 
 - Owner: `MaterialWire` the canonical material wire shape; `OpenPbrGroupsWire` the OpenPBR parameter-group projection; `WireProvenance` the wire receipt; `MaterialProjection` the static mint fold.
 - Entry: `public static MaterialWire Project(MaterialId id, MaterialParameters parameters, Provenance provenance, SurfaceShade preview)` mints the one wire shape from a library row, and `public static Fin<MaterialWire> Mint(MaterialId id, Op key)` resolves a registered row, lowers it to the OpenPBR vector, and projects — the SINGLE site the material wire is minted; the TS `MaterialWire`/`OpenPbrGroupsWire` interface and the Python `MaterialWire` dataclass DECODE this exact shape and never re-mint the OpenPBR algebra.
@@ -193,7 +193,7 @@ class MaterialWire:
     preview: WireColor
 ```
 
-## [3]-[MATERIALX_DOCUMENT]
+## [03]-[MATERIALX_DOCUMENT]
 
 - Owner: `MtlxDocument` the MaterialX 1.39 document; `MtlxNode`/`MtlxInput` the node-graph element shapes; `NodeCategory` `[SmartEnum<string>]` the MaterialX node-category axis; `Mtlx` the static serialize/admit fold.
 - Entry: `public static MtlxDocument FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters)` projects the `graph#MATERIAL_GRAPH` node DAG to the MaterialX node-graph document, and `public static Fin<MtlxDocument> ToOpenPbr(MaterialWire wire, Op key)` emits the `open_pbr_surface` node document from the material wire — one entry per direction, both targeting the MaterialX 1.39 `<materialx version="1.39">` root the DCC ecosystem reads; the `.mtlx` XML serialization rides `System.Xml.Linq` at the host boundary, this owner producing the portable `MtlxDocument` data the serializer renders.
@@ -289,7 +289,7 @@ public static class Mtlx {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [MATERIALX_GRAPH_INTERCHANGE]: the MaterialX 1.39 `.mtlx` document is the platform-neutral node-graph content schema (root `<materialx version="1.39">`, `<nodegraph>` wrapping `<node>` elements with `<input>`/`<output>` children, the `standard_surface`/`open_pbr_surface`/`surfacematerial` surface nodes); the `MtlxDocument`/`MtlxNode` shape and the `NodeCategory` map are the realized projection, the `System.Xml.Linq` `.mtlx` serialize/admit the host-boundary render. The probe is the round-trip fidelity of the `AppearanceNode`↔`NodeCategory` projection against a reference MaterialX standard-node library and the Standard-Surface-to-OpenPBR translation graph; the node-category map is settled, the per-input port-name alignment per MaterialX node the remaining calibration.
 - [MTLX_SCHEMA_VALIDATION]: the `.mtlx` document validates against the MaterialX 1.39 schema at the host import boundary (the `MaterialX` Python/C++ runtime or a schema validator); the managed projection produces the portable `MtlxDocument` and the schema-validation round-trip is a host-edge concern the app root owns, this owner never binding a native MaterialX runtime — a malformed projection rails `MaterialFault.Graph` before serialization rather than emitting an invalid document.

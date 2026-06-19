@@ -2,14 +2,14 @@
 
 Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from the same record, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host. The page owns the profile axis, the lifetime-adapter delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROFILE_AXIS]: Eight rows resolve every modality variance into one record.
-- [2]-[LIFETIME_ADAPTERS]: Builder selection, lifetime delegates, `HostOptions` policy, and hook projection.
-- [3]-[RESOURCE_IDENTITY]: Per-user roots and telemetry resource identity.
-- [4]-[POWER_AND_FIDELITY]: Power-state and thermal-budget reads; energy-aware compute-fidelity scaling.
+- [01]-[PROFILE_AXIS]: Eight rows resolve every modality variance into one record.
+- [02]-[LIFETIME_ADAPTERS]: Builder selection, lifetime delegates, `HostOptions` policy, and hook projection.
+- [03]-[RESOURCE_IDENTITY]: Per-user roots and telemetry resource identity.
+- [04]-[POWER_AND_FIDELITY]: Power-state and thermal-budget reads; energy-aware compute-fidelity scaling.
 
-## [2]-[PROFILE_AXIS]
+## [02]-[PROFILE_AXIS]
 
 - Owner: `HostProfile` — one `[SmartEnum<string>]` host-variance axis; `ResolvedProfile` is the only profile artifact siblings consume.
 - Cases: rhino-plugin, gh2-plugin, standalone-desktop, companion-process, sidecar, headless-service, web-service, test-host; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved in the 1100 code band.
@@ -95,7 +95,7 @@ public static class ProfileSurface {
 }
 ```
 
-## [3]-[LIFETIME_ADAPTERS]
+## [03]-[LIFETIME_ADAPTERS]
 
 - Owner: `ProfileBoot` — builder selection, lifetime-adapter delegate rows, and `HostOptions` policy as one fold.
 - Entry: `IHostApplicationBuilder Boot(ResolvedProfile resolved, Duration startupDeadline, Duration shutdownDeadline, Option<IHostApplicationBuilder> external = default)` — total over every row; both deadline values arrive from the deadline vocabulary.
@@ -176,19 +176,19 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 
 | [INDEX] | [SIGNAL]                                    | [PROJECTION]                            |
 | :-----: | :------------------------------------------ | :-------------------------------------- |
-|   [1]   | `IHostedLifecycleService.StartingAsync`     | boot                                    |
-|   [2]   | `IHostedLifecycleService.StartedAsync`      | ready                                   |
-|   [3]   | `IHostApplicationLifetime` started token    | running                                 |
-|   [4]   | `IHostedLifecycleService.StoppingAsync`     | draining                                |
-|   [5]   | `IHostApplicationLifetime` stopping token   | draining                                |
-|   [6]   | `IHostedLifecycleService.StoppedAsync`      | unloaded                                |
-|   [7]   | `IHostApplicationLifetime` stopped token    | unloaded                                |
-|   [8]   | `HostAbortedException` during build         | faulted                                 |
-|   [9]   | `ServiceState.Ready` via `ServiceNotify`    | sd_notify mirror of the ready commit    |
+|  [01]   | `IHostedLifecycleService.StartingAsync`     | boot                                    |
+|  [02]   | `IHostedLifecycleService.StartedAsync`      | ready                                   |
+|  [03]   | `IHostApplicationLifetime` started token    | running                                 |
+|  [04]   | `IHostedLifecycleService.StoppingAsync`     | draining                                |
+|  [05]   | `IHostApplicationLifetime` stopping token   | draining                                |
+|  [06]   | `IHostedLifecycleService.StoppedAsync`      | unloaded                                |
+|  [07]   | `IHostApplicationLifetime` stopped token    | unloaded                                |
+|  [08]   | `HostAbortedException` during build         | faulted                                 |
+|  [09]   | `ServiceState.Ready` via `ServiceNotify`    | sd_notify mirror of the ready commit    |
 |  [10]   | `ServiceState.Stopping` via `ServiceNotify` | sd_notify mirror of the draining commit |
 |  [11]   | `WatchdogPing` via `Watchdog`               | sd_notify keep-alive on each heartbeat  |
 
-## [4]-[RESOURCE_IDENTITY]
+## [04]-[RESOURCE_IDENTITY]
 
 - Owner: `ProfileIdentity` — per-user root computation and telemetry resource identity; `ProfileRoots` is the path artifact carried inside the resolved record.
 - Entry: `ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` — pure projection over the resolved record.
@@ -239,7 +239,7 @@ public static class ProfileIdentity {
 }
 ```
 
-## [5]-[POWER_AND_FIDELITY]
+## [05]-[POWER_AND_FIDELITY]
 
 - Owner: `PowerState` `[SmartEnum<string>]` the host power-source axis under the `HostProfileKeyPolicy` accessor; `ThermalPressure` `[SmartEnum<int>]` the rank-ordered thermal-budget vocabulary; `FidelityScale` the compute-fidelity policy record graded from power and thermal state; `PowerCell` the `MeterListener`-backed boundary capsule reading the live power and thermal instruments; `PowerProbe` the platform native-read surface over IOKit/SMC.
 - Cases: 3 power rows — plugged, battery, low-battery; 4 thermal rows — nominal(0), fair(1), serious(2), critical(3) — the macOS thermal-pressure ladder; `FidelityScale` grades the cross-product into a sustained-versus-burst compute profile.
@@ -318,7 +318,7 @@ public static partial class PowerProbe {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit; the `Detached` lifetime swap and host-attach trigger injection are the settled mechanics, the unverified surface is the load-context teardown sequence under live host eviction.
 - [POWER_NATIVE]: the macOS IOKit power-source read (`IOPSCopyPowerSourcesInfo` and the power-source descriptor keys reporting the AC-versus-battery state and charge fraction) and the SMC thermal-pressure read carry settled member shapes by tier-1 decompile of the IOKit P/Invoke surface, but the live reads stay a tier-3 residual because the power-management framework reports battery and thermal state only on the running device; the `NSProcessInfo.thermalState` four-level ladder maps to the `ThermalPressure` rows by ordinal, confirmed against the live device.

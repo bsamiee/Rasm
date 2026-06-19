@@ -2,7 +2,7 @@
 
 `compas_tna` supplies thrust network analysis (TNA) for masonry vault form-finding: dual form/force diagram datastructures, horizontal equilibrium solvers, vertical equilibrium solvers, self-weight and load updaters, and envelope geometry families for AEC structural geometry workflows.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `compas_tna`
 - package: `compas_tna`
@@ -10,56 +10,56 @@
 - asset: runtime library
 - rail: geometry-algebra / structural-form-finding
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: diagram family
 - rail: form-force dual graph
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [RAIL]                              |
 | :-----: | :------------- | :-------------- | :---------------------------------- |
-|   [1]   | `Diagram`      | base mesh graph | shared vertex/edge/face topology    |
-|   [2]   | `FormDiagram`  | form graph      | loads, supports, force-density data |
-|   [3]   | `ForceDiagram` | force polygon   | reciprocal dual force polygon       |
+|  [01]   | `Diagram`      | base mesh graph | shared vertex/edge/face topology    |
+|  [02]   | `FormDiagram`  | form graph      | loads, supports, force-density data |
+|  [03]   | `ForceDiagram` | force polygon   | reciprocal dual force polygon       |
 
 [PUBLIC_TYPE_SCOPE]: envelope family
 - rail: structural envelope geometry
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]    | [RAIL]                       |
 | :-----: | :----------------------- | :--------------- | :--------------------------- |
-|   [1]   | `Envelope`               | base envelope    | thickness/fill weight bounds |
-|   [2]   | `MeshEnvelope`           | mesh-driven      | mesh-based target surface    |
-|   [3]   | `BrepEnvelope`           | Brep-driven      | Brep-based target surface    |
-|   [4]   | `CrossVaultEnvelope`     | parametric vault | cross-vault geometry         |
-|   [5]   | `DomeEnvelope`           | parametric vault | dome geometry                |
-|   [6]   | `PavillionVaultEnvelope` | parametric vault | pavillion vault geometry     |
-|   [7]   | `PointedVaultEnvelope`   | parametric vault | pointed vault geometry       |
-|   [8]   | `ParametricEnvelope`     | parametric base  | generic parametric envelope  |
+|  [01]   | `Envelope`               | base envelope    | thickness/fill weight bounds |
+|  [02]   | `MeshEnvelope`           | mesh-driven      | mesh-based target surface    |
+|  [03]   | `BrepEnvelope`           | Brep-driven      | Brep-based target surface    |
+|  [04]   | `CrossVaultEnvelope`     | parametric vault | cross-vault geometry         |
+|  [05]   | `DomeEnvelope`           | parametric vault | dome geometry                |
+|  [06]   | `PavillionVaultEnvelope` | parametric vault | pavillion vault geometry     |
+|  [07]   | `PointedVaultEnvelope`   | parametric vault | pointed vault geometry       |
+|  [08]   | `ParametricEnvelope`     | parametric base  | generic parametric envelope  |
 
 [PUBLIC_TYPE_SCOPE]: load and scene family
 - rail: load computation, scene rendering
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [RAIL]                                       |
 | :-----: | :------------ | :------------ | :------------------------------------------- |
-|   [1]   | `LoadUpdater` | load computer | tributary area selfweight + live loading     |
-|   [2]   | `FormObject`  | scene node    | Rhino/notebook scene object for FormDiagram  |
-|   [3]   | `ForceObject` | scene node    | Rhino/notebook scene object for ForceDiagram |
+|  [01]   | `LoadUpdater` | load computer | tributary area selfweight + live loading     |
+|  [02]   | `FormObject`  | scene node    | Rhino/notebook scene object for FormDiagram  |
+|  [03]   | `ForceObject` | scene node    | Rhino/notebook scene object for ForceDiagram |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: FormDiagram construction
 - rail: form-finding setup
 
 | [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [RAIL]                      |
 | :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :-------------------------- |
-|   [1]   | `FormDiagram.create_ortho(x_span, y_span, nx, ny, supports)`                                                  | factory        | orthogonal grid diagram     |
-|   [2]   | `FormDiagram.create_fan(x_span, y_span, n_fans, n_hoops, supports)`                                           | factory        | fan pattern diagram         |
-|   [3]   | `FormDiagram.create_circular_radial(center, radius, n_hoops, n_parallels, r_oculus, diagonal, diagonal_type)` | factory        | circular radial diagram     |
-|   [4]   | `FormDiagram.create_circular_radial_spaced(...)`                                                              | factory        | non-uniform radial diagram  |
-|   [5]   | `FormDiagram.create_circular_spiral(...)`                                                                     | factory        | spiral radial diagram       |
-|   [6]   | `FormDiagram.create_cross(...)`                                                                               | factory        | cross-vault pattern diagram |
-|   [7]   | `FormDiagram.create_cross_with_diagonal(...)`                                                                 | factory        | cross + diagonal diagram    |
-|   [8]   | `FormDiagram.create_arch(...)`                                                                                | factory        | arch diagram                |
-|   [9]   | `FormDiagram.create_arch_equally_spaced(...)`                                                                 | factory        | equally spaced arch diagram |
+|  [01]   | `FormDiagram.create_ortho(x_span, y_span, nx, ny, supports)`                                                  | factory        | orthogonal grid diagram     |
+|  [02]   | `FormDiagram.create_fan(x_span, y_span, n_fans, n_hoops, supports)`                                           | factory        | fan pattern diagram         |
+|  [03]   | `FormDiagram.create_circular_radial(center, radius, n_hoops, n_parallels, r_oculus, diagonal, diagonal_type)` | factory        | circular radial diagram     |
+|  [04]   | `FormDiagram.create_circular_radial_spaced(...)`                                                              | factory        | non-uniform radial diagram  |
+|  [05]   | `FormDiagram.create_circular_spiral(...)`                                                                     | factory        | spiral radial diagram       |
+|  [06]   | `FormDiagram.create_cross(...)`                                                                               | factory        | cross-vault pattern diagram |
+|  [07]   | `FormDiagram.create_cross_with_diagonal(...)`                                                                 | factory        | cross + diagonal diagram    |
+|  [08]   | `FormDiagram.create_arch(...)`                                                                                | factory        | arch diagram                |
+|  [09]   | `FormDiagram.create_arch_equally_spaced(...)`                                                                 | factory        | equally spaced arch diagram |
 |  [10]   | `FormDiagram.create_parametric_fan(...)`                                                                      | factory        | parametric fan diagram      |
 |  [11]   | `FormDiagram.from_mesh(mesh: compas.Mesh) -> FormDiagram`                                                     | converter      | from COMPAS Mesh            |
 
@@ -68,38 +68,38 @@
 
 | [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------- |
-|   [1]   | `horizontal_numpy(form, force, alpha=100.0, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                                 | solver         | numpy horizontal equilibrium |
-|   [2]   | `horizontal_nodal_numpy(form, force, alpha=100, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                             | solver         | nodal horizontal equilibrium |
-|   [3]   | `vertical_from_q(form, scale=1.0, density=1.0, kmax=100, tol=0.001, display=False)`                                        | solver         | vertical from force density  |
-|   [4]   | `vertical_from_zmax(form, zmax, kmax=100, xtol=0.01, rtol=0.001, density=1.0, display=False) -> tuple[FormDiagram, float]` | solver         | vertical from max height     |
-|   [5]   | `relax_boundary_openings(form, fixed: list[int]) -> FormDiagram`                                                           | relaxation     | boundary opening relaxation  |
-|   [6]   | `parallelise(A, x, b, known) -> ndarray`                                                                                   | numeric        | force parallelisation step   |
-|   [7]   | `parallelise_nodal(xy, C, targets, i_nbrs, ij_e, fixed, kmax, lmin, lmax)`                                                 | numeric        | nodal parallelisation step   |
+|  [01]   | `horizontal_numpy(form, force, alpha=100.0, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                                 | solver         | numpy horizontal equilibrium |
+|  [02]   | `horizontal_nodal_numpy(form, force, alpha=100, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                             | solver         | nodal horizontal equilibrium |
+|  [03]   | `vertical_from_q(form, scale=1.0, density=1.0, kmax=100, tol=0.001, display=False)`                                        | solver         | vertical from force density  |
+|  [04]   | `vertical_from_zmax(form, zmax, kmax=100, xtol=0.01, rtol=0.001, density=1.0, display=False) -> tuple[FormDiagram, float]` | solver         | vertical from max height     |
+|  [05]   | `relax_boundary_openings(form, fixed: list[int]) -> FormDiagram`                                                           | relaxation     | boundary opening relaxation  |
+|  [06]   | `parallelise(A, x, b, known) -> ndarray`                                                                                   | numeric        | force parallelisation step   |
+|  [07]   | `parallelise_nodal(xy, C, targets, i_nbrs, ij_e, fixed, kmax, lmin, lmax)`                                                 | numeric        | nodal parallelisation step   |
 
 [ENTRYPOINT_SCOPE]: load computation
 - rail: load application
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                        |
 | :-----: | :------------------------------------------------------------ | :------------- | :---------------------------- |
-|   [1]   | `LoadUpdater(mesh, p0, thickness=1.0, density=1.0, live=0.0)` | constructor    | tributary load computer setup |
-|   [2]   | `LoadUpdater.tributary_areas() -> ...`                        | method         | per-vertex tributary area     |
-|   [3]   | `LoadUpdater.face_matrix() -> ...`                            | method         | face area matrix              |
+|  [01]   | `LoadUpdater(mesh, p0, thickness=1.0, density=1.0, live=0.0)` | constructor    | tributary load computer setup |
+|  [02]   | `LoadUpdater.tributary_areas() -> ...`                        | method         | per-vertex tributary area     |
+|  [03]   | `LoadUpdater.face_matrix() -> ...`                            | method         | face area matrix              |
 
 [ENTRYPOINT_SCOPE]: envelope operations
 - rail: structural bounds application
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :-------------------------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `Envelope(rho=20.0, rho_fill=14.0, is_parametric)`  | constructor    | material density bounds            |
-|   [2]   | `Envelope.apply_selfweight_to_formdiagram(...)`     | method         | apply selfweight load              |
-|   [3]   | `Envelope.apply_fill_weight_to_formdiagram(...)`    | method         | apply fill weight load             |
-|   [4]   | `Envelope.apply_bounds_to_formdiagram(...)`         | method         | apply height bounds                |
-|   [5]   | `Envelope.apply_target_heights_to_formdiagram(...)` | method         | apply target height targets        |
-|   [6]   | `Envelope.compute_bounds()`                         | method         | compute extrados/intrados surfaces |
-|   [7]   | `Envelope.compute_selfweight()`                     | method         | compute distributed selfweight     |
-|   [8]   | `Envelope.compute_volume()`                         | method         | compute enclosed volume            |
+|  [01]   | `Envelope(rho=20.0, rho_fill=14.0, is_parametric)`  | constructor    | material density bounds            |
+|  [02]   | `Envelope.apply_selfweight_to_formdiagram(...)`     | method         | apply selfweight load              |
+|  [03]   | `Envelope.apply_fill_weight_to_formdiagram(...)`    | method         | apply fill weight load             |
+|  [04]   | `Envelope.apply_bounds_to_formdiagram(...)`         | method         | apply height bounds                |
+|  [05]   | `Envelope.apply_target_heights_to_formdiagram(...)` | method         | apply target height targets        |
+|  [06]   | `Envelope.compute_bounds()`                         | method         | compute extrados/intrados surfaces |
+|  [07]   | `Envelope.compute_selfweight()`                     | method         | compute distributed selfweight     |
+|  [08]   | `Envelope.compute_volume()`                         | method         | compute enclosed volume            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TNA_TOPOLOGY]:
 - subpackages: `diagrams`, `equilibrium`, `envelope`, `loads`, `scene`, `rhino`, `notebook`, `numdata`

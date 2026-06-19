@@ -2,13 +2,13 @@
 
 The pre-numeric dimensional proof for the symbolic CAS arm: a parsed `SymbolicExpr` (the F# `Expression` DU wrapped by `Symbolic/expression#SYMBOLIC_EXPR`) folds onto a `DimensionMonomial` — one seven-exponent SI base-dimension vector, never seven scalar fields — and `DimensionProof` accumulates every compound mismatch on the `Validation<ComputeFault,DimensionMonomial>` rail before a single numeric value reaches the optimizer or the cost catalog. The fold descends the `Sum`/`Product`/`Power`/`Function` DU payloads `Symbolic/expression#SYMBOLIC_EXPR` confirms, reads each free `Identifier`'s declared dimension from a `DimensionContext` carried out of the parse (never an inferred default), and proves the resulting monomial against the SI baseline `Symbolic/units#DIMENSIONAL_LAW` already owns — the `BaseDimensions` algebra over the frozen `QuantityFamily` rows, re-read here, never re-minted. Every dimensional failure — a heterogeneous sum, a dimensioned transcendental argument, a non-literal power exponent, an undeclared free symbol, and a result monomial that names no admitted `QuantityFamily` row — folds onto the one new arm `SymbolicFault.DimensionMismatch` on the `Symbolic/expression#SYMBOLIC_EXPR` `SymbolicFault` family at code 2216, the units-symbolic contribution to the `ComputeFault` 2200 band, never a parallel `DimensionError` type or a second arm. The proof admits a formula `Symbolic/units#DIMENSIONAL_LAW` and the numeric admission gate then trust without re-deriving. The spine is MathNet.Symbolics (the closed `Expression` DU pattern-matched directly over its `Sum`/`Product`/`Power`/`Function`/`Identifier`/`Number` payloads, plus the `SymbolicExpr.FreeSymbols` `CollectVariables()` census), UnitsNet (`BaseDimensions` SI vocabulary), Thinktecture.Runtime.Extensions, and LanguageExt.Core over the symbolic chain head.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DIMENSION_MONOMIAL]: the seven-exponent SI base-dimension `[ValueObject]` and its rational exponent algebra.
-- [2]-[DIMENSION_PROOF]: the recursive DU fold and the `Validation` accumulating rail over a parsed `SymbolicExpr`.
-- [3]-[UNITS_BRIDGE]: the `QuantityFamily` `BaseDimensions` projection and the pre-numeric admission gate.
+- [01]-[DIMENSION_MONOMIAL]: the seven-exponent SI base-dimension `[ValueObject]` and its rational exponent algebra.
+- [02]-[DIMENSION_PROOF]: the recursive DU fold and the `Validation` accumulating rail over a parsed `SymbolicExpr`.
+- [03]-[UNITS_BRIDGE]: the `QuantityFamily` `BaseDimensions` projection and the pre-numeric admission gate.
 
-## [2]-[DIMENSION_MONOMIAL]
+## [02]-[DIMENSION_MONOMIAL]
 
 - Owner: `DimensionMonomial` `[ValueObject]` over a seven-element rational exponent vector (length, mass, time, current, temperature, amount, luminous-intensity — the SI base order UnitsNet `BaseDimensions` exposes); `DimensionContext` the parse-supplied free-symbol-to-monomial binding; `DimensionAlgebra` the static product/quotient/power/equality surface.
 - Cases: one value carries all seven exponents as `BigRational` (the same exact-rational arithmetic the F# `Expression` `Number of BigRational` payload carries), so a half-power root (`sqrt` of an area is a length) and a reciprocal both stay exact and a float-rounded exponent never decides consistency; `Dimensionless` is the zero vector; `Base(index)` mints a unit exponent on one axis.
@@ -82,7 +82,7 @@ public static class DimensionAlgebra {
 }
 ```
 
-## [3]-[DIMENSION_PROOF]
+## [03]-[DIMENSION_PROOF]
 
 - Owner: `DimensionProof` the static fold entry; `DimensionFold` the recursive `Expression`-DU descent; `DimensionContext` (declared in `DIMENSION_MONOMIAL`) the free-symbol binding the fold reads.
 - Cases: the closed F# `Expression` DU `Symbolic/expression#SYMBOLIC_EXPR` confirms — `Number`/`Approximation`/`Constant` and the bare `PositiveInfinity`/`NegativeInfinity`/`ComplexInfinity` constants are `Dimensionless` literals; `Identifier` reads its declared monomial from the `DimensionContext`; `Sum` requires every addend to carry the identical monomial (a dimensioned sum of incompatible terms is the canonical defect this fold catches); `Product` folds the factor monomials through `DimensionAlgebra.Product`; `Power` requires an integer-or-rational `Number` exponent and scales the base monomial through `DimensionAlgebra.Power`, rejecting a symbolic (dimensioned) exponent — this arm also covers `sqrt`, which the `MathNet.Symbolics` parser lowers to `Power(arg, 1/2)` rather than a `Function.Sqrt` case, so a half-power root scales the argument monomial by `1/2` with no name-table special case; `Function` recurses through the `Function of Function * Expression` payload, requiring a `Dimensionless` argument for every transcendental (`Sin`/`Cos`/`Exp`/`Ln`/`...`); `Undefined` short-circuits to a `SymbolicFault`.
@@ -161,7 +161,7 @@ public static class DimensionProof {
 }
 ```
 
-## [4]-[UNITS_BRIDGE]
+## [04]-[UNITS_BRIDGE]
 
 - Owner: `DimensionContext` the parse-context binding (declared in `DIMENSION_MONOMIAL`, composed here); `DimensionAdmission` the static projection that hands a proven monomial to the `Symbolic/units#DIMENSIONAL_LAW` SI baseline and names the matching `QuantityFamily` row.
 - Cases: a proven monomial resolves to exactly one `QuantityFamily` row whose `Info.BaseDimensions` (lifted through `DimensionMonomial.From`) equals it — the dimensionless monomial resolves to the `Ratio` family `Symbolic/units#DIMENSIONAL_LAW` carries; a proven monomial that matches no admitted row is the same `SymbolicFault.DimensionMismatch` arm so a formula whose result dimension has no admitted quantity is rejected before numeric admission rather than silently accepted; the bound free symbols arrive from the `UnitProject` parse context, each `Identifier` carrying its declared `QuantityFamily`.
@@ -208,6 +208,6 @@ public static class DimensionAdmission {
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [DIMENSION_CONTEXT_SOURCE]: the `UnitProject` parse context that supplies the free-symbol-to-`QuantityFamily` declarations is the `Symbolic/units` boundary's `UnitProject` intent shape; the exact field the symbol declarations ride lands when the `UnitProject` parse surface is widened with a symbolic-formula case, run as an additive case on the existing intent rather than a new parse owner.

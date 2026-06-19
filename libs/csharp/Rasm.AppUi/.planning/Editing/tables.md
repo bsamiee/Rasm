@@ -2,14 +2,14 @@
 
 Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, filter admission, group descriptors, edit admission, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid`; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GRID_SUBSTRATE]: One column metadata family drives columns, filter, masking, export.
-- [2]-[VIEW_STATE]: Serializable collection-view snapshot applied in one `DeferRefresh`.
-- [3]-[TREE_FLATTEN]: Five projection cases fold to one flat virtualized `TreeRow` stream.
-- [4]-[GRID_COMMIT]: Edit commits ride `CommandIntent` rails; exports ride one spec record.
+- [01]-[GRID_SUBSTRATE]: One column metadata family drives columns, filter, masking, export.
+- [02]-[VIEW_STATE]: Serializable collection-view snapshot applied in one `DeferRefresh`.
+- [03]-[TREE_FLATTEN]: Five projection cases fold to one flat virtualized `TreeRow` stream.
+- [04]-[GRID_COMMIT]: Edit commits ride `CommandIntent` rails; exports ride one spec record.
 
-## [2]-[GRID_SUBSTRATE]
+## [02]-[GRID_SUBSTRATE]
 
 - Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` closes the cell vocabulary.
 - Cases: `Text`, `CheckBox`, `Template`.
@@ -64,7 +64,7 @@ public static class TableSurface {
 - Footers: aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them.
 - Column posture: user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members.
 
-## [3]-[VIEW_STATE]
+## [03]-[VIEW_STATE]
 
 - Owner: `TableViewState` — the serializable collection-view snapshot; `ViewStateSurface` applies it against `DataGridCollectionView`, the only collection-view state holder.
 - Entry: `Unit Apply<TRow>(TableViewState state, Seq<TableColumnRow<TRow>> columns, Option<object> current = default)`; the realized paging and virtualisation bounds construct the snapshot's `WindowState` window field directly through target-typed `new(...)` at the request edge.
@@ -109,7 +109,7 @@ public static class ViewStateSurface {
 - Group headers: `LoadingRowGroup` stamps group-header state from theme tokens onto each materialized group header, the one materialization edge for grouped projections, so a per-group-header style fork is the deleted form; the group key threads from the snapshot's `Groups` field through the collection view's `GroupDescriptions`, so header expansion state survives restore on the same field.
 - Restore: `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value.
 
-## [4]-[TREE_FLATTEN]
+## [04]-[TREE_FLATTEN]
 
 - Owner: `TableProjection<TRow, TKey>` `[Union]` with `TreeRow<TRow>` as the flat indent row and `ExpansionState<TKey>` as the expansion cell; `ProjectionFold` dispatches the union to one flat row stream.
 - Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(IObservable<VirtualRequest> Window)`.
@@ -183,7 +183,7 @@ public static class ProjectionFold {
 - Lazy children: `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache, never a side collection.
 - Grouped: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
 
-## [5]-[GRID_COMMIT]
+## [05]-[GRID_COMMIT]
 
 - Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` with the `ExportDestination` union owns the export path; `CommitSurface` bridges grid edit events to the intent rail and folds rows to delimited text.
 - Cases: `Clipboard`, `File`, `BlobLane`.
@@ -264,6 +264,6 @@ flowchart LR
 - Clipboard: the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case.
 - Export admission: classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations.
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [PAGE_RESPONSE_FIELDS]: the `PageContext<TRow>` and `VirtualResponse` response field accessors carrying the realized page index, page size, total pages, virtual start index, and virtual size that source the `WindowState` window bounds, beyond the catalogued `Page`/`Virtualise` operators and the response types themselves.

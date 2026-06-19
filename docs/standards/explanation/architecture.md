@@ -6,7 +6,7 @@ The controlling rule: architecture starts from code. The primary representation 
 
 Normal `ARCHITECTURE.md` files are current-only. A `.planning/ARCHITECTURE.md` file may show target structure only when it names the roadmap or design source, current anchor, promotion target, and removal trigger that keep the target view from becoming stale current truth.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use an architecture document when a future agent must understand a maintained code area before changing it:
 - repository, solution, workspace, package, project, module, folder, or directory boundaries;
@@ -31,16 +31,16 @@ Route decision rationale to [adr.md](adr.md), proposed change review to [design-
 - C4 Context, Container, and Component are view levels, not required headings. A C4 Container is a deployable or executable runtime unit, not a package, library, or folder. A C4 Component appears only inside a named container.
 - Structurizr or another checked-in model is the model source only when repository tooling already carries it. Mermaid is renderer source, not the canonical architecture model.
 
-## [2]-[CODE_SCOPE_PLACEMENT]
+## [02]-[CODE_SCOPE_PLACEMENT]
 
 Choose the narrowest code scope that lets the reader make a safe edit. This is placement, not a ranking.
 
 | [INDEX] | [CODE_SCOPE]                                  | [PLACE_ARCHITECTURE_HERE]  | [MUST_EXPLAIN]                                              |
 | :-----: | :-------------------------------------------- | :------------------------- | :---------------------------------------------------------- |
-|   [1]   | repository or solution                        | root `ARCHITECTURE.md`     | project graph, package families, shared build/runtime flow  |
-|   [2]   | package, app, library, tool, host integration | route `ARCHITECTURE.md`    | project identity, public surface, entrypoints, dependencies |
-|   [3]   | module or feature folder                      | folder `ARCHITECTURE.md`   | local codemap, local flow, adjacent folders, invariants     |
-|   [4]   | small directory with one entrypoint           | parent `README.md` section | compact codemap and one invariant record                    |
+|  [01]   | repository or solution                        | root `ARCHITECTURE.md`     | project graph, package families, shared build/runtime flow  |
+|  [02]   | package, app, library, tool, host integration | route `ARCHITECTURE.md`    | project identity, public surface, entrypoints, dependencies |
+|  [03]   | module or feature folder                      | folder `ARCHITECTURE.md`   | local codemap, local flow, adjacent folders, invariants     |
+|  [04]   | small directory with one entrypoint           | parent `README.md` section | compact codemap and one invariant record                    |
 
 Keep one architecture route per code scope. If two documents explain the same package or folder, merge them or route one to the other. Promote a README section to `ARCHITECTURE.md` when the directory gains a project file, package manifest, generated contract, more than one entrypoint, nontrivial flow, dependency rule, or roadmap-status overlay.
 
@@ -48,13 +48,13 @@ Target sequencing placement is narrower:
 
 | [INDEX] | [PLANNING_SCOPE]                         | [PLACE_ARCHITECTURE_HERE]           | [MUST_EXPLAIN]                                             |
 | :-----: | :--------------------------------------- | :---------------------------------- | :--------------------------------------------------------- |
-|   [1]   | scope-local target sequence              | `<scope>/.planning/ARCHITECTURE.md` | current anchor, target structure, source, promotion target |
-|   [2]   | ordinary current structure               | scope `ARCHITECTURE.md`             | current paths, current flows, current invariants           |
-|   [3]   | tiny current directory without own route | parent `README.md` section          | compact codemap and one invariant record                   |
+|  [01]   | scope-local target sequence              | `<scope>/.planning/ARCHITECTURE.md` | current anchor, target structure, source, promotion target |
+|  [02]   | ordinary current structure               | scope `ARCHITECTURE.md`             | current paths, current flows, current invariants           |
+|  [03]   | tiny current directory without own route | parent `README.md` section          | compact codemap and one invariant record                   |
 
 Do not put target structure in an ordinary sibling `ARCHITECTURE.md`. Do not create a target architecture without a sibling roadmap, design, or `SPEC.<slug>.md` source that changes current task action.
 
-## [3]-[REQUIRED_STRUCTURE]
+## [03]-[REQUIRED_STRUCTURE]
 
 Use this heading order for a standalone architecture file. Embedded architecture uses the same content under the parent README.
 
@@ -107,27 +107,27 @@ Required sections are required because agents need them in order: read the curre
 - Rejected lead: The artifact describes the event system at a high level.
 - Reason: the accepted lead is concrete enough to start work; the rejected lead describes a system without code anchors.
 
-## [4]-[SECTION_RULES]
+## [04]-[SECTION_RULES]
 
 Each produced section carries one agent action:
 
 | [INDEX] | [SECTION]                       | [AGENT_ACTION]                                  | [REVIEW_TRIGGER]                                            |
 | :-----: | :------------------------------ | :---------------------------------------------- | :---------------------------------------------------------- |
-|   [1]   | `Codemap`                       | read current directory and routing shape        | path, entrypoint, generated output, or path state           |
-|   [2]   | `Scope boundary`                | decide whether this page covers the edited file | path, route, generated directory, host, or exclusion        |
-|   [3]   | `Project identity`              | locate manifests, targets, exports, and outputs | project file, manifest, build target, export, output        |
-|   [4]   | `Contracts and generated truth` | find public contracts and generated edit rules  | schema, generator, artifact, reference, or contract         |
-|   [5]   | `Entrypoints and flows`         | trace work through code                         | route, command, callback, public type, worker, path         |
-|   [6]   | `Dependency direction`          | preserve allowed references                     | dependency, package edge, layer rule, forbidden edge        |
-|   [7]   | `Invariants`                    | preserve concrete architecture rules            | invariant, confirmation gate, support row, or gate taxonomy |
-|   [8]   | `Status and roadmap`            | interpret temporary path states                 | milestone, design, ADR, support row, or state closure       |
-|   [9]   | `Confirmation`                  | verify representations against code             | represented path, manifest, node, contract, or edge         |
+|  [01]   | `Codemap`                       | read current directory and routing shape        | path, entrypoint, generated output, or path state           |
+|  [02]   | `Scope boundary`                | decide whether this page covers the edited file | path, route, generated directory, host, or exclusion        |
+|  [03]   | `Project identity`              | locate manifests, targets, exports, and outputs | project file, manifest, build target, export, output        |
+|  [04]   | `Contracts and generated truth` | find public contracts and generated edit rules  | schema, generator, artifact, reference, or contract         |
+|  [05]   | `Entrypoints and flows`         | trace work through code                         | route, command, callback, public type, worker, path         |
+|  [06]   | `Dependency direction`          | preserve allowed references                     | dependency, package edge, layer rule, forbidden edge        |
+|  [07]   | `Invariants`                    | preserve concrete architecture rules            | invariant, confirmation gate, support row, or gate taxonomy |
+|  [08]   | `Status and roadmap`            | interpret temporary path states                 | milestone, design, ADR, support row, or state closure       |
+|  [09]   | `Confirmation`                  | verify representations against code             | represented path, manifest, node, contract, or edge         |
 
 Do not add a section for a concern that has no current reader action. Do not keep a status note after the path becomes ordinary current structure or pure release history.
 
 `Target view` is a target-architecture-only reader action. It lets an agent compare the current anchor against target paths, flows, dependency edges, or invariants before executing a roadmap task. It is rejected in ordinary current architecture.
 
-## [5]-[SCOPE_BOUNDARY]
+## [05]-[SCOPE_BOUNDARY]
 
 `Scope boundary` states what this architecture covers and what it refuses to cover. Name real paths, project files, package manifests, generated directories, public contracts, commands, host references, adjacent routes, and exclusions.
 
@@ -138,7 +138,7 @@ Adjacent routes: `<adapter-root>/` admits external callbacks; `<api-reference-ro
 Reader rule: edits under `<entrypoint-folder>/`, `<execution-folder>/`, or `<contract-folder>/` must check this architecture first.
 ```
 
-## [6]-[PROJECT_IDENTITY]
+## [06]-[PROJECT_IDENTITY]
 
 `Project identity` lets an agent locate the build/package truth before editing. Include only identities that exist for the scope.
 
@@ -153,7 +153,7 @@ Host or runtime boundary: external callback enters through `<entrypoint>`
 
 Do not invent a manifest, command, export, or generated output to fill the section. Absence is useful only when it changes behavior, such as "this folder has no project file; build confirmation comes from the parent project."
 
-## [7]-[CONTRACTS_GENERATED_TRUTH]
+## [07]-[CONTRACTS_GENERATED_TRUTH]
 
 `Contracts and generated truth` is required when the scope exposes a public contract, generated file, generated reference, command output contract, host metadata surface, schema, or source-generated public symbol family. It prevents architecture from becoming an API catalog while still showing which generated artifacts make the code safe to edit.
 
@@ -186,7 +186,7 @@ Close when: `<routing edge no longer affects architecture or the consuming stand
 Route-away: `<body that stays in the consuming route>`
 ```
 
-## [8]-[CODEMAP]
+## [08]-[CODEMAP]
 
 The codemap is the controlling representation. Derive it from repository paths, project files, package manifests, generated artifacts, public contracts, and host references. Include two or three directory levels by default. Include a leaf only when it is an entrypoint, public contract, manifest, generated source, central algorithm, public export, adapter, invariant route, or status-bearing path.
 
@@ -232,8 +232,8 @@ When status appears in the tree, add a path-state table and codemap source block
 
 | [INDEX] | [PATH]               | [STATE]      | [READ_AS]     | [SOURCE]     | [UPDATE]     | [REMOVE]             |
 | :-----: | :------------------- | :----------- | :------------ | :----------- | :----------- | :------------------- |
-|   [1]   | `<execution-worker>` | [ACTIVE]     | moving route  | roadmap task | task or path | task is `[COMPLETE]` |
-|   [2]   | `<retained-reader>`  | [DEPRECATED] | support reads | support row  | support row  | support is `Retired` |
+|  [01]   | `<execution-worker>` | [ACTIVE]     | moving route  | roadmap task | task or path | task is `[COMPLETE]` |
+|  [02]   | `<retained-reader>`  | [DEPRECATED] | support reads | support row  | support row  | support is `Retired` |
 
 ```text template
 Representation: codemap
@@ -246,14 +246,14 @@ Review trigger: path, project, manifest, generated contract, support row, or roa
 
 Use path-state markers only for facts that change editing behavior. Remove them when the state no longer changes code reading.
 
-## [9]-[ENTRYPOINTS_AND_FLOWS]
+## [09]-[ENTRYPOINTS_AND_FLOWS]
 
 Entrypoints name how work enters the code scope. Use records or a table when the reader must compare kind, input, failure rail, next route, effect, and confirmation.
 
 | [INDEX] | [ENTRYPOINT]   | [KIND]   | [INPUT]                    | [FAILURE]    | [NEXT]        | [EFFECT]      |
 | :-----: | :------------- | :------- | :------------------------- | :----------- | :------------ | :------------ |
-|   [1]   | `<entrypoint>` | callback | schema plus external input | confirmation | `<validator>` | reject input  |
-|   [2]   | `<worker>`     | worker   | envelope                   | fault        | `<store>`     | persist event |
+|  [01]   | `<entrypoint>` | callback | schema plus external input | confirmation | `<validator>` | reject input  |
+|  [02]   | `<worker>`     | worker   | envelope                   | fault        | `<store>`     | persist event |
 
 For record-shaped entrypoints, keep fields in this order:
 

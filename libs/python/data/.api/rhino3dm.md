@@ -2,7 +2,7 @@
 
 `rhino3dm` supplies an OpenNURBS binding for reading, writing, and constructing Rhino `.3dm` model data without Rhino installed. It provides `File3dm` as the document owner over typed component tables, a `GeometryBase` hierarchy (`Curve`, `Surface`, `Brep`, `Mesh`, `SubD`, `Extrusion`, `PointCloud`), and value-type primitives (`Point3d`, `Vector3d`, `Transform`, `BoundingBox`, `Plane`).
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rhino3dm`
 - package: `rhino3dm`
@@ -11,7 +11,7 @@
 - rail: aec
 - capability: OpenNURBS 3dm read/write, document component tables, NURBS curve/surface/Brep/Mesh/SubD/Extrusion construction, geometry value types and transforms, object attributes and user strings, and Draco mesh compression
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `rhino3dm.File3dm` — in-memory 3dm document; holds component tables and read/write entry; `File3dm.Read(path)`, `File3dm.FromByteArray(bytes)`, `Write(path, version)`, `Encode()`/`Decode()`, `ReadArchiveVersion(path)`.
@@ -43,7 +43,7 @@
 - User strings (`SetUserString`/`GetUserStrings`) attach arbitrary key/value metadata to geometry and persist through 3dm round-trips; the document `Strings` table holds document-scoped key/value pairs.
 - `DracoCompression` compresses `Mesh` and other geometry to a compact byte array; use it for mesh transport rather than re-encoding vertex arrays manually.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rhino3dm`

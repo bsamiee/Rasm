@@ -1,6 +1,6 @@
 # [H1][ACT-USAGE]
 
-## [1]-[ACTIONLINT]
+## [01]-[ACTIONLINT]
 
 **Current version:** 1.7.10 (December 30, 2025).
 
@@ -60,18 +60,18 @@ jobs:
 
 | [INDEX] | [CHECK_CATEGORY]        | [WHAT_IT_VALIDATES]                                                 |
 | :-----: | ----------------------- | ------------------------------------------------------------------- |
-|   [1]   | **Syntax**              | YAML structure, required fields, duplicate keys.                    |
-|   [2]   | **Expressions**         | Type correctness, context availability, injection detection.        |
-|   [3]   | **Actions**             | Input/output validation, deprecated inputs, runtime version.        |
-|   [4]   | **Runner labels**       | Known labels, deprecated labels, `-arm` vs `-arm64` suffix.         |
-|   [5]   | **CRON**                | Field ranges, syntax validity.                                      |
-|   [6]   | **Glob patterns**       | Directory separator requirement, valid pattern syntax.              |
-|   [7]   | **Shell scripts**       | ShellCheck integration for `run:` blocks (bash/sh).                 |
-|   [8]   | **YAML anchors**        | Undefined aliases, unused anchors, merge key `<<:` rejection.       |
-|   [9]   | **Permissions**         | Valid scope names (`models`, `artifact-metadata` in 1.7.8+/1.7.10). |
+|  [01]   | **Syntax**              | YAML structure, required fields, duplicate keys.                    |
+|  [02]   | **Expressions**         | Type correctness, context availability, injection detection.        |
+|  [03]   | **Actions**             | Input/output validation, deprecated inputs, runtime version.        |
+|  [04]   | **Runner labels**       | Known labels, deprecated labels, `-arm` vs `-arm64` suffix.         |
+|  [05]   | **CRON**                | Field ranges, syntax validity.                                      |
+|  [06]   | **Glob patterns**       | Directory separator requirement, valid pattern syntax.              |
+|  [07]   | **Shell scripts**       | ShellCheck integration for `run:` blocks (bash/sh).                 |
+|  [08]   | **YAML anchors**        | Undefined aliases, unused anchors, merge key `<<:` rejection.       |
+|  [09]   | **Permissions**         | Valid scope names (`models`, `artifact-metadata` in 1.7.8+/1.7.10). |
 |  [10]   | **Constant conditions** | `if: true`, `if: false`, and complex constant expressions.          |
 
-## [2]-[ACT]
+## [02]-[ACT]
 
 **Current version:** v0.2.84 (January 1, 2026).
 
@@ -97,14 +97,14 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 
 | [INDEX] | [FLAG]                                     | [PURPOSE]                                    |
 | :-----: | ------------------------------------------ | -------------------------------------------- |
-|   [1]   | **`--container-architecture linux/amd64`** | Consistent platform (important on ARM Macs). |
-|   [2]   | **`-P ubuntu-latest=node:24-bookworm`**    | Custom Docker image for runner.              |
-|   [3]   | **`-s GITHUB_TOKEN=ghp_xxx`**              | Pass secret.                                 |
-|   [4]   | **`--secret-file .secrets`**               | Secrets from file (`.secrets` format).       |
-|   [5]   | **`--env MY_VAR=value`**                   | Environment variable.                        |
-|   [6]   | **`--input myInput=value`**                | `workflow_dispatch` input.                   |
-|   [7]   | **`--action-offline-mode`**                | Skip downloading actions (use cached).       |
-|   [8]   | **`--matrix os:ubuntu-latest`**            | Filter matrix to specific combination.       |
+|  [01]   | **`--container-architecture linux/amd64`** | Consistent platform (important on ARM Macs). |
+|  [02]   | **`-P ubuntu-latest=node:24-bookworm`**    | Custom Docker image for runner.              |
+|  [03]   | **`-s GITHUB_TOKEN=ghp_xxx`**              | Pass secret.                                 |
+|  [04]   | **`--secret-file .secrets`**               | Secrets from file (`.secrets` format).       |
+|  [05]   | **`--env MY_VAR=value`**                   | Environment variable.                        |
+|  [06]   | **`--input myInput=value`**                | `workflow_dispatch` input.                   |
+|  [07]   | **`--action-offline-mode`**                | Skip downloading actions (use cached).       |
+|  [08]   | **`--matrix os:ubuntu-latest`**            | Filter matrix to specific combination.       |
 
 ### [2.2]-[CONFIGURATION_FILE]
 
@@ -115,26 +115,26 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
-## [3]-[LIMITATIONS]
+## [03]-[LIMITATIONS]
 
 | [INDEX] | [TOOL]         | [LIMITATION]                        | [IMPACT]                                                   |
 | :-----: | -------------- | ----------------------------------- | ---------------------------------------------------------- |
-|   [1]   | **actionlint** | No cross-file analysis              | Cannot validate reusable workflow caller/callee contracts. |
-|   [2]   | **actionlint** | Popular actions data may lag        | New action versions may not be in bundled metadata.        |
-|   [3]   | **act**        | Not 100% GitHub-compatible          | Some features behave differently than real runners.        |
-|   [4]   | **act**        | Docker required                     | Must be installed and running for local execution.         |
-|   [5]   | **act**        | GitHub API actions may fail         | No real `GITHUB_TOKEN` context without manual secrets.     |
-|   [6]   | **act**        | Default images differ               | Use `-P` to match GitHub-hosted runner images.             |
-|   [7]   | **act**        | YAML anchor explosion (pre-v0.2.84) | Fixed in v0.2.84 — update to latest.                       |
-|   [8]   | **act**        | `.github/workflows/` only           | Cannot validate workflows in other directories.            |
+|  [01]   | **actionlint** | No cross-file analysis              | Cannot validate reusable workflow caller/callee contracts. |
+|  [02]   | **actionlint** | Popular actions data may lag        | New action versions may not be in bundled metadata.        |
+|  [03]   | **act**        | Not 100% GitHub-compatible          | Some features behave differently than real runners.        |
+|  [04]   | **act**        | Docker required                     | Must be installed and running for local execution.         |
+|  [05]   | **act**        | GitHub API actions may fail         | No real `GITHUB_TOKEN` context without manual secrets.     |
+|  [06]   | **act**        | Default images differ               | Use `-P` to match GitHub-hosted runner images.             |
+|  [07]   | **act**        | YAML anchor explosion (pre-v0.2.84) | Fixed in v0.2.84 — update to latest.                       |
+|  [08]   | **act**        | `.github/workflows/` only           | Cannot validate workflows in other directories.            |
 
-## [4]-[TROUBLESHOOTING]
+## [04]-[TROUBLESHOOTING]
 
 | [INDEX] | [ISSUE]                             | [SOLUTION]                                                    |
 | :-----: | ----------------------------------- | ------------------------------------------------------------- |
-|   [1]   | **Cannot connect to Docker daemon** | Start Docker Desktop or daemon.                               |
-|   [2]   | **Workflow file not found**         | Run from repo root or use `-W` flag.                          |
-|   [3]   | **Action not found locally**        | Use `-P` for alternative images or `--action-offline-mode`.   |
-|   [4]   | **Out of disk space**               | `docker system prune -a`.                                     |
-|   [5]   | **ARM Mac architecture mismatch**   | Add `--container-architecture linux/amd64` to `.actrc`.       |
-|   [6]   | **shellcheck not found**            | Install shellcheck for `run:` block validation in actionlint. |
+|  [01]   | **Cannot connect to Docker daemon** | Start Docker Desktop or daemon.                               |
+|  [02]   | **Workflow file not found**         | Run from repo root or use `-W` flag.                          |
+|  [03]   | **Action not found locally**        | Use `-P` for alternative images or `--action-offline-mode`.   |
+|  [04]   | **Out of disk space**               | `docker system prune -a`.                                     |
+|  [05]   | **ARM Mac architecture mismatch**   | Add `--container-architecture linux/amd64` to `.actrc`.       |
+|  [06]   | **shellcheck not found**            | Install shellcheck for `run:` block validation in actionlint. |

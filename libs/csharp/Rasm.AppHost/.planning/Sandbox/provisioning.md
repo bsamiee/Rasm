@@ -2,13 +2,13 @@
 
 Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in health-gated waves. The page owns the update rail, the channel axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
-- [2]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
-- [3]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and health-gated fleet-wide rolling-update wave.
+- [01]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
+- [02]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
+- [03]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and health-gated fleet-wide rolling-update wave.
 
-## [2]-[UPDATE_RAIL]
+## [02]-[UPDATE_RAIL]
 
 - Owner: `UpdatePhase` `[SmartEnum<string>]` five post-fetch phases under the `UpdateKeyPolicy` ordinal accessor; `UpdateOutcome` `[Union]` terminal disposition; `UpdateFault` `[Union]` fault family in the 1300 band; `UpdateReceipt` per-phase evidence record; `UpdateMetrics` source-gen instrument partial under the `CounterAttribute`/`HistogramAttribute` generator; `UpdateRail` boundary capsule owning the `UpdateManager` handle and the staged-pending probe.
 - Cases: 5 phase rows — detected, downloading, staged, rolling-over, rolled-back; outcomes restarted | staged-pending | rolled-back | declined; `UpdateFault` = Text | DownloadBroken | StagePending | RolloverRejected | DowngradeBlocked.
@@ -160,7 +160,7 @@ stateDiagram-v2
     RolledBack --> [*]
 ```
 
-## [3]-[CHANNEL_AXIS]
+## [03]-[CHANNEL_AXIS]
 
 - Owner: `UpdateChannel` `[SmartEnum<string>]` three feed rows under the `UpdateKeyPolicy` ordinal accessor, carrying the feed URI, explicit-channel string, and downgrade-allow column.
 - Cases: 3 channel rows — stable, beta, canary.
@@ -189,7 +189,7 @@ public sealed partial class UpdateChannel {
 }
 ```
 
-## [4]-[ROLLOVER_DRAIN]
+## [04]-[ROLLOVER_DRAIN]
 
 - Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced; `FleetRoll` the fleet-wide rolling-update conductor walking `PeerRoster.Attached` in health-gated waves; `FleetRollReceipt` the per-wave fleet-progress projection riding the existing receipt stream.
 - Cases: two conduct paths on the local node — `Conduct` for a staged asset, `ConductPending` for a post-bounce resume; one fleet conduct — `FleetRoll.Roll` paces the wave across the roster, gating each next node on the prior node's recovered serving status.
@@ -266,6 +266,6 @@ sequenceDiagram
     Note over Velopack: process replaced, call never returns
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [STAGED_FEED]: the production feed URIs per channel replace the placeholder authority on the `UpdateChannel` rows once the release-feed host is provisioned.

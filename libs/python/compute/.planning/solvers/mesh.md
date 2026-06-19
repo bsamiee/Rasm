@@ -2,12 +2,12 @@
 
 The one simulation mesh-and-field interchange and weak-form assembly owner beside the FEM solver route. `MeshField` carries the mesh topology, the per-node and per-cell field arrays, and the reusable `assemble` that lowers a weak form to the sparse stiffness/load pair the `solvers/quadrature.md#QUADRATURE` FEM route and a Diffrax field problem both consume, never re-owning the solve. `MeshExchange` reads and writes the mesh-and-field through the meshio format registry. The assembly composes the scikit-fem `Basis`/`asm` pair over the same `ElementKind` axis the quadrature route discriminates; the solve stays on the quadrature owner, so the FEM page consumes the assembled pair rather than the reverse. `meshio` resolves on the cp315 core; `scikit-fem` rides the gated FEM `python_version<'3.15'` band.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MESH_FIELD]: the mesh topology, the per-node/per-cell field arrays, and the assemble fold
-- [2]-[INTERCHANGE]: the meshio read/write mesh-and-field file interchange
+- [01]-[MESH_FIELD]: the mesh topology, the per-node/per-cell field arrays, and the assemble fold
+- [02]-[INTERCHANGE]: the meshio read/write mesh-and-field file interchange
 
-## [2]-[MESH_FIELD]
+## [02]-[MESH_FIELD]
 
 - Owner: `MeshField` — the mesh-and-field interchange carrying the `points` node coordinates, the `cells` per-block connectivity keyed by `ElementKind`, the per-node `node_fields` and per-cell `cell_fields` array maps, and the content key over the canonical mesh-and-field buffer. `assemble(form)` lowers a `WeakForm` to the sparse `(stiffness, load)` pair through the scikit-fem `Basis`/`asm` fold over the element the `ElementKind` selects; the pair is the artifact the FEM solve and the field problem consume. The owner holds assembly and interchange only — never the solve, never a parallel mesh container beside the meshio `Mesh`.
 - Element axis: `ElementKind` is the shared element/basis axis the quadrature FEM route discriminates (`solvers/quadrature.md#QUADRATURE`), so a `MeshField` assembled for `ElementKind.TRI_P1` lowers to the same `Basis(mesh, ElementTriP1())` the quadrature route reads; `WeakForm` carries the bilinear and linear integrand thunks and the boundary-facet Dirichlet condition, identical to the quadrature `FemForm` so the two never diverge on the weak-form shape.
@@ -107,7 +107,7 @@ _MESH_CTOR = {
 }
 ```
 
-## [3]-[INTERCHANGE]
+## [03]-[INTERCHANGE]
 
 - Owner: `MeshExchange` — the meshio read/write interchange between a `MeshField` and the on-disk unstructured-mesh formats; `read` parses any meshio-supported format into a `MeshField`, mapping the meshio `points` and the first `CellBlock` connectivity onto the topology and the meshio `point_data`/`cell_data` onto the field maps, and `write` serializes a `MeshField` back through the meshio format dispatch. The meshio `Mesh` is the canonical container; this owner never assembles a parallel per-format mesh shape.
 - Entry: `MeshExchange.read` returns `RuntimeRail[MeshField]` through one `boundary`, calling `meshio.read(path)` and projecting the container; `MeshExchange.write` returns `RuntimeRail[None]`, building a `meshio.Mesh(points, [CellBlock(cell_type, cells)], point_data=..., cell_data=...)` and calling `meshio.write(path, mesh)` with extension-driven format detection. The `_CELL_TYPE` map keys the `ElementKind` to the meshio cell-type string (`line`/`triangle`/`tetra`).
@@ -177,7 +177,7 @@ class MeshExchange:
         meshio.write(str(path), mesh)
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [SKFEM_ASSEMBLE]: the `skfem.Basis(mesh, element)`, `skfem.asm(form, basis)`, `basis.get_dofs(facets)`, `basis.N` dof-count, and the `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` element and `MeshLine1`/`MeshTri1`/`MeshTet1`/`MeshQuad1`/`MeshHex1` mesh-constructor spellings verify against `compute/.api/scikit-fem.md`; every `ElementKind` row resolves a catalogued element-and-mesh constructor pair through `_ELEMENT_CTOR`/`_MESH_CTOR`, so the assemble fold spans the full P1/P2 line/tri/tet plus the bilinear-quad and trilinear-hex family rather than catalogued-but-unreached constructors. The `Mesh(points.T, cells.T)` node-major/element-major array layout (`skfem` stores `mesh.p` as `(dim, n)` and `mesh.t` as `(verts, n_elem)`) confirms the `.T` transpose against the catalogue at fence transcription. `scikit-fem` carries no cp315 wheel, so the assemble fold rides the gated `python_version<'3.15'` band.
 - [MESHIO_INTERCHANGE]: the `meshio.read(path)`, `meshio.write(path, mesh)`, `meshio.Mesh(points, cells, point_data, cell_data)`, `meshio.CellBlock(cell_type, data)`, and `Mesh.cells_dict`/`point_data`/`cell_data` spellings verify against `compute/.api/meshio.md`; `cell_data` values parallel the `cells` block list as a per-block array list, so the read projects `v[0]` for the first block and the write wraps each field array in a single-element list. `meshio` is pure-Python and cp315-clean, so the interchange runs unconditionally on cp315.

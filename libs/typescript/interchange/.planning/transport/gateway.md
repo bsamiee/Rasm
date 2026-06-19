@@ -2,13 +2,13 @@
 
 The outbound command-dial face: `CommandGateway` over the control verbs reading the `projection` `AvailabilityStore` fold as a dial-time gate, plus `IntentRegistry`, the deep-link key vocabulary the gateway resolves. The gateway is generated-client unary calls plus a receipt fold — wire-consumption, not state — co-located with the transport-owning domain so `@connectrpc/*` never leaks into the fold tier and the transport-free interior holds. The owning C# `#TS_PROJECTION` fence is the authoritative wire shape; this page binds only those fences and authors no shape.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[COMMAND_GATEWAY]: the outbound verb gateway, the dial-time gate, the intent registry.
-- [2]-[TS_PROJECTION]: the command, availability, and receipt wire shapes the gateway binds.
+- [01]-[COMMAND_GATEWAY]: the outbound verb gateway, the dial-time gate, the intent registry.
+- [02]-[TS_PROJECTION]: the command, availability, and receipt wire shapes the gateway binds.
 
 
-## [2]-[COMMAND_GATEWAY]
+## [02]-[COMMAND_GATEWAY]
 
 - Owner: `CommandGateway`, the single gateway over the control verbs as the outbound-dial face of `Transport/transport.md` `WireClients`, and `IntentRegistry`, the deep-link key vocabulary the gateway resolves. The gateway is generated-client unary calls and a receipt fold, co-located with the transport-owning domain because dialing dispatch is its outbound-effect surface even though it reads the availability fold, never folded into the host-free `projection` interior.
 - Cases: `CommandGateway` turns a UI intent into a unary call and folds the receipt back toward the `projection` `AvailabilityStore` fold (an intra-package module edge, the store provided through the `invoke` `R` channel); the three verbs — capture a support bundle, set a degradation level, reload options — dial the control-service verbs on `csharp:Rasm.Compute/Runtime/channels#TS_PROJECTION` and the support capture verb against `csharp:Rasm.AppHost/Observability/bundles#TS_PROJECTION`, payloads and outcomes carried by the command wire shapes against `csharp:Rasm.AppUi/Shell/commands#TS_PROJECTION`. The verb dispatch is keyed property access — `clients.control[verb]` selects the generated client method off the closed `ControlVerb` domain, never a `Match` chain restating one verb literal per arm; each dial runs through `Effect.tryPromise` whose `catch` is the infallible `Ingress/fault.md` `fromConnect` fold, so the dial surfaces the typed `FaultDetail` the rail reconstructs rather than swallowing the `ConnectError` as an opaque defect, and a cause carrying no trailer lands the typed `FaultDetail.Quarantine` case inside the same fold rather than a downstream re-catch. `IntentRegistry` addresses command intents by stable string keys against `csharp:Rasm.AppUi/Shell/commands#TS_PROJECTION` so deep links survive a reload; a resolved intent dispatches through `CommandGateway` carrying its payload.
@@ -43,7 +43,7 @@ class CommandGatewayLive extends Effect.Service<CommandGatewayLive>()("@rasm/ts/
 }) {}
 ```
 
-## [3]-[TS_PROJECTION]
+## [03]-[TS_PROJECTION]
 
 - Owner: the command, availability, and receipt wire shapes the gateway binds — sourced from `csharp:Rasm.AppUi/Shell/commands#TS_PROJECTION` and `csharp:Rasm.AppHost/Runtime/ports#TS_PROJECTION`; the diagnostics-evidence and support-bundle shapes ride their owning consumers.
 - Entry: `CommandPayloadWire` is the 4-case payload union, `CommandReceiptWire` binds as the `TPayload` on the `projection` `ReceiptEnvelopeCarrier`, and `CommandAvailabilityWire` is the gate row the `AvailabilityStore` folds.

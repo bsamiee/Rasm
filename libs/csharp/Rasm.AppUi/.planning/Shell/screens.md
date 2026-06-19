@@ -2,15 +2,15 @@
 
 Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenCatalog` table is the single derivation source for dockables, window titles, automation names, route keys, and headless proof lanes, while `ScreenBase` owns activation scopes, suspend/resume, the one screen fault fold, paced derived state, the `Validation<Error,T>` lift into ReactiveUI.Validation, and per-surface state snapshots. The page owns the catalog axis, the activation capsule, the derived-state and validation rails, and the snapshot law, composing AppHost `ClockPolicy`, `RuntimePhase`, `UiSchedulerPort`, `DrainParticipantPort`, `TelemetryContributorPort`, and `DrainBand` over ReactiveUI, System.Reactive, LanguageExt rails, and NodaTime instants.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SCREEN_CATALOG]: One frozen row table; every screen derivation folds over it.
-- [2]-[ACTIVATION_SCOPES]: One activatable base; scoped disposal, suspend/resume, drain row.
-- [3]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
-- [4]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
-- [5]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
+- [01]-[SCREEN_CATALOG]: One frozen row table; every screen derivation folds over it.
+- [02]-[ACTIVATION_SCOPES]: One activatable base; scoped disposal, suspend/resume, drain row.
+- [03]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
+- [04]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
+- [05]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
 
-## [2]-[SCREEN_CATALOG]
+## [02]-[SCREEN_CATALOG]
 
 - Owner: `ScreenCatalogRow` row record; `ScreenCatalog` frozen table with total projections.
 - Entry: `public static Fin<ScreenCatalog> Freeze(params ReadOnlySpan<ScreenCatalogRow> rows)` — `Fin` aborts on a duplicate row id.
@@ -50,7 +50,7 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 }
 ```
 
-## [3]-[ACTIVATION_SCOPES]
+## [03]-[ACTIVATION_SCOPES]
 
 - Owner: `ScreenRuntime` policy record; `ScreenBase` activation capsule.
 - Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase receipts fold into one activate/suspend rail.
@@ -128,7 +128,7 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
 }
 ```
 
-## [4]-[DERIVED_STATE]
+## [04]-[DERIVED_STATE]
 
 - Owner: `ScreenFault` state record; `DerivedOps` extension fold over `ScreenBase`.
 - Entry: `public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, string property, IScheduler scheduler, T initial)` — one paced OAPH row per derived property.
@@ -155,7 +155,7 @@ public static class DerivedOps {
 }
 ```
 
-## [5]-[VALIDATION_UX]
+## [05]-[VALIDATION_UX]
 
 - Owner: `AdmissionState` validation state value; `ScreenValidation` lift surface.
 - Entry: `public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions)` — the one admission seam from the typed rail into rule rows; `AdmitCross<TValue>(IObservable<Validation<Error, TValue>> admissions)` lands the same typed rail on the context-level `ValidationRule` overload for cross-field invariants spanning two or more properties.
@@ -195,7 +195,7 @@ public static class ScreenValidation {
 }
 ```
 
-## [6]-[SCREEN_STATE]
+## [06]-[SCREEN_STATE]
 
 - Owner: `ScreenState` snapshot record; `ScreenStatePolicy` port delegates; `ScreenStateOps` extension fold.
 - Entry: `public IO<Unit> Rehydrate()` — restore-on-activate; the persisted row merges with the live snapshot through `Merge`.

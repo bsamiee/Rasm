@@ -2,11 +2,11 @@
 
 One page owns the browser page-lifecycle spine — `AppLifecycle`, one closed `Phase` `Data.TaggedEnum` (`Booting`/`Running`/`Hidden`/`Frozen`/`Draining`/`Stopped`) advanced by one fold over the merged `visibilitychange`, `pagehide` (`persisted: true` is the freeze edge), and `beforeunload` ingresses, held in one `SubscriptionRef`. It is the single lifecycle axis `web-vitals`'s terminal-flush, `feature-flags`'s foreground-refresh, and `fault-capture`'s drain each project from, replacing the three private `visibilitychange` ingresses those owners each opened. The fold is total over the merged native events; the page authors no decode and crosses no wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[APP_LIFECYCLE]: the closed `Phase` enum and the merged page-lifecycle fold.
+- [01]-[APP_LIFECYCLE]: the closed `Phase` enum and the merged page-lifecycle fold.
 
-## [2]-[APP_LIFECYCLE]
+## [02]-[APP_LIFECYCLE]
 
 - Owner: `AppLifecycle`, the single page-lifecycle owner — one `Phase` `Data.TaggedEnum` cell in a `SubscriptionRef`, advanced only by the merged lifecycle-event fold and the boot/stop edges, every up/hidden/frozen/draining question a projection of the one cell. `Phase` is the closed lifecycle vocabulary and a private `visibilitychange` listener opened at a host owner is the named three-ingress defect this owner retires.
 - Cases: `Phase` carries the six page-lifecycle states (`Booting` at composition, `Running` while visible-and-active, `Hidden` on `visibilitychange` to `hidden`, `Frozen` on the `pagehide` freeze edge where `persisted` is `true` so the bfcache holds the document, `Draining` on `beforeunload` as the one terminal-flush window, `Stopped` after drain), advanced by `advancePhase` — one total fold keyed by the native event into the matching `Phase` constructor, so a `visibilitychange`-to-`visible` after `Hidden`/`Frozen` resumes to `Running`, a `pagehide` with `persisted: false` is the unload path folding to `Draining`, and a `pagehide` with `persisted: true` is the freeze path folding to `Frozen`; the `transitions` `Stream` projects each distinct phase edge so a consumer subscribes to the exact edge it flushes on (`web-vitals` to `Hidden`/`Draining`, `fault-capture` to `Draining`) rather than re-deriving the hidden-state test, and `phase` exposes the cell for a point read.

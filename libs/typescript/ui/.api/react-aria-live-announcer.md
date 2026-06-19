@@ -2,7 +2,7 @@
 
 `@react-aria/live-announcer` provides three imperative functions that manage an ARIA live region injected into the DOM for screen-reader announcement. `announce` posts a message at the requested assertiveness level, `clearAnnouncer` flushes the queue for a given level, and `destroyAnnouncer` removes the live region node from the DOM. The package re-exports from `react-aria`'s internal live-announcer module; the function signatures are identical to those in `react-aria/private/live-announcer/LiveAnnouncer`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@react-aria/live-announcer`
 - package: `@react-aria/live-announcer`
@@ -11,28 +11,28 @@
 - asset: runtime utility
 - rail: accessibility / announcements
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: announcement types
 - rail: accessibility
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                    |
 | :-----: | :-------------- | :------------ | :---------------------------------------- |
-|   [1]   | `Assertiveness` | type alias    | `'assertive' \| 'polite'`                 |
-|   [2]   | `Message`       | type alias    | `string \| { 'aria-labelledby': string }` |
+|  [01]   | `Assertiveness` | type alias    | `'assertive' \| 'polite'`                 |
+|  [02]   | `Message`       | type alias    | `string \| { 'aria-labelledby': string }` |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: live-region operations
 - rail: accessibility
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :-------------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `announce(message, assertiveness?, timeout?)` | imperative fn  | posts message to ARIA live region      |
-|   [2]   | `clearAnnouncer(assertiveness)`               | imperative fn  | flushes queued messages at given level |
-|   [3]   | `destroyAnnouncer()`                          | imperative fn  | removes live region DOM node           |
+|  [01]   | `announce(message, assertiveness?, timeout?)` | imperative fn  | posts message to ARIA live region      |
+|  [02]   | `clearAnnouncer(assertiveness)`               | imperative fn  | flushes queued messages at given level |
+|  [03]   | `destroyAnnouncer()`                          | imperative fn  | removes live region DOM node           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [ANNOUNCER_TOPOLOGY]:
 - the package re-exports `announce`, `clearAnnouncer`, `destroyAnnouncer` from `react-aria/private/live-announcer/LiveAnnouncer`

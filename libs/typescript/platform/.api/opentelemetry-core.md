@@ -2,7 +2,7 @@
 
 `@opentelemetry/core` supplies the OpenTelemetry SDK utility layer: the W3C Trace Context and Baggage `TextMapPropagator` implementations (`W3CTraceContextPropagator`, `W3CBaggagePropagator`), the `CompositePropagator` that runs an ordered list of propagators as one, the `traceparent` parse helper (`parseTraceParent`), and the `TRACE_PARENT_HEADER`/`TRACE_STATE_HEADER` header-name constants. The propagators implement the `@opentelemetry/api` `TextMapPropagator` contract (`inject`/`extract`/`fields`). This package supplies the propagator CLASSES only; REGISTRATION is the consumer's seam choice (the `@effect/opentelemetry` `WebSdk.Configuration` has NO `propagator` field), realized either through a self-constructed `@opentelemetry/sdk-trace-web` `WebTracerProvider.register({ propagator })` or through the `@opentelemetry/api` `propagation.setGlobalPropagator` global registration — never a non-existent WebSDK `DefaultTextMapPropagator` field.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/core`
 - package: `@opentelemetry/core`
@@ -10,19 +10,19 @@
 - asset: runtime library
 - rail: observability
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: propagator types and config
 - rail: observability
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                  |
 | :-----: | :-------------------------- | :------------ | :------------------------------------------------------ |
-|   [1]   | `W3CTraceContextPropagator` | class         | `TextMapPropagator` for `traceparent`/`tracestate`      |
-|   [2]   | `W3CBaggagePropagator`      | class         | `TextMapPropagator` for the W3C `baggage` header        |
-|   [3]   | `CompositePropagator`       | class         | ordered fan-out of a `TextMapPropagator[]` as one       |
-|   [4]   | `CompositePropagatorConfig` | interface     | `{ propagators?: TextMapPropagator[] }` constructor arg |
+|  [01]   | `W3CTraceContextPropagator` | class         | `TextMapPropagator` for `traceparent`/`tracestate`      |
+|  [02]   | `W3CBaggagePropagator`      | class         | `TextMapPropagator` for the W3C `baggage` header        |
+|  [03]   | `CompositePropagator`       | class         | ordered fan-out of a `TextMapPropagator[]` as one       |
+|  [04]   | `CompositePropagatorConfig` | interface     | `{ propagators?: TextMapPropagator[] }` constructor arg |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: W3C trace-context propagator
 - rail: observability
@@ -70,7 +70,7 @@ export declare class CompositePropagator implements TextMapPropagator {
 }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PROPAGATION_TOPOLOGY]:
 - a propagator implements the `@opentelemetry/api` `TextMapPropagator` triple — `inject` writes the active `Context` onto an outbound carrier, `extract` reads an inbound carrier into a `Context`, `fields` lists the header names it owns

@@ -2,7 +2,7 @@
 
 `asyncssh` supplies an asyncio SSHv2 client and server: connection establishment, remote process execution, SFTP/SCP file transfer, port forwarding, a key-import/generation surface, known-hosts and authorized-keys verification, and a complete error taxonomy. It is the runtime owner for SSH/SFTP transport over the companion seam.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `asyncssh`
 - package: `asyncssh`
@@ -12,37 +12,37 @@
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.process`, `asyncssh.public_key`
 - capability: SSHv2 client/server, remote process execution, SFTP/SCP transfer, port forwarding, key management, host/key verification
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: connection and process family
 - rail: transport
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                      |
 | :-----: | :-------------------- | :------------ | :-------------------------- |
-|   [1]   | `SSHClientConnection` | connection    | established client session  |
-|   [2]   | `SSHServerConnection` | connection    | established server session  |
-|   [3]   | `SSHClient`           | handler       | client connection callbacks |
-|   [4]   | `SSHServer`           | handler       | server connection callbacks |
-|   [5]   | `SSHClientProcess`    | process       | remote process handle       |
-|   [6]   | `SSHCompletedProcess` | result        | finished-process result     |
-|   [7]   | `SSHClientChannel`    | channel       | session channel             |
-|   [8]   | `SSHListener`         | listener      | forwarded/accept listener   |
-|   [9]   | `SSHAcceptor`         | acceptor      | server accept loop          |
+|  [01]   | `SSHClientConnection` | connection    | established client session  |
+|  [02]   | `SSHServerConnection` | connection    | established server session  |
+|  [03]   | `SSHClient`           | handler       | client connection callbacks |
+|  [04]   | `SSHServer`           | handler       | server connection callbacks |
+|  [05]   | `SSHClientProcess`    | process       | remote process handle       |
+|  [06]   | `SSHCompletedProcess` | result        | finished-process result     |
+|  [07]   | `SSHClientChannel`    | channel       | session channel             |
+|  [08]   | `SSHListener`         | listener      | forwarded/accept listener   |
+|  [09]   | `SSHAcceptor`         | acceptor      | server accept loop          |
 
 [PUBLIC_TYPE_SCOPE]: SFTP and key family
 - rail: transport
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                    |
 | :-----: | :------------------ | :------------ | :------------------------ |
-|   [1]   | `SFTPClient`        | sftp          | SFTP session client       |
-|   [2]   | `SFTPClientFile`    | sftp          | open SFTP file handle     |
-|   [3]   | `SFTPName`          | sftp          | directory entry           |
-|   [4]   | `SFTPAttrs`         | sftp          | file attributes           |
-|   [5]   | `SFTPServer`        | sftp          | SFTP server handler       |
-|   [6]   | `SSHKey`            | key           | private/public key object |
-|   [7]   | `SSHKeyPair`        | key           | key pair                  |
-|   [8]   | `SSHCertificate`    | key           | SSH certificate           |
-|   [9]   | `SSHKnownHosts`     | verify        | known-hosts database      |
+|  [01]   | `SFTPClient`        | sftp          | SFTP session client       |
+|  [02]   | `SFTPClientFile`    | sftp          | open SFTP file handle     |
+|  [03]   | `SFTPName`          | sftp          | directory entry           |
+|  [04]   | `SFTPAttrs`         | sftp          | file attributes           |
+|  [05]   | `SFTPServer`        | sftp          | SFTP server handler       |
+|  [06]   | `SSHKey`            | key           | private/public key object |
+|  [07]   | `SSHKeyPair`        | key           | key pair                  |
+|  [08]   | `SSHCertificate`    | key           | SSH certificate           |
+|  [09]   | `SSHKnownHosts`     | verify        | known-hosts database      |
 |  [10]   | `SSHAuthorizedKeys` | verify        | authorized-keys database  |
 |  [11]   | `SSHAgentClient`    | agent         | ssh-agent client          |
 
@@ -51,37 +51,37 @@
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                        |
 | :-----: | :--------------------- | :------------ | :---------------------------- |
-|   [1]   | `Error`                | fault base    | base SSH error                |
-|   [2]   | `DisconnectError`      | fault         | connection disconnect         |
-|   [3]   | `ConnectionLost`       | fault         | unexpected connection loss    |
-|   [4]   | `PermissionDenied`     | fault         | authentication denial         |
-|   [5]   | `HostKeyNotVerifiable` | fault         | host-key verification failure |
-|   [6]   | `ProcessError`         | fault         | non-zero remote exit          |
-|   [7]   | `SFTPError`            | fault base    | SFTP operation error          |
-|   [8]   | `SFTPNoSuchFile`       | fault         | missing remote path           |
-|   [9]   | `SFTPPermissionDenied` | fault         | SFTP permission denial        |
+|  [01]   | `Error`                | fault base    | base SSH error                |
+|  [02]   | `DisconnectError`      | fault         | connection disconnect         |
+|  [03]   | `ConnectionLost`       | fault         | unexpected connection loss    |
+|  [04]   | `PermissionDenied`     | fault         | authentication denial         |
+|  [05]   | `HostKeyNotVerifiable` | fault         | host-key verification failure |
+|  [06]   | `ProcessError`         | fault         | non-zero remote exit          |
+|  [07]   | `SFTPError`            | fault base    | SFTP operation error          |
+|  [08]   | `SFTPNoSuchFile`       | fault         | missing remote path           |
+|  [09]   | `SFTPPermissionDenied` | fault         | SFTP permission denial        |
 |  [10]   | `KeyImportError`       | fault         | key parse failure             |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session operations
 - rail: transport
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :-------------------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `connect`                                     | connect        | establish a client connection      |
-|   [2]   | `listen`                                      | serve          | start an SSH server                |
-|   [3]   | `SSHClientConnection.run`                     | exec           | run a remote command to completion |
-|   [4]   | `SSHClientConnection.create_process`          | exec           | spawn a streamed remote process    |
-|   [5]   | `SSHClientConnection.start_sftp_client`       | sftp           | open an SFTP session               |
-|   [6]   | `SSHClientConnection.forward_local_port`      | forward        | local→remote port forward          |
-|   [7]   | `SSHClientConnection.forward_remote_port`     | forward        | remote→local port forward          |
-|   [8]   | `SFTPClient.get` / `.put`                     | transfer       | download/upload files              |
-|   [9]   | `SFTPClient.glob` / `.listdir`                | traverse       | remote enumeration                 |
+|  [01]   | `connect`                                     | connect        | establish a client connection      |
+|  [02]   | `listen`                                      | serve          | start an SSH server                |
+|  [03]   | `SSHClientConnection.run`                     | exec           | run a remote command to completion |
+|  [04]   | `SSHClientConnection.create_process`          | exec           | spawn a streamed remote process    |
+|  [05]   | `SSHClientConnection.start_sftp_client`       | sftp           | open an SFTP session               |
+|  [06]   | `SSHClientConnection.forward_local_port`      | forward        | local→remote port forward          |
+|  [07]   | `SSHClientConnection.forward_remote_port`     | forward        | remote→local port forward          |
+|  [08]   | `SFTPClient.get` / `.put`                     | transfer       | download/upload files              |
+|  [09]   | `SFTPClient.glob` / `.listdir`                | traverse       | remote enumeration                 |
 |  [10]   | `import_private_key` / `generate_private_key` | key            | load/create a key                  |
 |  [11]   | `read_known_hosts`                            | verify         | load known-hosts database          |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TRANSPORT_TOPOLOGY]:
 - connection law: SSH sessions are `connect` context managers under the anyio lane; the connection is closed deterministically, never leaked across the event loop.

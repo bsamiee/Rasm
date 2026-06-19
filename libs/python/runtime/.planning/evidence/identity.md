@@ -2,12 +2,12 @@
 
 The single content-addressing owner the whole branch consumes. `ContentIdentity` derives one XxHash128 key over canonical bytes, reproducing the C# `System.IO.Hashing.XxHash128` seed with format, deflection, and tolerance folded into the key so a re-tessellation at identical settings is a cache hit by reference. This collapses the former parallel content owners — data `ExchangeBundle`, artifacts `ContentDigest`/`ArtifactBundle`, the companion GLB key — into one; data, geometry, and artifacts consume it and never re-mint.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[IDENTITY]: the XxHash128 content key, the settings-folded seed, the value object, the one input-discriminated `of` entrypoint.
-- [2]-[SEED_REPRODUCTION]: the Python-side reproduction binding asserting `ContentIdentity` reproduces the C# `XxHash128` seed bit-identically against the frozen `ONE_WIRE_FIXTURE_CORPUS`.
+- [01]-[IDENTITY]: the XxHash128 content key, the settings-folded seed, the value object, the one input-discriminated `of` entrypoint.
+- [02]-[SEED_REPRODUCTION]: the Python-side reproduction binding asserting `ContentIdentity` reproduces the C# `XxHash128` seed bit-identically against the frozen `ONE_WIRE_FIXTURE_CORPUS`.
 
-## [2]-[IDENTITY]
+## [02]-[IDENTITY]
 
 - Owner: `ContentIdentity` — the static surface deriving the content key; `ContentKey` the value object carrying the 128-bit identity, the format tag, and the byte length the receipt and cache contract read; `IdentityPolicy` the frozen evaluation policy folded into the seed.
 - Entry: `ContentIdentity.of` is the one polymorphic content-key derivation discriminating on the source value — `bytes` keys a whole payload, an `Iterable[bytes]` streams chunks through the `xxh3_128` updater, and a `tuple[ContentKey, ...]` folds children into one Merkle parent under the same seed algebra; identity never derives from a path or filename, the modality is recovered from the value shape, never a name suffix or mode flag.
@@ -69,7 +69,7 @@ class ContentIdentity:
                 return ContentKey(value=digest.intdigest(), fmt=fmt, byte_length=length)
 ```
 
-## [3]-[SEED_REPRODUCTION]
+## [03]-[SEED_REPRODUCTION]
 
 - Owner: `SeedReproduction` — the Python-side reproduction binding asserting `ContentIdentity` reproduces the one C#-owned `XxHash128` seed bit-identically, read against the FROZEN `csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` row [1] `CANONICAL_BYTE_IDENTITY`. The corpus is the single mint (seed zero, two-64-bit-half order); this binding re-mints no digest and authors no fixture byte — it transcribes the producer-frozen reference verbatim and fixes the Python assertion the harness driver verifies.
 - Reference: the FROZEN 52-byte int32-LE canonical-adjacency stream of the single-triangle topology (`VertexCount=3`; edges `(0,1),(0,2),(1,2)`; face cycle `[0,1,2]`) is `03 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00 03 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00`, and its `XxHash128.HashToUInt128` digest under seed zero is `0x9462A71A5DD13DCFA3B1D6D225FCBE70`, persisted big-endian and read C#-side as the 16-byte LE memory `70 be fc 25 d2 d6 b1 a3 cf 3d d1 5d 1a a7 62 94`. No byte is re-authored here; the literals are the producer's frozen reference.
@@ -101,6 +101,6 @@ class SeedReproduction:
         return CANONICAL_DIGEST.to_bytes(16, "little") == CANONICAL_LE_MEMORY
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [XXHASH_PARITY]: [UPSTREAM-BLOCKED] — `xxhash` is manifest-declared (`xxhash>=3.7.0`) with per-version `cp38-cp314` wheels and NO `abi3`/`cp315` wheel synced, so it does not import on the cp315 core on this host. Reflection-confirmed on the companion `python_version<'3.15'` band: the streaming `xxh3_128(seed=...).update(...).intdigest()` surface, the `xxh3_128_intdigest`/`xxh3_64_intdigest` seed-keyword spellings, and the digest-endianness parity against the C# `System.IO.Hashing.XxHash128.HashToUInt128` are the captured spellings; the `to_bytes(16, "little")` child serialization matches the C# `BinaryPrimitives.WriteUInt128LittleEndian` writer the `CommitGraph.Of`/`MerkleRange.Of`/`CrdtWire.ContentKey` fold uses, and the `[3]-[SEED_REPRODUCTION]` `CANONICAL_BYTE_IDENTITY` assertion confirms the seed-zero digest value `0x9462A71A5DD13DCFA3B1D6D225FCBE70` on the companion interpreter. The cp315 fence is the single install-gated link — the design (the little-endian child transcription, the seed-zero corpus parity, the streaming/whole/Merkle modalities) is fully resolved and the only absent dependency is the cp315/abi3 `xxhash` wheel, never fabricated as present.

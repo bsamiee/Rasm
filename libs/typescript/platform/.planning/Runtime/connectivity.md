@@ -2,11 +2,11 @@
 
 One page owns the browser online/offline connectivity edge — `Connectivity`, the one `online` `SubscriptionRef` folded from the merged `online`/`offline` window events, plus the native `SyncManager` background-wake registration that feeds the same redial fold. It is the single connectivity owner extracted out of `Shell/sync.md` because four concerns read it — `Runtime/rank.md`'s rank input, `Shell/sync.md`'s redial drain, `feature-flags`'s reconnect fallback, and `observability`'s connectivity gauge — so a private `navigator.onLine` read at any of them is the named per-component-probe defect. The redial that drains the offline queue is one fold over this one cell and the `SyncManager` wake; the page authors no decode and crosses no wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CONNECTIVITY]: the online/offline cell, the redial edge, and the native `SyncManager` wake.
+- [01]-[CONNECTIVITY]: the online/offline cell, the redial edge, and the native `SyncManager` wake.
 
-## [2]-[CONNECTIVITY]
+## [02]-[CONNECTIVITY]
 
 - Owner: `Connectivity`, the single connectivity owner — one `online` `boolean` `SubscriptionRef` seeded from `navigator.onLine` and advanced only by the merged `online`/`offline` window-event fold, the `redials` `Stream` projecting each offline->online edge, and the native `SyncManager` sync-tag registration as the background wake. The `online` cell is the one connectivity vocabulary and a `navigator.onLine` read at a consumer is the named per-component-probe defect.
 - Cases: `Connectivity` merges `BrowserStream.fromEventListenerWindow("online")` and `fromEventListenerWindow("offline")` into one capture stream folding each native event into the `online` cell, so the formerly-private `online` listener in `Shell/sync.md` is one owned cell four concerns read; the `redials` stream projects the rising offline->online edge (a `false`->`true` transition on the cell) so a consumer subscribes to the exact redial edge it drains on rather than re-deriving the transition; `registerNativeSync` registers the `rasm-offline-drain` `SyncManager` tag where `navigator.serviceWorker.ready` carries a `sync` manager, an unsupported host folding to a no-op so the `SyncManager` absence is an optional capability, never a parallel queue — the native wake and the `redials` edge both feed the one downstream drain fold.

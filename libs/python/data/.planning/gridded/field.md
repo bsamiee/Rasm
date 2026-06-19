@@ -2,13 +2,13 @@
 
 The CF-conventioned labelled N-D field owner: one polymorphic owner over `xarray` reading and writing CF-metadata field cubes through a `FieldEngine` reader-engine axis, with CF-aware coordinate selection, label-indexed slicing, grouped and resampled reductions, and unit/coordinate-reference metadata, materializing to the content-keyed `pyarrow`/Zarr egress the `data:tabular/columnar#SCAN` and `data:gridded/tensor#TENSOR` owners already speak. `FieldDataset` is the one frozen field owner; `FieldEngine` the `StrEnum` whose member value IS the `xarray` engine string and whose `open`/`write` delegate selects `open_dataset(engine=)`/`open_zarr` against `to_netcdf(engine=)`/`to_zarr` — config as a domain value carrying behaviour, never an `engine=` flag set. `FieldSelection` is the one closed `@tagged_union` CF-selection/reduction axis (`Sel`/`Isel`/`Interp`/`GroupBy`/`GroupByBins`/`Resample` folded by `match`/`case` closed with `assert_never`), the variants are cases not sibling methods. `FieldReceipt` folds content-keyed over the egress, mirroring `data:gridded/tensor#TENSOR` `TensorReceipt`, keyed by exactly one runtime `ContentIdentity` and wired through `ReceiptContributor`. This is the labelled-field counterpart of the dense chunk-grid `data:gridded/tensor#TENSOR` store — a distinct owner composing the existing Zarr egress and runtime content key, binding the admitted-but-unconsumed `netcdf4`, never a second labelled-array store inside `tensor`. `xarray` is on `banned-module-level-imports`, so every `xarray` call binds function-local under `# noqa: PLC0415`; there is no gated dependency on this path and no subprocess seam — the function-local import is the only floor discipline.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` reader-engine axis — the CF open/read/write entrypoint over `netcdf4`/`h5netcdf`/`zarr` engines binding `xarray` function-local.
-- [2]-[SELECT]: the `FieldSelection` CF-aware coordinate-selection and grouped/resampled-reduction axis — label-indexed `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample` folded by `match`/`case` and `assert_never`.
-- [3]-[EGRESS]: the `FieldReceipt` fold materializing to the content-keyed `pyarrow`/Zarr egress, keyed by one runtime `ContentIdentity`, wired through `ReceiptContributor`.
+- [01]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` reader-engine axis — the CF open/read/write entrypoint over `netcdf4`/`h5netcdf`/`zarr` engines binding `xarray` function-local.
+- [02]-[SELECT]: the `FieldSelection` CF-aware coordinate-selection and grouped/resampled-reduction axis — label-indexed `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample` folded by `match`/`case` and `assert_never`.
+- [03]-[EGRESS]: the `FieldReceipt` fold materializing to the content-keyed `pyarrow`/Zarr egress, keyed by one runtime `ContentIdentity`, wired through `ReceiptContributor`.
 
-## [2]-[FIELD]
+## [02]-[FIELD]
 
 - Owner: `FieldDataset` — one frozen CF field owner carrying the source `ResourceRef`, the `FieldEngine` reader engine, and the CF dimension/coordinate/unit metadata recovered at open; `FieldEngine` the `StrEnum` whose member value is the `xarray` engine string (`netcdf4`/`h5netcdf`/`zarr`) and whose `open`/`write` delegate selects the IO surface that engine owns. The engine is recovered from the source shape (the `.nc`/`.h5`/`.zarr` suffix), never a parallel `open_netcdf`/`open_hdf`/`open_zarr` reader family.
 - Cases: `FieldEngine` rows `NETCDF4` (`open_dataset(engine="netcdf4")` / `to_netcdf(engine="netcdf4")` over the Unidata netCDF-4 C library, the CF-compliant time/compound/group container) · `H5NETCDF` (`open_dataset(engine="h5netcdf")` / `to_netcdf(engine="h5netcdf")` over the pure-`h5py` HDF5 backend, the netCDF-4-as-HDF5 read path) · `ZARR` (`open_zarr` / `to_zarr` over the chunked Zarr store, the cloud-native CF carrier sharing the `gridded/tensor` Zarr chunk grid), matched by `match`/`case`, each binding the `xarray` IO surface that engine owns.
@@ -103,7 +103,7 @@ def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
     return FieldDataset(ref=ref, engine=engine, dims=tuple(dataset.dims), coords=tuple(dataset.coords), units=units)
 ```
 
-## [3]-[SELECT]
+## [03]-[SELECT]
 
 - Owner: `FieldSelection` — one closed `@tagged_union` CF-selection/reduction axis; the variants are cases the `apply` fold dispatches by `match`/`case` closed with `assert_never`, never a `sel`/`isel`/`groupby`/`resample` sibling-method family on `FieldDataset`. The selection runs against the live `xarray.Dataset` the owner re-opens and returns a transformed `xarray.Dataset`, keeping label-vs-position and point-vs-group as one axis.
 - Cases: `FieldSelection` rows `Sel(indexers, method, tolerance)` (label-indexed `Dataset.sel`, the CF-coordinate label selection — a `time`/`lat`/`lon` label dict, `method="nearest"` the inexact-match policy) · `Isel(indexers)` (positional `Dataset.isel`, integer-axis slicing) · `Interp(coords, method)` (coordinate interpolation `Dataset.interp`, the `"linear"`/`"cubic"` regridding onto new label positions) · `GroupBy(group, reduction)` (`Dataset.groupby(group)` then the named reduction — `mean`/`sum`/`std`/`max` — over the group) · `GroupByBins(group, bins, reduction)` (`Dataset.groupby_bins(group, bins)` then the reduction, the binned-coordinate aggregation) · `Resample(indexer, reduction)` (`Dataset.resample(**indexer)` then the reduction, the CF-time frequency resample — `{"time": "1D"}`), matched by `match`/`case`, each binding the `xarray` member that owns it.
@@ -191,7 +191,7 @@ def _select(selection: FieldSelection, dataset: "xr.Dataset") -> "xr.Dataset":
             assert_never(unreachable)
 ```
 
-## [4]-[EGRESS]
+## [04]-[EGRESS]
 
 - Owner: `FieldReceipt` — one content-keyed typed field receipt mirroring `data:gridded/tensor#TENSOR` `TensorReceipt`, keyed by exactly one runtime `ContentIdentity` and wired through `ReceiptContributor`; `_write` the egress fold that emits the live `xarray.Dataset` through the `FieldEngine` `write` delegate (CF `to_netcdf`/`to_zarr`) and the `to_arrow` path that lowers a CF table slice into the same `pyarrow.Table` the `columnar`/`query` owners consume. The egress reuses the engine `write` delegate the owner already holds, never a second per-format writer family.
 - Entry: `FieldDataset.write` emits the live dataset through `engine.write` keyed by `ContentIdentity` over the written bytes and folds one `FieldReceipt` over engine/dims/variable-count/byte size; `FieldReceipt.to_arrow` lowers the flattened dataset (`Dataset.to_dataframe().reset_index()` to a `pyarrow.Table`) so a CF field slice round-trips into the content-keyed `tabular/columnar#SCAN` egress, keyed by the same canonical `ContentIdentity.of`.
@@ -254,7 +254,7 @@ def _to_arrow(dataset: "xr.Dataset") -> "pa.Table":
     return table
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [CF_IO_SURFACE]: the `xarray` `open_dataset(engine=, chunks=, decode_cf=)`/`open_zarr(decode_cf=)`/`to_netcdf(engine=)`/`to_zarr(mode=)` IO arity and the `Dataset.sel(method=, tolerance=)`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample` selection/reduction surface the owner transcribes are catalogue-confirmed against the folder `xarray` `.api` (`open_dataset`/`open_zarr`/`to_netcdf`/`to_zarr` L50-57, the grouping family `groupby`/`groupby_bins`/`resample` L37, `sel`/`isel` L34, `interp` L39); the `netcdf4` engine binds the folder `netcdf4` `.api` as its first consumer (the CF-compliant container and `date2num`/`num2date` time decode), and `h5py` backs the `h5netcdf` engine. `xarray` is on `banned-module-level-imports`, so every `xarray` call binds function-local under `# noqa: PLC0415`; `netcdf4`/`h5py` are UNGATED Forge source-builds and `zarr` is cp315-clean, so there is no gated dependency and no subprocess seam on this path — the function-local `xarray` import is the only floor discipline, and a module-top `xarray` import is the floor-violating deleted form.
 - [CF_KEYWORD_ARITY]: the inexact-match `Dataset.sel(method="nearest", tolerance=...)` keyword pair, the `Dataset.interp(method="linear"|"cubic")` regridding-method spelling, the `groupby_bins(group, bins)` bin-edge argument shape, and the `resample(**{"time": "1D"})` frequency-indexer spelling confirm against the live `xarray` distribution before the selection arms treat them as settled — the folder `xarray` `.api` enumerates `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample` (L34/37/39) but truncates their keyword arity. The `decode_cf=True` default and its `combine_attrs="drop_conflicts"` companion on any multi-file `open_mfdataset` aggregation (the `xarray` `.api` lists `open_mfdataset` L52 and `combine_by_coords` L66 but truncates the `combine_attrs` value vocabulary) confirm against the live distribution, mirroring the `gridded/tensor#TENSOR` virtual-arm `combine_attrs` open seam.

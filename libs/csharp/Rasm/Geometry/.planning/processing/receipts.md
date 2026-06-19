@@ -4,11 +4,11 @@ The typed per-op rebuild evidence the heal rail emits and the naming `Track` re-
 
 The `RebuildReceipt` chain on the `HealSession` crosses only the in-process seam to the naming `Track` fold; the receipt records are interior types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[REBUILD_RECEIPTS]: `RebuildReceipt` `[Union]` typed per-op evidence; `ManifoldStatus` projection; `HealSession` carrier; the `Fold` that threads receipts across a heal session for the naming `Track` re-anchor.
+- [01]-[REBUILD_RECEIPTS]: `RebuildReceipt` `[Union]` typed per-op evidence; `ManifoldStatus` projection; `HealSession` carrier; the `Fold` that threads receipts across a heal session for the naming `Track` re-anchor.
 
-## [2]-[REBUILD_RECEIPTS]
+## [02]-[REBUILD_RECEIPTS]
 
 - Owner: `ManifoldStatus` the before/after topological snapshot (`EulerCharacteristic`, `Genus`, `BoundaryComponents` — the triple the public `VectorIntent.Topology(...).Project<(int Euler, int Genus, int BoundaryComponents)>` seam yields from the composed `Vectors` `TopologyReceipt`, never re-counted, and never the non-projectable `IsManifold`/`NonManifoldEdges`); `RebuildReceipt` `[Union]` the typed per-op evidence — one case per `HealOp` recording op kind, tolerance, before/after `ManifoldStatus`, and the affected entity refs (vertex/face index sets), so a `WeldReceipt` carries the weld tolerance and the merged-vertex set, a `ManifoldReceipt` carries the split-edge count, a `BooleanReceipt` carries the `BooleanOp` and the native-asset gate state — a typed receipt per heal kind, never a generic `IReceipt`/ledger; `HealSession` the session carrier (input mesh, healed mesh, the ordered `RebuildReceipt` chain) the naming `Track` re-anchor consumes; `RebuildLog` the fold projection that flattens a `HealSession` into the `(EntityKind, affected-index-set)` re-anchor input the `Spatial/naming#TOPO_NAMING` `Track` reads.
 - Cases: `RebuildReceipt` cases `DegenerateReceipt` · `GapReceipt` · `WeldReceipt` · `ManifoldReceipt` · `SelfIntersectReceipt` · `OrientReceipt` · `BooleanReceipt` (7, one per `HealOp`); `ManifoldStatus` is one record (not a union) carrying the topological scalars.
@@ -106,7 +106,7 @@ public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Face
 }
 ```
 
-## [3]-[DENSITY_BAR]
+## [03]-[DENSITY_BAR]
 
 One owner per axis; capability is a case or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure carriers, the receipts are returned in the `Heal.Repair` rail (`repair.md`).
 
@@ -118,7 +118,7 @@ One owner per axis; capability is a case or column, never a sibling surface. The
 
 The typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold are transcription-complete pure-managed fences composing the `Vectors` `TopologyReceipt` projection seam, none depending on a live-host member spelling beyond the stable native `Mesh` surface the topology sibling pins.
 
-## [4]-[CROSS_PAGE_SEAMS]
+## [04]-[CROSS_PAGE_SEAMS]
 
 Two seams reach sibling owners this page composes but does not write — noted for ALIGN, never edited here.
 

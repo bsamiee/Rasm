@@ -2,21 +2,21 @@
 
 The Effect ecosystem owns result rails, effect execution, immutable traversal, schedule policy, transactional state, and boundary cells. A carrier is chosen once at decode and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at the runtime edge through `Effect.runPromise`, `Effect.runFork`, or a `Match` terminal. Decoded domain values enter these surfaces; raw provider, `Promise`, and JS-stdlib shapes do not.
 
-## [1]-[RAIL_CHOOSER]
+## [01]-[RAIL_CHOOSER]
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is earned only by a capability the narrower one cannot carry: typed failure, accumulated faults, required context, resource lifetime, schedule, transactional state, or concurrency.
 
 | [INDEX] | [SURFACE]                   | [OWNS]                          | [REJECT]                         |
 | :-----: | :-------------------------- | :------------------------------ | :------------------------------- |
-|   [1]   | `Option<T>`                 | absence, no cause               | hidden failure, `null` leak      |
-|   [2]   | `Either<E, A>`              | pure synchronous branching      | `throw` for control flow         |
-|   [3]   | `Effect.Effect<A, E>`       | typed fallibility, deferral     | `Promise`, eager side effect     |
-|   [4]   | `Effect.Effect<A, E, R>`    | required context capability     | service location, ambient global |
-|   [5]   | `Cause<E>`                  | full failure tree at a boundary | flat error after composition     |
-|   [6]   | `Schedule`                  | retry, repeat, backoff policy   | ad-hoc delay loop                |
-|   [7]   | `Chunk<T>` / `Array` module | immutable traversal             | mutable `Array.push` flow        |
-|   [8]   | `HashMap<K,V>` / `HashSet`  | immutable keyed lookup          | `new Map()` `.set` mutation      |
-|   [9]   | `Ref<T>` / `STM` / `TMap`   | managed and transactional state | `let` accumulator, shared `var`  |
+|  [01]   | `Option<T>`                 | absence, no cause               | hidden failure, `null` leak      |
+|  [02]   | `Either<E, A>`              | pure synchronous branching      | `throw` for control flow         |
+|  [03]   | `Effect.Effect<A, E>`       | typed fallibility, deferral     | `Promise`, eager side effect     |
+|  [04]   | `Effect.Effect<A, E, R>`    | required context capability     | service location, ambient global |
+|  [05]   | `Cause<E>`                  | full failure tree at a boundary | flat error after composition     |
+|  [06]   | `Schedule`                  | retry, repeat, backoff policy   | ad-hoc delay loop                |
+|  [07]   | `Chunk<T>` / `Array` module | immutable traversal             | mutable `Array.push` flow        |
+|  [08]   | `HashMap<K,V>` / `HashSet`  | immutable keyed lookup          | `new Map()` `.set` mutation      |
+|  [09]   | `Ref<T>` / `STM` / `TMap`   | managed and transactional state | `let` accumulator, shared `var`  |
 |  [10]   | `Stream<A, E, R>`           | back-pressured async sequence   | unbounded buffered array         |
 
 `Option<T>` carries absence with zero failure semantics; promote to a typed `Effect` error when the caller must know why; the error channel `E` accumulates only when `Effect.all({ mode: "validate" })` or `Effect.validateAll` is the seam, otherwise it short-circuits.
@@ -31,7 +31,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ea
 - Law: a fault's severity is a vocabulary ordinal, never an ambient rank — `Order.mapInput(Order.number, (f) => SEVERITY[f._tag])` lifts the row into an `Order` over the fault and `Order.max` is the lattice join folding a cause set to its dominant fault, so reduction is the `Order` algebra, never a manual `reduce` comparing tags.
 - Law: a compound rail key is a field-wise `Equivalence` carried into `Effect.cachedFunction(f, eq)`, not a delimiter-joined string — `Equivalence.mapInput(Equivalence.tuple(...), (k) => [k.content, k.policy] as const)` keys the memo so two dimensions never collide the way `` `${a}:${b}` `` does, and the in-flight computation is shared across concurrent callers on one equivalent key rather than raced.
 
-## [2]-[BOUNDARY_CONVERSION]
+## [02]-[BOUNDARY_CONVERSION]
 
 Every boundary converts once into the carrier that states the real outcome; reusable transforms keep that carrier and never re-project mid-pipeline.
 
@@ -64,7 +64,7 @@ const admit = <A, I>(schema: S.Schema<A, I>, dispatch: (a: A, signal: AbortSigna
 - Law: reusable domain transforms keep the carrier; an `Effect.runSync` inside a pure projection or an `Option.match` mid-pipeline that loses composition is the rejected exit.
 - Reject: mid-pipeline collapse inside a transform; `Match.exhaustive` called mid-pipeline where `map`/`flatMap` keep the rail.
 
-## [3]-[TRAVERSAL_FLOW]
+## [03]-[TRAVERSAL_FLOW]
 
 Traversal is rail policy: the collection shape and the sequencing combinator together decide how failures, effects, strictness, and concurrency compose.
 
@@ -110,21 +110,21 @@ const traverseRaw = (raw: ReadonlyArray<string>) => // forEach is the abort-on-f
 - Law: `filterOrDie`/`Effect.orDie` elevate a guard to a defect only at a boundary where the failure is a non-recoverable invariant, never in domain flow.
 - Reject: boolean success/failure factories duplicating `filterOrFail`; a guard that throws instead of failing the rail.
 
-## [4]-[FAILURE_HANDLING]
+## [04]-[FAILURE_HANDLING]
 
 Apply carrier-qualified failure transforms before collapse; a rail transform never throws.
 
 | [INDEX] | [COMBINATOR]                 | [USE]                              |
 | :-----: | :--------------------------- | :--------------------------------- |
-|   [1]   | `Effect.mapError(f)`         | reshape the typed failure          |
-|   [2]   | `Effect.catchTag(tag, f)`    | recover one tagged variant         |
-|   [3]   | `Effect.catchTags({...})`    | recover several tags with coverage |
-|   [4]   | `Effect.catchIf(refine, f)`  | recover by `$is` refinement        |
-|   [5]   | `Effect.tapError(f)`         | observe without channel widening   |
-|   [6]   | `Effect.catchAllCause(f)`    | fold the full cause at a boundary  |
-|   [7]   | `Effect.matchEffect(...)`    | branch both channels into one rail |
-|   [8]   | `Effect.either` / `option`   | project failure into data          |
-|   [9]   | `Effect.sandbox`/`unsandbox` | lift `Cause<E>` and re-promote     |
+|  [01]   | `Effect.mapError(f)`         | reshape the typed failure          |
+|  [02]   | `Effect.catchTag(tag, f)`    | recover one tagged variant         |
+|  [03]   | `Effect.catchTags({...})`    | recover several tags with coverage |
+|  [04]   | `Effect.catchIf(refine, f)`  | recover by `$is` refinement        |
+|  [05]   | `Effect.tapError(f)`         | observe without channel widening   |
+|  [06]   | `Effect.catchAllCause(f)`    | fold the full cause at a boundary  |
+|  [07]   | `Effect.matchEffect(...)`    | branch both channels into one rail |
+|  [08]   | `Effect.either` / `option`   | project failure into data          |
+|  [09]   | `Effect.sandbox`/`unsandbox` | lift `Cause<E>` and re-promote     |
 
 [CAUSE_NORMALIZATION]:
 - Law: parallel and sequential composition produce composite cause trees that `catchTag` cannot dispatch; `Cause.match` is the exhaustive catamorphism with `onEmpty`/`onFail`/`onDie`/`onInterrupt`/`onSequential`/`onParallel`, and `onSequential`/`onParallel` receive already-reduced children so a commutative combiner shares one callback across both composition modes.
@@ -155,7 +155,7 @@ const boundaryClose = (op: StoreFault["op"]) =>
     )
 ```
 
-## [5]-[EFFECT_RUNTIME]
+## [05]-[EFFECT_RUNTIME]
 
 An Effect carries its required context `R`; the runtime resolves it once at the composition edge.
 
@@ -202,7 +202,7 @@ class StoreService extends Effect.Service<StoreService>()("domain/Store", {
 - Builders: `recurs`, `spaced`, `fixed`, `exponential`, `fibonacci`, `jittered`, `compose`, `intersect`, `union`, `resetAfter`, `whileInput`, `addDelay`.
 - Reject: an ad-hoc delay loop; trusting an infinite backoff to stop itself.
 
-## [6]-[STATE_AND_RECEIPTS]
+## [06]-[STATE_AND_RECEIPTS]
 
 State belongs at a boundary or service owner, not inside pure domain accumulation.
 
@@ -257,7 +257,7 @@ class Receipt extends Data.TaggedClass("Receipt")<{ // one fact stream; the kind
 const _emit = (cell: Ref.Ref<Chunk.Chunk<Receipt>>, fact: Receipt) => Ref.update(cell, Chunk.append(fact)) // append-only history cell, one swap per fact
 ```
 
-## [7]-[CARRIER_INTEROP]
+## [07]-[CARRIER_INTEROP]
 
 One transform serves the whole carrier family through a generic signature; failure rises through the channel, never a concrete constructor that pins the carrier.
 

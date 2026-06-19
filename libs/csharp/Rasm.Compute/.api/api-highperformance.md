@@ -4,7 +4,7 @@
 ref carriers, tokenizers, stream projection extensions, and parallel helpers
 for measured staging payloads.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CommunityToolkit.HighPerformance`
 - package: `CommunityToolkit.HighPerformance`
@@ -13,22 +13,22 @@ for measured staging payloads.
 - asset: runtime library
 - rail: staging
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: memory shapes
 - rail: staging
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]  | [CAPABILITY]             |
 | :-----: | :------------------------- | :-------------- | :----------------------- |
-|   [1]   | `Span2D<T>`                | span view       | addresses dense planes   |
-|   [2]   | `ReadOnlySpan2D<T>`        | span view       | reads dense planes       |
-|   [3]   | `Memory2D<T>`              | memory view     | carries owned planes     |
-|   [4]   | `ReadOnlyMemory2D<T>`      | memory view     | carries read-only planes |
-|   [5]   | `Ref<T>`                   | ref carrier     | preserves ref access     |
-|   [6]   | `ReadOnlyRef<T>`           | ref carrier     | preserves read refs      |
-|   [7]   | `NullableRef<T>`           | ref carrier     | carries optional refs    |
-|   [8]   | `NullableReadOnlyRef<T>`   | ref carrier     | carries optional refs    |
-|   [9]   | `Box<T>`                   | box carrier     | types boxed structs      |
+|  [01]   | `Span2D<T>`                | span view       | addresses dense planes   |
+|  [02]   | `ReadOnlySpan2D<T>`        | span view       | reads dense planes       |
+|  [03]   | `Memory2D<T>`              | memory view     | carries owned planes     |
+|  [04]   | `ReadOnlyMemory2D<T>`      | memory view     | carries read-only planes |
+|  [05]   | `Ref<T>`                   | ref carrier     | preserves ref access     |
+|  [06]   | `ReadOnlyRef<T>`           | ref carrier     | preserves read refs      |
+|  [07]   | `NullableRef<T>`           | ref carrier     | carries optional refs    |
+|  [08]   | `NullableReadOnlyRef<T>`   | ref carrier     | carries optional refs    |
+|  [09]   | `Box<T>`                   | box carrier     | types boxed structs      |
 |  [10]   | `MemoryOwner<T>`           | pooled owner    | owns rented memory       |
 |  [11]   | `SpanOwner<T>`             | pooled owner    | owns rented span memory  |
 |  [12]   | `ArrayPoolBufferWriter<T>` | pooled writer   | writes staged payloads   |
@@ -42,49 +42,49 @@ for measured staging payloads.
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                |
 | :-----: | :-------------------------- | :-------------- | :-------------------------- |
-|   [1]   | `ReadOnlySpanTokenizer<T>`  | tokenizer       | splits spans                |
-|   [2]   | `SpanTokenizer<T>`          | tokenizer       | splits mutable spans        |
-|   [3]   | `ReadOnlySpanEnumerable<T>` | item enumerable | enumerates with index       |
-|   [4]   | `SpanEnumerable<T>`         | item enumerable | enumerates with index       |
-|   [5]   | `ReadOnlyRefEnumerable<T>`  | ref enumerable  | enumerates by ref           |
-|   [6]   | `RefEnumerable<T>`          | ref enumerable  | enumerates by ref           |
-|   [7]   | `ParallelHelper`            | parallel root   | partitions batch work       |
-|   [8]   | `IAction` / `IAction2D`     | action contract | defines indexed work        |
-|   [9]   | `IInAction` / `IRefAction`  | action contract | defines item work           |
+|  [01]   | `ReadOnlySpanTokenizer<T>`  | tokenizer       | splits spans                |
+|  [02]   | `SpanTokenizer<T>`          | tokenizer       | splits mutable spans        |
+|  [03]   | `ReadOnlySpanEnumerable<T>` | item enumerable | enumerates with index       |
+|  [04]   | `SpanEnumerable<T>`         | item enumerable | enumerates with index       |
+|  [05]   | `ReadOnlyRefEnumerable<T>`  | ref enumerable  | enumerates by ref           |
+|  [06]   | `RefEnumerable<T>`          | ref enumerable  | enumerates by ref           |
+|  [07]   | `ParallelHelper`            | parallel root   | partitions batch work       |
+|  [08]   | `IAction` / `IAction2D`     | action contract | defines indexed work        |
+|  [09]   | `IInAction` / `IRefAction`  | action contract | defines item work           |
 |  [10]   | `BitHelper`                 | bit helper      | packs bit flags             |
 |  [11]   | `HashCode<T>`               | hash helper     | REJECTED — see `[REJECTED]` |
 |  [12]   | `ObjectMarshal`             | marshal helper  | reads object internals      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: allocation and ownership
 - rail: staging
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]   | [CAPABILITY]                         |
 | :-----: | :----------------------------------- | :------------- | :----------------------------------- |
-|   [1]   | `MemoryOwner<T>.Allocate`            | factory call   | rents owned memory                   |
-|   [2]   | `SpanOwner<T>.Allocate`              | factory call   | rents owned span                     |
-|   [3]   | `MemoryOwner<T>.Slice`               | instance call  | slices owned memory                  |
-|   [4]   | `MemoryOwner<T>.DangerousGetArray`   | instance call  | exposes the rented `ArraySegment<T>` |
-|   [5]   | `ArrayPoolExtensions.Resize`         | extension call | resizes rented array                 |
-|   [6]   | `ArrayPoolExtensions.EnsureCapacity` | extension call | grows rented array                   |
-|   [7]   | `StringPool.GetOrAdd`                | pool call      | interns text payload                 |
-|   [8]   | `Dispose`                            | lifetime call  | returns pooled storage               |
+|  [01]   | `MemoryOwner<T>.Allocate`            | factory call   | rents owned memory                   |
+|  [02]   | `SpanOwner<T>.Allocate`              | factory call   | rents owned span                     |
+|  [03]   | `MemoryOwner<T>.Slice`               | instance call  | slices owned memory                  |
+|  [04]   | `MemoryOwner<T>.DangerousGetArray`   | instance call  | exposes the rented `ArraySegment<T>` |
+|  [05]   | `ArrayPoolExtensions.Resize`         | extension call | resizes rented array                 |
+|  [06]   | `ArrayPoolExtensions.EnsureCapacity` | extension call | grows rented array                   |
+|  [07]   | `StringPool.GetOrAdd`                | pool call      | interns text payload                 |
+|  [08]   | `Dispose`                            | lifetime call  | returns pooled storage               |
 
 [ENTRYPOINT_SCOPE]: projections and transforms
 - rail: staging
 
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]   | [CAPABILITY]            |
 | :-----: | :-------------------------------- | :------------- | :---------------------- |
-|   [1]   | `AsSpan2D`                        | extension call | projects plane view     |
-|   [2]   | `AsMemory2D`                      | extension call | projects memory plane   |
-|   [3]   | `GetRow` / `GetColumn`            | extension call | enumerates plane axis   |
-|   [4]   | `GetRowSpan`                      | extension call | addresses plane row     |
-|   [5]   | `DangerousGetReference`           | extension call | exposes ref root        |
-|   [6]   | `AsBytes`                         | extension call | projects raw bytes      |
-|   [7]   | `Cast`                            | extension call | reinterprets span bytes |
-|   [8]   | `Tokenize`                        | extension call | splits span payloads    |
-|   [9]   | `Enumerate`                       | extension call | exposes ref enumeration |
+|  [01]   | `AsSpan2D`                        | extension call | projects plane view     |
+|  [02]   | `AsMemory2D`                      | extension call | projects memory plane   |
+|  [03]   | `GetRow` / `GetColumn`            | extension call | enumerates plane axis   |
+|  [04]   | `GetRowSpan`                      | extension call | addresses plane row     |
+|  [05]   | `DangerousGetReference`           | extension call | exposes ref root        |
+|  [06]   | `AsBytes`                         | extension call | projects raw bytes      |
+|  [07]   | `Cast`                            | extension call | reinterprets span bytes |
+|  [08]   | `Tokenize`                        | extension call | splits span payloads    |
+|  [09]   | `Enumerate`                       | extension call | exposes ref enumeration |
 |  [10]   | `AsStream`                        | extension call | projects payload stream |
 |  [11]   | `StreamExtensions.Read` / `Write` | extension call | moves span payloads     |
 
@@ -93,23 +93,23 @@ for measured staging payloads.
 
 | [INDEX] | [SURFACE]                               | [CALL_SHAPE]        | [CAPABILITY]                |
 | :-----: | :-------------------------------------- | :------------------ | :-------------------------- |
-|   [1]   | `ParallelHelper.For<TAction>`           | 1D index range      | partitions index slots      |
-|   [2]   | `ParallelHelper.For<TAction>`           | `Range` span        | partitions a range span     |
-|   [3]   | `ParallelHelper.For2D<TAction>`         | 2D rectangle bounds | partitions a 2D rectangle   |
-|   [4]   | `ParallelHelper.For2D<TAction>`         | 2D region values    | partitions a 2D region      |
-|   [5]   | `ParallelHelper.ForEach<TItem,TAction>` | `Memory<T>`         | mutates items by reference  |
-|   [6]   | `ParallelHelper.ForEach<TItem,TAction>` | `ReadOnlyMemory<T>` | reads items by reference    |
-|   [7]   | `ParallelHelper.ForEach<TItem,TAction>` | memory plane        | partitions 2D memory planes |
+|  [01]   | `ParallelHelper.For<TAction>`           | 1D index range      | partitions index slots      |
+|  [02]   | `ParallelHelper.For<TAction>`           | `Range` span        | partitions a range span     |
+|  [03]   | `ParallelHelper.For2D<TAction>`         | 2D rectangle bounds | partitions a 2D rectangle   |
+|  [04]   | `ParallelHelper.For2D<TAction>`         | 2D region values    | partitions a 2D region      |
+|  [05]   | `ParallelHelper.ForEach<TItem,TAction>` | `Memory<T>`         | mutates items by reference  |
+|  [06]   | `ParallelHelper.ForEach<TItem,TAction>` | `ReadOnlyMemory<T>` | reads items by reference    |
+|  [07]   | `ParallelHelper.ForEach<TItem,TAction>` | memory plane        | partitions 2D memory planes |
 
 [ENTRYPOINT_SCOPE]: action contract invocation
 - rail: staging
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]   | [CAPABILITY]             |
 | :-----: | :--------------------- | :------------- | :----------------------- |
-|   [1]   | `IAction.Invoke`       | 1D index       | handles one index slot   |
-|   [2]   | `IAction2D.Invoke`     | 2D index pair  | handles one 2D slot      |
-|   [3]   | `IInAction<T>.Invoke`  | read-only item | handles one input item   |
-|   [4]   | `IRefAction<T>.Invoke` | mutable item   | handles one mutable item |
+|  [01]   | `IAction.Invoke`       | 1D index       | handles one index slot   |
+|  [02]   | `IAction2D.Invoke`     | 2D index pair  | handles one 2D slot      |
+|  [03]   | `IInAction<T>.Invoke`  | read-only item | handles one input item   |
+|  [04]   | `IRefAction<T>.Invoke` | mutable item   | handles one mutable item |
 
 [ENTRYPOINT_SCOPE]: `BitHelper` decompile-verified member signatures
 - source: `CommunityToolkit.HighPerformance` 8.4.2 — `CommunityToolkit.HighPerformance.Helpers.BitHelper` decompile
@@ -119,22 +119,22 @@ for measured staging payloads.
 
 | [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                   |
 | :-----: | :------------------------------------ | :---------------------------------------------------------------------------- |
-|   [1]   | `HasFlag(uint,int)`                   | `static bool HasFlag(uint value, int n)`                                      |
-|   [2]   | `HasFlag(ulong,int)`                  | `static bool HasFlag(ulong value, int n)`                                     |
-|   [3]   | `SetFlag(ref uint,int,bool)`          | `static void SetFlag(ref uint value, int n, bool flag)`                       |
-|   [4]   | `SetFlag(uint,int,bool)`              | `static uint SetFlag(uint value, int n, bool flag)`                           |
-|   [5]   | `SetFlag(ref ulong,int,bool)`         | `static void SetFlag(ref ulong value, int n, bool flag)`                      |
-|   [6]   | `SetFlag(ulong,int,bool)`             | `static ulong SetFlag(ulong value, int n, bool flag)`                         |
-|   [7]   | `ExtractRange(uint,byte,byte)`        | `static uint ExtractRange(uint value, byte start, byte length)`               |
-|   [8]   | `ExtractRange(ulong,byte,byte)`       | `static ulong ExtractRange(ulong value, byte start, byte length)`             |
-|   [9]   | `SetRange(ref uint,byte,byte,uint)`   | `static void SetRange(ref uint value, byte start, byte length, uint flags)`   |
+|  [01]   | `HasFlag(uint,int)`                   | `static bool HasFlag(uint value, int n)`                                      |
+|  [02]   | `HasFlag(ulong,int)`                  | `static bool HasFlag(ulong value, int n)`                                     |
+|  [03]   | `SetFlag(ref uint,int,bool)`          | `static void SetFlag(ref uint value, int n, bool flag)`                       |
+|  [04]   | `SetFlag(uint,int,bool)`              | `static uint SetFlag(uint value, int n, bool flag)`                           |
+|  [05]   | `SetFlag(ref ulong,int,bool)`         | `static void SetFlag(ref ulong value, int n, bool flag)`                      |
+|  [06]   | `SetFlag(ulong,int,bool)`             | `static ulong SetFlag(ulong value, int n, bool flag)`                         |
+|  [07]   | `ExtractRange(uint,byte,byte)`        | `static uint ExtractRange(uint value, byte start, byte length)`               |
+|  [08]   | `ExtractRange(ulong,byte,byte)`       | `static ulong ExtractRange(ulong value, byte start, byte length)`             |
+|  [09]   | `SetRange(ref uint,byte,byte,uint)`   | `static void SetRange(ref uint value, byte start, byte length, uint flags)`   |
 |  [10]   | `SetRange(uint,byte,byte,uint)`       | `static uint SetRange(uint value, byte start, byte length, uint flags)`       |
 |  [11]   | `SetRange(ref ulong,byte,byte,ulong)` | `static void SetRange(ref ulong value, byte start, byte length, ulong flags)` |
 |  [12]   | `SetRange(ulong,byte,byte,ulong)`     | `static ulong SetRange(ulong value, byte start, byte length, ulong flags)`    |
 |  [13]   | `HasLookupFlag(uint,int,int)`         | `static bool HasLookupFlag(uint table, int x, int min = 0)`                   |
 |  [14]   | `HasLookupFlag(ulong,int,int)`        | `static bool HasLookupFlag(ulong table, int x, int min = 0)`                  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STAGING_MEMORY]:
 - namespaces: `CommunityToolkit.HighPerformance`, `CommunityToolkit.HighPerformance.Buffers`

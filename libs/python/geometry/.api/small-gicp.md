@@ -2,7 +2,7 @@
 
 `small_gicp` supplies the parallel fine point-cloud registration speed-path for the scan-processing rail: a `PointCloud` carrier with points/normals/covariances, a parallel `KdTree`, Gaussian and incremental voxel maps, per-correspondence factors, and the polymorphic `align` entrypoint that drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform. The package owner composes `read_ply`/numpy intake, `preprocess_points`, and `align` into the scan owner; it never re-implements the multi-threaded nearest-neighbor search, the GICP linearization, or the voxel-grid downsampler.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `small-gicp`
 - package: `small-gicp`
@@ -13,16 +13,16 @@
 - entry points: none (library only)
 - capability: multi-threaded GICP/VGICP/ICP/point-to-plane registration, voxel-grid downsampling, parallel KdTree KNN and batch search, normal and covariance estimation, Gaussian and incremental LRU voxel maps, and linearized normal-equation factors for chaining
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cloud, index, and result family
 - rail: scan-processing
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                           |
 | :-----: | :------------------- | :------------------ | :----------------------------------------------------- |
-|   [1]   | `PointCloud`         | point cloud         | `points`/`normals`/`covs` arrays plus per-index access |
-|   [2]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search       |
-|   [3]   | `RegistrationResult` | registration result | transform, convergence, inliers, and Hessian/grad      |
+|  [01]   | `PointCloud`         | point cloud         | `points`/`normals`/`covs` arrays plus per-index access |
+|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search       |
+|  [03]   | `RegistrationResult` | registration result | transform, convergence, inliers, and Hessian/grad      |
 
 [PUBLIC_TYPE_SCOPE]: voxel map and factor family
 - rail: scan-processing
@@ -31,17 +31,17 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :----------------------------- | :------------ | :----------------------------------------------- |
-|   [1]   | `GaussianVoxelMap`             | voxel map     | VGICP target with `voxel_covs`                   |
-|   [2]   | `IncrementalVoxelMap`          | voxel map     | LRU point voxels for streaming                   |
-|   [3]   | `IncrementalVoxelMapCov`       | voxel map     | LRU voxels with `voxel_covs`                     |
-|   [4]   | `IncrementalVoxelMapNormal`    | voxel map     | LRU voxels with `voxel_normals`                  |
-|   [5]   | `IncrementalVoxelMapNormalCov` | voxel map     | LRU voxels with `voxel_normals` and `voxel_covs` |
-|   [6]   | `ICPFactor`                    | factor        | point-to-point linearization                     |
-|   [7]   | `PointToPlaneICPFactor`        | factor        | point-to-plane linearization                     |
-|   [8]   | `GICPFactor`                   | factor        | plane-to-plane GICP linearization                |
-|   [9]   | `DistanceRejector`             | rejector      | `set_max_distance` correspondence gate           |
+|  [01]   | `GaussianVoxelMap`             | voxel map     | VGICP target with `voxel_covs`                   |
+|  [02]   | `IncrementalVoxelMap`          | voxel map     | LRU point voxels for streaming                   |
+|  [03]   | `IncrementalVoxelMapCov`       | voxel map     | LRU voxels with `voxel_covs`                     |
+|  [04]   | `IncrementalVoxelMapNormal`    | voxel map     | LRU voxels with `voxel_normals`                  |
+|  [05]   | `IncrementalVoxelMapNormalCov` | voxel map     | LRU voxels with `voxel_normals` and `voxel_covs` |
+|  [06]   | `ICPFactor`                    | factor        | point-to-point linearization                     |
+|  [07]   | `PointToPlaneICPFactor`        | factor        | point-to-plane linearization                     |
+|  [08]   | `GICPFactor`                   | factor        | plane-to-plane GICP linearization                |
+|  [09]   | `DistanceRejector`             | rejector      | `set_max_distance` correspondence gate           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration (`small_gicp.align`)
 - rail: scan-processing
@@ -50,9 +50,9 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                      |
 | :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------ |
-|   [1]   | `align(target_points, source_points, registration_type='GICP')` | raw arrays     | numpy `Nx3`/`Nx4` intake plus internal preprocess |
-|   [2]   | `align(target, source, target_tree=None)`                       | preprocessed   | aligns prepared `PointCloud` pair                 |
-|   [3]   | `align(target_voxelmap, source)`                                | voxel target   | VGICP against a `GaussianVoxelMap`                |
+|  [01]   | `align(target_points, source_points, registration_type='GICP')` | raw arrays     | numpy `Nx3`/`Nx4` intake plus internal preprocess |
+|  [02]   | `align(target, source, target_tree=None)`                       | preprocessed   | aligns prepared `PointCloud` pair                 |
+|  [03]   | `align(target_voxelmap, source)`                                | voxel target   | VGICP against a `GaussianVoxelMap`                |
 
 [ENTRYPOINT_SCOPE]: preprocessing and attribute estimation
 - rail: scan-processing
@@ -61,12 +61,12 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 
 | [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                             |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|   [1]   | `preprocess_points(points, downsampling_resolution=0.25, num_neighbors=10, num_threads=1)` | preprocess     | downsample plus KdTree plus normals/covs |
-|   [2]   | `voxelgrid_sampling(points, downsampling_resolution, num_threads=1)`                       | downsample     | voxel-grid downsample to `PointCloud`    |
-|   [3]   | `estimate_normals(points, tree=None, num_neighbors=20, num_threads=1)`                     | estimate       | in-place normal estimation               |
-|   [4]   | `estimate_covariances(points, tree=None, num_neighbors=20, num_threads=1)`                 | estimate       | in-place covariance estimation           |
-|   [5]   | `estimate_normals_covariances(points, tree=None, num_neighbors=20, num_threads=1)`         | estimate       | in-place normals and covariances         |
-|   [6]   | `read_ply(filename) -> PointCloud`                                                         | read           | XYZ-only test PLY intake                 |
+|  [01]   | `preprocess_points(points, downsampling_resolution=0.25, num_neighbors=10, num_threads=1)` | preprocess     | downsample plus KdTree plus normals/covs |
+|  [02]   | `voxelgrid_sampling(points, downsampling_resolution, num_threads=1)`                       | downsample     | voxel-grid downsample to `PointCloud`    |
+|  [03]   | `estimate_normals(points, tree=None, num_neighbors=20, num_threads=1)`                     | estimate       | in-place normal estimation               |
+|  [04]   | `estimate_covariances(points, tree=None, num_neighbors=20, num_threads=1)`                 | estimate       | in-place covariance estimation           |
+|  [05]   | `estimate_normals_covariances(points, tree=None, num_neighbors=20, num_threads=1)`         | estimate       | in-place normals and covariances         |
+|  [06]   | `read_ply(filename) -> PointCloud`                                                         | read           | XYZ-only test PLY intake                 |
 
 [ENTRYPOINT_SCOPE]: search, voxel, and result accessors
 - rail: scan-processing
@@ -75,18 +75,18 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [CAPABILITY]                         |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------------- |
-|   [1]   | `tree.nearest_neighbor_search(point)`     | search         | single nearest neighbor              |
-|   [2]   | `tree.knn_search(point, k)`               | search         | k nearest neighbors                  |
-|   [3]   | `tree.batch_nearest_neighbor_search(pts)` | search         | parallel batch nearest neighbor      |
-|   [4]   | `tree.batch_knn_search(pts, k)`           | search         | parallel batch KNN                   |
-|   [5]   | `voxelmap.insert(cloud, T=eye(4))`        | voxel          | accumulate cloud into voxels         |
-|   [6]   | `voxelmap.set_lru(horizon, clear_cycle)`  | voxel          | configure incremental LRU eviction   |
-|   [7]   | `result.T_target_source`                  | result         | 4x4 target-from-source transform     |
-|   [8]   | `result.converged` / `result.iterations`  | result         | convergence flag and iteration count |
-|   [9]   | `result.num_inliers` / `result.error`     | result         | inlier count and final error         |
+|  [01]   | `tree.nearest_neighbor_search(point)`     | search         | single nearest neighbor              |
+|  [02]   | `tree.knn_search(point, k)`               | search         | k nearest neighbors                  |
+|  [03]   | `tree.batch_nearest_neighbor_search(pts)` | search         | parallel batch nearest neighbor      |
+|  [04]   | `tree.batch_knn_search(pts, k)`           | search         | parallel batch KNN                   |
+|  [05]   | `voxelmap.insert(cloud, T=eye(4))`        | voxel          | accumulate cloud into voxels         |
+|  [06]   | `voxelmap.set_lru(horizon, clear_cycle)`  | voxel          | configure incremental LRU eviction   |
+|  [07]   | `result.T_target_source`                  | result         | 4x4 target-from-source transform     |
+|  [08]   | `result.converged` / `result.iterations`  | result         | convergence flag and iteration count |
+|  [09]   | `result.num_inliers` / `result.error`     | result         | inlier count and final error         |
 |  [10]   | `result.H` / `result.b`                   | result         | linearized Hessian and gradient      |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SCAN_REGISTRATION]:
 - import: `import small_gicp` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -97,7 +97,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 - evidence: each `align` captures `T_target_source`, `converged`, `iterations`, `num_inliers`, and `error`; `H`/`b` expose the final normal equations for chaining into a downstream solver as a registration receipt.
 - boundary: small_gicp owns fine multi-threaded GICP/VGICP registration; coarse feature-based global registration, FPFH, and surface reconstruction route to `open3d`, mesh-mesh ICP to `trimesh.registration`, and general PLY/scan IO to `open3d`/`laspy` rather than the test-only `read_ply`.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `small-gicp`

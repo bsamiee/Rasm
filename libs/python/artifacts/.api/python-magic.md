@@ -2,7 +2,7 @@
 
 `python-magic` supplies the libmagic-backed content-identity surface for the artifacts file-control rail: module-level detection functions and a configurable `Magic` cookie that classify bytes, file paths, and descriptors into MIME types, human descriptions, and encodings. The package owner composes `from_buffer`, `from_file`, and `Magic` into the file-control owner; it never re-implements the libmagic database the native library already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `python-magic`
 - package: `python-magic`
@@ -13,17 +13,17 @@
 - entry points: none (library only)
 - capability: libmagic content-type detection from bytes, path, or descriptor; MIME-type, human-readable description, and encoding outputs; custom magic database files
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cookie and fault
 - rail: file control
 
 | [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]  | [CAPABILITY]                                                              |
 | :-----: | :--------------- | :-------------- | :------------------------------------------------------------------------ |
-|   [1]   | `Magic`          | detector cookie | a configured libmagic handle (mime/description/encoding flags, custom DB) |
-|   [2]   | `MagicException` | engine fault    | a libmagic call failed                                                    |
+|  [01]   | `Magic`          | detector cookie | a configured libmagic handle (mime/description/encoding flags, custom DB) |
+|  [02]   | `MagicException` | engine fault    | a libmagic call failed                                                    |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: detection functions and cookie
 - rail: file control
@@ -32,15 +32,15 @@ The `Magic` row carries MIME, encoding, extension, decompression, raw-output, an
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]              | [CAPABILITY]                              |
 | :-----: | :------------------ | :------------------------ | :---------------------------------------- |
-|   [1]   | `from_buffer`       | bytes plus MIME flag      | detect from in-memory bytes               |
-|   [2]   | `from_file`         | path plus MIME flag       | detect from a path                        |
-|   [3]   | `from_descriptor`   | file descriptor plus flag | detect from a file descriptor             |
-|   [4]   | `Magic`             | detector-cookie policy    | configured detector cookie                |
-|   [5]   | `Magic.from_buffer` | bytes with cookie config  | detect from bytes with the cookie config  |
-|   [6]   | `Magic.from_file`   | path with cookie config   | detect from a path with the cookie config |
-|   [7]   | `version`           | no-arg query -> `int`     | libmagic version                          |
+|  [01]   | `from_buffer`       | bytes plus MIME flag      | detect from in-memory bytes               |
+|  [02]   | `from_file`         | path plus MIME flag       | detect from a path                        |
+|  [03]   | `from_descriptor`   | file descriptor plus flag | detect from a file descriptor             |
+|  [04]   | `Magic`             | detector-cookie policy    | configured detector cookie                |
+|  [05]   | `Magic.from_buffer` | bytes with cookie config  | detect from bytes with the cookie config  |
+|  [06]   | `Magic.from_file`   | path with cookie config   | detect from a path with the cookie config |
+|  [07]   | `version`           | no-arg query -> `int`     | libmagic version                          |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CONTENT_IDENTITY]:
 - import: `import magic` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -50,7 +50,7 @@ The `Magic` row carries MIME, encoding, extension, decompression, raw-output, an
 - evidence: each detection captures source kind, MIME type, encoding, and input byte length as a content-identity receipt; the result is the runtime `ContentIdentity`, never a re-minted identity.
 - boundary: python-magic owns content sniffing; the document/PDF/image owners consume its `ContentIdentity` at admission; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `python-magic`

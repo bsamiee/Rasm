@@ -4,11 +4,11 @@ The fabrication fault rail: `FabricationFault` a small `[Union]` band for the fa
 
 Wire posture: HOST-LOCAL. `FabricationFault` rides the `Fin<T>` rail every fabrication entrypoint returns; it never sits between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FAULT_BAND]: owns the `FabricationFault` `[Union]` band-2500 (`NoFit`/`Unreachable`/`KerfCollision`/`OpenLoop`) with `Code`/`ToError`, composing the kernel band-2400 `GeometryFault` for the shared `DegenerateInput`.
+- [01]-[FAULT_BAND]: owns the `FabricationFault` `[Union]` band-2500 (`NoFit`/`Unreachable`/`KerfCollision`/`OpenLoop`) with `Code`/`ToError`, composing the kernel band-2400 `GeometryFault` for the shared `DegenerateInput`.
 
-## [2]-[FAULT_BAND]
+## [02]-[FAULT_BAND]
 
 - Owner: `FabricationFault` the closed `[Union]` fault band (band 2500) for fabrication-specific failures, mirroring the kernel `GeometryFault` shape — one case per failure carrying its detail, a `Code`/`Message` state-threaded `Switch`, and a `ToError()` that lowers the case into the `Fin<T>` failure channel.
 - Cases: `FabricationFault` arms `NoFit` (a part cannot be placed on the sheet, produced by `Nesting/nfp#NESTING`) · `Unreachable` (an IK target outside the reachable workspace, produced by `Toolpath/motion#CAM_MOTION` when a reach-strict `IkPolicy` flags a non-converged solve) · `KerfCollision` (a kerf offset collapses a sub-kerf feature, produced by `Posting/program#CUT_PROGRAM`) · `OpenLoop` (a non-closed boundary a cut/toolpath/nest demands closed, produced by `Toolpath/motion`·`Nesting/nfp`·`Toolpath/skeleton`·`Posting/program`) (4); the shared `DegenerateInput` (empty or non-finite primitive set) routes the kernel `GeometryFault`, never re-cased here.

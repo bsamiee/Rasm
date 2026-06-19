@@ -4,7 +4,7 @@
 service manager through the sd_notify protocol on the Linux-server host backend, carrying
 READY/STOPPING state and the watchdog keep-alive over the notify socket.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting.Systemd`
 - package: `Microsoft.Extensions.Hosting.Systemd`
@@ -14,42 +14,42 @@ READY/STOPPING state and the watchdog keep-alive over the notify socket.
 - asset: runtime library
 - rail: composition
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: systemd lifetime family
 - rail: composition
 
 | [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]                     |
 | :-----: | :----------------------------- | :---------------- | :------------------------------- |
-|   [1]   | `SystemdHostBuilderExtensions` | builder surface   | systemd lifetime registration    |
-|   [2]   | `SystemdLifetime`              | host lifetime     | notify-aware start and stop      |
-|   [3]   | `ISystemdNotifier`             | notifier contract | sd_notify channel                |
-|   [4]   | `SystemdNotifier`              | notifier          | notify socket writer             |
-|   [5]   | `ServiceState`                 | state value       | READY/STOPPING/WATCHDOG payloads |
-|   [6]   | `SystemdHelpers`               | environment probe | systemd service detection        |
+|  [01]   | `SystemdHostBuilderExtensions` | builder surface   | systemd lifetime registration    |
+|  [02]   | `SystemdLifetime`              | host lifetime     | notify-aware start and stop      |
+|  [03]   | `ISystemdNotifier`             | notifier contract | sd_notify channel                |
+|  [04]   | `SystemdNotifier`              | notifier          | notify socket writer             |
+|  [05]   | `ServiceState`                 | state value       | READY/STOPPING/WATCHDOG payloads |
+|  [06]   | `SystemdHelpers`               | environment probe | systemd service detection        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifetime registration
 - rail: composition
 
 | [INDEX] | [SURFACE]    | [CALL_SHAPE]                   | [CAPABILITY]                 |
 | :-----: | :----------- | :----------------------------- | :--------------------------- |
-|   [1]   | `UseSystemd` | `IHostBuilder` extension       | conditional systemd lifetime |
-|   [2]   | `AddSystemd` | `IServiceCollection` extension | systemd lifetime services    |
+|  [01]   | `UseSystemd` | `IHostBuilder` extension       | conditional systemd lifetime |
+|  [02]   | `AddSystemd` | `IServiceCollection` extension | systemd lifetime services    |
 
 [ENTRYPOINT_SCOPE]: lifetime operations
 - rail: composition
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]             | [CAPABILITY]                   |
 | :-----: | :------------------ | :----------------------- | :----------------------------- |
-|   [1]   | `IsSystemdService`  | static environment probe | detects systemd service host   |
-|   [2]   | `Notify`            | `ServiceState` payload   | sends sd_notify state          |
-|   [3]   | `IsEnabled`         | notifier property        | reports notify socket presence |
-|   [4]   | `WaitForStartAsync` | lifetime start hook      | signals READY running state    |
-|   [5]   | `StopAsync`         | lifetime stop hook       | signals STOPPING               |
+|  [01]   | `IsSystemdService`  | static environment probe | detects systemd service host   |
+|  [02]   | `Notify`            | `ServiceState` payload   | sends sd_notify state          |
+|  [03]   | `IsEnabled`         | notifier property        | reports notify socket presence |
+|  [04]   | `WaitForStartAsync` | lifetime start hook      | signals READY running state    |
+|  [05]   | `StopAsync`         | lifetime stop hook       | signals STOPPING               |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [LIFETIME_TOPOLOGY]:
 - registration model: `UseSystemd` installs the lifetime only when `SystemdHelpers.IsSystemdService` detects the service manager

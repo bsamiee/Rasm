@@ -4,7 +4,7 @@
 data-chunk vector readers and writers, scalar and table function registration,
 and schema metadata collections.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DuckDB.NET.Data.Full`
 - package: `DuckDB.NET.Data.Full`
@@ -13,7 +13,7 @@ and schema metadata collections.
 - asset: runtime library
 - rail: store-provider
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ADO.NET provider surfaces
 - rail: store-provider
@@ -22,15 +22,15 @@ and schema metadata collections.
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]              |
 | :-----: | :-------------------------------------- | :---------------- | :------------------------ |
-|   [1]   | `DuckDBConnection`                      | connection root   | owns native connection    |
-|   [2]   | `DuckDBCommand`                         | command surface   | executes SQL              |
-|   [3]   | `DuckDBDataReader`                      | reader surface    | reads result rows         |
-|   [4]   | `DuckDBParameter`                       | parameter surface | binds typed values        |
-|   [5]   | `DuckDBParameterCollection`             | parameter set     | collects bound values     |
-|   [6]   | `DuckDBTransaction`                     | transaction scope | commits or rolls back     |
-|   [7]   | `DuckDBClientFactory`                   | provider factory  | creates ADO objects       |
-|   [8]   | `DuckDBConnectionStringBuilder`         | connection string | names data sources        |
-|   [9]   | `DuckDBException`                       | provider error    | carries native failure    |
+|  [01]   | `DuckDBConnection`                      | connection root   | owns native connection    |
+|  [02]   | `DuckDBCommand`                         | command surface   | executes SQL              |
+|  [03]   | `DuckDBDataReader`                      | reader surface    | reads result rows         |
+|  [04]   | `DuckDBParameter`                       | parameter surface | binds typed values        |
+|  [05]   | `DuckDBParameterCollection`             | parameter set     | collects bound values     |
+|  [06]   | `DuckDBTransaction`                     | transaction scope | commits or rolls back     |
+|  [07]   | `DuckDBClientFactory`                   | provider factory  | creates ADO objects       |
+|  [08]   | `DuckDBConnectionStringBuilder`         | connection string | names data sources        |
+|  [09]   | `DuckDBException`                       | provider error    | carries native failure    |
 |  [10]   | `DuckDBSchema`                          | schema surface    | reads metadata tables     |
 |  [11]   | `DuckDB.NET.Native.DuckDBQueryProgress` | progress value    | reports query progress    |
 |  [12]   | `DuckDB.NET.Native.DuckDBErrorType`     | error classifier  | classifies native failure |
@@ -40,11 +40,11 @@ and schema metadata collections.
 
 | [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]  | [CAPABILITY]           |
 | :-----: | :---------------------------------------------- | :-------------- | :--------------------- |
-|   [1]   | `DuckDB.NET.Data.DuckDBAppender`                | appender root   | streams bulk rows      |
-|   [2]   | `DuckDB.NET.Data.IDuckDBAppenderRow`            | row contract    | appends typed values   |
-|   [3]   | `DuckDB.NET.Data.DuckDBAppenderRow`             | row surface     | implements row appends |
-|   [4]   | `DuckDB.NET.Data.DuckDBMappedAppender<T, TMap>` | mapped appender | appends mapped objects |
-|   [5]   | `DuckDB.NET.Data.Mapping.DuckDBAppenderMap<T>`  | mapping owner   | maps object properties |
+|  [01]   | `DuckDB.NET.Data.DuckDBAppender`                | appender root   | streams bulk rows      |
+|  [02]   | `DuckDB.NET.Data.IDuckDBAppenderRow`            | row contract    | appends typed values   |
+|  [03]   | `DuckDB.NET.Data.DuckDBAppenderRow`             | row surface     | implements row appends |
+|  [04]   | `DuckDB.NET.Data.DuckDBMappedAppender<T, TMap>` | mapped appender | appends mapped objects |
+|  [05]   | `DuckDB.NET.Data.Mapping.DuckDBAppenderMap<T>`  | mapping owner   | maps object properties |
 
 [PUBLIC_TYPE_SCOPE]: user-defined function surfaces
 - rail: store-provider
@@ -53,29 +53,29 @@ and schema metadata collections.
 
 | [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]     | [CAPABILITY]              |
 | :-----: | :----------------------------------------- | :----------------- | :------------------------ |
-|   [1]   | `TableFunction`                            | function result    | declares table function   |
-|   [2]   | `ColumnInfo`                               | column declaration | names column type         |
-|   [3]   | `CardinalityHint`                          | planner hint       | states row cardinality    |
-|   [4]   | `ScalarFunctionOptions`                    | function options   | states scalar UDF policy  |
-|   [5]   | `NamedAttribute`                           | parameter name     | names function parameters |
-|   [6]   | `ProjectedColumn`                          | projection cell    | carries projected column  |
-|   [7]   | `DuckDB.NET.Native.IDuckDBValueReader`     | value reader       | reads typed param values  |
-|   [8]   | `DuckDBConnectionScalarFunctionExtensions` | scalar extension   | extends connection UDFs   |
-|   [9]   | `DuckDBConnectionTableFunctionExtensions`  | table extension    | extends connection UDFs   |
+|  [01]   | `TableFunction`                            | function result    | declares table function   |
+|  [02]   | `ColumnInfo`                               | column declaration | names column type         |
+|  [03]   | `CardinalityHint`                          | planner hint       | states row cardinality    |
+|  [04]   | `ScalarFunctionOptions`                    | function options   | states scalar UDF policy  |
+|  [05]   | `NamedAttribute`                           | parameter name     | names function parameters |
+|  [06]   | `ProjectedColumn`                          | projection cell    | carries projected column  |
+|  [07]   | `DuckDB.NET.Native.IDuckDBValueReader`     | value reader       | reads typed param values  |
+|  [08]   | `DuckDBConnectionScalarFunctionExtensions` | scalar extension   | extends connection UDFs   |
+|  [09]   | `DuckDBConnectionTableFunctionExtensions`  | table extension    | extends connection UDFs   |
 
 [PUBLIC_TYPE_SCOPE]: data-chunk vector surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]  | [CAPABILITY]          |
 | :-----: | :------------------------ | :-------------- | :-------------------- |
-|   [1]   | `IDuckDBDataReader`       | reader contract | reads vector values   |
-|   [2]   | `VectorDataReaderBase`    | reader base     | projects typed reads  |
-|   [3]   | `VectorDataReaderFactory` | reader factory  | creates typed readers |
-|   [4]   | `IDuckDBDataWriter`       | writer contract | writes vector values  |
-|   [5]   | `VectorDataWriterBase`    | writer base     | projects typed writes |
-|   [6]   | `VectorDataWriterFactory` | writer factory  | creates typed writers |
+|  [01]   | `IDuckDBDataReader`       | reader contract | reads vector values   |
+|  [02]   | `VectorDataReaderBase`    | reader base     | projects typed reads  |
+|  [03]   | `VectorDataReaderFactory` | reader factory  | creates typed readers |
+|  [04]   | `IDuckDBDataWriter`       | writer contract | writes vector values  |
+|  [05]   | `VectorDataWriterBase`    | writer base     | projects typed writes |
+|  [06]   | `VectorDataWriterFactory` | writer factory  | creates typed writers |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection and command
 - rail: store-provider
@@ -84,15 +84,15 @@ and schema metadata collections.
 
 | [INDEX] | [SURFACE]          | [CALL_SHAPE]     | [CAPABILITY]              |
 | :-----: | :----------------- | :--------------- | :------------------------ |
-|   [1]   | `Open`             | connection call  | opens native database     |
-|   [2]   | `BeginTransaction` | connection call  | starts typed transaction  |
-|   [3]   | `CreateCommand`    | connection call  | creates typed command     |
-|   [4]   | `Duplicate`        | connection call  | clones open connection    |
-|   [5]   | `GetQueryProgress` | connection call  | reads execution progress  |
-|   [6]   | `GetSchema`        | connection call  | reads metadata collection |
-|   [7]   | `NativeConnection` | connection prop  | exposes native handle     |
-|   [8]   | `ExecuteReader`    | command call     | streams result rows       |
-|   [9]   | `ExecuteNonQuery`  | command call     | runs statement            |
+|  [01]   | `Open`             | connection call  | opens native database     |
+|  [02]   | `BeginTransaction` | connection call  | starts typed transaction  |
+|  [03]   | `CreateCommand`    | connection call  | creates typed command     |
+|  [04]   | `Duplicate`        | connection call  | clones open connection    |
+|  [05]   | `GetQueryProgress` | connection call  | reads execution progress  |
+|  [06]   | `GetSchema`        | connection call  | reads metadata collection |
+|  [07]   | `NativeConnection` | connection prop  | exposes native handle     |
+|  [08]   | `ExecuteReader`    | command call     | streams result rows       |
+|  [09]   | `ExecuteNonQuery`  | command call     | runs statement            |
 |  [10]   | `ExecuteScalar`    | command call     | reads single value        |
 |  [11]   | `UseStreamingMode` | command property | selects streaming results |
 |  [12]   | `Prepare`          | command call     | prepares statement        |
@@ -104,15 +104,15 @@ and schema metadata collections.
 
 | [INDEX] | [SURFACE]                                    | [CALL_SHAPE]    | [CAPABILITY]                |
 | :-----: | :------------------------------------------- | :-------------- | :-------------------------- |
-|   [1]   | `CreateAppender`                             | raw appender    | opens raw table appender    |
-|   [2]   | `CreateAppender<T,TMap>`                     | mapped appender | opens mapped appender       |
-|   [3]   | `DuckDBAppender.CreateRow`                   | appender call   | starts row append           |
-|   [4]   | `AppendValue<T>` / `AppendNullValue`         | row call        | appends typed or null cell  |
-|   [5]   | `AppendDefault`                              | row call        | appends default cell        |
-|   [6]   | `IDuckDBAppenderRow.EndRow`                  | row call        | seals appended row          |
-|   [7]   | `DuckDBMappedAppender<T,TMap>.AppendRecords` | mapped call     | bulk-appends mapped batch   |
-|   [8]   | `DuckDBMappedAppender<T,TMap>.Close`         | mapped call     | flushes and closes appender |
-|   [9]   | `DuckDBAppender.Clear`                       | appender call   | discards pending rows       |
+|  [01]   | `CreateAppender`                             | raw appender    | opens raw table appender    |
+|  [02]   | `CreateAppender<T,TMap>`                     | mapped appender | opens mapped appender       |
+|  [03]   | `DuckDBAppender.CreateRow`                   | appender call   | starts row append           |
+|  [04]   | `AppendValue<T>` / `AppendNullValue`         | row call        | appends typed or null cell  |
+|  [05]   | `AppendDefault`                              | row call        | appends default cell        |
+|  [06]   | `IDuckDBAppenderRow.EndRow`                  | row call        | seals appended row          |
+|  [07]   | `DuckDBMappedAppender<T,TMap>.AppendRecords` | mapped call     | bulk-appends mapped batch   |
+|  [08]   | `DuckDBMappedAppender<T,TMap>.Close`         | mapped call     | flushes and closes appender |
+|  [09]   | `DuckDBAppender.Clear`                       | appender call   | discards pending rows       |
 |  [10]   | `DuckDBAppender.Close`                       | appender call   | flushes appended rows       |
 
 [ENTRYPOINT_SCOPE]: mapped appender protocol — `DuckDBAppenderMap<T>`
@@ -120,25 +120,25 @@ and schema metadata collections.
 
 | [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                 | [CAPABILITY]                         |
 | :-----: | :------------------------------------------ | :--------------------------- | :----------------------------------- |
-|   [1]   | `Map<TProperty>(Func<T, TProperty> getter)` | protected; declaration order | maps one column in declaration order |
-|   [2]   | `DefaultValue()`                            | protected                    | writes the column's engine default   |
-|   [3]   | `NullValue()`                               | protected                    | writes an explicit null cell         |
+|  [01]   | `Map<TProperty>(Func<T, TProperty> getter)` | protected; declaration order | maps one column in declaration order |
+|  [02]   | `DefaultValue()`                            | protected                    | writes the column's engine default   |
+|  [03]   | `NullValue()`                               | protected                    | writes an explicit null cell         |
 
 [ENTRYPOINT_SCOPE]: functions and data chunks
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]         | [CAPABILITY]                 |
 | :-----: | :----------------------- | :------------------- | :--------------------------- |
-|   [1]   | `RegisterScalarFunction` | connection low-level | registers scalar UDF         |
-|   [2]   | `RegisterScalarFunction` | scalar extension     | registers Func-based UDF     |
-|   [3]   | `RegisterTableFunction`  | connection low-level | registers callback table UDF |
-|   [4]   | `RegisterTableFunction`  | table extension      | registers typed table UDF    |
-|   [5]   | `GetValue`               | reader call          | reads vector value           |
-|   [6]   | `IsValid`                | reader call          | checks vector null mask      |
-|   [7]   | `WriteValue`             | writer call          | writes vector value          |
-|   [8]   | `WriteNull`              | writer call          | writes vector null           |
+|  [01]   | `RegisterScalarFunction` | connection low-level | registers scalar UDF         |
+|  [02]   | `RegisterScalarFunction` | scalar extension     | registers Func-based UDF     |
+|  [03]   | `RegisterTableFunction`  | connection low-level | registers callback table UDF |
+|  [04]   | `RegisterTableFunction`  | table extension      | registers typed table UDF    |
+|  [05]   | `GetValue`               | reader call          | reads vector value           |
+|  [06]   | `IsValid`                | reader call          | checks vector null mask      |
+|  [07]   | `WriteValue`             | writer call          | writes vector value          |
+|  [08]   | `WriteNull`              | writer call          | writes vector null           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [UDF_PROTOCOL]:
 - scalar low-level: `RegisterScalarFunction` accepts `Action<IReadOnlyList<IDuckDBDataReader>, IDuckDBDataWriter, ulong>` (up to four generic type parameters); `DuckDBConnectionScalarFunctionExtensions` provides high-level `Func<…, TResult>` overloads

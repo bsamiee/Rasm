@@ -4,7 +4,7 @@
 service registration, keyed cache registration, serializer registration, cache
 options, and tag-aware invalidation into the runtime rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
 - package: `Microsoft.Extensions.Caching.Hybrid`
@@ -15,57 +15,57 @@ options, and tag-aware invalidation into the runtime rail.
 - asset: runtime library
 - rail: runtime cache
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cache contract and entry options
 - rail: runtime cache
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                        |
 | :-----: | :------------------------------ | :------------------ | :---------------------------- |
-|   [1]   | `HybridCache`                   | cache contract      | get/set/remove operations     |
-|   [2]   | `HybridCacheEntryOptions`       | entry policy value  | expiration and cache flags    |
-|   [3]   | `HybridCacheEntryFlags`         | entry flag value    | local/distributed/cache flags |
-|   [4]   | `IHybridCacheSerializer<T>`     | serializer contract | payload codec                 |
-|   [5]   | `IHybridCacheSerializerFactory` | serializer factory  | serializer discovery          |
+|  [01]   | `HybridCache`                   | cache contract      | get/set/remove operations     |
+|  [02]   | `HybridCacheEntryOptions`       | entry policy value  | expiration and cache flags    |
+|  [03]   | `HybridCacheEntryFlags`         | entry flag value    | local/distributed/cache flags |
+|  [04]   | `IHybridCacheSerializer<T>`     | serializer contract | payload codec                 |
+|  [05]   | `IHybridCacheSerializerFactory` | serializer factory  | serializer discovery          |
 
 [PUBLIC_TYPE_SCOPE]: registration and implementation options
 - rail: runtime cache
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                  |
 | :-----: | :----------------------------- | :----------------- | :---------------------- |
-|   [1]   | `HybridCacheOptions`           | cache option value | default cache policy    |
-|   [2]   | `IHybridCacheBuilder`          | builder contract   | serializer admission    |
-|   [3]   | `HybridCacheServiceExtensions` | service extension  | cache registration      |
-|   [4]   | `HybridCacheBuilderExtensions` | builder extension  | serializer registration |
+|  [01]   | `HybridCacheOptions`           | cache option value | default cache policy    |
+|  [02]   | `IHybridCacheBuilder`          | builder contract   | serializer admission    |
+|  [03]   | `HybridCacheServiceExtensions` | service extension  | cache registration      |
+|  [04]   | `HybridCacheBuilderExtensions` | builder extension  | serializer registration |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cache operations
 - rail: runtime cache
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY]   | [RAIL]                    |
 | :-----: | :----------------- | :--------------- | :------------------------ |
-|   [1]   | `GetOrCreateAsync` | cache read/write | stampede-aware population |
-|   [2]   | `SetAsync`         | cache write      | explicit value storage    |
-|   [3]   | `RemoveAsync`      | key invalidation | key eviction              |
-|   [4]   | `RemoveByTagAsync` | tag invalidation | grouped eviction          |
+|  [01]   | `GetOrCreateAsync` | cache read/write | stampede-aware population |
+|  [02]   | `SetAsync`         | cache write      | explicit value storage    |
+|  [03]   | `RemoveAsync`      | key invalidation | key eviction              |
+|  [04]   | `RemoveByTagAsync` | tag invalidation | grouped eviction          |
 
 [ENTRYPOINT_SCOPE]: registration and policy
 - rail: runtime cache
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                        |
 | :-----: | :--------------------------- | :------------------- | :---------------------------- |
-|   [1]   | `AddHybridCache`             | service registration | default cache service         |
-|   [2]   | `AddKeyedHybridCache`        | service registration | keyed cache service           |
-|   [3]   | `AddSerializer<T>`           | builder extension    | concrete serializer admission |
-|   [4]   | `AddSerializer<T,TImpl>`     | builder extension    | typed serializer admission    |
-|   [5]   | `AddSerializerFactory`       | builder extension    | serializer factory admission  |
-|   [6]   | `DefaultEntryOptions`        | option value         | default expiration and flags  |
-|   [7]   | `MaximumPayloadBytes`        | option value         | payload size guard            |
-|   [8]   | `MaximumKeyLength`           | option value         | key size guard                |
-|   [9]   | `DistributedCacheServiceKey` | option value         | distributed cache selection   |
+|  [01]   | `AddHybridCache`             | service registration | default cache service         |
+|  [02]   | `AddKeyedHybridCache`        | service registration | keyed cache service           |
+|  [03]   | `AddSerializer<T>`           | builder extension    | concrete serializer admission |
+|  [04]   | `AddSerializer<T,TImpl>`     | builder extension    | typed serializer admission    |
+|  [05]   | `AddSerializerFactory`       | builder extension    | serializer factory admission  |
+|  [06]   | `DefaultEntryOptions`        | option value         | default expiration and flags  |
+|  [07]   | `MaximumPayloadBytes`        | option value         | payload size guard            |
+|  [08]   | `MaximumKeyLength`           | option value         | key size guard                |
+|  [09]   | `DistributedCacheServiceKey` | option value         | distributed cache selection   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CACHE_TOPOLOGY]:
 - namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`

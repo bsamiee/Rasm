@@ -4,7 +4,7 @@ The branch domain map of `libs/typescript` — the host-free web/edge/backend pl
 
 Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
-## [1]-[PACKAGE_MAP]
+## [01]-[PACKAGE_MAP]
 
 ```text codemap
 libs/typescript/
@@ -19,7 +19,7 @@ libs/typescript/
 
 `interchange`/`projection` form the platform-neutral interior every publication composes; `ui`/`platform` are the browser publication; `services` is the node durable interior; `edge` is the public ingress leaf. `edge/` and `testing/` are NEW-FOLDER CANDIDATES the branch adopts on the `libs/typescript/*` glob.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 interchange  ←  csharp:Rasm.AppHost      # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
@@ -30,7 +30,7 @@ projection   ←  csharp:Rasm.AppUi        # [WIRE]: evidence / availability / c
 ui           ←  csharp:Rasm.Bim          # [WIRE]: BCF topic / viewpoint wire
 ```
 
-## [3]-[DEPENDENCY_DIRECTION]
+## [03]-[DEPENDENCY_DIRECTION]
 
 The graph is acyclic with the wire boundary at the base and the publications at the leaves; dependency flows inward toward `interchange`. No folder imports another's interior — each consumes only the published surface of the package below it.
 
@@ -43,7 +43,7 @@ The graph is acyclic with the wire boundary at the base and the publications at 
 
 The only read-back edge is the dial-time gate: the `interchange` `CommandGateway` reads the `projection` `AvailabilityStore` before a command fires. The dialing gateway is resident in the transport-owning folder, so this is a read across the neutral interior, never a transport leak into the fold tier or a stratum reversal. The publication bundle stays clean by construction — the browser bundle never carries `@effect/cluster`/`@effect/sql-pg`/`@pulumi/*`/`@effect/platform-node`, the node bundle never carries `@effect/platform-browser`/`react`/`maplibre-gl`/`@deck.gl/*`/`arctic`/`workbox-*`, and the `edge` ingress bundle carries `@effect/platform`/`@effect/platform-node` HttpApi but never the browser surface — enforced by the centralized monorepo config, never a runtime guard.
 
-## [4]-[FAULT_OWNERSHIP]
+## [04]-[FAULT_OWNERSHIP]
 
 One fault concept, three altitudes, never merged into a single branch-wide fault family. The wire-reconstruction owner, the node-side typed rails, and the public problem-detail projection are distinct in kind: the wire owner reconstructs what the C# packages emit across the boundary; a node-tier rail is a local failure the node process raises and folds; the edge owner projects either of those outward to the one public error shape a third-party client decodes.
 

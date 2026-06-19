@@ -12,7 +12,7 @@ bound directly to the default instance; `clearWindow` resets the internal DOM en
 
 ---
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 ```ts
 // isomorphic-dompurify — dist/index.d.ts (node/universal entry)
@@ -48,7 +48,7 @@ The browser entry (`dist/browser.d.ts`) is identical in shape but omits the `DOM
 
 ---
 
-## [2]-[DOMPURIFY_INTERFACE]
+## [02]-[DOMPURIFY_INTERFACE]
 
 The core sanitizer contract. `DOMPurify` is a callable interface — calling it with a `WindowLike` creates a new isolated instance; the default export is already instantiated.
 
@@ -91,7 +91,7 @@ interface DOMPurify {
 
 ---
 
-## [3]-[CONFIG]
+## [03]-[CONFIG]
 
 The sanitizer configuration passed to `sanitize` / `setConfig`.
 
@@ -148,7 +148,7 @@ interface UseProfilesConfig {
 
 ---
 
-## [4]-[HOOKS]
+## [04]-[HOOKS]
 
 ```ts
 // dompurify — hook types
@@ -180,7 +180,7 @@ interface UponSanitizeAttributeHookEvent {
 
 ---
 
-## [5]-[REMOVAL_TYPES]
+## [05]-[REMOVAL_TYPES]
 
 ```ts
 // dompurify — removal and environment types
@@ -199,7 +199,7 @@ type WindowLike = Pick<
 
 ---
 
-## [6]-[IMPLEMENTATION_LAW]
+## [06]-[IMPLEMENTATION_LAW]
 
 [ENTRY_TOPOLOGY]:
 - `isomorphic-dompurify` has two compilation entries: the default `dist/index.d.ts` (node/universal,

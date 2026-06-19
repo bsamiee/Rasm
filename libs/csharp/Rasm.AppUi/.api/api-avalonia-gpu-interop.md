@@ -2,7 +2,7 @@
 
 The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU texture into the composition tree: `Compositor.TryGetCompositionGpuInterop()` queries the platform render interface for the `ICompositionGpuInterop` capability, `ICompositionGpuInterop.ImportImage`/`ImportSemaphore` import a shared GPU handle and a synchronization primitive, and `CompositionDrawingSurface.UpdateWithExternalImage`/the imported-image update path binds the imported texture into an `ElementComposition.GetElementVisual` surface so a wgpu-rendered or D3D/Vulkan/Metal-rendered frame composites into the Avalonia scene without a second swapchain. This is the modern replacement for the bare `ISkiaSharpApiLease` shared-context path when an external GPU backend (the `Wgpu` family) owns the render.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia` (compositor)
 - package: `Avalonia`
@@ -11,58 +11,58 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 - asset: runtime library
 - rail: visuals
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compositor and GPU-interop owners
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                                  | [KIND]            | [RAIL]                              |
 | :-----: | :---------------------------------------- | :---------------- | :---------------------------------- |
-|   [1]   | `Compositor`                              | composition root  | scene-graph owner, GPU query        |
-|   [2]   | `ICompositionGpuInterop`                  | interop interface | external GPU image/semaphore import |
-|   [3]   | `CompositionDrawingSurface`               | surface visual    | imported-image render target        |
-|   [4]   | `CompositionSurfaceVisual`                | surface visual    | surface-backed visual node          |
-|   [5]   | `ElementComposition`                      | static accessor   | element-to-visual bridge            |
-|   [6]   | `ICompositionImportedGpuImage`            | imported handle   | imported texture lifetime           |
-|   [7]   | `ICompositionImportedGpuSemaphore`        | imported handle   | imported semaphore lifetime         |
-|   [8]   | `PlatformGraphicsExternalImageProperties` | struct            | imported image shape                |
+|  [01]   | `Compositor`                              | composition root  | scene-graph owner, GPU query        |
+|  [02]   | `ICompositionGpuInterop`                  | interop interface | external GPU image/semaphore import |
+|  [03]   | `CompositionDrawingSurface`               | surface visual    | imported-image render target        |
+|  [04]   | `CompositionSurfaceVisual`                | surface visual    | surface-backed visual node          |
+|  [05]   | `ElementComposition`                      | static accessor   | element-to-visual bridge            |
+|  [06]   | `ICompositionImportedGpuImage`            | imported handle   | imported texture lifetime           |
+|  [07]   | `ICompositionImportedGpuSemaphore`        | imported handle   | imported semaphore lifetime         |
+|  [08]   | `PlatformGraphicsExternalImageProperties` | struct            | imported image shape                |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compositor acquisition and GPU-interop query
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                     | [SURFACE_ROOT]       | [RAIL]                                                  |
 | :-----: | :-------------------------------------------- | :------------------- | :------------------------------------------------------ |
-|   [1]   | `ElementComposition.GetElementVisual(Visual)` | `ElementComposition` | element visual handle                                   |
-|   [2]   | `CompositionVisual.Compositor`                | `CompositionVisual`  | compositor handle                                       |
-|   [3]   | `Compositor.TryGetCompositionGpuInterop()`    | `Compositor`         | GPU-interop query (`ValueTask<ICompositionGpuInterop>`) |
-|   [4]   | `Compositor.CreateDrawingSurface()`           | `Compositor`         | drawing surface create                                  |
-|   [5]   | `Compositor.CreateSurfaceVisual()`            | `Compositor`         | surface visual create                                   |
+|  [01]   | `ElementComposition.GetElementVisual(Visual)` | `ElementComposition` | element visual handle                                   |
+|  [02]   | `CompositionVisual.Compositor`                | `CompositionVisual`  | compositor handle                                       |
+|  [03]   | `Compositor.TryGetCompositionGpuInterop()`    | `Compositor`         | GPU-interop query (`ValueTask<ICompositionGpuInterop>`) |
+|  [04]   | `Compositor.CreateDrawingSurface()`           | `Compositor`         | drawing surface create                                  |
+|  [05]   | `Compositor.CreateSurfaceVisual()`            | `Compositor`         | surface visual create                                   |
 
 [ENTRYPOINT_SCOPE]: external image and semaphore import
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                              | [SURFACE_ROOT]              | [RAIL]                  |
 | :-----: | :------------------------------------------------------------------------------------- | :-------------------------- | :---------------------- |
-|   [1]   | `ImportImage(IPlatformHandle, PlatformGraphicsExternalImageProperties)`                | `ICompositionGpuInterop`    | import shared image     |
-|   [2]   | `ImportImage(ICompositionImportableSharedGpuContextImage)`                             | `ICompositionGpuInterop`    | import context image    |
-|   [3]   | `ImportSemaphore(IPlatformHandle)`                                                     | `ICompositionGpuInterop`    | import shared semaphore |
-|   [4]   | `GetSynchronizationCapabilities(string imageHandleType)`                               | `ICompositionGpuInterop`    | sync capability query   |
-|   [5]   | `CompositionDrawingSurface.UpdateWithExternalImageAsync(ICompositionImportedGpuImage)` | `CompositionDrawingSurface` | bind imported image     |
+|  [01]   | `ImportImage(IPlatformHandle, PlatformGraphicsExternalImageProperties)`                | `ICompositionGpuInterop`    | import shared image     |
+|  [02]   | `ImportImage(ICompositionImportableSharedGpuContextImage)`                             | `ICompositionGpuInterop`    | import context image    |
+|  [03]   | `ImportSemaphore(IPlatformHandle)`                                                     | `ICompositionGpuInterop`    | import shared semaphore |
+|  [04]   | `GetSynchronizationCapabilities(string imageHandleType)`                               | `ICompositionGpuInterop`    | sync capability query   |
+|  [05]   | `CompositionDrawingSurface.UpdateWithExternalImageAsync(ICompositionImportedGpuImage)` | `CompositionDrawingSurface` | bind imported image     |
 
 [ENTRYPOINT_SCOPE]: GPU-interop capability properties
 - rail: visuals
 
 | [INDEX] | [SURFACE]                   | [TYPE]                  | [RAIL]                      |
 | :-----: | :-------------------------- | :---------------------- | :-------------------------- |
-|   [1]   | `DeviceLuid`                | `byte[]?`               | adapter LUID (D3D match)    |
-|   [2]   | `DeviceUuid`                | `byte[]?`               | adapter UUID (Vulkan match) |
-|   [3]   | `SupportedImageHandleTypes` | `IReadOnlyList<string>` | importable handle kinds     |
-|   [4]   | `SupportedSemaphoreTypes`   | `IReadOnlyList<string>` | importable semaphore kinds  |
-|   [5]   | `IsLost`                    | `bool`                  | device-context availability |
+|  [01]   | `DeviceLuid`                | `byte[]?`               | adapter LUID (D3D match)    |
+|  [02]   | `DeviceUuid`                | `byte[]?`               | adapter UUID (Vulkan match) |
+|  [03]   | `SupportedImageHandleTypes` | `IReadOnlyList<string>` | importable handle kinds     |
+|  [04]   | `SupportedSemaphoreTypes`   | `IReadOnlyList<string>` | importable semaphore kinds  |
+|  [05]   | `IsLost`                    | `bool`                  | device-context availability |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [INTEROP_TOPOLOGY]:
 - A control obtains its compositor by `ElementComposition.GetElementVisual(this)` then reading `.Compositor`; `Compositor.TryGetCompositionGpuInterop()` returns a `ValueTask<ICompositionGpuInterop>` — a null/lost result is the no-GPU floor that folds to the `Software` raster path.

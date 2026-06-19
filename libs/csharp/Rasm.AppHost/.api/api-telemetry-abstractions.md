@@ -4,7 +4,7 @@
 log enrichment contracts, log buffering contracts, latency context measurement, metric
 generator attributes, and outgoing request metadata into the observability rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Telemetry.Abstractions`
 - package: `Microsoft.Extensions.Telemetry.Abstractions`
@@ -19,47 +19,47 @@ generator attributes, and outgoing request metadata into the observability rail.
 - asset: runtime library
 - rail: observability
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: structured logging family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                           |
 | :-----: | :--------------------------- | :------------------ | :------------------------------------- |
-|   [1]   | `LogPropertiesAttribute`     | generator attribute | expands object properties into tags    |
-|   [2]   | `LogPropertyIgnoreAttribute` | generator attribute | excludes a property from expansion     |
-|   [3]   | `TagProviderAttribute`       | generator attribute | custom tag projection method           |
-|   [4]   | `TagNameAttribute`           | generator attribute | renames an emitted tag                 |
-|   [5]   | `LoggerMessageState`         | state carrier       | tags plus classified-tag redaction set |
-|   [6]   | `ITagCollector`              | collector contract  | tag emission target                    |
-|   [7]   | `LoggingSampler`             | sampler base        | per-entry sampling decision            |
+|  [01]   | `LogPropertiesAttribute`     | generator attribute | expands object properties into tags    |
+|  [02]   | `LogPropertyIgnoreAttribute` | generator attribute | excludes a property from expansion     |
+|  [03]   | `TagProviderAttribute`       | generator attribute | custom tag projection method           |
+|  [04]   | `TagNameAttribute`           | generator attribute | renames an emitted tag                 |
+|  [05]   | `LoggerMessageState`         | state carrier       | tags plus classified-tag redaction set |
+|  [06]   | `ITagCollector`              | collector contract  | tag emission target                    |
+|  [07]   | `LoggingSampler`             | sampler base        | per-entry sampling decision            |
 
 [PUBLIC_TYPE_SCOPE]: buffering and enrichment family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]     | [CAPABILITY]                     |
 | :-----: | :------------------------ | :----------------- | :------------------------------- |
-|   [1]   | `LogBuffer`               | buffer base        | enqueue and flush contract       |
-|   [2]   | `GlobalLogBuffer`         | buffer base        | process-global buffering         |
-|   [3]   | `PerRequestLogBuffer`     | buffer base        | request-scoped buffering         |
-|   [4]   | `ILogEnricher`            | enricher contract  | per-record tag enrichment        |
-|   [5]   | `IStaticLogEnricher`      | enricher contract  | once-per-provider tag enrichment |
-|   [6]   | `IEnrichmentTagCollector` | collector contract | enrichment tag emission target   |
+|  [01]   | `LogBuffer`               | buffer base        | enqueue and flush contract       |
+|  [02]   | `GlobalLogBuffer`         | buffer base        | process-global buffering         |
+|  [03]   | `PerRequestLogBuffer`     | buffer base        | request-scoped buffering         |
+|  [04]   | `ILogEnricher`            | enricher contract  | per-record tag enrichment        |
+|  [05]   | `IStaticLogEnricher`      | enricher contract  | once-per-provider tag enrichment |
+|  [06]   | `IEnrichmentTagCollector` | collector contract | enrichment tag emission target   |
 
 [PUBLIC_TYPE_SCOPE]: latency context family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]    | [CAPABILITY]                           |
 | :-----: | :--------------------------- | :---------------- | :------------------------------------- |
-|   [1]   | `ILatencyContext`            | context contract  | checkpoint, measure, and tag recording |
-|   [2]   | `ILatencyContextProvider`    | provider contract | context creation                       |
-|   [3]   | `ILatencyContextTokenIssuer` | issuer contract   | name-to-token resolution               |
-|   [4]   | `ILatencyDataExporter`       | exporter contract | latency data export                    |
-|   [5]   | `LatencyData`                | data value        | tags, checkpoints, measures spans      |
-|   [6]   | `Checkpoint`                 | sample value      | named latency checkpoint               |
-|   [7]   | `Measure`                    | sample value      | named latency measure                  |
-|   [8]   | `Tag`                        | sample value      | named latency tag                      |
-|   [9]   | `CheckpointToken`            | token value       | pre-registered checkpoint handle       |
+|  [01]   | `ILatencyContext`            | context contract  | checkpoint, measure, and tag recording |
+|  [02]   | `ILatencyContextProvider`    | provider contract | context creation                       |
+|  [03]   | `ILatencyContextTokenIssuer` | issuer contract   | name-to-token resolution               |
+|  [04]   | `ILatencyDataExporter`       | exporter contract | latency data export                    |
+|  [05]   | `LatencyData`                | data value        | tags, checkpoints, measures spans      |
+|  [06]   | `Checkpoint`                 | sample value      | named latency checkpoint               |
+|  [07]   | `Measure`                    | sample value      | named latency measure                  |
+|  [08]   | `Tag`                        | sample value      | named latency tag                      |
+|  [09]   | `CheckpointToken`            | token value       | pre-registered checkpoint handle       |
 |  [10]   | `MeasureToken`               | token value       | pre-registered measure handle          |
 |  [11]   | `TagToken`                   | token value       | pre-registered tag handle              |
 |  [12]   | `NullLatencyContext`         | null object       | no-op latency context                  |
@@ -69,27 +69,27 @@ generator attributes, and outgoing request metadata into the observability rail.
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                     |
 | :-----: | :-------------------------------- | :------------------ | :------------------------------- |
-|   [1]   | `CounterAttribute`                | generator attribute | strongly typed counter factory   |
-|   [2]   | `GaugeAttribute`                  | generator attribute | strongly typed gauge factory     |
-|   [3]   | `HistogramAttribute`              | generator attribute | strongly typed histogram factory |
-|   [4]   | `RequestMetadata`                 | metadata value      | outgoing request route metadata  |
-|   [5]   | `IOutgoingRequestContext`         | context contract    | ambient request metadata         |
-|   [6]   | `IDownstreamDependencyMetadata`   | metadata contract   | dependency route declaration     |
-|   [7]   | `HttpRouteParameterRedactionMode` | redaction mode enum | route parameter redaction policy |
+|  [01]   | `CounterAttribute`                | generator attribute | strongly typed counter factory   |
+|  [02]   | `GaugeAttribute`                  | generator attribute | strongly typed gauge factory     |
+|  [03]   | `HistogramAttribute`              | generator attribute | strongly typed histogram factory |
+|  [04]   | `RequestMetadata`                 | metadata value      | outgoing request route metadata  |
+|  [05]   | `IOutgoingRequestContext`         | context contract    | ambient request metadata         |
+|  [06]   | `IDownstreamDependencyMetadata`   | metadata contract   | dependency route declaration     |
+|  [07]   | `HttpRouteParameterRedactionMode` | redaction mode enum | route parameter redaction policy |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: service registration
 - rail: observability
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                     | [CAPABILITY]                   |
 | :-----: | :------------------------ | :------------------------------- | :----------------------------- |
-|   [1]   | `AddLogEnricher<T>`       | generic or instance registration | admits per-record enricher     |
-|   [2]   | `AddStaticLogEnricher<T>` | generic or instance registration | admits static enricher         |
-|   [3]   | `RegisterCheckpointNames` | `params string[]` names          | pre-registers checkpoint names |
-|   [4]   | `RegisterMeasureNames`    | `params string[]` names          | pre-registers measure names    |
-|   [5]   | `RegisterTagNames`        | `params string[]` names          | pre-registers tag names        |
-|   [6]   | `AddNullLatencyContext`   | `IServiceCollection` extension   | installs no-op latency context |
+|  [01]   | `AddLogEnricher<T>`       | generic or instance registration | admits per-record enricher     |
+|  [02]   | `AddStaticLogEnricher<T>` | generic or instance registration | admits static enricher         |
+|  [03]   | `RegisterCheckpointNames` | `params string[]` names          | pre-registers checkpoint names |
+|  [04]   | `RegisterMeasureNames`    | `params string[]` names          | pre-registers measure names    |
+|  [05]   | `RegisterTagNames`        | `params string[]` names          | pre-registers tag names        |
+|  [06]   | `AddNullLatencyContext`   | `IServiceCollection` extension   | installs no-op latency context |
 
 [ENTRYPOINT_SCOPE]: buffering runtime operations
 - rail: observability
@@ -97,29 +97,29 @@ generator attributes, and outgoing request metadata into the observability rail.
 [BUFFERING_RUNTIME]:
 | [INDEX] | [SURFACE]      | [CALL_SHAPE]          | [CAPABILITY]                |
 | :-----: | :------------- | :-------------------- | :-------------------------- |
-|   [1]   | `TryEnqueue`   | buffered log entry    | buffers a log record        |
-|   [2]   | `Flush`        | buffer command        | replays buffered records    |
-|   [3]   | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
+|  [01]   | `TryEnqueue`   | buffered log entry    | buffers a log record        |
+|  [02]   | `Flush`        | buffer command        | replays buffered records    |
+|  [03]   | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
 
 [LATENCY_RUNTIME]:
 | [INDEX] | [SURFACE]            | [CALL_SHAPE]     | [CAPABILITY]                  |
 | :-----: | :------------------- | :--------------- | :---------------------------- |
-|   [1]   | `GetCheckpointToken` | name lookup      | resolves checkpoint token     |
-|   [2]   | `GetMeasureToken`    | name lookup      | resolves measure token        |
-|   [3]   | `GetTagToken`        | name lookup      | resolves tag token            |
-|   [4]   | `AddCheckpoint`      | checkpoint token | records a latency checkpoint  |
-|   [5]   | `AddMeasure`         | token plus value | accumulates a latency measure |
-|   [6]   | `RecordMeasure`      | token plus value | sets a latency measure        |
-|   [7]   | `SetTag`             | token plus value | tags the latency context      |
-|   [8]   | `Freeze`             | context command  | seals latency data for export |
+|  [01]   | `GetCheckpointToken` | name lookup      | resolves checkpoint token     |
+|  [02]   | `GetMeasureToken`    | name lookup      | resolves measure token        |
+|  [03]   | `GetTagToken`        | name lookup      | resolves tag token            |
+|  [04]   | `AddCheckpoint`      | checkpoint token | records a latency checkpoint  |
+|  [05]   | `AddMeasure`         | token plus value | accumulates a latency measure |
+|  [06]   | `RecordMeasure`      | token plus value | sets a latency measure        |
+|  [07]   | `SetTag`             | token plus value | tags the latency context      |
+|  [08]   | `Freeze`             | context command  | seals latency data for export |
 
 [REQUEST_METADATA_RUNTIME]:
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]         | [CAPABILITY]                        |
 | :-----: | :-------------------------------- | :------------------- | :---------------------------------- |
-|   [1]   | `SetRequestMetadata`              | context mutation     | sets outgoing request route         |
-|   [2]   | `AddDownstreamDependencyMetadata` | service registration | registers dependency route metadata |
+|  [01]   | `SetRequestMetadata`              | context mutation     | sets outgoing request route         |
+|  [02]   | `AddDownstreamDependencyMetadata` | service registration | registers dependency route metadata |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [ABSTRACTION_TOPOLOGY]:
 - attribute surface: `[LogProperties]`, `[TagProvider]`, `[TagName]`, and metric attributes drive source generators

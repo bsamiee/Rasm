@@ -2,7 +2,7 @@
 
 `tailwindcss-react-aria-components` is a Tailwind CSS plugin that generates variant utilities targeting the `data-*` attributes that `react-aria-components` sets on its DOM elements. It produces two selector strategies: enum-attribute variants (e.g. `placement-left:`, `orientation-horizontal:`) matching `[data-rac][data-placement="left"]`, and boolean-attribute variants (e.g. `open:`, `disabled:`, `focus-visible:`) matching `[data-rac][data-open]`. An optional `prefix` option namespaces every generated variant to avoid collisions with native Tailwind variants.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss-react-aria-components`
 - package: `tailwindcss-react-aria-components`
@@ -11,26 +11,26 @@
 - asset: Tailwind CSS plugin
 - rail: styling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin options
 - rail: styling
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [RAIL]                                 |
 | :-----: | :------------------- | :------------- | :------------------------------------- |
-|   [1]   | `{ prefix: string }` | options object | namespaces all generated variant names |
+|  [01]   | `{ prefix: string }` | options object | namespaces all generated variant names |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory
 - rail: styling
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                                  |
 | :-----: | :--------------------------- | :------------- | :-------------------------------------- |
-|   [1]   | `plugin(options?)`           | plugin factory | returns `{ handler: () => void }`       |
-|   [2]   | `plugin.__isOptionsFunction` | marker field   | `true` — marks as `withOptions` factory |
+|  [01]   | `plugin(options?)`           | plugin factory | returns `{ handler: () => void }`       |
+|  [02]   | `plugin.__isOptionsFunction` | marker field   | `true` — marks as `withOptions` factory |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PLUGIN_TOPOLOGY]:
 - exported via `export = plugin` (CommonJS-compatible default export)

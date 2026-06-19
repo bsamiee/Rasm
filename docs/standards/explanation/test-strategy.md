@@ -4,7 +4,7 @@ A test strategy document fixes the test portfolio, risk model, gate placement, r
 
 Name one profile and one primary strategy archetype in the opening paragraph. Secondary archetype influences are allowed only when they change gate selection and are named explicitly.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a test strategy when a maintained scope must state any of these:
 - which test levels exist and which risk each covers;
@@ -24,7 +24,7 @@ Do not use a test strategy to list every command a contributor runs, catalog run
 - Adjacent checks: check architecture for invariants, API and code documentation for generated contracts or public symbols, support matrix for supported targets, roadmap for exit confirmation, contributing/how-to for command paths, and runbook for production gate recovery only when those facts choose or close a gate.
 - Maintenance triggers: update the strategy when a risk tier, gate, status check, runner, artifact, maintained scope boundary, support target, generated contract, quarantine rule, entry/exit threshold, or confirmation requirement changes.
 
-## [2]-[REQUIRED_STRUCTURE]
+## [02]-[REQUIRED_STRUCTURE]
 
 Use this required section order. Conditional sections are omitted until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
@@ -63,39 +63,39 @@ Use this required section order. Conditional sections are omitted until their tr
 - Conditional sections appear only when their decision-table trigger holds.
 - Produced strategies contain no placeholders, template gate names, generic gate classes, or unnamed repair paths in place of a code path, status check, contract, or confirmation gate.
 
-## [3]-[LOCAL_TRUTH]
+## [03]-[LOCAL_TRUTH]
 
 Separate local executable truth from testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. Produced strategies claim only local policy and local confirmation.
 
 Use shared testing terms as local labels only when the strategy defines their meaning before use. If a project must claim compliance with a nonlocal policy, route that policy to the maintained policy document and keep this strategy focused on executable gates.
 
-## [4]-[PROFILES_ARCHETYPES]
+## [04]-[PROFILES_ARCHETYPES]
 
 Pick one profile for scope and one primary archetype for depth selection. Split the document when one page needs more than one profile.
 
 | [INDEX] | [PROFILE]           | [SCOPE_LEVELS]                      | [DOMINANT_TRIGGER]           | [PRIMARY_RISK_OWNED]                  |
 | :-----: | :------------------ | :---------------------------------- | :--------------------------- | :------------------------------------ |
-|   [1]   | Library unit-heavy  | unit, property, contract            | presubmit                    | logic regression                      |
-|   [2]   | Service integration | unit, integration, contract         | presubmit, post-submit       | integration-boundary and schema drift |
-|   [3]   | End-to-end journey  | integration, e2e, smoke             | release, nightly             | cross-boundary journey break          |
-|   [4]   | Host runtime        | unit, scenario, visual              | manual runtime gate, release | host or device behavior drift         |
-|   [5]   | Nonfunctional       | load, soak, security, accessibility | nightly, release             | budget or compliance breach           |
+|  [01]   | Library unit-heavy  | unit, property, contract            | presubmit                    | logic regression                      |
+|  [02]   | Service integration | unit, integration, contract         | presubmit, post-submit       | integration-boundary and schema drift |
+|  [03]   | End-to-end journey  | integration, e2e, smoke             | release, nightly             | cross-boundary journey break          |
+|  [04]   | Host runtime        | unit, scenario, visual              | manual runtime gate, release | host or device behavior drift         |
+|  [05]   | Nonfunctional       | load, soak, security, accessibility | nightly, release             | budget or compliance breach           |
 
 Use the archetype vocabulary below as local strategy labels. These labels are selection aids; they are not compliance claims.
 
 | [INDEX] | [ARCHETYPE]                  | [DEPTH_DRIVER]          | [DECLARE_WHEN]                     |
 | :-----: | :--------------------------- | :---------------------- | :--------------------------------- |
-|   [1]   | Analytical                   | risk analysis           | risk register governs              |
-|   [2]   | Model-based                  | behavior or state model | model carries input space          |
-|   [3]   | Methodical                   | fixed checklist         | method checklist binds             |
-|   [4]   | Process- or policy-compliant | maintained process      | policy or regulation applies       |
-|   [5]   | Reactive                     | failures or findings    | volatile scope responds to defects |
-|   [6]   | Consultative                 | expert advice           | domain experts select coverage     |
-|   [7]   | Regression-averse            | reusable regression     | churn risk outweighs novelty       |
+|  [01]   | Analytical                   | risk analysis           | risk register governs              |
+|  [02]   | Model-based                  | behavior or state model | model carries input space          |
+|  [03]   | Methodical                   | fixed checklist         | method checklist binds             |
+|  [04]   | Process- or policy-compliant | maintained process      | policy or regulation applies       |
+|  [05]   | Reactive                     | failures or findings    | volatile scope responds to defects |
+|  [06]   | Consultative                 | expert advice           | domain experts select coverage     |
+|  [07]   | Regression-averse            | reusable regression     | churn risk outweighs novelty       |
 
 Prefer `Analytical` when a risk register governs the scope. If a produced strategy combines archetypes, declare one primary archetype and list secondary influences in `Principles` with the gate-selection rule they change.
 
-## [5]-[TESTING_VOCABULARY]
+## [05]-[TESTING_VOCABULARY]
 
 Use testing vocabulary only after the strategy binds it to local executable truth. The strategy names the level, risk, trigger, and selection rule, then links the live source for commands, runner config, status checks, artifacts, and repair paths beside the claim it proves.
 
@@ -120,7 +120,7 @@ Testing vocabulary supplies these concepts:
 
 These field-value vocabularies are not lifecycle `Status` unless the record explicitly carries lifecycle. `Trigger` names when a gate runs, `Blocking` names merge or release effect, and quarantine terms name test-row handling. If a strategy also tracks lifecycle work, use the shared record vocabulary or declare a separate lifecycle family before the first record.
 
-## [6]-[PLACEMENT]
+## [06]-[PLACEMENT]
 
 Place test strategies at the nearest scope that owns the policy:
 - Shared scope strategy: `docs/test-strategy.md`.
@@ -129,11 +129,11 @@ Place test strategies at the nearest scope that owns the policy:
 
 Keep one strategy per scope. Link a lower-level strategy instead of copying its gate map into a shared document.
 
-## [7]-[SCOPE]
+## [07]-[SCOPE]
 
 State the maintained scope boundary, what is in and out, and the single primary risk class the scope carries. A strategy that carries unrelated risk classes is two strategies; split it. Name the scope in the H1 and the risk class in the opening paragraph so both stand alone in retrieval.
 
-## [8]-[PRINCIPLES]
+## [08]-[PRINCIPLES]
 
 State the trade-off rules the portfolio obeys with these required rules:
 
@@ -153,7 +153,7 @@ State the trade-off rules the portfolio obeys with these required rules:
 [EVIDENCE_RAILS]:
 - Keep static analysis, build/type checking, unit/property tests, integration gates, runtime scenario checks, mutation, fuzzing, benchmark, and snapshot/visual confirmation as separate rail classes unless local policy proves that one gate fully consumes another. A strategy may route commands away, but it must not collapse static-managed confirmation and runtime bridge confirmation into one unnamed confirmation bucket.
 
-## [9]-[RISK_MODEL]
+## [09]-[RISK_MODEL]
 
 Bind test depth and gate selection to an auditable risk tier. State the scoring model the scope actually uses, the tier buckets, and the rule mapping each tier to test depth and minimum gate. Use a decision table so an agent resolves a tier deterministically.
 
@@ -161,10 +161,10 @@ The table below is a default likelihood-by-impact template, not a universal rule
 
 | [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_CONFIRMATION]                  |
 | :-----: | :------ | --------------: | :------------------------ | :-------------------------------------- |
-|   [1]   | Extreme |           20-25 | full plus nonfunctional   | release gate from local policy          |
-|   [2]   | High    |           13-19 | integration plus property | post-submit status check or contract    |
-|   [3]   | Medium  |            5-12 | unit plus contract        | presubmit status check or contract diff |
-|   [4]   | Low     |             1-4 | unit or source check      | deterministic unit gate or source check |
+|  [01]   | Extreme |           20-25 | full plus nonfunctional   | release gate from local policy          |
+|  [02]   | High    |           13-19 | integration plus property | post-submit status check or contract    |
+|  [03]   | Medium  |            5-12 | unit plus contract        | presubmit status check or contract diff |
+|  [04]   | Low     |             1-4 | unit or source check      | deterministic unit gate or source check |
 
 Define likelihood and impact scales before using numeric scores. Link the risk register from repository truth, and name at least the High and Extreme risks currently local. Require traceability: each High or Extreme risk back-links to the level or gate that covers it through a register field or `Covered-by:` line.
 
@@ -197,15 +197,15 @@ Local rail classes stay distinct from test levels. Use this table as a selection
 
 | [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                                  | [CONFIRMATION_FUNCTION]                               |
 | :-----: | :-------------------------- | :------------------------------------------------------ | :---------------------------------------------------- |
-|   [1]   | static/type/build           | maintained analyzer, formatter, compiler, or build gate | source-shape and compilation confirmation             |
-|   [2]   | unit and property           | maintained unit/property runner or local testkit        | small deterministic behavior confirmation             |
-|   [3]   | coverage                    | maintained coverage report                              | exercised-line signal, never correctness confirmation |
-|   [4]   | mutation                    | maintained mutation receipt                             | assertion strength for selected behavior              |
-|   [5]   | snapshot or manual artifact | maintained artifact diff                                | stable rendered or serialized artifact comparison     |
-|   [6]   | architecture                | maintained architecture gate                            | dependency and layering invariant confirmation        |
-|   [7]   | fuzz                        | maintained fuzz harness                                 | crash and parser robustness confirmation              |
-|   [8]   | benchmark                   | maintained budget gate                                  | performance-budget confirmation                       |
-|   [9]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior               |
+|  [01]   | static/type/build           | maintained analyzer, formatter, compiler, or build gate | source-shape and compilation confirmation             |
+|  [02]   | unit and property           | maintained unit/property runner or local testkit        | small deterministic behavior confirmation             |
+|  [03]   | coverage                    | maintained coverage report                              | exercised-line signal, never correctness confirmation |
+|  [04]   | mutation                    | maintained mutation receipt                             | assertion strength for selected behavior              |
+|  [05]   | snapshot or manual artifact | maintained artifact diff                                | stable rendered or serialized artifact comparison     |
+|  [06]   | architecture                | maintained architecture gate                            | dependency and layering invariant confirmation        |
+|  [07]   | fuzz                        | maintained fuzz harness                                 | crash and parser robustness confirmation              |
+|  [08]   | benchmark                   | maintained budget gate                                  | performance-budget confirmation                       |
+|  [09]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior               |
 
 ## [11]-[GATE_MAPPING]
 
@@ -291,14 +291,14 @@ Map each change family to the smallest sufficient confirmation surface. The tabl
 
 | [INDEX] | [CHANGE]             | [CONFIRMATION]                         | [ESCALATE_WHEN]                         |
 | :-----: | :------------------- | :------------------------------------- | :-------------------------------------- |
-|   [1]   | behavior             | unit/property gate                     | public contract                         |
-|   [2]   | integration boundary | contract gate or diff                  | cross-scope integration boundary        |
-|   [3]   | journey/deploy       | e2e, smoke, or scenario                | critical journey                        |
-|   [4]   | host runtime         | runtime/manual confirmation            | host output changes                     |
-|   [5]   | generated contract   | generated diff or API gate             | callable or serialized contract changes |
-|   [6]   | visual/snapshot      | snapshot or manual artifact gate       | user-visible artifact changes           |
-|   [7]   | nonfunctional        | benchmark, fuzz, budget, or audit gate | budget or robustness breach             |
-|   [8]   | docs/config          | review, generated, or link             | documented contract                     |
+|  [01]   | behavior             | unit/property gate                     | public contract                         |
+|  [02]   | integration boundary | contract gate or diff                  | cross-scope integration boundary        |
+|  [03]   | journey/deploy       | e2e, smoke, or scenario                | critical journey                        |
+|  [04]   | host runtime         | runtime/manual confirmation            | host output changes                     |
+|  [05]   | generated contract   | generated diff or API gate             | callable or serialized contract changes |
+|  [06]   | visual/snapshot      | snapshot or manual artifact gate       | user-visible artifact changes           |
+|  [07]   | nonfunctional        | benchmark, fuzz, budget, or audit gate | budget or robustness breach             |
+|  [08]   | docs/config          | review, generated, or link             | documented contract                     |
 
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 

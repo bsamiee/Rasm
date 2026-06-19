@@ -2,14 +2,14 @@
 
 The outbound transport edge of the host-free wire boundary: one polymorphic browser transport over a protocol-selection axis, one generated browser-dialable client per service over that one transport, the capability tuple gating which method kinds each protocol admits, the chunked-framing fold that rides the same transport, and the buf descriptor pipeline that is the rail's build-time input edge. The owning C# `#TS_PROJECTION` fence is the authoritative wire shape; this page names which client derives from which descriptor and fixes codegen as the transport input, never re-authoring a shape. The descriptor pipeline and the capability-SDK leg are clusters on this page, not separate files: their output is `src/gen/*_pb.ts`, the values the transport composes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TRANSPORT_AND_CLIENTS]: the protocol-selection transport, one client per service, the capability tuple, the framing fold.
-- [2]-[CODEGEN_TOOLING]: the committed-descriptor buf pipeline and the capability-SDK leg as the transport input.
-- [3]-[TS_PROJECTION]: the proto service shapes and transport-capability the transport derives.
+- [01]-[TRANSPORT_AND_CLIENTS]: the protocol-selection transport, one client per service, the capability tuple, the framing fold.
+- [02]-[CODEGEN_TOOLING]: the committed-descriptor buf pipeline and the capability-SDK leg as the transport input.
+- [03]-[TS_PROJECTION]: the proto service shapes and transport-capability the transport derives.
 
 
-## [2]-[TRANSPORT_AND_CLIENTS]
+## [02]-[TRANSPORT_AND_CLIENTS]
 
 - Owner: `WireTransport`, the single transport `Effect.Service` over a protocol-selection axis, plus `WireClients`, one `Client<typeof GenService>` per browser-dialable service built over it. The `TransportProtocol` axis routes a long-lived server-stream leg over the Connect protocol (`createConnectTransport`, standard HTTP, trailer-free, no roughly-60s server-stream cap) and the binary-frame leg over gRPC-Web (`createGrpcWebTransport`) where the backend dictates, and carries a third forward-only `webTransport` case the connect-es v2 surface ships no factory for. `TransportCapabilityWire` is the per-protocol row carrying each protocol's binary framing mode, its admitted method-kind tuple (transcribed verbatim from the C# wire), and the `available` dial-gate bit — the `grpcWeb` row carries its `application/grpc-web` media type and the two browser-carried kinds, the `connect` row the four, and the `webTransport` row the full four with `available: false` because connect-es v2 exposes no `createWebTransport`; framing, capability, and availability are the one row, never a parallel framing shape beside the capability tuple. The dial-time availability gate reads the same `available` bit `Transport/gateway.md` reads, so an unavailable protocol selection faults at construction through `faultDetailRail` rather than dialing a non-existent factory.
 - Lifetime: ONE `Transport` per authority is resolved once at service construction and held app-lifetime over the captured `Effect.runtime` snapshot; the per-call transport mint is the deleted form. The connect-web factory exposes no retry knob (no `RetryPolicy` analogue to the C# channel's `MethodConfig`), so wire retry is composition-time policy, not a transport option: the `retryUnary` boundary rail wraps the unary `Effect.tryPromise` leg through the `Effect.retry(self, { schedule: retrySchedule, while: retryableWire })` options arm — `retrySchedule` is `Schedule.exponential("100 millis", 2)` `Schedule.jittered`, `Schedule.union`-bounded by `Schedule.recurs(3)`, and the `while` predicate keys the typed `FaultDetail` error channel directly so only the `retryableWire` `HopFault`/`reason: "wire"`/`Code.Unavailable` leg (the C# `RetryableStatusCodes` set) recurs while a `ComputeFault`/`StoreFault`/`Quarantine` short-circuits, faulting onto the already-stamped `FaultDetail` after the schedule exhausts; a server-stream leg carries no retry (a partially-drained stream is not idempotent), mirroring the C# law that retry is a per-row owner column, never both channel and seam. The `while`-by-error-input arm is verified against the `effect` `Retry.Options<E> { while?, until?, times?, schedule? }` surface — the prior `Schedule.whileInput`/`Schedule.intersect` composition is the deleted heavier form; the options arm keys the fault input one-pass without the tuple-output `intersect` carries.
@@ -125,7 +125,7 @@ const splitFrames = (crc: Crc32, artifactId: string, bytes: Uint8Array): Readonl
   });
 ```
 
-## [3]-[CODEGEN_TOOLING]
+## [03]-[CODEGEN_TOOLING]
 
 - Owner: the descriptor pipeline as the transport owner's build-time input edge — the committed app-root `FileDescriptorSet` input, the `buf.gen.yaml` config carrying the message-and-service plugin plus the capability-SDK plugin, and the `src/gen/*_pb.ts` output the transport composes. There is no `codegen.ts` runtime module; the output is generated code, so the pipeline is the input edge of `transport.ts`.
 - Cases: descriptor ingestion reads the app-root-emitted `FileDescriptorSet` published beside the discovery manifest by the C# `ContractGuard`, so the branch consumes the same descriptor set the .NET side emits and never re-authors a `.proto`; the generation pass runs the single `protoc-gen-es` v2 plugin with `target=ts` and `include_imports: true`; the descriptor runtime composes the generated values — message construction through `create`, binary through `fromBinary`/`toBinary`, and the file-aware registry from the emitted `FileDescriptorSet` the fault rail passes to `findDetails`; client derivation runs `createClient(service, transport)` per browser-dialable service descriptor.
@@ -243,7 +243,7 @@ class CapabilitySdkLive extends Effect.Service<CapabilitySdkLive>()("@rasm/ts/in
 }) {}
 ```
 
-## [4]-[TS_PROJECTION]
+## [04]-[TS_PROJECTION]
 
 - Owner: the proto service-shape and transport-capability projection the transport derives — `MethodShape<K extends StreamKind, I extends string, O extends string>` keying every browser-dialable verb inside its service-shape alias, and the `TransportCapabilityWire` gating the per-protocol method set.
 - Entry: every proto rpc is one `MethodShape` row inside its `ComputeServiceShape`/`DocumentServiceShape`/`ControlServiceShape`/`HealthShape` alias; `ArtifactSyncShape.sync` (bidi) and `DocumentServiceShape.captureEvents` (clientStream) are the two structurally-excluded browser methods the `grpcWeb` capability row gates; the excluded `sync` method is distinct from the `ArtifactFrameWire` frame TYPE, which is browser-reachable over the server-stream artifact-delivery path and lands on `Codec/frame.md`.

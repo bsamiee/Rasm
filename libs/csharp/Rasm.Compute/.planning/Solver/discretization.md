@@ -2,11 +2,11 @@
 
 Rasm.Compute solver discretization: one volumetric `MeshKernel` owner generating tet/hex/boundary-layer meshes from a boundary `MeshSpace` with adaptive h/p/hp refinement over real shape-function/quadrature columns, one `ElementClass` `[SmartEnum<string>]` element-topology axis carrying node count, quadrature order, Gauss rule, and a `GradKind` shape-function discriminant that drives one `ShapeGrad` arm so eleven curvilinear forwarders collapse to one node-count-parameterized method, one closed `MeshMetric` quality vocabulary read once per element, and one `FieldSpace` over `FieldStation` rows as the solve-native scalar/vector/tensor representation. The page owns the `SolverKeyPolicy` ordinal accessor, the `ElementClass`/`MeshAlgorithm`/`MeshMetric`/`FieldStation` vocabulary, the `QuadratureRule` Gauss tables, the `MeshPolicy`/`DiscreteMesh`/`FieldSpace` carriers, and the `MeshKernel` generation+refinement fold; the `Tensor<long>` element-node tables and the `SparseCompressedRowMatrixStorage<double>` adjacency the assembly consumes ride `Tensor/factor#SPARSE_SOLVE`, the metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives` folds, and the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationClass`, `CorrelationId`, and `ClockPolicy` arrive settled. The `DiscreteMesh` and `FieldSpace` cross to `Solver/contract#SOLVE_CONTRACT` as the assembly substrate and the surface-mesh operators stay `Rasm`/Vectors core.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DISCRETIZATION_MESH]: volumetric mesher; tet/hex/boundary-layer; shape-function/quadrature; metric.
+- [01]-[DISCRETIZATION_MESH]: volumetric mesher; tet/hex/boundary-layer; shape-function/quadrature; metric.
 
-## [2]-[DISCRETIZATION_MESH]
+## [02]-[DISCRETIZATION_MESH]
 
 - Owner: `SolverKeyPolicy` ordinal accessor; `ElementClass` `[SmartEnum<string>]` element-topology rows carrying node count, quadrature order, Gauss rule, and a `GradKind` shape-function discriminant column driving one `ShapeGrad` method (const-gradient tet, harmonic poly, else curvilinear over the node count) so eleven curvilinear forwarders collapse to one node-count-parameterized arm; `MeshAlgorithm` `[SmartEnum<string>]` generation-strategy rows; `MeshMetric` `[SmartEnum<string>]` closed quality-measure vocabulary (scaled-Jacobian, aspect-ratio, skewness, min-dihedral, condition); `FieldStation` `[SmartEnum<string>]` nodal/integration-point/cell/boundary station rows; `MeshKernel` static surface generating a `DiscreteMesh` from a boundary `MeshSpace` then refining it adaptively; `DiscreteMesh` the conforming/non-conforming volumetric mesh carrier; `FieldSpace` the integration-point/nodal scalar/vector/tensor field representation the solve writes; `QuadratureRule` the Gauss point/weight table the element class indexes.
 - Cases: `ElementClass` rows tet4 · tet10 · hex8 · hex20 · hex27 · wedge6 · wedge15 · pyramid5 · tri3 · tri6 · quad4 · quad8 · poly (polyhedral); `MeshAlgorithm` rows delaunay · advancing-front · octree · sweep · boundary-layer · frontal-delaunay; `MeshMetric` rows scaled-jacobian · aspect-ratio · skewness · min-dihedral · condition; `FieldStation` rows nodal · integration-point · cell · boundary; `FieldSpace` rank rows scalar · vector · tensor over `FieldStation` positions.
@@ -491,6 +491,6 @@ flowchart LR
     MeshKernel -.->|Fin fail| ComputeFault
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ASSEMBLY_KERNELS]: the open leaf is the `Rasm`/Vectors boundary-extraction member spelling for the `MeshSpace.Encloses` host-geometry inclusion test; the `MeshSpace` boundary projection, the `QuadratureRule.Tet4`/`Hex27` Gauss tables, and the `ElementClass.ShapeGrad` shape-function arms are authored in the cluster fences, and the element-assembly `Bᵀ·D·B` handoff to `Solver/contract#SOLVE_CONTRACT` is the consuming owner.

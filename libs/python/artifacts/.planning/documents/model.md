@@ -2,12 +2,12 @@
 
 The semantic document algebra: the single interior representation the `documents` axis lowers FROM and recovers TO. `DocumentNode` is ONE recursive `msgspec` tagged-union tree (page/section/block/run/table/figure/field/annotation/structure_element) carrying a closed `NodeMeta` tag on every node, and `DocumentDelta` is ONE diff/merge algebra (inserted/deleted/moved/reparametrized edits) keyed by the runtime content key and defined once over the tree. Every `folder:documents/emit#DOCUMENT` backend becomes a lowering arm folding from this tree rather than dispatching an opaque payload, and `folder:documents/lens#LENS` is the recover-TO inverse that rebuilds it — so production and extraction are inverses over one node algebra, the extracted-tree corpus keys into the runtime columnar lane as a queryable value, and the `DocumentDelta` a structural diff reuses is defined here once. The tree round-trips through `msgspec.json` so a multi-PDF corpus is one content-keyed serialized value; identity comes from `folder:../../../runtime/evidence/identity#CONTENT_IDENTITY` `ContentIdentity.of`, never re-minted.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[NODE]: `DocumentNode` — the recursive nine-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries; the content-keyed `children`/`walk`/`node_digest`/`to_corpus_row`/`to_typst_source`/`encode`/`decode` tree algebra.
-- [2]-[DELTA]: `DocumentDelta` — the four-variant edit algebra (inserted/deleted/moved/reparametrized) keyed by `ContentKey`; `diff`/`merge` defined once over the tree as one total fold.
+- [01]-[NODE]: `DocumentNode` — the recursive nine-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries; the content-keyed `children`/`walk`/`node_digest`/`to_corpus_row`/`to_typst_source`/`encode`/`decode` tree algebra.
+- [02]-[DELTA]: `DocumentDelta` — the four-variant edit algebra (inserted/deleted/moved/reparametrized) keyed by `ContentKey`; `diff`/`merge` defined once over the tree as one total fold.
 
-## [2]-[NODE]
+## [02]-[NODE]
 
 - Owner: `DocumentNode` the one recursive interior tree — nine `msgspec.Struct` variants (`PageNode`/`SectionNode`/`BlockNode`/`RunNode`/`TableNode`/`FigureNode`/`FieldNode`/`AnnotationNode`/`StructureNode`) under one `tag`-discriminated `Union`, every variant carrying a `NodeMeta` value object (the closed-family tag: content key, semantic role, page index, optional bounds). The tree is the algebra emission lowers FROM and extraction recovers TO.
 - Cases: `PageNode` (page-rooted child sequence + media box) · `SectionNode` (heading-level outline node + child sequence) · `BlockNode` (paragraph/list/quote block with a `BlockKind` row + inline runs) · `RunNode` (styled text run: text, font key, size, weight, RTL flag — the leaf shaped by `folder:../typography/conformance#CONFORM` SHAPE) · `TableNode` (row-major cell grid of child node sequences + span map) · `FigureNode` (embedded-graphic node: content key of the placed asset + caption runs, the unit `folder:../figures/compose#COMPOSE` produces) · `FieldNode` (interactive form field: name, `FieldKind` row, value) · `AnnotationNode` (markup/redaction/link annotation with an `AnnotKind` row + target rect) · `StructureNode` (PDF/UA structure-element node: the tagged-PDF role + child sequence carrying the accessibility tree). Each a frozen `Struct` variant, never a per-kind class hierarchy.
@@ -245,7 +245,7 @@ def _kind_of(node: DocumentNode) -> NodeKind:
             assert_never(unreachable)
 ```
 
-## [3]-[DELTA]
+## [03]-[DELTA]
 
 - Owner: `DocumentDelta` the one diff/merge edit algebra — four `msgspec.Struct` variants (`Inserted`/`Deleted`/`Moved`/`Reparametrized`) under one `tag`-discriminated `Union`, every edit keyed by the `ContentKey` of the node it acts on. `diff` and `merge` are defined once over the tree as one total fold; the same algebra a structural object-graph diff reuses lives here, never re-minted per consumer.
 - Cases: `Inserted` (a new node + the parent key + position) · `Deleted` (the removed node's key) · `Moved` (a node key + the new parent key + new position) · `Reparametrized` (a node key + the field-name→serialized-value map of changed leaf fields, the in-place edit a re-styled run or re-bounded figure produces). Each a frozen `Struct` variant keyed by `ContentKey`; the edit set is the patch a `produce → extract → re-produce` round-trip and a privacy-redaction pass both emit.
@@ -438,7 +438,7 @@ def _find(tree: DocumentNode, key: ContentKey) -> DocumentNode:
     return next(node for node in walk(tree) if node.meta.key == key)
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [OCR_DEFERRED]: a scanned page with no embedded text recovers no `RunNode` leaf — `documents/lens` reads zero glyphs, so the tree has empty text runs. OCR (ocrmypdf driving Tesseract, a native binary) is the one path that would synthesize `RunNode` text from a rasterized page. It carries a native binary outside the cp315-core wheel set and the `python_version<'3.15'` band, so it is a deferred-admission concern, never a phantom fence member: the tree models the recovered structure faithfully (empty runs on a scanned page), and OCR enrichment lands as a future `documents/lens` arm over an admitted OCR owner. `model.md` owns no OCR surface; the tree type is complete without it.
 - [DIGEST_VS_IDENTITY]: `node_digest` is the Merkle CONTENT fold — a leaf keys over its serialized bytes and an interior node folds its child digests through `ContentIdentity.of(tuple_of_child_keys)` (the `folder:../../../runtime/evidence/identity#CONTENT_IDENTITY` little-endian child serialization), so any descendant edit re-keys every ancestor digest. That re-keying is exactly why the diff does NOT key by `node_digest`: an instable parent reference would spuriously `Moved` every sibling of an inserted node and break `merge`. The diff keys instead by the STABLE `NodeMeta.key` minted once per node at authoring/recovery time, so an edit at one node never perturbs its ancestors' diff keys. `node_digest` serves the cache-hit-by-reference and corpus-residency identity (a content-identical sub-tree keys identically for reuse elision); the diff/merge/move detection serves structural identity through `NodeMeta.key`. Two distinct keyings, never conflated.

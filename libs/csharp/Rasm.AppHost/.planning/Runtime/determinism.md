@@ -2,17 +2,17 @@
 
 The reproducibility kernel for the runtime spine: one determinism context pins the RNG seed, the floating-point mode, and the environment fingerprint so a recorded run reproduces bit-for-bit, a hash-chained command log appends every executed command as a content-addressed entry whose hash links to its predecessor, a replay-verify rail re-executes a recorded log and proves each step's content hash matches, a macro engine records a command sequence and replays it as a reusable unit, a partial-recompute graph re-runs only the downstream of a changed input by walking the content-address dependency edges, and an adversarial probe records `Wire/outbound` Simmy chaos decisions as deterministic fault-injection entries, bisects a divergence over the hash chain in log-time, and replays a recorded log with one command's arguments perturbed to surface the downstream cone a change would alter. The page owns the determinism context, the content-addressed event log, the replay-verify rail, the macro record/replay engine, the partial-recompute graph, and the adversarial-reproducibility probe; it consumes `CommandReceipt`/`CommandAlgebra`, `HostFingerprint`, `ReceiptEnvelope`/`ReceiptSinkPort` (HLC stamp), `OpLog`/`OpLogEntry` (the durable changefeed), the `Wire/outbound` Simmy chaos pipeline as the deterministic fault source, `CorrelationId`, and `TenantContext` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DETERMINISM_KERNEL]: Pinned RNG, float mode, and environment fingerprint for reproducible runs.
-- [2]-[EVENT_LOG]: Hash-chained content-addressed command log with append and verify-chain operations.
-- [3]-[REPLAY_VERIFY]: Re-executes a recorded log and proves per-step content-hash identity.
-- [4]-[MACRO_ENGINE]: Records a command sequence and replays it as a reusable parameterized unit.
-- [5]-[RECOMPUTE_GRAPH]: Content-addresses dependency edges for partial downstream recompute.
-- [6]-[ADVERSARIAL_PROBE]: Chaos-fault replay, log-time divergence bisection, and counterfactual replay.
-- [7]-[TS_PROJECTION]: Event-log entry and replay-result wire shapes the dashboard consumes.
+- [01]-[DETERMINISM_KERNEL]: Pinned RNG, float mode, and environment fingerprint for reproducible runs.
+- [02]-[EVENT_LOG]: Hash-chained content-addressed command log with append and verify-chain operations.
+- [03]-[REPLAY_VERIFY]: Re-executes a recorded log and proves per-step content-hash identity.
+- [04]-[MACRO_ENGINE]: Records a command sequence and replays it as a reusable parameterized unit.
+- [05]-[RECOMPUTE_GRAPH]: Content-addresses dependency edges for partial downstream recompute.
+- [06]-[ADVERSARIAL_PROBE]: Chaos-fault replay, log-time divergence bisection, and counterfactual replay.
+- [07]-[TS_PROJECTION]: Event-log entry and replay-result wire shapes the dashboard consumes.
 
-## [2]-[DETERMINISM_KERNEL]
+## [02]-[DETERMINISM_KERNEL]
 
 - Owner: `FloatMode` `[SmartEnum<string>]` the floating-point determinism mode; `DeterminismContext` the pinned-run context record; `EnvFingerprint` the environment-identity record; `DeterminismKernel` the static context-establishment surface.
 - Cases: 3 float modes — strict, fast, cross-platform — strict pins IEEE round-to-nearest with FMA disabled for bit-identity, fast admits vectorized reassociation, cross-platform pins the lowest-common-denominator mode every supported RID reproduces.
@@ -65,7 +65,7 @@ public static class DeterminismKernel {
 }
 ```
 
-## [3]-[EVENT_LOG]
+## [03]-[EVENT_LOG]
 
 - Owner: `LogEntry` the content-addressed command-log entry; `ContentHash` the chain-hash value object; `EventLog` the static append-and-verify surface.
 - Entry: `Append(EventLog.Chain chain, CommandReceipt receipt, DeterminismContext context, Instant physical, ulong logical)` returns `(EventLog.Chain Chain, LogEntry Entry)` — folds one command receipt into a new content-addressed entry whose hash chains to the predecessor and stamps the HLC physical-and-logical pair onto the entry; `VerifyChain(Seq<LogEntry> entries)` returns `Fin<Unit>` — proves every entry's predecessor-hash matches the actual predecessor content hash so a tampered or reordered entry fails the chain.
@@ -126,7 +126,7 @@ public static class EventLog {
 }
 ```
 
-## [4]-[REPLAY_VERIFY]
+## [04]-[REPLAY_VERIFY]
 
 - Owner: `ReplayOutcome` `[Union]` the per-step replay disposition; `ReplayFault` `[Union]` fault family in the 4760 band; `ReplayVerify` the static re-execute-and-prove surface.
 - Cases: replay dispositions Matched | Diverged | EnvironmentMismatch | Skipped; `ReplayFault` = Text | ChainBroken | HashDiverged | EnvIncompatible.
@@ -189,7 +189,7 @@ public static class ReplayVerify {
 }
 ```
 
-## [5]-[MACRO_ENGINE]
+## [05]-[MACRO_ENGINE]
 
 - Owner: `Macro` the recorded-command-sequence record; `MacroParameter` the parameterized-substitution row; `MacroEngine` the static record-and-replay surface.
 - Entry: `Record(Seq<LogEntry> entries, Seq<MacroParameter> parameters)` returns `Macro` — captures a command subsequence as a reusable macro with parameter substitution points; `Play(MacroEngine.Runtime runtime, Macro macro, HashMap<string, JsonElement> bindings)` returns `IO<Seq<CommandReceipt>>` — replays the macro's commands as one batch with the parameter bindings substituted, so a recorded workflow becomes a reusable parameterized operation.
@@ -226,7 +226,7 @@ public static class MacroEngine {
 }
 ```
 
-## [6]-[RECOMPUTE_GRAPH]
+## [06]-[RECOMPUTE_GRAPH]
 
 - Owner: `RecomputeNode` the content-addressed dependency node; `RecomputeGraph` the static dependency-walk-and-recompute surface.
 - Entry: `Invalidate(RecomputeGraph.Graph graph, ContentHash changed)` returns `Seq<ContentHash>` — walks the dependency edges from a changed input and returns the downstream nodes whose content hash must recompute, so a single input change recomputes only its transitive downstream, never the whole graph; `Recompute(RecomputeRuntime runtime, RecomputeGraph.Graph graph, ContentHash changed)` returns `IO<Seq<CommandReceipt>>` — re-runs only the invalidated downstream commands in dependency order.
@@ -282,7 +282,7 @@ flowchart TD
     Next --> Recompute
 ```
 
-## [7]-[ADVERSARIAL_PROBE]
+## [07]-[ADVERSARIAL_PROBE]
 
 - Owner: `ChaosDecision` the recorded fault-injection row; `FaultKind` `[SmartEnum<string>]` the Simmy injection-shape vocabulary; `Divergence` the bisection result record; `Counterfactual` the perturbed-replay result record; `AdversarialProbe` the static surface owning the three operation families `[CHAOS_REPLAY]`, `[DIVERGENCE_BISECT]`, and `[COUNTERFACTUAL]`, each composing the kernel's own `EventLog`/`REPLAY_VERIFY`/`RECOMPUTE_GRAPH` owners — no second determinism surface.
 - Cases: `FaultKind` = latency | fault | outcome — the three `Wire/outbound` Simmy chaos strategies (`AddChaosLatency`/`AddChaosFault`/`AddChaosOutcome`); a chaos decision records which strategy fired, its injected value, and the call it perturbed so a recorded fault campaign replays from the log, never from live randomness.
@@ -365,7 +365,7 @@ public static class AdversarialProbe {
 }
 ```
 
-## [8]-[TS_PROJECTION]
+## [08]-[TS_PROJECTION]
 
 - Owner: `LogEntryWire`, `ReplayOutcomeWire`, `DeterminismContextWire` — the event-log entry and replay-result wire shapes the reproducibility dashboard consumes; the command receipts ride the existing `ReceiptEnvelopeWire`.
 - Entry: the event-log entries cross as the chained sequence the dashboard renders as a verifiable timeline, the replay outcomes cross as the per-step match/diverge result, and the determinism context crosses so the dashboard shows the seed and environment a run pinned.
@@ -400,7 +400,7 @@ type ReplayOutcomeWire =
   | { readonly kind: "skipped"; readonly sequence: number; readonly reason: string };
 ```
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [FLOAT_DETERMINISM]: the cross-platform floating-point determinism guarantee — a `FloatMode.CrossPlatform` run reproducing bit-identically across osx-arm64, linux-x64, and win-x64 — confirms against the runtime's floating-point configuration surface (FMA-contraction and vector-reassociation control) at the integrated host on each RID; the strict-mode FMA-disable and the cross-platform lowest-common-denominator mode carry settled member shapes and stay a tier-2 cross-RID harness probe.
 - [OPLOG_PROJECTION]: the `EventLog.ToOpLog` projection of a `LogEntry` to one `OpLogEntry` composes the finalized `Rasm.Persistence/Sync/collaboration#OPLOG_CHANGEFEED` `OpLogEntry` record constructor directly — `SyncOpKind.Upsert` on the `command` column family, the entry hash as the `ContentKey`, the `SnapshotCodec.JsonStj` codec — so the command log rides the durable changefeed and never a second store; the residual confirms the `command`-family `EntityKind`/`EntityKey` spelling and the empty-`Closure` projection against the live op-log surface, and the HLC-ordered cross-process log merge confirms against the existing `ReceiptEnvelope` causal primitive.

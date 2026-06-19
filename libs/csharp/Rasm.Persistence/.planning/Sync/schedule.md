@@ -2,13 +2,13 @@
 
 Rasm.Persistence owns the construction-schedule store and its 4D coupling: `ScheduleImport` reads a Primavera P6 XER (tab-delimited) and a Microsoft Project XML into a typed `ScheduleTask` activity network with predecessor/successor relationships and WBS hierarchy; `TaskElementLink` binds a schedule activity to a federated `ElementSet` so a 4D state derives which elements are planned, in-progress, or complete at any date; and `FourDState` folds the activity network plus its element links plus an as-of date into the per-element 4D status the viewport and the time-travel engine consume. `CpmPass` runs the forward/backward float pass — early/late start-finish and total/free float over the `TaskRelation` DAG — so the critical path is the total-float-zero activity set, a schedule slip is a typed `ScheduleFloat` erosion delta, and `ScheduleBaseline` is one content-addressed snapshot so a baseline-versus-current variance is a multi-baseline content-key diff; the CPM walk is one DAG algebra serving CPM, lineage, and the commit-DAG. The Sep tabular reader (`Query/lanes#ANALYTICAL_LANE`), the cross-document link (`Query/federation#CROSS_DOC_LINKS`), the element-set currency (`Query/federation#ELEMENT_SET_ALGEBRA`), the time-travel AS-OF fold (`Version/timetravel#TIME_TRAVEL`), and `ClockPolicy`/`ReceiptSinkPort`/`CorrelationId` arrive settled. The Compute P6/XER parse companion produces the canonical activity bytes this store ingests.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SCHEDULE_STORE]: P6 XER and MS-Project XML import; typed activity network; WBS.
-- [2]-[TASK_LINK_4D]: task-to-element-set link, 4D state fold, and as-of construction status.
-- [3]-[TS_PROJECTION]: schedule task, link, and 4D-state wire shapes.
+- [01]-[SCHEDULE_STORE]: P6 XER and MS-Project XML import; typed activity network; WBS.
+- [02]-[TASK_LINK_4D]: task-to-element-set link, 4D state fold, and as-of construction status.
+- [03]-[TS_PROJECTION]: schedule task, link, and 4D-state wire shapes.
 
-## [2]-[SCHEDULE_STORE]
+## [02]-[SCHEDULE_STORE]
 
 - Owner: `ScheduleFormat` the interchange-format axis (P6 XER, MS-Project XML); `ScheduleTask` the typed activity record carrying the resource-loading columns; `TaskRelation` the predecessor/successor dependency; `ScheduleFloat` the typed per-activity early/late start-finish + total/free float delta; `ScheduleBaseline` the content-addressed baseline-snapshot axis; `ScheduleImport` the static surface owning the XER tab-delimited read, the MS-Project XML read, the activity-network projection, the WBS hierarchy fold, and the critical-path projection over `CpmPass`; `CpmPass` the static forward/backward DAG-walk fold owning the float pass.
 - Cases: `P6Xer | MsProjectXml` on `ScheduleFormat`; a task carries id, WBS path, name, planned/actual start and finish, duration, percent-complete, and the resource-id/units/budgeted-cost loading columns; a relation is `FinishToStart | StartToStart | FinishToFinish | StartToFinish` with a lag; `ScheduleFloat` carries the early/late start-finish and total/free float, the critical activity being the total-float-zero set; `ScheduleBaseline` is a content-keyed snapshot of the activity-edition set.
@@ -204,20 +204,20 @@ public sealed partial class RowKind {
 }
 ```
 
-| [INDEX] | [FORMAT]         | [SURFACE]                          | [TABLES]                                          |
-| :-----: | :--------------- | :--------------------------------- | :------------------------------------------------ |
-|   [1]   | P6 XER           | Sep tab-delimited multi-table read | `TASK` activities, `TASKPRED` relations, `PROJWBS` WBS |
-|   [2]   | MS-Project XML   | STJ source-generated read          | `Task` elements, `PredecessorLink` relations      |
+| [INDEX] | [FORMAT]       | [SURFACE]                          | [TABLES]                                               |
+| :-----: | :------------- | :--------------------------------- | :----------------------------------------------------- |
+|  [01]   | P6 XER         | Sep tab-delimited multi-table read | `TASK` activities, `TASKPRED` relations, `PROJWBS` WBS |
+|  [02]   | MS-Project XML | STJ source-generated read          | `Task` elements, `PredecessorLink` relations           |
 
-| [INDEX] | [ALGEBRA]          | [SURFACE]                                              | [LAW]                                                       |
-| :-----: | :----------------- | :---------------------------------------------------- | :--------------------------------------------------------- |
-|   [1]   | critical path      | `CriticalPath` = total-float-zero set of `CpmPass.Pass` | the float-zero activity set, never the single longest task |
-|   [2]   | float pass         | `CpmPass` forward/backward DAG walk over `TaskRelation` | FS/SS/FF/SF dispatched through the `[SmartEnum]` total `Switch` with lag |
-|   [3]   | baseline           | `ScheduleBaseline.Of` `XxHash128` over edition set    | multi-baseline variance is a content-key diff, never a table |
-|   [4]   | retained/progressed | `ActualStart`/`ActualFinish` `Option<LocalDate>` vs data date | reads existing columns; no new field                       |
-|   [5]   | resource loading   | `ResourceId`/`ResourceUnits`/`BudgetedCost` columns    | leveling and over-allocation are activity-network folds    |
+| [INDEX] | [ALGEBRA]           | [SURFACE]                                                     | [LAW]                                                                    |
+| :-----: | :------------------ | :------------------------------------------------------------ | :----------------------------------------------------------------------- |
+|  [01]   | critical path       | `CriticalPath` = total-float-zero set of `CpmPass.Pass`       | the float-zero activity set, never the single longest task               |
+|  [02]   | float pass          | `CpmPass` forward/backward DAG walk over `TaskRelation`       | FS/SS/FF/SF dispatched through the `[SmartEnum]` total `Switch` with lag |
+|  [03]   | baseline            | `ScheduleBaseline.Of` `XxHash128` over edition set            | multi-baseline variance is a content-key diff, never a table             |
+|  [04]   | retained/progressed | `ActualStart`/`ActualFinish` `Option<LocalDate>` vs data date | reads existing columns; no new field                                     |
+|  [05]   | resource loading    | `ResourceId`/`ResourceUnits`/`BudgetedCost` columns           | leveling and over-allocation are activity-network folds                  |
 
-## [3]-[TASK_LINK_4D]
+## [03]-[TASK_LINK_4D]
 
 - Owner: `TaskElementLink` the schedule-activity-to-element-set binding; `FourDStatus` the per-element construction-state axis; `FourDState` the static surface owning the task-element link, the as-of 4D state fold, and the planned-versus-actual variance projection.
 - Cases: a link binds a `ScheduleTask` to an `ElementSet` (the elements that activity constructs); `NotStarted | InProgress | Complete | Demolished` on `FourDStatus`; the 4D state folds the activity network plus its links plus an as-of date into the per-element status.
@@ -285,14 +285,14 @@ public static class FourDState {
 }
 ```
 
-| [INDEX] | [CONCERN]          | [SURFACE]                                       | [LAW]                                             |
-| :-----: | :----------------- | :---------------------------------------------- | :------------------------------------------------ |
-|   [1]   | task-element link  | `CrossDocLink` of kind `Aggregation`            | rides the federated link graph; impact propagates |
-|   [2]   | 4D state           | as-of date-fold over the activity network       | reproducible; rides the time-travel AS-OF fold    |
-|   [3]   | planned vs actual  | difference of planned-fold and actual-fold      | schedule slip is an element-set delta             |
-|   [4]   | 4D-to-5D bridge    | cost rollup over the as-of `Complete` set       | cash-flow-over-time is the 5D cost of 4D state    |
+| [INDEX] | [CONCERN]         | [SURFACE]                                  | [LAW]                                             |
+| :-----: | :---------------- | :----------------------------------------- | :------------------------------------------------ |
+|  [01]   | task-element link | `CrossDocLink` of kind `Aggregation`       | rides the federated link graph; impact propagates |
+|  [02]   | 4D state          | as-of date-fold over the activity network  | reproducible; rides the time-travel AS-OF fold    |
+|  [03]   | planned vs actual | difference of planned-fold and actual-fold | schedule slip is an element-set delta             |
+|  [04]   | 4D-to-5D bridge   | cost rollup over the as-of `Complete` set  | cash-flow-over-time is the 5D cost of 4D state    |
 
-## [4]-[TS_PROJECTION]
+## [04]-[TS_PROJECTION]
 
 - Owner: `ScheduleFormatKind`, `ScheduleTaskWire`, `TaskRelationWire`, `RelationKindWire`, `ScheduleFloatWire`, `ScheduleBaselineWire`, `TaskElementLinkWire`, `FourDStatusKind`, `FourDStateWire` — the schedule wire surface the TS-web Gantt, CPM float overlay, and 4D scrubber decode.
 - Packages: BCL inbox.
@@ -359,7 +359,7 @@ interface FourDStateWire {
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [XER_TABLE_GRAMMAR]: the P6 XER `%T`/`%F`/`%R`/`%E` table-marker grammar and the `TASK`/`TASKPRED`/`PROJWBS` column names the Sep header-named projection reads — the activity-id, planned/actual date, duration, and percent-complete columns and the `TASKPRED` predecessor/successor/lag columns, verified against a real XER export before the reader fence pins the column projection.
 - [MSPROJECT_XML_SHAPE]: the MS-Project XML `Project`/`Tasks`/`Task`/`PredecessorLink` element shape and date encoding the STJ source-generated reader transcribes, verified against a real `.xml` export, and the Compute P6/XER parse companion's canonical-activity-bytes hand-off boundary.

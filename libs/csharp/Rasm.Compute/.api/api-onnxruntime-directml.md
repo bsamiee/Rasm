@@ -2,7 +2,7 @@
 
 `Microsoft.ML.OnnxRuntime.DirectML` supplies the DirectML execution-provider native runtime for the ONNX model lane. The package carries no managed assembly: it depends on `Microsoft.ML.OnnxRuntime.Managed` plus `Microsoft.AI.DirectML`, ships Windows-only native runtimes, and the managed `AppendExecutionProvider_DML` entrypoint binds the DirectML provider from `Microsoft.ML.OnnxRuntime`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.DirectML`
 - package: `Microsoft.ML.OnnxRuntime.DirectML`
@@ -11,30 +11,30 @@
 - asset: native DirectML execution-provider runtime
 - rail: model
 
-## [2]-[PACKAGE_ASSETS]
+## [02]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: package dependencies
 - rail: model
 
 | [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]     | [CAPABILITY]                    |
 | :-----: | :---------------------------------------- | :----------------- | :------------------------------ |
-|   [1]   | `Microsoft.ML.OnnxRuntime.Managed` 1.24.4 | managed dependency | supplies the managed append API |
-|   [2]   | `Microsoft.AI.DirectML` 1.15.4            | native dependency  | supplies the DirectML runtime   |
+|  [01]   | `Microsoft.ML.OnnxRuntime.Managed` 1.24.4 | managed dependency | supplies the managed append API |
+|  [02]   | `Microsoft.AI.DirectML` 1.15.4            | native dependency  | supplies the DirectML runtime   |
 
 [PACKAGE_ASSET_SCOPE]: native execution-provider runtimes
 - rail: model
 
 | [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE] | [CAPABILITY]                     |
 | :-----: | :--------------------------------------------- | :------------- | :------------------------------- |
-|   [1]   | `onnxruntime.dll` (win-x64)                    | native asset   | executes the DML-enabled runtime |
-|   [2]   | `onnxruntime_providers_shared.dll` (win-x64)   | native asset   | bridges shared provider entry    |
-|   [3]   | `onnxruntime.dll` (win-arm64)                  | native asset   | executes the DML-enabled runtime |
-|   [4]   | `onnxruntime_providers_shared.dll` (win-arm64) | native asset   | bridges shared provider entry    |
-|   [5]   | `dml_provider_factory.h`                       | native header  | describes the DML provider C API |
-|   [6]   | `build/native/*.props`                         | MSBuild import | declares native copy             |
-|   [7]   | `build/native/*.targets`                       | MSBuild import | copies native assets             |
+|  [01]   | `onnxruntime.dll` (win-x64)                    | native asset   | executes the DML-enabled runtime |
+|  [02]   | `onnxruntime_providers_shared.dll` (win-x64)   | native asset   | bridges shared provider entry    |
+|  [03]   | `onnxruntime.dll` (win-arm64)                  | native asset   | executes the DML-enabled runtime |
+|  [04]   | `onnxruntime_providers_shared.dll` (win-arm64) | native asset   | bridges shared provider entry    |
+|  [05]   | `dml_provider_factory.h`                       | native header  | describes the DML provider C API |
+|  [06]   | `build/native/*.props`                         | MSBuild import | declares native copy             |
+|  [07]   | `build/native/*.targets`                       | MSBuild import | copies native assets             |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DirectML execution-provider append operation
 - rail: model
@@ -42,7 +42,7 @@
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE] | [CAPABILITY]                |
 | :-----: | :---------------------------------------------- | :----------- | :-------------------------- |
-|   [1]   | `AppendExecutionProvider_DML(int deviceId = 0)` | option call  | DirectML EP by device index |
+|  [01]   | `AppendExecutionProvider_DML(int deviceId = 0)` | option call  | DirectML EP by device index |
 
 [ENTRYPOINT_SCOPE]: decompile-verified DirectML append signature
 - source: `Microsoft.ML.OnnxRuntime.Managed` 1.24.4 decompile
@@ -50,10 +50,10 @@
 
 | [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                                                               |
 | :-----: | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `AppendExecutionProvider_DML`                  | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                      |
-|   [2]   | `OrtSessionOptionsAppendExecutionProvider_DML` | `static extern nint OrtSessionOptionsAppendExecutionProvider_DML(nint options, int device_id)` — native P/Invoke backing the managed call |
+|  [01]   | `AppendExecutionProvider_DML`                  | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                      |
+|  [02]   | `OrtSessionOptionsAppendExecutionProvider_DML` | `static extern nint OrtSessionOptionsAppendExecutionProvider_DML(nint options, int device_id)` — native P/Invoke backing the managed call |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [DIRECTML_PROVIDER_ASSETS]:
 - package role: DirectML native execution-provider runtime

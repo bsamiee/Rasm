@@ -4,14 +4,14 @@ Rasm.Persistence anchors cloud object-store residence on one `ObjectStore` provi
 
 Wire posture: this page is host-local — every owner runs server-side against the provider SDK and crosses no browser or peer wire, so it carries no `TS_PROJECTION` cluster. The artifact-sync feed's only cross-process face is the content-address object key plus the existing `Sync/collaboration#OPLOG_CHANGEFEED` op-log row, whose wire shape is owned at `Sync/collaboration#TS_PROJECTION`; `ObjectTransferFact` reaches any dashboard solely as a `ReceiptSinkPort` envelope whose `ReceiptEnvelopeWire`/`TenantContextWire` projection is owned at `AppHost/runtime-ports#TS_PROJECTION`, never re-spelled here.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[OBJECT_STORE]: three provider rows projecting `BlobRemote` placements; fault rail.
-- [2]-[MULTIPART_TRANSFER]: chunked resumable upload fold over the `ArtifactSync` frame width.
-- [3]-[OBJECT_RESIDENCE]: content-key descriptor round-trip; conditional-write concurrency.
-- [4]-[ARTIFACT_SYNC_FEED]: content-address object key plus durable op-log; transfer fact stream.
+- [01]-[OBJECT_STORE]: three provider rows projecting `BlobRemote` placements; fault rail.
+- [02]-[MULTIPART_TRANSFER]: chunked resumable upload fold over the `ArtifactSync` frame width.
+- [03]-[OBJECT_RESIDENCE]: content-key descriptor round-trip; conditional-write concurrency.
+- [04]-[ARTIFACT_SYNC_FEED]: content-address object key plus durable op-log; transfer fact stream.
 
-## [2]-[OBJECT_STORE]
+## [02]-[OBJECT_STORE]
 
 - Owner: `ObjectStore` — one `[SmartEnum<string>]` provider axis under the `StoreKeyPolicy` ordinal accessor; each row is the widened record carrying the part-size column, the chunk-size column, the conditional-write column, and the three transport delegate columns that build the row's `BlobRemote` placement from the resolved provider client; `RemoteStoreFault` is the typed boundary fault family.
 - Cases: s3, azure-blob, gcs; the provider sweep stays closed — a fourth provider is one row, and PostgreSQL/SQLite/DuckDB never appear because object-store is the durable home behind `BlobRemote`, never a relational engine row.
@@ -115,7 +115,7 @@ public abstract partial record RemoteStoreFault : Expected, IValidationError<Rem
 }
 ```
 
-## [3]-[MULTIPART_TRANSFER]
+## [03]-[MULTIPART_TRANSFER]
 
 - Owner: `MultipartTransfer` — the chunked resumable upload fold over the ArtifactSync frame width; one algebra dispatching on the `ObjectStore` row, one `TransferReceipt` per completed object.
 - Cases: s3 low-level `InitiateMultipartUpload`/`UploadPart`/`CompleteMultipartUpload` with the `TransferUtility` managed path as the small-object fast lane; azure staged-block `StageBlock`/`CommitBlockList` with `BlobClient.Upload` carrying `StorageTransferOptions` for the parallel path; gcs `UploadObject` with `UploadObjectOptions.ChunkSize` resumable.
@@ -282,7 +282,7 @@ public static class ObjectRows {
 }
 ```
 
-## [4]-[OBJECT_RESIDENCE]
+## [04]-[OBJECT_RESIDENCE]
 
 - Owner: `ObjectResidence` — the content-key descriptor round-trip record over the object store; projects from and back to the settled `BlobRemote.Descriptor`, carrying the part/chunk-size transfer columns, the multipart `UploadId` resume handle, the realized `Parts`/`ResumedParts` transfer counts, the classification/retention columns enforced at write, and the conditional-write concurrency token.
 - Cases: a put writes the content-key object name plus the classification/retention/codec/compression columns as object metadata and fills `Parts`/`ResumedParts` from the realized multipart loop; a head reads the metadata back through `OfMetadata`; a get range-reads by content-key with resumption.
@@ -351,7 +351,7 @@ public sealed record ObjectResidence(
 }
 ```
 
-## [5]-[ARTIFACT_SYNC_FEED]
+## [05]-[ARTIFACT_SYNC_FEED]
 
 - Owner: `ArtifactSyncFeed` — the cloud-hub seam threading the content-address object key plus a managed durable op-log row so a blob written once is fetched by any peer; `ObjectTransferFact` is the transfer-telemetry record.
 - Cases: a put appends one `OpLogEntry`-shaped row keyed by content-key so a peer's changefeed cursor advances past the write; a fetch-by-content-key reads the object the row points to; the integrity fact stream carries the Crc32-per-frame and XxHash128 whole-artifact identity.
@@ -408,7 +408,7 @@ sequenceDiagram
     O->>P: Range-read stream
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [OBJECT_ROUNDTRIP]: the live S3/Azure-Blob/GCS multipart-resume round-trip against the provider emulators (MinIO, Azurite, fake-gcs-server) — the resumed-part skip-on-committed-ETag behavior driven by `ListPartsAsync`/`GetBlockListAsync(BlockListTypes.Uncommitted)`, the conditional-write `412` conflict surface per provider (`IfNoneMatch:*`/`ETag.All`/`IfGenerationMatch:0`), and the range-read resumption offset contract, proven before the resumed-part and conflict fences finalize.
 - [OBJECT_MEMBER_SPELLINGS]: the get/head/list/delete member surface decompile-verified at admission — the Gate-0 brief grounded only the S3 multipart-upload + `TransferUtility` surface and the Azure `BlockBlobClient`/`BlobClient` surface, so `AmazonS3Client.GetObjectAsync(GetObjectRequest)`/`GetObjectMetadataAsync`/`ListPartsAsync(ListPartsRequest)`/`ListObjectsV2Async`/`DeleteObjectAsync` and `GetObjectResponse.ResponseStream`/`GetObjectMetadataResponse`, the Azure `BlobContainerClient.GetBlobClient`/`GetBlockBlobClient`/`BlobBaseClient.DownloadStreamingAsync(BlobDownloadOptions)`/`GetPropertiesAsync`/`DeleteIfExistsAsync`/`BlockBlobClient.GetBlockListAsync`, and the GCS `StorageClient.GetObjectAsync`/`DeleteObjectAsync`/`DownloadObjectAsync(DownloadObjectOptions)`/`UploadObjectAsync(Object, Stream, UploadObjectOptions)` member spellings and the `Object`/`GetObjectResponse`/`BlobProperties` response shapes the `OfMetadata` projector reads are verified against the admitted assemblies before the head/list/fetch fences finalize.

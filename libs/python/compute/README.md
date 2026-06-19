@@ -2,17 +2,17 @@
 
 `libs/python/compute` is the host-free numeric and scientific library of the monorepo. It owns array admission, one route-discriminated solver surface, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference. The graduation rail hands offline results across the wire into the C# managed owner system. `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[RECEIPT](.planning/solvers/receipt.md)
-- [2]-[LINEAR](.planning/solvers/linear.md)
-- [3]-[NONLINEAR](.planning/solvers/nonlinear.md)
-- [4]-[QUADRATURE](.planning/solvers/quadrature.md)
-- [5]-[DIFFERENTIAL](.planning/solvers/differential.md)
-- [6]-[SENSITIVITY](.planning/solvers/sensitivity.md)
-- [7]-[MESH](.planning/solvers/mesh.md)
-- [8]-[DESIGN](.planning/optimization/design.md)
-- [9]-[PROGRAM](.planning/optimization/program.md)
+- [01]-[RECEIPT](.planning/solvers/receipt.md)
+- [02]-[LINEAR](.planning/solvers/linear.md)
+- [03]-[NONLINEAR](.planning/solvers/nonlinear.md)
+- [04]-[QUADRATURE](.planning/solvers/quadrature.md)
+- [05]-[DIFFERENTIAL](.planning/solvers/differential.md)
+- [06]-[SENSITIVITY](.planning/solvers/sensitivity.md)
+- [07]-[MESH](.planning/solvers/mesh.md)
+- [08]-[DESIGN](.planning/optimization/design.md)
+- [09]-[PROGRAM](.planning/optimization/program.md)
 - [10]-[CONVEX](.planning/optimization/convex.md)
 - [11]-[STUDY](.planning/experiments/study.md)
 - [12]-[HISTORY](.planning/experiments/history.md)
@@ -27,7 +27,7 @@
 - [21]-[HANDOFF](.planning/graduation/handoff.md)
 - [22]-[CODEGEN](.planning/graduation/codegen.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every scientific and solver library this folder uses, planned or implemented. Versions are centralized in the one root manifest; corroborating API evidence lives in the adjacent `.api/` folder.
 
@@ -95,7 +95,7 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `nutpie`
 - `blackjax`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting Python substrate libraries this folder consumes; canonical registry and charters live in `libs/python/.planning/README.md` and the adjacent `libs/python/.api/` folder.
 

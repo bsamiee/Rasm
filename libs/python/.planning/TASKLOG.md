@@ -2,7 +2,7 @@
 
 The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two or more packages or land on a shared runtime owner the whole branch inherits. Per-folder work lives on the owning folder `TASKLOG.md`; cross-language work lives in the cross-`libs/` `TASKLOG.md`. Each card leads with a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` open; `[COMPLETE]` or `[DROPPED]` closed — and carries the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [QUEUED] Fold content identity into lane admission — from `CONTENT_ADDRESSED_REUSE_FABRIC`.
 - Extend the runtime `execution/lanes` `LanePolicy.run` to accept work as `(ContentKey, Work[T])` pairs threading a session-local `frozendict[ContentKey, T]` cache, so a unit whose key already carries a result short-circuits, the `DrainReceipt` gaining a `hit` count distinct from `completed`.
@@ -81,6 +81,6 @@ The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two 
 - The arm lands on the owning data/geometry seam, not a new owner; E57 is one source format the existing point-cloud admission decodes, the per-scan pose folding into the same `RegistrationResult` transform spine.
 - Catalogue-present, consumer-absent: this is an exploitation gap, not an environment block; `pye57` resolves on the companion floor beside the native geometry stack.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

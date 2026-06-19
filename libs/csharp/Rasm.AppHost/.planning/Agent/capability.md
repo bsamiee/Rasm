@@ -2,16 +2,16 @@
 
 One self-describing operation catalog for the whole suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying its effect class, idempotency, cost model, and permission shape, the registry folds those rows into a discovery surface answering shape-discriminated queries, a command algebra wraps any descriptor invocation in a commit-or-rollback intent over the Compute `ComputeIntent` rail, a scoped grant broker meters every admission against an object-set × op-class × cost-ceiling × time-window algebra with consent and dry-run simulation, and one codegen surface emits identical command shapes for C#, TypeScript, and Python off the same descriptor rows. The page owns the descriptor vocabulary, the discovery fold, the command-algebra transaction, the grant-and-cost broker, and the polyglot SDK codegen; it consumes `ComputeIntent`/`IntentAdmission`, `WorkLane`, `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, and `DataClassification` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DESCRIPTOR_AXIS]: Self-describing op rows encoding effect class, idempotency, cost, and permission shape.
-- [2]-[DISCOVERY_FOLD]: Frozen registry with shape-discriminated discovery queries over descriptor rows.
-- [3]-[COMMAND_ALGEBRA]: Commit-or-rollback intent transaction over the `Compute` dispatch rail.
-- [4]-[GRANT_BROKER]: Scoped grant algebra covering consent, elevation, cost metering, and dry-run policy simulation.
-- [5]-[SDK_CODEGEN]: C#/TS/Python command-shape emission off one descriptor source.
-- [6]-[TS_PROJECTION]: Descriptor catalog and command-envelope wire shapes the dashboard consumes.
+- [01]-[DESCRIPTOR_AXIS]: Self-describing op rows encoding effect class, idempotency, cost, and permission shape.
+- [02]-[DISCOVERY_FOLD]: Frozen registry with shape-discriminated discovery queries over descriptor rows.
+- [03]-[COMMAND_ALGEBRA]: Commit-or-rollback intent transaction over the `Compute` dispatch rail.
+- [04]-[GRANT_BROKER]: Scoped grant algebra covering consent, elevation, cost metering, and dry-run policy simulation.
+- [05]-[SDK_CODEGEN]: C#/TS/Python command-shape emission off one descriptor source.
+- [06]-[TS_PROJECTION]: Descriptor catalog and command-envelope wire shapes the dashboard consumes.
 
-## [2]-[DESCRIPTOR_AXIS]
+## [02]-[DESCRIPTOR_AXIS]
 
 - Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `CapabilityKeyPolicy` ordinal accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; cost units cpu-millis, wall-millis, bytes-egress, model-tokens, calls.
@@ -134,7 +134,7 @@ public static class TensorProjection {
 }
 ```
 
-## [3]-[DISCOVERY_FOLD]
+## [03]-[DISCOVERY_FOLD]
 
 - Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `DiscoveryResult` the matched-descriptor projection.
 - Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation.
@@ -202,7 +202,7 @@ public sealed class CapabilityRegistry {
 }
 ```
 
-## [4]-[COMMAND_ALGEBRA]
+## [04]-[COMMAND_ALGEBRA]
 
 - Owner: `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family in the 4600 band; `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker and onto the Compute dispatch rail.
 - Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = Text | NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed.
@@ -335,7 +335,7 @@ flowchart LR
     Dispatch -->|fault, irreversible| Compensated[Compensated]
 ```
 
-## [5]-[GRANT_BROKER]
+## [05]-[GRANT_BROKER]
 
 - Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `GrantFault` `[Union]` fault family in the 4620 band; `GrantBroker` the static admission-and-metering surface.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired.
@@ -411,7 +411,7 @@ public sealed record GrantBroker(
 }
 ```
 
-## [6]-[SDK_CODEGEN]
+## [06]-[SDK_CODEGEN]
 
 - Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
 - Cases: 3 targets — csharp, typescript, python — each carrying its command-shape renderer and idiomatic call form.
@@ -460,7 +460,7 @@ public static class SdkCodegen {
 }
 ```
 
-## [7]-[TS_PROJECTION]
+## [07]-[TS_PROJECTION]
 
 - Owner: `CapabilityDescriptorWire`, `CapabilityCommandReceiptWire`, `DiscoveryResultWire` — the descriptor catalog and command-envelope wire shapes; per-record wire payloads ride the existing `ReceiptEnvelopeWire` and bind here as `TPayload`.
 - Entry: the descriptor catalog crosses as the `DiscoveryResultWire[]` the dashboard command palette ingests, and the command receipt reconstructs through the existing `ReceiptEnvelopeWire<CapabilityCommandReceiptWire>`; the SDK codegen TS target emits methods over these same shapes.
@@ -497,7 +497,7 @@ interface CapabilityCommandReceiptWire {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [INTENT_SPEC]: the `ComputeIntent.Spec` field arity (`WorkLane.Interactive`, `AllocationClass.Pooled`, `CachePolicy.None`) the command algebra constructs for a brokered command resolves against the finalized Compute intent-and-selection#INTENT_FAMILY surface; the `SelectionReceipt.None` sentinel for a compensation forward leg confirms against the Compute dispatch-spine receipt shape. Build-order prerequisite: `capability/Registry.cs` cannot compile until the `Rasm.Compute` intent-and-selection contract (`ComputeIntent`/`IntentAdmission`/`SelectionReceipt`/`AdmittedIntent`) and the sibling AppHost settled vocabulary (`ports`/`time`/`hosting`: `CancelScope`/`ClockPolicy`/`ReceiptSinkPort`/`TenantContext`/`DegradationLevel`/`Capability`/`Interval`) land — these are consumed by type on `CommandRuntime`/`CommandReceipt`, so the page is the downstream of that vocabulary, and `Agent/mcp.md` is in turn downstream of this page.
 - [SCHEMA_DIGEST]: the `JsonSchemaExporter` schema the SDK codegen reads per descriptor `CommandArguments` derives through `SuiteContracts.Schema`, and the cross-language shape-identity proof — the C#, TS, and Python emitted methods bind one schema — confirms against the live schema export at SDK-bootstrap.

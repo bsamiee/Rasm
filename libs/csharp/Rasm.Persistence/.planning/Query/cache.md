@@ -2,14 +2,14 @@
 
 Rasm.Persistence contributes exactly one registration row to the suite cache port — the `CacheContribution` capsule serving as the L2 `IDistributedCache` over the key-value lane and as the `IHybridCacheSerializerFactory` riding the MessagePackBinary codec row — selects its L2 residence over the closed `CacheResidence` tier axis, and owns three durable index contracts: model-result, artifact-blob, and benchmark. Cache mechanics stay at the AppHost port where `CacheLane` and `CacheSurface` own stampede, tags, and entry options; the owned surfaces here are key-shape records, catalog rows, the residence registration axis, and one cache-evidence fact stream over Microsoft.Extensions.Caching.Hybrid, Microsoft.Extensions.Caching.StackExchangeRedis, StackExchange.Redis, MessagePack, System.IO.Hashing, and NodaTime, stamped through `ClockPolicy` and emitted through `ReceiptSinkPort`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[L2_CONTRIBUTION]: one registration row for the L2 store, residence tier axis, and serializer factory.
-- [2]-[MODEL_RESULT_INDEX]: deterministic result identity, read-through entry, and one fact stream.
-- [3]-[ARTIFACT_BLOB_INDEX]: content-addressed catalog rows for warm-start and profiling artifacts.
-- [4]-[BENCHMARK_INDEX]: persisted benchmark rows; fingerprint-gated claim toward route selection.
+- [01]-[L2_CONTRIBUTION]: one registration row for the L2 store, residence tier axis, and serializer factory.
+- [02]-[MODEL_RESULT_INDEX]: deterministic result identity, read-through entry, and one fact stream.
+- [03]-[ARTIFACT_BLOB_INDEX]: content-addressed catalog rows for warm-start and profiling artifacts.
+- [04]-[BENCHMARK_INDEX]: persisted benchmark rows; fingerprint-gated claim toward route selection.
 
-## [2]-[L2_CONTRIBUTION]
+## [02]-[L2_CONTRIBUTION]
 
 - Owner: `CacheContribution` — one sealed boundary capsule implementing both `IBufferDistributedCache` and `IHybridCacheSerializerFactory`; the package's single cache registration row; `CacheResidence` — the registration-row residence axis carrying each tier's `IDistributedCache` registration and, for the redis arm, the live-fabric delegate row binding the RESP3 server-assisted client-side-caching invalidation push, the keyspace-notification stream, and the atomic Lua single-flight/lease surface.
 - Cases: `CacheResidence` in-memory | sqlite | redis | distributed-pg.
@@ -132,18 +132,18 @@ public sealed record RedisFabric(
 }
 ```
 
-| [INDEX] | [LAW]          | [RULING]                                                                                                                                                                                                                 |
-| :-----: | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | ownership      | port, stampede protection, tag vocabulary, and entry options stay at the AppHost cache port; the contribution is storage and codec only                                                                                  |
-|   [2]   | payload        | every L2 payload lands as one key-value row whose codec-id and content-hash columns are settled row law — codec-tagged bytes, never bare blobs                                                                           |
-|   [3]   | expiry         | only the write's absolute relative expiry crosses into `ExpiresAt`, stamped through `ClockPolicy`; an absent value traces to the `CacheTtl` deadline row                                                                 |
-|   [4]   | sweep          | expired rows leave on the persistence-maintenance `ScheduleEntry` row under the maintenance lease; each sweep deletion emits one evict fact                                                                              |
-|   [5]   | invalidation   | `RemoveByTagAsync` is logical; the bulk path and peer processes drive tag transitions themselves — peers replay entity-kind transitions from the op-log HLC cursor, and L1 staleness stays TTL-bounded with no backplane as the baseline; where the `RedisFabric` is bound the RESP3 `__redis__:invalidate` broadcast push collapses L1 staleness from TTL-bounded to invalidation-driven and the keyspace-notification stream feeds the op-log HLC cursor a push lane, both REFINING the replay path, never replacing it, so a Redis-absent profile is bit-identical |
-|   [6]   | residence      | `CacheResidence.Sqlite` is the default L2; each tier is one `CacheResidence.Register` row binding the same `IDistributedCache` slot, content-address-keyed so an L1 miss promotes from any tier without a re-mint; `Redis` rides `AddStackExchangeRedisCache` + `RedisCache : IBufferDistributedCache` and arms `RedisProtocol.Resp3` plus the optional `RedisFabric` live-coordination row, `DistributedPg` the pg-backed row; zero change to any owner declared here |
-|   [7]   | tier evidence  | every `CacheIndexFact` carries a `Residence` tag and an L1-miss-promotes-from-L2 transition emits the `L2Promote` kind, so the tiered-cache fabric's tier transition is observable; a RESP3 invalidation push or a keyspace key-transition emits the `Invalidate` kind; Redis `ProfilingSession` rides the existing telemetry contribution |
-|   [8]   | single-flight  | the stampede single-flight and the cross-process writer-lease fence ride one atomic `LoadedLuaScript` `ScriptEvaluate` (`RedisFabric.SingleFlightLease`) rather than a managed compare-loop, the lease keyed under the `DeadlineClass.CacheTtl` allotment; absent the fabric the AppHost-owned managed stampede policy is the unchanged baseline |
+| [INDEX] | [LAW]         | [RULING]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| :-----: | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | ownership     | port, stampede protection, tag vocabulary, and entry options stay at the AppHost cache port; the contribution is storage and codec only                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|  [02]   | payload       | every L2 payload lands as one key-value row whose codec-id and content-hash columns are settled row law — codec-tagged bytes, never bare blobs                                                                                                                                                                                                                                                                                                                                                                                                                        |
+|  [03]   | expiry        | only the write's absolute relative expiry crosses into `ExpiresAt`, stamped through `ClockPolicy`; an absent value traces to the `CacheTtl` deadline row                                                                                                                                                                                                                                                                                                                                                                                                              |
+|  [04]   | sweep         | expired rows leave on the persistence-maintenance `ScheduleEntry` row under the maintenance lease; each sweep deletion emits one evict fact                                                                                                                                                                                                                                                                                                                                                                                                                           |
+|  [05]   | invalidation  | `RemoveByTagAsync` is logical; the bulk path and peer processes drive tag transitions themselves — peers replay entity-kind transitions from the op-log HLC cursor, and L1 staleness stays TTL-bounded with no backplane as the baseline; where the `RedisFabric` is bound the RESP3 `__redis__:invalidate` broadcast push collapses L1 staleness from TTL-bounded to invalidation-driven and the keyspace-notification stream feeds the op-log HLC cursor a push lane, both REFINING the replay path, never replacing it, so a Redis-absent profile is bit-identical |
+|  [06]   | residence     | `CacheResidence.Sqlite` is the default L2; each tier is one `CacheResidence.Register` row binding the same `IDistributedCache` slot, content-address-keyed so an L1 miss promotes from any tier without a re-mint; `Redis` rides `AddStackExchangeRedisCache` + `RedisCache : IBufferDistributedCache` and arms `RedisProtocol.Resp3` plus the optional `RedisFabric` live-coordination row, `DistributedPg` the pg-backed row; zero change to any owner declared here                                                                                                |
+|  [07]   | tier evidence | every `CacheIndexFact` carries a `Residence` tag and an L1-miss-promotes-from-L2 transition emits the `L2Promote` kind, so the tiered-cache fabric's tier transition is observable; a RESP3 invalidation push or a keyspace key-transition emits the `Invalidate` kind; Redis `ProfilingSession` rides the existing telemetry contribution                                                                                                                                                                                                                            |
+|  [08]   | single-flight | the stampede single-flight and the cross-process writer-lease fence ride one atomic `LoadedLuaScript` `ScriptEvaluate` (`RedisFabric.SingleFlightLease`) rather than a managed compare-loop, the lease keyed under the `DeadlineClass.CacheTtl` allotment; absent the fabric the AppHost-owned managed stampede policy is the unchanged baseline                                                                                                                                                                                                                      |
 
-## [3]-[MODEL_RESULT_INDEX]
+## [03]-[MODEL_RESULT_INDEX]
 
 - Owner: `ModelResultKey`, `CacheIndexFact`, `IndexSurface` — deterministic result identity plus the one cache-evidence fact stream shared by all three indexes; `ModelResultKey.RecencyHorizon` is the suite's sole cross-process result-reuse recency horizon every reuse surface traces to.
 - Cases: `Hit`, `Miss`, `Evict`, `L2Promote`, `Invalidate` kind rows on the fact stream — the `Invalidate` kind stamps a RESP3 `__redis__:invalidate` push or a keyspace-notification key-transition where the live fabric is present.
@@ -197,7 +197,7 @@ public static class IndexSurface {
 }
 ```
 
-## [4]-[ARTIFACT_BLOB_INDEX]
+## [04]-[ARTIFACT_BLOB_INDEX]
 
 - Owner: `ArtifactIndexRow` — content-addressed catalog row for execution-provider warm-start contexts, ONNX profiling traces, IFC semantic-ingest model graphs, content-defined chunks, Compute interchange artifacts (tessellated GLB, chunked field, tile content, re-exported glTF), and graduated offline-science ONNX surrogate assets on the blob lane.
 - Cases: `EpContext`, `OnnxProfile`, `IfcSemantic`, `ChunkContent`, `Interchange`, `GraduationAsset` kind rows.
@@ -233,7 +233,7 @@ public readonly record struct ArtifactIndexRow(
 }
 ```
 
-## [5]-[BENCHMARK_INDEX]
+## [05]-[BENCHMARK_INDEX]
 
 - Owner: `BenchmarkRow` — persisted benchmark evidence with the fingerprint-match, recency-bounded claim gate.
 - Entry: `static Option<BenchmarkRow> Claim(Seq<BenchmarkRow> rows, string hostFingerprint, Instant now, Duration horizon = default)` — `Option` carries fingerprint admission gated by the staleness horizon defaulting to the `ModelResultKey.RecencyHorizon` owned bound; `None` is the fall-through signal toward the caller's static cost rank; `RouteOf` projects the same claim to its route string.

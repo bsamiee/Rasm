@@ -2,14 +2,14 @@
 
 Rasm.Persistence owns lineage as a first-class join dimension: `ProvEdge` is the W3C-PROV causal DAG relating agents, activities, and entities over the existing op-log; `LineageSlice` folds backward and forward slices, blame, and impact over that DAG; `AttestedEntry` hash-chains every op-log row plus the pgaudit category record into a tamper-evident attested ledger whose head digest proves the whole chain; and `LineageCdc` filters the change-data-capture stream by lineage scope so a redaction-preserving feed emits only the slice a consumer is authorized to see. The op-log changefeed (`OpLogEntry`, HLC stamp, `ContentKey`), the content-address identity (`XxHash128`), the export-proof redaction (`ExportProof`, `RedactorKind`), and the pgaudit category binding (`AuditBinding`) arrive settled and compose inside the fences; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `DataClassification` arrive from AppHost.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CAUSAL_DAG]: W3C-PROV agent/activity/entity edges over the op-log; slice fold.
-- [2]-[ATTESTED_LEDGER]: hash-chained attested log, redaction-preserving lineage, and head proof.
-- [3]-[LINEAGE_CDC]: lineage-scoped change-data-capture; redaction-aware feed.
-- [4]-[TS_PROJECTION]: provenance edge, slice, attestation, and CDC envelope wire shapes.
+- [01]-[CAUSAL_DAG]: W3C-PROV agent/activity/entity edges over the op-log; slice fold.
+- [02]-[ATTESTED_LEDGER]: hash-chained attested log, redaction-preserving lineage, and head proof.
+- [03]-[LINEAGE_CDC]: lineage-scoped change-data-capture; redaction-aware feed.
+- [04]-[TS_PROJECTION]: provenance edge, slice, attestation, and CDC envelope wire shapes.
 
-## [2]-[CAUSAL_DAG]
+## [02]-[CAUSAL_DAG]
 
 - Owner: `ProvEdge` `[Union]` the W3C-PROV causal relation family; `ProvNode` the agent/activity/entity vertex; `LineageSlice` the slice result; `Provenance` the static surface owning edge emission over the op-log, backward/forward slicing, blame attribution, impact analysis, and deterministic replay.
 - Cases: `WasGeneratedBy | Used | WasDerivedFrom | WasAttributedTo | WasAssociatedWith | WasInformedBy` on `ProvEdge` — the W3C-PROV core relations; `ProvNode` is `Agent | Activity | Entity`.
@@ -113,7 +113,7 @@ public static class Provenance {
 }
 ```
 
-## [3]-[ATTESTED_LEDGER]
+## [03]-[ATTESTED_LEDGER]
 
 - Owner: `AttestedEntry` the hash-chained ledger row; `LedgerHead` the chain-head proof; `AttestedLedger` the static surface owning the chain-append fold, the head-digest computation, the chain verification, and the redaction-preserving entry projection; `TransparencyProof` the RFC 9162 Merkle transparency-log surface owning the leaf/node digest, the `InclusionProof` for one entry, the `ConsistencyProof` between two `LedgerHead` seals, and the detached-signed `HeadSeal` an external auditor verifies in O(log n) without replaying the chain.
 - Cases: each entry chains `PriorDigest` into its own `Digest` over `XxHash128(PriorDigest || ContentKey || ProviderFingerprint || Classification || AuditCategory)`, so the head digest attests every prior entry and a graduated-surrogate entry's `(checksum, OrtEpDevice)` provider fingerprint is bound into the chain; a non-graduation row carries `ProviderFingerprint = None` folding the zero term so the digest term is uniform; a redacted entry preserves its `Digest` while replacing the payload reference so the chain verifies even after a redaction; `TransparencyProof` builds a Merkle tree over the `AttestedEntry` leaf digests so an `InclusionProof` proves one entry was logged in O(log n), a `ConsistencyProof` proves the new tree extends the old append-only between two `HeadSeal` sizes, and the `HeadSeal` binds an `ECDsa` detached signature over the periodic `(Root, At)` so non-repudiation attaches to the signed seal, not the tree.
@@ -299,18 +299,18 @@ public static class TransparencyProof {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                          | [BINDING]                                       |
-| :-----: | :------------------ | :------------------------------- | :---------------------------------------------- |
-|   [1]   | digest algorithm    | `XxHash128(prior‖content‖fingerprint‖class‖category)` | non-cryptographic; signature claim is rejected; `stackalloc byte[80]` symmetric in `Append`/`Recompute` |
-|   [2]   | seal cadence        | content-addressed snapshot seal   | external-witness anchor on the schedule lease   |
-|   [8]   | graduation evidence | `ProviderFingerprint` dedicated `Option<UInt128>` | `(checksum, OrtEpDevice)` bound into the digest term, never the `RedactedPayloadProof` slot; forward-only format epoch with genesis re-seal |
-|   [3]   | audit category      | `AuditBinding.Bind` result        | one category vocabulary, never a second         |
-|   [4]   | merkle tree         | `XxHash128` `0x00`/`0x01`-prefixed | RFC 9162 leaf/node domain separation; `TransparencyProof.Root` |
-|   [5]   | inclusion proof     | O(log n) `AuditPath` recompute    | one entry proven without the chain; export-bundle artifact |
-|   [6]   | consistency proof   | append-only extension between seals | split-history attack is a failed `ConsistencyProof` |
-|   [7]   | head-seal signature | `ECDsa` detached over `(Root, At)` | the one cryptographic surface; non-repudiation on the seal |
+| [INDEX] | [POLICY]            | [VALUE]                                               | [BINDING]                                                                                                                                   |
+| :-----: | :------------------ | :---------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | digest algorithm    | `XxHash128(prior‖content‖fingerprint‖class‖category)` | non-cryptographic; signature claim is rejected; `stackalloc byte[80]` symmetric in `Append`/`Recompute`                                     |
+|  [02]   | seal cadence        | content-addressed snapshot seal                       | external-witness anchor on the schedule lease                                                                                               |
+|  [08]   | graduation evidence | `ProviderFingerprint` dedicated `Option<UInt128>`     | `(checksum, OrtEpDevice)` bound into the digest term, never the `RedactedPayloadProof` slot; forward-only format epoch with genesis re-seal |
+|  [03]   | audit category      | `AuditBinding.Bind` result                            | one category vocabulary, never a second                                                                                                     |
+|  [04]   | merkle tree         | `XxHash128` `0x00`/`0x01`-prefixed                    | RFC 9162 leaf/node domain separation; `TransparencyProof.Root`                                                                              |
+|  [05]   | inclusion proof     | O(log n) `AuditPath` recompute                        | one entry proven without the chain; export-bundle artifact                                                                                  |
+|  [06]   | consistency proof   | append-only extension between seals                   | split-history attack is a failed `ConsistencyProof`                                                                                         |
+|  [07]   | head-seal signature | `ECDsa` detached over `(Root, At)`                    | the one cryptographic surface; non-repudiation on the seal                                                                                  |
 
-## [4]-[LINEAGE_CDC]
+## [04]-[LINEAGE_CDC]
 
 - Owner: `CdcScope` the lineage-filter scope; `CdcEnvelope` the redaction-aware change record carrying the originating `TraceContext` slot beside `Redacted` so a lineage-CDC row inherits the span the op was committed under; `LineageCdc` the static surface owning the lineage-scoped CDC filter, the redaction-preserving payload projection, and the per-consumer feed fold.
 - Cases: a scope filters the changefeed to a lineage subtree (every entity derived from a root), to a classification ceiling, and to a tenant; the feed projects each in-scope change with its payload redacted to the consumer's classification authority.
@@ -368,7 +368,7 @@ public static class LineageCdc {
 }
 ```
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `ProvEdgeWire`, `ProvNodeKind`, `LineageSliceWire`, `LineageDirectionKind`, `AttestedEntryWire`, `LedgerHeadWire`, `CdcEnvelopeWire` — the provenance wire surface the audit dashboard and lineage explorer decode.
 - Packages: BCL inbox.
@@ -428,7 +428,7 @@ interface CdcEnvelopeWire {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [LINEAGE_SLICE_COST]: the bounded backward/forward slice cost over a 10^7-edge causal DAG projected from the op-log — whether the projected adjacency index (a content-key-to-edge GIN index on the op-log `Closure` column) keeps a depth-bounded slice linear in the reachable-edge count, and whether the derivation source resolution reads the `Closure` manifest without a recursive CTE on the hot path.
 - [REDACTION_PRESERVING_VERIFY]: the attested-chain verification after a redaction — confirming that a redacted entry keeping its pre-redaction `Digest` and swapping the payload reference for the `ExportProof` content hash leaves `Verify` green, and the periodic content-addressed seal an external witness anchors against the live PG18 pgaudit category record.

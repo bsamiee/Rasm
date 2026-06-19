@@ -2,25 +2,25 @@
 
 Telemetry is one spine declared at process roots and joined across the suite by one identity envelope. Emission is a compile-checked contract — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss, skew, and shed facts fold into the one fact stream every operational view projects from. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row plus one redactor row, a new transport one carrier adapter.
 
-## [1]-[SIGNAL_CHOOSER]
+## [01]-[SIGNAL_CHOOSER]
 
 This table routes a telemetry concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]             | [OWNER]                                   | [REJECTED_FORM]                  |
 | :-----: | :-------------------- | :---------------------------------------- | :------------------------------- |
-|   [1]   | event emission        | `[LoggerMessage]` partial in the owner    | interpolated calls, name switch  |
-|   [2]   | log projection        | one `LoggerConfiguration` policy table    | per-module logger configuration  |
-|   [3]   | signal admission      | `AddSource`/`AddMeter` rows at one root   | per-library provider scaffolding |
-|   [4]   | telemetry volume      | one root sampler, derived thrice          | per-signal probabilities         |
-|   [5]   | metric shaping        | view rows + cardinality limits            | call-site meter gating           |
-|   [6]   | export                | `UseOtlpExporter` once                    | per-signal exporter scatter      |
-|   [7]   | cross-process context | versioned envelope + one propagator pair  | ad-hoc baggage writes            |
-|   [8]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
-|   [9]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
+|   [01]   | event emission        | `[LoggerMessage]` partial in the owner    | interpolated calls, name switch  |
+|   [02]   | log projection        | one `LoggerConfiguration` policy table    | per-module logger configuration  |
+|   [03]   | signal admission      | `AddSource`/`AddMeter` rows at one root   | per-library provider scaffolding |
+|   [04]   | telemetry volume      | one root sampler, derived thrice          | per-signal probabilities         |
+|   [05]   | metric shaping        | view rows + cardinality limits            | call-site meter gating           |
+|   [06]   | export                | `UseOtlpExporter` once                    | per-signal exporter scatter      |
+|   [07]   | cross-process context | versioned envelope + one propagator pair  | ad-hoc baggage writes            |
+|   [08]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
+|   [09]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
 |  [10]   | resource signals      | governed meter admission + publisher rows | counter polling loops            |
 |  [11]   | operational views     | folds over the one fact stream            | parallel hand-synced counters    |
 
-## [2]-[EMISSION]
+## [02]-[EMISSION]
 
 [GENERATED_GRAMMAR]:
 - Law: every production event family is one `[LoggerMessage]` partial co-located with the concern it evidences; `EventId` allocates from the owner's declared const band and `EventName` is the human-stable half — dashboards key on names, the wire keys on ids, and neither alone suffices.
@@ -63,7 +63,7 @@ public static partial class StepLog {
 }
 ```
 
-## [3]-[PROJECTION]
+## [03]-[PROJECTION]
 
 [POLICY_TABLE]:
 - Law: one `LoggerConfiguration` per process composes the six rails — minimum level, enrichment, destructuring, filters, sinks, audit sinks — and `CreateLogger()` freezes them; a second configuration below the root forks level governance, failure listening, and flush ownership.
@@ -123,7 +123,7 @@ public static class Projection {
 }
 ```
 
-## [4]-[SIGNAL_ROOT]
+## [04]-[SIGNAL_ROOT]
 
 [ROOT_COMPOSITION]:
 - Law: one `AddOpenTelemetry()` per process admits all three signals; `ConfigureResource` is the only resource verb reaching all three providers, and provider lifetime — construction, flush, shutdown — rides the host.
@@ -188,7 +188,7 @@ public static class SignalRoot {
 }
 ```
 
-## [5]-[CORRELATION_SPINE]
+## [05]-[CORRELATION_SPINE]
 
 [IDENTITY_LAYERS]:
 - Law: four identity layers, each minted by one owner, none derivable from another — correlation root at boot scope, trace id at request scope, span id at hop scope, causal stamp at event-order scope — and every exported surface answers same-process, same-request, same-hop, what-order; an unanswerable question is the gap an incident finds first.
@@ -264,7 +264,7 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 - Law: the bound derives from the skew-fact stream itself — worst observed offset plus margin — a measured, revisable policy value; the per-peer fold, not the raw stream, is what health consumes.
 - Law: span clocks carry duration truth and stamps carry order truth — a cross-process waterfall may show negative gaps up to the bound by design, and ordering is producer-stamped evidence, never consumer inference.
 
-## [6]-[ENVELOPE_SEAM]
+## [06]-[ENVELOPE_SEAM]
 
 [ENVELOPE_SCHEMA]:
 - Law: cross-process context is one versioned envelope — declared baggage keys, each with an owner, a classification verdict of identifiers-only, and a byte budget — and the seam owner holds the keys behind typed verbs; an ad-hoc baggage write bypasses classification review and erodes the budget invisibly.
@@ -325,7 +325,7 @@ public static class EnvelopeSeam {
 }
 ```
 
-## [7]-[REDACTION_SEAM]
+## [07]-[REDACTION_SEAM]
 
 [TAXONOMY]:
 - Law: one taxonomy per suite — sealed attribute rows each binding one `(taxonomy, value)` pair; classes partition by disclosure consequence, not data type, and the count stays single-digit because every class is a redactor row and an audit row.

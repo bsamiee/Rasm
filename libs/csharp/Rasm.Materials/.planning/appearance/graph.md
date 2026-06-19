@@ -2,12 +2,12 @@
 
 The node-graph appearance engine and the polymorphic library. One `AppearanceNode` `[Union]` closes the node-kind family — `Input`, `Texture`, `Math`, `Mix`, `Normal`, `BsdfOutput` — over a typed `PortValue` channel set; one `MaterialGraph.Evaluate` fold topologically orders the node DAG and folds each node's arm into a `PortEnvironment`, terminating at the single `BsdfOutput` node that assembles a `SurfaceShade`. One `MaterialParameters` record is the canonical parameter vector (base color, metalness, roughness, IOR, transmission, sheen, clearcoat, subsurface, anisotropy, emission), and one `MaterialLibrary` `FrozenDictionary<MaterialId, MaterialParameters>` is the seed of the 100-material catalog — metal, glass, plastic, skin, fabric, car paint, wax, ceramic, liquid — as DATA ROWS; the 31 transcribed rows are the seed and the remaining rows are pure data additions, not new types. A new material is `MaterialLibrary.Rows[MaterialId.Of("metal.titanium")] = new MaterialParameters(...)`, a row of values, never a `TitaniumMaterial` type. The page composes the Rasm/Vectors `Direction`/`VectorFrame` shading frame (never re-minting a vector), Wacton.Unicolour directly as the scene-linear/spectral color owner for every base-color and emission conversion (never re-minting a `ColourSpace`), and the `bsdf#LOBE_FAMILY` lobe family for the terminal shade (never re-deriving lobe math here). The masonry-assignment consumer generalizes through the `MaterialId` row: a masonry `Profile` maps to a `MaterialId`, never to a profile-specific material type.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MATERIAL_GRAPH]: the `AppearanceNode` node union, the `PortValue` channel set, the topological evaluation fold, and the `SurfaceShade` sink.
-- [2]-[MATERIAL_LIBRARY]: the `MaterialParameters` canonical row, the `MaterialId` key, the 100-row catalog table, the profile-assignment generalization, the `NearestChecker`/`Named` Datasets validation seam, and the Pointer real-surface gamut admission (`PointerAdmit`/`MapToPointer`) plus the `CvdPreview` accessibility projection.
+- [01]-[MATERIAL_GRAPH]: the `AppearanceNode` node union, the `PortValue` channel set, the topological evaluation fold, and the `SurfaceShade` sink.
+- [02]-[MATERIAL_LIBRARY]: the `MaterialParameters` canonical row, the `MaterialId` key, the 100-row catalog table, the profile-assignment generalization, the `NearestChecker`/`Named` Datasets validation seam, and the Pointer real-surface gamut admission (`PointerAdmit`/`MapToPointer`) plus the `CvdPreview` accessibility projection.
 
-## [2]-[MATERIAL_GRAPH]
+## [02]-[MATERIAL_GRAPH]
 
 - Owner: `MaterialGraph` over `AppearanceNode`
 - Cases: `Input` (constant/parameter source) · `Texture` (UV-sampled source via `texture#TEXTURE_UV`) · `Math` (closed scalar/vector op over upstream ports) · `Mix` (parameterized blend of two ports) · `Normal` (tangent-space perturbation of the shading frame) · `BsdfOutput` (the single sink assembling the closed lobe set into a `SurfaceShade`)
@@ -200,7 +200,7 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, PortId Sink, Langu
 }
 ```
 
-## [3]-[MATERIAL_LIBRARY]
+## [03]-[MATERIAL_LIBRARY]
 
 - Owner: `MaterialLibrary` over `MaterialParameters` keyed by `MaterialId`
 - Cases: 100 rows — `metal.gold`/`metal.copper`/`metal.aluminum`/`metal.titanium`/`metal.iron`/`metal.silver`/`metal.chrome`/`metal.brass`, `glass.crown`/`glass.flint`/`liquid.water`/`liquid.oil`, `plastic.abs`/`plastic.pvc`/`rubber.matte`, `skin.caucasian`/`skin.deep`, `fabric.velvet`/`fabric.silk`/`fabric.denim`, `paint.car-metallic`/`paint.clearcoat`/`ceramic.glazed`/`ceramic.porcelain`, `wax.beeswax`/`wax.candle`, `stone.jade`/`stone.marble`, `wood.oak`, `coat.gold-leaf`, `gem.diamond` — each a row of `MaterialParameters` values, ZERO per-material types
@@ -320,7 +320,7 @@ public static class MaterialLibrary {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [MATERIALX_GRAPH_INTERCHANGE]: REALIZED at `interchange#MATERIALX_DOCUMENT` — the `AppearanceNode` union and `PortValue` set project onto the MaterialX 1.39 node-graph schema through the `NodeCategory` map so a `MaterialGraph` serializes to and from `.mtlx` (root `<materialx version="1.39">`, `<nodegraph>` of `<node>` with `<input>`/`<output>`), the six node cases mapping to the MaterialX categories (`constant`/`image`/`multiply`/`mix`/`normalmap`/`open_pbr_surface`), the `PortValue` polarities onto the MaterialX typed ports (`float`/`color3`/`vector3`), and the Standard-Surface-to-OpenPBR translation riding the `bsdf#OPENPBR_SLAB` lowering. The remaining probe is the per-input port-name alignment per node against a reference MaterialX standard-node library and the `System.Xml.Linq` `.mtlx` serialize at the host boundary, not a re-architecture of the evaluation fold.
 - [MEASURED_SPECTRAL_LIBRARY]: the conductor grounding is REALIZED at `bsdf#CONDUCTOR_IOR` — the `ConductorIor` table carries the measured complex refractive index `(η, k)` per RGB band (gold/copper/aluminum/silver/iron/chromium/titanium/brass from the Johnson-Christy / `refractiveindex.info` tables) so a metal row's `bsdf#LOBE_FAMILY` `Conductor` lobe grounds from the measured Fresnel keyed by the row's `metal.<name>` `MaterialId`, the `BaseColor` the perceptual preview seed and the `(η, k)` the shading truth; `ConductorIor.Resolve(family, name)` maps a `metal.*` id to its `ConductorMetal`. The remaining [UPSTREAM-BLOCKED] leg is the measured isotropic 195-wavelength spectral BRDF (EPFL RGL goniophotometer, brdf-loader `.bsdf` format) admitted through the `bsdf#SPECTRAL_UPSAMPLE` `ToSpd` per band, blocked on a vendored managed `.bsdf` reader at `acquisition#EPFL_RGL_BRDF_LOADER`; the per-band `(η, k)` table is the INTERNAL leg now landed, the spectral curve the host-edge extension.

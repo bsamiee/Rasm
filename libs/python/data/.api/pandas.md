@@ -2,7 +2,7 @@
 
 `pandas` provides labeled, axis-indexed tabular data through `DataFrame` (2-D) and `Series` (1-D) values backed by typed `Index` objects, with first-class temporal types (`Timestamp`, `Timedelta`, `Period`, `Interval`) and dtype objects (`CategoricalDtype`, `StringDtype`, `ArrowDtype`). Top-level `read_*` functions ingest CSV, Parquet, SQL, Excel, JSON, and more; reshaping and combination functions (`concat`, `merge`, `pivot_table`, `melt`, `crosstab`, `get_dummies`) operate across frames; and `groupby`/`rolling`/`resample` drive split-apply-combine aggregation. `to_*` methods and `ArrowDtype` provide Arrow and storage interop at the boundary.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pandas`
 - package: `pandas`
@@ -10,22 +10,22 @@
 - asset: C/Cython extension
 - rail: labeled tabular
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: frames, indexes, and dtypes
 - rail: labeled tabular
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [ROLE]                               |
 | :-----: | :----------------- | :-------------- | :----------------------------------- |
-|   [1]   | `DataFrame`        | tabular frame   | labeled 2-D table over an `Index`    |
-|   [2]   | `Series`           | labeled column  | labeled 1-D column                   |
-|   [3]   | `Index`            | axis index      | immutable labeled axis               |
-|   [4]   | `MultiIndex`       | axis index      | hierarchical multi-level index       |
-|   [5]   | `DatetimeIndex`    | axis index      | datetime-typed index                 |
-|   [6]   | `RangeIndex`       | axis index      | memory-efficient integer range index |
-|   [7]   | `CategoricalIndex` | axis index      | categorical-typed index              |
-|   [8]   | `Categorical`      | array dtype     | categorical extension array          |
-|   [9]   | `CategoricalDtype` | dtype           | category set and ordering            |
+|  [01]   | `DataFrame`        | tabular frame   | labeled 2-D table over an `Index`    |
+|  [02]   | `Series`           | labeled column  | labeled 1-D column                   |
+|  [03]   | `Index`            | axis index      | immutable labeled axis               |
+|  [04]   | `MultiIndex`       | axis index      | hierarchical multi-level index       |
+|  [05]   | `DatetimeIndex`    | axis index      | datetime-typed index                 |
+|  [06]   | `RangeIndex`       | axis index      | memory-efficient integer range index |
+|  [07]   | `CategoricalIndex` | axis index      | categorical-typed index              |
+|  [08]   | `Categorical`      | array dtype     | categorical extension array          |
+|  [09]   | `CategoricalDtype` | dtype           | category set and ordering            |
 |  [10]   | `StringDtype`      | dtype           | dedicated string extension dtype     |
 |  [11]   | `ArrowDtype`       | dtype           | Arrow-backed column dtype            |
 |  [12]   | `Grouper`          | aggregation key | groupby key specification            |
@@ -35,34 +35,34 @@
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                             |
 | :-----: | :--------------- | :------------ | :--------------------------------- |
-|   [1]   | `Timestamp`      | temporal      | single point in time               |
-|   [2]   | `Timedelta`      | temporal      | duration scalar                    |
-|   [3]   | `Period`         | temporal      | calendar-span scalar               |
-|   [4]   | `Interval`       | interval      | left/right-bounded interval scalar |
-|   [5]   | `DateOffset`     | temporal      | calendar-aware offset              |
-|   [6]   | `NamedAgg`       | aggregation   | named groupby aggregation spec     |
-|   [7]   | `IntervalIndex`  | axis index    | interval-typed index               |
-|   [8]   | `PeriodIndex`    | axis index    | period-typed index                 |
-|   [9]   | `TimedeltaIndex` | axis index    | timedelta-typed index              |
+|  [01]   | `Timestamp`      | temporal      | single point in time               |
+|  [02]   | `Timedelta`      | temporal      | duration scalar                    |
+|  [03]   | `Period`         | temporal      | calendar-span scalar               |
+|  [04]   | `Interval`       | interval      | left/right-bounded interval scalar |
+|  [05]   | `DateOffset`     | temporal      | calendar-aware offset              |
+|  [06]   | `NamedAgg`       | aggregation   | named groupby aggregation spec     |
+|  [07]   | `IntervalIndex`  | axis index    | interval-typed index               |
+|  [08]   | `PeriodIndex`    | axis index    | period-typed index                 |
+|  [09]   | `TimedeltaIndex` | axis index    | timedelta-typed index              |
 |  [10]   | `ExcelWriter`    | IO writer     | multi-sheet Excel writer context   |
 |  [11]   | `HDFStore`       | IO store      | HDF5 key-value table store         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and IO
 - rail: labeled tabular
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `DataFrame(data, index, columns, dtype)`     | construct      | build frame from dict/array/records |
-|   [2]   | `DataFrame.from_dict / from_records`         | construct      | build from dicts or row records     |
-|   [3]   | `read_csv` / `read_fwf` / `read_table`       | text IO        | delimited and fixed-width readers   |
-|   [4]   | `read_parquet` / `read_feather` / `read_orc` | columnar IO    | Arrow-backed columnar readers       |
-|   [5]   | `read_sql / read_sql_query / read_sql_table` | SQL IO         | read from a SQL connection          |
-|   [6]   | `read_excel` / `read_html` / `read_xml`      | structured IO  | spreadsheet and markup readers      |
-|   [7]   | `read_json` / `json_normalize`               | JSON IO        | read and flatten JSON               |
-|   [8]   | `read_iceberg` / `read_hdf` / `read_stata`   | store IO       | table-store and statistical formats |
-|   [9]   | `to_parquet / to_csv / to_feather`           | columnar IO    | write frame to storage              |
+|  [01]   | `DataFrame(data, index, columns, dtype)`     | construct      | build frame from dict/array/records |
+|  [02]   | `DataFrame.from_dict / from_records`         | construct      | build from dicts or row records     |
+|  [03]   | `read_csv` / `read_fwf` / `read_table`       | text IO        | delimited and fixed-width readers   |
+|  [04]   | `read_parquet` / `read_feather` / `read_orc` | columnar IO    | Arrow-backed columnar readers       |
+|  [05]   | `read_sql / read_sql_query / read_sql_table` | SQL IO         | read from a SQL connection          |
+|  [06]   | `read_excel` / `read_html` / `read_xml`      | structured IO  | spreadsheet and markup readers      |
+|  [07]   | `read_json` / `json_normalize`               | JSON IO        | read and flatten JSON               |
+|  [08]   | `read_iceberg` / `read_hdf` / `read_stata`   | store IO       | table-store and statistical formats |
+|  [09]   | `to_parquet / to_csv / to_feather`           | columnar IO    | write frame to storage              |
 |  [10]   | `to_dict / to_records / to_numpy`            | interop        | export to Python/NumPy structures   |
 |  [11]   | `to_datetime / to_timedelta / to_numeric`    | coerce         | parse and coerce dtypes             |
 |  [12]   | `date_range / period_range / interval_range` | range          | generate labeled index ranges       |
@@ -72,15 +72,15 @@
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :---------------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `loc` / `iloc` / `at` / `iat` / `xs`            | selection      | label and position indexing            |
-|   [2]   | `query(expr)` / `filter(items, like, regex)`    | selection      | expression and label filtering         |
-|   [3]   | `assign(**kwargs)` / `pipe(func)`               | transform      | add columns, chain functions           |
-|   [4]   | `apply / map / agg / transform`                 | transform      | element/column-wise function dispatch  |
-|   [5]   | `astype / convert_dtypes`                       | transform      | cast and infer dtypes                  |
-|   [6]   | `groupby(by, level, dropna, observed)`          | aggregation    | split-apply-combine grouping           |
-|   [7]   | `rolling / expanding / ewm / resample`          | aggregation    | window and time-resample reductions    |
-|   [8]   | `merge / join / concat`                         | combine        | relational joins and concatenation     |
-|   [9]   | `merge_asof / merge_ordered`                    | combine        | as-of and ordered merges               |
+|  [01]   | `loc` / `iloc` / `at` / `iat` / `xs`            | selection      | label and position indexing            |
+|  [02]   | `query(expr)` / `filter(items, like, regex)`    | selection      | expression and label filtering         |
+|  [03]   | `assign(**kwargs)` / `pipe(func)`               | transform      | add columns, chain functions           |
+|  [04]   | `apply / map / agg / transform`                 | transform      | element/column-wise function dispatch  |
+|  [05]   | `astype / convert_dtypes`                       | transform      | cast and infer dtypes                  |
+|  [06]   | `groupby(by, level, dropna, observed)`          | aggregation    | split-apply-combine grouping           |
+|  [07]   | `rolling / expanding / ewm / resample`          | aggregation    | window and time-resample reductions    |
+|  [08]   | `merge / join / concat`                         | combine        | relational joins and concatenation     |
+|  [09]   | `merge_asof / merge_ordered`                    | combine        | as-of and ordered merges               |
 |  [10]   | `pivot / pivot_table / melt / crosstab`         | reshape        | wide/long reshape and cross-tabulation |
 |  [11]   | `stack / unstack / explode / transpose`         | reshape        | level reshape, list expand, transpose  |
 |  [12]   | `get_dummies / from_dummies / factorize`        | encode         | one-hot and integer encoding           |
@@ -91,7 +91,7 @@
 |  [17]   | `describe / corr / cov / value_counts`          | stats          | summary statistics                     |
 |  [18]   | `Series.str` / `Series.dt` / `Series.cat`       | accessor       | string, datetime, categorical methods  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [LABELED_TOPOLOGY]:
 - `DataFrame` aligns columns and rows by `Index` labels; arithmetic and `merge`/`concat` align on labels, introducing `NaN` where labels do not match

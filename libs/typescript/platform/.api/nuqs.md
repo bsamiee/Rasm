@@ -2,7 +2,7 @@
 
 `nuqs` provides URL query-string state synchronization for React applications: `useQueryState` and `useQueryStates` bind React state to URL search params, `createLoader` and `createSearchParamsCache` serve server-side parsing in RSC/SSR frameworks, `createSerializer` generates typed URL strings, and a catalog of `parseAs*` parser builders covers all primitive types. The `Options` type governs history mode, scroll, shallow routing, rate limiting, and transition integration across all operations.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nuqs`
 - package: `nuqs`
@@ -10,36 +10,36 @@
 - asset: runtime library
 - rail: state
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parser types
 - rail: state
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                            |
 | :-----: | :------------------------ | :------------ | :------------------------------------------------ |
-|   [1]   | `SingleParser<T>`         | interface     | parse/serialize/eq for one URL key                |
-|   [2]   | `MultiParser<T>`          | interface     | parse/serialize/eq over array of keys             |
-|   [3]   | `GenericParser<T>`        | union type    | `SingleParser<T> \| MultiParser<T>`               |
-|   [4]   | `SingleParserBuilder<T>`  | type          | builder with `withOptions`/`withDefault`          |
-|   [5]   | `MultiParserBuilder<T>`   | type          | multi-key variant of builder                      |
-|   [6]   | `GenericParserBuilder<T>` | union type    | `SingleParserBuilder<T> \| MultiParserBuilder<T>` |
-|   [7]   | `ParserMap`               | type alias    | `Record<string, ParserWithOptionalDefault<any>>`  |
-|   [8]   | `inferParserType<Input>`  | utility type  | infers state type from parser or map              |
+|  [01]   | `SingleParser<T>`         | interface     | parse/serialize/eq for one URL key                |
+|  [02]   | `MultiParser<T>`          | interface     | parse/serialize/eq over array of keys             |
+|  [03]   | `GenericParser<T>`        | union type    | `SingleParser<T> \| MultiParser<T>`               |
+|  [04]   | `SingleParserBuilder<T>`  | type          | builder with `withOptions`/`withDefault`          |
+|  [05]   | `MultiParserBuilder<T>`   | type          | multi-key variant of builder                      |
+|  [06]   | `GenericParserBuilder<T>` | union type    | `SingleParserBuilder<T> \| MultiParserBuilder<T>` |
+|  [07]   | `ParserMap`               | type alias    | `Record<string, ParserWithOptionalDefault<any>>`  |
+|  [08]   | `inferParserType<Input>`  | utility type  | infers state type from parser or map              |
 
 [PUBLIC_TYPE_SCOPE]: options and URL types
 - rail: state
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                                                     |
 | :-----: | :----------------- | :------------ | :------------------------------------------------------------------------- |
-|   [1]   | `Options`          | interface     | history, scroll, shallow, limitUrlUpdates, startTransition, clearOnDefault |
-|   [2]   | `HistoryOptions`   | string union  | `"replace" \| "push"`                                                      |
-|   [3]   | `LimitUrlUpdates`  | union type    | `{ method: "debounce"; timeMs }` or throttle                               |
-|   [4]   | `SearchParams`     | type alias    | `Record<string, string \| string[] \| undefined>`                          |
-|   [5]   | `UrlKeys<Parsers>` | utility type  | `Partial<Record<keyof Parsers, string>>` for key aliasing                  |
-|   [6]   | `Nullable<T>`      | utility type  | `{ [K in keyof T]: T[K] \| null }`                                         |
-|   [7]   | `LoaderInput`      | union type    | `URL \| Request \| URLSearchParams \| Record<...> \| string`               |
+|  [01]   | `Options`          | interface     | history, scroll, shallow, limitUrlUpdates, startTransition, clearOnDefault |
+|  [02]   | `HistoryOptions`   | string union  | `"replace" \| "push"`                                                      |
+|  [03]   | `LimitUrlUpdates`  | union type    | `{ method: "debounce"; timeMs }` or throttle                               |
+|  [04]   | `SearchParams`     | type alias    | `Record<string, string \| string[] \| undefined>`                          |
+|  [05]   | `UrlKeys<Parsers>` | utility type  | `Partial<Record<keyof Parsers, string>>` for key aliasing                  |
+|  [06]   | `Nullable<T>`      | utility type  | `{ [K in keyof T]: T[K] \| null }`                                         |
+|  [07]   | `LoaderInput`      | union type    | `URL \| Request \| URLSearchParams \| Record<...> \| string`               |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: React hooks
 - rail: state
@@ -74,15 +74,15 @@ declare function useQueryStates<KeyMap extends UseQueryStatesKeysMap>(
 
 | [INDEX] | [SYMBOL]                                 | [STATE_TYPE] |
 | :-----: | :--------------------------------------- | :----------- |
-|   [1]   | `parseAsString`                          | `string`     |
-|   [2]   | `parseAsInteger`                         | `number`     |
-|   [3]   | `parseAsFloat`                           | `number`     |
-|   [4]   | `parseAsBoolean`                         | `boolean`    |
-|   [5]   | `parseAsTimestamp`                       | `Date`       |
-|   [6]   | `parseAsIsoDateTime`                     | `Date`       |
-|   [7]   | `parseAsIsoDate`                         | `Date`       |
-|   [8]   | `parseAsIndex`                           | `number`     |
-|   [9]   | `parseAsHex`                             | `number`     |
+|  [01]   | `parseAsString`                          | `string`     |
+|  [02]   | `parseAsInteger`                         | `number`     |
+|  [03]   | `parseAsFloat`                           | `number`     |
+|  [04]   | `parseAsBoolean`                         | `boolean`    |
+|  [05]   | `parseAsTimestamp`                       | `Date`       |
+|  [06]   | `parseAsIsoDateTime`                     | `Date`       |
+|  [07]   | `parseAsIsoDate`                         | `Date`       |
+|  [08]   | `parseAsIndex`                           | `number`     |
+|  [09]   | `parseAsHex`                             | `number`     |
 |  [10]   | `parseAsStringEnum<Enum>(values)`        | `Enum`       |
 |  [11]   | `parseAsStringLiteral<Literal>(values)`  | `Literal`    |
 |  [12]   | `parseAsNumberLiteral<Literal>(values)`  | `Literal`    |
@@ -146,7 +146,7 @@ declare function debounce(timeMs: number): LimitUrlUpdates
 declare const defaultRateLimit: LimitUrlUpdates
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STATE_TOPOLOGY]:
 - `useQueryState` binds one URL key to a `[value, setter]` pair; the setter returns `Promise<URLSearchParams>` and batches URL writes

@@ -4,11 +4,11 @@ The hidden-line-removal kernel: a BSP-tree front-to-back visibility solver plus 
 
 Wire posture: HOST-LOCAL. The world-space `HiddenLineResult` edge sets cross only the in-process seam to the AppUi `Viewport2D` consumer — a CONSUMPTION seam where AppUi reads and Fabrication produces, the projection-to-sheet owned by AppUi. The `Facet`/`BspNode` interior records are host-local types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROJECTION_HIDDEN_LINE]: owns the BSP front-to-back visibility ordering plus the Clipper2 open-path-Boolean screen clip, producing the world-space visible/hidden/silhouette edge sets the AppUi `Viewport2D` consumes.
+- [01]-[PROJECTION_HIDDEN_LINE]: owns the BSP front-to-back visibility ordering plus the Clipper2 open-path-Boolean screen clip, producing the world-space visible/hidden/silhouette edge sets the AppUi `Viewport2D` consumes.
 
-## [2]-[PROJECTION_HIDDEN_LINE]
+## [02]-[PROJECTION_HIDDEN_LINE]
 
 - Owner: `ProjectionDir` the view direction the silhouette resolves against (eye-to-target, the basis the AppUi `Viewport2D` shares); `Facet` the projected triangle carrying its world vertices, its native topology vertex indices, its plane, its view-space depth, and its screen-space 2D footprint; `BspNode` the binary space-partition node splitting the facet set by a chosen facet's supporting plane into in-front/behind half-spaces; `Hlr` the static visibility fold building the BSP, resolving silhouette edges, and clipping every candidate edge against the front-to-back occluder set through the Clipper2 screen Boolean.
 - Cases: an edge is `Visible` (no occluder facet covers its screen footprint), `Hidden` (covered by a strictly-nearer occluder), or a `Silhouette` (a mesh edge whose two incident facets face opposite the view — the boundary the drafted outline traces); the partition is the three `HiddenLineResult` sets, never three parallel solver passes.

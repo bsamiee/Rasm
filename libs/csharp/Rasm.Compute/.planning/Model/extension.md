@@ -2,11 +2,11 @@
 
 Rasm.Compute model extension-ops: one `CustomOps` registration fold over the extensions bundle and the custom-op library rows plus the string-tensor output boundary (empty-slot allocator AND egress reader). The page owns the `CustomOps` registration-and-string-boundary fold; registration extends the `Model/sessions#SESSION_CAPSULE` `ModelSessions` boundary capsule and rides `Microsoft.ML.OnnxRuntime.Extensions`/`Microsoft.ML.OnnxRuntime`, the `SessionPolicy` lifecycle record arrives settled from `Model/sessions#SESSION_CAPSULE`, the native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt, and the string INGRESS rides `Model/inference#INFERENCE_MODES` `RunInput.Strings`. The `CustomOps.Register`/`StringSlots`/`StringEgress` fold crosses to `Model/sessions#SESSION_CAPSULE` as the one registration step the open fold composes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[EXTENSION_OPS]: extension and custom-op registration with asset evidence; bidirectional string-tensor boundary (ingress and egress).
+- [01]-[EXTENSION_OPS]: extension and custom-op registration with asset evidence; bidirectional string-tensor boundary (ingress and egress).
 
-## [2]-[EXTENSION_OPS]
+## [02]-[EXTENSION_OPS]
 
 - Owner: `CustomOps` — one registration fold over the extensions bundle and the custom-op library rows, plus the string-tensor output boundary (empty-slot allocator AND egress reader); string INGRESS rides `RunInput.Strings` on the inference owner, never a second string-input factory here.
 - Cases: `RegisterOrtExtensions` bundle row; `RegisterCustomOpLibraryV2` per-path rows; `StringSlots` empty-output allocator, `StringEgress` element reader.

@@ -18,7 +18,7 @@ export * as SqlStream from "@effect/sql/SqlStream"
 export * as Statement from "@effect/sql/Statement"
 ```
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql`
 - package: `@effect/sql`
@@ -26,7 +26,7 @@ export * as Statement from "@effect/sql/Statement"
 - asset: `SqlClient` service + tag + `make`, the `Statement` template DSL / `Fragment` algebra / dialect `Compiler`, `Connection`/`Acquirer` driver contract, `SqlError`/`ResultLengthMismatch` rail, `SqlSchema` and `SqlResolver` schema-bridged query layers, the `Model` schema-class family with `makeRepository`/`makeDataLoaders`, the generic `Migrator` runner + loaders, the pause/resume stream adapter, and the durable journal/queue/event-log subsystems
 - rail: persistence / sql-core
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 ### @effect/sql/SqlClient — query service family
 
@@ -36,14 +36,14 @@ export * as Statement from "@effect/sql/Statement"
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]      | [RAIL]                                                         |
 | :-----: | :---------------------- | :----------------- | :------------------------------------------------------------- |
-|   [1]   | `TypeId`                | const + type alias | branded service id                                             |
-|   [2]   | `SqlClient`             | interface          | extends `Statement.Constructor`; the query/transaction surface |
-|   [3]   | `SqlClient` (tag)       | `Context.Tag`      | `Context.Tag<SqlClient, SqlClient>` — service accessor         |
-|   [4]   | `SqlClient.MakeOptions` | interface          | acquirer + compiler + dialect SQL knobs for `make`             |
-|   [5]   | `make`                  | constructor        | `MakeOptions` → `Effect<SqlClient, never, Reactivity>`         |
-|   [6]   | `makeWithTransaction`   | constructor        | builds the `withTransaction` combinator from a transaction tag |
-|   [7]   | `TransactionConnection` | interface + tag    | `Tag<…, readonly [conn: Connection, depth: number]>`           |
-|   [8]   | `SafeIntegers`          | reference class    | `Context.Reference<boolean>` — 64-bit-as-bigint toggle         |
+|  [01]   | `TypeId`                | const + type alias | branded service id                                             |
+|  [02]   | `SqlClient`             | interface          | extends `Statement.Constructor`; the query/transaction surface |
+|  [03]   | `SqlClient` (tag)       | `Context.Tag`      | `Context.Tag<SqlClient, SqlClient>` — service accessor         |
+|  [04]   | `SqlClient.MakeOptions` | interface          | acquirer + compiler + dialect SQL knobs for `make`             |
+|  [05]   | `make`                  | constructor        | `MakeOptions` → `Effect<SqlClient, never, Reactivity>`         |
+|  [06]   | `makeWithTransaction`   | constructor        | builds the `withTransaction` combinator from a transaction tag |
+|  [07]   | `TransactionConnection` | interface + tag    | `Tag<…, readonly [conn: Connection, depth: number]>`           |
+|  [08]   | `SafeIntegers`          | reference class    | `Context.Reference<boolean>` — 64-bit-as-bigint toggle         |
 
 `SqlClient` IS the callable template tag: it extends `Statement.Constructor`, so the service value
 is invoked as a tagged template (`` sql`SELECT …` ``) and also carries the `unsafe`/`insert`/
@@ -133,13 +133,13 @@ class SafeIntegers extends Context.Reference<SafeIntegers>()("@effect/sql/SqlCli
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [CAPABILITY]              |
 | :-----: | :------------- | :------------ | :------------------------ |
-|   [1]   | `Constructor`  | interface     | callable template builder |
-|   [2]   | `Statement<A>` | interface     | query effect              |
-|   [3]   | `Fragment`     | interface     | compile unit              |
-|   [4]   | `Segment`      | type union    | fragment node algebra     |
-|   [5]   | `Dialect`      | string union  | compiler dialect          |
-|   [6]   | `Compiler`     | interface     | dialect compiler          |
-|   [7]   | `Transformer`  | type alias    | statement transform hook  |
+|  [01]   | `Constructor`  | interface     | callable template builder |
+|  [02]   | `Statement<A>` | interface     | query effect              |
+|  [03]   | `Fragment`     | interface     | compile unit              |
+|  [04]   | `Segment`      | type union    | fragment node algebra     |
+|  [05]   | `Dialect`      | string union  | compiler dialect          |
+|  [06]   | `Compiler`     | interface     | dialect compiler          |
+|  [07]   | `Transformer`  | type alias    | statement transform hook  |
 
 [PUBLIC_TYPE_SCOPE]: fragment helper algebra
 - rail: persistence
@@ -147,30 +147,30 @@ class SafeIntegers extends Context.Reference<SafeIntegers>()("@effect/sql/SqlCli
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]             |
 | :-----: | :------------------------- | :------------ | :----------------------- |
-|   [1]   | `Literal`                  | interface     | raw SQL segment          |
-|   [2]   | `Identifier` / `Parameter` | interface     | escaped name or bind     |
-|   [3]   | `ArrayHelper`              | interface     | value-list helper        |
-|   [4]   | `RecordInsertHelper`       | interface     | insert helper            |
-|   [5]   | `RecordUpdateHelper`       | interface     | multi-row update helper  |
-|   [6]   | `RecordUpdateHelperSingle` | interface     | single-row update helper |
-|   [7]   | `Custom<T,A,B,C>`          | interface     | dialect extension point  |
-|   [8]   | `Helper`                   | type union    | helper union             |
-|   [9]   | `PrimitiveKind`            | string union  | parameter kind           |
+|  [01]   | `Literal`                  | interface     | raw SQL segment          |
+|  [02]   | `Identifier` / `Parameter` | interface     | escaped name or bind     |
+|  [03]   | `ArrayHelper`              | interface     | value-list helper        |
+|  [04]   | `RecordInsertHelper`       | interface     | insert helper            |
+|  [05]   | `RecordUpdateHelper`       | interface     | multi-row update helper  |
+|  [06]   | `RecordUpdateHelperSingle` | interface     | single-row update helper |
+|  [07]   | `Custom<T,A,B,C>`          | interface     | dialect extension point  |
+|  [08]   | `Helper`                   | type union    | helper union             |
+|  [09]   | `PrimitiveKind`            | string union  | parameter kind           |
 
 [PUBLIC_TYPE_SCOPE]: free functions
 - rail: persistence
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                                                             |
 | :-----: | :------------------------ | :------------ | :--------------------------------------------------------------------------------- |
-|   [1]   | `make`                    | constructor   | builds a `Constructor` from acquirer + compiler                                    |
-|   [2]   | `custom`                  | constructor   | builds a custom-fragment factory for a `Custom` kind                               |
-|   [3]   | `unsafeFragment`          | constructor   | raw sql + params → `Fragment`                                                      |
-|   [4]   | `and` / `or`              | combinator    | `ReadonlyArray<string \| Fragment>` → `Fragment`                                   |
-|   [5]   | `csv`                     | combinator    | comma-joined values (optional prefix) → `Fragment`                                 |
-|   [6]   | `join`                    | combinator    | literal-joined fragment combinator factory                                         |
-|   [7]   | `isFragment`              | guard         | `(u) => u is Fragment`                                                             |
-|   [8]   | `isCustom`                | guard         | `(kind) => (u) => u is Custom` — kind-narrowing custom guard                       |
-|   [9]   | `makeCompiler`            | constructor   | assemble a dialect `Compiler` from emit callbacks                                  |
+|  [01]   | `make`                    | constructor   | builds a `Constructor` from acquirer + compiler                                    |
+|  [02]   | `custom`                  | constructor   | builds a custom-fragment factory for a `Custom` kind                               |
+|  [03]   | `unsafeFragment`          | constructor   | raw sql + params → `Fragment`                                                      |
+|  [04]   | `and` / `or`              | combinator    | `ReadonlyArray<string \| Fragment>` → `Fragment`                                   |
+|  [05]   | `csv`                     | combinator    | comma-joined values (optional prefix) → `Fragment`                                 |
+|  [06]   | `join`                    | combinator    | literal-joined fragment combinator factory                                         |
+|  [07]   | `isFragment`              | guard         | `(u) => u is Fragment`                                                             |
+|  [08]   | `isCustom`                | guard         | `(kind) => (u) => u is Custom` — kind-narrowing custom guard                       |
+|  [09]   | `makeCompiler`            | constructor   | assemble a dialect `Compiler` from emit callbacks                                  |
 |  [10]   | `makeCompilerSqlite`      | constructor   | prebuilt SQLite `Compiler`                                                         |
 |  [11]   | `withTransformer`         | combinator    | run an effect with a statement transformer (dual)                                  |
 |  [12]   | `withTransformerDisabled` | combinator    | run an effect with transforms suppressed                                           |
@@ -336,9 +336,9 @@ const setTransformer: (f: Statement.Transformer) => Layer.Layer<never, never, ne
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                                                                                    |
 | :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------------------------------------------- |
-|   [1]   | `Connection`          | interface     | the low-level execute/stream/values driver seam                                                           |
-|   [2]   | `Connection.Acquirer` | type alias    | `Effect<Connection, SqlError, Scope>` — scoped connection get (namespace member, not a standalone export) |
-|   [3]   | `Row`                 | type alias    | `Record<string, unknown>` — the default decoded-row shape                                                 |
+|  [01]   | `Connection`          | interface     | the low-level execute/stream/values driver seam                                                           |
+|  [02]   | `Connection.Acquirer` | type alias    | `Effect<Connection, SqlError, Scope>` — scoped connection get (namespace member, not a standalone export) |
+|  [03]   | `Row`                 | type alias    | `Record<string, unknown>` — the default decoded-row shape                                                 |
 
 ```ts contract
 import { SqlError } from "@effect/sql/SqlError"
@@ -378,9 +378,9 @@ type Row = { readonly [column: string]: unknown }
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                                                 |
 | :-----: | :--------------------- | :----------------- | :----------------------------------------------------- |
-|   [1]   | `SqlErrorTypeId`       | const + type alias | branded error id (shared by both errors)               |
-|   [2]   | `SqlError`             | tagged error       | `_tag: "SqlError"`; `{ cause?; message? }`             |
-|   [3]   | `ResultLengthMismatch` | tagged error       | `_tag: "ResultLengthMismatch"`; `{ expected; actual }` |
+|  [01]   | `SqlErrorTypeId`       | const + type alias | branded error id (shared by both errors)               |
+|  [02]   | `SqlError`             | tagged error       | `_tag: "SqlError"`; `{ cause?; message? }`             |
+|  [03]   | `ResultLengthMismatch` | tagged error       | `_tag: "ResultLengthMismatch"`; `{ expected; actual }` |
 
 ```ts contract
 import type { YieldableError } from "effect/Cause"
@@ -412,10 +412,10 @@ class ResultLengthMismatch extends YieldableError {
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [RAIL]                                                                              |
 | :-----: | :-------- | :------------ | :---------------------------------------------------------------------------------- |
-|   [1]   | `findAll` | constructor   | request → `Effect<ReadonlyArray<A>, E \| ParseError, …>`                            |
-|   [2]   | `findOne` | constructor   | request → `Effect<Option<A>, E \| ParseError, …>`                                   |
-|   [3]   | `single`  | constructor   | request → `Effect<A, E \| ParseError \| NoSuchElementException, …>`                 |
-|   [4]   | `void`    | constructor   | request → `Effect<void, E \| ParseError, …>` (exported as `void`, internal `void_`) |
+|  [01]   | `findAll` | constructor   | request → `Effect<ReadonlyArray<A>, E \| ParseError, …>`                            |
+|  [02]   | `findOne` | constructor   | request → `Effect<Option<A>, E \| ParseError, …>`                                   |
+|  [03]   | `single`  | constructor   | request → `Effect<A, E \| ParseError \| NoSuchElementException, …>`                 |
+|  [04]   | `void`    | constructor   | request → `Effect<void, E \| ParseError, …>` (exported as `void`, internal `void_`) |
 
 ```ts contract
 import type * as Cause from "effect/Cause"
@@ -458,12 +458,12 @@ export { void_ as void }
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                          |
 | :-----: | :------------------- | :------------ | :------------------------------------ |
-|   [1]   | `SqlResolver<T,...>` | interface     | request resolver with cache accessors |
-|   [2]   | `SqlRequest<T,A,E>`  | interface     | tagged request shape                  |
-|   [3]   | `ordered`            | constructor   | one-to-one request resolver           |
-|   [4]   | `grouped`            | constructor   | grouped result resolver               |
-|   [5]   | `findById`           | constructor   | id-keyed option resolver              |
-|   [6]   | `void`               | constructor   | side-effecting resolver               |
+|  [01]   | `SqlResolver<T,...>` | interface     | request resolver with cache accessors |
+|  [02]   | `SqlRequest<T,A,E>`  | interface     | tagged request shape                  |
+|  [03]   | `ordered`            | constructor   | one-to-one request resolver           |
+|  [04]   | `grouped`            | constructor   | grouped result resolver               |
+|  [05]   | `findById`           | constructor   | id-keyed option resolver              |
+|  [06]   | `void`               | constructor   | side-effecting resolver               |
 
 Each builder has a `withContext: false` (default) and a `withContext: true` overload; the latter
 threads the result-schema context `RA`/`R` into the requirement channel.
@@ -525,14 +525,14 @@ export { void_ as void }
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]           |
 | :-----: | :--------------------- | :------------ | :--------------------- |
-|   [1]   | `Class<Self>`          | class factory | variant schema class   |
-|   [2]   | `Any` / `AnyNoContext` | type alias    | builder generic bounds |
-|   [3]   | `VariantsDatabase`     | string union  | database variants      |
-|   [4]   | `VariantsJson`         | string union  | JSON variants          |
-|   [5]   | `fields`               | accessor      | raw field map          |
-|   [6]   | `extract`              | combinator    | variant schema extract |
-|   [7]   | `Struct` / `Union`     | constructors  | variant-aware schemas  |
-|   [8]   | `Override`             | brand ctor    | override marker        |
+|  [01]   | `Class<Self>`          | class factory | variant schema class   |
+|  [02]   | `Any` / `AnyNoContext` | type alias    | builder generic bounds |
+|  [03]   | `VariantsDatabase`     | string union  | database variants      |
+|  [04]   | `VariantsJson`         | string union  | JSON variants          |
+|  [05]   | `fields`               | accessor      | raw field map          |
+|  [06]   | `extract`              | combinator    | variant schema extract |
+|  [07]   | `Struct` / `Union`     | constructors  | variant-aware schemas  |
+|  [08]   | `Override`             | brand ctor    | override marker        |
 
 [PUBLIC_TYPE_SCOPE]: model field families
 - rail: persistence
@@ -540,14 +540,14 @@ export { void_ as void }
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]       | [CAPABILITY]               |
 | :-----: | :------------------------------------ | :------------------ | :------------------------- |
-|   [1]   | `Field` / `FieldOnly` / `FieldExcept` | field combinators   | variant field shaping      |
-|   [2]   | `fieldEvolve` / `fieldFromKey`        | field combinators   | field derivation           |
-|   [3]   | `Generated` / `GeneratedByApp`        | field ctor          | generated value policy     |
-|   [4]   | `Sensitive` / `FieldOption`           | field ctor          | visibility and nullability |
-|   [5]   | `JsonFromString`                      | field ctor          | JSON column conversion     |
-|   [6]   | `Date*` / `DateTime*`                 | overrideable fields | temporal columns           |
-|   [7]   | `UuidV4Insert` / `UuidV4WithGenerate` | overrideable fields | generated UUID columns     |
-|   [8]   | `BooleanFromNumber`                   | field schema        | numeric boolean column     |
+|  [01]   | `Field` / `FieldOnly` / `FieldExcept` | field combinators   | variant field shaping      |
+|  [02]   | `fieldEvolve` / `fieldFromKey`        | field combinators   | field derivation           |
+|  [03]   | `Generated` / `GeneratedByApp`        | field ctor          | generated value policy     |
+|  [04]   | `Sensitive` / `FieldOption`           | field ctor          | visibility and nullability |
+|  [05]   | `JsonFromString`                      | field ctor          | JSON column conversion     |
+|  [06]   | `Date*` / `DateTime*`                 | overrideable fields | temporal columns           |
+|  [07]   | `UuidV4Insert` / `UuidV4WithGenerate` | overrideable fields | generated UUID columns     |
+|  [08]   | `BooleanFromNumber`                   | field schema        | numeric boolean column     |
 
 Temporal constructors include `Date`, `DateTimeFromDate`, `DateWithNow`, `DateTimeWithNow`, `DateTimeInsert`, `DateTimeUpdate`, `DateTime{Insert,Update}{FromDate,FromNumber}`, and `DateTimeFrom{Date,Number}WithNow`.
 
@@ -556,8 +556,8 @@ Temporal constructors include `Date`, `DateTimeFromDate`, `DateWithNow`, `DateTi
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                                                               |
 | :-----: | :---------------- | :------------ | :------------------------------------------------------------------- |
-|   [1]   | `makeRepository`  | constructor   | model → CRUD effect record (`insert`/`update`/`findById`/`delete`/…) |
-|   [2]   | `makeDataLoaders` | constructor   | model → batched data-loader record (windowed; needs `Scope`)         |
+|  [01]   | `makeRepository`  | constructor   | model → CRUD effect record (`insert`/`update`/`findById`/`delete`/…) |
+|  [02]   | `makeDataLoaders` | constructor   | model → batched data-loader record (windowed; needs `Scope`)         |
 
 ```ts contract
 import type { Brand } from "effect/Brand"
@@ -632,15 +632,15 @@ const makeDataLoaders: <S extends AnyNoContext, Id extends (keyof S["Type"]) & (
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                                        |
 | :-----: | :------------------- | :------------ | :------------------------------------------------------------ |
-|   [1]   | `MigratorOptions<R>` | interface     | `{ loader; schemaDirectory?; table? }`                        |
-|   [2]   | `Loader<R>`          | type alias    | effect yielding `ReadonlyArray<ResolvedMigration>`            |
-|   [3]   | `ResolvedMigration`  | tuple alias   | `[id: number, name: string, load: Effect<…, …, SqlClient>]`   |
-|   [4]   | `Migration`          | interface     | `{ id; name; createdAt }` applied-row record                  |
-|   [5]   | `MigrationError`     | tagged error  | `_tag: "MigrationError"`; closed `reason` enum                |
-|   [6]   | `make`               | constructor   | dialect-parameterized runner builder (`dumpSchema` hook)      |
-|   [7]   | `fromGlob`           | loader        | `Record<string, () => Promise<any>>` → `Loader`               |
-|   [8]   | `fromBabelGlob`      | loader        | `Record<string, any>` → `Loader`                              |
-|   [9]   | `fromRecord`         | loader        | `Record<string, Effect<void, unknown, SqlClient>>` → `Loader` |
+|  [01]   | `MigratorOptions<R>` | interface     | `{ loader; schemaDirectory?; table? }`                        |
+|  [02]   | `Loader<R>`          | type alias    | effect yielding `ReadonlyArray<ResolvedMigration>`            |
+|  [03]   | `ResolvedMigration`  | tuple alias   | `[id: number, name: string, load: Effect<…, …, SqlClient>]`   |
+|  [04]   | `Migration`          | interface     | `{ id; name; createdAt }` applied-row record                  |
+|  [05]   | `MigrationError`     | tagged error  | `_tag: "MigrationError"`; closed `reason` enum                |
+|  [06]   | `make`               | constructor   | dialect-parameterized runner builder (`dumpSchema` hook)      |
+|  [07]   | `fromGlob`           | loader        | `Record<string, () => Promise<any>>` → `Loader`               |
+|  [08]   | `fromBabelGlob`      | loader        | `Record<string, any>` → `Loader`                              |
+|  [09]   | `fromRecord`         | loader        | `Record<string, Effect<void, unknown, SqlClient>>` → `Loader` |
 
 ```ts contract
 import type * as Effect from "effect/Effect"
@@ -711,9 +711,9 @@ const asyncPauseResume: <A, E = never, R = never>(
 
 | [INDEX] | [MODULE]            | [SYMBOLS]                                           | [RAIL]                                               |
 | :-----: | :------------------ | :-------------------------------------------------- | :--------------------------------------------------- |
-|   [1]   | `SqlEventJournal`   | `make`, `layer`                                     | SQL-backed `@effect/experimental` EventJournal store |
-|   [2]   | `SqlEventLogServer` | `makeStorage`, `layerStorage`, `layerStorageSubtle` | SQL-backed EventLog server storage layers            |
-|   [3]   | `SqlPersistedQueue` | `make`, `layerStore`                                | SQL-backed durable work queue store                  |
+|  [01]   | `SqlEventJournal`   | `make`, `layer`                                     | SQL-backed `@effect/experimental` EventJournal store |
+|  [02]   | `SqlEventLogServer` | `makeStorage`, `layerStorage`, `layerStorageSubtle` | SQL-backed EventLog server storage layers            |
+|  [03]   | `SqlPersistedQueue` | `make`, `layerStore`                                | SQL-backed durable work queue store                  |
 
 These provide `Layer`/effect constructors that back `@effect/experimental` EventJournal, EventLog,
 and persisted-queue services with a `SqlClient`. They are reached only when the durable backplane
@@ -758,7 +758,7 @@ const layerStore: (options?: { readonly tableName?: string; readonly pollInterva
 `layerStorage` requires it. `SqlPersistedQueue` exports its constructor as `make` (aliased `makeQueue`
 above to avoid colliding with the `SqlEventJournal.make` row).
 
-## [3]-[IMPLEMENTATION_LAW]
+## [03]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
 - `SqlClient` is the abstract query service and the callable template tag in one: it extends

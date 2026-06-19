@@ -2,7 +2,7 @@
 
 `pyogrio` supplies vectorized OGR-backed vector file I/O over GDAL, reading and writing geospatial layers as GeoPandas `GeoDataFrame` or Arrow tables. It provides `read_dataframe`, `write_dataframe`, `read_arrow`, `write_arrow`, `open_arrow`, `read_info`, `list_layers`, and `list_drivers` as primary entrypoints, with attribute, geometry, spatial-filter, and SQL pushdown applied inside the OGR scan.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyogrio`
 - package: `pyogrio`
@@ -11,7 +11,7 @@
 - rail: geospatial
 - capability: vectorized OGR vector read/write, GeoDataFrame and Arrow egress, attribute/geometry/bbox/mask/SQL pushdown, driver and layer metadata, GDAL configuration, and VSI virtual-filesystem control
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `pyogrio.errors.DataSourceError` — data source open or access failure; also re-exported as `pyogrio.raw.DataSourceError`.
@@ -42,7 +42,7 @@
 - `set_gdal_config_options` mutates process-global GDAL state; scope credential and network options at the call boundary rather than per-read.
 - VSI paths (`/vsizip/`, `/vsicurl/`, `/vsimem/`) are accepted wherever a path is; `vsi_listtree`/`vsi_rmtree`/`vsi_unlink` manage the virtual filesystem in place.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pyogrio`

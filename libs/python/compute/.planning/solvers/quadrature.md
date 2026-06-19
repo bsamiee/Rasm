@@ -2,11 +2,11 @@
 
 The quadrature, interpolation, and finite-element routes of the one numeric solver. `QuadratureIntent` discriminates 1-D quadrature, spline interpolation, and the weak-form finite-element `assemble -> condense -> solve` fold over `scipy.integrate`/`scipy.interpolate`/`scikit-fem`, every route folding into the one `SolverReceipt`. The quadrature and interpolation numpy floors run unconditionally; the scipy bodies and the scikit-fem fold gate on their wheels. The FEM route reuses the sparse linear receipt so the stiffness solve emits the same convergence evidence as a direct sparse system.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[QUADRATURE]: 1-D quadrature, spline interpolation, and the weak-form FEM assemble fold on one `QuadratureIntent` owner.
+- [01]-[QUADRATURE]: 1-D quadrature, spline interpolation, and the weak-form FEM assemble fold on one `QuadratureIntent` owner.
 
-## [2]-[QUADRATURE]
+## [02]-[QUADRATURE]
 
 - Owner: `QuadratureIntent` — the integral/interpolation/FEM cases on the one solver; `Integrate(fn, span)` over `scipy.integrate.quad` with a `np.trapezoid` floor, `Interpolate(points, values)` over `scipy.interpolate.interp1d` with a `np.interp` floor, and `Fem(mesh, form)` over the scikit-fem `Basis`/`asm`/`condense`/`solve` fold. `FemForm` is the element/basis/form axis; `ElementKind` selects the scikit-fem `Element*`, the bilinear and linear forms carry the integrand thunks, and the boundary facets carry the Dirichlet condition.
 - Entry: `QuadratureIntent.solve` enters one `boundary(f"solve.{intent.tag}", ...)`; the integrate route reports the absolute-error estimate against the quadrature value, the interpolate route reports the residual of the spline against the linear baseline at the sample midpoints, and the FEM route assembles `K` and `f`, condenses the Dirichlet dofs, solves the system, and folds the stiffness residual into the sparse receipt through `solvers/linear.md#LINEAR`.
@@ -131,7 +131,7 @@ def _fem_receipt(mesh: object, form: FemForm) -> SolverReceipt:
     return _sparse_receipt(stiffness, stiffness @ field, SparseScheme.SPSOLVE)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SCIPY_QUADRATURE]: the `scipy.integrate.quad` and `scipy.interpolate.interp1d` spellings carry the `python_version<'3.15'` marker; the bodies verify against the `.api` catalogue once the scipy wheel resolves. The `np.trapezoid` and `np.interp` floors run unconditionally on cp315.
 - [SKFEM_ASSEMBLE]: the `Basis`/`asm`/`condense`/`solve`/`ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1`/`BilinearForm`/`LinearForm` spellings carry the `python_version<'3.15'` marker and verify against `compute/.api/scikit-fem.md`; the eight `ElementKind` rows reach the full P1/P2 line/tri/tet plus the bilinear-quad and trilinear-hex elements the catalogue lists, so the element axis spans the catalogued skfem element family once the scikit-fem wheel resolves.

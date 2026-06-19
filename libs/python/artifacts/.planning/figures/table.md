@@ -2,11 +2,11 @@
 
 The publication-quality tabular-artifact owner. `TablePlan` is ONE owner over great-tables (Bring-Your-Own-DataFrame: polars first-class, pandas optional) producing styled tables — spanners, value formatting, data-driven coloring, inline sparklines — exported to HTML, LaTeX, and PDF. It is the missing third artifact pillar beside documents and charts, so numeric study results render as formatted tables rather than raw dumps, feeding `reports/report#REPORT` and `documents/emit#DOCUMENT`. great-tables is admitted in the manifest (cp315-clean, pure-Python); this page closes the `PUBLICATION_TABLE_OWNER` idea.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TABLE]: great-tables styled-table export owner over HTML/LaTeX/PDF, carrying the full publication surface (`loc`-targeted cell-style injection, `fmt_image`/`fmt_nanoplot` cells, `tab_options` global-theme, `cols_merge_range`, `data_color(autocolor_text)` merge folds) as a data-driven spec row in the one `reduce`-over-spec pipeline.
+- [01]-[TABLE]: great-tables styled-table export owner over HTML/LaTeX/PDF, carrying the full publication surface (`loc`-targeted cell-style injection, `fmt_image`/`fmt_nanoplot` cells, `tab_options` global-theme, `cols_merge_range`, `data_color(autocolor_text)` merge folds) as a data-driven spec row in the one `reduce`-over-spec pipeline.
 
-## [2]-[TABLE]
+## [02]-[TABLE]
 
 - Owner: `TablePlan` the one table owner discriminating export format; `TableFormat` the closed `StrEnum` over `HTML`/`LATEX`/`PDF`; the great-tables `GT` builder is the styling surface, the dataframe the BYODF input. `FORMATTERS` (the value-format row catalogue), `STRUCTURE` (the header/footnote/source-note/stub structural-fold catalogue), and `STYLERS` (the `loc`-targeted `tab_style` cell-style catalogue) are the three data-driven spec-row catalogues the build reduces over.
 - Cases: `TableFormat` rows `HTML` (`GT.as_raw_html(inline_css=True)`, host-free, no driver) · `LATEX` (`GT.as_latex`, host-free) · `PDF` (`GT.save` to a vector target through a headless Chrome WebDriver) — HTML and LaTeX are the host-free default set; `save` (PNG/PDF/SVG) rides a Chrome driver and is gated optional.
@@ -126,6 +126,6 @@ class TablePlan(Struct, frozen=True):
                 assert_never(self.fmt)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 No open items. The `GT`/`tab_options(**kwargs)`/`tab_header(title, subtitle)`/`tab_source_note(source_note)`/`tab_footnote(footnote, locations)`/`tab_stub(rowname_col, groupname_col)`/`tab_spanner(label, columns)`/`tab_style(style, locations)`/`cols_label`/`cols_align`/`cols_width`/`cols_hide`/`cols_merge(columns, pattern)`/`cols_merge_range(col_begin, col_end, sep)`/`fmt_number`/`fmt_currency`/`fmt_percent`/`fmt_scientific`/`fmt_integer`/`fmt_date`/`fmt_datetime`/`fmt_time`/`fmt_image`/`fmt_nanoplot`/`fmt_markdown`/`summary_rows(fns, columns)`/`grand_summary_rows`/`data_color(columns, palette, autocolor_text)`/`as_raw_html(inline_css)`/`as_latex`/`save(file, scale)` member spellings, the `loc.body`/`loc.column_labels`/`loc.stub`/`loc.summary`/`loc.source_notes` selectors, and the `style.text`/`style.fill`/`style.borders` constructors verify against the folder `.api` catalogue for `great-tables` (`0.22.0` reflected, cp315-clean). HTML (`as_raw_html`) and LaTeX (`as_latex`) are the host-free no-driver paths and PDF (`save`) rides a host-coupled Chrome WebDriver, gated optional. The `FORMATTERS`/`STRUCTURE`/`COLUMNS`/`STYLERS` row catalogues collapse the per-feature method family into one ordered `reduce`-over-spec fold; `data_color(autocolor_text=True)` derives the cell text color from the background luminance (catalogue `LOCAL_ADMISSION`), and the `tab_options` theme map is the table's named publication identity carried as one row.

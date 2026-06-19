@@ -2,7 +2,7 @@
 
 `meshio` supplies the unstructured-mesh exchange surface for the geometry mesh-io rail: a `Mesh` value of points plus typed `CellBlock` connectivity, the `read`/`write` polymorphic readers, and the per-format submodules that drive read/write across `VTK`/`VTU`/`XDMF`/`GMSH`/`OBJ`/`PLY`/`STL`/`OFF`/`MED`/`Abaqus`/`Nastran` with point/cell data fields. The package owner composes `meshio.read`, `Mesh`, and `meshio.write` into the mesh-io owner; it never re-implements format parsing meshio already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `meshio`
 - package: `meshio`
@@ -13,19 +13,19 @@
 - entry points: none (library only)
 - capability: read/write of 30-plus mesh formats, points plus typed cell blocks, point/cell/field data arrays, point and cell sets, named cell groups, format auto-detection by extension, and a dynamic format registry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mesh value and faults
 - rail: mesh-io
 
 | [INDEX] | [SYMBOL]     | [PACKAGE_ROLE] | [CAPABILITY]                                                |
 | :-----: | :----------- | :------------- | :---------------------------------------------------------- |
-|   [1]   | `Mesh`       | mesh value     | points plus cell blocks with point/cell/field data and sets |
-|   [2]   | `CellBlock`  | cell block     | one cell type (`triangle`/`tetra`/`quad`) plus connectivity |
-|   [3]   | `ReadError`  | read fault     | unreadable or malformed source                              |
-|   [4]   | `WriteError` | write fault    | unwritable target or unsupported cell type                  |
+|  [01]   | `Mesh`       | mesh value     | points plus cell blocks with point/cell/field data and sets |
+|  [02]   | `CellBlock`  | cell block     | one cell type (`triangle`/`tetra`/`quad`) plus connectivity |
+|  [03]   | `ReadError`  | read fault     | unreadable or malformed source                              |
+|  [04]   | `WriteError` | write fault    | unwritable target or unsupported cell type                  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, write, and build
 - rail: mesh-io
@@ -34,15 +34,15 @@ Read and write rows share filename, optional `file_format` (auto-detected from e
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]                    | [CAPABILITY]                      |
 | :-----: | :-------------------------- | :------------------------------ | :-------------------------------- |
-|   [1]   | `meshio.read`               | filename plus format policy     | read any format into a `Mesh`     |
-|   [2]   | `meshio.write`              | filename plus mesh plus format  | write a `Mesh` to any format      |
-|   [3]   | `meshio.write_points_cells` | filename plus points plus cells | write directly from arrays        |
-|   [4]   | `Mesh`                      | points plus cells plus data     | construct a mesh value            |
-|   [5]   | `Mesh.read`                 | filename plus format policy     | bound read constructor            |
-|   [6]   | `Mesh.write`                | filename plus format policy     | bound write                       |
-|   [7]   | `extension_to_filetypes`    | none                            | extension-to-format detection map |
-|   [8]   | `register_format`           | name plus extensions plus io    | add a custom format               |
-|   [9]   | `deregister_format`         | format name                     | remove a registered format        |
+|  [01]   | `meshio.read`               | filename plus format policy     | read any format into a `Mesh`     |
+|  [02]   | `meshio.write`              | filename plus mesh plus format  | write a `Mesh` to any format      |
+|  [03]   | `meshio.write_points_cells` | filename plus points plus cells | write directly from arrays        |
+|  [04]   | `Mesh`                      | points plus cells plus data     | construct a mesh value            |
+|  [05]   | `Mesh.read`                 | filename plus format policy     | bound read constructor            |
+|  [06]   | `Mesh.write`                | filename plus format policy     | bound write                       |
+|  [07]   | `extension_to_filetypes`    | none                            | extension-to-format detection map |
+|  [08]   | `register_format`           | name plus extensions plus io    | add a custom format               |
+|  [09]   | `deregister_format`         | format name                     | remove a registered format        |
 
 [ENTRYPOINT_SCOPE]: mesh projections
 - rail: mesh-io
@@ -51,16 +51,16 @@ Read and write rows share filename, optional `file_format` (auto-detected from e
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]   | [CAPABILITY]                       |
 | :-----: | :------------------------ | :------------- | :--------------------------------- |
-|   [1]   | `Mesh.cells_dict`         | property       | cell type to connectivity map      |
-|   [2]   | `Mesh.cell_data_dict`     | property       | cell-data name to per-type arrays  |
-|   [3]   | `Mesh.get_cells_type`     | cell type      | connectivity for one cell type     |
-|   [4]   | `Mesh.get_cell_data`      | name plus type | cell-data array for one type       |
-|   [5]   | `Mesh.cell_sets_dict`     | property       | named cell-set membership map      |
-|   [6]   | `Mesh.cell_sets_to_data`  | optional name  | sets projected to cell data        |
-|   [7]   | `Mesh.cell_data_to_sets`  | data key       | cell data projected to sets        |
-|   [8]   | `Mesh.point_sets_to_data` | optional name  | point sets projected to point data |
+|  [01]   | `Mesh.cells_dict`         | property       | cell type to connectivity map      |
+|  [02]   | `Mesh.cell_data_dict`     | property       | cell-data name to per-type arrays  |
+|  [03]   | `Mesh.get_cells_type`     | cell type      | connectivity for one cell type     |
+|  [04]   | `Mesh.get_cell_data`      | name plus type | cell-data array for one type       |
+|  [05]   | `Mesh.cell_sets_dict`     | property       | named cell-set membership map      |
+|  [06]   | `Mesh.cell_sets_to_data`  | optional name  | sets projected to cell data        |
+|  [07]   | `Mesh.cell_data_to_sets`  | data key       | cell data projected to sets        |
+|  [08]   | `Mesh.point_sets_to_data` | optional name  | point sets projected to point data |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [MESH_IO]:
 - import: `import meshio` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -71,7 +71,7 @@ Read and write rows share filename, optional `file_format` (auto-detected from e
 - evidence: each read/write op captures point count, cell-block count per type, point-data and cell-data field names, and output byte length as a mesh-io receipt.
 - boundary: meshio owns FEM/CAE unstructured-mesh exchange; triangular surface processing routes to `trimesh`, point clouds to `open3d`, Rhino `.3dm` to `rhino3dm`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `meshio`

@@ -2,27 +2,27 @@
 
 Wire transport is one axis declared at composition roots. Every cross-package call travels a typed port record — call arrows plus policy values, zero provider types — materialized from a closed transport-row vocabulary, so in-process hand-off, UDS companion, remote TLS, and browser translation are rows of one axis and a call site can neither see nor select the byte mover. One generated message per concept is the wire vocabulary, and evolution is one descriptor-diff classifier whose verdict gates peer attach, store open, and replay decode alike; temporal values cross as well-known types through one dual-codec bridge; server exposure is one record folded at the app root; local endpoints live behind a discovery manifest whose publish-last ordering makes liveness a single observable bit; raw corridors admit frames under one four-gate invariant; suite JSON is one frozen resolver merge whose schema export rides the same evolution gate; partial updates are recorded intent applied once and re-admitted whole. Hop resilience arrives composed — the channel's retry row or the seam's pipeline owns each hop, declared as one row column, never both. Growth lands as rows: a new peer is a route row, a new service an exposure row, a new wire family one contract context, a new frame kind one cap row.
 
-## [1]-[TRANSPORT_CHOOSER]
+## [01]-[TRANSPORT_CHOOSER]
 
 This table routes a wire concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]            | [OWNER]                                   | [REJECTED_FORM]                |
 | :-----: | :------------------- | :---------------------------------------- | :----------------------------- |
-|   [1]   | peer channel         | one channel row per authority at the root | per-call `ForAddress` scatter  |
-|   [2]   | cross-package calls  | port record + transport-row column        | `if (remote)` call-site branch |
-|   [3]   | wire retry           | per-row owner column: channel or seam     | stacked double owner           |
-|   [4]   | contract evolution   | descriptor-diff classifier verdict        | per-seam compatibility checks  |
-|   [5]   | temporal wire values | well-known types + converter slots        | serialized temporal text       |
-|   [6]   | server exposure      | one exposure record fold at the app root  | per-service options scatter    |
-|   [7]   | wire faults          | structured detail in `-bin` trailers      | code-plus-string parsing       |
-|   [8]   | browser access       | translation row + endpoint consent        | second browser client          |
-|   [9]   | local endpoint       | manifest-gated UDS lifecycle              | ad-hoc socket paths            |
+|   [01]   | peer channel         | one channel row per authority at the root | per-call `ForAddress` scatter  |
+|   [02]   | cross-package calls  | port record + transport-row column        | `if (remote)` call-site branch |
+|   [03]   | wire retry           | per-row owner column: channel or seam     | stacked double owner           |
+|   [04]   | contract evolution   | descriptor-diff classifier verdict        | per-seam compatibility checks  |
+|   [05]   | temporal wire values | well-known types + converter slots        | serialized temporal text       |
+|   [06]   | server exposure      | one exposure record fold at the app root  | per-service options scatter    |
+|   [07]   | wire faults          | structured detail in `-bin` trailers      | code-plus-string parsing       |
+|   [08]   | browser access       | translation row + endpoint consent        | second browser client          |
+|   [09]   | local endpoint       | manifest-gated UDS lifecycle              | ad-hoc socket paths            |
 |  [10]   | peer identity        | connection-level kernel credentials       | call-context peer read         |
 |  [11]   | artifact corridor    | framed-corridor invariant                 | unframed stream writes         |
 |  [12]   | suite JSON contracts | resolver merge + frozen options           | reflection-fallback chain      |
 |  [13]   | partial updates      | recorded-intent patch, apply-only         | state-diff endpoint            |
 
-## [2]-[CONTRACT_AXIS]
+## [02]-[CONTRACT_AXIS]
 
 [PORT_LAW]:
 - Law: the only cross-package transport seam is a fixed small set of typed port records — call arrows plus policy values, zero interfaces, zero inheritance, zero provider types in the signature — and a consumer binds the record, never channel, invoker, or handler types; the aggregate port bundling every operation a package exposes and the provider-branded port are the two named defect forms.
@@ -90,7 +90,7 @@ public static class ContractAxis {
 }
 ```
 
-## [3]-[CALL_SEAM]
+## [03]-[CALL_SEAM]
 
 [CALL_LAW]:
 - Law: `CallOptions(headers, deadline, cancellationToken)` is the per-call policy triple, minted inside the port delegate from the hop row — the deadline is one absolute UTC instant computed from the row's budget at the outermost site, transmitted as the wire timeout header so the server observes remaining budget, and inner hops only shrink it; a deadline already in the past fails locally with `DeadlineExceeded`, zero latency, and no trailers — the signature separating budget exhaustion from server slowness.
@@ -132,7 +132,7 @@ public static class CallSeam {
 }
 ```
 
-## [4]-[CONTRACT_EVOLUTION]
+## [04]-[CONTRACT_EVOLUTION]
 
 [MESSAGE_LAW]:
 - Law: the generated message IS the wire vocabulary — one concept owns one message, every transport surface is a boundary projection of it, and parallel DTOs per surface are the foreclosed form; `RepeatedField<T>` and `MapField<K,V>` mutate only during construction and project to immutable collections at admission.
@@ -198,7 +198,7 @@ public static class DescriptorGate {
 - Law: domain time crosses wire contracts as well-known and common-proto types, never as serialized temporal text — outward projection happens inside the wire-contract constructor (`ToTimestamp`, `ToProtobufDuration`, `ToDate`, `ToTimeOfDay`, `ToProtobufDayOfWeek`), inward inside the admission bridge (`ToInstant`, `ToNodaDuration`, `ToLocalDate`, `ToLocalTime`, `ToIsoDayOfWeek`), and no temporal value exists between seams in wire shape; the range contracts throw and project onto one coded fault band at the seam — pre-common-era instants, durations outside ±315_576_000_000 s, leap-second and 24:00 payloads all reject, the unspecified day-of-week wire value maps to the none case as the family's one sentinel-to-vocabulary projection, and a range rejection reads identically at binary and JSON edges.
 - Law: the STJ bridge is one options mutation at suite-contract composition — `ConfigureForNodaTime` over `NodaJsonSettings` whose sixteen converter slots make per-suite overrides slot writes, with `WithIsoIntervalConverter` swapping the interval representation — interval JSON couples to the naming policy and the instant slot, so the shape pins in golden bytes; zone-bearing types require the explicit provider, non-ISO calendars reject at write, and the per-property attribute route serves isolated DTOs only.
 
-## [5]-[SERVER_EXPOSURE]
+## [05]-[SERVER_EXPOSURE]
 
 [EXPOSURE_FOLD]:
 - Law: exposure is one record folded at the app root — `AddGrpc` settles global policy once, `MapGrpcService` binds each row with the `ServerServiceDefinition` overloads as the runtime-assembled ingress, the returned `GrpcServiceEndpointConventionBuilder` is the per-endpoint convention seam, and the endpoint row owns the protocol prerequisite (`HttpProtocols.Http2` on plaintext trusted lanes, ALPN under TLS) — so nothing outside the record reaches the options and the second-configuration-site defect is structurally impossible; stub generation is one `GrpcServices` item row per contract file — `Both`, `Client`, `Server`, `None` — never post-build pruning.
@@ -241,7 +241,7 @@ public static class ServerRoot {
 }
 ```
 
-## [6]-[IPC_TOPOLOGY]
+## [06]-[IPC_TOPOLOGY]
 
 [ENDPOINT_LIFECYCLE]:
 - Law: `UnixDomainSocketEndPoint` validates the platform path budget in bytes at construction — ~104 on BSD-derived systems, ~108 on Linux — so endpoint directories stay short and ASCII; the abstract namespace is the rejected row for credential-gated seams because no directory mode exists to enforce, and the Windows column of the same row axis is the named pipe via `ListenNamedPipe` — platform variance is one column value.
@@ -351,7 +351,7 @@ public static class Corridor {
 }
 ```
 
-## [7]-[SUITE_CONTRACTS]
+## [07]-[SUITE_CONTRACTS]
 
 [RESOLVER_MERGE]:
 - Law: each package ships one source-generated contract context owning its wire family, and app roots merge per-package contexts once — `JsonTypeInfoResolver.Combine` flattens nested combinations into one ordered chain with `TypeInfoResolverChain` as the options-bound mutable view; routing envelopes carry foreign payloads as opaque JSON decoded only by the owning context at the consuming edge, so the root merges resolver ownership, never payload shapes.

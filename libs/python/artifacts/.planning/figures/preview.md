@@ -2,11 +2,11 @@
 
 The raster image-processing and preview owner. `Preview` is ONE owner over the host-free imaging pipeline: pillow (I/O, resize, thumbnail, format conversion, montage) and scikit-image (scientific transforms, segmentation, measurement) on the gated `python_version<'3.15'` band, segno (QR/Micro-QR generation with dependency-free SVG/PNG/PDF serialization) and python-magic (libmagic MIME detection) on the cp315 core. One preview/raster surface, not a per-media-type class family. The cp315-core process imports no gated distribution, so the pillow/scikit-image raster arms run on the runtime subprocess seam. Every operation returns a `RuntimeRail[ContentKey]`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PREVIEW]: raster/preview/QR/media-detection owner over pillow, scikit-image, segno, and python-magic.
+- [01]-[PREVIEW]: raster/preview/QR/media-detection owner over pillow, scikit-image, segno, and python-magic.
 
-## [2]-[PREVIEW]
+## [02]-[PREVIEW]
 
 - Owner: `Preview` the one raster-and-preview owner discriminating operation; `PreviewOp` the closed `StrEnum` of raster operations; the pillow image is the working surface, scikit-image the scientific-transform extension, segno the code-generation arm, python-magic the media-type gate.
 - Cases: `PreviewOp` rows `THUMBNAIL` (pillow `Image.thumbnail`) · `CONVERT` (pillow `Image.save` to a target format) · `MONTAGE` (pillow grid composite) · `TRANSFORM` (scikit-image transform/segmentation/measure on the gated floor) · `MARK` (the machine-readable-mark arm carrying a `Symbology` sub-axis — QR/Micro-QR over segno and the linear (1D) symbologies over the python-barcode registry, all serializing to the dependency-free SVG path) — matched by `match`/`case`; the former QR-only `PreviewOp.QR` literal is COLLAPSED into the `MARK` row whose `Symbology` discriminates the encoder, never a sibling op per symbology.
@@ -147,7 +147,7 @@ def _transform(payload: bytes, params: dict[str, object]) -> bytes:
     return sink.getvalue()
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [QR_SETTLED]: the in-process `segno.make`/`make_micro`/`QRCode.save(kind="svg")` and `python-magic.from_buffer(mime=True)` spellings verify against the folder `.api` catalogues for `segno`/`python-magic` on the cp315 core; segno serializes SVG with no Pillow dependency, so the QR/Micro-QR `Symbology` rows are SETTLED fence code, closing the former `qrcode` Pillow leak. The `Symbology.is_qr` discriminant routes QR/Micro-QR to `_qr` and the linear rows to `_barcode`.
 - [BARCODE] [RESEARCH] [BLOCKED]: the python-barcode `get_barcode_class(name)`/`PROVIDED_BARCODES`/`barcode.writer.SVGWriter`/`Barcode.write(fp, options)` registry and writer surface is AUTHORED-PENDING-VERIFICATION in the folder `.api` catalogue for `python-barcode` — the package is present in the lockfile but NOT yet synced into the active venv (catalogue header: `RESEARCH-capture-pending-on-uv-sync`), so the `_barcode` body and the linear `Symbology` rows (`CODE128`/`CODE39`/`EAN13`/`EAN8`/`UPCA`/`ITF`/`CODABAR`/`ISBN13`/`ISSN`/`PZN`/`GS1_128`) stay a marked RESEARCH seam until `assay api` reflection on uv-sync confirms the registry. The symbologies are registry-name-keyed through `get_barcode_class` (resolving the full `PROVIDED_BARCODES` set, never a hand-picked sub-enum that silently drops Codabar/ISBN). python-barcode is strictly linear (1D): DataMatrix/PDF417 are DROPPED from the `Symbology` axis (the catalogue header confirms linear-only) and route to a separate future 2D-matrix owner, never a phantom python-barcode member. Close-condition: uv-sync resolves python-barcode and `ApiPackage.reflect` confirms `get_barcode_class`/`SVGWriter`/`PROVIDED_BARCODES`. The `SVGWriter` is the ONLY admitted writer (the `ImageWriter` PNG path needs Pillow and re-introduces the leak segno removed).

@@ -2,17 +2,17 @@
 
 Every store operation in Rasm.Persistence executes through one typed dispatch: the eight-case `StoreOp<T>` union runs inside a pooled-context bracket, converts provider failure into the `StoreFault` rail exactly once, and self-emits cache invalidation on the paths SaveChanges interceptors never see. The page owns the operation algebra, the projection and keyset-page shapes, the linq2db bulk lane with its delta projection, the four-hook interceptor spine, the standing-query window, the in-process Arrow columnar carrier, and the Arrow Flight SQL plus ADBC zero-copy egress that lifts the carrier across the process boundary; the `StoreProfile` row columns and the AppHost clock, deadline, receipt, cache, and telemetry ports arrive settled and compose as values.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[OPERATION_ALGEBRA]: eight-case `StoreOp` dispatch, pooled bracket, and one fault conversion rail.
-- [2]-[PROJECTION_SHAPES]: typed projection egress, keyset pages, filter keys, and correlation stamps.
-- [3]-[BULK_LANE]: linq2db movement, delta projection, self-emitted invalidation, and receipts.
-- [4]-[INTERCEPTOR_SPINE]: four interception hooks, one fact stream, and observability registration.
-- [5]-[STANDING_QUERY]: standing queries, tumbling/sliding/session windows, IVM delta, and watermarks.
-- [6]-[ARROW_PLANE]: columnar Arrow zero-copy carrier across transport, DuckDB, index, and export.
-- [7]-[ARROW_EGRESS]: Arrow Flight SQL server, ADBC consumer, and record-batch projection over the wire.
+- [01]-[OPERATION_ALGEBRA]: eight-case `StoreOp` dispatch, pooled bracket, and one fault conversion rail.
+- [02]-[PROJECTION_SHAPES]: typed projection egress, keyset pages, filter keys, and correlation stamps.
+- [03]-[BULK_LANE]: linq2db movement, delta projection, self-emitted invalidation, and receipts.
+- [04]-[INTERCEPTOR_SPINE]: four interception hooks, one fact stream, and observability registration.
+- [05]-[STANDING_QUERY]: standing queries, tumbling/sliding/session windows, IVM delta, and watermarks.
+- [06]-[ARROW_PLANE]: columnar Arrow zero-copy carrier across transport, DuckDB, index, and export.
+- [07]-[ARROW_EGRESS]: Arrow Flight SQL server, ADBC consumer, and record-batch projection over the wire.
 
-## [2]-[OPERATION_ALGEBRA]
+## [02]-[OPERATION_ALGEBRA]
 
 - Owner: `StoreOp<T>` `[Union]` operation algebra; `StoreFault` `[Union]` fault vocabulary on the doctrine `Expected` shape with the dual-tier `Create` contract; `StoreRail` total dispatch surface.
 - Cases: Get | Query | Stream | Aggregate | Upsert | Delete | Bulk | Maintain on `StoreOp<T>`; Text | Concurrency | Transient | Unsupported | ServerNotProvisioned | NewerSchema on `StoreFault`.
@@ -133,7 +133,7 @@ public static class StoreOpCompose {
 }
 ```
 
-## [3]-[PROJECTION_SHAPES]
+## [03]-[PROJECTION_SHAPES]
 
 - Owner: `KeysetPage<TRow>` page record; `ProjectionRail` filter-key vocabulary and query-stamping extensions.
 - Cases: soft-delete | retention | sync-tombstone named filter keys.
@@ -185,7 +185,7 @@ public static class ProjectionRail {
 }
 ```
 
-## [4]-[BULK_LANE]
+## [04]-[BULK_LANE]
 
 - Owner: `BulkRoute` route vocabulary; `BulkReceipt` typed movement receipt; `BulkDelta<TRow>` action-sentinel delta record.
 - Cases: Copy | Merge | Set on `BulkRoute`.
@@ -223,7 +223,7 @@ public sealed record BulkDelta<TRow>(string Action, TRow? Deleted, TRow? Inserte
 }
 ```
 
-## [5]-[INTERCEPTOR_SPINE]
+## [05]-[INTERCEPTOR_SPINE]
 
 - Owner: `StoreFact` operational fact stream; `InterceptPolicy` delegate-row policy; `StoreInterceptor` single interception capsule; `StoreObservability` registration rows.
 - Entry: `public static Func<StoreFact, IO<ReceiptEnvelope>> Sink(ReceiptSinkPort port, JsonSerializerOptions wire, CorrelationId correlation)` — facts materialize as receipt envelopes at the sink edge, with the wire options arriving from the suite Strict merge.
@@ -337,7 +337,7 @@ flowchart LR
     Sink --> ReceiptSinkPort
 ```
 
-## [6]-[STANDING_QUERY]
+## [06]-[STANDING_QUERY]
 
 - Owner: `StandingQuery<TRow>` the registered continuous-query record; `WindowKind` the closed window SmartEnum; `WindowSpec`/`WindowBucket` the window vocabulary and bucket-assignment value; `SignedRow<TRow>`/`QueryDelta<TRow>` the signed-multiset incremental-view-maintenance delta carrier; `Watermark` the event-time progress mark; `StandingStepWire` the TS-projection window-bound wire row; `StandingQueries` the static surface owning the standing-query registration, the windowed fold, the signed-delta IVM application, the retraction-plus-restate, and the watermark/late-arrival policy.
 - Cases: `Tumbling | Sliding | Session` on `WindowKind`; a tumbling row lands in one floor-aligned bucket, a sliding row in `ceil(Size/Slide)` overlapping `Slide`-aligned buckets, a session row in a raw bucket the gap-merge fold coalesces by the inactivity `Gap`; a standing query is a registered `IQueryable`-shaped predicate plus a window plus a signed IVM fold so a new op-log row produces a delta-out without re-running the whole query.
@@ -462,7 +462,7 @@ public static class StandingQueries {
 }
 ```
 
-## [7]-[ARROW_PLANE]
+## [07]-[ARROW_PLANE]
 
 - Owner: `ArrowChunk` the borrowed columnar `ref struct` carrier over one DuckDB vector quantum; `ArrowSchema`/`ArrowColumn` the column-layout descriptor with the DuckDB-to-Arrow type fold; `ChunkSink` the ref-struct-safe per-quantum callback; `ArrowPlaneClr`/`ArrowPlane.ArrowTypeMap` the type folds; `ArrowPlane` the static surface owning the DuckDB vector-chunk zero-copy stream, the reverse table-function carrier registration, the Arrow-to-index ingest, and the Arrow-to-transport/GPU/export hand-off.
 - Cases: a carrier wraps one DuckDB vector chunk as a borrowed columnar `ref struct` so the same memory threads transport → DuckDB → index → GPU → export without a managed-array copy; the reverse direction threads a managed columnar sequence back into the engine as a queryable relation through the low-level `RegisterTableFunction`.
@@ -566,7 +566,7 @@ public static class ArrowPlane {
 }
 ```
 
-## [8]-[ARROW_EGRESS]
+## [08]-[ARROW_EGRESS]
 
 - Owner: `BatchSchema` the `ArrowSchema`-to-`Apache.Arrow.Schema` fold over the `ArrowTypeMap` rows; `BatchProjector` the `ArrowChunk`-to-`RecordBatch` materializer reusing the one carrier layout; `FlightDataset` the `FlightDescriptor`-keyed dataset address with its `FlightInfo` discovery payload; `StoreFlightServer` the `FlightServer` subclass owning `GetFlightInfo`/`GetSchema`/`DoGet`/`DoExchange`; `AdbcEgress` the `AdbcStatement` consumer contract folding `QueryResult.Stream` back to `RecordBatch`; `StoreFlightClient` the `FlightClient`-over-`GrpcChannel` puller; `ArrowEgress` the static surface owning the batch projection, the Flight serve fold, the standing-query push channel, and the ADBC pull.
 - Cases: a `DoGet` redeems one `FlightTicket` into a server-streamed `RecordBatch` sequence; a `DoExchange` threads the standing-query incremental batch stream over one full-duplex channel; an ADBC `ExecuteQuery` yields a `QueryResult` whose `IArrowArrayStream` re-reads the same batch schema — the dataset is `FlightDescriptor.CreateCommandDescriptor` over the canonical query bytes so an identical query addresses one dataset.
@@ -687,15 +687,15 @@ public static class ArrowEgress {
 }
 ```
 
-| [INDEX] | [VERB]       | [SURFACE]                                             | [LAW]                                                  |
-| :-----: | :----------- | :--------------------------------------------------- | :----------------------------------------------------- |
-|   [1]   | discovery    | `GetFlightInfo` over `FlightDescriptor` command      | one dataset per canonical query bytes                  |
-|   [2]   | server pull  | `DoGet` streams `RecordBatch` per carrier quantum    | zero-copy, one batch wide, no row materialization      |
-|   [3]   | standing push | `DoExchange` full-duplex incremental batch channel   | one channel for the windowed delta stream              |
-|   [4]   | client pull  | ADBC `ExecuteQuery` over `QueryResult.Stream`        | native-driver consumer reads the one carrier schema    |
-|   [5]   | fault lift   | `AdbcException` into `StoreFault` at one edge        | `AdbcStatusCode`/`SqlState` fold, never a per-call catch |
+| [INDEX] | [VERB]        | [SURFACE]                                          | [LAW]                                                    |
+| :-----: | :------------ | :------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | discovery     | `GetFlightInfo` over `FlightDescriptor` command    | one dataset per canonical query bytes                    |
+|  [02]   | server pull   | `DoGet` streams `RecordBatch` per carrier quantum  | zero-copy, one batch wide, no row materialization        |
+|  [03]   | standing push | `DoExchange` full-duplex incremental batch channel | one channel for the windowed delta stream                |
+|  [04]   | client pull   | ADBC `ExecuteQuery` over `QueryResult.Stream`      | native-driver consumer reads the one carrier schema      |
+|  [05]   | fault lift    | `AdbcException` into `StoreFault` at one edge      | `AdbcStatusCode`/`SqlState` fold, never a per-call catch |
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [STANDING_QUERY_IVM]: the incremental-view-maintenance delta-fold over the op-log changefeed for a windowed aggregate — whether a sliding-window count maintains by signed delta (add entering rows, subtract leaving rows) without re-scanning the window, and the late-arrival retraction-plus-restate emission against the watermark allowed-lateness on a live changefeed, beside the TimescaleDB continuous-aggregate server-side analogue.
 - [ARROW_ZERO_COPY]: the DuckDB.NET vector-chunk-reader buffer the `ArrowChunk` borrows zero-copy — the carrier binds the catalogued `IDuckDBDataReader`/`VectorDataReaderBase`/`DuckDBDataReader.UseStreamingMode` vector path with the lifetime tied to the reader `using` scope and the `ColumnInfo`/`CardinalityHint`/`IDuckDBDataWriter[]` reverse registration; the open native probe is whether the in-process chunk reader hands a raw column buffer span without a managed marshal step, and whether DuckDB.NET exposes the Apache Arrow C-data interface (`QueryArrow`/`arrow_scan`/`ArrowArrayStream`) as a faster bulk path than the per-row vector reader — the C-data members are NOT in `api-duckdb.md` and are a noted API-pass gap.

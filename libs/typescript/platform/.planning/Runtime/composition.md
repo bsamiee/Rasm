@@ -2,11 +2,11 @@
 
 One page owns the browser SPA composition root and the single boot entry — `CompositionRoot`, the one `Layer` graph providing the closed five app-services plus every platform-bound host owner and exposing the captured `Effect.runtime` snapshot the per-call interceptors resolve against, and `browser.ts`, the `./web` BROWSER publication entry that runs the fully-provided root boot effect through `BrowserRuntime.runMain` exactly once (teardown wired to the browser lifecycle, defects reported). The root composes the neutral `interchange` and `projection` domains, the `ui` library, the substrate owners, and the infrastructure owners — including the runtime-state spine (`AppLifecycle`, `CapabilityRank`, `Connectivity`) and the `worker/` decode pool — into one acyclic graph; it consumes the runtime feed through `projection` and authors no decode.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[COMPOSITION_ROOT]: the `Layer` graph, the one runtime, and the `./web` SPA boot entry.
+- [01]-[COMPOSITION_ROOT]: the `Layer` graph, the one runtime, and the `./web` SPA boot entry.
 
-## [2]-[COMPOSITION_ROOT]
+## [02]-[COMPOSITION_ROOT]
 
 - Owner: `CompositionRoot`, the one `Layer` graph and one `ManagedRuntime` over the closed five app-services, plus `browser.ts`, the single `./web` entry that boots the SPA.
 - Cases: `CompositionRoot` composes the `interchange` and `projection` neutral domains, the `ui` render and binding owners, the `runtime-config`/`identity-session`/`observability`/`local-persistence` substrate owners, the runtime-state spine (`AppLifecycle`, `CapabilityRank`, `Connectivity`) and the `worker/` `DecodeWorkerPool`, the five infrastructure owners (`AppRouter`, `ServiceWorkerHost`, `CrashTelemetry`, `RemoteConfig`, `PerformanceBudget`), and the `session-replay` `SessionRecorder` host owner into one acyclic `Layer` graph; `browser.ts` is the only module that runs the fully-provided root boot effect through `BrowserRuntime.runMain`, so the SPA carries one runtime, never a per-route or per-component runtime; the boot effect installs the crash handlers, registers the service worker and the native sync wake, starts the router, and arms the flag-gated sampled session recorder against the current subject key as the SPA's boot acts.

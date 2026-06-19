@@ -1,10 +1,10 @@
 # [ROOT_AGENTS]
 
-## [1]-[LOAD_ORDER]
+## [01]-[LOAD_ORDER]
 
 [REQUIRED]: Read and follow `CLAUDE.md` before this file.
 
-## [2]-[NAVIGATION]
+## [02]-[NAVIGATION]
 
 Use repository-native discovery before broad scans:
 - File discovery: `fd`.
@@ -15,7 +15,7 @@ Use repository-native discovery before broad scans:
 Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
 For declaration-order passes, preserve generated semantic/key bands; split grouped entries only when grouping obscures ownership, and keep compact generated rows when they are the clearer owner-local table.
 
-## [3]-[TRUST_AND_PRESERVATION]
+## [03]-[TRUST_AND_PRESERVATION]
 
 Skills are execution aids and mining input, not durable documentation authority. Promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays after current behavior is verified.
 
@@ -28,7 +28,7 @@ Before finalizing non-trivial repository work, classify observed agent mistakes 
 
 Quality cadence is gated at planned milestones, not after every edit. Do not run builds, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule.
 
-## [4]-[ENGINEERING_CONTRACT]
+## [04]-[ENGINEERING_CONTRACT]
 
 Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or tool README that owns the concern.
 
@@ -44,7 +44,7 @@ All tooling, tests, docs, and libraries discover owners through manifests, confi
 
 Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
 
-## [5]-[MONOREPO_TOPOLOGY]
+## [05]-[MONOREPO_TOPOLOGY]
 
 Rasm is a RhinoWIP, GH2, and product-neutral AEC/design-geometry workspace. Interpret library, tool, app, service, web, Python, TypeScript, and C# work through that domain frame before choosing shape: reusable capability lands in the deepest owner that can absorb it, while product shells bind intent, host edges, and output.
 
@@ -56,7 +56,7 @@ The C# package set follows the canonical strata — KERNEL, AEC-DOMAIN, APP-PLAT
 
 Host lifecycle remains outside libraries. Rhino launch, endpoint discovery, package staging, bridge doctor/check/verify/quit/redeploy, cargo, spool, scenario evidence, and host-bound runtime facts belong to `tools/rhino-bridge` and the Assay bridge/package rails that consume it.
 
-## [6]-[TOOL_OWNERS]
+## [06]-[TOOL_OWNERS]
 
 Assay command truth lives in `tools/assay/composition/registry.py`, result envelopes in `tools/assay/core/model.py`, and status projection in `tools/assay/core/status.py`. Do not infer commands from old aliases, stale plans, stderr habits, or direct tool muscle memory.
 
@@ -74,7 +74,7 @@ Bridge verification proof is `EvidenceCertificate` plus reviewed `ReferenceEvide
 
 Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through zero-arity Assay `provision` verbs and reads sanitized `ProvisionRun` evidence from `report.detail`; direct `forge-provision`, `forge-scientific-env`, direct database shells, cleanup, diagnostic JSON, Docker/Compose, port, and credential work are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
 
-## [7]-[DOCUMENTATION]
+## [07]-[DOCUMENTATION]
 
 Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`.
 

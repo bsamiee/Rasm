@@ -2,26 +2,26 @@
 
 Every visual output — interactive frame, thumbnail, chart, vector export, document page — is one row over one render capsule: a scene records once into an immutable `SKPicture` behind an op-budget gate, target kinds are rows over one frozen render-policy record, and what leaves the capsule is a value with its receipt, never a canvas or a live native. Text shapes before it rasters through one typography-role grid; vector, icon, and raster assets admit once into a frozen catalog whose failure modes are boot facts; a chart is a fold over a series-spec table whose evidence twin renders headless from the same values; and theme, typography, motion, locale, and iconography are five instantiations of one frozen token algebra — a total variant-by-density grid, one pure resolve fold, one atomic generation swap with a changed-key diff — so a literal paint, font, duration, or easing at a call site is the defect this page exists to delete. Growth lands as rows: a new target, role, asset class, series kind, or tokenized concern is one declaration inside an existing owner, never new pipeline code.
 
-## [1]-[VISUALS_CHOOSER]
+## [01]-[VISUALS_CHOOSER]
 
 This table routes a visual concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]           | [OWNER]                               | [REJECTED_FORM]             |
 | :-----: | :------------------ | :------------------------------------ | :-------------------------- |
-|   [1]   | output target       | target row over one render capsule    | bespoke pipeline per target |
-|   [2]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
-|   [3]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
-|   [4]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
-|   [5]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
-|   [6]   | font fallback       | frozen role × script grid             | host registry probe at draw |
-|   [7]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
-|   [8]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
-|   [9]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
+|   [01]   | output target       | target row over one render capsule    | bespoke pipeline per target |
+|   [02]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
+|   [03]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
+|   [04]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
+|   [05]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
+|   [06]   | font fallback       | frozen role × script grid             | host registry probe at draw |
+|   [07]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
+|   [08]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
+|   [09]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
 |  [10]   | chart               | series-spec table + headless twin     | per-chart code-behind       |
 |  [11]   | styling values      | one frozen token algebra              | call-site literals          |
 |  [12]   | color motion        | perceptual tween row                  | componentwise sRGB lerp     |
 
-## [2]-[RENDER_LAW]
+## [02]-[RENDER_LAW]
 
 [SCENE_AND_TARGETS]:
 - Law: a scene records once — `SKPictureRecorder.BeginRecording(cullRect, useRTree: true)` yields the immutable `SKPicture` every target replays, the R-tree making playback against a clip skip out-of-bounds ops — and `CullRect` is a contract, not a hint: content outside it may be elided, and layout reads it as the declared extent.
@@ -132,7 +132,7 @@ public static class DocumentExport {
 }
 ```
 
-## [3]-[TEXT_LAW]
+## [03]-[TEXT_LAW]
 
 [SHAPE_PIPELINE]:
 - Law: text shapes before it rasters — `SKShaper` is the typeface-bound convenience, the raw `Buffer` + `Font` + `Feature` surface the control altitude, and escalation is a row swap: the moment OpenType features, script pinning, or cluster policy matter, the pipeline drops to `Font.Shape(buffer, features)` with range-scoped feature values.
@@ -199,7 +199,7 @@ public static class ShapeBoundary {
 - Law: extension admission pairs with arm coverage as one checked policy, and `HtmlBlock`/`HtmlInline` are projection-policy rows — verbatim code, drop-with-receipt, or reject — because the render vocabulary has no raw-markup row.
 - Law: `LiteralInline.Content` slices travel zero-copy to the shaping boundary; `Markdown.ToPlainText` is the derived secondary projection, never a second parser, and the projection output freezes so a theme swap re-resolves roles without re-parsing while an edit re-projects without re-theming.
 
-## [4]-[ASSET_LAW]
+## [04]-[ASSET_LAW]
 
 [VECTOR_DOCUMENTS]:
 - Law: a vector asset admits once into one document owner — null from `Load`/`FromSvg` is the parse-failure sentinel projected to the rail at admission — and the retained `Picture` is the canonical artifact for every target row, its `CullRect` the recorded intrinsic bounds projected to `Option` for layout instead of rasterized measurements.
@@ -252,7 +252,7 @@ public static class VectorAssets {
 - Law: animated rasters are codec rows — `FrameCount`, `GetFrameInfo`, `RepetitionCount`, dependency-explicit `SKCodecOptions.FrameIndex`/`PriorFrame` — and the codec never owns a timer: the motion pump schedules the frame table, so animated rasters ride the same reduced-motion and frame-ceiling policy as every moving surface.
 - Reject: eager whole-image `SKBitmap.Decode`; loader-local retry loops — the outbound hop already has one retry owner; tier clearing as invalidation — invalidation is an identity comparison, clearing an operational action.
 
-## [5]-[CHART_LAW]
+## [05]-[CHART_LAW]
 
 [SERIES_TABLE]:
 - Law: a chart is a fold over three data inputs — series-spec table, window artifacts, resolved tokens — so chart state is diffable, snapshotable, and headless-renderable by construction, and a chart that cannot be reproduced from the three has leaked imperative state.
@@ -301,7 +301,7 @@ public static class ChartEvidence {
 - Law: live and evidence charts ride the disable row — `LiveCharts.DisableAnimations`, the one-millisecond sentinel, because `TimeSpan.Zero` does not disable transitions — and streaming axis limits are pinned or hysteresis-banded in the stream fold, so the frame-to-frame diff is data motion, never scale motion.
 - Law: `SyncContext` is the chart-side declaration of the marshaled-input guarantee; window artifacts are value snapshots — a saved window plus its spec plus the catalog generation re-renders bit-identical evidence, so live-chart forensics is replay of values, never reproduction of timing.
 
-## [6]-[TOKEN_ALGEBRA]
+## [06]-[TOKEN_ALGEBRA]
 
 [MASTER_SHAPE]:
 - Law: five concerns — theme paints, typography roles, motion rows, locale rows, icon rows — are one algebra differing only in row payload: a frozen total (role × variant × density) grid, one pure resolve fold to an immutable resolved-artifact record, one atomic swap publishing (generation, changed keys, causing axis); a sixth tokenized concern is one new instantiation with zero new mechanism.
@@ -343,7 +343,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
 }
 ```
 
-## [7]-[MOTION_AND_COLOR]
+## [07]-[MOTION_AND_COLOR]
 
 [MOTION_ROWS]:
 - Law: a motion token is a (duration, easing) row in the same frozen algebra — easing payloads are pure unit-interval functions, property-checked at freeze: monotone where declared, endpoint-exact, bounded overshoot — and one easing vocabulary serves charts and visual motion alike, so two easing tables in one system is the rejected form.

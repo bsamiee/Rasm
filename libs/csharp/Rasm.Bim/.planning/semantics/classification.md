@@ -2,12 +2,12 @@
 
 The standard-systems classification axis bound to the live buildingSMART Data Dictionary (bSDD): one `Classification` keyed vocabulary, one `ClassificationCode` value-object, and the `ClassificationRef` binding round-tripped through `IfcRelAssociatesClassification`/`IfcClassificationReference`. Each system row resolves a bSDD dictionary URI rather than only a hardcoded code-shape table, so a new standard is one dictionary-URI row and the bSDD class-to-property mapping feeds the `Semantics/properties#PROPERTY_SETS` owner directly.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CLASSIFICATION_AXIS]: `Classification` keyed systems axis, `ClassificationCode` value-object, `ClassificationRef` binding, and the local code-shape policy.
-- [2]-[BSDD_RESOLUTION]: the live bSDD dictionary class/property resolution over Compute's transport, degrading to the row's local code-shape policy.
+- [01]-[CLASSIFICATION_AXIS]: `Classification` keyed systems axis, `ClassificationCode` value-object, `ClassificationRef` binding, and the local code-shape policy.
+- [02]-[BSDD_RESOLUTION]: the live bSDD dictionary class/property resolution over Compute's transport, degrading to the row's local code-shape policy.
 
-## [2]-[CLASSIFICATION_AXIS]
+## [02]-[CLASSIFICATION_AXIS]
 
 - Owner: `Classification` `[SmartEnum<string>]` the standard classification-systems axis keyed on the system identifier, each row carrying the system title, the bSDD dictionary URI, and the code-shape policy; `ClassificationCode` the `[ValueObject<string>]` code-within-a-system carrying its parent-code derivation; `ClassificationRef` the binding record tying a `ClassificationCode` to a `BimElement` GlobalId, projected from and round-tripped through `IfcRelAssociatesClassification`/`IfcClassificationReference`.
 - Entry: `Classification.Classify(BimElement element, Classification system, string code)` validates the code against the system's code shape and resolves it against the bSDD dictionary, then binds it to the element — `Fin<T>` aborts on a code-shape mismatch (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or an unresolved dictionary class (`BimFault.CodecReject` on a service-unreachable degrade), each lowered with `.ToError()`; classification projection from the `IfcSemanticModel` reads `IfcRelAssociatesClassification` at ingest.
@@ -48,7 +48,7 @@ public sealed partial class Classification {
 public sealed record ClassificationRef(string ElementGlobalId, Classification System, ClassificationCode Code, string DictionaryClassUri);
 ```
 
-## [3]-[BSDD_RESOLUTION]
+## [03]-[BSDD_RESOLUTION]
 
 - Owner: `BsddResolution` the live bSDD dictionary class/property resolution over Compute's transport, keyed on the `Classification.DictionaryUri` and the code, degrading to the row's local code-shape policy when the service is unreachable so ingest never blocks on the dictionary.
 - Entry: `BsddResolution.Resolve(Classification system, ClassificationCode code, BsddPort port)` resolves the dictionary class shape and the bSDD class-to-property mapping over Compute's transport — `Fin<T>` returns the resolved `BsddClass` evidence on a live hit, and on a service-unreachable miss degrades to the row's local code-shape policy validating the code shape in-process (never a fault on degradation, the local policy is the fallback) so `Classification.Classify` composes the resolution after the local `ClassificationCode.TryCreate` admission; a malformed published-class shape the dictionary returns routes `Model/faults#FAULT_BAND` `BimFault.CodecReject` lowered with `.ToError()`.
@@ -88,7 +88,7 @@ public static class BsddResolution {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [BSDD_SERVICE_CONTRACT]: the bSDD RESTful dictionary class/property lookup response shape is GROUNDED against the published buildingSMART bSDD API contract — the `GET /api/Class/v1` resource returns the `BsddClassResponse` (`Code`/`Name`/`ClassType`/`Uri`/`Definition` plus the `ClassProperties` array), each `ClassProperty` carrying `Code`/`Name`/`PropertyCode`/`DataType`/`PropertySet`/`PredefinedValue`/`IsRequired` (the `ClassType` constrained to `Class`/`Material`/`GroupOfProperties`/`AlternativeUse`, the `PropertySet` naming the IFC Pset placement), the `GET /api/Dictionary/v1` resource enumerating available dictionaries, and `GET /api/SearchInDictionary/v1` the class search — so the `BsddPort.Fetch` response projection into `BsddClass` via `BsddClass.Of` matches the real wire members. The LIVE-WIRE leg (the in-process transport that issues the request and streams the response) stays gated on the `csharp:Compute/Runtime/channels#TRANSPORT_AXIS` transport alignment — the `BsddPort` transport binding rides the injected Compute transport at the composition edge, never a transport minted here — and the in-process degradation to the row's local code-shape policy (`LocalShape`) is the verified settled present-tense fallback so ingest never blocks on the unreachable service.
 - [CLASSIFICATION_ROUNDTRIP]: the `IfcRelAssociatesClassification`/`IfcClassificationReference` round-trip member spellings confirm against the GeometryGym entity surface so a classified element re-authors its classification association on export; the import-side extract reads `RelatedObjects`, `RelatingClassification`, `ReferencedSource`, `Identification`, and `Location`, whose spellings confirm against the GeometryGym `IfcClassificationReference`/`IfcExternalReference` surface before the `Exchange/import#IMPORT_RAIL` `ClassificationRow` projection is final.

@@ -2,7 +2,7 @@
 
 `ifcopenshell` supplies the IFC model and tessellation surface for the geometry ifc rail: an in-memory `file` model, an `entity_instance` wrapper, the `open` polymorphic reader across SPF/sqlite/streamed backends, and the `geom` tessellation daemon that drives IFC parse, query, mutation, and IFC-to-mesh/GLB conversion through OpenCASCADE or CGAL kernels with property, quantity, and relationship analysis. The package owner composes `ifcopenshell.open`, `file.by_type`, and `geom.iterate` into the ifc owner; it never re-implements STEP parsing or BREP tessellation ifcopenshell already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifcopenshell`
 - package: `ifcopenshell`
@@ -13,32 +13,32 @@
 - entry points: none (library only)
 - capability: IFC2X3/IFC4/IFC4X3 read/write, entity creation and mutation, transactional undo/redo, GUID encode/decode, schema introspection, OpenCASCADE/CGAL tessellation to verts/faces/materials, parallel whole-model meshing, GLB/OBJ/XML serialization, and selector-grammar element queries
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model and entity roots
 - rail: ifc
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE] | [CAPABILITY]                                           |
 | :-----: | :---------------------- | :------------- | :----------------------------------------------------- |
-|   [1]   | `file`                  | model root     | in-memory IFC model with query, mutation, transactions |
-|   [2]   | `entity_instance`       | entity wrapper | attribute/inverse access for one IFC instance          |
-|   [3]   | `sqlite`                | model backend  | sqlite-backed IFC model for large files                |
-|   [4]   | `stream`                | model backend  | streamed SPF model with lazy instance access           |
-|   [5]   | `Error` / `SchemaError` | fault          | parse and schema-resolution failures                   |
+|  [01]   | `file`                  | model root     | in-memory IFC model with query, mutation, transactions |
+|  [02]   | `entity_instance`       | entity wrapper | attribute/inverse access for one IFC instance          |
+|  [03]   | `sqlite`                | model backend  | sqlite-backed IFC model for large files                |
+|  [04]   | `stream`                | model backend  | streamed SPF model with lazy instance access           |
+|  [05]   | `Error` / `SchemaError` | fault          | parse and schema-resolution failures                   |
 
 [PUBLIC_TYPE_SCOPE]: tessellation types (`ifcopenshell.geom`)
 - rail: ifc
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]     | [CAPABILITY]                                     |
 | :-----: | :------------------------- | :----------------- | :----------------------------------------------- |
-|   [1]   | `geom.settings`            | tessellation knobs | deflection/units/UV/output mode knob bag         |
-|   [2]   | `geom.serializer_settings` | serializer knobs   | GLB/OBJ/XML serializer configuration             |
-|   [3]   | `geom.iterator`            | mesh daemon        | multi-threaded whole-model tessellation iterator |
-|   [4]   | `geom.tree`                | spatial index      | bounding-box/clash spatial query tree            |
-|   [5]   | `geom.ShapeElementType`    | shape result       | per-element verts/faces/normals/materials        |
-|   [6]   | `geom.serializers`         | serializer set     | GLB/OBJ/XML/SVG mesh serializers                 |
+|  [01]   | `geom.settings`            | tessellation knobs | deflection/units/UV/output mode knob bag         |
+|  [02]   | `geom.serializer_settings` | serializer knobs   | GLB/OBJ/XML serializer configuration             |
+|  [03]   | `geom.iterator`            | mesh daemon        | multi-threaded whole-model tessellation iterator |
+|  [04]   | `geom.tree`                | spatial index      | bounding-box/clash spatial query tree            |
+|  [05]   | `geom.ShapeElementType`    | shape result       | per-element verts/faces/normals/materials        |
+|  [06]   | `geom.serializers`         | serializer set     | GLB/OBJ/XML/SVG mesh serializers                 |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model open, query, and mutate
 - rail: ifc
@@ -47,15 +47,15 @@
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                   | [CAPABILITY]                        |
 | :-----: | :------------------------------ | :----------------------------- | :---------------------------------- |
-|   [1]   | `ifcopenshell.open`             | path plus format/stream policy | open SPF/sqlite/streamed model      |
-|   [2]   | `ifcopenshell.create_entity`    | type plus schema plus attrs    | construct a standalone entity       |
-|   [3]   | `ifcopenshell.schema_by_name`   | schema name or version         | resolve a schema definition         |
-|   [4]   | `ifcopenshell.guess_format`     | path                           | detect IFC backend format           |
-|   [5]   | `file.by_type`                  | type string                    | all instances of an entity type     |
-|   [6]   | `file.by_id`                    | step id or GUID                | one instance by id or GUID          |
-|   [7]   | `file.create_entity`            | type plus attributes           | add a new entity to the model       |
-|   [8]   | `file.add`                      | entity plus copy policy        | insert an entity (cross-model copy) |
-|   [9]   | `file.remove`                   | entity                         | delete an entity                    |
+|  [01]   | `ifcopenshell.open`             | path plus format/stream policy | open SPF/sqlite/streamed model      |
+|  [02]   | `ifcopenshell.create_entity`    | type plus schema plus attrs    | construct a standalone entity       |
+|  [03]   | `ifcopenshell.schema_by_name`   | schema name or version         | resolve a schema definition         |
+|  [04]   | `ifcopenshell.guess_format`     | path                           | detect IFC backend format           |
+|  [05]   | `file.by_type`                  | type string                    | all instances of an entity type     |
+|  [06]   | `file.by_id`                    | step id or GUID                | one instance by id or GUID          |
+|  [07]   | `file.create_entity`            | type plus attributes           | add a new entity to the model       |
+|  [08]   | `file.add`                      | entity plus copy policy        | insert an entity (cross-model copy) |
+|  [09]   | `file.remove`                   | entity                         | delete an entity                    |
 |  [10]   | `file.traverse`                 | entity plus depth              | dependent-entity graph walk         |
 |  [11]   | `file.get_inverse`              | entity                         | inverse-referencing instances       |
 |  [12]   | `file.begin_transaction`        | none                           | start an undoable edit batch        |
@@ -69,19 +69,19 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 
 | [INDEX] | [SURFACE]                        | [CALL_SHAPE]                       | [CAPABILITY]                     |
 | :-----: | :------------------------------- | :--------------------------------- | :------------------------------- |
-|   [1]   | `geom.create_shape`              | settings plus instance plus kernel | per-element tessellation         |
-|   [2]   | `geom.iterate`                   | settings plus model plus threads   | lazy whole-model mesh generator  |
-|   [3]   | `geom.iterator`                  | settings plus model plus threads   | reusable mesh iterator object    |
-|   [4]   | `geom.serialise`                 | schema plus shape string           | serialize geometry to a format   |
-|   [5]   | `geom.tree`                      | model plus settings                | build a spatial/clash query tree |
-|   [6]   | `util.element.get_psets`         | element                            | property and quantity sets       |
-|   [7]   | `util.element.get_container`     | element                            | spatial container of an element  |
-|   [8]   | `util.element.get_decomposition` | element                            | aggregated and contained parts   |
-|   [9]   | `api.run`                        | usecase plus model plus arguments  | high-level model mutation verb   |
+|  [01]   | `geom.create_shape`              | settings plus instance plus kernel | per-element tessellation         |
+|  [02]   | `geom.iterate`                   | settings plus model plus threads   | lazy whole-model mesh generator  |
+|  [03]   | `geom.iterator`                  | settings plus model plus threads   | reusable mesh iterator object    |
+|  [04]   | `geom.serialise`                 | schema plus shape string           | serialize geometry to a format   |
+|  [05]   | `geom.tree`                      | model plus settings                | build a spatial/clash query tree |
+|  [06]   | `util.element.get_psets`         | element                            | property and quantity sets       |
+|  [07]   | `util.element.get_container`     | element                            | spatial container of an element  |
+|  [08]   | `util.element.get_decomposition` | element                            | aggregated and contained parts   |
+|  [09]   | `api.run`                        | usecase plus model plus arguments  | high-level model mutation verb   |
 |  [10]   | `guid.new` / `guid.compress`     | none or expanded GUID              | IFC GUID mint and encode/decode  |
 |  [11]   | `validate.validate`              | model plus logger                  | schema-conformance validation    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IFC_TESSELLATION]:
 - import: `import ifcopenshell` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -92,7 +92,7 @@ Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRAR
 - evidence: each model op captures schema version, instance count, edited-entity count, and each tessellation captures element count, vertex count, face count, and kernel as an ifc receipt.
 - boundary: ifcopenshell owns IFC parse and tessellation; mesh post-processing routes to `trimesh`, point clouds to `open3d`, glTF authoring to the artifacts owner; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `ifcopenshell`

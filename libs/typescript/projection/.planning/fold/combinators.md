@@ -2,11 +2,11 @@
 
 The two fold combinators every store rests on: `foldStream`, the scalar accumulator that reduces a `Stream` into one `SubscriptionRef<S>` under a `step` arm, and `keyedFold`, the keyed-map specialization that discriminates each event by the verbatim wire key and merges it into its slot. Every feed, the window engine, and the convergence fold compose one of these two — keyed maps through `keyedFold`, the single-accumulator convergence state through `foldStream` directly — never a parallel store implementation. Both pipe the source through `policy#STREAM_POLICY` `withPolicy`, so the bounded reconnect, buffer, throttle, and batch land identically and the make-fork-update scaffold exists once.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[KEYED_FOLD]: Owns `foldStream`, the scalar fold primitive, and `keyedFold`, the keyed-map combinator built on it.
+- [01]-[KEYED_FOLD]: Owns `foldStream`, the scalar fold primitive, and `keyedFold`, the keyed-map combinator built on it.
 
-## [2]-[KEYED_FOLD]
+## [02]-[KEYED_FOLD]
 
 - Owner: `foldStream`, the scalar primitive that pipes a `Stream<In>` through `withPolicy`, reduces it into a `SubscriptionRef<S>` under a `step` arm, and forks into the enclosing `Scope`; `keyedFold`, the keyed-map specialization carrying a `key` discriminator and a slot `merge` over one persistent `HashMap`. Every fold elsewhere in the folder is one application of one of the two; the variation is the state type, the step or merge arm, and the wire union folded.
 - Packages: `effect` for `Stream`, `SubscriptionRef`, `Effect`, `Option`, `HashMap`, and `Scope`.

@@ -2,11 +2,11 @@
 
 One page owns the single typed-config boundary — `RuntimeConfig`, one `effect` `Config` schema and one `ConfigProvider` layer over the browser env snapshot, the only surface past which a scattered `import.meta.env` read is the named defect. Every host owner reads its endpoints through this one owner; a missing or malformed key surfaces as a typed `ConfigError` at the read, never an unchecked `unknown` leaking past the boundary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RUNTIME_CONFIG]: the one `Config` schema and the one `ConfigProvider` boundary.
+- [01]-[RUNTIME_CONFIG]: the one `Config` schema and the one `ConfigProvider` boundary.
 
-## [2]-[RUNTIME_CONFIG]
+## [02]-[RUNTIME_CONFIG]
 
 - Owner: `RuntimeConfig`, the one typed `Config` schema and one `ConfigProvider` layer making the single-domain-config-value claim real.
 - Cases: configuration enters as one domain value at the root through `RuntimeConfig`, never scattered flag reads; every config read is a typed `Config` access against the one schema and a scattered `import.meta.env` flag read is the deleted form; `AuthSession` (the OIDC authority/client-id/redirect-uri), `SocketTransport` (`socketUrl`), `WireTransport`, `SelfTelemetry`, `RemoteConfig`, `CrashTelemetry`, and `ServiceWorkerHost` all read their endpoints through this one owner, never a direct environment read.

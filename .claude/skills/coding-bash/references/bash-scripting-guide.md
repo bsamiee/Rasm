@@ -2,7 +2,7 @@
 
 Bash 5.2+/5.3 language reference. Strict mode, parameter expansion, arrays, data structures, namerefs, arithmetic, builtin performance.
 
-## [1]-[STRICT_MODE]
+## [01]-[STRICT_MODE]
 
 ```bash
 #!/usr/bin/env bash
@@ -13,29 +13,29 @@ IFS=$'\n\t'
 
 | [IDX] | [FLAG]            | [MECHANISM]                                                                           |
 | :---: | :---------------- | :------------------------------------------------------------------------------------ |
-|  [1]  | `set -e`          | Exit on non-zero — IGNORED inside `&&`/`\|\|`, arithmetic, negation                   |
-|  [2]  | `set -E`          | Propagate ERR trap into functions/subshells — without it, `-e` exits WITHOUT trapping |
-|  [3]  | `set -u`          | Unset var is fatal — `${arr[@]}` on empty array fails (use nullglob)                  |
-|  [4]  | `set -o pipefail` | Pipeline returns rightmost non-zero — `false \| true` returns 0 without it            |
-|  [5]  | `inherit_errexit` | `-e` propagates INTO `$()` — `x=$(false; printf 'ran')` assigns silently without it   |
-|  [6]  | `extglob`         | `+(pat)`, `?(pat)`, `!(pat)`, `@(pat)` — required for `${var%%+([[:space:]])}`        |
-|  [7]  | `nullglob`        | Unmatched glob → empty (not literal) — prevents iterating `*.xyz` as string           |
+| [01]  | `set -e`          | Exit on non-zero — IGNORED inside `&&`/`\|\|`, arithmetic, negation                   |
+| [02]  | `set -E`          | Propagate ERR trap into functions/subshells — without it, `-e` exits WITHOUT trapping |
+| [03]  | `set -u`          | Unset var is fatal — `${arr[@]}` on empty array fails (use nullglob)                  |
+| [04]  | `set -o pipefail` | Pipeline returns rightmost non-zero — `false \| true` returns 0 without it            |
+| [05]  | `inherit_errexit` | `-e` propagates INTO `$()` — `x=$(false; printf 'ran')` assigns silently without it   |
+| [06]  | `extglob`         | `+(pat)`, `?(pat)`, `!(pat)`, `@(pat)` — required for `${var%%+([[:space:]])}`        |
+| [07]  | `nullglob`        | Unmatched glob → empty (not literal) — prevents iterating `*.xyz` as string           |
 
 `set -E` vs `set -e`: `-e` kills the script but `-E` ensures the ERR trap fires first for stack trace context. Without `-E`, function failures bypass the trap — silent exit, no diagnostics. `inherit_errexit` closes the `$()` loophole: `local -r x="$(failing_cmd)"` silently succeeds without it because subshells do NOT inherit `-e` by default.
 
-## [2]-[BASH_5_2_5_3]
+## [02]-[BASH_5_2_5_3]
 
 | [IDX] | [FEATURE]         | [SYNTAX]                         | [PURPOSE]                                    |
 | :---: | :---------------- | :------------------------------- | :------------------------------------------- |
-|  [1]  | Case transform    | `${var@U}` `${var@u}` `${var@L}` | Upper/ucfirst/lower (replaces `tr`)          |
-|  [2]  | EPOCHSECONDS      | `${EPOCHSECONDS}`                | Integer epoch (replaces `$(date +%s)`)       |
-|  [3]  | EPOCHREALTIME     | `${EPOCHREALTIME}`               | Microsecond epoch (elapsed-time diffs)       |
-|  [4]  | SRANDOM           | `${SRANDOM}`                     | 32-bit cryptographic random (getentropy)     |
-|  [5]  | `wait -f`         | `wait -f PID`                    | Wait even without job control (5.2+)         |
-|  [6]  | Dynamic FDs       | `exec {fd}>file`                 | Kernel-assigned descriptor (no hardcoded 3)  |
-|  [7]  | Fork-free sub     | `${ cmd; }`                      | Stdout capture without fork (5.3)            |
-|  [8]  | REPLY sub         | `${\| cmd; }`                    | Current shell, result via REPLY (5.3)        |
-|  [9]  | GLOBSORT          | `GLOBSORT=name`                  | Glob sort by name/size/mtime/nosort (5.3)    |
+| [01]  | Case transform    | `${var@U}` `${var@u}` `${var@L}` | Upper/ucfirst/lower (replaces `tr`)          |
+| [02]  | EPOCHSECONDS      | `${EPOCHSECONDS}`                | Integer epoch (replaces `$(date +%s)`)       |
+| [03]  | EPOCHREALTIME     | `${EPOCHREALTIME}`               | Microsecond epoch (elapsed-time diffs)       |
+| [04]  | SRANDOM           | `${SRANDOM}`                     | 32-bit cryptographic random (getentropy)     |
+| [05]  | `wait -f`         | `wait -f PID`                    | Wait even without job control (5.2+)         |
+| [06]  | Dynamic FDs       | `exec {fd}>file`                 | Kernel-assigned descriptor (no hardcoded 3)  |
+| [07]  | Fork-free sub     | `${ cmd; }`                      | Stdout capture without fork (5.3)            |
+| [08]  | REPLY sub         | `${\| cmd; }`                    | Current shell, result via REPLY (5.3)        |
+| [09]  | GLOBSORT          | `GLOBSORT=name`                  | Glob sort by name/size/mtime/nosort (5.3)    |
 | [10]  | BASH_MONOSECONDS  | `${BASH_MONOSECONDS}`            | Monotonic seconds — immune to NTP/clock skew |
 | [11]  | array_expand_once | `shopt -s array_expand_once`     | `${arr[@]}` expands once, not recursively    |
 | [12]  | lastpipe          | `shopt -s lastpipe`              | Pipeline-final cmd runs in current shell     |
@@ -58,7 +58,7 @@ shopt -s lastpipe
 command | mapfile -t arr       # arr is in calling scope, not lost to subshell
 ```
 
-## [3]-[PARAMETER_EXPANSION]
+## [03]-[PARAMETER_EXPANSION]
 
 ```bash
 # --- defaults and guards ---
@@ -105,15 +105,15 @@ printf '%s\n' "${files[@]/#/backup/}"              # Prefix: backup/a.log ...
 printf '%s\n' "${files[@]/%.log/.bak}"             # Suffix swap: a.bak ...
 ```
 
-## [4]-[BRANCHING]
+## [04]-[BRANCHING]
 
 | [IDX] | [PATTERN]                                     | [STYLE]                   |
 | :---: | :-------------------------------------------- | :------------------------ |
-|  [1]  | `${var:-default}` `${var:+alt}` `${var:?err}` | Parameter expansion       |
-|  [2]  | `(( count > 0 )) && action`                   | Arithmetic guard          |
-|  [3]  | `[[ "$var" == pat ]] && action \|\| other`    | Pattern guard             |
-|  [4]  | `case/esac`                                   | Multi-branch pattern only |
-|  [5]  | `declare -Ar TABLE=(...); "${TABLE[$k]}"`     | O(1) dispatch table       |
+| [01]  | `${var:-default}` `${var:+alt}` `${var:?err}` | Parameter expansion       |
+| [02]  | `(( count > 0 )) && action`                   | Arithmetic guard          |
+| [03]  | `[[ "$var" == pat ]] && action \|\| other`    | Pattern guard             |
+| [04]  | `case/esac`                                   | Multi-branch pattern only |
+| [05]  | `declare -Ar TABLE=(...); "${TABLE[$k]}"`     | O(1) dispatch table       |
 
 ```bash
 # case/esac: ONLY for pattern matching (globs, extglobs, regex)
@@ -125,7 +125,7 @@ esac
 # Dispatch table and arithmetic examples: see [7][DATA_STRUCTURES] and [8][ARITHMETIC]
 ```
 
-## [5]-[VARIABLES_AND_ARRAYS]
+## [05]-[VARIABLES_AND_ARRAYS]
 
 ```bash
 readonly MAX_RETRIES=3                              # Module-level: UPPER, readonly
@@ -176,7 +176,7 @@ exec {fd}>&-                                        # Release FD
 
 **Controlled global mutation** — `declare -g` is the single escape hatch. Use exclusively for config loading; validate key names against `^[A-Za-z_][A-Za-z_0-9]*$` before `declare -g "${key}=${value}"`.
 
-## [6]-[NAMEREFS]
+## [06]-[NAMEREFS]
 
 ```bash
 # Return scalar via nameref (zero-fork alternative to $(subshell))
@@ -208,7 +208,7 @@ _reduce() {
 - **Array constraint**: `local -na` is invalid. Namerefs CAN reference arrays (`local -n _arr=my_array; ${_arr[@]}`), but cannot be declared as arrays.
 - **Scope**: Namerefs resolve at the call site's scope, not the declaration site — this is why they work for returning values up the call stack.
 
-## [7]-[DATA_STRUCTURES]
+## [07]-[DATA_STRUCTURES]
 
 ```bash
 # Dispatch table: see [4][BRANCHING] for full pattern
@@ -246,7 +246,7 @@ _queue+=("value")                                    # Enqueue
 local -r front="${_queue[_q_head]}"; (( _q_head++ )) # Dequeue
 ```
 
-## [8]-[ARITHMETIC]
+## [08]-[ARITHMETIC]
 
 ```bash
 # Ternary assignment
@@ -272,19 +272,19 @@ local -r t1="${EPOCHREALTIME}"
 local -r us=$(( (${t1%.*} - ${t0%.*}) * 1000000 + 10#${t1#*.} - 10#${t0#*.} ))
 ```
 
-## [9]-[BUILTIN_PERFORMANCE]
+## [09]-[BUILTIN_PERFORMANCE]
 
 | [IDX] | [NEED]          | [EXTERNAL_FORK]              | [BASH_NATIVE_ZERO_FORK]                            |
 | :---: | :-------------- | :--------------------------- | :------------------------------------------------- |
-|  [1]  | Field extract   | `printf \| rg -oP`           | `[[ "$v" =~ pat ]] && ${BASH_REMATCH[1]}`          |
-|  [2]  | Split delimiter | `printf \| cut -d,`          | `IFS=, read -ra parts <<< "$v"`                    |
-|  [3]  | Membership      | `printf \| rg -Fxq`          | `declare -Ar SET=([k]=1); [[ -v SET["$v"] ]]`      |
-|  [4]  | Dispatch        | case chain                   | `declare -Ar MAP=([a]=fn_a); "${MAP[$v]}"`         |
-|  [5]  | Array from cmd  | `while read; arr+=(); done`  | `mapfile -t arr < <(cmd)`                          |
-|  [6]  | Dedup           | `sort -u`                    | `declare -A seen; [[ -v seen["$k"] ]] && continue` |
-|  [7]  | Timestamp       | `ts=$(date '+%F %T')`        | `printf -v ts '%(%F %T)T' -1`                      |
-|  [8]  | Epoch           | `date +%s`                   | `${EPOCHSECONDS}`                                  |
-|  [9]  | Elapsed us      | `date +%s` before/after      | `${EPOCHREALTIME}` diff                            |
+| [01]  | Field extract   | `printf \| rg -oP`           | `[[ "$v" =~ pat ]] && ${BASH_REMATCH[1]}`          |
+| [02]  | Split delimiter | `printf \| cut -d,`          | `IFS=, read -ra parts <<< "$v"`                    |
+| [03]  | Membership      | `printf \| rg -Fxq`          | `declare -Ar SET=([k]=1); [[ -v SET["$v"] ]]`      |
+| [04]  | Dispatch        | case chain                   | `declare -Ar MAP=([a]=fn_a); "${MAP[$v]}"`         |
+| [05]  | Array from cmd  | `while read; arr+=(); done`  | `mapfile -t arr < <(cmd)`                          |
+| [06]  | Dedup           | `sort -u`                    | `declare -A seen; [[ -v seen["$k"] ]] && continue` |
+| [07]  | Timestamp       | `ts=$(date '+%F %T')`        | `printf -v ts '%(%F %T)T' -1`                      |
+| [08]  | Epoch           | `date +%s`                   | `${EPOCHSECONDS}`                                  |
+| [09]  | Elapsed us      | `date +%s` before/after      | `${EPOCHREALTIME}` diff                            |
 | [10]  | File read       | `data=$(cat file)`           | `data=$(<file)`                                    |
 | [11]  | Pipe avoidance  | `echo "$x" \| cmd`           | `cmd <<< "${x}"`                                   |
 | [12]  | Locale bypass   | --                           | `LC_ALL=C rg 'pattern' file`                       |

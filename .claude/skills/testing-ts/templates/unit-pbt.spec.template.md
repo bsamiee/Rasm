@@ -51,19 +51,19 @@ layer(${LAYER_NAME})('${SUITE_NAME}', (it) => {
 });
 ```
 
-## [1]-[PLACEHOLDER_REFERENCE]
+## [01]-[PLACEHOLDER_REFERENCE]
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                |
 | :-----: | ---------------------- | ---------------------------------------- |
-|   [1]   | `MODULE_NAME`          | `Crypto`, `Diff`, `Transfer`             |
-|   [2]   | `BRIEF_DESCRIPTION`    | `encryption, hashing, key derivation`    |
-|   [3]   | `SOURCE_IMPORTS`       | `Crypto`, `{ Diff, DiffError }`          |
-|   [4]   | `SOURCE_PATH`          | `security/crypto`, `utils/diff`          |
-|   [5]   | `EFFECT_IMPORTS`       | `Effect, FastCheck as fc, Layer`         |
-|   [6]   | `STATIC_CONSTANTS`     | `const CIPHER = { ... } as const;`       |
-|   [7]   | `ARBITRARIES`          | `const _text = fc.string({ ... });`      |
-|   [8]   | `LAYER_COMPOSITION`    | `const _testLayer = Svc.Default.pipe(…)` |
-|   [9]   | `LAYER_NAME`           | `_testLayer`                             |
+|   [01]   | `MODULE_NAME`          | `Crypto`, `Diff`, `Transfer`             |
+|   [02]   | `BRIEF_DESCRIPTION`    | `encryption, hashing, key derivation`    |
+|   [03]   | `SOURCE_IMPORTS`       | `Crypto`, `{ Diff, DiffError }`          |
+|   [04]   | `SOURCE_PATH`          | `security/crypto`, `utils/diff`          |
+|   [05]   | `EFFECT_IMPORTS`       | `Effect, FastCheck as fc, Layer`         |
+|   [06]   | `STATIC_CONSTANTS`     | `const CIPHER = { ... } as const;`       |
+|   [07]   | `ARBITRARIES`          | `const _text = fc.string({ ... });`      |
+|   [08]   | `LAYER_COMPOSITION`    | `const _testLayer = Svc.Default.pipe(…)` |
+|   [09]   | `LAYER_NAME`           | `_testLayer`                             |
 |  [10]   | `SUITE_NAME`           | `'Crypto'`, `'Diff'`                     |
 |  [11]   | `PROPERTY_ID`          | `P1`, `P7`                               |
 |  [12]   | `LAW_NAME`             | `inverse + nondeterminism`               |

@@ -6,7 +6,7 @@
 EF Core persistence aligned with LanguageExt. Patterns below target bootstrap and host projects.
 
 ---
-## [1]-[DBCONTEXT_AS_EFFECT]
+## [01]-[DBCONTEXT_AS_EFFECT]
 >**Dictum:** *The database is an effect; DbContext belongs in the Eff shell.*
 
 <br>
@@ -79,7 +79,7 @@ public static class OrderPersistence {
 [IMPORTANT]: Runtime is a plain `sealed record` -- no interface indirection. `CancellationToken` lives on the runtime so `Eff` pipelines resolve it implicitly via `ResolveToken` (see `concurrency.md` [4] -- token threading). `IO.liftAsync` keeps `async`/`await` inside the `IO` boundary. `MigrateAsync` is idempotent -- schema rollback is always a new forward migration; `Down()` is unreliable in production. `EnableRetryOnFailure` handles transient PostgreSQL errors (connection drops, deadlocks) with exponential backoff.
 
 ---
-## [2]-[QUERY_COMPOSITION]
+## [02]-[QUERY_COMPOSITION]
 >**Dictum:** *Queries compose as expressions; materialization happens at boundaries.*
 
 <br>
@@ -182,7 +182,7 @@ public static class ViewRefresh {
 [CRITICAL]: Keyset pagination fetches `pageSize + 1` rows to determine `hasNext` without a COUNT query -- COUNT on large tables forces a sequential scan in PostgreSQL. Expression trees execute server-side; `.Select()` pushes column selection to SQL; `AsNoTracking()` skips the change tracker. Write models use OCC via `RowVersion`/`UpdatedAt` -- never mix tracked and untracked entities in the same pipeline.
 
 ---
-## [3]-[TYPE_MAPPING]
+## [03]-[TYPE_MAPPING]
 >**Dictum:** *The database schema speaks primitives; the domain speaks types.*
 
 <br>
@@ -286,7 +286,7 @@ public static readonly Action<EntityTypeBuilder<CustomerEntity>> ConfigureCustom
 [IMPORTANT]: Register converters via `.HasConversion<DomainIdentityConverter>()`, `.HasConversion<InstantConverter>()`, `.HasConversion<JsonColumnConverter<T>>().HasColumnType("jsonb")`. Configuration uses `Action<EntityTypeBuilder<T>>` lambdas to avoid `IEntityTypeConfiguration<T>` methods. `_ => throw new UnreachableException()` is the permitted defensive arm until C# ships first-class DU exhaustiveness. Value objects (`readonly record struct` with `OwnsOne`/`OwnsMany`) are persistence-layer composites with no identity -- distinct from domain primitives (`DomainIdentity`, `TenantId`) which are branded scalars mapped via `ValueConverter`.
 
 ---
-## [4]-[REPOSITORY_ALGEBRA]
+## [04]-[REPOSITORY_ALGEBRA]
 >**Dictum:** *Repositories are interpreters; queries are data.*
 
 <br>
@@ -325,7 +325,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 [CRITICAL]: Interpreter maps: `GetById` to `FindAsync` + `Optional`, `GetByPredicate` to `.Where().ToListAsync()` + `toSeq`, `GetPage` to `KeysetPagination.GetPage`, `Exists` to `AnyAsync`. All async calls lift via `IO.liftAsync`. The `private protected` constructor prevents external subtypes from breaking exhaustiveness. See `composition.md` [5] for the algebraic compression pattern.
 
 ---
-## [5]-[RULES]
+## [05]-[RULES]
 >**Dictum:** *Rules compress into constraints.*
 
 <br>
@@ -347,17 +347,17 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 - [NEVER] `IEntityTypeConfiguration<T>` with override methods -- use `Action<EntityTypeBuilder<T>>` lambdas.
 
 ---
-## [6]-[QUICK_REFERENCE]
+## [06]-[QUICK_REFERENCE]
 
 | [INDEX] | [PATTERN]                | [WHEN]                                   | [KEY_TRAIT]                                |
 | :-----: | :----------------------- | :--------------------------------------- | :----------------------------------------- |
-|   [1]   | **DbContext as Eff**     | Database access in effect pipeline       | `Eff.runtime<RT>()` + `IO.liftAsync`       |
-|   [2]   | **Query composition**    | Reusable WHERE clauses                   | `Expression<Func<T, bool>>` + `IQueryable` |
-|   [3]   | **Keyset pagination**    | Cursor-based paging without COUNT        | `OrderBy.Where(Id > cursor).Take(N+1)`     |
-|   [4]   | **Read projection**      | CQRS read model DTO                      | `AsNoTracking` + `.Select()` push-down     |
-|   [5]   | **Value converters**     | Domain type to database column mapping   | `ValueConverter<TModel, TProvider>`        |
-|   [6]   | **JSON column**          | Complex value object in single column    | `JsonColumnConverter<T>` + `jsonb`         |
-|   [7]   | **Owned types**          | Value object persistence                 | `OwnsOne` (split) / `OwnsMany` (table)     |
-|   [8]   | **Repository algebra**   | Typed query DU over method proliferation | Sealed DU + `Fold` catamorphism            |
-|   [9]   | **Materialized refresh** | Cached aggregate recalculation           | `Eff<RT, Unit>` + `ExecuteSqlInterpolated` |
+|  [01]   | **DbContext as Eff**     | Database access in effect pipeline       | `Eff.runtime<RT>()` + `IO.liftAsync`       |
+|  [02]   | **Query composition**    | Reusable WHERE clauses                   | `Expression<Func<T, bool>>` + `IQueryable` |
+|  [03]   | **Keyset pagination**    | Cursor-based paging without COUNT        | `OrderBy.Where(Id > cursor).Take(N+1)`     |
+|  [04]   | **Read projection**      | CQRS read model DTO                      | `AsNoTracking` + `.Select()` push-down     |
+|  [05]   | **Value converters**     | Domain type to database column mapping   | `ValueConverter<TModel, TProvider>`        |
+|  [06]   | **JSON column**          | Complex value object in single column    | `JsonColumnConverter<T>` + `jsonb`         |
+|  [07]   | **Owned types**          | Value object persistence                 | `OwnsOne` (split) / `OwnsMany` (table)     |
+|  [08]   | **Repository algebra**   | Typed query DU over method proliferation | Sealed DU + `Fold` catamorphism            |
+|  [09]   | **Materialized refresh** | Cached aggregate recalculation           | `Eff<RT, Unit>` + `ExecuteSqlInterpolated` |
 |  [10]   | **Idempotent migration** | Schema evolution on startup              | `MigrateAsync` + `EnableRetryOnFailure`    |

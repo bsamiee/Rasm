@@ -2,7 +2,7 @@
 
 `lark` supplies the parsing-grammar engine the IfcOpenShell selector and IDS grammars are built on: an EBNF-defined `Lark` parser producing a `Tree`/`Token` parse forest, an Earley/LALR algorithm selector, and a `Transformer`/`Visitor` fold over the parse tree. The geometry ifc-analysis owner uses it to author and validate a typed selector/filter-query grammar — turning a free-form element-selection string into a validated, structured query before it reaches `util.selector.filter_elements` — rather than passing an unvalidated query string straight through. Pure-Python, cp315-clean.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lark`
 - package: `lark`
@@ -13,36 +13,36 @@
 - entry points: none (library only)
 - capability: EBNF/context-free grammar definition, Earley and LALR(1) parsing, contextual lexing, `Tree`/`Token` parse forest, `Transformer`/`Visitor`/`Interpreter` tree folds, grammar composition via `%import`, and standalone-parser code generation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: parser and tree
 - rail: selector-grammar
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                             |
 | :-----: | :---------------- | :------------- | :----------------------------------------------------------------------- |
-|   [1]   | `Lark`            | parser         | grammar-driven parser over a string, configurable algorithm              |
-|   [2]   | `Tree`            | parse node     | a grammar rule node with `data` and `children`                           |
-|   [3]   | `Token`           | terminal       | a matched terminal with `type` and string value                          |
-|   [4]   | `Transformer`     | bottom-up fold | rewrite the tree bottom-up, one method per rule                          |
-|   [5]   | `Visitor`         | tree visitor   | visit nodes in place without rewriting                                   |
-|   [6]   | `v_args`          | fold decorator | configure how rule children bind to a transformer method                 |
-|   [7]   | `UnexpectedInput` | parse failure  | the lexer/parser error family (`UnexpectedToken`/`UnexpectedCharacters`) |
+|  [01]   | `Lark`            | parser         | grammar-driven parser over a string, configurable algorithm              |
+|  [02]   | `Tree`            | parse node     | a grammar rule node with `data` and `children`                           |
+|  [03]   | `Token`           | terminal       | a matched terminal with `type` and string value                          |
+|  [04]   | `Transformer`     | bottom-up fold | rewrite the tree bottom-up, one method per rule                          |
+|  [05]   | `Visitor`         | tree visitor   | visit nodes in place without rewriting                                   |
+|  [06]   | `v_args`          | fold decorator | configure how rule children bind to a transformer method                 |
+|  [07]   | `UnexpectedInput` | parse failure  | the lexer/parser error family (`UnexpectedToken`/`UnexpectedCharacters`) |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: grammar definition and parse
 - rail: selector-grammar
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE]                | [CAPABILITY]                       |
 | :-----: | :---------------------------------------------- | :-------------------------- | :--------------------------------- |
-|   [1]   | `Lark(grammar, *, start, parser='earley', ...)` | EBNF string plus start rule | build a parser from a grammar      |
-|   [2]   | `Lark.open(grammar_filename, ...)`              | grammar file path           | build a parser from a `.lark` file |
-|   [3]   | `parser.parse(text, start=None) -> Tree`        | input string                | parse a string into a `Tree`       |
-|   [4]   | `Transformer().transform(tree)`                 | parse tree                  | fold the tree to a typed value     |
-|   [5]   | `Tree(data, children)` / `tree.children`        | rule name plus nodes        | inspect or build a parse node      |
-|   [6]   | `Token(type, value)`                            | terminal type plus value    | a matched terminal                 |
+|  [01]   | `Lark(grammar, *, start, parser='earley', ...)` | EBNF string plus start rule | build a parser from a grammar      |
+|  [02]   | `Lark.open(grammar_filename, ...)`              | grammar file path           | build a parser from a `.lark` file |
+|  [03]   | `parser.parse(text, start=None) -> Tree`        | input string                | parse a string into a `Tree`       |
+|  [04]   | `Transformer().transform(tree)`                 | parse tree                  | fold the tree to a typed value     |
+|  [05]   | `Tree(data, children)` / `tree.children`        | rule name plus nodes        | inspect or build a parse node      |
+|  [06]   | `Token(type, value)`                            | terminal type plus value    | a matched terminal                 |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GRAMMAR_TOPOLOGY]:
 - import: `import lark` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -51,7 +51,7 @@
 - failure axis: a malformed query raises `UnexpectedInput` (`UnexpectedToken`/`UnexpectedCharacters`) at the parse boundary, lifted into the runtime fault rail once — so an invalid selector is rejected before it reaches `filter_elements`, never a silent empty match.
 - boundary: `lark` owns grammar definition and parsing; a hand-rolled regex or split-based query parser is the deleted form where the grammar owns the structure; the parsed query feeds `ifcopenshell.util.selector.filter_elements`, never a second selection engine.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `lark`

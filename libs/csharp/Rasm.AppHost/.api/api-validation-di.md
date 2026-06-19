@@ -3,7 +3,7 @@
 `FluentValidation.DependencyInjectionExtensions` supplies validator discovery, assembly
 scanning, DI registration, scan filters, and explicit lifetimes.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation.DependencyInjectionExtensions`
 - package: `FluentValidation.DependencyInjectionExtensions`
@@ -12,33 +12,33 @@ scanning, DI registration, scan filters, and explicit lifetimes.
 - asset: runtime library
 - rail: validation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registration family
 - rail: validation
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]          | [RAIL]                 |
 | :-----: | :----------------------------------- | :--------------------- | :--------------------- |
-|   [1]   | `ServiceCollectionExtensions`        | registration extension | validator registration |
-|   [2]   | `AssemblyScanner`                    | validator scanner      | validator discovery    |
-|   [3]   | `AssemblyScanner.AssemblyScanResult` | scan result            | discovered validator   |
+|  [01]   | `ServiceCollectionExtensions`        | registration extension | validator registration |
+|  [02]   | `AssemblyScanner`                    | validator scanner      | validator discovery    |
+|  [03]   | `AssemblyScanner.AssemblyScanResult` | scan result            | discovered validator   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
 - rail: validation
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]    | [RAIL]                     |
 | :-----: | :------------------------------------------ | :---------------- | :------------------------- |
-|   [1]   | `AddValidatorsFromAssemblies`               | assembly set scan | multi-assembly admission   |
-|   [2]   | `AddValidatorsFromAssembly`                 | assembly scan     | assembly admission         |
-|   [3]   | `AddValidatorsFromAssemblyContaining(Type)` | marker scan       | marker-type admission      |
-|   [4]   | `AddValidatorsFromAssemblyContaining<T>`    | marker scan       | generic marker admission   |
-|   [5]   | `ServiceLifetime` parameter                 | lifetime policy   | scoped/singleton/transient |
-|   [6]   | `filter` parameter                          | scan filter       | result inclusion gate      |
-|   [7]   | `includeInternalTypes` parameter            | visibility policy | internal validator scan    |
+|  [01]   | `AddValidatorsFromAssemblies`               | assembly set scan | multi-assembly admission   |
+|  [02]   | `AddValidatorsFromAssembly`                 | assembly scan     | assembly admission         |
+|  [03]   | `AddValidatorsFromAssemblyContaining(Type)` | marker scan       | marker-type admission      |
+|  [04]   | `AddValidatorsFromAssemblyContaining<T>`    | marker scan       | generic marker admission   |
+|  [05]   | `ServiceLifetime` parameter                 | lifetime policy   | scoped/singleton/transient |
+|  [06]   | `filter` parameter                          | scan filter       | result inclusion gate      |
+|  [07]   | `includeInternalTypes` parameter            | visibility policy | internal validator scan    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VALIDATION_REGISTRATION_TOPOLOGY]:
 - namespaces: `FluentValidation`

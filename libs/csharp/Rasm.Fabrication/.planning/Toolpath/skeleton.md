@@ -4,11 +4,11 @@ The straight-skeleton/medial-axis author-kernel: `StraightSkeleton` the static s
 
 Wire posture: HOST-LOCAL. The medial-axis `Edge3` set crosses only the in-process seam to the `Toolpath/motion#CAM_MOTION` trochoidal generator — never a browser or peer wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[STRAIGHT_SKELETON]: owns `StraightSkeleton` — the `SkeletonEvent`/`Wavefront` propagation computing the medial axis and the exact constant-offset of a closed polygon; the trochoidal-clearing primitive.
+- [01]-[STRAIGHT_SKELETON]: owns `StraightSkeleton` — the `SkeletonEvent`/`Wavefront` propagation computing the medial axis and the exact constant-offset of a closed polygon; the trochoidal-clearing primitive.
 
-## [2]-[STRAIGHT_SKELETON]
+## [02]-[STRAIGHT_SKELETON]
 
 - Owner: `SkeletonEvent` `[Union]` the wavefront event (`Edge` an edge collapse keyed by its leading vertex index, `Split` a reflex-vertex split carrying the opposing edge and the exact hit point) the propagation resolves in time order; `Wavefront` the shrinking offset polygon state the propagation steps, each vertex moving along its angular bisector scaled to the inward edge-offset speed, with `Reflex` the exact `Orient2D` convexity verdict per vertex; `StraightSkeleton` the static surface owning `MedialAxis` (the skeleton arc set) and `OffsetAt` (the exact constant-offset polygon at a given inset, the offset that subsumes `OffsetRing`).
 - Cases: `SkeletonEvent` arms `Edge` (an edge shrinks to zero length, merging its two neighbors at the meeting point of their bisectors) · `Split` (a reflex vertex's bisector reaches an opposing edge, splitting the wavefront into two by inserting the hit point) (2); the medial axis is the locus the propagating vertices trace between events, the skeleton arcs.
@@ -163,6 +163,6 @@ public static class StraightSkeleton {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SKELETON_EVENTS] The wavefront-event resolution is realized as the `NextEvent`/`Advance`/`Apply` author-kernel grounded on the Aichholzer-Aurenhammer construction over the exact `Predicate.Orient2D` floor: `NextEvent` is the earliest-event scheduler over the `RayMeet` edge-collapse and `SplitMeet` reflex-split candidates, `Advance` is the unit-speed bisector march tracing the arcs, and `Apply` is the vertex-drop / hit-insert wavefront edit with `Rebuild` bisector recomputation. The two settled numeric assumptions are the bisector speed scale `1/sin(θ/2)` (so unit time equals unit inset) and the `Count²+8` propagation budget bounding the event count on a simple polygon; the convex case cross-checks the `Polygon/clipper#POLYGON_ALGEBRA` `Offset` as the correctness witness, and the reflex-split case is the genuinely-new author-kernel content no managed library carries.

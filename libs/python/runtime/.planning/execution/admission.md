@@ -2,12 +2,12 @@
 
 Caller-owned context and settings admission. One immutable `RuntimeContext` carries the profile, correlation, deadline, classification, and the inbound `CausalFrame` a caller supplies; one `SettingsAdmission` owns the local source order over `pydantic-settings` with the keystore-then-secrets-file secret-resolution boundary on top. `CausalFrame` composes the host-minted `Hlc` two-half stamp (`transport/serve#CRDT_DECODE`) and the one `Tenant` partition decoded inbound (`transport/serve#PROTO_TRANSCODE`), re-minting nothing; `SecretBoundary` resolves the OS-keystore credential the outbound transport legs (`transport/roots#RESOURCE`) read, profile-gated and lazy on the outbound leg, never an eager unattended probe. The package never discovers the host, starts services, owns lifecycle, derives product roots, reads the environment after admission, caches a global mutable context, re-mints a causal stamp or tenant scheme, or probes the keystore eagerly.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CONTEXT]: profile, correlation, deadline, the inbound `CausalFrame`/`Tenant`, the one caller-owned context admission.
-- [2]-[SETTINGS]: the local settings source order over `pydantic-settings` and the keystore-then-secrets-file `SecretBoundary`.
+- [01]-[CONTEXT]: profile, correlation, deadline, the inbound `CausalFrame`/`Tenant`, the one caller-owned context admission.
+- [02]-[SETTINGS]: the local settings source order over `pydantic-settings` and the keystore-then-secrets-file `SecretBoundary`.
 
-## [2]-[CONTEXT]
+## [02]-[CONTEXT]
 
 - Owner: `RuntimeContext` — the one caller-supplied context owner discriminating profile/correlation/deadline/classification and carrying the inbound `causal` frame; `RuntimeProfile` the closed `StrEnum` vocabulary with a policy-row table; `Correlation`, `Deadline`, and `CausalFrame` the value objects it carries; `Tenant` the one wire-partition scheme.
 - Cases: `RuntimeProfile` rows `TOOL` · `SIDECAR` · `PACKAGE` · `TEST`, each one row in the `PROFILE_POLICY` persistent `Map` carrying eager-import, scratch-writable, OTel-emit, and lane-capacity behavior columns; the profile is the key, the policy row is the value, and behavior travels on the row rather than a flag the caller re-derives; `RuntimeContext.causal` is `Option[CausalFrame]` — `Nothing` for a locally-minted context, `Some(frame)` for a context admitting the host-minted inbound stamp, exactly the `Option[Deadline]` carry already present.
@@ -108,7 +108,7 @@ class RuntimeContext(Struct, frozen=True):
                 return {}
 ```
 
-## [3]-[SETTINGS]
+## [03]-[SETTINGS]
 
 - Owner: `SettingsAdmission` — the one local settings source order over `pydantic-settings`, admitting init mapping, environment-backed fields, dotenv, and OS secret files into a frozen record that rejects unknown fields; the source precedence is fixed at the one `settings_customise_sources` override. `SecretBoundary` — one `resolve(service, username) -> RuntimeRail[Option[str]]` facade composing the OS keystore as the top-priority source over the existing `secrets_dir`/`file_secret_settings` fallback tier, profile-gated and lazy on the outbound leg, never a flag set and never an eager unattended probe.
 - Entry: `SettingsAdmission.admit` returns the frozen settings record; after admission no package reads the process environment. `SecretBoundary.resolve` reads `keyring.get_credential(service, username)` first, falls back to the settings-admitted secrets-file value on `errors.NoKeyringError` (the headless/container case the catalogue names), and returns `Ok(Nothing)` for an absent secret rather than a fault — a missing credential is a wire fact the outbound leg routes, not a boundary failure.
@@ -169,7 +169,7 @@ class SecretBoundary(Struct, frozen=True):
         return Nothing if secret is None else Some(secret)
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [SETTINGS_SOURCE_ORDER]: the `settings_customise_sources` precedence (init over env over dotenv over secret-file), the `file_secret_settings` source class, and the `secrets_dir` `SettingsConfigDict` key are verified against the `pydantic-settings` catalogue; the source-class parameter spellings are settled.
 - [SECRET_BOUNDARY]: `keyring.get_credential(service, username) -> Credential | None` (ENTRYPOINTS [4]) is the structured top-priority read returning `None` for a missing secret (never raising), `keyring.get_password` (ENTRYPOINTS [1]) the string-only variant, `errors.NoKeyringError` (errors [6]) the headless/container fallback the `pydantic-settings` `secrets_dir`/`file_secret_settings` tier catches, and `credentials.SimpleCredential` (credentials [2]) the resolved `(username, password)` pair — spellings settled against the `keyring` catalogue. The keystore read is profile-gated (`eager_import` rows only) and lazy on the outbound leg; the unattended-probe hazard is closed by the `PACKAGE`/`TEST` short-circuit to the secrets-file tier. `keyring` moves from orphaned-catalogue (zero design-page consumer after `transport/serve#KEYRING_CATALOGUE` dropped the serve leg) to the one `execution/admission#SETTINGS` outbound-credential consumer.

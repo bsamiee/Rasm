@@ -4,7 +4,7 @@
 assets, tensor value binding, run options, metadata inspection, custom operators,
 and execution-provider selection for Compute model rails.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
 - package: `Microsoft.ML.OnnxRuntime`
@@ -13,22 +13,22 @@ and execution-provider selection for Compute model rails.
 - asset: runtime library and native assets
 - rail: model
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and run contracts
 - rail: model
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]       | [CAPABILITY]             |
 | :-----: | :------------------------- | :------------------- | :----------------------- |
-|   [1]   | `InferenceSession`         | session root         | executes model runs      |
-|   [2]   | `SessionOptions`           | session policy       | configures session       |
-|   [3]   | `RunOptions`               | run policy           | configures inference run |
-|   [4]   | `OrtEnv`                   | runtime environment  | owns runtime scope       |
-|   [5]   | `OrtMemoryInfo`            | memory descriptor    | describes tensor memory  |
-|   [6]   | `OrtValue`                 | native value         | carries model values     |
-|   [7]   | `NamedOnnxValue`           | named value          | binds named input        |
-|   [8]   | `DisposableNamedOnnxValue` | named output         | owns named output        |
-|   [9]   | `TensorElementType`        | element classifier   | classifies tensor data   |
+|  [01]   | `InferenceSession`         | session root         | executes model runs      |
+|  [02]   | `SessionOptions`           | session policy       | configures session       |
+|  [03]   | `RunOptions`               | run policy           | configures inference run |
+|  [04]   | `OrtEnv`                   | runtime environment  | owns runtime scope       |
+|  [05]   | `OrtMemoryInfo`            | memory descriptor    | describes tensor memory  |
+|  [06]   | `OrtValue`                 | native value         | carries model values     |
+|  [07]   | `NamedOnnxValue`           | named value          | binds named input        |
+|  [08]   | `DisposableNamedOnnxValue` | named output         | owns named output        |
+|  [09]   | `TensorElementType`        | element classifier   | classifies tensor data   |
 |  [10]   | `OrtAllocatorType`         | allocator classifier | classifies allocators    |
 
 [PUBLIC_TYPE_SCOPE]: metadata and tensor contracts
@@ -36,15 +36,15 @@ and execution-provider selection for Compute model rails.
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                              |
 | :-----: | :-------------------------- | :-------------- | :---------------------------------------- |
-|   [1]   | `ModelMetadata`             | model metadata  | describes model                           |
-|   [2]   | `NodeMetadata`              | node metadata   | describes model nodes                     |
-|   [3]   | `OrtTensorTypeAndShapeInfo` | tensor metadata | describes tensor shape                    |
-|   [4]   | `DenseTensor<T>`            | tensor value    | carries typed tensors                     |
-|   [5]   | `OrtIoBinding`              | binding root    | binds inputs and outputs                  |
-|   [6]   | `PrePackedWeightsContainer` | weights cache   | shares packed weights                     |
-|   [7]   | `FixedBufferOnnxValue`      | buffer value    | binds fixed memory                        |
-|   [8]   | `OrtLoraAdapter`            | adapter value   | binds LoRA adapter                        |
-|   [9]   | `OrtMemoryAllocation`       | device buffer   | owns a device allocation                  |
+|  [01]   | `ModelMetadata`             | model metadata  | describes model                           |
+|  [02]   | `NodeMetadata`              | node metadata   | describes model nodes                     |
+|  [03]   | `OrtTensorTypeAndShapeInfo` | tensor metadata | describes tensor shape                    |
+|  [04]   | `DenseTensor<T>`            | tensor value    | carries typed tensors                     |
+|  [05]   | `OrtIoBinding`              | binding root    | binds inputs and outputs                  |
+|  [06]   | `PrePackedWeightsContainer` | weights cache   | shares packed weights                     |
+|  [07]   | `FixedBufferOnnxValue`      | buffer value    | binds fixed memory                        |
+|  [08]   | `OrtLoraAdapter`            | adapter value   | binds LoRA adapter                        |
+|  [09]   | `OrtMemoryAllocation`       | device buffer   | owns a device allocation                  |
 |  [10]   | `OrtMemType`                | memory enum     | `Default`, `Cpu`, `CpuInput`, `CpuOutput` |
 |  [11]   | `OrtAllocatorType`          | allocator enum  | `DeviceAllocator`, `ArenaAllocator`       |
 
@@ -53,15 +53,15 @@ and execution-provider selection for Compute model rails.
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]       | [CAPABILITY]                                                                                                                                                                                                                                 |
 | :-----: | :------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `EnvironmentCreationOptions`    | boot options struct  | fields `logId`, `logLevel`, `threadOptions`                                                                                                                                                                                                  |
-|   [2]   | `OrtThreadingOptions`           | global thread pool   | `GlobalIntraOpNumThreads`, `GlobalInterOpNumThreads`, `GlobalSpinControl`                                                                                                                                                                    |
-|   [3]   | `ExecutionProviderDevicePolicy` | device-policy enum   | `DEFAULT`, `PREFER_CPU`, `PREFER_NPU`, `PREFER_GPU`, `MAX_PERFORMANCE`, `MAX_EFFICIENCY`, `MIN_OVERALL_POWER`                                                                                                                                |
-|   [4]   | `GraphOptimizationLevel`        | optimization enum    | session graph optimization incl. `ORT_ENABLE_ALL`                                                                                                                                                                                            |
-|   [5]   | `OrtLoggingLevel`               | logging enum         | boot log severity                                                                                                                                                                                                                            |
-|   [6]   | `OrtAllocator`                  | allocator handle     | owns native allocation scope                                                                                                                                                                                                                 |
-|   [7]   | `IDisposableReadOnlyCollection` | result collection    | disposable native result set                                                                                                                                                                                                                 |
-|   [8]   | `BFloat16`                      | readonly struct      | CLR carrier for the bfloat16 element type                                                                                                                                                                                                    |
-|   [9]   | `OrtEpDevice`                   | EP device descriptor | `EpName`, `EpVendor`, `EpMetadata`, `EpOptions`, `HardwareDevice`, `GetMemoryInfo`, `CreateSyncStream`                                                                                                                                       |
+|  [01]   | `EnvironmentCreationOptions`    | boot options struct  | fields `logId`, `logLevel`, `threadOptions`                                                                                                                                                                                                  |
+|  [02]   | `OrtThreadingOptions`           | global thread pool   | `GlobalIntraOpNumThreads`, `GlobalInterOpNumThreads`, `GlobalSpinControl`                                                                                                                                                                    |
+|  [03]   | `ExecutionProviderDevicePolicy` | device-policy enum   | `DEFAULT`, `PREFER_CPU`, `PREFER_NPU`, `PREFER_GPU`, `MAX_PERFORMANCE`, `MAX_EFFICIENCY`, `MIN_OVERALL_POWER`                                                                                                                                |
+|  [04]   | `GraphOptimizationLevel`        | optimization enum    | session graph optimization incl. `ORT_ENABLE_ALL`                                                                                                                                                                                            |
+|  [05]   | `OrtLoggingLevel`               | logging enum         | boot log severity                                                                                                                                                                                                                            |
+|  [06]   | `OrtAllocator`                  | allocator handle     | owns native allocation scope                                                                                                                                                                                                                 |
+|  [07]   | `IDisposableReadOnlyCollection` | result collection    | disposable native result set                                                                                                                                                                                                                 |
+|  [08]   | `BFloat16`                      | readonly struct      | CLR carrier for the bfloat16 element type                                                                                                                                                                                                    |
+|  [09]   | `OrtEpDevice`                   | EP device descriptor | `EpName`, `EpVendor`, `EpMetadata`, `EpOptions`, `HardwareDevice`, `GetMemoryInfo`, `CreateSyncStream`                                                                                                                                       |
 |  [10]   | `OrtHardwareDevice`             | hardware descriptor  | `Type` (`OrtHardwareDeviceType`), `VendorId`, `Vendor`, `DeviceId`, `Metadata`                                                                                                                                                               |
 |  [11]   | `OrtHardwareDeviceType`         | device-type enum     | `CPU`, `GPU`, `NPU`                                                                                                                                                                                                                          |
 |  [12]   | `OrtKeyValuePairs`              | kv-pairs handle      | `Entries`, `Add`, `Remove`, `Refresh`; ctor from `IReadOnlyDictionary<string,string>`                                                                                                                                                        |
@@ -77,38 +77,38 @@ and execution-provider selection for Compute model rails.
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]         | [CAPABILITY]                                                        |
 | :-----: | :--------------------------- | :--------------------- | :------------------------------------------------------------------ |
-|   [1]   | `OrtROCMProviderOptions`     | ROCm options handle    | `UpdateOptions(Dictionary<string,string>)`                          |
-|   [2]   | `ExecutionMode`              | execution-mode enum    | `ORT_SEQUENTIAL`, `ORT_PARALLEL`                                    |
-|   [3]   | `OrtModelCompilationOptions` | compile options handle | drives the EP-context model compile pipeline                        |
-|   [4]   | `OrtCompileApiFlags`         | compile flags enum     | `NONE`, `ERROR_IF_NO_NODES_COMPILED`, `ERROR_IF_OUTPUT_FILE_EXISTS` |
+|  [01]   | `OrtROCMProviderOptions`     | ROCm options handle    | `UpdateOptions(Dictionary<string,string>)`                          |
+|  [02]   | `ExecutionMode`              | execution-mode enum    | `ORT_SEQUENTIAL`, `ORT_PARALLEL`                                    |
+|  [03]   | `OrtModelCompilationOptions` | compile options handle | drives the EP-context model compile pipeline                        |
+|  [04]   | `OrtCompileApiFlags`         | compile flags enum     | `NONE`, `ERROR_IF_NO_NODES_COMPILED`, `ERROR_IF_OUTPUT_FILE_EXISTS` |
 
 [PUBLIC_TYPE_SCOPE]: package assets
 - rail: model
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]            |
 | :-----: | :--------------------------------- | :------------- | :---------------------- |
-|   [1]   | `Microsoft.ML.OnnxRuntime.props`   | MSBuild import | declares native copy    |
-|   [2]   | `Microsoft.ML.OnnxRuntime.targets` | MSBuild import | copies native assets    |
-|   [3]   | `libonnxruntime.dylib`             | native asset   | executes native runtime |
-|   [4]   | `libonnxruntime.so`                | native asset   | executes native runtime |
-|   [5]   | `onnxruntime.dll`                  | native asset   | executes native runtime |
-|   [6]   | `onnxruntime_c_api.h`              | native header  | describes C API         |
-|   [7]   | `onnxruntime_cxx_api.h`            | native header  | describes C++ API       |
+|  [01]   | `Microsoft.ML.OnnxRuntime.props`   | MSBuild import | declares native copy    |
+|  [02]   | `Microsoft.ML.OnnxRuntime.targets` | MSBuild import | copies native assets    |
+|  [03]   | `libonnxruntime.dylib`             | native asset   | executes native runtime |
+|  [04]   | `libonnxruntime.so`                | native asset   | executes native runtime |
+|  [05]   | `onnxruntime.dll`                  | native asset   | executes native runtime |
+|  [06]   | `onnxruntime_c_api.h`              | native header  | describes C API         |
+|  [07]   | `onnxruntime_cxx_api.h`            | native header  | describes C++ API       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: inference operations
 - rail: model
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]     | [CAPABILITY]             |
 | :-----: | :----------------------- | :--------------- | :----------------------- |
-|   [1]   | `InferenceSession.Run`   | run call         | executes inference       |
-|   [2]   | `RunAsync`               | async run call   | executes inference       |
-|   [3]   | `RunWithBindingAndNames` | binding run call | executes bound inference |
-|   [4]   | `RunWithBoundResults`    | binding run call | returns bound outputs    |
-|   [5]   | `EndProfiling`           | session call     | closes profiling output  |
-|   [6]   | `CreateIoBinding`        | factory call     | creates IO binding       |
-|   [7]   | `Dispose`                | lifetime call    | releases native handles  |
+|  [01]   | `InferenceSession.Run`   | run call         | executes inference       |
+|  [02]   | `RunAsync`               | async run call   | executes inference       |
+|  [03]   | `RunWithBindingAndNames` | binding run call | executes bound inference |
+|  [04]   | `RunWithBoundResults`    | binding run call | returns bound outputs    |
+|  [05]   | `EndProfiling`           | session call     | closes profiling output  |
+|  [06]   | `CreateIoBinding`        | factory call     | creates IO binding       |
+|  [07]   | `Dispose`                | lifetime call    | releases native handles  |
 
 [ENTRYPOINT_SCOPE]: execution-provider append operations
 - rail: model
@@ -116,15 +116,15 @@ and execution-provider selection for Compute model rails.
 
 | [INDEX] | [SURFACE]                                                                                                                  | [CALL_SHAPE] | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------------------- |
-|   [1]   | `AppendExecutionProvider_CPU(int useArena = 1)`                                                                            | option call  | CPU EP; `useArena` 1 enables memory arena     |
-|   [2]   | `AppendExecutionProvider_CUDA(int deviceId = 0)`                                                                           | option call  | CUDA EP by device index                       |
-|   [3]   | `AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                     | option call  | CUDA EP with full provider-options struct     |
-|   [4]   | `AppendExecutionProvider_DML(int deviceId = 0)`                                                                            | option call  | DirectML EP by device index                   |
-|   [5]   | `AppendExecutionProvider_Tensorrt(int deviceId = 0)`                                                                       | option call  | TensorRT EP by device index                   |
-|   [6]   | `AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                             | option call  | TensorRT EP with full provider-options struct |
-|   [7]   | `AppendExecutionProvider_ROCm(int deviceId = 0)`                                                                           | option call  | ROCm EP by device index                       |
-|   [8]   | `AppendExecutionProvider_ROCm(OrtROCMProviderOptions)`                                                                     | option call  | ROCm EP with full provider-options struct     |
-|   [9]   | `AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags = CoreMLFlags.COREML_FLAG_USE_NONE)`                               | option call  | CoreML EP with compute-unit flags             |
+|  [01]   | `AppendExecutionProvider_CPU(int useArena = 1)`                                                                            | option call  | CPU EP; `useArena` 1 enables memory arena     |
+|  [02]   | `AppendExecutionProvider_CUDA(int deviceId = 0)`                                                                           | option call  | CUDA EP by device index                       |
+|  [03]   | `AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                     | option call  | CUDA EP with full provider-options struct     |
+|  [04]   | `AppendExecutionProvider_DML(int deviceId = 0)`                                                                            | option call  | DirectML EP by device index                   |
+|  [05]   | `AppendExecutionProvider_Tensorrt(int deviceId = 0)`                                                                       | option call  | TensorRT EP by device index                   |
+|  [06]   | `AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                             | option call  | TensorRT EP with full provider-options struct |
+|  [07]   | `AppendExecutionProvider_ROCm(int deviceId = 0)`                                                                           | option call  | ROCm EP by device index                       |
+|  [08]   | `AppendExecutionProvider_ROCm(OrtROCMProviderOptions)`                                                                     | option call  | ROCm EP with full provider-options struct     |
+|  [09]   | `AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags = CoreMLFlags.COREML_FLAG_USE_NONE)`                               | option call  | CoreML EP with compute-unit flags             |
 |  [10]   | `AppendExecutionProvider_OpenVINO(string deviceId = "")`                                                                   | option call  | OpenVINO EP by device string                  |
 |  [11]   | `AppendExecutionProvider_MIGraphX(int deviceId = 0)`                                                                       | option call  | MIGraphX EP by device index                   |
 |  [12]   | `AppendExecutionProvider_Nnapi(NnapiFlags nnapiFlags = NnapiFlags.NNAPI_FLAG_USE_NONE)`                                    | option call  | NNAPI EP with accelerator-mode flags          |
@@ -137,15 +137,15 @@ and execution-provider selection for Compute model rails.
 
 | [INDEX] | [SURFACE]                                                                   | [CALL_SHAPE] | [CAPABILITY]                              |
 | :-----: | :-------------------------------------------------------------------------- | :----------- | :---------------------------------------- |
-|   [1]   | `OrtValue.CreateTensorValueFromMemory<T>(T[], long[])`                      | factory call | binds managed array as tensor             |
-|   [2]   | `OrtValue.CreateTensorValueFromMemory<T>(OrtMemoryInfo, Memory<T>, long[])` | factory call | binds device-pinned memory as tensor      |
-|   [3]   | `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>(Tensor<T>)`    | factory call | binds `System.Numerics.Tensors.Tensor<T>` |
-|   [4]   | `OrtValue.CreateFromStringTensor(Tensor<string>)`                           | factory call | binds string tensor input                 |
-|   [5]   | `NamedOnnxValue.CreateFromTensor<T>(string, Tensor<T>)`                     | factory call | creates named value from tensor           |
-|   [6]   | `RegisterCustomOpLibrary`                                                   | option call  | loads custom operators                    |
-|   [7]   | `RegisterCustomOpLibraryV2`                                                 | option call  | loads custom operators                    |
-|   [8]   | `RegisterOrtExtensions`                                                     | option call  | loads extension ops                       |
-|   [9]   | `EnableMemoryPattern`                                                       | option call  | enables memory reuse                      |
+|  [01]   | `OrtValue.CreateTensorValueFromMemory<T>(T[], long[])`                      | factory call | binds managed array as tensor             |
+|  [02]   | `OrtValue.CreateTensorValueFromMemory<T>(OrtMemoryInfo, Memory<T>, long[])` | factory call | binds device-pinned memory as tensor      |
+|  [03]   | `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>(Tensor<T>)`    | factory call | binds `System.Numerics.Tensors.Tensor<T>` |
+|  [04]   | `OrtValue.CreateFromStringTensor(Tensor<string>)`                           | factory call | binds string tensor input                 |
+|  [05]   | `NamedOnnxValue.CreateFromTensor<T>(string, Tensor<T>)`                     | factory call | creates named value from tensor           |
+|  [06]   | `RegisterCustomOpLibrary`                                                   | option call  | loads custom operators                    |
+|  [07]   | `RegisterCustomOpLibraryV2`                                                 | option call  | loads custom operators                    |
+|  [08]   | `RegisterOrtExtensions`                                                     | option call  | loads extension ops                       |
+|  [09]   | `EnableMemoryPattern`                                                       | option call  | enables memory reuse                      |
 |  [10]   | `RunOptions.AddRunConfigEntry`                                              | option call  | sets run config entry                     |
 
 [ENTRYPOINT_SCOPE]: environment, session-policy, and run-policy operations
@@ -157,30 +157,30 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 
 | [INDEX] | [SURFACE]                                  | [CALL_SHAPE]    | [CAPABILITY]                                                                           |
 | :-----: | :----------------------------------------- | :-------------- | :------------------------------------------------------------------------------------- |
-|   [1]   | `OrtEnv.IsCreated`                         | static property | reports environment creation                                                           |
-|   [2]   | `OrtEnv.Instance`                          | static call     | returns the singleton environment                                                      |
-|   [3]   | `OrtEnv.CreateInstanceWithOptions`         | static call     | boots with environment options                                                         |
-|   [4]   | `OrtEnv.DisableTelemetryEvents`            | instance call   | silences runtime telemetry                                                             |
-|   [5]   | `OrtEnv.GetVersionString`                  | instance call   | reports the native runtime version                                                     |
-|   [6]   | `OrtEnv.GetAvailableProviders`             | instance call   | returns provider names                                                                 |
-|   [7]   | `OrtEnv.GetEpDevices`                      | instance call   | `IReadOnlyList<OrtEpDevice>` — enumerates autoEP-available devices                     |
-|   [8]   | `OrtEnv.GetModelCompatibilityForEpDevices` | instance call   | `OrtCompiledModelCompatibility` for a device list and model path                       |
-|   [9]   | `OrtEnv.CreateSharedAllocator`             | instance call   | `(OrtEpDevice, OrtDeviceMemoryType, OrtAllocatorType, options)` returns `OrtAllocator` |
+|  [01]   | `OrtEnv.IsCreated`                         | static property | reports environment creation                                                           |
+|  [02]   | `OrtEnv.Instance`                          | static call     | returns the singleton environment                                                      |
+|  [03]   | `OrtEnv.CreateInstanceWithOptions`         | static call     | boots with environment options                                                         |
+|  [04]   | `OrtEnv.DisableTelemetryEvents`            | instance call   | silences runtime telemetry                                                             |
+|  [05]   | `OrtEnv.GetVersionString`                  | instance call   | reports the native runtime version                                                     |
+|  [06]   | `OrtEnv.GetAvailableProviders`             | instance call   | returns provider names                                                                 |
+|  [07]   | `OrtEnv.GetEpDevices`                      | instance call   | `IReadOnlyList<OrtEpDevice>` — enumerates autoEP-available devices                     |
+|  [08]   | `OrtEnv.GetModelCompatibilityForEpDevices` | instance call   | `OrtCompiledModelCompatibility` for a device list and model path                       |
+|  [09]   | `OrtEnv.CreateSharedAllocator`             | instance call   | `(OrtEpDevice, OrtDeviceMemoryType, OrtAllocatorType, options)` returns `OrtAllocator` |
 |  [10]   | `OrtEnv.ReleaseSharedAllocator`            | instance call   | releases a shared allocator for a device and memory type                               |
 
 [SESSION_POLICY_OPERATIONS]:
 
 | [INDEX] | [SURFACE]                                              | [CALL_SHAPE]    | [CAPABILITY]                                                                                  |
 | :-----: | :----------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------------------- |
-|   [1]   | `SessionOptions.AddSessionConfigEntry`                 | option call     | sets string config entry                                                                      |
-|   [2]   | `SessionOptions.AddFreeDimensionOverrideByName`        | option call     | binds symbolic dimension value                                                                |
-|   [3]   | `SessionOptions.AddFreeDimensionOverride`              | option call     | binds dimension by denotation string                                                          |
-|   [4]   | `SessionOptions.AddInitializer`                        | option call     | `(string, OrtValue)` injects a pre-loaded initializer                                         |
-|   [5]   | `SessionOptions.DisablePerSessionThreads`              | option call     | routes sessions onto the global pool                                                          |
-|   [6]   | `SessionOptions.SetEpSelectionPolicy`                  | option call     | applies `ExecutionProviderDevicePolicy` enum to session                                       |
-|   [7]   | `SessionOptions.SetEpSelectionPolicyDelegate`          | option call     | `(EpSelectionDelegate)` applies a custom device-rank fn                                       |
-|   [8]   | `SessionOptions.EnableProfiling`                       | option property | enables chrome-trace profiling                                                                |
-|   [9]   | `SessionOptions.ProfileOutputPathPrefix`               | option property | sets profile artifact prefix                                                                  |
+|  [01]   | `SessionOptions.AddSessionConfigEntry`                 | option call     | sets string config entry                                                                      |
+|  [02]   | `SessionOptions.AddFreeDimensionOverrideByName`        | option call     | binds symbolic dimension value                                                                |
+|  [03]   | `SessionOptions.AddFreeDimensionOverride`              | option call     | binds dimension by denotation string                                                          |
+|  [04]   | `SessionOptions.AddInitializer`                        | option call     | `(string, OrtValue)` injects a pre-loaded initializer                                         |
+|  [05]   | `SessionOptions.DisablePerSessionThreads`              | option call     | routes sessions onto the global pool                                                          |
+|  [06]   | `SessionOptions.SetEpSelectionPolicy`                  | option call     | applies `ExecutionProviderDevicePolicy` enum to session                                       |
+|  [07]   | `SessionOptions.SetEpSelectionPolicyDelegate`          | option call     | `(EpSelectionDelegate)` applies a custom device-rank fn                                       |
+|  [08]   | `SessionOptions.EnableProfiling`                       | option property | enables chrome-trace profiling                                                                |
+|  [09]   | `SessionOptions.ProfileOutputPathPrefix`               | option property | sets profile artifact prefix                                                                  |
 |  [10]   | `SessionOptions.GraphOptimizationLevel`                | option property | sets graph optimization level                                                                 |
 |  [11]   | `SessionOptions.ExecutionMode`                         | option property | `ORT_SEQUENTIAL` or `ORT_PARALLEL` execution                                                  |
 |  [12]   | `SessionOptions.IntraOpNumThreads`                     | option property | per-session intra-op thread count                                                             |
@@ -194,38 +194,38 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 
 | [INDEX] | [SURFACE]                               | [CALL_SHAPE] | [CAPABILITY]                     |
 | :-----: | :-------------------------------------- | :----------- | :------------------------------- |
-|   [1]   | `OrtValue.CreateTensorWithEmptyStrings` | factory call | allocates string output slots    |
-|   [2]   | `RunOptions.Terminate`                  | run property | one-way cancellation latch       |
-|   [3]   | `RunOptions.AddActiveLoraAdapter`       | run call     | attaches `OrtLoraAdapter`        |
-|   [4]   | `OrtLoraAdapter.Create`                 | factory call | loads adapter from path or bytes |
+|  [01]   | `OrtValue.CreateTensorWithEmptyStrings` | factory call | allocates string output slots    |
+|  [02]   | `RunOptions.Terminate`                  | run property | one-way cancellation latch       |
+|  [03]   | `RunOptions.AddActiveLoraAdapter`       | run call     | attaches `OrtLoraAdapter`        |
+|  [04]   | `OrtLoraAdapter.Create`                 | factory call | loads adapter from path or bytes |
 
 [METADATA_THREADING_OPERATIONS]:
 
 | [INDEX] | [SURFACE]                                     | [CALL_SHAPE]       | [CAPABILITY]                 |
 | :-----: | :-------------------------------------------- | :----------------- | :--------------------------- |
-|   [1]   | `ModelMetadata.Version`                       | metadata property  | graph version                |
-|   [2]   | `NodeMetadata.ElementDataType`                | metadata property  | tensor slot element type     |
-|   [3]   | `NodeMetadata.Dimensions`                     | metadata property  | fixed dimensions             |
-|   [4]   | `NodeMetadata.SymbolicDimensions`             | metadata property  | free-dimension names         |
-|   [5]   | `OrtThreadingOptions.GlobalIntraOpNumThreads` | set-only property  | global intra-op thread count |
-|   [6]   | `OrtThreadingOptions.GlobalInterOpNumThreads` | set-only property  | global inter-op thread count |
-|   [7]   | `OrtThreadingOptions.GlobalSpinControl`       | set-only property  | spin versus low-CPU policy   |
-|   [8]   | `OrtThreadingOptions`                         | parameterless ctor | thread-pool options handle   |
+|  [01]   | `ModelMetadata.Version`                       | metadata property  | graph version                |
+|  [02]   | `NodeMetadata.ElementDataType`                | metadata property  | tensor slot element type     |
+|  [03]   | `NodeMetadata.Dimensions`                     | metadata property  | fixed dimensions             |
+|  [04]   | `NodeMetadata.SymbolicDimensions`             | metadata property  | free-dimension names         |
+|  [05]   | `OrtThreadingOptions.GlobalIntraOpNumThreads` | set-only property  | global intra-op thread count |
+|  [06]   | `OrtThreadingOptions.GlobalInterOpNumThreads` | set-only property  | global inter-op thread count |
+|  [07]   | `OrtThreadingOptions.GlobalSpinControl`       | set-only property  | spin versus low-CPU policy   |
+|  [08]   | `OrtThreadingOptions`                         | parameterless ctor | thread-pool options handle   |
 
 [ENTRYPOINT_SCOPE]: IO-binding bound-inference operations
 - rail: model
 
 | [INDEX] | [SURFACE]                                      | [CALL_SHAPE]    | [CAPABILITY]                                                                                                                                        |
 | :-----: | :--------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `InferenceSession.CreateIoBinding`             | factory call    | returns an `OrtIoBinding` bound to the session                                                                                                      |
-|   [2]   | `InferenceSession.RunWithBinding`              | bound-run call  | `(RunOptions, OrtIoBinding)` executes a pre-bound inference                                                                                         |
-|   [3]   | `OrtIoBinding.BindInput`                       | bind call       | `(string, OrtValue)` binds a named input value                                                                                                      |
-|   [4]   | `OrtIoBinding.BindInput`                       | bind call       | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device input                                                                       |
-|   [5]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, OrtValue)` binds a named output value                                                                                                     |
-|   [6]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device output                                                                      |
-|   [7]   | `OrtIoBinding.BindOutputToDevice`              | bind call       | `(string, OrtMemoryInfo)` binds an output to a device allocator                                                                                     |
-|   [8]   | `OrtIoBinding.SynchronizeBoundInputs`          | sync call       | flushes pending bound input transfers                                                                                                               |
-|   [9]   | `OrtIoBinding.SynchronizeBoundOutputs`         | sync call       | flushes pending bound output transfers                                                                                                              |
+|  [01]   | `InferenceSession.CreateIoBinding`             | factory call    | returns an `OrtIoBinding` bound to the session                                                                                                      |
+|  [02]   | `InferenceSession.RunWithBinding`              | bound-run call  | `(RunOptions, OrtIoBinding)` executes a pre-bound inference                                                                                         |
+|  [03]   | `OrtIoBinding.BindInput`                       | bind call       | `(string, OrtValue)` binds a named input value                                                                                                      |
+|  [04]   | `OrtIoBinding.BindInput`                       | bind call       | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device input                                                                       |
+|  [05]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, OrtValue)` binds a named output value                                                                                                     |
+|  [06]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device output                                                                      |
+|  [07]   | `OrtIoBinding.BindOutputToDevice`              | bind call       | `(string, OrtMemoryInfo)` binds an output to a device allocator                                                                                     |
+|  [08]   | `OrtIoBinding.SynchronizeBoundInputs`          | sync call       | flushes pending bound input transfers                                                                                                               |
+|  [09]   | `OrtIoBinding.SynchronizeBoundOutputs`         | sync call       | flushes pending bound output transfers                                                                                                              |
 |  [10]   | `OrtIoBinding.GetOutputNames`                  | binding read    | `string[]` returns bound output names                                                                                                               |
 |  [11]   | `OrtIoBinding.GetOutputValues`                 | binding read    | `IDisposableReadOnlyCollection<OrtValue>` returns bound output values                                                                               |
 |  [12]   | `OrtIoBinding.ClearBoundInputs`                | reset call      | clears all bound inputs                                                                                                                             |
@@ -244,39 +244,39 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 |  [25]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtAllocatorType, int, OrtMemType)` builds a device descriptor                                                                            |
 |  [26]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)` extended device descriptor |
 
-## [4]-[CONFIG_KEYS]
+## [04]-[CONFIG_KEYS]
 
 [CONFIG_KEY_SCOPE]: session-options config-entry keys
 - rail: model
 
 | [INDEX] | [KEY_STRING]           | [SETTER]                               | [VALUE_DOMAIN]         |
 | :-----: | :--------------------- | :------------------------------------- | :--------------------- |
-|   [1]   | `ep.context_enable`    | `SessionOptions.AddSessionConfigEntry` | `0` / `1`              |
-|   [2]   | `ep.context_file_path` | `SessionOptions.AddSessionConfigEntry` | filesystem path string |
-|   [3]   | `ep.share_ep_contexts` | `SessionOptions.AddSessionConfigEntry` | `0` / `1`              |
+|  [01]   | `ep.context_enable`    | `SessionOptions.AddSessionConfigEntry` | `0` / `1`              |
+|  [02]   | `ep.context_file_path` | `SessionOptions.AddSessionConfigEntry` | filesystem path string |
+|  [03]   | `ep.share_ep_contexts` | `SessionOptions.AddSessionConfigEntry` | `0` / `1`              |
 
 [CONFIG_KEY_SCOPE]: run-options config-entry keys
 - rail: model
 
 | [INDEX] | [KEY_STRING]                           | [SETTER]                       | [VALUE_DOMAIN]          |
 | :-----: | :------------------------------------- | :----------------------------- | :---------------------- |
-|   [1]   | `memory.enable_memory_arena_shrinkage` | `RunOptions.AddRunConfigEntry` | allocator device string |
+|  [01]   | `memory.enable_memory_arena_shrinkage` | `RunOptions.AddRunConfigEntry` | allocator device string |
 
 [CONFIG_KEY_SCOPE]: CoreML provider-option keys
 - rail: model
 
 | [INDEX] | [KEY_STRING]                         | [VALUE_DOMAIN]                                      |
 | :-----: | :----------------------------------- | :-------------------------------------------------- |
-|   [1]   | `ModelFormat`                        | `MLProgram`, `NeuralNetwork`                        |
-|   [2]   | `MLComputeUnits`                     | `ALL`, `CPUOnly`, `CPUAndGPU`, `CPUAndNeuralEngine` |
-|   [3]   | `RequireStaticInputShapes`           | `0`, `1`                                            |
-|   [4]   | `EnableOnSubgraphs`                  | `0`, `1`                                            |
-|   [5]   | `SpecializationStrategy`             | `Default`, `FastPrediction`                         |
-|   [6]   | `ProfileComputePlan`                 | `0`, `1`                                            |
-|   [7]   | `AllowLowPrecisionAccumulationOnGPU` | `0`, `1`                                            |
-|   [8]   | `ModelCacheDirectory`                | cache-directory path string                         |
+|  [01]   | `ModelFormat`                        | `MLProgram`, `NeuralNetwork`                        |
+|  [02]   | `MLComputeUnits`                     | `ALL`, `CPUOnly`, `CPUAndGPU`, `CPUAndNeuralEngine` |
+|  [03]   | `RequireStaticInputShapes`           | `0`, `1`                                            |
+|  [04]   | `EnableOnSubgraphs`                  | `0`, `1`                                            |
+|  [05]   | `SpecializationStrategy`             | `Default`, `FastPrediction`                         |
+|  [06]   | `ProfileComputePlan`                 | `0`, `1`                                            |
+|  [07]   | `AllowLowPrecisionAccumulationOnGPU` | `0`, `1`                                            |
+|  [08]   | `ModelCacheDirectory`                | cache-directory path string                         |
 
-## [5]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [MODEL_SESSION]:
 - namespace: `Microsoft.ML.OnnxRuntime`
@@ -320,22 +320,22 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 - Accept: measured model inference
 - Reject: ML.NET training pipeline
 
-## [6]-[REGISTRATION_MEMBERS]
+## [06]-[REGISTRATION_MEMBERS]
 
 [ENTRYPOINT_SCOPE]: custom-op and extension registration decompile-verified signatures
 - rail: model-lane#GENERATIVE_RUN
 
 | [INDEX] | [MEMBER]                           | [SIGNATURE]                                                                                                                                                                                                |
 | :-----: | :--------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `RegisterCustomOpLibrary`          | `void RegisterCustomOpLibrary(string libraryPath)`                                                                                                                                                         |
-|   [2]   | `RegisterCustomOpLibraryV2`        | `void RegisterCustomOpLibraryV2(string libraryPath, out nint libraryHandle)`                                                                                                                               |
-|   [3]   | `RegisterOrtExtensions`            | `void RegisterOrtExtensions()` — calls `OrtExtensionsNativeMethods.RegisterCustomOps`; throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` if `Microsoft.ML.OnnxRuntime.Extensions` native asset is absent |
-|   [4]   | `SetEpSelectionPolicy`             | `void SetEpSelectionPolicy(ExecutionProviderDevicePolicy policy)`                                                                                                                                          |
-|   [5]   | `SetEpSelectionPolicyDelegate`     | `void SetEpSelectionPolicyDelegate(EpSelectionDelegate selectionDelegate = null)`                                                                                                                          |
-|   [6]   | `AppendExecutionProvider_CPU`      | `void AppendExecutionProvider_CPU(int useArena = 1)`                                                                                                                                                       |
-|   [7]   | `AppendExecutionProvider_CUDA`     | `void AppendExecutionProvider_CUDA(int deviceId = 0)` / `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                                        |
-|   [8]   | `AppendExecutionProvider_DML`      | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                                                                                       |
-|   [9]   | `AppendExecutionProvider_Tensorrt` | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)` / `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                                            |
+|  [01]   | `RegisterCustomOpLibrary`          | `void RegisterCustomOpLibrary(string libraryPath)`                                                                                                                                                         |
+|  [02]   | `RegisterCustomOpLibraryV2`        | `void RegisterCustomOpLibraryV2(string libraryPath, out nint libraryHandle)`                                                                                                                               |
+|  [03]   | `RegisterOrtExtensions`            | `void RegisterOrtExtensions()` — calls `OrtExtensionsNativeMethods.RegisterCustomOps`; throws `OnnxRuntimeException(ErrorCode.NoSuchFile)` if `Microsoft.ML.OnnxRuntime.Extensions` native asset is absent |
+|  [04]   | `SetEpSelectionPolicy`             | `void SetEpSelectionPolicy(ExecutionProviderDevicePolicy policy)`                                                                                                                                          |
+|  [05]   | `SetEpSelectionPolicyDelegate`     | `void SetEpSelectionPolicyDelegate(EpSelectionDelegate selectionDelegate = null)`                                                                                                                          |
+|  [06]   | `AppendExecutionProvider_CPU`      | `void AppendExecutionProvider_CPU(int useArena = 1)`                                                                                                                                                       |
+|  [07]   | `AppendExecutionProvider_CUDA`     | `void AppendExecutionProvider_CUDA(int deviceId = 0)` / `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`                                                                                        |
+|  [08]   | `AppendExecutionProvider_DML`      | `void AppendExecutionProvider_DML(int deviceId = 0)`                                                                                                                                                       |
+|  [09]   | `AppendExecutionProvider_Tensorrt` | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)` / `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)`                                                                            |
 |  [10]   | `AppendExecutionProvider_ROCm`     | `void AppendExecutionProvider_ROCm(int deviceId = 0)` / `void AppendExecutionProvider_ROCm(OrtROCMProviderOptions)`                                                                                        |
 |  [11]   | `AppendExecutionProvider_CoreML`   | `void AppendExecutionProvider_CoreML(CoreMLFlags coremlFlags = CoreMLFlags.COREML_FLAG_USE_NONE)`                                                                                                          |
 |  [12]   | `AppendExecutionProvider`          | `void AppendExecutionProvider(string providerName, Dictionary<string, string> providerOptions = null)`                                                                                                     |
@@ -350,7 +350,7 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 - `UseModel` does not exist on `SessionOptions` or `InferenceSession` in 1.27.0; it is not part of this package's public surface.
 - `DisposableNamedOnnxValue.CreateFromOrtValue` is internal; it is not a callable public factory — callers consume `DisposableNamedOnnxValue` from `InferenceSession.Run` result collections only.
 
-## [7]-[COMPILE_API]
+## [07]-[COMPILE_API]
 
 `OrtModelCompilationOptions` drives the EP-context compile pipeline: it builds a compiled model whose execution-provider partitions are embedded or written to disk so a later session loads the precompiled graph instead of recompiling. The `ep.context_*` session-config keys in section 4 enable the EP-context path; this type configures and runs the compile.
 
@@ -359,8 +359,8 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]       | [CAPABILITY]                                           |
 | :-----: | :--------------------------------- | :------------------- | :----------------------------------------------------- |
-|   [1]   | `WriteBufferToDestinationDelegate` | write delegate       | streams compiled output buffer to a caller destination |
-|   [2]   | `GetInitializerLocationDelegate`   | initializer delegate | maps an initializer to an external storage location    |
+|  [01]   | `WriteBufferToDestinationDelegate` | write delegate       | streams compiled output buffer to a caller destination |
+|  [02]   | `GetInitializerLocationDelegate`   | initializer delegate | maps an initializer to an external storage location    |
 
 [ENTRYPOINT_SCOPE]: `OrtModelCompilationOptions` decompile-verified signatures
 - source: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 decompile
@@ -369,15 +369,15 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 
 | [INDEX] | [MEMBER]                                                                  | [SIGNATURE]                                                                                                                                                                                    |
 | :-----: | :------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `OrtModelCompilationOptions.ctor`                                         | `OrtModelCompilationOptions(SessionOptions sessionOptions)`                                                                                                                                    |
-|   [2]   | `OrtModelCompilationOptions.CompileModel`                                 | `void CompileModel()`                                                                                                                                                                          |
-|   [3]   | `OrtModelCompilationOptions.SetInputModelPath`                            | `void SetInputModelPath(string path)`                                                                                                                                                          |
-|   [4]   | `OrtModelCompilationOptions.SetInputModelFromBuffer`                      | `void SetInputModelFromBuffer(byte[] buffer)`                                                                                                                                                  |
-|   [5]   | `OrtModelCompilationOptions.SetOutputModelPath`                           | `void SetOutputModelPath(string path)`                                                                                                                                                         |
-|   [6]   | `OrtModelCompilationOptions.SetOutputModelExternalInitializersFile`       | `void SetOutputModelExternalInitializersFile(string filePath, ulong threshold)`                                                                                                                |
-|   [7]   | `OrtModelCompilationOptions.SetEpContextEmbedMode`                        | `void SetEpContextEmbedMode(bool embed)`                                                                                                                                                       |
-|   [8]   | `OrtModelCompilationOptions.SetFlags`                                     | `void SetFlags(OrtCompileApiFlags flags)`                                                                                                                                                      |
-|   [9]   | `OrtModelCompilationOptions.SetEpContextBinaryInformation`                | `void SetEpContextBinaryInformation(string outputDirectory, string modelName)`                                                                                                                 |
+|  [01]   | `OrtModelCompilationOptions.ctor`                                         | `OrtModelCompilationOptions(SessionOptions sessionOptions)`                                                                                                                                    |
+|  [02]   | `OrtModelCompilationOptions.CompileModel`                                 | `void CompileModel()`                                                                                                                                                                          |
+|  [03]   | `OrtModelCompilationOptions.SetInputModelPath`                            | `void SetInputModelPath(string path)`                                                                                                                                                          |
+|  [04]   | `OrtModelCompilationOptions.SetInputModelFromBuffer`                      | `void SetInputModelFromBuffer(byte[] buffer)`                                                                                                                                                  |
+|  [05]   | `OrtModelCompilationOptions.SetOutputModelPath`                           | `void SetOutputModelPath(string path)`                                                                                                                                                         |
+|  [06]   | `OrtModelCompilationOptions.SetOutputModelExternalInitializersFile`       | `void SetOutputModelExternalInitializersFile(string filePath, ulong threshold)`                                                                                                                |
+|  [07]   | `OrtModelCompilationOptions.SetEpContextEmbedMode`                        | `void SetEpContextEmbedMode(bool embed)`                                                                                                                                                       |
+|  [08]   | `OrtModelCompilationOptions.SetFlags`                                     | `void SetFlags(OrtCompileApiFlags flags)`                                                                                                                                                      |
+|  [09]   | `OrtModelCompilationOptions.SetEpContextBinaryInformation`                | `void SetEpContextBinaryInformation(string outputDirectory, string modelName)`                                                                                                                 |
 |  [10]   | `OrtModelCompilationOptions.SetGraphOptimizationLevel`                    | `void SetGraphOptimizationLevel(GraphOptimizationLevel graphOptimizationLevel)`                                                                                                                |
 |  [11]   | `OrtModelCompilationOptions.SetOutputModelWriteDelegate`                  | `void SetOutputModelWriteDelegate(WriteBufferToDestinationDelegate writeBufferDelegate)`                                                                                                       |
 |  [12]   | `OrtModelCompilationOptions.SetOutputModelGetInitializerLocationDelegate` | `void SetOutputModelGetInitializerLocationDelegate(GetInitializerLocationDelegate getInitializerLocationDelegate)`                                                                             |

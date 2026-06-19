@@ -2,25 +2,25 @@
 
 System APIs replace local machinery only when they own the concern. They do not replace LanguageExt rails, Thinktecture domain shapes, MathNet algorithms, Rhino geometry, or GH2 data semantics.
 
-## [1]-[SMELL_LOOKUP]
+## [01]-[SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell.
 
 | [INDEX] | [SMELL]                                | [OWNER]                       |
 | :-----: | :------------------------------------- | :---------------------------- |
-|   [1]   | manual hex loop                        | `Convert.ToHexString`         |
-|   [2]   | regex count allocation                 | `Regex.Count`                 |
-|   [3]   | regex character filter                 | `SearchValues<T>`             |
-|   [4]   | mutable public payload                 | immutable boundary collection |
-|   [5]   | primitive branded value                | generated domain shape        |
-|   [6]   | matrix algorithm                       | numeric concept page          |
-|   [7]   | `DateTime.Now` delta                   | `TimeProvider`                |
-|   [8]   | guard-block argument throw             | throw-helper statics          |
-|   [9]   | `string.Split` on a parse path         | `MemoryExtensions.Split`      |
+|  [01]   | manual hex loop                        | `Convert.ToHexString`         |
+|  [02]   | regex count allocation                 | `Regex.Count`                 |
+|  [03]   | regex character filter                 | `SearchValues<T>`             |
+|  [04]   | mutable public payload                 | immutable boundary collection |
+|  [05]   | primitive branded value                | generated domain shape        |
+|  [06]   | matrix algorithm                       | numeric concept page          |
+|  [07]   | `DateTime.Now` delta                   | `TimeProvider`                |
+|  [08]   | guard-block argument throw             | throw-helper statics          |
+|  [09]   | `string.Split` on a parse path         | `MemoryExtensions.Split`      |
 |  [10]   | `Encoding.UTF8.GetBytes` on a literal  | `u8` literal                  |
 |  [11]   | `[DllImport]` runtime marshalling stub | `[LibraryImport]`             |
 
-## [2]-[TEXT_AND_WIRE]
+## [02]-[TEXT_AND_WIRE]
 
 [REGEX_GRAMMAR]:
 - Owner: `[GeneratedRegex]` for stable structural grammar; plain `Regex` with `RegexOptions.NonBacktracking` for runtime grammar.
@@ -71,7 +71,7 @@ public static class NumericFrame {
 - Gate: validate allowed code points with one text policy, not scattered predicates.
 - Rule: codepoint-level work routes through `Rune`; user-perceived characters route through `StringInfo` text elements.
 
-## [3]-[COLLECTIONS_AND_IDENTITY]
+## [03]-[COLLECTIONS_AND_IDENTITY]
 
 [READ_MOSTLY_LOOKUP]:
 - Owner: `FrozenDictionary`, `FrozenSet`, and `GetAlternateLookup<ReadOnlySpan<char>>` for span-keyed probes.
@@ -126,7 +126,7 @@ public static class RowIndex {
 - Gate: hash with the same comparer policy used by lookup; generated domain shapes own branded identity.
 - Reject: persisting any `GetHashCode` output or using it as stable file identity — in-process hashes are process-randomized, and persistent fingerprints route to the non-cryptographic hashing owners.
 
-## [4]-[NUMERICS]
+## [04]-[NUMERICS]
 
 [SCALAR_AND_GENERIC_MATH]:
 - Owner: `Math`, `MathF`, `Half`, BCL `Complex`, and the narrowest generic math constraint such as `INumberBase<T>`, `IBinaryInteger<T>`, or `IFloatingPointIeee754<T>`.
@@ -144,7 +144,7 @@ public static class RowIndex {
 - Owner: RhinoCommon for geometry, units, tolerances, transforms, and topology.
 - Reject: replacing native host geometry semantics with generic numeric helpers.
 
-## [5]-[RUNTIME_AND_OBSERVABILITY]
+## [05]-[RUNTIME_AND_OBSERVABILITY]
 
 [TIME]:
 - Owner: `TimeProvider`, `PeriodicTimer`, `Stopwatch.GetTimestamp`, and `Stopwatch.GetElapsedTime`.
@@ -185,7 +185,7 @@ public static class RowIndex {
 - Replace: `BlockingCollection<T>` and manual `SemaphoreSlim` producer-consumer loops.
 - Gate: bounded options carry the backpressure decision through `FullMode` and the `itemDropped` callback; `Complete` terminates `ReadAllAsync` naturally.
 
-## [6]-[IO_BUFFERS_AND_INTEGRITY]
+## [06]-[IO_BUFFERS_AND_INTEGRITY]
 
 [PATH_AND_FILE_IO]:
 - Owner: `Path.Join`, `Path.Exists`, `File.OpenHandle`, `RandomAccess`, `FileStreamOptions`, `ReadExactlyAsync`, `ReadAtLeastAsync`, and `File.ReadLinesAsync`.
@@ -204,7 +204,7 @@ public static class RowIndex {
 - Gate: guard `SHA3` and `SHAKE` one-shots behind their `IsSupported` statics; reserve ASN.1 for PKI or signing requirements.
 - Rule: `Random.Shared` and `RandomNumberGenerator` expose the same `GetItems`, `GetString`, `Shuffle`, and `Fill` surface, so the owning type is the entire security decision.
 
-## [7]-[BOUNDARY_AND_INTEROP]
+## [07]-[BOUNDARY_AND_INTEROP]
 
 [SEAM_CONTRACTS]:
 - Owner: `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty` and `ThrowIfNullOrWhiteSpace`, the `ArgumentOutOfRangeException.ThrowIf` comparison family, `ObjectDisposedException.ThrowIf`, the nullable-flow annotations `NotNullWhen`, `NotNullIfNotNull`, `MemberNotNull`, `DoesNotReturn`, and `StringSyntax`, and `Validator.TryValidateObject` with `[Required]` and `[Range]` for synchronous DTO checks.

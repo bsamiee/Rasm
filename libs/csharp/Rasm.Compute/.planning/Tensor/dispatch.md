@@ -2,12 +2,12 @@
 
 The cpu-tensor kernel dispatch and the equivalence law: the arity kernel-delegate dispatch binding each `TensorOpFamily` row to its TensorPrimitives member, the claim-gated `ParallelHelper` partition column over both the 1-D `For` and the 2-D `For2D` plane partitions, and the equivalence law proving lane kernels against Rasm baselines with the differentiable-operator adjoint and the three-named copy-point law. The page owns the kernel-delegate types and registries, the `TensorOps` dispatch surface, the `PartitionRoute`/`MapBlock`/`PlaneBlock` partition composition, the `EquivalencePolicy`/`AdjointMode`/`DifferentiableOp`/`SensitivityLaw`/`EquivalenceLaw` equivalence surface, and the `StagePlane`/`MatMulGeometry`/`Backward` copy-point and adjoint owners; the kernels ride `System.Numerics.Tensors`, the matrix rows lower through `Tensor/factor#KERNEL_LOWERING`, the partition cap reads AppHost `CpuBudget` and the winning `BenchmarkRow`, and the `TensorOpFamily`/`ToleranceClass`/`TensorDtype`/`TensorFault`/`TensorKeyPolicy` vocabulary, the `OrtResidency`/`CopyPoint` copy points, and the `Effects`/`Projection` scalar folds arrive settled from `Tensor/vocabulary#TENSOR_VOCABULARY` and `Tensor/residency#ORT_BRIDGE`. The reverse-mode `SensitivityLaw.Chain` is the tape the `Solver/optimizer#OPTIMIZER_LANE` gradient-adjoint row consumes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[KERNEL_DISPATCH]: arity kernel-delegate tables; one `TensorOps` dispatch surface.
-- [2]-[EQUIVALENCE_INTEROP]: equivalence proofs against Rasm kernels; matmul route; differentiable adjoint; copy-point law.
+- [01]-[KERNEL_DISPATCH]: arity kernel-delegate tables; one `TensorOps` dispatch surface.
+- [02]-[EQUIVALENCE_INTEROP]: equivalence proofs against Rasm kernels; matmul route; differentiable adjoint; copy-point law.
 
-## [2]-[KERNEL_DISPATCH]
+## [02]-[KERNEL_DISPATCH]
 
 - Owner: `TensorOps`
 - Entry: `public static Fin<Unit> Map<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<T> destination)` — `Fin<Unit>` aborts on a kernel-row miss; the arity siblings `Zip`, `Fuse`, `Dual`, `Bits`, `Shift`, `Population`, `Convert`, `ToHalf`, `ToSingle`, `Root`, `Fold`, `FoldPair`, `IndexOf`, `Polarity`, `Test`, `Aggregate`, `Hamming`, `HammingBits`, `Mask`, `Pool`, the element-domain `ComplexZip`/`ComplexMap`/`ComplexAbs` and `QuaternionZip`/`QuaternionMap`, and the claim-gated `Partition` dispatch the same `TensorOpFamily` table; `Pool` is the rank-aware strided-window fold the four pooling rows share over one `PoolReducers<T>` reducer table walking a `GetDimensionSpan` cursor over a `ToDenseTensor()` plane (which returns `this` on an already-dense backing, so a permuted/sliced input is densified once before the flat-window walk instead of reading across stride gaps) and faulting `pool-window-out-of-range` when the window exceeds the extent; `Aggregate` is the boolean-reduce the `*All`/`*Any` predicate rows share; `Mask` is the predicate-masked write binding `Tensor.FilteredUpdate`; `Partition` reads `CpuBudget.PartitionCap` and the winning claim's partition-route column, dispatching the 1-D `For` over a `MapBlock` or the 2-D `For2D` over a `Memory2D` plane and falling through to inline `Map` when no winning claim is supplied.
@@ -317,7 +317,7 @@ public readonly struct PlaneBlock<T>(ReadOnlyMemory<T> source, Memory<T> destina
 }
 ```
 
-## [3]-[EQUIVALENCE_INTEROP]
+## [03]-[EQUIVALENCE_INTEROP]
 
 - Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the optional forward-mode Jacobian-vector-product; `Backward` the non-diagonal reverse-mode apply owner carrying the MatMul operand-transpose, the SoftMax Jacobian-minus-outer, and the `Operator` DDG geometry-operator apply that composes the `Rasm`/Vectors `Spectral.cs` `OperatorRow.Adjoint`; `SensitivityLaw` the static dual-mode adjoint and tape-chain surface.
 - Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy)` — pure value sampling `policy.SampleCount` filled tensors through the catalogued distribution fillers; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail; `public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed)` is the forward/reverse-mode differentiable-operator adjoint and `Chain` folds a recorded `(op, primal)` tape into the reverse-mode gradient.
@@ -470,7 +470,7 @@ public static class EquivalenceLaw {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [OPERATOR_BACKLOG]: `Normalize` has no `TensorPrimitives` member and never becomes a single-call row — vector normalization composes `Norm` then `Divide` against the reduced magnitude. `ConvertToInteger`/`ConvertToIntegerNative` are conversion rows whose `ConvertKernel<TFrom, TTo>` instantiation is the integer-destination `ConvertKernels<TFrom, int>`/`<TFrom, long>` row, reached only behind a `TensorDtype.Quantized` admission, never a bare float-to-int loop.
 - [PARTITION_CLAIM]: the fingerprint-matched `BenchmarkClaim` that gates the `ParallelHelper` partition route over the lowered `Tensor/factor#KERNEL_LOWERING` GEMM resolves against a live host fingerprint; the in-page partition fence reads the threaded claim's `Route` column, and the cold start is the unpartitioned GEMM until a winning claim row lands.

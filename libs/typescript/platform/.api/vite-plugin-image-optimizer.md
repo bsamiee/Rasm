@@ -2,7 +2,7 @@
 
 `vite-plugin-image-optimizer` compresses raster images (PNG, JPEG, TIFF, GIF, WebP, AVIF) via `sharp` and optimizes SVG files via `svgo` during the Vite build. The named export `ViteImageOptimizer(options?)` returns a `Plugin`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vite-plugin-image-optimizer`
 - package: `vite-plugin-image-optimizer`
@@ -10,29 +10,29 @@
 - asset: Vite plugin (returns `Plugin`)
 - rail: asset-optimize
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options family
 - rail: asset-optimize
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY]  | [DESCRIPTION]             |
 | :-----: | :-------- | :------------- | :------------------------ |
-|   [1]   | `Options` | options object | full plugin configuration |
+|  [01]   | `Options` | options object | full plugin configuration |
 
 [PUBLIC_TYPE_SCOPE]: Options fields
 - rail: asset-optimize
 
 | [INDEX] | [FIELD]         | [TYPE]                         | [DESCRIPTION]                                |
 | :-----: | :-------------- | :----------------------------- | :------------------------------------------- |
-|   [1]   | `test`          | `RegExp`                       | regex to match asset file paths              |
-|   [2]   | `include`       | `RegExp \| string \| string[]` | files to include                             |
-|   [3]   | `exclude`       | `RegExp \| string \| string[]` | files to exclude                             |
-|   [4]   | `includePublic` | `boolean`                      | optimize assets in `public/` directory       |
-|   [5]   | `ansiColors`    | `boolean`                      | use ANSI colors in log output                |
-|   [6]   | `logStats`      | `boolean`                      | print compression stats to terminal          |
-|   [7]   | `svg`           | `SVGOConfig`                   | svgo options for SVG optimization            |
-|   [8]   | `png`           | `PngOptions`                   | sharp options for PNG files                  |
-|   [9]   | `jpeg`          | `JpegOptions`                  | sharp options for JPEG files                 |
+|  [01]   | `test`          | `RegExp`                       | regex to match asset file paths              |
+|  [02]   | `include`       | `RegExp \| string \| string[]` | files to include                             |
+|  [03]   | `exclude`       | `RegExp \| string \| string[]` | files to exclude                             |
+|  [04]   | `includePublic` | `boolean`                      | optimize assets in `public/` directory       |
+|  [05]   | `ansiColors`    | `boolean`                      | use ANSI colors in log output                |
+|  [06]   | `logStats`      | `boolean`                      | print compression stats to terminal          |
+|  [07]   | `svg`           | `SVGOConfig`                   | svgo options for SVG optimization            |
+|  [08]   | `png`           | `PngOptions`                   | sharp options for PNG files                  |
+|  [09]   | `jpeg`          | `JpegOptions`                  | sharp options for JPEG files                 |
 |  [10]   | `jpg`           | `JpegOptions`                  | sharp options for JPG files                  |
 |  [11]   | `tiff`          | `TiffOptions`                  | sharp options for TIFF files                 |
 |  [12]   | `gif`           | `GifOptions`                   | sharp options for GIF files                  |
@@ -41,16 +41,16 @@
 |  [15]   | `cache`         | `boolean`                      | persist optimized images in local file cache |
 |  [16]   | `cacheLocation` | `string`                       | path to the cache directory                  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory
 - rail: asset-optimize
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [DESCRIPTION]                       |
 | :-----: | :----------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `ViteImageOptimizer(options?)` | plugin factory | named export; returns Vite `Plugin` |
+|  [01]   | `ViteImageOptimizer(options?)` | plugin factory | named export; returns Vite `Plugin` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IMAGE_TOPOLOGY]:
 - raster formats (PNG, JPEG, TIFF, GIF, WebP, AVIF) are processed by `sharp`; SVG files by `svgo`

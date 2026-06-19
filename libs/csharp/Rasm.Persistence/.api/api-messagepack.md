@@ -4,7 +4,7 @@
 formatters, resolvers, security policy, compression hooks, extension headers,
 and annotation contracts.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
 - package: `MessagePack`
@@ -13,22 +13,22 @@ and annotation contracts.
 - asset: runtime library
 - rail: snapshot-codec
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [CODEC_TYPES]: reader, writer, and serializer surfaces
 - rail: snapshot-codec
 
 | [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]     | [CAPABILITY]                           |
 | :-----: | :------------------------------- | :----------------- | :------------------------------------- |
-|   [1]   | `MessagePackSerializer`          | codec root         | serializes snapshots (typed+typeless)  |
-|   [2]   | `MessagePackSerializer.Typeless` | typeless codec     | serializes object? with type header    |
-|   [3]   | `MessagePackReader`              | reader             | reads encoded payloads                 |
-|   [4]   | `MessagePackWriter`              | writer             | writes encoded payloads                |
-|   [5]   | `MessagePackStreamReader`        | stream reader      | reads length-delimited streamed frames |
-|   [6]   | `MessagePackSerializerOptions`   | codec policy       | configures serialization               |
-|   [7]   | `MessagePackSecurity`            | security policy    | controls reader security               |
-|   [8]   | `MessagePackCompression`         | compression policy | classifies compression                 |
-|   [9]   | `ExtensionHeader`                | extension header   | carries extension metadata             |
+|  [01]   | `MessagePackSerializer`          | codec root         | serializes snapshots (typed+typeless)  |
+|  [02]   | `MessagePackSerializer.Typeless` | typeless codec     | serializes object? with type header    |
+|  [03]   | `MessagePackReader`              | reader             | reads encoded payloads                 |
+|  [04]   | `MessagePackWriter`              | writer             | writes encoded payloads                |
+|  [05]   | `MessagePackStreamReader`        | stream reader      | reads length-delimited streamed frames |
+|  [06]   | `MessagePackSerializerOptions`   | codec policy       | configures serialization               |
+|  [07]   | `MessagePackSecurity`            | security policy    | controls reader security               |
+|  [08]   | `MessagePackCompression`         | compression policy | classifies compression                 |
+|  [09]   | `ExtensionHeader`                | extension header   | carries extension metadata             |
 |  [10]   | `ExtensionResult`                | extension payload  | carries extension data                 |
 |  [11]   | `Nil`                            | nil marker         | carries nil value                      |
 
@@ -42,15 +42,15 @@ and annotation contracts.
 
 | [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE]     | [CAPABILITY]                         |
 | :-----: | :------------------------------------- | :----------------- | :----------------------------------- |
-|   [1]   | `IFormatterResolver`                   | resolver contract  | resolves formatters                  |
-|   [2]   | `IMessagePackFormatter<T>`             | formatter contract | formats typed values                 |
-|   [3]   | `CompositeResolver`                    | resolver           | composes formatters (factory)        |
-|   [4]   | `StandardResolver`                     | resolver           | resolves standard contract types     |
-|   [5]   | `ContractlessStandardResolver`         | resolver           | resolves contractless types          |
-|   [6]   | `TypelessContractlessStandardResolver` | resolver           | resolves typeless object? payloads   |
-|   [7]   | `SourceGeneratedFormatterResolver`     | resolver           | resolves source-generated formatters |
-|   [8]   | `AttributeFormatterResolver`           | resolver           | resolves `[MessagePackFormatter]`    |
-|   [9]   | `StaticCompositeResolver`              | resolver           | mutable singleton composite          |
+|  [01]   | `IFormatterResolver`                   | resolver contract  | resolves formatters                  |
+|  [02]   | `IMessagePackFormatter<T>`             | formatter contract | formats typed values                 |
+|  [03]   | `CompositeResolver`                    | resolver           | composes formatters (factory)        |
+|  [04]   | `StandardResolver`                     | resolver           | resolves standard contract types     |
+|  [05]   | `ContractlessStandardResolver`         | resolver           | resolves contractless types          |
+|  [06]   | `TypelessContractlessStandardResolver` | resolver           | resolves typeless object? payloads   |
+|  [07]   | `SourceGeneratedFormatterResolver`     | resolver           | resolves source-generated formatters |
+|  [08]   | `AttributeFormatterResolver`           | resolver           | resolves `[MessagePackFormatter]`    |
+|  [09]   | `StaticCompositeResolver`              | resolver           | mutable singleton composite          |
 
 `CompositeResolver.Create` overloads: `(IReadOnlyList<IMessagePackFormatter>, IReadOnlyList<IFormatterResolver>)`, `(params IFormatterResolver[])`, `(params IMessagePackFormatter[])`.
 `StaticCompositeResolver` singleton `Instance`; `Register(params IMessagePackFormatter[])`, `Register(params IFormatterResolver[])`, `Register(IReadOnlyList<IMessagePackFormatter>, IReadOnlyList<IFormatterResolver>)`.
@@ -61,16 +61,16 @@ and annotation contracts.
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]        | [CAPABILITY]             |
 | :-----: | :-------------------------------------- | :-------------------- | :----------------------- |
-|   [1]   | `MessagePackObjectAttribute`            | contract attribute    | declares object contract |
-|   [2]   | `KeyAttribute`                          | contract attribute    | assigns member key       |
-|   [3]   | `IgnoreMemberAttribute`                 | contract attribute    | excludes member          |
-|   [4]   | `UnionAttribute`                        | contract attribute    | declares union case      |
-|   [5]   | `MessagePackFormatterAttribute`         | formatter attribute   | selects formatter        |
-|   [6]   | `SerializationConstructorAttribute`     | constructor attribute | selects constructor      |
-|   [7]   | `GeneratedMessagePackResolverAttribute` | resolver attribute    | marks generated resolver |
-|   [8]   | `CompositeResolverAttribute`            | resolver attribute    | declares resolver input  |
+|  [01]   | `MessagePackObjectAttribute`            | contract attribute    | declares object contract |
+|  [02]   | `KeyAttribute`                          | contract attribute    | assigns member key       |
+|  [03]   | `IgnoreMemberAttribute`                 | contract attribute    | excludes member          |
+|  [04]   | `UnionAttribute`                        | contract attribute    | declares union case      |
+|  [05]   | `MessagePackFormatterAttribute`         | formatter attribute   | selects formatter        |
+|  [06]   | `SerializationConstructorAttribute`     | constructor attribute | selects constructor      |
+|  [07]   | `GeneratedMessagePackResolverAttribute` | resolver attribute    | marks generated resolver |
+|  [08]   | `CompositeResolverAttribute`            | resolver attribute    | declares resolver input  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: codec operations
 - rail: snapshot-codec
@@ -81,15 +81,15 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 
 | [INDEX] | [SURFACE]          | [CALL_SHAPE]     | [CAPABILITY]                                       |
 | :-----: | :----------------- | :--------------- | :------------------------------------------------- |
-|   [1]   | `Serialize`        | codec call       | writes typed or typeless snapshot payload          |
-|   [2]   | `Deserialize`      | codec call       | reads typed or typeless snapshot payload           |
-|   [3]   | `SerializeAsync`   | async codec call | writes streamed payload                            |
-|   [4]   | `DeserializeAsync` | async codec call | reads streamed payload                             |
-|   [5]   | `SerializeToJson`  | projection call  | serializes directly to JSON string or `TextWriter` |
-|   [6]   | `ConvertToJson`    | projection call  | converts existing msgpack bytes to JSON            |
-|   [7]   | `ConvertFromJson`  | ingestion call   | converts JSON string/TextReader to msgpack         |
-|   [8]   | `DefaultOptions`   | static property  | process-wide default options (gettable/settable)   |
-|   [9]   | `WriteArrayHeader` | writer call      | writes array header                                |
+|  [01]   | `Serialize`        | codec call       | writes typed or typeless snapshot payload          |
+|  [02]   | `Deserialize`      | codec call       | reads typed or typeless snapshot payload           |
+|  [03]   | `SerializeAsync`   | async codec call | writes streamed payload                            |
+|  [04]   | `DeserializeAsync` | async codec call | reads streamed payload                             |
+|  [05]   | `SerializeToJson`  | projection call  | serializes directly to JSON string or `TextWriter` |
+|  [06]   | `ConvertToJson`    | projection call  | converts existing msgpack bytes to JSON            |
+|  [07]   | `ConvertFromJson`  | ingestion call   | converts JSON string/TextReader to msgpack         |
+|  [08]   | `DefaultOptions`   | static property  | process-wide default options (gettable/settable)   |
+|  [09]   | `WriteArrayHeader` | writer call      | writes array header                                |
 |  [10]   | `WriteMapHeader`   | writer call      | writes map header                                  |
 |  [11]   | `ReadArrayHeader`  | reader call      | reads array header                                 |
 |  [12]   | `ReadMapHeader`    | reader call      | reads map header                                   |
@@ -103,15 +103,15 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 
 | [INDEX] | [SURFACE]                                | [CALL_SHAPE]    | [CAPABILITY]                                |
 | :-----: | :--------------------------------------- | :-------------- | :------------------------------------------ |
-|   [1]   | `WithResolver`                           | option call     | sets resolver policy                        |
-|   [2]   | `WithSecurity`                           | option call     | sets security policy                        |
-|   [3]   | `WithCompression`                        | option call     | sets compression policy                     |
-|   [4]   | `WithCompressionMinLength`               | option call     | sets minimum byte length for compression    |
-|   [5]   | `WithOldSpec`                            | option call     | forces MessagePack v1 encoding              |
-|   [6]   | `WithOmitAssemblyVersion`                | option call     | omits assembly version on typeless          |
-|   [7]   | `WithAllowAssemblyVersionMismatch`       | option call     | tolerates version mismatches on typeless    |
-|   [8]   | `WithPool`                               | option call     | substitutes `SequencePool`                  |
-|   [9]   | `WithSuggestedContiguousMemorySize`      | option call     | hints contiguous buffer cap (default 1MB)   |
+|  [01]   | `WithResolver`                           | option call     | sets resolver policy                        |
+|  [02]   | `WithSecurity`                           | option call     | sets security policy                        |
+|  [03]   | `WithCompression`                        | option call     | sets compression policy                     |
+|  [04]   | `WithCompressionMinLength`               | option call     | sets minimum byte length for compression    |
+|  [05]   | `WithOldSpec`                            | option call     | forces MessagePack v1 encoding              |
+|  [06]   | `WithOmitAssemblyVersion`                | option call     | omits assembly version on typeless          |
+|  [07]   | `WithAllowAssemblyVersionMismatch`       | option call     | tolerates version mismatches on typeless    |
+|  [08]   | `WithPool`                               | option call     | substitutes `SequencePool`                  |
+|  [09]   | `WithSuggestedContiguousMemorySize`      | option call     | hints contiguous buffer cap (default 1MB)   |
 |  [10]   | `GetFormatter<T>`                        | resolver call   | resolves formatter                          |
 |  [11]   | `CompositeResolver.Create`               | factory call    | composes resolver from formatters/resolvers |
 |  [12]   | `MessagePackSerializerOptions.Standard`  | static preset   | default standard options                    |
@@ -125,7 +125,7 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>`; null signals end of stream.
 `MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`), `SequencePool`.
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SNAPSHOT_CODEC]:
 - namespace: `MessagePack`

@@ -4,21 +4,21 @@ This folder is the C# stack router. It routes language, shape, surface, rail, bo
 
 Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, generated-surface, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
-## [1]-[ATLAS]
+## [01]-[ATLAS]
 
 This table is the lookup by reader decision.
 
 | [INDEX] | [DECISION]              | [READ]                                            | [STATE]   |
 | :-----: | :---------------------- | :------------------------------------------------ | :-------- |
-|   [1]   | language shape          | [language](language.md)                           | finalized |
-|   [2]   | domain shape            | [shapes](shapes.md)                               | finalized |
-|   [3]   | surface and dispatch    | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
-|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md)         | finalized |
-|   [5]   | host and wire boundary  | [boundaries](boundaries.md)                       | finalized |
-|   [6]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
-|   [7]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
-|   [8]   | quality rail            | [testing](testing/README.md)                      | finalized |
-|   [9]   | domain routing          | [domain](domain/README.md)                        | finalized |
+|  [01]   | language shape          | [language](language.md)                           | finalized |
+|  [02]   | domain shape            | [shapes](shapes.md)                               | finalized |
+|  [03]   | surface and dispatch    | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
+|  [04]   | result and effect flow  | [rails and effects](rails-and-effects.md)         | finalized |
+|  [05]   | host and wire boundary  | [boundaries](boundaries.md)                       | finalized |
+|  [06]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
+|  [07]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
+|  [08]   | quality rail            | [testing](testing/README.md)                      | finalized |
+|  [09]   | domain routing          | [domain](domain/README.md)                        | finalized |
 |  [10]   | hosting and runtime     | [runtime](domain/runtime.md)                      | finalized |
 |  [11]   | concurrency and streams | [concurrency](domain/concurrency.md)              | finalized |
 |  [12]   | telemetry signal        | [diagnostics](domain/diagnostics.md)              | finalized |
@@ -33,7 +33,7 @@ This table is the lookup by reader decision.
 |  [21]   | render and visuals      | [visuals](domain/visuals.md)                      | finalized |
 |  [22]   | retained interaction    | [interaction](domain/interaction.md)              | finalized |
 
-## [2]-[DOCTRINE]
+## [02]-[DOCTRINE]
 
 Sixteen laws in five groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation makes every secondary surface provably consistent with its primary. Density is the consequence, not the goal — when one declaration carries the family, every remaining line is load-bearing. The atlas is sized for large systems: total lines and public surface grow sublinearly with capability because every owner is declared with the capacity to absorb the family it anchors — growth lands as cases, rows, and policy values inside existing owners, never as new surfaces beside them. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
 
@@ -63,23 +63,23 @@ Sixteen laws in five groups govern every C# decision in this stack. Concept page
 - `ONE_HOP_RESOLUTION` — a name resolves to its semantics in one hop: no alias-to-constant-to-enum-to-class chains, no forwarding helpers, no helper or util shells, no convenience wrappers. A value that takes two jumps to trace marks a layer to delete.
 - `COMPOSED_IMPLEMENTATION` — a feature of any complexity is implemented by composing the page owners — admitted shapes, typed rails, dispatch surfaces, boundary projections, numeric routes — before any new scaffold is named. The pages are one body, and the same concern resolves identically wherever it appears. A need with no composed spelling marks a missing case in an owning page's law: the law extends first, the feature lands second. Cards and snippets show this composition at full operator depth. Flat code — logic below the operator depth the admitted packages reach — is surface sprawl in time: it re-derives, line by line, what a deeper composed form states once.
 
-## [3]-[COLLAPSE_SCAN]
+## [03]-[COLLAPSE_SCAN]
 
 Run this scan on every edit. Any signal triggers the move; three or more instances make it mandatory.
 
 | [INDEX] | [SIGNAL]                                          | [MOVE]                                   |
 | :-----: | :------------------------------------------------ | :--------------------------------------- |
-|   [1]   | sibling names share a prefix or suffix            | one modality-polymorphic entrypoint      |
-|   [2]   | same return rail, signatures differ only by arity | input-shape discrimination               |
-|   [3]   | functions differ only by a literal                | parameterize; the literal becomes policy |
-|   [4]   | boolean parameter selects between two bodies      | one derived body or one policy value     |
-|   [5]   | function calls exactly one other function         | delete the hop                           |
-|   [6]   | parallel dispatch arms repeat structure           | table or fold algebra                    |
-|   [7]   | several types share fields for one concept        | one closed family                        |
-|   [8]   | wrapper renames a package API                     | use the package surface directly         |
-|   [9]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
+|  [01]   | sibling names share a prefix or suffix            | one modality-polymorphic entrypoint      |
+|  [02]   | same return rail, signatures differ only by arity | input-shape discrimination               |
+|  [03]   | functions differ only by a literal                | parameterize; the literal becomes policy |
+|  [04]   | boolean parameter selects between two bodies      | one derived body or one policy value     |
+|  [05]   | function calls exactly one other function         | delete the hop                           |
+|  [06]   | parallel dispatch arms repeat structure           | table or fold algebra                    |
+|  [07]   | several types share fields for one concept        | one closed family                        |
+|  [08]   | wrapper renames a package API                     | use the package surface directly         |
+|  [09]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
 
-## [4]-[RULE_ENFORCEMENT]
+## [04]-[RULE_ENFORCEMENT]
 
 The repository analyzer (`tools/cs-analyzer`) is the doctrine's compiled form: it turns doctrine violations into build errors. Its loop is one-directional — a doctrine page legislates, the analyzer enforces; a rule never introduces law of its own.
 
@@ -88,7 +88,7 @@ The repository analyzer (`tools/cs-analyzer`) is the doctrine's compiled form: i
 - Register law: the rule inventory is the code — the catalog, the release ledger, and the `AdditionalFiles` vocabulary data. No prose catalog of rules exists anywhere; arguing a rule's gate or semantics happens at its row and tests.
 - Finding law: a true positive is architecture pressure — fix the shape in the product; a false positive, or a fix that adds ceremony without improving the system, is rule pressure — refine the rule. Suppression is neither.
 
-## [5]-[PAGE_CRAFT]
+## [05]-[PAGE_CRAFT]
 
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
@@ -108,7 +108,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Route scope is README-local: lookup rows and conflict rules live in README files; concept pages carry only the law they own.
 - Manifest truth: package versions, references, injected globals, tools, and graph admission live in `Directory.Packages.props` and `Directory.Build.props`; no package-named pages; a package is named only where it changes the implementation choice.
 
-## [6]-[CORPUS_LAW]
+## [06]-[CORPUS_LAW]
 
 How the corpus accretes. The folder is one cohesive body, not isolated pages; atlas order is implementation order. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `target` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 

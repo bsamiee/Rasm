@@ -2,12 +2,12 @@
 
 Rasm.Compute dense linear-algebra lane: BLAS-class dense linear algebra over the admitted MathNet provider stack admitted once and routed by operand shape — definite, square, overdetermined, symmetric, periodic-grid — never by the call site and never by a knob riding beside the matrix. The lane owns the `LinearProvider` RID-keyed availability table selecting native OpenBLAS where an osx-arm64 asset resolves and the managed terminal otherwise, the `FactorRoute` `[Union]` route-spine collapsing every dense factorization to one shape-routed admission, the `Admission` finite/symmetry/singular gate re-imposing every gate MathNet refuses, the scale-derived `TolerancePolicy` carried on every receipt, the spectral `Modal`/eigen-residual/eigenbasis-filter owners returning the `SpectralResult` `[Union]`, and the claim-gated provider-rank selection with its provenance snapshot and the `OnlineStat` fourth-order residual-moment accumulator the receipt-surface residual histogram folds. Every library refuses its own gates — no constructor checks finiteness, `IsSymmetric()` compares by exact `!=`, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate and every result leaves as a typed `ComputeReceipt.Factorization` carrying the route variant, the scale-derived tolerance, the provider determinism tag, and the recomputed true relative residual against the original operator, never a `Matrix<double>`, `Vector<double>`, or factorization instance.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DENSE_ALGEBRA]: RID provider table; `FactorRoute` shape-spine; admission gate; held witness.
-- [2]-[PROVIDER_CLAIMS]: claim-gated provider rank; provenance snapshot; online fourth-moment solve stream.
+- [01]-[DENSE_ALGEBRA]: RID provider table; `FactorRoute` shape-spine; admission gate; held witness.
+- [02]-[PROVIDER_CLAIMS]: claim-gated provider rank; provenance snapshot; online fourth-moment solve stream.
 
-## [2]-[DENSE_ALGEBRA]
+## [02]-[DENSE_ALGEBRA]
 
 - Owner: `NumericKeyPolicy` ordinal accessor; `LinearProvider` `[SmartEnum<string>]` RID-keyed provider rows carrying the `Control.TryUse*` probe and `Control.Use*` activate delegates as inline row columns; `FactorRoute` `[Union]` shape-spine carrying mode/symmetricity/vector-demand/rank-tolerance as case data so the operand structure selects the factorization, never a `bool computeVectors`/`QRMethod`/`Symmetricity` parameter riding beside the matrix; `Admission` the one-pass finite/symmetry/singular gate; `TolerancePolicy` the scale-derived threshold record; `Factorization` `[Union]` one-case-per-decomposition collapsing to one held solve admission; `DenseRoute`/`DenseOps` the shape-routed solve, held-handle refinement, spectral, and refinement folds over MathNet `Matrix<double>`; `SolveTerminal` `[Union]` partitioning the verdict so budget-exhaustion survives as a retryable case.
 - Cases: `LinearProvider` rows managed · native-openblas (2); `FactorRoute` cases `DefinitePsd` · `SquarePivoting` · `Orthonormal` · `Spectral` · `RankRevealing` (5); `Factorization` cases `Lu` · `Qr` · `Cholesky` · `Svd` · `Evd` (5); `DenseOps.Decomposers` rows lu · qr · cholesky · svd · evd (5); `EigenFilter` rows passthrough · sqrt · inverse · invsqrt · exp · heat (6); `SolveTerminal` cases `Admitted` · `Exhausted` (2).
@@ -300,7 +300,7 @@ public static class SpectralOps {
 ```
 
 
-## [3]-[PROVIDER_CLAIMS]
+## [03]-[PROVIDER_CLAIMS]
 
 - Owner: the claim-gated provider-rank selection, the provenance snapshot taken at solve construction, and the per-solve telemetry deepening over the existing `BenchmarkRow`, `BenchmarkClaim`, and `ReceiptSurface` owners — plus the `OnlineStat` fourth-order residual-moment accumulator the numeric lane owns because `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface.Instruments` carries the `rasm.compute.solve.residual` histogram but no moment accumulator, so the accumulator that folds into that histogram is a numeric-lane owner consumed at the receipt sink.
 - Entry: `LinearProvider.Select` consumes the resolved `BenchmarkRow` claim — the winner of `BenchmarkRow.Claim` resolved at composition against the running fingerprint and the `ModelResultKey.RecencyHorizon` — so the chosen provider RID is claim-gated, never a static default; `SolveProvenance.Snapshot()` captures the provider `ToString` tag, the provider type name, and the public `MaxDegreeOfParallelism` degree at solve construction because every kernel reads this ambient static at execution instant (the `ParallelizeOrder`/`ParallelizeElements` thresholds are `internal` to `Control` and unreadable, so the determinism triple is the public provider/type/degree); `OnlineStat.Push(residual)` folds each witnessed solve residual into the running fourth-order moment stream under the `MomentNormalizer` policy; the `Selection`-class evidence row names the chosen provider and the claim that gated it.
@@ -374,6 +374,6 @@ public sealed record OnlineStat(long Count, double Mean, double M2, double M3, d
 ```
 
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [NATIVE_EXECUTION]: the `LinearProvider.NativeOpenBlas` row execution — `Control.TryUseNativeOpenBLAS()` returning `true` and `LinearAlgebraControl.Provider` binding the native `ILinearAlgebraProvider` so dense GEMM and factorization run through OpenBLAS — and the CSparse native sparse path resolve on a host RID that carries the native asset (`win-x64`/`linux-x64` with the `MathNet.Numerics.MKL.Win-x64`/`.Linux-x64` or OpenBLAS native asset). The managed terminal is the proved cold start: `Control.TryUse*` returns `false` where no native asset resolves and degrades to `Managed`. The MKL row stays the win/linux-x64 design record (`Control.UseNativeMKL`/`Control.TryUseNativeMKL`), re-entering as a row only behind a MKL-carrying RID predicate.

@@ -2,12 +2,12 @@
 
 The GlobalId-stable federation diff: one `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms, joining by `Model/elements#ELEMENT_MODEL` `GlobalId` plus the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` content-key so an unchanged element dedups by content-key and re-checks only changed elements. The diff consumes two `BimModel` snapshots as settled vocabulary and mints no second element shape — coordination turns a single semantic model into a multi-party federation, the diff is incremental, and the join reuses the Compute content-key rather than a second identity scheme. The page composes the `Model/elements#ELEMENT_MODEL` `BimModel` and the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` content-key as settled vocabulary. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MODEL_DIFF]: `ModelDiff` change-set, the `ElementChange` closed arm family, and the GlobalId-plus-content-key join.
-- [2]-[TS_PROJECTION]: the `DiffWire` host-free JSON producer the TS UI live-binding decodes — the GlobalId-keyed `ElementChange` change-set over the source-generated `BimWireContext` with the per-leaf `[JsonDerivedType]` union discriminant.
+- [01]-[MODEL_DIFF]: `ModelDiff` change-set, the `ElementChange` closed arm family, and the GlobalId-plus-content-key join.
+- [02]-[TS_PROJECTION]: the `DiffWire` host-free JSON producer the TS UI live-binding decodes — the GlobalId-keyed `ElementChange` change-set over the source-generated `BimWireContext` with the per-leaf `[JsonDerivedType]` union discriminant.
 
-## [2]-[MODEL_DIFF]
+## [02]-[MODEL_DIFF]
 
 - Owner: `ModelDiff` the change-set record carrying the added/modified/removed/moved element-change arms between two `BimModel` snapshots; `ElementChange` `[Union]` the closed change family (Added, Removed, Modified, Moved) each carrying its GlobalId and the changed evidence; `ElementFingerprint` the per-element content-key value the join dedups on.
 - Entry: `ModelDiff.Between(BimModel baseline, BimModel revision)` folds the two snapshots into one `ModelDiff` — a GlobalId present in the revision but not the baseline is `Added`, present in the baseline but not the revision is `Removed`, present in both with a differing content-key is `Modified` (or `Moved` when only the placement differs), and present in both with an identical content-key is dedup'd as unchanged; the fold is total, pure, no rail — a diff is one expression over the two element collections, never an imperative accumulation loop.
@@ -62,7 +62,7 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
 }
 ```
 
-## [3]-[TS_PROJECTION]
+## [03]-[TS_PROJECTION]
 
 - Owner: `DiffWire` the host-free JSON wire producer of the `[2]-[MODEL_DIFF]` change-set — `DiffWire.Changes` the projected `Seq<ElementChange>` payload the `ts:ui/bcf-anchor` live-binding decodes to highlight the added/removed/modified/moved elements between two federated `BimModel` snapshots, plus the `UnchangedCount` dedup evidence; `DiffWire.Encode`/`Decode` the `Exchange/wire#WIRE_PROJECTION` `BimWireOptions.Json`-bound codec so the diff payload rides the same source-generated `BimWireContext` and `ThinktectureJsonConverterFactory` machinery the model snapshot and the BCF topics ride, never a second serializer.
 - Entry: `DiffWire.Encode(ModelDiff diff)` projects the change-set onto the wire payload and `DiffWire.Decode(ReadOnlyMemory<byte> json)` admits it back — `Fin<T>` aborts on a malformed payload or a `Modified`/`Moved` arm naming a dangling GlobalId (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`/`BimFault.DanglingReference`) lowered with `.ToError()` at the `Boundary` funnel; the `ElementChange` `[Union]` serializes by the per-leaf `[JsonDerivedType]` discriminant the closed-union projection carries so a TS decode switches on the case name (`added`/`removed`/`modified`/`moved`) rather than a positional case index, and the `UInt128` baseline/revision content-keys and placement-keys serialize as the `Model/elements#ELEMENT_MODEL` GlobalId-anchored change evidence the live-binding re-checks only on a changed element.
@@ -84,7 +84,7 @@ public sealed record DiffWire(Seq<ElementChange> Changes, int UnchangedCount) {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [CONTENT_KEY_JOIN]: the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key derivation owned at Compute and consumed here for the `ElementFingerprint.ContentKey` so the diff dedups unchanged elements by the same content-key the export artifact addresses — Bim mints no second identity scheme; the public signature confirms against the Compute `InterchangeIdentity` owner at cross-folder alignment, and the `XxHash128.HashToUInt128` placement-key over the geometry-handle key is BCL `System.IO.Hashing` inbox and settled.
 - [GEOMETRY_HANDLE_KEY]: the `Model/elements#ELEMENT_MODEL` `GeometryHandle.Key` member the `Fingerprint` placement-key reads confirms against the `[GEOMETRY_HANDLE]` kernel-geometry binding at cross-folder alignment so a pure relocation reads as `Moved` by the geometry-handle-key delta rather than `Modified`; the handle key is the by-reference kernel-geometry identity the tessellation bridge re-imports, never a host-bound geometry type.

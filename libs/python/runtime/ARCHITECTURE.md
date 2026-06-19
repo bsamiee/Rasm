@@ -4,7 +4,7 @@ The domain map of `runtime` — the host-free execution foundation the Python si
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 runtime/
@@ -26,7 +26,7 @@ runtime/
     └── evidence.py    # ApiPackage/ApiMember reflection and Structural tree-sitter queries
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 evidence/identity        ⇄  csharp:Rasm/Geometry               # [CONTENT_KEY]: XxHash128 digest endianness + seed parity
@@ -47,7 +47,7 @@ observability            ←  python:artifacts/receipt           # [RECEIPT]: Ar
 transport/serve          ⇄  python:compute/numerics            # [WIRE]: ContentIdentity array backend dispatch
 ```
 
-## [3]-[BOUNDARIES]
+## [03]-[BOUNDARIES]
 
 Each sub-domain charter is the codemap comment; the boundary below names what the sub-domain refuses, so a planned-but-empty sub-domain and a misplaced concern both read as gaps.
 

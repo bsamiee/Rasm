@@ -4,7 +4,7 @@ Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, 
 
 Rasm is one tri-language AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. The three branches couple only at the wire. The canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow — is owned by `libs/.planning/architecture.md`.
 
-## [1]-[TARGET]
+## [01]-[TARGET]
 
 - RhinoWIP on macOS.
 - `net10.0` for hosted plugins and shared C# projects.
@@ -13,25 +13,25 @@ Rasm is one tri-language AEC platform organized into strict strata: the C# branc
 - Polyglot workspace roots: C# libraries and plugins, Python tooling, TypeScript/web surfaces and generated wire consumers.
 - Out of scope: GH1 `.gha`, Rhino 8 target, Windows package target, RhinoCode publishing path, speculative Rhino command shells, and app-side reinvention of shared library capability.
 
-## [2]-[TOPOLOGY]
+## [02]-[TOPOLOGY]
 
-| [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                    |
-| :------------------------ | :------------------------ | :---------------------------------------------------------------------------------------- |
-| `apps/grasshopper/Radyab` | GH2 product boundary      | Thin plugin shell over shared GH2 and geometry libraries.                                 |
-| `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                        |
-| `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                          |
-| `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                       |
-| `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.             |
-| `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.                 |
-| `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                                  |
-| `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                        |
-| `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, and source-backed reference material. |
+| [INDEX] | [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                    |
+| :-----: | :------------------------ | :------------------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `apps/grasshopper/Radyab` | GH2 product boundary      | Thin plugin shell over shared GH2 and geometry libraries.                                 |
+|  [02]   | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                        |
+|  [03]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                          |
+|  [04]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                       |
+|  [05]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.             |
+|  [06]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.                 |
+|  [07]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                                  |
+|  [08]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                        |
+|  [09]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, and source-backed reference material. |
 
-## [3]-[LIBRARY_OWNERS]
+## [03]-[LIBRARY_OWNERS]
 
 The C# library suite is organized into strict strata — the `Rasm` geometry/numeric kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries. The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`. The polyglot branch roles — C# as the Rhino9(WIP)/GH2-aware producer, Python as the host-free science/compute/data/geometry/IFC companion, and TypeScript as the host-free web/edge platform — and the planning corpus are introduced in `libs/.planning/README.md`.
 
-## [4]-[TOOL_OWNERS]
+## [04]-[TOOL_OWNERS]
 
 `tools/assay` is the repo operator. Its registry owns public command shape; its envelopes own result interpretation. It returns typed reports, artifacts, faults, routing notes, and evidence rather than relying on stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 
@@ -45,7 +45,7 @@ Rasm agents invoke Assay as `uv run python -m tools.assay provision up|down|stat
 
 `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 
-## [5]-[PLANNING_AND_EVIDENCE]
+## [05]-[PLANNING_AND_EVIDENCE]
 
 New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
@@ -53,7 +53,7 @@ Hidden `.planning/` folders are implementation source when a package charter mak
 
 Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect.
 
-## [6]-[HOST_RUNTIME]
+## [06]-[HOST_RUNTIME]
 
 RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
 
@@ -61,7 +61,7 @@ Live host evidence flows through the bridge plugin. Scenarios are source-only di
 
 Plugin projects classify themselves in their project files; build behavior does not depend on product names. Package membership is evaluated from MSBuild properties and package metadata.
 
-## [7]-[DEVELOPMENT_MODEL]
+## [07]-[DEVELOPMENT_MODEL]
 
 Code starts from the deepest reusable library owner that can absorb the capability. App and plugin layers declare product intent, ports, and output bindings; they do not reimplement geometry kernels, host lifecycles, GH2 wiring, runtime composition, UI primitives, compute orchestration, persistence, packaging, or evidence capture.
 

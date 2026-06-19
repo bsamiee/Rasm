@@ -2,11 +2,11 @@
 
 Schema identity for every store the suite opens. `IdentityPolicy` is the key axis every persisted identifier traces to — one row per generation strategy carrying generator, big-endian transcription, ordering semantics, collision law, and per-provider default SQL — so an identity-row change is an expand-wave second key plus a derivation flip plus a contract-wave drop, never an `AlterColumn`. The object-level ACL fold and the signed-authorship record ride the same identity axis: every persisted object traces to its key, its access grant, and its attested author through one policy surface.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[IDENTITY_POLICY]: key axis, big-endian transcription, identity migration, object ACL, and signed authorship.
+- [01]-[IDENTITY_POLICY]: key axis, big-endian transcription, identity migration, object ACL, and signed authorship.
 
-## [2]-[IDENTITY_POLICY]
+## [02]-[IDENTITY_POLICY]
 
 - Owner: `IdentityPolicy` `[SmartEnum<string>]` four rows under the `StoreKeyPolicy` ordinal accessor carrying generator, big-endian transcription, ordering, collision class, clr type, and per-provider default SQL columns; `Collision` `[SmartEnum]` is the collision-posture vocabulary; `ObjectAcl` is the per-object/per-branch capability-and-RBAC grant row; `SignedAuthorship` is the actor-identity attestation tying an op to a blame agent; `Authz` is the static surface folding object-level admission and authorship verification.
 - Cases: uuid-v7 (default, B-tree insert-local), uuid-v7-backfill (historical-timestamp mint for deterministic backfill), content-hash (immutable-payload addressing), natural-key (caller-owned identifiers); `Collision` rows are unmintable, content-idempotent, foreign-authority; `ObjectAcl` grants `Read | Write | Delete | Grant | Admin` per principal per object scope; `SignedAuthorship` carries actor, signing key id, op-digest, signature, and `Instant`.
@@ -112,6 +112,6 @@ public static class Authz {
 ```
 
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [AUTHORSHIP_SIGNING_KEY] [SPIKE]: the AppHost-resolved signing-key seam the `Authz.Attest`/`Verify` fold consumes — the host credential-store key handle (macOS keychain / DPAPI / credential store) the signing key id resolves through, proven by tier-1 decompile member-shape only because an unattended credential-store read prompts the operator, with the op-digest signature algorithm and the public-key verification confirmed against the host identity seam at the integrated host. This is the sole residual tier-3 owner on the page (DENSITY_BAR axis [39]); the ACL fold and the authorship record shape are fence-complete, only the OS credential read stays SPIKE.

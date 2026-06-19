@@ -4,7 +4,7 @@
 
 ---
 
-## [1]-[INDEX_BARREL]
+## [01]-[INDEX_BARREL]
 
 ```ts
 // @effect/platform-node
@@ -35,7 +35,7 @@ Consumption is always namespaced: `import { NodeRuntime, NodeContext } from "@ef
 
 ---
 
-## [2]-[NODE_CONTEXT]
+## [02]-[NODE_CONTEXT]
 
 ```ts
 // @effect/platform-node/NodeContext
@@ -60,7 +60,7 @@ The all-in-one Node platform layer: one `Layer.provide(NodeContext.layer)` satis
 
 ---
 
-## [3]-[NODE_RUNTIME]
+## [03]-[NODE_RUNTIME]
 
 ```ts
 // @effect/platform-node/NodeRuntime
@@ -73,7 +73,7 @@ export declare const runMain: RunMain
 
 ---
 
-## [4]-[OS_SERVICE_LAYERS]
+## [04]-[OS_SERVICE_LAYERS]
 
 ```ts
 // @effect/platform-node/NodeFileSystem
@@ -117,7 +117,7 @@ export declare const layer: Layer<Terminal>
 
 ---
 
-## [5]-[NODE_KEY_VALUE_STORE]
+## [05]-[NODE_KEY_VALUE_STORE]
 
 ```ts
 // @effect/platform-node/NodeKeyValueStore
@@ -133,7 +133,7 @@ The only constructor: a directory-rooted `KeyValueStore` whose layer can fail wi
 
 ---
 
-## [6]-[NODE_HTTP_CLIENT]
+## [06]-[NODE_HTTP_CLIENT]
 
 ```ts
 // @effect/platform-node/NodeHttpClient
@@ -187,7 +187,7 @@ Two client backends. The `node:http`/`node:https` agent backend: `layer` is self
 
 ---
 
-## [7]-[NODE_HTTP_SERVER]
+## [07]-[NODE_HTTP_SERVER]
 
 ```ts
 // @effect/platform-node/NodeHttpServer
@@ -281,7 +281,7 @@ export declare const toServerResponse: (self: ServerRequest.HttpServerRequest) =
 
 ---
 
-## [8]-[NODE_SOCKET]
+## [08]-[NODE_SOCKET]
 
 ```ts
 // @effect/platform-node/NodeSocket
@@ -383,7 +383,7 @@ export declare const layerWebSocket: (
 
 ---
 
-## [9]-[NODE_STREAM_AND_SINK]
+## [09]-[NODE_STREAM_AND_SINK]
 
 ```ts
 // @effect/platform-node/NodeStream  (pure re-export from @effect/platform-node-shared/NodeStream)

@@ -2,12 +2,12 @@
 
 Generated-column and declarative DDL surface for every store the suite opens. `DerivedColumn` rows decide stored-versus-virtual generated columns and emit `HasComputedColumnSql(sql, stored)` plus their co-located CHECK constraints. `SchemaDdl` rows declare the PostgreSQL extension, index, exclusion, temporal-key, check, json-schema, composite, and native-enum surface as one `[Union]` over one `Declare`/`Migrate`/`Validate` fold, so the native-type DDL set is one owner, not a scatter of per-feature emitters.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GENERATED_COLUMNS]: stored-versus-virtual decision, computed-column emission, and co-located check constraints.
-- [2]-[EXTENSION_DDL]: extension, index, exclusion, temporal-key, check, json-schema, composite, and native-enum DDL.
+- [01]-[GENERATED_COLUMNS]: stored-versus-virtual decision, computed-column emission, and co-located check constraints.
+- [02]-[EXTENSION_DDL]: extension, index, exclusion, temporal-key, check, json-schema, composite, and native-enum DDL.
 
-## [2]-[GENERATED_COLUMNS]
+## [02]-[GENERATED_COLUMNS]
 
 - Owner: `DerivedColumn` row record carrying the stored-versus-virtual law plus its co-located CHECK constraint; `ColumnInvariant` row record for table-level check constraints that are not column-derived.
 - Entry: `public bool Stored` — derived; `Replicated || Indexed` is the whole decision; `public PropertyBuilder<T> Apply(PropertyBuilder<T> property)` emits `HasComputedColumnSql(Sql, stored: Stored)` and `public EntityTypeBuilder<T> Constrain(EntityTypeBuilder<T> entity)` folds each `ColumnInvariant` into `ToTable(t => t.HasCheckConstraint(name, sql))`.
@@ -31,7 +31,7 @@ public sealed record DerivedColumn(string Table, string Column, string Sql, bool
 ```
 
 
-## [3]-[EXTENSION_DDL]
+## [03]-[EXTENSION_DDL]
 
 - Owner: `SchemaDdl` `[Union]` declaration-row family with the frozen `Extensions` row set; the `Extension` case carries `AccessMethod`, `PreloadGated`, `Cascade`, and `Fallback` columns so one row owns the extension's install DDL, its index access method, its `shared_preload_libraries` gate, and its app-side degradation path; the `Index` case carries method, operator-class, `Include`, `NullsDistinct`, and a `With` build-option map; `TemporalShape` is the temporal-key shape vocabulary.
 - Cases: Extension, Index, Exclusion, TemporalKey, Check, JsonSchemaCheck, Composite, Enum — extension declarations with access-method/preload/cascade/fallback metadata, method-and-operator-class index rows carrying a `With` option map for `diskann`/`bm25`/`hnsw` build parameters plus `Include` covering columns and `NullsDistinct` single-null uniqueness, btree_gist exclusion-constraint rows, PG18 WITHOUT OVERLAPS temporal primary-key and foreign-key rows, free-form CHECK rows, pg_jsonschema document-validation CHECK rows, PostgreSQL composite-type declarations, native PostgreSQL enum-type declarations.

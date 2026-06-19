@@ -2,11 +2,11 @@
 
 The ISO 10303 AP242/AP203/AP214 and IGES CAD-STEP tessellation hop — the second source format the one tessellation daemon serves. `StepBridge` reads STEP/IGES B-rep bytes through the OCCT `STEPCAFControl_Reader`/`IGESCAFControl_Reader` into an XCAF `TDocStd_Document`, meshes the transferred `TopoDS_Shape` in place with `BRepMesh_IncrementalMesh` under the deflection/tolerance policy, and writes the XCAF document to GLB through the native `RWGltf_CafWriter`, returning the same content-keyed GLB the IFC arm produces. The hop rides the `cadquery-ocp` `OCP` binding (the sole PyPI OCCT path); the daemon routes its STEP/IGES `SourceFormat` rows here and re-enters the shared content-identity keying, so one daemon serves AEC (IFC) and mechanical (CAD-STEP) geometry through one content-addressed hop. Aligned at the wire to the C# `StepIso10303` codec, which requests CAD tessellation from this companion rather than re-implementing a managed reader.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[BRIDGE]: the STEP/IGES reader-to-GLB hop over the OCCT XCAF reader, the in-place mesher, and the native glTF CAF writer.
+- [01]-[BRIDGE]: the STEP/IGES reader-to-GLB hop over the OCCT XCAF reader, the in-place mesher, and the native glTF CAF writer.
 
-## [2]-[BRIDGE]
+## [02]-[BRIDGE]
 
 - Owner: `StepBridge` — the static surface driving the OCCT XCAF reader chain over `cadquery-ocp`; `BridgeFormat` the closed `StrEnum` aliasing the daemon `SourceFormat` CAD rows to the reader that owns each; `BridgeMesh` the per-format reader carrier holding the populated `TDocStd_Document` and the transferred `TopoDS_Shape` count, so one `tessellate` call meshes and writes the assembly in one pass without a temp file.
 - Cases: `BridgeFormat` rows `STEP` (the `STEPCAFControl_Reader` assembly/color/name transfer) and `IGES` (the `IGESCAFControl_Reader` color/name/layer transfer) — matched by `match`/`assert_never`, each binding the CAF reader that owns the format and sharing the XCAF document, the in-place `BRepMesh_IncrementalMesh`, and the `RWGltf_CafWriter` output leg; the daemon never re-discriminates format past this owner.
@@ -89,11 +89,11 @@ class StepBridge:
         return glb
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [XCAF_ROOT_SHAPE]: the `XCAFDoc_ShapeTool.GetFreeShapes() -> TDF_LabelSequence`, the `TDF_LabelSequence.Value(1)`/`.Length()` one-based accessors, and `XCAFDoc_ShapeTool.GetShape_s(label) -> TopoDS_Shape` resolving the single assembly-root `TopoDS_Shape` that feeds `BRepMesh_IncrementalMesh` confirm against the branch `cadquery-ocp` catalogue on the cp312 companion; the catalogue confirms `XCAFDoc_DocumentTool.ShapeTool_s(label)`, `STEPCAFControl_Reader.ReadFile`/`Transfer`/`Set*Mode`, `BRepMesh_IncrementalMesh(shape, deflection)`, and `RWGltf_CafWriter(path, binary).Perform(doc, progress)`. The fence commits to the catalogued 2-arg `RWGltf_CafWriter(path, binary).Perform(doc, progress)`; the unconfirmed members are the `XCAFApp_Application.GetApplication_s`/`InitDocument` document-init pair, the `BRepMesh_IncrementalMesh(shape, deflection, isRelative, angle, parallel)` five-arg overload, and the optional 3-arg `Perform(doc, fileInfo, progress)` `fileInfo` map (`TColStd_IndexedDataMapOfStringString`) that carries glTF metadata — a growth knob the live catalogue resolves, never a fence dependency.
 - [GLB_BYTE_RETURN]: the `RWGltf_CafWriter` binary-GLB single-file emission (whether the writer flushes one `.glb` or a `.gltf` plus a side buffer for `binary=True`) confirms against the same catalogue so the `Path.read_bytes` leg reads one self-contained GLB; the in-memory `OSD_FileSystem`/stream sink that retires the temp-path round-trip resolves on the same seam as the warm-pool work in `mesh/daemon.md#3-RESEARCH`.
 
-## [4]-[UPSTREAM]
+## [04]-[UPSTREAM]
 
 - [WHEEL_BAND]: `cadquery-ocp 7.9.3.1.1` requires `<3.15,>=3.10` and ships binary wheels cp310-cp314 only (no abi3, no cp315), so the bridge rides the `python_version<'3.15'` companion band the branch manifest gates, alongside `compas`/`manifold3d` and below the tighter `kiss-matcher` `<'3.13'` band. The cp315 project venv carries no wheel; the bridge runs on the Forge `python312` companion interpreter (`forge-companion-env`) the daemon already hosts, the cp312 floor the native geometry/IFC cores share. This is the resolved replacement for the retired `pythonocc-core` conda-only blocker — the hop is no longer upstream-blocked, only companion-band gated.

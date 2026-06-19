@@ -2,14 +2,14 @@
 
 Rasm.Persistence owns the durable annotation backbone unifying comments, conflicts, presence, references, and blame through one anchor algebra: `Anchor` `[Union]` binds an annotation to a node id, a sub-entity, a parameter path, or a world-point-plus-view, with re-anchoring when the target moves; `Thread` carries threaded comments, @-mentions, status lifecycle, and assignment over the op-log; and the BCF backbone — `BcfTopic`, `BcfComment`, `BcfViewpoint` — reads and writes BCF 2.1/3.0 archives plus the BCF-API REST surface with a bidirectional CDE OAuth2 sync. The op-log changefeed, the content-address identity, the federated entity keys (`Query/federation#ENTITY_GRAPH`), the structural-diff node identity (`Version/diff#STRUCTURAL_DIFF`), the AppHost OAuth2 outbound hop, and `ClockPolicy`/`ReceiptSinkPort`/`CorrelationId` arrive settled and compose inside the fences. The AppUi pins/markup surface and the TS-web issue board consume the wire projection.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ANCHOR_ALGEBRA]: anchor union, threading, mentions, status, and re-anchoring fold.
-- [2]-[BCF_PROTOCOL]: BCF 2.1/3.0 read/write, REST surface, and topic/comment/viewpoint lifecycle.
-- [3]-[CDE_SYNC]: bidirectional CDE OAuth2 sync over the BCF-API REST surface.
-- [4]-[TS_PROJECTION]: anchor, thread, comment, viewpoint, and topic wire shapes.
+- [01]-[ANCHOR_ALGEBRA]: anchor union, threading, mentions, status, and re-anchoring fold.
+- [02]-[BCF_PROTOCOL]: BCF 2.1/3.0 read/write, REST surface, and topic/comment/viewpoint lifecycle.
+- [03]-[CDE_SYNC]: bidirectional CDE OAuth2 sync over the BCF-API REST surface.
+- [04]-[TS_PROJECTION]: anchor, thread, comment, viewpoint, and topic wire shapes.
 
-## [2]-[ANCHOR_ALGEBRA]
+## [02]-[ANCHOR_ALGEBRA]
 
 - Owner: `Anchor` `[Union]` the annotation-target binding family; `Thread` the threaded annotation record carrying comments, mentions, status, and assignment; `Mention` the @-reference; `AnnotationStatus` the lifecycle; `Anchors` the static surface owning the anchor projection, re-anchoring against a structural diff, and the thread fold.
 - Cases: `NodeId | SubEntity | ParamPath | WorldPointView` on `Anchor`; `Open | InProgress | Resolved | Closed | Reopened` on `AnnotationStatus`.
@@ -87,15 +87,15 @@ public static class Anchors {
 }
 ```
 
-| [INDEX] | [SURFACE]   | [ANCHOR_REUSE]                                     | [BINDING]                                          |
-| :-----: | :---------- | :------------------------------------------------- | :------------------------------------------------- |
-|   [1]   | comments    | `Thread.Anchor` binds a markup pin                 | AppUi pins/markup overlay                          |
-|   [2]   | conflicts   | `MergeConflict` highlight anchors the offending set | `Version/diff#STRUCTURAL_DIFF`                  |
-|   [3]   | presence    | a cursor is a `WorldPointView` ephemeral anchor    | `Sync/collaboration#PRESENCE_AND_BLOB`             |
-|   [4]   | references  | a cross-doc link endpoint anchors                  | `Query/federation#CROSS_DOC_LINKS`                       |
-|   [5]   | blame       | a blame row anchors to the attributed node         | `Version/timetravel#TIME_TRAVEL` + `provenance`       |
+| [INDEX] | [SURFACE]  | [ANCHOR_REUSE]                                      | [BINDING]                                       |
+| :-----: | :--------- | :-------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | comments   | `Thread.Anchor` binds a markup pin                  | AppUi pins/markup overlay                       |
+|  [02]   | conflicts  | `MergeConflict` highlight anchors the offending set | `Version/diff#STRUCTURAL_DIFF`                  |
+|  [03]   | presence   | a cursor is a `WorldPointView` ephemeral anchor     | `Sync/collaboration#PRESENCE_AND_BLOB`          |
+|  [04]   | references | a cross-doc link endpoint anchors                   | `Query/federation#CROSS_DOC_LINKS`              |
+|  [05]   | blame      | a blame row anchors to the attributed node          | `Version/timetravel#TIME_TRAVEL` + `provenance` |
 
-## [3]-[BCF_PROTOCOL]
+## [03]-[BCF_PROTOCOL]
 
 - Owner: `BcfTopic` the BCF issue record; `BcfComment` the topic comment; `BcfViewpoint` the portable viewpoint receipt; `BcfVersion` the schema-version axis; `Bcf` the static surface owning BCF 2.1/3.0 archive read/write and the topic/comment/viewpoint lifecycle.
 - Cases: `V21 | V30` on `BcfVersion`; a topic carries title, status, priority, type, assignment, and labels; a comment threads under a topic; a viewpoint carries the camera, the selected/visible/hidden element sets, and the snapshot.
@@ -166,15 +166,15 @@ public static class Bcf {
 }
 ```
 
-| [INDEX] | [ENTRY]          | [BCF_2.1]                  | [BCF_3.0]                                  |
-| :-----: | :--------------- | :------------------------- | :----------------------------------------- |
-|   [1]   | markup           | `markup.bcf` XML           | `markup.bcf` XML + server-assigned ids     |
-|   [2]   | viewpoint        | `viewpoint.bcfv` XML       | `viewpoint.bcfv` XML + selection/coloring  |
-|   [3]   | snapshot         | `snapshot.png` blob        | `snapshot.png` blob, content-addressed     |
-|   [4]   | extensions       | `extensions.xsd`           | `extensions.xml` schema                    |
-|   [5]   | documents        | absent                     | `documents/` folder                        |
+| [INDEX] | [ENTRY]    | [BCF_2.1]            | [BCF_3.0]                                 |
+| :-----: | :--------- | :------------------- | :---------------------------------------- |
+|  [01]   | markup     | `markup.bcf` XML     | `markup.bcf` XML + server-assigned ids    |
+|  [02]   | viewpoint  | `viewpoint.bcfv` XML | `viewpoint.bcfv` XML + selection/coloring |
+|  [03]   | snapshot   | `snapshot.png` blob  | `snapshot.png` blob, content-addressed    |
+|  [04]   | extensions | `extensions.xsd`     | `extensions.xml` schema                   |
+|  [05]   | documents  | absent               | `documents/` folder                       |
 
-## [4]-[CDE_SYNC]
+## [04]-[CDE_SYNC]
 
 - Owner: `BcfApiEndpoint` the BCF-API REST surface descriptor; `CdeSession` the OAuth2-backed CDE session; `CdeSync` the static surface owning the bidirectional topic/comment/viewpoint sync over the BCF-API REST surface, the OAuth2 token threading, and the conflict-aware merge of CDE-side and local-side changes.
 - Cases: a pull reads CDE topics/comments/viewpoints past a cursor; a push writes local changes the CDE has not seen; a conflicting topic (edited both sides) folds through the same LWW/CRDT adjudication the sync transport uses.
@@ -232,7 +232,7 @@ sequenceDiagram
     H->>C: BCF-API push
 ```
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `AnchorKind`, `AnchorWire`, `AnnotationStatusKind`, `ThreadWire`, `CommentWire`, `BcfTopicWire`, `BcfViewpointWire` — the annotation wire surface the AppUi pins/markup overlay and the TS-web issue board decode.
 - Packages: BCL inbox.
@@ -298,7 +298,7 @@ interface BcfTopicWire {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [BCF_SCHEMA_MEMBERS]: the BCF 2.1 versus 3.0 `markup.bcf`/`viewpoint.bcfv` XML element set the STJ source-generated reader/writer transcribes — the 3.0 server-assigned-id, `extensions.xml`, and documents-folder deltas, and the viewpoint coloring/selection/clipping-plane element shapes, verified against the buildingSMART BCF-XML schema before the read/write fences finalize.
 - [BCF_API_AUTH_FLOW]: the BCF-API 2.1/3.0 OAuth2 authorization-code-with-PKCE flow the AppHost outbound hop carries — the `/oauth2/auth`/`/oauth2/token` endpoints, the bearer-token header the BCF-API requests carry, and the topic/comment/viewpoint pagination cursor the bidirectional sync resumes against a live CDE.

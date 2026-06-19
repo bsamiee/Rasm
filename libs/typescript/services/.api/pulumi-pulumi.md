@@ -2,7 +2,7 @@
 
 `@pulumi/pulumi` supplies the core Pulumi SDK: the `Output<T>` / `Input<T>` algebra, `Resource`, `CustomResource`, `ComponentResource`, `StackReference`, `Config`, typed error classes, module namespaces for `asset`, `automation`, `log`, `runtime`, and `provider`, the full Automation API (`LocalWorkspace`, `Stack`) for programmatic up/preview/destroy/refresh lifecycle drives, and the automation engine-event stream (`EngineEvent`, `StepEventMetadata`, `OpType`, `OpMap`, `DiffKind`, `PropertyDiff`, `previewRefresh`) the deploy and drift drivers fold in the services deploy tier.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/pulumi`
 - package: `@pulumi/pulumi`
@@ -10,62 +10,62 @@
 - asset: output algebra, resource model, config, stack references, automation SDK, error types
 - rail: deployment
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: output algebra family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]    | [RAIL]                                    |
 | :-----: | :------------------ | :--------------- | :---------------------------------------- |
-|   [1]   | `Output<T>`         | async value type | `OutputInstance<T> & Lifted<T>`           |
-|   [2]   | `OutputInstance<T>` | interface        | `apply`, `get` contract                   |
-|   [3]   | `Input<T>`          | type alias       | `T \| Promise<T> \| OutputInstance<T>`    |
-|   [4]   | `Inputs`            | type alias       | `Record<string, Input<any>>`              |
-|   [5]   | `Unwrap<T>`         | utility type     | deeply unwrap `Promise` and `Output` nest |
-|   [6]   | `Lifted<T>`         | utility type     | property-lifted `Output` projection       |
+|  [01]   | `Output<T>`         | async value type | `OutputInstance<T> & Lifted<T>`           |
+|  [02]   | `OutputInstance<T>` | interface        | `apply`, `get` contract                   |
+|  [03]   | `Input<T>`          | type alias       | `T \| Promise<T> \| OutputInstance<T>`    |
+|  [04]   | `Inputs`            | type alias       | `Record<string, Input<any>>`              |
+|  [05]   | `Unwrap<T>`         | utility type     | deeply unwrap `Promise` and `Output` nest |
+|  [06]   | `Lifted<T>`         | utility type     | property-lifted `Output` projection       |
 
 [PUBLIC_TYPE_SCOPE]: resource class family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [RAIL]                                      |
 | :-----: | :------------------------- | :------------- | :------------------------------------------ |
-|   [1]   | `Resource`                 | abstract class | base; holds `urn: Output<URN>`              |
-|   [2]   | `CustomResource`           | abstract class | extends `Resource`; holds `id: Output<ID>`  |
-|   [3]   | `ComponentResource<TData>` | class          | extends `Resource`; logical grouping owner  |
-|   [4]   | `ProviderResource`         | abstract class | extends `CustomResource`; CRUD provider     |
-|   [5]   | `StackReference`           | class          | extends `CustomResource`; cross-stack reads |
-|   [6]   | `ResourceHook`             | class          | lifecycle hook binding                      |
-|   [7]   | `ErrorHook`                | class          | error lifecycle hook                        |
+|  [01]   | `Resource`                 | abstract class | base; holds `urn: Output<URN>`              |
+|  [02]   | `CustomResource`           | abstract class | extends `Resource`; holds `id: Output<ID>`  |
+|  [03]   | `ComponentResource<TData>` | class          | extends `Resource`; logical grouping owner  |
+|  [04]   | `ProviderResource`         | abstract class | extends `CustomResource`; CRUD provider     |
+|  [05]   | `StackReference`           | class          | extends `CustomResource`; cross-stack reads |
+|  [06]   | `ResourceHook`             | class          | lifecycle hook binding                      |
+|  [07]   | `ErrorHook`                | class          | error lifecycle hook                        |
 
 [PUBLIC_TYPE_SCOPE]: options family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                               |
 | :-----: | :------------------------- | :------------ | :--------------------------------------------------- |
-|   [1]   | `ResourceOptions`          | interface     | `parent`, `dependsOn`, `protect`, `ignoreChanges`    |
-|   [2]   | `CustomResourceOptions`    | interface     | extends `ResourceOptions`; adds `import`, `id`       |
-|   [3]   | `ComponentResourceOptions` | interface     | extends `ResourceOptions`; adds `providers`          |
-|   [4]   | `CustomTimeouts`           | interface     | `create`, `update`, `delete`, `read` timeout strings |
-|   [5]   | `Alias`                    | interface     | prior name descriptor for resource rename            |
+|  [01]   | `ResourceOptions`          | interface     | `parent`, `dependsOn`, `protect`, `ignoreChanges`    |
+|  [02]   | `CustomResourceOptions`    | interface     | extends `ResourceOptions`; adds `import`, `id`       |
+|  [03]   | `ComponentResourceOptions` | interface     | extends `ResourceOptions`; adds `providers`          |
+|  [04]   | `CustomTimeouts`           | interface     | `create`, `update`, `delete`, `read` timeout strings |
+|  [05]   | `Alias`                    | interface     | prior name descriptor for resource rename            |
 
 [PUBLIC_TYPE_SCOPE]: config class
 - rail: deployment
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                               |
 | :-----: | :-------------------- | :------------ | :--------------------------------------------------- |
-|   [1]   | `Config`              | class         | typed config and secret resolution                   |
-|   [2]   | `StringConfigOptions` | interface     | `allowedValues`, `minLength`, `maxLength`, `pattern` |
-|   [3]   | `NumberConfigOptions` | interface     | `min`, `max` bounds                                  |
+|  [01]   | `Config`              | class         | typed config and secret resolution                   |
+|  [02]   | `StringConfigOptions` | interface     | `allowedValues`, `minLength`, `maxLength`, `pattern` |
+|  [03]   | `NumberConfigOptions` | interface     | `min`, `max` bounds                                  |
 
 [PUBLIC_TYPE_SCOPE]: error class family
 - rail: deployment
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                   |
 | :-----: | :--------------------- | :------------ | :--------------------------------------- |
-|   [1]   | `RunError`             | error class   | clean abort without stack trace          |
-|   [2]   | `ResourceError`        | error class   | resource-associated abort                |
-|   [3]   | `InputPropertyError`   | error class   | single input property validation failure |
-|   [4]   | `InputPropertiesError` | error class   | multi-property validation failure        |
+|  [01]   | `RunError`             | error class   | clean abort without stack trace          |
+|  [02]   | `ResourceError`        | error class   | resource-associated abort                |
+|  [03]   | `InputPropertyError`   | error class   | single input property validation failure |
+|  [04]   | `InputPropertiesError` | error class   | multi-property validation failure        |
 
 [PUBLIC_TYPE_SCOPE]: automation API family
 - rail: deployment
@@ -73,32 +73,32 @@
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                 |
 | :-----: | :---------------------- | :------------ | :------------------------------------- |
-|   [1]   | `LocalWorkspace`        | class         | `Workspace` implementation; local CLI  |
-|   [2]   | `Stack`                 | class         | up / preview / refresh / destroy owner |
-|   [3]   | `LocalWorkspaceOptions` | options type  | `workDir`, `envVars`, `program`        |
-|   [4]   | `UpResult`              | result type   | summary + outputs map                  |
-|   [5]   | `PreviewResult`         | result type   | change summary                         |
-|   [6]   | `DestroyResult`         | result type   | resource removal summary               |
-|   [7]   | `RefreshResult`         | result type   | state reconciliation summary           |
-|   [8]   | `OutputMap`             | type alias    | `Record<string, OutputValue>`          |
-|   [9]   | `OutputValue`           | value type    | `{ value: any; secret: boolean }`      |
+|  [01]   | `LocalWorkspace`        | class         | `Workspace` implementation; local CLI  |
+|  [02]   | `Stack`                 | class         | up / preview / refresh / destroy owner |
+|  [03]   | `LocalWorkspaceOptions` | options type  | `workDir`, `envVars`, `program`        |
+|  [04]   | `UpResult`              | result type   | summary + outputs map                  |
+|  [05]   | `PreviewResult`         | result type   | change summary                         |
+|  [06]   | `DestroyResult`         | result type   | resource removal summary               |
+|  [07]   | `RefreshResult`         | result type   | state reconciliation summary           |
+|  [08]   | `OutputMap`             | type alias    | `Record<string, OutputValue>`          |
+|  [09]   | `OutputValue`           | value type    | `{ value: any; secret: boolean }`      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: output algebra functions
 - rail: deployment
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]    | [RAIL]                                |
 | :-----: | :-------------------------------------------- | :---------------- | :------------------------------------ |
-|   [1]   | `output<T>(val: Input<T>): Output<Unwrap<T>>` | lift              | wraps plain or promised value         |
-|   [2]   | `secret<T>(val: Input<T>): Output<Unwrap<T>>` | lift              | wraps value as secret output          |
-|   [3]   | `unsecret<T>(val: Output<T>): Output<T>`      | strip             | removes secret marking                |
-|   [4]   | `isSecret<T>(val: Output<T>): Promise<bool>`  | predicate         | tests secret flag                     |
-|   [5]   | `all(vals): Output<...>`                      | combinator        | joins heterogeneous input tuple       |
-|   [6]   | `concat(...params): Output<string>`           | string combinator | stringifies and concatenates inputs   |
-|   [7]   | `interpolate(literals, ...): Output<string>`  | tagged template   | template-literal output interpolation |
-|   [8]   | `jsonStringify(obj, ...): Output<string>`     | serializer        | `JSON.stringify` over `Input<any>`    |
-|   [9]   | `jsonParse(text, ...): Output<any>`           | deserializer      | `JSON.parse` over `Input<string>`     |
+|  [01]   | `output<T>(val: Input<T>): Output<Unwrap<T>>` | lift              | wraps plain or promised value         |
+|  [02]   | `secret<T>(val: Input<T>): Output<Unwrap<T>>` | lift              | wraps value as secret output          |
+|  [03]   | `unsecret<T>(val: Output<T>): Output<T>`      | strip             | removes secret marking                |
+|  [04]   | `isSecret<T>(val: Output<T>): Promise<bool>`  | predicate         | tests secret flag                     |
+|  [05]   | `all(vals): Output<...>`                      | combinator        | joins heterogeneous input tuple       |
+|  [06]   | `concat(...params): Output<string>`           | string combinator | stringifies and concatenates inputs   |
+|  [07]   | `interpolate(literals, ...): Output<string>`  | tagged template   | template-literal output interpolation |
+|  [08]   | `jsonStringify(obj, ...): Output<string>`     | serializer        | `JSON.stringify` over `Input<any>`    |
+|  [09]   | `jsonParse(text, ...): Output<any>`           | deserializer      | `JSON.parse` over `Input<string>`     |
 |  [10]   | `deferredOutput<T>()`                         | deferred factory  | `[Output<T>, resolver]` pair          |
 |  [11]   | `Output.apply<U>(fn): Output<U>`              | instance method   | transform with dependency tracking    |
 |  [12]   | `Output.get(): T`                             | instance method   | unwrap at cloud runtime only          |
@@ -110,28 +110,28 @@
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]  | [RAIL]                           |
 | :-----: | :----------------------------------------------------------------- | :-------------- | :------------------------------- |
-|   [1]   | `new CustomResource(t, name, props?, opts?)`                       | constructor     | leaf managed resource            |
-|   [2]   | `new ComponentResource(type, name, args?, opts?)`                  | constructor     | logical grouping owner           |
-|   [3]   | `ComponentResource.registerOutputs(outputs?)`                      | instance method | declare output map for component |
-|   [4]   | `new StackReference(name, args?, opts?)`                           | constructor     | cross-stack output reader        |
-|   [5]   | `StackReference.getOutput(name): Output<any>`                      | instance method | fetch output or `undefined`      |
-|   [6]   | `StackReference.requireOutput(name): Output<any>`                  | instance method | fetch output or throw            |
-|   [7]   | `StackReference.getOutputDetails(name): Promise<OutputDetails>`    | instance method | value + secret flag              |
-|   [8]   | `createUrn(name, type, parent?, project?, stack?): Output<string>` | utility         | compute resource URN             |
+|  [01]   | `new CustomResource(t, name, props?, opts?)`                       | constructor     | leaf managed resource            |
+|  [02]   | `new ComponentResource(type, name, args?, opts?)`                  | constructor     | logical grouping owner           |
+|  [03]   | `ComponentResource.registerOutputs(outputs?)`                      | instance method | declare output map for component |
+|  [04]   | `new StackReference(name, args?, opts?)`                           | constructor     | cross-stack output reader        |
+|  [05]   | `StackReference.getOutput(name): Output<any>`                      | instance method | fetch output or `undefined`      |
+|  [06]   | `StackReference.requireOutput(name): Output<any>`                  | instance method | fetch output or throw            |
+|  [07]   | `StackReference.getOutputDetails(name): Promise<OutputDetails>`    | instance method | value + secret flag              |
+|  [08]   | `createUrn(name, type, parent?, project?, stack?): Output<string>` | utility         | compute resource URN             |
 
 [ENTRYPOINT_SCOPE]: Config resolution
 - rail: deployment
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                            |
 | :-----: | :----------------------------------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `new Config(name?)`                                    | constructor    | scoped config bag by project name |
-|   [2]   | `Config.get(key, opts?): K \| undefined`               | optional read  | string value or `undefined`       |
-|   [3]   | `Config.require(key, opts?): K`                        | required read  | throws if absent                  |
-|   [4]   | `Config.getSecret(key, opts?): Output<K> \| undefined` | secret read    | secret output or `undefined`      |
-|   [5]   | `Config.requireSecret(key, opts?): Output<K>`          | secret read    | required secret output            |
-|   [6]   | `Config.getBoolean / requireBoolean`                   | typed read     | boolean resolution                |
-|   [7]   | `Config.getNumber / requireNumber`                     | typed read     | number resolution                 |
-|   [8]   | `Config.getObject<T> / requireObject<T>`               | typed read     | JSON-deserialized object          |
+|  [01]   | `new Config(name?)`                                    | constructor    | scoped config bag by project name |
+|  [02]   | `Config.get(key, opts?): K \| undefined`               | optional read  | string value or `undefined`       |
+|  [03]   | `Config.require(key, opts?): K`                        | required read  | throws if absent                  |
+|  [04]   | `Config.getSecret(key, opts?): Output<K> \| undefined` | secret read    | secret output or `undefined`      |
+|  [05]   | `Config.requireSecret(key, opts?): Output<K>`          | secret read    | required secret output            |
+|  [06]   | `Config.getBoolean / requireBoolean`                   | typed read     | boolean resolution                |
+|  [07]   | `Config.getNumber / requireNumber`                     | typed read     | number resolution                 |
+|  [08]   | `Config.getObject<T> / requireObject<T>`               | typed read     | JSON-deserialized object          |
 
 [ENTRYPOINT_SCOPE]: Automation API lifecycle
 - rail: deployment
@@ -139,22 +139,22 @@
 
 | [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY]   | [RAIL]                             |
 | :-----: | :---------------------------------------------------------------- | :--------------- | :--------------------------------- |
-|   [1]   | `LocalWorkspace.create(opts): Promise<LocalWorkspace>`            | factory          | workspace from options             |
-|   [2]   | `LocalWorkspace.createStack(args, opts?): Promise<Stack>`         | factory          | new stack; fails if already exists |
-|   [3]   | `LocalWorkspace.selectStack(args, opts?): Promise<Stack>`         | factory          | existing stack; fails if absent    |
-|   [4]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>` | factory          | idempotent stack selection         |
-|   [5]   | `Stack.create(name, workspace): Promise<Stack>`                   | factory          | construct from existing workspace  |
-|   [6]   | `Stack.select(name, workspace): Promise<Stack>`                   | factory          | select from existing workspace     |
-|   [7]   | `Stack.createOrSelect(name, workspace): Promise<Stack>`           | factory          | idempotent construction            |
-|   [8]   | `Stack.up(opts?): Promise<UpResult>`                              | lifecycle method | deploy or update                   |
-|   [9]   | `Stack.preview(opts?): Promise<PreviewResult>`                    | lifecycle method | dry-run diff                       |
+|  [01]   | `LocalWorkspace.create(opts): Promise<LocalWorkspace>`            | factory          | workspace from options             |
+|  [02]   | `LocalWorkspace.createStack(args, opts?): Promise<Stack>`         | factory          | new stack; fails if already exists |
+|  [03]   | `LocalWorkspace.selectStack(args, opts?): Promise<Stack>`         | factory          | existing stack; fails if absent    |
+|  [04]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>` | factory          | idempotent stack selection         |
+|  [05]   | `Stack.create(name, workspace): Promise<Stack>`                   | factory          | construct from existing workspace  |
+|  [06]   | `Stack.select(name, workspace): Promise<Stack>`                   | factory          | select from existing workspace     |
+|  [07]   | `Stack.createOrSelect(name, workspace): Promise<Stack>`           | factory          | idempotent construction            |
+|  [08]   | `Stack.up(opts?): Promise<UpResult>`                              | lifecycle method | deploy or update                   |
+|  [09]   | `Stack.preview(opts?): Promise<PreviewResult>`                    | lifecycle method | dry-run diff                       |
 |  [10]   | `Stack.destroy(opts?): Promise<DestroyResult>`                    | lifecycle method | delete all resources               |
 |  [11]   | `Stack.refresh(opts?): Promise<RefreshResult>`                    | lifecycle method | reconcile state with provider      |
 |  [12]   | `Stack.outputs(): Promise<OutputMap>`                             | query method     | current stack output values        |
 |  [13]   | `Stack.setConfig(key, value, path?): Promise<void>`               | config method    | set config key-value               |
 |  [14]   | `Stack.getAllConfig(): Promise<ConfigMap>`                        | config method    | full config map                    |
 
-## [4]-[AUTOMATION_EVENT_STREAM]
+## [04]-[AUTOMATION_EVENT_STREAM]
 
 The `@pulumi/pulumi/automation` engine-event surface the deploy and drift drivers fold. A lifecycle method's `onEvent` callback (on `UpOptions`, `PreviewOptions`, `RefreshOptions`, `DestroyOptions`) delivers a discriminated `EngineEvent` per engine step; `previewRefresh({ onEvent })` re-reads provider state read-only and streams `resourcePreEvent` steps without mutating the stack, the source the desired-vs-actual drift fold consumes. `EngineEvent` is a sum where exactly one event field is non-nil; the per-step `StepEventMetadata` carries the `OpType` operation and the optional `detailedDiff` property delta. The `PreviewResult.changeSummary` `OpMap` is the engine's own per-`OpType` count, reconciled against a folded bucket count.
 
@@ -164,15 +164,15 @@ The `@pulumi/pulumi/automation` engine-event surface the deploy and drift driver
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                  |
 | :-----: | :----------------------- | :------------ | :------------------------------------------------------ |
-|   [1]   | `EngineEvent`            | interface     | event sum; exactly one event field non-nil              |
-|   [2]   | `ResourcePreEvent`       | interface     | `metadata: StepEventMetadata`; emitted before a step    |
-|   [3]   | `ResOutputsEvent`        | interface     | `metadata: StepEventMetadata`; emitted after a step     |
-|   [4]   | `ResOpFailedEvent`       | interface     | `metadata` + `status`/`steps`; step failure             |
-|   [5]   | `StepEventMetadata`      | interface     | `op`/`urn`/`type`/`detailedDiff`/`old`/`new`/`provider` |
-|   [6]   | `StepEventStateMetadata` | interface     | per-resource old/new state detail                       |
-|   [7]   | `OpType`                 | string union  | 15-member CRUD operation vocabulary                     |
-|   [8]   | `OpMap`                  | mapped type   | `{ [op in OpType]?: number }` per-op count              |
-|   [9]   | `DiffKind`               | enum          | property-diff kind (6 members)                          |
+|  [01]   | `EngineEvent`            | interface     | event sum; exactly one event field non-nil              |
+|  [02]   | `ResourcePreEvent`       | interface     | `metadata: StepEventMetadata`; emitted before a step    |
+|  [03]   | `ResOutputsEvent`        | interface     | `metadata: StepEventMetadata`; emitted after a step     |
+|  [04]   | `ResOpFailedEvent`       | interface     | `metadata` + `status`/`steps`; step failure             |
+|  [05]   | `StepEventMetadata`      | interface     | `op`/`urn`/`type`/`detailedDiff`/`old`/`new`/`provider` |
+|  [06]   | `StepEventStateMetadata` | interface     | per-resource old/new state detail                       |
+|  [07]   | `OpType`                 | string union  | 15-member CRUD operation vocabulary                     |
+|  [08]   | `OpMap`                  | mapped type   | `{ [op in OpType]?: number }` per-op count              |
+|  [09]   | `DiffKind`               | enum          | property-diff kind (6 members)                          |
 |  [10]   | `PropertyDiff`           | interface     | `diffKind: DiffKind`; `inputDiff: boolean`              |
 |  [11]   | `SummaryEvent`           | interface     | `resourceChanges: OpMap`; end-of-update summary         |
 |  [12]   | `DiagnosticEvent`        | interface     | provider diagnostic message + severity                  |
@@ -295,10 +295,10 @@ export interface EngineEvent {
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]   | [RAIL]                                         |
 | :-----: | :---------------------------------------------------- | :--------------- | :--------------------------------------------- |
-|   [1]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>` | lifecycle method | read-only refresh-preview; no state mutation   |
-|   [2]   | `Stack.refresh(opts?): Promise<RefreshResult>`        | lifecycle method | reconcile state with provider (mutating)       |
-|   [3]   | `RefreshOptions.onEvent`                              | callback         | `(event: EngineEvent) => void` per-step stream |
-|   [4]   | `PreviewResult.changeSummary: OpMap`                  | result field     | engine's own per-`OpType` change count         |
+|  [01]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>` | lifecycle method | read-only refresh-preview; no state mutation   |
+|  [02]   | `Stack.refresh(opts?): Promise<RefreshResult>`        | lifecycle method | reconcile state with provider (mutating)       |
+|  [03]   | `RefreshOptions.onEvent`                              | callback         | `(event: EngineEvent) => void` per-step stream |
+|  [04]   | `PreviewResult.changeSummary: OpMap`                  | result field     | engine's own per-`OpType` change count         |
 
 ```ts contract
 // @pulumi/pulumi/automation — Stack (refresh-preview leg)
@@ -323,7 +323,7 @@ declare class Stack {
 
 `previewRefresh` is the non-mutating refresh-preview: it re-reads provider state and reports the drift each resource carries as a stream of `resourcePreEvent` steps, where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta, without writing the refreshed state back. Drive it with an `onEvent` accumulator and reconcile the folded bucket count against `PreviewResult.changeSummary`.
 
-## [5]-[IMPLEMENTATION_LAW]
+## [05]-[IMPLEMENTATION_LAW]
 
 [OUTPUT_TOPOLOGY]:
 - `Output<T>` is `OutputInstance<T> & Lifted<T>`; property access on an `Output<{a: string}>` returns `Output<string>` directly without `.apply`

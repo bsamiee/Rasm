@@ -2,11 +2,11 @@
 
 Migration law for every store the suite opens. `SchemaFault` is the typed migration-and-downgrade fault family whose `Gate` guards every open against schema drift and whose `Classify` fold runs at generation time over `MigrationOperation` rows splitting every change into expand and contract waves. `SchemaFingerprint` and `MigrationReceipt` stamp compiled-model and applied-prefix evidence from `ClockPolicy` and `CorrelationId`, so every open proves which schema prefix it ran against.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MIGRATION_LAW]: migration faults, fingerprint gate, wave classifier, lock-light steps, and receipted apply.
+- [01]-[MIGRATION_LAW]: migration faults, fingerprint gate, wave classifier, lock-light steps, and receipted apply.
 
-## [2]-[MIGRATION_LAW]
+## [02]-[MIGRATION_LAW]
 
 - Owner: `SchemaFault` `[Union]` fault family on the doctrine `Expected` shape with the dual-tier `Create` contract; `WaveClass` `[SmartEnum]` the physical-class vocabulary; `WaveDisposition` `[Union]` the per-operation verdict; `SchemaFingerprint` the compiled-model fingerprint; `MigrationReceipt` the applied-prefix receipt; `MigrationLaw` the static fold surface.
 - Cases: `SchemaFault` — Text, NewerSchema, PendingModel, PartialApplication, DestructiveUnapproved, ForbiddenRename, AclScopeMismatch, AclDenied — codes 5300-5307; `WaveClass` — additive, rename, rebuild, destructive; `WaveDisposition` — Expand, Contract, ForbiddenMiddle, RejectedExpand, GatedRewrite.

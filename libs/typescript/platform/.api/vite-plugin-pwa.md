@@ -2,7 +2,7 @@
 
 `vite-plugin-pwa` supplies service worker generation and injection, web app manifest management, PWA asset generation, and offline caching strategy configuration via Workbox for Vite build pipelines. The single `VitePWA(userOptions?)` entrypoint returns a `Plugin[]` array compatible with the Vite `plugins` array. Two strategies are available: `generateSW` (Workbox-generated SW) and `injectManifest` (custom SW with injected precache manifest).
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `vite-plugin-pwa`
 - package: `vite-plugin-pwa`
@@ -10,81 +10,81 @@
 - asset: Vite plugin (returns `Plugin[]`)
 - rail: pwa
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin options family
 - rail: pwa
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]  | [DESCRIPTION]                    |
 | :-----: | :---------------------------- | :------------- | :------------------------------- |
-|   [1]   | `VitePWAOptions`              | options object | full plugin configuration        |
-|   [2]   | `Options`                     | type alias     | re-export of `VitePWAOptions`    |
-|   [3]   | `ResolvedVitePWAOptions`      | resolved shape | internal resolved configuration  |
-|   [4]   | `ManifestOptions`             | manifest shape | web app manifest fields          |
-|   [5]   | `DevOptions`                  | dev config     | dev-server SW behavior           |
-|   [6]   | `CustomInjectManifestOptions` | build config   | `injectManifest` strategy extras |
-|   [7]   | `PWAAssetsOptions`            | assets config  | icon/asset generation            |
-|   [8]   | `PWAIntegration`              | integration    | framework integration hooks      |
+|  [01]   | `VitePWAOptions`              | options object | full plugin configuration        |
+|  [02]   | `Options`                     | type alias     | re-export of `VitePWAOptions`    |
+|  [03]   | `ResolvedVitePWAOptions`      | resolved shape | internal resolved configuration  |
+|  [04]   | `ManifestOptions`             | manifest shape | web app manifest fields          |
+|  [05]   | `DevOptions`                  | dev config     | dev-server SW behavior           |
+|  [06]   | `CustomInjectManifestOptions` | build config   | `injectManifest` strategy extras |
+|  [07]   | `PWAAssetsOptions`            | assets config  | icon/asset generation            |
+|  [08]   | `PWAIntegration`              | integration    | framework integration hooks      |
 
 [PUBLIC_TYPE_SCOPE]: strategy and register types
 - rail: pwa
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]  | [DESCRIPTION]                     |
 | :-----: | :-------------------------- | :------------- | :-------------------------------- |
-|   [1]   | `RegisterSWData`            | virtual module | SW registration data              |
-|   [2]   | `VitePluginPWAAPI`          | plugin API     | programmatic plugin API surface   |
-|   [3]   | `WebManifestData`           | manifest data  | resolved manifest data            |
-|   [4]   | `InjectManifestVitePlugins` | type alias     | `string[] \| ((ids) => string[])` |
-|   [5]   | `Display`                   | string union   | web manifest display modes        |
-|   [6]   | `DisplayOverride`           | string union   | display override values           |
-|   [7]   | `IconPurpose`               | string union   | icon purpose values               |
-|   [8]   | `StringLiteralUnion`        | utility type   | string union helper               |
+|  [01]   | `RegisterSWData`            | virtual module | SW registration data              |
+|  [02]   | `VitePluginPWAAPI`          | plugin API     | programmatic plugin API surface   |
+|  [03]   | `WebManifestData`           | manifest data  | resolved manifest data            |
+|  [04]   | `InjectManifestVitePlugins` | type alias     | `string[] \| ((ids) => string[])` |
+|  [05]   | `Display`                   | string union   | web manifest display modes        |
+|  [06]   | `DisplayOverride`           | string union   | display override values           |
+|  [07]   | `IconPurpose`               | string union   | icon purpose values               |
+|  [08]   | `StringLiteralUnion`        | utility type   | string union helper               |
 
 [PUBLIC_TYPE_SCOPE]: PWA assets types
 - rail: pwa
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [DESCRIPTION]                                           |
 | :-----: | :------------------------- | :------------- | :------------------------------------------------------ |
-|   [1]   | `PWAAssetsIcons`           | icon catalog   | favicon/transparent/maskable/apple/splashscreen buckets |
-|   [2]   | `PWAAssetsGenerator`       | generator API  | asset generation and HTML injection                     |
-|   [3]   | `PWAHtmlLink`              | HTML link      | `<link>` element descriptor                             |
-|   [4]   | `PWAHtmlAssets`            | HTML assets    | collected links and theme-color                         |
-|   [5]   | `ResolvedIconAsset`        | resolved asset | path, mimeType, buffer, age                             |
-|   [6]   | `ResolvedPWAAssetsOptions` | resolved opts  | resolved PWA assets configuration                       |
-|   [7]   | `ColorSchemeMeta`          | meta element   | `name`/`content` meta descriptor                        |
+|  [01]   | `PWAAssetsIcons`           | icon catalog   | favicon/transparent/maskable/apple/splashscreen buckets |
+|  [02]   | `PWAAssetsGenerator`       | generator API  | asset generation and HTML injection                     |
+|  [03]   | `PWAHtmlLink`              | HTML link      | `<link>` element descriptor                             |
+|  [04]   | `PWAHtmlAssets`            | HTML assets    | collected links and theme-color                         |
+|  [05]   | `ResolvedIconAsset`        | resolved asset | path, mimeType, buffer, age                             |
+|  [06]   | `ResolvedPWAAssetsOptions` | resolved opts  | resolved PWA assets configuration                       |
+|  [07]   | `ColorSchemeMeta`          | meta element   | `name`/`content` meta descriptor                        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory
 - rail: pwa
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [DESCRIPTION]                         |
 | :-----: | :--------------------------------- | :------------- | :------------------------------------ |
-|   [1]   | `VitePWA(userOptions?)`            | plugin factory | returns `Plugin[]` for Vite `plugins` |
-|   [2]   | `cachePreset`                      | constant       | default Workbox runtime cache preset  |
-|   [3]   | `defaultInjectManifestVitePlugins` | constant       | default Vite plugins for SW build     |
+|  [01]   | `VitePWA(userOptions?)`            | plugin factory | returns `Plugin[]` for Vite `plugins` |
+|  [02]   | `cachePreset`                      | constant       | default Workbox runtime cache preset  |
+|  [03]   | `defaultInjectManifestVitePlugins` | constant       | default Vite plugins for SW build     |
 
 [ENTRYPOINT_SCOPE]: VitePWAOptions key fields
 - rail: pwa
 
 | [INDEX] | [FIELD]                | [TYPE]                                                      | [DEFAULT]      |
 | :-----: | :--------------------- | :---------------------------------------------------------- | :------------- |
-|   [1]   | `strategies`           | `'generateSW' \| 'injectManifest'`                          | `'generateSW'` |
-|   [2]   | `registerType`         | `'prompt' \| 'autoUpdate' \| 'legacy'`                      | `'prompt'`     |
-|   [3]   | `injectRegister`       | `'auto' \| 'inline' \| 'script' \| 'script-defer' \| false` | `'auto'`       |
-|   [4]   | `manifest`             | `Partial<ManifestOptions> \| false`                         | `{}`           |
-|   [5]   | `workbox`              | `Partial<GenerateSWOptions>`                                | `{}`           |
-|   [6]   | `injectManifest`       | `Partial<CustomInjectManifestOptions>`                      | `{}`           |
-|   [7]   | `devOptions`           | `DevOptions`                                                | `{}`           |
-|   [8]   | `pwaAssets`            | `PWAAssetsOptions`                                          | —              |
-|   [9]   | `filename`             | `string`                                                    | `'sw.js'`      |
+|  [01]   | `strategies`           | `'generateSW' \| 'injectManifest'`                          | `'generateSW'` |
+|  [02]   | `registerType`         | `'prompt' \| 'autoUpdate' \| 'legacy'`                      | `'prompt'`     |
+|  [03]   | `injectRegister`       | `'auto' \| 'inline' \| 'script' \| 'script-defer' \| false` | `'auto'`       |
+|  [04]   | `manifest`             | `Partial<ManifestOptions> \| false`                         | `{}`           |
+|  [05]   | `workbox`              | `Partial<GenerateSWOptions>`                                | `{}`           |
+|  [06]   | `injectManifest`       | `Partial<CustomInjectManifestOptions>`                      | `{}`           |
+|  [07]   | `devOptions`           | `DevOptions`                                                | `{}`           |
+|  [08]   | `pwaAssets`            | `PWAAssetsOptions`                                          | —              |
+|  [09]   | `filename`             | `string`                                                    | `'sw.js'`      |
 |  [10]   | `scope`                | `string`                                                    | Vite `base`    |
 |  [11]   | `base`                 | `string`                                                    | Vite `base`    |
 |  [12]   | `includeAssets`        | `string \| string[] \| RegExp`                              | —              |
 |  [13]   | `includeManifestIcons` | `boolean`                                                   | `true`         |
 |  [14]   | `integration`          | `PWAIntegration`                                            | —              |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PWA_TOPOLOGY]:
 - entry: `VitePWA(opts)` returns `Plugin[]`; spread into Vite `plugins` array, not passed as a single element

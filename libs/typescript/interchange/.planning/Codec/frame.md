@@ -2,13 +2,13 @@
 
 Content-addressed artifact-frame reassembly: the framing fold lifted off `Transport/transport.md` is stitched into one content-addressed blob through a per-frame Crc32 verify, a single pre-sized sink, and a whole-artifact 128-bit content-key derivation, run off the main thread under the `platform` `DecodeWorkerPool`. `ArtifactFrameRail` composes the `Codec/codec.md` `DecodeRail` decode discipline over the frame bytes the `proto` codec row admits — the artifact frame is not a fourth `CodecKey`, it is the reassembly owner of the server-streamed frames the proto row decodes; this page owns the reassembly, the owned table-driven Crc32, and the transferable-stream worker boundary. The content key is the one 16-byte `ContentKey` brand byte-identical to the C#-owned `XxHash128` seed; the browser-side 128-bit provider is the admitted `hash-wasm` `createXXHash128(0, 0)` `IHasher` digesting to a 16-byte `Uint8Array` (`digest("binary")`), so the provider question is settled at the package and the cross-runtime byte-identity assertion is realized at `Codec/parity#CONTENT_KEY_PARITY` against the FROZEN `CANONICAL_BYTE_IDENTITY` corpus fixture (the `[4]-[RESEARCH]` `CONTENT_HASHING` endianness normalization the parity binding reproduces).
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FRAME_RAIL]: the reassembly, the owned Crc32, the transferable worker boundary.
-- [2]-[TS_PROJECTION]: the artifact-frame wire shape the rail reassembles.
+- [01]-[FRAME_RAIL]: the reassembly, the owned Crc32, the transferable worker boundary.
+- [02]-[TS_PROJECTION]: the artifact-frame wire shape the rail reassembles.
 
 
-## [2]-[FRAME_RAIL]
+## [02]-[FRAME_RAIL]
 
 - Owner: `ArtifactFrameRail`, the row that reassembles the server-streamed `ArtifactFrameWire` frames named on `csharp:Rasm.Compute/Runtime/channels#TS_PROJECTION` (the `Generate`/`SubtreeFetch` server-stream artifact-delivery path and the GLB tessellation result re-entering through the remote lane) into one content-addressed blob, plus the one owned `Crc32` table-driven rail the whole branch reads. Each frame carries `artifactId`, `artifactBytes`, `offset`, the `frameCrc` `fixed32`, and the `payload` `Uint8Array`.
 - Cases: the rail verifies the per-frame Crc32 through the owned `Crc32` rail (a direct number-eq compare against the wire `frameCrc fixed32`, no package), allocates one pre-sized `Uint8Array` of `artifactBytes` length at the first frame and writes each payload by `offset` into that single owned sink, and on the final frame derives the whole-artifact content key over the assembled bytes through the branch-owned `XxHash128` interface (the `[4]-[RESEARCH]` `CONTENT_HASHING` row owns its provider and the `Codec/parity#CONTENT_KEY_PARITY` reproduction binding), so a re-fetch of identical content keys identically and a frame whose Crc32 or assembled digest mismatches faults through `Ingress/fault.md` rather than yielding a torn blob. The bidi `ArtifactSyncShape.sync` method stays structurally excluded on the grpc-web row, but the frame TYPE is browser-reachable over the server-stream and lands here.
@@ -101,7 +101,7 @@ class ArtifactFrameRailLive extends Effect.Service<ArtifactFrameRailLive>()("@ra
 }) {}
 ```
 
-## [3]-[TS_PROJECTION]
+## [03]-[TS_PROJECTION]
 
 - Owner: the `ArtifactFrameWire` frame shape the rail reassembles, sourced from `csharp:Rasm.Compute/Runtime/channels#TS_PROJECTION`.
 - Entry: each frame carries `artifactId`, `artifactBytes` (the FULL original length on every frame), `offset`, the `frameCrc` `fixed32`, and the `payload` `Uint8Array`.
@@ -117,7 +117,7 @@ interface ArtifactFrameWire {
 }
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [CONTENT_HASHING]: the C# content seed is `System.IO.Hashing.XxHash128` (seed=0, big-endian persisted, two-64-bit-half byte order); the admitted `hash-wasm` `createXXHash128(0, 0)` resolves the implementing `IHasher` whose `digest("binary")` returns the 16-byte little-endian digest, so the provider question is settled — the prior `xxhash-wasm`-only `h32`/`h64` gap is closed. The byte-identity gate is RESOLVED: `createXXHash128` emits little-endian and `XxHash128` persists big-endian, so `h128` reverses the 16 bytes once at the boundary and `Codec/parity#CONTENT_KEY_PARITY` `ContentKeyParity` reproduces the FROZEN `csharp:Rasm/Geometry/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` row [1] `CANONICAL_BYTE_IDENTITY` digest bit-identically through this same `xxHash128Of` binding, comparing NORMALIZED bytes never raw hex. The per-frame Crc32 is a direct compare against the wire `frameCrc fixed32` and needs no probe.
 - [BIGINT_ROUNDTRIP]: the `SnapshotHeaderWire.schemaFingerprint` and the `OpLogEntryWire.logical`/`sequence` bigints crossing `@msgpack/msgpack` `useBigInt64: true` and the `DataView` `getBigUint64(offset, false)` big-endian header read round-trip bit-for-bit against the C# `long`/`ulong` HLC encoding — the fixed-width header is `BinaryPrimitives.WriteUInt64BigEndian` on the C# side, so the `littleEndian: false` flag on the `Codec/codec.md` `decodeSnapshotHeader` read is load-bearing and `Codec/parity#HLC_TWO_HALF_PARITY` `HlcTwoHalfParity` asserts the two-64-bit-half order so a half-swap never silently corrupts the conflict-presence fold, since an HLC `logical` off-by-one-half folds a fresh op as stale with no other signal. The `OpLogEntryWire.physical` ISO-8601 instant the `projection` event-time fold (`watermark`, `lww-merge`) reads is the C#-owned HLC physical half against `csharp:Rasm.Persistence/Sync/collaboration#TS_PROJECTION` (`physical: string`), distinct from the `Codec/codec.md` `[3]-[CRDT_OP_DECODE]` `CrdtOpWire` `physicalTicks` flat half (.NET unix ticks); the member spelling and the instant precision (`Date.parse`-admissible extended ISO-8601) resolve against the decoded shape before the convergence-order arms are transcribed.

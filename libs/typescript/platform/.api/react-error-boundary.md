@@ -2,7 +2,7 @@
 
 `react-error-boundary` provides a React class error boundary with three rendering strategies — static `fallback`, `FallbackComponent`, or `fallbackRender` — plus a `useErrorBoundary` hook for imperatively triggering or resetting the boundary from within a descendant, and a `withErrorBoundary` HOC. The `ErrorBoundaryContext` exposes boundary state to deep consumers.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `react-error-boundary`
 - package: `react-error-boundary`
@@ -10,28 +10,28 @@
 - asset: runtime library
 - rail: ui
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: error boundary types
 - rail: ui
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                                                 |
 | :-----: | :-------------------------------- | :------------ | :------------------------------------------------------------------------------------- |
-|   [1]   | `ErrorBoundaryProps`              | union type    | `WithFallback \| WithComponent \| WithRender`                                          |
-|   [2]   | `ErrorBoundaryPropsWithFallback`  | type alias    | static `ReactNode` fallback strategy                                                   |
-|   [3]   | `ErrorBoundaryPropsWithComponent` | type alias    | `FallbackComponent: ComponentType<FallbackProps>` strategy                             |
-|   [4]   | `ErrorBoundaryPropsWithRender`    | type alias    | `fallbackRender: (props: FallbackProps) => ReactNode` strategy                         |
-|   [5]   | `FallbackProps`                   | type alias    | `{ error: unknown; resetErrorBoundary: (...args) => void }`                            |
-|   [6]   | `ErrorBoundaryContextType`        | type alias    | `{ didCatch: boolean; error: unknown \| null; resetErrorBoundary: (...args) => void }` |
-|   [7]   | `OnErrorCallback`                 | type alias    | `(error: unknown, info: ErrorInfo) => void`                                            |
-|   [8]   | `UseErrorBoundaryApi`             | type alias    | `{ error, resetBoundary, showBoundary }`                                               |
+|  [01]   | `ErrorBoundaryProps`              | union type    | `WithFallback \| WithComponent \| WithRender`                                          |
+|  [02]   | `ErrorBoundaryPropsWithFallback`  | type alias    | static `ReactNode` fallback strategy                                                   |
+|  [03]   | `ErrorBoundaryPropsWithComponent` | type alias    | `FallbackComponent: ComponentType<FallbackProps>` strategy                             |
+|  [04]   | `ErrorBoundaryPropsWithRender`    | type alias    | `fallbackRender: (props: FallbackProps) => ReactNode` strategy                         |
+|  [05]   | `FallbackProps`                   | type alias    | `{ error: unknown; resetErrorBoundary: (...args) => void }`                            |
+|  [06]   | `ErrorBoundaryContextType`        | type alias    | `{ didCatch: boolean; error: unknown \| null; resetErrorBoundary: (...args) => void }` |
+|  [07]   | `OnErrorCallback`                 | type alias    | `(error: unknown, info: ErrorInfo) => void`                                            |
+|  [08]   | `UseErrorBoundaryApi`             | type alias    | `{ error, resetBoundary, showBoundary }`                                               |
 
 [PUBLIC_TYPE_SCOPE]: shared props base
 - rail: ui
 
 `ErrorBoundarySharedProps` (the intersection base for all three strategy types) carries `onError?: OnErrorCallback`, `onReset?: (...args) => void`, `resetKeys?: unknown[]`, and `children?: ReactNode`.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ErrorBoundary component
 - rail: ui
@@ -93,7 +93,7 @@ export declare const ErrorBoundaryContext: Context<ErrorBoundaryContextType | nu
 export declare function getErrorMessage(thrown: unknown): string | undefined
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [UI_TOPOLOGY]:
 - exactly one of `fallback`, `FallbackComponent`, or `fallbackRender` is required; the union uses `never` to enforce mutual exclusion at the type level

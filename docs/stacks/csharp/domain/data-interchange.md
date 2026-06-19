@@ -2,28 +2,28 @@
 
 Interchange is one projection rail. Any store's rows leave as typed tabular, columnar, or geo artifacts carrying a schema stamp and a content hash, and re-enter only through admission — never as live state shared across processes. The analytical engine is a projection surface, not a system of record: one anchor session under a declared posture, operational stores mounted read-only, bulk movement in vector chunks with named commit points, egress as one `COPY` statement assembled from artifact-class policy rows. Delimited exchange derives reader, writer, and descriptor from one profile record so round-trip symmetry is structural; artifact identity is a descriptor stamp plus a hash, and schema evolution is one name-keyed lattice diff whose verdict gates every consumer. Geo data holds one interior vocabulary — NetTopologySuite geometry — with exactly two wire projections, text and blob, each a policy-frozen profile value. Growth lands as rows: a new artifact class is one declaration deriving emission, stamp, and gate; a new egress format, partition key, or codec is a policy row; a new delivery target is a union case that breaks dispatch at compile time.
 
-## [1]-[INTERCHANGE_CHOOSER]
+## [01]-[INTERCHANGE_CHOOSER]
 
 This table routes an interchange concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                      | [OWNER]                              | [REJECTED_FORM]                 |
 | :-----: | :----------------------------- | :----------------------------------- | :------------------------------ |
-|   [1]   | analytical session             | posture record + one anchor          | open-per-query connections      |
-|   [2]   | in-process engine concurrency  | `Duplicate()` lanes over one handle  | command interleaving            |
-|   [3]   | foreign store reads            | read-only `ATTACH`                   | export-import shuffle           |
-|   [4]   | bulk ingest                    | mapped appender + explicit `Close()` | row-at-a-time `INSERT` loop     |
-|   [5]   | large result reads             | streaming-mode reader                | `DataTable` materialization     |
-|   [6]   | in-process sequence in a query | registered table function            | single-query staging table      |
-|   [7]   | columnar egress                | one `COPY` rail + policy rows        | per-format export paths         |
-|   [8]   | artifact generations           | name-keyed union reads               | in-place rewrites               |
-|   [9]   | delimited exchange             | one profile record, derived triple   | per-site option drift           |
+|   [01]   | analytical session             | posture record + one anchor          | open-per-query connections      |
+|   [02]   | in-process engine concurrency  | `Duplicate()` lanes over one handle  | command interleaving            |
+|   [03]   | foreign store reads            | read-only `ATTACH`                   | export-import shuffle           |
+|   [04]   | bulk ingest                    | mapped appender + explicit `Close()` | row-at-a-time `INSERT` loop     |
+|   [05]   | large result reads             | streaming-mode reader                | `DataTable` materialization     |
+|   [06]   | in-process sequence in a query | registered table function            | single-query staging table      |
+|   [07]   | columnar egress                | one `COPY` rail + policy rows        | per-format export paths         |
+|   [08]   | artifact generations           | name-keyed union reads               | in-place rewrites               |
+|   [09]   | delimited exchange             | one profile record, derived triple   | per-site option drift           |
 |  [10]   | artifact identity              | descriptor stamp + content hash      | filename-convention trust       |
 |  [11]   | schema evolution               | lattice diff verdict                 | per-consumer compatibility code |
 |  [12]   | geo vocabulary                 | NTS interior, two wire projections   | coordinate DTO forks            |
 |  [13]   | geo text wire                  | one converter-factory row            | per-type converter registration |
 |  [14]   | geo store blob                 | policy-frozen blob codec             | raw WKB columns                 |
 
-## [2]-[ANALYTICAL_ENGINE]
+## [02]-[ANALYTICAL_ENGINE]
 
 [SESSION_POSTURE]:
 - Law: one process holds one refcounted native handle per source path, and the last close evicts buffer pool and attached catalogs — a session is one anchor connection held for its lifetime, and in-process concurrency is `Duplicate()` over the same handle, because a streaming drain occupies its connection until disposed.
@@ -118,7 +118,7 @@ public static class BulkLane {
 }
 ```
 
-## [3]-[ARTIFACT_PROJECTION]
+## [03]-[ARTIFACT_PROJECTION]
 
 [EGRESS_ROWS]:
 - Law: one `COPY (SELECT) TO` statement owns every egress, and `FORMAT` is one axis of it — parquet, delimited, and JSON share the destination, collision, and compression vocabulary, JSON adding one `ARRAY` row selecting array-of-records versus newline-delimited — so a second export path per format is the rejected form and a new flow is one instance of attach/read, project, copy.
@@ -165,7 +165,7 @@ public static class ProjectionRail {
 - Law: JSON shredding is admission, not manipulation — `read_json` inference is a development-time tool whose output freezes into an explicit `columns` struct, because sampling drift on sparse fields silently retypes columns between runs; `ignore_errors` applies only to newline-delimited layout, so NDJSON is the only fault-tolerant JSON ingest, and document collapse is engine vocabulary (`->`, `->>`, `json_transform`, `unnest`) — managed DOM walking plus re-insert is the rejected spelling.
 - Law: shred to typed columns at admission when the document shape is settled; keep a JSON-typed column while the shape is still moving — the deciding question is shape motion, never preference.
 
-## [4]-[DELIMITED_EXCHANGE]
+## [04]-[DELIMITED_EXCHANGE]
 
 [PROFILE_LAW]:
 - Law: the default separator is the semicolon — comma exchange always declares `Sep.New(',')`; auto-detection counts candidates in row one only and is exploratory ingest, never a contract profile.
@@ -235,7 +235,7 @@ public static class ExchangeSeam {
 - Law: one row-projection function per exchange profile serves all four modalities — sequential, async (`GetAsyncEnumerator` threads cancellation into row advance), parallel, try-filtered; modality-specific row handlers are the sprawl the profile deletes.
 - Law: the reader-to-writer fusion is one copy expression — `writer.NewRow(readerRow)` and `readerRow.CopyTo(writerRow)` re-separate, re-escape, and reorder under the writer's own policy — so parse-materialize-rebuild flows are the rejected spelling; `SepWriterHeader`'s explicit `Write` is the zero-row arm, producing the empty-but-valid artifact a delivery gate distinguishes from a missing one.
 
-## [5]-[ARTIFACT_IDENTITY]
+## [05]-[ARTIFACT_IDENTITY]
 
 [STAMP_AND_DIFF]:
 - Law: an artifact is payload plus identity — a descriptor stamp and a content hash; identity placement follows the format's own metadata channel — columnar in the footer, delimited beside the file as a sidecar bound by content hash, never fake header rows — so a renamed artifact keeps its identity and a sidecar whose bytes no longer hash to its claim is corruption, not drift.
@@ -319,7 +319,7 @@ public static class DeliveryGate {
 }
 ```
 
-## [6]-[GEO_INTERCHANGE]
+## [06]-[GEO_INTERCHANGE]
 
 [TEXT_RAIL]:
 - Law: NetTopologySuite geometry is the single interior geo vocabulary, and GeoJSON text and the GeoPackage blob are its only two wire projections — a store-to-feed flow is decode-blob, interior, encode-text, never a direct transcode — so coordinate DTOs, vendor geometry types, and raw coordinate arrays are rejected shapes.

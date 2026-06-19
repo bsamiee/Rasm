@@ -2,15 +2,15 @@
 
 One twenty-two-case `ComputeReceipt` union is the package's only fact vocabulary for measured execution: every operational view derives as a fold over that stream, NodaTime-protobuf bridges own the instant, duration, and calendar wire edge, and fingerprint-gated benchmark claims decide every performance-motivated route in the suite. The page owns the receipt union with its Strict-resolver round-trip emission surface, the fold-projection family, the wire-stamp bridges, the claim table with its host fingerprint, and `ComputeWireContext` — composing `ReceiptSinkPort`, `ReceiptEnvelope`, `ClockPolicy`, `ScheduleEntry`, `TelemetryContributorPort`, and the Persistence benchmark and artifact index contracts as settled vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RECEIPT_UNION]: twenty-two-case fact union; one wire context; sink-port emission.
-- [2]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream.
-- [3]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
-- [4]-[BENCHMARK_CLAIMS]: fingerprint-gated claim rows decide performance routes.
-- [5]-[TS_PROJECTION]: receipt payload union and benchmark-claim wire shapes.
+- [01]-[RECEIPT_UNION]: twenty-two-case fact union; one wire context; sink-port emission.
+- [02]-[FOLD_PROJECTIONS]: operational views derive as folds over the fact stream.
+- [03]-[WIRE_STAMPS]: NodaTime-protobuf bridges own the temporal wire edge.
+- [04]-[BENCHMARK_CLAIMS]: fingerprint-gated claim rows decide performance routes.
+- [05]-[TS_PROJECTION]: receipt payload union and benchmark-claim wire shapes.
 
-## [2]-[RECEIPT_UNION]
+## [02]-[RECEIPT_UNION]
 
 - Owner: `ComputeReceipt`, `ComputeWireContext`, `ReceiptSurface` — the fact union, the package's one `JsonSerializerContext` partial joining the suite Strict resolver merge, and the emission-plus-telemetry surface.
 - Cases: selection · tensor-run · model-load · warmup · model-run · remote-call · stream-segment · allocation · cache · unit-projection · backpressure · drain · conflict · factorization · generate · discretization · solve · optimization · sweep · clash · twin · uncertainty
@@ -157,7 +157,7 @@ public static class ReceiptSurface {
 }
 ```
 
-## [3]-[FOLD_PROJECTIONS]
+## [03]-[FOLD_PROJECTIONS]
 
 - Owner: `ReceiptFolds` — every operational view is a pure fold over `Seq<ComputeReceipt>`; the fact stream is the single source and no projection accumulates mutably.
 - Entry: `public HashMap<CorrelationId, Seq<ComputeReceipt>> Provenance` — the model-result provenance projection joining every receipt chain by correlation.
@@ -198,7 +198,7 @@ public static class ReceiptFolds {
 }
 ```
 
-## [4]-[WIRE_STAMPS]
+## [04]-[WIRE_STAMPS]
 
 - Owner: `WireStamps` — the NodaTime-protobuf bridge family is the only temporal crossing between the receipt rail and the proto wire, spanning the well-known `Timestamp`/`Duration` edge and the `Google.Type` calendar-date and time-of-day edge.
 - Entry: `public Timestamp WirePhysical` — the envelope's HLC physical stamp projected onto the well-known wire type.
@@ -252,7 +252,7 @@ public static class WireStamps {
 }
 ```
 
-## [5]-[BENCHMARK_CLAIMS]
+## [05]-[BENCHMARK_CLAIMS]
 
 - Owner: `BenchmarkClaim`, `HostFingerprint` — the input-class claim row and the host identity that gates it; a claim is a row, never prose.
 - Cases: micro · small · medium · large payload-size bands, declared as the `Bands` rows.
@@ -319,7 +319,7 @@ public sealed record BenchmarkClaim(
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `ComputeReceiptKind`, `ComputeReceiptSpineWire`, `ComputeReceiptWire`, `ComputeReceiptEnvelopeWire`, `HostFingerprintWire`, `BenchmarkClaimWire` — the receipt payload union and the claim row as the dashboard consumes them.
 - Packages: BCL inbox
@@ -391,7 +391,7 @@ interface HostFingerprintWire { os: string; arch: string; processors: number; st
 interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dtype: string; substrate: string; family: string; route: string; provider: string; median: string; p95: string; allocatedBytes: number; equivalenceMaxDeviation: number; toleranceClass: string; fingerprint: HostFingerprintWire; artifacts: string[]; at: string; }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [WIRE_EMISSION]: the implementation-time round-trip confirms the merged resolver chain orders `ComputeWireContext` after the Thinktecture key-scalar resolver so the polymorphic `kind` discriminator and every smart-enum spine field serialize and deserialize to the identical case, and that `Seq<string>` collection members on the `Selection` case survive the merge without a `JsonConverter` for the LanguageExt collection.
 - [CALENDAR_BRIDGE]: the `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` calendar wire types and the `Google.Api.CommonProtos` assembly that carries them, with the `ToDate`/`ToLocalDate`/`ToTimeOfDay`/`ToLocalTime`/`ToProtobufDayOfWeek`/`ToIsoDayOfWeek` conversion members the calendar-bridge wire-stamp columns bind.

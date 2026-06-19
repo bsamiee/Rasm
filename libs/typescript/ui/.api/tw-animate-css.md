@@ -2,7 +2,7 @@
 
 `tw-animate-css` is a Tailwind CSS v4 utility layer supplying enter/exit, fade, zoom, slide, spin, and `data-[state]`-keyed animation utilities — the v4-native replacement for `tailwindcss-animate`. It exports no JavaScript runtime surface: it is a single CSS layer imported into the design-token stylesheet through `@import "tw-animate-css"`, after which the `animate-in`/`animate-out`, `fade-*`, `zoom-*`, `slide-in-from-*`, `spin`, and `duration-*`/`delay-*`/`ease-*` utility families and the `data-[state=open]`/`data-[state=closed]` enter/exit selectors are available to every Tailwind class consumer. A prefixed build is exported at `tw-animate-css/prefix` for collision-free composition.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tw-animate-css`
 - package: `tw-animate-css`
@@ -10,23 +10,23 @@
 - asset: CSS utility layer (no JS runtime)
 - rail: styling-animation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: none
 
 The package exposes no TypeScript surface; it is consumed as a CSS `@import` and emits utility classes resolved by the Tailwind v4 engine at build time.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: CSS import targets
 - rail: styling-animation
 
 | [INDEX] | [SURFACE]               | [ENTRY_FAMILY] | [RAIL]                                                       |
 | :-----: | :---------------------- | :------------- | :----------------------------------------------------------- |
-|   [1]   | `tw-animate-css`        | CSS layer      | unprefixed `animate-*`/`fade-*`/`zoom-*`/`slide-*` utilities |
-|   [2]   | `tw-animate-css/prefix` | CSS layer      | prefixed build for collision-free composition                |
+|  [01]   | `tw-animate-css`        | CSS layer      | unprefixed `animate-*`/`fade-*`/`zoom-*`/`slide-*` utilities |
+|  [02]   | `tw-animate-css/prefix` | CSS layer      | prefixed build for collision-free composition                |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [ANIMATION_TOPOLOGY]:
 - `@import "tw-animate-css";` lands in the same stylesheet that declares the `@theme` design-token layer, after the Tailwind `@import "tailwindcss"` directive

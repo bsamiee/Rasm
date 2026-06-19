@@ -2,11 +2,11 @@
 
 The one classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph. `Inference` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC, scores convergence with arviz, and returns a typed posterior-evidence receipt. The `SamplerPlan` carries a backend discriminant so the one owner selects the MCMC engine by case: PyMC-native NUTS or Metropolis, NumPyro JAX NUTS, Nutpie Rust/Numba NUTS, or BlackJAX JAX NUTS, with arviz as the cross-backend rhat-and-ess diagnostic owner. The owner is bounded at conjugate, hierarchical, and GLM-class models; variational, normalizing-flow, and neural-posterior estimation never enter it. A posterior failing the convergence bar is an admission rejection, never a graduated handoff.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[BAYESIAN]: the prior/likelihood/posterior graph, the sampler-backend axis, and arviz diagnostics on one `Inference` owner.
+- [01]-[BAYESIAN]: the prior/likelihood/posterior graph, the sampler-backend axis, and arviz diagnostics on one `Inference` owner.
 
-## [2]-[BAYESIAN]
+## [02]-[BAYESIAN]
 
 - Owner: `Inference` — the one Bayesian owner over a prior/likelihood/posterior axis. `InferenceSpec` is the frozen request carrying the observed array, the `LatentPrior` family per latent, the `Likelihood` case, the mean latent, and the `SamplerPlan`; `Inference.run` builds the `pymc.Model`, draws the posterior, scores it with arviz diagnostics, and returns an `InferenceReceipt`. Adding a distribution is a `Prior`/`Likelihood` case; adding an engine is a `SamplerBackend` case; the diagnostics are receipt fields.
 - Sampler-backend axis: `SamplerBackend` discriminates the MCMC engine — `pymc_native` runs `pymc.sample` with a `pymc.NUTS` or `pymc.Metropolis` step, `numpyro_jax` runs `pymc.sampling.jax.sample_numpyro_nuts` (the NumPyro JAX NUTS path), `nutpie_numba` runs `nutpie.sample` over the compiled PyMC model (the Rust/Numba NUTS path), and `blackjax_jax` runs `pymc.sampling.jax.sample_blackjax_nuts` (the BlackJAX JAX NUTS path). `SamplerKind` selects the step method for the native backend. arviz reads the posterior and the sample-stats group regardless of which engine sampled, so the diagnostic gate is one fold across the four backends; the two JAX backends and Nutpie ride one `pymc.sampling.jax`/compiled-model handoff rather than four parallel draw owners.
@@ -231,7 +231,7 @@ def _study_payload(spec: InferenceSpec) -> bytes:
     return b"\x00".join((spec.likelihood.encode(), latents, plan, shape, observed.tobytes()))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [PYMC_SAMPLE]: `pymc` and `arviz` carry no cp315 wheel (`pymc` pulls `pytensor` to `numba` to `llvmlite`; `arviz` pulls `scipy`); the `pymc.Model`/`sample`/`NUTS`/`Metropolis`/distribution-class and `arviz.rhat`/`ess`/`InferenceData` spellings verify against the `.api` catalogue once the wheels resolve. The `arviz.InferenceData` group accessor is `trace.sample_stats`, not `trace["sample_stats"]`.
 - [NUMPYRO_NUTPIE_BACKENDS]: `numpyro` resolves on the gated `python_version<'3.15'` jaxlib floor (the JAX NUTS path pymc dispatches to through `pymc.sampling.jax.sample_numpyro_nuts`); `nutpie` resolves on the same gated band riding the pymc/numba floor. The `nutpie.compile_pymc_model`/`sample` spellings and the `sample_numpyro_nuts` signature verify against the `.api` catalogue under a uv-sync reflection pass on that band.

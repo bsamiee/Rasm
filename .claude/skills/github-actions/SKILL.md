@@ -62,7 +62,7 @@ Generate and validate production-ready GitHub Actions workflows and custom actio
 | Example           | [docker-lint-scan-action.yml](examples/docker-lint-scan-action.yml)        |
 | Example           | [pr-change-router-action.yml](examples/pr-change-router-action.yml)        |
 
-## [1]-[STANDARDS]
+## [01]-[STANDARDS]
 
 Every generated workflow enforces defense-in-depth: supply chain integrity prevents compromised actions from executing, minimal permissions limit blast radius if a job is compromised, and harden-runner detects anomalous behavior at runtime. These layers are independent — failure of one leaves others intact.
 
@@ -80,7 +80,7 @@ Every generated workflow enforces defense-in-depth: supply chain integrity preve
 
 [REFERENCE] [best-practices.md](./references/best-practices.md) — Security checklist, supply chain controls, anti-patterns.
 
-## [2]-[TEMPLATES]
+## [02]-[TEMPLATES]
 
 Templates use `[PLACEHOLDER]` syntax for generation-time substitution. SHA resolution happens at generation time via the discovery protocol — templates contain placeholder SHAs, not static pins.
 
@@ -106,33 +106,33 @@ All templates use a unified `[UPPER_SNAKE_CASE]` placeholder convention:
 
 | [INDEX] | [TEMPLATE]            | [PATH]                                     | [SCAFFOLDS]                                                        |
 | :-----: | --------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
-|   [1]   | **Basic Workflow**    | `templates/basic-workflow.template.yml`    | CI pipeline: lint, test, build, deploy with parameterized runtime. |
-|   [2]   | **Reusable Workflow** | `templates/reusable-workflow.template.yml` | `workflow_call` with typed inputs, secrets, version extraction.    |
-|   [3]   | **Composite Action**  | `templates/composite-action.template.yml`  | Multi-step action with parameterized runtime and error handling.   |
-|   [4]   | **Docker Action**     | `templates/docker-action.template.yml`     | Container action with distroless multi-stage Dockerfile pattern.   |
-|   [5]   | **JavaScript Action** | `templates/javascript-action.template.yml` | Node 24 action with pre/post lifecycle, typed error handling.      |
+|  [01]   | **Basic Workflow**    | `templates/basic-workflow.template.yml`    | CI pipeline: lint, test, build, deploy with parameterized runtime. |
+|  [02]   | **Reusable Workflow** | `templates/reusable-workflow.template.yml` | `workflow_call` with typed inputs, secrets, version extraction.    |
+|  [03]   | **Composite Action**  | `templates/composite-action.template.yml`  | Multi-step action with parameterized runtime and error handling.   |
+|  [04]   | **Docker Action**     | `templates/docker-action.template.yml`     | Container action with distroless multi-stage Dockerfile pattern.   |
+|  [05]   | **JavaScript Action** | `templates/javascript-action.template.yml` | Node 24 action with pre/post lifecycle, typed error handling.      |
 
 [REFERENCE] [custom-actions.md](./references/custom-actions.md) — Action type selection, metadata, runtime deprecation.
 
-## [3]-[EXAMPLES]
+## [03]-[EXAMPLES]
 
 Each example demonstrates distinct patterns with minimal overlap. Load relevant examples before generation to match the target scenario.
 
 | [INDEX] | [EXAMPLE]                                | [PATH]                                  | [DEMONSTRATES]                                                    |
 | :-----: | ---------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
-|   [1]   | **Node.js CI**                           | `examples/nodejs-ci.yml`                | Matrix testing, caching, artifact upload, coverage, summaries.    |
-|   [2]   | **Docker Build + Push**                  | `examples/docker-build-push.yml`        | Multi-platform builds, GHCR, BuildKit caching, SLSA provenance.   |
-|   [3]   | **Monorepo CI**                          | `examples/monorepo-ci.yml`              | Nx affected detection, pnpm workspace, sparse checkout.           |
-|   [4]   | **PR Security Gate**                     | `examples/dependency-review.yml`        | Multi-job security: dep review, CodeQL, Gitleaks, triage.         |
-|   [5]   | **Container Supply Chain**               | `examples/sbom-attestation.yml`         | SBOM, Trivy severity gating, Cosign, gh attestation verify.       |
-|   [6]   | **Composite Action (setup-node-cached)** | `examples/setup-node-cached-action.yml` | Smart caching, corepack detection, cache-dir resolution.          |
-|   [7]   | **ChatOps Dispatch**                     | `examples/chatops-dispatch.yml`         | Slash commands, injection prevention, App token, env indirection. |
-|   [8]   | **Multi-Cloud OIDC Auth**                | `examples/oidc-cloud-auth-action.yml`   | Composite action: AWS/GCP/Azure OIDC, output normalization.       |
-|   [9]   | **Release + Deploy**                     | `examples/release-deploy.yml`           | Environment promotion, reusable workflow, concurrency groups.     |
+|  [01]   | **Node.js CI**                           | `examples/nodejs-ci.yml`                | Matrix testing, caching, artifact upload, coverage, summaries.    |
+|  [02]   | **Docker Build + Push**                  | `examples/docker-build-push.yml`        | Multi-platform builds, GHCR, BuildKit caching, SLSA provenance.   |
+|  [03]   | **Monorepo CI**                          | `examples/monorepo-ci.yml`              | Nx affected detection, pnpm workspace, sparse checkout.           |
+|  [04]   | **PR Security Gate**                     | `examples/dependency-review.yml`        | Multi-job security: dep review, CodeQL, Gitleaks, triage.         |
+|  [05]   | **Container Supply Chain**               | `examples/sbom-attestation.yml`         | SBOM, Trivy severity gating, Cosign, gh attestation verify.       |
+|  [06]   | **Composite Action (setup-node-cached)** | `examples/setup-node-cached-action.yml` | Smart caching, corepack detection, cache-dir resolution.          |
+|  [07]   | **ChatOps Dispatch**                     | `examples/chatops-dispatch.yml`         | Slash commands, injection prevention, App token, env indirection. |
+|  [08]   | **Multi-Cloud OIDC Auth**                | `examples/oidc-cloud-auth-action.yml`   | Composite action: AWS/GCP/Azure OIDC, output normalization.       |
+|  [09]   | **Release + Deploy**                     | `examples/release-deploy.yml`           | Environment promotion, reusable workflow, concurrency groups.     |
 |  [10]   | **Docker Lint + Scan**                   | `examples/docker-lint-scan-action.yml`  | Composite action: Trivy scan, hadolint, SARIF output.             |
 |  [11]   | **PR Change Router**                     | `examples/pr-change-router-action.yml`  | Composite action: paths-filter, dynamic matrix, label sync.       |
 
-## [4]-[ACTION_DISCOVERY]
+## [04]-[ACTION_DISCOVERY]
 
 Static SHA catalogs decay — actions release frequently and stale pins miss security patches. Resolve versions at generation time. Never embed hardcoded SHAs in reference docs or templates.
 
@@ -152,29 +152,29 @@ Static SHA catalogs decay — actions release frequently and stale pins miss sec
 
 [REFERENCE] [version-discovery.md](./references/version-discovery.md) — Discovery protocol, SHA pinning format, common actions index, automated maintenance.
 
-## [5]-[VALIDATION]
+## [05]-[VALIDATION]
 
 **Validation pipeline:**
 
 | [INDEX] | [STAGE]             | [TOOL]            | [VALIDATES]                                                          |
 | :-----: | ------------------- | ----------------- | -------------------------------------------------------------------- |
-|   [1]   | **Static Analysis** | actionlint 1.7.10 | YAML syntax, expressions, runner labels, action inputs, CRON, globs. |
-|   [2]   | **Best Practices**  | 11 custom checks  | SHA pinning, permissions, injection, timeouts, harden-runner.        |
-|   [3]   | **Local Execution** | act v0.2.84       | Dry-run validation against Docker images (requires Docker).          |
+|  [01]   | **Static Analysis** | actionlint 1.7.10 | YAML syntax, expressions, runner labels, action inputs, CRON, globs. |
+|  [02]   | **Best Practices**  | 11 custom checks  | SHA pinning, permissions, injection, timeouts, harden-runner.        |
+|  [03]   | **Local Execution** | act v0.2.84       | Dry-run validation against Docker images (requires Docker).          |
 
 **Best practice checks (11):**
 
 | [INDEX] | [CHECK]                  | [TAG]              | [DETECTS]                                                    |
 | :-----: | ------------------------ | ------------------ | ------------------------------------------------------------ |
-|   [1]   | **Deprecated commands**  | `[DEPRECATED-CMD]` | `::set-output`, `::save-state`, `::set-env`, `::add-path`.   |
-|   [2]   | **Missing permissions**  | `[PERMISSIONS]`    | No top-level `permissions: {}` deny-all default.             |
-|   [3]   | **Unpinned actions**     | `[UNPINNED]`       | Mutable tags (`@v1`, `@main`), abbreviated SHAs.             |
-|   [4]   | **SHA without comment**  | `[SHA-NO-COMMENT]` | SHA-pinned but missing `# vX.Y.Z` version comment.           |
-|   [5]   | **Missing timeout**      | `[TIMEOUT]`        | Jobs without `timeout-minutes:` (default is 6 hours).        |
-|   [6]   | **Deprecated runners**   | `[RUNNER]`         | `ubuntu-20.04`, `macos-12`, `macos-13`, `windows-2019`.      |
-|   [7]   | **Missing concurrency**  | `[CONCURRENCY]`    | No `concurrency:` group or missing `cancel-in-progress`.     |
-|   [8]   | **PAT usage**            | `[APP-TOKEN]`      | PATs for cross-repo ops (use `create-github-app-token`).     |
-|   [9]   | **No harden-runner**     | `[HARDEN]`         | Missing or not first step in job (CVE-2025-30066 detection). |
+|  [01]   | **Deprecated commands**  | `[DEPRECATED-CMD]` | `::set-output`, `::save-state`, `::set-env`, `::add-path`.   |
+|  [02]   | **Missing permissions**  | `[PERMISSIONS]`    | No top-level `permissions: {}` deny-all default.             |
+|  [03]   | **Unpinned actions**     | `[UNPINNED]`       | Mutable tags (`@v1`, `@main`), abbreviated SHAs.             |
+|  [04]   | **SHA without comment**  | `[SHA-NO-COMMENT]` | SHA-pinned but missing `# vX.Y.Z` version comment.           |
+|  [05]   | **Missing timeout**      | `[TIMEOUT]`        | Jobs without `timeout-minutes:` (default is 6 hours).        |
+|  [06]   | **Deprecated runners**   | `[RUNNER]`         | `ubuntu-20.04`, `macos-12`, `macos-13`, `windows-2019`.      |
+|  [07]   | **Missing concurrency**  | `[CONCURRENCY]`    | No `concurrency:` group or missing `cancel-in-progress`.     |
+|  [08]   | **PAT usage**            | `[APP-TOKEN]`      | PATs for cross-repo ops (use `create-github-app-token`).     |
+|  [09]   | **No harden-runner**     | `[HARDEN]`         | Missing or not first step in job (CVE-2025-30066 detection). |
 |  [10]   | **Expression injection** | `[INJECTION]`      | Direct `${{ github.event.* }}` in `run:` blocks.             |
 |  [11]   | **Immutable actions**    | `[IMMUTABLE]`      | Action publishing without immutable OCI (informational).     |
 
@@ -184,11 +184,11 @@ Static SHA catalogs decay — actions release frequently and stale pins miss sec
 
 | [INDEX] | [ISSUE]                     | [SOLUTION]                                     |
 | :-----: | --------------------------- | ---------------------------------------------- |
-|   [1]   | **Tools not found**         | Install actionlint + act (see act_usage.md).   |
-|   [2]   | **Docker not running**      | Start Docker or validate with actionlint only. |
-|   [3]   | **act fails, GitHub works** | See act_usage.md — Limitations.                |
-|   [4]   | **ARM Mac arch mismatch**   | Add `--container-architecture linux/amd64`.    |
-|   [5]   | **Custom runner labels**    | Declare in `.github/actionlint.yaml`.          |
+|  [01]   | **Tools not found**         | Install actionlint + act (see act_usage.md).   |
+|  [02]   | **Docker not running**      | Start Docker or validate with actionlint only. |
+|  [03]   | **act fails, GitHub works** | See act_usage.md — Limitations.                |
+|  [04]   | **ARM Mac arch mismatch**   | Add `--container-architecture linux/amd64`.    |
+|  [05]   | **Custom runner labels**    | Declare in `.github/actionlint.yaml`.          |
 
 [VERIFY] Completion:
 - [ ] Supply chain: Every `uses:` reference SHA-pinned with `# vX.Y.Z` comment suffix.

@@ -2,11 +2,11 @@
 
 The one validated-numerics owner producing certified enclosures. `IntervalNumerics` evaluates an expression over an input box, certifies that an enclosure contains a target, and refines an interval by bisection, with three layered floors: python-flint Arb ball arithmetic for a certified midpoint-radius enclosure, an mpmath arbitrary-precision interval floor that runs on cp315 where the Arb wheel is unavailable, and a numpy outward-rounding band as the last resort. `Interval` is the inclusion-monotone value object and `Enclosure` carries the interval plus a `certified` flag and a width. The mpmath floor is the modern always-on tight floor that replaces a coarse double-precision band.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ENCLOSURE]: interval/ball arithmetic, certified enclosures, and the Arb/mpmath/numpy floor ladder on one `IntervalNumerics` owner.
+- [01]-[ENCLOSURE]: interval/ball arithmetic, certified enclosures, and the Arb/mpmath/numpy floor ladder on one `IntervalNumerics` owner.
 
-## [2]-[ENCLOSURE]
+## [02]-[ENCLOSURE]
 
 - Owner: `IntervalNumerics` — the ONE validated-arithmetic owner; `Interval` is the inclusion-monotone `[lo, hi]` value object, `Enclosure` carries the interval plus a `certified` flag, and `IntervalOp` discriminates `Evaluate(expr, box)` (interval extension over an input box), `Certify(enclosure, target)` (does the enclosure provably contain the target), and `Refine(interval, bisections)` (interval bisection to a width tolerance). Every certified operation is a row on this owner, never a parallel rigorous-arithmetic surface.
 - Floor ladder: `_certified_evaluate` resolves the tightest available floor. With the Arb wheel present it lifts each input to a `flint.arb(mid, rad)` ball, evaluates through Arb ball arithmetic at the requested precision, and reads `arb.mid()`/`arb.rad()` back as a certified enclosure. Without Arb but with mpmath it lifts to an `mpmath.mpi` interval at `mpmath.mp.prec`, evaluates through the inclusion-monotone interval arithmetic, and reads the interval endpoints back as a certified enclosure on cp315. Without either it falls to the numpy floor, evaluating at the box midpoint and rounding the bounds outward through `np.nextafter` for a sound but uncertified band. The `evaluate` op always has a reachable floor and never returns `Error(Import)`.
@@ -117,7 +117,7 @@ def _floor_enclosure(mid: float, rad: float) -> Enclosure:
     return Enclosure(Interval(lo, hi), certified=False)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [FLINT_ARB]: `flint` (python-flint) carries no cp315 wheel; the `flint.arb`/`arb.mid`/`arb.rad`/`flint.ctx.prec` ball-arithmetic spellings are authored against the documented Arb API and verify against the `.api` catalogue once the python-flint wheel resolves.
 - [MPMATH_INTERVAL]: `mpmath` resolves on the cp315 core (pure-Python, cp315-clean). The `mpmath.mpi`/`mpmath.mp.prec`/`mpf` interval spellings verify against the `.api` catalogue under a uv-sync reflection pass. The mpmath interval floor is the always-on tight certified floor on cp315 beneath the gated Arb path.

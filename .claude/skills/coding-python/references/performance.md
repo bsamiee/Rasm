@@ -225,12 +225,12 @@ uvloop note: `anyio` auto-selects uvloop when installed (`pip install uvloop`). 
 
 | [INDEX] | [TOOL]          | [USE_WHEN]                           | [KEY_TRAIT]                                  |
 | :-----: | --------------- | ------------------------------------ | -------------------------------------------- |
-|   [1]   | `cProfile`      | Function-level CPU hotspot           | Stdlib; `pstats.Stats.sort_stats('cumtime')` |
-|   [2]   | `tracemalloc`   | Memory allocation tracking           | Stdlib; snapshot diffs between operations    |
-|   [3]   | `py-spy`        | Production sampling (no overhead)    | Attaches to running PID; flame graphs        |
-|   [4]   | `scalene`       | Line-level CPU + memory + GPU        | Separates Python/native/system time          |
-|   [5]   | `memray`        | Heap profiling with allocation trace | C-level tracking; flamegraph + tree reports  |
-|   [6]   | `sys.getsizeof` | Single-object size measurement       | Shallow only; use `tracemalloc` for deep     |
+|  [01]   | `cProfile`      | Function-level CPU hotspot           | Stdlib; `pstats.Stats.sort_stats('cumtime')` |
+|  [02]   | `tracemalloc`   | Memory allocation tracking           | Stdlib; snapshot diffs between operations    |
+|  [03]   | `py-spy`        | Production sampling (no overhead)    | Attaches to running PID; flame graphs        |
+|  [04]   | `scalene`       | Line-level CPU + memory + GPU        | Separates Python/native/system time          |
+|  [05]   | `memray`        | Heap profiling with allocation trace | C-level tracking; flamegraph + tree reports  |
+|  [06]   | `sys.getsizeof` | Single-object size measurement       | Shallow only; use `tracemalloc` for deep     |
 
 ```python
 """Profiling: tracemalloc snapshot diff for allocation tracking."""
@@ -283,13 +283,13 @@ Profiling workflow:
 
 | [INDEX] | [PATTERN]                 | [WHEN]                                | [KEY_TRAIT]                            |
 | :-----: | ------------------------- | ------------------------------------- | -------------------------------------- |
-|   [1]   | `__slots__`               | All non-Pydantic domain classes       | ~56 bytes saved per instance           |
-|   [2]   | `Block[T]` / `Map[K,V]`  | Frozen collections in Pydantic models | Structural sharing, O(log32 N)         |
-|   [3]   | `Struct(gc=False)`        | Wire objects, short-lived egress      | Zero GC tracking, C-backed             |
-|   [4]   | Free-threading (PEP 779)  | CPU-parallel without GIL              | `sys._is_gil_enabled()`, frozen models |
-|   [5]   | Copy-and-patch JIT        | Hot bytecode trace compilation        | `sys._jit.is_enabled()`, auto-optimize |
-|   [6]   | Module-level singletons   | Encoder/Decoder/TypeAdapter           | Amortize schema compilation            |
-|   [7]   | `checkpoint_if_cancelled` | Hot async inner loops                 | Cancel check without yield overhead    |
-|   [8]   | `CapacityLimiter`         | Bounded fan-out, backpressure         | Size to downstream, not upstream       |
-|   [9]   | `tracemalloc` diff        | Measure allocation in hot paths       | Snapshot before/after comparison       |
+|  [01]   | `__slots__`               | All non-Pydantic domain classes       | ~56 bytes saved per instance           |
+|  [02]   | `Block[T]` / `Map[K,V]`   | Frozen collections in Pydantic models | Structural sharing, O(log32 N)         |
+|  [03]   | `Struct(gc=False)`        | Wire objects, short-lived egress      | Zero GC tracking, C-backed             |
+|  [04]   | Free-threading (PEP 779)  | CPU-parallel without GIL              | `sys._is_gil_enabled()`, frozen models |
+|  [05]   | Copy-and-patch JIT        | Hot bytecode trace compilation        | `sys._jit.is_enabled()`, auto-optimize |
+|  [06]   | Module-level singletons   | Encoder/Decoder/TypeAdapter           | Amortize schema compilation            |
+|  [07]   | `checkpoint_if_cancelled` | Hot async inner loops                 | Cancel check without yield overhead    |
+|  [08]   | `CapacityLimiter`         | Bounded fan-out, backpressure         | Size to downstream, not upstream       |
+|  [09]   | `tracemalloc` diff        | Measure allocation in hot paths       | Snapshot before/after comparison       |
 |  [10]   | `py-spy`                  | Production CPU profiling              | Zero overhead attach to running PID    |

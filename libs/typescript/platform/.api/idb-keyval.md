@@ -2,7 +2,7 @@
 
 `idb-keyval` supplies a lightweight `Promise`-based key-value store over IndexedDB, with single-entry operations (`get`, `set`, `del`, `update`), bulk operations (`getMany`, `setMany`, `delMany`), cursor operations (`keys`, `values`, `entries`), store management (`createStore`), and a `promisifyRequest` helper for wrapping raw `IDBRequest`/`IDBTransaction` handles.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `idb-keyval`
 - package: `idb-keyval`
@@ -10,55 +10,55 @@
 - asset: runtime library
 - rail: persistence
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store type
 - rail: persistence
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                                                      |
 | :-----: | :--------- | :------------ | :---------------------------------------------------------- |
-|   [1]   | `UseStore` | type alias    | `<T>(txMode, callback) => Promise<T>` custom store accessor |
+|  [01]   | `UseStore` | type alias    | `<T>(txMode, callback) => Promise<T>` custom store accessor |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store construction
 - rail: persistence
 
 | [INDEX] | [SURFACE]                        | [ENTRY_FAMILY] | [RAIL]                                     |
 | :-----: | :------------------------------- | :------------- | :----------------------------------------- |
-|   [1]   | `createStore(dbName, storeName)` | store factory  | returns `UseStore` for a named IDB store   |
-|   [2]   | `promisifyRequest<T>(request)`   | IDB bridge     | promisify `IDBRequest` or `IDBTransaction` |
+|  [01]   | `createStore(dbName, storeName)` | store factory  | returns `UseStore` for a named IDB store   |
+|  [02]   | `promisifyRequest<T>(request)`   | IDB bridge     | promisify `IDBRequest` or `IDBTransaction` |
 
 [ENTRYPOINT_SCOPE]: single-entry operations
 - rail: persistence
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :-------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `get<T>(key, customStore?)`             | read           | `Promise<T \| undefined>` by key       |
-|   [2]   | `set(key, value, customStore?)`         | write          | `Promise<void>` atomic key-value write |
-|   [3]   | `del(key, customStore?)`                | delete         | `Promise<void>` remove single key      |
-|   [4]   | `update<T>(key, updater, customStore?)` | atomic update  | read-modify-write in one transaction   |
+|  [01]   | `get<T>(key, customStore?)`             | read           | `Promise<T \| undefined>` by key       |
+|  [02]   | `set(key, value, customStore?)`         | write          | `Promise<void>` atomic key-value write |
+|  [03]   | `del(key, customStore?)`                | delete         | `Promise<void>` remove single key      |
+|  [04]   | `update<T>(key, updater, customStore?)` | atomic update  | read-modify-write in one transaction   |
 
 [ENTRYPOINT_SCOPE]: bulk operations
 - rail: persistence
 
 | [INDEX] | [SURFACE]                        | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `getMany<T>(keys, customStore?)` | bulk read      | `Promise<T[]>` ordered by input key array |
-|   [2]   | `setMany(entries, customStore?)` | bulk write     | atomic multi-key write; all-or-nothing    |
-|   [3]   | `delMany(keys, customStore?)`    | bulk delete    | `Promise<void>` remove multiple keys      |
+|  [01]   | `getMany<T>(keys, customStore?)` | bulk read      | `Promise<T[]>` ordered by input key array |
+|  [02]   | `setMany(entries, customStore?)` | bulk write     | atomic multi-key write; all-or-nothing    |
+|  [03]   | `delMany(keys, customStore?)`    | bulk delete    | `Promise<void>` remove multiple keys      |
 
 [ENTRYPOINT_SCOPE]: cursor operations
 - rail: persistence
 
 | [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :------------------------------------------------ | :------------- | :------------------------------------------ |
-|   [1]   | `keys<KeyType extends IDBValidKey>(customStore?)` | cursor read    | `Promise<KeyType[]>` all store keys         |
-|   [2]   | `values<T>(customStore?)`                         | cursor read    | `Promise<T[]>` all store values             |
-|   [3]   | `entries<KeyType, ValueType>(customStore?)`       | cursor read    | `Promise<[KeyType, ValueType][]>` all pairs |
-|   [4]   | `clear(customStore?)`                             | cursor delete  | `Promise<void>` remove all entries          |
+|  [01]   | `keys<KeyType extends IDBValidKey>(customStore?)` | cursor read    | `Promise<KeyType[]>` all store keys         |
+|  [02]   | `values<T>(customStore?)`                         | cursor read    | `Promise<T[]>` all store values             |
+|  [03]   | `entries<KeyType, ValueType>(customStore?)`       | cursor read    | `Promise<[KeyType, ValueType][]>` all pairs |
+|  [04]   | `clear(customStore?)`                             | cursor delete  | `Promise<void>` remove all entries          |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IDB_KEYVAL_TOPOLOGY]:
 - All operations use the default store (database `keyval-store`, object store `keyval`) when `customStore` is omitted; pass a `UseStore` from `createStore` to target a named database/store

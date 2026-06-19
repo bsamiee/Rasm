@@ -2,12 +2,12 @@
 
 The watermark-driven retention and compaction rule across every keyed map — `Frontier` is the event-time antichain that advances with the `query/watermark#WATERMARK` mark, `finalizeBelow` evicts any window bucket, convergence tombstone, or presence row whose event time is below the frontier minus `allowedLateness`, and `frontierGc` is the one fold that unifies the per-row `expiresAt` scans `presence#PRESENCE` and `merge#LWW_MERGE` carry today under one closed late-arrival horizon. A long-lived browser session stays bounded-memory because the retained state is the frontier-trimmed prefix; replay is deterministic because the trimmed prefix is the same on every peer; a row arriving past the finalized frontier is a hard reject, not an unbounded correction. The frontier advances over the same `eventNanos` projection the window engine folds; the GC mints no clock and trims only what the watermark proves finalized.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FRONTIER_GC]: Owns `Frontier`, `advanceFrontier`, `finalizeBelow`, the `Reclaimable` retention vocabulary, and the `frontierGc` compaction fold.
-- [2]-[SOURCE_WIRING]: Owns the three reclaimable projections (`windowReclaimable`, `tombstoneReclaimable`, `presenceReclaimable`) and `reclaimableFeed`, the one merged stream every owning fold contributes its event-time row to.
+- [01]-[FRONTIER_GC]: Owns `Frontier`, `advanceFrontier`, `finalizeBelow`, the `Reclaimable` retention vocabulary, and the `frontierGc` compaction fold.
+- [02]-[SOURCE_WIRING]: Owns the three reclaimable projections (`windowReclaimable`, `tombstoneReclaimable`, `presenceReclaimable`) and `reclaimableFeed`, the one merged stream every owning fold contributes its event-time row to.
 
-## [2]-[FRONTIER_GC]
+## [02]-[FRONTIER_GC]
 
 - Owner: `Frontier`, the event-time antichain lower bound carrying the finalized `eventNanos` horizon; `advanceFrontier`, the monotone lift that raises the horizon to the watermark `eventNanos` minus the `allowedLateness` span and never regresses; `Reclaimable`, the closed `Data.TaggedEnum` retention vocabulary keying the three reclaimable kinds (`WindowBucket`, `Tombstone`, `PresenceRow`) to their own event-time projection; `finalizeBelow`, the predicate that admits a row for eviction exactly when its event time is strictly below the finalized frontier; and `frontierGc`, the `combinators#KEYED_FOLD` fold that advances the frontier per arrived watermark and trims every keyed map's below-frontier cells in one pass.
 - Cases: `advanceFrontier` reads the watermark `eventNanos`, subtracts the `allowedLateness` nanos, and lifts the held frontier only upward so a late watermark never reopens a finalized horizon; `finalizeBelow` is the one test all three reclaimable kinds share — a `WindowBucket` finalizes when its bucket start is below the frontier, a `Tombstone` finalizes when its delete event time is below the frontier (the key can never re-live past the horizon so the tombstone is reclaimable), and a `PresenceRow` finalizes when its `expiresAt` is below the frontier (subsuming the per-row TTL scan); a row arriving with event time below the already-finalized frontier is rejected as a hard late-arrival, distinct from the `watermark#WATERMARK` `late` tally which tracks corrections still inside the horizon.
@@ -75,7 +75,7 @@ const frontierGc = <K>(
   );
 ```
 
-## [3]-[SOURCE_WIRING]
+## [03]-[SOURCE_WIRING]
 
 - Owner: `windowReclaimable`, the projection of a `query/window#WINDOW_FOLD` `WindowCell` into a `WindowBucket` row carrying the bucket start and the cell mark; `tombstoneReclaimable`, the projection of a `merge#LWW_MERGE` delete into a `Tombstone` row carrying the delete `eventNanos`; `presenceReclaimable`, the projection of a `presence#PRESENCE` row into a `PresenceRow` carrying the `expiresAt` nanos; and `reclaimableFeed`, the `Stream.merge` of the three projected sources into the one keyed `{ key, row, mark }` stream `frontierGc` folds. The three TTL sources contribute to one frontier rule rather than each carrying a per-row `expiresAt` scan in its owning fold.
 - Cases: each owning fold projects its event time into the shared `Reclaimable` vocabulary at the wire — the window bucket through its `WindowCell.mark`, the tombstone through the delete entry's `eventNanos` (the key can never re-live past the horizon, so the tombstone is reclaimable), the presence row through its `expiresAt` parsed to nanos — and `reclaimableFeed` merges them so the `frontierGc` fold advances one `Frontier` with the maximum watermark across all three and `finalizeBelow` evicts every below-horizon cell of any kind in one `trim` pass. A new reclaimable source is one projection plus one `Stream.merge` arm, never a parallel GC fold.
@@ -123,7 +123,7 @@ const reclaimableFeed = (
 
 The merged feed is keyed `bigint | string` because the window bucket keys on its `eventNanos` start while the tombstone and presence rows key on their string identity; `frontierGc` folds the union key into one `GcState` map so a single `finalizeBelow` pass evicts a window bucket, a convergence tombstone, and a presence row in the same trim — the per-source `Duration` horizons all read the one `allowedLateness` the frontier subtracts.
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [FRONTIER_REPRESENTATION]: the scalar `finalizedNanos` horizon is the bounded-memory representation until the `window#WINDOW_FOLD` differential-dataflow re-founding lands the `@electric-sql/d2ts` `Antichain` frontier; the multi-dimensional antichain replaces the scalar horizon as one `Frontier` representation swap, the `finalizeBelow` predicate reading `Antichain` dominance through the version-vector `causality/vector#VERSION_VECTOR` `dominates` algebra rather than a scalar `<` — the `d2ts` catalog admission already landed, so this is blocked on the dataflow re-founding alone [BLOCKED on `window#WINDOW_FOLD` d2ts re-founding].
 - [CAUSAL_FINALIZE]: once `causality/frontier#STABILITY_FRONTIER` lands the `SortedSet`-cursor greatest-lower-bound meet, `advanceFrontier` gains a second input arm reading the causally-settled horizon so `finalizeBelow` evicts by causal stability as well as event-time watermark — a cell is reclaimable when it is below both the event-time frontier and the causal stable prefix, so a causally-pending op is never finalized early. The stability frontier is the input this fold reads to finalize causally; the meet owner is the `causal-delivery` `SortedSet` cluster, read here, never re-derived [BLOCKED on `causality/frontier#STABILITY_FRONTIER`].

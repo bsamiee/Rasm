@@ -2,26 +2,26 @@
 
 Every concept takes exactly one owner, and five discriminants select it before any attribute is written: admission (raw material crossing a trust boundary), identity regime (key, structural, case, or reference), variant arity (one shape or N alternatives), payload timing (case data fixed at declaration or constructed per occurrence), and openness (closed vocabulary or foreign extension). The selection fixes where change detonates, what equality means, and which capabilities derive — every misplaced shape traces to one mis-answered discriminant.
 
-## [1]-[OWNER_CHOOSER]
+## [01]-[OWNER_CHOOSER]
 
 When a concept matches several signatures, the most specific row wins.
 
 | [INDEX] | [CONCEPT_SIGNATURE]                            | [OWNER]                          | [IDENTITY]      |
 | :-----: | :--------------------------------------------- | :------------------------------- | :-------------- |
-|   [1]   | invariant-bearing scalar                       | `[ValueObject<TKey>]`            | key             |
-|   [2]   | N fields, one concept, no discriminator        | `[ComplexValueObject]`           | structural      |
-|   [3]   | bounded vocabulary, wire-keyed identity        | `[SmartEnum<TKey>]`              | key             |
-|   [4]   | bounded vocabulary, process-local behavior     | `[SmartEnum]` keyless            | reference       |
-|   [5]   | closed alternatives, per-occurrence payload    | `[Union]`                        | case            |
-|   [6]   | one value over 2-5 unrelated types             | `[Union<T1,...>]` ad-hoc         | slot then value |
-|   [7]   | interior product, no invariant, no admission   | record or readonly record struct | structural      |
-|   [8]   | combinable capability set                      | vocabulary items in a frozen set | key             |
-|   [9]   | runtime-sourced vocabulary                     | keyed owner plus frozen registry | key             |
+|  [01]   | invariant-bearing scalar                       | `[ValueObject<TKey>]`            | key             |
+|  [02]   | N fields, one concept, no discriminator        | `[ComplexValueObject]`           | structural      |
+|  [03]   | bounded vocabulary, wire-keyed identity        | `[SmartEnum<TKey>]`              | key             |
+|  [04]   | bounded vocabulary, process-local behavior     | `[SmartEnum]` keyless            | reference       |
+|  [05]   | closed alternatives, per-occurrence payload    | `[Union]`                        | case            |
+|  [06]   | one value over 2-5 unrelated types             | `[Union<T1,...>]` ad-hoc         | slot then value |
+|  [07]   | interior product, no invariant, no admission   | record or readonly record struct | structural      |
+|  [08]   | combinable capability set                      | vocabulary items in a frozen set | key             |
+|  [09]   | runtime-sourced vocabulary                     | keyed owner plus frozen registry | key             |
 |  [10]   | cross-product or externally sourced policy key | frozen table                     | composite key   |
 |  [11]   | foreign wire enum, ABI bits, or kernel ordinal | language enum at the seam only   | ordinal         |
 |  [12]   | foreign code must add cases                    | manual interface or hierarchy    | declared        |
 
-## [2]-[DECISION_LAW]
+## [02]-[DECISION_LAW]
 
 [OWNER_SELECTION]:
 - `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, reads-of-evidence per write, payload timing, and openness; high-churn intermediate values stay plain until the seam where evidence becomes domain material.
@@ -53,7 +53,7 @@ When a concept matches several signatures, the most specific row wins.
 - `StackIdentity(owner)`: keep structural, key, case, equality, and ordering regimes local; declare identity-without-order at the layer that owns it.
 - `KeyByGeneratedOwner(owner)`: use full generated-owner keying only across assembly boundaries; in same-compilation composition, carry raw key plus vocabulary owner and one two-hop admission expression.
 
-## [3]-[VALUE_OBJECTS]
+## [03]-[VALUE_OBJECTS]
 
 [ADMISSION_FACTORY]:
 - Use: `Validate` as the admission factory; `Create` throws flattened fault text, `TryCreate` downgrades evidence, and culture-sensitive admission stays on `Validate`.
@@ -165,7 +165,7 @@ public static class AxisAlgebra {
 - Law: class-owner null contracts are operator-family local; equality tolerates null, comparison and arithmetic throw, unsafe egress faults, and no family lends null-safety to another.
 - Law: one accessibility token gates constructors, conversions, and factories, with domain factory verbs on the owner; `SkipFactoryMethods` removes constructing surfaces and leaves only equality, comparison, and egress over already-admitted values.
 
-## [4]-[SMART_ENUMS]
+## [04]-[SMART_ENUMS]
 
 [VOCABULARY_DECLARATION]:
 - Law: the declaration list is the vocabulary; `public static readonly` fields fix item membership, dispatch indices, callback order, and metadata identifiers, while static properties and case-typed fields vanish from `Items` and dispatch at warning severity.
@@ -220,7 +220,7 @@ public static class VariantOps {
 }
 ```
 
-## [5]-[UNIONS]
+## [05]-[UNIONS]
 
 [FAMILY_SELECTION]:
 - Law: the root declaration kind is family-global; record roots buy structural equality, cross-case comparison constant-false, and flatness, while class roots buy depth, intermediate cases, nested dispatch, and stop-at boundaries while surrendering generated equality.
@@ -302,7 +302,7 @@ public static class NodeOps {
 - Boundary: deserialization is admission; generated converters route through `Validate`, prevent half-built unions, and exist only when the framework integration assembly is present.
 - Reject: wire exposure without converter gates; reflection serializers can empty-object private-keyed class owners or zero-init struct owners, bypassing admission without an exception.
 
-## [6]-[ADMISSION_RAILS]
+## [06]-[ADMISSION_RAILS]
 
 [FAULT_FAMILIES]:
 - Law: fault families have two tiers: base `Create` builds the string-bearing case for generator text, structured cases may satisfy `IValidationError<TCase>` for precise generated faults, and `ToString` returns the message.

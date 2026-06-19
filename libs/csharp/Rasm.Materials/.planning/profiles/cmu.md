@@ -2,11 +2,11 @@
 
 THE CMU PROFILEFAMILY. The concrete-masonry-unit cross-section vocabulary — the ASTM C90 cell / face-shell / web dimensional columns (face-shell thickness, web thickness, cell count, the nominal-to-actual width/height/length module) and the hollow/solid grade discriminant — is a realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Cmu` case. A concrete block is a `Profile` row, never a `ConcreteBlock` type: the cell geometry, the face-shell/web thickness columns, the void class, and the regional standard are cmu-`Profile` columns, and the `CmuSection` projection feeds the same `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry family drives — a CMU run is the same station-stepped course fold over one `Profile`, never a per-family layout. The cmu vocabulary grows by data — a new unit is one `CmuRow` catalogue row, a new grade one `CmuGrade` case — never a per-block type. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape, `masonry#PROFILE_FAMILY` `Coring`/`BondName`/`Orientation` for the course algebra, and the `Rasm` kernel `PositiveMagnitude` for every length column; timber/glazing land their own sibling vocabularies on their own pages.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CMU_FAMILY]: the `CmuGrade` solid/hollow discriminant, the `CmuSection` cell/face-shell record, the `CmuSection.ToUnit` projection that flows a CMU through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildCmuRows` ASTM C90 row table.
+- [01]-[CMU_FAMILY]: the `CmuGrade` solid/hollow discriminant, the `CmuSection` cell/face-shell record, the `CmuSection.ToUnit` projection that flows a CMU through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildCmuRows` ASTM C90 row table.
 
-## [2]-[CMU_FAMILY]
+## [02]-[CMU_FAMILY]
 
 - Owner: the cmu unit vocabulary (`CmuGrade` the solid/hollow discriminant, `CmuSection` the ASTM C90 cell/face-shell record); `ProfileCatalogue.BuildCmuRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `CmuSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`.
 - Cases: grade {hollow-load-bearing, hollow-non-load-bearing, solid-load-bearing} — the ASTM C90 unit-grade set; a section is a `CmuSection` row over one `CmuGrade`, never a section subtype.
@@ -99,7 +99,7 @@ public static class ProfileCatalogue {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [CMU_ROW_TRANSCRIPTION]: REALIZED — the ASTM C90 standard carries the hollow/solid load-bearing concrete-masonry-unit grades with the actual 190×190×390 mm 8-inch module, the minimum face-shell thickness by nominal width (19 mm at 4 in, 25 mm at 6 in, 32 mm at 8 in and above), and the 19 mm minimum web thickness; the catalogue carries the 4/6/8/10/12-inch hollow nominal widths, the 4/8-inch solid grades, the 190-mm splitface architectural unit, and the 90-mm half-high unit, the full standard nominal-width set keyed `cmu.<designation>`, a new architectural finish (ground-face, scored, ribbed) or metric A-series unit one further `CmuRow` data addition, never a new type. The raw `CmuRow` carries plain doubles and admits once through `CmuOf` into the kernel value-objects so the catalogue seed validates every column, a non-positive dimension dropping the row through `Choose` rather than seeding a degenerate `Profile`.
 - [IFCPROFILEDEF_CMU_ALIGNMENT]: the cmu family is the `IfcRectangleProfileDef` rectangle subtype on the `IfcProfileDef` wire — the outer 190×390 mm face is the `XDim`/`YDim` rectangle and the hollow-unit cell voids cross as the `Coring` void fraction the `ToCoring` net-area bridge derives, never a per-cell `IfcArbitraryProfileDefWithVoids` here; a CMU member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` carrying the rectangle profile plus the `Coring` receipt, the splitface/ground-face finish a surface-style on the element rather than a profile variant. The probe is the per-finish surface-style mapping at the `Rasm.Bim` boundary, the rectangle profile the realized base case.

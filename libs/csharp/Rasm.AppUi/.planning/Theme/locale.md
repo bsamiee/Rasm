@@ -2,14 +2,14 @@
 
 One locale law serves every AppUi surface: `LocaleRow` is the culture axis — tag, string-table source, flow direction, format policy, plural route — `ResolvedLocale` is the single resolve product binding `CultureInfo` composition, the NodaTime display patterns, and the `CompositeFormat` rail, and `LocaleStrings` is the inbox-resx string vocabulary whose nameof-derived keys the command table, the screen catalog, and the PropertyGrid `LocalizationService` bridge all share. `LocaleRuntime` swaps the resolved set atomically from the user-settings `LocalePolicy` section, and `MirrorPolicy` owns retained-layout mirroring with the icon exemption law. The package spine is BCL inbox globalization and resources, NodaTime, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LOCALE_AXIS]: Culture rows: tag, source, flow, format, plural-route columns.
-- [2]-[STRING_TABLES]: Inbox resx vocabulary, nameof-derived keys, `PropertyGrid` bridge.
-- [3]-[CULTURE_COMPOSITION]: Resolve fold, atomic switch, pattern and format binding.
-- [4]-[RTL_MIRRORING]: Flow application at surface root, icon mirroring exemption.
+- [01]-[LOCALE_AXIS]: Culture rows: tag, source, flow, format, plural-route columns.
+- [02]-[STRING_TABLES]: Inbox resx vocabulary, nameof-derived keys, `PropertyGrid` bridge.
+- [03]-[CULTURE_COMPOSITION]: Resolve fold, atomic switch, pattern and format binding.
+- [04]-[RTL_MIRRORING]: Flow application at surface root, icon mirroring exemption.
 
-## [2]-[LOCALE_AXIS]
+## [02]-[LOCALE_AXIS]
 
 - Owner: `LocaleKeyPolicy` single ordinal-ignore-case key accessor; `LocaleRow` `[SmartEnum<string>]` culture axis.
 - Cases: en, qps-ploc — En is the shipped default; Pseudo is the conformance row proving string expansion and mirrored layout in headless evidence.
@@ -48,7 +48,7 @@ public sealed partial class LocaleRow {
 }
 ```
 
-## [3]-[STRING_TABLES]
+## [03]-[STRING_TABLES]
 
 - Owner: `LocaleStrings` static string-table surface.
 - Entry: `public static string Find(string key, CultureInfo strings)` — satellite lookup; a missing key returns the key itself as the visible marker.
@@ -72,7 +72,7 @@ public static class LocaleStrings {
 }
 ```
 
-## [4]-[CULTURE_COMPOSITION]
+## [04]-[CULTURE_COMPOSITION]
 
 - Owner: `LocalePolicy` user-settings options record; `ResolvedLocale` resolve product; `LocaleRuntime` atomic locale cell.
 - Entry: `public Fin<Unit> Apply(LocalePolicy policy)` — `Fin` aborts on an unresolved tag or zone; one swap publishes the full resolved set.
@@ -167,7 +167,7 @@ flowchart LR
     LocaleRow --> MirrorPolicy
 ```
 
-## [5]-[RTL_MIRRORING]
+## [05]-[RTL_MIRRORING]
 
 - Owner: `MirrorPolicy` directional-row policy record; `ShapedAnnotation` the complex-script 3D-annotation shaping projection; `CaptionSource` · `LiveCaption` the live-caption-and-translation owner.
 - Entry: `public bool Mirrors(string iconKey, LocaleRow row)` — pure predicate; the icon presenter's flow pin folds over it; `public static ShapedAnnotation For(string key, ResolvedLocale locale)` — projects a 3D-annotation string into its shaping features and flow; `public IObservable<ShapedAnnotation> Stream(ResolvedLocale locale)` — the live-caption stream optionally translated into the target locale.
@@ -205,7 +205,7 @@ public sealed record LiveCaption(CaptionSource Source, LocaleRow Target, double 
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [PSEUDO_LOCALE]: qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization.
 - [ICU_PLURALS]: ICU MessageFormat plural and gender route replacing the suffix arm — umsg binding over the runtime ICU or a managed CLDR fold.

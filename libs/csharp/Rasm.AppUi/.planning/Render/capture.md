@@ -2,15 +2,15 @@
 
 Offscreen visuals are the package's raster rail: one DrawSource capsule projects every Skia canvas — host-leased or owned — through a Fin-railed Use, thumbnails and geometry previews materialize as SKImage through host-agnostic capture delegates, one codec surface encodes and decodes with content-hashed RenderReceipt evidence, and one SKDocument export surface paginates a flow-fold of content blocks under a break rule and header-footer band, delivering paged output to parameterized destinations. The page owns the draw capsule, the thumbnail and preview row families, the encode axis, the export spec with its flow vocabulary and destination union, and the RenderReceipt family the render-hash proof lanes and the AppHost telemetry spine consume. The package spine is SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation; HUD and viewport overlay drawing stays host-side.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DRAW_CAPSULE]: Borrowed and owned Skia canvas projection on one `Fin` rail.
-- [2]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, blob-backed cache, async display.
-- [3]-[PREVIEW_SURFACES]: Receipt-to-path preview rows, backplates, zoomable viewing.
-- [4]-[ENCODE_IDENTITY]: Codec axis, content-hashed receipts, native asset identity.
-- [5]-[DOCUMENT_EXPORT]: Paged `SKDocument` export to parameterized destinations.
+- [01]-[DRAW_CAPSULE]: Borrowed and owned Skia canvas projection on one `Fin` rail.
+- [02]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, blob-backed cache, async display.
+- [03]-[PREVIEW_SURFACES]: Receipt-to-path preview rows, backplates, zoomable viewing.
+- [04]-[ENCODE_IDENTITY]: Codec axis, content-hashed receipts, native asset identity.
+- [05]-[DOCUMENT_EXPORT]: Paged `SKDocument` export to parameterized destinations.
 
-## [2]-[DRAW_CAPSULE]
+## [02]-[DRAW_CAPSULE]
 
 - Owner: `DrawSource` [Union] · `Offscreen`
 - Cases: Borrowed · Owned
@@ -55,14 +55,14 @@ public static class Offscreen {
 
 | [INDEX] | [FX_ROW]       | [FACTORY]                       | [CONSUMER]                          |
 | :-----: | :------------- | :------------------------------ | :---------------------------------- |
-|   [1]   | runtime-shader | `SKRuntimeEffect.CreateShader`  | animated backplates, gauge fills    |
-|   [2]   | blur           | `SKImageFilter.CreateBlur`      | thumbnail elevation underlays       |
-|   [3]   | dash           | `SKPathEffect.CreateDash`       | preview curve styling               |
-|   [4]   | tint           | `SKColorFilter`                 | classification and state recoloring |
-|   [5]   | mask           | `SKMaskFilter`                  | preview edge fades                  |
-|   [6]   | gradient       | `SKShader.CreateLinearGradient` | preview fills, sparkline ramps      |
+|  [01]   | runtime-shader | `SKRuntimeEffect.CreateShader`  | animated backplates, gauge fills    |
+|  [02]   | blur           | `SKImageFilter.CreateBlur`      | thumbnail elevation underlays       |
+|  [03]   | dash           | `SKPathEffect.CreateDash`       | preview curve styling               |
+|  [04]   | tint           | `SKColorFilter`                 | classification and state recoloring |
+|  [05]   | mask           | `SKMaskFilter`                  | preview edge fades                  |
+|  [06]   | gradient       | `SKShader.CreateLinearGradient` | preview fills, sparkline ramps      |
 
-## [3]-[THUMBNAIL_PIPELINE]
+## [03]-[THUMBNAIL_PIPELINE]
 
 - Owner: `VisualRuntime` · `ThumbnailRow` · `Thumbnails`
 - Entry: `public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, (double Scale, int PixelSize) variant)` — IO rail
@@ -117,12 +117,12 @@ flowchart LR
 
 | [INDEX] | [VARIANT]      | [SCALE] | [PIXEL] |
 | :-----: | :------------- | :------ | :------ |
-|   [1]   | list           | 1.0     | 128     |
-|   [2]   | list-retina    | 2.0     | 256     |
-|   [3]   | gallery        | 1.0     | 256     |
-|   [4]   | gallery-retina | 2.0     | 512     |
+|  [01]   | list           | 1.0     | 128     |
+|  [02]   | list-retina    | 2.0     | 256     |
+|  [03]   | gallery        | 1.0     | 256     |
+|  [04]   | gallery-retina | 2.0     | 512     |
 
-## [4]-[PREVIEW_SURFACES]
+## [04]-[PREVIEW_SURFACES]
 
 - Owner: `PreviewRow<TReceipt>`
 - Entry: `public Fin<SKImage> Render(TReceipt receipt, SKImageInfo info)` — Fin rail
@@ -150,11 +150,11 @@ public sealed record PreviewRow<TReceipt>(
 
 | [INDEX] | [BACKPLATE]  | [CELL] | [PAINT_ROLES]                     |
 | :-----: | :----------- | :----- | :-------------------------------- |
-|   [1]   | checkerboard | 8 px   | surface-check-a · surface-check-b |
-|   [2]   | solid        | —      | surface                           |
-|   [3]   | transparent  | —      | none                              |
+|  [01]   | checkerboard | 8 px   | surface-check-a · surface-check-b |
+|  [02]   | solid        | —      | surface                           |
+|  [03]   | transparent  | —      | none                              |
 
-## [5]-[ENCODE_IDENTITY]
+## [05]-[ENCODE_IDENTITY]
 
 - Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec`
 - Entry: `public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key)` — IO rail
@@ -258,7 +258,7 @@ public static class VisualCodec {
 }
 ```
 
-## [6]-[DOCUMENT_EXPORT]
+## [06]-[DOCUMENT_EXPORT]
 
 - Owner: `VisualDestination` [Union] · `VisualExportSpec` · `FlowBlock` [Union] · `VisualExport` · `OfficeFormat` · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeExport`
 - Cases: FilePath · BlobLane · Bundle; `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText
@@ -496,12 +496,12 @@ public static class VisualExport {
 
 | [INDEX] | [PAGE_ROW]       | [WIDTH_PT] | [HEIGHT_PT] |
 | :-----: | :--------------- | :--------- | :---------- |
-|   [1]   | a4-portrait      | 595        | 842         |
-|   [2]   | a4-landscape     | 842        | 595         |
-|   [3]   | letter-portrait  | 612        | 792         |
-|   [4]   | letter-landscape | 792        | 612         |
+|  [01]   | a4-portrait      | 595        | 842         |
+|  [02]   | a4-landscape     | 842        | 595         |
+|  [03]   | letter-portrait  | 612        | 792         |
+|  [04]   | letter-landscape | 792        | 612         |
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [PARAGRAPH_BREAK]: the within-`FlowBlock.Text` cluster-boundary break point at the page edge — the shaping rail owns cluster metrics through the confirmed `SKShaper.Result` `Clusters` and `Width` surface, and the exact line-of-clusters split that lets a `Text` block resume on the next page rather than re-running the whole block binds at implementation against the shaped-run break flags.
 - [OFFICE_OPENXML]: the XLSX (`SpreadsheetDocument`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`/`Sheets`/`Sheet`) and DOCX (`WordprocessingDocument`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`) writer bodies transcribe now against the catalogued `DocumentFormat.OpenXml` 3.5.1 part-graph factory (`.api/api-drafting-export.md`); the residual surface is the PPTX slide part-graph (`PresentationDocument.Create(Stream, PresentationDocumentType.Presentation)` then the `PresentationPart`/`SlidePart`/`SlideLayoutPart`/`SlideMasterPart` chain insertion the spreadsheet/word roots do not share), the cell-style and run-formatting member spellings (`CellFormats`/`RunProperties` numbering for a styled report), and the deterministic-ordering knobs (`OpenSettings`/relationship-id ordering) that make the OOXML byte-stream byte-reproducible across runs — these resolve at implementation against the installed OpenXML surface; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, the `FlowFold`-shared pagination, and the `FontTablePart` embedded-font packing are settled.

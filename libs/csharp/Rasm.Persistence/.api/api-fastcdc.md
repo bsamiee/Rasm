@@ -4,7 +4,7 @@
 algorithm, producing an `IEnumerable<Chunk>` of offset-and-length descriptors for
 deduplication-aware chunking in Persistence snapshot and object-store profiles.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FastCDC.Net`
 - package: `FastCDC.Net`
@@ -13,31 +13,31 @@ deduplication-aware chunking in Persistence snapshot and object-store profiles.
 - asset: runtime library
 - rail: chunking
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: CDC family
 - rail: chunking
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [CAPABILITY]                        |
 | :-----: | :-------- | :------------ | :---------------------------------- |
-|   [1]   | `FastCdc` | chunker root  | content-defined chunking over bytes |
-|   [2]   | `Chunk`   | chunk value   | hash, offset, and length descriptor |
+|  [01]   | `FastCdc` | chunker root  | content-defined chunking over bytes |
+|  [02]   | `Chunk`   | chunk value   | hash, offset, and length descriptor |
 
 `FastCdc` exposes these public constants: `MinimumMin = 64`, `MinimumMax = 67108864`,
 `AverageMin = 256`, `AverageMax = 268435456`, `MaximumMin = 1024`, `MaximumMax = 1073741824`.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and chunking
 - rail: chunking
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                                         |
 | :-----: | :---------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|   [1]   | `new FastCdc(source, minSize, avgSize, maxSize)`      | ctor           | creates chunker; `eof = true` by default             |
-|   [2]   | `new FastCdc(source, minSize, avgSize, maxSize, eof)` | ctor           | creates chunker with explicit EOF boundary           |
-|   [3]   | `GetChunks()`                                         | enumeration    | returns lazy `IEnumerable<Chunk>` of cut descriptors |
+|  [01]   | `new FastCdc(source, minSize, avgSize, maxSize)`      | ctor           | creates chunker; `eof = true` by default             |
+|  [02]   | `new FastCdc(source, minSize, avgSize, maxSize, eof)` | ctor           | creates chunker with explicit EOF boundary           |
+|  [03]   | `GetChunks()`                                         | enumeration    | returns lazy `IEnumerable<Chunk>` of cut descriptors |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CDC_TOPOLOGY]:
 - one public sealed class `FastCdc` and one result type `Chunk`

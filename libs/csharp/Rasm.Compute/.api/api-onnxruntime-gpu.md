@@ -2,7 +2,7 @@
 
 `Microsoft.ML.OnnxRuntime.Gpu` supplies the CUDA and TensorRT execution-provider native runtime libraries for the ONNX model lane. The package carries no managed assembly: it aggregates `Microsoft.ML.OnnxRuntime.Managed` plus the platform native sub-packages `Microsoft.ML.OnnxRuntime.Gpu.Windows` and `Microsoft.ML.OnnxRuntime.Gpu.Linux`, and the managed `AppendExecutionProvider_CUDA` and `AppendExecutionProvider_Tensorrt` entrypoints bind these native providers from `Microsoft.ML.OnnxRuntime`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Gpu`
 - package: `Microsoft.ML.OnnxRuntime.Gpu`
@@ -11,32 +11,32 @@
 - asset: native CUDA and TensorRT execution-provider runtimes
 - rail: model
 
-## [2]-[PACKAGE_ASSETS]
+## [02]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: aggregator dependencies
 - rail: model
 
 | [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]     | [CAPABILITY]                       |
 | :-----: | :---------------------------------------- | :----------------- | :--------------------------------- |
-|   [1]   | `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 | managed dependency | supplies the managed append API    |
-|   [2]   | `Microsoft.ML.OnnxRuntime.Gpu.Windows`    | native dependency  | supplies win-x64 GPU EP runtimes   |
-|   [3]   | `Microsoft.ML.OnnxRuntime.Gpu.Linux`      | native dependency  | supplies linux-x64 GPU EP runtimes |
+|  [01]   | `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 | managed dependency | supplies the managed append API    |
+|  [02]   | `Microsoft.ML.OnnxRuntime.Gpu.Windows`    | native dependency  | supplies win-x64 GPU EP runtimes   |
+|  [03]   | `Microsoft.ML.OnnxRuntime.Gpu.Linux`      | native dependency  | supplies linux-x64 GPU EP runtimes |
 
 [PACKAGE_ASSET_SCOPE]: native execution-provider runtimes
 - rail: model
 
 | [INDEX] | [SYMBOL]                                           | [PACKAGE_ROLE] | [CAPABILITY]                  |
 | :-----: | :------------------------------------------------- | :------------- | :---------------------------- |
-|   [1]   | `onnxruntime_providers_cuda.dll` (win-x64)         | native asset   | loads the CUDA EP             |
-|   [2]   | `onnxruntime_providers_tensorrt.dll` (win-x64)     | native asset   | loads the TensorRT EP         |
-|   [3]   | `onnxruntime_providers_shared.dll` (win-x64)       | native asset   | bridges shared provider entry |
-|   [4]   | `libonnxruntime_providers_cuda.so` (linux-x64)     | native asset   | loads the CUDA EP             |
-|   [5]   | `libonnxruntime_providers_tensorrt.so` (linux-x64) | native asset   | loads the TensorRT EP         |
-|   [6]   | `libonnxruntime_providers_shared.so` (linux-x64)   | native asset   | bridges shared provider entry |
-|   [7]   | `buildTransitive/native/*.props`                   | MSBuild import | declares native copy          |
-|   [8]   | `buildTransitive/native/*.targets`                 | MSBuild import | copies native assets          |
+|  [01]   | `onnxruntime_providers_cuda.dll` (win-x64)         | native asset   | loads the CUDA EP             |
+|  [02]   | `onnxruntime_providers_tensorrt.dll` (win-x64)     | native asset   | loads the TensorRT EP         |
+|  [03]   | `onnxruntime_providers_shared.dll` (win-x64)       | native asset   | bridges shared provider entry |
+|  [04]   | `libonnxruntime_providers_cuda.so` (linux-x64)     | native asset   | loads the CUDA EP             |
+|  [05]   | `libonnxruntime_providers_tensorrt.so` (linux-x64) | native asset   | loads the TensorRT EP         |
+|  [06]   | `libonnxruntime_providers_shared.so` (linux-x64)   | native asset   | bridges shared provider entry |
+|  [07]   | `buildTransitive/native/*.props`                   | MSBuild import | declares native copy          |
+|  [08]   | `buildTransitive/native/*.targets`                 | MSBuild import | copies native assets          |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: GPU execution-provider append operations
 - rail: model
@@ -44,18 +44,18 @@
 
 | [INDEX] | [SURFACE]                                                      | [CALL_SHAPE] | [CAPABILITY]                                  |
 | :-----: | :------------------------------------------------------------- | :----------- | :-------------------------------------------- |
-|   [1]   | `AppendExecutionProvider_CUDA(int deviceId = 0)`               | option call  | CUDA EP by device index                       |
-|   [2]   | `AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`         | option call  | CUDA EP with full provider-options struct     |
-|   [3]   | `AppendExecutionProvider_Tensorrt(int deviceId = 0)`           | option call  | TensorRT EP by device index                   |
-|   [4]   | `AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)` | option call  | TensorRT EP with full provider-options struct |
+|  [01]   | `AppendExecutionProvider_CUDA(int deviceId = 0)`               | option call  | CUDA EP by device index                       |
+|  [02]   | `AppendExecutionProvider_CUDA(OrtCUDAProviderOptions)`         | option call  | CUDA EP with full provider-options struct     |
+|  [03]   | `AppendExecutionProvider_Tensorrt(int deviceId = 0)`           | option call  | TensorRT EP by device index                   |
+|  [04]   | `AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions)` | option call  | TensorRT EP with full provider-options struct |
 
 [ENTRYPOINT_SCOPE]: provider-options structs
 - rail: model
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                            |
 | :-----: | :--------------------------- | :------------------ | :-------------------------------------- |
-|   [1]   | `OrtCUDAProviderOptions`     | CUDA options handle | configures CUDA provider key-values     |
-|   [2]   | `OrtTensorRTProviderOptions` | TensorRT options    | configures TensorRT provider key-values |
+|  [01]   | `OrtCUDAProviderOptions`     | CUDA options handle | configures CUDA provider key-values     |
+|  [02]   | `OrtTensorRTProviderOptions` | TensorRT options    | configures TensorRT provider key-values |
 
 [ENTRYPOINT_SCOPE]: decompile-verified GPU append and provider-options signatures
 - source: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 decompile
@@ -63,19 +63,19 @@
 
 | [INDEX] | [MEMBER]                                   | [SIGNATURE]                                                                            |
 | :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------- |
-|   [1]   | `AppendExecutionProvider_CUDA`             | `void AppendExecutionProvider_CUDA(int deviceId = 0)`                                  |
-|   [2]   | `AppendExecutionProvider_CUDA`             | `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions cudaProviderOptions)`        |
-|   [3]   | `AppendExecutionProvider_Tensorrt`         | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)`                              |
-|   [4]   | `AppendExecutionProvider_Tensorrt`         | `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions trtProviderOptions)` |
-|   [5]   | `OrtCUDAProviderOptions.ctor`              | `OrtCUDAProviderOptions()`                                                             |
-|   [6]   | `OrtCUDAProviderOptions.GetOptions`        | `string GetOptions()`                                                                  |
-|   [7]   | `OrtCUDAProviderOptions.UpdateOptions`     | `void UpdateOptions(Dictionary<string, string> providerOptions)`                       |
-|   [8]   | `OrtTensorRTProviderOptions.ctor`          | `OrtTensorRTProviderOptions()`                                                         |
-|   [9]   | `OrtTensorRTProviderOptions.GetOptions`    | `string GetOptions()`                                                                  |
+|  [01]   | `AppendExecutionProvider_CUDA`             | `void AppendExecutionProvider_CUDA(int deviceId = 0)`                                  |
+|  [02]   | `AppendExecutionProvider_CUDA`             | `void AppendExecutionProvider_CUDA(OrtCUDAProviderOptions cudaProviderOptions)`        |
+|  [03]   | `AppendExecutionProvider_Tensorrt`         | `void AppendExecutionProvider_Tensorrt(int deviceId = 0)`                              |
+|  [04]   | `AppendExecutionProvider_Tensorrt`         | `void AppendExecutionProvider_Tensorrt(OrtTensorRTProviderOptions trtProviderOptions)` |
+|  [05]   | `OrtCUDAProviderOptions.ctor`              | `OrtCUDAProviderOptions()`                                                             |
+|  [06]   | `OrtCUDAProviderOptions.GetOptions`        | `string GetOptions()`                                                                  |
+|  [07]   | `OrtCUDAProviderOptions.UpdateOptions`     | `void UpdateOptions(Dictionary<string, string> providerOptions)`                       |
+|  [08]   | `OrtTensorRTProviderOptions.ctor`          | `OrtTensorRTProviderOptions()`                                                         |
+|  [09]   | `OrtTensorRTProviderOptions.GetOptions`    | `string GetOptions()`                                                                  |
 |  [10]   | `OrtTensorRTProviderOptions.UpdateOptions` | `void UpdateOptions(Dictionary<string, string> providerOptions)`                       |
 |  [11]   | `OrtTensorRTProviderOptions.GetDeviceId`   | `int GetDeviceId()`                                                                    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GPU_PROVIDER_ASSETS]:
 - package role: CUDA and TensorRT native execution-provider bundle

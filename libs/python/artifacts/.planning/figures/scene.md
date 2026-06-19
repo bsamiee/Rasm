@@ -2,11 +2,11 @@
 
 The 3D scientific-visualization owner. `Scene3d` renders pyvista datasets on the VTK engine — `UnstructuredGrid`/`PolyData`, scalar fields, slices, isosurfaces — to a host-free offscreen image and exports glTF/VRML scene files. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU. The owner rides the gated `python_version<'3.13'` native VTK floor: no cp315 VTK wheel, so the cp315-core process imports neither package and the whole render crosses the runtime subprocess lane onto the sub-3.13 companion-floor worker — floor-gated planned capability, not a blocked spike. Every render returns a `RuntimeRail[ContentKey]`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SCENE]: pyvista/VTK offscreen 3D render and glTF/VRML scene export.
+- [01]-[SCENE]: pyvista/VTK offscreen 3D render and glTF/VRML scene export.
 
-## [2]-[SCENE]
+## [02]-[SCENE]
 
 - Owner: `Scene3d` the one 3D-scene owner over pyvista on the VTK engine; `SceneTarget` the closed `StrEnum` of render and export targets; the offscreen plotter is the one render capsule.
 - Cases: `SceneTarget` rows `PNG` (offscreen `Plotter.screenshot`) · `GLTF` (`Plotter.export_gltf`, PolyData only — `UnstructuredGrid` surface-extracted via `extract_surface` first) · `VRML` (`Plotter.export_vrml`) — matched by `match`/`case`.
@@ -72,6 +72,6 @@ def _render_scene(target: str, grid: object, scalars: str, colormap: str) -> byt
         return out.read_bytes()
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 No open items. `_render_scene` runs on the `python_version<'3.13'` companion floor through `anyio.to_process.run_sync`, importing `pyvista` at boundary scope inside the gated-band worker, never on the cp315-core owner. The `DataSet.extract_surface`, `Plotter(off_screen=True)`, `Plotter.add_mesh(scalars, cmap)`, `Plotter.screenshot`, `Plotter.export_gltf`, and `Plotter.export_vrml` spellings verify against the folder `.api` catalogue for `pyvista`; the osmesa/EGL offscreen software-GL backend is selected by the worker environment before `Plotter` construction. The VTK glTF exporter handles only PolyData, so the glTF target surface-extracts the grid first; `screenshot(path)` writes encoded PNG and `export_gltf`/`export_vrml` serialize the scene to one temp-file sink the worker reads back as bytes (`screenshot` returns a NumPy array, never PNG bytes, when handed no path, so the PNG arm writes to the same sink as the export arms rather than returning the in-memory array).

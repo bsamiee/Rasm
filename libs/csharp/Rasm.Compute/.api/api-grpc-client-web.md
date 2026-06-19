@@ -5,7 +5,7 @@ selector that translate client gRPC calls into `application/grpc-web` or
 `application/grpc-web-text` transport for HTTP/1.1 and browser-constrained
 paths.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Client.Web`
 - package: `Grpc.Net.Client.Web`
@@ -14,44 +14,44 @@ paths.
 - asset: runtime library
 - rail: remote-client
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: transport translation contracts
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]  | [CAPABILITY]                |
 | :-----: | :--------------- | :-------------- | :-------------------------- |
-|   [1]   | `GrpcWebHandler` | message handler | translates gRPC to gRPC-Web |
-|   [2]   | `GrpcWebMode`    | mode selector   | selects wire content type   |
+|  [01]   | `GrpcWebHandler` | message handler | translates gRPC to gRPC-Web |
+|  [02]   | `GrpcWebMode`    | mode selector   | selects wire content type   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: handler construction
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                                         | [CALL_SHAPE]     | [CAPABILITY]                  |
 | :-----: | :------------------------------------------------ | :--------------- | :---------------------------- |
-|   [1]   | `GrpcWebHandler()`                                | constructor      | creates default handler       |
-|   [2]   | `GrpcWebHandler(HttpMessageHandler)`              | constructor      | wraps inner handler           |
-|   [3]   | `GrpcWebHandler(GrpcWebMode)`                     | constructor      | creates handler with mode     |
-|   [4]   | `GrpcWebHandler(GrpcWebMode, HttpMessageHandler)` | constructor      | wraps inner handler with mode |
-|   [5]   | `GrpcWebMode`                                     | handler property | sets wire mode                |
-|   [6]   | `HttpVersion`                                     | handler property | obsolete version override     |
+|  [01]   | `GrpcWebHandler()`                                | constructor      | creates default handler       |
+|  [02]   | `GrpcWebHandler(HttpMessageHandler)`              | constructor      | wraps inner handler           |
+|  [03]   | `GrpcWebHandler(GrpcWebMode)`                     | constructor      | creates handler with mode     |
+|  [04]   | `GrpcWebHandler(GrpcWebMode, HttpMessageHandler)` | constructor      | wraps inner handler with mode |
+|  [05]   | `GrpcWebMode`                                     | handler property | sets wire mode                |
+|  [06]   | `HttpVersion`                                     | handler property | obsolete version override     |
 
 [ENTRYPOINT_SCOPE]: mode cases
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE] | [CAPABILITY]                   |
 | :-----: | :------------------------ | :----------- | :----------------------------- |
-|   [1]   | `GrpcWebMode.GrpcWeb`     | enum case    | sends binary gRPC-Web payloads |
-|   [2]   | `GrpcWebMode.GrpcWebText` | enum case    | sends base64 gRPC-Web payloads |
+|  [01]   | `GrpcWebMode.GrpcWeb`     | enum case    | sends binary gRPC-Web payloads |
+|  [02]   | `GrpcWebMode.GrpcWebText` | enum case    | sends base64 gRPC-Web payloads |
 
 [ENTRYPOINT_SCOPE]: transport pipeline
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                  | [CALL_SHAPE]      | [CAPABILITY]                           |
 | :-----: | :------------------------- | :---------------- | :------------------------------------- |
-|   [1]   | `GrpcWebHandler.SendAsync` | pipeline override | intercepts `application/grpc` requests |
+|  [01]   | `GrpcWebHandler.SendAsync` | pipeline override | intercepts `application/grpc` requests |
 
 [ENTRYPOINT_SCOPE]: `GrpcWebHandler` and `GrpcWebMode` decompile-verified members
 - source: `Grpc.Net.Client.Web` 2.80.0 decompile
@@ -60,17 +60,17 @@ paths.
 
 | [INDEX] | [MEMBER]                     | [SIGNATURE]                                                                                                               |
 | :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler()`                                                                                                        |
-|   [2]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(HttpMessageHandler innerHandler)`                                                                         |
-|   [3]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode)`                                                                                        |
-|   [4]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode, HttpMessageHandler innerHandler)`                                                       |
-|   [5]   | `GrpcWebMode.GrpcWeb`        | `GrpcWeb = 0` — `application/grpc-web` binary wire format                                                                 |
-|   [6]   | `GrpcWebMode.GrpcWebText`    | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format                                                        |
-|   [7]   | `GrpcWebHandler.GrpcWebMode` | `GrpcWebMode GrpcWebMode { get; set; }` — mode property on the handler                                                    |
-|   [8]   | `GrpcWebHandler.HttpVersion` | `[Obsolete] Version? HttpVersion { get; set; }` — use `GrpcChannelOptions.HttpVersion` instead                            |
-|   [9]   | `GrpcWebHandler.SendAsync`   | `protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)` |
+|  [01]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler()`                                                                                                        |
+|  [02]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(HttpMessageHandler innerHandler)`                                                                         |
+|  [03]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode)`                                                                                        |
+|  [04]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode, HttpMessageHandler innerHandler)`                                                       |
+|  [05]   | `GrpcWebMode.GrpcWeb`        | `GrpcWeb = 0` — `application/grpc-web` binary wire format                                                                 |
+|  [06]   | `GrpcWebMode.GrpcWebText`    | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format                                                        |
+|  [07]   | `GrpcWebHandler.GrpcWebMode` | `GrpcWebMode GrpcWebMode { get; set; }` — mode property on the handler                                                    |
+|  [08]   | `GrpcWebHandler.HttpVersion` | `[Obsolete] Version? HttpVersion { get; set; }` — use `GrpcChannelOptions.HttpVersion` instead                            |
+|  [09]   | `GrpcWebHandler.SendAsync`   | `protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TRANSPORT_TRANSLATION]:
 - namespace: `Grpc.Net.Client.Web`

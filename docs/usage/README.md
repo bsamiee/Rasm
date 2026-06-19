@@ -2,22 +2,22 @@
 
 Cross-stack implementation surface for new work. The owner ladder selects the package, platform, and API rail that owns each capability.
 
-## [1]-[OWNER_LADDER]
+## [01]-[OWNER_LADDER]
 
 | [INDEX] | [OWNER]            | [CAPABILITY]                                                              |
 | :-----: | ------------------ | ------------------------------------------------------------------------- |
-|   [1]   | RhinoCommon        | Geometry validity, tolerances, units, transforms, topology                |
-|   [2]   | GH2                | `IDataAccess`, trees, paths, coverage, diagnostics                        |
-|   [3]   | MathNet            | Linear algebra, solvers, fitting, optimization, statistics, symbolics     |
-|   [4]   | BCL/System         | Spans, regex, frozen lookup, generic math, SIMD, time, IO, diagnostics    |
-|   [5]   | LanguageExt        | `Fin`, `Validation`, `Eff`, `IO`, `Schedule`, `Seq`, `K<F,A>`             |
-|   [6]   | Thinktecture       | Value objects, smart enums, unions, generated dispatch                    |
-|   [7]   | Platform libraries | `Rasm.AppUi`, `Rasm.AppHost`, `Rasm.Persistence`, `Rasm.Compute`          |
-|   [8]   | Composition root   | Generic Host, Scrutor, health, telemetry, HTTP resilience; bootstrap only |
+|  [01]   | RhinoCommon        | Geometry validity, tolerances, units, transforms, topology                |
+|  [02]   | GH2                | `IDataAccess`, trees, paths, coverage, diagnostics                        |
+|  [03]   | MathNet            | Linear algebra, solvers, fitting, optimization, statistics, symbolics     |
+|  [04]   | BCL/System         | Spans, regex, frozen lookup, generic math, SIMD, time, IO, diagnostics    |
+|  [05]   | LanguageExt        | `Fin`, `Validation`, `Eff`, `IO`, `Schedule`, `Seq`, `K<F,A>`             |
+|  [06]   | Thinktecture       | Value objects, smart enums, unions, generated dispatch                    |
+|  [07]   | Platform libraries | `Rasm.AppUi`, `Rasm.AppHost`, `Rasm.Persistence`, `Rasm.Compute`          |
+|  [08]   | Composition root   | Generic Host, Scrutor, health, telemetry, HTTP resilience; bootstrap only |
 
 Choose the first owner that directly owns the capability. Local platform surfaces integrate or compose approved libraries through their owner rails; they do not replace package-owned behavior with wrapper vocabulary.
 
-## [2]-[FLOW]
+## [02]-[FLOW]
 
 1. Receive raw input through Rhino/GH2/System boundary policy.
 2. Encode domain meaning with Thinktecture generated shapes.
@@ -28,16 +28,16 @@ Choose the first owner that directly owns the capability. Local platform surface
 7. Keep provider APIs inside the owner rail that owns them; public vocabulary stays provider-neutral.
 8. Build platform rails from the complete feature set: host, companion, sidecar, downstream app, provider, asset, storage, compute, telemetry, support, and confirmation variants are parameterized cases inside existing shapes before new public surfaces appear.
 
-## [3]-[PATTERNS]
+## [03]-[PATTERNS]
 
 | [INDEX] | [PATTERN]        | [GUIDANCE]                                                                                    |
 | :-----: | ---------------- | --------------------------------------------------------------------------------------------- |
-|   [1]   | Domain rail      | Thinktecture shapes values; LanguageExt carries validation and effects.                       |
-|   [2]   | Rhino numeric    | Rhino validates geometry; MathNet solves selected numeric projection; Rhino validates output. |
-|   [3]   | Symbolic GH2     | GH2 reads formula text; Symbolics parses/evaluates; diagnostics report exact failed stage.    |
-|   [4]   | System primitive | BCL handles grammar, lookup, spans, timing, and diagnostics it owns directly.                 |
+|  [01]   | Domain rail      | Thinktecture shapes values; LanguageExt carries validation and effects.                       |
+|  [02]   | Rhino numeric    | Rhino validates geometry; MathNet solves selected numeric projection; Rhino validates output. |
+|  [03]   | Symbolic GH2     | GH2 reads formula text; Symbolics parses/evaluates; diagnostics report exact failed stage.    |
+|  [04]   | System primitive | BCL handles grammar, lookup, spans, timing, and diagnostics it owns directly.                 |
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 - Library APIs stay direct unless the local owner adds domain value.
 - Packages enter only when an owner consumes their capability.

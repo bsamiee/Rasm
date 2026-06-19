@@ -2,7 +2,7 @@
 
 `Pyroscope.OpenTelemetry` supplies a `BaseProcessor<Activity>` span processor that propagates the active root span's `SpanId` into the Pyroscope profiler as a `profileId`, enabling trace-to-profile correlation via the `pyroscope.profile.id` span tag.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Pyroscope.OpenTelemetry`
 - package: `Pyroscope.OpenTelemetry`
@@ -11,26 +11,26 @@
 - asset: runtime library
 - rail: telemetry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: span processor family
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [RAIL]                             |
 | :-----: | :----------------------- | :------------- | :--------------------------------- |
-|   [1]   | `PyroscopeSpanProcessor` | span processor | `BaseProcessor<Activity>` subclass |
+|  [01]   | `PyroscopeSpanProcessor` | span processor | `BaseProcessor<Activity>` subclass |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: processor lifecycle hooks
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                | [ENTRY_FAMILY]  | [RAIL]                                            |
 | :-----: | :----------------------- | :-------------- | :------------------------------------------------ |
-|   [1]   | `OnStart(Activity data)` | span start hook | sets `profileId` on profiler for root spans       |
-|   [2]   | `OnEnd(Activity data)`   | span end hook   | resets `profileId` to `0` on root span completion |
+|  [01]   | `OnStart(Activity data)` | span start hook | sets `profileId` on profiler for root spans       |
+|  [02]   | `OnEnd(Activity data)`   | span end hook   | resets `profileId` to `0` on root span completion |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PYROSCOPE_TOPOLOGY]:
 - namespace: `Pyroscope.OpenTelemetry`; one public type

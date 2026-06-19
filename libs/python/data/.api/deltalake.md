@@ -2,7 +2,7 @@
 
 `deltalake` supplies a native Rust-backed Delta Lake table reader and writer with ACID transactions, time travel, schema evolution, and change-data-feed access over object-store and local backends. `DeltaTable` owns lifecycle, reads, and maintenance; `write_deltalake` owns appends and overwrites; `QueryBuilder` runs DataFusion SQL over registered tables.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `deltalake`
 - package: `deltalake`
@@ -11,7 +11,7 @@
 - rail: columnar
 - capability: Delta Lake table exchange, ACID append/overwrite/merge/delete/update, time travel and version loading, change-data-feed reads, file compaction and vacuum, schema evolution, and SQL query over Arrow egress
 
-## [2]-[CAPTURE]
+## [02]-[CAPTURE]
 
 [PUBLIC_TYPES]:
 - `deltalake.DeltaTable` — managed Delta table; constructed from a `table_uri`; owns reads, writes, history, maintenance, and protocol; egress via `to_pyarrow_table`, `to_pandas`, `to_pyarrow_dataset`, and `get_add_actions`.
@@ -51,7 +51,7 @@
 - Writer tuning flows through `WriterProperties` with nested `ColumnProperties`/`BloomFilterProperties`; commit metadata and retries flow through `CommitProperties`.
 - `QueryBuilder` runs DataFusion SQL over registered Delta tables and returns Arrow record batches; it is the SQL surface, distinct from the imperative `DeltaTable` builder.
 
-## [3]-[LOCAL_ADMISSION]
+## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `deltalake`

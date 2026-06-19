@@ -2,7 +2,7 @@
 
 `psutil` supplies cross-platform system and process metrics: per-process CPU, memory, file descriptors, connections, and status via `Process`; system-wide CPU, memory, disk, network, and battery counters via module-level functions; and process iteration and waiting via `process_iter` and `wait_procs`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `psutil`
 - package: `psutil`
@@ -10,84 +10,84 @@
 - asset: runtime library
 - rail: observability
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: process classes
 - rail: observability
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [RAIL]                            |
 | :-----: | :-------- | :------------ | :-------------------------------- |
-|   [1]   | `Process` | process class | per-process metrics and control   |
-|   [2]   | `Popen`   | process class | subprocess.Popen with Process API |
+|  [01]   | `Process` | process class | per-process metrics and control   |
+|  [02]   | `Popen`   | process class | subprocess.Popen with Process API |
 
 [PUBLIC_TYPE_SCOPE]: exception types
 - rail: observability
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [RAIL]                     |
 | :-----: | :--------------- | :------------- | :------------------------- |
-|   [1]   | `Error`          | base exception | all psutil exceptions root |
-|   [2]   | `NoSuchProcess`  | process error  | pid no longer exists       |
-|   [3]   | `ZombieProcess`  | process error  | process is a zombie        |
-|   [4]   | `AccessDenied`   | access error   | insufficient privileges    |
-|   [5]   | `TimeoutExpired` | timeout error  | wait_procs timeout         |
+|  [01]   | `Error`          | base exception | all psutil exceptions root |
+|  [02]   | `NoSuchProcess`  | process error  | pid no longer exists       |
+|  [03]   | `ZombieProcess`  | process error  | process is a zombie        |
+|  [04]   | `AccessDenied`   | access error   | insufficient privileges    |
+|  [05]   | `TimeoutExpired` | timeout error  | wait_procs timeout         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process iteration and control
 - rail: observability
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `Process(pid=None)`                    | constructor    | attach to process by pid            |
-|   [2]   | `Popen(*args, **kwargs)`               | constructor    | launch subprocess with Process API  |
-|   [3]   | `process_iter(attrs, ad_value)`        | iterator       | iterate all live processes          |
-|   [4]   | `pids()`                               | query          | list of all live PIDs               |
-|   [5]   | `pid_exists(pid)`                      | query          | true if pid is alive                |
-|   [6]   | `wait_procs(procs, timeout, callback)` | wait           | wait for multiple processes to exit |
+|  [01]   | `Process(pid=None)`                    | constructor    | attach to process by pid            |
+|  [02]   | `Popen(*args, **kwargs)`               | constructor    | launch subprocess with Process API  |
+|  [03]   | `process_iter(attrs, ad_value)`        | iterator       | iterate all live processes          |
+|  [04]   | `pids()`                               | query          | list of all live PIDs               |
+|  [05]   | `pid_exists(pid)`                      | query          | true if pid is alive                |
+|  [06]   | `wait_procs(procs, timeout, callback)` | wait           | wait for multiple processes to exit |
 
 [ENTRYPOINT_SCOPE]: CPU metrics
 - rail: observability
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY] | [RAIL]                           |
 | :-----: | :------------------------------------ | :------------- | :------------------------------- |
-|   [1]   | `cpu_percent(interval, percpu)`       | metric         | CPU utilization as float percent |
-|   [2]   | `cpu_times(percpu)`                   | metric         | named CPU time fields            |
-|   [3]   | `cpu_times_percent(interval, percpu)` | metric         | CPU time percentages             |
-|   [4]   | `cpu_count(logical)`                  | metric         | logical or physical CPU count    |
-|   [5]   | `cpu_freq(percpu)`                    | metric         | CPU frequency current/min/max    |
-|   [6]   | `cpu_stats()`                         | metric         | CPU statistics namedtuple        |
+|  [01]   | `cpu_percent(interval, percpu)`       | metric         | CPU utilization as float percent |
+|  [02]   | `cpu_times(percpu)`                   | metric         | named CPU time fields            |
+|  [03]   | `cpu_times_percent(interval, percpu)` | metric         | CPU time percentages             |
+|  [04]   | `cpu_count(logical)`                  | metric         | logical or physical CPU count    |
+|  [05]   | `cpu_freq(percpu)`                    | metric         | CPU frequency current/min/max    |
+|  [06]   | `cpu_stats()`                         | metric         | CPU statistics namedtuple        |
 
 [ENTRYPOINT_SCOPE]: memory and swap
 - rail: observability
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY] | [RAIL]                    |
 | :-----: | :----------------- | :------------- | :------------------------ |
-|   [1]   | `virtual_memory()` | metric         | virtual memory namedtuple |
-|   [2]   | `swap_memory()`    | metric         | swap memory namedtuple    |
+|  [01]   | `virtual_memory()` | metric         | virtual memory namedtuple |
+|  [02]   | `swap_memory()`    | metric         | swap memory namedtuple    |
 
 [ENTRYPOINT_SCOPE]: disk metrics
 - rail: observability
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :---------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `disk_usage(path)`                  | metric         | disk usage for path             |
-|   [2]   | `disk_partitions(all)`              | metric         | list of mounted disk partitions |
-|   [3]   | `disk_io_counters(perdisk, nowrap)` | metric         | disk I/O counters               |
+|  [01]   | `disk_usage(path)`                  | metric         | disk usage for path             |
+|  [02]   | `disk_partitions(all)`              | metric         | list of mounted disk partitions |
+|  [03]   | `disk_io_counters(perdisk, nowrap)` | metric         | disk I/O counters               |
 
 [ENTRYPOINT_SCOPE]: network and system metrics
 - rail: observability
 
 | [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :-------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `net_io_counters(pernic, nowrap)` | metric         | network interface I/O counters |
-|   [2]   | `net_if_addrs()`                  | metric         | network interface addresses    |
-|   [3]   | `net_if_stats()`                  | metric         | network interface statistics   |
-|   [4]   | `net_connections(kind)`           | metric         | open network connections       |
-|   [5]   | `sensors_battery()`               | metric         | battery status or None         |
-|   [6]   | `boot_time()`                     | metric         | system boot time as float      |
-|   [7]   | `users()`                         | metric         | currently logged-in users list |
+|  [01]   | `net_io_counters(pernic, nowrap)` | metric         | network interface I/O counters |
+|  [02]   | `net_if_addrs()`                  | metric         | network interface addresses    |
+|  [03]   | `net_if_stats()`                  | metric         | network interface statistics   |
+|  [04]   | `net_connections(kind)`           | metric         | open network connections       |
+|  [05]   | `sensors_battery()`               | metric         | battery status or None         |
+|  [06]   | `boot_time()`                     | metric         | system boot time as float      |
+|  [07]   | `users()`                         | metric         | currently logged-in users list |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PSUTIL_TOPOLOGY]:
 - single namespace: `psutil`; 32 public types across one module

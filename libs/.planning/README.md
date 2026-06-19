@@ -2,7 +2,7 @@
 
 The authoring standard for the `libs/` planning corpus. It owns the doc-set per tier, the four index-doc templates, and the design-page grammar. Form — containers, tables, markers, prose — follows `docs/standards/information-structure.md`, `formatting.md`, and `style-guide.md`; the monorepo topology follows `architecture.md`. Neither is restated here.
 
-## [1]-[DOC_SET]
+## [01]-[DOC_SET]
 
 Three tiers carry the same intent at widening scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
 
@@ -13,7 +13,7 @@ Three tiers carry the same intent at widening scope: a folder owns one package's
 
 The `.planning/` lifecycle — the transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, and the dissolution once a folder lands code — is owned by `architecture.md`; the cross-`libs/` core and each branch `<lang>/.planning/` are the standing exceptions that persist for the campaign duration. This standard owns only the doc-set, the templates, and the page grammar those folders carry.
 
-## [2]-[INDEX_DOCS]
+## [02]-[INDEX_DOCS]
 
 Each index doc opens with one or two declarative lines stating its own organization, then its content. Keep each load-bearing: a file that only restates another doc is deleted, not maintained.
 
@@ -36,7 +36,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries/wires (internal to the folder or aligned to a sibling or branch, never coupled), and the key considerations.
 - A task is scoped guidance — not a full spec and not vague. One idea spawns one or more tasks across one or more files; each task names the exact file or sub-domain it lands in.
 
-## [3]-[DESIGN_PAGES]
+## [03]-[DESIGN_PAGES]
 
 Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain folder per eventual source sub-tree, one page per eventual source file. A page is a decision-complete blueprint an implementation agent transcribes, not a narrative or research log.
 
@@ -45,24 +45,24 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - Signature fences are transcription-complete: every generated-owner knob, closed-family key, union case with its payload, and entrypoint signature is written so an agent copies it verbatim; bodies are written where the body is the law. Fences carry zero comments; invariants live on the card. Every literal traces to an axis on the page or an earlier page, or becomes a RESEARCH item.
 - An external member is written only after the folder's `.api/` catalogue verifies its spelling; an unverified member is a RESEARCH item, never prose.
 
-## [4]-[NOTATION]
+## [04]-[NOTATION]
 
 One integration-point notation, scope-qualified by distance: `page#CLUSTER` inside a folder, `pkg/page#CLUSTER` across folders in a language, `lang:pkg/page#CLUSTER` across languages (cross-`libs/` only). A type name recurs across packages only when the concepts are genuinely distinct in distinct namespaces; a recurring wire-projection name is disambiguated at the source, never carried twice.
 
-## [5]-[LANGUAGE]
+## [05]-[LANGUAGE]
 
 - READ: `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, `docs/standards/formatting.md`
 - Agent-directed declarative present tense; the doc states law as fact. No reader address, narration, process, or provenance — no links, URLs, versions, dates, or session context on a design page.
 - Banned hedges (word-boundary, page-wide): should, could, would, might, maybe, perhaps, likely, probably, propose, consider, recommended, ideally, TBD, TODO, FIXME, we, our, you, and the synonym forms — is expected to, can be, aims to, is designed to, in the future, eventually, as needed, if necessary. Future tense is legal only on a card growth line and a RESEARCH item.
 - Vocabulary, owners, and policy values from earlier pages and the route's code doctrine arrive settled and are never re-taught. A fact owned by a sibling is composed inside a fence, never re-explained.
 
-## [6]-[REVIEW]
+## [06]-[REVIEW]
 
 Review is judgment against this standard and the route-owned code doctrine, not checklist pedantry. A reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the three form standards, then grades cold: doc-set placement, card and page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, the absence of fragile duplication or an owner-state ledger, and integration points carried on tasks rather than a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
 
 A signature fence transcribes an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member not yet in the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
 
-## [7]-[CROSS_CUTTING_PACKAGES]
+## [07]-[CROSS_CUTTING_PACKAGES]
 
 The cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of a future admin/meta `libs/<x>` that is not bound to the AEC/Rhino pipelines. The registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
 

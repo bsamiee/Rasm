@@ -2,7 +2,7 @@
 
 `Silk.NET.WebGPU.Extensions.WGPU` is the wgpu-native vendor-extension binding layered over the canonical `Silk.NET.WebGPU` core: the upstream `webgpu.h` standard surface omits the non-blocking submission-completion poll and the native log/error callbacks a desktop render loop demands, and `wgpu_native` (the runtime `Silk.NET.WebGPU.Native.WGPU` carries) adds them through `wgpu.h`. The extension's `Wgpu` class is the generated function-table root for those native-only entrypoints — `DevicePoll` advances the wgpu device queue without a blocking fence, `SetLogCallback`/`SetLogLevel` route the native diagnostic stream into the receipt sink, and the instance-enumerate-adapters and surface-capability native calls complete the adapter/format negotiation the standard `RequestAdapter` callback alone does not expose. The extension is loaded against the same `WebGPU.GetApi()` instance the `api-silk-webgpu.md` core owns, so the `Wgpu` `GpuBackend` render loop polls and logs through this surface without a second binding.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
 - package: `Silk.NET.WebGPU.Extensions.WGPU`
@@ -11,49 +11,49 @@
 - asset: managed binding over the `wgpu_native` runtime `Silk.NET.WebGPU.Native.WGPU` already carries
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension root and native-only carriers
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [RAIL]                               |
 | :-----: | :--------------------------- | :------------- | :----------------------------------- |
-|   [1]   | `Wgpu`                       | extension root | wgpu-native function table           |
-|   [2]   | `NativeSType`                | enum           | wgpu-native `next`-chain struct type |
-|   [3]   | `LogLevel`                   | enum           | off/error/warn/info/debug/trace      |
-|   [4]   | `LogCallback`                | delegate       | native log-message sink              |
-|   [5]   | `InstanceBackend`            | flags enum     | vulkan/metal/d3d12/gl backend mask   |
-|   [6]   | `InstanceExtras`             | struct         | instance `next` backend selection    |
-|   [7]   | `DeviceExtras`               | struct         | device `next` trace path             |
-|   [8]   | `RequiredLimitsExtras`       | struct         | wgpu-native limit extensions         |
-|   [9]   | `SurfaceConfigurationExtras` | struct         | desired maximum frame latency        |
+|  [01]   | `Wgpu`                       | extension root | wgpu-native function table           |
+|  [02]   | `NativeSType`                | enum           | wgpu-native `next`-chain struct type |
+|  [03]   | `LogLevel`                   | enum           | off/error/warn/info/debug/trace      |
+|  [04]   | `LogCallback`                | delegate       | native log-message sink              |
+|  [05]   | `InstanceBackend`            | flags enum     | vulkan/metal/d3d12/gl backend mask   |
+|  [06]   | `InstanceExtras`             | struct         | instance `next` backend selection    |
+|  [07]   | `DeviceExtras`               | struct         | device `next` trace path             |
+|  [08]   | `RequiredLimitsExtras`       | struct         | wgpu-native limit extensions         |
+|  [09]   | `SurfaceConfigurationExtras` | struct         | desired maximum frame latency        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: device poll, log, and native adapter enumeration
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                           | [SURFACE_ROOT] | [RAIL]                  |
 | :-----: | :---------------------------------------------------------------------------------- | :------------- | :---------------------- |
-|   [1]   | `Wgpu.GetApi(WebGPU)`                                                               | `Wgpu`         | extension load          |
-|   [2]   | `DevicePoll(Device*, wait, WrappedSubmissionIndex*)`                                | `Wgpu`         | non-blocking queue poll |
-|   [3]   | `SetLogCallback(LogCallback, userdata)`                                             | `Wgpu`         | native log sink         |
-|   [4]   | `SetLogLevel(LogLevel)`                                                             | `Wgpu`         | log verbosity           |
-|   [5]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter**)` | `Wgpu`         | enumerate all adapters  |
-|   [6]   | `GetVersion()`                                                                      | `Wgpu`         | wgpu-native version     |
+|  [01]   | `Wgpu.GetApi(WebGPU)`                                                               | `Wgpu`         | extension load          |
+|  [02]   | `DevicePoll(Device*, wait, WrappedSubmissionIndex*)`                                | `Wgpu`         | non-blocking queue poll |
+|  [03]   | `SetLogCallback(LogCallback, userdata)`                                             | `Wgpu`         | native log sink         |
+|  [04]   | `SetLogLevel(LogLevel)`                                                             | `Wgpu`         | log verbosity           |
+|  [05]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter**)` | `Wgpu`         | enumerate all adapters  |
+|  [06]   | `GetVersion()`                                                                      | `Wgpu`         | wgpu-native version     |
 
 [ENTRYPOINT_SCOPE]: native resource introspection and submission index
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                               | [SURFACE_ROOT] | [RAIL]                      |
 | :-----: | :-------------------------------------------------------------------------------------- | :------------- | :-------------------------- |
-|   [1]   | `QueueSubmitForIndex(Queue*, count, CommandBuffer**)`                                   | `Wgpu`         | submit + return index       |
-|   [2]   | `RenderPassEncoderSetPushConstants(RenderPassEncoder*, stages, offset, size, data*)`    | `Wgpu`         | push-constant set           |
-|   [3]   | `RenderPassEncoderMultiDrawIndirect(RenderPassEncoder*, buffer*, offset, count)`        | `Wgpu`         | multi-draw indirect         |
-|   [4]   | `RenderPassEncoderMultiDrawIndexedIndirect(RenderPassEncoder*, buffer*, offset, count)` | `Wgpu`         | indexed multi-draw indirect |
-|   [5]   | `BufferDestroy(Buffer*)` / `TextureDestroy(Texture*)`                                   | `Wgpu`         | explicit native destroy     |
+|  [01]   | `QueueSubmitForIndex(Queue*, count, CommandBuffer**)`                                   | `Wgpu`         | submit + return index       |
+|  [02]   | `RenderPassEncoderSetPushConstants(RenderPassEncoder*, stages, offset, size, data*)`    | `Wgpu`         | push-constant set           |
+|  [03]   | `RenderPassEncoderMultiDrawIndirect(RenderPassEncoder*, buffer*, offset, count)`        | `Wgpu`         | multi-draw indirect         |
+|  [04]   | `RenderPassEncoderMultiDrawIndexedIndirect(RenderPassEncoder*, buffer*, offset, count)` | `Wgpu`         | indexed multi-draw indirect |
+|  [05]   | `BufferDestroy(Buffer*)` / `TextureDestroy(Texture*)`                                   | `Wgpu`         | explicit native destroy     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [WGPU_EXTENSION_TOPOLOGY]:
 - `Wgpu.GetApi(webgpu)` loads the wgpu-native vendor function table against the existing `WebGPU.GetApi()` instance — the extension is a second function-table view over the one loaded `wgpu_native` runtime, never a second binding; a call site holds one `WebGPU` core and one `Wgpu` extension.

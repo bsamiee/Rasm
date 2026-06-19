@@ -2,7 +2,7 @@
 
 `@pulumi/policy` supplies `PolicyPack`, `ResourceValidationPolicy`, `StackValidationPolicy`, and the `validateResourceOfType` / `remediateResourceOfType` / `validateRemediateResourceOfType` helpers for authoring CrossGuard policy packs that validate or auto-remediate Pulumi resource definitions before and during deployment.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@pulumi/policy`
 - package: `@pulumi/policy`
@@ -10,65 +10,65 @@
 - asset: policy pack runtime, resource and stack validation surfaces, enforcement levels, remediation helpers
 - rail: policy
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: policy pack family
 - rail: policy
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [RAIL]                                                                                                   |
 | :-----: | :----------------- | :------------- | :------------------------------------------------------------------------------------------------------- |
-|   [1]   | `PolicyPack`       | class          | container for a named set of policies                                                                    |
-|   [2]   | `PolicyPackArgs`   | args interface | `policies`, `enforcementLevel`, `description`, `displayName`, `readme`, `provider`, `tags`, `repository` |
-|   [3]   | `EnforcementLevel` | string union   | `"advisory" \| "mandatory" \| "remediate" \| "disabled"`                                                 |
-|   [4]   | `Severity`         | string union   | `"low" \| "medium" \| "high" \| "critical"`                                                              |
-|   [5]   | `Policies`         | type alias     | `(ResourceValidationPolicy \| StackValidationPolicy)[]`                                                  |
-|   [6]   | `PolicyPackConfig` | type alias     | `Record<string, EnforcementLevel \| { enforcementLevel?: EnforcementLevel; [key: string]: any }>`        |
-|   [7]   | `Secret`           | class          | wraps a plaintext value as a Pulumi secret in remediations                                               |
+|  [01]   | `PolicyPack`       | class          | container for a named set of policies                                                                    |
+|  [02]   | `PolicyPackArgs`   | args interface | `policies`, `enforcementLevel`, `description`, `displayName`, `readme`, `provider`, `tags`, `repository` |
+|  [03]   | `EnforcementLevel` | string union   | `"advisory" \| "mandatory" \| "remediate" \| "disabled"`                                                 |
+|  [04]   | `Severity`         | string union   | `"low" \| "medium" \| "high" \| "critical"`                                                              |
+|  [05]   | `Policies`         | type alias     | `(ResourceValidationPolicy \| StackValidationPolicy)[]`                                                  |
+|  [06]   | `PolicyPackConfig` | type alias     | `Record<string, EnforcementLevel \| { enforcementLevel?: EnforcementLevel; [key: string]: any }>`        |
+|  [07]   | `Secret`           | class          | wraps a plaintext value as a Pulumi secret in remediations                                               |
 
 [PUBLIC_TYPE_SCOPE]: policy definition family
 - rail: policy
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]    | [RAIL]                                                                                                                               |
 | :-----: | :-------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `Policy`                    | base interface   | `name`, `description`, `enforcementLevel`, `severity`, `configSchema`, `displayName`, `framework`, `tags`, `remediationSteps`, `url` |
-|   [2]   | `ResourceValidationPolicy`  | policy interface | extends `Policy`; `validateResource`, `remediateResource`                                                                            |
-|   [3]   | `StackValidationPolicy`     | policy interface | extends `Policy`; `validateStack`                                                                                                    |
-|   [4]   | `PolicyConfigSchema`        | schema interface | `properties: Record<string, PolicyConfigJSONSchema>`, `required?`                                                                    |
-|   [5]   | `PolicyComplianceFramework` | interface        | `name`, `version`, `reference`, `specification`                                                                                      |
+|  [01]   | `Policy`                    | base interface   | `name`, `description`, `enforcementLevel`, `severity`, `configSchema`, `displayName`, `framework`, `tags`, `remediationSteps`, `url` |
+|  [02]   | `ResourceValidationPolicy`  | policy interface | extends `Policy`; `validateResource`, `remediateResource`                                                                            |
+|  [03]   | `StackValidationPolicy`     | policy interface | extends `Policy`; `validateStack`                                                                                                    |
+|  [04]   | `PolicyConfigSchema`        | schema interface | `properties: Record<string, PolicyConfigJSONSchema>`, `required?`                                                                    |
+|  [05]   | `PolicyComplianceFramework` | interface        | `name`, `version`, `reference`, `specification`                                                                                      |
 
 [PUBLIC_TYPE_SCOPE]: validation and remediation callback family
 - rail: policy
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [RAIL]                                                                                                                                |
 | :-----: | :----------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `ResourceValidation`     | callback type  | `(args: ResourceValidationArgs, reportViolation: ReportViolation) => Promise<void> \| void`                                           |
-|   [2]   | `ResourceRemediation`    | callback type  | `(args: ResourceValidationArgs) => Record<string, any> \| void \| Promise<…>`                                                         |
-|   [3]   | `StackValidation`        | callback type  | `(args: StackValidationArgs, reportViolation: ReportViolation) => Promise<void> \| void`                                              |
-|   [4]   | `ReportViolation`        | callback type  | `(message: string, urn?: string) => void`                                                                                             |
-|   [5]   | `ResourceValidationArgs` | args interface | `type`, `props`, `urn`, `name`, `opts`, `provider?`, `stackTags`, `isType<T>()`, `asType<T,A>()`, `getConfig<T>()`, `notApplicable()` |
-|   [6]   | `StackValidationArgs`    | args interface | `resources: PolicyResource[]`, `stackTags`, `getConfig<T>()`, `notApplicable()`                                                       |
-|   [7]   | `PolicyResource`         | interface      | `type`, `props`, `urn`, `name`, `opts`, `provider?`, `parent?`, `dependencies`, `propertyDependencies`, `isType<T>()`, `asType<T>()`  |
+|  [01]   | `ResourceValidation`     | callback type  | `(args: ResourceValidationArgs, reportViolation: ReportViolation) => Promise<void> \| void`                                           |
+|  [02]   | `ResourceRemediation`    | callback type  | `(args: ResourceValidationArgs) => Record<string, any> \| void \| Promise<…>`                                                         |
+|  [03]   | `StackValidation`        | callback type  | `(args: StackValidationArgs, reportViolation: ReportViolation) => Promise<void> \| void`                                              |
+|  [04]   | `ReportViolation`        | callback type  | `(message: string, urn?: string) => void`                                                                                             |
+|  [05]   | `ResourceValidationArgs` | args interface | `type`, `props`, `urn`, `name`, `opts`, `provider?`, `stackTags`, `isType<T>()`, `asType<T,A>()`, `getConfig<T>()`, `notApplicable()` |
+|  [06]   | `StackValidationArgs`    | args interface | `resources: PolicyResource[]`, `stackTags`, `getConfig<T>()`, `notApplicable()`                                                       |
+|  [07]   | `PolicyResource`         | interface      | `type`, `props`, `urn`, `name`, `opts`, `provider?`, `parent?`, `dependencies`, `propertyDependencies`, `isType<T>()`, `asType<T>()`  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: policy pack construction
 - rail: policy
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `new PolicyPack(name, args, initialConfig?)` | pack init      | registers all policies under `name` |
+|  [01]   | `new PolicyPack(name, args, initialConfig?)` | pack init      | registers all policies under `name` |
 
 [ENTRYPOINT_SCOPE]: typed policy helpers
 - rail: policy
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]     | [RAIL]                                                                     |
 | :-----: | :------------------------------------------------------------------ | :----------------- | :------------------------------------------------------------------------- |
-|   [1]   | `validateResourceOfType(resourceClass, validate)`                   | validation helper  | strongly-typed `ResourceValidation` factory                                |
-|   [2]   | `remediateResourceOfType(resourceClass, remediate)`                 | remediation helper | strongly-typed `ResourceRemediation` factory                               |
-|   [3]   | `validateRemediateResourceOfType(resourceClass, validateRemediate)` | combined helper    | returns `{ validateResource, remediateResource }` for spread into a policy |
-|   [4]   | `validateStackResourcesOfType(resourceClass, validate)`             | stack helper       | strongly-typed `StackValidation` that filters by resource class            |
+|  [01]   | `validateResourceOfType(resourceClass, validate)`                   | validation helper  | strongly-typed `ResourceValidation` factory                                |
+|  [02]   | `remediateResourceOfType(resourceClass, remediate)`                 | remediation helper | strongly-typed `ResourceRemediation` factory                               |
+|  [03]   | `validateRemediateResourceOfType(resourceClass, validateRemediate)` | combined helper    | returns `{ validateResource, remediateResource }` for spread into a policy |
+|  [04]   | `validateStackResourcesOfType(resourceClass, validate)`             | stack helper       | strongly-typed `StackValidation` that filters by resource class            |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [POLICY_TOPOLOGY]:
 - a `PolicyPack` registers one or more `ResourceValidationPolicy` or `StackValidationPolicy` entries; it runs as a separate process invoked by the Pulumi CLI during previews and updates

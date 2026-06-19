@@ -4,7 +4,7 @@
 
 ---
 
-## [1]-[INDEX_BARREL]
+## [01]-[INDEX_BARREL]
 
 ```ts
 // @effect/experimental — namespace re-exports (index.d.ts)
@@ -29,15 +29,15 @@ export * as VariantSchema from "./VariantSchema.js"
 
 | [INDEX] | [MODULE]                                                   | [SECTION] | [PRIMARY ROLE]                                        |
 | :-----: | :--------------------------------------------------------- | :-------: | :---------------------------------------------------- |
-|   [1]   | `Persistence`                                              |    [2]    | backing/result persistence stores + KVS/memory layers |
-|   [2]   | `PersistedCache`                                           |    [3]    | result-persisted memoized lookup cache                |
-|   [3]   | `PersistedQueue`                                           |    [4]    | durable retrying work queue                           |
-|   [4]   | `RequestResolver`                                          |    [5]    | dataLoader batching + persisted request resolvers     |
-|   [5]   | `RateLimiter`                                              |    [6]    | fixed-window / token-bucket limiter + store           |
-|   [6]   | `Reactivity`                                               |    [7]    | key-scoped mutation/query/stream invalidation         |
-|   [7]   | `Event` / `EventGroup`                                     |    [8]    | event definition + domain grouping vocabulary         |
-|   [8]   | `EventJournal`                                             |    [9]    | local append-only journal + entry/remote model        |
-|   [9]   | `EventLog`                                                 |   [10]    | handler registry, compaction, reactivity, client      |
+|  [01]   | `Persistence`                                              |   [02]    | backing/result persistence stores + KVS/memory layers |
+|  [02]   | `PersistedCache`                                           |   [03]    | result-persisted memoized lookup cache                |
+|  [03]   | `PersistedQueue`                                           |   [04]    | durable retrying work queue                           |
+|  [04]   | `RequestResolver`                                          |   [05]    | dataLoader batching + persisted request resolvers     |
+|  [05]   | `RateLimiter`                                              |   [06]    | fixed-window / token-bucket limiter + store           |
+|  [06]   | `Reactivity`                                               |   [07]    | key-scoped mutation/query/stream invalidation         |
+|  [07]   | `Event` / `EventGroup`                                     |   [08]    | event definition + domain grouping vocabulary         |
+|  [08]   | `EventJournal`                                             |   [09]    | local append-only journal + entry/remote model        |
+|  [09]   | `EventLog`                                                 |   [10]    | handler registry, compaction, reactivity, client      |
 |  [10]   | `EventLogRemote` / `EventLogServer` / `EventLogEncryption` |   [11]    | sync protocol, server storage, subtle-crypto          |
 |  [11]   | `Machine`                                                  |   [12]    | actor state machine + serializable snapshot/restore   |
 |  [12]   | `Sse`                                                      |   [13]    | server-sent-events parser/encoder channel             |
@@ -46,7 +46,7 @@ export * as VariantSchema from "./VariantSchema.js"
 
 ---
 
-## [2]-[PERSISTENCE]
+## [02]-[PERSISTENCE]
 
 Backing stores hold raw `unknown` values keyed by string; result stores hold `Exit` values keyed by
 a `Schema.WithResult` + `PrimaryKey` request. `PersistenceError` is the union error rail.
@@ -130,7 +130,7 @@ export const unsafeTtlToExpires: (clock: Clock.Clock, ttl: Option.Option<Duratio
 
 ---
 
-## [3]-[PERSISTED_CACHE]
+## [03]-[PERSISTED_CACHE]
 
 ```ts
 // @effect/experimental/PersistedCache
@@ -152,7 +152,7 @@ export const make: <K extends Persistence.ResultPersistence.KeyAny, R>(options: 
 
 ---
 
-## [4]-[PERSISTED_QUEUE]
+## [04]-[PERSISTED_QUEUE]
 
 ```ts
 // @effect/experimental/PersistedQueue
@@ -200,7 +200,7 @@ export const layerStoreMemory: Layer.Layer<PersistedQueueStore>
 
 ---
 
-## [5]-[REQUEST_RESOLVER]
+## [05]-[REQUEST_RESOLVER]
 
 ```ts
 // @effect/experimental/RequestResolver
@@ -229,7 +229,7 @@ export const persisted: {
 
 ---
 
-## [6]-[RATE_LIMITER]
+## [06]-[RATE_LIMITER]
 
 ```ts
 // @effect/experimental/RateLimiter
@@ -296,7 +296,7 @@ export const layerStoreMemory: Layer.Layer<RateLimiterStore>
 
 ---
 
-## [7]-[REACTIVITY]
+## [07]-[REACTIVITY]
 
 ```ts
 // @effect/experimental/Reactivity
@@ -335,7 +335,7 @@ export namespace Reactivity {
 
 ---
 
-## [8]-[EVENT_AND_EVENT_GROUP]
+## [08]-[EVENT_AND_EVENT_GROUP]
 
 ```ts
 // @effect/experimental/Event
@@ -393,7 +393,7 @@ export const empty: EventGroup<never>
 
 ---
 
-## [9]-[EVENT_JOURNAL]
+## [09]-[EVENT_JOURNAL]
 
 ```ts
 // @effect/experimental/EventJournal

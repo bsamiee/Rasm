@@ -2,15 +2,15 @@
 
 Rasm.AppUi mounts one shell into every admitted host substrate through a single seven-case `SurfaceHost` axis: one seam record carries every host-side delegate column, one mount transaction produces the surface receipt and teardown session, one embed capsule owns the foreign-view boundary, one scheduler boundary completes the UI marshal port, and per-RID native asset rows prove load identity. The page owns the host axis, the embedding capsule, the scheduler boundary, the native asset table, and the host fact stream over Avalonia, ReactiveUI.Avalonia, the SkiaSharp and HarfBuzzSharp native families, LanguageExt rails, and the abstract `SurfaceSeam` mount-delegate columns an app root binds to a live host.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[HOST_AXIS]: Seven-case host axis, seam columns, one mount transaction.
-- [2]-[EMBED_CAPSULE]: Foreign-view embedding capsule, lifecycle order, platform policy.
-- [3]-[SCHEDULER_BOUNDARY]: One UI-thread boundary completing the scheduler port marshal.
-- [4]-[NATIVE_ASSETS]: Per-RID Skia and HarfBuzz rows with load-identity receipts.
-- [5]-[SCALE_FOCUS]: Closed host fact union for scale, visibility, focus, appearance.
+- [01]-[HOST_AXIS]: Seven-case host axis, seam columns, one mount transaction.
+- [02]-[EMBED_CAPSULE]: Foreign-view embedding capsule, lifecycle order, platform policy.
+- [03]-[SCHEDULER_BOUNDARY]: One UI-thread boundary completing the scheduler port marshal.
+- [04]-[NATIVE_ASSETS]: Per-RID Skia and HarfBuzz rows with load-identity receipts.
+- [05]-[SCALE_FOCUS]: Closed host fact union for scale, visibility, focus, appearance.
 
-## [2]-[HOST_AXIS]
+## [02]-[HOST_AXIS]
 
 - Owner: `SurfaceHost` — one `[Union]` host axis; `SurfaceSeam` — the host-delegate column record; `SurfaceRow` — the resolved policy row; `Surfaces` — the total dispatch and mount surface; `SurfaceFault` — the fault family; `SurfaceReceipt` and `SurfaceSession` — mount evidence.
 - Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity in the 4100 code band.
@@ -154,7 +154,7 @@ public static class Surfaces {
 }
 ```
 
-## [3]-[EMBED_CAPSULE]
+## [03]-[EMBED_CAPSULE]
 
 - Owner: `EmbedCapsule` — the foreign-view boundary capsule deriving the embeddable top-level; `EmbedOptions` — the embedded platform policy row.
 - Entry: `Fin<(long Handle, string Descriptor, IDisposable Teardown)> Mounted(Func<EmbedCapsule, Fin<IDisposable>> mount)` — `Fin` aborts on handle absence and seam rejection with defensive capsule disposal.
@@ -235,7 +235,7 @@ stateDiagram-v2
     Dispose --> [*]
 ```
 
-## [4]-[SCHEDULER_BOUNDARY]
+## [04]-[SCHEDULER_BOUNDARY]
 
 - Owner: `SurfaceScheduler` — the one record where the UI dispatcher, the Avalonia reactive scheduler, and the host marshal meet.
 - Entry: `SurfaceScheduler For(SurfaceHost host, SurfaceRow row, Option<TimeProvider> virtualTime = default)` — pure projection over the resolved row; the UI-thread predicate is sourced once from `row.OnUiThread`, which the row builders carry from `seam.OnUiThread` at resolution, so no parallel `onUiThread` parameter threads beside the row.
@@ -262,7 +262,7 @@ public sealed record SurfaceScheduler(IScheduler Ui, Func<Action, IO<Unit>> Mars
 }
 ```
 
-## [5]-[NATIVE_ASSETS]
+## [05]-[NATIVE_ASSETS]
 
 - Owner: `NativeAssetRow` — per-RID asset rows; `NativeAssetReceipt` — load-identity evidence; `NativeAssets` — the frozen row table and identity fold.
 - Entry: `Fin<Seq<NativeAssetReceipt>> Identity(NativeAssetRow row)` — traverses the row's native libraries into receipts.
@@ -303,7 +303,7 @@ public static class NativeAssets {
 }
 ```
 
-## [6]-[SCALE_FOCUS]
+## [06]-[SCALE_FOCUS]
 
 - Owner: `SurfaceFact` — one closed host fact union for scale, visibility, focus, and appearance.
 - Cases: ScaleChanged, VisibilityChanged, FocusChanged, AppearanceChanged.
@@ -322,6 +322,6 @@ public abstract partial record SurfaceFact {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [EMBED_SPIKE]: the seam `OnUiThread` access-assertion spelling and scheduler boundary under the Rhino-owned AppKit run-loop — the UI-thread predicate the seam column binds, input and IME delivery, and the CADisplayLink-paced pump fallback row; `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize; render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts; the shared-`GRContext` spelling against the host GPU pipeline when the embedded surface composites into a host-owned context, bound as one `SurfaceSeam` delegate column.

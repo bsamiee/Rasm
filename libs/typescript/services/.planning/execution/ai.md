@@ -2,11 +2,11 @@
 
 The AI activity over the one `AiProvider` literal axis, the `AgentJournal` durable agent-execution ledger, and the `Resilience` primitives every outbound and durable path composes. An AI provider call is one durable activity, not a parallel service set; the five providers are one row on the activity. This page is the SINGLE declaration site of the `AiProvider` literal; every other page references it as settled vocabulary. The AI activity is node-only, never browser-reachable, and crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[AI_ACTIVITY]: owns the `AiProvider` literal axis, the single AI activity, the `AgentJournal` ledger, and the `Resilience` primitives.
+- [01]-[AI_ACTIVITY]: owns the `AiProvider` literal axis, the single AI activity, the `AgentJournal` ledger, and the `Resilience` primitives.
 
-## [2]-[AI_ACTIVITY]
+## [02]-[AI_ACTIVITY]
 
 - Owner: `ActivityOwner.aiActivity`, the AI activity over the closed `AiProvider` literal axis; `AgentJournal`, the durable agent-execution ledger; `Resilience`, the circuit-breaker/retry/JSON-patch primitive set.
 - Auto: an AI provider call is one durable activity, not a parallel service set. `AiProvider` is a closed `Schema.Literal` vocabulary — anthropic, openai, google, amazon-bedrock, openrouter — selecting the provider model layer; the activity body is one language-model `generateText` (or `generateObject`) call wrapped in the activity's interrupt-retry schedule and compensation finalizers, the selected provider model provided over the activity through the unified model layer, so the five providers are one row on the activity, never five activities; each tool call and checkpoint the activity emits writes one `AgentJournal` row. This is the sole declaration site of `AiProvider`; downstream pages reference it as settled vocabulary.

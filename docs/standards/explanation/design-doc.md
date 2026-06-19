@@ -6,7 +6,7 @@ The entry gate is ambiguity: write a design document only when at least two plau
 
 Inside a scope-local `.planning/` folder, `SPEC.<slug>.md` is the target sequencing spec-sheet filename governed by this standard. Use it when a roadmap task needs reusable detail, ambiguity handling, alternatives, risks, slices, or confirmation target sequencing that would make the task row too large. If a task has one obvious approach and no reusable detailed spec, keep the detail in the roadmap task.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a design document when the change has design ambiguity and needs any of these before code lands:
 - pre-code convergence across two or more routes or boundaries;
@@ -24,15 +24,15 @@ Do not use a design document or `SPEC.<slug>.md` for one obvious approach with n
 - Adjacent checks: use handoff records only when an accepted design changes another document's reader action, confirmation, or maintenance route.
 - Maintenance triggers: update the design when status, selected option, change slice, risk disposition, final-check result, confirmation gate, handoff target, or supersession changes.
 
-## [2]-[PROFILES]
+## [02]-[PROFILES]
 
 Pick one profile from blast radius. The profile raises source and confirmation obligations; it never removes the ambiguity gate.
 
 | [INDEX] | [PROFILE]       | [TRIGGER]                 | [CHECK_SCOPE]        | [FINAL_CHECK] | [ADR_HANDOFF] |
 | :-----: | :-------------- | :------------------------ | :------------------- | :------------ | :------------ |
-|   [1]   | Lightweight     | one route or package      | controlling source   | optional      | no            |
-|   [2]   | Standard        | 2+ routes or packages     | each affected route  | required      | if policy     |
-|   [3]   | Public-contract | runtime, contract, public | routes plus contract | required      | yes           |
+|  [01]   | Lightweight     | one route or package      | controlling source   | optional      | no            |
+|  [02]   | Standard        | 2+ routes or packages     | each affected route  | required      | if policy     |
+|  [03]   | Public-contract | runtime, contract, public | routes plus contract | required      | yes           |
 
 `If policy` means acceptance binds durable architecture policy. `Public-contract` means the change has enough public, runtime, or contract blast radius that every concern gets a check source or a stated `n/a` reason.
 
@@ -47,7 +47,7 @@ Local final check is a document state inside this type. It defines check source,
 - Omit rule: keep detail in the roadmap task when the task has no ambiguity and no reusable detailed spec.
 - Folder rule: do not create `.planning/specs/` unless many active specs or tooling justify the extra lookup layer.
 
-## [3]-[LIFECYCLE_FIELDS]
+## [03]-[LIFECYCLE_FIELDS]
 
 Every design document states lifecycle facts where they route source and confirmation obligations: status and profile in the lead, check-scope and final-check facts in the matching sections, and supersession in the handoff or boundaries section.
 
@@ -79,7 +79,7 @@ Multiple status vocabularies are allowed only when they are scoped to separate r
 
 `Status` and `Profile` are discriminants: an agent reads them to route lifecycle obligations and conditional sections. Keep both to one value from the closed set.
 
-## [4]-[REQUIRED_STRUCTURE]
+## [04]-[REQUIRED_STRUCTURE]
 
 Use the base skeleton for every status, then apply the lifecycle deltas. Conditional sections are omitted until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
@@ -137,12 +137,12 @@ Use this lifecycle/profile decision table:
 
 | [INDEX] | [CONDITION]                              | [REQUIRED_OUTPUT]                                             |
 | :-----: | :--------------------------------------- | :------------------------------------------------------------ |
-|   [1]   | `Status: DRAFT`                          | draft skeleton; visible gap note                              |
-|   [2]   | `Status: DISCUSSION` or later            | discussion skeleton; check-scope lifecycle facts              |
-|   [3]   | `Profile: Standard` or `Public-contract` | change slices and cross-cutting implications                  |
-|   [4]   | `Status: FINAL-CHECK` or later           | final-check record, deadline, and objection disposition       |
-|   [5]   | acceptance binds durable policy          | decision-record handoff                                       |
-|   [6]   | `Status: IMPLEMENTED`                    | implemented confirmation linking the implementation code path |
+|  [01]   | `Status: DRAFT`                          | draft skeleton; visible gap note                              |
+|  [02]   | `Status: DISCUSSION` or later            | discussion skeleton; check-scope lifecycle facts              |
+|  [03]   | `Profile: Standard` or `Public-contract` | change slices and cross-cutting implications                  |
+|  [04]   | `Status: FINAL-CHECK` or later           | final-check record, deadline, and objection disposition       |
+|  [05]   | acceptance binds durable policy          | decision-record handoff                                       |
+|  [06]   | `Status: IMPLEMENTED`                    | implemented confirmation linking the implementation code path |
 
 [SECTION_CARDINALITY]:
 - Lifecycle facts, `Boundaries`, and `Result check` are required for every status.
@@ -157,7 +157,7 @@ Accepted title: `# [FREEZE_CONTRACT]`
 Accepted fields: `Status: DISCUSSION`; `Profile: Public-contract`; `Date: YYYY-MM-DD`; `Owner: <design-source>`; `Check scopes: <platform>, <consumers>, <release-route>`.
 Accepted lead: This design proposes freezing `<contract>` so downstream consumers can validate integration before release. It compares generated and maintained contract options, records change slices, and, if accepted, hands durable policy to an ADR and current boundary changes to architecture.
 
-## [5]-[SECTION_RULES]
+## [05]-[SECTION_RULES]
 
 State each section's controlling content first and its boundary last. Where a section names a finite set of trackable items, render that set as the mandated structure.
 
@@ -180,7 +180,7 @@ State each section's controlling content first and its boundary last. Where a se
 
 Use stable local IDs only for records another section or adjacent document references. Change slices use `S<N>`, risks use `R<N>`, open questions use `Q<N>`, and cross-cutting concern records use their concern label. Do not add IDs to every paragraph; an ID exists so a dependency, handoff, acceptance gate, or confirmation receipt can point to one record without copying it.
 
-## [6]-[GOALS_CHECKLIST]
+## [06]-[GOALS_CHECKLIST]
 
 Render `Goals` as a checklist of measurable conditions. A bare prose goal with no pass condition is the primary low-value failure mode.
 
@@ -194,15 +194,15 @@ Render `Goals` as a checklist of measurable conditions. A bare prose goal with n
 
 Each item pairs outcome with the metric, threshold, or signal that proves it. Carry the same scope boundary into `Non-goals`: a declined scope is a plausible candidate the reader might expect.
 
-## [7]-[ALTERNATIVES_CONSIDERED]
+## [07]-[ALTERNATIVES_CONSIDERED]
 
 Use a comparison table when two or more options survive triage. The baseline row is mandatory when inaction was plausible. Name columns after the deciding facts agents need, not generic sentiment.
 
 | [INDEX] | [OPTION]            | [DRIVER]    | [COST]      | [RISK]          | [VERDICT]         |
 | :-----: | :------------------ | :---------- | :---------- | :-------------- | :---------------- |
-|   [1]   | Sharded writers     | throughput  | rebalance   | shard-loss mode | selected          |
-|   [2]   | Single-writer queue | routing     | one core    | caps throughput | rejected          |
-|   [3]   | Do nothing          | no new code | drift stays | misses pressure | rejected baseline |
+|  [01]   | Sharded writers     | throughput  | rebalance   | shard-loss mode | selected          |
+|  [02]   | Single-writer queue | routing     | one core    | caps throughput | rejected          |
+|  [03]   | Do nothing          | no new code | drift stays | misses pressure | rejected baseline |
 
 When only one option survived and the trade-off is asymmetric, a `Lightweight` design may render this section as labeled prose instead of a table. The deciding trade-off and baseline still appear inside `Alternatives considered`; do not hide them under `Proposed approach`.
 
@@ -210,14 +210,14 @@ When only one option survived and the trade-off is asymmetric, a `Lightweight` d
 - Rejected alternatives: `Single-writer queue` and `sharded design`, with no selected-option trade-off.
 - Reason: the rejected shape records options without the deciding trade-off.
 
-## [8]-[CHANGE_SLICES]
+## [08]-[CHANGE_SLICES]
 
 A change slice is one self-contained change that an agent can understand, validate, and revert without the rest of the proposal landing first. Use a compact table only while rollback and handoff facts stay short:
 
 | [INDEX] | [ID] | [SLICE]           | [KIND]   | [DEPENDS] | [CHECK_FOCUS]        | [ROLLBACK]   |
 | :-----: | :--- | :---------------- | :------- | :-------- | :------------------- | :----------- |
-|   [1]   | S1   | Contract freeze   | contract | —         | break shape          | schema diff  |
-|   [2]   | S2   | Runtime admission | behavior | S1        | integration boundary | feature flag |
+|  [01]   | S1   | Contract freeze   | contract | —         | break shape          | schema diff  |
+|  [02]   | S2   | Runtime admission | behavior | S1        | integration boundary | feature flag |
 
 Promote slices to records when confirmation, rollback, or adjacent handoff needs more than a short cell:
 
@@ -239,7 +239,7 @@ Slice kinds are local labels, not a closed global sequence. Keep dependency orde
 - Rejected slice table: `S1 refactor -> S2 implementation -> S3 tests`.
 - Reason: the rejected shape invites fixed-sequence copying.
 
-## [9]-[TRACKABLE_RECORDS]
+## [09]-[TRACKABLE_RECORDS]
 
 `Cross-cutting implications` carries one record per concern for `Standard` and `Public-contract` designs:
 
@@ -288,9 +288,9 @@ Route-away: benchmark command and runtime tuning stay in test strategy or implem
 
 | [INDEX] | [GATE]             | [COMMAND_CONTRACT]     | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT] |
 | :-----: | :----------------- | :--------------------- | :------------------ | :------------ |
-|   [1]   | Unit laws          | unit test status check | suite green         | enforced      |
-|   [2]   | Storage contract   | generated schema diff  | no breaking change  | enforced      |
-|   [3]   | Route design check | —                      | two route checks    | manual        |
+|  [01]   | Unit laws          | unit test status check | suite green         | enforced      |
+|  [02]   | Storage contract   | generated schema diff  | no breaking change  | enforced      |
+|  [03]   | Route design check | —                      | two route checks    | manual        |
 
 At `ACCEPTED` and `IMPLEMENTED`, add confirmation receipt fields beside completed gates rather than rewriting target gates as if they already ran:
 
@@ -316,8 +316,8 @@ Strategy gate route: <test strategy path and gate anchor>
 
 | [INDEX] | [CHECK_SCOPE] | [STATE]   |     [DATE] |
 | :-----: | :------------ | :-------- | ---------: |
-|   [1]   | runtime route | satisfied | YYYY-MM-DD |
-|   [2]   | storage route | pending   |          — |
+|  [01]   | runtime route | satisfied | YYYY-MM-DD |
+|  [02]   | storage route | pending   |          — |
 
 The design is ready to accept only when every required check reads `satisfied`, every objection reads `RESOLVED` or `ACCEPTED-AS-RISK`, and no live risk remains `OPEN`.
 
@@ -383,15 +383,15 @@ Use this handoff decision table:
 
 | [INDEX] | [CONDITION]                       | [HANDOFF_TARGET]             |
 | :-----: | :-------------------------------- | :--------------------------- |
-|   [1]   | durable policy accepted           | ADR                          |
-|   [2]   | current structure changes         | architecture                 |
-|   [3]   | dated or sequenced work           | roadmap                      |
-|   [4]   | confirmation gate changes         | test strategy                |
-|   [5]   | implementation confirmation lands | implementation source or PR  |
-|   [6]   | support lifecycle changes         | support matrix               |
-|   [7]   | public contract docs change       | API, reference, or code docs |
-|   [8]   | adoption or task path changes     | README, tutorial, or how-to  |
-|   [9]   | operational readiness changes     | runbook                      |
+|  [01]   | durable policy accepted           | ADR                          |
+|  [02]   | current structure changes         | architecture                 |
+|  [03]   | dated or sequenced work           | roadmap                      |
+|  [04]   | confirmation gate changes         | test strategy                |
+|  [05]   | implementation confirmation lands | implementation source or PR  |
+|  [06]   | support lifecycle changes         | support matrix               |
+|  [07]   | public contract docs change       | API, reference, or code docs |
+|  [08]   | adoption or task path changes     | README, tutorial, or how-to  |
+|  [09]   | operational readiness changes     | runbook                      |
 
 ## [12]-[MODAL_LANGUAGE]
 

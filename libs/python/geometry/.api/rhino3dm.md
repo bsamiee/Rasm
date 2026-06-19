@@ -2,7 +2,7 @@
 
 `rhino3dm` supplies the headless OpenNURBS surface for the geometry exchange rail: a `File3dm` document with typed object/layer/material tables, the full `GeometryBase` hierarchy (`Mesh`, `Brep`, `NurbsCurve`, `NurbsSurface`, `SubD`, `Extrusion`, `PointCloud`), value primitives (`Point3d`, `Vector3d`, `Plane`, `Transform`, `BoundingBox`), and `CommonObject` JSON serialization that round-trips geometry to and from the `.3dm` archive without a Rhino install. The package owner composes `File3dm.Read`, `File3dmObjectTable.Add*`, and `CommonObject.Encode`/`Decode` into the exchange owner; it never re-implements OpenNURBS tessellation, NURBS evaluation, or the `.3dm` binary archive.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rhino3dm`
 - package: `rhino3dm`
@@ -13,65 +13,65 @@
 - entry points: none (library only)
 - capability: headless `.3dm` archive read/write, typed document tables, NURBS curve/surface evaluation, mesh and SubD geometry, point clouds, geometry transforms and bounding boxes, and `CommonObject` JSON serialization
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and table family
 - rail: exchange
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]     | [CAPABILITY]                                          |
 | :-----: | :--------------------- | :---------------- | :---------------------------------------------------- |
-|   [1]   | `File3dm`              | archive document  | read/write `.3dm`, owns all object and setting tables |
-|   [2]   | `File3dmObjectTable`   | object table      | typed `Add*` geometry insertion and `FindId` lookup   |
-|   [3]   | `File3dmLayerTable`    | layer table       | `AddLayer`, `FindName`, `FindIndex`, `FindId`         |
-|   [4]   | `File3dmMaterialTable` | material table    | render material entries                               |
-|   [5]   | `File3dmObject`        | object record     | geometry plus `ObjectAttributes` pair                 |
-|   [6]   | `ObjectAttributes`     | object metadata   | layer, color, name, material source, user strings     |
-|   [7]   | `Layer`                | layer record      | name, color, visibility, parent, render material      |
-|   [8]   | `File3dmSettings`      | document settings | model unit system, tolerances, render settings        |
+|  [01]   | `File3dm`              | archive document  | read/write `.3dm`, owns all object and setting tables |
+|  [02]   | `File3dmObjectTable`   | object table      | typed `Add*` geometry insertion and `FindId` lookup   |
+|  [03]   | `File3dmLayerTable`    | layer table       | `AddLayer`, `FindName`, `FindIndex`, `FindId`         |
+|  [04]   | `File3dmMaterialTable` | material table    | render material entries                               |
+|  [05]   | `File3dmObject`        | object record     | geometry plus `ObjectAttributes` pair                 |
+|  [06]   | `ObjectAttributes`     | object metadata   | layer, color, name, material source, user strings     |
+|  [07]   | `Layer`                | layer record      | name, color, visibility, parent, render material      |
+|  [08]   | `File3dmSettings`      | document settings | model unit system, tolerances, render settings        |
 
 [PUBLIC_TYPE_SCOPE]: geometry hierarchy (`GeometryBase` subclasses)
 - rail: exchange
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [CAPABILITY]                                         |
 | :-----: | :------------- | :-------------- | :--------------------------------------------------- |
-|   [1]   | `GeometryBase` | geometry root   | transform, bounding box, user strings, encode/decode |
-|   [2]   | `Mesh`         | triangle mesh   | vertices/faces/normals/colors, manifold and topology |
-|   [3]   | `Brep`         | boundary rep    | faces/edges/surfaces, solid and manifold queries     |
-|   [4]   | `Extrusion`    | extrusion solid | profile-and-path solid, `ToBrep`/`ToNurbsSurface`    |
-|   [5]   | `SubD`         | subdivision     | control net, subdivide, solid query                  |
-|   [6]   | `NurbsCurve`   | NURBS curve     | control points, knots, evaluation, conversion        |
-|   [7]   | `NurbsSurface` | NURBS surface   | control grid, knots, surface evaluation              |
-|   [8]   | `PointCloud`   | point cloud     | points/colors/normals/values, closest-point query    |
+|  [01]   | `GeometryBase` | geometry root   | transform, bounding box, user strings, encode/decode |
+|  [02]   | `Mesh`         | triangle mesh   | vertices/faces/normals/colors, manifold and topology |
+|  [03]   | `Brep`         | boundary rep    | faces/edges/surfaces, solid and manifold queries     |
+|  [04]   | `Extrusion`    | extrusion solid | profile-and-path solid, `ToBrep`/`ToNurbsSurface`    |
+|  [05]   | `SubD`         | subdivision     | control net, subdivide, solid query                  |
+|  [06]   | `NurbsCurve`   | NURBS curve     | control points, knots, evaluation, conversion        |
+|  [07]   | `NurbsSurface` | NURBS surface   | control grid, knots, surface evaluation              |
+|  [08]   | `PointCloud`   | point cloud     | points/colors/normals/values, closest-point query    |
 
 [PUBLIC_TYPE_SCOPE]: value primitive family
 - rail: exchange
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]    | [CAPABILITY]                         |
 | :-----: | :------------ | :--------------- | :----------------------------------- |
-|   [1]   | `Point3d`     | 3D point         | XYZ coordinate value                 |
-|   [2]   | `Vector3d`    | 3D vector        | direction with unitize and dot/cross |
-|   [3]   | `Point3dList` | point list       | resizable point sequence             |
-|   [4]   | `Plane`       | oriented plane   | origin plus axes for frames          |
-|   [5]   | `Transform`   | 4x4 transform    | affine transform applied to geometry |
-|   [6]   | `BoundingBox` | axis-aligned box | min/max corner spatial bound         |
-|   [7]   | `Interval`    | scalar interval  | parameter domain `T0`/`T1`           |
-|   [8]   | `Polyline`    | polyline         | vertex sequence to `PolylineCurve`   |
+|  [01]   | `Point3d`     | 3D point         | XYZ coordinate value                 |
+|  [02]   | `Vector3d`    | 3D vector        | direction with unitize and dot/cross |
+|  [03]   | `Point3dList` | point list       | resizable point sequence             |
+|  [04]   | `Plane`       | oriented plane   | origin plus axes for frames          |
+|  [05]   | `Transform`   | 4x4 transform    | affine transform applied to geometry |
+|  [06]   | `BoundingBox` | axis-aligned box | min/max corner spatial bound         |
+|  [07]   | `Interval`    | scalar interval  | parameter domain `T0`/`T1`           |
+|  [08]   | `Polyline`    | polyline         | vertex sequence to `PolylineCurve`   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document read and write (`File3dm`)
 - rail: exchange
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CAPABILITY]                          |
 | :-----: | :--------------------------------------- | :------------- | :------------------------------------ |
-|   [1]   | `File3dm.Read(path) -> File3dm`          | read           | open a `.3dm` archive from disk       |
-|   [2]   | `File3dm.FromByteArray(buffer)`          | read           | decode a `.3dm` archive from bytes    |
-|   [3]   | `File3dm.ReadArchiveVersion(path)`       | read           | archive version without full load     |
-|   [4]   | `File3dm.ReadNotes(path)`                | read           | document notes string                 |
-|   [5]   | `f.Write(path, version=0) -> bool`       | write          | write archive at OpenNURBS version    |
-|   [6]   | `f.Encode() -> dict`                     | serialize      | JSON-encode the whole document        |
-|   [7]   | `File3dm.Decode(jsonObject)`             | serialize      | rebuild a document from JSON          |
-|   [8]   | `f.Objects` / `f.Layers` / `f.Materials` | table          | typed table accessors on the document |
+|  [01]   | `File3dm.Read(path) -> File3dm`          | read           | open a `.3dm` archive from disk       |
+|  [02]   | `File3dm.FromByteArray(buffer)`          | read           | decode a `.3dm` archive from bytes    |
+|  [03]   | `File3dm.ReadArchiveVersion(path)`       | read           | archive version without full load     |
+|  [04]   | `File3dm.ReadNotes(path)`                | read           | document notes string                 |
+|  [05]   | `f.Write(path, version=0) -> bool`       | write          | write archive at OpenNURBS version    |
+|  [06]   | `f.Encode() -> dict`                     | serialize      | JSON-encode the whole document        |
+|  [07]   | `File3dm.Decode(jsonObject)`             | serialize      | rebuild a document from JSON          |
+|  [08]   | `f.Objects` / `f.Layers` / `f.Materials` | table          | typed table accessors on the document |
 
 [ENTRYPOINT_SCOPE]: typed object insertion (`File3dmObjectTable`)
 - rail: exchange
@@ -80,15 +80,15 @@ Each `Add*` row inserts geometry under the active layer and returns the new obje
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CAPABILITY]                |
 | :-----: | :--------------------------------- | :------------- | :-------------------------- |
-|   [1]   | `Add(geometry, attributes)`        | insert         | polymorphic geometry insert |
-|   [2]   | `AddMesh(mesh, attributes)`        | insert         | add a `Mesh`                |
-|   [3]   | `AddBrep(brep, attributes)`        | insert         | add a `Brep`                |
-|   [4]   | `AddExtrusion(extrusion, attrs)`   | insert         | add an `Extrusion`          |
-|   [5]   | `AddCurve(curve, attributes)`      | insert         | add any curve               |
-|   [6]   | `AddPoint(point, attributes)`      | insert         | add a point object          |
-|   [7]   | `AddPointCloud(cloud, attributes)` | insert         | add a `PointCloud`          |
-|   [8]   | `AddSurface(surface, attributes)`  | insert         | add a surface               |
-|   [9]   | `AddPolyline(polyline, attrs)`     | insert         | add a polyline              |
+|  [01]   | `Add(geometry, attributes)`        | insert         | polymorphic geometry insert |
+|  [02]   | `AddMesh(mesh, attributes)`        | insert         | add a `Mesh`                |
+|  [03]   | `AddBrep(brep, attributes)`        | insert         | add a `Brep`                |
+|  [04]   | `AddExtrusion(extrusion, attrs)`   | insert         | add an `Extrusion`          |
+|  [05]   | `AddCurve(curve, attributes)`      | insert         | add any curve               |
+|  [06]   | `AddPoint(point, attributes)`      | insert         | add a point object          |
+|  [07]   | `AddPointCloud(cloud, attributes)` | insert         | add a `PointCloud`          |
+|  [08]   | `AddSurface(surface, attributes)`  | insert         | add a surface               |
+|  [09]   | `AddPolyline(polyline, attrs)`     | insert         | add a polyline              |
 |  [10]   | `FindId(id) -> File3dmObject`      | lookup         | resolve an object by `Guid` |
 |  [11]   | `Delete(id) -> bool`               | mutate         | remove an object by `Guid`  |
 
@@ -99,15 +99,15 @@ Each `Add*` row inserts geometry under the active layer and returns the new obje
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [CAPABILITY]               |
 | :-----: | :----------------------------------------- | :------------- | :------------------------- |
-|   [1]   | `Brep.CreateFromBox(box) -> Brep`          | constructor    | box solid as Brep          |
-|   [2]   | `Brep.CreateFromMesh(mesh, trimmed)`       | constructor    | Brep from a mesh           |
-|   [3]   | `Brep.CreateFromSphere(sphere) -> Brep`    | constructor    | sphere as Brep             |
-|   [4]   | `Mesh.CreateFromSubDControlNet(subd)`      | constructor    | control-net mesh from SubD |
-|   [5]   | `NurbsCurve.Create(periodic, degree, pts)` | constructor    | control-point NURBS curve  |
-|   [6]   | `NurbsCurve.CreateFromArc(arc)`            | constructor    | arc as NURBS curve         |
-|   [7]   | `NurbsCurve.CreateFromCircle(circle)`      | constructor    | circle as NURBS curve      |
-|   [8]   | `Extrusion.Create(profile, height, cap)`   | constructor    | extrude a planar profile   |
-|   [9]   | `extrusion.ToBrep() -> Brep`               | conversion     | extrusion to boundary rep  |
+|  [01]   | `Brep.CreateFromBox(box) -> Brep`          | constructor    | box solid as Brep          |
+|  [02]   | `Brep.CreateFromMesh(mesh, trimmed)`       | constructor    | Brep from a mesh           |
+|  [03]   | `Brep.CreateFromSphere(sphere) -> Brep`    | constructor    | sphere as Brep             |
+|  [04]   | `Mesh.CreateFromSubDControlNet(subd)`      | constructor    | control-net mesh from SubD |
+|  [05]   | `NurbsCurve.Create(periodic, degree, pts)` | constructor    | control-point NURBS curve  |
+|  [06]   | `NurbsCurve.CreateFromArc(arc)`            | constructor    | arc as NURBS curve         |
+|  [07]   | `NurbsCurve.CreateFromCircle(circle)`      | constructor    | circle as NURBS curve      |
+|  [08]   | `Extrusion.Create(profile, height, cap)`   | constructor    | extrude a planar profile   |
+|  [09]   | `extrusion.ToBrep() -> Brep`               | conversion     | extrusion to boundary rep  |
 |  [10]   | `extrusion.GetMesh(meshType) -> Mesh`      | conversion     | render mesh from extrusion |
 |  [11]   | `curve.ToNurbsCurve() -> NurbsCurve`       | conversion     | any curve to NURBS form    |
 
@@ -118,20 +118,20 @@ Transform rows mutate the receiver in place and return a success bool; evaluatio
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY] | [CAPABILITY]                  |
 | :-----: | :------------------------------------ | :------------- | :---------------------------- |
-|   [1]   | `g.Transform(xform) -> bool`          | transform      | apply a 4x4 transform         |
-|   [2]   | `g.Translate(vector) -> bool`         | transform      | translate by a vector         |
-|   [3]   | `g.Rotate(angle, axis, center)`       | transform      | rotate about an axis          |
-|   [4]   | `g.Scale(factor) -> bool`             | transform      | uniform scale                 |
-|   [5]   | `g.GetBoundingBox(accurate)`          | query          | axis-aligned bound            |
-|   [6]   | `curve.PointAt(t) -> Point3d`         | evaluation     | point at curve parameter      |
-|   [7]   | `curve.TangentAt(t) -> Vector3d`      | evaluation     | tangent at curve parameter    |
-|   [8]   | `curve.CurvatureAt(t) -> Vector3d`    | evaluation     | curvature vector at parameter |
-|   [9]   | `surface.PointAt(u, v) -> Point3d`    | evaluation     | point at surface `(u,v)`      |
+|  [01]   | `g.Transform(xform) -> bool`          | transform      | apply a 4x4 transform         |
+|  [02]   | `g.Translate(vector) -> bool`         | transform      | translate by a vector         |
+|  [03]   | `g.Rotate(angle, axis, center)`       | transform      | rotate about an axis          |
+|  [04]   | `g.Scale(factor) -> bool`             | transform      | uniform scale                 |
+|  [05]   | `g.GetBoundingBox(accurate)`          | query          | axis-aligned bound            |
+|  [06]   | `curve.PointAt(t) -> Point3d`         | evaluation     | point at curve parameter      |
+|  [07]   | `curve.TangentAt(t) -> Vector3d`      | evaluation     | tangent at curve parameter    |
+|  [08]   | `curve.CurvatureAt(t) -> Vector3d`    | evaluation     | curvature vector at parameter |
+|  [09]   | `surface.PointAt(u, v) -> Point3d`    | evaluation     | point at surface `(u,v)`      |
 |  [10]   | `g.SetUserString(key, value) -> bool` | metadata       | attach a user string          |
 |  [11]   | `g.Encode() -> dict`                  | serialize      | JSON-encode the geometry      |
 |  [12]   | `CommonObject.Decode(jsonObject)`     | serialize      | rebuild geometry from JSON    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EXCHANGE_TOPOLOGY]:
 - document axis: one `File3dm` owns every object, layer, material, group, instance-definition, and view table; geometry never lives outside a `File3dmObject`, and `File3dmObjectTable.Add*` is the only insertion surface, parameterized by geometry type and `ObjectAttributes`.
@@ -142,7 +142,7 @@ Transform rows mutate the receiver in place and return a success bool; evaluatio
 - evidence: each archive read captures archive version, object count, and per-table counts; each geometry round-trip captures `ObjectType`, bounding box, and validity (`IsValid`/`IsValidWithLog`) as an exchange receipt.
 - boundary: rhino3dm owns headless `.3dm` IO and OpenNURBS geometry; live Rhino document scripting routes to the Rhino-MCP host, mesh interchange to `trimesh`/`meshio`, and CSG boolean kernels to `manifold3d`.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `rhino3dm`

@@ -2,11 +2,11 @@
 
 The durable saga compensation owner: a multi-step durable transaction folded from a closed `SagaStep` chain over the cluster-backed `WorkflowEngine`, never a parallel saga type family. Each step is a forward/compensating pair; rollback rides `Workflow.withCompensation`, the engine-owned reverse-order finalizer, on `Cause` of a later step. The saga's success/error/payload schemas are the workflow's OWN schemas (success encodes `SagaTerminal`), so the start/`Discard`/`Resume` procedures derive over the SAME wire `Schema` through the one `WorkflowProxy`. This page crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SAGA]: owns the `SagaStep` chain, the `StepOutcome`/`SagaTerminal` fold, and the engine-compensated saga workflow.
+- [01]-[SAGA]: owns the `SagaStep` chain, the `StepOutcome`/`SagaTerminal` fold, and the engine-compensated saga workflow.
 
-## [2]-[SAGA]
+## [02]-[SAGA]
 
 - Owner: `SagaOwner` and `SagaStep`, the saga step chain and the workflow that folds it; `sagaFold`, the total reduction over the closed `StepOutcome` stream to one `SagaTerminal`.
 - Cases: each `SagaStep` is a forward/compensating pair — the forward effect is one `Activity` carrying its own `retryPolicy`, timeout, and `Activity.idempotencyKey` so a re-attempt after a restart never re-applies a side effect, and the compensating effect is registered with that same activity through `Workflow.withCompensation` so it runs in reverse declaration order ONLY for steps that committed, automatically, on any failure or interruption of a later step. The fold is `sagaFold` over the closed `StepOutcome` union (`Forward`/`Compensating`/`Skipped`), reduced by `StepOutcome.$match`/`SagaTerminal.$match` (the generated total `Data.TaggedEnum` matchers) so the saga's terminal outcome — `committed` when every forward arm succeeds, `rolled-back` when a forward arm fails and the committed prefix compensates, `aborted` when a compensation finalizer itself faults — is total and adding an outcome or terminal without a fold arm is a typecheck failure. The `StepOutcome` stream is a REAL mixed stream assembled across two seams: `runStep` emits one `Forward({ name, attempt })` per committed step (the `Activity.CurrentAttempt`-tagged success), and `sagaBody`'s `Effect.tapErrorCause` synthesizes the failure tail — the committed prefix, one `Compensating({ name, cause })` for the failing step, and `Skipped({ name })` for every step the fault skipped; `sagaFold` then reduces that assembled stream to the `SagaTerminal` the workflow's success `Schema` carries.

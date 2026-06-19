@@ -4,14 +4,14 @@ Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backe
 The page owns the phase vocabulary with its rank and terminal columns, the subscription gate with observer-declared coalescing, the observation seams, and the progress wire shape.
 Correlation identity, cancellation provenance, the clock pair, the scheduler marshal delegate, and the LIFO detacher composite arrive settled from the AppHost spine and compose as given.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PHASE_FAMILY]: nine monotonic phase rows with rank and terminal columns.
-- [2]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; cadence-gated delivery.
-- [3]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; sink-edge receipt law.
-- [4]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
+- [01]-[PHASE_FAMILY]: nine monotonic phase rows with rank and terminal columns.
+- [02]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; cadence-gated delivery.
+- [03]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; sink-edge receipt law.
+- [04]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
 
-## [2]-[PHASE_FAMILY]
+## [02]-[PHASE_FAMILY]
 
 - Owner: `ProgressKeyPolicy` ordinal accessor; `ProgressPhase` `[SmartEnum<string>]` nine rows carrying the monotonic rank column and the terminal column.
 - Cases: queued, selected, staged, running, streaming, finalizing, completed, faulted, cancelled.
@@ -75,7 +75,7 @@ stateDiagram-v2
     Cancelled --> [*]
 ```
 
-## [3]-[PROGRESS_CELL]
+## [03]-[PROGRESS_CELL]
 
 - Owner: `ProgressMark` readonly record struct hot-path capsule; `SubscriptionPolicy` cadence record with the `Due` delivery predicate; `ProgressCell` Atom-backed boundary capsule.
 - Cases: `SubscriptionPolicy.Immediate` | `SubscriptionPolicy.Interactive` | `SubscriptionPolicy.Wire` cadence rows.
@@ -135,7 +135,7 @@ public sealed class ProgressCell(CorrelationId correlation, CancelScope scope, C
 }
 ```
 
-## [4]-[OBSERVATION_SEAMS]
+## [04]-[OBSERVATION_SEAMS]
 
 - Owner: `ProgressSeams` extension fold over `ProgressCell` — one member per observation seam, each binding one cadence row to one observer shape.
 - Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, Action<ProgressMark> render)` — the returned detacher composite disposes LIFO.
@@ -155,7 +155,7 @@ public static class ProgressSeams {
 }
 ```
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `ProgressPhaseKey`, `ProgressMarkWire` — the progress stream shape the dashboard and companion consume.
 - Packages: BCL inbox
@@ -175,7 +175,7 @@ interface ProgressMarkWire {
 }
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [COMMIT_ORDER]: observer monotonicity is order-independent because each gate is a CAS over `Due` that permanently rejects a lower-rank mark once a higher-rank mark forwards; the implementation-time `SampleParallel` property confirms no interleaving of concurrent `Advance` commits forwards a rank-decreasing mark to any subscriber and that the cell `Atom` never stores a lower rank than a prior committed mark.
 - [GH2_READBACK_IDLE]: the GH2 `SolveInstance` async-readback idle-loop cadence — the interval a GH2 component polls its `ProgressCell.Latest` for a terminal mark before re-scheduling its own solve — fixes against the live GH2 solver idle loop; the in-flight readback ceiling itself is the `Interactive` lane capacity owned at Runtime/scheduling#SOLVE_GUARD, so this probe gates only whether a per-subscription readback cadence row is warranted beyond `SubscriptionPolicy.Interactive`, never a second ceiling.

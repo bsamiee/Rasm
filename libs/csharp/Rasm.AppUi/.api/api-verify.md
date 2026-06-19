@@ -2,7 +2,7 @@
 
 `Verify.XunitV3` supplies snapshot-based approval testing through `Verifier` (static entry point for xUnit v3 tests) and `VerifyBase` (base class for test classes), with `VerifyChecks` for configuration self-checks and `DanglingSnapshots` for stale file detection.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Verify.XunitV3`
 - package: `Verify.XunitV3`
@@ -11,35 +11,35 @@
 - asset: runtime library
 - rail: test
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: approval test surfaces
 - rail: test
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [RAIL]                        |
 | :-----: | :------------------ | :-------------- | :---------------------------- |
-|   [1]   | `Verifier`          | static entry    | xUnit v3 verify entry point   |
-|   [2]   | `VerifyBase`        | test base class | instance verify base          |
-|   [3]   | `DerivePathInfo`    | path delegate   | custom snapshot path resolver |
-|   [4]   | `VerifyChecks`      | self-check      | configuration verification    |
-|   [5]   | `DanglingSnapshots` | stale detection | orphaned snapshot finder      |
+|  [01]   | `Verifier`          | static entry    | xUnit v3 verify entry point   |
+|  [02]   | `VerifyBase`        | test base class | instance verify base          |
+|  [03]   | `DerivePathInfo`    | path delegate   | custom snapshot path resolver |
+|  [04]   | `VerifyChecks`      | self-check      | configuration verification    |
+|  [05]   | `DanglingSnapshots` | stale detection | orphaned snapshot finder      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static verify operations on Verifier
 - rail: test
 
 | [INDEX] | [SURFACE]                                     | [SURFACE_ROOT] | [RAIL]                   |
 | :-----: | :-------------------------------------------- | :------------- | :----------------------- |
-|   [1]   | `Verify(object?, IEnumerable<Target>, ...)`   | `Verifier`     | multi-target verify      |
-|   [2]   | `Verify(IEnumerable<Target>, ...)`            | `Verifier`     | target collection verify |
-|   [3]   | `Verify(Target, ...)`                         | `Verifier`     | single target verify     |
-|   [4]   | `VerifyFile(string, ...)`                     | `Verifier`     | file snapshot verify     |
-|   [5]   | `VerifyFile(FileInfo, ...)`                   | `Verifier`     | FileInfo verify          |
-|   [6]   | `VerifyFiles(IEnumerable<string>, ...)`       | `Verifier`     | multi-file verify        |
-|   [7]   | `VerifyDirectory(string, ...)`                | `Verifier`     | directory verify         |
-|   [8]   | `VerifyDirectory(DirectoryInfo, ...)`         | `Verifier`     | directory verify         |
-|   [9]   | `VerifyJson(StringBuilder?, ...)`             | `Verifier`     | JSON snapshot verify     |
+|  [01]   | `Verify(object?, IEnumerable<Target>, ...)`   | `Verifier`     | multi-target verify      |
+|  [02]   | `Verify(IEnumerable<Target>, ...)`            | `Verifier`     | target collection verify |
+|  [03]   | `Verify(Target, ...)`                         | `Verifier`     | single target verify     |
+|  [04]   | `VerifyFile(string, ...)`                     | `Verifier`     | file snapshot verify     |
+|  [05]   | `VerifyFile(FileInfo, ...)`                   | `Verifier`     | FileInfo verify          |
+|  [06]   | `VerifyFiles(IEnumerable<string>, ...)`       | `Verifier`     | multi-file verify        |
+|  [07]   | `VerifyDirectory(string, ...)`                | `Verifier`     | directory verify         |
+|  [08]   | `VerifyDirectory(DirectoryInfo, ...)`         | `Verifier`     | directory verify         |
+|  [09]   | `VerifyJson(StringBuilder?, ...)`             | `Verifier`     | JSON snapshot verify     |
 |  [10]   | `VerifyZip(string, ...)`                      | `Verifier`     | ZIP archive verify       |
 |  [11]   | `VerifyZip(Stream, ...)`                      | `Verifier`     | stream ZIP verify        |
 |  [12]   | `Combination(bool?, ...)`                     | `Verifier`     | combination test runner  |
@@ -47,7 +47,7 @@
 |  [14]   | `UseProjectRelativeDirectory(string)`         | `Verifier`     | project-relative paths   |
 |  [15]   | `BuildVerifier(VerifySettings, string, bool)` | `Verifier`     | inner verifier build     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [VERIFY_TOPOLOGY]:
 - namespace: `VerifyXunit`; 6 types across 1 namespace; assembly is `Verify.XunitV3`

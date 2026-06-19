@@ -2,24 +2,24 @@
 
 Embedded durability is one store law with four layers under one epoch fence. Every process reaches a store file through one idempotent open ritual whose rows are declared data; every durable artifact seals under one fixed-offset header that is the artifact's entire trust boundary; every durable mutation is one op-log row adjudicated by a last-writer-wins lattice inside the store's own transaction; every stored byte's lifecycle is a class row swept by one receipted fold. MessagePack and its generated formatters are legislated here for the whole suite; causal stamps and classification verdicts arrive settled and are compared, never re-derived; the sync wire is composed, never owned. Restore is the capstone choreography — fence, verify, materialize, sidecar-clear, atomic-rename, epoch-bump, reopen — every step receipted, never best-effort, and the one epoch token fences the open ritual, the sync cursors, and the artifact headers, so recovery anywhere is the normal path with a wider range. Growth lands as rows: a new pragma is a ritual row, a new entity family one kind row plus one formatter case, a new artifact type one class row, a new codec posture one profile selection.
 
-## [1]-[DURABILITY_CHOOSER]
+## [01]-[DURABILITY_CHOOSER]
 
 This table routes a durability concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                | [REJECTED_FORM]                         |
 | :-----: | :------------------------ | :------------------------------------- | :-------------------------------------- |
-|   [1]   | store open and migration  | one idempotent ritual fold             | per-process bootstrap branches          |
-|   [2]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
-|   [3]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
-|   [4]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
-|   [5]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
-|   [6]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
-|   [7]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
-|   [8]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
-|   [9]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
+|   [01]   | store open and migration  | one idempotent ritual fold             | per-process bootstrap branches          |
+|   [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
+|   [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
+|   [04]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
+|   [05]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
+|   [06]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
+|   [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
+|   [08]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
+|   [09]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
 |  [10]   | deletion and preservation | class rows + hold-first sweep fold     | unreceipted cleanup, export-to-preserve |
 
-## [2]-[EMBEDDED_STORE]
+## [02]-[EMBEDDED_STORE]
 
 [RITUAL_LAW]:
 - Law: every connection in every process folds the same declared sequence — identity check, per-connection rows, hardening, capability registration, IMMEDIATE migration gate, epoch read — idempotent end-to-end, so bootstrap, crash-recovery reopen, and steady-state open are one fold with no first-process special case, and the ritual table is the audit surface: diffing two processes' rituals is diffing two declarations.
@@ -96,7 +96,7 @@ public static class StoreOpen {
 - Law: maintenance is one receipted schedule table — TRUNCATE checkpoint, `PRAGMA optimize`, `incremental_vacuum(N)`, integrity tiers, backup route — each row carrying cadence, budget, and receipt shape, with receipts as the verbs' native out-channels lifted onto the fact stream; the integrity ladder orders boot `quick_check`, cycle `integrity_check` plus `foreign_key_check` (FK violations never surface from integrity checks), and a deeper tier failing routes to restore, never retry; WAL snapshot pins and TRUNCATE checkpoints are adversaries — a pinned read window blocks truncation and truncation kills pins — so one schedule owns both rows and interleaves them, and a lost pin is a receipted failure, never a silent rewind.
 - Law: the backup chooser is policy rows on one verb — `BackupDatabase` restarts under other-connection writes so hot stores back up on the writing connection, the paced raw backup yields bounded latency and progress receipts, `VACUUM INTO` produces a compacted point-in-time copy through one read transaction without blocking writers — and a copy is admitted only after `quick_check` on the copy itself plus content identity, because the verb succeeding is never the proof.
 
-## [3]-[CODEC_PROFILES]
+## [03]-[CODEC_PROFILES]
 
 [CONTRACT_LAW]:
 - Law: the integer `[Key]` sequence IS the wire schema — dense and append-only, a retired key never reassigned because reuse silently re-types history; `[MessagePack.Union]` tags obey the same retirement law, sparse keys buy nothing while costing a nil slot per record, and a written nil is byte-identical to a retired-key gap, so absence never rides key gaps — it is an explicit option-shaped member.
@@ -156,7 +156,7 @@ public static class CodecProfile {
 }
 ```
 
-## [4]-[SEALED_ARTIFACTS]
+## [04]-[SEALED_ARTIFACTS]
 
 [SEAL_LAW]:
 - Law: the header is a fixed-width little-endian prologue outside any codec — magic, header version, codec row, observed compression, hash domain, contract stamp, plain and stored lengths, content hash, epoch, header checksum — read by offset under failure conditions; a variable-length header re-introduces a parser exactly where the design removes one, and the header's own checksum separates header corruption (terminal for the copy) from payload corruption (replica and salvage routes).
@@ -277,7 +277,7 @@ public static class Restore {
 }
 ```
 
-## [5]-[OP_LOG_SYNC]
+## [05]-[OP_LOG_SYNC]
 
 [LOG_SHAPE]:
 - Law: one append-only table serves every entity family — local seq as the rowid-aliased key so appends land at the b-tree right edge, origin, a closed kind vocabulary, a globally unique entity id (two origins minting one id silently merge registers), a closed two-verb vocabulary where a tombstone carries empty payload because the verb is the semantics, the already-stamped causal version as one packed integer, the state-based full post-write row image (materialization reconstructs from any single op; op-based payloads demand ordered full replay and are rejected under LWW), and the codec-owned content key; a new family is one kind row plus one formatter case, zero schema change.
@@ -378,7 +378,7 @@ public static class OpLog {
 - Law: every cursor pairs (epoch, vector) and epoch comparison is equality-only — any mismatch routes to full resync, because reasoning about epoch recency re-trusts exactly the rewound counters the token exists to deny; one epoch token serves the open ritual, the sync cursors, and the artifact headers, and a second epoch-like counter anywhere re-splits the fence.
 - Law: tombstone collection is cursor-fenced, never time-fenced — a time window resurrects through any peer offline longer than it; a departed peer retires by receipted administrative op, pinning is the deliberate failure direction because it is observable where early collection is silent resurrection, and this lane supplies the fence predicate while retention owns sweep execution; presence rides the same table as an ephemeral class — TTL expiry IS the delete, excluded from cursors, manifests, and snapshots, so liveness chatter cannot inflate sync state.
 
-## [6]-[RETENTION_CLASSES]
+## [06]-[RETENTION_CLASSES]
 
 [CLASS_LAW]:
 - Law: every stored thing belongs to exactly one class row carrying five decisions — storage lane, retention record, classification ceiling, loss policy (receipted-evict or declared-expiry), identity scheme (content key or name-plus-epoch); an artifact fitting no class is an admission rejection, never a default — the canonical set closes at six rows: sealed snapshot, log segment, evidence bundle, export, cache blob, ephemeral — class membership is immutable, reclassification is export-then-readmit so every lived lifecycle stays receipted, and one catalog inventories every lane, with byte counts recorded from the artifact's own sealed length fields, never a later filesystem stat.

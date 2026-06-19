@@ -4,7 +4,7 @@ An architecture decision record captures one durable architectural decision afte
 
 The controlling rule: one ADR holds exactly one durable decision, carries exactly one decision class, names at least one real alternative or rejected proposal, states the consequence of the disposition, and closes with confirmation appropriate to its `Status`. A record that uses accepted-decision confirmation for `rejected`, `deprecated`, or `superseded` status is wrong.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use an ADR when a decision meets at least one trigger:
 - it binds two or more routes, packages, runtime boundaries, or long-lived contracts;
@@ -22,21 +22,21 @@ Do not use an ADR to run a proposal review. While an option is still under debat
 - Maintenance triggers: decision status, supersession link, accepted downside, generated contract, architecture boundary, or enforcing gate changes.
 - Stale prevention: amend or supersede decisions instead of re-templating accepted ADR bodies.
 
-## [2]-[DECISION_CLASSES]
+## [02]-[DECISION_CLASSES]
 
 Pick one decision class per ADR. The class controls accepted-decision confirmation confirmation; `Status` controls whether confirmation, rejection, retirement, or supersession confirmation is required.
 
 | [INDEX] | [CLASS]       | [DECISION_SCOPE]              | [ACCEPTED_CONFIRM_WITH] | [SUPERSEDE_WHEN]    |
 | :-----: | :------------ | :---------------------------- | :---------------------- | :------------------ |
-|   [1]   | structural    | boundary or routing           | diagram or codemap      | boundary moves      |
-|   [2]   | contract      | API, schema, wire, error      | generated diff          | contract breaks     |
-|   [3]   | dependency    | library or SDK choice         | manifest and version    | replaced or removed |
-|   [4]   | process       | binding engineering rule      | analyzer or gate        | policy changes      |
-|   [5]   | cross-cutting | security, perf, data, runtime | measurement or audit    | posture is retuned  |
+|  [01]   | structural    | boundary or routing           | diagram or codemap      | boundary moves      |
+|  [02]   | contract      | API, schema, wire, error      | generated diff          | contract breaks     |
+|  [03]   | dependency    | library or SDK choice         | manifest and version    | replaced or removed |
+|  [04]   | process       | binding engineering rule      | analyzer or gate        | policy changes      |
+|  [05]   | cross-cutting | security, perf, data, runtime | measurement or audit    | posture is retuned  |
 
 Accepted confirmation confirmation must match the class: structural ADRs name a refreshed architecture model or codemap, contract ADRs name generated contract confirmation, dependency ADRs name manifest truth, process ADRs name the enforcing gate, and cross-cutting ADRs name a measured check or audit. A prose review does not confirm a class that has a stronger artifact.
 
-## [3]-[PLACEMENT_NUMBERING]
+## [03]-[PLACEMENT_NUMBERING]
 
 Place ADRs where the decision log first looks, and never reuse a number.
 
@@ -51,12 +51,12 @@ The decision-log index is a finite enumerable set of trackable records, so rende
 
 | [INDEX] | [NUMBER] | [TITLE]              | [STATUS]     | [CLASS]    |   [DATE] | [SUPERSEDES] | [SUPERSEDED_BY] |
 | :-----: | :------- | :------------------- | :----------- | :--------- | -------: | :----------- | :-------------- |
-|   [1]   | `NNNN`   | Adopt `<contract>`   | `accepted`   | contract   | <date-a> | —            | —               |
-|   [2]   | `M<N>`   | Replace `<boundary>` | `superseded` | structural | <date-b> | —            | `NNNN`          |
+|  [01]   | `NNNN`   | Adopt `<contract>`   | `accepted`   | contract   | <date-a> | —            | —               |
+|  [02]   | `M<N>`   | Replace `<boundary>` | `superseded` | structural | <date-b> | —            | `NNNN`          |
 
 Keep ADR status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[COMPLETE]`. `rejected`, `deprecated`, and `superseded` may render as terminal compact markers only when the row still carries the original lowercase `Status` value; never collapse those three dispositions into one lifecycle meaning.
 
-## [4]-[STATUS_LIFECYCLE]
+## [04]-[STATUS_LIFECYCLE]
 
 Set `Status` to exactly one lowercase value from the fixed set below:
 - `accepted`: reviewed, binding, and ready to implement or enforce.
@@ -107,14 +107,14 @@ Maintenance action follows the change, not the author's desire to refresh format
 
 | [INDEX] | [CHANGE]                         | [ACTION]                 | [RECORD_EFFECT]                                       |
 | :-----: | :------------------------------- | :----------------------- | :---------------------------------------------------- |
-|   [1]   | typo, broken link, route wording | edit existing ADR        | decision, drivers, and outcome stay unchanged         |
-|   [2]   | decision changes or replacement  | create superseding ADR   | old ADR becomes `superseded`; links are bidirectional |
-|   [3]   | missing lifecycle/index fact     | update index or fields   | no body rewrite beyond lifecycle fact                 |
-|   [4]   | option still under review        | route to design document | no ADR until durable disposition exists               |
+|  [01]   | typo, broken link, route wording | edit existing ADR        | decision, drivers, and outcome stay unchanged         |
+|  [02]   | decision changes or replacement  | create superseding ADR   | old ADR becomes `superseded`; links are bidirectional |
+|  [03]   | missing lifecycle/index fact     | update index or fields   | no body rewrite beyond lifecycle fact                 |
+|  [04]   | option still under review        | route to design document | no ADR until durable disposition exists               |
 
 Do not re-template an accepted ADR while performing lifecycle maintenance. If the existing body cannot safely express the new policy, write the replacing ADR and link the old record forward.
 
-## [5]-[REQUIRED_STRUCTURE]
+## [05]-[REQUIRED_STRUCTURE]
 
 Use the heading set below for every new ADR. State status, class, supersession links, date, decision owner, and confirmation source in the lead or lifecycle/status sections; add conditional sections only when their trigger holds.
 
@@ -175,7 +175,7 @@ The H1 names the decision only; the lead carries the lifecycle facts and top-lev
 - Decision owner: accepted design `<design-doc>`
 - Observed result: generated contract diff and release gate receipt
 
-## [6]-[SECTION_RULES]
+## [06]-[SECTION_RULES]
 
 Each section carries specific facts, not generic prose:
 
@@ -212,16 +212,16 @@ Use this small status-aware consequence shape:
 - Avoided downside: <cost avoided by rejection or retirement> (driver: <driver name>)
 ```
 
-## [7]-[STATUS_EVIDENCE]
+## [07]-[STATUS_EVIDENCE]
 
 Status determines the confirmation receipt. Put the receipt inside `Status confirmation` and keep it close to the outcome it proves.
 
 | [INDEX] | [STATUS]     | [REQUIRED_EVIDENCE]                               |
 | :-----: | :----------- | :------------------------------------------------ |
-|   [1]   | `accepted`   | class confirmation surface                        |
-|   [2]   | `rejected`   | rejection rationale and declined option           |
-|   [3]   | `deprecated` | retirement reason and no-replacement confirmation |
-|   [4]   | `superseded` | forward link and replacing-record back link       |
+|  [01]   | `accepted`   | class confirmation surface                        |
+|  [02]   | `rejected`   | rejection rationale and declined option           |
+|  [03]   | `deprecated` | retirement reason and no-replacement confirmation |
+|  [04]   | `superseded` | forward link and replacing-record back link       |
 
 Use one status-aware receipt shape. Include only fields that apply to the status, but keep confirmation fields when the claim can drift:
 
@@ -269,7 +269,7 @@ Review trigger: replacing ADR status, title, or link changes.
 
 For `superseded`, disposition confirmation names both directions. A one-way link is an incomplete supersession.
 
-## [8]-[OPTION_COMPARISON]
+## [08]-[OPTION_COMPARISON]
 
 Use a decision-basis matrix only when it improves final-decision reconstruction. Two or three options with parallel facts compare cleanly in a table; asymmetric trade-offs read better as labeled prose under `Considered options`. The matrix is not a proposal-review transcript and must not reopen design discussion.
 
@@ -287,7 +287,7 @@ The columns name the decision facts an ADR preserves: the driver served, the cos
 - Rejected: Option A is good because it has schema support but it adds a dependency, and option B avoids the dependency though it is slower, and deferring costs nothing now but compounds risk later.
 - Reason: prose hides the decision basis; the table preserves the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
 
-## [9]-[DESIGN_HANDOFF]
+## [09]-[DESIGN_HANDOFF]
 
 Promote a design document to an ADR only when the accepted direction becomes durable architecture policy. Derive the ADR from the final drivers, selected option, rejected alternatives, consequences, and status confirmation. Do not copy the full design body; the design retains proposal history while the ADR carries the durable decision.
 
@@ -312,11 +312,11 @@ Class-specific adjacent updates keep the decision from drifting into the wrong r
 
 | [INDEX] | [ADR_CLASS]   | [UPDATE_ADJACENT_WHEN]                                    | [CONSUMING_DOCUMENT]                             |
 | :-----: | :------------ | :-------------------------------------------------------- | :----------------------------------------------- |
-|   [1]   | structural    | accepted boundary changes current directories or flows    | architecture                                     |
-|   [2]   | contract      | generated contract, public API, or symbol surface changes | API, reference, or code documentation            |
-|   [3]   | dependency    | support lifecycle or version policy changes               | support matrix                                   |
-|   [4]   | process       | enforced gate or contribution rule changes                | test strategy or contributing                    |
-|   [5]   | cross-cutting | runtime, security, data, or operational posture changes   | architecture, test strategy, runbook, or support |
+|  [01]   | structural    | accepted boundary changes current directories or flows    | architecture                                     |
+|  [02]   | contract      | generated contract, public API, or symbol surface changes | API, reference, or code documentation            |
+|  [03]   | dependency    | support lifecycle or version policy changes               | support matrix                                   |
+|  [04]   | process       | enforced gate or contribution rule changes                | test strategy or contributing                    |
+|  [05]   | cross-cutting | runtime, security, data, or operational posture changes   | architecture, test strategy, runbook, or support |
 
 ## [10]-[BOUNDARIES]
 

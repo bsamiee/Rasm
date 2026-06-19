@@ -2,7 +2,7 @@
 
 `compas` supplies the computational-geometry and datastructure surface for the geometry algebra rail: a pure-Python primitive/shape/transform library in `compas.geometry`, mesh/graph/volmesh datastructures in `compas.datastructures`, the COMPAS JSON serialization functions, file readers/writers in `compas.files`, and host probes that detect Rhino/Grasshopper/Blender modality. The package owner composes `compas.geometry` primitives, `datastructures.Mesh`, and the `json_dump`/`json_load` serializers into the algebra owner; it never re-implements vector algebra, best-fit, or boolean operations compas already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `compas`
 - package: `compas`
@@ -14,22 +14,22 @@
 - entry points: none (library only)
 - capability: geometric primitives, shapes, NURBS curves/surfaces, BREP, transformations, vector and best-fit algebra, mesh/graph/network/volmesh datastructures, boolean operations, OBJ/PLY/STL/OFF/GLTF/DXF read/write, COMPAS JSON serialization, RPC compute bridge, and host-modality detection
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry primitives and shapes (`compas.geometry`)
 - rail: algebra
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                   |
 | :-----: | :------------------------------------- | :------------ | :--------------------------------------------- |
-|   [1]   | `Point` / `Vector`                     | primitive     | point and direction value objects              |
-|   [2]   | `Line` / `Polyline` / `Polygon`        | primitive     | linear and polygonal geometry                  |
-|   [3]   | `Plane` / `Frame`                      | primitive     | infinite plane and oriented coordinate frame   |
-|   [4]   | `Circle` / `Ellipse` / `Arc`           | primitive     | conic curve primitives                         |
-|   [5]   | `Bezier`                               | primitive     | parametric Bezier curve                        |
-|   [6]   | `Quaternion`                           | primitive     | rotation quaternion                            |
-|   [7]   | `Pointcloud` / `KDTree`                | primitive     | point set and nearest-neighbor index           |
-|   [8]   | `Box` / `Sphere` / `Cylinder`          | shape         | solid `Cone`/`Capsule`/`Torus`/`Polyhedron`    |
-|   [9]   | `Curve` / `NurbsCurve`                 | curve         | generic and NURBS curves                       |
+|  [01]   | `Point` / `Vector`                     | primitive     | point and direction value objects              |
+|  [02]   | `Line` / `Polyline` / `Polygon`        | primitive     | linear and polygonal geometry                  |
+|  [03]   | `Plane` / `Frame`                      | primitive     | infinite plane and oriented coordinate frame   |
+|  [04]   | `Circle` / `Ellipse` / `Arc`           | primitive     | conic curve primitives                         |
+|  [05]   | `Bezier`                               | primitive     | parametric Bezier curve                        |
+|  [06]   | `Quaternion`                           | primitive     | rotation quaternion                            |
+|  [07]   | `Pointcloud` / `KDTree`                | primitive     | point set and nearest-neighbor index           |
+|  [08]   | `Box` / `Sphere` / `Cylinder`          | shape         | solid `Cone`/`Capsule`/`Torus`/`Polyhedron`    |
+|  [09]   | `Curve` / `NurbsCurve`                 | curve         | generic and NURBS curves                       |
 |  [10]   | `Surface` / `NurbsSurface`             | surface       | generic and NURBS surfaces                     |
 |  [11]   | `PlanarSurface` / `CylindricalSurface` | surface       | analytic `Conical`/`Spherical`/`Toroidal`      |
 |  [12]   | `Brep` / `BrepFace` / `BrepEdge`       | brep          | boundary-representation `Loop`/`Vertex`/`Trim` |
@@ -41,17 +41,17 @@
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                                 |
 | :-----: | :---------------------- | :-------------- | :------------------------------------------- |
-|   [1]   | `Mesh`                  | mesh            | half-edge mesh with topology and geometry    |
-|   [2]   | `Graph`                 | graph           | node/edge graph datastructure                |
-|   [3]   | `Network`               | graph           | spatial node/edge network                    |
-|   [4]   | `VolMesh`               | volumetric mesh | volumetric half-face mesh                    |
-|   [5]   | `CellNetwork`           | cell complex    | cell/face/edge network                       |
-|   [6]   | `Tree` / `TreeNode`     | tree            | hierarchical tree datastructure              |
-|   [7]   | `Assembly` / `Part`     | assembly        | part assembly with features                  |
-|   [8]   | `HashTree` / `HashNode` | hash tree       | content-addressed hierarchy                  |
-|   [9]   | `Datastructure`         | base            | shared datastructure data/serialization base |
+|  [01]   | `Mesh`                  | mesh            | half-edge mesh with topology and geometry    |
+|  [02]   | `Graph`                 | graph           | node/edge graph datastructure                |
+|  [03]   | `Network`               | graph           | spatial node/edge network                    |
+|  [04]   | `VolMesh`               | volumetric mesh | volumetric half-face mesh                    |
+|  [05]   | `CellNetwork`           | cell complex    | cell/face/edge network                       |
+|  [06]   | `Tree` / `TreeNode`     | tree            | hierarchical tree datastructure              |
+|  [07]   | `Assembly` / `Part`     | assembly        | part assembly with features                  |
+|  [08]   | `HashTree` / `HashNode` | hash tree       | content-addressed hierarchy                  |
+|  [09]   | `Datastructure`         | base            | shared datastructure data/serialization base |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: algebra and best-fit functions (`compas.geometry`)
 - rail: algebra
@@ -60,15 +60,15 @@ The `compas.geometry.__all__` carries 342 entries: 56 classes and 286 free funct
 
 | [INDEX] | [SURFACE]                           | [CALL_SHAPE]        | [CAPABILITY]                       |
 | :-----: | :---------------------------------- | :------------------ | :--------------------------------- |
-|   [1]   | `add_vectors` / `cross_vectors`     | vector pairs        | vector addition and cross product  |
-|   [2]   | `dot_vectors` / `normalize_vector`  | vectors             | dot product and unit normalization |
-|   [3]   | `angle_vectors`                     | two vectors         | angle between vectors              |
-|   [4]   | `area_polygon` / `area_triangle`    | polygon/points      | planar area                        |
-|   [5]   | `barycentric_coordinates`           | point plus triangle | barycentric coordinates            |
-|   [6]   | `bestfit_plane`                     | points              | least-squares plane fit            |
-|   [7]   | `bestfit_frame_numpy`               | points              | accelerated best-fit frame         |
-|   [8]   | `bestfit_circle_numpy`              | points              | accelerated best-fit circle        |
-|   [9]   | `bestfit_sphere_numpy`              | points              | accelerated best-fit sphere        |
+|  [01]   | `add_vectors` / `cross_vectors`     | vector pairs        | vector addition and cross product  |
+|  [02]   | `dot_vectors` / `normalize_vector`  | vectors             | dot product and unit normalization |
+|  [03]   | `angle_vectors`                     | two vectors         | angle between vectors              |
+|  [04]   | `area_polygon` / `area_triangle`    | polygon/points      | planar area                        |
+|  [05]   | `barycentric_coordinates`           | point plus triangle | barycentric coordinates            |
+|  [06]   | `bestfit_plane`                     | points              | least-squares plane fit            |
+|  [07]   | `bestfit_frame_numpy`               | points              | accelerated best-fit frame         |
+|  [08]   | `bestfit_circle_numpy`              | points              | accelerated best-fit circle        |
+|  [09]   | `bestfit_sphere_numpy`              | points              | accelerated best-fit sphere        |
 |  [10]   | `bbox` / `bbox_numpy`               | points              | axis-aligned bounding box          |
 |  [11]   | `oriented_bounding_box_numpy`       | points              | minimal oriented bounding box      |
 |  [12]   | `convex_hull` / `convex_hull_numpy` | points              | convex hull                        |
@@ -83,20 +83,20 @@ The `compas.geometry.__all__` carries 342 entries: 56 classes and 286 free funct
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]        | [CAPABILITY]                           |
 | :-----: | :----------------------------- | :------------------ | :------------------------------------- |
-|   [1]   | `compas.json_dump`             | data plus filepath  | write COMPAS JSON to a file            |
-|   [2]   | `compas.json_dumps`            | data                | serialize COMPAS JSON to a string      |
-|   [3]   | `compas.json_dumpz`            | data plus filepath  | write compressed COMPAS JSON           |
-|   [4]   | `compas.json_load`             | filepath            | read COMPAS JSON from a file           |
-|   [5]   | `compas.json_loads`            | string              | parse COMPAS JSON from a string        |
-|   [6]   | `Mesh.from_vertices_and_faces` | vertices plus faces | construct a mesh from arrays           |
-|   [7]   | `Mesh.from_obj` / `from_ply`   | filepath            | construct from `OBJ`/`PLY`/`STL`/`OFF` |
-|   [8]   | `Mesh.from_polyhedron`         | face count          | construct a platonic mesh              |
-|   [9]   | `compas.is_rhino`              | none                | detect Rhino host                      |
+|  [01]   | `compas.json_dump`             | data plus filepath  | write COMPAS JSON to a file            |
+|  [02]   | `compas.json_dumps`            | data                | serialize COMPAS JSON to a string      |
+|  [03]   | `compas.json_dumpz`            | data plus filepath  | write compressed COMPAS JSON           |
+|  [04]   | `compas.json_load`             | filepath            | read COMPAS JSON from a file           |
+|  [05]   | `compas.json_loads`            | string              | parse COMPAS JSON from a string        |
+|  [06]   | `Mesh.from_vertices_and_faces` | vertices plus faces | construct a mesh from arrays           |
+|  [07]   | `Mesh.from_obj` / `from_ply`   | filepath            | construct from `OBJ`/`PLY`/`STL`/`OFF` |
+|  [08]   | `Mesh.from_polyhedron`         | face count          | construct a platonic mesh              |
+|  [09]   | `compas.is_rhino`              | none                | detect Rhino host                      |
 |  [10]   | `compas.is_grasshopper`        | none                | detect Grasshopper host                |
 |  [11]   | `compas.is_blender`            | none                | detect Blender host                    |
 |  [12]   | `compas.is_ironpython`         | none                | detect IronPython runtime              |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GEOMETRY_ALGEBRA]:
 - import: `import compas` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -107,7 +107,7 @@ The `compas.geometry.__all__` carries 342 entries: 56 classes and 286 free funct
 - evidence: each geometry op captures input vertex/point count and result type; each datastructure op captures vertex/face/edge counts as an algebra receipt.
 - boundary: compas owns the pure-Python algebra and datastructures; native scientific acceleration routes through `numpy`/`scipy` companions, mesh exchange to `meshio`/`trimesh`, dynamic relaxation to `compas_dr`, thrust-network analysis to `compas_tna`; live UI stays outside this package.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `compas`

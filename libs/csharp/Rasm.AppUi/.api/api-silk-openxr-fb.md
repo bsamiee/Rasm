@@ -2,7 +2,7 @@
 
 `Silk.NET.OpenXR.Extensions.FB` is the Meta/Facebook vendor-extension binding layered over the canonical `Silk.NET.OpenXR` core: the upstream `openxr.h` standard surface carries the cross-vendor `KHR`/`EXT` extensions, and the `FB_*` extensions — passthrough environment-blend, hand-tracking mesh, spatial-entity anchors, and the composition-layer alpha/secure-content surfaces — live in this companion binding. The `FBPassthrough` class is the generated function-table root for the `XR_FB_passthrough` entrypoints the immersive on-site mixed-reality review negotiates: `CreatePassthroughFB` mints the passthrough feature against the session, `CreatePassthroughLayerFB` allocates the composition layer the env-blend pass composites under the rendered scene, and `PassthroughStartFB`/`PassthroughPauseFB` gate the camera feed. The extension is loaded against the same `XR.GetApi()` instance the `api-silk-openxr.md` core owns and shares the host-installed OpenXR loader, so the env-blend passthrough composites on the very `Session`/`Swapchain` the `Wgpu` `GpuBackend` family already presents from — one GPU lifetime and one session across the rendered scene and the passthrough layer.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR.Extensions.FB`
 - package: `Silk.NET.OpenXR.Extensions.FB`
@@ -12,48 +12,48 @@
 - depends: `Silk.NET.OpenXR`, `Silk.NET.Core`
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension function-table roots
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                          |
 | :-----: | :----------------------------- | :----------------- | :------------------------------ |
-|   [1]   | `FBPassthrough`                | extension API root | `XR_FB_passthrough` entrypoints |
-|   [2]   | `FBHandTrackingMesh`           | extension API root | `XR_FB_hand_tracking_mesh`      |
-|   [3]   | `FBSpatialEntity`              | extension API root | `XR_FB_spatial_entity` anchors  |
-|   [4]   | `FBCompositionLayerAlphaBlend` | extension API root | composition-layer alpha blend   |
+|  [01]   | `FBPassthrough`                | extension API root | `XR_FB_passthrough` entrypoints |
+|  [02]   | `FBHandTrackingMesh`           | extension API root | `XR_FB_hand_tracking_mesh`      |
+|  [03]   | `FBSpatialEntity`              | extension API root | `XR_FB_spatial_entity` anchors  |
+|  [04]   | `FBCompositionLayerAlphaBlend` | extension API root | composition-layer alpha blend   |
 
 [PUBLIC_TYPE_SCOPE]: passthrough native handles and descriptor carriers
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                        | [KIND]        | [RAIL]                              |
 | :-----: | :------------------------------ | :------------ | :---------------------------------- |
-|   [1]   | `PassthroughFB`                 | native handle | passthrough feature handle          |
-|   [2]   | `PassthroughLayerFB`            | native handle | passthrough composition layer       |
-|   [3]   | `PassthroughCreateInfoFB`       | descriptor    | passthrough create (flags)          |
-|   [4]   | `PassthroughLayerCreateInfoFB`  | descriptor    | layer create (purpose, flags)       |
-|   [5]   | `CompositionLayerPassthroughFB` | struct        | composition layer the frame submits |
-|   [6]   | `PassthroughStyleFB`            | descriptor    | edge color / texture-opacity style  |
-|   [7]   | `PassthroughFlagsFB`            | enum (flags)  | `IsRunningAtCreationBitFB`          |
-|   [8]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`  |
+|  [01]   | `PassthroughFB`                 | native handle | passthrough feature handle          |
+|  [02]   | `PassthroughLayerFB`            | native handle | passthrough composition layer       |
+|  [03]   | `PassthroughCreateInfoFB`       | descriptor    | passthrough create (flags)          |
+|  [04]   | `PassthroughLayerCreateInfoFB`  | descriptor    | layer create (purpose, flags)       |
+|  [05]   | `CompositionLayerPassthroughFB` | struct        | composition layer the frame submits |
+|  [06]   | `PassthroughStyleFB`            | descriptor    | edge color / texture-opacity style  |
+|  [07]   | `PassthroughFlagsFB`            | enum (flags)  | `IsRunningAtCreationBitFB`          |
+|  [08]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: passthrough lifecycle and composition
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                               | [SURFACE_ROOT]  | [RAIL]              |
 | :-----: | :-------------------------------------------------------------------------------------- | :-------------- | :------------------ |
-|   [1]   | `CreatePassthroughFB(Session, PassthroughCreateInfoFB*, PassthroughFB*)`                | `FBPassthrough` | passthrough create  |
-|   [2]   | `CreatePassthroughLayerFB(Session, PassthroughLayerCreateInfoFB*, PassthroughLayerFB*)` | `FBPassthrough` | layer create        |
-|   [3]   | `PassthroughStartFB(PassthroughFB)`                                                     | `FBPassthrough` | start camera feed   |
-|   [4]   | `PassthroughPauseFB(PassthroughFB)`                                                     | `FBPassthrough` | pause camera feed   |
-|   [5]   | `PassthroughLayerSetStyleFB(PassthroughLayerFB, PassthroughStyleFB*)`                   | `FBPassthrough` | edge/opacity style  |
-|   [6]   | `DestroyPassthroughFB(PassthroughFB)`                                                   | `FBPassthrough` | passthrough release |
-|   [7]   | `DestroyPassthroughLayerFB(PassthroughLayerFB)`                                         | `FBPassthrough` | layer release       |
+|  [01]   | `CreatePassthroughFB(Session, PassthroughCreateInfoFB*, PassthroughFB*)`                | `FBPassthrough` | passthrough create  |
+|  [02]   | `CreatePassthroughLayerFB(Session, PassthroughLayerCreateInfoFB*, PassthroughLayerFB*)` | `FBPassthrough` | layer create        |
+|  [03]   | `PassthroughStartFB(PassthroughFB)`                                                     | `FBPassthrough` | start camera feed   |
+|  [04]   | `PassthroughPauseFB(PassthroughFB)`                                                     | `FBPassthrough` | pause camera feed   |
+|  [05]   | `PassthroughLayerSetStyleFB(PassthroughLayerFB, PassthroughStyleFB*)`                   | `FBPassthrough` | edge/opacity style  |
+|  [06]   | `DestroyPassthroughFB(PassthroughFB)`                                                   | `FBPassthrough` | passthrough release |
+|  [07]   | `DestroyPassthroughLayerFB(PassthroughLayerFB)`                                         | `FBPassthrough` | layer release       |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [FB_PASSTHROUGH_TOPOLOGY]:
 - The extension loads through the Silk.NET `TryGetExtension`/constructor convention against the live `XR` core instance — `new FBPassthrough(xr.Context)` (or `xr.TryGetInstanceExtension(out FBPassthrough fb)` against the created `Instance`) yields the function-table root, so every `FB_*` call is an instance method on that root taking raw pointers to the `*FB` descriptor structs, never a managed wrapper object.

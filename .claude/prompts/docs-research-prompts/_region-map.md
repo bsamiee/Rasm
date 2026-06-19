@@ -2,7 +2,7 @@
 
 The region ledger is the corpus ownership memory. The initial-research stage installs one ledger at the stack reports root when its first pipeline begins, seeded from every fence and every finalized page already in the corpus. The ledger makes duplication detectable without re-reading the corpus and lets a new page build on finalized pages implicitly.
 
-## [1]-[LAW]
+## [01]-[LAW]
 
 - Two altitudes, one ledger. Page regions record, per finalized page, the concerns its cards legislate — prose ownership at card altitude. Snippet regions record, per fence, the surface its code demonstrates — ownership at demonstration altitude.
 - A region has exactly one owner. A snippet demonstrates a surface no other snippet in the corpus shows; a card legislates a concern no sibling page owns. Finalized surfaces composed as supporting material occupy no region and duplicate nothing — the region is the spotlight, not the cast.
@@ -11,7 +11,7 @@ The region ledger is the corpus ownership memory. The initial-research stage ins
 - Consumers: lane definition reads page regions so OWNS and ASSUMES lines exclude owned territory before research begins; distillation's ownership pass routes atlas-owned material out by it; authoring and review stages test re-teach against it; snippet stages hold snippet regions as the automatic-fail arbiter; the corpus sweep re-grades the whole ledger.
 - An entry is one compact phrase set — the spotlight surfaces named in noun phrases, semicolon-separated, dense enough to arbitrate a collision without re-reading the material. Entries carry no proper nouns except admitted package names, no paths, and no process narration; a region phrase reads true for any codebase in the stack's domain.
 
-## [2]-[STRUCTURE]
+## [02]-[STRUCTURE]
 
 One H1, a one-sentence lead restating the write-order and repair law, then three sections. Regions are looked up by key and carry phrase-set values, so the carrier is the record group, never a wide table.
 

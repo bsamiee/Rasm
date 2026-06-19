@@ -2,15 +2,15 @@
 
 Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks supplies probe mechanics, ResourceMonitoring publishes CPU/memory utilization and container limits through its OTel observable instruments and ResourceQuotaProvider, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[HEALTH_FOLD]: Contributor rows, resource pressure, peer reads, and one snapshot fold.
-- [2]-[DEGRADATION_RAIL]: Level vocabulary, retained capabilities, derivation fold, and hysteresis.
-- [3]-[WIRE_HEALTH]: Tag-predicate wire mapping and the inbound set-degradation route.
-- [4]-[ALERT_ENGINE]: Declarative alert rules over continuous queries with hysteresis, escalation, and versioning.
-- [5]-[TS_PROJECTION]: Health snapshot, degradation level, and alert wire shapes.
+- [01]-[HEALTH_FOLD]: Contributor rows, resource pressure, peer reads, and one snapshot fold.
+- [02]-[DEGRADATION_RAIL]: Level vocabulary, retained capabilities, derivation fold, and hysteresis.
+- [03]-[WIRE_HEALTH]: Tag-predicate wire mapping and the inbound set-degradation route.
+- [04]-[ALERT_ENGINE]: Declarative alert rules over continuous queries with hysteresis, escalation, and versioning.
+- [05]-[TS_PROJECTION]: Health snapshot, degradation level, and alert wire shapes.
 
-## [2]-[HEALTH_FOLD]
+## [02]-[HEALTH_FOLD]
 
 - Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with a `ResourceQuota` container-limit column; `UtilizationCell` is the `MeterListener`-backed boundary capsule that records the ResourceMonitoring observable instruments and grades on read; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
 - Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; instrument-name consts `CpuInstrument` and `MemoryInstrument` key the meter subscription; `Gauge` and `Peer` are the canonical row factories and `Monitor` is the resource-monitoring registration fold.
@@ -163,7 +163,7 @@ public static class HealthSurface {
 }
 ```
 
-## [3]-[DEGRADATION_RAIL]
+## [03]-[DEGRADATION_RAIL]
 
 - Owner: `Capability` and `DegradationLevel` vocabularies under one `HealthKeyPolicy` comparer accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationCell` is the boundary capsule owning the atom cell and the publisher seam.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Capability` keys form the retained sets.
@@ -277,7 +277,7 @@ public sealed class DegradationCell(DegradationPolicy policy, IClock clock, Corr
 }
 ```
 
-## [4]-[WIRE_HEALTH]
+## [04]-[WIRE_HEALTH]
 
 - Owner: `WireHealthRow` binds one wire service name to one tag predicate; `WireHealth` attaches the filtered evaluation.
 - Entry: `Evaluate(HealthCheckService service, CancellationToken token)` runs the tag-filtered registry sweep behind one row.
@@ -300,7 +300,7 @@ public static class WireHealth {
 }
 ```
 
-## [5]-[ALERT_ENGINE]
+## [05]-[ALERT_ENGINE]
 
 - Owner: `AlertSeverity` `[SmartEnum<int>]` the rank-ordered severity ladder; `AlertCondition` `[Union]` the declarative condition family (threshold, anomaly, forecast-band); `AlertRule` the versioned rule record carrying hysteresis and debounce; `AlertState` the per-rule firing-state cell; `AlertEngine` the static evaluate-and-escalate surface over the continuous health snapshot stream.
 - Cases: 4 severity rows — info(0), warning(1), error(2), critical(3); `AlertCondition` = Threshold | AnomalyBand | ForecastBand — Threshold fires on a value crossing a bound, AnomalyBand on a value outside a rolling mean ± k·sigma band, ForecastBand on a value outside a linear-trend forecast envelope.
@@ -437,7 +437,7 @@ public static class AlertEngine {
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `HealthSnapshotWire`, `DegradationWire`, and `AlertReceiptWire` transcribe the snapshot, level, and alert records the dashboard ingests.
 - Packages: BCL inbox
@@ -492,7 +492,7 @@ interface AlertReceiptWire {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [WIRE_REGISTRATION]: the `grpc.health.v1` wire-service registration surface behind the app-root pin, with the default status-to-serving projection; the tag-predicate evaluation rides the confirmed `HealthCheckService.CheckHealthAsync(Func<HealthCheckRegistration, bool>?, CancellationToken)` overload.
 - [MEMORY_RATIO_SEMANTIC]: `dotnet.process.memory.virtual.ratio` is read as the memory-pressure ratio the `Gauge` grade compares against `MemoryDegraded`/`MemoryUnhealthy`; whether this instrument and `process.cpu.utilization` report over the cgroup `MaxMemoryInBytes`/`MaxCpuInCores` ceilings or over the host total under `UseLinuxCalculationV2`+`UseZeroToOneRangeForLinuxMetrics` settles whether a `Container`-row grade rides the meter as published or threads a `ResourceQuotaProvider.GetResourceQuota()`-sourced `ResourceQuota` into a quota-relative recompute and the provider-registration surface that supplies `PressurePolicy.Quota` to the runtime — resolved against the ResourceMonitoring metric exporter and `ResourceQuotaProvider` registration before the container-row grade finalizes.

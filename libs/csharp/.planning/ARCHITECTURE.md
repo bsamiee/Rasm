@@ -4,7 +4,7 @@ The branch domain map of `libs/csharp` — the strata-ordered package roster and
 
 Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
-## [1]-[PACKAGE_ROSTER]
+## [01]-[PACKAGE_ROSTER]
 
 ```text codemap
 libs/csharp/
@@ -22,7 +22,7 @@ libs/csharp/
 
 The eight planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm` keeps its scaffold only in the greenfield `Geometry/` robust-core because its `Vectors`/`Analysis`/`Domain` siblings are mature source. `Rasm.Rhino` and `Rasm.Grasshopper` are durable host-bound source with no `.planning/`; their open work the future app root composes rides this branch `TASKLOG.md`.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Rasm.AppHost      →  typescript:interchange  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
@@ -34,7 +34,7 @@ Rasm.AppHost      ⇄  python:runtime          # [WIRE]: gRPC companion server +
 Rasm.Compute      ←  python:compute          # [GRADUATION]: graduation evidence HandoffAxis
 ```
 
-## [3]-[DEPENDENCY_DIRECTION]
+## [03]-[DEPENDENCY_DIRECTION]
 
 Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base, `Rasm.AppHost` as the app-platform root, and the app shells at the future leaf. This is the project-reference graph the eight folders consume as settled vocabulary.
 

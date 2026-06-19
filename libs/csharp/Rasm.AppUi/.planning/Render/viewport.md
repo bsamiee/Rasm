@@ -2,16 +2,16 @@
 
 The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG drives every frame over a host-shared `GRContext` leased through the embed capsule, `MeshletCluster` virtualizes geometry into GPU-driven cluster-LOD with bindless residency, `PathTracePass` accumulates hardware ray-traced global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, `ResidencyBudget` keeps an out-of-core scene inside a VRAM budget through predictive prefetch and massive instancing, `SimVisual` renders isosurface, volume, streamline, glyph, and deformation fields off the Compute field receipts, and `Viewpoint` codecs camera, section-box, visibility, color-override, and selection as one portable BCF-compatible receipt. The page owns the render-graph pass algebra, the geometry-virtualization and residency owners, the path-trace and simulation render passes, and the viewpoint receipt; the substrate is SkiaSharp 3 GPU backends (`GRContext`, `GRMtlBackendContext`, `GRVkBackendContext`, `SKRuntimeEffect`) leased through `ISkiaSharpPlatformGraphicsApiLease`, the Compute geometry and field receipts, and the AppHost clock, frame-budget, and receipt-sink ports. Every GPU pass is fence-complete now and SPIKE-gated on the live host-shared GPU context; the 2D-Skia fallback raster ships today.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RENDER_GRAPH]: Frame pass-DAG, per-backend `RenderTargetFactory`, frame-budget invariant, fallback.
-- [2]-[GEOMETRY_VIRTUAL]: Meshlet cluster-LOD, GPU-driven culling, bindless residency, instancing.
-- [3]-[RESIDENCY_BUDGET]: VRAM-budget residency, predictive prefetch, out-of-core streaming.
-- [4]-[PATH_TRACE]: BVH build/refit, ReSTIR reservoirs, progressive accumulation, denoise.
-- [5]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes.
-- [6]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection as a BCF receipt.
+- [01]-[RENDER_GRAPH]: Frame pass-DAG, per-backend `RenderTargetFactory`, frame-budget invariant, fallback.
+- [02]-[GEOMETRY_VIRTUAL]: Meshlet cluster-LOD, GPU-driven culling, bindless residency, instancing.
+- [03]-[RESIDENCY_BUDGET]: VRAM-budget residency, predictive prefetch, out-of-core streaming.
+- [04]-[PATH_TRACE]: BVH build/refit, ReSTIR reservoirs, progressive accumulation, denoise.
+- [05]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes.
+- [06]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection as a BCF receipt.
 
-## [2]-[RENDER_GRAPH]
+## [02]-[RENDER_GRAPH]
 
 - Owner: `RenderPass` `[Union]` frame-pass vocabulary; `RenderGraph` pass-DAG executor; `RenderTarget` the lease-bound GPU surface; `FrameReceipt` per-frame evidence; `ViewportFault` the fault family; `ResolvePass` `[SmartEnum]` the antialias-and-super-resolution resolve ladder the `Composite` pass selects; `ResolvePolicy` the per-tier delegate-row binding.
 - Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay under the locked kind literals cull, geometry, path-trace, composite, sim, overlay; `ResolvePass` = Msaa | Taa | Fsr | Smaa under the locked policy literals; `ViewportFault` = Text | ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected in the 4500 code band.
@@ -203,7 +203,7 @@ flowchart LR
     FrameReceipt --> ReceiptSinkPort
 ```
 
-## [3]-[GEOMETRY_VIRTUAL]
+## [03]-[GEOMETRY_VIRTUAL]
 
 - Owner: `Meshlet` cluster vertex-and-index run; `MeshletCluster` the GPU-driven cluster-LOD scene; `ClusterCull` the GPU-culling fold; `BindlessTable` the bindless resource table.
 - Entry: `public Fin<int> Visible(RenderTarget target, Frustum frustum, double lodScale)` — the GPU-driven cull selects the visible meshlet set and the cluster LOD per the screen-space error bound; `public static MeshletCluster Build(GpuBackend backend, Seq<MeshSource> meshes, int meshletVertices, int meshletTriangles, LodPolicy lod)` — clusters the projected mesh sources into meshlets.
@@ -277,7 +277,7 @@ public sealed record MeshletCluster(
 }
 ```
 
-## [4]-[RESIDENCY_BUDGET]
+## [04]-[RESIDENCY_BUDGET]
 
 - Owner: `ResidencyTile` the streamable geometry page; `ResidencyBudget` the VRAM-budget residency manager; `Prefetch` the predictive prefetch fold; `InstanceBuffer` the massive-instancing draw row.
 - Entry: `public Fin<ResidencyPlan> Plan(Frustum frustum, (double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, long vramBytes)` — folds the resident, evict, and prefetch sets against the VRAM budget; the plan never exceeds `vramBytes`.
@@ -341,7 +341,7 @@ public sealed record ResidencyBudget(
 }
 ```
 
-## [5]-[PATH_TRACE]
+## [05]-[PATH_TRACE]
 
 - Owner: `Bvh` the bounding-volume hierarchy; `Reservoir` the ReSTIR sample reservoir; `PathTracePass` the progressive accumulation pass; `Denoiser` the edge-aware denoise fold.
 - Entry: `public Fin<long> Accumulate(RenderTarget target, Bvh scene, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running estimate; convergence is the accumulated sample count, never a wall-clock timer.
@@ -406,7 +406,7 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
 }
 ```
 
-## [6]-[SIM_VISUAL]
+## [06]-[SIM_VISUAL]
 
 - Owner: `SimField` the Compute field receipt projection; `SimVisual` `[Union]` the simulation render-pass family; `TransferFunction` the volume opacity-and-color map.
 - Cases: `SimVisual` = Isosurface | Volume | Streamline | Glyph | Deformation | MeshQuality | ParallelCoords under the locked kind literals isosurface, volume, streamline, glyph, deformation, mesh-quality, parallel-coords.
@@ -464,7 +464,7 @@ public abstract partial record SimVisual {
 }
 ```
 
-## [7]-[VIEWPOINT_CODEC]
+## [07]-[VIEWPOINT_CODEC]
 
 - Owner: `Viewpoint` the portable view-state receipt; `SectionBox` the clip volume; `VisibilityOverride` the per-element visibility-and-color row; `ViewpointCodec` the BCF-compatible serializer.
 - Entry: `public string Encode(JsonSerializerOptions wire)` — serializes the camera, section box, visibility set, color overrides, and selection into one portable JSON receipt; `public static Fin<Viewpoint> Decode(string blob, JsonSerializerOptions wire)` — round-trips a stored or shared viewpoint.
@@ -538,7 +538,7 @@ public readonly record struct BcfCamera(string Kind, double X, double Y, double 
 public sealed record BcfViewpoint(BcfCamera Camera, Seq<string> Selection, Seq<(string ElementId, uint Color)> Coloring, Seq<string> Hidden);
 ```
 
-## [8]-[TS_PROJECTION]
+## [08]-[TS_PROJECTION]
 
 - Owner: `ViewpointWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `FrameReceiptWire`, `GeometryResidencyWire`, `ResidencyTileWire`, `MeshletWire`, `MeshletClusterWire`, `SplatTileWire` — the viewpoint, frame-evidence, and content-keyed geometry-residency wire contract a WebGPU web viewer and a cross-process coordination tool consume; `ContentKey` the suite `XxHash128` content-address value object; `ResidencyManifest` the single C# mint of the `WEB_GEOMETRY_RESIDENCY_WIRE` portable scene-graph plus meshlet/splat residency manifest; `ResidencyMarshal` the projection algebra folding every desktop owner into its wire row; the GPU pass internals never cross the wire.
 - Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
@@ -742,7 +742,7 @@ public sealed record ResidencyManifest(
 public partial class ResidencyWireContext : JsonSerializerContext;
 ```
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [VIEWPORT_GEOMETRY]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `MeshSource` vertex-and-index run is the cross-package wire boundary the meshlet build never re-mints; the proto mesh-primitive member set (position/index/normal accessors) resolves at implementation against the settled Compute interchange wire contract, and the `MeshSource` shape and the meshlet partition fold are settled — the proto accessor spellings are the unverified surface.
 - [VIEWPORT_GPU]: the host-shared `GRContext` acquisition through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` against the Rhino-owned Metal pipeline, the `GRMtlBackendContext`/`GRVkBackendContext` backend-context construction, the `SKSurface.Create(GRRecordingContext, GRBackendRenderTarget, ...)` GPU-target spelling the `Metal`/`Vulkan`/`OpenGl` `RenderTargetFactory` rows fold, the `SKRuntimeEffect` compute-and-mesh-shader emit path for the meshlet draw and the path-trace ray-generation, the per-backend bindless descriptor-table and acceleration-structure spellings (Metal argument buffers and ray-tracing, Vulkan descriptor indexing and ray-query), the `ResolvePass` live dispatch (the `Taa` motion-vector-reprojection compute pass and history-clamp, the `Fsr` sub-resolution spatial-upscale `Silk.NET.WebGPU` `ComputePassEncoder`/`SKRuntimeEffect` pass, the `Smaa` morphological edge pass) below the `Composite` `RenderTargetFactory`, and the WebGPU backend reach for the designed-only web viewport — the render-graph pass algebra, the `GpuBackend` `RenderTargetFactory` column, the `ResolvePass` ladder and the `ResolvePolicy` tier table and the `ResolveState` jitter-and-history Fold, the meshlet cluster build and screen-space-error cull, the SAH BVH and ReSTIR reservoir, the residency plan and prefetch fold, the CPU marching-cubes and ray-march oracles, and the viewpoint codec are settled and ship as the CPU/2D-Skia fallback (the `Msaa`/`Smaa`/single-sample resolve runs on the CPU raster today); the GPU dispatch, the shared-context lease, the live `Taa`/`Fsr` compute resolve, and the backend acceleration structures are the unverified surface gated on the live host-owned GPU context, de-risked standalone against a windowed `GRContext` and confirmed in-host against the embedded panel.

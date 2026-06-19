@@ -2,14 +2,14 @@
 
 Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its NodaTime `Duration`, easing curve, optional spring value, and reduced-motion pair, and every duration or easing literal in the package traces to a row here. The page owns the token axis, the application plans feeding Avalonia transitions, chart timing, and pan-zoom canvases, the frozen `ProgressPhase` mapping, and the global reduced-motion degrade switch — composing AppHost `ClockPolicy` for deterministic motion clocks and Compute `ProgressPhase` as settled vocabulary over Thinktecture smart-enum rows and LanguageExt rails.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[MOTION_AXIS]: Six token rows; durations, curves, springs, reduced pairs, pacing.
-- [2]-[MOTION_APPLICATION]: Plan rows and projections binding transitions, charts, zoom, clocks.
-- [3]-[PHASE_MAPPING]: Frozen nine-row `ProgressPhase`-to-token map; one resolve entrypoint.
-- [4]-[REDUCED_MOTION]: Host-agnostic probe rows; one global degrade switch; conformance.
+- [01]-[MOTION_AXIS]: Six token rows; durations, curves, springs, reduced pairs, pacing.
+- [02]-[MOTION_APPLICATION]: Plan rows and projections binding transitions, charts, zoom, clocks.
+- [03]-[PHASE_MAPPING]: Frozen nine-row `ProgressPhase`-to-token map; one resolve entrypoint.
+- [04]-[REDUCED_MOTION]: Host-agnostic probe rows; one global degrade switch; conformance.
 
-## [2]-[MOTION_AXIS]
+## [02]-[MOTION_AXIS]
 
 - Owner: `MotionKeyPolicy` comparer accessor; `SpringValue` spring algebra; `MotionToken` six-row vocabulary.
 - Cases: instant, fast, standard, emphasized, spring-snappy, spring-gentle
@@ -52,7 +52,7 @@ public sealed partial class MotionToken {
 }
 ```
 
-## [3]-[MOTION_APPLICATION]
+## [03]-[MOTION_APPLICATION]
 
 - Owner: `MotionPlan` enter-exit pair record; `MotionApplication` anchor and projection fold.
 - Cases: Dialog, Toast, Page plan rows
@@ -82,7 +82,7 @@ public static class MotionApplication {
 }
 ```
 
-## [4]-[PHASE_MAPPING]
+## [04]-[PHASE_MAPPING]
 
 - Owner: `PhaseMotion` frozen mapping table.
 - Entry: `public static MotionToken Resolve(ProgressPhase phase)` — total over the nine-row map, degrade applied inside.
@@ -116,7 +116,7 @@ flowchart LR
     Select --> MotionToken
 ```
 
-## [5]-[REDUCED_MOTION]
+## [05]-[REDUCED_MOTION]
 
 - Owner: `MotionProbeRow` probe row; `MotionReceipt` conformance receipt; `ReducedMotion` degrade switch.
 - Entry: `public static MotionToken Select(MotionToken token)` — the one reduction point every consumer shares.
@@ -147,12 +147,12 @@ public static class ReducedMotion {
 
 | [INDEX] | [HOST_ROW]                | [PROBE_SOURCE]                                             | [DESIGNED] |
 | :-----: | :------------------------ | :--------------------------------------------------------- | :--------: |
-|   [1]   | rhino-panel / rhino-modal | macOS reduce-motion preference via the embed capsule facts |     no     |
-|   [2]   | standalone-desktop        | platform reduce-motion preference bound at composition     |     no     |
-|   [3]   | gh2-companion             | the same macOS preference delegate as the panel rows       |     no     |
-|   [4]   | headless                  | constant false; spec-driven `Observe` flips                |     no     |
-|   [5]   | web-browser               | absent; designed-only case                                 |    yes     |
+|  [01]   | rhino-panel / rhino-modal | macOS reduce-motion preference via the embed capsule facts |     no     |
+|  [02]   | standalone-desktop        | platform reduce-motion preference bound at composition     |     no     |
+|  [03]   | gh2-companion             | the same macOS preference delegate as the panel rows       |     no     |
+|  [04]   | headless                  | constant false; spec-driven `Observe` flips                |     no     |
+|  [05]   | web-browser               | absent; designed-only case                                 |    yes     |
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [REDUCED_MOTION_PROBE]: macOS reduce-motion preference probe spelling for embedded and standalone rows.

@@ -2,15 +2,15 @@
 
 The reality-capture rail projects scanned existing-conditions geometry into the viewport beside BIM: `SplatSource` carries a Gaussian-splat ellipsoid set decoded off a Compute splat payload, `PointCloudSource` carries a massive point set decoded off a Compute point payload, `CapturePass` is the new `RenderPass` case family the render graph executes through the backend target factory, `MeasureOverlay` anchors a LiDAR-measurable annotation onto the `Viewpoint`, and `CaptureClip` scrubs a time-based capture frame on the animation playhead. The page owns the splat and point sources, the splat rasterization pass and point pass, the measurable overlay, and the capture-frame clip; the substrate is the `T-BACKEND-PORT` `GpuBackend` `RenderTarget` factory, the Compute point/splat payload at the interchange wire, the `Viewpoint` codec, and the animation `Track`/`Scrub` playhead. AppUi consumes the decoded point and splat payload at the wire and never decodes LAZ — the offline scan decode is the Python companion's geometry producer crossing as a Compute payload. The 3DGS rasterization is a distinct render path from triangle meshlets, fence-complete now and SPIKE-gated on the live host-shared GPU context.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SPLAT_SOURCE]: SOG/PLY ellipsoid set off the Compute splat payload; radix-sort residency.
-- [2]-[POINT_SOURCE]: LAZ-decoded point set off the Compute point payload; octree residency.
-- [3]-[CAPTURE_PASS]: Splat and point `RenderPass` cases over the backend target factory.
-- [4]-[MEASURE_OVERLAY]: LiDAR-anchored measurable annotation bound to the `Viewpoint`.
-- [5]-[CAPTURE_CLIP]: Time-based capture-frame playback on the animation playhead.
+- [01]-[SPLAT_SOURCE]: SOG/PLY ellipsoid set off the Compute splat payload; radix-sort residency.
+- [02]-[POINT_SOURCE]: LAZ-decoded point set off the Compute point payload; octree residency.
+- [03]-[CAPTURE_PASS]: Splat and point `RenderPass` cases over the backend target factory.
+- [04]-[MEASURE_OVERLAY]: LiDAR-anchored measurable annotation bound to the `Viewpoint`.
+- [05]-[CAPTURE_CLIP]: Time-based capture-frame playback on the animation playhead.
 
-## [2]-[SPLAT_SOURCE]
+## [02]-[SPLAT_SOURCE]
 
 - Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the fault family in the 4900 band.
 - Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred in the 4900 code band.
@@ -91,7 +91,7 @@ flowchart LR
     RenderTarget --> FrameReceipt
 ```
 
-## [3]-[POINT_SOURCE]
+## [03]-[POINT_SOURCE]
 
 - Owner: `PointSample` the single LiDAR return; `PointCloudSource` the decoded point set; `PointOctree` the level-of-detail residency tree.
 - Entry: `public static Fin<PointCloudSource> Decode(GpuBackend backend, PointPayload payload, ResidencyBudget budget)` — projects the canonical Compute point payload into the octree-keyed point set; AppUi consumes the decoded payload at the wire and never decodes LAZ.
@@ -137,7 +137,7 @@ public sealed record PointCloudSource(
 }
 ```
 
-## [4]-[CAPTURE_PASS]
+## [04]-[CAPTURE_PASS]
 
 - Owner: `CapturePass` `[Union]` the reality-capture render-pass family; `CaptureVisual` the pass-to-`RenderPass` projection.
 - Cases: `CapturePass` = Splat | Point under the locked kind literals splat, point.
@@ -167,7 +167,7 @@ public abstract partial record CapturePass {
 }
 ```
 
-## [5]-[MEASURE_OVERLAY]
+## [05]-[MEASURE_OVERLAY]
 
 - Owner: `MeasurePoint` the LiDAR-anchored measurable vertex; `MeasureOverlay` the annotation set bound to the `Viewpoint`.
 - Entry: `public Fin<MeasureOverlay> Anchor(MeasurePoint point)` — anchors a measurable vertex onto the capture cloud and folds the running distance and angle evidence; `public Viewpoint Bind(Viewpoint view)` — binds the overlay onto the viewpoint visibility set so a saved capture markup carries its measurements.
@@ -203,7 +203,7 @@ public sealed record MeasureOverlay(string Key, Seq<MeasurePoint> Vertices, Seq<
 }
 ```
 
-## [6]-[CAPTURE_CLIP]
+## [06]-[CAPTURE_CLIP]
 
 - Owner: `CaptureFrame` the time-stamped capture epoch; `CaptureClip` the capture-frame playback bound to the animation playhead.
 - Entry: `public FieldIndexTrack OnTimeline(string key)` — projects the capture epochs onto an animation `FieldIndex` track so a multi-epoch scan scrubs on the one playhead; the capture frame is a field index, never a wall-clock tick.
@@ -224,7 +224,7 @@ public sealed record CaptureClip(string Key, Seq<CaptureFrame> Frames) {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [CAPTURE_PAYLOAD]: the projection from the canonical Compute splat and point payloads (`SplatPayload`, `PointPayload`) into the `SplatEllipsoid` and `PointSample` interleaved runs is the cross-package wire boundary the capture sources never re-mint; the proto splat-primitive member set (mean/scale/rotation/spherical-harmonic accessors) and the point-primitive member set (position/classification/intensity/color accessors) resolve at implementation against the settled Compute interchange wire contract — the `SplatSource`/`PointCloudSource` shapes, the radix-sort and octree folds, and the residency keying are settled, the proto accessor spellings are the unverified surface.
 - [CAPTURE_GPU]: the per-backend Gaussian-splat ellipsoid-rasterizer compute kernel (radix-sorted alpha-composited 3DGS over the `T-BACKEND-PORT` `RenderTargetFactory`), the point-splat compute kernel, and the bindless residency upload of a splat or point tile to a backend slot resolve under VIEWPORT_GPU against the live host-shared GPU context — the splat decode and radix sort, the point decode and octree LOD, the measurable overlay, and the capture-frame clip are settled and ship as the CPU/2D-fallback point preview, the GPU ellipsoid rasterization and point splatting are the unverified surface gated on the live host-owned GPU context and the backend target factory.

@@ -2,13 +2,13 @@
 
 The exhaustive fault reconstruction: one `Data.TaggedEnum` family rebuilding every .NET fault the wire emits across all four C# packages, the `faultTagOf` and `faultOf` total projections from the `grpc-status-details-bin` trailer, and one `Match.tagsExhaustive` render table the SPA reads through so no surface hand-rolls fault rendering per rail. `FaultDetailRail` reads the typed trailer riding every `proto` call rather than a `CodecKey` row — the fault detail is not a codec format but the trailer-decode owner the `Codec/codec.md` `DecodeRail` proto row's calls carry. The family is ONE tagged owner whose constructors and error channel are the same symbol — never an empty `Data.TaggedError` class beside a parallel enum and never four parallel error rails.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FAULT_FAMILY]: the tagged fault family, the total wire projections, the render table.
-- [2]-[TS_PROJECTION]: the fault-detail trailer wire shape the rail decodes.
+- [01]-[FAULT_FAMILY]: the tagged fault family, the total wire projections, the render table.
+- [02]-[TS_PROJECTION]: the fault-detail trailer wire shape the rail decodes.
 
 
-## [2]-[FAULT_FAMILY]
+## [02]-[FAULT_FAMILY]
 
 - Owner: `FaultDetail`, the single `Data.TaggedEnum` family reconstructing every .NET fault across the four C# packages, with one `Match.tagsExhaustive` table the SPA renders through. The family is the full cross-package fault case set — `ComputeFault`, `StoreFault`, `HopFault`, `ConfigError`, and the `Quarantine` landing for the not-yet-enumerated wire `case`. `FaultDetailRail` is the boundary that reads the trailer and the total cause fold every transport call site stamps.
 - Cases: `FaultDetailRail` reads the `grpc-status-details-bin` trailer through `ConnectError.findDetails(FaultDetailSchema)` and decodes the `FaultDetailWire` (package, code, case, message, evidence, correlation, hlcPhysical, hlcLogical) into the matching `FaultDetail` tagged case through `faultTagOf`, the `PACKAGE_TAG` vocabulary `Record` keying every enumerated .NET package to its `_tag`; a package the vocabulary does not enumerate folds to `FaultDetail.Quarantine` through the `Record.get` default rather than throwing, so the wire→tag hop is itself total and an unmapped package is a typed quarantine fault, never a silent miss. `faultOf` then constructs the exact tagged case through one `Match.value(faultTagOf(wire))` fold whose `Match.exhaustive` terminal proves at compile time that every tag has an arm, never a parallel `Record<FaultTag, (w) => FaultDetail>` constructor table restating the case list the fold already owns and never a `Match.when` chain over `wire.package` re-encoding the `PACKAGE_TAG` package→tag knowledge. The exhaustive render proves at compile time through `Match.tagsExhaustive` that every tagged case has a render arm, so adding a fault tag without a TS arm is a typecheck failure. `HopFault` is the dual-minted case — the wire-derived path lands `reason: "wire"` carrying the numeric connect code in the `code` evidence row, and the branch-local folds mint a typed `HopReason` against the same closed vocabulary rather than a raw string: the artifact and gateway folds mint `frame-crc-mismatch`, `empty-artifact`, and `command-disabled`, the `Codec/patch.md` recorded-intent fold mints `patch-apply-failed`/`patch-test-mismatch` (the `applyRecordedIntent` one-slot-per-op result keyed by the failing op index) and `field-mask-empty` (the `fieldMaskLower` empty-mask guard), and the `platform` browser-tier local hops mint `uncaught`/`render` (the `fault-capture` crash and error-boundary sink reconstructing an uncaught browser exception) and `worker-reassemble`/`worker-decode`/`worker-protocol` (the `worker/` `DecodeWorkerPool` marshal seam). Every local hop carries its discriminant in `reason` and never a `code` field — `HopFault` carries no numeric `code`, only the wire-derived case folds the connect code into the `code` evidence row — so a `code`-keyed `HopFault` construction is the named consumer defect.
@@ -85,7 +85,7 @@ const faultDetailRail: FaultDetailRail = {
 };
 ```
 
-## [3]-[TS_PROJECTION]
+## [03]-[TS_PROJECTION]
 
 - Owner: the `FaultDetailWire` trailer shape the rail decodes, sourced from `csharp:Rasm.Compute/Runtime/channels#TS_PROJECTION` (the `FAULT_PROJECTION` cluster's one `FaultDetail` family carrying every typed fault across the wire). `FaultWire` derives from this shape through `typeof FaultDetailWire.Type`, never a parallel hand-written trailer type; the `package` field composes the branch-owned `RasmPackage` four-package literal from `Contract/inventory#WIRE_LAW`, never re-spelling the package set the inventory page already fixes.
 - Entry: the trailer carries `package=1 string`, `code=2 int32`, `case=3 string`, `message=4 string`, `evidence=5 map`, `correlation=6 string`, `hlcPhysical=7 Timestamp`, and `hlcLogical=8 uint64`; `code` decodes as `Schema.Int` and `hlcLogical` as bigint against the `uint64` width; the `RasmPackage` literal gates the `faultTagOf` projection.

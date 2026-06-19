@@ -4,12 +4,12 @@ Production patterns for file I/O beyond basic reads. Basic file reads (`$(<file)
 
 | [IDX] | [PATTERN]             |  [S]  | [USE_WHEN]                                    |
 | :---: | :-------------------- | :---: | :-------------------------------------------- |
-|  [1]  | Atomic write          |  S1   | Config/log output that must not be partial    |
-|  [2]  | Descriptor multiplex  |  S2   | Parallel logging, lock files, output channels |
-|  [3]  | Directory traversal   |  S3   | Sorted globs, fd search, recursive processing |
-|  [4]  | Structured extraction |  S4   | Config parsing, marker sections, line access  |
+| [01]  | Atomic write          |  S1   | Config/log output that must not be partial    |
+| [02]  | Descriptor multiplex  |  S2   | Parallel logging, lock files, output channels |
+| [03]  | Directory traversal   |  S3   | Sorted globs, fd search, recursive processing |
+| [04]  | Structured extraction |  S4   | Config parsing, marker sections, line access  |
 
-## [1]-[ATOMIC_WRITE_LIFECYCLE]
+## [01]-[ATOMIC_WRITE_LIFECYCLE]
 
 `rename(2)` atomicity holds only within a single filesystem — cross-device `mv` falls back to copy+delete. `umask 077` must precede `mktemp` — the race between creation and `chmod` is unclosable. `sync --data-only` (coreutils 8.24+) before `mv` ensures data durability — without it, power loss after `mv` can yield a zero-length file.
 
@@ -71,7 +71,7 @@ _with_tempdir() {
 
 `_register_cleanup` pushes onto the LIFO `_CLEANUP_STACK` (see [script-patterns.md](./script-patterns.md)). `_atomic_snapshot` uses `${file##*/}` instead of `$(basename)` to avoid a fork per file. For true multi-file atomicity, swap a symlink: `ln -sfn "${staging}" "${dest_dir}.new" && mv -Tf "${dest_dir}.new" "${dest_dir}"`.
 
-## [2]-[DESCRIPTOR_MULTIPLEX]
+## [02]-[DESCRIPTOR_MULTIPLEX]
 
 `exec {fd}>file` delegates to the kernel's `open()` return, stored in `$fd`. Composable, collision-free, mandatory for library-quality functions — hardcoded FDs collide when functions compose.
 
@@ -108,7 +108,7 @@ _fan_out() {
 
 `exec {fd}>&-` closes the descriptor — omitting leaks FDs (default ulimit ~1024). `_fan_out` calls `wait` because `>(tee ...)` subshells can outlive the parent. For bounded-concurrency job pools, use `wait -n -p finished_pid` (Bash 5.1+) — see `_run_pool` in data-pipeline.sh.
 
-## [3]-[DIRECTORY_TRAVERSAL]
+## [03]-[DIRECTORY_TRAVERSAL]
 
 **GLOBSORT (Bash 5.3+)** controls glob result ordering without forking to `ls` or `stat`. Scoped via `local` in functions — does not leak. Replaces `ls -t | while read` pipelines entirely.
 
@@ -186,7 +186,7 @@ _collect_filtered() {
 
 `globstar` recurses into symlinked directories — `_walk` checks `! -L` to prevent cycles. `_EXCLUDE` as associative set is O(1) per segment vs linear pattern matching. When `fd` is available, exclusion is better via `fd --exclude` rather than post-filtering.
 
-## [4]-[STRUCTURED_EXTRACTION]
+## [04]-[STRUCTURED_EXTRACTION]
 
 Config files, markdown, and structured logs have internal structure. Pure bash extraction via `mapfile` + array slicing operates on the loaded array — no repeated file I/O.
 

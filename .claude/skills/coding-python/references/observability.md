@@ -86,12 +86,12 @@ def configure_structlog() -> None:
 
 | [INDEX] | [PROCESSOR]                | [RESPONSIBILITY]                                          |
 | :-----: | -------------------------- | --------------------------------------------------------- |
-|   [1]   | `merge_contextvars`        | Inject context-local bindings into event dict             |
-|   [2]   | `CallsiteParameterAdder`   | Attach module, function name, line number                 |
-|   [3]   | `add_log_level`            | Add `level` key from stdlib log level                     |
-|   [4]   | `TimeStamper(fmt="iso")`   | ISO 8601 UTC timestamp                                    |
-|   [5]   | `inject_trace_identifiers` | OTel `trace_id` + `span_id` + `correlation_id`            |
-|   [6]   | `wrap_for_formatter`       | Bridge to stdlib `ProcessorFormatter` -- MUST be terminal |
+|  [01]   | `merge_contextvars`        | Inject context-local bindings into event dict             |
+|  [02]   | `CallsiteParameterAdder`   | Attach module, function name, line number                 |
+|  [03]   | `add_log_level`            | Add `level` key from stdlib log level                     |
+|  [04]   | `TimeStamper(fmt="iso")`   | ISO 8601 UTC timestamp                                    |
+|  [05]   | `inject_trace_identifiers` | OTel `trace_id` + `span_id` + `correlation_id`            |
+|  [06]   | `wrap_for_formatter`       | Bridge to stdlib `ProcessorFormatter` -- MUST be terminal |
 
 [CRITICAL]:
 - [NEVER] Split logging, tracing, and metrics into separate decorator layers -- fuse in one surface.
@@ -288,14 +288,14 @@ RED instruments: **Rate** `service.requests.total` (counter, `operation` + `outc
 ---
 ## Quick Reference
 
-| [INDEX] | [PATTERN]                  | [WHEN]                                    | [KEY_TRAIT]                            |
-| :-----: | -------------------------- | ----------------------------------------- | -------------------------------------- |
-|   [1]   | `@instrument[_async]`      | Fused result-aware telemetry (sync/async) | Span + log + outcome projection        |
-|   [2]   | Processor chain            | Structured log shaping + stdlib bridge    | Pure transformation pipeline           |
-|   [3]   | Trace correlation          | Inject `trace_id`/`span_id` centrally     | Custom structlog processor             |
-|   [4]   | Context propagation        | Carry request metadata across async tasks | `ContextVar` + `bind_contextvars`      |
-|   [5]   | `ReadableLogRecord`        | Modern OTel log export shape              | Required for OTel >= 1.39              |
-|   [6]   | `bootstrap_telemetry`      | One-shot startup wiring                   | Resource -> Providers -> Global        |
-|   [7]   | RED metrics projection     | Rate/Error/Duration from Result outcomes  | Counter + Counter + Histogram          |
-|   [8]   | `expression.Result` dispatch | RED projection via `Ok`/`Error` match     | Canonical Result library               |
-|   [9]   | Scoped context binding     | Per-request bind/unbind lifecycle         | `clear` -> `bind` -> clear             |
+| [INDEX] | [PATTERN]                    | [WHEN]                                    | [KEY_TRAIT]                       |
+| :-----: | ---------------------------- | ----------------------------------------- | --------------------------------- |
+|  [01]   | `@instrument[_async]`        | Fused result-aware telemetry (sync/async) | Span + log + outcome projection   |
+|  [02]   | Processor chain              | Structured log shaping + stdlib bridge    | Pure transformation pipeline      |
+|  [03]   | Trace correlation            | Inject `trace_id`/`span_id` centrally     | Custom structlog processor        |
+|  [04]   | Context propagation          | Carry request metadata across async tasks | `ContextVar` + `bind_contextvars` |
+|  [05]   | `ReadableLogRecord`          | Modern OTel log export shape              | Required for OTel >= 1.39         |
+|  [06]   | `bootstrap_telemetry`        | One-shot startup wiring                   | Resource -> Providers -> Global   |
+|  [07]   | RED metrics projection       | Rate/Error/Duration from Result outcomes  | Counter + Counter + Histogram     |
+|  [08]   | `expression.Result` dispatch | RED projection via `Ok`/`Error` match     | Canonical Result library          |
+|  [09]   | Scoped context binding       | Per-request bind/unbind lifecycle         | `clear` -> `bind` -> clear        |

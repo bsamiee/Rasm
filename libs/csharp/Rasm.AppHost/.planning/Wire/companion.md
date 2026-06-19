@@ -2,16 +2,16 @@
 
 The inbound serving counterpart to the outbound boundary: one `ProcessModality` axis carries the companion, sidecar, and paired-peer spawn-attach-discovery-degradation rows, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set on the serving side, one `ControlInbound` handler folds the three `ControlService` wire verbs onto the existing degradation, options, and support owners, one `ServiceHost` registration mounts the gRPC server over a Unix domain socket, one cross-process cascade writes a parent-observed level onto the child `DegradationCell.Cascade` floor, one `PeerAdmission` reads the connecting peer's credentials at accept over the managed raw-socket-option route, and one `HostBinding` owner acquires the serving endpoint over a nine-row OS-by-activation-source-by-address policy table that folds systemd socket activation, launchd socket activation, and a fresh bind into one acquisition through the `ServiceHost.Bind` listener seam. The page owns the modality axis, the attached-peer roster, the verb-fold handler, the server-host registration, the cascade write, the peer-credential read, and the host-binding acquisition; it consumes `DegradationCell`, `OptionsAdmission`, `SupportTrigger`, `HostAttachPort`, `ReceiptSinkPort`, and the `Discovery` UDS/manifest law as settled vocabulary, leaves SIGTERM/SIGQUIT/SIGHUP to `Runtime/lifecycle#FAULT_SPINE.ArmTraps` and readiness notify to `Runtime/profiles#LIFETIME_ADAPTERS.SystemdNotifier`, and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROCESS_MODALITY]: Three modality rows and lease-epoch attached-peer roster on the serving side.
-- [2]-[CONTROL_SERVICE]: Three wire verbs folded onto degradation, options, and support owners.
-- [3]-[SERVICE_HOST]: gRPC server registration over a Unix domain socket.
-- [4]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
-- [5]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
-- [6]-[HOST_BINDING]: OS x activation-source x address bind acquisition, reuse, and override.
+- [01]-[PROCESS_MODALITY]: Three modality rows and lease-epoch attached-peer roster on the serving side.
+- [02]-[CONTROL_SERVICE]: Three wire verbs folded onto degradation, options, and support owners.
+- [03]-[SERVICE_HOST]: gRPC server registration over a Unix domain socket.
+- [04]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
+- [05]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
+- [06]-[HOST_BINDING]: OS x activation-source x address bind acquisition, reuse, and override.
 
-## [2]-[PROCESS_MODALITY]
+## [02]-[PROCESS_MODALITY]
 
 - Owner: `ProcessModality` `[SmartEnum<string>]` three rows under one `ProcessModalityKeyPolicy` comparer accessor; `ModalityRow` per-case policy record; `ModalityRows` frozen row set with the total dispatch; `CompanionPeer` the attached-child capsule the modality row produces; `PeerRoster` the `Atom`-backed serving-side attached-connection set carrying a monotone lease epoch; `RosterEntry` the per-connection lease record; `RosterReceipt` the join/renew/drop transition projection the sink fans.
 - Cases: companion, sidecar, paired-peer — companion is the host-spawned single-shot child, sidecar is the externally-supervised attach-only peer, paired-peer is the symmetric dual-attach where each side both spawns and admits; three roster transitions — join on accept, renew on heartbeat, drop on lease expiry or disconnect.
@@ -161,7 +161,7 @@ stateDiagram-v2
     Drained --> [*]
 ```
 
-## [3]-[CONTROL_SERVICE]
+## [03]-[CONTROL_SERVICE]
 
 - Owner: `ControlInbound` static handler folding the three `ControlService` verbs onto the existing transition owners; `ControlRuntime` the dependency record carrying the degradation cell, the options invalidation seam, the active-config and reload anchors, the support runtime, the clock, and the receipt sink; `VerbReceipt` the per-verb projection the sink receives.
 - Cases: set-degradation folds onto `DegradationCell.Force`, reload-options folds onto `OptionsAdmission.Invalidate` and lands one `ReloadReceipt` under `ReloadReceipt.ControlTrigger` wrapping the `ReloadOutcome.Applied` transition, capture-support folds onto `SupportTrigger.ExternalCommand` and `SupportCapture.Capture`.
@@ -247,7 +247,7 @@ public static class ControlInbound {
 }
 ```
 
-## [4]-[SERVICE_HOST]
+## [04]-[SERVICE_HOST]
 
 - Owner: `ServiceHost` static registration surface mounting the gRPC server and the control intake transport; `ControlTransport` `[Union]` carrying the Unix-domain-socket and inherited-fd intake legs.
 - Cases: unix-domain-socket binds Kestrel over the `sun_path` endpoint, inherited-fd mounts Kestrel over a socket-activated descriptor the `HostBinding` owner acquired — the two local control-plane intake shapes on every supported platform.
@@ -295,7 +295,7 @@ public static class ServiceHost {
 }
 ```
 
-## [5]-[DEGRADATION_CASCADE]
+## [05]-[DEGRADATION_CASCADE]
 
 - Owner: `DegradationCascade` static write surface threading a parent-observed level onto the child `DegradationCell.Cascade` floor over the control hop; `CascadeReceipt` the cascade-decision projection.
 - Entry: `Cascade(CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row)` returns `IO<CascadeReceipt>` — the parent forwards its own effective level to the child over the control hop on cascade-eligible rows; `Apply(DegradationCell cell, Option<DegradationLevel> parent)` is the child-side write that consumes `DegradationCell.Cascade` and never derives a second level.
@@ -329,7 +329,7 @@ public static class DegradationCascade {
 }
 ```
 
-## [6]-[PEER_ADMISSION]
+## [06]-[PEER_ADMISSION]
 
 - Owner: `PeerAdmission` static accept-side credential read over the managed `Socket.GetRawSocketOption` route; `PeerCredential` the resolved uid-pid record; `Ucred` and `Xucred` the blittable platform-shaped credential structs read into a stack span.
 - Cases: linux reads `SO_PEERCRED` at `SOL_SOCKET` into a 12-byte `ucred`, macos reads `LOCAL_PEERCRED` at `SOL_LOCAL` into a 76-byte `xucred` then a second `LOCAL_PEERPID` read at `SOL_LOCAL` for the 4-byte peer pid — the platform branch selects the level, option name, struct width, and pid-read count at the single accept seam.
@@ -404,7 +404,7 @@ public static class PeerAdmission {
 }
 ```
 
-## [7]-[HOST_BINDING]
+## [07]-[HOST_BINDING]
 
 - Owner: `HostBinding` static acquisition surface that folds OS, activation source, and address shape into one serving-endpoint claim binding through `ServiceHost.Bind`; `BindAddress` `[Union]` the three address shapes; `BindOrigin` `[SmartEnum]` the three provenance cases; `ActivationSource` `[SmartEnum<string>]` the three socket-activation rows; `ReusePolicy` `[SmartEnum<string>]` the port-reuse semantics axis; `PortOverride` the explicit-port value record; `BindRequest` the acquisition input; `BoundEndpoint` the resolved listener artifact; `HostBindPolicy` the per-row policy record; `HostBindRows` the frozen 9-row OS-by-activation-source-by-address table with the total dispatch; the boundary [LibraryImport]/env adapters `SystemdActivation`, `LaunchdActivation`, `SecretAcquisition`, and `ReusePort`.
 - Cases: three address shapes — unix-path for the credential-gated control plane, loopback-tcp for a host without a UDS budget, inherited-fd for a socket-activated listener; three provenance cases — fresh on a self-bound socket, inherited on a manager-passed fd, reclaimed on a stale-file takeover; three activation sources — systemd-socket reads the `LISTEN_FDS` env protocol, launchd-socket calls `launch_activate_socket`, fresh-bind self-binds; three reuse policies — load-balance on Linux `SO_REUSEPORT`, last-wins on macOS `SO_REUSEPORT`, none where reuse is rejected; nine policy rows over the OS-by-activation-source-by-address cross-product the platform admits.
@@ -649,7 +649,7 @@ stateDiagram-v2
     Released --> [*]
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 - [SPEC_COMPILE]: the generated `ControlService.ControlServiceBase`, `ControlService.ControlServiceClient`, `SetDegradationRequest`, `DegradationReply`, `ReloadReply`, `CaptureSupportReply`, and `Empty` members compile through the G7 spec-compile gate until the `Grpc.Core.Api` assay source map registers the transitive package; the `ServerCallContext` and `IServerStreamWriter<T>` parameter shapes on the base-class overrides resolve through the same rail.
 - [HEALTH_SERVICE]: `Grpc.HealthCheck.HealthServiceImpl()` parameterless constructor and `void SetStatus(string service, Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus status)` carry from the `Grpc.HealthCheck` 2.80.0 assembly the `Grpc.AspNetCore.HealthChecks` meta-row pulls transitively (lockfile `Grpc.AspNetCore.HealthChecks` → `Grpc.HealthCheck` 2.80.0), and `Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus` carries the proto-grounded `Unknown=0`/`Serving=1`/`NotServing=2`/`ServiceUnknown=3` set — the folder `.api/api-grpc-aspnetcore.md` catalogues only `Grpc.AspNetCore.HealthChecks`/`Grpc.AspNetCore.Web`/server-core types and omits the `Grpc.HealthCheck` assembly, so this card is the source map until the assay binder registers `Grpc.HealthCheck`; the `MapGrpcHealthChecksService()`/`AddGrpcHealthChecks()` registration members are folder-catalogued, the `HealthServiceImpl`/`SetStatus`/`ServingStatus` runtime members are not.

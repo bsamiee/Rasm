@@ -2,7 +2,7 @@
 
 `pystac` supplies the in-memory STAC object model for the data STAC-catalog rail: the `Catalog`/`Collection`/`Item`/`Asset` hierarchy with `Link` graph edges, `Extent`/`Provider` metadata, the `MediaType` and `CatalogType` vocabularies, and the typed extension family (`eo`/`projection`/`raster`) applied through the shared `Ext.ext(obj)` accessor. The package owner composes `Item`, `Collection`, and the read/write module functions into the STAC owner; it never re-implements the STAC JSON serialization or HREF-resolution graph pystac already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 - package: `pystac`
 - import: `import pystac`
@@ -13,60 +13,60 @@
 - entry points: none (library only)
 - capability: the STAC in-memory object graph — catalog/collection/item/asset construction, `Link` graph traversal and HREF normalization, spatial/temporal extent and provider metadata, the `MediaType`/`CatalogType` vocabularies, JSON read/write, and typed STAC extensions (EO, projection, raster, and the wider `pystac.extensions` namespace)
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: STAC object hierarchy and metadata
 - rail: STAC catalog
 
 `Catalog` and `Item` share the `STACObject` base (so both carry `from_file`/`get_self_href`/`set_root`); `Collection` extends `Catalog` with `Extent`/`Provider`. `Item` mixes in `Assets`, which owns `add_asset`/`get_assets`.
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [CAPABILITY]                                                          |
-| :-----: | :-------------------------------------- | :--------------- | :------------------------------------------------------------------- |
-|   [1]   | `Catalog`                               | catalog root     | child/item graph, HREF normalization, recursive save                 |
-|   [2]   | `Collection`                            | catalog + extent | a `Catalog` with `Extent`, `Provider`, `summaries`, and licensing     |
-|   [3]   | `Item`                                  | feature          | `STACObject` + `Assets`; geometry, bbox, datetime, properties, assets |
-|   [4]   | `Asset`                                 | asset            | `Asset(href, title=None, media_type=None, roles=None, ...)`          |
-|   [5]   | `ItemCollection`                        | item set         | an in-memory GeoJSON `FeatureCollection` of `Item` objects            |
-|   [6]   | `Link`                                  | graph edge       | typed relation between STAC objects (`rel`, `target`, `media_type`)   |
-|   [7]   | `Extent` / `SpatialExtent` / `TemporalExtent` | extent     | collection spatial bbox and temporal interval                        |
-|   [8]   | `Provider`                              | provider         | data provider with `name`, `roles`, `url`                            |
-|   [9]   | `MediaType`                             | media enum       | `COG`/`GEOTIFF`/`JSON`/`GEOJSON`/`PNG`/`JPEG`/`VND_APACHE_PARQUET`/…   |
-|  [10]   | `CatalogType`                           | catalog enum     | `SELF_CONTAINED`/`ABSOLUTE_PUBLISHED`/`RELATIVE_PUBLISHED`           |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]    | [CAPABILITY]                                                          |
+| :-----: | :-------------------------------------------- | :--------------- | :-------------------------------------------------------------------- |
+|  [01]   | `Catalog`                                     | catalog root     | child/item graph, HREF normalization, recursive save                  |
+|  [02]   | `Collection`                                  | catalog + extent | a `Catalog` with `Extent`, `Provider`, `summaries`, and licensing     |
+|  [03]   | `Item`                                        | feature          | `STACObject` + `Assets`; geometry, bbox, datetime, properties, assets |
+|  [04]   | `Asset`                                       | asset            | `Asset(href, title=None, media_type=None, roles=None, ...)`           |
+|  [05]   | `ItemCollection`                              | item set         | an in-memory GeoJSON `FeatureCollection` of `Item` objects            |
+|  [06]   | `Link`                                        | graph edge       | typed relation between STAC objects (`rel`, `target`, `media_type`)   |
+|  [07]   | `Extent` / `SpatialExtent` / `TemporalExtent` | extent           | collection spatial bbox and temporal interval                         |
+|  [08]   | `Provider`                                    | provider         | data provider with `name`, `roles`, `url`                             |
+|  [09]   | `MediaType`                                   | media enum       | `COG`/`GEOTIFF`/`JSON`/`GEOJSON`/`PNG`/`JPEG`/`VND_APACHE_PARQUET`/…  |
+|  [10]   | `CatalogType`                                 | catalog enum     | `SELF_CONTAINED`/`ABSOLUTE_PUBLISHED`/`RELATIVE_PUBLISHED`            |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, construct, traverse, save
 - rail: STAC catalog
 
 `from_file` is the `STACObject` classmethod inherited by `Catalog`/`Collection`/`Item`. `get_items` is variadic over ids (`get_items(*ids, recursive=False)`), not a list-keyed query. `normalize_hrefs` then `save` is the catalog egress pair.
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                         | [CAPABILITY]                              |
-| :-----: | :----------------------- | :------------------------------------------------------------------ | :---------------------------------------- |
-|   [1]   | `read_file`              | `read_file(href, stac_io=None)` -> `STACObject`                     | read any STAC object from an HREF         |
-|   [2]   | `write_file`             | `write_file(obj, include_self_link=True, dest_href=None, stac_io=None)` | write a STAC object to JSON            |
-|   [3]   | `Item.from_dict`         | `from_dict(d, href=None, root=None, migrate=True, preserve_dict=True)` | hydrate an `Item` from a GeoJSON dict |
-|   [4]   | `Item.to_dict`           | `to_dict(include_self_link=True, transform_hrefs=True)` -> `dict`   | serialize an `Item` to a GeoJSON dict     |
-|   [5]   | `Catalog.from_file`      | `from_file(href, stac_io=None)`                                     | read a catalog/collection root            |
-|   [6]   | `Catalog.add_item`       | `add_item(item, title=None, strategy=None, set_parent=True)` -> `Link` | attach an item under the catalog       |
-|   [7]   | `Catalog.add_child`      | `add_child(child, title=None, strategy=None, set_parent=True)` -> `Link` | attach a child catalog/collection    |
-|   [8]   | `Catalog.get_items`      | `get_items(*ids, recursive=False)` -> `Iterator[Item]`             | iterate items (variadic id filter)        |
-|   [9]   | `Catalog.walk`           | `walk()` -> `Iterable[(Catalog, children, items)]`                 | `os.walk`-style recursive descent         |
-|  [10]   | `Catalog.normalize_hrefs`| `normalize_hrefs(root_href, strategy=None, skip_unresolved=False)` | rewrite all HREFs under a root             |
-|  [11]   | `Catalog.save`           | `save(catalog_type=None, dest_href=None, stac_io=None)`           | recursively write the catalog tree        |
-|  [12]   | `Item.add_asset`         | `add_asset(key, asset)` (from the `Assets` mixin)                  | attach an `Asset` under a key             |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                                             | [CAPABILITY]                          |
+| :-----: | :------------------------ | :----------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `read_file`               | `read_file(href, stac_io=None)` -> `STACObject`                          | read any STAC object from an HREF     |
+|  [02]   | `write_file`              | `write_file(obj, include_self_link=True, dest_href=None, stac_io=None)`  | write a STAC object to JSON           |
+|  [03]   | `Item.from_dict`          | `from_dict(d, href=None, root=None, migrate=True, preserve_dict=True)`   | hydrate an `Item` from a GeoJSON dict |
+|  [04]   | `Item.to_dict`            | `to_dict(include_self_link=True, transform_hrefs=True)` -> `dict`        | serialize an `Item` to a GeoJSON dict |
+|  [05]   | `Catalog.from_file`       | `from_file(href, stac_io=None)`                                          | read a catalog/collection root        |
+|  [06]   | `Catalog.add_item`        | `add_item(item, title=None, strategy=None, set_parent=True)` -> `Link`   | attach an item under the catalog      |
+|  [07]   | `Catalog.add_child`       | `add_child(child, title=None, strategy=None, set_parent=True)` -> `Link` | attach a child catalog/collection     |
+|  [08]   | `Catalog.get_items`       | `get_items(*ids, recursive=False)` -> `Iterator[Item]`                   | iterate items (variadic id filter)    |
+|  [09]   | `Catalog.walk`            | `walk()` -> `Iterable[(Catalog, children, items)]`                       | `os.walk`-style recursive descent     |
+|  [10]   | `Catalog.normalize_hrefs` | `normalize_hrefs(root_href, strategy=None, skip_unresolved=False)`       | rewrite all HREFs under a root        |
+|  [11]   | `Catalog.save`            | `save(catalog_type=None, dest_href=None, stac_io=None)`                  | recursively write the catalog tree    |
+|  [12]   | `Item.add_asset`          | `add_asset(key, asset)` (from the `Assets` mixin)                        | attach an `Asset` under a key         |
 
 [ENTRYPOINT_SCOPE]: typed extensions (`pystac.extensions.*`)
 - rail: STAC catalog
 
 Every extension applies through the shared `Ext.ext(obj, add_if_missing=False)` classmethod over an `Item`/`Asset`; there is no `add_extension` method — the schema URI is appended to `stac_extensions` only when `add_if_missing=True`.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                              | [CAPABILITY]                              |
-| :-----: | :-------------------- | :---------------------------------------- | :---------------------------------------- |
-|   [1]   | `ProjectionExtension` | `ProjectionExtension.ext(item, add_if_missing=False)` | EPSG/WKT/transform projection metadata    |
-|   [2]   | `EOExtension`         | `EOExtension.ext(item, add_if_missing=False)` | electro-optical bands and cloud cover     |
-|   [3]   | `RasterExtension`     | `RasterExtension.ext(asset, add_if_missing=False)` | per-band raster statistics and nodata     |
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                          | [CAPABILITY]                           |
+| :-----: | :-------------------- | :---------------------------------------------------- | :------------------------------------- |
+|  [01]   | `ProjectionExtension` | `ProjectionExtension.ext(item, add_if_missing=False)` | EPSG/WKT/transform projection metadata |
+|  [02]   | `EOExtension`         | `EOExtension.ext(item, add_if_missing=False)`         | electro-optical bands and cloud cover  |
+|  [03]   | `RasterExtension`     | `RasterExtension.ext(asset, add_if_missing=False)`    | per-band raster statistics and nodata  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STAC_MODEL]:
 - import: `import pystac` at boundary scope only; module-level import is banned by the manifest import policy.

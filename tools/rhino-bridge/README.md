@@ -2,7 +2,7 @@
 
 `tools/rhino-bridge` is the host-bound RhinoWIP runtime bridge for typed scenario verification. Assay is the operator boundary; the bridge supervisor owns host launch, endpoint admission, JSON-RPC connection, cargo staging, scenario execution, document cleanup, quit, and one terminal `SessionEnvelope`.
 
-## [1]-[REQUIREMENTS]
+## [01]-[REQUIREMENTS]
 
 - macOS with RhinoWIP installed under `/Applications`, or `RHINO_WIP_APP_PATH` set to one Rhino `.app` bundle.
 - Restored .NET project graph for the bridge projects and test projects that own typed scenarios.
@@ -10,7 +10,7 @@
 - One live RhinoWIP bridge session per machine. Assay serializes bridge, verify, and package lifecycle work through the shared `bridge` lease.
 - Bridge artifacts route under `.artifacts/assay/bridge/<runId>/`; endpoint and lease state route under `~/.rasm/`.
 
-## [2]-[FIRST_PATH]
+## [02]-[FIRST_PATH]
 
 ```bash copy-safe
 uv run python -m tools.assay bridge build
@@ -19,7 +19,7 @@ uv run python -m tools.assay bridge status
 
 Expected signal: each command returns one Assay envelope, and the status receipt carries `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
 
-## [3]-[VERIFY]
+## [03]-[VERIFY]
 
 ```bash copy-safe
 uv run python -m tools.assay bridge verify
@@ -39,20 +39,20 @@ Selection rules:
 - Script-file scenario discovery is absent. Test-owned typed `[RhinoScenario]` sources own scenario discovery and emit `bridge-closure.json`.
 - Default evidence mode is `verify`: a valid `EvidenceCertificate` and reviewed `ReferenceEvidence` are required. `--evidence author` emits candidate evidence for review and is not proof.
 
-## [4]-[COMMAND_SURFACE]
+## [04]-[COMMAND_SURFACE]
 
 Public Assay bridge verbs map to these effects.
 
 | [INDEX] | [COMMAND]                 | [EFFECT]                                                                         |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------- |
-|   [1]   | `bridge build`            | Compile bridge projects and test-owned typed scenario closures.                  |
-|   [2]   | `bridge verify [PATTERN]` | Build, stage, run, unload, prepare quit, and fold selected typed scenarios.      |
-|   [3]   | `bridge status`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
-|   [4]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
+|  [01]   | `bridge build`            | Compile bridge projects and test-owned typed scenario closures.                  |
+|  [02]   | `bridge verify [PATTERN]` | Build, stage, run, unload, prepare quit, and fold selected typed scenarios.      |
+|  [03]   | `bridge status`           | Launch or reuse RhinoWIP; return endpoint, host, RPC, MCP, and capability facts. |
+|  [04]   | `bridge quit`             | Prepare Rhino/GH2 documents, then run the quit ladder.                           |
 
 The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verify <selection-json> <closure-manifest>`. `redeploy` returns `RedeployIncomplete`; Assay owns stable operator spelling, build closure preparation, artifact routing, and the outer lease.
 
-## [5]-[MACHINE_CONTRACT]
+## [05]-[MACHINE_CONTRACT]
 
 [STDOUT]:
 - Supervisor stdout carries exactly one `SessionEnvelope` JSON document.
@@ -97,7 +97,7 @@ The direct supervisor accepts `status`, `quit`, `redeploy <package>`, and `verif
 - Lease: `~/.rasm/rhino-bridge-rbx.lease`.
 - Quit journal: `~/.rasm/rhino-bridge-quits.jsonl`.
 
-## [6]-[ARCHITECTURE]
+## [06]-[ARCHITECTURE]
 
 ```mermaid
 ---
@@ -129,7 +129,7 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 - `Contract`: JSON-RPC interfaces, wire records, status algebra, faults, events, selections, and `SessionEnvelope`.
 - `Gate`: fault-injection executable for supervisor kernels and optional live-host rows.
 
-## [7]-[FILES]
+## [07]-[FILES]
 
 [ROOT]:
 - `tools/rhino-bridge/README.md`
@@ -172,7 +172,7 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 - `tools/rhino-bridge/Supervisor/Supervisor.csproj`
 - `tools/rhino-bridge/Supervisor/packages.lock.json`
 
-## [8]-[FAILURE_READING]
+## [08]-[FAILURE_READING]
 
 Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, `reportDir`, and spool artifacts from the same `SessionEnvelope`; when relayed events and durable spool counts diverge, the spool owns evidence through the last decoded JSONL line.
 
@@ -189,17 +189,17 @@ Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, 
 
 | [INDEX] | [SIGNAL]              | [READ_AS]                | [SURFACE]  |
 | :-----: | :-------------------- | :----------------------- | :--------- |
-|   [1]   | `busy`                | leased host              | Lease      |
-|   [2]   | `poisoned endpoint`   | startup before endpoint  | Package    |
-|   [3]   | `connect-failed`      | pipe admission           | Launch     |
-|   [4]   | `shell-skew`          | shell contract skew      | Contract   |
-|   [5]   | `capability-absent`   | failed required probe    | Capability |
-|   [6]   | `host-drift`          | host API drift           | Host       |
-|   [7]   | `ui-wedged`           | UI progress stall        | UI         |
-|   [8]   | `rhino-crash`         | host exit                | Crash      |
-|   [9]   | `evidence.divergence` | relay and spool mismatch | Evidence   |
+|  [01]   | `busy`                | leased host              | Lease      |
+|  [02]   | `poisoned endpoint`   | startup before endpoint  | Package    |
+|  [03]   | `connect-failed`      | pipe admission           | Launch     |
+|  [04]   | `shell-skew`          | shell contract skew      | Contract   |
+|  [05]   | `capability-absent`   | failed required probe    | Capability |
+|  [06]   | `host-drift`          | host API drift           | Host       |
+|  [07]   | `ui-wedged`           | UI progress stall        | UI         |
+|  [08]   | `rhino-crash`         | host exit                | Crash      |
+|  [09]   | `evidence.divergence` | relay and spool mismatch | Evidence   |
 
-## [9]-[SCENARIO_CONTRACT]
+## [09]-[SCENARIO_CONTRACT]
 
 Typed scenario entrypoints carry `[RhinoScenario("<theme>")]` and accept one `ScenarioContext`. The entrypoint returns `Fin<Unit>`, emits facts through `ScenarioContext.Fact`/`Note`, asserts through `Require` or `Expect`, certifies reviewed facts through `Certify`/`Reference`, and obtains bridge-indexed captures through `Capture.Snapshot`.
 

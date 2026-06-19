@@ -2,11 +2,11 @@
 
 Rasm.Compute solver sweep: one `SweepGrid` N-dim DOE orchestration emitting a queryable `ParetoFront` artifact with a Morris/Sobol `SensitivityTornado`, and one `FrameBudget` early-stop governor returning a coarse iterative field within a frame deadline and refining async. The page owns the `SweepAxis` per-dimension sampling cases, the `SensitivityMethod` global-sensitivity rows, the `SweepGrid`/`FrameBudget`/`SensitivityTornado`/`SweepResult` carriers, and the `SweepLane` fan-out fold; the per-point evaluation composes the `Solver/optimizer#OPTIMIZER_LANE` `ParetoFront`/`DesignPoint`/`ObjectiveSense` artifact and the `Solver/contract#SOLVE_CONTRACT` iterative `Solve` residual receipt, every grid point enqueues onto the `Runtime/scheduling#SOLVE_GUARD` `LaneRuntime` as an `AdmittedIntent`, the `Sobol` axis draws the `Tensor/quadrature#OWNED_BUILDS` `LowDiscrepancy` sampler, and the `ComputeReceipt` rail, `WorkLane`, `CorrelationId`, `ClockPolicy`, and the `SolverKeyPolicy` ordinal accessor from `Solver/discretization#DISCRETIZATION_MESH` arrive settled. The `ParetoFront` is the same artifact the optimizer owns and crosses to Persistence content-keyed.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SWEEP_AND_BUDGET]: N-dim DOE sweep grid; frame-budgeted early-stop; Morris/Sobol sensitivity.
+- [01]-[SWEEP_AND_BUDGET]: N-dim DOE sweep grid; frame-budgeted early-stop; Morris/Sobol sensitivity.
 
-## [2]-[SWEEP_AND_BUDGET]
+## [02]-[SWEEP_AND_BUDGET]
 
 - Owner: `SweepGrid` the N-dim DOE orchestration record; `SweepAxis` `[Union]` per-dimension sampling cases; `SensitivityMethod` `[SmartEnum<string>]` global-sensitivity rows (one-at-a-time/morris-elementary/sobol-variance); `FrameBudget` the early-stop governor record reading an iterative solve's per-iteration residual receipt; `SensitivityTornado` the post-processing fold projecting the swept results onto a sensitivity ranking; `SweepLane` the static fan-out fold that enqueues every grid point onto the `WorkLane` and reduces the results to a `ParetoFront` plus tornado.
 - Cases: `SweepAxis` cases `Linear(string Name, double Lower, double Upper, int Steps)` · `Logarithmic(string Name, double Lower, double Upper, int Steps)` · `LatinHypercube(string Name, double Lower, double Upper, int Samples)` · `Sobol(string Name, double Lower, double Upper, int Samples)` · `Enumerated(string Name, Seq<double> Values)`; `SensitivityMethod` rows one-at-a-time · morris-elementary · sobol-variance.

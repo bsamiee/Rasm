@@ -2,11 +2,11 @@
 
 The ephemeral presence row beside the convergence fold — a `combinators#KEYED_FOLD` row over the `PresenceRowWire` stream where each row expires on its declared `expiresAt` instant, so an expired row never gates a live editing surface. Presence rides the `ConflictPresenceStore` as a separate fold from `merge#LWW_MERGE`; a presence op never mutates the live geometry cell. The row is ephemeral by TTL, distinct in kind from the durable LWW-converged op-log state.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PRESENCE]: Owns `ConflictPresenceStore`, `presenceMerge`, the `presenceKey` row-identity projection, and the `conflictPresenceStore` constructor.
+- [01]-[PRESENCE]: Owns `ConflictPresenceStore`, `presenceMerge`, the `presenceKey` row-identity projection, and the `conflictPresenceStore` constructor.
 
-## [2]-[PRESENCE]
+## [02]-[PRESENCE]
 
 - Owner: `ConflictPresenceStore`, the store binding the `merge#LWW_MERGE` converged `state` and the presence `keyedFold` row together; `presenceMerge`, the TTL merge arm that keeps the row with the later `expiresAt`; `presenceKey`, the row-identity projection over the `PresenceRowWire` `{ actor, entityKind, entityKey, expiresAt }` shape — the `actor`-on-`entityKey` composite addressing one editor's presence on one synced entity, distinct from the `ContentKey` convergence identity; `conflictPresenceStore`, the constructor that forks both folds into one `Scope`.
 - Cases: a fresh presence row installs its cell; a later row replaces it only when its `expiresAt` is at or beyond the held row's, so a stale heartbeat never resurrects an expired editor; an expired row is read off the cell as inactive by the gate that consumes it; two editors on one entity occupy two distinct cells because the `actor` half of the key disambiguates, and one editor on two entities occupies two cells because the `entityKey` half disambiguates.

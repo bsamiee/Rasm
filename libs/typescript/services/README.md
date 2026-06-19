@@ -2,17 +2,17 @@
 
 The host-free node tier of the TypeScript branch (Nx scope `scope:node`) and the deploy-time IaC that hosts it form one concern. The folder is lib-grade general and meta capability — durable execution, durable AI agents, the TS-owned Postgres store, hybrid search, internal RPC and addressable actors, transactional-outbox eventing, and provisioning — with no coupling to the AEC or Rhino pipelines; it consumes the C# wire only through interchange and projection and owns no geometry. This README routes the design pages under `.planning/` and registers every external package the folder uses. The domain folder-map is in `ARCHITECTURE.md`, forward concepts in `IDEAS.md`, and open work in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[STORE](.planning/persistence/store.md): the single `PgClient`/`Migrator` boundary and the one-`Model.Class`-per-entity registry.
-- [2]-[TENANCY](.planning/persistence/tenancy.md): the multi-tenant RLS axis over the `app.current_tenant` GUC, the lifecycle, and the purge-handler family.
-- [3]-[WORK](.planning/persistence/work.md): jobs/DLQ, the event journal, notifications, and the feature-flag buckets (the asset-export codec fan-out moved to `persistence/object`).
-- [4]-[REACTIVE](.planning/persistence/reactive.md): the read-side `ReactiveQuery` owner — `SqlClient.reactive` over the `@effect/experimental` `Reactivity` key-scoped invalidation, entity-keyed query re-run as a `Stream`.
-- [5]-[IDEMPOTENCY](.planning/persistence/idempotency.md): the cross-surface exactly-once `IdempotencyLedger` `Model.Class` and the `ClaimOrReplay` claim-state fold, serving outbox/entity/session beyond the per-surface `SaveResult.Duplicate`/`idempotencyKey` primitives.
-- [6]-[OBJECT](.planning/persistence/object.md): the one `ObjectStore` `Effect.Service` over `@effect-aws/client-s3`, the `ObjectKey` content-addressed brand, the `PresignGrant` verb axis, the lifecycle policy rows, and the asset-codec fan-out migrated from `persistence/work`.
-- [7]-[RANK](.planning/search/rank.md): the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank owner and the post-fusion `rerank` stage.
-- [8]-[EMBEDDING](.planning/search/embedding.md): the `EmbeddingProfile` migration and the `EmbeddingModel.makeDataLoader` batch-embed orchestration feeding the fused-rank vector arm (profiles only the `pgvector` column, never the gated BM25 index).
-- [9]-[ENGINE](.planning/execution/engine.md): the closed durable-unit family, the `ClusterEngine` wiring, and the `DurableFault` rail.
+- [01]-[STORE](.planning/persistence/store.md): the single `PgClient`/`Migrator` boundary and the one-`Model.Class`-per-entity registry.
+- [02]-[TENANCY](.planning/persistence/tenancy.md): the multi-tenant RLS axis over the `app.current_tenant` GUC, the lifecycle, and the purge-handler family.
+- [03]-[WORK](.planning/persistence/work.md): jobs/DLQ, the event journal, notifications, and the feature-flag buckets (the asset-export codec fan-out moved to `persistence/object`).
+- [04]-[REACTIVE](.planning/persistence/reactive.md): the read-side `ReactiveQuery` owner — `SqlClient.reactive` over the `@effect/experimental` `Reactivity` key-scoped invalidation, entity-keyed query re-run as a `Stream`.
+- [05]-[IDEMPOTENCY](.planning/persistence/idempotency.md): the cross-surface exactly-once `IdempotencyLedger` `Model.Class` and the `ClaimOrReplay` claim-state fold, serving outbox/entity/session beyond the per-surface `SaveResult.Duplicate`/`idempotencyKey` primitives.
+- [06]-[OBJECT](.planning/persistence/object.md): the one `ObjectStore` `Effect.Service` over `@effect-aws/client-s3`, the `ObjectKey` content-addressed brand, the `PresignGrant` verb axis, the lifecycle policy rows, and the asset-codec fan-out migrated from `persistence/work`.
+- [07]-[RANK](.planning/search/rank.md): the RRF-over-BM25 semantic+lexical+trigram+phonetic fused-rank owner and the post-fusion `rerank` stage.
+- [08]-[EMBEDDING](.planning/search/embedding.md): the `EmbeddingProfile` migration and the `EmbeddingModel.makeDataLoader` batch-embed orchestration feeding the fused-rank vector arm (profiles only the `pgvector` column, never the gated BM25 index).
+- [09]-[ENGINE](.planning/execution/engine.md): the closed durable-unit family, the `ClusterEngine` wiring, and the `DurableFault` rail.
 - [10]-[SAGA](.planning/execution/saga.md): the `SagaStep` chain, the `StepOutcome`/`SagaTerminal` fold, and the engine-compensated saga workflow.
 - [11]-[AI](.planning/execution/ai.md): the `AiProvider` literal axis, the single AI activity, the `AgentJournal` ledger, and the `Resilience` primitives.
 - [12]-[BACKPLANE](.planning/execution/backplane.md): the four-row runner backplane, the snowflake id source, the cluster singletons, and the shard-pinned cron.
@@ -29,7 +29,7 @@ The host-free node tier of the TypeScript branch (Nx scope `scope:node`) and the
 - [23]-[CONTRACT](.planning/provisioning/contract.md): the data/compute/observe tier model, the cloud/self-hosted dispatch, secrets, `StackOutputs`, `PolicyGuard`, and the `ObservabilityStack`.
 - [24]-[DRIFT](.planning/provisioning/drift.md): the `previewRefresh` drift fold, the typed `StackDriftSummary` receipt, the continuous `DriftSweep` cron, and the CI drift gate.
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Every services-domain package the folder uses, planned or implemented; versions are centralized in the one workspace catalog. API evidence lives under `.api/`.
 
@@ -94,7 +94,7 @@ Every services-domain package the folder uses, planned or implemented; versions 
 [TEST_HARNESS]:
 - `testcontainers`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Branch-level substrate packages consumed by this folder; charters and API evidence live in `libs/typescript/.planning/README.md` and `libs/typescript/.api/`.
 

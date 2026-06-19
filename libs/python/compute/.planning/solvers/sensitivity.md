@@ -2,11 +2,11 @@
 
 The one vector-Jacobian-product and sensitivity owner. `Differentiation` discriminates reverse-mode adjoint over the JAX family and forward central-difference over a numpy floor, computing a cotangent-projected gradient or a full Jacobian. Reverse mode reads the implicit-function-theorem adjoint through a Lineax linear solve or an Optimistix nonlinear solve, so a sensitivity through a solved system differentiates the converged solution rather than the iteration trace; the numpy central-difference floor runs unconditionally on cp315. This owner never trains a model, fits a network, or carries a gradient-descent loop.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SENSITIVITY]: reverse-mode VJP/Jacobian over JAX with an implicit-adjoint solver loop and a finite-difference floor on one `Differentiation` owner.
+- [01]-[SENSITIVITY]: reverse-mode VJP/Jacobian over JAX with an implicit-adjoint solver loop and a finite-difference floor on one `Differentiation` owner.
 
-## [2]-[SENSITIVITY]
+## [02]-[SENSITIVITY]
 
 - Owner: `Differentiation` — the ONE adjoint/sensitivity owner discriminating `DiffMode` (reverse-mode VJP over JAX / forward finite-difference over numpy); never a parallel autodiff surface beside the solver. A vector-Jacobian product `vjp(fn, x, cotangent, mode)` and a full Jacobian `jacobian(fn, x, mode)` are the two entries, and the mode decides the engine.
 - Implicit-adjoint loop: when the differentiated function is itself a solve, reverse mode reads the adjoint through the solver rather than through the iterations. A Lineax `linear_solve` and an Optimistix `root_find`/`least_squares` carry implicit-function-theorem adjoints, so `jax.vjp` over a function that calls them pulls back through the converged solution; `solvers/linear.md#LINEAR` and `solvers/nonlinear.md#NONLINEAR` expose those autodifferentiable solves, and this owner consumes the adjoint they carry.
@@ -85,7 +85,7 @@ def _reverse_vjp(fn: Callable[[np.ndarray], np.ndarray], x: np.ndarray, cotangen
     return VjpReceipt("reverse-vjp", tuple(map(float, grad)), float(np.linalg.norm(grad, np.inf)), True)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [JAX_VJP]: the `jax.vjp`/`jacrev`/`grad` spellings carry the `python_version<'3.15'` marker (no jaxlib cp315 wheel); the reverse-mode body verifies against the `.api` catalogue once the jaxlib wheel resolves. The finite-difference floor runs unconditionally on cp315.
 - [IMPLICIT_ADJOINT]: the implicit-function-theorem adjoint is carried by the Lineax `linear_solve` and the Optimistix `root_find`/`least_squares` exposed through `solvers/linear.md#LINEAR` and `solvers/nonlinear.md#NONLINEAR`; this owner reads the adjoint through `jax.vjp` over those solves rather than re-deriving it.

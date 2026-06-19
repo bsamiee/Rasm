@@ -2,12 +2,12 @@
 
 The two-axis geospatial surface, spatial egress, and the columnar spatial-query engine. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision/transform-provenance over geopandas/shapely/pyogrio with pyproj backing the CRS engine and exposes one `VectorOp` tagged-union in-frame vector-algebra axis (`apply`); `RasterGeoClaim` carries coverage/band/resampling/nodata/transform/CRS over rasterio and exposes one `RasterOp` tagged-union coverage axis (`apply`). Vector and raster are two value objects with two distinct operation axes because band/resampling/window semantics differ from vector CRS/axis-order; the operation knobs (`how`/`predicate`/`aggfunc`/`max_distance`/`method`/`crop`/`merge_alg`/`resampling`) are case payload rows, never a `sjoin`/`overlay`/`do_merge`/`clip_raster` method family. `EgressFormat` is one `StrEnum` carrying its own `write` — GeoJSON/GeoParquet/FlatGeobuf/GeoArrow, the OGR driver IS the enum value, GeoParquet rides geopandas `to_parquet` and GeoArrow rides `to_parquet(geometry_encoding="geoarrow")` — not a tagged union over redundant payloads or a per-format writer family. `SpatialQuery` is one tagged-union axis over the DuckDB-spatial extension (ST joins, point-in-polygon, R-tree prefilter, H3 binning) composing the `query` engine for the SQL path. Every bundle keys by exactly one runtime `ContentIdentity`, folding the shared `tabular/columnar.md#SCAN` `QueryReceipt`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GEO]: vector and raster geospatial claims, the in-frame `VectorOp`/`RasterOp` operation axes, spatial egress, the GeoArrow encoding.
-- [2]-[SPATIAL]: the DuckDB-spatial join/index/H3 columnar query engine.
+- [01]-[GEO]: vector and raster geospatial claims, the in-frame `VectorOp`/`RasterOp` operation axes, spatial egress, the GeoArrow encoding.
+- [02]-[SPATIAL]: the DuckDB-spatial join/index/H3 columnar query engine.
 
-## [2]-[GEO]
+## [02]-[GEO]
 
 - Owner: `VectorGeoClaim` — CRS/units/axis-order/geometry-family/precision/transform-provenance over geopandas/shapely/pyogrio, with one `VectorOp` tagged-union axis folded by `apply(op, frame)`; `RasterGeoClaim` — coverage/band/resampling/nodata/transform/CRS over rasterio, with one `RasterOp` tagged-union axis folded by `apply(op, source)`; `EgressFormat` the GeoJSON/GeoParquet/flat-vector export as one `StrEnum` whose member value is the OGR driver and whose `write` selects `to_parquet` for GeoParquet and `to_file(driver=value)` otherwise, not a per-format writer family.
 - Cases: `VectorOp` rows `Join(predicate, other, how, max_distance)` (geopandas `sjoin`/`sjoin_nearest`, index-accelerated by `GeoDataFrame.sindex`) · `Overlay(other, how)` (`overlay` intersection/union/difference/symmetric-difference/identity set algebra) · `Dissolve(by, aggfunc)` (`dissolve` spatial group-aggregate) · `Clip(mask, keep_geom_type)` (`clip` mask) · `Construct(kind, param)` (the `ConstructKind` constructive family) · `Predicate(name, other)` (the vectorized `JoinPredicate` binary-predicate filter). `RasterOp` rows `Window(bounds, boundless)` (`windows.from_bounds` + `DatasetReader.read(window=, boundless=)` streamed over `block_windows`) · `Mosaic(sources, method, resampling)` (`merge.merge`) · `Mask(shapes, crop, all_touched, invert)` (`mask.mask`) · `Vectorize(connectivity)` (`features.shapes` raster-to-vector) · `Rasterize(shapes, out_shape, merge_alg, all_touched)` (`features.rasterize` vector-to-raster) · `Reproject(target_crs, resampling)` (`warp.calculate_default_transform` + `warp.reproject`). `EgressFormat` rows `GEOJSON`/`GEOPARQUET`/`GEOARROW`/`FLATGEOBUF`. A new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case; a new constructive op is one `ConstructKind` row; a new spatial predicate is one `JoinPredicate` row; a new resampling mode is one `rasterio.enums.Resampling` row; a new egress format is one `EgressFormat` member.
@@ -290,7 +290,7 @@ class RasterGeoClaim(Struct, frozen=True):
         )
 ```
 
-## [3]-[SPATIAL]
+## [03]-[SPATIAL]
 
 - Owner: `SpatialQuery` — one tagged-union spatial-query axis over the DuckDB `spatial` + `h3` extensions; `SpatialEngine` the request-scoped connection that loads both extensions once and registers the input Arrow GeoDataFrames. `SpatialQuery` cases `Join(predicate, left, right)` (an ST binary-predicate join — `ST_Intersects`/`ST_Contains`/`ST_DWithin` — the R-tree the extension builds backing the prefilter) · `PointInPolygon(points, polygons)` (the containment join) · `H3Bin(geometry, resolution)` (`h3_latlng_to_cell` binning into one H3 index column), matched by `match`/`case` closed by `assert_never`. The spatial axis emits plain `pyarrow.Table` keyed by one `ContentIdentity`, never a parallel index owner.
 - Entry: `SpatialEngine.of` opens `duckdb.connect()`, runs `INSTALL spatial; LOAD spatial; INSTALL h3 FROM community; LOAD h3` once, and registers each named Arrow input as `WKB_BLOB`-decoded `ST_GeomFromWKB` views; `SpatialEngine.run` folds one `SpatialQuery` to a `RuntimeRail[pa.Table]`, composing the `tabular/query#QUERY` `QueryEngine.Sql` path so the SQL string the spatial arm builds runs through the one query owner rather than a second SQL surface; the join is index-accelerated by the DuckDB R-tree, never an STRtree/sjoin Python loop.
@@ -369,7 +369,7 @@ class SpatialEngine(Struct, frozen=True):
         return result
 ```
 
-## [4]-[RESEARCH]
+## [04]-[RESEARCH]
 
 - [GEOARROW_ENCODING]: the `geopandas` `GeoDataFrame.to_parquet(geometry_encoding=)`/`to_arrow(geometry_encoding=)`/`to_wkb()` surface the `EgressFormat.GEOARROW` and the spatial-input WKB bridge transcribe is catalogue-confirmed against the folder `geopandas` `.api`; the catalogue lists `geometry_encoding='WKB'` as the default, so the `"geoarrow"` value confirms as the GeoParquet 1.1 native-encoding member against the live distribution before the GeoArrow row treats it as the settled smaller-egress encoding.
 - [DUCKDB_SPATIAL_H3]: the `duckdb` `connect`/`install_extension`/`load_extension`/`register`/`sql`/`to_arrow_table` Python surface is catalogue-confirmed against the folder `duckdb` `.api`; the extension-loaded SQL functions the `SpatialQuery.sql()` builds — `ST_GeomFromWKB`, `ST_Intersects`/`ST_Contains`/`ST_DWithin`, `ST_X`/`ST_Y`, and the `h3` community-extension `h3_latlng_to_cell` — are SQL-surface members the Python catalogue does not enumerate, so the `spatial`/`h3` extension function spellings and the `install_extension("h3", repository="community")` community-repository keyword confirm against the loaded DuckDB extension catalogs before the spatial SQL treats them as settled. The R-tree prefilter is the DuckDB `spatial` extension's automatic index, not a hand-built structure.

@@ -4,7 +4,7 @@
 object-graph construction, binder options, and source-generated binding assets for
 AppHost policy values.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration.Binder`
 - package: `Microsoft.Extensions.Configuration.Binder`
@@ -13,17 +13,17 @@ AppHost policy values.
 - asset: runtime library
 - rail: configuration
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: binding family
 - rail: configuration
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]  | [CAPABILITY]           |
 | :-----: | :---------------------------- | :-------------- | :--------------------- |
-|   [1]   | `ConfigurationBinder`         | binding facade  | binds configuration    |
-|   [2]   | `BinderOptions`               | policy object   | carries binding policy |
-|   [3]   | `BindNonPublicProperties`     | option property | widens member binding  |
-|   [4]   | `ErrorOnUnknownConfiguration` | option property | fails unknown keys     |
+|  [01]   | `ConfigurationBinder`         | binding facade  | binds configuration    |
+|  [02]   | `BinderOptions`               | policy object   | carries binding policy |
+|  [03]   | `BindNonPublicProperties`     | option property | widens member binding  |
+|  [04]   | `ErrorOnUnknownConfiguration` | option property | fails unknown keys     |
 
 [GENERATOR_ASSETS]:
 - analyzer: `Microsoft.Extensions.Configuration.Binder.SourceGeneration.dll`
@@ -31,21 +31,21 @@ AppHost policy values.
 - switch: `EnableConfigurationBindingGenerator`
 - rail: source-generated configuration binding
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: binding operations
 - rail: configuration
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]          |
 | :-----: | :--------------------- | :-------------- | :-------------------- |
-|   [1]   | `Get<T>`               | allocation bind | creates typed value   |
-|   [2]   | `Get(Type)`            | allocation bind | creates typed value   |
-|   [3]   | `Bind`                 | object bind     | fills existing object |
-|   [4]   | `Bind(string, object)` | section bind    | fills named section   |
-|   [5]   | `GetValue<T>`          | scalar read     | converts scalar value |
-|   [6]   | `GetValue(Type, key)`  | scalar read     | converts scalar value |
+|  [01]   | `Get<T>`               | allocation bind | creates typed value   |
+|  [02]   | `Get(Type)`            | allocation bind | creates typed value   |
+|  [03]   | `Bind`                 | object bind     | fills existing object |
+|  [04]   | `Bind(string, object)` | section bind    | fills named section   |
+|  [05]   | `GetValue<T>`          | scalar read     | converts scalar value |
+|  [06]   | `GetValue(Type, key)`  | scalar read     | converts scalar value |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BINDING_TOPOLOGY]:
 - namespaces: `Microsoft.Extensions.Configuration`

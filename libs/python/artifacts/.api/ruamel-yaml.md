@@ -2,7 +2,7 @@
 
 `ruamel-yaml` supplies the round-trip YAML surface for the artifacts structured-documents rail: a single `YAML` engine owning typ-selected load/dump, comment-and-order-preserving container types, and class registration that drive YAML ingestion and emission preserving comments, key order, anchors, and styling. The package owner composes `YAML`, `CommentedMap`, and `CommentedSeq` into the structured-documents owner; it never re-implements YAML scanning the engine already owns.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ruamel-yaml`
 - package: `ruamel-yaml`
@@ -13,29 +13,29 @@
 - entry points: none (library only)
 - capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, and styling; safe/unsafe/base typ variants; multi-document streams; custom class registration
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: engine and container roots
 - rail: structured documents
 
 | [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                   |
 | :-----: | :---------------------------------------------- | :----------------- | :------------------------------------------------------------- |
-|   [1]   | `YAML`                                          | engine root        | typ-selected load/dump engine with indent/width/version config |
-|   [2]   | `CommentedMap`                                  | mapping container  | dict preserving comments, order, and merge keys                |
-|   [3]   | `CommentedSeq`                                  | sequence container | list preserving comments and styling                           |
-|   [4]   | `CommentToken`                                  | comment node       | a parsed comment attached to a node                            |
-|   [5]   | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec   | the load/dump halves preserving fidelity                       |
-|   [6]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves                                  |
+|  [01]   | `YAML`                                          | engine root        | typ-selected load/dump engine with indent/width/version config |
+|  [02]   | `CommentedMap`                                  | mapping container  | dict preserving comments, order, and merge keys                |
+|  [03]   | `CommentedSeq`                                  | sequence container | list preserving comments and styling                           |
+|  [04]   | `CommentToken`                                  | comment node       | a parsed comment attached to a node                            |
+|  [05]   | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec   | the load/dump halves preserving fidelity                       |
+|  [06]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves                                  |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE] | [CAPABILITY]                    |
 | :-----: | :---------------- | :------------- | :------------------------------ |
-|   [1]   | `YAMLError`       | engine fault   | base YAML failure               |
-|   [2]   | `MarkedYAMLError` | located fault  | a failure carrying source marks |
+|  [01]   | `YAMLError`       | engine fault   | base YAML failure               |
+|  [02]   | `MarkedYAMLError` | located fault  | a failure carrying source marks |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction and load/dump
 - rail: structured documents
@@ -44,16 +44,16 @@ The `YAML` row carries typ, pure-Python, output, and plugin policy; load/dump ro
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]               | [CAPABILITY]                                |
 | :-----: | :-------------------- | :------------------------- | :------------------------------------------ |
-|   [1]   | `YAML`                | engine construction policy | engine (typ in 'rt'/'safe'/'unsafe'/'base') |
-|   [2]   | `YAML.load`           | one stream                 | parse one document                          |
-|   [3]   | `YAML.load_all`       | multi-document stream      | parse a multi-document stream               |
-|   [4]   | `YAML.dump`           | data plus target stream    | emit one document                           |
-|   [5]   | `YAML.dump_all`       | documents plus stream      | emit a multi-document stream                |
-|   [6]   | `YAML.register_class` | round-trip class           | register a custom round-trip class          |
-|   [7]   | `YAML.indent`         | indentation policy         | configure indentation                       |
-|   [8]   | `YAML.version`        | version property           | YAML version property (1.1/1.2)             |
+|  [01]   | `YAML`                | engine construction policy | engine (typ in 'rt'/'safe'/'unsafe'/'base') |
+|  [02]   | `YAML.load`           | one stream                 | parse one document                          |
+|  [03]   | `YAML.load_all`       | multi-document stream      | parse a multi-document stream               |
+|  [04]   | `YAML.dump`           | data plus target stream    | emit one document                           |
+|  [05]   | `YAML.dump_all`       | documents plus stream      | emit a multi-document stream                |
+|  [06]   | `YAML.register_class` | round-trip class           | register a custom round-trip class          |
+|  [07]   | `YAML.indent`         | indentation policy         | configure indentation                       |
+|  [08]   | `YAML.version`        | version property           | YAML version property (1.1/1.2)             |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [YAML_ROUNDTRIP]:
 - import: `from ruamel.yaml import YAML` at boundary scope only; module-level import is banned by the manifest import policy.

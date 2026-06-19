@@ -2,15 +2,15 @@
 
 Rasm.Compute interchange lane: the compute-and-transport half of artifact interchange, owning the chunked error-bounded field/result codec over the simulation-field carrier, the FastCDC structural geometry-delta codec over meshes, B-reps, point clouds, and NURBS, the two-hop IFC-to-geometry tessellation bridge that crosses geometry evaluation to the IfcOpenShell companion and re-imports the GLB, the 3D-Tiles streamable-LOD octree partition over the imported geometry carrier with its `EXT_structural_metadata` semantic layer joining the IFC classification and the solver field values at the content-key, and the content-addressed artifact identity that folds the format key plus the deflection and tolerance policy into one `XxHash128` key. The page owns the `FieldCodec` and `DeltaCodec` codecs, the `TessellationRequest` companion bridge, the `TileSet` octree partition with its `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` metadata family, and the `InterchangeIdentity` content-key — composing the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` identity precedent, the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` shape, the SharpGLTF raw glTF-extension write surface, the meshoptimizer LOD kernels, and the `Substrate.RemoteGrpc` companion hop as settled vocabulary. The IFC/glTF/STEP semantic object model and its format/codec/frame import-export surface are owned by `Rasm.Bim` and reached at the companion seam; this page is HOST-LOCAL and carries no TS_PROJECTION.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc.
-- [2]-[FIELD_RESULT_CODEC]: chunked simulation-field layout; error-bounded lossy/lossless; zero-copy.
-- [3]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
-- [4]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
-- [5]-[CONTENT_ADDRESSING]: `XxHash128` artifact identity folding deflection and tolerance into the key.
+- [01]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc.
+- [02]-[FIELD_RESULT_CODEC]: chunked simulation-field layout; error-bounded lossy/lossless; zero-copy.
+- [03]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
+- [04]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
+- [05]-[CONTENT_ADDRESSING]: `XxHash128` artifact identity folding deflection and tolerance into the key.
 
-## [2]-[TWO_HOP_TESSELLATION]
+## [02]-[TWO_HOP_TESSELLATION]
 
 - Owner: `TessellationRequest` — the two-hop bridge that crosses IFC geometry evaluation to the IfcOpenShell companion (`IfcConvert` producing GLB) and re-imports the GLB through the Bim glTF import path; the request is host-local in posture and rides the existing remote-lane companion rpc, never a new transport; `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `InterchangePolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
 - Entry: `public static Fin<TessellationRequest> Plan(string formatKey, bool requiresCompanion, ReadOnlyMemory<byte> ifcBytes, InterchangePolicy policy)` builds the request keyed on the IFC content and the deflection/tolerance policy; the companion round-trip rides the existing `Runtime/channels#PROTO_VOCABULARY` `Solve`/artifact transport — the GLB result re-enters through the Bim glTF import rail as an `ImportedGeometry`.
@@ -48,7 +48,7 @@ public sealed record TessellationRequest(
 }
 ```
 
-## [3]-[FIELD_RESULT_CODEC]
+## [03]-[FIELD_RESULT_CODEC]
 
 - Owner: `FieldCodecPolicy` the chunked-layout and error-bound policy record carrying the residual-predict column; `ResidualPredictor` the content-keyed model-lane chunk predictor; `FieldArtifact` the chunked simulation-field carrier over CGNS/EnSight/VTK/Zarr; `PointScan` the point-cloud carrier over E57/LAS/LAZ/PTS; `FieldCodec` the static encode/decode surface projecting a `FieldSpace`-shaped result into a Zarr/VTK-class chunked layout with error-bounded lossy, learned-residual-predicted, or exact lossless residence and a zero-copy solver↔store↔viz handoff; `InterchangeIo` the scientific-data ingest surface dispatching the chunked field decode and the point-scan ingest, the geometry and IFC import arms owned by `Rasm.Bim`.
 - Entry: `public static Fin<FieldArtifact> ImportField(string formatKey, string codecKey, ReadOnlyMemory<byte> bytes, FieldCodecPolicy policy, ClockPolicy clocks)` reads a chunked field through `FieldCodec.FieldDecode`; `public static Fin<PointScan> ImportPoints(string formatKey, string codecKey, ReadOnlyMemory<byte> bytes, ClockPolicy clocks)` reads a point-cloud scan; `public static Fin<FieldArtifact> FieldDecode(string formatKey, ReadOnlyMemory<byte> bytes, FieldCodecPolicy policy, Instant at)` reads a chunked field artifact into the integration-point/nodal field carrier; `public static Fin<ExportArtifact> FieldEncode(FieldArtifact field, string formatKey, FieldCodecPolicy policy, Instant at)` emits the chunked layout with the policy error bound; `Fin<T>` aborts on a chunk-shape mismatch or an error bound the lossy quantizer cannot meet.
@@ -209,7 +209,7 @@ public static class FieldCodec {
 }
 ```
 
-## [4]-[GEOMETRY_DELTA]
+## [04]-[GEOMETRY_DELTA]
 
 - Owner: `GeometryDeltaKind` `[SmartEnum<string>]` structural-diff target rows; `GeometryDelta` the content-addressed delta record; `DeltaCodec` the static FastCDC-chunked structural-diff surface over meshes, B-reps, point clouds, and NURBS with quantization-aware bounded-lossy chunks, columnar layout, and progressive transmission.
 - Cases: `GeometryDeltaKind` rows mesh-vertex · mesh-topology · brep-face · pointcloud-octant · nurbs-control.
@@ -333,7 +333,7 @@ public static class DeltaCodec {
 }
 ```
 
-## [5]-[TILE_PARTITION]
+## [05]-[TILE_PARTITION]
 
 - Owner: `TileSet` the 3D-Tiles octree partition over the imported geometry carrier; `TileNode` the per-node bounding-volume/geometric-error/content-key record carrying its `Option<TileMetadata>` semantic layer; `MetadataProperty` `[Union]` the `EXT_structural_metadata` typed property-column cases; `PropertyTable` the per-tile feature-keyed property-table carrier; `TileMetadata` the per-leaf metadata layer joining the IFC classification column and the solver field-value columns under one feature-id mapping; `FeatureBand` `[SmartEnum<string>]` the solved-field styling-band rows; `ExportTiles` the leaf-tile emit fold riding the content-key, the metadata layer, and the field/tile compute lane; the partition consumes the deflection/tolerance and tile-depth/error/split scalars from `InterchangePolicy` and the `InterchangeIdentity.Key` content-key, never the Bim format/codec/KHR surface.
 - Entry: `public static Fin<Seq<ExportArtifact>> ExportTiles(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks)` builds the octree, attaches the per-leaf metadata read at the node content-key, and emits the leaf tiles; `public static TileSet Build(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, InterchangePolicy policy, ClockPolicy clocks)` partitions the geometry into the depth-bounded octree; `Fin<T>` aborts on a tile-content emit miss projected onto `ComputeFault.ModelRejected`.
@@ -504,7 +504,7 @@ public static class TilePartition {
 }
 ```
 
-## [6]-[CONTENT_ADDRESSING]
+## [06]-[CONTENT_ADDRESSING]
 
 - Owner: `InterchangeKeyPolicy` ordinal accessor; `InterchangeIdentity` — the content-key derivation folding the artifact bytes plus the deflection and tolerance policy into one `XxHash128` identity, mirroring the model-lane `ModelIdentity.Snapshot` precedent; `ExportArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed; the artifact lands content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
 - Entry: `public static UInt128 Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` — pure value; identity derives from the bytes and the evaluation policy, never from a path or filename.
@@ -541,7 +541,7 @@ public static class InterchangeIdentity {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [COMPANION_PROTOCOL]: the IfcOpenShell companion-daemon request/response protocol for the two-hop tessellation hop — the `IfcConvert`-to-GLB invocation shape, the deflection/tolerance argument mapping, and the GLB streaming-back contract — is owned by the Python geometry companion and rides the remote-lane companion rpc; the `TessellationRequest` shape and the content-key cache-reuse are authored here.
 - [FIELD_FORMAT]: the CGNS/EnSight/VTK/Zarr chunked-field decode member spellings ground against the admitted field-format library surface, the field-format row vocabulary is owned by the Bim format axis, and the decode body grounds at the field-codec admission gate.

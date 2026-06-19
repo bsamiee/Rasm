@@ -2,7 +2,7 @@
 
 Coverage, mutation, and snapshots are evidence rails over managed tests and deterministic artifacts. They do not replace static laws, runtime scenarios, architecture checks, benchmarks, or fuzz harnesses.
 
-## [1]-[COVERAGE]
+## [01]-[COVERAGE]
 
 [SURFACE]:
 - `--coverlet`: command-time coverage opt-in.
@@ -25,7 +25,7 @@ Coverage, mutation, and snapshots are evidence rails over managed tests and dete
 - Private methods stay private; coverage reaches them through public laws.
 - Testkit, benchmarks, fuzz harnesses, and runtime scenario scripts are not product coverage targets.
 
-## [2]-[MUTATION]
+## [02]-[MUTATION]
 
 [LOCAL_RAIL]:
 - Tool restore: local .NET tool manifest.
@@ -56,7 +56,7 @@ Coverage, mutation, and snapshots are evidence rails over managed tests and dete
 - Treat selected mutants with non-zero discovery and explicit timeouts as real mutation results.
 - Keep configuration in the quality operator while one product/test pair is under mutation.
 
-## [3]-[VERIFY]
+## [03]-[VERIFY]
 
 Use `Verify.XunitV3` for deterministic artifact contracts. Do not use snapshots for algebraic laws, numeric behavior, host-native truth, random samples, or current implementation output.
 

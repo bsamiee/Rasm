@@ -2,13 +2,13 @@
 
 Staging memory for every payload that moves through Rasm.Compute between intent admission and the IO edges. The page owns the `AllocationClass` axis with its admission predicate and its bit-pack, in-place-growth, and span-tokenizing routes, the `AllocationEvidence` record every staging receipt carries, the bare plane-projection law over CommunityToolkit.HighPerformance views, and the one-per-process recyclable stream pool with its policy record, zero-allocation event-fold evidence, and zero-copy contiguous and segment handoff to the remote frame edge. `CorrelationId`/`ReceiptSinkPort` bind identity and emission; pooled owners are the lifetime boundary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ALLOCATION_AXIS]: five-row staging axis; admission predicate; evidence record.
-- [2]-[PLANE_VIEWS]: bare plane projections; reinterpretation law; layout split.
-- [3]-[STREAM_POOL]: one pooled stream manager; policy record; event-fold evidence.
+- [01]-[ALLOCATION_AXIS]: five-row staging axis; admission predicate; evidence record.
+- [02]-[PLANE_VIEWS]: bare plane projections; reinterpretation law; layout split.
+- [03]-[STREAM_POOL]: one pooled stream manager; policy record; event-fold evidence.
 
-## [2]-[ALLOCATION_AXIS]
+## [02]-[ALLOCATION_AXIS]
 
 - Owner: `AllocationClass` `[SmartEnum<string>]` five rows under the `StagingKeyPolicy` ordinal accessor; `AllocationEvidence` is the evidence record every staging grant stamps.
 - Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`.
@@ -55,15 +55,15 @@ public readonly record struct AllocationEvidence(
 
 | [INDEX] | [ROUTE]           | [RULING]                                                                                                                                                                                                                                                                                                                                                                                                          |
 | :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | stack rent        | `SpanOwner<T>.Allocate(int, AllocationMode)` inside one synchronous kernel scope; the owner never crosses an await or an iterator boundary                                                                                                                                                                                                                                                                        |
-|   [2]   | pooled rent       | `MemoryOwner<T>.Allocate(int)` with `AllocationMode.Default`; `Slice` projects windows; `Dispose` returns deterministically                                                                                                                                                                                                                                                                                       |
-|   [3]   | incremental build | `ArrayPoolBufferWriter<T>`/`MemoryBufferWriter<T>` own growing payloads; the writer is the `IBufferWriter<T>` seam for codec emit                                                                                                                                                                                                                                                                                 |
-|   [4]   | rent clearing     | `AllocationMode.Default` everywhere — upstream classification enforcement keeps secret payloads out of staging, so clearing buys nothing                                                                                                                                                                                                                                                                          |
-|   [5]   | native evidence   | native grants happen inside the model lane; `NativeAllocator` and `NativeReservedBytes` slots carry the allocator name and reserved byte count                                                                                                                                                                                                                                                                    |
-|   [6]   | edge copy         | a grant on the copy-receipted row carries a reason; every array materialization and stream flatten routes through it                                                                                                                                                                                                                                                                                              |
-|   [7]   | text interning    | `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `Tokenize` splits codec text spans without intermediate strings                                                                                                                                                                                                                                                                  |
-|   [8]   | bit packing       | `BitHelper.HasFlag(ulong, int)`/`SetFlag(ulong, int, bool)`/`ExtractRange(ulong, byte, byte)` own voxel-occupancy and symbolic-dimension bit-flag packing over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word); one bit per cell replaces a byte buffer through the branchless members the `StagingViews` fence carries and the encoded mask stages for the tensor-lane `VoxelGrid` encoding |
-|   [9]   | in-place growth   | `ArrayPoolExtensions.Resize`/`EnsureCapacity` grow the rented backing array during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity                                                                                                                                                                          |
+|  [01]   | stack rent        | `SpanOwner<T>.Allocate(int, AllocationMode)` inside one synchronous kernel scope; the owner never crosses an await or an iterator boundary                                                                                                                                                                                                                                                                        |
+|  [02]   | pooled rent       | `MemoryOwner<T>.Allocate(int)` with `AllocationMode.Default`; `Slice` projects windows; `Dispose` returns deterministically                                                                                                                                                                                                                                                                                       |
+|  [03]   | incremental build | `ArrayPoolBufferWriter<T>`/`MemoryBufferWriter<T>` own growing payloads; the writer is the `IBufferWriter<T>` seam for codec emit                                                                                                                                                                                                                                                                                 |
+|  [04]   | rent clearing     | `AllocationMode.Default` everywhere — upstream classification enforcement keeps secret payloads out of staging, so clearing buys nothing                                                                                                                                                                                                                                                                          |
+|  [05]   | native evidence   | native grants happen inside the model lane; `NativeAllocator` and `NativeReservedBytes` slots carry the allocator name and reserved byte count                                                                                                                                                                                                                                                                    |
+|  [06]   | edge copy         | a grant on the copy-receipted row carries a reason; every array materialization and stream flatten routes through it                                                                                                                                                                                                                                                                                              |
+|  [07]   | text interning    | `StringPool.GetOrAdd` interns receipt and diagnostic text at the sink edge only; `Tokenize` splits codec text spans without intermediate strings                                                                                                                                                                                                                                                                  |
+|  [08]   | bit packing       | `BitHelper.HasFlag(ulong, int)`/`SetFlag(ulong, int, bool)`/`ExtractRange(ulong, byte, byte)` own voxel-occupancy and symbolic-dimension bit-flag packing over a `Span<ulong>` window of `PooledMemory` (sixty-four cells per word); one bit per cell replaces a byte buffer through the branchless members the `StagingViews` fence carries and the encoded mask stages for the tensor-lane `VoxelGrid` encoding |
+|  [09]   | in-place growth   | `ArrayPoolExtensions.Resize`/`EnsureCapacity` grow the rented backing array during incremental codec emit; the writer never reallocates through a second `MemoryOwner<T>.Allocate` and the granted-byte slot reflects the grown capacity                                                                                                                                                                          |
 |  [10]   | span tokenizing   | `ReadOnlySpanTokenizer<T>` partitions a codec or diagnostic span by separator without materializing intermediate strings; `SpanTokenizer<T>` rewrites a mutable staged span in the same pass                                                                                                                                                                                                                      |
 |  [11]   | contiguous frame  | `RecyclableMemoryStreamManager.GetStream(tag, requiredSize, asContiguousBuffer: true)` forces one large-buffer allocation for a chunked tensor frame the tensor lane requires contiguous; the grant rides the `RecyclableStream` row, the `requiredSize` fills the granted-byte slot, and the route replaces a hand-rolled array concatenation of chunk frames                                                    |
 
@@ -96,7 +96,7 @@ public static class StagingViews {
 }
 ```
 
-## [3]-[PLANE_VIEWS]
+## [03]-[PLANE_VIEWS]
 
 - Owner: `Span2D<T>`/`ReadOnlySpan2D<T>`/`Memory2D<T>`/`ReadOnlyMemory2D<T>` composed bare — the projection extensions are the whole surface and zero local plane owner exists.
 - Entry: `Memory2D<T> AsMemory2D<T>(this Memory<T> memory, int height, int width)`.
@@ -114,12 +114,12 @@ public static Span<TTo> Cast<TFrom, TTo>(this Span<TFrom> span) where TFrom : un
 
 | [INDEX] | [LAW]            | [RULING]                                                                                                                         |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | projection       | `AsMemory2D`/`AsSpan2D` give height-by-width planes over rented memory; the pitch overload carries padded image strides uncopied |
-|   [2]   | row kernel       | `GetRowSpan(int row)` on `Span2D<T>` addresses one contiguous row; kernels fold row spans instead of indexing a flat buffer      |
-|   [3]   | reinterpretation | `Cast` and `AsBytes` reinterpret in place under the calling codec's endianness ownership; a foreign-endian payload decodes first |
-|   [4]   | layout split     | NCHW-to-NHWC and every rank permute ride the tensor-lane layout family; planes stage rows for kernels, never reorder dimensions  |
+|  [01]   | projection       | `AsMemory2D`/`AsSpan2D` give height-by-width planes over rented memory; the pitch overload carries padded image strides uncopied |
+|  [02]   | row kernel       | `GetRowSpan(int row)` on `Span2D<T>` addresses one contiguous row; kernels fold row spans instead of indexing a flat buffer      |
+|  [03]   | reinterpretation | `Cast` and `AsBytes` reinterpret in place under the calling codec's endianness ownership; a foreign-endian payload decodes first |
+|  [04]   | layout split     | NCHW-to-NHWC and every rank permute ride the tensor-lane layout family; planes stage rows for kernels, never reorder dimensions  |
 
-## [4]-[STREAM_POOL]
+## [04]-[STREAM_POOL]
 
 - Owner: `StreamPool` boundary capsule owning the one process `RecyclableMemoryStreamManager`; `StreamPoolPolicy` carries every pool policy value.
 - Entry: `RecyclableMemoryStream Get(CorrelationId correlation, Option<long> requiredSize = default, bool contiguous = false)`.
@@ -191,29 +191,29 @@ public sealed class StreamPool : IDisposable {
 
 | [INDEX] | [EVENT]                | [EVIDENCE]                                                                                                               |
 | :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | StreamCreated          | `RequestedSize`/`ActualSize` fill requested and granted bytes under the stream's correlation `Id`                        |
-|   [2]   | StreamDisposed         | `Lifetime` closes the grant; the dispose pairs its create by `Id`                                                        |
-|   [3]   | StreamLength           | `Length` at dispose fills the staged-payload size distribution corroborating granted-byte evidence                       |
-|   [4]   | StreamDoubleDisposed   | leak diagnostic — `DisposeStack1`/`DisposeStack2` carry call sites on the `Diagnostic` policy row                        |
-|   [5]   | StreamFinalized        | leak diagnostic — an undisposed stream reached the finalizer; `AllocationStack` names the renter when call stacks are on |
-|   [6]   | StreamConvertedToArray | edge-copy corroboration — `Length` joins the receipted copy reason; a conversion without one is the named defect         |
-|   [7]   | StreamOverCapacity     | `RequestedCapacity`/`MaximumCapacity` fill bound evidence                                                                |
-|   [8]   | BlockCreated           | `SmallPoolInUse` tracks pool growth                                                                                      |
-|   [9]   | LargeBufferCreated     | `Pooled`/`RequiredSize`/`LargePoolInUse` surface unpooled grants the moment they happen                                  |
+|  [01]   | StreamCreated          | `RequestedSize`/`ActualSize` fill requested and granted bytes under the stream's correlation `Id`                        |
+|  [02]   | StreamDisposed         | `Lifetime` closes the grant; the dispose pairs its create by `Id`                                                        |
+|  [03]   | StreamLength           | `Length` at dispose fills the staged-payload size distribution corroborating granted-byte evidence                       |
+|  [04]   | StreamDoubleDisposed   | leak diagnostic — `DisposeStack1`/`DisposeStack2` carry call sites on the `Diagnostic` policy row                        |
+|  [05]   | StreamFinalized        | leak diagnostic — an undisposed stream reached the finalizer; `AllocationStack` names the renter when call stacks are on |
+|  [06]   | StreamConvertedToArray | edge-copy corroboration — `Length` joins the receipted copy reason; a conversion without one is the named defect         |
+|  [07]   | StreamOverCapacity     | `RequestedCapacity`/`MaximumCapacity` fill bound evidence                                                                |
+|  [08]   | BlockCreated           | `SmallPoolInUse` tracks pool growth                                                                                      |
+|  [09]   | LargeBufferCreated     | `Pooled`/`RequiredSize`/`LargePoolInUse` surface unpooled grants the moment they happen                                  |
 |  [10]   | BufferDiscarded        | `Reason` carries the discard taxonomy                                                                                    |
 |  [11]   | UsageReport            | the four pool byte gauges feed steady-state staging telemetry                                                            |
 
 | [INDEX] | [LAW]            | [RULING]                                                                                                                                                                                                                        |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | fragmented read  | `GetReadOnlySequence` is the default read of staged bytes; segments map one-to-one onto pooled blocks (single-block and large-buffer streams collapse to one segment) and wire encode and decode never flatten the payload      |
-|   [2]   | zero-copy edge   | the remote edge wraps sequence windows with `UnsafeByteOperations.UnsafeWrap` under the frame law the remote lane owns                                                                                                          |
-|   [3]   | codec window     | `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; `WriteTo` is the array-free stream-to-stream copy                                                                                         |
-|   [4]   | block alignment  | `BlockSize` holds exactly two `ArtifactSync` frames, so a frame never straddles a pooled block                                                                                                                                  |
-|   [5]   | payload cap      | `MaximumBufferSize` equals the wire payload cap from the canonical channel policy; large buffers step in 1 MiB multiples to that cap                                                                                            |
-|   [6]   | stream cap       | `MaximumStreamCapacity` zero is the package no-limit spelling; per-intent payload bounds own staging caps at admission                                                                                                          |
-|   [7]   | pool retention   | the free-bytes caps pin retention to 128 pooled blocks and eight payload-cap buffers; returns beyond them release as discard events                                                                                             |
-|   [8]   | contiguous view  | `GetBuffer` exposes the whole stream as one array when the codec needs a contiguous backing past `MaximumBufferSize`; the call is array-free against pooled blocks and never copies, where `TryGetBuffer` caps at one block     |
-|   [9]   | segment handoff  | `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send |
+|  [01]   | fragmented read  | `GetReadOnlySequence` is the default read of staged bytes; segments map one-to-one onto pooled blocks (single-block and large-buffer streams collapse to one segment) and wire encode and decode never flatten the payload      |
+|  [02]   | zero-copy edge   | the remote edge wraps sequence windows with `UnsafeByteOperations.UnsafeWrap` under the frame law the remote lane owns                                                                                                          |
+|  [03]   | codec window     | `TryGetBuffer` exposes a contiguous window for codecs bounded by `MaximumBufferSize`; `WriteTo` is the array-free stream-to-stream copy                                                                                         |
+|  [04]   | block alignment  | `BlockSize` holds exactly two `ArtifactSync` frames, so a frame never straddles a pooled block                                                                                                                                  |
+|  [05]   | payload cap      | `MaximumBufferSize` equals the wire payload cap from the canonical channel policy; large buffers step in 1 MiB multiples to that cap                                                                                            |
+|  [06]   | stream cap       | `MaximumStreamCapacity` zero is the package no-limit spelling; per-intent payload bounds own staging caps at admission                                                                                                          |
+|  [07]   | pool retention   | the free-bytes caps pin retention to 128 pooled blocks and eight payload-cap buffers; returns beyond them release as discard events                                                                                             |
+|  [08]   | contiguous view  | `GetBuffer` exposes the whole stream as one array when the codec needs a contiguous backing past `MaximumBufferSize`; the call is array-free against pooled blocks and never copies, where `TryGetBuffer` caps at one block     |
+|  [09]   | segment handoff  | `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to `UnsafeByteOperations.UnsafeWrap` so a pooled payload becomes a `ByteString` with zero copy; the owner outlives the wrap and disposes after send |
 |  [10]   | block diagnostic | `BlockAndOffset`/`BlockSegment` address pooled-block boundaries on the `Diagnostic` policy row so a frame-straddle assertion reads exact block positions; production reads only `GetReadOnlySequence` segment counts            |
 
 The eleven manager events fold to evidence through one `ReceiptSinkPort.Send` per event with no per-event allocation: each handler closure captures the sink once at construction, projects its `EventArgs` to an `AllocationEvidence` value, serializes that value to the `JsonElement` payload the `Send` arity carries, threads the ambient `TenantContext.Current` so the evidence partitions by tenant beside the renter correlation, and the detacher chain detaches LIFO at dispose. The drop-callback the channel rows pass for the `DropWrite`/`DropOldest` lanes routes a dropped item through the same projection rather than a per-drop allocation, so a dropped payload is an `AllocationEvidence` stamp under the renter correlation, never silent loss.
@@ -237,6 +237,6 @@ public static class PoolEvidence {
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [POOL_EVIDENCE]: bound `RecyclableMemoryStreamManager` event-arg field availability across single-block and large-buffer streams (`AllocationStack` populated only on the `GenerateCallStacks` policy row) for the zero-allocation projection.

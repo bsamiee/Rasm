@@ -4,7 +4,7 @@
 for MessagePack contracts, generated formatters, generated resolvers, and
 contract diagnostics.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePackAnalyzer`
 - package: `MessagePackAnalyzer`
@@ -13,46 +13,46 @@ contract diagnostics.
 - asset: analyzer package
 - rail: snapshot-codec
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PACKAGE_ASSET_SCOPE]: analyzer and generator assets
 - rail: snapshot-codec
 
 | [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]   | [CAPABILITY]             |
 | :-----: | :------------------------------------ | :--------------- | :----------------------- |
-|   [1]   | `MessagePack.SourceGenerator.dll`     | source generator | emits formatter code     |
-|   [2]   | `MessagePack.Analyzers.CodeFixes.dll` | analyzer asset   | reports contract issues  |
-|   [3]   | analyzer diagnostics                  | diagnostic asset | classifies contract gaps |
-|   [4]   | generated formatter templates         | generator asset  | emits formatter shapes   |
-|   [5]   | generated resolver templates          | generator asset  | emits resolver shapes    |
+|  [01]   | `MessagePack.SourceGenerator.dll`     | source generator | emits formatter code     |
+|  [02]   | `MessagePack.Analyzers.CodeFixes.dll` | analyzer asset   | reports contract issues  |
+|  [03]   | analyzer diagnostics                  | diagnostic asset | classifies contract gaps |
+|  [04]   | generated formatter templates         | generator asset  | emits formatter shapes   |
+|  [05]   | generated resolver templates          | generator asset  | emits resolver shapes    |
 
 [RECOGNIZED_TYPES]: recognized contract markers
 - rail: snapshot-codec
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]        | [CAPABILITY]             |
 | :-----: | :-------------------------------------- | :-------------------- | :----------------------- |
-|   [1]   | `MessagePackObjectAttribute`            | contract attribute    | marks object contracts   |
-|   [2]   | `KeyAttribute`                          | contract attribute    | declares member keys     |
-|   [3]   | `IgnoreMemberAttribute`                 | contract attribute    | excludes members         |
-|   [4]   | `UnionAttribute`                        | contract attribute    | declares union cases     |
-|   [5]   | `MessagePackFormatterAttribute`         | formatter attribute   | selects formatter        |
-|   [6]   | `SerializationConstructorAttribute`     | constructor attribute | selects constructor      |
-|   [7]   | `GeneratedMessagePackResolverAttribute` | resolver attribute    | marks generated resolver |
-|   [8]   | `CompositeResolverAttribute`            | resolver attribute    | declares resolver inputs |
+|  [01]   | `MessagePackObjectAttribute`            | contract attribute    | marks object contracts   |
+|  [02]   | `KeyAttribute`                          | contract attribute    | declares member keys     |
+|  [03]   | `IgnoreMemberAttribute`                 | contract attribute    | excludes members         |
+|  [04]   | `UnionAttribute`                        | contract attribute    | declares union cases     |
+|  [05]   | `MessagePackFormatterAttribute`         | formatter attribute   | selects formatter        |
+|  [06]   | `SerializationConstructorAttribute`     | constructor attribute | selects constructor      |
+|  [07]   | `GeneratedMessagePackResolverAttribute` | resolver attribute    | marks generated resolver |
+|  [08]   | `CompositeResolverAttribute`            | resolver attribute    | declares resolver inputs |
 
 [ANALYZER_CLASS_SCOPE]: diagnostic analyzers
 - rail: snapshot-codec
 
 | [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE]        | [CAPABILITY]                        |
 | :-----: | :------------------------------------- | :-------------------- | :---------------------------------- |
-|   [1]   | `MsgPack001SpecifyOptionsAnalyzer`     | diagnostic analyzer   | reports missing serializer options  |
-|   [2]   | `MsgPack002UseConstantOptionsAnalyzer` | diagnostic analyzer   | reports mutable shared options      |
-|   [3]   | `MsgPack00xMessagePackAnalyzer`        | diagnostic analyzer   | reports contract correctness issues |
-|   [4]   | `MessagePackGenerator`                 | incremental generator | emits typed formatter code          |
-|   [5]   | `CompositeResolverGenerator`           | incremental generator | emits resolver code                 |
-|   [6]   | `FormatterCodeFixProvider`             | code-fix provider     | fixes formatter-access issues       |
-|   [7]   | `MessagePackCodeFixProvider`           | code-fix provider     | fixes MsgPack003 and MsgPack004     |
-|   [8]   | `MsgPack015CodeFixProvider`            | code-fix provider     | fixes MsgPack015 AllowPrivate       |
+|  [01]   | `MsgPack001SpecifyOptionsAnalyzer`     | diagnostic analyzer   | reports missing serializer options  |
+|  [02]   | `MsgPack002UseConstantOptionsAnalyzer` | diagnostic analyzer   | reports mutable shared options      |
+|  [03]   | `MsgPack00xMessagePackAnalyzer`        | diagnostic analyzer   | reports contract correctness issues |
+|  [04]   | `MessagePackGenerator`                 | incremental generator | emits typed formatter code          |
+|  [05]   | `CompositeResolverGenerator`           | incremental generator | emits resolver code                 |
+|  [06]   | `FormatterCodeFixProvider`             | code-fix provider     | fixes formatter-access issues       |
+|  [07]   | `MessagePackCodeFixProvider`           | code-fix provider     | fixes MsgPack003 and MsgPack004     |
+|  [08]   | `MsgPack015CodeFixProvider`            | code-fix provider     | fixes MsgPack015 AllowPrivate       |
 
 [DIAGNOSTIC_SCOPE]: contract diagnostics
 - rail: snapshot-codec
@@ -61,15 +61,15 @@ All diagnostics are `DiagnosticDescriptor` static fields on `MsgPack00xMessagePa
 
 | [INDEX] | [DIAGNOSTIC_ID] | [SEVERITY] | [DESCRIPTOR_NAME]                                     | [TRIGGER]                                                 |
 | :-----: | :-------------- | :--------- | :---------------------------------------------------- | :-------------------------------------------------------- |
-|   [1]   | `MsgPack001`    | Warning    | `MissingOptionsDescriptor`                            | `MessagePackSerializer` call without explicit options     |
-|   [2]   | `MsgPack002`    | Warning    | `MutableSharedOptionsDescriptor`                      | `DefaultOptions` mutated after startup                    |
-|   [3]   | `MsgPack003`    | Error      | `TypeMustBeMessagePackObject`                         | type serialized without `[MessagePackObject]`             |
-|   [4]   | `MsgPack004`    | Error      | `MemberNeedsKey`                                      | member without `[Key]` or `[IgnoreMember]`                |
-|   [5]   | `MsgPack005`    | Error      | `InvalidMessagePackObject` / `UnionAttributeRequired` | invalid contract shape                                    |
-|   [6]   | `MsgPack006`    | Error      | `MessageFormatterMustBeMessagePackFormatter`          | `[MessagePackFormatter]` type not `IMessagePackFormatter` |
-|   [7]   | `MsgPack007`    | Error      | `NoDeserializingConstructor` / parameter diagnostics  | missing or mismatched deserializing constructor           |
-|   [8]   | `MsgPack008`    | Error      | `AotUnionAttributeRequiresTypeArg`                    | `[Union]` without type argument in AOT mode               |
-|   [9]   | `MsgPack009`    | Error      | `CollidingFormatters`                                 | multiple formatters for the same type                     |
+|  [01]   | `MsgPack001`    | Warning    | `MissingOptionsDescriptor`                            | `MessagePackSerializer` call without explicit options     |
+|  [02]   | `MsgPack002`    | Warning    | `MutableSharedOptionsDescriptor`                      | `DefaultOptions` mutated after startup                    |
+|  [03]   | `MsgPack003`    | Error      | `TypeMustBeMessagePackObject`                         | type serialized without `[MessagePackObject]`             |
+|  [04]   | `MsgPack004`    | Error      | `MemberNeedsKey`                                      | member without `[Key]` or `[IgnoreMember]`                |
+|  [05]   | `MsgPack005`    | Error      | `InvalidMessagePackObject` / `UnionAttributeRequired` | invalid contract shape                                    |
+|  [06]   | `MsgPack006`    | Error      | `MessageFormatterMustBeMessagePackFormatter`          | `[MessagePackFormatter]` type not `IMessagePackFormatter` |
+|  [07]   | `MsgPack007`    | Error      | `NoDeserializingConstructor` / parameter diagnostics  | missing or mismatched deserializing constructor           |
+|  [08]   | `MsgPack008`    | Error      | `AotUnionAttributeRequiresTypeArg`                    | `[Union]` without type argument in AOT mode               |
+|  [09]   | `MsgPack009`    | Error      | `CollidingFormatters`                                 | multiple formatters for the same type                     |
 |  [10]   | `MsgPack010`    | —          | `InaccessibleFormatterTypeId`                         | formatter type inaccessible to generator                  |
 |  [11]   | `MsgPack011`    | —          | `PartialTypeRequiredId`                               | generated type not declared `partial`                     |
 |  [12]   | `MsgPack012`    | —          | `InaccessibleDataTypeId`                              | data type inaccessible to formatter                       |
@@ -80,23 +80,23 @@ All diagnostics are `DiagnosticDescriptor` static fields on `MsgPack00xMessagePa
 |  [17]   | `MsgPack017`    | —          | `AOTInitPropertyId`                                   | init property in AOT mode                                 |
 |  [18]   | `MsgPack018`    | Error      | `CollidingMemberNamesInForceMapMode`                  | duplicate member name in force-map mode                   |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: diagnostics and generated surfaces
 - rail: snapshot-codec
 
 | [INDEX] | [SURFACE]                                              | [CALL_SHAPE]       | [CAPABILITY]                                    |
 | :-----: | :----------------------------------------------------- | :----------------- | :---------------------------------------------- |
-|   [1]   | `MsgPack003` (`TypeMustBeMessagePackObject`)           | error diagnostic   | blocks unattributed serialized types            |
-|   [2]   | `MsgPack015` (`MessagePackObjectAllowPrivateRequired`) | warning diagnostic | enforces `AllowPrivate` on non-public contracts |
-|   [3]   | `MsgPack004` (`MemberNeedsKey`)                        | error diagnostic   | blocks unkeyed members                          |
-|   [4]   | `MsgPack009` (`CollidingFormatters`)                   | error diagnostic   | blocks colliding formatters                     |
-|   [5]   | `MsgPack005` (`InvalidMessagePackObject`)              | error diagnostic   | blocks invalid contract shapes                  |
-|   [6]   | `MsgPack005` (`UnionAttributeRequired`)                | error diagnostic   | blocks missing `[Union]`                        |
-|   [7]   | generated formatter class                              | generated output   | formats snapshot values                         |
-|   [8]   | generated resolver class                               | generated output   | resolves snapshot values                        |
+|  [01]   | `MsgPack003` (`TypeMustBeMessagePackObject`)           | error diagnostic   | blocks unattributed serialized types            |
+|  [02]   | `MsgPack015` (`MessagePackObjectAllowPrivateRequired`) | warning diagnostic | enforces `AllowPrivate` on non-public contracts |
+|  [03]   | `MsgPack004` (`MemberNeedsKey`)                        | error diagnostic   | blocks unkeyed members                          |
+|  [04]   | `MsgPack009` (`CollidingFormatters`)                   | error diagnostic   | blocks colliding formatters                     |
+|  [05]   | `MsgPack005` (`InvalidMessagePackObject`)              | error diagnostic   | blocks invalid contract shapes                  |
+|  [06]   | `MsgPack005` (`UnionAttributeRequired`)                | error diagnostic   | blocks missing `[Union]`                        |
+|  [07]   | generated formatter class                              | generated output   | formats snapshot values                         |
+|  [08]   | generated resolver class                               | generated output   | resolves snapshot values                        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [ANALYZER_ADMISSION]:
 - dependency role: analyzer-only package (`PrivateAssets="all"`)

@@ -2,16 +2,16 @@
 
 Hooks integrate via settings files, environment variables, and context injection patterns.
 
-## [1]-[ENVIRONMENT]
+## [01]-[ENVIRONMENT]
 
 ### [1.1]-[HOOK_VARIABLES]
 
 | [INDEX] | [VARIABLE]           | [SCOPE]      | [VALUE]                            |
 | :-----: | -------------------- | ------------ | ---------------------------------- |
-|   [1]   | `CLAUDE_PROJECT_DIR` | All hooks    | Absolute path to project root      |
-|   [2]   | `CLAUDE_CODE_REMOTE` | All hooks    | `"true"` for web, unset for CLI    |
-|   [3]   | `CLAUDE_ENV_FILE`    | SessionStart | Path to append `export` statements |
-|   [4]   | `CLAUDE_PLUGIN_ROOT` | Plugin hooks | Absolute path to plugin directory  |
+|  [01]   | `CLAUDE_PROJECT_DIR` | All hooks    | Absolute path to project root      |
+|  [02]   | `CLAUDE_CODE_REMOTE` | All hooks    | `"true"` for web, unset for CLI    |
+|  [03]   | `CLAUDE_ENV_FILE`    | SessionStart | Path to append `export` statements |
+|  [04]   | `CLAUDE_PLUGIN_ROOT` | Plugin hooks | Absolute path to plugin directory  |
 
 [IMPORTANT] All other event-specific data (session_id, tool_name, tool_input, cwd, etc.) is delivered via JSON stdin, NOT environment variables. Parse with `jq` (Bash) or `json.load(sys.stdin)` (Python).
 
@@ -34,21 +34,21 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 
 | [INDEX] | [PLATFORM] | [ISSUE]                              | [WORKAROUND]              |
 | :-----: | ---------- | ------------------------------------ | ------------------------- |
-|   [1]   | Windows    | `$CLAUDE_PROJECT_DIR` literal string | Use absolute paths        |
-|   [2]   | Windows    | PATH wiped on env append             | Use full executable paths |
-|   [3]   | Remote     | SSH key access required              | Configure SSH agent       |
+|  [01]   | Windows    | `$CLAUDE_PROJECT_DIR` literal string | Use absolute paths        |
+|  [02]   | Windows    | PATH wiped on env append             | Use full executable paths |
+|  [03]   | Remote     | SSH key access required              | Configure SSH agent       |
 
-## [2]-[CONTEXT_INJECTION]
+## [02]-[CONTEXT_INJECTION]
 
 ### [2.1]-[OUTPUT_ROUTING]
 
 | [INDEX] | [EVENT]          | [STDOUT_HANDLING]              |
 | :-----: | ---------------- | ------------------------------ |
-|   [1]   | SessionStart     | Added as context for Claude    |
-|   [2]   | UserPromptSubmit | Added as context for Claude    |
-|   [3]   | PreToolUse       | Shown in verbose mode (Ctrl+O) |
-|   [4]   | PostToolUse      | Shown in verbose mode (Ctrl+O) |
-|   [5]   | Others           | Debug log only (`--debug`)     |
+|  [01]   | SessionStart     | Added as context for Claude    |
+|  [02]   | UserPromptSubmit | Added as context for Claude    |
+|  [03]   | PreToolUse       | Shown in verbose mode (Ctrl+O) |
+|  [04]   | PostToolUse      | Shown in verbose mode (Ctrl+O) |
+|  [05]   | Others           | Debug log only (`--debug`)     |
 
 ### [2.2]-[SESSIONSTART_PATTERN]
 
@@ -82,35 +82,35 @@ def cache_to_env(key: str, value: str) -> None:
 cache_to_env("SKILL_COUNT", str(len(skills)))
 ```
 
-## [3]-[ATTENTION_WEIGHTING]
+## [03]-[ATTENTION_WEIGHTING]
 
 | [INDEX] | [TAG]         | [WEIGHT] | [USE]                     |
 | :-----: | ------------- | :------: | ------------------------- |
-|   [1]   | `<CRITICAL>`  | Highest  | Must-follow constraints   |
-|   [2]   | `<IMPORTANT>` |   High   | Key guidance              |
-|   [3]   | `<context>`   | Standard | General context injection |
+|  [01]   | `<CRITICAL>`  | Highest  | Must-follow constraints   |
+|  [02]   | `<IMPORTANT>` |   High   | Key guidance              |
+|  [03]   | `<context>`   | Standard | General context injection |
 
-## [4]-[MERGE_BEHAVIOR]
+## [04]-[MERGE_BEHAVIOR]
 
 | [INDEX] | [SCOPE] | [PATH]                        | [PRECEDENCE] |
 | :-----: | ------- | ----------------------------- | :----------: |
-|   [1]   | User    | `~/.claude/settings.json`     |    Lowest    |
-|   [2]   | Project | `.claude/settings.json`       |    Medium    |
-|   [3]   | Local   | `.claude/settings.local.json` |   Highest    |
+|  [01]   | User    | `~/.claude/settings.json`     |    Lowest    |
+|  [02]   | Project | `.claude/settings.json`       |    Medium    |
+|  [03]   | Local   | `.claude/settings.local.json` |   Highest    |
 
 - Same event hooks from all scopes run in parallel
 - Hook snapshots captured at startup; changes require `/hooks` review
 - Identical hook commands auto-deduplicated
 
-## [5]-[TIMING]
+## [05]-[TIMING]
 
 | [INDEX] | [EVENT]           | [THRESHOLD] | [CONSEQUENCE]                |
 | :-----: | ----------------- | :---------: | ---------------------------- |
-|   [1]   | PermissionRequest |    <1.5s    | Race condition; dialog shown |
-|   [2]   | SessionStart      |     <5s     | Delayed session start        |
-|   [3]   | All hooks         |   <100ms    | Imperceptible latency        |
+|  [01]   | PermissionRequest |    <1.5s    | Race condition; dialog shown |
+|  [02]   | SessionStart      |     <5s     | Delayed session start        |
+|  [03]   | All hooks         |   <100ms    | Imperceptible latency        |
 
-## [6]-[FOLDER_STRUCTURE]
+## [06]-[FOLDER_STRUCTURE]
 
 ```
 .claude/
@@ -121,4 +121,4 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 └── settings.local.json       # Local hooks (gitignored)
 ```
 
-[REFERENCE] Validation checklist: [→validation.md§3](./validation.md#3integration_gate)
+[REFERENCE] Validation checklist: [→validation.md§03](./validation.md#03-integration_gate)

@@ -2,14 +2,14 @@
 
 Rasm.AppUi accessibility is columns on existing catalogs plus one gate fold: automation identity and live-region announcements source from `ScreenCatalogRow` columns, keyboard reachability rides the attached `KeyboardNavigation` surface, and the WCAG contrast gate is the suite's single luminance implementation asserting receipts over theme-token candidate pairs. The page owns the announcement row family, the focus law, the contrast floor axis, and the per-row compliance audit the headless lanes execute, composing the screen catalog, theme tokens, dialog sessions, motion degrade state, and the Avalonia.Headless substrate as settled vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[AUTOMATION_PEERS]: Catalog-sourced automation identity; live-region announcement rows.
-- [2]-[KEYBOARD_NAV]: Tab-order, trap, and refocus law over attached navigation.
-- [3]-[CONTRAST_GATE]: The suite's single WCAG luminance gate and floor rows.
-- [4]-[COMPLIANCE_PROOF]: Per-catalog-row audit law executed by the headless lanes.
+- [01]-[AUTOMATION_PEERS]: Catalog-sourced automation identity; live-region announcement rows.
+- [02]-[KEYBOARD_NAV]: Tab-order, trap, and refocus law over attached navigation.
+- [03]-[CONTRAST_GATE]: The suite's single WCAG luminance gate and floor rows.
+- [04]-[COMPLIANCE_PROOF]: Per-catalog-row audit law executed by the headless lanes.
 
-## [2]-[AUTOMATION_PEERS]
+## [02]-[AUTOMATION_PEERS]
 
 - Owner: `AnnouncementRow` live-region record; `SceneAccessNode` the 3D-scene accessibility tree; `SpatialCue` the spatial-audio cue; `AccessOps` identity fold over catalog columns.
 - Cases: toast, progress, validation over stock peers; chart-tile, preview, custom-visual, scene-element over Skia-drawn visuals carrying the `Synthesized` flag — the seven announcement rows.
@@ -82,15 +82,15 @@ public static class AccessOps {
 
 | [INDEX] | [ROW]         | [SETTING]   | [TEXT_SOURCE]                                          | [SYNTHESIZED] |
 | :-----: | :------------ | :---------- | :----------------------------------------------------- | :------------ |
-|   [1]   | toast         | `Polite`    | notification text at presentation                      | no            |
-|   [2]   | progress      | `Polite`    | phase-transition text from progress streams            | no            |
-|   [3]   | validation    | `Assertive` | `AdmissionState` fail text                             | no            |
-|   [4]   | chart-tile    | `Polite`    | series summary at render from the spec fold            | yes           |
-|   [5]   | preview       | `Polite`    | offscreen-preview caption at capture                   | yes           |
-|   [6]   | custom-visual | `Polite`    | custom-visual summary at render from the kind fold     | yes           |
-|   [7]   | scene-element | `Polite`    | scene-node name and role at focus from the access tree | yes           |
+|  [01]   | toast         | `Polite`    | notification text at presentation                      | no            |
+|  [02]   | progress      | `Polite`    | phase-transition text from progress streams            | no            |
+|  [03]   | validation    | `Assertive` | `AdmissionState` fail text                             | no            |
+|  [04]   | chart-tile    | `Polite`    | series summary at render from the spec fold            | yes           |
+|  [05]   | preview       | `Polite`    | offscreen-preview caption at capture                   | yes           |
+|  [06]   | custom-visual | `Polite`    | custom-visual summary at render from the kind fold     | yes           |
+|  [07]   | scene-element | `Polite`    | scene-node name and role at focus from the access tree | yes           |
 
-## [3]-[KEYBOARD_NAV]
+## [03]-[KEYBOARD_NAV]
 
 - Owner: `FocusOps` keyboard fold over the attached navigation surface.
 - Cases: navigation-mode rows — screen root, dialog overlay, grid body, embedded panel root.
@@ -118,12 +118,12 @@ public static class FocusOps {
 
 | [INDEX] | [REGION]                     | [MODE]      |
 | :-----: | :--------------------------- | :---------- |
-|   [1]   | screen root                  | `Continue`  |
-|   [2]   | dialog session overlay root  | `Cycle`     |
-|   [3]   | grid and flattened-tree body | `Contained` |
-|   [4]   | embedded panel root          | `Local`     |
+|  [01]   | screen root                  | `Continue`  |
+|  [02]   | dialog session overlay root  | `Cycle`     |
+|  [03]   | grid and flattened-tree body | `Contained` |
+|  [04]   | embedded panel root          | `Local`     |
 
-## [4]-[CONTRAST_GATE]
+## [04]-[CONTRAST_GATE]
 
 - Owner: `ContrastGate` static surface; `ContrastReceipt` receipt record.
 - Cases: floor rows — body-text, large-text, non-text, high-contrast — plus the one luminance-offset value.
@@ -153,13 +153,13 @@ public static class ContrastGate {
 
 | [INDEX] | [ROW]            | [VALUE] | [BINDS]                                     |
 | :-----: | :--------------- | :-----: | :------------------------------------------ |
-|   [1]   | body-text        |   4.5   | text pairs at body sizes                    |
-|   [2]   | large-text       |   3.0   | display and headline pairs                  |
-|   [3]   | non-text         |   3.0   | focus visuals, icon tints, chart strokes    |
-|   [4]   | high-contrast    |   7.0   | every pair on the high-contrast variant row |
-|   [5]   | luminance-offset |  0.05   | both ratio terms                            |
+|  [01]   | body-text        |   4.5   | text pairs at body sizes                    |
+|  [02]   | large-text       |   3.0   | display and headline pairs                  |
+|  [03]   | non-text         |   3.0   | focus visuals, icon tints, chart strokes    |
+|  [04]   | high-contrast    |   7.0   | every pair on the high-contrast variant row |
+|  [05]   | luminance-offset |  0.05   | both ratio terms                            |
 
-## [5]-[COMPLIANCE_PROOF]
+## [05]-[COMPLIANCE_PROOF]
 
 - Owner: `AccessAudit` audit row record; `AccessProof` sweep fold.
 - Cases: focus walk, peer presence, name coverage, reduced-motion conformance, contrast sweep — the five audit checks.
@@ -201,7 +201,7 @@ flowchart LR
     ContrastReceipt --> AccessAudit
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [PEER_SYNTHESIS]: the `ControlAutomationPeer` subclass shape synthesizing automation-peer presence over Skia-drawn chart, tile, and preview visuals — the `GetNameCore`, `GetAutomationControlTypeCore`, and `GetClassNameOverrideCore` overrides the synthesized region returns and the live-region update path on the synthesized peer.
 - [EMBEDDED_VOICEOVER]: VoiceOver reach into embedded-root content across the NSView boundary on Rhino panel rows; live-region projection of `SetLiveSetting` and `SetName` transitions through the macOS automation backend.

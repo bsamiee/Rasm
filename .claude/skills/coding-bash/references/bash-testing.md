@@ -4,17 +4,17 @@ Production testing for Bash 5.2+/5.3. bats-core 1.13+, test isolation via subshe
 
 | [IDX] | [PATTERN]           |  [S]  | [USE_WHEN]                                    |
 | :---: | :------------------ | :---: | :-------------------------------------------- |
-|  [1]  | bats-core framework |  S1   | Every test suite — lifecycle, helpers, tags   |
-|  [2]  | Test isolation      |  S2   | Side-effect-free — temp dirs, FD sandbox, env |
-|  [3]  | Mock/stub patterns  |  S3   | External command interception, function stubs |
-|  [4]  | Coverage/mutation   |  S4   | Quality gates — kcov, lcov, mutation sweep    |
-|  [5]  | CI integration      |  S5   | GH Actions — lint, test matrix, coverage gate |
-|  [6]  | Property-based      |  S6   | Input domain exploration, random generation   |
-|  [7]  | Snapshot testing    |  S7   | Output baseline comparison, approval workflow |
-|  [8]  | Contract testing    |  S8   | CLI exit codes, stdout schema, stderr rules   |
-|  [9]  | ShellCheck 0.11.0   |  S9   | SC2327-SC2332 — new codes for test/prod code  |
+| [01]  | bats-core framework |  S1   | Every test suite — lifecycle, helpers, tags   |
+| [02]  | Test isolation      |  S2   | Side-effect-free — temp dirs, FD sandbox, env |
+| [03]  | Mock/stub patterns  |  S3   | External command interception, function stubs |
+| [04]  | Coverage/mutation   |  S4   | Quality gates — kcov, lcov, mutation sweep    |
+| [05]  | CI integration      |  S5   | GH Actions — lint, test matrix, coverage gate |
+| [06]  | Property-based      |  S6   | Input domain exploration, random generation   |
+| [07]  | Snapshot testing    |  S7   | Output baseline comparison, approval workflow |
+| [08]  | Contract testing    |  S8   | CLI exit codes, stdout schema, stderr rules   |
+| [09]  | ShellCheck 0.11.0   |  S9   | SC2327-SC2332 — new codes for test/prod code  |
 
-## [1]-[BATS_CORE_FRAMEWORK]
+## [01]-[BATS_CORE_FRAMEWORK]
 
 bats-core 1.13+: `setup_file`/`teardown_file` (suite fixtures), `bats_load_library` (dependency resolution), `bats::on_failure` (v1.12+ failure-only diagnostics), test tagging via `# bats test_tags=` with `--filter-tags` (v1.8+), `--negative-filter` (v1.13+), `--abort` (v1.13+ fail-fast — halts entire suite on first failure), JUnit/TAP13 formatters, `--jobs` parallel execution. Each `@test` runs in a subshell — variable mutations isolated by default. v1.13 fix: `run` now unsets `output`, `stderr`, `lines`, `stderr_lines` at invocation start — eliminates variable crosstalk between successive `run` calls within a test.
 
@@ -95,7 +95,7 @@ bats --negative-filter "legacy_" tests/              # exclude by name (v1.13+)
 bats --abort tests/                                  # halt suite on first failure (v1.13+)
 ```
 
-## [2]-[TEST_ISOLATION]
+## [02]-[TEST_ISOLATION]
 
 `BATS_TEST_TMPDIR` (per-test, auto-cleaned) is the primary isolation mechanism. `BATS_FILE_TMPDIR` persists across tests in a file for expensive fixtures. PATH restriction prevents non-deterministic system commands.
 
@@ -168,7 +168,7 @@ _make_project_fixture() {
 }
 ```
 
-## [3]-[MOCK_AND_STUB_PATTERNS]
+## [03]-[MOCK_AND_STUB_PATTERNS]
 
 Preference order: (1) function override — subshell-isolated by bats, (2) PATH mock — shadows system command via `tests/mocks/`, (3) stub file — controlled data dependency. Function overrides are zero-setup; PATH mocks required when code uses `command`, `env`, or absolute path.
 
@@ -227,7 +227,7 @@ _assert_call_count() {
 
 Embedded `--self-test` assertion primitives (`_assert_eq`, `_assert_match`, `_assert_set`) owned by script-patterns.md S10.
 
-## [4]-[COVERAGE_AND_MUTATION]
+## [04]-[COVERAGE_AND_MUTATION]
 
 kcov 43+ instruments bash via `PS4` + `BASH_XTRACEFD` — zero source modification. `--include-path=./lib` restricts to production code. `--bash-dont-parse-binary-dir` prevents instrumenting non-bash executables. `--bash-parse-files-in-dir` tracks indirectly sourced files. v43: `--dump-summary` emits JSON coverage to stdout — machine-readable for CI gating without parsing HTML/Cobertura.
 
@@ -284,7 +284,7 @@ _mutation_sweep() {
 }
 ```
 
-## [5]-[CI_INTEGRATION]
+## [05]-[CI_INTEGRATION]
 
 CI pipeline owned by bash-testing.md. validation.md cross-references for ShellCheck-specific diagnostic codes. `koalaman/shellcheck-action@v2` (maintained by ShellCheck author). Container matrix references bash-portability.md S5.1 image selection.
 
@@ -360,7 +360,7 @@ services:
     command: ['--formatter', 'junit', '--output', '/code/tests/reports/', '/code/tests']
 ```
 
-## [6]-[PROPERTY_BASED_PATTERNS]
+## [06]-[PROPERTY_BASED_PATTERNS]
 
 No mature property-based testing framework exists for bash. Pattern: generate random inputs from constrained domains, verify invariants (not specific outputs). `SRANDOM` for uniform 32-bit numeric domains; `/dev/urandom` for byte-stream domains.
 
@@ -458,7 +458,7 @@ def test_normalize_lowercase(line: str):
 
 Constraints: `assume("\x00" not in value)` — bash variables cannot hold NUL bytes. Assert properties (idempotency, commutativity, roundtrip identity, monotonicity), never exact output. Hypothesis shrinks failing cases automatically — no manual binary search needed.
 
-## [7]-[SNAPSHOT_TESTING]
+## [07]-[SNAPSHOT_TESTING]
 
 ```bash
 _snapshot_dir="${BATS_TEST_DIRNAME}/snapshots"
@@ -483,7 +483,7 @@ _assert_snapshot() {
 }
 ```
 
-## [8]-[CONTRACT_TESTING]
+## [08]-[CONTRACT_TESTING]
 
 ```bash
 _assert_cli_contract() {
@@ -510,7 +510,7 @@ _assert_cli_contract() {
 }
 ```
 
-## [9]-[SHELLCHECK_0_11_0]
+## [09]-[SHELLCHECK_0_11_0]
 
 Full ShellCheck reference in validation.md S3. Test-relevant codes from 0.11.0 below — each surfaces in test infrastructure or scripts under test.
 

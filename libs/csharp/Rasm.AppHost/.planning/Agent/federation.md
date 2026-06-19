@@ -2,15 +2,15 @@
 
 The MCP-client federation surface for the runtime spine: the official `ModelContextProtocol` SDK owns the client session — JSON-RPC framing, the `IClientTransport` connection, the initialize handshake, and `McpClientTool : AIFunction` adoption — and this page inverts `Agent/mcp#METHOD_AXIS`, folding each attached external server's tools, resources, and prompts inward as brokered `CapabilityDescriptor` rows under a `federated.{server}.{tool}` surface key. Where the server projection flows descriptor outward to one `Microsoft.Extensions.AI` `AIFunction`, federation flows a peer `McpClientTool` inward to one descriptor, wrapping the same `CommandAIFunction` the projection mints (one tool-adoption seam, never a second `AIFunction` subclass) so a federated call routes through `Agent/capability#COMMAND_ALGEBRA` `CommandAlgebra.Run`, the `Agent/capability#GRANT_BROKER` admission, the dry-run cost preview, and the `Runtime/determinism#EVENT_LOG` chain exactly as a native op — the broker gates it, the algebra wraps it in commit-or-rollback, and the event log chains its content hash. The external server is reached over `Wire/outbound#HOP_AXIS` `OutboundHop` so its bytes ride the existing retry, breaker, and deadline; the peer-tool JSON Schema becomes the descriptor's argument schema content-keyed for the `Agent/capability#SDK_CODEGEN` identity gate. The page owns the transport-kind axis, the server admission row and trust scope, the tool/resource/prompt projection inversion, the federated dispatch through the command algebra, and the peer resource-update subscription; it consumes `CapabilityDescriptor`/`DescriptorSurface.Describe`, `CapabilityRegistry`, `CommandAlgebra`/`CommandRuntime`/`GrantBroker`, `ComputeIntent`/`IntentAdmission`, `ToolResult` (reused from `Agent/mcp#TOOL_DISPATCH`), `CommandAIFunction` (reused from `Agent/mcp#METHOD_AXIS`), `SubscriptionLane`/`ExternalValue` (reused from `Wire/livewire#TRANSPORT_BINDING`), `OutboundHop`/`OutboundSurface`, `TenantContext`, `ReceiptSinkPort`, and `CancelScope` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FEDERATION_AXIS]: Transport-kind taxonomy with external-server admission rows, trust scope, and fault bands.
-- [2]-[FEDERATION_PROJECTION]: Peer tool-to-descriptor inversion fold; the reused `CommandAIFunction` wrap.
-- [3]-[FEDERATED_DISPATCH]: Brokered dispatch over `McpClient.CallToolAsync` riding the command algebra.
-- [4]-[RESOURCE_PROMPT_FOLD]: Peer resource, prompt, and template projection with resource-update subscription drain.
-- [5]-[TS_PROJECTION]: Federated-descriptor wire shapes additive to the one capability catalog.
+- [01]-[FEDERATION_AXIS]: Transport-kind taxonomy with external-server admission rows, trust scope, and fault bands.
+- [02]-[FEDERATION_PROJECTION]: Peer tool-to-descriptor inversion fold; the reused `CommandAIFunction` wrap.
+- [03]-[FEDERATED_DISPATCH]: Brokered dispatch over `McpClient.CallToolAsync` riding the command algebra.
+- [04]-[RESOURCE_PROMPT_FOLD]: Peer resource, prompt, and template projection with resource-update subscription drain.
+- [05]-[TS_PROJECTION]: Federated-descriptor wire shapes additive to the one capability catalog.
 
-## [2]-[FEDERATION_AXIS]
+## [02]-[FEDERATION_AXIS]
 
 - Owner: `TransportKind` `[SmartEnum<string>]` the closed three-row transport taxonomy under the `CapabilityKeyPolicy` accessor, each row carrying its `IClientTransport` factory delegate; `TrustScope` the per-server permission envelope the federated descriptors inherit; `FederationFault` `[Union]` fault family in the fresh 4800 band; `FederatedServer` `[ValueObject]` the admitted external-server row carrying its transport kind, its constructed `IClientTransport`, and its trust scope; `FederationCatalog` the frozen admitted-server set.
 - Cases: 3 transport rows — stdio, http, streamable — the closed `IClientTransport` selection the SDK serves; `FederationFault` = Text | TransportRejected | HandshakeFailed | PeerUnavailable | ToolCallFaulted | UntrustedScope; server identity is open at composition so `FederatedServer` is a `[ValueObject]` admitted dynamically, never a `[SmartEnum]` row.
@@ -108,7 +108,7 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
 }
 ```
 
-## [3]-[FEDERATION_PROJECTION]
+## [03]-[FEDERATION_PROJECTION]
 
 - Owner: `FederationProjection` the static peer-to-descriptor inversion fold; `PeerSession` the held `McpClient` session owner per admitted server; `FederationRuntime` the held composition state the fold reads — the `FederationCatalog`, the session accessor, the schema-projection delegate, and the `McpRuntime` the reused `CommandAIFunction` closes over.
 - Cases: the projection folds each `McpClientTool` the peer's `McpClient.ListToolsAsync` enumerates into one `CapabilityDescriptor` under `federated.{server}.{tool}`, reusing the one `CommandAIFunction : AIFunction` subclass the server projection mints — never a second `AIFunction` subclass and never an `AIFunctionFactory` delegate whose reflected-parameter schema is blind to the peer-tool contract.
@@ -177,7 +177,7 @@ public static class FederationProjection {
 }
 ```
 
-## [4]-[FEDERATED_DISPATCH]
+## [04]-[FEDERATED_DISPATCH]
 
 - Owner: `FederatedDispatch` the static brokered-call surface routing a federated descriptor's invocation through the command algebra and onto the peer `McpClient.CallToolAsync`; `FederatedCall` the call-intent record the descriptor's `Compile` mints; `FederatedReceipt` the per-call evidence record projecting the peer `CallToolResult` onto the reused `ToolResult`.
 - Cases: a federated descriptor's `Compile` projects to one `FederatedCall` carrying the server, the tool name, and the payload; the dispatch resolves the peer session, sends `CallToolAsync` over the server's `OutboundHop`, and projects the peer result onto the reused `Agent/mcp#TOOL_DISPATCH` `ToolResult` — never a branch-side `ToolResultWire` mint.
@@ -233,7 +233,7 @@ public static class FederatedDispatch {
 }
 ```
 
-## [5]-[RESOURCE_PROMPT_FOLD]
+## [05]-[RESOURCE_PROMPT_FOLD]
 
 - Owner: the `FederationProjection` fold EXTENSION — `Resources`/`Prompts`/`Templates` projection arms added to the tool fold; `FederationSubscription` the `McpClient.SubscribeToResourceAsync` per-uri handler seam draining a peer resource-update into the one bounded `Wire/livewire#TRANSPORT_BINDING` `SubscriptionLane` as one `ExternalValue` (the reused at-edge carrier, never a federation-local value type).
 - Cases: a peer resource projects to a `read`-effect descriptor under `federated.{server}.resource.{uri}`; a peer prompt projects to a `pure`-effect descriptor under `federated.{server}.prompt.{name}`; a peer resource template projects to a `read`-effect descriptor under `federated.{server}.template.{uri}`, mirroring the server projection's effect-class filter where a `read` descriptor projects as both a tool and a resource and a `pure` template-shaped descriptor projects as a prompt; a peer resource-update notification drains into the same bounded lane the OPC-UA and MQTT subscriptions drain into.
@@ -306,7 +306,7 @@ public static class FederationSubscription {
 }
 ```
 
-## [6]-[TS_PROJECTION]
+## [06]-[TS_PROJECTION]
 
 - Owner: `FederatedServerWire`, `FederatedDescriptorWire` — the admitted-server and federated-descriptor wire shapes the dashboard federation panel decodes additive to the one `Agent/capability#TS_PROJECTION` `DiscoveryResultWire` catalog; the federated tool result rides the reused `Agent/mcp#TS_PROJECTION` `ToolResultWire`, never a branch-side mint.
 - Entry: the admitted-server roster crosses as the `FederatedServerWire[]` the dashboard federation panel ingests, the federated descriptors cross as additional `DiscoveryResultWire` rows under the `federated.{server}.*` surface keys the one catalog already carries, and a federated tool call's structured result reconstructs through the existing `ReceiptEnvelopeWire<ToolResultWire>`.
@@ -336,7 +336,7 @@ interface FederatedDescriptorWire {
 }
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 The federation fence members verify against the folder `.api/api-mcp.md` (`ModelContextProtocol`/`ModelContextProtocol.Core`) and `.api/api-extensions-ai.md` (`Microsoft.Extensions.AI.Abstractions`) catalogues. The client construction `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CancellationToken)`, the session calls `McpClient.ListToolsAsync(RequestOptions?, CT)`/`McpClient.CallToolAsync(string toolName, IReadOnlyDictionary<string,object?>? arguments, IProgress<ProgressNotificationValue>? progress, RequestOptions? options, CT)`/`McpClient.ListResourcesAsync(RequestOptions?, CT)`/`McpClient.ListPromptsAsync(RequestOptions?, CT)`/`McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)`/`McpClient.SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask> handler, RequestOptions?, CT)`, the `McpClientTool : AIFunction` tool surface (`Name`, the `JsonSchema`/`ReturnJsonSchema` it inherits from `AIFunctionDeclaration`), the `McpClientResource`/`McpClientPrompt`/`McpClientResourceTemplate` client accessors, the public `IClientTransport` implementors `StdioClientTransport`/`HttpClientTransport`/`StreamClientTransport` with `StdioClientTransportOptions`/`HttpClientTransportOptions` (the `HttpClientTransportOptions.TransportMode` `HttpTransportMode` enum — `AutoDetect`/`StreamableHttp`/`Sse` — selecting the SDK-internal streamable-vs-SSE session transport at connect), the `McpClientOptions`/`McpClientHandlers` configuration-and-notification registry, and the `IClientTransport` factory contract are all catalogued rows the federation composes directly. The `AIFunction : AIFunctionDeclaration : AITool` chain the reused `CommandAIFunction` subtypes is catalogued in `api-extensions-ai.md`, so the federation needs only the `Microsoft.Extensions.AI.Abstractions` admission the server projection already pulls.
 

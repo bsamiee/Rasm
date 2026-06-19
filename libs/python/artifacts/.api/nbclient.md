@@ -2,7 +2,7 @@
 
 `nbclient` supplies the Jupyter notebook execution runtime for the artifacts notebook rail: `NotebookClient` owns the full kernel lifecycle, cell-by-cell execution, timeout enforcement, and cell error handling; `execute` / `async_execute` are the primary coroutine-aware entrypoints; the exceptions family (`CellExecutionError`, `CellTimeoutError`, `DeadKernelError`) carries typed failure rails.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nbclient`
 - package: `nbclient`
@@ -11,42 +11,42 @@
 - rail: notebook
 - asset: runtime library
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and kernel family
 - rail: notebook — `nbclient`
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [CAPABILITY]                                                   |
 | :-----: | :--------------- | :--------------- | :------------------------------------------------------------- |
-|   [1]   | `NotebookClient` | execution client | kernel lifecycle, cell execution, timeout, hooks, widget state |
+|  [01]   | `NotebookClient` | execution client | kernel lifecycle, cell execution, timeout, hooks, widget state |
 
 [PUBLIC_TYPE_SCOPE]: exception family
 - rail: notebook — `nbclient.exceptions`
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                                  |
 | :-----: | :---------------------- | :---------------- | :------------------------------------------------------------ |
-|   [1]   | `CellControlSignal`     | control base      | base for cell-level execution signals                         |
-|   [2]   | `CellExecutionComplete` | completion signal | raised to end cell execution loop                             |
-|   [3]   | `CellExecutionError`    | cell fault        | cell raised an exception; carries traceback and output        |
-|   [4]   | `CellTimeoutError`      | timeout fault     | cell execution exceeded `timeout`; inherits `TimeoutError`    |
-|   [5]   | `DeadKernelError`       | kernel fault      | kernel process died during execution; inherits `RuntimeError` |
+|  [01]   | `CellControlSignal`     | control base      | base for cell-level execution signals                         |
+|  [02]   | `CellExecutionComplete` | completion signal | raised to end cell execution loop                             |
+|  [03]   | `CellExecutionError`    | cell fault        | cell raised an exception; carries traceback and output        |
+|  [04]   | `CellTimeoutError`      | timeout fault     | cell execution exceeded `timeout`; inherits `TimeoutError`    |
+|  [05]   | `DeadKernelError`       | kernel fault      | kernel process died during execution; inherits `RuntimeError` |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: notebook execution
 - rail: notebook — `nbclient.NotebookClient`
 
 | [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]     | [CAPABILITY]                                       |
 | :-----: | :--------------------------------------------------------------------- | :----------------- | :------------------------------------------------- |
-|   [1]   | `NotebookClient(nb, km=None, **kw)`                                    | constructor        | bind a `NotebookNode` to a kernel manager          |
-|   [2]   | `execute(reset_kc=False, **kwargs)`                                    | sync execute       | run all cells; returns modified `NotebookNode`     |
-|   [3]   | `async_execute(reset_kc=False, **kwargs)`                              | async execute      | coroutine variant; returns modified `NotebookNode` |
-|   [4]   | `execute_cell(cell, cell_index, execution_count, store_history)`       | sync cell          | execute a single cell; returns `NotebookNode`      |
-|   [5]   | `async_execute_cell(cell, cell_index, execution_count, store_history)` | async cell         | coroutine cell execution                           |
-|   [6]   | `setup_kernel(**kwargs)`                                               | sync ctx manager   | context manager; start kernel, yield, shutdown     |
-|   [7]   | `async_setup_kernel(**kwargs)`                                         | async ctx manager  | async context manager variant                      |
-|   [8]   | `start_new_kernel(**kwargs)`                                           | sync kernel start  | start a fresh kernel outside context manager       |
-|   [9]   | `async_start_new_kernel(**kwargs)`                                     | async kernel start | coroutine variant                                  |
+|  [01]   | `NotebookClient(nb, km=None, **kw)`                                    | constructor        | bind a `NotebookNode` to a kernel manager          |
+|  [02]   | `execute(reset_kc=False, **kwargs)`                                    | sync execute       | run all cells; returns modified `NotebookNode`     |
+|  [03]   | `async_execute(reset_kc=False, **kwargs)`                              | async execute      | coroutine variant; returns modified `NotebookNode` |
+|  [04]   | `execute_cell(cell, cell_index, execution_count, store_history)`       | sync cell          | execute a single cell; returns `NotebookNode`      |
+|  [05]   | `async_execute_cell(cell, cell_index, execution_count, store_history)` | async cell         | coroutine cell execution                           |
+|  [06]   | `setup_kernel(**kwargs)`                                               | sync ctx manager   | context manager; start kernel, yield, shutdown     |
+|  [07]   | `async_setup_kernel(**kwargs)`                                         | async ctx manager  | async context manager variant                      |
+|  [08]   | `start_new_kernel(**kwargs)`                                           | sync kernel start  | start a fresh kernel outside context manager       |
+|  [09]   | `async_start_new_kernel(**kwargs)`                                     | async kernel start | coroutine variant                                  |
 |  [10]   | `start_new_kernel_client()`                                            | sync client start  | start kernel client after kernel is running        |
 |  [11]   | `async_start_new_kernel_client()`                                      | async client start | coroutine variant                                  |
 |  [12]   | `process_message(msg, cell, cell_index)`                               | message handler    | route a single kernel message to outputs           |
@@ -60,15 +60,15 @@
 
 | [INDEX] | [SURFACE]              | [TYPE]     | [CAPABILITY]                                        |
 | :-----: | :--------------------- | :--------- | :-------------------------------------------------- |
-|   [1]   | `timeout`              | `Int`      | per-cell execution timeout in seconds               |
-|   [2]   | `startup_timeout`      | `Int`      | kernel start wait in seconds                        |
-|   [3]   | `kernel_name`          | `Unicode`  | kernel spec name override                           |
-|   [4]   | `allow_errors`         | `Bool`     | continue execution past cell errors                 |
-|   [5]   | `force_raise_errors`   | `Bool`     | raise `CellExecutionError` even with `allow_errors` |
-|   [6]   | `skip_cells_with_tag`  | `Unicode`  | skip cells bearing this metadata tag                |
-|   [7]   | `record_timing`        | `Bool`     | record per-cell timing in cell metadata             |
-|   [8]   | `shutdown_kernel`      | `Enum`     | kernel shutdown policy after execution              |
-|   [9]   | `on_cell_execute`      | `Callable` | hook called before each cell executes               |
+|  [01]   | `timeout`              | `Int`      | per-cell execution timeout in seconds               |
+|  [02]   | `startup_timeout`      | `Int`      | kernel start wait in seconds                        |
+|  [03]   | `kernel_name`          | `Unicode`  | kernel spec name override                           |
+|  [04]   | `allow_errors`         | `Bool`     | continue execution past cell errors                 |
+|  [05]   | `force_raise_errors`   | `Bool`     | raise `CellExecutionError` even with `allow_errors` |
+|  [06]   | `skip_cells_with_tag`  | `Unicode`  | skip cells bearing this metadata tag                |
+|  [07]   | `record_timing`        | `Bool`     | record per-cell timing in cell metadata             |
+|  [08]   | `shutdown_kernel`      | `Enum`     | kernel shutdown policy after execution              |
+|  [09]   | `on_cell_execute`      | `Callable` | hook called before each cell executes               |
 |  [10]   | `on_cell_executed`     | `Callable` | hook called after each cell completes               |
 |  [11]   | `on_notebook_start`    | `Callable` | hook called before notebook execution begins        |
 |  [12]   | `on_notebook_complete` | `Callable` | hook called when notebook execution finishes        |
@@ -76,7 +76,7 @@
 |  [14]   | `coalesce_streams`     | `Bool`     | merge consecutive stream outputs                    |
 |  [15]   | `interrupt_on_timeout` | `Bool`     | send kernel interrupt on cell timeout               |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [NOTEBOOK_TOPOLOGY]:
 - primary axis: `NotebookClient(nb)` -> `execute()` returns the mutated `NotebookNode` in-place

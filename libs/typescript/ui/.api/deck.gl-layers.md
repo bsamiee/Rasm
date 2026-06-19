@@ -2,7 +2,7 @@
 
 `@deck.gl/layers` supplies the standard built-in layer catalogue: `ScatterplotLayer`, `GeoJsonLayer`, `PolygonLayer`, `PathLayer`, `ArcLayer`, `LineLayer`, `ColumnLayer`, `TextLayer`, `IconLayer`, `BitmapLayer`, `PointCloudLayer`, `SolidPolygonLayer`, `GridCellLayer`, plus each layer's typed props interface. All layers extend `@deck.gl/core`'s `Layer` or `CompositeLayer`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@deck.gl/layers`
 - package: `@deck.gl/layers`
@@ -10,22 +10,22 @@
 - asset: `dist/index.d.ts`
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: layer classes
 - rail: viewport
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [RAIL]                                          |
 | :-----: | :------------------ | :-------------- | :---------------------------------------------- |
-|   [1]   | `ScatterplotLayer`  | layer class     | filled/stroked circles at positions             |
-|   [2]   | `GeoJsonLayer`      | composite class | GeoJSON features (points/lines/polygons)        |
-|   [3]   | `PolygonLayer`      | layer class     | filled/extruded polygons                        |
-|   [4]   | `PathLayer`         | layer class     | polyline paths                                  |
-|   [5]   | `ArcLayer`          | layer class     | curved arcs between source and target positions |
-|   [6]   | `LineLayer`         | layer class     | straight line segments                          |
-|   [7]   | `ColumnLayer`       | layer class     | 3D columns (hexagonal/custom shape)             |
-|   [8]   | `GridCellLayer`     | layer class     | rectangular grid cells (alias of `ColumnLayer`) |
-|   [9]   | `TextLayer`         | composite class | text labels with font atlas                     |
+|  [01]   | `ScatterplotLayer`  | layer class     | filled/stroked circles at positions             |
+|  [02]   | `GeoJsonLayer`      | composite class | GeoJSON features (points/lines/polygons)        |
+|  [03]   | `PolygonLayer`      | layer class     | filled/extruded polygons                        |
+|  [04]   | `PathLayer`         | layer class     | polyline paths                                  |
+|  [05]   | `ArcLayer`          | layer class     | curved arcs between source and target positions |
+|  [06]   | `LineLayer`         | layer class     | straight line segments                          |
+|  [07]   | `ColumnLayer`       | layer class     | 3D columns (hexagonal/custom shape)             |
+|  [08]   | `GridCellLayer`     | layer class     | rectangular grid cells (alias of `ColumnLayer`) |
+|  [09]   | `TextLayer`         | composite class | text labels with font atlas                     |
 |  [10]   | `IconLayer`         | layer class     | icon sprites at positions                       |
 |  [11]   | `BitmapLayer`       | layer class     | raster image over a bounding box                |
 |  [12]   | `PointCloudLayer`   | layer class     | 3D point cloud                                  |
@@ -36,15 +36,15 @@
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                        |
 | :-----: | :-------------------------------------- | :------------ | :---------------------------- |
-|   [1]   | `ScatterplotLayerProps<DataT>`          | type alias    | extends `LayerProps`          |
-|   [2]   | `GeoJsonLayerProps<FeaturePropertiesT>` | type alias    | extends `CompositeLayerProps` |
-|   [3]   | `PolygonLayerProps<DataT>`              | type alias    | extends `LayerProps`          |
-|   [4]   | `PathLayerProps<DataT>`                 | type alias    | extends `LayerProps`          |
-|   [5]   | `ArcLayerProps<DataT>`                  | type alias    | extends `LayerProps`          |
-|   [6]   | `LineLayerProps<DataT>`                 | type alias    | extends `LayerProps`          |
-|   [7]   | `ColumnLayerProps<DataT>`               | type alias    | extends `LayerProps`          |
-|   [8]   | `GridCellLayerProps<DataT>`             | type alias    | extends `ColumnLayerProps`    |
-|   [9]   | `TextLayerProps<DataT>`                 | type alias    | extends `CompositeLayerProps` |
+|  [01]   | `ScatterplotLayerProps<DataT>`          | type alias    | extends `LayerProps`          |
+|  [02]   | `GeoJsonLayerProps<FeaturePropertiesT>` | type alias    | extends `CompositeLayerProps` |
+|  [03]   | `PolygonLayerProps<DataT>`              | type alias    | extends `LayerProps`          |
+|  [04]   | `PathLayerProps<DataT>`                 | type alias    | extends `LayerProps`          |
+|  [05]   | `ArcLayerProps<DataT>`                  | type alias    | extends `LayerProps`          |
+|  [06]   | `LineLayerProps<DataT>`                 | type alias    | extends `LayerProps`          |
+|  [07]   | `ColumnLayerProps<DataT>`               | type alias    | extends `LayerProps`          |
+|  [08]   | `GridCellLayerProps<DataT>`             | type alias    | extends `ColumnLayerProps`    |
+|  [09]   | `TextLayerProps<DataT>`                 | type alias    | extends `CompositeLayerProps` |
 |  [10]   | `IconLayerProps<DataT>`                 | type alias    | extends `LayerProps`          |
 |  [11]   | `BitmapLayerProps`                      | type alias    | extends `LayerProps`          |
 |  [12]   | `PointCloudLayerProps<DataT>`           | type alias    | extends `LayerProps`          |
@@ -55,51 +55,51 @@
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                 |
 | :-----: | :----------------------- | :------------ | :----------------------------------------------------- |
-|   [1]   | `BitmapLayerPickingInfo` | type alias    | `PickingInfo & { bitmap: { pixel, size, uv } }`        |
-|   [2]   | `BitmapBoundingBox`      | type alias    | `[minLng, minLat, maxLng, maxLat]` or four-corner form |
+|  [01]   | `BitmapLayerPickingInfo` | type alias    | `PickingInfo & { bitmap: { pixel, size, uv } }`        |
+|  [02]   | `BitmapBoundingBox`      | type alias    | `[minLng, minLat, maxLng, maxLat]` or four-corner form |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ScatterplotLayer key accessors
 - rail: viewport
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :----------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `getPosition` accessor               | accessor prop  | `Accessor<DataT, Position>` — item center |
-|   [2]   | `getRadius` accessor                 | accessor prop  | `Accessor<DataT, number>` — circle radius |
-|   [3]   | `getFillColor` accessor              | accessor prop  | `Accessor<DataT, Color>`                  |
-|   [4]   | `getLineColor` accessor              | accessor prop  | `Accessor<DataT, Color>` — stroke color   |
-|   [5]   | `radiusUnits`, `radiusScale`         | uniform props  | size unit and scale multiplier            |
-|   [6]   | `radiusMinPixels`, `radiusMaxPixels` | uniform props  | pixel-space size clamp                    |
-|   [7]   | `stroked`, `filled`                  | toggle props   | stroke/fill rendering flags               |
-|   [8]   | `lineWidthUnits`, `lineWidthScale`   | uniform props  | stroke width unit and scale               |
+|  [01]   | `getPosition` accessor               | accessor prop  | `Accessor<DataT, Position>` — item center |
+|  [02]   | `getRadius` accessor                 | accessor prop  | `Accessor<DataT, number>` — circle radius |
+|  [03]   | `getFillColor` accessor              | accessor prop  | `Accessor<DataT, Color>`                  |
+|  [04]   | `getLineColor` accessor              | accessor prop  | `Accessor<DataT, Color>` — stroke color   |
+|  [05]   | `radiusUnits`, `radiusScale`         | uniform props  | size unit and scale multiplier            |
+|  [06]   | `radiusMinPixels`, `radiusMaxPixels` | uniform props  | pixel-space size clamp                    |
+|  [07]   | `stroked`, `filled`                  | toggle props   | stroke/fill rendering flags               |
+|  [08]   | `lineWidthUnits`, `lineWidthScale`   | uniform props  | stroke width unit and scale               |
 
 [ENTRYPOINT_SCOPE]: GeoJsonLayer key accessors
 - rail: viewport
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                                         |
 | :-----: | :--------------------------------- | :------------- | :------------------------------------------------------------- |
-|   [1]   | `data` prop                        | data prop      | GeoJSON, `Feature[]`, BinaryFeatureCollection, URL, or Promise |
-|   [2]   | `pointType` prop                   | dispatch prop  | `'circle' \| 'icon' \| 'text'` (default `'circle'`)            |
-|   [3]   | `getFillColor` accessor            | accessor prop  | `Accessor<Feature, Color>`                                     |
-|   [4]   | `getLineColor` accessor            | accessor prop  | `Accessor<Feature, Color>`                                     |
-|   [5]   | `getLineWidth` accessor            | accessor prop  | `Accessor<Feature, number>`                                    |
-|   [6]   | `getElevation` accessor            | accessor prop  | `Accessor<Feature, number>` — 3D extrusion                     |
-|   [7]   | `filled`, `stroked`, `extruded`    | toggle props   | fill/stroke/3D extrusion flags                                 |
-|   [8]   | `lineWidthUnits`, `lineWidthScale` | uniform props  | stroke width unit and scale                                    |
+|  [01]   | `data` prop                        | data prop      | GeoJSON, `Feature[]`, BinaryFeatureCollection, URL, or Promise |
+|  [02]   | `pointType` prop                   | dispatch prop  | `'circle' \| 'icon' \| 'text'` (default `'circle'`)            |
+|  [03]   | `getFillColor` accessor            | accessor prop  | `Accessor<Feature, Color>`                                     |
+|  [04]   | `getLineColor` accessor            | accessor prop  | `Accessor<Feature, Color>`                                     |
+|  [05]   | `getLineWidth` accessor            | accessor prop  | `Accessor<Feature, number>`                                    |
+|  [06]   | `getElevation` accessor            | accessor prop  | `Accessor<Feature, number>` — 3D extrusion                     |
+|  [07]   | `filled`, `stroked`, `extruded`    | toggle props   | fill/stroke/3D extrusion flags                                 |
+|  [08]   | `lineWidthUnits`, `lineWidthScale` | uniform props  | stroke width unit and scale                                    |
 
 [ENTRYPOINT_SCOPE]: ArcLayer and LineLayer key accessors
 - rail: viewport
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :---------------------------------- | :------------- | :------------------------------------------ |
-|   [1]   | `getSourcePosition` accessor        | accessor prop  | `Accessor<DataT, Position>` — arc start     |
-|   [2]   | `getTargetPosition` accessor        | accessor prop  | `Accessor<DataT, Position>` — arc end       |
-|   [3]   | `getSourceColor` / `getTargetColor` | accessor prop  | `Accessor<DataT, Color>` — endpoint colors  |
-|   [4]   | `getWidth` accessor                 | accessor prop  | `Accessor<DataT, number>` — stroke width    |
-|   [5]   | `numSegments` prop                  | uniform prop   | arc tessellation resolution (ArcLayer only) |
+|  [01]   | `getSourcePosition` accessor        | accessor prop  | `Accessor<DataT, Position>` — arc start     |
+|  [02]   | `getTargetPosition` accessor        | accessor prop  | `Accessor<DataT, Position>` — arc end       |
+|  [03]   | `getSourceColor` / `getTargetColor` | accessor prop  | `Accessor<DataT, Color>` — endpoint colors  |
+|  [04]   | `getWidth` accessor                 | accessor prop  | `Accessor<DataT, number>` — stroke width    |
+|  [05]   | `numSegments` prop                  | uniform prop   | arc tessellation resolution (ArcLayer only) |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [LAYERS_TOPOLOGY]:
 - Every exported layer class ships with a static `defaultProps` and `layerName` on the class; pass `id` (required base `LayerProps`) for stable reconciliation

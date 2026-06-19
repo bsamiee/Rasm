@@ -4,63 +4,63 @@ Mermaid v11+ configuration via YAML frontmatter; ELK layout engine for advanced 
 
 [CRITICAL] v10.5.0 deprecates `%%{init:...}%%`; use YAML frontmatter with `config:` key exclusively.
 
-## [1]-[FRONTMATTER]
+## [01]-[FRONTMATTER]
 
 **Structure:** Opening `---` (line 1), `config:` root key (not `init:`), nested diagram-specific settings, closing `---` (before diagram).
 **Precedence:** Mermaid defaults -> Site `initialize()` -> Diagram frontmatter (lowest to highest).
 
 [IMPORTANT] Consistent indentation required; case-sensitive keys; misspellings silently ignored; malformed YAML breaks diagram.
 
-## [2]-[APPEARANCE]
+## [02]-[APPEARANCE]
 
 | [INDEX] | [KEY]            | [TYPE]  | [DEFAULT] | [DESCRIPTION]                                  |
 | :-----: | ---------------- | ------- | :-------: | ---------------------------------------------- |
-|   [1]   | `look`           | string  |   `neo`   | `neo`, `classic` (flowcharts/state only)       |
-|   [2]   | `theme`          | string  | `default` | `default`, `base`, `dark`, `forest`, `neutral` |
-|   [3]   | `themeVariables` | object  |   `{}`    | Custom overrides (`base` theme only)           |
-|   [4]   | `themeCSS`       | string  |  `null`   | Direct CSS injection                           |
-|   [5]   | `darkMode`       | boolean |  `false`  | Dark mode color adjustments                    |
+|  [01]   | `look`           | string  |   `neo`   | `neo`, `classic` (flowcharts/state only)       |
+|  [02]   | `theme`          | string  | `default` | `default`, `base`, `dark`, `forest`, `neutral` |
+|  [03]   | `themeVariables` | object  |   `{}`    | Custom overrides (`base` theme only)           |
+|  [04]   | `themeCSS`       | string  |  `null`   | Direct CSS injection                           |
+|  [05]   | `darkMode`       | boolean |  `false`  | Dark mode color adjustments                    |
 
-## [3]-[TYPOGRAPHY]
+## [03]-[TYPOGRAPHY]
 
 **Fonts:** `fontFamily` (trebuchet ms), `altFontFamily` (null), `fontSize` (16px).
 **Wrapping:** `markdownAutoWrap` (true, v10.1.0+), `wrap` (false, global).
 
-## [4]-[RUNTIME]
+## [04]-[RUNTIME]
 
 | [INDEX] | [KEY]                    | [TYPE]  | [DEFAULT] | [DESCRIPTION]                     |
 | :-----: | ------------------------ | ------- | :-------: | --------------------------------- |
-|   [1]   | `logLevel`               | number  |    `5`    | 0=trace, 1=debug, 2=info, 5=fatal |
-|   [2]   | `maxTextSize`            | number  |  `50000`  | Max diagram text chars (DoS)      |
-|   [3]   | `maxEdges`               | number  |   `500`   | Max edge count (DoS)              |
-|   [4]   | `suppressErrorRendering` | boolean |  `false`  | Hide syntax error diagrams        |
-|   [5]   | `deterministicIds`       | boolean |  `false`  | Reproducible SVG IDs              |
-|   [6]   | `htmlLabels`             | boolean |  `true`   | Allow HTML tags in labels         |
+|  [01]   | `logLevel`               | number  |    `5`    | 0=trace, 1=debug, 2=info, 5=fatal |
+|  [02]   | `maxTextSize`            | number  |  `50000`  | Max diagram text chars (DoS)      |
+|  [03]   | `maxEdges`               | number  |   `500`   | Max edge count (DoS)              |
+|  [04]   | `suppressErrorRendering` | boolean |  `false`  | Hide syntax error diagrams        |
+|  [05]   | `deterministicIds`       | boolean |  `false`  | Reproducible SVG IDs              |
+|  [06]   | `htmlLabels`             | boolean |  `true`   | Allow HTML tags in labels         |
 
-## [5]-[SECURITY]
+## [05]-[SECURITY]
 
 | [INDEX] | [LEVEL]      | [BEHAVIOR]                                         |
 | :-----: | ------------ | -------------------------------------------------- |
-|   [1]   | `strict`     | Default; tags encoded, scripts disabled, no clicks |
-|   [2]   | `antiscript` | HTML allowed (no scripts), clicks enabled          |
-|   [3]   | `loose`      | HTML + scripts allowed, clicks + links enabled     |
-|   [4]   | `sandbox`    | Isolated iframe, no JavaScript                     |
+|  [01]   | `strict`     | Default; tags encoded, scripts disabled, no clicks |
+|  [02]   | `antiscript` | HTML allowed (no scripts), clicks enabled          |
+|  [03]   | `loose`      | HTML + scripts allowed, clicks + links enabled     |
+|  [04]   | `sandbox`    | Isolated iframe, no JavaScript                     |
 
 **Config:** `securityLevel` (strict), `secure` (restricted keys), `startOnLoad` (true), `dompurifyConfig` ({}).
 
 [CRITICAL] Frontmatter ignores `securityLevel` overrides — use `initialize()` only.
 
-## [6]-[LAYOUT]
+## [06]-[LAYOUT]
 
 **Algorithms:** Dagre (`layout: dagre`, default hierarchical), ELK (`layout: elk`, requires `@mermaid-js/layout-elk`).
 
 **ELK options:** `mergeEdges` (false), `nodePlacementStrategy` (BRANDES_KOEPF | NETWORK_SIMPLEX | LINEAR_SEGMENTS | SIMPLE), `cycleBreakingStrategy` (GREEDY_MODEL_ORDER | MODEL_ORDER | GREEDY | DEPTH_FIRST | INTERACTIVE), `forceNodeModelOrder` (false), `considerModelOrder` (NODES_AND_EDGES).
 
-## [7]-[DIRECTION]
+## [07]-[DIRECTION]
 
 **Values:** `LR`, `RL`, `TB`, `BT`. Applies to flowchart, ER, class, state. Sequence diagrams: `TB` implicit — direction ignored.
 
-## [8]-[SECURE_KEYS]
+## [08]-[SECURE_KEYS]
 
 **Restricted to `initialize()` only:** `maxTextSize`, `maxEdges` (DoS), `secure`, `securityLevel`, `dompurifyConfig` (security), `startOnLoad`, `suppressErrorRendering` (runtime).
 

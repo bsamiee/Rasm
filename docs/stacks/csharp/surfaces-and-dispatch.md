@@ -2,24 +2,24 @@
 
 A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total dispatch so a new verb breaks every site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>`, collection expressions, and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Five dispatch forms are selected by where ownership lives — one trait core derives a whole operation family, one keyed declaration is table, vocabulary, and admission factory together — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` at once. Aspects split at one seam: definition-time weaves below the admission boundary in generator order, composition-time transformers above it in author order.
 
-## [1]-[FORM_CHOOSER]
+## [01]-[FORM_CHOOSER]
 
 When a concern matches several rows, the most specific wins; the carrier axis is read after the form is fixed.
 
 | [INDEX] | [CONCERN_SIGNATURE]                           | [FORM]                                            | [REJECTED_FORM]                   |
 | :-----: | :-------------------------------------------- | :------------------------------------------------ | :-------------------------------- |
-|   [1]   | verb family, shared preamble                  | request `[Union]` + total `Switch`                | sibling `Create`/`Update` methods |
-|   [2]   | one verb, varying arity                       | `params ReadOnlySpan<T>` absorber                 | per-arity overload family         |
-|   [3]   | consumer owns logic, vocabulary owns coverage | state-threaded `Switch`                           | distributed `_`-armed `switch`    |
-|   [4]   | vocabulary item is the behavior               | `[UseDelegateFromConstructor]` row                | repeated full-coverage `Switch`   |
-|   [5]   | key is a value, result is static data         | `Lazy<FrozenDictionary>` index                    | dictionary restating rows         |
-|   [6]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
-|   [7]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
-|   [8]   | one body serving every carrier                | `K<F,A>` trait-constrained arrow                  | `RunFin`/`RunEff` sibling family  |
-|   [9]   | admit every present and future owner          | `IObjectFactory<TOwner,TValue,TError>` constraint | per-owner converter copy          |
+|  [01]   | verb family, shared preamble                  | request `[Union]` + total `Switch`                | sibling `Create`/`Update` methods |
+|  [02]   | one verb, varying arity                       | `params ReadOnlySpan<T>` absorber                 | per-arity overload family         |
+|  [03]   | consumer owns logic, vocabulary owns coverage | state-threaded `Switch`                           | distributed `_`-armed `switch`    |
+|  [04]   | vocabulary item is the behavior               | `[UseDelegateFromConstructor]` row                | repeated full-coverage `Switch`   |
+|  [05]   | key is a value, result is static data         | `Lazy<FrozenDictionary>` index                    | dictionary restating rows         |
+|  [06]   | receiver is foreign, behavior is local        | extension block                                   | wrapper that renames receiver     |
+|  [07]   | input shape, not nominal type, discriminates  | structural pattern                                | `is`-chain over open input        |
+|  [08]   | one body serving every carrier                | `K<F,A>` trait-constrained arrow                  | `RunFin`/`RunEff` sibling family  |
+|  [09]   | admit every present and future owner          | `IObjectFactory<TOwner,TValue,TError>` constraint | per-owner converter copy          |
 |  [10]   | optional context with identity                | one `Option<ContextRecord>`                       | `T? a, T? b, bool x` flag tail    |
 
-## [2]-[ENTRYPOINT_LAW]
+## [02]-[ENTRYPOINT_LAW]
 
 [REQUEST_COLLAPSE]:
 - Law: one concern exposes one entrypoint; a verb family is a `[Union]` with one case per verb under one total dispatch.
@@ -68,7 +68,7 @@ public static class RequestSurface {
 }
 ```
 
-## [3]-[MODAL_ARITY]
+## [03]-[MODAL_ARITY]
 
 [ARITY_ABSORPTION]:
 - Law: singular, multi-item, and empty call sites collapse into one `params ReadOnlySpan<T>` signature; the compiler promotes constant primitive elements to the data segment and stack-allocates dynamic literals, so the allocation-free property is the target type's, not the call's.
@@ -108,7 +108,7 @@ public static class BatchSurface {
 }
 ```
 
-## [4]-[PARAMETER_ALGEBRA]
+## [04]-[PARAMETER_ALGEBRA]
 
 [POLICY_VALUES]:
 - Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed, and no `if`/`switch` reconstructs at dispatch what the value already encodes.
@@ -152,7 +152,7 @@ public static class PolicySurface {
 }
 ```
 
-## [5]-[DISPATCH_FORMS]
+## [05]-[DISPATCH_FORMS]
 
 [FORM_SELECTION]:
 - Law: the five forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
@@ -192,7 +192,7 @@ public static class MarkerBoundary {
 }
 ```
 
-## [6]-[CARRIER_POLYMORPHIC_DISPATCH]
+## [06]-[CARRIER_POLYMORPHIC_DISPATCH]
 
 [ONE_CARRIER_SURFACE]:
 - Law: the form selects which arm runs, the carrier the arms return selects how results combine — orthogonal axes; an arm returning `K<F,A>` makes one entrypoint the `Fin`, `Eff`, `IO`, and `Validation` dispatcher, and the per-carrier sibling family is the rejected form.
@@ -228,7 +228,7 @@ public static class JoinSurface {
 }
 ```
 
-## [7]-[TYPE_LEVEL_DISPATCH]
+## [07]-[TYPE_LEVEL_DISPATCH]
 
 [OPEN_OWNER_BOUNDARY]:
 - Law: the self-constrained factory contract — `where TOwner : IObjectFactory<TOwner, TValue, TError>`, sole member a static abstract `Validate` — is the inversion of case dispatch: `Switch` is closed over one owner's cases, the constrained generic is open over the unbounded family of all owners, resolved by the JIT with no instance, no vtable, no reflection.
@@ -258,7 +258,7 @@ public static class Boundary {
 }
 ```
 
-## [8]-[ASPECTS]
+## [08]-[ASPECTS]
 
 [WEAVE_TAXONOMY]:
 - Law: a definition-time aspect is a property of the type — declared by attribute, woven by the generator, present at every call site; a composition-time aspect is a property of one call site — attached as operators in the pipeline it modifies.

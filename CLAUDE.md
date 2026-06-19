@@ -2,7 +2,7 @@
 
 Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the strongest source-backed implementation the workspace admits: newest viable language and platform features, full external-library capability, dense polymorphic owners, and root-up refactors instead of additive code.
 
-## [1]-[WORKSPACE_LAW]
+## [01]-[WORKSPACE_LAW]
 
 [IMPORTANT]:
 - [ALWAYS] Treat monorepo code as polymorphic, agnostic, and universal by default.
@@ -17,23 +17,23 @@ Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the st
 - [NEVER] Create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
 - [NEVER] Preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
 
-## [2]-[REQUIRED_STANDARDS]
+## [02]-[REQUIRED_STANDARDS]
 
 Use the route-owned standard for the file being edited:
 
 | [INDEX] | [FILE_TYPE]                          | [ROUTE]              |
 | :-----: | ------------------------------------ | -------------------- |
-|   [1]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`          |
-|   [2]   | C# production (`.cs`)                | `docs/stacks/csharp` |
-|   [3]   | C# tests (`.spec.cs`)                | `testing-cs`         |
-|   [4]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
-|   [5]   | Python (`.py`)                       | `coding-python`      |
-|   [6]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
-|   [7]   | SQL (`.sql`)                         | `coding-pg`          |
+|  [01]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`          |
+|  [02]   | C# production (`.cs`)                | `docs/stacks/csharp` |
+|  [03]   | C# tests (`.spec.cs`)                | `testing-cs`         |
+|  [04]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
+|  [05]   | Python (`.py`)                       | `coding-python`      |
+|  [06]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
+|  [07]   | SQL (`.sql`)                         | `coding-pg`          |
 
 `docs/stacks/csharp` is the route-owned C# production standard. C# source composes `docs/stacks/csharp/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, and `system-apis.md`. Specialized C# domains route through `docs/stacks/csharp/domain/README.md`.
 
-## [3]-[DEPENDENCY_POLICY]
+## [03]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
 - [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
@@ -45,7 +45,7 @@ Use the route-owned standard for the file being edited:
 - [NEVER] Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
-## [4]-[IMPLEMENTATION_CONSTRAINTS]
+## [04]-[IMPLEMENTATION_CONSTRAINTS]
 
 [CRITICAL]:
 - [NEVER] Use weak, unbounded, or erased types where the language can express the domain precisely.
@@ -67,7 +67,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS] Treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and avoid suppressions that add ceremony without improving correctness.
 
-## [5]-[BEHAVIOR]
+## [05]-[BEHAVIOR]
 
 [IMPORTANT]:
 - [ALWAYS] Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
@@ -78,7 +78,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] Treat workflow globals such as `args` as workflow-runtime state, separate from shell, Nix, aliases, and `PATH`.
 - [NEVER] Use emojis.
 
-## [6]-[OWNER_ROUTING]
+## [06]-[OWNER_ROUTING]
 
 [IMPORTANT]:
 - [ALWAYS] Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
@@ -94,7 +94,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] `uv run python -m tools.assay provision` owns Rasm campaign provisioning through sanitized `ProvisionRun` evidence; direct `forge-provision`, `forge-scientific-env`, Docker/Compose, direct database shells, cleanup, and diagnostic JSON calls are Forge-level debugging, not Rasm campaign surfaces.
 - [ALWAYS] Treat bridge proof as `EvidenceCertificate` plus reviewed `ReferenceEvidence`; MCP exploration can promote invariants into scenarios, but never substitutes for certificate-backed verify.
 
-## [7]-[DOCUMENTATION_AND_OUTPUT]
+## [07]-[DOCUMENTATION_AND_OUTPUT]
 
 [IMPORTANT]:
 - [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
@@ -106,7 +106,7 @@ Use the route-owned standard for the file being edited:
 
 Plans are decision-complete blueprints. Include context, critical files, implementation approach, acceptance signals, and assumptions only when they change execution. Do not include workflow narration, alternatives considered, command catalogs, or boilerplate closure.
 
-## [8]-[FILE_ORGANIZATION]
+## [08]-[FILE_ORGANIZATION]
 
 [IMPORTANT] Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 

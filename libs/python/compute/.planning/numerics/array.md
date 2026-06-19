@@ -2,11 +2,11 @@
 
 Backend-agnostic array admission over the Array API standard. `ArrayPayload` admits dtype, shape, named axes, finite policy, layout, and content identity from any Array-API-conformant array, resolving the backend namespace through `array_namespace` so a numpy floor, a JAX array, a Dask graph, or a Sparse matrix admit through one path and dispatch through the resolved `xp`. `NamedAxis` carries the labelled-coordinate cell composed from the data-branch labelled-array shapes. Admission rejects a non-finite array under a `REJECT` policy on the resilience rail, and keys identity through the one runtime `ContentIdentity` over the canonical buffer.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PAYLOAD]: namespace-dispatched array admission, named axes, finite policy, and content identity on one `ArrayPayload` owner.
+- [01]-[PAYLOAD]: namespace-dispatched array admission, named axes, finite policy, and content identity on one `ArrayPayload` owner.
 
-## [2]-[PAYLOAD]
+## [02]-[PAYLOAD]
 
 - Owner: `ArrayPayload` — the dtype/shape/named-axes/finite-policy/layout/identity admission over the Array API standard; `array_namespace(array)` resolves the backend `xp`, so the same admission path accepts a numpy array, a JAX array, a Dask array, or a Sparse array and every solver route dispatches through the resolved namespace. `NamedAxis` is the labelled-coordinate value object; the data-branch `xarray`/`dask` `Dataset`/`DataArray` shapes compose as study inputs and are never re-catalogued.
 - Entry: `ArrayPayload.admit` resolves the namespace, asserts dtype and shape against the Array API inspection surface, enforces the finite policy through `xp.isfinite` reduced over the array, and returns a `RuntimeRail[ArrayPayload]`; a non-finite array under `FinitePolicy.REJECT` returns `Error(BoundaryFault(boundary=...))` carrying the offending dtype. The identity keys through `ContentIdentity.of` over the canonical contiguous buffer (`np.asarray(...).tobytes()` after a host transfer through `xp.to_device`/`np.from_dlpack`), so a payload admitted from any backend keys identically to its numpy floor.
@@ -68,6 +68,6 @@ class ArrayPayload(Struct, frozen=True):
         return Receipt.of("emitted", "compute.array", self.backend, facts)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [ARRAY_API_NAMESPACE]: `array-api-compat` and `array-api-extra` resolve on the cp315 core (pure-Python, cp315-clean); the `array_namespace`/`device`/`to_device`/`is_*_array` and `array_api_extra.at`/`atleast_nd` spellings verify against the `.api` catalogue under a uv-sync reflection pass. The numpy floor backs the standard on cp315; the `jax`, `dask`, and `sparse` (pydata `COO`/`GCXS`/`DOK`) backends each expose the `__array_namespace__`/`device`/`to_device` Array-API hooks `compute/.api/sparse.md` catalogues, so `array_namespace` admits them through the one path at their own deploy posture rather than a per-backend admission body.

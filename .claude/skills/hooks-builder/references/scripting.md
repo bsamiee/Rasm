@@ -1,6 +1,6 @@
 # [H1][SCRIPTING]
 
-## [1]-[SHEBANG]
+## [01]-[SHEBANG]
 
 ```python
 #!/usr/bin/env -S uv run --quiet --script
@@ -10,7 +10,7 @@
 # ///
 ```
 
-## [2]-[TYPES]
+## [02]-[TYPES]
 
 ```python
 from collections.abc import Callable
@@ -26,7 +26,7 @@ class SkillEntry(NamedTuple):
     trigger: str
 ```
 
-## [3]-[CONSTANTS]
+## [03]-[CONSTANTS]
 
 ```python
 from dataclasses import dataclass, field
@@ -45,7 +45,7 @@ DEBUG: Final[bool] = os.environ.get("CLAUDE_HOOK_DEBUG", "").lower() in ("1", "t
 _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 ```
 
-## [4]-[DISPATCH]
+## [04]-[DISPATCH]
 
 ```python
 handlers: dict[str, Handler] = {
@@ -61,7 +61,7 @@ def tool(**cfg: Any) -> Callable[[Callable], Callable]:
     return lambda fn: (_tools.__setitem__(fn.__name__, (fn, {"method": "POST", **cfg})), fn)[1]
 ```
 
-## [5]-[PATTERN_MATCHING]
+## [05]-[PATTERN_MATCHING]
 
 ```python
 def _fold_line(state: ParseState, line: str) -> ParseState:
@@ -92,7 +92,7 @@ def handle(action: Action) -> int:
             assert_never(unreachable)
 ```
 
-## [6]-[EXPRESSIONS]
+## [06]-[EXPRESSIONS]
 
 ```python
 # Walrus in comprehension
@@ -102,7 +102,7 @@ lines = [line for n, g in B.groups if (line := f'<group name="{n}">{" ".join(g)}
 result = {"status": "success", **fmt(o, a)} if o else {"status": "error", "msg": f"{cmd} failed"}
 ```
 
-## [7]-[OUTPUT]
+## [07]-[OUTPUT]
 
 ```python
 def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
@@ -115,7 +115,7 @@ def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
     ])
 ```
 
-## [8]-[SECURITY]
+## [08]-[SECURITY]
 
 | [FORBIDDEN]                | [REQUIRED]                               |
 | -------------------------- | ---------------------------------------- |
@@ -123,7 +123,7 @@ def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
 | `eval()` / `exec()`        | `json.load(sys.stdin)`                   |
 | `path.startswith(prefix)`  | `Path(p).resolve().is_relative_to(root)` |
 
-## [9]-[TOOLING]
+## [09]-[TOOLING]
 
 ```toml
 [tool.ty.environment]

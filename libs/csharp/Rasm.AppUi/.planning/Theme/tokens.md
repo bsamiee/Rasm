@@ -2,14 +2,14 @@
 
 Rasm.AppUi resolves every visual constant through one frozen token catalogue: a role-keyed `TokenRow` family, orthogonal `ThemeVariantRow` and `DensityRow` smart-enum families composed by one pure resolve fold, host-agnostic appearance probing, and one atomic swap capsule that re-resolves the full catalogue and emits token-diff receipts. The page owns the token vocabulary, both row families, the resolve fold, and the control-theme rail; the spine is Avalonia, Avalonia.Themes.Fluent, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TOKEN_CATALOG]: Role-keyed frozen token rows; one resolve fold, five consumers.
-- [2]-[VARIANT_AXIS]: Four variant rows with host-agnostic probe folding.
-- [3]-[DENSITY_AXIS]: Two density rows selecting metric columns orthogonally.
-- [4]-[CONTROL_THEMES]: One Styles rail, atomic swap, token-diff receipts.
+- [01]-[TOKEN_CATALOG]: Role-keyed frozen token rows; one resolve fold, five consumers.
+- [02]-[VARIANT_AXIS]: Four variant rows with host-agnostic probe folding.
+- [03]-[DENSITY_AXIS]: Two density rows selecting metric columns orthogonally.
+- [04]-[CONTROL_THEMES]: One Styles rail, atomic swap, token-diff receipts.
 
-## [2]-[TOKEN_CATALOG]
+## [02]-[TOKEN_CATALOG]
 
 - Owner: `TokenRow` `[Union]` role-keyed token family; `ThemeCatalog` frozen table and resolve fold; `ResolvedTheme` the one resolved artifact every consumer reads; `Colormap` `[SmartEnum<string>]` perceptually-uniform data-colormap catalog.
 - Cases: Paint | Metric | Depth | Span | Rank — color, dimension, elevation, duration, and z-order roles in one closed family; `Colormap` = viridis | magma | cividis | turbo — the perceptual scientific-data ramps the heat, density, and analytical visuals sample.
@@ -152,7 +152,7 @@ public sealed partial class Colormap {
 }
 ```
 
-## [3]-[VARIANT_AXIS]
+## [03]-[VARIANT_AXIS]
 
 - Owner: `ThemeKeyPolicy` ordinal accessor; `ThemeVariantRow` `[SmartEnum<string>]` four rows binding the page vocabulary to the host variant key column.
 - Cases: light, dark, high-contrast, host-matched — high-contrast inherits the dark resource chain; host-matched is a probe fold, never a resolved row.
@@ -198,13 +198,13 @@ public sealed partial class ThemeVariantRow {
 
 | [INDEX] | [SURFACE_ROWS]            | [PROBE_SOURCE]                                      | [ROUTE_STATE] |
 | :-----: | :------------------------ | :-------------------------------------------------- | :------------ |
-|   [1]   | rhino-panel, rhino-modal  | `RunningInDarkMode` read, `ThemeChanged` flips      | settled       |
-|   [2]   | gh2-companion             | same host appearance row as rhino                   | settled       |
-|   [3]   | avalonia-desktop, sidecar | `GetColorValues()` read, `ColorValuesChanged` flips | settled       |
-|   [4]   | web-browser               | designed-only column, zero interop                  | designed-only |
-|   [5]   | headless                  | probe absent, `Light` default                       | settled       |
+|  [01]   | rhino-panel, rhino-modal  | `RunningInDarkMode` read, `ThemeChanged` flips      | settled       |
+|  [02]   | gh2-companion             | same host appearance row as rhino                   | settled       |
+|  [03]   | avalonia-desktop, sidecar | `GetColorValues()` read, `ColorValuesChanged` flips | settled       |
+|  [04]   | web-browser               | designed-only column, zero interop                  | designed-only |
+|  [05]   | headless                  | probe absent, `Light` default                       | settled       |
 
-## [4]-[DENSITY_AXIS]
+## [04]-[DENSITY_AXIS]
 
 - Owner: `DensityRow` `[SmartEnum<string>]` two rows binding `DensityStyle` and selecting `Metric` columns.
 - Cases: default, compact.
@@ -231,7 +231,7 @@ public sealed partial class DensityRow {
 }
 ```
 
-## [5]-[CONTROL_THEMES]
+## [05]-[CONTROL_THEMES]
 
 - Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeRail` the one Styles admission boundary.
 - Cases: trigger values boot | user-switch | host-probe as receipt constants.
@@ -334,14 +334,14 @@ public static class ThemeRail {
 
 | [INDEX] | [CONTROL_THEME_ROW] | [PSEUDO_CLASSES]                  | [TOKEN_KEYS]                                         |
 | :-----: | :------------------ | :-------------------------------- | :--------------------------------------------------- |
-|   [1]   | command button      | :pointerover, :pressed, :disabled | accent, accent+1, accent+2, radius-control           |
-|   [2]   | text entry          | :focus, :error                    | region, base, error, accent, radius-control          |
-|   [3]   | grid row            | :selected, :pointerover           | region+1, region+2, row-height                       |
-|   [4]   | tab strip item      | :selected                         | accent, base+1, spacing-unit                         |
-|   [5]   | flyout host         | :open                             | region+1, radius-overlay, elevation-flyout, z-flyout |
-|   [6]   | dialog host         | :open                             | region, radius-overlay, elevation-dialog, z-dialog   |
-|   [7]   | toast card          | :open                             | region+1, elevation-flyout, z-toast                  |
-|   [8]   | tooltip             | :open                             | region+2, z-tooltip                                  |
+|  [01]   | command button      | :pointerover, :pressed, :disabled | accent, accent+1, accent+2, radius-control           |
+|  [02]   | text entry          | :focus, :error                    | region, base, error, accent, radius-control          |
+|  [03]   | grid row            | :selected, :pointerover           | region+1, region+2, row-height                       |
+|  [04]   | tab strip item      | :selected                         | accent, base+1, spacing-unit                         |
+|  [05]   | flyout host         | :open                             | region+1, radius-overlay, elevation-flyout, z-flyout |
+|  [06]   | dialog host         | :open                             | region, radius-overlay, elevation-dialog, z-dialog   |
+|  [07]   | toast card          | :open                             | region+1, elevation-flyout, z-toast                  |
+|  [08]   | tooltip             | :open                             | region+2, z-tooltip                                  |
 
 ```mermaid
 flowchart LR

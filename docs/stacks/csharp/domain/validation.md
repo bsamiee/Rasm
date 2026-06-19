@@ -2,24 +2,24 @@
 
 External input crosses one seam in one order — raw shape materialized fail-closed, one boundary validator per shape, one rail projection, generated-owner admission — and every stage's output is a type, so the order is enforced by signatures, never discipline. One `AbstractValidator<T>` owns each boundary shape's whole rule graph as inspectable data: severity, applicability, variant membership, composition, order dependence, and abort policy are declared values, and the only executable fragments are predicates and providers. One generic bridge projects every outcome onto the typed rail through a severity partition and a three-tier fault mint; `ErrorCode` is one symbol serving rail dispatch, wire identity, and message lookup; accumulation is selected by the seam row's structure — independent facts accumulate, sequenced mounts abort — never by a framework flag. Every open registration surface — ruleset names, runtime-type tables, member coverage, row pairing, code maps — is proven total at composition by one fold whose failure is a typed rejection. Growth lands as rows: a new wire shape or options record is a validator row plus an admission expression, a new variant is a ruleset row, and a new fault is a code row plus a map row.
 
-## [1]-[VALIDATION_CHOOSER]
+## [01]-[VALIDATION_CHOOSER]
 
 This table routes a validation concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                       | [REJECTED_FORM]                  |
 | :-----: | :------------------------ | :-------------------------------------------- | :------------------------------- |
-|   [1]   | boundary shape rules      | one `AbstractValidator<T>` per shape          | per-variant subclass family      |
-|   [2]   | seam governance           | matrix row: owner, carrier, trigger, override | ambient auto-validation          |
-|   [3]   | recurring predicate       | named `PropertyValidator<T,TProperty>`        | repeated `Must` lambdas          |
-|   [4]   | seam variant              | ruleset row on the one owner                  | sibling validator per surface    |
-|   [5]   | abort versus accumulate   | cascade per chain, carrier per row            | boolean strict-mode flag         |
-|   [6]   | outcome projection        | one severity-partition bridge                 | per-seam mapping switch          |
-|   [7]   | fault identity            | pinned `ErrorCode` band                       | message-text dispatch            |
-|   [8]   | options shape             | rule graph + `IValidateOptions<T>` projection | second validation path           |
-|   [9]   | open registration surface | closure-proof fold at boot                    | runtime-discovery trust          |
+|   [01]   | boundary shape rules      | one `AbstractValidator<T>` per shape          | per-variant subclass family      |
+|   [02]   | seam governance           | matrix row: owner, carrier, trigger, override | ambient auto-validation          |
+|   [03]   | recurring predicate       | named `PropertyValidator<T,TProperty>`        | repeated `Must` lambdas          |
+|   [04]   | seam variant              | ruleset row on the one owner                  | sibling validator per surface    |
+|   [05]   | abort versus accumulate   | cascade per chain, carrier per row            | boolean strict-mode flag         |
+|   [06]   | outcome projection        | one severity-partition bridge                 | per-seam mapping switch          |
+|   [07]   | fault identity            | pinned `ErrorCode` band                       | message-text dispatch            |
+|   [08]   | options shape             | rule graph + `IValidateOptions<T>` projection | second validation path           |
+|   [09]   | open registration surface | closure-proof fold at boot                    | runtime-discovery trust          |
 |  [10]   | domain semantics          | generated-owner admission                     | boundary re-check of owner facts |
 
-## [2]-[RULE_GRAPH]
+## [02]-[RULE_GRAPH]
 
 [GRAPH_OWNER]:
 - Law: one `AbstractValidator<T>` owns one boundary shape's rule graph, and the graph is data — the owner implements `IValidator<T>` and `IEnumerable<IValidationRule>` at once, so the declaration that validates also enumerates for proofs.
@@ -103,7 +103,7 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 }
 ```
 
-## [3]-[COMPOSITION_DISCOVERY]
+## [03]-[COMPOSITION_DISCOVERY]
 
 [CHILD_AND_PACKS]:
 - Law: `SetValidator` carries no implicit `NotNull` — the child adaptor skips silently on a null property and on a null resolved validator, so required children pair `NotNull().SetValidator(...)` explicitly and silence can only ever mean legally absent.
@@ -126,7 +126,7 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 - Law: multi-module packs for one `T` resolve as `IEnumerable<IValidator<T>>` and merge through the result-combining constructor with distinct receipts; same-ownership packs prefer the `Include` spelling.
 - Law: `ValidatorOptions.Global` is write-once at the composition root before any validator constructs — `PropertyNameResolver` and `DisplayNameResolver` run at `RuleFor` declaration time, so a late write has already missed every constructed rule, and the four selector factories swap partial-run policy system-wide at the same seat.
 
-## [4]-[OUTCOME_PROJECTION]
+## [04]-[OUTCOME_PROJECTION]
 
 [BRIDGE_FOLD]:
 - Law: one generic bridge per system — never per boundary — and its input is `IEnumerable<ValidationFailure>`, not `ValidationResult`: validator results, foreign-adapter payloads, and hand-built arm failures enter one identical fold, so transport never forks the projection.
@@ -187,7 +187,7 @@ public static class Bridge {
 }
 ```
 
-## [5]-[SEAM_LAW]
+## [05]-[SEAM_LAW]
 
 [ADMISSION_ORDER]:
 - Law: one order at every seam — raw-shape materialization fail-closed, boundary validator, one rail projection, generated-owner admission — with each stage consuming the prior stage's success type, so a skipped stage is a type error.
@@ -302,7 +302,7 @@ public static class ClosureProofs {
 }
 ```
 
-## [6]-[OPTIONS_SEAM]
+## [06]-[OPTIONS_SEAM]
 
 [DUAL_PROJECTION]:
 - Law: the options-shape rule graph is the single shape authority for facts beyond annotation reach, and the options-validation contract is a thin projection of it — the `IValidateOptions<T>` adapter projects gating messages into the host's start gate while the bridge projects the same outcome onto the rail; the adapter never becomes a second validation path.

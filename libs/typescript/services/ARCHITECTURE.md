@@ -4,7 +4,7 @@ The domain map of `services` — the host-free node durable interior of the Type
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 services/
@@ -43,7 +43,7 @@ services/
 
 `agent/` is the one `./agent` subpath closure — `runtime` the composed `DurableAgent` (no stock primitive exists in `@effect/ai`/`@effect/workflow`), `mcp` the C# MCP-wire decoder into an `@effect/ai` `Toolkit`, and `session` the single-writer-per-session agent `Entity`. Every other sub-domain is a flat module split into pages only where a real taxonomy exists, and `execution/outbox` closes the atomic-publish gap `persistence/work` `EventJournal`/`Notifications` lack.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 *                 ←  csharp:Rasm.AppHost          # [WIRE]: CredentialPemWire redacted carrier
@@ -52,6 +52,6 @@ persistence       ←  typescript:platform/config   # [SHAPE]: FlagKey axis / Fe
 execution/engine  ⇄  typescript:platform/runtime  # [BOUNDARY]: app-service composition vs durable kernel
 ```
 
-## [3]-[FLAT_SOURCE_NOTE]
+## [03]-[FLAT_SOURCE_NOTE]
 
 The eventual source is flat modules — `persistence.ts`, `search.ts`, `execution.ts`, `messaging.ts`, `security.ts` — plus the two subpath sub-folders (`provisioning/`, `agent/`). The `security/auth` verifier is the server-side credential concern the `platform/Session/session` browser owner forwards its ceremony result to over the `interchange` `CommandGateway`; a browser-side `@simplewebauthn/server`/`otplib` verifier is the named defect. Build order is persistence-first (the cluster rides the one `PgClient`), then search, execution over the `backplane` substrate, messaging over the one `RpcGroup`, the `agent/` subpath over the execution tier, and `provisioning/` the leaf the node entry consumes last.

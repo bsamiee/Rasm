@@ -2,7 +2,7 @@
 
 Container choice decides how an agent reads, updates, and preserves a document. Pick the carrier from the reader action, then keep the section lean enough that the structure itself guides the next edit.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Apply this standard when shaping:
 - prose, bullets, numbered steps, checklists, completion lists, records, tables, matrices, examples, and diagrams
@@ -11,21 +11,21 @@ Apply this standard when shaping:
 
 This standard owns form. `style-guide.md` owns wording, `formatting.md` owns visual notation, and `proof.md` owns claim discipline.
 
-## [2]-[CONTAINER_CHOOSER]
+## [02]-[CONTAINER_CHOOSER]
 
 Use the smallest carrier that preserves the reader job. A carrier earns its place only when deleting it would remove a decision, lookup path, update route, or machine-readable shape.
 
 | [INDEX] | [SIGNATURE]             | [READER_JOB]         | [CARRIER]                         |
 | :-----: | :---------------------- | :------------------- | :-------------------------------- |
-|   [1]   | one rule                | understand           | prose paragraph                   |
-|   [2]   | peer rules              | scan equivalents     | bullet list                       |
-|   [3]   | ordered actions         | execute sequence     | numbered steps or ordered records |
-|   [4]   | actionable completion   | assert checked state | checklist                         |
-|   [5]   | finite lifecycle        | filter by state      | status record set                 |
-|   [6]   | one item, many fields   | scan fields          | definition record                 |
-|   [7]   | closed vocabulary       | choose exact value   | vocabulary card                   |
-|   [8]   | comparable rows         | compare attributes   | table                             |
-|   [9]   | finite conditions       | resolve action       | decision table                    |
+|  [01]   | one rule                | understand           | prose paragraph                   |
+|  [02]   | peer rules              | scan equivalents     | bullet list                       |
+|  [03]   | ordered actions         | execute sequence     | numbered steps or ordered records |
+|  [04]   | actionable completion   | assert checked state | checklist                         |
+|  [05]   | finite lifecycle        | filter by state      | status record set                 |
+|  [06]   | one item, many fields   | scan fields          | definition record                 |
+|  [07]   | closed vocabulary       | choose exact value   | vocabulary card                   |
+|  [08]   | comparable rows         | compare attributes   | table                             |
+|  [09]   | finite conditions       | resolve action       | decision table                    |
 |  [10]   | row detail              | update one row       | row-owned record                  |
 |  [11]   | command or output       | run or compare       | command/output carrier            |
 |  [12]   | parser-owned shape      | preserve grammar     | machine-consumed record           |
@@ -46,7 +46,7 @@ Use the smallest carrier that preserves the reader job. A carrier earns its plac
 - Collapse a packet to prose or a short field block when fewer than 3 fields are independently scanned, updated, closed, or omitted.
 - Omit absent fields. Never fill a packet to satisfy a template.
 
-## [3]-[TABLES]
+## [03]-[TABLES]
 
 Use a table only when row-and-column lookup is the reader job. Headers are load-bearing: every cell must make sense in the row/column matrix. Long cells, repeated columns, tautological values, and one-row tables move to prose, cards, or records.
 
@@ -61,12 +61,12 @@ Use a table only when row-and-column lookup is the reader job. Headers are load-
 
 | [INDEX] | [FORM]            | [ROW_AXIS]             | [COLUMN_AXIS]          | [USE]                                           |
 | :-----: | :---------------- | :--------------------- | :--------------------- | :---------------------------------------------- |
-|   [1]   | Comparison table  | comparable items       | attributes             | compare options, commands, profiles, surfaces   |
-|   [2]   | Lookup table      | keys                   | value or behavior      | map tokens, commands, codes, paths, owners      |
-|   [3]   | Decision table    | condition combinations | inputs and action      | choose one rule from finite overlapping facts   |
-|   [4]   | Matrix            | row category           | column category        | show intersections, support, dependency, access |
-|   [5]   | Support matrix    | supported surface      | support fields         | state capability policy                         |
-|   [6]   | Dependency matrix | producer or dependent  | consumer or dependency | show allowed, required, forbidden relations     |
+|  [01]   | Comparison table  | comparable items       | attributes             | compare options, commands, profiles, surfaces   |
+|  [02]   | Lookup table      | keys                   | value or behavior      | map tokens, commands, codes, paths, owners      |
+|  [03]   | Decision table    | condition combinations | inputs and action      | choose one rule from finite overlapping facts   |
+|  [04]   | Matrix            | row category           | column category        | show intersections, support, dependency, access |
+|  [05]   | Support matrix    | supported surface      | support fields         | state capability policy                         |
+|  [06]   | Dependency matrix | producer or dependent  | consumer or dependency | show allowed, required, forbidden relations     |
 
 [BOUNDS]:
 - Keep tables under 15 columns and 20 rows.
@@ -102,7 +102,7 @@ Use a table only when row-and-column lookup is the reader job. Headers are load-
 
 GFM tables are flat. They do not carry row spans, column spans, nested lists, multiline cells, or reliable embedded HTML. If a row needs nested facts, use records. Check table integrity before publication: every row has the same cell count after escaped pipes are accounted for, literal pipes inside cells are escaped, and tables over the row or column ceiling decompose by the dominant violation.
 
-## [4]-[RECORDS_LISTS]
+## [04]-[RECORDS_LISTS]
 
 Render independently scanned items as records. A record earns fields only when an agent filters, updates, removes, confirms, or routes by that field.
 
@@ -110,12 +110,11 @@ Render independently scanned items as records. A record earns fields only when a
 
 | [INDEX] | [STATUS]   | [MEANING]                                               |
 | :-----: | :--------- | :------------------------------------------------------ |
-|   [1]   | `QUEUED`   | accepted for the target sequence                        |
-|   [2]   | `ACTIVE`   | executing inside the record scope                       |
-|   [3]   | `BLOCKED`  | held by a named dependency, decision, or access problem |
-|   [4]   | `COMPLETE` | exit condition is met                                   |
-|   [5]   | `DROPPED`  | removed before execution without successor              |
-|   [6]   | `RETIRED`  | closed with successor, replacement, or no-return rule   |
+|  [01]   | `QUEUED`   | accepted for the target sequence                        |
+|  [02]   | `ACTIVE`   | executing inside the record scope                       |
+|  [03]   | `BLOCKED`  | held by a named dependency, decision, or access problem |
+|  [04]   | `COMPLETE` | exit condition is met                                   |
+|  [05]   | `DROPPED`  | removed, superseded, or closed without further action   |
 
 Type standards may narrow this vocabulary only when they define exact casing, active states, blocked states, terminal states, and removal behavior before examples.
 
@@ -165,7 +164,7 @@ Type standards may narrow this vocabulary only when they define exact casing, ac
 - Do not mix ordered and unordered items in one logical block.
 - Promote a step to an OrderedStep when it needs fields such as `Action`, `Command`, `Expected signal`, `Recovery`, or `Result`.
 
-## [5]-[LITERAL_MACHINE_SURFACES]
+## [05]-[LITERAL_MACHINE_SURFACES]
 
 Use literal and machine-consumed carriers only when exact shape matters.
 
@@ -198,7 +197,7 @@ Use literal and machine-consumed carriers only when exact shape matters.
 
 Machine-consumed Markdown may keep a narrower shape when a parser, generator, or ledger consumes exact headings, fields, rows, or fence grammar. Declare the exception before applying ordinary heading, table, field, or fence normalization.
 
-## [6]-[VISUAL_TOPOLOGY]
+## [06]-[VISUAL_TOPOLOGY]
 
 Use visual topology only when arrangement, branch shape, relationship, hierarchy, state, progress, dependency, alignment, or comparison is the reader question.
 
@@ -250,15 +249,15 @@ Use Mermaid when rendering adds branch, state, sequence, dependency, or topology
 - Use stable semantic node IDs such as `Request`, `Quota`, or `Recovery`; quote rendered labels that contain punctuation, parentheses, or reserved words.
 - Edge labels add a condition, status, or action that is not obvious from the node names.
 
-## [7]-[SECONDARY_CONTAINERS]
+## [07]-[SECONDARY_CONTAINERS]
 
 Secondary containers change reading path, salience, portability, or economy. They do not hide required constraints.
 
 | [INDEX] | [FORM]   | [USE]                                                  |
 | :-----: | :------- | :----------------------------------------------------- |
-|   [1]   | Callout  | interrupting note, tip, invariant, warning, or caution |
-|   [2]   | Details  | low-salience trace, option dump, or long output        |
-|   [3]   | Footnote | short local qualification                              |
+|  [01]   | Callout  | interrupting note, tip, invariant, warning, or caution |
+|  [02]   | Details  | low-salience trace, option dump, or long output        |
+|  [03]   | Footnote | short local qualification                              |
 
 [SECONDARY_LAW]:
 - Use one callout per concern.
@@ -269,7 +268,7 @@ Secondary containers change reading path, salience, portability, or economy. The
 
 Do not hard-wrap Markdown prose. Write each paragraph as one logical line and let the renderer soft-wrap. Insert manual line breaks only for structural boundaries: list items, table rows, definition fields, and fences.
 
-## [8]-[PAGE_SHAPE]
+## [08]-[PAGE_SHAPE]
 
 A standard file has one H1, a short lead, use triggers, rules, boundaries only where they change ownership, and examples only where misuse is likely. Conditional sections appear only when their condition holds.
 
@@ -306,7 +305,7 @@ Headings form standalone retrievable H2 units. Use H3 only to refine one H2 conc
 
 Examples sit beside the rule they clarify. Use neutral placeholder values in reusable examples and language-valid neutral identifiers in code examples.
 
-## [9]-[BOUNDARIES]
+## [09]-[BOUNDARIES]
 
 - `style-guide.md` carries prose, tone, hedging, examples, links, and agent-facing language.
 - `formatting.md` carries table alignment, status markers, heading notation, whitespace, fences, and visual notation.

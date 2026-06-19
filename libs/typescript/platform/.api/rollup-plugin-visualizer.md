@@ -2,7 +2,7 @@
 
 `rollup-plugin-visualizer` emits an interactive HTML bundle-size report after a Rollup/Vite build, with configurable visualization templates, optional compressed-size columns, and picomatch-based module filtering.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `rollup-plugin-visualizer`
 - package: `rollup-plugin-visualizer`
@@ -10,35 +10,35 @@
 - asset: build plugin
 - rail: build
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin options
 - rail: build
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                                                   |
 | :-----: | :------------------------ | :------------ | :----------------------------------------------------------------------- |
-|   [1]   | `PluginVisualizerOptions` | interface     | full options bag for the `visualizer` factory                            |
-|   [2]   | `TemplateType`            | string union  | `sunburst\|treemap\|treemap-3d\|network\|flamegraph\|markdown\|raw-data` |
+|  [01]   | `PluginVisualizerOptions` | interface     | full options bag for the `visualizer` factory                            |
+|  [02]   | `TemplateType`            | string union  | `sunburst\|treemap\|treemap-3d\|network\|flamegraph\|markdown\|raw-data` |
 
 [PUBLIC_TYPE_SCOPE]: PluginVisualizerOptions fields
 - rail: build
 
 | [INDEX] | [FIELD]       | [TYPE]               | [DEFAULT]             |
 | :-----: | :------------ | :------------------- | :-------------------- |
-|   [1]   | `filename`    | `string`             | `'stats.html'`        |
-|   [2]   | `title`       | `string`             | `'Rollup Visualizer'` |
-|   [3]   | `template`    | `TemplateType`       | `'treemap'`           |
-|   [4]   | `open`        | `boolean`            | `false`               |
-|   [5]   | `openOptions` | `OpenOptions`        |                       |
-|   [6]   | `gzipSize`    | `boolean`            | `false`               |
-|   [7]   | `brotliSize`  | `boolean`            | `false`               |
-|   [8]   | `sourcemap`   | `boolean`            | `false`               |
-|   [9]   | `projectRoot` | `string \| RegExp`   | `process.cwd()`       |
+|  [01]   | `filename`    | `string`             | `'stats.html'`        |
+|  [02]   | `title`       | `string`             | `'Rollup Visualizer'` |
+|  [03]   | `template`    | `TemplateType`       | `'treemap'`           |
+|  [04]   | `open`        | `boolean`            | `false`               |
+|  [05]   | `openOptions` | `OpenOptions`        |                       |
+|  [06]   | `gzipSize`    | `boolean`            | `false`               |
+|  [07]   | `brotliSize`  | `boolean`            | `false`               |
+|  [08]   | `sourcemap`   | `boolean`            | `false`               |
+|  [09]   | `projectRoot` | `string \| RegExp`   | `process.cwd()`       |
 |  [10]   | `emitFile`    | `boolean`            | `false`               |
 |  [11]   | `include`     | `Filter \| Filter[]` |                       |
 |  [12]   | `exclude`     | `Filter \| Filter[]` |                       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory
 - rail: build
@@ -53,7 +53,7 @@ export default visualizer
 
 The functional overload `(outputOptions: OutputOptions) => PluginVisualizerOptions` lets options depend on the active output config — useful in multi-output builds producing separate per-environment artifacts.
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BUILD_TOPOLOGY]:
 - The plugin hooks into Rollup's `generateBundle` phase and does not affect tree-shaking, code splitting, or runtime behavior

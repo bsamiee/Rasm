@@ -11,7 +11,7 @@ Query Nx workspace with unified Python CLI. Wraps `pnpm exec nx` commands.
 
 [IMPORTANT] Nx 22 features: Terminal UI, continuous tasks, pnpm catalog support, AI agent configuration, Vitest 4 atomizer. All commands run with `NX_DAEMON=false` for deterministic output.
 
-## [1]-[COMMANDS]
+## [01]-[COMMANDS]
 
 | [CMD]      | [ARGS]        | [PURPOSE]                              |
 | ---------- | ------------- | -------------------------------------- |
@@ -25,7 +25,7 @@ Query Nx workspace with unified Python CLI. Wraps `pnpm exec nx` commands.
 | graph      | `[output]`    | Generate dependency graph              |
 | docs       | `[topic]`     | View Nx command documentation          |
 
-## [2]-[USAGE]
+## [02]-[USAGE]
 
 ```bash
 # Zero-arg commands
@@ -48,7 +48,7 @@ uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs                # topic=ge
 uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs affected
 ```
 
-## [3]-[ARGUMENTS]
+## [03]-[ARGUMENTS]
 
 **workspace**: (no arguments)
 - Returns list of all project names in workspace
@@ -82,30 +82,30 @@ uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs affected
 **docs**: `[topic]`
 - `topic` — Nx command to get help for (default: general help)
 
-## [4]-[OUTPUT]
+## [04]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
 | [INDEX] | [CMD]        | [RESPONSE]                            |
 | :-----: | ------------ | ------------------------------------- |
-|   [1]   | `workspace`  | `{projects: string[]}`                |
-|   [2]   | `path`       | `{path: string}`                      |
-|   [3]   | `generators` | `{generators: string}`                |
-|   [4]   | `project`    | `{name: string, project: object}`     |
-|   [5]   | `run`        | `{target: string, output: string}`    |
-|   [6]   | `schema`     | `{generator: string, schema: string}` |
-|   [7]   | `affected`   | `{base: string, affected: string[]}`  |
-|   [8]   | `graph`      | `{file: string}`                      |
-|   [9]   | `docs`       | `{topic: string, docs: string}`       |
+|  [01]   | `workspace`  | `{projects: string[]}`                |
+|  [02]   | `path`       | `{path: string}`                      |
+|  [03]   | `generators` | `{generators: string}`                |
+|  [04]   | `project`    | `{name: string, project: object}`     |
+|  [05]   | `run`        | `{target: string, output: string}`    |
+|  [06]   | `schema`     | `{generator: string, schema: string}` |
+|  [07]   | `affected`   | `{base: string, affected: string[]}`  |
+|  [08]   | `graph`      | `{file: string}`                      |
+|  [09]   | `docs`       | `{topic: string, docs: string}`       |
 
-## [5]-[ENVIRONMENT]
+## [05]-[ENVIRONMENT]
 
 | [VAR]                | [REQUIRED] | [DESCRIPTION]                          |
 | -------------------- | ---------- | -------------------------------------- |
 | `CLAUDE_PROJECT_DIR` | No         | Override workspace root for `path` cmd |
 | `NX_DAEMON`          | No         | Force-set to `false` by script         |
 
-## [6]-[ERROR_HANDLING]
+## [06]-[ERROR_HANDLING]
 
 - Nx errors print `[ERROR] <message>` and exit 1
 - Project not found: `[ERROR] Cannot find project '<name>'`

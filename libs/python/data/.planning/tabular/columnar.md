@@ -2,13 +2,13 @@
 
 The dataset-reference identity owner: one polymorphic owner discriminating by source shape, with the cross-engine lazy/streaming scan, the typed columnar egress, and the content-keyed query receipt. `DatasetRef` is the one dataset owner; `DatasetKind` the closed `StrEnum` discriminating the admitted source shapes. `ScanPlan` is the engine/projection/predicate/partition policy with cases for the Polars lazy plan, the DuckDB relational API, and the PyArrow dataset scanner; `ColumnarEgress` is the typed Arrow/Parquet/IPC export folding one `QueryReceipt` over scan plus transform plus egress. Every receipt is wired through runtime `ReceiptContributor` and keyed by runtime `ContentIdentity`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DATASET]: the dataset-ref owner discriminating by source shape.
-- [2]-[SCAN]: engine scan plans, columnar egress, the content-keyed query receipt.
-- [3]-[MATERIALIZE]: the incremental CDC-materialization owner — partition-delta recompute keyed by content identity.
+- [01]-[DATASET]: the dataset-ref owner discriminating by source shape.
+- [02]-[SCAN]: engine scan plans, columnar egress, the content-keyed query receipt.
+- [03]-[MATERIALIZE]: the incremental CDC-materialization owner — partition-delta recompute keyed by content identity.
 
-## [2]-[DATASET]
+## [02]-[DATASET]
 
 - Owner: `DatasetRef` — the one polymorphic dataset owner; `DatasetKind` the closed `StrEnum` discriminating CSV/Parquet/Arrow-IPC/Arrow-dataset/Delta/Pandas-file/Polars-file/.3dm/mesh/HDF source shapes.
 - Cases: `DatasetKind` rows `CSV` · `PARQUET` · `ARROW_IPC` · `ARROW_DATASET` · `DELTA` · `PANDAS_FILE` · `POLARS_FILE` · `RHINO_3DM` · `MESH` · `HDF`, matched by `match`/`case`, never a Get/List/Scan family.
@@ -47,7 +47,7 @@ class DatasetRef(Struct, frozen=True):
         return cls(ref=ref, kind=kind)
 ```
 
-## [3]-[SCAN]
+## [03]-[SCAN]
 
 - Owner: `ScanPlan` — the engine/projection/predicate/partition policy tagged union; `WindowFunction` the analytical window-verb row carrying its `DuckDBPyRelation` window spelling; `ColumnarEgress` the typed Arrow/Parquet/IPC export; `QueryReceipt` the one typed fault/receipt fold over scan plus transform plus egress.
 - Cases: `ScanPlan` cases `PolarsLazy(projection, predicate)` (Polars `LazyFrame`/`scan_*`/`collect`) · `DuckDb(sql, projection)` (DuckDB relational API) · `ArrowDataset(predicate, columns)` (PyArrow `dataset.Scanner`, the predicate a pre-built `pyarrow.dataset.Expression` policy value the body never re-parses from a string) · `RemoteGlob(glob, predicate, partition_keys)` (DuckDB `read_parquet(file_glob)` over a request-scoped connection that self-loads the `httpfs` extension and Hive-partition-prunes by the predicate) · `Window(partitions, order, functions)` (the `DuckDBPyRelation` analytical window-function projection over the `WindowFunction` verb rows), matched by `match`/`case` closed by `assert_never`, each binding the engine that owns it.
@@ -222,7 +222,7 @@ def _run(plan: ScanPlan, dataset: DatasetRef) -> pa.Table:
             assert_never(unreachable)
 ```
 
-## [4]-[MATERIALIZE]
+## [04]-[MATERIALIZE]
 
 - Owner: `DerivedSnapshot` — the one incremental CDC-materialization owner folding the `lakehouse` change feed, the `query` engine, and `ContentIdentity` into a partition-delta recompute; `PartitionBundle` the per-partition content-keyed Arrow bundle. The derived view composes the `lakehouse#LAKEHOUSE` `Lakehouse` owner for the source `table_uri` identity and reads the Change Data Feed between two snapshot versions through the same `deltalake.load_cdf` surface the `lakehouse` `ChangeFeed` op binds, derives the changed-partition set from the CDF `_commit_version` range, routes only the changed rows through the `tabular/query#QUERY` `QueryEngine`, and re-keys only the touched partition bundles — an unchanged partition's content-key is reused untouched. A full re-scan is the deleted form.
 - Entry: `DerivedSnapshot.refresh` admits the source `Lakehouse`, a `start`/`end` version range, a `QuerySpec` transform (carried on the owner), and the prior `tuple[PartitionBundle, ...]`; it reads the CDF over the `Lakehouse.table_uri`, partitions the CDF frame by the `partition_by` keys, recomputes each changed partition through `QueryEngine.run` over the changed rows, and folds one `tuple[PartitionBundle, ...]` where every untouched partition carries its prior `ContentKey` by reference; the return is a `RuntimeRail[tuple[PartitionBundle, ...]]`.
@@ -285,6 +285,6 @@ def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> ContentKey:
     return ContentIdentity.of("derived-snapshot", tuple(b.content_key for b in bundles))
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [CDF_PARTITION_GROUP]: the `deltalake` `DeltaTable.load_cdf(starting_version=, ending_version=)` reader and its `_change_type`/`_commit_version` CDF columns the `_materialize` partition-grouping reads are catalogue-confirmed against the folder `deltalake` `.api`; the `pyarrow.compute` `unique`/`equal` partition-grouping and the `RecordBatch.serialize` content-key source are stdlib-Arrow members, so the one open seam is the `QueryEngine.run` rail unwrap (`Result.default_value`) the `_recompute` uses to lower the delta-query rail into the partition bundle — the unwrap reuses the prior delta on a query fault rather than propagating, an intentional reuse-on-empty-delta policy the refresh boundary owns.

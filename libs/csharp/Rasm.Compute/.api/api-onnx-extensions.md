@@ -4,7 +4,7 @@
 runtime copy targets, tokenizer and pre/post-processing operator libraries, and
 session-registration material for ONNX execution lanes.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
 - package: `Microsoft.ML.OnnxRuntime.Extensions`
@@ -13,22 +13,22 @@ session-registration material for ONNX execution lanes.
 - asset: native runtime assets
 - rail: model
 
-## [2]-[PACKAGE_ASSETS]
+## [02]-[PACKAGE_ASSETS]
 
 [PACKAGE_ASSET_SCOPE]: native runtime assets
 - rail: model
 
 | [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]      | [CAPABILITY]          |
 | :-----: | :----------------------------------------- | :------------------ | :-------------------- |
-|   [1]   | `libortextensions.dylib` (osx.10.14-arm64) | native asset        | loads extension ops   |
-|   [2]   | `libortextensions.dylib` (osx.10.14-x64)   | native asset        | loads extension ops   |
-|   [3]   | `libortextensions.so` (linux-arm64)        | native asset        | loads extension ops   |
-|   [4]   | `libortextensions.so` (linux-x64)          | native asset        | loads extension ops   |
-|   [5]   | `ortextensions.dll` (win-arm64)            | native asset        | loads extension ops   |
-|   [6]   | `ortextensions.dll` (win-x64)              | native asset        | loads extension ops   |
-|   [7]   | `ortextensions.dll` (win-x86)              | native asset        | loads extension ops   |
-|   [8]   | `onnxruntime-extensions.aar`               | native asset        | loads Android ops     |
-|   [9]   | `onnxruntime_extensions.xcframework.zip`   | native asset        | loads Apple ops       |
+|  [01]   | `libortextensions.dylib` (osx.10.14-arm64) | native asset        | loads extension ops   |
+|  [02]   | `libortextensions.dylib` (osx.10.14-x64)   | native asset        | loads extension ops   |
+|  [03]   | `libortextensions.so` (linux-arm64)        | native asset        | loads extension ops   |
+|  [04]   | `libortextensions.so` (linux-x64)          | native asset        | loads extension ops   |
+|  [05]   | `ortextensions.dll` (win-arm64)            | native asset        | loads extension ops   |
+|  [06]   | `ortextensions.dll` (win-x64)              | native asset        | loads extension ops   |
+|  [07]   | `ortextensions.dll` (win-x86)              | native asset        | loads extension ops   |
+|  [08]   | `onnxruntime-extensions.aar`               | native asset        | loads Android ops     |
+|  [09]   | `onnxruntime_extensions.xcframework.zip`   | native asset        | loads Apple ops       |
 |  [10]   | `runtimes/*/native`                        | runtime asset group | selects native binary |
 
 [PACKAGE_ASSET_SCOPE]: build assets
@@ -36,34 +36,34 @@ session-registration material for ONNX execution lanes.
 
 | [INDEX] | [SYMBOL]                                      | [PACKAGE_ROLE] | [CAPABILITY]         |
 | :-----: | :-------------------------------------------- | :------------- | :------------------- |
-|   [1]   | `Microsoft.ML.OnnxRuntime.Extensions.props`   | MSBuild import | declares native copy |
-|   [2]   | `Microsoft.ML.OnnxRuntime.Extensions.targets` | MSBuild import | copies native assets |
-|   [3]   | `buildTransitive` targets                     | MSBuild import | flows native assets  |
-|   [4]   | platform target folders                       | asset selector | selects RID behavior |
+|  [01]   | `Microsoft.ML.OnnxRuntime.Extensions.props`   | MSBuild import | declares native copy |
+|  [02]   | `Microsoft.ML.OnnxRuntime.Extensions.targets` | MSBuild import | copies native assets |
+|  [03]   | `buildTransitive` targets                     | MSBuild import | flows native assets  |
+|  [04]   | platform target folders                       | asset selector | selects RID behavior |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: session registration
 - rail: model
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]     | [CAPABILITY]                              |
 | :-----: | :------------------------------------- | :--------------- | :---------------------------------------- |
-|   [1]   | `SessionOptions.RegisterOrtExtensions` | session option   | registers extension ops via managed entry |
-|   [2]   | extension native library               | runtime asset    | supplies custom op implementations        |
-|   [3]   | tokenizer operations                   | native op family | executes tokenization                     |
-|   [4]   | preprocessing operations               | native op family | prepares model inputs                     |
-|   [5]   | postprocessing operations              | native op family | projects model outputs                    |
-|   [6]   | native asset copy target               | build target     | places runtime assets                     |
+|  [01]   | `SessionOptions.RegisterOrtExtensions` | session option   | registers extension ops via managed entry |
+|  [02]   | extension native library               | runtime asset    | supplies custom op implementations        |
+|  [03]   | tokenizer operations                   | native op family | executes tokenization                     |
+|  [04]   | preprocessing operations               | native op family | prepares model inputs                     |
+|  [05]   | postprocessing operations              | native op family | projects model outputs                    |
+|  [06]   | native asset copy target               | build target     | places runtime assets                     |
 
 [ENTRYPOINT_SCOPE]: decompile-verified registration facts
 - rail: model-lane#GENERATIVE_RUN
 
 | [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                |
 | :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------------- |
-|   [1]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime` |
-|   [2]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | internal — invoked by `RegisterOrtExtensions()`; not a public API surface                  |
+|  [01]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime` |
+|  [02]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | internal — invoked by `RegisterOrtExtensions()`; not a public API surface                  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [EXTENSION_ASSETS]:
 - package role: native custom-operator bundle

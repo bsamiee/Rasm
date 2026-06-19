@@ -2,11 +2,11 @@
 
 The backend-agnostic frame-translation owner: one `FrameInterop` owner over `narwhals` keyed by a single `narwhals.Implementation` backend axis, plus the pyarrow-free Arrow C Data Interface zero-copy carrier over the Arrow PyCapsule protocol. `FrameInterop.translate` lifts any admitted native frame into the agnostic `nw.DataFrame` and lowers it to the requested backend through one `_LOWER` dispatch row; `FrameInterop.schema_of` reads the backend-agnostic schema and the live per-column null-mask and folds both into `contracts` `FieldShape`s; `ArrowCStream` carries the Arrow C Data Interface stream capsule over `arro3-core`/`nanoarrow`, so polars/pandas/duckdb exchange Arrow without pyarrow over the protocol every PyCapsule-exporting engine already speaks. The backend axis lives on one interop owner; no parallel polars/pandas/pyarrow adapter types.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[INTEROP]: dataframe-agnostic backend translation and the pyarrow-free Arrow C-data carrier.
+- [01]-[INTEROP]: dataframe-agnostic backend translation and the pyarrow-free Arrow C-data carrier.
 
-## [2]-[INTEROP]
+## [02]-[INTEROP]
 
 - Owner: `FrameInterop` — one backend-agnostic translation owner over `narwhals`, the backend discriminated by a single `narwhals.Implementation` axis (POLARS/PANDAS/PYARROW the admitted rows). `narwhals.from_native` lifts any admitted native frame into the agnostic `nw.DataFrame`; `narwhals.to_native` lowers it back to the requested backend; the backend is never branched into parallel adapter classes. `ArrowCStream` is the Arrow C Data Interface zero-copy carrier over the Arrow PyCapsule stream protocol, one row on the same interop owner.
 - Entry: `FrameInterop.translate` lifts a native frame through `narwhals.from_native(..., eager_only=True)`, then lowers to the requested `Backend` row via the `_LOWER` dispatch table (`to_polars`/`to_pandas`/`to_arrow`), returning a `RuntimeRail` of the native frame in the target backend; `FrameInterop.schema_of` reads the backend-agnostic `nw.Schema` through `collect_schema()`, reads the per-column null-mask off the live frame, and folds both into a tuple of `FieldShape`s without touching any backend API directly; `FrameInterop.c_stream` exports the zero-copy Arrow C stream capsule through the PyCapsule protocol over `arro3-core`/`nanoarrow`.
@@ -90,7 +90,7 @@ def _export_c_stream(frame: Any) -> ArrowCStream:
     return ArrowCStream(capsule=stream.__arrow_c_stream__(), schema_repr=repr(stream.schema))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [NARWHALS_SURFACE]: the `narwhals` `from_native(..., eager_only=True)`/`to_native`/`Implementation.{from_backend,to_native_namespace,name}`/`DataFrame.{to_polars,to_pandas,to_arrow,collect_schema,null_count}` member surface the translate, namespace, and schema folds transcribe is catalogue-confirmed against the folder `narwhals` `.api`. The backend axis binds the real `Implementation.PYARROW` member (value `'pyarrow'`) — narwhals carries no `ARROW` member, so `Backend.PYARROW.value` and `implementation.name.lower()` agree on `'pyarrow'`; an `ARROW`-named lower path is the floor-violating form. Settled fence code.
 - [ARROW_C_DATA]: the `nanoarrow` `c_array_stream`/`ArrayStream.__arrow_c_stream__`/`.schema` surface and the `arro3-core` PyCapsule bridge are catalogue-confirmed against the folder `nanoarrow`/`arro3-core` `.api`; the zero-copy carrier is settled fence code.

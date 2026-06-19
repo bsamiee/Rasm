@@ -4,7 +4,7 @@
 Value-typed domain atoms align with JIT struct promotion, span-based APIs eliminate allocation, SIMD intrinsics replace branching, NativeAOT makes trimming a first-class constraint. Span kernels and `Fin<T>` lifting are owned by [7][SPAN_ALGORITHMS] and [7A][CHARSET_VALIDATION] below. Smart constructors in `types.md` own `DomainType<TSelf, TScalar>.From` plus `guard`-based admission. Transform-level traversal and static-resolution rules live in `transforms.md`. Performance characteristics: zero allocation via method-group delegate binding.
 
 ---
-## [1]-[SIMD_TENSOR]
+## [01]-[SIMD_TENSOR]
 >**Dictum:** *TensorPrimitives map hardware math to functional wrappers.*
 
 `TensorPrimitives` provides hardware-accelerated math over `ReadOnlySpan<T>`. The caller owns the `Memory<double>` buffer; the function writes in-place and returns the same memory -- zero intermediate allocation.
@@ -39,7 +39,7 @@ public readonly struct VectorizedTransducer {
 [IMPORTANT]: `Multiply` dispatches to AVX-512/AVX2/SSE automatically. Computation is zero-heap; `Memory<double>` input avoids the span-to-array copy at the capture boundary.
 
 ---
-## [2]-[BRANCHLESS_VECTOR]
+## [02]-[BRANCHLESS_VECTOR]
 >**Dictum:** *SIMD masks replace conditional logic; CPU pipelines never stall.*
 
 `Vector<double>` auto-sizes to the widest available SIMD register (AVX-512/AVX2/SSE). `GreaterThan` generates bit masks; `ConditionalSelect` merges without branching. Iterative loop handles arbitrary lengths with bounded stack depth.
@@ -98,7 +98,7 @@ Reason enum values: `CancellationGuard`, `AsyncIteratorYieldGate`, `CleanupFinal
 **Zero-copy reinterpretation** -- `MemoryMarshal.Cast<TFrom, TTo>` reinterprets a `Span<TFrom>` as `Span<TTo>` without copying. `AsBytes` projects any unmanaged struct span as raw bytes. Both types must be unmanaged value types -- `Cast` bypasses constructors (raw bit patterns).
 
 ---
-## [3]-[BUFFER_HYBRID]
+## [03]-[BUFFER_HYBRID]
 >**Dictum:** *Stack for small buffers; pool for large; switch selects allocation path.*
 
 `stackalloc` for buffers under 256 bytes; `ArrayPool.Rent/Return` for larger. The `try/finally` is an intentional hardware-boundary exception -- pooled buffers must be returned even when downstream processing throws.
@@ -144,7 +144,7 @@ public static string ProcessBuffer(ReadOnlySpan<byte> input) { ... }
 `CleanupFinally` is the designated reason for `try/finally` resource cleanup. CSP0101 fires when the exemption attribute is missing; CSP0102 fires when the reason enum does not match the construct.
 
 ---
-## [4]-[VALUETASK]
+## [04]-[VALUETASK]
 >**Dictum:** *ValueTask avoids Task allocation on synchronous cache hits.*
 
 `ValueTask<T>` returns synchronously via `FromResult` on cache hits. Async fallback allocates only when needed. Consume exactly once; never await concurrently.
@@ -178,7 +178,7 @@ public sealed class LayeredCache<TKey, TValue>(
 [IMPORTANT]: `Deserialize` null handled via pattern match, not `!` operator. `IDistributedCache` is the boundary dependency; swap for your concrete cache provider.
 
 ---
-## [5]-[NATIVEAOT]
+## [05]-[NATIVEAOT]
 >**Dictum:** *AOT is a first-class constraint; source generators replace reflection.*
 
 NativeAOT in .NET 10 produces trimmed binaries with faster cold starts (target: measured with `PublishAot`; results vary by feature usage). `JsonSerializerContext` eliminates reflection. No `Reflection.Emit`, no dynamic assembly loading.
@@ -208,7 +208,7 @@ public static class Serialization {
 **P/Invoke AOT migration** -- `[LibraryImport]` replaces `[DllImport]` for AOT-safe native interop. Source generator produces marshalling at compile time (no runtime IL stub). Migration: `CharSet` becomes `StringMarshalling`, `CallingConvention` becomes `[UnmanagedCallConv]`, ANSI removed (UTF-8 first-class).
 
 ---
-## [6]-[STATIC_LAMBDAS]
+## [06]-[STATIC_LAMBDAS]
 >**Dictum:** *Static lambdas prove zero capture; tuple threading replaces closures.*
 
 `static` on lambdas prevents implicit variable capture. State threaded via `ValueTuple` through monadic `Bind`/`Map`. Zero closure bytes on hot paths. The inner `Map` references `state` from its enclosing `Bind` parameter (same frame), so it CANNOT be `static`.
@@ -247,7 +247,7 @@ public static class HotPath<T> where T : notnull {
 - `.editorconfig` `csharp_prefer_static_anonymous_function = true:error` -- IDE/build enforcement across all scopes
 
 ---
-## [7]-[SPAN_ALGORITHMS]
+## [07]-[SPAN_ALGORITHMS]
 >**Dictum:** *MemoryExtensions bring allocation-free sorting and search to span-based pipelines.*
 
 `MemoryExtensions.Sort` + `BinarySearch` over `Span<T>` give ordered-set semantics without heap collections, eliminating `SortedSet<T>` on hot paths. `SeparateEither` uses a fold over `Either` -- no meaningless switch arms.
@@ -316,14 +316,14 @@ public static partial class SemVerValidation {
 
 **Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. Pair charset scans with `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept` on spans — not `SearchValues` instance methods alone.
 
-| [INDEX] | [ANALYZER] | [SURFACE] |
-| :-----: | ---------- | --------- |
-| [1] | CA1862 | `string.Equals` with explicit `StringComparison` on identifiers |
-| [2] | CA1863 | Cached `CompositeFormat` for repeated format strings |
-| [3] | CA1870 | Cached `SearchValues<T>` instance |
-| [4] | CA1872 | `Convert.ToHexString` / `ToHexStringLower` |
-| [5] | CA1874 | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
-| [6] | CA1875 | `Regex.Count` instead of `MatchCollection` allocation |
+| [INDEX] | [ANALYZER] | [SURFACE]                                                        |
+| :-----: | ---------- | ---------------------------------------------------------------- |
+|  [01]   | CA1862     | `string.Equals` with explicit `StringComparison` on identifiers  |
+|  [02]   | CA1863     | Cached `CompositeFormat` for repeated format strings             |
+|  [03]   | CA1870     | Cached `SearchValues<T>` instance                                |
+|  [04]   | CA1872     | `Convert.ToHexString` / `ToHexStringLower`                       |
+|  [05]   | CA1874     | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
+|  [06]   | CA1875     | `Regex.Count` instead of `MatchCollection` allocation            |
 
 **Fin<T> hot-path escape** -- `Fin<T>` wraps `Either<Error, T>` with heap-allocated `Error`. On innermost loops (millions of iterations), use raw `bool` + `out T` for the kernel; lift to `Fin<T>` at the public surface. Pre-allocate `static readonly Error` fields for error messages:
 
@@ -344,7 +344,7 @@ public static class HotLoopEscape {
 ```
 
 ---
-## [8]-[BENCHMARK_GATE]
+## [08]-[BENCHMARK_GATE]
 >**Dictum:** *Performance claims require evidence; benchmark before codifying.*
 
 .NET 10 JIT auto stack-allocates delegates, small arrays, and span-backed buffers that do not escape (target: delegate throughput over virtual dispatch for hot paths; validate via `[MemoryDiagnoser]`). Escape analysis does NOT eliminate closure allocations -- static lambda discipline (see [6]) remains necessary. Profile before manually converting LINQ to loops.
@@ -397,7 +397,7 @@ public static class PerfGate {
 [IMPORTANT]: JIT escape analysis covers struct fields, delegates, small arrays, and span-backed buffers. Use `[MemoryDiagnoser]` for allocation-sensitive claims.
 
 ---
-## [9]-[RULES]
+## [09]-[RULES]
 >**Dictum:** *Rules compress into constraints.*
 
 - [ALWAYS] `ReadOnlySpan<T>` for hot-path input; `Span<T>` for output workspace.
@@ -422,13 +422,13 @@ public static class PerfGate {
 
 | [INDEX] | [PATTERN]                 | [WHEN]                                     | [KEY_TRAIT]                                   |
 | :-----: | ------------------------- | ------------------------------------------ | --------------------------------------------- |
-|   [1]   | **TensorPrimitives**      | Hardware-accelerated numeric math          | `Multiply`/`Sum` over `Span<T>`               |
-|   [2]   | **Vector SIMD**           | Branchless conditional + Vector512 + scope | Mask + `ConditionalSelect` + hot-path opt-in  |
+|  [01]   | **TensorPrimitives**      | Hardware-accelerated numeric math          | `Multiply`/`Sum` over `Span<T>`               |
+|  [02]   | **Vector SIMD**           | Branchless conditional + Vector512 + scope | Mask + `ConditionalSelect` + hot-path opt-in  |
 |  [2A]   | **Zero-copy reinterpret** | Bit-level span projection                  | `MemoryMarshal.Cast`/`AsBytes`                |
-|   [3]   | **Buffer hybrid**         | Stack/pool strategy selection              | `stackalloc` + `ArrayPool`                    |
-|   [4]   | **ValueTask**             | Synchronous cache-hit fast path            | `FromResult` fast path                        |
-|   [5]   | **NativeAOT**             | Trimmed AOT binaries + `LibraryImport`     | `JsonSerializerContext` + source-gen P/Invoke |
-|   [6]   | **Static lambdas**        | Zero closure bytes on hot paths            | `static` keyword + tuple threading            |
-|   [7]   | **Span algorithms**       | Sort/search/`SeparateEither`/Fin escape    | `MemoryExtensions` + fold + raw kernel        |
+|  [03]   | **Buffer hybrid**         | Stack/pool strategy selection              | `stackalloc` + `ArrayPool`                    |
+|  [04]   | **ValueTask**             | Synchronous cache-hit fast path            | `FromResult` fast path                        |
+|  [05]   | **NativeAOT**             | Trimmed AOT binaries + `LibraryImport`     | `JsonSerializerContext` + source-gen P/Invoke |
+|  [06]   | **Static lambdas**        | Zero closure bytes on hot paths            | `static` keyword + tuple threading            |
+|  [07]   | **Span algorithms**       | Sort/search/`SeparateEither`/Fin escape    | `MemoryExtensions` + fold + raw kernel        |
 |  [7A]   | **Charset validation**    | Fixed `length + allowed chars` checks      | `SearchValues<char>` + `ContainsAnyExcept`    |
-|   [8]   | **Benchmark gate**        | Evidence-backed perf claims                | `[MemoryDiagnoser]` + baseline                |
+|  [08]   | **Benchmark gate**        | Evidence-backed perf claims                | `[MemoryDiagnoser]` + baseline                |

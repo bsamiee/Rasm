@@ -2,7 +2,7 @@
 
 `protoc-gen-capability-es` is the local buf plugin (a `buf.gen.yaml` `local:` PATH binary, not a published library) that emits `src/gen/capabilities_pb.ts` from the C# `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` `DiscoveryResultWire[]` catalog descriptor. It derives the typed capability-command SDK surface — one polymorphic `CapabilityClient.invoke` keyed by descriptor id, the `discover` catalog accessor, and the per-descriptor `argumentSchema` JSON-Schema accessor binding the C# `JsonSchemaExporter` schema one-per-descriptor — plus the MCP tool projection leg the `Transport/transport.md` `CapabilitySdkLive` fold reads. This catalogue is GATED: the plugin does not yet exist, so the generated member spellings and `.d.ts` shapes below are the OBLIGATION the runtime-action plugin must satisfy, captured here verbatim from the emitted `.d.ts` the moment the plugin emits `capabilities_pb.ts` — never asserted from a design page.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `protoc-gen-capability-es`
 - package: `protoc-gen-capability-es` (local buf plugin binary, not a published npm package)
@@ -11,40 +11,40 @@
 - rail: codegen, capability-sdk
 - status: GATED — the plugin and its emitted `capabilities_pb.ts` do not yet exist; member spellings resolve against the emitted `.d.ts` post-authoring
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: generated SDK surface (obligation — confirmed against the emitted `.d.ts`)
 - rail: capability-sdk
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                                                   |
-| :-----: | :----------------------------- | :----------------- | :---------------------------------------------------------------------- |
-|   [1]   | `CommandService`               | `DescService`      | the `CommandService` wire verb descriptor the SDK dials over            |
-|   [2]   | `CapabilityClient`             | generated client   | one `createClient(CommandService, transport)` row; never hand-written   |
-|   [3]   | `DiscoveryResultWire`          | generated message  | the catalog row shape (`descriptor`/`surface`/`effect`/`idempotency`/`estimated`/`scopeHash`) — mirrors `transport.md` `[3]-[CODEGEN_TOOLING]` verbatim |
-|   [4]   | `CapabilityCommandReceiptWire` | generated message  | the command receipt (`descriptor`/`txn`/`charged`/`elapsed`/`correlation`) |
-|   [5]   | `CostVectorWire`               | generated message  | the `cpu-millis`/`wall-millis`/`bytes-egress`/`model-tokens`/`calls` cost row |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]     | [RAIL]                                                                                                                                                  |
+| :-----: | :----------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `CommandService`               | `DescService`     | the `CommandService` wire verb descriptor the SDK dials over                                                                                            |
+|  [02]   | `CapabilityClient`             | generated client  | one `createClient(CommandService, transport)` row; never hand-written                                                                                   |
+|  [03]   | `DiscoveryResultWire`          | generated message | the catalog row shape (`descriptor`/`surface`/`effect`/`idempotency`/`estimated`/`scopeHash`) — mirrors `transport.md` `[3]-[CODEGEN_TOOLING]` verbatim |
+|  [04]   | `CapabilityCommandReceiptWire` | generated message | the command receipt (`descriptor`/`txn`/`charged`/`elapsed`/`correlation`)                                                                              |
+|  [05]   | `CostVectorWire`               | generated message | the `cpu-millis`/`wall-millis`/`bytes-egress`/`model-tokens`/`calls` cost row                                                                           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: generated `CapabilityClient` members (obligation — three confirmed spellings)
 - rail: capability-sdk
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]   | [RAIL]                                                                |
-| :-----: | :--------------------------------- | :--------------- | :------------------------------------------------------------------- |
-|   [1]   | `client.discover()`                | catalog accessor | `Promise<DiscoveryResultWire[]>` — the full descriptor catalog       |
-|   [2]   | `client.invoke(descriptor, args)`  | command dispatch | `Promise<CapabilityCommandReceiptWire>` — ONE polymorphic method keyed by descriptor id, never a sibling method per descriptor |
-|   [3]   | `client.argumentSchema(descriptor)` | schema accessor  | the per-descriptor JSON Schema (the C# `JsonSchemaExporter` output, identical digest across all three SDK targets) — never a hand-built `{type:"object"}` stub |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]   | [RAIL]                                                                                                                                                         |
+| :-----: | :---------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `client.discover()`                 | catalog accessor | `Promise<DiscoveryResultWire[]>` — the full descriptor catalog                                                                                                 |
+|  [02]   | `client.invoke(descriptor, args)`   | command dispatch | `Promise<CapabilityCommandReceiptWire>` — ONE polymorphic method keyed by descriptor id, never a sibling method per descriptor                                 |
+|  [03]   | `client.argumentSchema(descriptor)` | schema accessor  | the per-descriptor JSON Schema (the C# `JsonSchemaExporter` output, identical digest across all three SDK targets) — never a hand-built `{type:"object"}` stub |
 
 [ENTRYPOINT_SCOPE]: build-time generation
 - rail: codegen
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                                          |
-| :-----: | :------------------------------------- | :------------- | :------------------------------------------------------------- |
-|   [1]   | `local: protoc-gen-capability-es`      | buf plugin     | the SECOND `buf.gen.yaml` plugin row (drafted `transport.md` line 147) on the SAME single v2 pipeline |
-|   [2]   | `opt: target=ts`                       | plugin option  | TypeScript output target                                        |
-|   [3]   | `opt: emit_mcp_client=true`            | plugin option  | emit the MCP tool projection leg beside the command surface     |
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                                                                                                |
+| :-----: | :-------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `local: protoc-gen-capability-es` | buf plugin     | the SECOND `buf.gen.yaml` plugin row (drafted `transport.md` line 147) on the SAME single v2 pipeline |
+|  [02]   | `opt: target=ts`                  | plugin option  | TypeScript output target                                                                              |
+|  [03]   | `opt: emit_mcp_client=true`       | plugin option  | emit the MCP tool projection leg beside the command surface                                           |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CODEGEN_TOPOLOGY]:
 - the plugin is a `local:` buf plugin per `.api/bufbuild-buf.md` (`plugins[].local` is a PATH binary name or path); it runs as the second plugin row on the one `buf.gen.yaml` v2 pipeline beside `protoc-gen-es`, never a parallel config

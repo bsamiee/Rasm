@@ -2,7 +2,7 @@
 
 `Microsoft.Extensions.Hosting` supplies Generic Host composition, hosted services, lifecycle callbacks, environment identity, lifetime signals, and bootstrap roots.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting`
 - package: `Microsoft.Extensions.Hosting`
@@ -12,54 +12,54 @@
 - asset: runtime library
 - rail: bootstrap
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: host implementation family
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [RAIL]               |
 | :-----: | :----------------------------------- | :--------------- | :------------------- |
-|   [1]   | `Host`                               | host facade      | builder entry        |
-|   [2]   | `HostApplicationBuilder`             | app builder      | modern host root     |
-|   [3]   | `HostApplicationBuilderSettings`     | builder settings | default policy input |
-|   [4]   | `HostBuilder`                        | host builder     | staged host root     |
-|   [5]   | `HostOptions`                        | host policy      | lifetime policy      |
-|   [6]   | `ConsoleLifetimeOptions`             | console policy   | console lifetime     |
-|   [7]   | `BackgroundServiceExceptionBehavior` | exception policy | hosted loop failure  |
+|  [01]   | `Host`                               | host facade      | builder entry        |
+|  [02]   | `HostApplicationBuilder`             | app builder      | modern host root     |
+|  [03]   | `HostApplicationBuilderSettings`     | builder settings | default policy input |
+|  [04]   | `HostBuilder`                        | host builder     | staged host root     |
+|  [05]   | `HostOptions`                        | host policy      | lifetime policy      |
+|  [06]   | `ConsoleLifetimeOptions`             | console policy   | console lifetime     |
+|  [07]   | `BackgroundServiceExceptionBehavior` | exception policy | hosted loop failure  |
 
 [PUBLIC_TYPE_SCOPE]: host contract family
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]        | [RAIL]                  |
 | :-----: | :------------------------- | :------------------- | :---------------------- |
-|   [1]   | `IHost`                    | host contract        | runtime root            |
-|   [2]   | `IHostBuilder`             | builder contract     | staged composition      |
-|   [3]   | `IHostApplicationBuilder`  | app builder contract | direct composition      |
-|   [4]   | `IHostedService`           | service contract     | start/stop participant  |
-|   [5]   | `IHostedLifecycleService`  | lifecycle contract   | ordered lifecycle hooks |
-|   [6]   | `BackgroundService`        | hosted loop base     | long-running work       |
-|   [7]   | `IHostApplicationLifetime` | lifetime signals     | start/stop tokens       |
-|   [8]   | `IHostLifetime`            | lifetime adapter     | process signal bridge   |
-|   [9]   | `IHostEnvironment`         | environment contract | app/content identity    |
+|  [01]   | `IHost`                    | host contract        | runtime root            |
+|  [02]   | `IHostBuilder`             | builder contract     | staged composition      |
+|  [03]   | `IHostApplicationBuilder`  | app builder contract | direct composition      |
+|  [04]   | `IHostedService`           | service contract     | start/stop participant  |
+|  [05]   | `IHostedLifecycleService`  | lifecycle contract   | ordered lifecycle hooks |
+|  [06]   | `BackgroundService`        | hosted loop base     | long-running work       |
+|  [07]   | `IHostApplicationLifetime` | lifetime signals     | start/stop tokens       |
+|  [08]   | `IHostLifetime`            | lifetime adapter     | process signal bridge   |
+|  [09]   | `IHostEnvironment`         | environment contract | app/content identity    |
 |  [10]   | `HostBuilderContext`       | builder context      | config/environment view |
 |  [11]   | `HostAbortedException`     | abort exception      | bootstrap abort signal  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
 - rail: bootstrap
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]         | [RAIL]                  |
 | :-----: | :----------------------------------- | :--------------------- | :---------------------- |
-|   [1]   | `Host.CreateApplicationBuilder`      | app builder factory    | direct host composition |
-|   [2]   | `Host.CreateEmptyApplicationBuilder` | app builder factory    | explicit empty defaults |
-|   [3]   | `Host.CreateDefaultBuilder`          | staged builder factory | conventional defaults   |
-|   [4]   | `ConfigureHostConfiguration`         | host config delegate   | host policy input       |
-|   [5]   | `ConfigureAppConfiguration`          | app config delegate    | app policy input        |
-|   [6]   | `ConfigureServices`                  | DI delegate            | service graph admission |
-|   [7]   | `ConfigureContainer<TBuilder>`       | container delegate     | provider-specific setup |
-|   [8]   | `UseServiceProviderFactory`          | provider factory       | container replacement   |
-|   [9]   | `UseDefaultServiceProvider`          | provider policy        | provider validation     |
+|  [01]   | `Host.CreateApplicationBuilder`      | app builder factory    | direct host composition |
+|  [02]   | `Host.CreateEmptyApplicationBuilder` | app builder factory    | explicit empty defaults |
+|  [03]   | `Host.CreateDefaultBuilder`          | staged builder factory | conventional defaults   |
+|  [04]   | `ConfigureHostConfiguration`         | host config delegate   | host policy input       |
+|  [05]   | `ConfigureAppConfiguration`          | app config delegate    | app policy input        |
+|  [06]   | `ConfigureServices`                  | DI delegate            | service graph admission |
+|  [07]   | `ConfigureContainer<TBuilder>`       | container delegate     | provider-specific setup |
+|  [08]   | `UseServiceProviderFactory`          | provider factory       | container replacement   |
+|  [09]   | `UseDefaultServiceProvider`          | provider policy        | provider validation     |
 |  [10]   | `ConfigureLogging`                   | logging delegate       | logging rail admission  |
 |  [11]   | `ConfigureMetrics`                   | metrics delegate       | metrics rail admission  |
 |  [12]   | `ConfigureHostOptions`               | host options delegate  | lifetime policy         |
@@ -73,20 +73,20 @@
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]      | [RAIL]                   |
 | :-----: | :-------------------------------------- | :------------------ | :----------------------- |
-|   [1]   | `AddHostedService<T>`                   | hosted registration | hosted service admission |
-|   [2]   | `StartAsync`                            | host lifecycle      | starts hosted services   |
-|   [3]   | `RunAsync`                              | host lifecycle      | run-until-shutdown       |
-|   [4]   | `RunConsoleAsync`                       | console lifecycle   | run console host         |
-|   [5]   | `WaitForShutdownAsync`                  | shutdown wait       | blocks until stop        |
-|   [6]   | `StopAsync`                             | host lifecycle      | stops hosted services    |
-|   [7]   | `IHostedLifecycleService.StartingAsync` | lifecycle hook      | before service start     |
-|   [8]   | `IHostedLifecycleService.StartedAsync`  | lifecycle hook      | after service start      |
-|   [9]   | `IHostedLifecycleService.StoppingAsync` | lifecycle hook      | before service stop      |
+|  [01]   | `AddHostedService<T>`                   | hosted registration | hosted service admission |
+|  [02]   | `StartAsync`                            | host lifecycle      | starts hosted services   |
+|  [03]   | `RunAsync`                              | host lifecycle      | run-until-shutdown       |
+|  [04]   | `RunConsoleAsync`                       | console lifecycle   | run console host         |
+|  [05]   | `WaitForShutdownAsync`                  | shutdown wait       | blocks until stop        |
+|  [06]   | `StopAsync`                             | host lifecycle      | stops hosted services    |
+|  [07]   | `IHostedLifecycleService.StartingAsync` | lifecycle hook      | before service start     |
+|  [08]   | `IHostedLifecycleService.StartedAsync`  | lifecycle hook      | after service start      |
+|  [09]   | `IHostedLifecycleService.StoppingAsync` | lifecycle hook      | before service stop      |
 |  [10]   | `IHostedLifecycleService.StoppedAsync`  | lifecycle hook      | after service stop       |
 |  [11]   | `BackgroundService.ExecuteAsync`        | hosted loop         | long-running execution   |
 |  [12]   | `StopApplication`                       | lifetime signal     | coordinated shutdown     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [HOSTING_TOPOLOGY]:
 - namespaces: `Microsoft.Extensions.Hosting`

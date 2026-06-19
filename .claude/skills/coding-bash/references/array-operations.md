@@ -4,14 +4,14 @@ Set algebra via associative arrays, structural transforms via bulk expansion, hi
 
 | [IDX] | [PATTERN]         |  [S]  | [USE_WHEN]                                                |
 | :---: | :---------------- | :---: | :-------------------------------------------------------- |
-|  [1]  | Set algebra       |  S1   | Union, intersect, diff, dedup on indexed arrays           |
-|  [2]  | Relational ops    |  S1B  | Set algebra + joins on associative arrays                 |
-|  [3]  | Structural xforms |  S2   | Reshape, zip, transpose w/o element-wise loops            |
-|  [4]  | Nameref builders  |  S2B  | Accumulate/merge into caller's assoc array via `local -n` |
-|  [5]  | Higher-order trav |  S3   | Map/filter/reduce/scan/predicates via nameref             |
-|  [6]  | Pipeline bridge   |  S4   | Null-safe array-to-pipeline, parallel map, collect        |
+| [01]  | Set algebra       |  S1   | Union, intersect, diff, dedup on indexed arrays           |
+| [02]  | Relational ops    |  S1B  | Set algebra + joins on associative arrays                 |
+| [03]  | Structural xforms |  S2   | Reshape, zip, transpose w/o element-wise loops            |
+| [04]  | Nameref builders  |  S2B  | Accumulate/merge into caller's assoc array via `local -n` |
+| [05]  | Higher-order trav |  S3   | Map/filter/reduce/scan/predicates via nameref             |
+| [06]  | Pipeline bridge   |  S4   | Null-safe array-to-pipeline, parallel map, collect        |
 
-## [1]-[SET_ALGEBRA]
+## [01]-[SET_ALGEBRA]
 
 Build a set from one array and probe from the other instead of nested iteration. Case-insensitive sets: key via `${item,,}` in `_to_set` — propagates uniformly to all downstream operations.
 
@@ -105,7 +105,7 @@ Nameref pitfalls: avoid `local -n _r=$1` where caller passes `_r` (circular ref)
 
 **Performance**: all operations O(n) per call. Above ~10k elements, delegate to `comm`/`sort`/`join` on sorted files — external tools handle large datasets orders of magnitude faster than bash loops.
 
-## [2]-[STRUCTURAL_TRANSFORMS]
+## [02]-[STRUCTURAL_TRANSFORMS]
 
 ```bash
 # Bulk prefix/suffix — O(n) in expansion engine, zero loops
@@ -160,7 +160,7 @@ config_merge merged overrides  # last-write wins
 # merged: [ssl]="true" [port]="5433" [host]="localhost" [db]="myapp"
 ```
 
-## [3]-[HIGHER_ORDER_TRAVERSE]
+## [03]-[HIGHER_ORDER_TRAVERSE]
 
 ```bash
 _map() {
@@ -208,7 +208,7 @@ declare total=0; _reduce _add big total
 
 `_map` (nameref, zero forks) vs `_map_exec` (stdout capture, one fork per element). `_any`/`_all` short-circuit — O(1) best case. `_count_by` builds a frequency table in a single pass.
 
-## [4]-[PIPELINE_INTEGRATION]
+## [04]-[PIPELINE_INTEGRATION]
 
 Only null-delimited (`\0`) is safe for arbitrary data — newline-delimited breaks on filenames with embedded newlines.
 
@@ -303,9 +303,9 @@ _pool_map() {
 
 | [INDEX] | [ELEMENT_COUNT] | [STRATEGY]                                                    |
 | :-----: | :-------------- | :------------------------------------------------------------ |
-|   [1]   | <1K             | Native arrays optimal — all `_map`/`_filter`/`_reduce` viable |
-|   [2]   | 1K-10K          | Simple ops acceptable; `awk` for string manipulation          |
-|   [3]   | >10K            | Delegate to `awk`/`jq` — per-element fork costs 2-5ms         |
+|  [01]   | <1K             | Native arrays optimal — all `_map`/`_filter`/`_reduce` viable |
+|  [02]   | 1K-10K          | Simple ops acceptable; `awk` for string manipulation          |
+|  [03]   | >10K            | Delegate to `awk`/`jq` — per-element fork costs 2-5ms         |
 
 `_map_exec` unusable above 10K (fork per element). Associative arrays degrade O(n^2) beyond ~50K entries on stock bash (no rehashing compiled in) — delegate to `awk` associative arrays or `jq`.
 

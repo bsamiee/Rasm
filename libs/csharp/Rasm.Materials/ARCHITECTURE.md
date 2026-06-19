@@ -4,7 +4,7 @@ The domain map of `Rasm.Materials` — the host-neutral AEC-DOMAIN materials own
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Materials/
@@ -38,7 +38,7 @@ Rasm.Materials/
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ProfileFamily` row, a new material a `MaterialLibrary` row, a new lobe a `BsdfLobe` `[Union]` case, a new connection a `ConnectionFamily` row, a new engineering property a `MaterialProperty` case — never a new surface. The rail is named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes — `ProfileFault` 2300, `ConstructionFault` 2350, `ConnectionFault` 2360, `MaterialFault` 2450, all disjoint from the kernel `GeometryFault` band 2400. C# is the sole producer of the material wire: `Appearance/Interchange` `MaterialWire` and `MtlxDocument` mint the OpenPBR-vector and MaterialX `.mtlx` interchange once, and the TypeScript and Python peers decode both — a peer re-mint of the OpenPBR algebra, the `ConductorIor` table, or the MaterialX schema is the named cross-language drift defect.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Appearance/interchange  →  typescript:interchange/codec     # [WIRE]: MaterialWire OpenPBR vector wire
@@ -52,7 +52,7 @@ Appearance/bsdf         →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: Laye
 Appearance/graph        →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: SurfaceShade to path tracer
 ```
 
-## [3]-[DOMAIN_LAW]
+## [03]-[DOMAIN_LAW]
 
 The canonical-collapse law the three domains share — one owner per axis, one entrypoint family per rail, growth by data. The per-page boundary cards carry the concrete seams; this map states only the collapse rule and the closed counts the codemap enforces.
 

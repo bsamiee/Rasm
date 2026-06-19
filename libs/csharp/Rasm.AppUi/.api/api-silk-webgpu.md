@@ -2,7 +2,7 @@
 
 `Silk.NET.WebGPU` is the managed wgpu/Dawn binding generated against the canonical `webgpu.h` headers: `WebGPU` is the static API entry exposing the global `CreateInstance`, `Instance` requests an `Adapter`, an `Adapter` requests a `Device`, a `Device` mints `Queue`/`ShaderModule`/`Buffer`/`Texture`/`RenderPipeline`/`ComputePipeline`/`BindGroup` resources, a `Surface` configures a swapchain and yields the per-frame `SurfaceTexture`, and `CommandEncoder` records `RenderPassEncoder`/`ComputePassEncoder` passes the `Queue` submits. `Silk.NET.WebGPU.Native.WGPU` carries the native `wgpu_native` (Dawn-compatible) runtime for the win/linux/osx RIDs the binding P/Invokes into.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU`
@@ -13,34 +13,34 @@
 - asset: runtime library + native wgpu binaries
 - rail: visuals
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and device lifecycle owners
 - rail: visuals
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                        |
 | :-----: | :--------- | :-------------- | :---------------------------- |
-|   [1]   | `WebGPU`   | static API root | global entry, function table  |
-|   [2]   | `Instance` | native handle   | adapter request root          |
-|   [3]   | `Adapter`  | native handle   | device request, feature query |
-|   [4]   | `Device`   | native handle   | resource factory              |
-|   [5]   | `Queue`    | native handle   | command submission            |
-|   [6]   | `Surface`  | native handle   | swapchain present target      |
+|  [01]   | `WebGPU`   | static API root | global entry, function table  |
+|  [02]   | `Instance` | native handle   | adapter request root          |
+|  [03]   | `Adapter`  | native handle   | device request, feature query |
+|  [04]   | `Device`   | native handle   | resource factory              |
+|  [05]   | `Queue`    | native handle   | command submission            |
+|  [06]   | `Surface`  | native handle   | swapchain present target      |
 
 [PUBLIC_TYPE_SCOPE]: resource and pipeline owners
 - rail: visuals
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                    |
 | :-----: | :------------------- | :------------ | :------------------------ |
-|   [1]   | `Buffer`             | native handle | GPU buffer allocation     |
-|   [2]   | `Texture`            | native handle | GPU texture allocation    |
-|   [3]   | `TextureView`        | native handle | texture view              |
-|   [4]   | `Sampler`            | native handle | texture sampler           |
-|   [5]   | `ShaderModule`       | native handle | WGSL/SPIR-V shader        |
-|   [6]   | `BindGroup`          | native handle | bound resource group      |
-|   [7]   | `BindGroupLayout`    | native handle | binding layout            |
-|   [8]   | `PipelineLayout`     | native handle | pipeline layout           |
-|   [9]   | `RenderPipeline`     | native handle | raster pipeline           |
+|  [01]   | `Buffer`             | native handle | GPU buffer allocation     |
+|  [02]   | `Texture`            | native handle | GPU texture allocation    |
+|  [03]   | `TextureView`        | native handle | texture view              |
+|  [04]   | `Sampler`            | native handle | texture sampler           |
+|  [05]   | `ShaderModule`       | native handle | WGSL/SPIR-V shader        |
+|  [06]   | `BindGroup`          | native handle | bound resource group      |
+|  [07]   | `BindGroupLayout`    | native handle | binding layout            |
+|  [08]   | `PipelineLayout`     | native handle | pipeline layout           |
+|  [09]   | `RenderPipeline`     | native handle | raster pipeline           |
 |  [10]   | `ComputePipeline`    | native handle | compute pipeline          |
 |  [11]   | `CommandEncoder`     | native handle | command recorder          |
 |  [12]   | `RenderPassEncoder`  | native handle | raster pass recorder      |
@@ -53,82 +53,82 @@
 
 | [INDEX] | [SYMBOL]                    | [KIND]     | [RAIL]                           |
 | :-----: | :-------------------------- | :--------- | :------------------------------- |
-|   [1]   | `InstanceDescriptor`        | descriptor | instance create options          |
-|   [2]   | `RequestAdapterOptions`     | descriptor | adapter request (power, surface) |
-|   [3]   | `DeviceDescriptor`          | descriptor | device create (limits, features) |
-|   [4]   | `SurfaceConfiguration`      | descriptor | swapchain config (format, mode)  |
-|   [5]   | `TextureDescriptor`         | descriptor | texture allocation               |
-|   [6]   | `BufferDescriptor`          | descriptor | buffer allocation                |
-|   [7]   | `RenderPipelineDescriptor`  | descriptor | raster pipeline create           |
-|   [8]   | `ComputePipelineDescriptor` | descriptor | compute pipeline create          |
-|   [9]   | `RenderPassDescriptor`      | descriptor | render pass begin                |
+|  [01]   | `InstanceDescriptor`        | descriptor | instance create options          |
+|  [02]   | `RequestAdapterOptions`     | descriptor | adapter request (power, surface) |
+|  [03]   | `DeviceDescriptor`          | descriptor | device create (limits, features) |
+|  [04]   | `SurfaceConfiguration`      | descriptor | swapchain config (format, mode)  |
+|  [05]   | `TextureDescriptor`         | descriptor | texture allocation               |
+|  [06]   | `BufferDescriptor`          | descriptor | buffer allocation                |
+|  [07]   | `RenderPipelineDescriptor`  | descriptor | raster pipeline create           |
+|  [08]   | `ComputePipelineDescriptor` | descriptor | compute pipeline create          |
+|  [09]   | `RenderPassDescriptor`      | descriptor | render pass begin                |
 |  [10]   | `TextureFormat`             | enum       | surface/texture pixel format     |
 |  [11]   | `PresentMode`               | enum       | swapchain present mode           |
 |  [12]   | `BackendType`               | enum       | D3D12/Vulkan/Metal/OpenGL/WGPU   |
 |  [13]   | `FeatureName`               | enum       | device feature flags             |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: API root and instance creation
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                       | [SURFACE_ROOT] | [RAIL]          |
 | :-----: | :------------------------------------------------------------------------------ | :------------- | :-------------- |
-|   [1]   | `WebGPU.GetApi()`                                                               | `WebGPU`       | API root load   |
-|   [2]   | `CreateInstance(InstanceDescriptor*)`                                           | `WebGPU`       | instance create |
-|   [3]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, callback, userdata)` | `WebGPU`       | adapter request |
-|   [4]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, callback, userdata)`         | `WebGPU`       | device request  |
-|   [5]   | `DeviceGetQueue(Device*)`                                                       | `WebGPU`       | queue handle    |
+|  [01]   | `WebGPU.GetApi()`                                                               | `WebGPU`       | API root load   |
+|  [02]   | `CreateInstance(InstanceDescriptor*)`                                           | `WebGPU`       | instance create |
+|  [03]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, callback, userdata)` | `WebGPU`       | adapter request |
+|  [04]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, callback, userdata)`         | `WebGPU`       | device request  |
+|  [05]   | `DeviceGetQueue(Device*)`                                                       | `WebGPU`       | queue handle    |
 
 [ENTRYPOINT_SCOPE]: surface, swapchain, and present
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]              |
 | :-----: | :----------------------------------------------------------------- | :------------- | :------------------ |
-|   [1]   | `SurfaceConfigure(Surface*, SurfaceConfiguration*)`                | `WebGPU`       | swapchain configure |
-|   [2]   | `SurfaceGetCurrentTexture(Surface*, SurfaceTexture*)`              | `WebGPU`       | acquire frame image |
-|   [3]   | `TextureCreateView(Texture*, TextureViewDescriptor*)`              | `WebGPU`       | frame view          |
-|   [4]   | `SurfacePresent(Surface*)`                                         | `WebGPU`       | present frame       |
-|   [5]   | `SurfaceGetCapabilities(Surface*, Adapter*, SurfaceCapabilities*)` | `WebGPU`       | format/mode query   |
+|  [01]   | `SurfaceConfigure(Surface*, SurfaceConfiguration*)`                | `WebGPU`       | swapchain configure |
+|  [02]   | `SurfaceGetCurrentTexture(Surface*, SurfaceTexture*)`              | `WebGPU`       | acquire frame image |
+|  [03]   | `TextureCreateView(Texture*, TextureViewDescriptor*)`              | `WebGPU`       | frame view          |
+|  [04]   | `SurfacePresent(Surface*)`                                         | `WebGPU`       | present frame       |
+|  [05]   | `SurfaceGetCapabilities(Surface*, Adapter*, SurfaceCapabilities*)` | `WebGPU`       | format/mode query   |
 
 [ENTRYPOINT_SCOPE]: command recording and submission
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL]                |
 | :-----: | :------------------------------------------------------------------------ | :------------- | :-------------------- |
-|   [1]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`          | `WebGPU`       | encoder create        |
-|   [2]   | `CommandEncoderBeginRenderPass(CommandEncoder*, RenderPassDescriptor*)`   | `WebGPU`       | render pass begin     |
-|   [3]   | `CommandEncoderBeginComputePass(CommandEncoder*, ComputePassDescriptor*)` | `WebGPU`       | compute pass begin    |
-|   [4]   | `RenderPassEncoderSetPipeline / SetBindGroup / Draw / DrawIndexed`        | `WebGPU`       | raster draw           |
-|   [5]   | `ComputePassEncoderSetPipeline / DispatchWorkgroups`                      | `WebGPU`       | compute dispatch      |
-|   [6]   | `CommandEncoderFinish(CommandEncoder*, CommandBufferDescriptor*)`         | `WebGPU`       | finish command buffer |
-|   [7]   | `QueueSubmit(Queue*, nuint, CommandBuffer**)`                             | `WebGPU`       | submit to GPU         |
-|   [8]   | `QueueWriteBuffer / QueueWriteTexture`                                    | `WebGPU`       | host-to-GPU upload    |
+|  [01]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`          | `WebGPU`       | encoder create        |
+|  [02]   | `CommandEncoderBeginRenderPass(CommandEncoder*, RenderPassDescriptor*)`   | `WebGPU`       | render pass begin     |
+|  [03]   | `CommandEncoderBeginComputePass(CommandEncoder*, ComputePassDescriptor*)` | `WebGPU`       | compute pass begin    |
+|  [04]   | `RenderPassEncoderSetPipeline / SetBindGroup / Draw / DrawIndexed`        | `WebGPU`       | raster draw           |
+|  [05]   | `ComputePassEncoderSetPipeline / DispatchWorkgroups`                      | `WebGPU`       | compute dispatch      |
+|  [06]   | `CommandEncoderFinish(CommandEncoder*, CommandBufferDescriptor*)`         | `WebGPU`       | finish command buffer |
+|  [07]   | `QueueSubmit(Queue*, nuint, CommandBuffer**)`                             | `WebGPU`       | submit to GPU         |
+|  [08]   | `QueueWriteBuffer / QueueWriteTexture`                                    | `WebGPU`       | host-to-GPU upload    |
 
 [ENTRYPOINT_SCOPE]: resource and pipeline creation
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]                |
 | :-----: | :----------------------------------------------------------------- | :------------- | :-------------------- |
-|   [1]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                   | `WebGPU`       | buffer alloc          |
-|   [2]   | `DeviceCreateTexture(Device*, TextureDescriptor*)`                 | `WebGPU`       | texture alloc         |
-|   [3]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`       | `WebGPU`       | shader compile (WGSL) |
-|   [4]   | `DeviceCreateRenderPipeline(Device*, RenderPipelineDescriptor*)`   | `WebGPU`       | raster pipeline       |
-|   [5]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)` | `WebGPU`       | compute pipeline      |
-|   [6]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`             | `WebGPU`       | bind group            |
+|  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                   | `WebGPU`       | buffer alloc          |
+|  [02]   | `DeviceCreateTexture(Device*, TextureDescriptor*)`                 | `WebGPU`       | texture alloc         |
+|  [03]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`       | `WebGPU`       | shader compile (WGSL) |
+|  [04]   | `DeviceCreateRenderPipeline(Device*, RenderPipelineDescriptor*)`   | `WebGPU`       | raster pipeline       |
+|  [05]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)` | `WebGPU`       | compute pipeline      |
+|  [06]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`             | `WebGPU`       | bind group            |
 
 [ENTRYPOINT_SCOPE]: timing and pipeline-statistics queries
 - rail: evidence
 
 | [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                   |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :----------------------- |
-|   [1]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                                       | `WebGPU`       | query-set alloc          |
-|   [2]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | `WebGPU`       | per-pass timestamp write |
-|   [3]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | `WebGPU`       | resolve to read buffer   |
-|   [4]   | `QuerySetDescriptor` (`QueryType.Timestamp` / `QueryType.PipelineStatistics`)              | `WebGPU`       | query-set descriptor     |
-|   [5]   | `QuerySetRelease(QuerySet*)`                                                               | `WebGPU`       | query-set release        |
+|  [01]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                                       | `WebGPU`       | query-set alloc          |
+|  [02]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | `WebGPU`       | per-pass timestamp write |
+|  [03]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | `WebGPU`       | resolve to read buffer   |
+|  [04]   | `QuerySetDescriptor` (`QueryType.Timestamp` / `QueryType.PipelineStatistics`)              | `WebGPU`       | query-set descriptor     |
+|  [05]   | `QuerySetRelease(QuerySet*)`                                                               | `WebGPU`       | query-set release        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [WEBGPU_TOPOLOGY]:
 - `WebGPU.GetApi()` returns the function-table root; every native call is an instance method on that `WebGPU` object taking raw pointers to descriptor structs — Silk.NET binds the C `webgpu.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object.

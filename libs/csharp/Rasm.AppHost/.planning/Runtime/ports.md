@@ -2,13 +2,13 @@
 
 Rasm.AppHost exposes exactly seven typed port records as its only cross-package seam; siblings adapt to them and the dependency never reverses. The owned axes are the port-record family with the HLC receipt envelope, the boot-minted `TenantContext` tenancy primitive stamped on the envelope, the suite JSON wire law with its contract-merge rule, and the TS tooling map. Drain bands, deadline rows, phase vocabulary, the classification taxonomy, and the degradation vocabulary arrive settled from the package spine and compose here as port payloads.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PORT_RECORDS]: Seven inward port records; `HLC` envelope and `TenantContext` cross-process primitives.
-- [2]-[WIRE_LAW]: One `Strict` context per package; app roots merge resolvers and emit schemas.
-- [3]-[TS_PROJECTION]: Tooling map and the envelope wire contract the TS dashboard consumes.
+- [01]-[PORT_RECORDS]: Seven inward port records; `HLC` envelope and `TenantContext` cross-process primitives.
+- [02]-[WIRE_LAW]: One `Strict` context per package; app roots merge resolvers and emit schemas.
+- [03]-[TS_PROJECTION]: Tooling map and the envelope wire contract the TS dashboard consumes.
 
-## [2]-[PORT_RECORDS]
+## [02]-[PORT_RECORDS]
 
 - Owner: `ReceiptSinkPort`, `TelemetryContributorPort`, `DrainParticipantPort`, `HostAttachPort`, `UiSchedulerPort`, `SupportContributorPort`, `HealthContributorPort` — the seven sealed records of delegates and policy values; zero interfaces, zero inheritance contracts, zero provider-branded vocabulary. `ReceiptEnvelope` is the receipt value the sink port emits, not a port; `TenantContext` and `TenantId` are the tenancy primitives stamped on that value, owned here and consumed by every sibling as settled vocabulary, never ports.
 - Cases: the capability axis is `PortCardinality` — five DRIVEN ports the host calls outward into the package interior (`ReceiptSinkPort`, `TelemetryContributorPort`, `DrainParticipantPort`, `SupportContributorPort`, `HealthContributorPort`) and two DRIVING host-affine ports the host implements at the boundary (`HostAttachPort` injects phase transitions and surfaces the document, `UiSchedulerPort` marshals onto the host UI loop); `ReceiptSinkPort` is the identity port whose HLC two-half stamp is the sole cross-process correlation, with `TenantContext` partitioning each stamped value. `TenantContext.Root` is the single-tenant ambient default (`TenantId` zero, slug `root`); a multi-tenant host mints one row per admitted tenant at boot from its tenant-feed configuration.
@@ -105,7 +105,7 @@ public sealed record HealthContributorPort(
     Seq<HealthContributorRow> Rows);
 ```
 
-## [3]-[WIRE_LAW]
+## [03]-[WIRE_LAW]
 
 - Owner: `AppHostWireContext`, `SuiteContracts` — the package wire context and the app-root merge surface; `NodaPatterns` the pattern-derived text codec table.
 - Entry: `public static JsonSerializerOptions Wire(params ReadOnlySpan<JsonSerializerContext> contexts)` — one merge per app root; every JSON wire surface reads and writes through the merged options value, which seals on first use.
@@ -173,16 +173,16 @@ Codec residence is fixed per wire surface; producer and consumer cells name endp
 
 | [INDEX] | [WIRE_SURFACE]       | [CODEC]                          | [PRODUCER]       | [CONSUMER]           |
 | :-----: | :------------------- | :------------------------------- | :--------------- | :------------------- |
-|   [1]   | runtime records      | STJ Strict source-gen JSON       | package contexts | dashboard and upload |
-|   [2]   | discovery manifest   | STJ Strict atomic JSON           | app-root boot    | attaching peer       |
-|   [3]   | service verbs        | protobuf over gRPC               | app roots        | connect-es clients   |
-|   [4]   | wire fault unions    | `google.rpc.Status` details      | wire projection  | TS fault projection  |
-|   [5]   | snapshot blobs       | MessagePack                      | snapshot rows    | @msgpack/msgpack     |
-|   [6]   | telemetry signals    | OTLP                             | exporters        | OTLP collector       |
-|   [7]   | contract schemas     | JsonSchemaExporter               | schema emission  | schema-derived TS    |
-|   [8]   | semantic-time fields | `NodaPatterns` + Noda converters | `Wire` options   | ISO/RFC-3339 strings |
+|  [01]   | runtime records      | STJ Strict source-gen JSON       | package contexts | dashboard and upload |
+|  [02]   | discovery manifest   | STJ Strict atomic JSON           | app-root boot    | attaching peer       |
+|  [03]   | service verbs        | protobuf over gRPC               | app roots        | connect-es clients   |
+|  [04]   | wire fault unions    | `google.rpc.Status` details      | wire projection  | TS fault projection  |
+|  [05]   | snapshot blobs       | MessagePack                      | snapshot rows    | @msgpack/msgpack     |
+|  [06]   | telemetry signals    | OTLP                             | exporters        | OTLP collector       |
+|  [07]   | contract schemas     | JsonSchemaExporter               | schema emission  | schema-derived TS    |
+|  [08]   | semantic-time fields | `NodaPatterns` + Noda converters | `Wire` options   | ISO/RFC-3339 strings |
 
-## [4]-[TS_PROJECTION]
+## [04]-[TS_PROJECTION]
 
 - Owner: `RasmPackage`, `HlcStampWire`, `TenantContextWire`, `ReceiptEnvelopeWire` — the suite-level TS contract; per-record wire shapes ride their owning wire surfaces and bind here as `TPayload`.
 - Entry: `ReceiptEnvelopeWire<TPayload>` binds at the codec edge where `SuiteContracts.Wire` emits the runtime record and `SuiteContracts.Schema` derives its TS type; every wire payload reconstructs through this one envelope, never a hand-mirrored interface.
@@ -217,7 +217,7 @@ Each tool row names the consumed surface, activation point, and spelling it dele
 
 | [INDEX] | [TOOL]            | [CONSUMES]          | [ACTIVATION]    | [DELETES]              |
 | :-----: | :---------------- | :------------------ | :-------------- | :--------------------- |
-|   [1]   | connect-es        | service descriptors | pnpm bootstrap  | hand-written clients   |
-|   [2]   | @msgpack/msgpack  | snapshot blobs      | snapshot import | second TS binary codec |
-|   [3]   | OTLP ingestion    | telemetry signals   | OTLP endpoint   | bespoke telemetry wire |
-|   [4]   | schema-derived TS | JSON schemas        | TS build input  | mirrored interfaces    |
+|  [01]   | connect-es        | service descriptors | pnpm bootstrap  | hand-written clients   |
+|  [02]   | @msgpack/msgpack  | snapshot blobs      | snapshot import | second TS binary codec |
+|  [03]   | OTLP ingestion    | telemetry signals   | OTLP endpoint   | bespoke telemetry wire |
+|  [04]   | schema-derived TS | JSON schemas        | TS build input  | mirrored interfaces    |

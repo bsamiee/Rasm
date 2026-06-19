@@ -1,16 +1,16 @@
 # [H1][SUPPLY-CHAIN]
 
-## [1]-[SHA_PINNING]
+## [01]-[SHA_PINNING]
 
 ### [1.1]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                         | [TAG]         | [SEVERITY] | [WHAT_TO_FLAG]                                                |
 | :-----: | ------------------------------- | ------------- | :--------: | ------------------------------------------------------------- |
-|   [1]   | **Branch ref**                  | `[UNPINNED]`  |  CRITICAL  | `@main`, `@master`, `@develop` — mutable, trivially poisoned. |
-|   [2]   | **Major tag only**              | `[UNPINNED]`  |    HIGH    | `@v1`, `@v6` — retargetable (tj-actions vector).              |
-|   [3]   | **Minor/patch tag**             | `[UNPINNED]`  |   MEDIUM   | `@v4.2.1` — still mutable; SHA is only immutable format.      |
-|   [4]   | **SHA without version comment** | `[PIN-AUDIT]` |    LOW     | `@<SHA>` without `# vN.N.N` — valid but unauditable.          |
-|   [5]   | **Abbreviated SHA**             | `[UNPINNED]`  |    HIGH    | Less than 40 characters — not collision-resistant.            |
+|  [01]   | **Branch ref**                  | `[UNPINNED]`  |  CRITICAL  | `@main`, `@master`, `@develop` — mutable, trivially poisoned. |
+|  [02]   | **Major tag only**              | `[UNPINNED]`  |    HIGH    | `@v1`, `@v6` — retargetable (tj-actions vector).              |
+|  [03]   | **Minor/patch tag**             | `[UNPINNED]`  |   MEDIUM   | `@v4.2.1` — still mutable; SHA is only immutable format.      |
+|  [04]   | **SHA without version comment** | `[PIN-AUDIT]` |    LOW     | `@<SHA>` without `# vN.N.N` — valid but unauditable.          |
+|  [05]   | **Abbreviated SHA**             | `[UNPINNED]`  |    HIGH    | Less than 40 characters — not collision-resistant.            |
 
 **Required format:** `owner/repo@<40-char-SHA> # vN.N.N`
 
@@ -35,13 +35,13 @@
 
 | [INDEX] | [CHECK]                          | [WHAT_TO_FLAG]                                                            |
 | :-----: | -------------------------------- | ------------------------------------------------------------------------- |
-|   [1]   | **OCI `ghcr.io/` action refs**   | Informational — not yet GA; document as experimental if encountered.      |
-|   [2]   | **Org SHA enforcement disabled** | Flag if repo is GHEC/GHES 3.12+ and enforcement not enabled.              |
-|   [3]   | **`publish-immutable-action`**   | Flag as experimental — repo exists but not usable for external consumers. |
+|  [01]   | **OCI `ghcr.io/` action refs**   | Informational — not yet GA; document as experimental if encountered.      |
+|  [02]   | **Org SHA enforcement disabled** | Flag if repo is GHEC/GHES 3.12+ and enforcement not enabled.              |
+|  [03]   | **`publish-immutable-action`**   | Flag as experimental — repo exists but not usable for external consumers. |
 
 **Current posture:** SHA pinning + Dependabot/Renovate automated updates. Org setting "Require actions to be pinned to a full-length commit SHA" enforces `@<40-char-SHA>` format, rejects `@v1`/`@main` refs. Available in GitHub Enterprise Cloud and Server 3.12+.
 
-## [2]-[OIDC_FEDERATION]
+## [02]-[OIDC_FEDERATION]
 
 **Required permission:** `id-token: write` at job level. Short-lived tokens per session — zero rotation overhead.
 
@@ -49,18 +49,18 @@
 
 | [INDEX] | [CHECK]                               | [TAG]          | [WHAT_TO_FLAG]                                                          |
 | :-----: | ------------------------------------- | -------------- | ----------------------------------------------------------------------- |
-|   [1]   | **Static cloud credentials**          | `[OIDC]`       | `secrets.AWS_ACCESS_KEY_ID` / `secrets.AWS_SECRET_ACCESS_KEY` in steps. |
-|   [2]   | **Missing `id-token: write`**         | `[OIDC-PERM]`  | OIDC action present but `id-token: write` missing from permissions.     |
-|   [3]   | **Old OIDC action versions**          | `[OIDC-VER]`   | Pre-current major versions of cloud auth actions.                       |
-|   [4]   | **Missing subject claim restriction** | `[OIDC-TRUST]` | Flag if OIDC trust policy review is recommended.                        |
+|  [01]   | **Static cloud credentials**          | `[OIDC]`       | `secrets.AWS_ACCESS_KEY_ID` / `secrets.AWS_SECRET_ACCESS_KEY` in steps. |
+|  [02]   | **Missing `id-token: write`**         | `[OIDC-PERM]`  | OIDC action present but `id-token: write` missing from permissions.     |
+|  [03]   | **Old OIDC action versions**          | `[OIDC-VER]`   | Pre-current major versions of cloud auth actions.                       |
+|  [04]   | **Missing subject claim restriction** | `[OIDC-TRUST]` | Flag if OIDC trust policy review is recommended.                        |
 
 ### [2.2]-[PROVIDER_MATRIX]
 
 | [INDEX] | [PROVIDER] | [ACTION]                                | [CURRENT_MAJOR] | [KEY_INPUTS]                                    |
 | :-----: | ---------- | --------------------------------------- | :-------------: | ----------------------------------------------- |
-|   [1]   | **AWS**    | `aws-actions/configure-aws-credentials` |       v6        | `role-to-assume`, `aws-region`                  |
-|   [2]   | **GCP**    | `google-github-actions/auth`            |       v3        | `workload_identity_provider`, `service_account` |
-|   [3]   | **Azure**  | `azure/login`                           |       v2        | `client-id`, `tenant-id`, `subscription-id`     |
+|  [01]   | **AWS**    | `aws-actions/configure-aws-credentials` |       v6        | `role-to-assume`, `aws-region`                  |
+|  [02]   | **GCP**    | `google-github-actions/auth`            |       v3        | `workload_identity_provider`, `service_account` |
+|  [03]   | **Azure**  | `azure/login`                           |       v2        | `client-id`, `tenant-id`, `subscription-id`     |
 
 Subject claims include repo, branch, and environment for fine-grained trust policies.
 
@@ -68,19 +68,19 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 
 | [INDEX] | [ERROR]                                                       | [CAUSE]                                                   |
 | :-----: | ------------------------------------------------------------- | --------------------------------------------------------- |
-|   [1]   | **`Not authorized to perform sts:AssumeRoleWithWebIdentity`** | Trust policy `sub` claim does not match workflow context. |
-|   [2]   | **`No OpenIDConnect provider found`**                         | OIDC identity provider not created in cloud account.      |
-|   [3]   | **Missing `id-token: write`**                                 | Permission absent from job-level `permissions:` block.    |
+|  [01]   | **`Not authorized to perform sts:AssumeRoleWithWebIdentity`** | Trust policy `sub` claim does not match workflow context. |
+|  [02]   | **`No OpenIDConnect provider found`**                         | OIDC identity provider not created in cloud account.      |
+|  [03]   | **Missing `id-token: write`**                                 | Permission absent from job-level `permissions:` block.    |
 
-## [3]-[SBOM_AND_PROVENANCE]
+## [03]-[SBOM_AND_PROVENANCE]
 
 ### [3.1]-[SLSA_LEVELS]
 
 | [INDEX] | [LEVEL]      | [REQUIREMENT]             | [IMPLEMENTATION]                                        |
 | :-----: | ------------ | ------------------------- | ------------------------------------------------------- |
-|   [1]   | **Build L1** | Documented build process. | Workflow file in repository.                            |
-|   [2]   | **Build L2** | Signed provenance.        | `actions/attest-build-provenance` (v3) + OIDC.          |
-|   [3]   | **Build L3** | Hardened build platform.  | Reusable workflows (isolated `job_workflow_ref` claim). |
+|  [01]   | **Build L1** | Documented build process. | Workflow file in repository.                            |
+|  [02]   | **Build L2** | Signed provenance.        | `actions/attest-build-provenance` (v3) + OIDC.          |
+|  [03]   | **Build L3** | Hardened build platform.  | Reusable workflows (isolated `job_workflow_ref` claim). |
 
 **Required permissions:** `id-token: write`, `contents: read`, `attestations: write`.
 
@@ -88,10 +88,10 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 
 | [INDEX] | [CHECK]                       | [TAG]           | [WHAT_TO_FLAG]                                                   |
 | :-----: | ----------------------------- | --------------- | ---------------------------------------------------------------- |
-|   [1]   | **No provenance attestation** | `[PROVENANCE]`  | Container/binary release without `attest-build-provenance`.      |
-|   [2]   | **No SBOM for containers**    | `[SBOM]`        | Docker build-push without `anchore/sbom-action` + `attest-sbom`. |
-|   [3]   | **Missing attestation perms** | `[ATTEST-PERM]` | Attestation action present but `attestations: write` missing.    |
-|   [4]   | **No cosign for signing**     | `[SIGNING]`     | Container push without `sigstore/cosign-installer` for signing.  |
+|  [01]   | **No provenance attestation** | `[PROVENANCE]`  | Container/binary release without `attest-build-provenance`.      |
+|  [02]   | **No SBOM for containers**    | `[SBOM]`        | Docker build-push without `anchore/sbom-action` + `attest-sbom`. |
+|  [03]   | **Missing attestation perms** | `[ATTEST-PERM]` | Attestation action present but `attestations: write` missing.    |
+|  [04]   | **No cosign for signing**     | `[SIGNING]`     | Container push without `sigstore/cosign-installer` for signing.  |
 
 ### [3.3]-[VERIFICATION_SYNTAX]
 
@@ -113,7 +113,7 @@ gh attestation verify <file-path> --repo owner/repo --format json
 
 Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `--bundle-from-oci` (registry-stored), `--predicate-type` (non-default SLSA type), `--format json` (machine-readable).
 
-## [4]-[HARDEN_RUNNER]
+## [04]-[HARDEN_RUNNER]
 
 **Canonical version:** v2.14.2. EDR-class agent for GitHub Actions runners.
 
@@ -121,67 +121,67 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 
 | [INDEX] | [FEATURE]                     | [DESCRIPTION]                                                     |
 | :-----: | ----------------------------- | ----------------------------------------------------------------- |
-|   [1]   | **Network egress monitoring** | Logs all outbound connections; detects anomalous endpoints.       |
-|   [2]   | **Process auditing**          | Tracks process creation and file integrity changes.               |
-|   [3]   | **DNS exfiltration guard**    | Blocks public DNS resolver fallback (fixed in v2.14.1).           |
-|   [4]   | **Baseline generation**       | Automated baseline from past outbound connections per job.        |
-|   [5]   | **Socket syscall coverage**   | sendto/sendmsg/sendmmsg audit logging (security fix in v2.14.2).  |
-|   [6]   | **Selective installation**    | Skips install on repos with `skip_harden_runner` custom property. |
+|  [01]   | **Network egress monitoring** | Logs all outbound connections; detects anomalous endpoints.       |
+|  [02]   | **Process auditing**          | Tracks process creation and file integrity changes.               |
+|  [03]   | **DNS exfiltration guard**    | Blocks public DNS resolver fallback (fixed in v2.14.1).           |
+|  [04]   | **Baseline generation**       | Automated baseline from past outbound connections per job.        |
+|  [05]   | **Socket syscall coverage**   | sendto/sendmsg/sendmmsg audit logging (security fix in v2.14.2).  |
+|  [06]   | **Selective installation**    | Skips install on repos with `skip_harden_runner` custom property. |
 
 ### [4.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                           | [TAG]      | [WHAT_TO_FLAG]                                              |
 | :-----: | --------------------------------- | ---------- | ----------------------------------------------------------- |
-|   [1]   | **Missing harden-runner**         | `[HARDEN]` | Security-sensitive job without harden-runner as first step. |
-|   [2]   | **Not first step**                | `[HARDEN]` | harden-runner present but not the first step in `steps:`.   |
-|   [3]   | **Audit-only in prod**            | `[HARDEN]` | `egress-policy: audit` in production/deploy environments.   |
-|   [4]   | **Empty allowlist in block mode** | `[HARDEN]` | `egress-policy: block` without `allowed-endpoints`.         |
-|   [5]   | **Old version**                   | `[HARDEN]` | Version < v2.14.2 — missing socket syscall audit fix.       |
+|  [01]   | **Missing harden-runner**         | `[HARDEN]` | Security-sensitive job without harden-runner as first step. |
+|  [02]   | **Not first step**                | `[HARDEN]` | harden-runner present but not the first step in `steps:`.   |
+|  [03]   | **Audit-only in prod**            | `[HARDEN]` | `egress-policy: audit` in production/deploy environments.   |
+|  [04]   | **Empty allowlist in block mode** | `[HARDEN]` | `egress-policy: block` without `allowed-endpoints`.         |
+|  [05]   | **Old version**                   | `[HARDEN]` | Version < v2.14.2 — missing socket syscall audit fix.       |
 
-## [5]-[TOKEN_HYGIENE]
+## [05]-[TOKEN_HYGIENE]
 
 ### [5.1]-[TOKEN_SELECTION]
 
 | [INDEX] | [TYPE]               | [SCOPE]            |  [LIFETIME]  | [CROSS_REPO] | [USE_CASE]           |
 | :-----: | -------------------- | ------------------ | :----------: | :----------: | -------------------- |
-|   [1]   | **`GITHUB_TOKEN`**   | Current repo       | Job duration |      No      | Standard in-repo CI. |
-|   [2]   | **Fine-grained PAT** | Selected repos     | Up to 1 year |     Yes      | Personal automation. |
-|   [3]   | **GitHub App token** | Installation repos |    1 hour    |     Yes      | Org-wide automation. |
+|  [01]   | **`GITHUB_TOKEN`**   | Current repo       | Job duration |      No      | Standard in-repo CI. |
+|  [02]   | **Fine-grained PAT** | Selected repos     | Up to 1 year |     Yes      | Personal automation. |
+|  [03]   | **GitHub App token** | Installation repos |    1 hour    |     Yes      | Org-wide automation. |
 
 ### [5.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                       | [TAG]           | [WHAT_TO_FLAG]                                                  |
 | :-----: | ----------------------------- | --------------- | --------------------------------------------------------------- |
-|   [1]   | **PAT for cross-repo**        | `[APP-TOKEN]`   | `secrets.*_PAT` or `secrets.*_TOKEN` for cross-repo operations. |
-|   [2]   | **`permissions: write-all`**  | `[PERMISSIONS]` | Overly broad permissions — use explicit per-job scopes.         |
-|   [3]   | **`permissions: {}` missing** | `[PERMISSIONS]` | No top-level deny-all default.                                  |
-|   [4]   | **Secrets in `run:` blocks**  | `[INJECTION]`   | `${{ secrets.* }}` directly interpolated in `run:` blocks.      |
+|  [01]   | **PAT for cross-repo**        | `[APP-TOKEN]`   | `secrets.*_PAT` or `secrets.*_TOKEN` for cross-repo operations. |
+|  [02]   | **`permissions: write-all`**  | `[PERMISSIONS]` | Overly broad permissions — use explicit per-job scopes.         |
+|  [03]   | **`permissions: {}` missing** | `[PERMISSIONS]` | No top-level deny-all default.                                  |
+|  [04]   | **Secrets in `run:` blocks**  | `[INJECTION]`   | `${{ secrets.* }}` directly interpolated in `run:` blocks.      |
 
 ### [5.3]-[APP_TOKEN_ERRORS]
 
 | [INDEX] | [ERROR]                                          | [CAUSE]                                                          |
 | :-----: | ------------------------------------------------ | ---------------------------------------------------------------- |
-|   [1]   | **`Could not create installation access token`** | App not installed on the target org/repo.                        |
-|   [2]   | **`Resource not accessible by integration`**     | Missing permissions in the GitHub App configuration.             |
-|   [3]   | **Token expired**                                | Token generated too early — regenerate before the step (1h TTL). |
+|  [01]   | **`Could not create installation access token`** | App not installed on the target org/repo.                        |
+|  [02]   | **`Resource not accessible by integration`**     | Missing permissions in the GitHub App configuration.             |
+|  [03]   | **Token expired**                                | Token generated too early — regenerate before the step (1h TTL). |
 
-## [6]-[DEPENDENCY_REVIEW]
+## [06]-[DEPENDENCY_REVIEW]
 
 | [INDEX] | [CHECK]                       | [TAG]       | [WHAT_TO_FLAG]                                                    |
 | :-----: | ----------------------------- | ----------- | ----------------------------------------------------------------- |
-|   [1]   | **No dependency review**      | `[DEP-REV]` | PR workflow without `actions/dependency-review-action`.           |
-|   [2]   | **No secret scanning**        | `[SECRETS]` | Push protection not enabled — up to 500 custom patterns.          |
-|   [3]   | **No gitleaks**               | `[SECRETS]` | Missing `gitleaks/gitleaks-action` for CI-level secret scanning.  |
-|   [4]   | **No Dependabot for actions** | `[MAINT]`   | Missing `.github/dependabot.yml` with `github-actions` ecosystem. |
+|  [01]   | **No dependency review**      | `[DEP-REV]` | PR workflow without `actions/dependency-review-action`.           |
+|  [02]   | **No secret scanning**        | `[SECRETS]` | Push protection not enabled — up to 500 custom patterns.          |
+|  [03]   | **No gitleaks**               | `[SECRETS]` | Missing `gitleaks/gitleaks-action` for CI-level secret scanning.  |
+|  [04]   | **No Dependabot for actions** | `[MAINT]`   | Missing `.github/dependabot.yml` with `github-actions` ecosystem. |
 
-## [7]-[NODE_RUNTIME]
+## [07]-[NODE_RUNTIME]
 
 | [INDEX] | [RUNTIME]  | [STATUS]                                  |    [DEADLINE]     |
 | :-----: | ---------- | ----------------------------------------- | :---------------: |
-|   [1]   | **node16** | Removed.                                  | Already enforced. |
-|   [2]   | **node20** | Deprecated — forced migration to node24.  |  March 4, 2026.   |
-|   [3]   | **node22** | Skipped — GitHub jumped node20 -> node24. |       N/A.        |
-|   [4]   | **node24** | Current default.                          |      Active.      |
+|  [01]   | **node16** | Removed.                                  | Already enforced. |
+|  [02]   | **node20** | Deprecated — forced migration to node24.  |  March 4, 2026.   |
+|  [03]   | **node22** | Skipped — GitHub jumped node20 -> node24. |       N/A.        |
+|  [04]   | **node24** | Current default.                          |      Active.      |
 
 [IMPORTANT]:
 - [ALWAYS] Flag actions still bundled with node20 runtime — will break after March 4, 2026.

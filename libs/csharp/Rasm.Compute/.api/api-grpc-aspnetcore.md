@@ -6,7 +6,7 @@ placeholders; all code surfaces ship in the sub-packages it bundles: `Grpc.AspNe
 The decompile-verifiable in-process test surface is owned by `Grpc.Net.Client` (admitted directly)
 and `Microsoft.AspNetCore.TestHost` (admitted directly).
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore`
 - package: `Grpc.AspNetCore` (meta-package; no DLL assets)
@@ -16,48 +16,48 @@ and `Microsoft.AspNetCore.TestHost` (admitted directly).
 - asset: meta-package
 - rail: grpc
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: in-process channel construction — source: `Grpc.Net.Client`
 - rail: grpc
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [RAIL]                           |
 | :-----: | :------------------- | :-------------- | :------------------------------- |
-|   [1]   | `GrpcChannel`        | channel owner   | client channel and stub factory  |
-|   [2]   | `GrpcChannelOptions` | channel options | HTTP handler, credentials, codec |
+|  [01]   | `GrpcChannel`        | channel owner   | client channel and stub factory  |
+|  [02]   | `GrpcChannelOptions` | channel options | HTTP handler, credentials, codec |
 
 [PUBLIC_TYPE_SCOPE]: test server handler — source: `Microsoft.AspNetCore.TestHost`
 - rail: grpc
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [RAIL]                                             |
 | :-----: | :-------------- | :---------------- | :------------------------------------------------- |
-|   [1]   | `TestServer`    | in-process server | owns `CreateHandler()` and `CreateClient()`        |
-|   [2]   | `ClientHandler` | message handler   | `HttpMessageHandler` returned by `CreateHandler()` |
+|  [01]   | `TestServer`    | in-process server | owns `CreateHandler()` and `CreateClient()`        |
+|  [02]   | `ClientHandler` | message handler   | `HttpMessageHandler` returned by `CreateHandler()` |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: in-process channel construction
 - rail: grpc
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]  | [RAIL]                                        |
 | :-----: | :---------------------------------------------------- | :-------------- | :-------------------------------------------- |
-|   [1]   | `GrpcChannel.ForAddress(address, GrpcChannelOptions)` | factory call    | channel bound to address and handler          |
-|   [2]   | `GrpcChannelOptions.HttpHandler`                      | option property | accepts `HttpMessageHandler?` from TestServer |
-|   [3]   | `TestServer.CreateHandler()`                          | handler factory | returns `HttpMessageHandler` for in-process   |
-|   [4]   | `GrpcChannel.CreateCallInvoker()`                     | invoker factory | `CallInvoker` for generated gRPC stubs        |
-|   [5]   | `GrpcChannel.Dispose()`                               | disposal        | channel and connection teardown               |
+|  [01]   | `GrpcChannel.ForAddress(address, GrpcChannelOptions)` | factory call    | channel bound to address and handler          |
+|  [02]   | `GrpcChannelOptions.HttpHandler`                      | option property | accepts `HttpMessageHandler?` from TestServer |
+|  [03]   | `TestServer.CreateHandler()`                          | handler factory | returns `HttpMessageHandler` for in-process   |
+|  [04]   | `GrpcChannel.CreateCallInvoker()`                     | invoker factory | `CallInvoker` for generated gRPC stubs        |
+|  [05]   | `GrpcChannel.Dispose()`                               | disposal        | channel and connection teardown               |
 
 [ENTRYPOINT_SCOPE]: test server lifecycle
 - rail: grpc
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]   | [RAIL]                              |
 | :-----: | :------------------------------------- | :--------------- | :---------------------------------- |
-|   [1]   | `WebApplicationFactory<TEntryPoint>`   | factory base     | test server backed by full startup  |
-|   [2]   | `WebApplicationFactory.CreateClient()` | client factory   | `HttpClient` via in-process handler |
-|   [3]   | `WebApplicationFactory.Services`       | DI access        | service provider from hosted app    |
-|   [4]   | `TestServer.BaseAddress`               | address property | in-process base URI                 |
+|  [01]   | `WebApplicationFactory<TEntryPoint>`   | factory base     | test server backed by full startup  |
+|  [02]   | `WebApplicationFactory.CreateClient()` | client factory   | `HttpClient` via in-process handler |
+|  [03]   | `WebApplicationFactory.Services`       | DI access        | service provider from hosted app    |
+|  [04]   | `TestServer.BaseAddress`               | address property | in-process base URI                 |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [IN_PROCESS_PATTERN]:
 - canonical in-process gRPC test wiring:

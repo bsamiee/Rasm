@@ -2,7 +2,7 @@
 
 Open and closed work distilled from `IDEAS.md`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [BLOCKED] Wire the `convergence/law` harness onto the frozen fixture corpus.
 - Re-found the `convergence/law#CONVERGENCE_LAW` `opLogEntryArb`/`conflictReceiptArb` arbitraries on the cross-libs `ONE_WIRE_FIXTURE_CORPUS` content-addressed golden bytes (the CRDT op-set, the HLC two-half stamps) read through the new branch `typescript:testing/` fixture reader rather than folder-local hand-minted bytes, so a parity drift surfaces as one corpus mismatch.
@@ -18,6 +18,6 @@ Open and closed work distilled from `IDEAS.md`. Each task is a card whose leader
 - Bounds reconnect cost to the divergent range; the digest names the slice a peer pulls, never an unbounded re-scan.
 - Close-condition: the forward `causality/vector#MERKLE_RECONCILE` stub cluster is named (owner, cases, boundary), but the fence body is blocked-gated on (1) `MerkleRangeWire` arriving decode-admitted on the `libs/typescript/interchange` decode rail (confirmed absent: 0 hits across `interchange/.planning`) and (2) the now-landed `causality/frontier#STABILITY_FRONTIER` stable prefix as the reconciliation unit. Realizes the fence when the C# `Version/commits#TS_PROJECTION` `MerkleRangeWire` decode lands.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

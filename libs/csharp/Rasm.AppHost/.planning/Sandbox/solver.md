@@ -2,13 +2,13 @@
 
 The extensibility contract for third-party compute extensions: one solver-kind axis carries the seven extension categories — solvers, meshers, optimizers, CAM post-processors, material models, field codecs, generative codecs — as rows whose typed contract binds a sandboxed plugin to the Compute dispatch rail, one contract record names the input representation, output representation, and capability descriptors a plugin declares, one hosting fold loads a verified solver plugin under the sandbox and projects its declared ops into the capability registry, and one negotiation step proves a plugin's representation contract against the canonical Compute encoding before its first solve. The page owns the solver-kind axis, the `EncodingKind` representation axis that projects onto the Compute `GeometryEncoding` cases, the plugin contract, the hosting projection, and the representation negotiation; it consumes `SolverContract`-shaped Compute owners, `GeometryEncoding`/`EncodedTensor`, `CapabilityDescriptor`/`DescriptorSurface`, `SandboxIsolation`/`PluginInstance`/`GrantScope`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SOLVER_KIND]: Seven extension-category rows with per-kind contract shape.
-- [2]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
-- [3]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
+- [01]-[SOLVER_KIND]: Seven extension-category rows with per-kind contract shape.
+- [02]-[PLUGIN_CONTRACT]: Declared representation, ops, and capability descriptors a plugin ships.
+- [03]-[SOLVER_HOSTING]: Sandboxed load, registry projection, and representation negotiation.
 
-## [2]-[SOLVER_KIND]
+## [02]-[SOLVER_KIND]
 
 - Owner: `SolverKind` `[SmartEnum<string>]` the seven extension-category axis under the `CapabilityKeyPolicy` accessor; `EncodingKind` `[SmartEnum<string>]` the representation axis whose four geometry rows project onto the `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` cases and whose `Field`/`Toolpath` rows ride the pending encoding-table extensions; `KindContract` per-kind contract-shape record; `KindContracts` the frozen row set with the total dispatch; `SolverFault` `[Union]` fault family in the 4700 band.
 - Cases: solver, mesher, optimizer, cam-postprocessor, material-model, field-codec, generative-codec — each carrying the input and output `EncodingKind` its contract speaks and the `EffectClass` its ops carry; `SolverFault` = Text | ContractRejected | RepresentationMismatch | KindUnsupported.
@@ -84,7 +84,7 @@ public static class KindContracts {
 }
 ```
 
-## [3]-[PLUGIN_CONTRACT]
+## [03]-[PLUGIN_CONTRACT]
 
 - Owner: `SolverManifest` the plugin's declared contract; `OpDeclaration` a single declared op shape; `SolverPluginContract` the static contract-validation surface.
 - Entry: `Validate(SolverManifest manifest)` returns `Fin<SolverManifest>` — the contract validation proves the manifest's declared kind, the input and output encoding channels, and each op declaration against the kind contract, returning the manifest or a typed contract rejection.
@@ -135,7 +135,7 @@ public static class SolverPluginContract {
 }
 ```
 
-## [4]-[SOLVER_HOSTING]
+## [04]-[SOLVER_HOSTING]
 
 - Owner: `HostedSolver` the loaded-and-projected solver capsule; `Negotiation` the representation-negotiation record; `SolverHosting` the static load-and-project surface.
 - Entry: `Host(SolverHostingRuntime runtime, SolverManifest manifest, GrantScope scope)` returns `IO<HostedSolver>` — the hosting fold validates the contract, negotiates the representation against the canonical Compute encoding, loads the plugin under the sandbox, and projects the plugin's declared ops into the capability registry; `Negotiate(SolverManifest manifest, Func<EncodingKind, EncodingKind, bool> lossless, Func<SolverManifest, string> digestOf)` returns `Fin<Negotiation>` — the negotiation proves the plugin's input and output representations admit lossless round-trip through the canonical `EncodedTensor` shape, and `SolverHostingRuntime.Negotiator` is this body closed over the Compute lossless and digest projections so the hosting fold composes one negotiation surface, never a second predicate.
@@ -192,7 +192,7 @@ public static class SolverHosting {
 }
 ```
 
-## [5]-[RESEARCH]
+## [05]-[RESEARCH]
 
 - [ENCODING_KIND]: the `EncodingKind` geometry rows (`PointCloud`/`MeshPatch`/`VoxelGrid`/`BrepPatch`) project one-to-one onto the finalized `Compute/Tensor/residency#GEOMETRY_ENCODING` `GeometryEncoding` case axis (the representation a kind contract speaks is the case, never the per-feature `EncodingChannel` rows `Position`/`Normal`/`ColorRgba`/`Curvature`/`Geodesic`/`Intensity`/`Occupancy`/`Weight`), so the kind-contract negotiation reads the case-level encoding the suite emits; the residual is the `Field` and `Toolpath` representations the solver and CAM-post contracts speak — they land as two `GeometryEncoding` case extensions in the Compute encoding table, never solver-page literals, and the `EncodingKind.Field`/`.Toolpath` rows here carry the working spelling until that table extension finalizes; the lossless round-trip rides the canonical `EncodedTensor` shape.
 - [REPRESENTATION_NEGOTIATION]: the lossless-round-trip proof that a plugin's declared input and output channels admit canonical `EncodedTensor` round-trip confirms against the Compute equivalence-interop `EquivalenceLaw` surface, so the negotiation reads the suite's equivalence proof rather than a solver-page heuristic.

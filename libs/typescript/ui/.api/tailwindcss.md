@@ -2,7 +2,7 @@
 
 `tailwindcss` v4 supplies a CSS-first utility framework consumed as a PostCSS plugin (`tailwindcss/plugin`) and at-import stylesheet (`tailwindcss`). The TypeScript surface is slim: `plugin` is the default export of `tailwindcss/plugin`, delivering the `createPlugin` factory and `createPlugin.withOptions`; `tailwindcss/colors` and `tailwindcss/defaultTheme` export the built-in color palette and default theme scale objects; `tailwindcss/flattenColorPalette` exports a utility for resolving nested color objects.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `tailwindcss`
 - package: `tailwindcss`
@@ -10,47 +10,47 @@
 - asset: CSS runtime + TypeScript plugin API
 - rail: styling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin authoring types
 - rail: styling
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                                                             |
 | :-----: | :--------------------- | :------------ | :------------------------------------------------------------------------------------------------- |
-|   [1]   | `Plugin`               | type alias    | `PluginFn \| PluginWithConfig \| PluginWithOptions<any>`                                           |
-|   [2]   | `PluginFn`             | type alias    | `(api: PluginAPI) => void`                                                                         |
-|   [3]   | `PluginWithConfig`     | type alias    | `{ handler: PluginFn, config?: UserConfig }`                                                       |
-|   [4]   | `PluginWithOptions<T>` | type alias    | `(options?: T) => PluginWithConfig`                                                                |
-|   [5]   | `PluginAPI`            | type alias    | object with `addBase`, `addUtilities`, `matchUtilities`, `addVariant`, `theme`, `config`, `prefix` |
-|   [6]   | `UserConfig`           | interface     | `{ presets?, theme?, plugins?, content?, darkMode?, prefix?, ... }`                                |
-|   [7]   | `CssInJs`              | type alias    | `Record<string, string \| string[] \| CssInJs \| CssInJs[]>`                                       |
-|   [8]   | `DarkModeStrategy`     | type alias    | `false \| 'media' \| 'class' \| 'selector' \| ...`                                                 |
-|   [9]   | `ThemeConfig`          | type alias    | `Record<string, ThemeValue> & { extend? }`                                                         |
+|  [01]   | `Plugin`               | type alias    | `PluginFn \| PluginWithConfig \| PluginWithOptions<any>`                                           |
+|  [02]   | `PluginFn`             | type alias    | `(api: PluginAPI) => void`                                                                         |
+|  [03]   | `PluginWithConfig`     | type alias    | `{ handler: PluginFn, config?: UserConfig }`                                                       |
+|  [04]   | `PluginWithOptions<T>` | type alias    | `(options?: T) => PluginWithConfig`                                                                |
+|  [05]   | `PluginAPI`            | type alias    | object with `addBase`, `addUtilities`, `matchUtilities`, `addVariant`, `theme`, `config`, `prefix` |
+|  [06]   | `UserConfig`           | interface     | `{ presets?, theme?, plugins?, content?, darkMode?, prefix?, ... }`                                |
+|  [07]   | `CssInJs`              | type alias    | `Record<string, string \| string[] \| CssInJs \| CssInJs[]>`                                       |
+|  [08]   | `DarkModeStrategy`     | type alias    | `false \| 'media' \| 'class' \| 'selector' \| ...`                                                 |
+|  [09]   | `ThemeConfig`          | type alias    | `Record<string, ThemeValue> & { extend? }`                                                         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory (`tailwindcss/plugin`)
 - rail: styling
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]  | [RAIL]                                        |
 | :-----: | :---------------------------------------------- | :-------------- | :-------------------------------------------- |
-|   [1]   | `createPlugin(handler, config?)`                | plugin factory  | creates `PluginWithConfig` from a `PluginFn`  |
-|   [2]   | `createPlugin.withOptions(pluginFn, configFn?)` | options factory | creates `PluginWithOptions<T>` with config fn |
+|  [01]   | `createPlugin(handler, config?)`                | plugin factory  | creates `PluginWithConfig` from a `PluginFn`  |
+|  [02]   | `createPlugin.withOptions(pluginFn, configFn?)` | options factory | creates `PluginWithOptions<T>` with config fn |
 
 [ENTRYPOINT_SCOPE]: PluginAPI methods (available inside `handler`)
 - rail: styling
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `addBase(base: CssInJs)`               | registration   | add base/reset styles               |
-|   [2]   | `addUtilities(utilities, options?)`    | registration   | add static utility classes          |
-|   [3]   | `matchUtilities(utilities, options?)`  | registration   | add dynamic value-driven utilities  |
-|   [4]   | `addComponents(utilities, options?)`   | registration   | add component classes               |
-|   [5]   | `matchComponents(utilities, options?)` | registration   | add dynamic value-driven components |
-|   [6]   | `addVariant(name, variant)`            | registration   | add custom variant selector         |
-|   [7]   | `matchVariant(name, cb, options?)`     | registration   | add dynamic value-driven variant    |
-|   [8]   | `theme(path, defaultValue?)`           | lookup         | resolve theme value by dot-path     |
-|   [9]   | `config(path?, defaultValue?)`         | lookup         | read config value by dot-path       |
+|  [01]   | `addBase(base: CssInJs)`               | registration   | add base/reset styles               |
+|  [02]   | `addUtilities(utilities, options?)`    | registration   | add static utility classes          |
+|  [03]   | `matchUtilities(utilities, options?)`  | registration   | add dynamic value-driven utilities  |
+|  [04]   | `addComponents(utilities, options?)`   | registration   | add component classes               |
+|  [05]   | `matchComponents(utilities, options?)` | registration   | add dynamic value-driven components |
+|  [06]   | `addVariant(name, variant)`            | registration   | add custom variant selector         |
+|  [07]   | `matchVariant(name, cb, options?)`     | registration   | add dynamic value-driven variant    |
+|  [08]   | `theme(path, defaultValue?)`           | lookup         | resolve theme value by dot-path     |
+|  [09]   | `config(path?, defaultValue?)`         | lookup         | read config value by dot-path       |
 |  [10]   | `prefix(className)`                    | transform      | apply configured class prefix       |
 
 [ENTRYPOINT_SCOPE]: CSS stylesheet entries
@@ -58,15 +58,15 @@
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [RAIL]                                  |
 | :-----: | :------------------------------------------ | :------------- | :-------------------------------------- |
-|   [1]   | `@import "tailwindcss"`                     | CSS import     | preflight + utilities + variants        |
-|   [2]   | `@import "tailwindcss/preflight"`           | CSS import     | base reset only                         |
-|   [3]   | `@import "tailwindcss/theme.css"`           | CSS import     | CSS custom properties for default theme |
-|   [4]   | `@import "tailwindcss/utilities"`           | CSS import     | utility classes without preflight       |
-|   [5]   | `tailwindcss/colors` (default export)       | data           | nested color palette object             |
-|   [6]   | `tailwindcss/defaultTheme` (default)        | data           | full default theme scale object         |
-|   [7]   | `tailwindcss/flattenColorPalette` (default) | util fn        | `(colors) => Record<string, string>`    |
+|  [01]   | `@import "tailwindcss"`                     | CSS import     | preflight + utilities + variants        |
+|  [02]   | `@import "tailwindcss/preflight"`           | CSS import     | base reset only                         |
+|  [03]   | `@import "tailwindcss/theme.css"`           | CSS import     | CSS custom properties for default theme |
+|  [04]   | `@import "tailwindcss/utilities"`           | CSS import     | utility classes without preflight       |
+|  [05]   | `tailwindcss/colors` (default export)       | data           | nested color palette object             |
+|  [06]   | `tailwindcss/defaultTheme` (default)        | data           | full default theme scale object         |
+|  [07]   | `tailwindcss/flattenColorPalette` (default) | util fn        | `(colors) => Record<string, string>`    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PLUGIN_TOPOLOGY]:
 - v4 is CSS-first: the primary configuration surface is `@theme`, `@layer`, `@variant`, and `@plugin` directives in CSS

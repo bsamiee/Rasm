@@ -2,7 +2,7 @@
 
 `@vitejs/plugin-react` supplies React Fast Refresh and the OXC-backed JSX transform as a Vite plugin. The default export `viteReact(opts?)` returns `Plugin[]` for the `plugins` array of `UserConfig`. The `reactCompilerPreset` helper builds a Rolldown Babel preset that wires `babel-plugin-react-compiler` for automatic memoization. The `automatic` JSX runtime is the default; classic-runtime import skipping is unsupported.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@vitejs/plugin-react`
 - package: `@vitejs/plugin-react`
@@ -10,38 +10,38 @@
 - asset: Vite plugin (returns `Plugin[]`)
 - rail: react-transform
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin option and preset types
 - rail: react-transform
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [DESCRIPTION]                                |
 | :-----: | :-------------------------------- | :------------- | :------------------------------------------- |
-|   [1]   | `Options`                         | options object | JSX transform and Fast Refresh configuration |
-|   [2]   | `RolldownBabelPreset`             | re-export type | `@rolldown/plugin-babel` preset shape        |
-|   [3]   | `ReactCompilerBabelPluginOptions` | re-export type | `babel-plugin-react-compiler` plugin options |
+|  [01]   | `Options`                         | options object | JSX transform and Fast Refresh configuration |
+|  [02]   | `RolldownBabelPreset`             | re-export type | `@rolldown/plugin-babel` preset shape        |
+|  [03]   | `ReactCompilerBabelPluginOptions` | re-export type | `babel-plugin-react-compiler` plugin options |
 
 [PUBLIC_TYPE_SCOPE]: `Options` fields
 - rail: react-transform
 
 | [INDEX] | [FIELD]            | [TYPE]                                      | [DEFAULT]          |
 | :-----: | :----------------- | :------------------------------------------ | :----------------- |
-|   [1]   | `include`          | `string \| RegExp \| Array<string\|RegExp>` | `/\.[tj]sx?$/`     |
-|   [2]   | `exclude`          | `string \| RegExp \| Array<string\|RegExp>` | `/\/node_modules/` |
-|   [3]   | `jsxImportSource`  | `string`                                    | `'react'`          |
-|   [4]   | `jsxRuntime`       | `'classic' \| 'automatic'`                  | `'automatic'`      |
-|   [5]   | `reactRefreshHost` | `string`                                    | —                  |
+|  [01]   | `include`          | `string \| RegExp \| Array<string\|RegExp>` | `/\.[tj]sx?$/`     |
+|  [02]   | `exclude`          | `string \| RegExp \| Array<string\|RegExp>` | `/\/node_modules/` |
+|  [03]   | `jsxImportSource`  | `string`                                    | `'react'`          |
+|  [04]   | `jsxRuntime`       | `'classic' \| 'automatic'`                  | `'automatic'`      |
+|  [05]   | `reactRefreshHost` | `string`                                    | —                  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin factory and compiler preset
 - rail: react-transform
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [DESCRIPTION]                                      |
 | :-----: | :------------------------------ | :------------- | :------------------------------------------------- |
-|   [1]   | `viteReact(opts?)`              | plugin factory | default export; returns `Plugin[]` for `plugins`   |
-|   [2]   | `viteReact.preambleCode`        | static string  | Fast Refresh preamble injected before module code  |
-|   [3]   | `reactCompilerPreset(options?)` | preset factory | returns `RolldownBabelPreset` for the Babel bridge |
+|  [01]   | `viteReact(opts?)`              | plugin factory | default export; returns `Plugin[]` for `plugins`   |
+|  [02]   | `viteReact.preambleCode`        | static string  | Fast Refresh preamble injected before module code  |
+|  [03]   | `reactCompilerPreset(options?)` | preset factory | returns `RolldownBabelPreset` for the Babel bridge |
 
 ```ts contract
 // @vitejs/plugin-react
@@ -65,7 +65,7 @@ declare const reactCompilerPreset: (
 ) => RolldownBabelPreset
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TRANSFORM_TOPOLOGY]:
 - `viteReact()` returns a `Plugin[]`; spread it into the Vite `plugins` array, never pass it as a single element.

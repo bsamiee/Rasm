@@ -2,11 +2,11 @@
 
 The event-time progress and late-arrival vocabulary the window engine folds against — event time reconstructed from the wire HLC pair, the monotonic `Watermark` mark, and the `allowedLateness` horizon that decides whether an out-of-order row is a fresh fold or a tracked retraction. Event time is the wire HLC `(physical, logical)`, never wall-clock arrival, so a window replays identically. A late row preceding the held watermark by less than `allowedLateness` is folded as a correction; the silent drop is the deleted form.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[WATERMARK]: Owns `eventNanos`, the `Watermark` mark, `advance`, and `isLate`.
+- [01]-[WATERMARK]: Owns `eventNanos`, the `Watermark` mark, `advance`, and `isLate`.
 
-## [2]-[WATERMARK]
+## [02]-[WATERMARK]
 
 - Owner: `eventNanos`, the event-time projection from the wire HLC pair; `Watermark`, the monotonic `(eventNanos, processed, late)` progress mark mirroring the C# `Watermark(EventTime, Processed)`; `advance`, the merge step that lifts the mark and tallies a late correction; and `isLate`, the `allowedLateness` horizon test. The lateness horizon is not a literal baked beside the projection — it is `LatenessProfile`, the one `as const satisfies Record<LatenessProfileKey, number>` table whose every row is a horizon in seconds for one fold class, and `lateness` materializes a row into the `Duration` a `window#WINDOW_FOLD` `WindowSpec.allowedLateness` field carries, so a new horizon is a row value rather than a re-baked `Duration.seconds`. `defaultLateness` is the `standard` row materialized — the one default the window engine inherits, recovered from the table.
 - Cases: `eventNanos` reconstructs event time as the wire `physical` instant (ISO-8601 extended) scaled to nanos plus the HLC `logical` half as a sub-millisecond tiebreak, flooring an unparseable instant to the zero epoch so the projection is total and a malformed stamp sorts as oldest rather than throwing `RangeError` off `BigInt(NaN)` and tearing down the fold fiber; `advance` raises `eventNanos` monotonically (never regresses), increments `processed` per folded row, and increments `late` only on an out-of-order correction; `isLate` is the test against the held mark minus `allowedLateness`. `LatenessProfile` carries three rows — `tight` (a `5s` horizon for an interactive surface that finalizes aggressively), `standard` (the `30s` horizon every fold inherits by default), and `relaxed` (a `300s` horizon for a resumable bulk replay that tolerates a wide out-of-order spread); `lateness` reads a row through indexed access and lifts the second count into `Duration.seconds`, so the horizon is a table number every profile shares the construction of, and `keyof typeof LatenessProfile` projects `LatenessProfileKey` so a fourth horizon breaks every selection site at compile time.

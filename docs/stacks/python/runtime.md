@@ -2,21 +2,21 @@
 
 This page is the primitive-selection law for execution, transport, and observation: structured concurrency and interpreter isolation, binary payloads and numeric invariants, and diagnostics and exception flow. `anyio` owns every async scheduling, deadline, and cancellation surface; the direct `asyncio` module API is the rejected form (the manifest bans the `asyncio` import outright, and `anyio` backs onto an asyncio event loop internally without exposing it). Subinterpreters, free-threading, and `sys.monitoring` are the named non-async-scheduling surfaces that have no `anyio` analog and ride the stdlib directly. Each section owns one concern family: the chooser names the form and the spelling it replaces, and the family card states the placement law.
 
-## [1]-[CONCURRENCY_AND_INTERPRETERS]
+## [01]-[CONCURRENCY_AND_INTERPRETERS]
 
 Mutation ownership and context propagation are explicit before code relies on scheduling or cache behavior. Structured-concurrency mechanics — task groups, deadlines, cancellation, blocking-call offload — are owned by `rails-and-effects.md`; this page owns the isolation and free-threading surfaces that sit beneath the rail and the few scheduling primitives `anyio` does not re-export.
 
 | [INDEX] | [CONCERN]              | [USE]                                                  | [REPLACE]                       |
 | :-----: | :--------------------- | :----------------------------------------------------- | :------------------------------ |
-|   [1]   | event-loop entry       | `anyio.run`                                            | `asyncio.run`/`asyncio.Runner`  |
-|   [2]   | structured task group  | `anyio.create_task_group`                              | `asyncio.TaskGroup`/`gather`    |
-|   [3]   | async deadline         | `anyio.fail_after` or `anyio.move_on_after`            | `asyncio.timeout` wrappers      |
-|   [4]   | blocking-call offload  | `anyio.to_thread.run_sync` + `CapacityLimiter`         | `ThreadPoolExecutor` submission |
-|   [5]   | CPU-bound subprocess   | `anyio.to_process.run_sync`                            | `ProcessPoolExecutor` map       |
-|   [6]   | subprocess handle      | `anyio.run_process` or `anyio.open_process`            | `subprocess.run`/`Popen`        |
-|   [7]   | context variable scope | `ContextVar.set()` token context manager               | `reset(token)` `finally` blocks |
-|   [8]   | sync queue lifecycle   | `queue.Queue.shutdown()`                               | sentinel queue items            |
-|   [9]   | worker sizing          | `os.process_cpu_count()`                               | `os.cpu_count()` worker counts  |
+|  [01]   | event-loop entry       | `anyio.run`                                            | `asyncio.run`/`asyncio.Runner`  |
+|  [02]   | structured task group  | `anyio.create_task_group`                              | `asyncio.TaskGroup`/`gather`    |
+|  [03]   | async deadline         | `anyio.fail_after` or `anyio.move_on_after`            | `asyncio.timeout` wrappers      |
+|  [04]   | blocking-call offload  | `anyio.to_thread.run_sync` + `CapacityLimiter`         | `ThreadPoolExecutor` submission |
+|  [05]   | CPU-bound subprocess   | `anyio.to_process.run_sync`                            | `ProcessPoolExecutor` map       |
+|  [06]   | subprocess handle      | `anyio.run_process` or `anyio.open_process`            | `subprocess.run`/`Popen`        |
+|  [07]   | context variable scope | `ContextVar.set()` token context manager               | `reset(token)` `finally` blocks |
+|  [08]   | sync queue lifecycle   | `queue.Queue.shutdown()`                               | sentinel queue items            |
+|  [09]   | worker sizing          | `os.process_cpu_count()`                               | `os.cpu_count()` worker counts  |
 |  [10]   | interpreter isolation  | `concurrent.interpreters`                              | process-only isolation wrappers |
 |  [11]   | subinterpreter pool    | `concurrent.futures.InterpreterPoolExecutor`           | process-only CPU pools          |
 |  [12]   | process-pool stop      | `terminate_workers()` or `kill_workers()`              | private worker traversal        |
@@ -79,21 +79,21 @@ def isolated[**P, T](entrypoint: str, /, *, gil: InterpreterGil = "own") -> Call
     return bind
 ```
 
-## [2]-[BINARY_AND_NUMERIC]
+## [02]-[BINARY_AND_NUMERIC]
 
 Binary boundaries carry buffer, compression, and serialization semantics directly; numeric invariants run on the numeric owner.
 
 | [INDEX] | [CONCERN]             | [USE]                                          | [REPLACE]                           |
 | :-----: | :-------------------- | :--------------------------------------------- | :---------------------------------- |
-|   [1]   | buffer protocol       | `collections.abc.Buffer`                       | `ByteString` or bytes prose         |
-|   [2]   | buffer flags          | `inspect.BufferFlags`                          | magic integer buffer flags          |
-|   [3]   | binary numeric views  | `array` and `memoryview` complex codes         | struct-packed numeric buffers       |
-|   [4]   | fd buffer read        | `os.readinto()`                                | `os.read()` copy slices             |
-|   [5]   | byte buffer drain     | `bytearray.take_bytes()`                       | `bytes(buffer)` plus `clear()`      |
-|   [6]   | FFI memory view       | `ctypes.memoryview_at()`                       | `string_at()` copy scaffolds        |
-|   [7]   | pickle buffers        | protocol 5 out-of-band buffers                 | copy-heavy pickle blobs             |
-|   [8]   | Zstandard payload     | `compression.zstd`                             | subprocess or bespoke zstd adapters |
-|   [9]   | Z85 payload           | `base64.z85encode()` and `z85decode()`         | local Z85 codecs                    |
+|  [01]   | buffer protocol       | `collections.abc.Buffer`                       | `ByteString` or bytes prose         |
+|  [02]   | buffer flags          | `inspect.BufferFlags`                          | magic integer buffer flags          |
+|  [03]   | binary numeric views  | `array` and `memoryview` complex codes         | struct-packed numeric buffers       |
+|  [04]   | fd buffer read        | `os.readinto()`                                | `os.read()` copy slices             |
+|  [05]   | byte buffer drain     | `bytearray.take_bytes()`                       | `bytes(buffer)` plus `clear()`      |
+|  [06]   | FFI memory view       | `ctypes.memoryview_at()`                       | `string_at()` copy scaffolds        |
+|  [07]   | pickle buffers        | protocol 5 out-of-band buffers                 | copy-heavy pickle blobs             |
+|  [08]   | Zstandard payload     | `compression.zstd`                             | subprocess or bespoke zstd adapters |
+|  [09]   | Z85 payload           | `base64.z85encode()` and `z85decode()`         | local Z85 codecs                    |
 |  [10]   | base-N canonical      | `canonical=True` decoders                      | padding-bit postchecks              |
 |  [11]   | base-N format control | `padded=`, `wrapcol=`, `ignorechars=`          | pre/post encode formatting          |
 |  [12]   | JSON arrays           | `array_hook=` decoders                         | post-decode list walks              |
@@ -140,21 +140,21 @@ def encode[T: Buffer](payload: T, /, shape: Callable[[pickle.PickleBuffer], obje
     return zstd.compress(stream), tuple(buffers)
 ```
 
-## [3]-[DIAGNOSTICS_AND_EXCEPTIONS]
+## [03]-[DIAGNOSTICS_AND_EXCEPTIONS]
 
 Diagnostics use runtime-owned observation surfaces; exception flow preserves the failure set and causal context.
 
 | [INDEX] | [CONCERN]            | [USE]                                 | [REPLACE]                          |
 | :-----: | :------------------- | :------------------------------------ | :--------------------------------- |
-|   [1]   | execution monitoring | `sys.monitoring`                      | `settrace()` event scrapers        |
-|   [2]   | sampling profiler    | `profiling.sampling`                  | handwritten timers or `profile`    |
-|   [3]   | C-stack dump         | `faulthandler.dump_c_stack()`         | external native stack probes       |
-|   [4]   | live debug attach    | `sys.remote_exec()`                   | debugger injection hooks           |
-|   [5]   | ABI reflection       | `sys.abi_info`                        | parsed SOABI strings               |
-|   [6]   | debug line tables    | `co_lines()`                          | `co_lnotab` decoding               |
-|   [7]   | grouped exceptions   | `except*` handlers                    | single-error collapse              |
-|   [8]   | exception context    | `BaseException.add_note()`            | message concatenation              |
-|   [9]   | active exception     | `sys.exception()`                     | `sys.exc_info()[1]`                |
+|  [01]   | execution monitoring | `sys.monitoring`                      | `settrace()` event scrapers        |
+|  [02]   | sampling profiler    | `profiling.sampling`                  | handwritten timers or `profile`    |
+|  [03]   | C-stack dump         | `faulthandler.dump_c_stack()`         | external native stack probes       |
+|  [04]   | live debug attach    | `sys.remote_exec()`                   | debugger injection hooks           |
+|  [05]   | ABI reflection       | `sys.abi_info`                        | parsed SOABI strings               |
+|  [06]   | debug line tables    | `co_lines()`                          | `co_lnotab` decoding               |
+|  [07]   | grouped exceptions   | `except*` handlers                    | single-error collapse              |
+|  [08]   | exception context    | `BaseException.add_note()`            | message concatenation              |
+|  [09]   | active exception     | `sys.exception()`                     | `sys.exc_info()[1]`                |
 |  [10]   | exception syntax     | unparenthesized `except` without `as` | tuple wrapper noise                |
 |  [11]   | finally control flow | exits kept out of `finally`           | `finally` control-flow exits       |
 |  [12]   | deprecation marker   | `@warnings.deprecated()`              | docstring-only deprecation notices |

@@ -4,7 +4,7 @@ Every Python shape must prove its lifecycle role, invariant owner, projection re
 
 Admit payloads, schemas, models, structs, dataclasses, rich classes, enums, protocols, rails, immutable evidence, projections, and replacements only when they change implementation law. Reject package-branded internal layers, package-named model families, research taxonomy, and shapes added to reduce local line count or hide weak ownership.
 
-## [1]-[SHAPE_LIFECYCLE]
+## [01]-[SHAPE_LIFECYCLE]
 
 Choose the lifecycle role before adding an owner, construct, rail, or projection.
 
@@ -12,12 +12,12 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 
 | [INDEX] | [ROLE]          | [POSITION]             | [ACCEPTS]             | [EMITS]            | [OWNER]          | [REJECT]             |
 | :-----: | :-------------- | :--------------------- | :-------------------- | :----------------- | :--------------- | :------------------- |
-|   [1]   | Raw ingress     | before admission       | external material     | payload or ingress | boundary adapter | domain raw           |
-|   [2]   | Typed payload   | before materialization | static dictionary law | ingress or owner   | payload contract | interior payload     |
-|   [3]   | Canonical owner | domain entry           | admitted values       | owner rail or view | domain concept   | parallel DTO         |
-|   [4]   | Rail/effect     | operation result       | owner or fault        | value or error     | operation edge   | exception flow       |
-|   [5]   | Projection      | boundary view          | canonical owner       | wire or row shape  | adapter surface  | projection authority |
-|   [6]   | Egress          | final handoff          | projection            | encoded material   | codec writer     | late correctness     |
+|  [01]   | Raw ingress     | before admission       | external material     | payload or ingress | boundary adapter | domain raw           |
+|  [02]   | Typed payload   | before materialization | static dictionary law | ingress or owner   | payload contract | interior payload     |
+|  [03]   | Canonical owner | domain entry           | admitted values       | owner rail or view | domain concept   | parallel DTO         |
+|  [04]   | Rail/effect     | operation result       | owner or fault        | value or error     | operation edge   | exception flow       |
+|  [05]   | Projection      | boundary view          | canonical owner       | wire or row shape  | adapter surface  | projection authority |
+|  [06]   | Egress          | final handoff          | projection            | encoded material   | codec writer     | late correctness     |
 
 [LIFECYCLE_ROLES]:
 - Raw ingress accepts `bytes`, `str`, `Mapping[str, object]`, CLI, env, or provider material; rail roles emit `Option[T]` for non-failing absence and `Result[T, E]` for typed fallibility.
@@ -91,7 +91,7 @@ def delivered(raw: object, /) -> Result[bytes, ShapeFault]:
     return admitted(raw).map(projected).bind(egressed)
 ```
 
-## [2]-[OWNER_CHOOSER]
+## [02]-[OWNER_CHOOSER]
 
 Choose the invariant owner before choosing a package-backed model, wrapper, protocol, rail, enum, or immutable collection. Five discriminants make the choice mechanical, and every misplaced shape traces to one mis-answered discriminant: admission (is the material trusted, or does it cross an untrusted edge), identity regime (is equality by value, by tag, by key, or by reference), variant arity (one shape, a closed family, or an open extension set), payload timing (is the shape fixed at definition or admitted at runtime), and openness (is the family closed to the program, semi-closed at a versioned wire, or open to foreign code). The OWNER_INDEX rows below are keyed on the answer to these discriminants.
 
@@ -99,15 +99,15 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 
 | [INDEX] | [DECISION]             | [DISCRIMINANT]           | [OWNER]              | [CHOOSE]                   | [REJECT]              |
 | :-----: | :--------------------- | :----------------------- | :------------------- | :------------------------- | :-------------------- |
-|   [1]   | static keys            | untrusted, def-time      | `[BOUNDARY_SHAPES]`  | `TypedDict`                | `dict[str, object]`   |
-|   [2]   | untrusted admission    | untrusted, runtime       | `[BOUNDARY_SHAPES]`  | Pydantic                   | interior revalidation |
-|   [3]   | wire or row            | trusted, fixed layout    | `[BOUNDARY_SHAPES]`  | `msgspec.Struct`           | domain wire owner     |
-|   [4]   | compact invariant      | trusted, value-equal     | `[DOMAIN_SHAPES]`    | frozen dataclass           | field rename class    |
-|   [5]   | durable schema or wire | trusted, schema-bound    | `[DOMAIN_SHAPES]`    | frozen Pydantic or msgspec | second owner          |
-|   [6]   | behavior-dense owner   | trusted, behavior > data | `[DOMAIN_SHAPES]`    | rich class                 | forwarding helper     |
-|   [7]   | token or absence state | closed, tag identity     | `[TOKEN_STATE_PORT]` | vocabulary, sentinel, rail | duplicate carriers    |
-|   [8]   | immutable evidence     | trusted, key/order id    | `[TOKEN_STATE_PORT]` | tuple, `frozendict`, `Map` | mutable staging       |
-|   [9]   | replaceable capability | open, structural id      | `[TOKEN_STATE_PORT]` | `Protocol`                 | single implementation |
+|  [01]   | static keys            | untrusted, def-time      | `[BOUNDARY_SHAPES]`  | `TypedDict`                | `dict[str, object]`   |
+|  [02]   | untrusted admission    | untrusted, runtime       | `[BOUNDARY_SHAPES]`  | Pydantic                   | interior revalidation |
+|  [03]   | wire or row            | trusted, fixed layout    | `[BOUNDARY_SHAPES]`  | `msgspec.Struct`           | domain wire owner     |
+|  [04]   | compact invariant      | trusted, value-equal     | `[DOMAIN_SHAPES]`    | frozen dataclass           | field rename class    |
+|  [05]   | durable schema or wire | trusted, schema-bound    | `[DOMAIN_SHAPES]`    | frozen Pydantic or msgspec | second owner          |
+|  [06]   | behavior-dense owner   | trusted, behavior > data | `[DOMAIN_SHAPES]`    | rich class                 | forwarding helper     |
+|  [07]   | token or absence state | closed, tag identity     | `[TOKEN_STATE_PORT]` | vocabulary, sentinel, rail | duplicate carriers    |
+|  [08]   | immutable evidence     | trusted, key/order id    | `[TOKEN_STATE_PORT]` | tuple, `frozendict`, `Map` | mutable staging       |
+|  [09]   | replaceable capability | open, structural id      | `[TOKEN_STATE_PORT]` | `Protocol`                 | single implementation |
 
 [BOUNDARY_SHAPES]:
 - `TypedDict` admits static key presence, closure (`closed=True`), `extra_items` extension, and `ReadOnly` evidence before materialization.
@@ -129,7 +129,7 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 - Package-branded internal layers, parallel DTOs, and one-field wrappers without independent invariants.
 - `None` failure, `Option` hiding errors, mutable staging after materialization, and protocols repairing weak ownership.
 
-## [3]-[PAYLOAD_AND_MATERIALIZATION]
+## [03]-[PAYLOAD_AND_MATERIALIZATION]
 
 [TYPED_PAYLOADS]:
 - Payloads are static dictionary contracts before materialization.
@@ -201,7 +201,7 @@ def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, ShapeFault]:
 - Domain logic receives owners, closed family members, or rails over owners.
 - Egress projects from canonical through explicit adapter construction, `msgspec.convert`, or an owner-approved projection.
 
-## [4]-[CANONICAL_OWNERS]
+## [04]-[CANONICAL_OWNERS]
 
 [CANONICAL_OWNER_LAW]:
 - Definition: the canonical owner is the first durable frozen shape accepted by domain logic.
@@ -258,7 +258,7 @@ class Shape:
 - Graduate stable wire or persistence concern to an egress projection, not a second domain owner.
 - Reject mirrored validation/domain/wire hierarchies, validator side effects, and tag-only shape families.
 
-## [5]-[VOCABULARY_ABSENCE_AND_VARIANTS]
+## [05]-[VOCABULARY_ABSENCE_AND_VARIANTS]
 
 [VOCABULARY]:
 - One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, registry rows, schema enum arms, and proof samples.
@@ -402,7 +402,7 @@ class Shape:
                 assert_never(unreachable)
 ```
 
-## [6]-[PROJECTIONS_PORTS_AND_BOUNDARIES]
+## [06]-[PROJECTIONS_PORTS_AND_BOUNDARIES]
 
 [BOUNDARY_PROJECTIONS]:
 - Ingress direction: payloads, settings, CLI slices, provider material, and ingress models admit foreign material inward.
@@ -540,7 +540,7 @@ def refreshed[S: ShapeStore](store: S, key: str, value: str, /) -> Result[S, Sha
     return store.loaded(key).map(lambda shape: replace(shape, value=value)).bind(store.stored)
 ```
 
-## [7]-[IMMUTABLE_REPLACEMENT]
+## [07]-[IMMUTABLE_REPLACEMENT]
 
 [IMMUTABLE_REPLACEMENT_LAW]:
 - Owner state: durable owners are frozen after materialization, and durable collections are `tuple`, `frozenset`, `frozendict`, `Map`, `Block`, or another admitted immutable owner.

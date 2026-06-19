@@ -2,7 +2,7 @@
 
 `watchfiles` supplies Rust-backed filesystem change notification: sync and async watch generators, change-event classification, configurable filters, and process-restart drivers for reload workflows. It is the runtime owner for filesystem watches feeding the automation lanes.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `watchfiles`
 - package: `watchfiles`
@@ -12,31 +12,31 @@
 - namespaces: `watchfiles`, `watchfiles.filters`, `watchfiles.run`
 - capability: sync/async filesystem watches, change classification, path filters, process-restart drivers
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: change and filter family
 - rail: automation
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                |
 | :-----: | :-------------- | :------------ | :------------------------------------ |
-|   [1]   | `Change`        | enum          | added/modified/deleted classification |
-|   [2]   | `BaseFilter`    | filter base   | change-filter contract                |
-|   [3]   | `DefaultFilter` | filter        | dotfile/ignore default filter         |
-|   [4]   | `PythonFilter`  | filter        | Python-source change filter           |
+|  [01]   | `Change`        | enum          | added/modified/deleted classification |
+|  [02]   | `BaseFilter`    | filter base   | change-filter contract                |
+|  [03]   | `DefaultFilter` | filter        | dotfile/ignore default filter         |
+|  [04]   | `PythonFilter`  | filter        | Python-source change filter           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: watch operations
 - rail: automation
 
 | [INDEX] | [SURFACE]      | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :------------- | :------------- | :------------------------------ |
-|   [1]   | `watch`        | watch          | blocking change generator       |
-|   [2]   | `awatch`       | watch          | async change generator          |
-|   [3]   | `run_process`  | reload         | run+restart a process on change |
-|   [4]   | `arun_process` | reload         | async run+restart driver        |
+|  [01]   | `watch`        | watch          | blocking change generator       |
+|  [02]   | `awatch`       | watch          | async change generator          |
+|  [03]   | `run_process`  | reload         | run+restart a process on change |
+|  [04]   | `arun_process` | reload         | async run+restart driver        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [AUTOMATION_TOPOLOGY]:
 - watch law: filesystem watching is one `awatch` async generator under the anyio lane, cancelled through the lane's cancel scope; no polling loop with `stat` comparison.

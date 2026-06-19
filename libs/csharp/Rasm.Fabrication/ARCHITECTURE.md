@@ -4,7 +4,7 @@ The domain map of `Rasm.Fabrication` — the host-neutral AEC-DOMAIN portable-fa
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.Fabrication/
@@ -31,7 +31,7 @@ Rasm.Fabrication/
 
 The `Process` owner and the `Polygon` substrate are read by every kernel, the `Posting` emitter is the downstream consumer, and `Process/Faults` carries the fabrication fault rail.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 Posting             ←  csharp:Rasm/Geometry/Meshing      # [WIRE]: IntersectResult / PlaneMesh section curve
@@ -46,7 +46,7 @@ Posting/projection  →  csharp:Rasm/Geometry/Spatial      # [SHAPE]: SpatialInd
 Render/drafting     →  csharp:Rasm.AppUi/Render          # [BOUNDARY]: HiddenLineSeam BSP visibility solver
 ```
 
-## [3]-[PLANNED_DEPTH]
+## [03]-[PLANNED_DEPTH]
 
 The settled author-kernels — the `Polygon/clipper` polygon algebra, the `Toolpath/skeleton` wavefront-event resolution, the `Posting/program` cut-conditioning fold, the `Nesting/nfp` NFP feasibility, the `Toolpath/kinematics` DH/IK solver, and the `Posting/projection` BSP visibility — are correct for the milling instance but bake a single hidden process (subtractive CNC milling) into the feeds-and-speeds, the toolpaths, and the post words. The recovery is the `Process/family` axis pair: the `Process`/`Machine` discriminant (mill/turn/route/laser/plasma/waterjet/additive/oxyfuel/edm-wire and their machines) is the one fabrication axis the de-hardcode hangs on. From it, `Process/physics` widens to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive), `Toolpath/motion` widens to the `(Process, ToolpathKind)` move family (lathe turning, thermal contour, additive slice-layer beside the milling four), `Posting/program` widens to the `PostDialect` family over the dialect-neutral AST, `Nesting/nfp` widens its rectangle to the `Stock` union, and `Nesting/workholding` rides the workholding kind as a `HoldingClass`-keyed `WorkholderKind` footprint-shape column on the concrete `Clamp` — each a case/row/column on a settled owner, never a parallel pipeline.
 

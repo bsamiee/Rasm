@@ -6,7 +6,7 @@ codecs the GeoPackage geometry blob (GPB header plus WKB body) for SQLite-backed
 GeoPackage stores; and the core `NetTopologySuite` assembly carries WKB/WKT
 binary and text IO in `NetTopologySuite.IO`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoJSON4STJ`
 - package: `NetTopologySuite.IO.GeoJSON4STJ`
@@ -32,16 +32,16 @@ binary and text IO in `NetTopologySuite.IO`.
 - asset: transitive runtime library
 - rail: spatial-values
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [CONVERTER_TYPES]: STJ GeoJSON converter admission
 - rail: spatial-values
 
 | [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]     | [CAPABILITY]                                        |
 | :-----: | :----------------------------- | :----------------- | :-------------------------------------------------- |
-|   [1]   | `GeoJsonConverterFactory`      | converter factory  | admits all GeoJSON converters on STJ options        |
-|   [2]   | `RingOrientationOption`        | orientation policy | selects polygon ring orientation on write           |
-|   [3]   | `StjAttributesTableExtensions` | obsolete extension | forwards to `IPartiallyDeserializedAttributesTable` |
+|  [01]   | `GeoJsonConverterFactory`      | converter factory  | admits all GeoJSON converters on STJ options        |
+|  [02]   | `RingOrientationOption`        | orientation policy | selects polygon ring orientation on write           |
+|  [03]   | `StjAttributesTableExtensions` | obsolete extension | forwards to `IPartiallyDeserializedAttributesTable` |
 
 `RingOrientationOption` cases: `DoNotModify`, `EnforceRfc9746`.
 `GeoJsonConverterFactory` constructor overloads: `()`, `(factory)`, `(writeGeometryBBox)`, `(factory, writeGeometryBBox)`, `(writeGeometryBBox, idPropertyName)`, `(factory, writeGeometryBBox, idPropertyName)`, `(writeGeometryBBox, idPropertyName, ringOrientationOption)`, `(factory, writeGeometryBBox, idPropertyName, ringOrientationOption)`, `(writeGeometryBBox, idPropertyName, ringOrientationOption, allowModifyingAttributesTables)`, `(factory, writeGeometryBBox, idPropertyName, ringOrientationOption, allowModifyingAttributesTables)`.
@@ -51,18 +51,18 @@ binary and text IO in `NetTopologySuite.IO`.
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]     | [CAPABILITY]                                     |
 | :-----: | :-------------------------------------- | :----------------- | :----------------------------------------------- |
-|   [1]   | `IPartiallyDeserializedAttributesTable` | attribute contract | deserializes table or property to typed values   |
-|   [2]   | `JsonElementAttributesTable`            | read-only adapter  | adapts `JsonElement` as `IAttributesTable`       |
-|   [3]   | `JsonObjectAttributesTable`             | mutable adapter    | adapts `JsonObject` with `Add`/`DeleteAttribute` |
+|  [01]   | `IPartiallyDeserializedAttributesTable` | attribute contract | deserializes table or property to typed values   |
+|  [02]   | `JsonElementAttributesTable`            | read-only adapter  | adapts `JsonElement` as `IAttributesTable`       |
+|  [03]   | `JsonObjectAttributesTable`             | mutable adapter    | adapts `JsonObject` with `Add`/`DeleteAttribute` |
 
 [GEOPACKAGE_TYPES]: GeoPackage geometry blob codec
 - rail: spatial-values
 
 | [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE] | [CAPABILITY]                                         |
 | :-----: | :----------------------- | :------------- | :--------------------------------------------------- |
-|   [1]   | `GeoPackageGeoReader`    | blob decoder   | reads GPB header plus WKB body to `Geometry`         |
-|   [2]   | `GeoPackageGeoWriter`    | blob encoder   | writes `Geometry` to GPB header plus WKB body        |
-|   [3]   | `GeoPackageBinaryHeader` | header value   | carries magic, version, flags, SRID, and extent data |
+|  [01]   | `GeoPackageGeoReader`    | blob decoder   | reads GPB header plus WKB body to `Geometry`         |
+|  [02]   | `GeoPackageGeoWriter`    | blob encoder   | writes `Geometry` to GPB header plus WKB body        |
+|  [03]   | `GeoPackageBinaryHeader` | header value   | carries magic, version, flags, SRID, and extent data |
 
 `GeoPackageBinaryHeader` exposes `Magic`, `Version`, `Flags`, `Ordinates`, `IsEmpty`, `Endianess`, `SrsId`, `Extent`, `ZRange`, `MRange`; `Read(BinaryReader)` and `Write(BinaryWriter, header)` are static.
 
@@ -71,8 +71,8 @@ binary and text IO in `NetTopologySuite.IO`.
 
 | [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                       |
 | :-----: | :---------- | :------------- | :--------------------------------- |
-|   [1]   | `WKBReader` | binary decoder | reads WKB byte arrays and streams  |
-|   [2]   | `WKBWriter` | binary encoder | writes WKB byte arrays and streams |
+|  [01]   | `WKBReader` | binary decoder | reads WKB byte arrays and streams  |
+|  [02]   | `WKBWriter` | binary encoder | writes WKB byte arrays and streams |
 
 `WKBReader` policy properties: `HandleSRID`, `HandleOrdinates`, `AllowedOrdinates`, `IsStrict`, `RepairRings`. Constructors: `()`, `(NtsGeometryServices)`. Read: `Read(byte[])`, `Read(Stream)`.
 `WKBWriter` policy properties: `EncodingType`, `Strict`, `HandleSRID`, `HandleOrdinates`. Constructors: `()`, `(ByteOrder)`, `(ByteOrder, handleSRID)`, `(ByteOrder, handleSRID, emitZ)`, `(ByteOrder, handleSRID, emitZ, emitM)`. Write: `Write(Geometry)` → `byte[]`, `Write(Geometry, Stream)`. Static: `ToHex(byte[])`. Constant: `AllowedOrdinates = Ordinates.XYZM`.
@@ -82,8 +82,8 @@ binary and text IO in `NetTopologySuite.IO`.
 
 | [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                               |
 | :-----: | :---------- | :------------- | :----------------------------------------- |
-|   [1]   | `WKTReader` | text decoder   | reads WKT strings, streams, and TextReader |
-|   [2]   | `WKTWriter` | text encoder   | writes WKT with ordinate and format policy |
+|  [01]   | `WKTReader` | text decoder   | reads WKT strings, streams, and TextReader |
+|  [02]   | `WKTWriter` | text encoder   | writes WKT with ordinate and format policy |
 
 `WKTReader` policy properties: `Factory`, `DefaultSRID`, `IsStrict`, `FixStructure`, `IsOldNtsCoordinateSyntaxAllowed`, `IsOldNtsMultiPointSyntaxAllowed`. Constructors: `()`, `(NtsGeometryServices)`, `(GeometryFactory)`. Read: `Read(string)`, `Read(Stream)`, `Read(TextReader)`.
 `WKTWriter` policy properties: `Formatted`, `MaxCoordinatesPerLine`, `Tab`, `OutputOrdinates`, `PrecisionModel`. Constructors: `()`, `(outputDimension)`. Static factory: `ForMicrosoftSqlServer()`. Write: `Write(Geometry)` → `string`, `Write(Geometry, Stream)`, `Write(Geometry, TextWriter)`, `WriteFormatted(Geometry)`, `WriteFormatted(Geometry, TextWriter)`. Static helpers: `ToPoint(Coordinate)`, `ToLineString(CoordinateSequence)`, `ToLineString(Coordinate[])`, `ToLineString(Coordinate, Coordinate)`.
@@ -93,69 +93,69 @@ binary and text IO in `NetTopologySuite.IO`.
 
 | [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]   | [CAPABILITY]                               |
 | :-----: | :-------------------- | :--------------- | :----------------------------------------- |
-|   [1]   | `PrecisionModel`      | precision policy | carries Floating/Fixed scale and grid size |
-|   [2]   | `Ordinates`           | ordinate flags   | selects X/Y/Z/M ordinate dimensions        |
-|   [3]   | `NtsGeometryServices` | service root     | creates factories with precision and SRID  |
+|  [01]   | `PrecisionModel`      | precision policy | carries Floating/Fixed scale and grid size |
+|  [02]   | `Ordinates`           | ordinate flags   | selects X/Y/Z/M ordinate dimensions        |
+|  [03]   | `NtsGeometryServices` | service root     | creates factories with precision and SRID  |
 
 `PrecisionModel` static presets: `Floating`, `FloatingSingle`, `Fixed` (all `Lazy<PrecisionModel>`). Constructors: `()`, `(PrecisionModels)`, `(double scale)`, `(PrecisionModel)`. Methods: `MakePrecise(double)`, `MakePrecise(Coordinate)`.
 `Ordinates` key composites: `XY = 3`, `XYZ = 7`, `XYM`, `XYZM`.
 `NtsGeometryServices` constructors accept combinations of `CoordinateSequenceFactory`, `PrecisionModel`, SRID, `GeometryOverlay`, `GeometryRelate`, and `CoordinateEqualityComparer`; `CreateGeometryFactory(...)` overloads carry each combination.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: GeoJSON serializer admission
 - rail: spatial-values
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]        | [CAPABILITY]                     |
 | :-----: | :------------------------------------- | :------------------ | :------------------------------- |
-|   [1]   | `GeoJsonConverterFactory`              | factory constructor | carries GeoJSON converter policy |
-|   [2]   | `JsonSerializerOptions.Converters.Add` | options admission   | enables GeoJSON converters       |
-|   [3]   | `DefaultIdPropertyName`                | policy constant     | names the feature `id` attribute |
-|   [4]   | `CanConvert` / `CreateConverter`       | factory overrides   | resolves per-type converters     |
+|  [01]   | `GeoJsonConverterFactory`              | factory constructor | carries GeoJSON converter policy |
+|  [02]   | `JsonSerializerOptions.Converters.Add` | options admission   | enables GeoJSON converters       |
+|  [03]   | `DefaultIdPropertyName`                | policy constant     | names the feature `id` attribute |
+|  [04]   | `CanConvert` / `CreateConverter`       | factory overrides   | resolves per-type converters     |
 
 [ENTRYPOINT_SCOPE]: attribute value projection
 - rail: spatial-values
 
 | [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]       | [CAPABILITY]                                |
 | :-----: | :--------------------------------------------------------- | :----------------- | :------------------------------------------ |
-|   [1]   | `TryDeserializeJsonObject<T>`                              | contract method    | converts a whole table to a typed CLR value |
-|   [2]   | `TryGetJsonObjectPropertyValue<T>`                         | contract method    | converts one property to a typed CLR value  |
-|   [3]   | `GetOptionalValue` / `GetNames` / `GetValues`              | table read         | reads loosely typed attribute values        |
-|   [4]   | `StjAttributesTableExtensions.TryDeserializeJsonObject<T>` | obsolete forwarder | extension on `IAttributesTable`             |
+|  [01]   | `TryDeserializeJsonObject<T>`                              | contract method    | converts a whole table to a typed CLR value |
+|  [02]   | `TryGetJsonObjectPropertyValue<T>`                         | contract method    | converts one property to a typed CLR value  |
+|  [03]   | `GetOptionalValue` / `GetNames` / `GetValues`              | table read         | reads loosely typed attribute values        |
+|  [04]   | `StjAttributesTableExtensions.TryDeserializeJsonObject<T>` | obsolete forwarder | extension on `IAttributesTable`             |
 
 [ENTRYPOINT_SCOPE]: GeoPackage blob codec
 - rail: spatial-values
 
 | [INDEX] | [SURFACE]                                        | [CALL_SHAPE]       | [CAPABILITY]                                      |
 | :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------ |
-|   [1]   | `GeoPackageGeoReader.Read`                       | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
-|   [2]   | `GeoPackageGeoWriter.Write`                      | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
-|   [3]   | `HandleOrdinates` / `HandleSRID` / `RepairRings` | codec policy       | caps ordinates, stamps header SRID, repairs rings |
-|   [4]   | `GeoPackageBinaryHeader.Read`                    | static decoder     | parses the GPB header from `BinaryReader`         |
-|   [5]   | `GeoPackageBinaryHeader.Write`                   | static encoder     | serializes the GPB header to `BinaryWriter`       |
+|  [01]   | `GeoPackageGeoReader.Read`                       | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
+|  [02]   | `GeoPackageGeoWriter.Write`                      | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
+|  [03]   | `HandleOrdinates` / `HandleSRID` / `RepairRings` | codec policy       | caps ordinates, stamps header SRID, repairs rings |
+|  [04]   | `GeoPackageBinaryHeader.Read`                    | static decoder     | parses the GPB header from `BinaryReader`         |
+|  [05]   | `GeoPackageBinaryHeader.Write`                   | static encoder     | serializes the GPB header to `BinaryWriter`       |
 
 [ENTRYPOINT_SCOPE]: WKB binary codec
 - rail: spatial-values
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]         | [CAPABILITY]                       |
 | :-----: | :--------------------- | :------------------- | :--------------------------------- |
-|   [1]   | `WKBReader.Read`       | byte[] or `Stream`   | decodes standard WKB to `Geometry` |
-|   [2]   | `WKBWriter.Write`      | `Geometry` → byte[]  | encodes `Geometry` to standard WKB |
-|   [3]   | `WKBWriter.Write`      | `Geometry`, `Stream` | streams WKB encoding               |
-|   [4]   | `WKBWriter.ToHex`      | `byte[]` → `string`  | hex-encodes a WKB byte array       |
-|   [5]   | `WKBReader.HexToBytes` | `string` → `byte[]`  | decodes a hex WKB string           |
+|  [01]   | `WKBReader.Read`       | byte[] or `Stream`   | decodes standard WKB to `Geometry` |
+|  [02]   | `WKBWriter.Write`      | `Geometry` → byte[]  | encodes `Geometry` to standard WKB |
+|  [03]   | `WKBWriter.Write`      | `Geometry`, `Stream` | streams WKB encoding               |
+|  [04]   | `WKBWriter.ToHex`      | `byte[]` → `string`  | hex-encodes a WKB byte array       |
+|  [05]   | `WKBReader.HexToBytes` | `string` → `byte[]`  | decodes a hex WKB string           |
 
 [ENTRYPOINT_SCOPE]: WKT text codec
 - rail: spatial-values
 
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]             | [CAPABILITY]                        |
 | :-----: | :-------------------------------- | :----------------------- | :---------------------------------- |
-|   [1]   | `WKTReader.Read`                  | string/Stream/TextReader | decodes WKT text to `Geometry`      |
-|   [2]   | `WKTWriter.Write`                 | `Geometry` → `string`    | encodes `Geometry` to WKT           |
-|   [3]   | `WKTWriter.WriteFormatted`        | `Geometry` → `string`    | indented WKT with coordinate policy |
-|   [4]   | `WKTWriter.ForMicrosoftSqlServer` | static factory           | configures SQL Server WKT dialect   |
+|  [01]   | `WKTReader.Read`                  | string/Stream/TextReader | decodes WKT text to `Geometry`      |
+|  [02]   | `WKTWriter.Write`                 | `Geometry` → `string`    | encodes `Geometry` to WKT           |
+|  [03]   | `WKTWriter.WriteFormatted`        | `Geometry` → `string`    | indented WKT with coordinate policy |
+|  [04]   | `WKTWriter.ForMicrosoftSqlServer` | static factory           | configures SQL Server WKT dialect   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [GEOJSON_PROFILE]:
 - profile: one converter factory owns the full GeoJSON conversion family; per-type converters are internal and reached only through `CreateConverter`

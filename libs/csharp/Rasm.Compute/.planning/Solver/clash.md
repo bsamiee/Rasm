@@ -2,11 +2,11 @@
 
 Rasm.Compute solver clash: one `ClashScale` acceleration-structure-backed collision-compute owner over federated geometry with Möller–Trumbore triangle-pair and SAT box tests, and one `DigitalTwin` ROM-eval telemetry loop scoring live signals against simulated baselines with a Kalman-smoothed residual band. The page owns the `AccelerationStructure` spatial-index cases, the `ClashKind` classification rows, the `ClashPolicy`/`ClashPair` carriers, the `TwinSignal`/`TwinFilter`/`TwinVerdict` telemetry carriers, and the `ClashScale`/`DigitalTwin` folds; the triangle/box intersection rides the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives` SIMD members, the twin baseline is the `Solver/optimizer#OPTIMIZER_LANE` `Surrogate` evaluated through `Surrogate.Predict` over a `DesignPoint`, the index persists to the Persistence blob lane content-addressed by the federated-model closure hash, and the `ComputeReceipt` rail, `WorkLane`, `CorrelationId`, `ClockPolicy`, and the `SolverKeyPolicy` ordinal accessor from `Solver/discretization#DISCRETIZATION_MESH` arrive settled. The control suggestion crosses to the AppHost industrial-output port at the boundary; the page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CLASH_AND_TWIN]: acceleration-structure collision compute; Kalman-banded ROM digital-twin loop.
+- [01]-[CLASH_AND_TWIN]: acceleration-structure collision compute; Kalman-banded ROM digital-twin loop.
 
-## [2]-[CLASH_AND_TWIN]
+## [02]-[CLASH_AND_TWIN]
 
 - Owner: `AccelerationStructure` `[Union]` spatial-index cases over federated geometry; `ClashKind` `[SmartEnum<string>]` clash-classification rows (hard/clearance/duplicate); `ClashScale` the static collision-compute fold over the persistent index; `ClashPair` the typed clash-result row; `TwinSignal` the live-telemetry sample record; `TwinFilter` the Kalman residual-smoothing state; `DigitalTwin` the static ROM-evaluation loop scoring a `TwinSignal` against a `Surrogate`-evaluated simulated baseline and emitting an anomaly verdict plus a control suggestion.
 - Cases: `AccelerationStructure` cases `Bvh` · `Octree` · `Sdf`; `ClashKind` rows hard · clearance · duplicate; `ClashPair` carries the two element ids, the clash kind, the penetration or clearance distance, and the witness point.
@@ -326,7 +326,7 @@ public static class DigitalTwin {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [CLASH_INDEX_BLOB]: the open leaf is the persistent BVH/octree blob residence and the federated-model closure-hash key against the Persistence `ArtifactIndexRow` classification surface at cross-folder alignment, riding the suite `XxHash128` closure key and the Persistence blob lane, never a second store; the `AccelerationStructure.Insert`/`Remove` incremental edits, the Möller–Trumbore and SAT tests, and the `TwinFilter` Kalman residual recursion are authored in-package folds.
 - [CLASH_GOLDEN] (frozen two-sided fixture, both pages assert byte-identical): the canonical 8-primitive `BoundingBox[]` set built `Rasm.Geometry/Spatial/index#CLASH_GOLDEN`-side through `SpatialIndex.Build(SpatialKind.Bvh, …)` with `BuildPolicy.Canonical` and projected through `ToAcceleration` serializes little-endian to one frozen golden byte sequence in the shared test corpus; this page's spec deserializes those same bytes into `AccelerationStructure.Bvh` and asserts `ClashScale.BvhPairs` decodes them by the node-link descent into the agreed clash-pair set (confirmed-clash count by `ClashKind`) — the Rasm-emits → Compute-decodes round-trip is the seam-settled signal, and the fixture must exist and pass on BOTH sides before the seam finalizes.

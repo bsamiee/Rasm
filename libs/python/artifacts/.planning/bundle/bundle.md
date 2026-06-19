@@ -2,11 +2,11 @@
 
 The artifact-bundling and compression owner. `Bundle` packs any emitted artifact into content-addressed compressed bytes; `CompressionAlgo` is ONE algorithm-row owner collapsing zstandard, lz4, brotli, and py7zr — never a per-algorithm class family. The packed bundle keys by the runtime content key over the compressed bytes, so a bundle of identical inputs at an identical algorithm is a cache hit by reference. This is bundling, not visualization; it owns no artifact production, only the compression close over already-emitted bytes.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[COMPRESSION]: algorithm-row compression and content-addressed bundle owner.
+- [01]-[COMPRESSION]: algorithm-row compression and content-addressed bundle owner.
 
-## [2]-[COMPRESSION]
+## [02]-[COMPRESSION]
 
 - Owner: `Bundle` the one bundle owner; `CompressionAlgo` the closed `StrEnum` discriminating algorithm; the algorithm package is bound per row, never an `if zstd` branch.
 - Cases: `CompressionAlgo` rows `ZSTD` (zstandard `ZstdCompressor`) · `LZ4` (lz4 `frame`) · `BROTLI` (brotli `compress`) · `SEVEN_Z` (py7zr `SevenZipFile`) — matched by `match`/`case`, each binding its algorithm package.
@@ -79,6 +79,6 @@ def _gated_codec(algo: str, payload: bytes) -> bytes:
             assert_never(algo)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 No open items. `_gated_codec` runs on the `python_version<'3.15'` band through `anyio.to_process.run_sync`, importing `lz4.frame`/`brotli` at boundary scope inside the gated-band worker, never on the cp315-core owner; the `lz4.frame.compress` and `brotli.compress(mode=MODE_GENERIC, quality=11)` spellings verify against the folder `.api` catalogues for `lz4`/`brotli`. The cp315-core `zstandard.ZstdCompressor().compress` and `py7zr.SevenZipFile`/`writef` spellings resolve in-process.

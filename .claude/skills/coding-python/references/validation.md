@@ -66,26 +66,26 @@ Checklist for auditing `.py` modules against python-standards contracts. Items b
 ---
 ## Detection Heuristics
 
-| [INDEX] | [CAUSE]                  | [GREP_ID] | [RG_PATTERN]                                          | [FIX]                                      |
-| :-----: | ------------------------ | :-------: | ----------------------------------------------------- | ------------------------------------------ |
-|   [1]   | Optional masking failure |   `G1`    | `"is None:" -g "*.py"`                                | `Option[T]` + `.to_result()`               |
-|   [2]   | Exception control flow   |   `G2`    | `"^\s*except " -g "*.py"`                             | Boundary adapter at edge, `Result` in domain |
-|   [3]   | Imperative iteration     |   `G3`    | `"^\s*for " -g "*.py"`                                | Comprehension or `map`                     |
-|   [4]   | Nominal dispatch         |   `G4`    | `"isinstance\\(" -g "*.py"`                           | Structural `match`/`case`                  |
-|   [5]   | ABC-based interface      |   `G5`    | `"class.*ABC\|from abc import" -g "*.py"`             | `Protocol` structural typing               |
-|   [6]   | Signature erasure        |   `G6`    | `"Callable\\[\\.\\.\\.," -g "*.py"`                   | PEP 695 `**P` + `Callable[P, R]`           |
-|   [7]   | Mutable domain model     |   `G7`    | `"class.*BaseModel" -g "*.py"`                        | Set `frozen=True`                          |
-|   [8]   | Bare collection          |   `G8`    | `"-> list\\[\|-> dict\\[" -g "*.py"`                  | Frozen model or `TypeAdapter`              |
-|   [9]   | Unstructured concurrency |   `G9`    | `"asyncio\\.create_task\|asyncio\\.gather" -g "*.py"` | `TaskGroup` + `start_soon`                 |
-|  [10]   | Unstructured logging     |   `G10`   | `"logging\\.info\\(f\|logger\\.info\\(f" -g "*.py"`   | Key-value structured logs                  |
-|  [11]   | Global mutable state     |   `G11`   | `"^[A-Z_]*: dict\|= \\[\\]\|= \\{\\}" -g "*.py"`      | `ContextVar[tuple]` snapshots              |
-|  [12]   | Bare primitive I/O       |   `G12`   | `"def .*: str\\) -> str:" -g "*.py"`                  | Typed atoms + `Result[T, E]`               |
-|  [13]   | Import-time IO           |   `G13`   | `"^db = \|^conn = \|^client = " -g "*.py"`            | Defer to `boot()`                          |
-|  [14]   | Imperative branching     |   `G14`   | `"^\s*if \|^\s*elif " -g "*.py"`                      | Exhaustive `match`/`case`                  |
-|  [15]   | `hasattr`/`getattr`      |   `G15`   | `"hasattr\\(\|getattr\\(" -g "*.py"`                  | `case object(attr=value)`                  |
-|  [16]   | Imperative accumulation  |   `G16`   | `"^\s*total\s*[+=]\|^\s*count\s*[+=]" -g "*.py"`      | `reduce` or `Seq.fold`                     |
-|  [17]   | Premature optimization   |   `G17`   | `"# WORKITEM.*optim\|# PERF" -g "*.py"`               | Profile with `cProfile`/`tracemalloc`      |
-|  [18]   | Stale `returns` imports  |   `G18`   | `"from returns" -g "*.py"`                             | Replace with `expression` equivalents      |
+| [INDEX] | [CAUSE]                  | [GREP_ID] | [RG_PATTERN]                                          | [FIX]                                        |
+| :-----: | ------------------------ | :-------: | ----------------------------------------------------- | -------------------------------------------- |
+|  [01]   | Optional masking failure |   `G1`    | `"is None:" -g "*.py"`                                | `Option[T]` + `.to_result()`                 |
+|  [02]   | Exception control flow   |   `G2`    | `"^\s*except " -g "*.py"`                             | Boundary adapter at edge, `Result` in domain |
+|  [03]   | Imperative iteration     |   `G3`    | `"^\s*for " -g "*.py"`                                | Comprehension or `map`                       |
+|  [04]   | Nominal dispatch         |   `G4`    | `"isinstance\\(" -g "*.py"`                           | Structural `match`/`case`                    |
+|  [05]   | ABC-based interface      |   `G5`    | `"class.*ABC\|from abc import" -g "*.py"`             | `Protocol` structural typing                 |
+|  [06]   | Signature erasure        |   `G6`    | `"Callable\\[\\.\\.\\.," -g "*.py"`                   | PEP 695 `**P` + `Callable[P, R]`             |
+|  [07]   | Mutable domain model     |   `G7`    | `"class.*BaseModel" -g "*.py"`                        | Set `frozen=True`                            |
+|  [08]   | Bare collection          |   `G8`    | `"-> list\\[\|-> dict\\[" -g "*.py"`                  | Frozen model or `TypeAdapter`                |
+|  [09]   | Unstructured concurrency |   `G9`    | `"asyncio\\.create_task\|asyncio\\.gather" -g "*.py"` | `TaskGroup` + `start_soon`                   |
+|  [10]   | Unstructured logging     |   `G10`   | `"logging\\.info\\(f\|logger\\.info\\(f" -g "*.py"`   | Key-value structured logs                    |
+|  [11]   | Global mutable state     |   `G11`   | `"^[A-Z_]*: dict\|= \\[\\]\|= \\{\\}" -g "*.py"`      | `ContextVar[tuple]` snapshots                |
+|  [12]   | Bare primitive I/O       |   `G12`   | `"def .*: str\\) -> str:" -g "*.py"`                  | Typed atoms + `Result[T, E]`                 |
+|  [13]   | Import-time IO           |   `G13`   | `"^db = \|^conn = \|^client = " -g "*.py"`            | Defer to `boot()`                            |
+|  [14]   | Imperative branching     |   `G14`   | `"^\s*if \|^\s*elif " -g "*.py"`                      | Exhaustive `match`/`case`                    |
+|  [15]   | `hasattr`/`getattr`      |   `G15`   | `"hasattr\\(\|getattr\\(" -g "*.py"`                  | `case object(attr=value)`                    |
+|  [16]   | Imperative accumulation  |   `G16`   | `"^\s*total\s*[+=]\|^\s*count\s*[+=]" -g "*.py"`      | `reduce` or `Seq.fold`                       |
+|  [17]   | Premature optimization   |   `G17`   | `"# WORKITEM.*optim\|# PERF" -g "*.py"`               | Profile with `cProfile`/`tracemalloc`        |
+|  [18]   | Stale `returns` imports  |   `G18`   | `"from returns" -g "*.py"`                            | Replace with `expression` equivalents        |
 
 All patterns use `rg -n`. Combine G2+G14 for full control-flow audit; G4+G15 for dispatch audit.
 
@@ -101,14 +101,14 @@ All patterns use `rg -n`. Combine G2+G14 for full control-flow audit; G4+G15 for
 ---
 ## Quick Reference
 
-| [INDEX] | [CHECKLIST_AREA]      | [WHAT_IT_VALIDATES]                                                            |
-| :-----: | --------------------- | ------------------------------------------------------------------------------ |
-|   [1]   | TYPE_INTEGRITY        | Atoms, frozen models, unions, immutable collections                            |
-|   [2]   | EFFECT_INTEGRITY      | Result/Option/@effect.async_result, pipe, library consistency                  |
-|   [3]   | CONTROL_FLOW          | match/case exhaustive, zero imperative branching                               |
-|   [4]   | DECORATOR_INTEGRITY   | PEP 695 `**P`, ordering, single-concern                                        |
-|   [5]   | CONCURRENCY_INTEGRITY | TaskGroup, CancelScope, CapacityLimiter, ContextVar                            |
-|   [6]   | SURFACE_QUALITY       | No helpers, framework coupling, import-time IO                                 |
-|   [7]   | ALGORITHM_INTEGRITY   | Folds, scans, generators, @trampoline, Decimal                                 |
-|   [8]   | PERFORMANCE_INTEGRITY | __slots__, singletons, backpressure, profiling-first                           |
-|   [9]   | DETECTION_HEURISTICS  | Grep-based violation surface scan (G1-G18)                                     |
+| [INDEX] | [CHECKLIST_AREA]      | [WHAT_IT_VALIDATES]                                           |
+| :-----: | --------------------- | ------------------------------------------------------------- |
+|  [01]   | TYPE_INTEGRITY        | Atoms, frozen models, unions, immutable collections           |
+|  [02]   | EFFECT_INTEGRITY      | Result/Option/@effect.async_result, pipe, library consistency |
+|  [03]   | CONTROL_FLOW          | match/case exhaustive, zero imperative branching              |
+|  [04]   | DECORATOR_INTEGRITY   | PEP 695 `**P`, ordering, single-concern                       |
+|  [05]   | CONCURRENCY_INTEGRITY | TaskGroup, CancelScope, CapacityLimiter, ContextVar           |
+|  [06]   | SURFACE_QUALITY       | No helpers, framework coupling, import-time IO                |
+|  [07]   | ALGORITHM_INTEGRITY   | Folds, scans, generators, @trampoline, Decimal                |
+|  [08]   | PERFORMANCE_INTEGRITY | __slots__, singletons, backpressure, profiling-first          |
+|  [09]   | DETECTION_HEURISTICS  | Grep-based violation surface scan (G1-G18)                    |

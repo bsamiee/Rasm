@@ -2,7 +2,7 @@
 
 A README is an entry document for one boundary: repository, package, directory, documentation corpus, tool, or local service. It orients the reader, gives the shortest route to one useful next action, surfaces the high-signal operating facts needed to use or route the boundary safely, and links every exhaustive concern to the document that carries it. A README is a focused index and operating surface, not an exhaustive architecture page, API catalog, generated CLI help dump, tutorial, runbook, roadmap, ADR, or contribution workflow.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use a README to open exactly one boundary:
 - repository root for users, adopters, and contributors.
@@ -12,7 +12,7 @@ Use a README to open exactly one boundary:
 
 Route exhaustive architecture structure, generated API or symbol catalogs, complete flag help, learning paths, operational recovery, future-work sequences, durable decisions, contribution workflow, and instruction-only behavior to their controlling standards. A README may link an instruction file when it changes the reader's route, but it must not copy the instruction body. Keep the README to orientation, first path, action-changing status, curated operating facts, and routing.
 
-## [2]-[AUTHORING_CONTRACT]
+## [02]-[AUTHORING_CONTRACT]
 
 README files carry useful operating facts at summary depth: boundary, first successful action, action-changing status, curated commands or entrypoints, integration and machine-contract facts that change use, and routes. Do not add a section unless it changes one of those facts.
 
@@ -22,7 +22,7 @@ README files carry useful operating facts at summary depth: boundary, first succ
 - Adjacent checks: check architecture, API, reference, support matrix, tutorial, how-to, runbook, roadmap, contributing, code documentation, and instruction routes only when README status, first path, entrypoints, or routes change.
 - Maintenance triggers: display name, boundary, first command, verification signal, status, support fact, entrypoint, curated command surface, side effect, machine contract, integration, license, child page, or maintained route changes.
 
-## [3]-[README_BASELINES]
+## [03]-[README_BASELINES]
 
 README conventions come from platform rendering, local routing policy, and repository confirmation. Use the maintained material that carries the question.
 
@@ -34,9 +34,9 @@ README heading modes are:
 
 | [INDEX] | [SURFACE]                                  | [HEADING_MODE]  | [RULE]                                                                    |
 | :-----: | :----------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
-|   [1]   | public or registry surface                 | plain H1/H2     | use names such as `# <Repository display name>`, `## Install`, `## Usage` |
-|   [2]   | repo-internal standards-controlled surface | bracketed H1/H2 | use `# [PACKAGE_OR_DIRECTORY_NAME]`, not `# [H1][...]`                    |
-|   [3]   | mixed mode                                 | rejected        | choose one mode and migrate when touched                                  |
+|  [01]   | public or registry surface                 | plain H1/H2     | use names such as `# <Repository display name>`, `## Install`, `## Usage` |
+|  [02]   | repo-internal standards-controlled surface | bracketed H1/H2 | use `# [PACKAGE_OR_DIRECTORY_NAME]`, not `# [H1][...]`                    |
+|  [03]   | mixed mode                                 | rejected        | choose one mode and migrate when touched                                  |
 
 Rejected repo-internal H1:
 
@@ -50,20 +50,20 @@ Use the boundary name directly:
 # [TOOL_OPERATOR]
 ```
 
-## [4]-[PROFILES]
+## [04]-[PROFILES]
 
 Choose one primary profile by the boundary the README opens, not by the directory where it sits.
 
 | [INDEX] | [PROFILE]     | [READER]                    | [BOUNDARY]      | [SUCCESS_SIGNAL]                       |
 | :-----: | :------------ | :-------------------------- | :-------------- | :------------------------------------- |
-|   [1]   | Root entry    | user or contributor         | repository      | first run plus route-doc route         |
-|   [2]   | Package entry | package consumer or editor  | package         | purpose, status, and entrypoints       |
-|   [3]   | Hub index     | corpus navigator            | docs corpus     | correct child page on first read       |
-|   [4]   | Tool entry    | command or service operator | tool or service | first command runs and verifies effect |
+|  [01]   | Root entry    | user or contributor         | repository      | first run plus route-doc route         |
+|  [02]   | Package entry | package consumer or editor  | package         | purpose, status, and entrypoints       |
+|  [03]   | Hub index     | corpus navigator            | docs corpus     | correct child page on first read       |
+|  [04]   | Tool entry    | command or service operator | tool or service | first command runs and verifies effect |
 
 Name the profile in the opening paragraph when the file could plausibly read as another profile.
 
-## [5]-[README_CONTRACT]
+## [05]-[README_CONTRACT]
 
 Every README obeys one shared contract:
 - Name the file `README.md` unless a hosting platform or localization standard requires a documented variant.
@@ -76,7 +76,7 @@ Every README obeys one shared contract:
 
 Field cardinality: file name, H1, and description are required and singular. Section-heading convention is required and singular: choose public plain headings or repo-internal bracketed headings, not both. Badges and banners are optional and repeatable. Relative links are required for every local link.
 
-## [6]-[REQUIRED_STRUCTURE]
+## [06]-[REQUIRED_STRUCTURE]
 
 Use the core template for the chosen profile, then add only the conditional sections that the profile triggers. Public and registry-visible README files use plain section headings; repo-internal README files may translate the same section names into the bracketed heading idiom only when local standards control the renderer.
 
@@ -189,7 +189,7 @@ Package entry field order is a README-local exception because package readers de
 
 A tool README may show the first command, one verification command, side effects needed to interpret first success, and a curated command or integration surface when those facts are the operator-facing product. Full generated command help, exhaustive flags, complete envelope field catalogs, status algebra, source signatures, maintenance gates, and recovery procedures route to API, reference, architecture, runbook, source, or instruction routes.
 
-## [7]-[BADGES_BANNERS]
+## [07]-[BADGES_BANNERS]
 
 Badges are status claims, not decoration. Include a badge only when it reflects maintained automation, a release, security posture, or package fact that a reader can verify.
 
@@ -203,7 +203,7 @@ A badge is a support or status claim and inherits the confirmation obligation of
 
 Banners are identity or orientation media, not confirmation. Include a banner only when the hosting surface renders local images reliably, the image has useful alt text, and the README still opens with a visible text description. Do not use a banner as the only carrier of product name, status, support, or call-to-action content.
 
-## [8]-[CONTENT_REQUIREMENTS]
+## [08]-[CONTENT_REQUIREMENTS]
 
 A README must carry the facts its profile needs and no deeper route's body.
 
@@ -225,14 +225,14 @@ Use this surface-split selector. Rows name ownership routes, not inventories:
 
 | [INDEX] | [SURFACE]                    | [README_KEEPS]                       | [ROUTE_AWAY]                          |
 | :-----: | :--------------------------- | :----------------------------------- | :------------------------------------ |
-|   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows     |
-|   [2]   | `ARCHITECTURE.md`            | current-structure link               | codemaps, matrices, invariants        |
-|   [3]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields    |
-|   [4]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, active work, terminal work |
+|  [01]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows     |
+|  [02]   | `ARCHITECTURE.md`            | current-structure link               | codemaps, matrices, invariants        |
+|  [03]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields    |
+|  [04]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, active work, terminal work |
 
 README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or `[NEVER]`; those belong in instruction surfaces.
 
-## [9]-[STRUCTURE_RULES]
+## [09]-[STRUCTURE_RULES]
 
 Use structure where it improves scanning:
 - Status, maturity, and support: status-tagged record with `Surface`, `Status`, `Reader action`, `Exit`, `Observed result` or `Owner`, and `Review trigger` when the claim can drift. `Phase N`, `in progress`, and similar progress labels are invalid README status unless the row names an exit condition and routes implementation sequence to roadmap.

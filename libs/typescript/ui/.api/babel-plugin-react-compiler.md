@@ -2,7 +2,7 @@
 
 `babel-plugin-react-compiler` is the Babel transform that runs the React Compiler over component and hook functions. It exposes the plugin default export for Vite/Babel integration, `PluginOptions` for configuration, and a set of compiler internals (`compileFn`, `compileProgram`, diagnostic classes, enums) that advanced instrumentation consumers reference directly.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `babel-plugin-react-compiler`
 - package: `babel-plugin-react-compiler`
@@ -10,93 +10,93 @@
 - asset: Babel plugin transform, compiler pipeline, diagnostic types, `PluginOptions`
 - rail: build
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin configuration family
 - rail: build
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                                                                              |
 | :-----: | :------------------------- | :---------------- | :---------------------------------------------------------------------------------- |
-|   [1]   | `PluginOptions`            | config record     | top-level plugin options                                                            |
-|   [2]   | `ParsedPluginOptions`      | normalized config | `Required<Omit<PluginOptions,'environment'>> & { environment: EnvironmentConfig }`  |
-|   [3]   | `EnvironmentConfig`        | env config        | `z.infer<typeof EnvironmentConfigSchema>`                                           |
-|   [4]   | `PartialEnvironmentConfig` | partial env       | `Partial<EnvironmentConfig>`                                                        |
-|   [5]   | `CompilationMode`          | mode enum         | `"syntax" \| "infer" \| "annotation" \| "all"`                                      |
-|   [6]   | `CompilerReactTarget`      | target union      | `"17" \| "18" \| "19" \| { kind: "donotuse_meta_internal"; runtimeModule: string }` |
-|   [7]   | `PanicThresholdOptions`    | panic mode        | `"none" \| "all_errors" \| "critical_errors"`                                       |
-|   [8]   | `ExternalFunction`         | import ref        | `{ source: string; importSpecifierName: string }`                                   |
+|  [01]   | `PluginOptions`            | config record     | top-level plugin options                                                            |
+|  [02]   | `ParsedPluginOptions`      | normalized config | `Required<Omit<PluginOptions,'environment'>> & { environment: EnvironmentConfig }`  |
+|  [03]   | `EnvironmentConfig`        | env config        | `z.infer<typeof EnvironmentConfigSchema>`                                           |
+|  [04]   | `PartialEnvironmentConfig` | partial env       | `Partial<EnvironmentConfig>`                                                        |
+|  [05]   | `CompilationMode`          | mode enum         | `"syntax" \| "infer" \| "annotation" \| "all"`                                      |
+|  [06]   | `CompilerReactTarget`      | target union      | `"17" \| "18" \| "19" \| { kind: "donotuse_meta_internal"; runtimeModule: string }` |
+|  [07]   | `PanicThresholdOptions`    | panic mode        | `"none" \| "all_errors" \| "critical_errors"`                                       |
+|  [08]   | `ExternalFunction`         | import ref        | `{ source: string; importSpecifierName: string }`                                   |
 
 [PUBLIC_TYPE_SCOPE]: diagnostic family
 - rail: build
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]    | [RAIL]                                             |
 | :-----: | :---------------------------- | :--------------- | :------------------------------------------------- |
-|   [1]   | `CompilerError`               | error class      | aggregates `CompilerErrorDetail` list              |
-|   [2]   | `CompilerErrorDetail`         | detail class     | single error with `reason`, `loc`, `category`      |
-|   [3]   | `CompilerDiagnostic`          | diagnostic class | single diagnostic with `severity`                  |
-|   [4]   | `ErrorCategory`               | category enum    | `Hooks \| Immutability \| Refs \| ...`             |
-|   [5]   | `ErrorSeverity`               | severity enum    | `Error \| Warning \| Hint \| Off`                  |
-|   [6]   | `CompilerSuggestionOperation` | op enum          | `InsertBefore \| InsertAfter \| Remove \| Replace` |
-|   [7]   | `SourceLocation`              | location union   | `t.SourceLocation \| typeof GeneratedSource`       |
+|  [01]   | `CompilerError`               | error class      | aggregates `CompilerErrorDetail` list              |
+|  [02]   | `CompilerErrorDetail`         | detail class     | single error with `reason`, `loc`, `category`      |
+|  [03]   | `CompilerDiagnostic`          | diagnostic class | single diagnostic with `severity`                  |
+|  [04]   | `ErrorCategory`               | category enum    | `Hooks \| Immutability \| Refs \| ...`             |
+|  [05]   | `ErrorSeverity`               | severity enum    | `Error \| Warning \| Hint \| Off`                  |
+|  [06]   | `CompilerSuggestionOperation` | op enum          | `InsertBefore \| InsertAfter \| Remove \| Replace` |
+|  [07]   | `SourceLocation`              | location union   | `t.SourceLocation \| typeof GeneratedSource`       |
 
 [PUBLIC_TYPE_SCOPE]: logger and pipeline family
 - rail: build
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                   |
 | :-----: | :---------------------- | :-------------- | :------------------------------------------------------- |
-|   [1]   | `Logger`                | logger contract | `{ logEvent; debugLogIRs? }`                             |
-|   [2]   | `LoggerEvent`           | event union     | compile success/error/skip/timing/autodeps               |
-|   [3]   | `CompileSuccessEvent`   | success event   | `kind:"CompileSuccess"` + memo stats                     |
-|   [4]   | `CompileErrorEvent`     | error event     | `kind:"CompileError"` + detail                           |
-|   [5]   | `CompilerPipelineValue` | pipeline value  | `ast \| hir \| reactive \| debug`                        |
-|   [6]   | `LintRule`              | lint rule       | `{ category; severity; name; description; recommended }` |
+|  [01]   | `Logger`                | logger contract | `{ logEvent; debugLogIRs? }`                             |
+|  [02]   | `LoggerEvent`           | event union     | compile success/error/skip/timing/autodeps               |
+|  [03]   | `CompileSuccessEvent`   | success event   | `kind:"CompileSuccess"` + memo stats                     |
+|  [04]   | `CompileErrorEvent`     | error event     | `kind:"CompileError"` + detail                           |
+|  [05]   | `CompilerPipelineValue` | pipeline value  | `ast \| hir \| reactive \| debug`                        |
+|  [06]   | `LintRule`              | lint rule       | `{ category; severity; name; description; recommended }` |
 
 [PUBLIC_TYPE_SCOPE]: IR enums
 - rail: build
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [RAIL]                                                               |
 | :-----: | :------------ | :------------ | :------------------------------------------------------------------- |
-|   [1]   | `Effect`      | effect enum   | `Unknown \| Freeze \| Read \| Capture \| Mutate \| Store \| ...`     |
-|   [2]   | `ValueKind`   | value enum    | `MaybeFrozen \| Frozen \| Primitive \| Global \| Mutable \| Context` |
-|   [3]   | `ValueReason` | reason enum   | `Global \| JsxCaptured \| HookCaptured \| State \| ...`              |
+|  [01]   | `Effect`      | effect enum   | `Unknown \| Freeze \| Read \| Capture \| Mutate \| Store \| ...`     |
+|  [02]   | `ValueKind`   | value enum    | `MaybeFrozen \| Frozen \| Primitive \| Global \| Mutable \| Context` |
+|  [03]   | `ValueReason` | reason enum   | `Global \| JsxCaptured \| HookCaptured \| State \| ...`              |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin integration
 - rail: build
 
 | [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]   | [RAIL]                                     |
 | :-----: | :--------------------------------------------- | :--------------- | :----------------------------------------- |
-|   [1]   | `default` (`BabelPluginReactCompiler(_babel)`) | babel plugin     | `(_babel: typeof BabelCore) => PluginObj`  |
-|   [2]   | `parsePluginOptions(obj)`                      | option parser    | validates + returns `ParsedPluginOptions`  |
-|   [3]   | `validateEnvironmentConfig(partialConfig)`     | env validator    | returns `EnvironmentConfig`                |
-|   [4]   | `compileProgram(program, pass)`                | program pass     | runs full compiler pass over a `t.Program` |
-|   [5]   | `compile` (`compileFn`)                        | function compile | compiles a single function node            |
+|  [01]   | `default` (`BabelPluginReactCompiler(_babel)`) | babel plugin     | `(_babel: typeof BabelCore) => PluginObj`  |
+|  [02]   | `parsePluginOptions(obj)`                      | option parser    | validates + returns `ParsedPluginOptions`  |
+|  [03]   | `validateEnvironmentConfig(partialConfig)`     | env validator    | returns `EnvironmentConfig`                |
+|  [04]   | `compileProgram(program, pass)`                | program pass     | runs full compiler pass over a `t.Program` |
+|  [05]   | `compile` (`compileFn`)                        | function compile | compiles a single function node            |
 
 [ENTRYPOINT_SCOPE]: directive utilities
 - rail: build
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :---------------------------------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `findDirectiveEnablingMemoization(directives, opts)`  | opt-in finder  | returns matching `t.Directive \| null` |
-|   [2]   | `findDirectiveDisablingMemoization(directives, opts)` | opt-out finder | returns `t.Directive \| null`          |
-|   [3]   | `OPT_IN_DIRECTIVES`                                   | directive set  | `Set<string>` of opt-in strings        |
-|   [4]   | `OPT_OUT_DIRECTIVES`                                  | directive set  | `Set<string>` of opt-out strings       |
+|  [01]   | `findDirectiveEnablingMemoization(directives, opts)`  | opt-in finder  | returns matching `t.Directive \| null` |
+|  [02]   | `findDirectiveDisablingMemoization(directives, opts)` | opt-out finder | returns `t.Directive \| null`          |
+|  [03]   | `OPT_IN_DIRECTIVES`                                   | directive set  | `Set<string>` of opt-in strings        |
+|  [04]   | `OPT_OUT_DIRECTIVES`                                  | directive set  | `Set<string>` of opt-out strings       |
 
 [ENTRYPOINT_SCOPE]: debug and test utilities
 - rail: build
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                              |
 | :-----: | :----------------------------------------------------------------- | :------------- | :---------------------------------- |
-|   [1]   | `printFunctionWithOutlined(fn)`                                    | debug print    | HIR function text dump              |
-|   [2]   | `printHIR(ir, options?)`                                           | debug print    | HIR block dump                      |
-|   [3]   | `printReactiveFunction(fn)`                                        | debug print    | reactive function text dump         |
-|   [4]   | `printReactiveFunctionWithOutlined(fn)`                            | debug print    | reactive + outlined text dump       |
-|   [5]   | `runBabelPluginReactCompiler(text, file, lang, opts, includeAst?)` | standalone     | runs compiler outside Babel         |
-|   [6]   | `parseConfigPragmaForTests(pragma, defaults)`                      | test util      | parses `@compilationMode` pragma    |
-|   [7]   | `LintRules`                                                        | rule catalog   | `Array<LintRule>` of all lint rules |
+|  [01]   | `printFunctionWithOutlined(fn)`                                    | debug print    | HIR function text dump              |
+|  [02]   | `printHIR(ir, options?)`                                           | debug print    | HIR block dump                      |
+|  [03]   | `printReactiveFunction(fn)`                                        | debug print    | reactive function text dump         |
+|  [04]   | `printReactiveFunctionWithOutlined(fn)`                            | debug print    | reactive + outlined text dump       |
+|  [05]   | `runBabelPluginReactCompiler(text, file, lang, opts, includeAst?)` | standalone     | runs compiler outside Babel         |
+|  [06]   | `parseConfigPragmaForTests(pragma, defaults)`                      | test util      | parses `@compilationMode` pragma    |
+|  [07]   | `LintRules`                                                        | rule catalog   | `Array<LintRule>` of all lint rules |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [BUILD_TOPOLOGY]:
 - The default export is a Babel plugin factory; pass it directly in `plugins` arrays for Vite/Babel config

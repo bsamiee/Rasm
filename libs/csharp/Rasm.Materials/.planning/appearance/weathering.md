@@ -2,11 +2,11 @@
 
 THE AGING OPERATOR. One `Weathering` static fold over the closed `WeatheringEffect` `[Union]` (patina · oxidation · soiling · uv-fade) drives a `graph#MATERIAL_LIBRARY` `MaterialParameters` row forward along an `AgeParameter` so a library row carries its weathering trajectory rather than a single frozen state. An aged material is NEVER a second appearance surface: `Weathering.Apply` takes the base `MaterialParameters` and an `AgeParameter` and returns the aged `MaterialParameters` the SAME `graph#MATERIAL_GRAPH` node fold and `bsdf#LOBE_FAMILY` lobe set shade — a copper roof greens, a facade soils, a coating chalks as a function of the one age scalar, never a `WeatheredCopper`/`SoiledFacade` type. The aging is a parameterized operator over the existing `MaterialParameters` columns (base color, roughness, metalness, sheen) interpolated through Wacton.Unicolour scene-linear mixing toward each effect's terminal state, composed not re-minted; the realized `bsdf#OPENPBR_SLAB` `SlabStack` slab columns are the available layering target the aging trajectory terminal drives once a row lowers, the flat `MaterialParameters` interpolation the form today until a consumer wires the slab-column delta. The page composes `graph#MATERIAL_LIBRARY` `MaterialParameters` for the parameter vector, Wacton.Unicolour directly for the scene-linear color interpolation, and the `MaterialFault` band-2450 rail for a non-finite or out-of-range age.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[WEATHERING]: the `AgeParameter` value-object, the `WeatheringEffect` `[Union]` effect family, the `WeatheringTrajectory` per-effect terminal/rate row, and the one `Weathering.Apply` aging fold over `MaterialParameters`.
+- [01]-[WEATHERING]: the `AgeParameter` value-object, the `WeatheringEffect` `[Union]` effect family, the `WeatheringTrajectory` per-effect terminal/rate row, and the one `Weathering.Apply` aging fold over `MaterialParameters`.
 
-## [2]-[WEATHERING]
+## [02]-[WEATHERING]
 
 - Owner: `Weathering` static aging fold; `AgeParameter` `[ValueObject<double>]` the `[0,1]` normalized age; `WeatheringEffect` `[Union]` (patina · oxidation · soiling · uv-fade); `WeatheringTrajectory` the per-effect terminal-state/rate row.
 - Cases: effect {`Patina` (verdigris green terminal, metalness drop), `Oxidation` (rust/tarnish terminal, roughness rise), `Soiling` (grey grime terminal, sheen drop), `UvFade` (desaturated terminal, base-color lerp)} — the closed weathering family; an effect is a `WeatheringEffect` case carrying its trajectory, never an effect subtype.
@@ -69,7 +69,7 @@ public static class Weathering {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [WEATHERING_TRAJECTORY]: the per-effect terminal states and rate exponents are the source-backed aging curves — copper verdigris (Cu→CuCO₃ patina chromaticity), iron oxidation (Fe₂O₃ rust reflectance), atmospheric soiling (grey-grime deposition), and UV polymer fade (chromophore bleaching desaturation) each carry a published terminal color and a sub-linear `age^rate` deposition curve. The four realized trajectories are the seed; a new effect lands its terminal `Unicolour` and rate as one `WeatheringEffect` case. The probe is the per-effect curve calibration against measured aging series, not a re-architecture of the fold.
 - [OPENPBR_SLAB_AGING]: the realized `bsdf#OPENPBR_SLAB` `SlabStack` lets the aging target the OpenPBR slab columns directly once a row lowers — chalking raises the coat roughness slab, soiling raises the fuzz weight, patina swaps the base `ConductorMetal` — so the trajectory terminal becomes a slab-column delta rather than a flat `MaterialParameters` interpolation. The flat `MaterialParameters` interpolation is the current form because no consumer yet drives the slab columns through weathering; the probe is wiring the trajectory terminal onto the `SlabStack.Lower` columns.

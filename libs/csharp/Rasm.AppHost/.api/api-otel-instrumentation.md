@@ -5,7 +5,7 @@ supply meter-provider admission of .NET runtime metrics and tracer/meter-provide
 admission of `HttpClient` request telemetry with filter, enrichment, and exception
 recording policy.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Runtime`
 - package: `OpenTelemetry.Instrumentation.Runtime`
@@ -24,26 +24,26 @@ recording policy.
 - asset: runtime library
 - rail: observability
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime instrumentation family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]    | [CAPABILITY]                        |
 | :-----: | :------------------------------- | :---------------- | :---------------------------------- |
-|   [1]   | `MeterProviderBuilderExtensions` | builder extension | runtime meter admission             |
-|   [2]   | `RuntimeInstrumentationOptions`  | options value     | runtime metrics policy (memberless) |
+|  [01]   | `MeterProviderBuilderExtensions` | builder extension | runtime meter admission             |
+|  [02]   | `RuntimeInstrumentationOptions`  | options value     | runtime metrics policy (memberless) |
 
 [PUBLIC_TYPE_SCOPE]: HttpClient instrumentation family
 - rail: observability
 
 | [INDEX] | [SYMBOL]                                                   | [PACKAGE_ROLE]    | [CAPABILITY]                                |
 | :-----: | :--------------------------------------------------------- | :---------------- | :------------------------------------------ |
-|   [1]   | `HttpClientInstrumentationTracerProviderBuilderExtensions` | builder extension | `HttpClient` trace admission                |
-|   [2]   | `HttpClientInstrumentationMeterProviderBuilderExtensions`  | builder extension | `HttpClient` and DNS meter admission        |
-|   [3]   | `HttpClientTraceInstrumentationOptions`                    | options value     | filter, enrichment, exception-record policy |
+|  [01]   | `HttpClientInstrumentationTracerProviderBuilderExtensions` | builder extension | `HttpClient` trace admission                |
+|  [02]   | `HttpClientInstrumentationMeterProviderBuilderExtensions`  | builder extension | `HttpClient` and DNS meter admission        |
+|  [03]   | `HttpClientTraceInstrumentationOptions`                    | options value     | filter, enrichment, exception-record policy |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider registration
 - rail: observability
@@ -52,41 +52,41 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter on
 
 | [INDEX] | [SURFACE]                      | [BUILDER_SIGNAL]     | [OPTIONS]                               | [CAPABILITY]                           |
 | :-----: | :----------------------------- | :------------------- | :-------------------------------------- | :------------------------------------- |
-|   [1]   | `AddRuntimeInstrumentation`    | metrics runtime      | —                                       | sub: `System.Runtime` meter            |
-|   [2]   | `AddRuntimeInstrumentation`    | metrics runtime      | `RuntimeInstrumentationOptions`         | configures pre-9 `RuntimeMetrics`      |
-|   [3]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | —                                       | sub: `System.Net.Http` activity source |
-|   [4]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | `HttpClientTraceInstrumentationOptions` | filter and enrichment policy           |
-|   [5]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | name + trace options                    | named-options trace policy             |
-|   [6]   | `AddHttpClientInstrumentation` | metrics HTTP + DNS   | —                                       | sub: HTTP and name-resolution meters   |
+|  [01]   | `AddRuntimeInstrumentation`    | metrics runtime      | —                                       | sub: `System.Runtime` meter            |
+|  [02]   | `AddRuntimeInstrumentation`    | metrics runtime      | `RuntimeInstrumentationOptions`         | configures pre-9 `RuntimeMetrics`      |
+|  [03]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | —                                       | sub: `System.Net.Http` activity source |
+|  [04]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | `HttpClientTraceInstrumentationOptions` | filter and enrichment policy           |
+|  [05]   | `AddHttpClientInstrumentation` | tracing `HttpClient` | name + trace options                    | named-options trace policy             |
+|  [06]   | `AddHttpClientInstrumentation` | metrics HTTP + DNS   | —                                       | sub: HTTP and name-resolution meters   |
 
 [ENTRYPOINT_SCOPE]: HttpClient trace options
 - rail: observability
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                             | [CAPABILITY]                                      |
 | :-----: | :------------------------------ | :--------------------------------------- | :------------------------------------------------ |
-|   [1]   | `FilterHttpRequestMessage`      | `Func<HttpRequestMessage, bool>?`        | per-request collection gate; false or throw drops |
-|   [2]   | `EnrichWithHttpRequestMessage`  | `Action<Activity, HttpRequestMessage>?`  | request-side activity enrichment                  |
-|   [3]   | `EnrichWithHttpResponseMessage` | `Action<Activity, HttpResponseMessage>?` | response-side activity enrichment                 |
-|   [4]   | `EnrichWithException`           | `Action<Activity, Exception>?`           | exception enrichment on all runtimes              |
-|   [5]   | `FilterHttpWebRequest`          | `Func<HttpWebRequest, bool>?`            | .NET Framework collection gate                    |
-|   [6]   | `EnrichWithHttpWebRequest`      | `Action<Activity, HttpWebRequest>?`      | .NET Framework request enrichment                 |
-|   [7]   | `EnrichWithHttpWebResponse`     | `Action<Activity, HttpWebResponse>?`     | .NET Framework response enrichment                |
-|   [8]   | `RecordException`               | `bool` property, default false           | records exceptions as `ActivityEvent`             |
+|  [01]   | `FilterHttpRequestMessage`      | `Func<HttpRequestMessage, bool>?`        | per-request collection gate; false or throw drops |
+|  [02]   | `EnrichWithHttpRequestMessage`  | `Action<Activity, HttpRequestMessage>?`  | request-side activity enrichment                  |
+|  [03]   | `EnrichWithHttpResponseMessage` | `Action<Activity, HttpResponseMessage>?` | response-side activity enrichment                 |
+|  [04]   | `EnrichWithException`           | `Action<Activity, Exception>?`           | exception enrichment on all runtimes              |
+|  [05]   | `FilterHttpWebRequest`          | `Func<HttpWebRequest, bool>?`            | .NET Framework collection gate                    |
+|  [06]   | `EnrichWithHttpWebRequest`      | `Action<Activity, HttpWebRequest>?`      | .NET Framework request enrichment                 |
+|  [07]   | `EnrichWithHttpWebResponse`     | `Action<Activity, HttpWebResponse>?`     | .NET Framework response enrichment                |
+|  [08]   | `RecordException`               | `bool` property, default false           | records exceptions as `ActivityEvent`             |
 
 [ENTRYPOINT_SCOPE]: runtime instruments (pre-.NET 9 meter `OpenTelemetry.Instrumentation.Runtime`)
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]               | [CAPABILITY]                        |
 | :-----: | :--------------------------------------------------------- | :------------------------- | :---------------------------------- |
-|   [1]   | `process.runtime.dotnet.gc.collections.count`              | observable counter         | GC collections per generation       |
-|   [2]   | `process.runtime.dotnet.gc.objects.size`                   | observable up-down counter | live GC heap object bytes           |
-|   [3]   | `process.runtime.dotnet.gc.allocations.size`               | observable counter         | allocated bytes since process start |
-|   [4]   | `process.runtime.dotnet.gc.committed_memory.size`          | observable up-down counter | committed GC virtual memory         |
-|   [5]   | `process.runtime.dotnet.gc.heap.size`                      | observable up-down counter | heap size per generation            |
-|   [6]   | `process.runtime.dotnet.gc.heap.fragmentation.size`        | observable up-down counter | heap fragmentation per generation   |
-|   [7]   | `process.runtime.dotnet.gc.duration`                       | observable counter         | total GC pause time                 |
-|   [8]   | `process.runtime.dotnet.jit.il_compiled.size`              | observable counter         | compiled IL bytes                   |
-|   [9]   | `process.runtime.dotnet.jit.methods_compiled.count`        | observable counter         | JIT-compiled method count           |
+|  [01]   | `process.runtime.dotnet.gc.collections.count`              | observable counter         | GC collections per generation       |
+|  [02]   | `process.runtime.dotnet.gc.objects.size`                   | observable up-down counter | live GC heap object bytes           |
+|  [03]   | `process.runtime.dotnet.gc.allocations.size`               | observable counter         | allocated bytes since process start |
+|  [04]   | `process.runtime.dotnet.gc.committed_memory.size`          | observable up-down counter | committed GC virtual memory         |
+|  [05]   | `process.runtime.dotnet.gc.heap.size`                      | observable up-down counter | heap size per generation            |
+|  [06]   | `process.runtime.dotnet.gc.heap.fragmentation.size`        | observable up-down counter | heap fragmentation per generation   |
+|  [07]   | `process.runtime.dotnet.gc.duration`                       | observable counter         | total GC pause time                 |
+|  [08]   | `process.runtime.dotnet.jit.il_compiled.size`              | observable counter         | compiled IL bytes                   |
+|  [09]   | `process.runtime.dotnet.jit.methods_compiled.count`        | observable counter         | JIT-compiled method count           |
 |  [10]   | `process.runtime.dotnet.jit.compilation_time`              | observable counter         | JIT compilation time                |
 |  [11]   | `process.runtime.dotnet.monitor.lock_contention.count`     | observable counter         | monitor lock contention count       |
 |  [12]   | `process.runtime.dotnet.thread_pool.threads.count`         | observable up-down counter | thread pool thread count            |
@@ -96,7 +96,7 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter on
 |  [16]   | `process.runtime.dotnet.assemblies.count`                  | observable up-down counter | loaded assembly count               |
 |  [17]   | `process.runtime.dotnet.exceptions.count`                  | counter                    | first-chance exception count        |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [INSTRUMENTATION_TOPOLOGY]:
 - runtime dispatch: .NET 9+ admission is `AddMeter("System.Runtime")` over runtime-emitted metrics; earlier runtimes register the internal `RuntimeMetrics` meter named `OpenTelemetry.Instrumentation.Runtime`

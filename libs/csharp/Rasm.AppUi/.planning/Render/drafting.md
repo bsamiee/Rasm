@@ -2,14 +2,14 @@
 
 The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a locale-aware sheet collection with ISO/ANSI/JIS title-block templating, `Viewport2D` frames a 3D model view onto a sheet region by composing the single CAD-grade hidden-line owner `cs:Rasm.Fabrication/Posting/projection#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility kernel) and projecting its world-space visible/hidden/silhouette edge sets to sheet space, `Dimension` and `Annotation` carry the dimensioning and GD&T annotation vocabulary as typed records, and `DraftEmit` renders the composed sheet to DWG/DXF/PDF/SVG through the offscreen document rail and the catalogued entity-writer surface. The page owns the sheet-set and title-block axis, the projection-to-sheet viewport frame, the dimension and GD&T annotation families, and the multi-format emit dispatch; the substrate is SkiaSharp 2D geometry behind the `DrawSource.Owned` capsule and the `SKDocument` PDF export, the `ACadSharp` `CadDocument` DWG and `netDxf` `DxfDocument` DXF model-space entity writers (`.api/api-drafting-export.md`), the locale culture for title-block fields, the `Viewpoint` camera for the projection basis, and the Compute geometry payload for the projected edges. The PDF, SVG, DWG, and DXF emit arms transcribe their writer bodies now; the live host-shared GPU hidden-line depth buffer is the `Render/viewport.md#RESEARCH` `[VIEWPORT_GPU]` consequence while the Fabrication BSP kernel is the CAD-grade visibility owner this page composes — AppUi mints no second hidden-line kernel and no second CAD writer.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SHEET_SET]: Sheet collection, locale-aware ISO/ANSI/JIS title-block templating.
-- [2]-[PROJECTION]: 3D-to-2D hidden-line viewport frame, scale, projection basis.
-- [3]-[DIMENSIONING]: Dimension and GD&T annotation vocabulary as typed records.
-- [4]-[DRAFT_EMIT]: DWG/DXF/PDF/SVG multi-format emit over the document rail.
+- [01]-[SHEET_SET]: Sheet collection, locale-aware ISO/ANSI/JIS title-block templating.
+- [02]-[PROJECTION]: 3D-to-2D hidden-line viewport frame, scale, projection basis.
+- [03]-[DIMENSIONING]: Dimension and GD&T annotation vocabulary as typed records.
+- [04]-[DRAFT_EMIT]: DWG/DXF/PDF/SVG multi-format emit over the document rail.
 
-## [2]-[SHEET_SET]
+## [02]-[SHEET_SET]
 
 - Owner: `SheetSize` `[SmartEnum<string>]` the standard sheet-size catalog; `TitleBlock` the locale-aware title-block record; `Sheet` the single sheet with its regions; `SheetSet` the sheet collection.
 - Cases: `SheetSize` = a0…a4 (ISO 216) · ansi-a…ansi-e (ANSI/ASME Y14.1) · jis-b0…jis-b4 (JIS B) — the standard sheet rows carrying width, height, and standard family.
@@ -86,7 +86,7 @@ public sealed record SheetSet(string Key, Seq<Sheet> Sheets) {
 }
 ```
 
-## [3]-[PROJECTION]
+## [03]-[PROJECTION]
 
 - Owner: `ProjectionBasis` the view-direction-and-scale projection; `Viewport2D` the model-view frame on a sheet region projecting the CAD-grade hidden-line edge sets to sheet space; `HiddenLineSeam` the composition-bound delegate column carrying the `cs:Rasm.Fabrication/Posting/projection#PROJECTION_HIDDEN_LINE` `Hlr.Solve` visibility solver as the one in-process producer.
 - Entry: `public Fin<Seq<(SKPoint A, SKPoint B, EdgeStyle Style)>> Project(MeshSource mesh)` — the `Viewport2D` record carries its `Basis` and `Region`, so `Project` folds the model through the seam-bound Fabrication hidden-line solver to the world-space visible/hidden/silhouette `Edge3` sets, then projects each surviving sub-edge into sheet-space line segments under the basis, tagging each with its `EdgeStyle` (visible solid, hidden dashed, silhouette emphasized) and clipping to the region.
@@ -172,7 +172,7 @@ public sealed record Viewport2D(string Key, SheetRegion Region, ProjectionBasis 
 }
 ```
 
-## [4]-[DIMENSIONING]
+## [04]-[DIMENSIONING]
 
 - Owner: `Dimension` `[Union]` the dimension vocabulary; `Tolerance` the tolerance value; `Annotation` `[Union]` the GD&T and text annotation vocabulary; `GdtFrame` the feature-control frame.
 - Cases: `Dimension` = Linear | Aligned | Angular | Radial | Diametric | Ordinate under the locked kind literals; `Annotation` = Text | Leader | Datum | FeatureControl | SurfaceFinish | Weld under the locked kind literals.
@@ -247,7 +247,7 @@ public abstract partial record Annotation {
 }
 ```
 
-## [5]-[DRAFT_EMIT]
+## [05]-[DRAFT_EMIT]
 
 - Owner: `DraftFormat` `[SmartEnum<string>]` the emit-format axis; `DraftFault` the fault family; `DraftEmit` the multi-format emit dispatch.
 - Cases: `DraftFormat` = pdf · svg · dwg · dxf under the locked kind literals; `DraftFault` = Text | RegionOutOfBounds | EmptyView | EntityWriterUnavailable in the 4600 code band.
@@ -409,7 +409,7 @@ flowchart LR
     DraftEmit --> RenderReceipt
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer bodies transcribe now against the catalogued `ACadSharp` `CadDocument`/`Line`/`Layer`/`MText`/`DwgWriter.Write` and `netDxf` `DxfDocument`/`Line`/`Layer`/`MText`/`Save` surfaces (`.api/api-drafting-export.md`); the residual verification is the per-entity property spelling — `ACadSharp` exposes only the `LineType.Continuous`/`ByLayer`/`ByBlock` static singletons (NO `Dashed` singleton), so the hidden layer binds a constructed named `LineType("DASHED")` registered on `doc.LineTypes` whose `Segments` dash pattern resolves at implementation, while `netDxf.Tables.Linetype` does carry the `Continuous`/`Dashed` statics; the `CSMath.XYZ` point constructor, the `netDxf.Vector2`/`MText` height arity, and the `Dimension`-entity style-table mapping for a dimensioned drawing (`Dimension` entity is catalogued PUBLIC_TYPE but its style-table population resolves at implementation) resolve against the installed ACadSharp 3.6.29 / netDxf 2023.11.10 surface; the projected line run, the layer `EdgeStyle` mapping, the title-block text entities, the `DwgWriter.Write(Stream, CadDocument)` static (its config/notification tail defaulted), and the `SKSvgCanvas.Create(SKRect, Stream)` SVG path are settled.
 - [HIDDEN_LINE_SEAM]: the CAD-grade hidden-line removal is the single Fabrication owner `cs:Rasm.Fabrication/Posting/projection#PROJECTION_HIDDEN_LINE` (`Hlr.Solve` over the BSP front-to-back visibility tree plus the Clipper2 open-path screen Boolean), composed here through the `HiddenLineSeam` in-process delegate column AppUi binds at composition — a two-sided CONSUMPTION seam where Fabrication produces the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets and AppUi owns the projection-to-sheet; the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the `MeshSource`-to-`FabricationInput` adapter (the `ProjectionBasis`-to-`ProjectionDir` and `MeshSource`-to-`MeshSpace` projection) binds at the seam delegate where the Fabrication `FabricationInput`/`FabricationPolicy.HiddenLine` shape meets the AppUi `MeshSource`, and a re-minted painter sort here is the rejected form.

@@ -4,11 +4,11 @@ The serial-chain kinematics owner: `Fk` the Denavit-Hartenberg forward-kinematic
 
 Wire posture: HOST-LOCAL. The joint-angle stream crosses only the in-process seam to the `Toolpath/motion#CAM_MOTION` `Motion` result — never a browser or peer wire. The `DhJoint`/`IkPolicy` records and the interior FK/IK state are host-local types that never sit between wire and rail.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SERIAL_CHAIN]: owns the `DhJoint`/`IkPolicy` records, the `Fk` Denavit-Hartenberg forward-kinematics matrix product, and the one damped-least-squares `Ik` Jacobian-pseudoinverse solver through singularities.
+- [01]-[SERIAL_CHAIN]: owns the `DhJoint`/`IkPolicy` records, the `Fk` Denavit-Hartenberg forward-kinematics matrix product, and the one damped-least-squares `Ik` Jacobian-pseudoinverse solver through singularities.
 
-## [2]-[SERIAL_CHAIN]
+## [02]-[SERIAL_CHAIN]
 
 - Owner: `DhJoint` the Denavit-Hartenberg link parameters (twist α, length a, offset d, angle θ) over one revolute/prismatic discriminant; `IkPolicy` the damped-least-squares solver knobs (damping λ, max iterations, position tolerance, finite-difference step, the reach-strict flag); `Fk` the forward-kinematics cumulative homogeneous-matrix product; `Ik` the damped Jacobian-pseudoinverse solver driving the chain to a target.
 - Cases: the FK/IK chain is one solver over the `DhJoint` revolute/prismatic discriminant, never a per-arm kinematics class; the IK is one damped-least-squares fold, an analytic 2-link closed form surviving only as a fast-path row; `Ik.Solve` is total — it returns the stamped `(Theta, Residual, Reached)` triple for every input and never decides the reach contract, so the reach-strict-vs-permissive verdict is the caller's `IkPolicy.ReachStrict` policy read at `Toolpath/motion#CAM_MOTION`, never a fault thrown inside the solver.
@@ -118,6 +118,6 @@ public static class Ik {
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [IK_CONVERGENCE] The `Ik.Solve` damped-least-squares fold (Levenberg-Marquardt `Δθ = Jᵀ(JJᵀ + λ²I)⁻¹ Δx` with the central finite-difference position Jacobian and the inline 3×3 Cramer solve) is correct by construction: the damping λ guarantees the `JJᵀ + λ²I` system is SPD and non-singular through kinematic singularities, so the solve never divides by a vanishing pivot; a non-converged target returns the residual and a false reached flag, never a thrown divergence. The one numeric assumption is the finite-difference step `IkPolicy.Step` (1e-6), a stable central-difference scale for double-precision FK.

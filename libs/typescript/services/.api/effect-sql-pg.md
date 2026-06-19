@@ -8,7 +8,7 @@ export * as PgClient from "@effect/sql-pg/PgClient"
 export * as PgMigrator from "@effect/sql-pg/PgMigrator"
 ```
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/sql-pg`
 - package: `@effect/sql-pg`
@@ -16,7 +16,7 @@ export * as PgMigrator from "@effect/sql-pg/PgMigrator"
 - asset: `PgClient` service + tag, config/pool constructors, layer constructors, Postgres statement compiler, `PgJson` custom fragment, migrator runner/layer over `@effect/sql/Migrator`
 - rail: persistence / sql-postgres
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 ### @effect/sql-pg/PgClient — client service family
 
@@ -26,37 +26,37 @@ export * as PgMigrator from "@effect/sql-pg/PgMigrator"
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]      | [RAIL]                                                       |
 | :-----: | :--------------- | :----------------- | :----------------------------------------------------------- |
-|   [1]   | `TypeId`         | const + type alias | branded id `"~@effect/sql-pg/PgClient"`                      |
-|   [2]   | `PgClient`       | interface          | extends `Client.SqlClient`; adds Postgres-only members       |
-|   [3]   | `PgClient` (tag) | `Context.Tag`      | `Context.Tag<PgClient, PgClient>` — service accessor         |
-|   [4]   | `PgClientConfig` | interface          | full connection/transform/types config (all fields optional) |
+|  [01]   | `TypeId`         | const + type alias | branded id `"~@effect/sql-pg/PgClient"`                      |
+|  [02]   | `PgClient`       | interface          | extends `Client.SqlClient`; adds Postgres-only members       |
+|  [03]   | `PgClient` (tag) | `Context.Tag`      | `Context.Tag<PgClient, PgClient>` — service accessor         |
+|  [04]   | `PgClientConfig` | interface          | full connection/transform/types config (all fields optional) |
 
 [PUBLIC_TYPE_SCOPE]: constructors
 - rail: persistence
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                         |
 | :-----: | :------------------------ | :------------ | :--------------------------------------------- |
-|   [1]   | `make`                    | constructor   | scoped effect → `PgClient`                     |
-|   [2]   | `PgClientFromPoolOptions` | interface     | wraps an existing `Pg.Pool` acquire effect     |
-|   [3]   | `fromPool`                | constructor   | build `PgClient` from a caller-owned `pg` pool |
-|   [4]   | `makeCompiler`            | constructor   | `Statement.Compiler` for the Postgres dialect  |
+|  [01]   | `make`                    | constructor   | scoped effect → `PgClient`                     |
+|  [02]   | `PgClientFromPoolOptions` | interface     | wraps an existing `Pg.Pool` acquire effect     |
+|  [03]   | `fromPool`                | constructor   | build `PgClient` from a caller-owned `pg` pool |
+|  [04]   | `makeCompiler`            | constructor   | `Statement.Compiler` for the Postgres dialect  |
 
 [PUBLIC_TYPE_SCOPE]: layers
 - rail: persistence
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [RAIL]                                                        |
 | :-----: | :-------------- | :------------ | :------------------------------------------------------------ |
-|   [1]   | `layerConfig`   | layer ctor    | from `Config.Config.Wrap<PgClientConfig>`; adds `ConfigError` |
-|   [2]   | `layer`         | layer ctor    | from a plain `PgClientConfig`                                 |
-|   [3]   | `layerFromPool` | layer ctor    | from `PgClientFromPoolOptions`                                |
+|  [01]   | `layerConfig`   | layer ctor    | from `Config.Config.Wrap<PgClientConfig>`; adds `ConfigError` |
+|  [02]   | `layer`         | layer ctor    | from a plain `PgClientConfig`                                 |
+|  [03]   | `layerFromPool` | layer ctor    | from `PgClientFromPoolOptions`                                |
 
 [PUBLIC_TYPE_SCOPE]: custom types
 - rail: persistence
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                                                             |
 | :-----: | :--------- | :-------------- | :----------------------------------------------------------------- |
-|   [1]   | `PgCustom` | type alias      | `= PgJson` — union of dialect custom fragment kinds (one member)   |
-|   [2]   | `PgJson`   | `Custom` + ctor | tagged `Custom<"PgJson", unknown>`; callable as a fragment builder |
+|  [01]   | `PgCustom` | type alias      | `= PgJson` — union of dialect custom fragment kinds (one member)   |
+|  [02]   | `PgJson`   | `Custom` + ctor | tagged `Custom<"PgJson", unknown>`; callable as a fragment builder |
 
 Every layer constructor provisions BOTH `PgClient` and the abstract `Client.SqlClient` tag
 (`Layer.Layer<PgClient | Client.SqlClient, …>`), so downstream code may depend on either tag.
@@ -171,8 +171,8 @@ declare const PgJson: (i0: unknown, i1: void, i2: void) => Fragment
 
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL]                                                      |
 | :-----: | :------- | :------------ | :---------------------------------------------------------- |
-|   [1]   | `run`    | constructor   | runs pending migrations; yields `ReadonlyArray<[id, name]>` |
-|   [2]   | `layer`  | layer ctor    | runs migrations as a `Layer<never, …>` startup effect       |
+|  [01]   | `run`    | constructor   | runs pending migrations; yields `ReadonlyArray<[id, name]>` |
+|  [02]   | `layer`  | layer ctor    | runs migrations as a `Layer<never, …>` startup effect       |
 
 The module also `export *` re-exports the entire generic `@effect/sql/Migrator` and
 `@effect/sql/Migrator/FileSystem` surfaces (see [3]), so `MigratorOptions`, `Loader`,
@@ -206,7 +206,7 @@ const layer: <R>(options: Migrator.MigratorOptions<R>) =>
   >
 ```
 
-## [3]-[RE_EXPORTED_MIGRATOR_SURFACE]
+## [03]-[RE_EXPORTED_MIGRATOR_SURFACE]
 
 `PgMigrator` re-exports `@effect/sql/Migrator` (and the `FileSystem` loader). These are the
 generic symbols a Postgres migration setup consumes — captured here because the Postgres page is
@@ -218,15 +218,15 @@ the consumption site and the spellings are load-bearing for `run`/`layer` option
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                                                        |
 | :-----: | :------------------- | :------------ | :------------------------------------------------------------ |
-|   [1]   | `MigratorOptions<R>` | interface     | `{ loader; schemaDirectory?; table? }`                        |
-|   [2]   | `Loader<R>`          | type alias    | effect yielding `ReadonlyArray<ResolvedMigration>`            |
-|   [3]   | `ResolvedMigration`  | tuple alias   | `[id: number, name: string, load: Effect<…, …, SqlClient>]`   |
-|   [4]   | `Migration`          | interface     | `{ id; name; createdAt }` applied-row record                  |
-|   [5]   | `MigrationError`     | tagged error  | `_tag: "MigrationError"`; `reason` enum below                 |
-|   [6]   | `make`               | constructor   | dialect-parameterized migrator builder (`dumpSchema` hook)    |
-|   [7]   | `fromGlob`           | loader        | `Record<string, () => Promise<any>>` → `Loader`               |
-|   [8]   | `fromBabelGlob`      | loader        | `Record<string, any>` → `Loader`                              |
-|   [9]   | `fromRecord`         | loader        | `Record<string, Effect<void, unknown, SqlClient>>` → `Loader` |
+|  [01]   | `MigratorOptions<R>` | interface     | `{ loader; schemaDirectory?; table? }`                        |
+|  [02]   | `Loader<R>`          | type alias    | effect yielding `ReadonlyArray<ResolvedMigration>`            |
+|  [03]   | `ResolvedMigration`  | tuple alias   | `[id: number, name: string, load: Effect<…, …, SqlClient>]`   |
+|  [04]   | `Migration`          | interface     | `{ id; name; createdAt }` applied-row record                  |
+|  [05]   | `MigrationError`     | tagged error  | `_tag: "MigrationError"`; `reason` enum below                 |
+|  [06]   | `make`               | constructor   | dialect-parameterized migrator builder (`dumpSchema` hook)    |
+|  [07]   | `fromGlob`           | loader        | `Record<string, () => Promise<any>>` → `Loader`               |
+|  [08]   | `fromBabelGlob`      | loader        | `Record<string, any>` → `Loader`                              |
+|  [09]   | `fromRecord`         | loader        | `Record<string, Effect<void, unknown, SqlClient>>` → `Loader` |
 |  [10]   | `fromFileSystem`     | loader        | `(directory: string) => Loader<FileSystem>`                   |
 
 ```ts contract
@@ -268,7 +268,7 @@ const fromRecord: (migrations: Record<string, Effect.Effect<void, unknown, Clien
 const fromFileSystem: (directory: string) => Loader<FileSystem>  // from @effect/sql/Migrator/FileSystem
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
 - `PgClient` is a `SqlClient` specialization; the abstract query/transaction/fragment surface lives

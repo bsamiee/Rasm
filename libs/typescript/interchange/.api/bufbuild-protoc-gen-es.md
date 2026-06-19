@@ -2,7 +2,7 @@
 
 `@bufbuild/protoc-gen-es` supplies the `protoc-gen-es` binary and the `protocGenEs` plugin object that `@bufbuild/protoplugin` executes to generate TypeScript and JavaScript message types, service descriptors, and optional JSON and valid-type variants from `.proto` files for the interchange codegen rail.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@bufbuild/protoc-gen-es`
 - package: `@bufbuild/protoc-gen-es`
@@ -10,41 +10,41 @@
 - asset: CLI binary `bin/protoc-gen-es`; CommonJS module `dist/cjs/src/protoc-gen-es-plugin.js`
 - rail: codegen
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: plugin export
 - rail: codegen
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [RAIL]                         |
 | :-----: | :------------ | :------------ | :----------------------------- |
-|   [1]   | `protocGenEs` | `Plugin`      | `@bufbuild/protoplugin` plugin |
+|  [01]   | `protocGenEs` | `Plugin`      | `@bufbuild/protoplugin` plugin |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: CLI invocation
 - rail: codegen
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :-------------------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `protoc-gen-es`                               | binary         | `buf generate` plugin entrypoint   |
-|   [2]   | `--es_out=<dir>`                              | protoc flag    | output directory for protoc mode   |
-|   [3]   | `--es_opt=target=ts`                          | plugin option  | TypeScript output target           |
-|   [4]   | `--es_opt=target=js`                          | plugin option  | JavaScript output target           |
-|   [5]   | `--es_opt=target=dts`                         | plugin option  | declaration-only output target     |
-|   [6]   | `--es_opt=import_extension=js`                | plugin option  | import extension override          |
-|   [7]   | `--es_opt=json_types=true`                    | plugin option  | emit JSON type variants            |
-|   [8]   | `--es_opt=valid_types=protovalidate_required` | plugin option  | protovalidate required valid types |
-|   [9]   | `--es_opt=valid_types=legacy_required`        | plugin option  | proto2 legacy required valid types |
+|  [01]   | `protoc-gen-es`                               | binary         | `buf generate` plugin entrypoint   |
+|  [02]   | `--es_out=<dir>`                              | protoc flag    | output directory for protoc mode   |
+|  [03]   | `--es_opt=target=ts`                          | plugin option  | TypeScript output target           |
+|  [04]   | `--es_opt=target=js`                          | plugin option  | JavaScript output target           |
+|  [05]   | `--es_opt=target=dts`                         | plugin option  | declaration-only output target     |
+|  [06]   | `--es_opt=import_extension=js`                | plugin option  | import extension override          |
+|  [07]   | `--es_opt=json_types=true`                    | plugin option  | emit JSON type variants            |
+|  [08]   | `--es_opt=valid_types=protovalidate_required` | plugin option  | protovalidate required valid types |
+|  [09]   | `--es_opt=valid_types=legacy_required`        | plugin option  | proto2 legacy required valid types |
 
 [ENTRYPOINT_SCOPE]: programmatic plugin object
 - rail: codegen
 
 | [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                          |
 | :-----: | :--------------------------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `protocGenEs`                                        | `Plugin`       | exported plugin for `runNodeJs` |
-|   [2]   | `runNodeJs(protocGenEs)` via `@bufbuild/protoplugin` | runner call    | Node.js plugin entrypoint       |
+|  [01]   | `protocGenEs`                                        | `Plugin`       | exported plugin for `runNodeJs` |
+|  [02]   | `runNodeJs(protocGenEs)` via `@bufbuild/protoplugin` | runner call    | Node.js plugin entrypoint       |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CODEGEN_TOPOLOGY]:
 - binary: `bin/protoc-gen-es`; invoked by `buf generate` as `local: protoc-gen-es` in `buf.gen.yaml`

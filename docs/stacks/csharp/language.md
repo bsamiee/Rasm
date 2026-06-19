@@ -2,7 +2,7 @@
 
 C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, and `ImplicitUsings`; this page is the language-feature law for choosing syntax, type, member, pattern, and expression forms before adding a local abstraction.
 
-## [1]-[ACTIVE_SURFACE]
+## [01]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Target framework: `net10.0`
@@ -14,7 +14,7 @@ C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` own
 
 Treat source files as modern C#, not compatibility layers. Replace older syntax, overload families, wrapper types, and backing-field ceremony whenever the active surface carries the concept directly.
 
-## [2]-[CANONICAL_CHOOSER]
+## [02]-[CANONICAL_CHOOSER]
 
 Use the active C# surface directly. Replace older spellings and local machinery when syntax, the type system, or member shape owns the behavior.
 
@@ -22,15 +22,15 @@ Use the active C# surface directly. Replace older spellings and local machinery 
 
 | [INDEX] | [CONCERN]                     | [USE]                                         | [REPLACE]                            |
 | :-----: | :---------------------------- | :-------------------------------------------- | :----------------------------------- |
-|   [1]   | receiver-owned members        | extension blocks                              | static helper classes, wrapper types |
-|   [2]   | operators on foreign receiver | extension operators (non-conversion)          | named arithmetic helper methods      |
-|   [3]   | property-local invariant      | `field` accessors                             | manual backing fields                |
-|   [4]   | mandatory initialization      | `required` members                            | constructor telescoping              |
-|   [5]   | immutable carrier             | `record` and `readonly record struct`         | hand-written equality classes        |
-|   [6]   | nondestructive update         | `with` expressions                            | copy constructors, builders          |
-|   [7]   | constructor boilerplate       | primary constructors                          | assign-only constructor bodies       |
-|   [8]   | generated or hand splits      | partial members, constructors, events         | wrapper forwarding splits            |
-|   [9]   | file-private machinery        | `file` types                                  | name-mangled `internal` types        |
+|  [01]   | receiver-owned members        | extension blocks                              | static helper classes, wrapper types |
+|  [02]   | operators on foreign receiver | extension operators (non-conversion)          | named arithmetic helper methods      |
+|  [03]   | property-local invariant      | `field` accessors                             | manual backing fields                |
+|  [04]   | mandatory initialization      | `required` members                            | constructor telescoping              |
+|  [05]   | immutable carrier             | `record` and `readonly record struct`         | hand-written equality classes        |
+|  [06]   | nondestructive update         | `with` expressions                            | copy constructors, builders          |
+|  [07]   | constructor boilerplate       | primary constructors                          | assign-only constructor bodies       |
+|  [08]   | generated or hand splits      | partial members, constructors, events         | wrapper forwarding splits            |
+|  [09]   | file-private machinery        | `file` types                                  | name-mangled `internal` types        |
 |  [10]   | attribute payload type        | generic attributes                            | `typeof` constructor arguments       |
 |  [11]   | construction abstraction      | static abstract and virtual interface members | reflection factories                 |
 |  [12]   | numeric abstraction           | generic math constraints                      | per-type arithmetic overload copies  |
@@ -46,15 +46,15 @@ Use the active C# surface directly. Replace older spellings and local machinery 
 
 | [INDEX] | [CONCERN]                  | [USE]                               | [REPLACE]                             |
 | :-----: | :------------------------- | :---------------------------------- | :------------------------------------ |
-|   [1]   | value-returning decision   | switch expressions                  | `if`/`else` ladders, statement switch |
-|   [2]   | shape probe                | property patterns                   | getter chains with null checks        |
-|   [3]   | range and sign law         | relational and logical patterns     | comparison chains                     |
-|   [4]   | sequence shape             | list and slice patterns             | count and index guard code            |
-|   [5]   | span text dispatch         | constant string patterns over spans | `ToString` comparisons                |
-|   [6]   | type test with binding     | declaration and recursive patterns  | `as` plus null check                  |
-|   [7]   | tuple dispatch             | positional patterns                 | nested conditionals                   |
-|   [8]   | null test                  | `is null` and `is not null`         | `==` null with operator hazard        |
-|   [9]   | exhaustiveness             | total switch over the closed owner  | default arms hiding cases             |
+|  [01]   | value-returning decision   | switch expressions                  | `if`/`else` ladders, statement switch |
+|  [02]   | shape probe                | property patterns                   | getter chains with null checks        |
+|  [03]   | range and sign law         | relational and logical patterns     | comparison chains                     |
+|  [04]   | sequence shape             | list and slice patterns             | count and index guard code            |
+|  [05]   | span text dispatch         | constant string patterns over spans | `ToString` comparisons                |
+|  [06]   | type test with binding     | declaration and recursive patterns  | `as` plus null check                  |
+|  [07]   | tuple dispatch             | positional patterns                 | nested conditionals                   |
+|  [08]   | null test                  | `is null` and `is not null`         | `==` null with operator hazard        |
+|  [09]   | exhaustiveness             | total switch over the closed owner  | default arms hiding cases             |
 |  [10]   | inline result binding      | declaration patterns and `out var`  | pre-declared locals                   |
 |  [11]   | repeated type spelling     | target-typed `new()`                | duplicated constructor type names     |
 |  [12]   | null-coalescing update     | `??=`                               | if-null assignment blocks             |
@@ -65,15 +65,15 @@ Use the active C# surface directly. Replace older spellings and local machinery 
 
 | [INDEX] | [CONCERN]                   | [USE]                                     | [REPLACE]                            |
 | :-----: | :-------------------------- | :---------------------------------------- | :----------------------------------- |
-|   [1]   | end-relative initialization | implicit index `[^1]` in initializers     | post-construction assignment loops   |
-|   [2]   | literal composition         | collection expressions with spread        | `new[]`, list adds, concat chains    |
-|   [3]   | call-site arity             | `params` collections                      | overload families                    |
-|   [4]   | hot read-only input         | one `ReadOnlySpan<T>` boundary            | parallel array/string/span overloads |
-|   [5]   | stack scratch               | `stackalloc` spans in measured kernels    | temporary heap arrays                |
-|   [6]   | span-capable generics       | `allows ref struct` constraints           | boxed or duplicated span paths       |
-|   [7]   | stack-only contracts        | `ref struct` interface implementations    | boxing interface conversions         |
-|   [8]   | ref safety in coroutines    | `ref` and `unsafe` in iterators and async | extracted helper duplication         |
-|   [9]   | struct construction freedom | auto-default structs                      | explicit `this = default` assignment |
+|  [01]   | end-relative initialization | implicit index `[^1]` in initializers     | post-construction assignment loops   |
+|  [02]   | literal composition         | collection expressions with spread        | `new[]`, list adds, concat chains    |
+|  [03]   | call-site arity             | `params` collections                      | overload families                    |
+|  [04]   | hot read-only input         | one `ReadOnlySpan<T>` boundary            | parallel array/string/span overloads |
+|  [05]   | stack scratch               | `stackalloc` spans in measured kernels    | temporary heap arrays                |
+|  [06]   | span-capable generics       | `allows ref struct` constraints           | boxed or duplicated span paths       |
+|  [07]   | stack-only contracts        | `ref struct` interface implementations    | boxing interface conversions         |
+|  [08]   | ref safety in coroutines    | `ref` and `unsafe` in iterators and async | extracted helper duplication         |
+|  [09]   | struct construction freedom | auto-default structs                      | explicit `this = default` assignment |
 |  [10]   | by-reference fields         | `ref` fields with `scoped` lifetimes      | pointer carriers                     |
 |  [11]   | readonly by-ref contract    | `ref readonly` parameters                 | `in` and `ref` ambiguity             |
 |  [12]   | residual overload ambiguity | `[OverloadResolutionPriority]`            | breaking renames, dummy parameters   |
@@ -82,12 +82,12 @@ Use the active C# surface directly. Replace older spellings and local machinery 
 
 | [INDEX] | [CONCERN]                | [USE]                                     | [REPLACE]                      |
 | :-----: | :----------------------- | :---------------------------------------- | :----------------------------- |
-|   [1]   | embedded structured text | raw string literals                       | escape-laden concatenation     |
-|   [2]   | UTF-8 wire constants     | `u8` literals                             | runtime UTF-8 encoding calls   |
-|   [3]   | rich interpolation       | full expression grammar in interpolations | `string.Format`, concat chains |
-|   [4]   | terminal escapes         | `\e` escape sequence                      | `\x1b` magic literals          |
+|  [01]   | embedded structured text | raw string literals                       | escape-laden concatenation     |
+|  [02]   | UTF-8 wire constants     | `u8` literals                             | runtime UTF-8 encoding calls   |
+|  [03]   | rich interpolation       | full expression grammar in interpolations | `string.Format`, concat chains |
+|  [04]   | terminal escapes         | `\e` escape sequence                      | `\x1b` magic literals          |
 
-## [3]-[LANGUAGE_FORM_CONTRACTS]
+## [03]-[LANGUAGE_FORM_CONTRACTS]
 
 Use these contracts when the chooser names the form but code still needs a placement rule.
 

@@ -2,11 +2,11 @@
 
 The floating-surface positioning owner distinct in kind from the headless role behavior. `useFloatingAnchor` owns the `@floating-ui/react` anchoring (tooltip/popover/menu/dialog/select/combobox placement) over one `useFloating` positioner and one `useInteractions` merge, the CSS Anchor Positioning bridge, and the focus-trap/dismiss contract, composed by the `interaction/role.md` overlays and navigation roles. The owner holds no domain state; an anchored surface reads its open state through the `binding/atom.md` `AtomBinding`.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[FLOATING_ANCHOR]: the `@floating-ui/react` overlay placement via `useFloating`/`useInteractions`, the CSS Anchor Positioning bridge, and the focus-trap and dismiss contract.
+- [01]-[FLOATING_ANCHOR]: the `@floating-ui/react` overlay placement via `useFloating`/`useInteractions`, the CSS Anchor Positioning bridge, and the focus-trap and dismiss contract.
 
-## [2]-[FLOATING_ANCHOR]
+## [02]-[FLOATING_ANCHOR]
 
 - Owner: `useFloatingAnchor`, the `@floating-ui/react` placement owner over the overlay surfaces (tooltip, popover, menu, dialog, select, combobox); the `ROLE_OF` overlay-kind-to-ARIA-role table; the CSS Anchor Positioning bridge that lifts placement onto the native anchor layer where supported; and the focus-trap/dismiss contract every anchored surface reuses. Placement is owned once, not per overlay.
 - Cases: `useFloatingAnchor` resolves placement through the `useFloating` `whileElementsMounted: autoUpdate` positioner with the `offset`/`flip`/`shift`/`arrow` middleware stack, merges the `useClick`/`useFocus`/`useRole`/`useDismiss` interaction hooks through one `useInteractions` so a manual handler never collides, and keys the ARIA role off the `ROLE_OF` table by overlay kind; the CSS Anchor Positioning bridge maps the same placement onto the native `anchor-name`/`position-anchor` layer where the browser admits it and falls back to the floating-ui computed position otherwise; the `useDismiss` contract closes on outside-press, escape, and ancestor scroll, and `FloatingFocusManager` traps and restores focus on open/close.

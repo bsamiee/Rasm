@@ -2,11 +2,11 @@
 
 The linear-algebra routes of the one numeric solver. `LinearIntent` discriminates dense linear systems, sparse systems by Krylov scheme, and eigenproblems over `scipy.linalg`/`scipy.sparse.linalg` with a numpy floor, plus the Lineax tier that unifies dense, sparse, and iterative solves and least-squares over a general linear operator as one autodifferentiable surface. Every route folds into the one `SolverReceipt`; the dense and dense-symmetric paths run unconditionally on the numpy floor, the scipy sparse and eigen paths gate on the scipy wheel, and the Lineax tier gates on the jaxlib floor. Lineax closes the loop with the differentiation owner because its solves are differentiable through the implicit function theorem.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LINEAR]: dense/sparse/eigen routes over scipy plus the Lineax autodifferentiable operator case, all folded into one `LinearIntent` owner.
+- [01]-[LINEAR]: dense/sparse/eigen routes over scipy plus the Lineax autodifferentiable operator case, all folded into one `LinearIntent` owner.
 
-## [2]-[LINEAR]
+## [02]-[LINEAR]
 
 - Owner: `LinearIntent` — the four linear-route cases on the one solver; `DenseLa(matrix, rhs)` over `scipy.linalg.solve`/`lstsq` with a `np.linalg.solve`/`lstsq` floor, `Sparse(matrix, rhs, scheme)` over `scipy.sparse.linalg.spsolve`/`cg`/`gmres`/`lsqr`, `Eigen(matrix, k)` over `scipy.linalg.eigh`/`scipy.sparse.linalg.eigsh` with a `np.linalg.eigvalsh` floor, and `Operator(matrix, rhs, least_squares)` for the autodifferentiable Lineax route. `SparseScheme` selects the Krylov solver, `solve` returns `RuntimeRail[SolverReceipt]`, and `_dispatch` matches the four routes total.
 - Lineax case: the `Operator` route lifts a dense matrix or a matrix-free function into one `lineax.MatrixLinearOperator`/`FunctionLinearOperator`, and `lineax.linear_solve(operator, vector, solver)` resolves the system with one of `lineax.LU`/`lineax.QR`/`lineax.CG`/`lineax.GMRES`/`lineax.NormalCG`, folding the `lineax.Solution.stats` (iteration count and residual) into `SolverReceipt`; the least-squares variant runs `lineax.QR()` over a rectangular operator. The Lineax solve is autodifferentiable, so a downstream `vjp` through the solver reads the implicit-function-theorem adjoint rather than differentiating the iterations — the case folds into the same `_dispatch` rather than standing as a parallel solve entry beside it.
@@ -127,7 +127,7 @@ def _operator_receipt(a: np.ndarray, b: np.ndarray, least_squares: bool) -> Solv
     return SolverReceipt.LeastSquares(residual, int(a.shape[1]), iterations) if least_squares else SolverReceipt.Direct(residual, float("nan"))
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [SCIPY_LINALG]: the `scipy.linalg.{solve,lstsq,eigh}` and `scipy.sparse.linalg.{spsolve,cg,gmres,lsqr,eigsh}` spellings carry the `python_version<'3.15'` marker; the bodies are authored against the documented API and verify against the `.api` catalogue once the scipy wheel resolves. The numpy floor (`_dense_receipt`, the `_eigen_receipt` numpy arm) runs unconditionally on cp315.
 - [LINEAX_OPERATOR]: `lineax` resolves on the gated `python_version<'3.15'` band riding the jaxlib floor; the `MatrixLinearOperator`/`FunctionLinearOperator`/`linear_solve`/`LU`/`QR`/`CG`/`GMRES`/`NormalCG`/`Solution.stats` spellings verify against the `.api` catalogue under a uv-sync reflection pass on that band. The Lineax solve is autodifferentiable, so `solvers/sensitivity.md#SENSITIVITY` reads the implicit-function-theorem adjoint through it rather than through the iterations.

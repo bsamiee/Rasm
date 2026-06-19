@@ -4,7 +4,7 @@ Python `>=3.15` is the active language surface. This page is the version-feature
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
-## [1]-[ACTIVE_SURFACE]
+## [01]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Interpreter floor: `>=3.15`
@@ -18,21 +18,21 @@ Python `>=3.15` is the active language surface. This page is the version-feature
 
 Treat source files as modern Python, not compatibility layers. Remove old imports, shims, typing spellings, package markers, and tool bypasses when the active surface carries the concept directly.
 
-## [2]-[CANONICAL_CHOOSER]
+## [02]-[CANONICAL_CHOOSER]
 
 Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; concurrency, interpreter isolation, and diagnostics primitives are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior.
 
 | [INDEX] | [CONCERN]                | [USE]                                                      | [REPLACE]                           |
 | :-----: | :----------------------- | :--------------------------------------------------------- | :---------------------------------- |
-|   [1]   | runtime annotations      | `annotationlib.get_annotations()`                          | direct `__annotations__` reads      |
-|   [2]   | conditional binding      | assignment expressions (`:=`)                              | precondition temporary variables    |
-|   [3]   | callable shape           | parameter-preserving decorators                            | `Callable[..., T]` erasure          |
-|   [4]   | generic shape            | inline type parameters and `type` aliases                  | `TypeVar`, `ParamSpec`, `TypeAlias` |
-|   [5]   | type predicates          | `TypeIs`                                                   | one-way `TypeGuard` predicates      |
-|   [6]   | type expressions         | `TypeForm`                                                 | `type[T]` or `object` forms         |
-|   [7]   | kwargs payload           | `Unpack[TypedDict]`                                        | homogeneous `**kwargs`              |
-|   [8]   | typed dict closure       | `closed=` and `extra_items=`                               | open payload prose                  |
-|   [9]   | immutable keys           | `ReadOnly[T]` in `TypedDict`                               | prose-only immutable key contracts  |
+|  [01]   | runtime annotations      | `annotationlib.get_annotations()`                          | direct `__annotations__` reads      |
+|  [02]   | conditional binding      | assignment expressions (`:=`)                              | precondition temporary variables    |
+|  [03]   | callable shape           | parameter-preserving decorators                            | `Callable[..., T]` erasure          |
+|  [04]   | generic shape            | inline type parameters and `type` aliases                  | `TypeVar`, `ParamSpec`, `TypeAlias` |
+|  [05]   | type predicates          | `TypeIs`                                                   | one-way `TypeGuard` predicates      |
+|  [06]   | type expressions         | `TypeForm`                                                 | `type[T]` or `object` forms         |
+|  [07]   | kwargs payload           | `Unpack[TypedDict]`                                        | homogeneous `**kwargs`              |
+|  [08]   | typed dict closure       | `closed=` and `extra_items=`                               | open payload prose                  |
+|  [09]   | immutable keys           | `ReadOnly[T]` in `TypedDict`                               | prose-only immutable key contracts  |
 |  [10]   | required keys            | `Required[]` and `NotRequired[]`                           | split `TypedDict` inheritance       |
 |  [11]   | method override          | `@typing.override`                                         | unmarked subclass overrides         |
 |  [12]   | self type                | `typing.Self`                                              | bound `TypeVar` self boilerplate    |
@@ -70,7 +70,7 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 |  [44]   | buffer protocol          | `collections.abc.Buffer`                                   | `ByteString` or bytes prose         |
 |  [45]   | generic slice            | `slice[T]`                                                 | unparameterized slice contracts     |
 
-## [3]-[LANGUAGE_FORM_CONTRACTS]
+## [03]-[LANGUAGE_FORM_CONTRACTS]
 
 Use these contracts when the chooser names the primitive but code still needs a placement rule.
 
@@ -289,7 +289,7 @@ TABLE: frozendict[Row, str] = frozendict({
 SELECTED_RESULT: str = TABLE[frozendict({Field.VALUE: "<value-a>", Field.KEY: "<key-a>"})]
 ```
 
-## [4]-[ABSTRACTION_COLLAPSE_TESTS]
+## [04]-[ABSTRACTION_COLLAPSE_TESTS]
 
 Use these tests before keeping a local abstraction beside a language primitive.
 

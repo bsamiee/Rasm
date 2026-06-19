@@ -2,11 +2,11 @@
 
 Rasm.Compute owned-build numeric lane for integration and spectral operators: the kernels with no library surface — accuracy-routed quadrature, the order-derived additive-module integrator with its adaptive-control policy, and the constant-coefficient periodic spectral operator — built and gated in-house, every result leaving as typed evidence rather than a bare `double` or `Complex[]`. The lane is host-local and crosses no wire. In-place numeric kernels — the `StepTableau` stage-fold and Butcher-tree order walk, the per-evaluation counters inside guarded integrands — are this page's statement exemption.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[OWNED_BUILDS]: quadrature route; integrator tableau; adaptive control; spectral operator.
+- [01]-[OWNED_BUILDS]: quadrature route; integrator tableau; adaptive control; spectral operator.
 
-## [2]-[OWNED_BUILDS]
+## [02]-[OWNED_BUILDS]
 
 - Owner: the owned-build lane with no library surface — `QuadratureRoute` the four-kernel accuracy-routed integration owner with the cancellation diagnostic, `StepTableau` the order-derived integrator with the minimal additive-module step and frozen adaptive-control policy, and `SpectralOperator` the constant-coefficient periodic symbol applied pointwise.
 - Cases: `QuadratureRoute` `[SmartEnum<string>]` cases double-exponential · gauss-legendre · gauss-kronrod · cubature (4), each carrying its `Integrate` delegate column; `StepTableau` order derived by the Butcher-tree walk; `SpectralOperator` symbols are policy rows composed by pointwise multiplication, a new operator a new symbol row.

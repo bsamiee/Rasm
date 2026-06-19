@@ -2,14 +2,14 @@
 
 Support capture is the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every capture cause, one capture fold freezes the evidence window, fans contributor artifact rows in declared order, redacts by classification before any byte is written, caps with truncation receipts, and lands one zip whose wire-neutral manifest and export receipt the dashboard ingests unchanged. The page owns the trigger axis, the artifact-row vocabulary, the capture and retention policy values, and the manifest and receipt wire shapes. A bundle is process-local evidence; cross-process incidents correlate by HLC stamp at the evidence layer.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[TRIGGER_UNION]: Six capture causes as one sealed union with typed reason payloads.
-- [2]-[CAPTURE_PIPELINE]: Window freeze, ordered fan-in, redaction before write, and caps.
-- [3]-[MANIFEST_RECEIPT]: Zip assembly, wire manifest, receipt union, retention, and process law.
-- [4]-[TS_PROJECTION]: Manifest and receipt wire shapes the TS dashboard ingests.
+- [01]-[TRIGGER_UNION]: Six capture causes as one sealed union with typed reason payloads.
+- [02]-[CAPTURE_PIPELINE]: Window freeze, ordered fan-in, redaction before write, and caps.
+- [03]-[MANIFEST_RECEIPT]: Zip assembly, wire manifest, receipt union, retention, and process law.
+- [04]-[TS_PROJECTION]: Manifest and receipt wire shapes the TS dashboard ingests.
 
-## [2]-[TRIGGER_UNION]
+## [02]-[TRIGGER_UNION]
 
 - Owner: `SupportTrigger` `[Union]` six capture-cause cases.
 - Cases: `UserRequested`, `FaultTransition`, `HealthThreshold`, `WatchdogTimeout`, `ExternalCommand`, `Scheduled`.
@@ -43,7 +43,7 @@ public static class SupportTriggerOps {
 }
 ```
 
-## [3]-[CAPTURE_PIPELINE]
+## [03]-[CAPTURE_PIPELINE]
 
 - Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportPolicy` and `SupportRuntime` the bound capture context.
 - Entry: `Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect.
@@ -159,25 +159,25 @@ Policy rows bind through the config rail: rows one through six freeze into the S
 
 | [INDEX] | [POLICY]                |    [VALUE] | [RELOAD_CLASS] |
 | :-----: | :---------------------- | ---------: | :------------- |
-|   [1]   | window-lookback         | 10 minutes | transition     |
-|   [2]   | window-settle           | 30 seconds | transition     |
-|   [3]   | artifact-cap            |     16 MiB | transition     |
-|   [4]   | bundle-cap              |    128 MiB | transition     |
-|   [5]   | retention-max-bundles   |         16 | transition     |
-|   [6]   | retention-max-age       |    30 days | transition     |
-|   [7]   | retention-sweep-cadence |   `@daily` | transition     |
+|  [01]   | window-lookback         | 10 minutes | transition     |
+|  [02]   | window-settle           | 30 seconds | transition     |
+|  [03]   | artifact-cap            |     16 MiB | transition     |
+|  [04]   | bundle-cap              |    128 MiB | transition     |
+|  [05]   | retention-max-bundles   |         16 | transition     |
+|  [06]   | retention-max-age       |    30 days | transition     |
+|  [07]   | retention-sweep-cadence |   `@daily` | transition     |
 
 Canonical AppHost artifact rows are current; `process-dump` is the designed capture row. Sibling packages add rows through ordered contributor descriptors.
 
 | [INDEX] | [ARTIFACT]       | [PRODUCER]                              |
 | :-----: | :--------------- | :-------------------------------------- |
-|   [1]   | effective-config | redacted configuration debug view       |
-|   [2]   | buffered-logs    | profile log pipeline fault buffer       |
-|   [3]   | phase-receipts   | lifecycle receipts in the frozen window |
-|   [4]   | health-snapshot  | latest health fold                      |
-|   [5]   | process-dump     | dump and gcdump capture                 |
+|  [01]   | effective-config | redacted configuration debug view       |
+|  [02]   | buffered-logs    | profile log pipeline fault buffer       |
+|  [03]   | phase-receipts   | lifecycle receipts in the frozen window |
+|  [04]   | health-snapshot  | latest health fold                      |
+|  [05]   | process-dump     | dump and gcdump capture                 |
 
-## [4]-[MANIFEST_RECEIPT]
+## [04]-[MANIFEST_RECEIPT]
 
 - Owner: `SupportManifest` the wire-neutral manifest; `SupportReceipt` `[Union]` the wire receipt family; `SupportLedger` the zip-assembly and retention surface.
 - Cases: `Exported`, `Coalesced`, `Evicted`.
@@ -271,7 +271,7 @@ public static class SupportLedger {
 }
 ```
 
-## [5]-[TS_PROJECTION]
+## [05]-[TS_PROJECTION]
 
 - Owner: `SupportManifest` and `SupportReceipt` wire shapes
 - Packages: NodaTime.Serialization.SystemTextJson, Thinktecture.Runtime.Extensions.Json, BCL inbox
@@ -313,6 +313,6 @@ type SupportReceipt =
   | { readonly kind: "evicted"; readonly bundles: number; readonly bytes: number; readonly at: string };
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [DUMP_ADMISSION]: dump and gcdump capture-tool admission for the process-dump row.

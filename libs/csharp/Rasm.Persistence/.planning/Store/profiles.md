@@ -2,17 +2,17 @@
 
 Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis: each string-keyed row is the widened record carrying capability columns, concurrency-token policy, retention default, the ordered open-proof set, and three delegate columns, while `StoreLifecycle` runs the five-row state machine whose open, restore, drain, and health folds mint typed receipts. The page owns the engine axis, the lifecycle and cross-process law, the placement fold over the resolved profile record, the operator-provisioning manifest, and the multi-standard classification and 5D cost catalog the store tier hosts — `Classification` the standard axis over the ltree-backed catalog table, `CostRollup` the formula-evaluated quantity-takeoff fold over the DuckDB analytical lane — over Microsoft.Data.Sqlite, the EF Core providers, Npgsql, DuckDB.NET, Thinktecture vocabulary, LanguageExt rails, and NodaTime instants. The federated entity graph (`Query/federation#ENTITY_GRAPH`), the element-set currency (`Query/federation#ELEMENT_SET_ALGEBRA`), the DuckDB analytical lane (`Query/lanes#ANALYTICAL_LANE`), and the ltree classification hierarchy (`Query/lanes#GEO_LANES`) arrive settled and compose inside the catalog fences.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROFILE_AXIS]: six widened engine rows, delegate columns, and the blob contract record.
-- [2]-[STORE_LIFECYCLE]: five states, open and restore folds, drain rows, and health row.
-- [3]-[CROSS_PROCESS_LAW]: one lease shape, locality admission, and epoch fencing.
-- [4]-[PLACEMENT_MATRIX]: eight modality arms resolve placement from the resolved profile.
-- [5]-[PROVISIONING_ROWS]: operator manifest, verification fold, and maintenance rows.
-- [6]-[CLASSIFICATION_CATALOG]: multi-standard classification axis, ltree codes, and federated entity map.
-- [7]-[COST_ROLLUP]: cost-code mapping, formula-evaluated line items, and DuckDB hierarchy rollup.
+- [01]-[PROFILE_AXIS]: six widened engine rows, delegate columns, and the blob contract record.
+- [02]-[STORE_LIFECYCLE]: five states, open and restore folds, drain rows, and health row.
+- [03]-[CROSS_PROCESS_LAW]: one lease shape, locality admission, and epoch fencing.
+- [04]-[PLACEMENT_MATRIX]: eight modality arms resolve placement from the resolved profile.
+- [05]-[PROVISIONING_ROWS]: operator manifest, verification fold, and maintenance rows.
+- [06]-[CLASSIFICATION_CATALOG]: multi-standard classification axis, ltree codes, and federated entity map.
+- [07]-[COST_ROLLUP]: cost-code mapping, formula-evaluated line items, and DuckDB hierarchy rollup.
 
-## [2]-[PROFILE_AXIS]
+## [02]-[PROFILE_AXIS]
 
 - Owner: `StoreProfile` — one `[SmartEnum<string>]` engine axis under the `StoreKeyPolicy` ordinal accessor; the row IS the widened record: six capability columns, concurrency-token column, retention default, ordered open-proof set, and the connect, configure, and seed delegate columns; `BlobRemote` is the blob contract record fixed now; `StoreRows` carries the delegate targets.
 - Cases: sqlite-embedded, sqlite-memory, postgres-server, file-snapshot, duckdb-analytical, blob-remote; the engine sweep stays closed — libSQL, PGlite, LiteDB, RavenDB.Embedded, Realm, hctree, and embedded-pg are rejected rows, EF InMemory is the rejected in-memory provider, and PostgreSQL is never spawned or bundled by a Rasm process.
@@ -128,7 +128,7 @@ public sealed record BlobRemote(
 }
 ```
 
-## [3]-[STORE_LIFECYCLE]
+## [03]-[STORE_LIFECYCLE]
 
 - Owner: `StoreLifecycle` — five string-keyed rows with the total `Legal` transition law; `StoreOpenReceipt` is the typed open evidence; `StoreCeremony` is the open, restore, drain-registration, and health fold surface over one Atom-backed cell.
 - Cases: closed, opening, ready, drain, repair; legal transitions: closed to opening; opening to ready, repair, or closed; ready to drain or repair; drain to closed; repair to opening or closed.
@@ -256,7 +256,7 @@ stateDiagram-v2
     Closed --> [*]
 ```
 
-## [4]-[CROSS_PROCESS_LAW]
+## [04]-[CROSS_PROCESS_LAW]
 
 - Owner: `StoreLeaseRow` — one persisted lease shape with two kind rows; `StoreLocality` — the filesystem-locality admission guard.
 - Cases: writer and maintenance lease kinds; the lease table creation is pinned to the first migration so every sharing process reads one coordination surface, and the unique `(store, kind)` constraint makes the `Claim` conflict the first-open arbiter.
@@ -299,7 +299,7 @@ public static class StoreLocality {
 }
 ```
 
-## [5]-[PLACEMENT_MATRIX]
+## [05]-[PLACEMENT_MATRIX]
 
 - Owner: `StorePlacement` — the eight-modality placement record and its total fold over the resolved profile record.
 - Cases: rhino-plugin owns the one shared embedded session; gh2-plugin delegates to it with zero second open and zero second migrator; standalone Integrating attaches to the same per-user store under the writer lease with direct WAL writes while only document mutations cross the hop; companion owns a scoped store and shares cache identity, not files; sidecar pairs a memory scratch with remote-only durable; headless and web run PostgresServer with migration bundles applied at deploy; test-host runs sqlite-memory with seeding and fake clocks.
@@ -340,7 +340,7 @@ public sealed record StorePlacement(
 }
 ```
 
-## [6]-[PROVISIONING_ROWS]
+## [06]-[PROVISIONING_ROWS]
 
 - Owner: `ExtensionRequirement` — the operator-provisioning manifest rows, the pure provisioning-verification fold, and the type-resolution verification fold.
 - Cases: eleven operator rows with preload columns — pg_stat_statements, auto_explain, timescaledb, timescaledb_toolkit, pg_partman, pgvectorscale, pg_search, pg_squeeze, hypopg, pgaudit, btree_gist; `btree_gist` is the mandatory no-preload self-provisioned row backing the WITHOUT OVERLAPS temporal primary-key GiST exclusion (SqlState 23P01 → `schema-rail` `TemporalOverlap`), `CREATE EXTENSION`'d in the first migration before any temporal-key table; pg_cron, pgmq, pg_repack, pg_stat_monitor, pg_uuidv7, and pg_duckdb are rejected rows because the schedule port owns cadence, native pgoutput owns the changefeed, pg_squeeze owns in-DB online reorg, pg_stat_statements plus the OTLP rollup own query observability, PG18-native uuidv7 owns key minting, and in-process DuckDB plus TimescaleDB continuous aggregates own analytical reads; self-provisioned DDL extensions are model annotations and stay out of this manifest.
@@ -386,11 +386,11 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 
 | [INDEX] | [ROW]              | [WORK]                      | [CADENCE]                               | [LEASE]     |
 | :-----: | :----------------- | :-------------------------- | :-------------------------------------- | :---------- |
-|   [1]   | pg-analyze         | ANALYZE                     | persistence-maintenance cron occurrence | maintenance |
-|   [2]   | pg-reindex         | REINDEX CONCURRENTLY        | persistence-maintenance cron occurrence | maintenance |
-|   [3]   | autovacuum-posture | pg_settings autovacuum read | open ceremony                           | none        |
+|  [01]   | pg-analyze         | ANALYZE                     | persistence-maintenance cron occurrence | maintenance |
+|  [02]   | pg-reindex         | REINDEX CONCURRENTLY        | persistence-maintenance cron occurrence | maintenance |
+|  [03]   | autovacuum-posture | pg_settings autovacuum read | open ceremony                           | none        |
 
-## [7]-[CLASSIFICATION_CATALOG]
+## [07]-[CLASSIFICATION_CATALOG]
 
 - Owner: `ClassificationStandard` the standard axis (Uniclass, OmniClass, MasterFormat, IfcClassification); `ClassificationCode` the hierarchical code record carrying the ltree path; `ClassificationMap` the federated-entity-to-codes resolution; `Catalog` the static surface owning the catalog load, the hierarchical code lookup, the cross-standard mapping, and the entity-classification fold.
 - Cases: `Uniclass | OmniClass | MasterFormat | IfcClassification` on `ClassificationStandard`; a code carries its standard, its ltree path (so `Pr_20_93_52` and `23-30 00 00` are both hierarchical), its title, and its parent; an entity maps to zero or more codes across standards.
@@ -449,14 +449,14 @@ public static class Catalog {
 }
 ```
 
-| [INDEX] | [STANDARD]         | [CODE_FORM]               | [LTREE_PATH]                                    |
-| :-----: | :----------------- | :------------------------ | :---------------------------------------------- |
-|   [1]   | Uniclass           | `Pr_20_93_52`             | `Pr.20.93.52`; tables Ss/Pr/EF/Ac differentiate |
-|   [2]   | OmniClass          | `23-30 00 00`             | `23.30.00.00`; tables 11-49                      |
-|   [3]   | MasterFormat       | `03 30 00`                | `03.30.00`; divisions                            |
-|   [4]   | IfcClassification  | `IfcClassificationReference` | reference-pset code path                      |
+| [INDEX] | [STANDARD]        | [CODE_FORM]                  | [LTREE_PATH]                                    |
+| :-----: | :---------------- | :--------------------------- | :---------------------------------------------- |
+|  [01]   | Uniclass          | `Pr_20_93_52`                | `Pr.20.93.52`; tables Ss/Pr/EF/Ac differentiate |
+|  [02]   | OmniClass         | `23-30 00 00`                | `23.30.00.00`; tables 11-49                     |
+|  [03]   | MasterFormat      | `03 30 00`                   | `03.30.00`; divisions                           |
+|  [04]   | IfcClassification | `IfcClassificationReference` | reference-pset code path                        |
 
-## [8]-[COST_ROLLUP]
+## [08]-[COST_ROLLUP]
 
 - Owner: `CostCode` the classification-to-cost-code mapping with rate; `CostLineItem` a formula-evaluated takeoff line; `CostRollup` the static surface owning the formula evaluation, the quantity-takeoff line projection, and the hierarchical DuckDB rollup over the element-set.
 - Cases: a cost code maps a classification path to a unit rate and a unit of measure; a line item evaluates a cost formula (`quantity * rate`, or a parametric expression over the element's quantities) into an extended amount; the rollup folds line items up the classification ltree hierarchy.
@@ -517,15 +517,15 @@ public static class CostRollup {
 }
 ```
 
-| [INDEX] | [CONCERN]           | [SURFACE]                                       | [LAW]                                             |
-| :-----: | :------------------ | :---------------------------------------------- | :------------------------------------------------ |
-|   [1]   | formula evaluation  | DuckDB scalar expression over quantity columns  | data formula, never a hand-rolled evaluator       |
-|   [2]   | takeoff subject     | `ElementSet` selection                          | composes with any element-set selection           |
-|   [3]   | hierarchical rollup | DuckDB `GROUP BY ROLLUP` over ltree path        | one query for every hierarchy level               |
-|   [4]   | rate base           | content-addressed catalog edition               | re-price is a content-addressed rollup delta      |
-|   [5]   | report export       | analytical-lane parquet export                  | one tabular path, never a second report pipeline  |
+| [INDEX] | [CONCERN]           | [SURFACE]                                      | [LAW]                                            |
+| :-----: | :------------------ | :--------------------------------------------- | :----------------------------------------------- |
+|  [01]   | formula evaluation  | DuckDB scalar expression over quantity columns | data formula, never a hand-rolled evaluator      |
+|  [02]   | takeoff subject     | `ElementSet` selection                         | composes with any element-set selection          |
+|  [03]   | hierarchical rollup | DuckDB `GROUP BY ROLLUP` over ltree path       | one query for every hierarchy level              |
+|  [04]   | rate base           | content-addressed catalog edition              | re-price is a content-addressed rollup delta     |
+|  [05]   | report export       | analytical-lane parquet export                 | one tabular path, never a second report pipeline |
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [FIRST_OPEN_RACE]: RESOLVED (proof) — the `Claim` conflict elects the writer deterministically and the loser's reader attach observes the winner's `MigrateAsync` commit boundary atomically. Proved by a two-process console harness over `Microsoft.Data.Sqlite` 10.0.9 / e_sqlite3 3.50.4 racing first-open + lease-INSERT + a 60ms-widened migration commit on one WAL file (2/4/6-process, 110 races, zero failures): exactly one winner per race, all processes agree on the deterministic winner pid, losers read the full committed schema + 64-row seed with no torn/partial read and no post-commit empty-schema window, `quick_check` `ok` everywhere. The `ON CONFLICT DO NOTHING RETURNING` no-op yields a `null` scalar (a value, not a throw) folded to the `<writer-lease-held>` `Fin.Fail`; `SQLITE_BUSY` (code 5) is the only diagnosable retry fault and never triggered under 5000ms busy_timeout. WAL per-reader snapshot isolation makes the migration transaction all-or-nothing to any concurrent reader.
 - [TYPE_RESOLUTION_ACCESSOR]: the `NpgsqlDataSource` database-info accessor that projects the live source's resolved `PostgresType`, `PostgresEnumType`, and `PostgresCompositeType` names into the `FrozenSet<string>` the `type-resolution` open-proof hands `VerifyTypes` — whether the projection reads from a connection database-info property or a data-source mapper enumeration, resolved before the proof row reads a live source.

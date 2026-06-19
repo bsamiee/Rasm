@@ -2,16 +2,16 @@
 
 Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bind to frozen `HopPolicy` rows, every hop holds exactly one retry surface — the standard or hedging HTTP handler on SocketsHttpHandler-borne rows, one keyed Polly pipeline per non-HTTP row — admission folds the degradation gate, the modality exclusion, and the retry-owner claim into one `Fin` rail, every dispatch exits as a `HopReceipt`, and the `LocalIpc` peer attaches through the discovery manifest law. The page owns the hop axis, both pipeline registries, the ownership law over the Polly, Http.Resilience, and Grpc.Net.Client spine, and the discovery manifest, UDS attach, checksum gate, and companion-spawn lifecycle that seat the `LocalIpc(DiscoveryManifest Peer)` hop case.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[HOP_AXIS]: Seven hop cases bound to frozen policy rows with total dispatch.
-- [2]-[HTTP_PIPELINES]: Standard and hedging handlers for `SocketsHttpHandler`-borne rows.
-- [3]-[KEYED_PIPELINES]: One keyed Polly registry and channel policy for non-HTTP hops.
-- [4]-[OWNERSHIP_LAW]: One retry owner per hop with conflict evidence and receipts.
-- [5]-[DISCOVERY_ATTACH]: Manifest law, UDS attach, checksum gate, and companion child lifecycle.
-- [6]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, delivery receipts, and dedupe.
+- [01]-[HOP_AXIS]: Seven hop cases bound to frozen policy rows with total dispatch.
+- [02]-[HTTP_PIPELINES]: Standard and hedging handlers for `SocketsHttpHandler`-borne rows.
+- [03]-[KEYED_PIPELINES]: One keyed Polly registry and channel policy for non-HTTP hops.
+- [04]-[OWNERSHIP_LAW]: One retry owner per hop with conflict evidence and receipts.
+- [05]-[DISCOVERY_ATTACH]: Manifest law, UDS attach, checksum gate, and companion child lifecycle.
+- [06]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, delivery receipts, and dedupe.
 
-## [2]-[HOP_AXIS]
+## [02]-[HOP_AXIS]
 
 - Owner: `OutboundHop` `[Union]` seven sealed hop cases; `HopPolicy` per-case row record; `HopRows` frozen row set with the total dispatch; `HopIdempotency` keyless vocabulary; `HopTransport` keyless byte-mover vocabulary; `HopRateLimit` keyless admission-shape vocabulary; `HopFault` `[Union]` fault family in the 4500 band; `ReleaseIdentity` vehicle-free update identity.
 - Cases: HttpApi, Grpc, ServerStream, CompanionSpawn, LocalIpc, WebhookPost, UpdateCheck — the stream case is gRPC server-stream; UpdateCheck carries `ReleaseIdentity` and is structurally excluded on plugin rows.
@@ -108,7 +108,7 @@ public static class HopRows {
 }
 ```
 
-## [3]-[HTTP_PIPELINES]
+## [03]-[HTTP_PIPELINES]
 
 - Owner: `HttpLane` — one registration fold for the SocketsHttpHandler-borne rows (HttpApi, WebhookPost, UpdateCheck).
 - Entry: `Wire(IServiceCollection services, IConfiguration configuration, OutboundHop hop, Uri authority)` — the idempotency row dispatch selects hedging versus standard and returns the graph.
@@ -148,7 +148,7 @@ public static class HttpLane {
 }
 ```
 
-## [4]-[KEYED_PIPELINES]
+## [04]-[KEYED_PIPELINES]
 
 - Owner: `KeyedLane` — the one keyed registry registration fold for every non-HTTP hop; the channel-policy record is the canonical `Rasm.Compute/Runtime/channels#TRANSPORT_AXIS` `GrpcChannelPolicy` consumed by reference — this page reads `GrpcChannelPolicy.Canonical` and never re-declares the record.
 - Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, Func<HopPolicy, Func<FallbackActionArguments<HopOutcome>, ValueTask<Outcome<HopOutcome>>>> redial, Action<OnRateLimiterRejectedArguments> onRejected, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row, the `redial` projection seats the per-row fallback action and `onRejected` fans every rate-limiter rejection onto the meter.
@@ -240,7 +240,7 @@ public static class KeyedLane {
 
 Every keyed-pipeline literal is a named frozen `const` or `static readonly` on `KeyedLane` — `PermitLimit` 64, `QueueLimit` 256, `RetryAttempts` 3, `RateLimitPermits` 128, `RateLimitQueue` 64, `WindowSegments` 6, `WindowPermits` 256, `TokensPerPeriod` 32, `TokenBucketCapacity` 128, `RetrySeed` 200 ms, `SlidingWindowSpan` 60 s, `TokenReplenishment` 1 s — so each strategy value traces to its declaring field, never an inline literal; `permitCount` 1 on `AcquireAsync` is the single-call lease grain and `QueueProcessingOrder.OldestFirst` is the fairness fact on both replenishing shapes.
 
-## [5]-[OWNERSHIP_LAW]
+## [05]-[OWNERSHIP_LAW]
 
 - Owner: `OutboundSurface` — admission, dispatch, conflict evidence, and enforcement over one runtime record; `OutboundRuntime` capability record; `HopOutcome` `[Union]`; `HopReceipt` receipt struct.
 - Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults, Faulted carries in-flight pipeline rejection.
@@ -342,7 +342,7 @@ public static class OutboundSurface {
 }
 ```
 
-## [6]-[DISCOVERY_ATTACH]
+## [06]-[DISCOVERY_ATTACH]
 
 - Owner: `DiscoveryManifest` attach record; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, checksum gate, UDS connect, spawn, drain-fan producer.
 - Entry: `Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract)` — `Fin` aborts on missing, empty, or dead-pid manifests.
@@ -450,7 +450,7 @@ public static class Discovery {
 }
 ```
 
-## [7]-[DELIVERY_FANOUT]
+## [07]-[DELIVERY_FANOUT]
 
 - Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryReceipt` the per-channel delivery evidence; `DeliveryFanout` the static multi-channel fan surface with the dedupe cell.
 - Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer; delivery dispositions ride `HopOutcome`.
@@ -538,6 +538,6 @@ public static class DeliveryFanout {
 }
 ```
 
-## [8]-[RESEARCH]
+## [08]-[RESEARCH]
 
 The dial-out boundary carries no open research. The accepted-socket peer-credential projection moves to the serving owner at `Wire/companion#PEER_ADMISSION`, where the P/Invoke `getsockopt` route and the `ucred`/`xucred` blittable layout seat the admission fence. The transactional-mail channel target API resolves at app-root creation behind the same app-root pin the OTLP exporter rides; the channel rows bind the `OutboundHop` only, never the provider client, so a mail provider is one channel target Uri, never a delivery-page client.

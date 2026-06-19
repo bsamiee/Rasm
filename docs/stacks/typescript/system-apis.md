@@ -2,21 +2,21 @@
 
 Effect-ecosystem modules replace JS stdlib machinery whenever they own the concern. They do not replace `Schema` shapes, `Match` dispatch, `Layer` wiring, or the typed Effect rails. The default is the Effect data structure with structural equality, persistent update, and `Equal`/`Hash` integration; JS stdlib `Map`/`Set`/`Array`/`Object`/`Date`/`null` survive only at FFI and serialization boundaries marked `// BOUNDARY ADAPTER`. The selection axis is ownership of an invariant, not feature parity: a primitive is admitted because it carries structural equality, an `Option` failure mode, a testable seam, or persistent update that the stdlib shape silently drops.
 
-## [1]-[SMELL_LOOKUP]
+## [01]-[SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell; the owner deletes the smell, never wraps it.
 
 | [INDEX] | [SMELL]                                          | [OWNER]                              |
 | :-----: | :----------------------------------------------- | :----------------------------------- |
-|   [1]   | `new Map()`/`new Set()` mutated in domain        | `HashMap` / `HashSet`                |
-|   [2]   | `new Set([...prior, x])` rebuild per event       | `HashMap.modifyAt` / `HashSet.add`   |
-|   [3]   | `Array.push` accumulation in a fold              | `Chunk` / `Array.reduce`             |
-|   [4]   | `Object.keys`/`entries`/`fromEntries`            | the `Record` module                  |
-|   [5]   | manual object pick/omit/evolve                   | the `Struct` module                  |
-|   [6]   | `null`/`undefined` for domain absence            | `Option`                             |
-|   [7]   | `Date.parse`/`new Date(s).getTime()`             | `DateTime` / `Schema.DateTimeUtc`    |
-|   [8]   | `a.physical >= b.physical` inline date compare   | `DateTime.Order` / `DateTime.max`    |
-|   [9]   | `hi - lo` ad-hoc instant subtraction             | `DateTime.distanceDuration`          |
+|  [01]   | `new Map()`/`new Set()` mutated in domain        | `HashMap` / `HashSet`                |
+|  [02]   | `new Set([...prior, x])` rebuild per event       | `HashMap.modifyAt` / `HashSet.add`   |
+|  [03]   | `Array.push` accumulation in a fold              | `Chunk` / `Array.reduce`             |
+|  [04]   | `Object.keys`/`entries`/`fromEntries`            | the `Record` module                  |
+|  [05]   | manual object pick/omit/evolve                   | the `Struct` module                  |
+|  [06]   | `null`/`undefined` for domain absence            | `Option`                             |
+|  [07]   | `Date.parse`/`new Date(s).getTime()`             | `DateTime` / `Schema.DateTimeUtc`    |
+|  [08]   | `a.physical >= b.physical` inline date compare   | `DateTime.Order` / `DateTime.max`    |
+|  [09]   | `hi - lo` ad-hoc instant subtraction             | `DateTime.distanceDuration`          |
 |  [10]   | raw millisecond literal for a duration           | `Duration`                           |
 |  [11]   | hand-written multi-field comparator              | `Order.struct` / `Order.combineAll`  |
 |  [12]   | delimiter-concatenated equality/cache key        | `Equivalence.struct`                 |
@@ -29,7 +29,7 @@ This table is a lookup by repeated local smell; the owner deletes the smell, nev
 |  [19]   | unbounded `new Map()` mutated as a cache         | `Cache` / `Effect.cachedFunction`    |
 |  [20]   | `Math.random()` for a non-cosmetic identifier    | `node:crypto` boundary capture       |
 
-## [2]-[COLLECTIONS]
+## [02]-[COLLECTIONS]
 
 [IMMUTABLE_STRUCTURES]:
 - Owner: `HashMap<K,V>` for keyed lookup and accumulator state, `HashSet<T>` for membership, `Chunk<T>` for streaming and batching, the `Array` module (`Array.getSomes`, `Array.groupBy`, `Array.dedupeWith`, `Array.match`) for small fixed collections.
@@ -60,7 +60,7 @@ const project = (tallies: HashMap.HashMap<string, number>): ReadonlyArray<readon
   A.map(HashMap.toEntries(tallies), ([key, count]) => [key, count] as const)
 ```
 
-## [3]-[TIME_AND_IDENTITY]
+## [03]-[TIME_AND_IDENTITY]
 
 [INSTANT_OWNER]:
 - Owner: `DateTime` (`DateTime.unsafeMake`, `DateTime.make` returning `Option`, `DateTime.toEpochMillis`, `DateTime.distanceDuration`, `DateTime.Order`, `DateTime.Equivalence`, `DateTime.min`/`max`/`between`) for every event-time instant; `Schema.DateTimeUtc` admits an ISO-8601 string into a `DateTime.Utc` at the decode seam.
@@ -100,7 +100,7 @@ const isLate = (mark: DateTime.Utc, row: DateTime.Utc, allowed: Duration.Duratio
   Order.lessThan(DateTime.Order)(row, DateTime.subtractDuration(mark, allowed))
 ```
 
-## [4]-[VALUES_AND_PREDICATES]
+## [04]-[VALUES_AND_PREDICATES]
 
 [DURATION_AND_ABSENCE]:
 - Owner: `Duration` for every timeout, delay, schedule interval, and vocabulary policy field; `Option<T>` for every domain absence with `Option.fromNullable` at the boundary.
@@ -130,7 +130,7 @@ const saturation = (k: number, cap: number): number =>
   pipe(N.divide(k, cap), Option.map((r) => 1 - N.min(r, 1)), Option.getOrElse(() => 1))
 ```
 
-## [5]-[CODEC_AND_COMPOSITION]
+## [05]-[CODEC_AND_COMPOSITION]
 
 [CODEC]:
 - Owner: `Schema.parseJson(inner)` for a JSON wire string decoded straight into the domain shape, `Schema.transform(wire, domain, { decode, encode })` for a bidirectional wire-to-domain projection, and the layered codecs (`Schema.Uint8ArrayFromBase64` on the wire leg, `Schema.Uint8ArrayFromSelf` on the domain leg).
@@ -159,7 +159,7 @@ const Receipt = S.transform(Frame, S.typeSchema(S.Struct({ topic: S.NonEmptyStri
 })
 ```
 
-## [6]-[RUNTIME_AND_INTEGRITY]
+## [06]-[RUNTIME_AND_INTEGRITY]
 
 [TIME]:
 - Owner: `Clock` (`Clock.currentTimeMillis`, `Clock.currentTimeNanos`, `Clock.clockWith`) read through the ambient service, `Effect.sleep`/`Effect.timeout`/`Schedule` for delay and pacing, and `TestClock.adjust`/`setTime` as the deterministic test seam.

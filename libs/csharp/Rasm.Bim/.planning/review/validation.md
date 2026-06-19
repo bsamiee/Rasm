@@ -2,11 +2,11 @@
 
 The buildingSMART IDS v1.0 model-validation owner: one `IdsSpecification` record parsed from and authored to the IDS XSD, its six facets folded into one closed `IdsFacet` `[Union]` that lowers each applicability/requirement facet onto the `Model/query#ELEMENT_SET` `ElementPredicate` algebra over `BimModel`, and one `IdsAudit` deterministic receipt. The validation predicate IS the query predicate — an IDS Entity/Attribute/Property/Classification/Material/PartOf facet folds to the same `ElementPredicate` arm the set query reads, never a second selection surface. The page composes the `Model/elements#ELEMENT_MODEL` `BimModel`, the `Model/query#ELEMENT_SET` algebra, the `Semantics/classification#CLASSIFICATION_AXIS` axis, and the planned `Semantics/properties#PROPERTY_SETS` owner as settled vocabulary; the in-process fold gives an immediate self-audit and the IfcOpenShell ifctester companion gives the deterministic cross-tool audit matching the buildingSMART IDS audit test-suite. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[IDS_FACETS]: `IdsFacet` closed union, `IdsSpecification`/`IdsRequirement` records, the `IdsAudit` receipt, and the XSD parse/author over `System.Xml.Schema`.
+- [01]-[IDS_FACETS]: `IdsFacet` closed union, `IdsSpecification`/`IdsRequirement` records, the `IdsAudit` receipt, and the XSD parse/author over `System.Xml.Schema`.
 
-## [2]-[IDS_FACETS]
+## [02]-[IDS_FACETS]
 
 - Owner: `IdsSpecification` the IDS specification record carrying applicability and requirement facet sets and the cardinality; `IdsFacet` `[Union]` the closed facet family (Entity, Attribute, Property, Classification, Material, PartOf) each lowering to an `ElementPredicate` arm; `IdsRequirement` the requirement-side facet carrying its cardinality (`Required`/`Prohibited`/`Optional`); `IdsAudit` the deterministic per-specification receipt folding the matched/passed/failed element GlobalIds.
 - Entry: `IdsSpecification.Audit(BimModel model)` folds the applicability facets into one `ElementQuery` selecting the applicable element set, then folds each requirement facet into an `ElementPredicate` partitioning the applicable set into passed and failed — `Fin<T>` aborts on a facet referencing an unknown classification system or property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a malformed IDS payload (`BimFault.ModelRejected`), each lowered with `.ToError()`; `IdsSpecification.Parse(ReadOnlyMemory<byte> xsdBytes)` admits an IDS XML document validated against the IDS v1.0 XSD through `XmlReaderSettings.Schemas`, and `IdsSpecification.Author(Seq<IdsSpecification> specs)` emits the IDS XML the companion ifctester consumes.
@@ -112,7 +112,7 @@ public sealed record IdsAudit(string Specification, int ApplicableCount, Seq<Ids
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [IDS_XSD_GRAMMAR]: the IDS v1.0 XSD element grammar — the `ids`/`specification`/`applicability`/`requirements` structure, the six facet element local-names (`entity`/`attribute`/`property`/`classification`/`material`/`partOf`), the `simpleValue`/`restriction` value-constraint sub-grammar (`xs:enumeration`/`xs:pattern`/`xs:minInclusive` bounds), the `cardinality` attribute vocabulary (`required`/`prohibited`/`optional`), and the `dataType`/`uri`/`instructions` attributes — grounds against the published buildingSMART IDS v1.0 XSD (June 2024) and the ifctester reference parser so the `FacetOf` element-name dispatch and the value-restriction projection match the audit test-suite before the `Parse` body is final; the `XmlSchemaSet.Add`/`XmlReaderSettings.Schemas` validation seam and the `XDocument`/`XElement` projection are BCL inbox and settled.
 - [IFCTESTER_COMPANION]: the IfcOpenShell ifctester cross-tool audit request/response shape — the IDS XML payload the companion consumes, the per-specification pass/fail GlobalId projection it returns, and the deterministic audit-test-suite parity — is owned by `libs/python/geometry` (`python:geometry/ifc-companion`) and orchestrated over Compute's existing companion rpc identically to the `Exchange/tessellation#TESSELLATION_BRIDGE` two-hop pattern; the C# `IdsAudit` shape is settled and the companion wire detail rides Compute's companion rpc, the in-process fold is the immediate self-audit and the companion is the external-conformance oracle.

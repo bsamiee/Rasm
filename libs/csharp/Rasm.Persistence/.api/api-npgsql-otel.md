@@ -3,7 +3,7 @@
 `Npgsql.OpenTelemetry` wires Npgsql tracing and metrics into OpenTelemetry
 provider builders.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql.OpenTelemetry`
 - package: `Npgsql.OpenTelemetry`
@@ -13,15 +13,15 @@ provider builders.
 - asset: runtime library
 - rail: telemetry
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [TELEMETRY_TYPES]: provider builder extensions
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]             |
 | :-----: | :-------------------------------- | :--------------- | :----------------------- |
-|   [1]   | `TracerProviderBuilderExtensions` | tracer extension | subscribes Npgsql spans  |
-|   [2]   | `MeterProviderBuilderExtensions`  | meter extension  | subscribes Npgsql meters |
+|  [01]   | `TracerProviderBuilderExtensions` | tracer extension | subscribes Npgsql spans  |
+|  [02]   | `MeterProviderBuilderExtensions`  | meter extension  | subscribes Npgsql meters |
 
 The extension signatures are:
 - `AddNpgsql(TracerProviderBuilder) : TracerProviderBuilder`
@@ -32,7 +32,7 @@ Histogram and cardinality posture ride OpenTelemetry meter-view configuration, n
 
 Tracing depth is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action<NpgsqlTracingOptionsBuilder>)`, which is a driver-level concern catalogued in `api-npgsql.md`.
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tracing wiring
 - rail: telemetry
@@ -50,7 +50,7 @@ Tracing depth is configured via `NpgsqlDataSourceBuilder.ConfigureTracing(Action
 - Call shape: `MeterProviderBuilder` plus optional `Action<NpgsqlMetricsOptions>`
 - Capability: subscribes Npgsql meters
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_PROFILE]:
 - namespace: `Npgsql`

@@ -2,15 +2,15 @@
 
 The inbound companion server-runtime, credential axis, and private daemon entrypoint. `ServerHost` owns the `grpc.aio` server lifecycle (bind, request lifecycle, graceful drain) under the `anyio` runner, hosting the geometry companion daemon that speaks the EXISTING C# `ComputeService`/`DocumentService`/`ControlService`/`ArtifactSync` gRPC contract over the UDS leg. `Credential` is the Python half of the C# `CredentialPolicy` axis, decoded against the five producer rows and resolved to the one credential the companion UDS serve leg admits — `insecure_loopback`, peer identity read by the kernel at accept, never a PEM bundle. `WireProtoCodec` transcodes the canonical `msgspec` `Struct` shapes to the generated protobuf `Message` the gRPC wire carries; `CrdtOpDecode` decodes the MessagePack op-log delta the C# `Rasm.Persistence/Version/commits#CRDT_WIRE` owner mints, never a re-mint; `CapabilityInvoke` consumes the C#-generated capability-descriptor SDK, deriving the companion command surface from the descriptor catalog. `Entrypoint` is the type-hint-driven `cyclopts` command grammar that launches the daemon — a PRIVATE entry only. The package owns the companion's inbound serve and the decode of every C#-owned wire shape; it mints no wire vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[SERVE]: the inbound `grpc.aio` server lifecycle, the decoded credential axis, the OTel span interceptor.
-- [2]-[PROTO_TRANSCODE]: the one msgspec-canonical to protobuf-wire codec at the gRPC seam.
-- [3]-[CRDT_DECODE]: the MessagePack op-log CRDT-op decode (the durability codec, NOT protobuf).
-- [4]-[CAPABILITY_INVOKE]: the descriptor-driven polymorphic invoke decoding the C# capability SDK.
-- [5]-[ENTRY]: the private companion entrypoint grammar.
+- [01]-[SERVE]: the inbound `grpc.aio` server lifecycle, the decoded credential axis, the OTel span interceptor.
+- [02]-[PROTO_TRANSCODE]: the one msgspec-canonical to protobuf-wire codec at the gRPC seam.
+- [03]-[CRDT_DECODE]: the MessagePack op-log CRDT-op decode (the durability codec, NOT protobuf).
+- [04]-[CAPABILITY_INVOKE]: the descriptor-driven polymorphic invoke decoding the C# capability SDK.
+- [05]-[ENTRY]: the private companion entrypoint grammar.
 
-## [2]-[SERVE]
+## [02]-[SERVE]
 
 - Owner: `ServerHost` — the boundary capsule over one `grpc.aio` server hosting servicers generated from the C# proto descriptors; `Credential` the tagged union decoding the C# `CredentialPolicy` five-row axis to the one credential the companion UDS serve leg admits.
 - Cases: the C# `CredentialPolicy` mints five rows — `insecure-loopback`, `tls`, `mtls`, `bearer`, `composed` — but the companion serves the local control plane over the UDS leg (`RemoteTransport.UnixDomainSocket`, whose `Credentials` column is `Seq(CredentialPolicy.InsecureLoopback)` exactly), so the decode admits one case: `Credential` cases `insecure_loopback=True` is the only constructible serve-side credential, and peer identity is the kernel-reported `(pid, uid)` the C# `AppHost/companion-sidecar#PEER_ADMISSION` reads at accept through `SO_PEERCRED`/`LOCAL_PEERCRED`, never a wire-carried PEM; `tls`/`mtls`/`bearer`/`composed` are the OUTBOUND client legs the C# `Rasm.AppHost` dials and carry PEM/token material the companion never serves, so the decode names them as the deleted serve-side forms rather than constructing a server credential from them.
@@ -88,7 +88,7 @@ class ServerHost:
         await self._server.stop(self._grace)
 ```
 
-## [3]-[PROTO_TRANSCODE]
+## [03]-[PROTO_TRANSCODE]
 
 - Owner: `WireProtoCodec` — the one boundary codec transcoding the canonical `msgspec` `Struct` shapes interior code holds into the generated protobuf `Message` the C# gRPC services carry, and back; it mints no second wire vocabulary, owning only the projection across the gRPC seam so interior code never touches a `Message` and the wire never sees a `Struct`.
 - Entry: `WireProtoCodec.encode` projects a canonical `Struct` to wire bytes — `msgspec.to_builtins` lowers the struct to a JSON-compatible mapping, `json_format.ParseDict` fills the generated `Message` (snake_case field names preserved against the proto schema), and `Message.SerializeToString` emits the canonical protobuf wire encoding; `WireProtoCodec.decode` reverses it — `proto.parse` decodes the wire bytes into a fresh `Message` instance, `json_format.MessageToDict` projects it to a mapping with `preserving_proto_field_name=True`, and `msgspec.convert` validates that mapping into the typed canonical `Struct`, the `msgspec.ValidationError` or protobuf `DecodeError` crossing the one `reliability/faults#FAULT` `boundary` conversion as the `wire` case.
@@ -122,7 +122,7 @@ class WireProtoCodec[S: Struct, M: Message]:
         return boundary("wire", project)
 ```
 
-## [4]-[CRDT_DECODE]
+## [04]-[CRDT_DECODE]
 
 - Owner: `CrdtOp` — the canonical op-log delta union the companion decodes from the C# `Rasm.Persistence/Version/commits#CRDT_WIRE` `CrdtOpWire` `[MessagePack.Union]` owner, ten arms tag 0-9 dense and append-only; `Hlc` the hybrid-logical-clock cell every arm carries; `CrdtOpDecode` the one decode surface reading the MessagePack delta the `OpLogEntry.Payload` carries for `column-family=crdt` rows. The op-log crosses as MessagePack under `Lz4BlockArray`, NOT protobuf — the durability codec the C# snapshot ladder and the wire seam share, distinct from the gRPC proto wire at `[3]`.
 - Cases: ten op arms mirroring the producer union tag-for-tag — `set`(0), `write`(1), `add`(2), `remove`(3), `increment`(4), `insert_after`(5), `delete`(6), `maintain`(7), `beat`(8), `leave`(9); LWW survives only as the `set` arm reconstructing the `LwwRegister`, the `beat`/`leave` arms carry the `EphemeralMap` presence delta the late-joining companion reconstructs from the op-log prefix. Each arm's field positions decode the producer `[Key]` order exactly — `set` is `(field, value, physical_ticks, logical, origin)` at keys 0-4, `write` adds the `(origin, seq)[]` version-vector context at key 2, `add`/`remove` carry the `(guid, ulong)` element tags, `insert_after` carries the predecessor/id `(origin, logical)` pairs, `beat` carries `(field, origin, state, physical_ticks, logical)`, `leave` carries `(field, origin, physical_ticks, logical)`.
@@ -334,7 +334,7 @@ class CrdtOpDecode:
         return boundary("wire", lambda: cls.lift(cls._decoder.decode(decompress(lz4_payload))))
 ```
 
-## [5]-[CAPABILITY_INVOKE]
+## [05]-[CAPABILITY_INVOKE]
 
 - Owner: `CapabilityInvoke` — the descriptor-driven polymorphic invoke decoding the C# `Rasm.AppHost/Agent/capability#SDK_CODEGEN` Python target; `DiscoveryResult` the descriptor catalog row the companion ingests from the C# `DiscoveryResultWire[]` projection; `CommandReceipt` the per-command evidence the companion reads back through the C# `ReceiptEnvelopeWire<CapabilityCommandReceiptWire>`. One invoke keyed by descriptor id discriminates every capability, never a per-service hand client. The OUTBOUND dispatch wraps its channel with `aio_client_interceptors(tracer_provider, filter_, request_hook, response_hook)` so the call propagates the active span through the `observability/telemetry#TELEMETRY`-installed composite and the client hooks enrich the CLIENT span with the descriptor id, the `CAUSAL_TENANT_FRAME` `Tenant`, and the fault case.
 - Cases: the C# SDK Python target emits one method per descriptor — `def {surface}_{op}(self, args: CommandArguments) -> CommandReceipt: return self._run("{surface}.{op}", args)` — so the companion decodes the descriptor catalog into one `_run(descriptor_id, args)` dispatch where `descriptor_id` is the `{surface}.{op}` join the C# `CapabilityDescriptor.Of` mints; the per-descriptor `input_schema` is the `JsonSchemaExporter` JSON Schema the C# `SuiteContracts.Schema` derives from the descriptor's `CommandArguments`, so the companion validates the argument payload against the generated schema, never a hand-mirrored shape; the command-txn disposition decodes as the literal-discriminated union the C# `CommandTxn` mints — `committed` · `rolled_back` · `compensated` · `refused` — over the `CapabilityCommandReceiptWire.txn` kind.
@@ -418,7 +418,7 @@ class CapabilityInvoke:
         return dispatched.bind(lambda raw: boundary("wire", lambda: self._receipt.decode(raw)))
 ```
 
-## [6]-[ENTRY]
+## [06]-[ENTRY]
 
 - Owner: `Entrypoint` — the type-hint-driven `cyclopts` command axis backing the companion daemon's PRIVATE entry and package-internal entrypoints only; co-located with `ServerHost` because `serve` composes the host it launches.
 - Entry: `companion_app` returns the `cyclopts.App` whose commands bind to the companion serve and drain; arguments bind from type hints, never from a hand-parsed `argv`.
@@ -441,7 +441,7 @@ def companion_app() -> App:
     return app
 ```
 
-## [7]-[RESEARCH]
+## [07]-[RESEARCH]
 
 - [CREDENTIAL_PEM]: [COMPLETE] — decoded against the C# `Rasm.Compute/Runtime/channels#CALL_POLICY` `CredentialPolicy` five-row axis. The companion serves the local control plane over `RemoteTransport.UnixDomainSocket`, whose `Credentials` column is `Seq(CredentialPolicy.InsecureLoopback)` exactly, so the serve-side credential is `insecure_loopback` and peer identity is the kernel-reported `(pid, uid)` the C# `AppHost/companion-sidecar#PEER_ADMISSION` reads at accept (`SO_PEERCRED` on Linux, `LOCAL_PEERCRED`+`LOCAL_PEERPID` on macOS), never a wire PEM. The serve credential is `grpc.local_server_credentials(grpc.LocalConnectionType.UDS)` (reflection-confirmed: `grpc.LocalConnectionType.UDS` and `grpc.local_server_credentials` are the loopback authenticator pair). The `tls`/`mtls`/`bearer`/`composed` rows are the OUTBOUND C# client legs (`ChannelCredentials.SecureSsl`/`CallCredentials.FromInterceptor`/`CallCredentials.Compose`) carrying PEM/token material the companion never serves — the prior `\n--SEP--\n` PEM-split placeholder was a fabricated serve-side PEM bundle and is the deleted form. The `Credential` decode is total over the five producer rows by `match`/`assert_never`.
 - [PROTO_TRANSCODE]: [COMPLETE] — reflection-confirmed. `msgspec.to_builtins`/`msgspec.convert` are the canonical lowering/raising pair, and `json_format.ParseDict`/`json_format.MessageToDict(preserving_proto_field_name=True)`/`proto.parse`/`Message.SerializeToString` are the protobuf seam projection (branch `libs/python/.api/protobuf.md` rows). The codec is settled; the concrete `(Struct, Message)` pairs decode the eighteen-rpc/seventeen-message C# `Rasm.Compute/Runtime/channels#PROTO_VOCABULARY` family and await only `grpcio-tools` compiling the landed `.proto` descriptors to `_pb2`.

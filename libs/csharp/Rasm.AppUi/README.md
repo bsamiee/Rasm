@@ -2,17 +2,17 @@
 
 `Rasm.AppUi` is the APP-PLATFORM product-UI engine: one Avalonia shell that mounts onto any admitted substrate — Rhino panel and modal, GH2 companion window, standalone desktop, sidecar shell, headless proof surface — through one abstract `SurfaceHost` axis. It consumes AppHost ports, Persistence queries, and Compute receipts as settled vocabulary and never references Rhino or GH directly. The domain folder-map lives in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the open work in `TASKLOG.md`.
 
-## [1]-[ROUTER]
+## [01]-[ROUTER]
 
-- [1]-[NAVIGATION](.planning/Shell/navigation.md)
-- [2]-[SCREENS](.planning/Shell/screens.md)
-- [3]-[HOSTS](.planning/Shell/hosts.md)
-- [4]-[COMMANDS](.planning/Shell/commands.md)
-- [5]-[DIALOGS](.planning/Shell/dialogs.md)
-- [6]-[INPUT](.planning/Shell/input.md)
-- [7]-[ACCESSIBILITY](.planning/Shell/accessibility.md)
-- [8]-[VIEWPORT](.planning/Render/viewport.md)
-- [9]-[CAPTURE](.planning/Render/capture.md)
+- [01]-[NAVIGATION](.planning/Shell/navigation.md)
+- [02]-[SCREENS](.planning/Shell/screens.md)
+- [03]-[HOSTS](.planning/Shell/hosts.md)
+- [04]-[COMMANDS](.planning/Shell/commands.md)
+- [05]-[DIALOGS](.planning/Shell/dialogs.md)
+- [06]-[INPUT](.planning/Shell/input.md)
+- [07]-[ACCESSIBILITY](.planning/Shell/accessibility.md)
+- [08]-[VIEWPORT](.planning/Render/viewport.md)
+- [09]-[CAPTURE](.planning/Render/capture.md)
 - [10]-[DRAFTING](.planning/Render/drafting.md)
 - [11]-[REALITY](.planning/Render/reality.md)
 - [12]-[EVIDENCE](.planning/Render/evidence.md)
@@ -31,7 +31,7 @@
 - [25]-[ASSETS](.planning/Theme/assets.md)
 - [26]-[LOCALE](.planning/Theme/locale.md)
 
-## [2]-[DOMAIN_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
 Domain libraries that implement UI framework, rendering, GPU backends, charts, content, and CAD exchange — entirely distinct from the C# substrate registry.
 
@@ -107,7 +107,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `netDxf`
 - `DocumentFormat.OpenXml`
 
-## [3]-[SUBSTRATE_PACKAGES]
+## [03]-[SUBSTRATE_PACKAGES]
 
 Substrate libraries from the C# registry that this folder consumes directly. Full substrate API evidence is in `.api/` and the registry rationale is in [`libs/csharp/.planning/README.md`](../.planning/README.md).
 

@@ -2,11 +2,11 @@
 
 The reproducible-report composition layer binding data and visual outputs into a document tree. `ReportPlan` is ONE owner spanning two report kinds on one axis: jinja2 template composition (parameterized sections, figure binding, TOC) and parameterized-notebook execution (papermill/nbclient headless run into an executed-notebook archive). The executed notebook is the reproducibility artifact; the rendered tree feeds `documents/emit#DOCUMENT`. It owns neither the visual nor the codec — it binds the figures keyed by content key into a template tree and hands the result to the document axis.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[REPORT]: report-composition axis over the template and notebook kinds.
+- [01]-[REPORT]: report-composition axis over the template and notebook kinds.
 
-## [2]-[REPORT]
+## [02]-[REPORT]
 
 - Owner: `ReportPlan` the one composition axis discriminating report kind; `ReportKind` the closed `StrEnum` over `TEMPLATE` (jinja2) and `NOTEBOOK` (papermill/nbclient); the bind layer between visual outputs and document inputs.
 - Cases: `ReportKind.TEMPLATE` renders a jinja2 environment over section data and figure content keys into a document string; `ReportKind.NOTEBOOK` injects parameters into a parameters-tagged notebook, executes it headlessly through papermill on the nbclient engine, and yields the executed-notebook bytes as the audit artifact plus the rendered output feeding the document axis.
@@ -70,6 +70,6 @@ def _execute_notebook(source: str, parameters: dict[str, object]) -> bytes:
     return sink.getvalue()
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 No open items. The papermill `execute_notebook(input_path, output_path, parameters, engine_name, progress_bar, log_output)` signature returns the mutated `NotebookNode` and defaults to the nbclient `NBClientEngine` when `engine_name=None`; both verify against the folder `.api` catalogues for `papermill` and `nbclient`. The executed `NotebookNode` serializes to the audit-artifact bytes through `nbformat.write(version=NO_CONVERT)` on the cp315 core; `output_path=None` runs the notebook without writing a side file, so the in-memory mutated node `execute_notebook` returns is the only emitted artifact and `nbformat.write` keys it under the content owner.

@@ -2,7 +2,7 @@
 
 Open and closed cross-language tasks — the wire seams that span two or more of C# / Python / TypeScript. Per-language and per-folder work lives in the branch and folder `TASKLOG.md`; this node carries only the seam each branch consumes at the boundary, never a re-aggregation of branch work. Each task names its producer and consumer touchpoints in `lang:pkg/page#CLUSTER` notation plus the considerations that scope it; a closed task compacts to one or two lines.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [TS_CONSUMES_CSHARP_WIRE] [QUEUED]:
 - The TS interchange tier decodes the C# wire contracts only — the suite proto method shapes, the tenant-context wire, and W3C trace context — with no C# interior coupling, selecting the grpc-web transport for the live legs.
@@ -79,6 +79,6 @@ Open and closed cross-language tasks — the wire seams that span two or more of
 - Live tri-language decode parity: the TS-web leg and the Python companion decode the finalized C# wire — including the CRDT amendment, the generated SDK, the agent-tool catalog, the distributed-trace context, and the health-degradation wire — field-for-field against multi-runtime receipts, with the content and causal seeds reproduced bit-identically.
 - Spans every shared owner; blocked on every branch and folder task finalizing first. This is the final cross-language close-out before implementation.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

@@ -2,7 +2,7 @@
 
 The cross-package concert for the TypeScript branch — the higher-order ideas that couple two or more TS folders, distilled from the folder ideas, not the folder-local concepts. Each open idea is a card: a bracketed slug leader plus the capability, what it unlocks, and the cross-folder coupling or modern technique it draws on. A cross-language idea lives in `libs/.planning/IDEAS.md`, never here. A finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [ONE_FOLD_ONE_BINDING]: the read path is one fold algebra in `projection` and one reactive spine in `ui`, with no view-state layer between them.
 - `projection` derives every composite read model — a health-gated runtime view, an evidence-correlated-by-`ContentKey` timeline, a watermark-annotated window cell — as one declared `Subscribable` through the `keyedFold` algebra over base change streams, and `ui` binds each one directly through the one `AtomBinding` over `Atom.subscriptionRef`/`pull`.
@@ -39,6 +39,6 @@ The cross-package concert for the TypeScript branch — the higher-order ideas t
 - Unlocks a real adoptable backend with one public API surface a third party calls without the node durable internals leaking: a new endpoint is one `HttpApiEndpoint` row that auto-projects to the OpenAPI spec and the typed client, the durable-execution workflows and the `messaging/rpc` proxy compose behind it as the handler implementation, and the edge runtime row set (node long-lived process vs the fetch-handler edge worker) is a deployment modality on one `HttpApp`, never a second API mint.
 - Draws on the Effect `HttpApi` declarative-API-as-data law (the endpoint family is the single source the server handlers, the OpenAPI document, and the derived client all read), the `@effect/platform-node` `NodeHttpServer.layer`/`toWebHandler` boundary, and the one-owner-per-concern strata law placing the ingress at the publication leaf above the durable `services` interior it composes — distinct in kind from the `services` node tier exactly as `platform` (the browser AppHost-analog) is distinct from `ui`.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

@@ -2,7 +2,7 @@
 
 `Silk.NET.OpenXR` is the managed OpenXR binding generated against the canonical `openxr.h` headers: `XR` is the static API entry exposing the global `CreateInstance`, an `Instance` enumerates a `SystemId`, a `Session` is created against a graphics-binding chain (the same `Device`/`Queue` the `Wgpu` `GpuBackend` family already owns, or a Vulkan/Metal/D3D12 binding), a `Swapchain` allocates the per-eye image array the stereo render targets bind, the frame loop runs `WaitFrame`/`BeginFrame`/`EndFrame` against a `CompositionLayerProjection`, and `xrLocateViews`/`xrLocateSpace` resolve the head and controller poses each frame. `Silk.NET.OpenXR.Extensions.KHR`/`EXT`/`FB` carry the vendor extension surface (`KHR_vulkan_enable2`, `KHR_composition_layer_depth`, `EXT_hand_tracking`, `FB_passthrough`) the immersive-review session negotiates at instance create. The binding shares the `Silk.NET.Core`/`Silk.NET.Maths` runtime the `Silk.NET.WebGPU` family already restores, so the `Wgpu` device the desktop viewport renders with is the same device the XR swapchain presents from — one GPU lifetime across the flat and immersive surfaces.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR`
 - package: `Silk.NET.OpenXR`
@@ -15,35 +15,35 @@
 - asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime
 - rail: viewport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and session lifecycle owners
 - rail: viewport
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY]   | [RAIL]                             |
 | :-----: | :---------- | :-------------- | :--------------------------------- |
-|   [1]   | `XR`        | static API root | global entry, function table       |
-|   [2]   | `Instance`  | native handle   | runtime instance, extension query  |
-|   [3]   | `Session`   | native handle   | graphics-bound XR session          |
-|   [4]   | `Swapchain` | native handle   | per-eye swapchain image array      |
-|   [5]   | `Space`     | native handle   | reference/action space for poses   |
-|   [6]   | `ActionSet` | native handle   | input action collection            |
-|   [7]   | `Action`    | native handle   | one bound input/pose/haptic action |
+|  [01]   | `XR`        | static API root | global entry, function table       |
+|  [02]   | `Instance`  | native handle   | runtime instance, extension query  |
+|  [03]   | `Session`   | native handle   | graphics-bound XR session          |
+|  [04]   | `Swapchain` | native handle   | per-eye swapchain image array      |
+|  [05]   | `Space`     | native handle   | reference/action space for poses   |
+|  [06]   | `ActionSet` | native handle   | input action collection            |
+|  [07]   | `Action`    | native handle   | one bound input/pose/haptic action |
 
 [PUBLIC_TYPE_SCOPE]: frame, view, and composition carriers
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                         | [KIND]    | [RAIL]                                   |
 | :-----: | :------------------------------- | :-------- | :--------------------------------------- |
-|   [1]   | `SystemId`                       | id struct | resolved HMD system identity             |
-|   [2]   | `View`                           | struct    | per-eye pose + field-of-view             |
-|   [3]   | `ViewConfigurationType`          | enum      | stereo/mono/quad view config             |
-|   [4]   | `Posef`                          | struct    | position quaternion + translation        |
-|   [5]   | `Fovf`                           | struct    | asymmetric tangent field-of-view         |
-|   [6]   | `FrameState`                     | struct    | predicted display time + should-render   |
-|   [7]   | `CompositionLayerProjection`     | struct    | stereo projection layer                  |
-|   [8]   | `CompositionLayerProjectionView` | struct    | per-eye layer view (swapchain sub-image) |
-|   [9]   | `SwapchainImageVulkanKHR`        | struct    | imported swapchain image handle          |
+|  [01]   | `SystemId`                       | id struct | resolved HMD system identity             |
+|  [02]   | `View`                           | struct    | per-eye pose + field-of-view             |
+|  [03]   | `ViewConfigurationType`          | enum      | stereo/mono/quad view config             |
+|  [04]   | `Posef`                          | struct    | position quaternion + translation        |
+|  [05]   | `Fovf`                           | struct    | asymmetric tangent field-of-view         |
+|  [06]   | `FrameState`                     | struct    | predicted display time + should-render   |
+|  [07]   | `CompositionLayerProjection`     | struct    | stereo projection layer                  |
+|  [08]   | `CompositionLayerProjectionView` | struct    | per-eye layer view (swapchain sub-image) |
+|  [09]   | `SwapchainImageVulkanKHR`        | struct    | imported swapchain image handle          |
 |  [10]   | `EnvironmentBlendMode`           | enum      | opaque/additive/alpha-blend passthrough  |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and create-info carriers
@@ -51,58 +51,58 @@
 
 | [INDEX] | [SYMBOL]                                            | [KIND]     | [RAIL]                                    |
 | :-----: | :-------------------------------------------------- | :--------- | :---------------------------------------- |
-|   [1]   | `InstanceCreateInfo`                                | descriptor | enabled extensions, app info              |
-|   [2]   | `SystemGetInfo`                                     | descriptor | form-factor request                       |
-|   [3]   | `SessionCreateInfo`                                 | descriptor | system id + graphics-binding `next` chain |
-|   [4]   | `SwapchainCreateInfo`                               | descriptor | format, sample count, array size          |
-|   [5]   | `ReferenceSpaceCreateInfo`                          | descriptor | stage/local/view reference space          |
-|   [6]   | `ActionSetCreateInfo`                               | descriptor | action-set name + priority                |
-|   [7]   | `ActionCreateInfo`                                  | descriptor | action name, type, subaction paths        |
-|   [8]   | `FrameWaitInfo` / `FrameBeginInfo` / `FrameEndInfo` | descriptor | frame-loop carriers                       |
+|  [01]   | `InstanceCreateInfo`                                | descriptor | enabled extensions, app info              |
+|  [02]   | `SystemGetInfo`                                     | descriptor | form-factor request                       |
+|  [03]   | `SessionCreateInfo`                                 | descriptor | system id + graphics-binding `next` chain |
+|  [04]   | `SwapchainCreateInfo`                               | descriptor | format, sample count, array size          |
+|  [05]   | `ReferenceSpaceCreateInfo`                          | descriptor | stage/local/view reference space          |
+|  [06]   | `ActionSetCreateInfo`                               | descriptor | action-set name + priority                |
+|  [07]   | `ActionCreateInfo`                                  | descriptor | action name, type, subaction paths        |
+|  [08]   | `FrameWaitInfo` / `FrameBeginInfo` / `FrameEndInfo` | descriptor | frame-loop carriers                       |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instance, system, and session creation
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                        | [SURFACE_ROOT] | [RAIL]                 |
 | :-----: | :--------------------------------------------------------------- | :------------- | :--------------------- |
-|   [1]   | `XR.GetApi()`                                                    | `XR`           | API root load          |
-|   [2]   | `CreateInstance(InstanceCreateInfo*, Instance*)`                 | `XR`           | runtime instance       |
-|   [3]   | `GetSystem(Instance, SystemGetInfo*, SystemId*)`                 | `XR`           | resolve HMD            |
-|   [4]   | `EnumerateViewConfigurationViews(Instance, SystemId, type, ...)` | `XR`           | per-eye dimensions     |
-|   [5]   | `CreateSession(Instance, SessionCreateInfo*, Session*)`          | `XR`           | graphics-bound session |
-|   [6]   | `EnumerateInstanceExtensionProperties(layer, ...)`               | `XR`           | extension query        |
+|  [01]   | `XR.GetApi()`                                                    | `XR`           | API root load          |
+|  [02]   | `CreateInstance(InstanceCreateInfo*, Instance*)`                 | `XR`           | runtime instance       |
+|  [03]   | `GetSystem(Instance, SystemGetInfo*, SystemId*)`                 | `XR`           | resolve HMD            |
+|  [04]   | `EnumerateViewConfigurationViews(Instance, SystemId, type, ...)` | `XR`           | per-eye dimensions     |
+|  [05]   | `CreateSession(Instance, SessionCreateInfo*, Session*)`          | `XR`           | graphics-bound session |
+|  [06]   | `EnumerateInstanceExtensionProperties(layer, ...)`               | `XR`           | extension query        |
 
 [ENTRYPOINT_SCOPE]: swapchain, space, and frame loop
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                    | [SURFACE_ROOT] | [RAIL]                 |
 | :-----: | :--------------------------------------------------------------------------- | :------------- | :--------------------- |
-|   [1]   | `CreateSwapchain(Session, SwapchainCreateInfo*, Swapchain*)`                 | `XR`           | per-eye swapchain      |
-|   [2]   | `EnumerateSwapchainImages(Swapchain, count, ..., SwapchainImageBaseHeader*)` | `XR`           | image array            |
-|   [3]   | `AcquireSwapchainImage(Swapchain, SwapchainImageAcquireInfo*, index*)`       | `XR`           | acquire eye image      |
-|   [4]   | `WaitSwapchainImage(Swapchain, SwapchainImageWaitInfo*)`                     | `XR`           | wait image ready       |
-|   [5]   | `CreateReferenceSpace(Session, ReferenceSpaceCreateInfo*, Space*)`           | `XR`           | stage/local space      |
-|   [6]   | `WaitFrame(Session, FrameWaitInfo*, FrameState*)`                            | `XR`           | predicted display time |
-|   [7]   | `BeginFrame(Session, FrameBeginInfo*)`                                       | `XR`           | frame begin            |
-|   [8]   | `LocateViews(Session, ViewLocateInfo*, ViewState*, count, ..., View*)`       | `XR`           | per-eye pose/fov       |
-|   [9]   | `EndFrame(Session, FrameEndInfo*)`                                           | `XR`           | submit layers          |
+|  [01]   | `CreateSwapchain(Session, SwapchainCreateInfo*, Swapchain*)`                 | `XR`           | per-eye swapchain      |
+|  [02]   | `EnumerateSwapchainImages(Swapchain, count, ..., SwapchainImageBaseHeader*)` | `XR`           | image array            |
+|  [03]   | `AcquireSwapchainImage(Swapchain, SwapchainImageAcquireInfo*, index*)`       | `XR`           | acquire eye image      |
+|  [04]   | `WaitSwapchainImage(Swapchain, SwapchainImageWaitInfo*)`                     | `XR`           | wait image ready       |
+|  [05]   | `CreateReferenceSpace(Session, ReferenceSpaceCreateInfo*, Space*)`           | `XR`           | stage/local space      |
+|  [06]   | `WaitFrame(Session, FrameWaitInfo*, FrameState*)`                            | `XR`           | predicted display time |
+|  [07]   | `BeginFrame(Session, FrameBeginInfo*)`                                       | `XR`           | frame begin            |
+|  [08]   | `LocateViews(Session, ViewLocateInfo*, ViewState*, count, ..., View*)`       | `XR`           | per-eye pose/fov       |
+|  [09]   | `EndFrame(Session, FrameEndInfo*)`                                           | `XR`           | submit layers          |
 
 [ENTRYPOINT_SCOPE]: input actions, poses, and haptics
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                            | [SURFACE_ROOT] | [RAIL]                  |
 | :-----: | :------------------------------------------------------------------- | :------------- | :---------------------- |
-|   [1]   | `CreateActionSet(Instance, ActionSetCreateInfo*, ActionSet*)`        | `XR`           | action set              |
-|   [2]   | `CreateAction(ActionSet, ActionCreateInfo*, Action*)`                | `XR`           | bound action            |
-|   [3]   | `SuggestInteractionProfileBindings(Instance, ...)`                   | `XR`           | controller profile bind |
-|   [4]   | `SyncActions(Session, ActionsSyncInfo*)`                             | `XR`           | per-frame poll          |
-|   [5]   | `GetActionStatePose / GetActionStateBoolean / GetActionStateFloat`   | `XR`           | controller state        |
-|   [6]   | `LocateSpace(Space, baseSpace, time, SpaceLocation*)`                | `XR`           | controller pose         |
-|   [7]   | `ApplyHapticFeedback(Session, HapticActionInfo*, HapticBaseHeader*)` | `XR`           | controller haptic       |
+|  [01]   | `CreateActionSet(Instance, ActionSetCreateInfo*, ActionSet*)`        | `XR`           | action set              |
+|  [02]   | `CreateAction(ActionSet, ActionCreateInfo*, Action*)`                | `XR`           | bound action            |
+|  [03]   | `SuggestInteractionProfileBindings(Instance, ...)`                   | `XR`           | controller profile bind |
+|  [04]   | `SyncActions(Session, ActionsSyncInfo*)`                             | `XR`           | per-frame poll          |
+|  [05]   | `GetActionStatePose / GetActionStateBoolean / GetActionStateFloat`   | `XR`           | controller state        |
+|  [06]   | `LocateSpace(Space, baseSpace, time, SpaceLocation*)`                | `XR`           | controller pose         |
+|  [07]   | `ApplyHapticFeedback(Session, HapticActionInfo*, HapticBaseHeader*)` | `XR`           | controller haptic       |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [OPENXR_TOPOLOGY]:
 - `XR.GetApi()` returns the function-table root; every native call is an instance method on that `XR` object taking raw pointers to create-info structs — Silk.NET binds the C `openxr.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object, exactly as the `Silk.NET.WebGPU` family does.

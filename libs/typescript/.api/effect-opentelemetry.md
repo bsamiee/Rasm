@@ -18,7 +18,7 @@ adds an alternative telemetry vocabulary.
 
 ---
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 ```ts
 // @effect/opentelemetry — namespace re-exports (index.d.ts)
@@ -38,15 +38,15 @@ export * as WebSdk from "./WebSdk.js"
 
 | [INDEX] | [MODULE]            | [SECTION] | [PRIMARY ROLE]                                                   |
 | :-----: | :------------------ | :-------- | :--------------------------------------------------------------- |
-|   [1]   | `Resource`          | [2]       | OTel `Resource` tag + service-identity layers (SDK path)         |
-|   [2]   | `Tracer`            | [3]       | `effect/Tracer` -> OTel tracer bridge, span-context propagation  |
-|   [3]   | `Logger`            | [4]       | `effect/Logger` -> OTel `LoggerProvider` bridge                  |
-|   [4]   | `Metrics`           | [5]       | `effect/Metric` -> OTel `MetricProducer`/`MetricReader` bridge   |
-|   [5]   | `NodeSdk`           | [6]       | composite node SDK layer (tracer + metrics + logs in one config) |
-|   [6]   | `WebSdk`            | [7]       | composite web SDK layer (browser tracer provider)                |
-|   [7]   | `Otlp`              | [8]       | dependency-light direct-OTLP composite layer over `HttpClient`   |
-|   [8]   | `OtlpTracer`        | [9]       | direct-OTLP tracer constructor/layer                             |
-|   [9]   | `OtlpLogger`        | [10]      | direct-OTLP logger constructor/layer                             |
+|  [01]   | `Resource`          | [02]      | OTel `Resource` tag + service-identity layers (SDK path)         |
+|  [02]   | `Tracer`            | [03]      | `effect/Tracer` -> OTel tracer bridge, span-context propagation  |
+|  [03]   | `Logger`            | [04]      | `effect/Logger` -> OTel `LoggerProvider` bridge                  |
+|  [04]   | `Metrics`           | [05]      | `effect/Metric` -> OTel `MetricProducer`/`MetricReader` bridge   |
+|  [05]   | `NodeSdk`           | [06]      | composite node SDK layer (tracer + metrics + logs in one config) |
+|  [06]   | `WebSdk`            | [07]      | composite web SDK layer (browser tracer provider)                |
+|  [07]   | `Otlp`              | [08]      | dependency-light direct-OTLP composite layer over `HttpClient`   |
+|  [08]   | `OtlpTracer`        | [09]      | direct-OTLP tracer constructor/layer                             |
+|  [09]   | `OtlpLogger`        | [10]      | direct-OTLP logger constructor/layer                             |
 |  [10]   | `OtlpMetrics`       | [11]      | direct-OTLP metrics constructor/layer                            |
 |  [11]   | `OtlpSerialization` | [12]      | tree-shakable JSON/protobuf `HttpBody` encoder service           |
 |  [12]   | `OtlpResource`      | [13]      | OTLP wire resource/attribute model + attribute coercion          |
@@ -60,7 +60,7 @@ Two distinct export paths share the resource/attribute vocabulary but not the la
 
 ---
 
-## [2]-[RESOURCE]
+## [02]-[RESOURCE]
 
 OTel-SDK service-identity resource. The `Resource` tag holds an `@opentelemetry/resources`
 `Resource` and is the shared requirement of every SDK-path layer.
@@ -94,7 +94,7 @@ export const layerEmpty: Layer.Layer<Resource, never, never>
 
 ---
 
-## [3]-[TRACER]
+## [03]-[TRACER]
 
 Bridges the host `effect/Tracer` channel onto an OpenTelemetry tracer. `OtelTracer`,
 `OtelTracerProvider`, `OtelTraceFlags`, `OtelTraceState` are `Context.Tag`s wrapping the raw
@@ -147,7 +147,7 @@ export const withSpanContext: {
 
 ---
 
-## [4]-[LOGGER]
+## [04]-[LOGGER]
 
 Bridges `effect/Logger` onto an OTel `LoggerProvider`. `OtelLoggerProvider` is a `TagClass`
 wrapping `@opentelemetry/sdk-logs` `LoggerProvider`.
@@ -178,7 +178,7 @@ export const layerLoggerProvider: (
 
 ---
 
-## [5]-[METRICS]
+## [05]-[METRICS]
 
 Bridges `effect/Metric` onto an OTel `MetricProducer`/`MetricReader`. Module imports are all
 type-only against `@opentelemetry/sdk-metrics`.
@@ -207,7 +207,7 @@ export const layer: (
 
 ---
 
-## [6]-[NODESDK]
+## [06]-[NODESDK]
 
 Composite node SDK layer: one `Configuration` wires tracer, metrics, and logs together over the
 official `@opentelemetry/sdk-*` peers. Produces a `Resource.Resource` layer.
@@ -256,7 +256,7 @@ export const layerEmpty: Layer.Layer<Resource.Resource>
 
 ---
 
-## [7]-[WEBSDK]
+## [07]-[WEBSDK]
 
 Composite web SDK layer; mirrors `NodeSdk` but `resource` is required (not optional) and there is
 no `shutdownTimeout`. Produces a `Resource.Resource` layer.
@@ -298,7 +298,7 @@ export const layer: {
 
 ---
 
-## [8]-[OTLP]
+## [08]-[OTLP]
 
 Dependency-light direct-OTLP composite. One `layer` exports tracer + logger + metrics over an
 `HttpClient` (+ an `OtlpSerialization` layer); `layerJson` / `layerProtobuf` bundle their own
@@ -344,7 +344,7 @@ export const layerProtobuf: (options: OtlpOptions) => Layer.Layer<never, never, 
 
 ---
 
-## [9]-[OTLP_TRACER]
+## [09]-[OTLP_TRACER]
 
 ```ts
 // @effect/opentelemetry/OtlpTracer

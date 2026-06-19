@@ -4,7 +4,7 @@ The domain map of `ui` — the host-free browser UI/UX/component library. One `A
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 ui/
@@ -33,7 +33,7 @@ ui/
 
 `interaction` unifies the headless behavior tier — the `command`/styling-recipe surface, the `gesture`/`transition` motion owners, the interaction-role vocabulary, and the form/picker behaviors. `render` unifies the read-only leaves (`glb`, `geo`, `dashboard`, `routes`) that project the `projection` folds and the `interchange` rails. `binding` and `theming` stay single-file foundational owners — the one `AtomBinding` spine and the OKLCH token engine every surface composes.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 overlay/bcf          ←  csharp:Rasm.Bim/Review             # [WIRE]: BcfTopicWire / BcfCommentWire / BcfViewpointWire

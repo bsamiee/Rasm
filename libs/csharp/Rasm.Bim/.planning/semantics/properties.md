@@ -2,11 +2,11 @@
 
 The first-class Pset/Qto owner: one `PropertySet`/`QuantitySet` keyed vocabulary over the standard `Pset_*`/`Qto_*` definitions, occurrence- versus type-driven quantity semantics, base-quantity derivation from the kernel `Rasm` geometry the element binds by reference, and round-trip through `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity`. This owner promotes the `Exchange/import#IMPORT_RAIL` `IfcSemanticModel.PropertyRow`/`QuantityRow` flat projections and the `Model/elements#ELEMENT_MODEL` `BimElement.PropertyBinding`/`QuantityBinding` raw bindings into one typed model the `Model/query#ELEMENT_SET` `ByProperty` predicate, the `Review/validation#IDS_FACETS` Property facet, and the `Semantics/classification#CLASSIFICATION_AXIS` bSDD binding all compose — never a second property store. The page composes the kernel `Rasm` geometry as settled vocabulary; base-quantity derivation runs from the geometry the element binds by reference, never re-tessellating. The page is HOST-LOCAL.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[PROPERTY_SETS]: `PropertySet`/`QuantitySet` keyed vocabulary, `PropertyTemplate`/`QuantityKind` axes, the type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
+- [01]-[PROPERTY_SETS]: `PropertySet`/`QuantitySet` keyed vocabulary, `PropertyTemplate`/`QuantityKind` axes, the type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
 
-## [2]-[PROPERTY_SETS]
+## [02]-[PROPERTY_SETS]
 
 - Owner: `PropertyKey` the `[SmartEnum<string>]` standard property-set vocabulary keyed on the `Pset_*`/`Qto_*` name carrying its applicable `IfcClass` domain and its template kind; `PropertySet` the typed occurrence- or type-bound named property bag; `QuantitySet` the typed quantity bag carrying the `QuantityKind` per value; `PropertyValue` the `[Union]` typed property value (text/measure/boolean/enumerated) so a property carries its IFC data type rather than a stringly-typed value.
 - Entry: `PropertySet.Resolve(BimElement element, IfcSemanticModel semantic)` folds the element's occurrence `PropertyRow` family and its `TypeGlobalId` type-row family into one typed `PropertySet` applying the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance — a type-driven quantity overrides an occurrence quantity of the same key, an occurrence property overrides a type property — and `QuantitySet.Derive(BimElement element, GeometryHandle geometry)` derives the standard base quantities from the kernel `Rasm` geometry the element binds by reference; `Fin<T>` aborts on an unknown property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) lowered with `.ToError()`.
@@ -88,7 +88,7 @@ public sealed record QuantitySet(string Name, Map<string, (double Value, Quantit
 }
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [QTO_INHERITANCE]: the IFC `QTO_TYPEDRIVENOVERRIDE` / `QTO_TYPEDRIVENONLY` / `QTO_OCCURRENCEDRIVEN` property-inheritance vocabulary — the precedence a type-bound quantity holds over an occurrence quantity of the same key — grounds against the buildingSMART Pset/Qto template definitions so the `Resolve` occurrence-wins property fold and the type-driven quantity override match the standard inheritance rule; the GeometryGym `IfcRelDefinesByType.RelatingType` type-resolution and `IfcTypeObject.HasPropertySets` type-property surface confirm the type-row property extract before the `Resolve` body is final.
 - [BASE_QUANTITY_DERIVE]: the standard `Qto_*BaseQuantities` derivation — `NetVolume`/`GrossVolume`/`NetArea`/`GrossArea`/`Length`/`Width`/`Height`/`Weight` per element class — grounds against the buildingSMART base-quantity definitions and the kernel `Rasm` geometry volume/area/length surface the `GeometryHandle` binds by reference, so `Derive` computes from the bound geometry rather than re-tessellating; the GeometryGym `IfcElementQuantity`/`IfcQuantityLength`/`IfcQuantityArea`/`IfcQuantityVolume`/`IfcQuantityWeight` round-trip member spellings confirm against the catalogued `IfcPhysicalSimpleQuantity` surface so a derived quantity re-authors its `IfcElementQuantity` on export.

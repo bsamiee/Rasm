@@ -2,7 +2,7 @@
 
 `weasyprint` supplies an HTML/CSS-to-PDF rendering engine for the artifacts pdf rail: `HTML` is the document entry, `CSS` carries supplemental stylesheets, `HTML.write_pdf` and `HTML.render` own output, the `Document`/`Page` pair owns the rendered tree, and `FontConfiguration` plus `default_url_fetcher` own font resolution and resource loading.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `weasyprint`
 - package: `weasyprint`
@@ -10,7 +10,7 @@
 - asset: Python library over native `pango`/`gobject`/`cairo` (cffi FFI)
 - rail: pdf
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document input family
 - rail: pdf — sources are mutually exclusive: `filename`, `url`, `file_obj`, or `string`
@@ -18,9 +18,9 @@
 
 | [INDEX] | [SYMBOL]     | [ROLE]                                              |
 | :-----: | :----------- | :-------------------------------------------------- |
-|   [1]   | `HTML`       | parse an HTML source; entry to render and write PDF |
-|   [2]   | `CSS`        | parse a supplemental stylesheet for rendering       |
-|   [3]   | `Attachment` | file embedded into the output PDF                   |
+|  [01]   | `HTML`       | parse an HTML source; entry to render and write PDF |
+|  [02]   | `CSS`        | parse a supplemental stylesheet for rendering       |
+|  [03]   | `Attachment` | file embedded into the output PDF                   |
 
 [PUBLIC_TYPE_SCOPE]: rendered output family
 - rail: pdf — `weasyprint.document`
@@ -28,8 +28,8 @@
 
 | [INDEX] | [SYMBOL]   | [ROLE]                                           |
 | :-----: | :--------- | :----------------------------------------------- |
-|   [1]   | `Document` | laid-out tree of pages; writes or copies to PDF  |
-|   [2]   | `Page`     | one rendered page with links, anchors, bookmarks |
+|  [01]   | `Document` | laid-out tree of pages; writes or copies to PDF  |
+|  [02]   | `Page`     | one rendered page with links, anchors, bookmarks |
 
 [PUBLIC_TYPE_SCOPE]: `Document` members
 - rail: pdf
@@ -37,11 +37,11 @@
 
 | [INDEX] | [SYMBOL]      | [ROLE]                                    |
 | :-----: | :------------ | :---------------------------------------- |
-|   [1]   | `pages`       | list of `Page` objects                    |
-|   [2]   | `metadata`    | document metadata (title, authors, dates) |
-|   [3]   | `url_fetcher` | resource-loading callable                 |
-|   [4]   | `fonts`       | resolved font set                         |
-|   [5]   | `font_config` | `FontConfiguration` used for layout       |
+|  [01]   | `pages`       | list of `Page` objects                    |
+|  [02]   | `metadata`    | document metadata (title, authors, dates) |
+|  [03]   | `url_fetcher` | resource-loading callable                 |
+|  [04]   | `fonts`       | resolved font set                         |
+|  [05]   | `font_config` | `FontConfiguration` used for layout       |
 
 [PUBLIC_TYPE_SCOPE]: `Page` members
 - rail: pdf
@@ -49,23 +49,23 @@
 
 | [INDEX] | [SYMBOL]    | [ROLE]                        |
 | :-----: | :---------- | :---------------------------- |
-|   [1]   | `width`     | page width in CSS pixels      |
-|   [2]   | `height`    | page height in CSS pixels     |
-|   [3]   | `bleed`     | bleed-box margins             |
-|   [4]   | `bookmarks` | bookmark entries on this page |
-|   [5]   | `links`     | hyperlink rectangles          |
-|   [6]   | `anchors`   | named-anchor positions        |
-|   [7]   | `forms`     | interactive form fields       |
+|  [01]   | `width`     | page width in CSS pixels      |
+|  [02]   | `height`    | page height in CSS pixels     |
+|  [03]   | `bleed`     | bleed-box margins             |
+|  [04]   | `bookmarks` | bookmark entries on this page |
+|  [05]   | `links`     | hyperlink rectangles          |
+|  [06]   | `anchors`   | named-anchor positions        |
+|  [07]   | `forms`     | interactive form fields       |
 
 [PUBLIC_TYPE_SCOPE]: font and resource family
 - rail: pdf — `weasyprint.text.fonts`, `weasyprint.urls`
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [ROLE]                                         |
 | :-----: | :-------------------- | :------------ | :--------------------------------------------- |
-|   [1]   | `FontConfiguration`   | class         | per-render font face registry                  |
-|   [2]   | `default_url_fetcher` | function      | default resource loader for URLs and data URIs |
+|  [01]   | `FontConfiguration`   | class         | per-render font face registry                  |
+|  [02]   | `default_url_fetcher` | function      | default resource loader for URLs and data URIs |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document construction
 - rail: pdf — pass exactly one source argument
@@ -73,32 +73,32 @@
 
 | [INDEX] | [SURFACE]                                                                                                                                                              | [ROLE]                                |
 | :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|   [1]   | `HTML(guess=None, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=None, media_type='print')`                            | parse an HTML document                |
-|   [2]   | `CSS(guess=None, filename=None, url=None, file_obj=None, string=None, base_url=None, url_fetcher=None, media_type='print', font_config=None, counter_style=None, ...)` | parse a stylesheet                    |
-|   [3]   | `Attachment(guess=None, filename=None, url=None, file_obj=None, string=None, name=None, description=None, relationship='Unspecified')`                                 | declare an embedded file              |
-|   [4]   | `FontConfiguration()`                                                                                                                                                  | create a font registry for one render |
+|  [01]   | `HTML(guess=None, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=None, media_type='print')`                            | parse an HTML document                |
+|  [02]   | `CSS(guess=None, filename=None, url=None, file_obj=None, string=None, base_url=None, url_fetcher=None, media_type='print', font_config=None, counter_style=None, ...)` | parse a stylesheet                    |
+|  [03]   | `Attachment(guess=None, filename=None, url=None, file_obj=None, string=None, name=None, description=None, relationship='Unspecified')`                                 | declare an embedded file              |
+|  [04]   | `FontConfiguration()`                                                                                                                                                  | create a font registry for one render |
 
 [ENTRYPOINT_SCOPE]: render and output
 - rail: pdf — `weasyprint.HTML`, `weasyprint.document.Document`
 
 | [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [ROLE]                                        |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|   [1]   | `HTML.write_pdf(target=None, zoom=1, finisher=None, font_config=None, counter_style=None, color_profiles=None, **options)` | render+write   | render and write PDF (bytes if `target=None`) |
-|   [2]   | `HTML.render(font_config=None, counter_style=None, color_profiles=None, **options)`                                        | render         | produce a `Document` without writing          |
-|   [3]   | `Document.write_pdf(target=None, zoom=1, finisher=None, **options)`                                                        | write          | write a rendered `Document` to PDF            |
-|   [4]   | `Document.copy(pages='all')`                                                                                               | transform      | new `Document` from a page subset             |
-|   [5]   | `Document.make_bookmark_tree(scale=1, transform_pages=False)`                                                              | navigation     | build the PDF outline tree                    |
-|   [6]   | `Page.paint(stream, scale=1)`                                                                                              | render         | paint one page to a drawing stream            |
+|  [01]   | `HTML.write_pdf(target=None, zoom=1, finisher=None, font_config=None, counter_style=None, color_profiles=None, **options)` | render+write   | render and write PDF (bytes if `target=None`) |
+|  [02]   | `HTML.render(font_config=None, counter_style=None, color_profiles=None, **options)`                                        | render         | produce a `Document` without writing          |
+|  [03]   | `Document.write_pdf(target=None, zoom=1, finisher=None, **options)`                                                        | write          | write a rendered `Document` to PDF            |
+|  [04]   | `Document.copy(pages='all')`                                                                                               | transform      | new `Document` from a page subset             |
+|  [05]   | `Document.make_bookmark_tree(scale=1, transform_pages=False)`                                                              | navigation     | build the PDF outline tree                    |
+|  [06]   | `Page.paint(stream, scale=1)`                                                                                              | render         | paint one page to a drawing stream            |
 
 [ENTRYPOINT_SCOPE]: font and resource resolution
 - rail: pdf — `weasyprint.text.fonts`, `weasyprint.urls`
 
 | [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [ROLE]                          |
 | :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :------------------------------ |
-|   [1]   | `FontConfiguration.add_font_face(rule_descriptors, url_fetcher)`                                    | register       | register an `@font-face` rule   |
-|   [2]   | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` | fetch          | load a URL or data URI resource |
+|  [01]   | `FontConfiguration.add_font_face(rule_descriptors, url_fetcher)`                                    | register       | register an `@font-face` rule   |
+|  [02]   | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` | fetch          | load a URL or data URI resource |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [WEASYPRINT_TOPOLOGY]:
 - one-shot path: `HTML(...).write_pdf(target)` parses, lays out, and writes in a single call

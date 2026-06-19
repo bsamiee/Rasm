@@ -2,19 +2,19 @@
 
 External tool reference: rg, awk, sd, fd, choose, jq, yq, mlr, jnv. Pipeline composition, capability probing, macOS caveats.
 
-## [1]-[TOOL_SELECTION]
+## [01]-[TOOL_SELECTION]
 
 | [INDEX] | [NEED]         | [TOOL]   | [VER] | [WHY]                                                        |
 | :-----: | :------------- | :------- | :---: | :----------------------------------------------------------- |
-|   [1]   | Pattern/filter | `rg`     |  15+  | PCRE2, parallel, .gitignore-aware; no `grep -P` on macOS     |
-|   [2]   | Field/column   | `awk`    | 5.3+  | Replaces `grep\|sed\|cut` chains; `--csv` native CSV (5.3+)  |
-|   [3]   | Find-replace   | `sd`     |  1+   | PCRE2 captures, no escape hell; no `sed -i` portability bug  |
-|   [4]   | Find files     | `fd`     |  10+  | .gitignore-aware, `--format` templates, `--exec-batch` bulk  |
-|   [5]   | Field select   | `choose` | 1.3+  | 0-indexed ranges; `cut -d` breaks on multi-char delimiters   |
-|   [6]   | JSON           | `jq`     | 1.8+  | Structural parsing; `skip/2`+`limit/2`, `trim/0`, `add/1`    |
-|   [7]   | YAML/JSON/TOML | `yq`     | 4.46+ | Universal codec: YAML/JSON/TOML/INI/XML/HCL/CSV              |
-|   [8]   | CSV/TSV/JSON   | `mlr`    |  6+   | `-c`/`-j` shorthands, `--gzin` auto-decompress, regex fields |
-|   [9]   | JSON (TUI)     | `jnv`    |   -   | Interactive jq query dev — paste into scripts                |
+|  [01]   | Pattern/filter | `rg`     |  15+  | PCRE2, parallel, .gitignore-aware; no `grep -P` on macOS     |
+|  [02]   | Field/column   | `awk`    | 5.3+  | Replaces `grep\|sed\|cut` chains; `--csv` native CSV (5.3+)  |
+|  [03]   | Find-replace   | `sd`     |  1+   | PCRE2 captures, no escape hell; no `sed -i` portability bug  |
+|  [04]   | Find files     | `fd`     |  10+  | .gitignore-aware, `--format` templates, `--exec-batch` bulk  |
+|  [05]   | Field select   | `choose` | 1.3+  | 0-indexed ranges; `cut -d` breaks on multi-char delimiters   |
+|  [06]   | JSON           | `jq`     | 1.8+  | Structural parsing; `skip/2`+`limit/2`, `trim/0`, `add/1`    |
+|  [07]   | YAML/JSON/TOML | `yq`     | 4.46+ | Universal codec: YAML/JSON/TOML/INI/XML/HCL/CSV              |
+|  [08]   | CSV/TSV/JSON   | `mlr`    |  6+   | `-c`/`-j` shorthands, `--gzin` auto-decompress, regex fields |
+|  [09]   | JSON (TUI)     | `jnv`    |   -   | Interactive jq query dev — paste into scripts                |
 |  [10]   | Tabular align  | `column` |   -   | `-t` pretty-prints; display only                             |
 
 **Capability probing** — always gate on availability:
@@ -34,25 +34,25 @@ _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 
 | [INDEX] | [ISSUE]         | [CONSEQUENCE]                  | [FIX]                     |
 | :-----: | :-------------- | :----------------------------- | :------------------------ |
-|   [1]   | No `grep -P`    | No PCRE2 lookaround via grep   | `rg -P`                   |
-|   [2]   | `sed -i` compat | Needs `sed -i '' ...` on macOS | `sd` eliminates entirely  |
-|   [3]   | BSD `date`      | `date -d` unavailable          | `printf '%(%F)T'`         |
-|   [4]   | BSD `stat`      | `stat -c` unavailable          | `wc -c < f` or `[[ -f ]]` |
+|  [01]   | No `grep -P`    | No PCRE2 lookaround via grep   | `rg -P`                   |
+|  [02]   | `sed -i` compat | Needs `sed -i '' ...` on macOS | `sd` eliminates entirely  |
+|  [03]   | BSD `date`      | `date -d` unavailable          | `printf '%(%F)T'`         |
+|  [04]   | BSD `stat`      | `stat -c` unavailable          | `wc -c < f` or `[[ -f ]]` |
 
-## [2]-[REGEX_DIALECTS]
+## [02]-[REGEX_DIALECTS]
 
 `rg` and `sd` use PCRE2 natively. BRE/ERE awareness needed only when reading existing `grep`/`sed` in legacy scripts.
 
 | [INDEX] | [FEATURE]     | [PCRE2] (`rg`/`sd`) | [BRE] (`grep`/`sed`) | [ERE] (`grep -E`/`awk`) |
 | :-----: | ------------- | :------------------ | :------------------- | :---------------------- |
-|   [1]   | One or more   | `+`                 | `\+`                 | `+`                     |
-|   [2]   | Zero or one   | `?`                 | `\?`                 | `?`                     |
-|   [3]   | Alternation   | `\|`                | `\|`                 | `\|`                    |
-|   [4]   | Grouping      | `(...)`             | `\(...\)`            | `(...)`                 |
-|   [5]   | Lookahead     | `(?=…)` / `(?!…)`   | -                    | -                       |
-|   [6]   | Lookbehind    | `(?<=…)` / `(?<!…)` | -                    | -                       |
-|   [7]   | Named capture | `(?P<name>…)`       | -                    | -                       |
-|   [8]   | Non-greedy    | `*?`, `+?`, `??`    | -                    | -                       |
+|  [01]   | One or more   | `+`                 | `\+`                 | `+`                     |
+|  [02]   | Zero or one   | `?`                 | `\?`                 | `?`                     |
+|  [03]   | Alternation   | `\|`                | `\|`                 | `\|`                    |
+|  [04]   | Grouping      | `(...)`             | `\(...\)`            | `(...)`                 |
+|  [05]   | Lookahead     | `(?=…)` / `(?!…)`   | -                    | -                       |
+|  [06]   | Lookbehind    | `(?<=…)` / `(?<!…)` | -                    | -                       |
+|  [07]   | Named capture | `(?P<name>…)`       | -                    | -                       |
+|  [08]   | Non-greedy    | `*?`, `+?`, `??`    | -                    | -                       |
 
 **POSIX classes** (locale-safe, inside `[[:class:]]`):
 
@@ -61,19 +61,19 @@ _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 [:lower:] a-z          [:upper:] A-Z          [:space:] whitespace
 ```
 
-## [3]-[RIPGREP]
+## [03]-[RIPGREP]
 
 | [INDEX] | [FLAG]               | [PURPOSE]              | [EXAMPLE]                                 |
 | :-----: | :------------------- | :--------------------- | :---------------------------------------- |
-|   [1]   | `-i`                 | Case insensitive       | `rg -i 'error'`                           |
-|   [2]   | `-F`                 | Fixed string (literal) | `rg -F '192.168.1.1' access.log`          |
-|   [3]   | `-w`                 | Whole word boundary    | `rg -w 'main'`                            |
-|   [4]   | `-c`                 | Count per file         | `rg -c 'WORKITEM' src/`                   |
-|   [5]   | `-l`                 | Files-with-matches     | `rg -l 'import' --type ts`                |
-|   [6]   | `-o`                 | Only matching text     | `rg -o '\d+\.\d+\.\d+' CHANGELOG.md`      |
-|   [7]   | `-q`                 | Quiet (exit code)      | `rg -q 'BREAKING' && printf 'found\n'`    |
-|   [8]   | `-A/-B/-C`           | Context lines          | `rg -C3 'FATAL' app.log`                  |
-|   [9]   | `-t`                 | Type filter            | `rg -t ts 'Effect\.gen'`                  |
+|  [01]   | `-i`                 | Case insensitive       | `rg -i 'error'`                           |
+|  [02]   | `-F`                 | Fixed string (literal) | `rg -F '192.168.1.1' access.log`          |
+|  [03]   | `-w`                 | Whole word boundary    | `rg -w 'main'`                            |
+|  [04]   | `-c`                 | Count per file         | `rg -c 'WORKITEM' src/`                   |
+|  [05]   | `-l`                 | Files-with-matches     | `rg -l 'import' --type ts`                |
+|  [06]   | `-o`                 | Only matching text     | `rg -o '\d+\.\d+\.\d+' CHANGELOG.md`      |
+|  [07]   | `-q`                 | Quiet (exit code)      | `rg -q 'BREAKING' && printf 'found\n'`    |
+|  [08]   | `-A/-B/-C`           | Context lines          | `rg -C3 'FATAL' app.log`                  |
+|  [09]   | `-t`                 | Type filter            | `rg -t ts 'Effect\.gen'`                  |
 |  [10]   | `-g`                 | Glob filter            | `rg -g '!*.test.*' 'export'`              |
 |  [11]   | `-m`                 | Max matches/file       | `rg -m1 'WORKITEM' --sort path`           |
 |  [12]   | `--json`             | Structured JSON output | `rg --json 'ERROR' app.log \| jq …`       |
@@ -97,7 +97,7 @@ rg --json 'ERROR' logs/ \
              | map({(.[0].data.path.text): length}) | add'
 ```
 
-## [4]-[AWK]
+## [04]-[AWK]
 
 Prefer `choose` for simple field selection. Prefer `mlr` for CSV/TSV (header-aware, typed). awk for: aggregation, state machines, multi-field formatting on unstructured text. Use gawk 5.3+ `--csv` for CSV with quoted fields — eliminates `-F','` breakage on embedded commas.
 
@@ -120,7 +120,7 @@ Builtins: `NF` (fields), `NR` (line#), `FNR` (file-line#), `FS`/`OFS` (separator
 
 **Zero-fork alternative for simple field ops**: when extracting/transforming bash variables, prefer `local -n` nameref + `printf -v` over spawning awk/sed subshells. Reserve awk for multi-line aggregation and state machines where bash builtins cannot compete.
 
-## [5]-[SD]
+## [05]-[SD]
 
 sd uses PCRE2 natively, writes in-place by default (no `-i` flag), and requires no backslash escaping for capture groups. On macOS, `sed -i` requires an empty string argument (`sed -i '' ...`) — sd avoids this entirely.
 
@@ -132,7 +132,7 @@ sd 'pattern.*\n' '' file.txt              # Delete lines matching pattern
 command | sd 'old' 'new'                  # Pipe mode (stdin → stdout)
 ```
 
-## [6]-[PIPELINE_PATTERNS]
+## [06]-[PIPELINE_PATTERNS]
 
 **Tool composition patterns**:
 ```bash
@@ -164,29 +164,29 @@ mlr -c -j filter '$revenue > 1000' then sort-by -nr revenue data.csv \
 
 | [INDEX] | [DATA_SHAPE]      | [PRIMARY]    | [COMPOSITION]                   |
 | :-----: | :---------------- | :----------- | :------------------------------ |
-|   [1]   | Unstructured      | `rg` → `awk` | filter then field-extract       |
-|   [2]   | JSON              | `jq`         | `rg --json \| jq` search+parse  |
-|   [3]   | YAML/TOML/INI/HCL | `yq eval`    | `yq -o=json \| jq` complex ops  |
-|   [4]   | CSV/TSV           | `mlr`        | `mlr --ojson \| jq` post-proc   |
-|   [5]   | File paths        | `fd`         | `fd --exec-batch` bulk actions  |
-|   [6]   | Substitution      | `sd`         | `fd --exec-batch sd` bulk edits |
+|  [01]   | Unstructured      | `rg` → `awk` | filter then field-extract       |
+|  [02]   | JSON              | `jq`         | `rg --json \| jq` search+parse  |
+|  [03]   | YAML/TOML/INI/HCL | `yq eval`    | `yq -o=json \| jq` complex ops  |
+|  [04]   | CSV/TSV           | `mlr`        | `mlr --ojson \| jq` post-proc   |
+|  [05]   | File paths        | `fd`         | `fd --exec-batch` bulk actions  |
+|  [06]   | Substitution      | `sd`         | `fd --exec-batch sd` bulk edits |
 
-## [7]-[PERFORMANCE]
+## [07]-[PERFORMANCE]
 
 | [INDEX] | [TECHNIQUE]    | [PATTERN]                                                |
 | :-----: | :------------- | :------------------------------------------------------- |
-|   [1]   | Fixed strings  | `rg -F 'literal'` — skip regex compilation               |
-|   [2]   | Early exit     | `rg -m 10` — stop after N matches/file                   |
-|   [3]   | Smart case     | `rg -S 'Error'` — auto case-sensitivity                  |
-|   [4]   | Batch exec     | `fd --exec-batch` — one process vs `-x` per-file         |
-|   [5]   | Single awk     | `awk '/ERR/{e++} /WARN/{w++} END{print e,w}'` — no chain |
-|   [6]   | No UUOC        | `rg p f.txt` not `cat f.txt \| rg p`                     |
-|   [7]   | Locale bypass  | `LC_ALL=C rg 'pat'` — 2-5x faster on ASCII               |
-|   [8]   | Atomic output  | `mktemp` + `mv` — never partial writes                   |
-|   [9]   | Null-delimited | `jq --raw-output0` + `xargs -0` — special-char safe      |
+|  [01]   | Fixed strings  | `rg -F 'literal'` — skip regex compilation               |
+|  [02]   | Early exit     | `rg -m 10` — stop after N matches/file                   |
+|  [03]   | Smart case     | `rg -S 'Error'` — auto case-sensitivity                  |
+|  [04]   | Batch exec     | `fd --exec-batch` — one process vs `-x` per-file         |
+|  [05]   | Single awk     | `awk '/ERR/{e++} /WARN/{w++} END{print e,w}'` — no chain |
+|  [06]   | No UUOC        | `rg p f.txt` not `cat f.txt \| rg p`                     |
+|  [07]   | Locale bypass  | `LC_ALL=C rg 'pat'` — 2-5x faster on ASCII               |
+|  [08]   | Atomic output  | `mktemp` + `mv` — never partial writes                   |
+|  [09]   | Null-delimited | `jq --raw-output0` + `xargs -0` — special-char safe      |
 |  [10]   | Thread control | `rg --threads 4` — bound parallelism in constrained envs |
 
-## [8]-[STRUCTURED_DATA]
+## [08]-[STRUCTURED_DATA]
 
 ### jq 1.8+ — JSON processing
 

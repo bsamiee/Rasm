@@ -4,7 +4,7 @@ The domain map of `interchange` — the host-free wire boundary and inbound depe
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 interchange/
@@ -27,7 +27,7 @@ interchange/
 
 `transport` is the inbound root every rail composes and the outbound dial face; `codec` is the byte-to-typed interior; `contract` is the canonical inventory and descriptor-evolution gate; `ingress` carries the enforcement, drift-tolerance, and fault rails over untrusted input. `@connectrpc/*` stops here; the fold tier reads only decoded shapes.
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 codec/codec          ←  csharp:Rasm.AppHost/Agent         # [CONTENT_KEY]: CapabilityDescriptor command-shape
@@ -48,7 +48,7 @@ ingress              ⇄  typescript:platform/transport     # [CONTENT_KEY]: Con
 transport            →  typescript:ui/interaction         # [PORT]: CommandGateway / IntentRegistry intent dial
 ```
 
-## [3]-[CHARTERS]
+## [03]-[CHARTERS]
 
 - `transport`: the boundary edge — one polymorphic browser transport over a protocol-selection axis (Connect for server-streams, gRPC-Web where the backend dictates), one interceptor stamping correlation/traceparent/bearer, and the chunked-framing fold. The `buf`/capability-SDK codegen leg emits the browser-dialable client set (`src/gen/*_pb.ts`, one `createClient` per service) when the descriptor source lands. `gateway` co-locates as the outbound command-dial face — one `CommandGateway` over the control verbs reading the `projection` `AvailabilityStore` at dial time.
 - `codec`: the byte-to-typed interior — one decode/encode dispatch table read by codec key (proto, messagepack, json-stj `Schema.Class`, embedded geometry), each row carrying `decode` and an `Option`-carried `encode`. `patch` admits a recorded mutation against an already-admitted value; `frame` is the content-addressed artifact-frame reassembly through per-frame `Crc32` into a pre-sized sink with whole-artifact `XxHash128` derivation; `parity` binds the worker-minted `ContentKey` to the C# `XxHash128` digest bit-identically over the frozen `ONE_WIRE_FIXTURE_CORPUS`.

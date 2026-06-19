@@ -2,7 +2,7 @@
 
 `ifcpatch` supplies the IFC model-transformation surface for the geometry ifc-analysis rail: a recipe registry applying named modification recipes to an `ifcopenshell.file` — schema migration, georeferencing offset, attribute/pset purge, spatial-tree reset, element extraction, and merge — through one `execute`/`write` entry over a `Recipe`-named arguments shape. It rides the `ifcopenshell` companion lane (`0.8.5`, depends `ifcopenshell`/`toposort`/`numpy`), so the analysis owner composes `ifcpatch.execute` directly rather than mutating the model through ad-hoc `file.add`/`remove`/`create_entity` loops.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ifcpatch`
 - package: `ifcpatch`
@@ -13,34 +13,34 @@
 - entry points: none (library only)
 - capability: named-recipe IFC model transformation — schema migration, coordinate/georeference offset, attribute and pset purge, spatial-decomposition reset, sub-model extraction by selector, model merge, and IFC-to-CSV/SQL conversion — applied through one recipe-dispatched execute over an `ifcopenshell.file`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: patch arguments and recipe registry
 - rail: model-transformation
 
 | [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]   | [CAPABILITY]                                               |
 | :-----: | :----------------------- | :--------------- | :--------------------------------------------------------- |
-|   [1]   | `ifcpatch.Patcher`       | recipe base      | the per-recipe transformation contract over `(file, args)` |
-|   [2]   | `recipes.*`              | recipe namespace | the named recipe modules (one transformation each)         |
-|   [3]   | `ExtractElements`        | recipe           | extract a sub-model by selector query into a new file      |
-|   [4]   | `Migrate`                | recipe           | migrate a model to a target IFC schema version             |
-|   [5]   | `OffsetObjectPlacements` | recipe           | apply a coordinate offset to every object placement        |
-|   [6]   | `MergeProjects`          | recipe           | merge two IFC projects into one model                      |
+|  [01]   | `ifcpatch.Patcher`       | recipe base      | the per-recipe transformation contract over `(file, args)` |
+|  [02]   | `recipes.*`              | recipe namespace | the named recipe modules (one transformation each)         |
+|  [03]   | `ExtractElements`        | recipe           | extract a sub-model by selector query into a new file      |
+|  [04]   | `Migrate`                | recipe           | migrate a model to a target IFC schema version             |
+|  [05]   | `OffsetObjectPlacements` | recipe           | apply a coordinate offset to every object placement        |
+|  [06]   | `MergeProjects`          | recipe           | merge two IFC projects into one model                      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: recipe execution and output
 - rail: model-transformation
 
 The execute entry dispatches a recipe by name over an `ifcopenshell.file` and a recipe-specific arguments list; the output entry serializes the patched model or the recipe's non-IFC product.
 
-| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]               | [CAPABILITY]                                  |
-| :-----: | :-------------------------------------------------------- | :------------------------- | :-------------------------------------------- |
-|   [1]   | `ifcpatch.execute({"input","file","recipe","arguments"})` | recipe name plus args dict | run a named recipe, return the patched output |
-|   [2]   | `ifcpatch.write(output, filepath)`                        | recipe output plus path    | serialize the patched model or product        |
-|   [3]   | `ifcpatch.extract_docs(recipe, ...)`                      | recipe name                | extract a recipe's docstring and argument spec |
+| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]               | [CAPABILITY]                                   |
+| :-----: | :-------------------------------------------------------- | :------------------------- | :--------------------------------------------- |
+|  [01]   | `ifcpatch.execute({"input","file","recipe","arguments"})` | recipe name plus args dict | run a named recipe, return the patched output  |
+|  [02]   | `ifcpatch.write(output, filepath)`                        | recipe output plus path    | serialize the patched model or product         |
+|  [03]   | `ifcpatch.extract_docs(recipe, ...)`                      | recipe name                | extract a recipe's docstring and argument spec |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [PATCH_TOPOLOGY]:
 - import: `import ifcpatch` at boundary scope only; module-level import is banned by the manifest import policy.
@@ -49,7 +49,7 @@ The execute entry dispatches a recipe by name over an `ifcopenshell.file` and a 
 - evidence: each patch captures the recipe name, the input identity, and the patched-model identity as a transformation receipt.
 - boundary: `ifcpatch` owns named IFC model transformation; ad-hoc `file.create_entity`/`add`/`remove` mutation loops are the deleted form where a recipe owns the transformation; IFC parse stays `ifcopenshell`, model diff stays `ifcdiff`, 5D cost stays `ifc5d`.
 
-## [5]-[LOCAL_ADMISSION]
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `ifcpatch`

@@ -2,7 +2,7 @@
 
 A how-to guide carries one competent reader through one practical goal or problem to an observable outcome. Lead with the outcome, keep only the actions and judgment points needed to reach it, and close with outcome confirmation rather than command completion. The reader already knows the domain and exercises judgment; the guide supplies the usable route, not teaching, background, operational recovery, or a lookup catalog.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Write a how-to guide when every condition holds:
 - the reader can already act in the domain and needs the reliable path, not instruction;
@@ -21,13 +21,13 @@ Route a first-success learning path, an operational symptom response, a contribu
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let examples define section order implicitly.
 
-## [2]-[HOW_TO_BASELINE]
+## [02]-[HOW_TO_BASELINE]
 
 This standard operationalizes the local how-to route. A how-to is goal-oriented action for an already-competent user who knows what they want to achieve. Its structure follows the user's work, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases unavoidable branches as conditional imperatives.
 
 The rules below add agent-facing structure, conditional section discipline, rollback behavior, troubleshooting boundaries, cross-document handoffs, and claim-level confirmation. Use those additions to make the route executable; do not turn a how-to into a learning course, operating runbook, API catalog, or roadmap update.
 
-## [3]-[SECTION_RULES]
+## [03]-[SECTION_RULES]
 
 A how-to guide has a required core and conditional support. The required core is `# [HOW_TASK]`, `## [1][GOAL]`, `## [2][PROCEDURE]`, and `## [3][VERIFICATION]`. Conditional sections appear only when the task consumes the fact or action they carry, and every inserted conditional section renumbers in document order.
 
@@ -39,7 +39,7 @@ A how-to guide has a required core and conditional support. The required core is
 
 Do not classify guides by project maturity, product size, or broad task family. Required and conditional sections derive from the work the reader must perform and the confirmation the outcome requires.
 
-## [4]-[REQUIRED_STRUCTURE]
+## [04]-[REQUIRED_STRUCTURE]
 
 Use the section set below; each `##` heading is a standalone retrieval unit a reader may open out of order. The base template includes only universal sections, so agents do not publish empty conditional headings. Add conditional sections only when their trigger applies, and renumber headings in document order.
 
@@ -73,7 +73,7 @@ Task result grammar is outcome-first: `Goal` names the intended observable state
 
 Omit a conditional section when the condition is absent. Do not publish empty placeholders, generic readiness text, reference inventories, broad recovery branches, or author scaffolding to make the template look complete.
 
-## [5]-[MINIMAL_PATTERN]
+## [05]-[MINIMAL_PATTERN]
 
 A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
 
@@ -105,7 +105,7 @@ Observed result: `<verification check>` result or explicit confirmation gap.
 
 The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short confirmation statement with `Observed result:` beside it; do not force a one-item checklist.
 
-## [6]-[SCOPE_RULES]
+## [06]-[SCOPE_RULES]
 
 How-to scope follows these rules:
 - Solve one task per guide and state its outcome in the title and `Goal`.
@@ -127,7 +127,7 @@ Route-away: <concept, lookup, recovery, learning, status fact, gate policy, or e
 
 Omit the handoff when the guide merely links further reading after completion. Include it only when the procedure would be unsafe, ambiguous, or incomplete without the adjacent route. API-call procedures, generated-reference-driven steps, agent-practice guides, contributor tasks, and gate-driven tasks are valid handoff cases only when they change the work inside the procedure.
 
-## [7]-[PREREQUISITES_RULES]
+## [07]-[PREREQUISITES_RULES]
 
 A prerequisite is a record the reader scans and confirms before starting, so render `Prerequisites` as a definition block with one `label: value` per line, never as a paragraph and never as a one-row table. Each record names a concrete, checkable fact, not a vague readiness claim:
 - `Access`: the named permission, credential, or scope, with the surface it grants on.
@@ -144,7 +144,7 @@ Tools: Git plus repository-local confirmation environment
 Prepared artifact: document-only diff under `<docs-path>`
 ```
 
-## [8]-[PROCEDURE_RULES]
+## [08]-[PROCEDURE_RULES]
 
 Procedure rules split into step order and step wording:
 
@@ -187,7 +187,7 @@ For a forking procedure, use prose or a numbered branch first. Use a decision ta
 |   [3]   | any              | no           | route invalid plan             |
 ```
 
-## [9]-[VERIFICATION_ROLLBACK_RULES]
+## [09]-[VERIFICATION_ROLLBACK_RULES]
 
 End on a `Verification` block that observes the `Goal` outcome, not that a command exited zero. Bind the check to the task's actual outcome: setup proves convergence to the target state, mutation proves the new state, and read-only work proves the artifact, reading, or export shape. State each expected result beside the command, query, dashboard, generated artifact, UI path, or review gate that proves it.
 

@@ -2,14 +2,14 @@
 
 The notebook rail is the reproducible computational-document model: `NotebookCell` is the closed cell-kind union (code, markdown, chart, render, viewpoint, parameter) each carrying a pinned capability fingerprint, `DependencyGraph` is the cell DAG whose dirty-propagation drives recompute over exactly the affected closure, `NotebookCrdt` is the conflict-free replicated document for co-editing through op-log merge, and `ReplayBundle` exports the notebook plus its pinned capabilities and inputs as a portable replay artifact. The page owns the cell union with its pinned-capability fingerprint, the dependency DAG and dirty-recompute fold, the CRDT co-edit merge, and the export-to-replay bundle; the substrate is the Compute capability registry and receipt determinism for pinned cells, AvaloniaEdit for code cells, the chart and render owners for output cells, the Persistence op-log for CRDT and replay, and the AppHost clock and HLC for ordering. Replay reproduces a notebook bit-identically because every cell pins the capability and inputs it ran against.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CELL_MODEL]: Closed cell-kind union; pinned capability fingerprint per cell.
-- [2]-[DEPENDENCY_GRAPH]: Cell DAG, dirty propagation, recompute over the affected closure.
-- [3]-[CRDT_COEDIT]: Conflict-free replicated document; op-log merge co-editing.
-- [4]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
+- [01]-[CELL_MODEL]: Closed cell-kind union; pinned capability fingerprint per cell.
+- [02]-[DEPENDENCY_GRAPH]: Cell DAG, dirty propagation, recompute over the affected closure.
+- [03]-[CRDT_COEDIT]: Conflict-free replicated document; op-log merge co-editing.
+- [04]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
 
-## [2]-[CELL_MODEL]
+## [02]-[CELL_MODEL]
 
 - Owner: `CapabilityPin` the pinned-capability fingerprint; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.
 - Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter under the locked kind literals; `CellOutput` = Receipt | Rows | Image | Timeline | Empty under the locked kind literals.
@@ -100,7 +100,7 @@ public abstract partial record NotebookFault : Expected, IValidationError<Notebo
 }
 ```
 
-## [3]-[DEPENDENCY_GRAPH]
+## [03]-[DEPENDENCY_GRAPH]
 
 - Owner: `DependencyGraph` the cell DAG; `RecomputePlan` the affected-closure plan.
 - Entry: `public Fin<RecomputePlan> Dirty(string changed)` — folds the downstream transitive closure of the changed cell into the recompute order; `public Fin<HashMap<string, CellOutput>> Recompute(NotebookRuntime runtime, RecomputePlan plan, HashMap<string, CellOutput> cache)` — evaluates exactly the affected cells in topological order, re-using the cached output of unaffected cells.
@@ -168,7 +168,7 @@ public sealed record DependencyGraph(
 }
 ```
 
-## [4]-[CRDT_COEDIT]
+## [04]-[CRDT_COEDIT]
 
 - Owner: `NotebookOp` `[Union]` the replicated edit operation; `NotebookCrdt` the conflict-free replicated document.
 - Entry: `public NotebookCrdt Apply(NotebookOp op)` — applies one replicated op idempotently; `public NotebookCrdt Merge(NotebookCrdt other)` — folds another replica's op-log into this one, converging without conflict.
@@ -230,7 +230,7 @@ public sealed record NotebookCrdt(
 }
 ```
 
-## [5]-[REPLAY_BUNDLE]
+## [05]-[REPLAY_BUNDLE]
 
 - Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `NotebookReplay` the bit-identity check.
 - Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when a code or chart cell carries no pin; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
@@ -317,7 +317,7 @@ flowchart LR
     ReplayBundle --> NotebookReplay
 ```
 
-## [6]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [NOTEBOOK_CAPABILITY]: the Compute capability-registry key and checksum surface the `CapabilityPin` records — the capability identity (kernel/model checksum, substrate, opset) the pin matches against, resolved at implementation against the settled Compute model-lane and intent-selection vocabulary; the cell union, the dependency-graph dirty fold, the CRDT merge, and the replay bundle are settled, the exact capability-registry member shape the `VerifyPin` delegate reads is the unverified surface.
 - [NOTEBOOK_DETERMINISM]: the `CapabilityPin` composes the `Rasm.AppHost/Runtime/determinism.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` and `DeterminismKernel.Reproduces` as its environment identity, the `ReplayManifest`/`NotebookReplay.Verify` composes the `#EVENT_LOG` `ContentHash` content-addressed identity and the `#REPLAY_VERIFY` `ReplayVerify.Replay` per-step proof through the diagnostics `ProofEngine.Replay` route, and the `RecomputePlan` cell DAG aligns to the `#RECOMPUTE_GRAPH` `RecomputeNode` content-address node identity — these AppHost determinism members arrive as settled finalized vocabulary consumed at the package edge, so the notebook reproducibility-proof is one owner with the runtime determinism kernel and the `Rasm.AppHost.Determinism` namespace and exact member spellings resolve against the finalized determinism surface, never re-minted.

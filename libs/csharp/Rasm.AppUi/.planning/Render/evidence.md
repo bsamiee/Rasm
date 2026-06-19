@@ -2,17 +2,17 @@
 
 Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with typed skew bands, host-agnostic capture rows prove pixels by content hash, and a derivation engine generates the headless proof matrix from the screen catalog and replays command journals under virtual time. The page owns the evidence union with the package wire context, the join fold, the capture and proof row families, the Debug loop rows, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[RECEIPT_UNION]: Seven-case evidence union sealed through the HLC sink envelope.
-- [2]-[CORRELATION_JOIN]: Causal timeline join keyed correlation plus HLC with skew bands.
-- [3]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof.
-- [4]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix; deterministic command-journal replay.
-- [5]-[DEV_LOOP]: Debug hot-reload knob rows; dispatcher starvation probe.
-- [6]-[PERF_BUDGET]: Declarative quality governor folding telemetry into one degrade verdict.
-- [7]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
+- [01]-[RECEIPT_UNION]: Seven-case evidence union sealed through the HLC sink envelope.
+- [02]-[CORRELATION_JOIN]: Causal timeline join keyed correlation plus HLC with skew bands.
+- [03]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof.
+- [04]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix; deterministic command-journal replay.
+- [05]-[DEV_LOOP]: Debug hot-reload knob rows; dispatcher starvation probe.
+- [06]-[PERF_BUDGET]: Declarative quality governor folding telemetry into one degrade verdict.
+- [07]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
 
-## [2]-[RECEIPT_UNION]
+## [02]-[RECEIPT_UNION]
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold; `AppUiWireContext` — the package wire context.
 - Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity under the locked kind literals surface, focus, render, disposal, edit, command, native-asset.
@@ -88,7 +88,7 @@ public static class AppUiTelemetry {
 public partial class AppUiWireContext : JsonSerializerContext;
 ```
 
-## [3]-[CORRELATION_JOIN]
+## [03]-[CORRELATION_JOIN]
 
 - Owner: `SkewBand` — the HLC uncertainty band; `EvidenceRow` — the ordered timeline row; `EvidenceTimeline` — the causal projection; `EvidenceJoin` — the cross-package fold.
 - Entry: `public static Seq<EvidenceTimeline> Correlate(Seq<ReceiptEnvelope> envelopes, Option<string> package = default)` — pure fold; the package filter value is the model-result provenance projection over the Compute stream.
@@ -136,7 +136,7 @@ flowchart LR
     EvidenceRow --> SkewBand
 ```
 
-## [4]-[CAPTURE_LANES]
+## [04]-[CAPTURE_LANES]
 
 - Owner: `CaptureRow` — the per-surface capture row carrying the DPI-scale column; `Captures` — the shot-and-regression surface.
 - Entry: `public static IO<RenderReceipt> Shot(VisualRuntime runtime, CaptureRow row)` — `IO` rail through the settled encode fold; one PNG artifact plus one render receipt per shot.
@@ -166,7 +166,7 @@ public static class Captures {
 }
 ```
 
-## [5]-[HEADLESS_DERIVATION]
+## [05]-[HEADLESS_DERIVATION]
 
 - Owner: `EvidenceKeyPolicy` ordinal accessor; `ProofCheck` — the eight-row check vocabulary; `ProofSpec` — the derived spec row; `ProofEngine` — the derivation and replay surface; `RenderHashLane` — the `key@scale×gamut` render-hash cell; `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators and `Verify.XunitV3` FrameHash equality.
 - Cases: activation, render-hash, focus-walk, variant-sweep, density-sweep, disposal-leak, pointer-walk, drag-drop — the two input-proof rows drive the headless synthetic-input verbs.
@@ -273,7 +273,7 @@ public static class ProofLaw {
 }
 ```
 
-## [6]-[DEV_LOOP]
+## [06]-[DEV_LOOP]
 
 - Owner: `DevLoop` — the Debug loop surface with the hot-reload knob rows, the manual-reload intent edge, the remote-evidence ingest edge, the performance-HUD sample feed, the flamegraph fold, the solve time-travel scrub, the cross-machine replay-verify, and the in-app REPL; `HudSample`, `FlameNode`, `SolveScrub`, `Repl`, `ReplResult` the user-facing debug owners.
 - Entry: `public static IO<Unit> DispatcherLag(SurfaceScheduler boundary, TimeProvider time, Func<Duration, IO<Unit>> sink)` — marshal round-trip lag into the composition-bound sink delegate; `public static IO<Unit> Reload(ReloadIntent intent, Func<IO<Unit>> trigger, Func<IO<Unit>> enable, Func<IO<Unit>> disable)` — the manual-reload verb routes the three injected `AvaloniaHotReloadExtensions` operations through composition-bound delegates so a palette-raised reload intent dispatches `TriggerHotReload`/`EnableHotReload`/`DisableHotReload` without DevLoop touching the injected surface; `public static IO<Unit> Ingest(ReceiptSinkPort sink, Func<ReadOnlyMemory<byte>, Fin<ReceiptEnvelope>> decode, ReadOnlyMemory<byte> frame)` — the composition-bound binary-wire `decode` column lifts a remote frame into a `ReceiptEnvelope` re-emitted through `sink.Emit`, preserving the origin node's HLC stamp so the correlation join reads each node's own clock.
@@ -370,17 +370,17 @@ public static class DevLoop {
 
 | [INDEX] | [KNOB_ROW]                   | [VALUE]            | [ROLE]                                  |
 | :-----: | :--------------------------- | :----------------- | :-------------------------------------- |
-|   [1]   | HotAvalonia                  | Debug default      | master gate                             |
-|   [2]   | HotAvaloniaIncludeExtensions | exe default        | injects the UseHotReload source         |
-|   [3]   | HotAvaloniaProcessReferences | enabled            | Release closure strip                   |
-|   [4]   | HotAvaloniaExcludeReferences | weaver + core list | reference list the strip removes        |
-|   [5]   | markup-loader pin            | transitive floor   | `Avalonia.Markup.Xaml.Loader` Debug pin |
-|   [6]   | HotAvaloniaRemote            | non-desktop opt-in | remote reload route                     |
-|   [7]   | HotAvaloniaTimeout           | runtime default    | reload timeout window                   |
-|   [8]   | HotAvaloniaHotkey            | runtime default    | manual-reload key chord                 |
-|   [9]   | HarfsAddress / HarfsPort     | remote endpoint    | HARFS file-server endpoint              |
+|  [01]   | HotAvalonia                  | Debug default      | master gate                             |
+|  [02]   | HotAvaloniaIncludeExtensions | exe default        | injects the UseHotReload source         |
+|  [03]   | HotAvaloniaProcessReferences | enabled            | Release closure strip                   |
+|  [04]   | HotAvaloniaExcludeReferences | weaver + core list | reference list the strip removes        |
+|  [05]   | markup-loader pin            | transitive floor   | `Avalonia.Markup.Xaml.Loader` Debug pin |
+|  [06]   | HotAvaloniaRemote            | non-desktop opt-in | remote reload route                     |
+|  [07]   | HotAvaloniaTimeout           | runtime default    | reload timeout window                   |
+|  [08]   | HotAvaloniaHotkey            | runtime default    | manual-reload key chord                 |
+|  [09]   | HarfsAddress / HarfsPort     | remote endpoint    | HARFS file-server endpoint              |
 
-## [7]-[PERF_BUDGET]
+## [07]-[PERF_BUDGET]
 
 - Owner: `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PerfSample` the folded telemetry observation; `QualityVerdict` the one degrade verdict; `PerfBudget` the declarative quality governor; `GpuTimingPass` the per-pass timestamp-query writer; `PipelineStat` the pipeline-statistics row; `GpuTimeline` the measured-vs-projected per-pass GPU projection feeding the verdict.
 - Cases: `QualityTier` = ultra, high, balanced, conservative, floor — ultra runs the full pass list and motion catalog, floor runs the `Composite`-only fallback with reduced motion and the tightest residency watermark.
@@ -500,7 +500,7 @@ flowchart LR
     QualityVerdict -->|reduce flag| ReducedMotion
 ```
 
-## [8]-[TS_PROJECTION]
+## [08]-[TS_PROJECTION]
 
 - Owner: `EvidenceReceiptWire`, `SurfaceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
 - Packages: BCL inbox
@@ -550,6 +550,6 @@ interface EvidenceTimelineWire {
 }
 ```
 
-## [9]-[RESEARCH]
+## [09]-[RESEARCH]
 
 - [DEV_LOOP_STRIP]: HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin, verified against the built project MSBuild closure at implementation.

@@ -4,7 +4,7 @@ The domain map of `geometry` — the host-free geometry and IFC/BIM companion an
 
 Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
 
-## [1]-[DOMAIN_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 geometry/
@@ -26,7 +26,7 @@ geometry/
     └── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra
 ```
 
-## [2]-[SEAMS]
+## [02]-[SEAMS]
 
 ```text seams
 *              →  csharp:Rasm.Compute          # [GRADUATION]: HandoffAxis geometry case IDS/clash/BCF
@@ -46,6 +46,6 @@ scan           →  python:data/spatial          # [SHAPE]: Arrow point-record c
 mesh           ←  python:data/spatial          # [SHAPE]: MeshPayload cell-block topology
 ```
 
-## [3]-[INTERPRETER_FLOOR]
+## [03]-[INTERPRETER_FLOOR]
 
 Every sub-domain rides the companion interpreter floor the branch manifest owns — the sanctioned divergence from the Python core floor, forced by the compiled geometry/IFC cores and isolating the copyleft IFC wheel at the process boundary. The folder consumes this floor as settled and never re-decides it; it surfaces here only because the whole map sits below it.

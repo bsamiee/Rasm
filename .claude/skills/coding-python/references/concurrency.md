@@ -273,15 +273,15 @@ Rule note: `try/except get_cancelled_exc_class(): raise` is the only permitted d
 ---
 ## Quick Reference
 
-| [INDEX] | [PATTERN]                    | [WHEN]                                      | [KEY_TRAIT]                              |
-| :-----: | ---------------------------- | ------------------------------------------- | ---------------------------------------- |
-|   [1]   | Bounded pipeline             | Fan-out with deadline + backpressure + ack  | `CancelScope` + `CapacityLimiter`        |
-|   [2]   | Pipeline stage               | Multi-stage async typed transformation      | `MemoryObjectStream` + `CapacityLimiter` |
-|   [3]   | `move_on_after`/`fail_after` | Soft vs hard timeout per-operation          | `scope.cancelled_caught` inspection      |
-|   [4]   | `CancelScope(shield=True)`   | Protect commit/ack under parent cancel      | Defer cancel until scope exit            |
-|   [5]   | Checkpoint discipline        | Fairness for CPU-heavy async loops          | `checkpoint_if_cancelled()` in hot paths |
-|   [6]   | ContextVar snapshots         | Free-threaded safety for scoped state       | Immutable tuple replacement              |
-|   [7]   | Interpreter isolation        | CPU-parallel with `bytes` wire contract     | `InterpreterPoolExecutor` + boundary adapter |
-|   [8]   | `except*` groups             | TaskGroup multi-failure structured handling | Subtractive clause matching              |
-|   [9]   | `MailboxProcessor`           | Actor-based sequential message processing   | Ordered Result from concurrent input     |
-|  [10]   | `CancellationToken`          | Cooperative cross-thread cancellation       | `is_cancellation_requested` check        |
+| [INDEX] | [PATTERN]                    | [WHEN]                                      | [KEY_TRAIT]                                  |
+| :-----: | ---------------------------- | ------------------------------------------- | -------------------------------------------- |
+|  [01]   | Bounded pipeline             | Fan-out with deadline + backpressure + ack  | `CancelScope` + `CapacityLimiter`            |
+|  [02]   | Pipeline stage               | Multi-stage async typed transformation      | `MemoryObjectStream` + `CapacityLimiter`     |
+|  [03]   | `move_on_after`/`fail_after` | Soft vs hard timeout per-operation          | `scope.cancelled_caught` inspection          |
+|  [04]   | `CancelScope(shield=True)`   | Protect commit/ack under parent cancel      | Defer cancel until scope exit                |
+|  [05]   | Checkpoint discipline        | Fairness for CPU-heavy async loops          | `checkpoint_if_cancelled()` in hot paths     |
+|  [06]   | ContextVar snapshots         | Free-threaded safety for scoped state       | Immutable tuple replacement                  |
+|  [07]   | Interpreter isolation        | CPU-parallel with `bytes` wire contract     | `InterpreterPoolExecutor` + boundary adapter |
+|  [08]   | `except*` groups             | TaskGroup multi-failure structured handling | Subtractive clause matching                  |
+|  [09]   | `MailboxProcessor`           | Actor-based sequential message processing   | Ordered Result from concurrent input         |
+|  [10]   | `CancellationToken`          | Cooperative cross-thread cancellation       | `is_cancellation_requested` check            |

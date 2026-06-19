@@ -2,7 +2,7 @@
 
 `arctic` supplies a provider-per-class OAuth 2.0 and OIDC client layer: each provider class owns authorization URL construction (with optional PKCE), token exchange, token refresh, and revocation. The low-level `OAuth2Client` is the generic primitive when no built-in provider matches. `OAuth2Tokens`, `generateCodeVerifier`, `generateState`, and `decodeIdToken` are the shared flow utilities. Error types distinguish protocol errors from network and parsing failures.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arctic`
 - package: `arctic`
@@ -10,38 +10,38 @@
 - asset: runtime library
 - rail: auth
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: core client and flow types
 - rail: auth
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                              |
 | :-----: | :--------------------------------- | :------------ | :---------------------------------- |
-|   [1]   | `OAuth2Client`                     | class         | generic OAuth 2.0 client            |
-|   [2]   | `CodeChallengeMethod`              | enum          | PKCE challenge method selection     |
-|   [3]   | `OAuth2Tokens`                     | class         | token response wrapper              |
-|   [4]   | `OAuth2RequestError`               | error class   | RFC 6749 protocol error             |
-|   [5]   | `ArcticFetchError`                 | error class   | network-level failure               |
-|   [6]   | `UnexpectedResponseError`          | error class   | non-JSON or non-error HTTP response |
-|   [7]   | `UnexpectedErrorResponseBodyError` | error class   | parseable error body with bad shape |
+|  [01]   | `OAuth2Client`                     | class         | generic OAuth 2.0 client            |
+|  [02]   | `CodeChallengeMethod`              | enum          | PKCE challenge method selection     |
+|  [03]   | `OAuth2Tokens`                     | class         | token response wrapper              |
+|  [04]   | `OAuth2RequestError`               | error class   | RFC 6749 protocol error             |
+|  [05]   | `ArcticFetchError`                 | error class   | network-level failure               |
+|  [06]   | `UnexpectedResponseError`          | error class   | non-JSON or non-error HTTP response |
+|  [07]   | `UnexpectedErrorResponseBodyError` | error class   | parseable error body with bad shape |
 
 [PUBLIC_TYPE_SCOPE]: selected provider classes
 - rail: auth
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [RAIL]                              |
 | :-----: | :----------------- | :------------- | :---------------------------------- |
-|   [1]   | `GitHub`           | provider class | GitHub OAuth 2.0                    |
-|   [2]   | `Google`           | provider class | Google OAuth 2.0 + OIDC + PKCE      |
-|   [3]   | `MicrosoftEntraId` | provider class | Microsoft Entra ID OAuth 2.0 + PKCE |
-|   [4]   | `Discord`          | provider class | Discord OAuth 2.0                   |
-|   [5]   | `Apple`            | provider class | Apple Sign In                       |
-|   [6]   | `Spotify`          | provider class | Spotify OAuth 2.0                   |
-|   [7]   | `Twitter`          | provider class | Twitter / X OAuth 2.0               |
-|   [8]   | `LinkedIn`         | provider class | LinkedIn OAuth 2.0                  |
+|  [01]   | `GitHub`           | provider class | GitHub OAuth 2.0                    |
+|  [02]   | `Google`           | provider class | Google OAuth 2.0 + OIDC + PKCE      |
+|  [03]   | `MicrosoftEntraId` | provider class | Microsoft Entra ID OAuth 2.0 + PKCE |
+|  [04]   | `Discord`          | provider class | Discord OAuth 2.0                   |
+|  [05]   | `Apple`            | provider class | Apple Sign In                       |
+|  [06]   | `Spotify`          | provider class | Spotify OAuth 2.0                   |
+|  [07]   | `Twitter`          | provider class | Twitter / X OAuth 2.0               |
+|  [08]   | `LinkedIn`         | provider class | LinkedIn OAuth 2.0                  |
 
 (45 additional provider classes follow the same shape; see `dist/providers/*.d.ts`.)
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: OAuth2Client — generic low-level client
 - rail: auth
@@ -214,7 +214,7 @@ export declare class UnexpectedErrorResponseBodyError extends Error {
 }
 ```
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [AUTH_TOPOLOGY]:
 - one class per provider; each class is constructed with `clientId`, `clientSecret`, and `redirectURI`

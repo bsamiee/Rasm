@@ -494,7 +494,7 @@ target. The `state` field re-read after each `change` is the live grant value th
 
 ---
 
-## [3]-[STORAGE_MANAGER] (native)
+## [03]-[STORAGE_MANAGER] (native)
 
 `navigator.storage` (the `StorageManager`) has no `@effect/platform-browser` surface — the two
 calls below are confined to the `Shell/capability` owner.
@@ -527,7 +527,7 @@ kind, equally confined to that owner.
 
 ---
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RAIL_LAW]:
 - Package: `@effect/platform-browser`

@@ -2,24 +2,24 @@
 
 PostgreSQL is one declared store surface per database. One `NpgsqlDataSourceBuilder` fold owns every per-database concern — type mapping, JSON policy, credentials, session state, pool and prepare budgets, tracing shape — and yields the one process-lifetime `NpgsqlDataSource` every later surface hangs off. SQL capability is consumed through a two-door routing law — provider-translated LINQ or interpolated typed SQL feeding one composable rail, no third lane — and every statement failure folds once over SQLSTATE class into a closed typed fault family. Extension capability is declared rows whose presence one verification-only admission fold proves: the process never alters its environment. Vector, geo, full-text, temporal, and relational predicates compose in one typed query rail gated by those rows; bulk admission is binary COPY into staging reconciled by one receipted MERGE; the change contract is ephemeral NOTIFY wake over a durable replication slot whose decode folds into the settled op-log shape. Growth lands as rows: a new wire type is a mapping row, a new extension a capability row, a new retrieval axis a lane row, a new maintenance duty one scheduler row.
 
-## [1]-[POSTGRES_CHOOSER]
+## [01]-[POSTGRES_CHOOSER]
 
 This table routes a store concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]             | [OWNER]                               | [REJECTED_FORM]              |
 | :-----: | :-------------------- | :------------------------------------ | :--------------------------- |
-|   [1]   | store configuration   | one data-source builder fold          | raw-string connections       |
-|   [2]   | SQL construct routing | translated-LINQ or typed-SQL two-door | string-concatenated SQL      |
-|   [3]   | statement failure     | SQLSTATE-class disposition fold       | per-statement catch arms     |
-|   [4]   | extension capability  | declared row + admission verdict      | runtime `CREATE EXTENSION`   |
-|   [5]   | multi-axis retrieval  | lane-composed typed query rail        | per-lane sibling queries     |
-|   [6]   | bulk writes           | binary COPY + MERGE reconcile         | batched INSERT loops         |
-|   [7]   | change consumption    | slot decode + NOTIFY wake             | payload-as-data notification |
-|   [8]   | schema deployment     | compiled bundle + epoch publication   | migrate-at-startup           |
-|   [9]   | store maintenance     | suite-scheduler rows                  | in-database cron             |
+|   [01]   | store configuration   | one data-source builder fold          | raw-string connections       |
+|   [02]   | SQL construct routing | translated-LINQ or typed-SQL two-door | string-concatenated SQL      |
+|   [03]   | statement failure     | SQLSTATE-class disposition fold       | per-statement catch arms     |
+|   [04]   | extension capability  | declared row + admission verdict      | runtime `CREATE EXTENSION`   |
+|   [05]   | multi-axis retrieval  | lane-composed typed query rail        | per-lane sibling queries     |
+|   [06]   | bulk writes           | binary COPY + MERGE reconcile         | batched INSERT loops         |
+|   [07]   | change consumption    | slot decode + NOTIFY wake             | payload-as-data notification |
+|   [08]   | schema deployment     | compiled bundle + epoch publication   | migrate-at-startup           |
+|   [09]   | store maintenance     | suite-scheduler rows                  | in-database cron             |
 |  [10]   | driver telemetry      | store-profile tracing rows            | per-call-site spans          |
 
-## [2]-[STORE_PROFILE]
+## [02]-[STORE_PROFILE]
 
 [PROFILE_FOLD]:
 - Law: `NpgsqlDataSourceBuilder` is the single configuration owner below the store profile — mapping (`MapEnum`, `MapComposite`), JSON (`EnableDynamicJson`, `ConfigureJsonOptions`), credentials, logging, type loading (`ConfigureTypeLoading`), tracing — and `Build()` yields the one process-lifetime `NpgsqlDataSource` per database; a connection from a raw string after the source exists forks pool identity and forgets every policy row, and `EnableParameterLogging`, `IncludeErrorDetail`, and `IncludeFailedBatchedCommand` default closed — opening any is a redaction-policy decision, never a debugging convenience.
@@ -64,7 +64,7 @@ public static class StoreProfile {
 }
 ```
 
-## [3]-[SQL_LAW]
+## [03]-[SQL_LAW]
 
 [ENGINE_GATE_AND_IDENTITY]:
 - Law: `SetPostgresVersion` is mandatory store-profile policy — undeclared, the provider assumes a trailing default and silently withholds newer translations; a feature is admitted only when the engine floor carries it, the declared gate exposes it, and a typed spelling exists, and a feature failing the third test routes to typed SQL, never to absence.
@@ -88,16 +88,16 @@ public static class StoreProfile {
 
 | [INDEX] | [CONSTRUCT_FAMILY]                                    | [DOOR]    |
 | :-----: | :---------------------------------------------------- | :-------- |
-|   [1]   | array, range, network, KNN, temporal aggregates       | LINQ      |
-|   [2]   | full-text, trigram, phonetic, `ILike`                 | LINQ      |
-|   [3]   | JSON traversal, containment, `jsonb_set` updates      | LINQ      |
-|   [4]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree      | LINQ      |
-|   [5]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY     | typed SQL |
-|   [6]   | `JSON_TABLE`, `LATERAL`, `DISTINCT ON`, recursive CTE | typed SQL |
-|   [7]   | translated construct re-spelled as raw SQL            | rejected  |
-|   [8]   | DDL text in either query lane                         | rejected  |
+|   [01]   | array, range, network, KNN, temporal aggregates       | LINQ      |
+|   [02]   | full-text, trigram, phonetic, `ILike`                 | LINQ      |
+|   [03]   | JSON traversal, containment, `jsonb_set` updates      | LINQ      |
+|   [04]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree      | LINQ      |
+|   [05]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY     | typed SQL |
+|   [06]   | `JSON_TABLE`, `LATERAL`, `DISTINCT ON`, recursive CTE | typed SQL |
+|   [07]   | translated construct re-spelled as raw SQL            | rejected  |
+|   [08]   | DDL text in either query lane                         | rejected  |
 
-## [4]-[FAULT_DISPOSITION]
+## [04]-[FAULT_DISPOSITION]
 
 [SQLSTATE_FOLD]:
 - Law: fault handling is one total dispatch over SQLSTATE class for every statement shape — per-statement catch arms are the rejected form — spelled as patterns over `PostgresErrorCodes` constants and the class prefix: conflicts (unique, exclusion) mint domain faults carrying constraint identity and are never retried; admission defects (foreign-key, check, not-null) carry column and constraint evidence retry cannot fix; serialization failure and deadlock are the only classes a store-level strategy may absorb silently; the 22-prefixed data-exception class is an admission defect that escaped the boundary, its production appearance evidence the validation seam has a hole.
@@ -136,7 +136,7 @@ public static class StoreSeam {
 }
 ```
 
-## [5]-[QUERY_RAIL]
+## [05]-[QUERY_RAIL]
 
 [LANE_GRAMMAR]:
 - Law: an extension lane is at most three declarations — a model `HasPostgresExtension` row, a wire admission, a translated vocabulary — and a new lane is three rows, zero architecture; codec-bearing lanes admit dually (`UseVector`, `UseNetTopologySuite` beside the wire admission), neither half standing alone — model-only fails at materialization, wire-only fails at translation — and lane sub-capability floors are row data: presence below the extension generation that carries a setting is absence for that sub-capability, so queries dispatch on the folded set, never probe.
@@ -212,7 +212,7 @@ public static class QueryRail {
 }
 ```
 
-## [6]-[BULK_LANES]
+## [06]-[BULK_LANES]
 
 [COPY_LAW]:
 - Law: the importer's commit edge is inverted — `Complete()` commits, disposal without it cancels the COPY and discards every buffered row — so the success branch ends in `Complete`, exception safety means data is discarded rather than half-written, and the retry unit is always the whole COPY, which is what makes the lane composable with idempotent staging.
@@ -261,7 +261,7 @@ public static class BulkLane {
 }
 ```
 
-## [7]-[CHANGE_CONTRACT]
+## [07]-[CHANGE_CONTRACT]
 
 [WAKE_ROW]:
 - Law: NOTIFY is transactional ephemeral wake — delivered on commit, collapsed within a transaction, payload-capped, lost on every reconnect window — so payloads carry a cursor hint and the listener re-reads authoritative state through the query rail; the canonical listener is one dedicated bound connection per process running `LISTEN` per channel, demultiplexing on `Channel`, and looping the connection's `WaitAsync` timeout overload, whose elapsed-window `false` is the liveness heartbeat and the watermark catch-up point.
@@ -342,7 +342,7 @@ public static class ChangeDecode {
 }
 ```
 
-## [8]-[OPS_AND_VERIFICATION]
+## [08]-[OPS_AND_VERIFICATION]
 
 [DEPLOY_LAW]:
 - Law: the deploy artifact triple is compiled bundle, idempotent script, schema epoch — built from one migration set, with the environment's execution-rights rung selecting bundle or script; the process never migrates itself, and the credential split — a migration role owning DDL whose default privileges pre-grant the runtime role — makes runtime DDL fail on privilege, self-enforcing the law at the store.

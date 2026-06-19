@@ -2,7 +2,7 @@
 
 `SkiaSharp.HarfBuzz` supplies HarfBuzz-backed text shaping, shaped text drawing, font conversion, blob conversion, and text blob output for Skia visuals.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
 - package: `SkiaSharp.HarfBuzz`
@@ -13,54 +13,54 @@
 - asset: runtime library
 - rail: typography
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [SHAPING_TYPES]: text shaping extensions — rail: typography
 
 | [INDEX] | [SYMBOL]           | [KIND]          |
 | :-----: | :----------------- | :-------------- |
-|   [1]   | `SKShaper`         | text shaper     |
-|   [2]   | `SKShaper.Result`  | shape result    |
-|   [3]   | `CanvasExtensions` | shaped draw     |
-|   [4]   | `FontExtensions`   | font scale      |
-|   [5]   | `BlobExtensions`   | blob conversion |
+|  [01]   | `SKShaper`         | text shaper     |
+|  [02]   | `SKShaper.Result`  | shape result    |
+|  [03]   | `CanvasExtensions` | shaped draw     |
+|  [04]   | `FontExtensions`   | font scale      |
+|  [05]   | `BlobExtensions`   | blob conversion |
 
 [DEPENDENCY_TYPES]: admitted shaping substrate — rail: typography
 
 | [INDEX] | [SYMBOL]               | [KIND]            |
 | :-----: | :--------------------- | :---------------- |
-|   [1]   | `HarfBuzzSharp.Blob`   | text data         |
-|   [2]   | `HarfBuzzSharp.Buffer` | shaping buffer    |
-|   [3]   | `HarfBuzzSharp.Font`   | shaping font      |
-|   [4]   | `SKFont`               | Skia font         |
-|   [5]   | `SKTextBlob`           | shaped text       |
-|   [6]   | `SKTextBlobBuilder`    | shaped text build |
-|   [7]   | `SKRawRunBuffer<T>`    | glyph run buffer  |
+|  [01]   | `HarfBuzzSharp.Blob`   | text data         |
+|  [02]   | `HarfBuzzSharp.Buffer` | shaping buffer    |
+|  [03]   | `HarfBuzzSharp.Font`   | shaping font      |
+|  [04]   | `SKFont`               | Skia font         |
+|  [05]   | `SKTextBlob`           | shaped text       |
+|  [06]   | `SKTextBlobBuilder`    | shaped text build |
+|  [07]   | `SKRawRunBuffer<T>`    | glyph run buffer  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [SHAPING_ENTRYPOINTS]: text shaping and drawing operations
 - rail: typography
 
 | [INDEX] | [SURFACE]        | [SURFACE_ROOT]     | [RAIL]          |
 | :-----: | :--------------- | :----------------- | :-------------- |
-|   [1]   | `Shape`          | `SKShaper`         | shape text      |
-|   [2]   | `DrawShapedText` | `CanvasExtensions` | draw glyphs     |
-|   [3]   | `ToHarfBuzzBlob` | `BlobExtensions`   | blob conversion |
-|   [4]   | `GetScale`       | `FontExtensions`   | scale read      |
-|   [5]   | `SetScale`       | `FontExtensions`   | scale write     |
+|  [01]   | `Shape`          | `SKShaper`         | shape text      |
+|  [02]   | `DrawShapedText` | `CanvasExtensions` | draw glyphs     |
+|  [03]   | `ToHarfBuzzBlob` | `BlobExtensions`   | blob conversion |
+|  [04]   | `GetScale`       | `FontExtensions`   | scale read      |
+|  [05]   | `SetScale`       | `FontExtensions`   | scale write     |
 
 [RESULT_ENTRYPOINTS]: shaped-run metrics for flow advance
 - rail: typography
 
 | [INDEX] | [SURFACE]    | [SURFACE_ROOT]    | [RAIL]            |
 | :-----: | :----------- | :---------------- | :---------------- |
-|   [1]   | `Width`      | `SKShaper.Result` | run advance       |
-|   [2]   | `Clusters`   | `SKShaper.Result` | cluster boundary  |
-|   [3]   | `Codepoints` | `SKShaper.Result` | glyph identifiers |
-|   [4]   | `Points`     | `SKShaper.Result` | glyph positions   |
+|  [01]   | `Width`      | `SKShaper.Result` | run advance       |
+|  [02]   | `Clusters`   | `SKShaper.Result` | cluster boundary  |
+|  [03]   | `Codepoints` | `SKShaper.Result` | glyph identifiers |
+|  [04]   | `Points`     | `SKShaper.Result` | glyph positions   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TYPOGRAPHY_LAW]:
 - Package: `SkiaSharp.HarfBuzz`

@@ -2,7 +2,7 @@
 
 `class-variance-authority` provides `cva` for authoring type-safe variant-driven class-name factories and `VariantProps` for extracting variant prop types from a `cva` call. `cx` is a re-export of `clsx` for class joining without conflict resolution. The package owns the variant configuration model: `variants`, `defaultVariants`, and `compoundVariants`.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `class-variance-authority`
 - package: `class-variance-authority`
@@ -10,37 +10,37 @@
 - asset: runtime library
 - rail: styling
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: variant factory types
 - rail: styling
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                                                                      |
 | :-----: | :---------------- | :------------ | :-------------------------------------------------------------------------- |
-|   [1]   | `VariantProps<C>` | generic type  | extracts variant prop map from a `cva` component, omits `class`/`className` |
-|   [2]   | `CxOptions`       | type alias    | `Parameters<typeof clsx>` — accepted by `cx`                                |
-|   [3]   | `CxReturn`        | type alias    | `ReturnType<typeof clsx>` — string result of `cx`                           |
+|  [01]   | `VariantProps<C>` | generic type  | extracts variant prop map from a `cva` component, omits `class`/`className` |
+|  [02]   | `CxOptions`       | type alias    | `Parameters<typeof clsx>` — accepted by `cx`                                |
+|  [03]   | `CxReturn`        | type alias    | `ReturnType<typeof clsx>` — string result of `cx`                           |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: variant factory and join
 - rail: styling
 
 | [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                                                   |
 | :-----: | :-------------------------- | :------------- | :------------------------------------------------------- |
-|   [1]   | `cva(base?, config?)`       | factory        | returns `(props?) => string` variant class-name resolver |
-|   [2]   | `cx(...options: CxOptions)` | join           | `clsx` re-export; falsy-safe class joining               |
+|  [01]   | `cva(base?, config?)`       | factory        | returns `(props?) => string` variant class-name resolver |
+|  [02]   | `cx(...options: CxOptions)` | join           | `clsx` re-export; falsy-safe class joining               |
 
 [ENTRYPOINT_SCOPE]: cva config shape
 - rail: styling
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY] | [RAIL]                                                               |
 | :-----: | :------------------------ | :------------- | :------------------------------------------------------------------- |
-|   [1]   | `config.variants`         | config field   | `Record<string, Record<string, ClassValue>>` — variant definitions   |
-|   [2]   | `config.defaultVariants`  | config field   | `ConfigVariants<T>` — default values per variant key                 |
-|   [3]   | `config.compoundVariants` | config field   | array of `(ConfigVariants<T> \| ConfigVariantsMulti<T>) & ClassProp` |
+|  [01]   | `config.variants`         | config field   | `Record<string, Record<string, ClassValue>>` — variant definitions   |
+|  [02]   | `config.defaultVariants`  | config field   | `ConfigVariants<T>` — default values per variant key                 |
+|  [03]   | `config.compoundVariants` | config field   | array of `(ConfigVariants<T> \| ConfigVariantsMulti<T>) & ClassProp` |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [CVA_TOPOLOGY]:
 - `cva` infers variant types from the `config.variants` schema; `VariantProps<typeof myComponent>` extracts the prop union

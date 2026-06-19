@@ -2,7 +2,7 @@
 
 An agent ramp prepares a future agent to operate safely in one bounded source area before broad edits. It gives the agent the minimum code path, read-first questions, local constraints, first safe action, readiness gate, and stop rules needed to decide whether the next action is safe. It is not a tutorial, contribution workflow, runbook, architecture map, permission ladder, status tracker, or target sequencing artifact.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Use an agent ramp when a source area needs a repeatable preparation path before edits:
 - a complex package, tool, bridge, generated surface, or host integration has local hazards;
@@ -19,7 +19,7 @@ Route first-success teaching to [tutorial.md](tutorial.md), normal repeatable wo
 - Adjacent checks: check architecture, API, support matrix, roadmap, code documentation, how-to, runbook, contributing, reference, and README only when their fact changes the reading path, first action, readiness gate, or stop rule.
 - Maintenance triggers: update the ramp when code path, generated artifact, command, support boundary, first safe action, readiness gate, stop rule, or adjacent route changes.
 
-## [2]-[REQUIRED_STRUCTURE]
+## [02]-[REQUIRED_STRUCTURE]
 
 Use this produced-document skeleton. The structure is a ramp contract, not a mandate to fill every section with metadata; omit optional sections and records that do not change agent behavior.
 
@@ -66,20 +66,20 @@ Shared lifecycle states omitted here are intentional: ramps do not use `QUEUED`,
 
 Produced ramps must replace every placeholder with local truth. A ramp is incomplete if it contains `<...>` fields, broad source areas, unnamed gates, unowned stop routes, or source records that do not change the first safe action or readiness gate.
 
-## [3]-[RAMP_CHOOSER]
+## [03]-[RAMP_CHOOSER]
 
 Choose an agent ramp only when preparation before edits is the reader problem. Use this decision table before drafting:
 
 | [INDEX] | [NEED]                             | [ROUTE]       |
 | :-----: | :--------------------------------- | :------------ |
-|   [1]   | prepare an agent before first edit | agent ramp    |
-|   [2]   | teach first success                | tutorial      |
-|   [3]   | repeat a known task                | how-to        |
-|   [4]   | recover from symptom               | runbook       |
-|   [5]   | follow contribution workflow       | contributing  |
-|   [6]   | choose test gate policy            | test strategy |
-|   [7]   | explain current structure          | architecture  |
-|   [8]   | look up facts or contracts         | lookup route  |
+|  [01]   | prepare an agent before first edit | agent ramp    |
+|  [02]   | teach first success                | tutorial      |
+|  [03]   | repeat a known task                | how-to        |
+|  [04]   | recover from symptom               | runbook       |
+|  [05]   | follow contribution workflow       | contributing  |
+|  [06]   | choose test gate policy            | test strategy |
+|  [07]   | explain current structure          | architecture  |
+|  [08]   | look up facts or contracts         | lookup route  |
 
 Route labels map to current standard files:
 - tutorial: [tutorial.md](tutorial.md)
@@ -92,7 +92,7 @@ Route labels map to current standard files:
 
 If the source area has no local hazard, no constrained first action, and no readiness gate, do not write an agent ramp. Route to the smallest adjacent document that changes the agent's next action.
 
-## [4]-[SCOPE]
+## [04]-[SCOPE]
 
 State the smallest source area that owns the hazard and readiness gate. Name what is in scope, what is out of scope, the source route that proves the boundary, and the condition that splits one ramp into two.
 
@@ -110,7 +110,7 @@ Split when: `<second hazard, second readiness gate, or unrelated first action ap
 - Rejected area: whole repository
 - Reason: the rejected form is valid only when the readiness gate and first safe action are truly repository-wide.
 
-## [5]-[SOURCE_PATH]
+## [05]-[SOURCE_PATH]
 
 Name only the code paths the agent must open before acting. A code path record is a retrieval primitive, not a summary.
 
@@ -124,7 +124,7 @@ Update when: `<path, artifact, command, or adjacent route changes>`
 
 Use a GroupedRecord (`[RECORD_KEY]:` plus `- Field: value` bullets) when several source records share this schema. Keep each record short; if a source needs explanation, route to architecture, API, reference, support matrix, or code documentation instead of embedding the explanation.
 
-## [6]-[READ_FIRST]
+## [06]-[READ_FIRST]
 
 Order readings by dependency question, not directory order. Each reading item must answer one question the agent needs before the first safe action; if the list grows past 5 items, group it by dependency question or split the ramp.
 
@@ -140,7 +140,7 @@ Route-away: `<body that stays in architecture, API, reference, support, how-to, 
 - Rejected: `README.md`, `src/`, `tests/`
 - Reason: the accepted form names the decision, source, check, and route-away; the rejected form is a path inventory.
 
-## [7]-[CONSTRAINTS]
+## [07]-[CONSTRAINTS]
 
 Constraints are allowed only when they change the first safe action or readiness gate. Each constraint names the source that proves it and routes broader explanation away.
 
@@ -162,7 +162,7 @@ Route-away: `<architecture, API, code documentation, support matrix, test strate
 
 Do not add generic conduct, collaboration, escalation, permission, role, or team fields.
 
-## [8]-[FIRST_SAFE_ACTION]
+## [08]-[FIRST_SAFE_ACTION]
 
 The first safe action is the smallest real action that proves the agent can operate in the source area without broad edits. It may be a low-risk edit, read-only trace, fixture reproduction, generated-output comparison, or confirmation dry-run.
 
@@ -176,7 +176,7 @@ Observed result: `<command, diff, generated output, or confirmation gap>`
 
 If the action needs step-by-step instructions, route to a how-to. If the action teaches first success, route to a tutorial. If the action responds to a failure symptom, route to a runbook.
 
-## [9]-[READINESS_GATE]
+## [09]-[READINESS_GATE]
 
 The readiness gate closes the ramp. The agent may proceed only when the gate passes or the confirmation gap is explicitly acceptable for the next action.
 
@@ -197,12 +197,12 @@ Use definition records for one or two stop rules. Use a compact table when sever
 
 | [INDEX] | [STOP_WHEN]              | [NEXT_ROUTE] | [EVIDENCE_TO_PRESERVE] |
 | :-----: | :----------------------- | :----------- | :--------------------- |
-|   [1]   | missing source           | architecture | confirmation gap       |
-|   [2]   | stale generated artifact | API          | artifact path          |
-|   [3]   | readiness gate fails     | how-to       | command output         |
-|   [4]   | unsupported target       | support      | support row            |
-|   [5]   | destructive side effect  | runbook      | error or diff          |
-|   [6]   | ambiguous boundary       | README       | boundary question      |
+|  [01]   | missing source           | architecture | confirmation gap       |
+|  [02]   | stale generated artifact | API          | artifact path          |
+|  [03]   | readiness gate fails     | how-to       | command output         |
+|  [04]   | unsupported target       | support      | support row            |
+|  [05]   | destructive side effect  | runbook      | error or diff          |
+|  [06]   | ambiguous boundary       | README       | boundary question      |
 
 The table above is a shape example. Produced ramps replace each row with local stop conditions, exact route documents, and confirmation.
 

@@ -2,11 +2,11 @@
 
 External-API and structural-parsing evidence. `ApiPackage`/`ApiMember` record distribution/import/owner/capability/entrypoint facts over `importlib.metadata`; `Structural` runs `tree-sitter` S-expression queries over Python and TypeScript sources into matched spans the `assay code` rail consumes, and folds those spans into a cross-language drift detector that locates a re-minted canonical concept — a second wire-projection name the topology law forbids — across both grammars. The surface produces evidence the rail reads — never a competing search owner, never a guessed environment status.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[API]: API records, structural-parsing spans, and the cross-language drift detector.
+- [01]-[API]: API records, structural-parsing spans, and the cross-language drift detector.
 
-## [2]-[API]
+## [02]-[API]
 
 - Owner: `ApiPackage` — the distribution/import/owner/capability/entrypoint record over `importlib.metadata`; `ApiMember` the official-surface row a source may later name; `Structural` the static surface over `tree-sitter` parsing Python/TypeScript sources into evidence the `assay code` rail consumes; `DriftSpan` the cross-language drift row carrying the offending name, language, and byte span.
 - Entry: `ApiPackage.reflect` reads one distribution's metadata and entry points; `Structural.query` runs a tree-sitter S-expression query over a source through `QueryCursor(Query(language, pattern)).captures(...)`, returning `(capture-name, start-byte, end-byte)` rows by flattening the capture-name-to-node-list `dict` the cursor returns; `Structural.drift` runs one identifier-binding query per grammar over `(language-tag, source)` corpora, captures every declaration of a canonical wire-projection name from the shared `canonical` name set, and returns a `DriftSpan` per location only when the name is bound in more than one language namespace — the named cross-language drift defect the `assay code` rail consumes.
@@ -71,6 +71,6 @@ class Structural:
         return tuple(span for span in spans if len(languages[span.name]) > 1)
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 [TREE_SITTER_QUERY] and [DRIFT_GRAMMARS] are reflection-confirmed: the `tree-sitter` binding compiles patterns through the `Query(language, pattern)` constructor (the deprecated `Language.query(pattern)` shim is refused) and runs captures through `QueryCursor(query).captures(node)` returning a `dict[str, list[Node]]` the fence flattens, `Parser(language).parse(source)` parses bytes to a `Tree`, and the grammar pointers are `tree_sitter_python.language()`, `tree_sitter_typescript.language_typescript()`, and `tree_sitter_typescript.language_tsx()`. No open RESEARCH seam remains on this page.

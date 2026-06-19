@@ -2,7 +2,7 @@
 
 `@radix-ui/react-separator` supplies the `Separator` component, a styled `<div>` that renders a horizontal or vertical visual divider with correct ARIA role semantics. It is built on `@radix-ui/react-primitive` and consumed by ui-stack owners that need an accessible content or menu separator.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@radix-ui/react-separator`
 - package: `@radix-ui/react-separator`
@@ -11,27 +11,27 @@
 - asset: accessible separator primitive
 - rail: render
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: separator family
 - rail: render
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]                                                               | [RAIL]                       |
 | :-----: | :--------------- | :-------------------------------------------------------------------------- | :--------------------------- |
-|   [1]   | `Separator`      | `ForwardRefExoticComponent<SeparatorProps & RefAttributes<HTMLDivElement>>` | separator root               |
-|   [2]   | `SeparatorProps` | interface extending `PrimitiveDivProps`                                     | full div prop surface + axis |
+|  [01]   | `Separator`      | `ForwardRefExoticComponent<SeparatorProps & RefAttributes<HTMLDivElement>>` | separator root               |
+|  [02]   | `SeparatorProps` | interface extending `PrimitiveDivProps`                                     | full div prop surface + axis |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: separator construction
 - rail: render
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]  | [RAIL]                                            |
 | :-----: | :----------------------------- | :-------------- | :------------------------------------------------ |
-|   [1]   | `Separator`                    | primary export  | renders `<div>`, forwards ref to `HTMLDivElement` |
-|   [2]   | `Root` (alias for `Separator`) | named re-export | Radix-style named default export                  |
+|  [01]   | `Separator`                    | primary export  | renders `<div>`, forwards ref to `HTMLDivElement` |
+|  [02]   | `Root` (alias for `Separator`) | named re-export | Radix-style named default export                  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [SEPARATOR_TOPOLOGY]:
 - `SeparatorProps` adds `orientation?: "horizontal" | "vertical"` (default `"horizontal"`) and `decorative?: boolean` to the full `PrimitiveDivProps` surface

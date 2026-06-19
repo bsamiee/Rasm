@@ -2,25 +2,25 @@
 
 Transport resilience is one topology declared at the composition root. Every outbound hop owns exactly one pipeline, held as one registry row keyed by hop identity, and the callable domain code receives is already resilient — call sites carry zero resilience vocabulary, which is what makes a second owner a visible anomaly instead of a habit. Inside a pipeline, declaration order is the policy and every strategy knob is a validated policy value derived from the hop's allotment class wherever the spans already decide it; execution is outcome-first, folding every termination once at the seam into a typed rail value carrying its rejection evidence. HTTP seams compose the standard and hedging handlers as slot-editable options records selected by the hop row's idempotency columns; operator-forced darkness is one multi-breaker control per capability group; chaos is ordered policy below the strategies it tests. Domain-internal retry stays `Schedule` policy on effect rails and store transaction retry stays the store's execution strategy — never either beside a hop pipeline on one seam. Growth lands as rows: a new hop is one row, a new posture one options edit, a new fault mix one weighted generator row, never a new code surface.
 
-## [1]-[RESILIENCE_CHOOSER]
+## [01]-[RESILIENCE_CHOOSER]
 
 This table routes a resilience concern to its owning surface; the most specific row wins.
 
 | [INDEX] | [CONCERN]                | [OWNER]                                    | [REJECTED_FORM]                  |
 | :-----: | :----------------------- | :----------------------------------------- | :------------------------------- |
-|   [1]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the seam   |
-|   [2]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag         |
-|   [3]   | transient classification | one predicate row per failure family       | per-site exception switch        |
-|   [4]   | seam execution           | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above seam   |
-|   [5]   | HTTP seam posture        | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers |
-|   [6]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy      |
-|   [7]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations  |
-|   [8]   | domain-internal retry    | `Schedule` policy on rails                 | pipeline around domain logic     |
-|   [9]   | store transaction retry  | store execution strategy                   | pipeline around store calls      |
+|   [01]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the seam   |
+|   [02]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag         |
+|   [03]   | transient classification | one predicate row per failure family       | per-site exception switch        |
+|   [04]   | seam execution           | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above seam   |
+|   [05]   | HTTP seam posture        | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers |
+|   [06]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy      |
+|   [07]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations  |
+|   [08]   | domain-internal retry    | `Schedule` policy on rails                 | pipeline around domain logic     |
+|   [09]   | store transaction retry  | store execution strategy                   | pipeline around store calls      |
 |  [10]   | operator-forced dark     | one manual control per capability group    | restore-previous toggle          |
 |  [11]   | fault injection          | chaos block below tested strategies        | bolt-on test-only harness        |
 
-## [2]-[PIPELINE_LAW]
+## [02]-[PIPELINE_LAW]
 
 [ORDER_ALGEBRA]:
 - Law: strategies execute in declaration order with the first-added strategy outermost — two pipelines with identical strategies in different order are different policies, and the difference is recoverable only from the declaration sequence.
@@ -81,7 +81,7 @@ public static class HopPipeline {
 }
 ```
 
-## [3]-[SEAM_EXECUTION]
+## [03]-[SEAM_EXECUTION]
 
 [OUTCOME_FOLD]:
 - Law: the seam executes outcome-first — `ExecuteOutcomeAsync` with typed state keeps the hot path closure-free, strategies see outcomes and never in-flight exceptions, and the capture kernel folds everything except process-fatal faults into the outcome.
@@ -130,7 +130,7 @@ public static class HopSeam {
 }
 ```
 
-## [4]-[HOP_TOPOLOGY]
+## [04]-[HOP_TOPOLOGY]
 
 [ONE_OWNER]:
 - Law: exactly one retry owner exists per outbound hop, held at the composition root as one registry row keyed by normalized hop identity — the law is outbound-only, inbound admission is never a hop — and a pipeline built directly inside a seam escapes the claim cell, the conflict detection, and the disposal fence at once.
@@ -152,9 +152,9 @@ The retry-owner table is a decision procedure; rows overlap and first match wins
 
 | [INDEX] | [SEAM_FACT]                         | [RETRY_OWNER]                        |
 | :-----: | :---------------------------------- | :----------------------------------- |
-|   [1]   | callee owns transactional semantics | store execution strategy             |
-|   [2]   | call crosses a process seam         | hop pipeline at the root             |
-|   [3]   | typed fault on rails, in-process    | `Schedule` policy on the effect rail |
+|   [01]   | callee owns transactional semantics | store execution strategy             |
+|   [02]   | call crosses a process seam         | hop pipeline at the root             |
+|   [03]   | typed fault on rails, in-process    | `Schedule` policy on the effect rail |
 
 - Law: the split is exclusive per seam — schedule m × pipeline n multiplies attempts invisibly and inflates the idempotency window by m, and each layer is locally correct, so only seam exclusivity catches the stack; ambiguity after both questions means the seam is mis-factored, never that the table needs a fourth row.
 - Law: pipeline predicates speak the wire's vocabulary — routing domain values through exceptions so a pipeline can retry them inverts the fault architecture; a pipeline around store work replays from the wrong boundary, the one misclassification that corrupts data, so the audit order is stores, then wire seams, then rails.
@@ -209,7 +209,7 @@ public sealed class HopTopology {
 }
 ```
 
-## [5]-[HTTP_SEAMS]
+## [05]-[HTTP_SEAMS]
 
 [STANDARD_POSTURE]:
 - Law: `AddStandardResilienceHandler` composes exactly five strategies — rate limiter, total timeout, retry, circuit breaker, attempt timeout — from one `HttpStandardResilienceOptions` record bound to `"{clientName}-standard"`, reloadable and validated as a unit; configuration keys mirror the property names under strict binding, so the config schema is the options shape, never a parallel vocabulary.
@@ -267,7 +267,7 @@ public static class WireSeam {
 }
 ```
 
-## [6]-[OVERRIDE_CONTROL]
+## [06]-[OVERRIDE_CONTROL]
 
 [DARK_CONTROL]:
 - Law: forced darkness is one `CircuitBreakerManualControl` registered across every breaker in a capability group — isolate and close act on the set as one verb, and `isIsolated: true` at construction boots the group dark, so a degraded boot never serves a single undegraded call.
@@ -308,7 +308,7 @@ public static class GroupBinding {
 }
 ```
 
-## [7]-[CHAOS]
+## [07]-[CHAOS]
 
 [INJECTION_LAW]:
 - Law: four chaos strategies admit through the same builder grammar and partition the failure planes — fault injects the exception rail, outcome substitutes the result rail without invoking the callback, latency spends the time plane, behavior runs a side effect before the call — one concern per declaration, ordered like any strategy, with outcome injection a generic-builder surface because substitution needs the result type.

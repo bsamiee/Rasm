@@ -2,7 +2,7 @@
 
 The cross-package C# concert: ideas that couple two or more C# packages into one capability, distilled from the eight folder pools. A concept that lives inside one folder stays in that folder's `IDEAS.md`; a concept that spans C#, Python, and TypeScript at once lives in `libs/.planning/IDEAS.md` and is referenced here as a wire seam, never restated. Each idea is a card — a bracketed slug leader plus the capability, what it unlocks, and the gap or technique it draws on. `[1]-[OPEN]` holds live ideas; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [CAPABILITY_CONTROL_PLANE]: one self-describing op catalog spanning the runtime spine, the execution lane, and the UI.
 - Every operation is a typed effect-classed cost-modeled permission-gated `CapabilityDescriptor` minted in `AppHost/Agent/capability` from the `Compute/Runtime/channels` proto op surfaces and the `AppUi/Shell/commands` intent table; a shape-discriminated discovery fold drives intent planning, the grant/cost broker previews cost, the command algebra wraps any invocation in a commit-or-rollback transaction routed onto the `Compute/Runtime/admission` rail, and the MCP projection and SDK codegen are projections of the one descriptor source.
@@ -89,6 +89,6 @@ The cross-package C# concert: ideas that couple two or more C# packages into one
 - Unlocks the actual AEC deliverable the platform exists to produce — a coordinated drawing set with live dimensions, a quantity takeoff bound to the federated model, and a 4D construction-state schedule report — each a projection over an existing owner, so a new sheet standard is one title-block row and a new export format one writer row, never a second drafting or document model.
 - Draws on the admitted-but-thin `ACadSharp`/`netDxf`/`DocumentFormat.OpenXml` drafting-export surface (catalogued, lightly exploited), the AppUi `drafting` and Fabrication `Posting/projection` settled owners sharing the viewport camera basis, and the federated-model-as-single-source-of-truth law — the drawing is a view of the model, never a re-modeled document.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

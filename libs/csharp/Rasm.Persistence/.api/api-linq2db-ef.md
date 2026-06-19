@@ -4,7 +4,7 @@
 supplying bulk copy, query translation hand-off, data connection creation,
 async LINQ operators, and bridge options.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `linq2db.EntityFrameworkCore`
 - package: `linq2db.EntityFrameworkCore`
@@ -13,22 +13,22 @@ async LINQ operators, and bridge options.
 - asset: runtime library
 - rail: store-provider
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [BRIDGE_TYPES]: EF-to-LINQ-To-DB bridge surfaces
 - rail: store-provider
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]   | [CAPABILITY]               |
 | :-----: | :--------------------------------- | :--------------- | :------------------------- |
-|   [1]   | `LinqToDBForEFTools`               | bridge root      | bulk copies and bridges    |
-|   [2]   | `LinqToDBForEFExtensions`          | async extension  | runs LINQ To DB operators  |
-|   [3]   | `EFForEFExtensions`                | async extension  | runs EF operators          |
-|   [4]   | `LinqToDBContextOptionsBuilder`    | bridge options   | configures bridge          |
-|   [5]   | `ILinqToDBForEFTools`              | bridge contract  | abstracts bridge policy    |
-|   [6]   | `LinqToDBForEFToolsImplDefault`    | bridge default   | implements bridge policy   |
-|   [7]   | `LinqToDBExtensionsAdapter`        | operator adapter | adapts async operators     |
-|   [8]   | `EFCoreMetadataReader`             | metadata reader  | projects EF model metadata |
-|   [9]   | `LinqToDBForEFToolsDataConnection` | data connection  | owns bridged connection    |
+|  [01]   | `LinqToDBForEFTools`               | bridge root      | bulk copies and bridges    |
+|  [02]   | `LinqToDBForEFExtensions`          | async extension  | runs LINQ To DB operators  |
+|  [03]   | `EFForEFExtensions`                | async extension  | runs EF operators          |
+|  [04]   | `LinqToDBContextOptionsBuilder`    | bridge options   | configures bridge          |
+|  [05]   | `ILinqToDBForEFTools`              | bridge contract  | abstracts bridge policy    |
+|  [06]   | `LinqToDBForEFToolsImplDefault`    | bridge default   | implements bridge policy   |
+|  [07]   | `LinqToDBExtensionsAdapter`        | operator adapter | adapts async operators     |
+|  [08]   | `EFCoreMetadataReader`             | metadata reader  | projects EF model metadata |
+|  [09]   | `LinqToDBForEFToolsDataConnection` | data connection  | owns bridged connection    |
 |  [10]   | `LinqToDBForEFToolsDataContext`    | data context     | owns bridged context       |
 |  [11]   | `LinqToDBForEFToolsException`      | bridge error     | carries bridge failure     |
 
@@ -37,26 +37,26 @@ async LINQ operators, and bridge options.
 
 | [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]   | [CAPABILITY]              |
 | :-----: | :--------------------- | :--------------- | :------------------------ |
-|   [1]   | `EFProviderInfo`       | provider info    | resolves EF provider      |
-|   [2]   | `EFConnectionInfo`     | connection info  | carries connection facts  |
-|   [3]   | `LinqToDBProviderInfo` | provider mapping | names LINQ To DB provider |
+|  [01]   | `EFProviderInfo`       | provider info    | resolves EF provider      |
+|  [02]   | `EFConnectionInfo`     | connection info  | carries connection facts  |
+|  [03]   | `LinqToDBProviderInfo` | provider mapping | names LINQ To DB provider |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bulk copy and bridge hand-off
 - rail: store-provider
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]      | [CAPABILITY]               |
 | :-----: | :--------------------------------- | :---------------- | :------------------------- |
-|   [1]   | `BulkCopy`                         | context extension | bulk inserts entities      |
-|   [2]   | `BulkCopyAsync`                    | context extension | bulk inserts async streams |
-|   [3]   | `ToLinqToDB`                       | query extension   | hands query to LINQ To DB  |
-|   [4]   | `ToLinqToDBTable`                  | set extension     | projects `DbSet` to table  |
-|   [5]   | `GetTable`                         | context extension | opens LINQ To DB table     |
-|   [6]   | `Into`                             | context extension | starts value insert        |
-|   [7]   | `CreateLinqToDBConnection`         | context extension | opens bridged connection   |
-|   [8]   | `CreateLinqToDBContext`            | context extension | opens bridged context      |
-|   [9]   | `CreateLinqToDBConnectionDetached` | context extension | opens detached connection  |
+|  [01]   | `BulkCopy`                         | context extension | bulk inserts entities      |
+|  [02]   | `BulkCopyAsync`                    | context extension | bulk inserts async streams |
+|  [03]   | `ToLinqToDB`                       | query extension   | hands query to LINQ To DB  |
+|  [04]   | `ToLinqToDBTable`                  | set extension     | projects `DbSet` to table  |
+|  [05]   | `GetTable`                         | context extension | opens LINQ To DB table     |
+|  [06]   | `Into`                             | context extension | starts value insert        |
+|  [07]   | `CreateLinqToDBConnection`         | context extension | opens bridged connection   |
+|  [08]   | `CreateLinqToDBContext`            | context extension | opens bridged context      |
+|  [09]   | `CreateLinqToDBConnectionDetached` | context extension | opens detached connection  |
 |  [10]   | `UseLinqToDB`                      | builder extension | admits bridge options      |
 |  [11]   | `Initialize`                       | static call       | activates bridge           |
 |  [12]   | `ClearCaches`                      | static call       | resets bridge caches       |
@@ -66,27 +66,27 @@ async LINQ operators, and bridge options.
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                |
 | :-----: | :--------------------- | :-------------- | :-------------------------- |
-|   [1]   | `ToListAsyncLinqToDB`  | query extension | materializes via LINQ To DB |
-|   [2]   | `ToArrayAsyncLinqToDB` | query extension | materializes via LINQ To DB |
-|   [3]   | `FirstAsyncLinqToDB`   | query extension | reads first via LINQ To DB  |
-|   [4]   | `CountAsyncLinqToDB`   | query extension | counts via LINQ To DB       |
-|   [5]   | `SumAsyncLinqToDB`     | query extension | aggregates via LINQ To DB   |
-|   [6]   | `ToListAsyncEF`        | query extension | materializes via EF         |
-|   [7]   | `FirstAsyncEF`         | query extension | reads first via EF          |
-|   [8]   | `CountAsyncEF`         | query extension | counts via EF               |
+|  [01]   | `ToListAsyncLinqToDB`  | query extension | materializes via LINQ To DB |
+|  [02]   | `ToArrayAsyncLinqToDB` | query extension | materializes via LINQ To DB |
+|  [03]   | `FirstAsyncLinqToDB`   | query extension | reads first via LINQ To DB  |
+|  [04]   | `CountAsyncLinqToDB`   | query extension | counts via LINQ To DB       |
+|  [05]   | `SumAsyncLinqToDB`     | query extension | aggregates via LINQ To DB   |
+|  [06]   | `ToListAsyncEF`        | query extension | materializes via EF         |
+|  [07]   | `FirstAsyncEF`         | query extension | reads first via EF          |
+|  [08]   | `CountAsyncEF`         | query extension | counts via EF               |
 
 [ENTRYPOINT_SCOPE]: bridge options
 - rail: store-provider
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]      | [CAPABILITY]          |
 | :-----: | :-------------------- | :---------------- | :-------------------- |
-|   [1]   | `AddInterceptor`      | options call      | admits interceptor    |
-|   [2]   | `AddMappingSchema`    | options call      | admits mapping schema |
-|   [3]   | `AddCustomOptions`    | options call      | rewrites data options |
-|   [4]   | `GetLinqToDBOptions`  | context extension | reads bridge options  |
-|   [5]   | `EnableChangeTracker` | static property   | gates change tracking |
+|  [01]   | `AddInterceptor`      | options call      | admits interceptor    |
+|  [02]   | `AddMappingSchema`    | options call      | admits mapping schema |
+|  [03]   | `AddCustomOptions`    | options call      | rewrites data options |
+|  [04]   | `GetLinqToDBOptions`  | context extension | reads bridge options  |
+|  [05]   | `EnableChangeTracker` | static property   | gates change tracking |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STORE_PROFILE]:
 - profile: the bridge is a bulk and query lane over admitted EF store profiles

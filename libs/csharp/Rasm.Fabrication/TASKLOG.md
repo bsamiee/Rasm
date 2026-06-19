@@ -2,7 +2,7 @@
 
 The open and closed work for `Rasm.Fabrication`, distilled from `IDEAS.md`. Each task is a card whose leader carries a status marker — `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]` open, `[COMPLETE]`/`[DROPPED]` closed — plus bullets naming the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [UPSTREAM-BLOCKED] NFP_DRL_POLICY — from [DRL_NEST_POLICY]:
 - Add a DRL-guided placement `NestPolicy` column in `Nesting/nfp#NESTING` carrying an injected `Func<NoFitPolygon, PartTransform, double>` placement-score delegate ranking placements over the existing NFP primitive; the delegate slot is Fabrication-author, the inference that fills it is consumer-author.
@@ -14,6 +14,6 @@ The open and closed work for `Rasm.Fabrication`, distilled from `IDEAS.md`. Each
 - Trickle-down dependency: the kernel exact-arrangement owner's realized `Apply`/`ToMesh` C# surface is the upstream the silhouette composes; the admission is no longer an external NuGet block but a compose-the-kernel-arrangement task held until that C# owner lands (the arrangement DESIGN page IS authored, so the compose-target seam anchor is settled), never an in-folder CSG author-kernel and never coupling into the kernel's `ArrangementStore`/`SimplexStore` interior.
 - Fallback path: the per-facet `Posting/projection#PROJECTION_HIDDEN_LINE` HLR kernel stays the only silhouette owner and remains pure-managed with no native asset until the C# arrangement owner lands; the curved-surface analytic silhouette growth arm stays a per-facet-builder extension.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)

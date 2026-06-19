@@ -2,20 +2,20 @@
 
 [IMPORTANT] Walk law taxonomy per exported function. Select all applicable laws. Pack laws sharing the same arbitrary shape into a single `it.effect.prop`.
 
-## [1]-[ALGEBRAIC_LAWS]
+## [01]-[ALGEBRAIC_LAWS]
 
 ### [1.1]-[FUNCTION_PROPERTIES]
 
 | [INDEX] | [LAW]        | [FORMULA]                         | [WHEN_TO_USE]                                            |
 | :-----: | ------------ | --------------------------------- | -------------------------------------------------------- |
-|   [1]   | Identity     | `f(x, e) = x` or `f(x, x) = null` | Neutral element or self-comparison yields trivial result |
-|   [2]   | Inverse      | `g(f(x)) = x`                     | Paired encode/decode, encrypt/decrypt, serialize/parse   |
-|   [3]   | Idempotent   | `f(f(x)) = f(x)`                  | Normalization, deduplication, canonicalization           |
-|   [4]   | Commutative  | `f(x, y) = f(y, x)`               | Order-independent operations (set union, hash combine)   |
-|   [5]   | Associative  | `f(f(x, y), z) = f(x, f(y, z))`   | Grouping-independent operations (concat, merge, compose) |
-|   [6]   | Homomorphism | `f(x <> y) = f(x) <> f(y)`        | Structure-preserving maps (patch concat, stream fold)    |
-|   [7]   | Annihilation | `f(zero) = zero`                  | Zero/empty input produces zero/empty output              |
-|   [8]   | Monotonicity | `x <= y => f(x) <= f(y)`          | Order-preserving transforms (timestamps, indices)        |
+|   [01]   | Identity     | `f(x, e) = x` or `f(x, x) = null` | Neutral element or self-comparison yields trivial result |
+|   [02]   | Inverse      | `g(f(x)) = x`                     | Paired encode/decode, encrypt/decrypt, serialize/parse   |
+|   [03]   | Idempotent   | `f(f(x)) = f(x)`                  | Normalization, deduplication, canonicalization           |
+|   [04]   | Commutative  | `f(x, y) = f(y, x)`               | Order-independent operations (set union, hash combine)   |
+|   [05]   | Associative  | `f(f(x, y), z) = f(x, f(y, z))`   | Grouping-independent operations (concat, merge, compose) |
+|   [06]   | Homomorphism | `f(x <> y) = f(x) <> f(y)`        | Structure-preserving maps (patch concat, stream fold)    |
+|   [07]   | Annihilation | `f(zero) = zero`                  | Zero/empty input produces zero/empty output              |
+|   [08]   | Monotonicity | `x <= y => f(x) <= f(y)`          | Order-preserving transforms (timestamps, indices)        |
 
 **Identity** -- `diff(x, x)` returns null; `apply(x, emptyPatch)` returns `x`.
 **Inverse** -- `decrypt(encrypt(x)) = x`; `apply(source, diff(source, target)) = target`.
@@ -27,9 +27,9 @@
 
 | [INDEX] | [LAW]      | [FORMULA]                       | [WHEN_TO_USE]                    |
 | :-----: | ---------- | ------------------------------- | -------------------------------- |
-|   [1]   | Reflexive  | `compare(x, x) = true`          | Hash equality, schema validation |
-|   [2]   | Symmetric  | `compare(x, y) = compare(y, x)` | Bidirectional equality checks    |
-|   [3]   | Transitive | `eq(x,y) && eq(y,z) => eq(x,z)` | Ordering, equivalence classes    |
+|   [01]   | Reflexive  | `compare(x, x) = true`          | Hash equality, schema validation |
+|   [02]   | Symmetric  | `compare(x, y) = compare(y, x)` | Bidirectional equality checks    |
+|   [03]   | Transitive | `eq(x,y) && eq(y,z) => eq(x,z)` | Ordering, equivalence classes    |
 
 Pack all three into a single property when the function under test is a comparison or equality check.
 
@@ -50,11 +50,11 @@ it.effect.prop('equivalence relation', { x: _arb, y: _arb, z: _arb }, ({ x, y, z
 
 | [INDEX] | [LAW]           | [FORMULA]                     | [WHEN_TO_USE]                                |
 | :-----: | --------------- | ----------------------------- | -------------------------------------------- |
-|   [1]   | Immutability    | `f(x)` preserves `x`          | Any function receiving reference types       |
-|   [2]   | Determinism     | `f(x) = f(x)` across calls    | Hashing, serialization, canonical forms      |
-|   [3]   | Non-determinism | `f(x) !== f(x)` per call      | Encryption (IV/nonce), random generation     |
-|   [4]   | Length formula  | `                             | f(x)                                         | = g( | x | )` | Ciphertext length = version + IV + payload + tag |
-|   [5]   | Preservation    | `sort(xs).length = xs.length` | Collection transforms preserve size/contents |
+|   [01]   | Immutability    | `f(x)` preserves `x`          | Any function receiving reference types       |
+|   [02]   | Determinism     | `f(x) = f(x)` across calls    | Hashing, serialization, canonical forms      |
+|   [03]   | Non-determinism | `f(x) !== f(x)` per call      | Encryption (IV/nonce), random generation     |
+|   [04]   | Length formula  | `                             | f(x)                                         | = g( | x | )` | Ciphertext length = version + IV + payload + tag |
+|   [05]   | Preservation    | `sort(xs).length = xs.length` | Collection transforms preserve size/contents |
 
 ```typescript
 // Immutability
@@ -75,9 +75,9 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 
 | [INDEX] | [LAW]               | [FORMULA]                                              | [WHEN_TO_USE]                                |
 | :-----: | ------------------- | ------------------------------------------------------ | -------------------------------------------- |
-|   [1]   | Interruption safety | Fiber interrupt preserves consistent state             | Services managing fibers or long-running ops |
-|   [2]   | Resource bracket    | `acquireRelease` cleans up on success, failure, abort  | Pool connections, file handles, locks        |
-|   [3]   | Ref atomicity       | Concurrent `Ref.update` calls produce consistent state | Shared mutable state across fibers           |
+|   [01]   | Interruption safety | Fiber interrupt preserves consistent state             | Services managing fibers or long-running ops |
+|   [02]   | Resource bracket    | `acquireRelease` cleans up on success, failure, abort  | Pool connections, file handles, locks        |
+|   [03]   | Ref atomicity       | Concurrent `Ref.update` calls produce consistent state | Shared mutable state across fibers           |
 
 **Interruption safety** -- fork a fiber, interrupt it, verify no resource leak or inconsistent state.
 **Resource bracket** -- `Effect.acquireRelease(acquire, release)` guarantees `release` runs even under interruption. Verify via `it.scoped`.
@@ -87,23 +87,23 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 
 | [INDEX] | [LAW]               | [MECHANISM]                                        | [WHEN_TO_USE]                       |
 | :-----: | ------------------- | -------------------------------------------------- | ----------------------------------- |
-|   [1]   | Type assertion      | `expectTypeOf(fn).returns.toMatchTypeOf<T>()`      | Exported function return types      |
-|   [2]   | Negative assertion  | `// @ts-expect-error` above invalid call           | Branded types reject raw primitives |
-|   [3]   | Schema type extract | `expectTypeOf<typeof S.Type>().toEqualTypeOf<T>()` | Schema infers expected domain type  |
+|   [01]   | Type assertion      | `expectTypeOf(fn).returns.toMatchTypeOf<T>()`      | Exported function return types      |
+|   [02]   | Negative assertion  | `// @ts-expect-error` above invalid call           | Branded types reject raw primitives |
+|   [03]   | Schema type extract | `expectTypeOf<typeof S.Type>().toEqualTypeOf<T>()` | Schema infers expected domain type  |
 
 **Type-level tests** run at compile time -- zero runtime cost. Use alongside algebraic PBT to verify type narrowing, branded type rejection, and schema type inference.
 
-## [2]-[TESTING_STRATEGIES]
+## [02]-[TESTING_STRATEGIES]
 
 ### [2.1]-[ORACLE_STRATEGIES]
 
 | [INDEX] | [STRATEGY]     | [DESCRIPTION]                                    | [WHEN_TO_USE]                        |
 | :-----: | -------------- | ------------------------------------------------ | ------------------------------------ |
-|   [1]   | Known-answer   | Expected values from authoritative standards     | NIST FIPS, RFC vectors               |
-|   [2]   | Differential   | Cross-validate against reference implementation  | node:crypto vs ours, rfc6902 vs ours |
-|   [3]   | Model-based    | Simplified model tracks state alongside real sys | Stateful sequences (import pipeline) |
-|   [4]   | Metamorphic    | Relate outputs for related inputs                | `insert(x); search(x) = found`       |
-|   [5]   | Schema-derived | Arbitrary.make(Schema) generates domain values   | Branded type roundtrips              |
+|   [01]   | Known-answer   | Expected values from authoritative standards     | NIST FIPS, RFC vectors               |
+|   [02]   | Differential   | Cross-validate against reference implementation  | node:crypto vs ours, rfc6902 vs ours |
+|   [03]   | Model-based    | Simplified model tracks state alongside real sys | Stateful sequences (import pipeline) |
+|   [04]   | Metamorphic    | Relate outputs for related inputs                | `insert(x); search(x) = found`       |
+|   [05]   | Schema-derived | Arbitrary.make(Schema) generates domain values   | Branded type roundtrips              |
 
 **Known-answer vectors** -- store as `as const` arrays, iterate with `Effect.forEach`.
 ```typescript
@@ -128,9 +128,9 @@ Chi-squared uniformity for randomness validation. Parameters:
 
 | [INDEX] | [PARAM]            | [VALUE]   | [RATIONALE]                          |
 | :-----: | ------------------ | --------- | ------------------------------------ |
-|   [1]   | Sample count       | 600+      | Sufficient power for 256-bucket dist |
-|   [2]   | Degrees of freedom | N-1 (255) | 256 byte values minus 1              |
-|   [3]   | Alpha              | 0.01      | Critical value 310.46, FP rate <1%   |
+|   [01]   | Sample count       | 600+      | Sufficient power for 256-bucket dist |
+|   [02]   | Degrees of freedom | N-1 (255) | 256 byte values minus 1              |
+|   [03]   | Alpha              | 0.01      | Critical value 310.46, FP rate <1%   |
 
 ```typescript
 it.effect('uniformity', () => Effect.gen(function* () {
@@ -144,17 +144,17 @@ it.effect('uniformity', () => Effect.gen(function* () {
 }));
 ```
 
-## [3]-[DOMAIN_INVARIANTS]
+## [03]-[DOMAIN_INVARIANTS]
 
 ### [3.1]-[SECURITY_INVARIANTS]
 
 | [INDEX] | [INVARIANT]         | [PROPERTY]                                                       |
 | :-----: | ------------------- | ---------------------------------------------------------------- |
-|   [1]   | Prototype pollution | Dangerous keys (`__proto__`, `constructor`) rejected at boundary |
-|   [2]   | Tenant isolation    | Cross-tenant ciphertext differs; cross-tenant decrypt fails      |
-|   [3]   | Path traversal      | `../` and absolute paths rejected in archive imports             |
-|   [4]   | Tampering detection | Flipped ciphertext bit yields decryption failure                 |
-|   [5]   | Bomb resistance     | Decompression ratio / size limits enforced                       |
+|   [01]   | Prototype pollution | Dangerous keys (`__proto__`, `constructor`) rejected at boundary |
+|   [02]   | Tenant isolation    | Cross-tenant ciphertext differs; cross-tenant decrypt fails      |
+|   [03]   | Path traversal      | `../` and absolute paths rejected in archive imports             |
+|   [04]   | Tampering detection | Flipped ciphertext bit yields decryption failure                 |
+|   [05]   | Bomb resistance     | Decompression ratio / size limits enforced                       |
 
 **Tenant isolation** uses `fc.pre()` to filter same-tenant pairs.
 ```typescript
@@ -174,13 +174,13 @@ it.effect.prop('tenant isolation', { t1: fc.uuid(), t2: fc.uuid(), x: _arb }, ({
 
 | [INDEX] | [INVARIANT]   | [PROPERTY]                                        |
 | :-----: | ------------- | ------------------------------------------------- |
-|   [1]   | Empty input   | `import('') = []` (identity stream)               |
-|   [2]   | Row limits    | Exceeding max rows yields `ROW_LIMIT` error       |
-|   [3]   | Size limits   | Oversized entries yield `TOO_LARGE` error         |
-|   [4]   | Format bounds | Invalid version/min-bytes yield `INVALID_FORMAT`  |
-|   [5]   | AAD binding   | Wrong/missing additional authenticated data fails |
+|   [01]   | Empty input   | `import('') = []` (identity stream)               |
+|   [02]   | Row limits    | Exceeding max rows yields `ROW_LIMIT` error       |
+|   [03]   | Size limits   | Oversized entries yield `TOO_LARGE` error         |
+|   [04]   | Format bounds | Invalid version/min-bytes yield `INVALID_FORMAT`  |
+|   [05]   | AAD binding   | Wrong/missing additional authenticated data fails |
 
-## [4]-[LAW_SELECTION]
+## [04]-[LAW_SELECTION]
 
 **Selection procedure:**
 1. **Identify function signature** -- `A -> B`, `A -> A`, `(A, A) -> B`, `(A, B) -> A`.
@@ -192,12 +192,12 @@ it.effect.prop('tenant isolation', { t1: fc.uuid(), t2: fc.uuid(), x: _arb }, ({
 
 | [INDEX] | [SIGNATURE]             | [CANDIDATE_LAWS]                                                |
 | :-----: | ----------------------- | --------------------------------------------------------------- |
-|   [1]   | `encode: A -> B`        | Inverse (with decode), determinism, length formula              |
-|   [2]   | `decode: B -> A`        | Inverse (with encode), tampering detection, format bounds       |
-|   [3]   | `diff: (A,A)->P`        | Identity, immutability, homomorphism (composition), equivalence |
-|   [4]   | `hash: A -> H`          | Determinism, reflexivity, differential oracle, known-answer     |
-|   [5]   | `compare: (A,A)->Bool`  | Reflexive, symmetric, transitive (equivalence relation)         |
-|   [6]   | `import: S -> [A]`      | Inverse (with export), annihilation, boundary limits            |
-|   [7]   | `normalize: A -> A`     | Idempotent, determinism, preservation                           |
-|   [8]   | `fork/join: A -> Fiber` | Interruption safety, resource bracket, Ref atomicity            |
-|   [9]   | `Layer.provide: L -> E` | Resource bracket, layer merge correctness                       |
+|   [01]   | `encode: A -> B`        | Inverse (with decode), determinism, length formula              |
+|   [02]   | `decode: B -> A`        | Inverse (with encode), tampering detection, format bounds       |
+|   [03]   | `diff: (A,A)->P`        | Identity, immutability, homomorphism (composition), equivalence |
+|   [04]   | `hash: A -> H`          | Determinism, reflexivity, differential oracle, known-answer     |
+|   [05]   | `compare: (A,A)->Bool`  | Reflexive, symmetric, transitive (equivalence relation)         |
+|   [06]   | `import: S -> [A]`      | Inverse (with export), annihilation, boundary limits            |
+|   [07]   | `normalize: A -> A`     | Idempotent, determinism, preservation                           |
+|   [08]   | `fork/join: A -> Fiber` | Interruption safety, resource bracket, Ref atomicity            |
+|   [09]   | `Layer.provide: L -> E` | Resource bracket, layer merge correctness                       |

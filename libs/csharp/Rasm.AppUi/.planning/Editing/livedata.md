@@ -2,14 +2,14 @@
 
 Rasm.AppUi live data owns every change-set pipeline between data sources and screens: the seven-case `DataSource` axis, the operator-row vocabulary, the one UI-thread `BindingCapsule`, and the aggregation rows feeding stat tiles and evidence. The engine is DynamicData over System.Reactive — every source folds into one keyed `SourceCache`, key selectors transcribe the Persistence IdentityPolicy vocabulary, the Ui scheduler arrives from the surface scheduler boundary fed by `UiSchedulerPort`, and change evidence leaves through the `ReceiptSinkPort` envelope. The live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet` — is the page's composite automation, and screens consume pipelines as expression folds beside their catalog rows.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[DATA_SOURCES]: Seven sourcing cases; one cache feed dispatch; the live-data spine.
-- [2]-[CHANGE_PIPELINES]: Operator rows; dynamic predicate, comparer, page, window streams.
-- [3]-[BINDING_CAPSULE]: One UI-thread binding edge; single `ObserveOn`; the fault rail.
-- [4]-[AGGREGATION_SPINE]: Stat folds, change-audit evidence, suspend-resume law.
+- [01]-[DATA_SOURCES]: Seven sourcing cases; one cache feed dispatch; the live-data spine.
+- [02]-[CHANGE_PIPELINES]: Operator rows; dynamic predicate, comparer, page, window streams.
+- [03]-[BINDING_CAPSULE]: One UI-thread binding edge; single `ObserveOn`; the fault rail.
+- [04]-[AGGREGATION_SPINE]: Stat folds, change-audit evidence, suspend-resume law.
 
-## [2]-[DATA_SOURCES]
+## [02]-[DATA_SOURCES]
 
 - Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection.
 - Cases: HostDocumentEvents, PersistenceQuery, ComputeReceiptStream, InMemorySeq, RemoteCompanionStream, FakeDeterministic, OrderedList
@@ -107,7 +107,7 @@ flowchart LR
     BindingCapsule -->|Into| ObservableCollectionExtended
 ```
 
-## [3]-[CHANGE_PIPELINES]
+## [03]-[CHANGE_PIPELINES]
 
 - Owner: `PipelineInputs<TRow>` — every dynamic pipeline parameter is an observable value, never a rebuilt pipeline.
 - Packages: DynamicData
@@ -124,22 +124,22 @@ public sealed record PipelineInputs<TRow>(
 
 | [INDEX] | [ROW]                | [OPERATORS]             | [POLICY]                                                           |
 | :-----: | -------------------- | ----------------------- | ------------------------------------------------------------------ |
-|   [1]   | dynamic-filter       | Filter                  | predicate stream from `Predicates`; pushed value, zero resubscribe |
-|   [2]   | comparative-sort     | Sort                    | comparer stream from `Comparers` for mid-pipeline order            |
-|   [3]   | projection           | Transform               | row models projected from store and receipt shapes                 |
-|   [4]   | flat-map             | TransformMany           | one host fact expands to N child rows                              |
-|   [5]   | live-grouping        | Group                   | group change sets for live tiles                                   |
-|   [6]   | stable-grouping      | GroupWithImmutableState | the projection-policy row for paged and virtualized projections    |
-|   [7]   | property-refresh     | AutoRefresh             | `Refresh` buffer, 250 ms on host-fact rows                         |
-|   [8]   | child-merge          | MergeMany               | child observable composition                                       |
-|   [9]   | timed-expiry         | ExpireAfter             | `Expiry` = cache-ttl allotment on receipt-stream rows              |
+|  [01]   | dynamic-filter       | Filter                  | predicate stream from `Predicates`; pushed value, zero resubscribe |
+|  [02]   | comparative-sort     | Sort                    | comparer stream from `Comparers` for mid-pipeline order            |
+|  [03]   | projection           | Transform               | row models projected from store and receipt shapes                 |
+|  [04]   | flat-map             | TransformMany           | one host fact expands to N child rows                              |
+|  [05]   | live-grouping        | Group                   | group change sets for live tiles                                   |
+|  [06]   | stable-grouping      | GroupWithImmutableState | the projection-policy row for paged and virtualized projections    |
+|  [07]   | property-refresh     | AutoRefresh             | `Refresh` buffer, 250 ms on host-fact rows                         |
+|  [08]   | child-merge          | MergeMany               | child observable composition                                       |
+|  [09]   | timed-expiry         | ExpireAfter             | `Expiry` = cache-ttl allotment on receipt-stream rows              |
 |  [10]   | size-bound           | LimitSizeTo             | `SizeBound` = 10000 rows on receipt-stream rows                    |
 |  [11]   | paging               | Page                    | `Pages` stream; PageRequest size 50 default                        |
 |  [12]   | windowing            | Virtualise              | `Windows` stream; VirtualRequest window 100 default                |
 |  [13]   | set-algebra          | And, Or, Except, Xor    | keyed source composition across `DataSource` outputs               |
 |  [14]   | classified-exclusion | Except                  | subtracts the `DataClassification` deny projection                 |
 
-## [4]-[BINDING_CAPSULE]
+## [04]-[BINDING_CAPSULE]
 
 - Owner: `BindingCapsule` — the single UI-thread binding edge.
 - Entry: `public IDisposable Into<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, ObservableCollectionExtended<TRow> target, Option<IObservable<IComparer<TRow>>> order = default)` — sorted binding rides the comparer stream; absent order is the bare bind; `IntoList<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, IObservableList<TRow> target)` binds the insertion-ordered consumer through `BindToObservableList`; `Drained<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<TRow, ValueTask> release)` binds the async-disposal drain hook over the same edge.
@@ -179,7 +179,7 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault) {
 }
 ```
 
-## [5]-[AGGREGATION_SPINE]
+## [05]-[AGGREGATION_SPINE]
 
 - Owner: `LiveDataOps` — stat folds and change audit attach to the capsule as one extension block.
 - Entry: `public IDisposable Tile<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, Func<IObservable<IChangeSet<TRow, TKey>>, IObservable<double>> fold, Action<double> render)` — one entrypoint serves every stat row.
@@ -209,10 +209,10 @@ public static class LiveDataOps {
 
 | [INDEX] | [ROW]        | [FOLD]                              | [CONSUMER]                                     |
 | :-----: | ------------ | ----------------------------------- | ---------------------------------------------- |
-|   [1]   | count        | Count                               | stat tiles                                     |
-|   [2]   | sum          | Sum                                 | stat tiles                                     |
-|   [3]   | average      | Avg                                 | stat tiles                                     |
-|   [4]   | minimum      | Min                                 | stat tiles                                     |
-|   [5]   | maximum      | Max                                 | stat tiles                                     |
-|   [6]   | deviation    | StdDev                              | stat tiles                                     |
-|   [7]   | change-audit | CollectUpdateStats to ChangeSummary | evidence stream via `ReceiptSinkPort` envelope |
+|  [01]   | count        | Count                               | stat tiles                                     |
+|  [02]   | sum          | Sum                                 | stat tiles                                     |
+|  [03]   | average      | Avg                                 | stat tiles                                     |
+|  [04]   | minimum      | Min                                 | stat tiles                                     |
+|  [05]   | maximum      | Max                                 | stat tiles                                     |
+|  [06]   | deviation    | StdDev                              | stat tiles                                     |
+|  [07]   | change-audit | CollectUpdateStats to ChangeSummary | evidence stream via `ReceiptSinkPort` envelope |

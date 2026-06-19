@@ -23,7 +23,7 @@ export {
 } from "@effect/vitest/utils"
 ```
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/vitest`
 - package: `@effect/vitest`
@@ -32,7 +32,7 @@ export {
 - rail: testing / effect-vitest
 - tier: `neutral` (runtime-agnostic test harness; consumed under the Vitest node test runner but imports no `node:*` modules directly — the `effect` + `vitest` peers are the only dependencies)
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 ### @effect/vitest — Vitest namespace (runner type tree)
 
@@ -42,12 +42,12 @@ export {
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]             |
 | :-----: | :---------------------------------------------- | :------------ | :----------------------- |
-|   [1]   | `Vitest.TestFunction<A, E, R, TestArgs>`        | interface     | Effect test callback     |
-|   [2]   | `Vitest.Test<R>`                                | interface     | Effect test registration |
-|   [3]   | `Vitest.Arbitraries`                            | type alias    | property source shape    |
-|   [4]   | `Vitest.Tester<R>`                              | interface     | tester plus modifiers    |
-|   [5]   | `Vitest.MethodsNonLive<R, ExcludeTestServices>` | interface     | shared-layer method tree |
-|   [6]   | `Vitest.Methods<R>`                             | interface     | full method tree         |
+|  [01]   | `Vitest.TestFunction<A, E, R, TestArgs>`        | interface     | Effect test callback     |
+|  [02]   | `Vitest.Test<R>`                                | interface     | Effect test registration |
+|  [03]   | `Vitest.Arbitraries`                            | type alias    | property source shape    |
+|  [04]   | `Vitest.Tester<R>`                              | interface     | tester plus modifiers    |
+|  [05]   | `Vitest.MethodsNonLive<R, ExcludeTestServices>` | interface     | shared-layer method tree |
+|  [06]   | `Vitest.Methods<R>`                             | interface     | full method tree         |
 
 [PUBLIC_TYPE_SCOPE]: package-private root types (reached only through `it`/`API`)
 - rail: testing
@@ -55,9 +55,9 @@ export {
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]         |
 | :-----: | :------------------------- | :------------ | :------------------- |
-|   [1]   | `API`                      | type alias    | Vitest API overlay   |
-|   [2]   | `TestCollectorCallable<C>` | interface     | collector overloads  |
-|   [3]   | `TestCollectorOptions`     | type alias    | collector option bag |
+|  [01]   | `API`                      | type alias    | Vitest API overlay   |
+|  [02]   | `TestCollectorCallable<C>` | interface     | collector overloads  |
+|  [03]   | `TestCollectorOptions`     | type alias    | collector option bag |
 
 `Vitest.Methods` is the type of the exported `it`; `Vitest.MethodsNonLive` is what `layer(...)`
 hands to its callback (no `live`/`scopedLive`, because a shared `Layer` is already memoized and a
@@ -172,12 +172,12 @@ declare namespace Vitest {
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]               |
 | :-----: | :----------- | :------------ | :------------------------- |
-|   [1]   | `it`         | const         | default method tree        |
-|   [2]   | `effect`     | const tester  | test-service runner        |
-|   [3]   | `scoped`     | const tester  | scoped test-service runner |
-|   [4]   | `live`       | const tester  | real-clock runner          |
-|   [5]   | `scopedLive` | const tester  | scoped real-clock runner   |
-|   [6]   | `prop`       | const runner  | property runner            |
+|  [01]   | `it`         | const         | default method tree        |
+|  [02]   | `effect`     | const tester  | test-service runner        |
+|  [03]   | `scoped`     | const tester  | scoped test-service runner |
+|  [04]   | `live`       | const tester  | real-clock runner          |
+|  [05]   | `scopedLive` | const tester  | scoped real-clock runner   |
+|  [06]   | `prop`       | const runner  | property runner            |
 
 [PUBLIC_TYPE_SCOPE]: harness and setup values
 - rail: testing
@@ -185,11 +185,11 @@ declare namespace Vitest {
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]          |
 | :-----: | :------------------- | :--------------- | :-------------------- |
-|   [1]   | `flakyTest`          | const combinator | retry combinator      |
-|   [2]   | `layer`              | const harness    | shared-layer harness  |
-|   [3]   | `describeWrapped`    | const wrapper    | described method tree |
-|   [4]   | `makeMethods`        | const factory    | custom method tree    |
-|   [5]   | `addEqualityTesters` | const setup hook | equality tester setup |
+|  [01]   | `flakyTest`          | const combinator | retry combinator      |
+|  [02]   | `layer`              | const harness    | shared-layer harness  |
+|  [03]   | `describeWrapped`    | const wrapper    | described method tree |
+|  [04]   | `makeMethods`        | const factory    | custom method tree    |
+|  [05]   | `addEqualityTesters` | const setup hook | equality tester setup |
 
 ```ts contract
 import type * as Duration from "effect/Duration"
@@ -237,15 +237,15 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]      | [CAPABILITY]                                                                        |
 | :-----: | :------------------- | :----------------- | :---------------------------------------------------------------------------------- |
-|   [1]   | `fail`               | assert             | throw `AssertionError` with `message`                                               |
-|   [2]   | `strictEqual`        | assert             | `actual === expected` (also covered by `Equal.equals` trait wiring)                 |
-|   [3]   | `deepStrictEqual`    | assert             | equal via `Equal.equals` trait                                                      |
-|   [4]   | `notDeepStrictEqual` | assert             | not equal via `Equal.equals` trait                                                  |
-|   [5]   | `assertEquals`       | assert             | equal via `Equal.equals` trait (alias-shaped peer of `deepStrictEqual`)             |
-|   [6]   | `assertTrue`         | assert (narrows)   | `asserts self` — value is `true`/truthy                                             |
-|   [7]   | `assertFalse`        | assert             | `self: boolean` is `false`                                                          |
-|   [8]   | `assertInclude`      | assert             | `actual: string \| undefined` includes `expected`                                   |
-|   [9]   | `assertMatch`        | assert             | `actual: string` matches `regexp: RegExp`                                           |
+|  [01]   | `fail`               | assert             | throw `AssertionError` with `message`                                               |
+|  [02]   | `strictEqual`        | assert             | `actual === expected` (also covered by `Equal.equals` trait wiring)                 |
+|  [03]   | `deepStrictEqual`    | assert             | equal via `Equal.equals` trait                                                      |
+|  [04]   | `notDeepStrictEqual` | assert             | not equal via `Equal.equals` trait                                                  |
+|  [05]   | `assertEquals`       | assert             | equal via `Equal.equals` trait (alias-shaped peer of `deepStrictEqual`)             |
+|  [06]   | `assertTrue`         | assert (narrows)   | `asserts self` — value is `true`/truthy                                             |
+|  [07]   | `assertFalse`        | assert             | `self: boolean` is `false`                                                          |
+|  [08]   | `assertInclude`      | assert             | `actual: string \| undefined` includes `expected`                                   |
+|  [09]   | `assertMatch`        | assert             | `actual: string` matches `regexp: RegExp`                                           |
 |  [10]   | `doesNotThrow`       | assert             | `thunk` does not throw                                                              |
 |  [11]   | `throws`             | assert             | sync `thunk` throws (optional `Error \| (u) => undefined` predicate)                |
 |  [12]   | `throwsAsync`        | assert (`Promise`) | async `thunk` rejects (optional predicate); returns `Promise<void>`                 |
@@ -262,7 +262,7 @@ const describeWrapped: (name: string, f: (it: Vitest.Methods) => void) => V.Suit
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [CAPABILITY]                                                               |
 | :-----: | :-------------- | :--------------- | :------------------------------------------------------------------------- |
-|   [1]   | `assertSuccess` | assert (narrows) | `asserts exit is Exit.Success<A, never>`; checks payload equals `expected` |
+|  [01]   | `assertSuccess` | assert (narrows) | `asserts exit is Exit.Success<A, never>`; checks payload equals `expected` |
 
 Every two-value assertion takes a trailing `..._: Array<never>` rest parameter — a compile-time
 guard forbidding extra positional arguments (so a stray `expected` cannot be silently dropped).
@@ -302,7 +302,7 @@ function assertFailure<A, E>(exit: Exit.Exit<A, E>, expected: Cause.Cause<E>, ..
 function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<never>): asserts exit is Exit.Success<A, never>
 ```
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 The root entry `export * from "vitest"` forwards the entire `vitest` public surface unchanged —
 `describe`, `expect`, `test`, `vi`, `beforeAll`/`afterAll`/`beforeEach`/`afterEach`, `assert`,
@@ -315,7 +315,7 @@ are load-bearing for callers:
   alias added; the Effect `scoped` runner shadows Vitest's fixture `scoped`, so reach Vitest
   scoped-fixtures through `scopedFixtures` when both are needed.
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RUNNER_TOPOLOGY]:
 - `it` is the canonical entry (`Vitest.Methods`); the free `effect`/`scoped`/`live`/`scopedLive`/

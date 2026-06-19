@@ -2,7 +2,7 @@
 
 `@connectrpc/connect` supplies the protocol-agnostic client and server primitives for Connect, gRPC, and gRPC-web: the `Transport` contract, typed `Client<T>` generation via `createClient`, interceptor pipeline, `ConnectError` with `Code`, context value propagation, and the server-side `ConnectRouter` registration surface.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@connectrpc/connect`
 - package: `@connectrpc/connect`
@@ -10,105 +10,105 @@
 - asset: runtime library
 - rail: transport
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and transport
 - rail: transport
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [RAIL]                              |
 | :-----: | :-------------- | :---------------- | :---------------------------------- |
-|   [1]   | `Transport`     | protocol contract | unary and stream RPC dispatch       |
-|   [2]   | `Client<T>`     | typed client map  | promise/async-iterable RPC methods  |
-|   [3]   | `CallOptions`   | call options      | per-call timeout, headers, signal   |
-|   [4]   | `Interceptor`   | middleware type   | request/response wrapping           |
-|   [5]   | `ContextKey<T>` | context key       | typed per-call context slot         |
-|   [6]   | `ContextValues` | context bag       | get/set/delete typed context values |
+|  [01]   | `Transport`     | protocol contract | unary and stream RPC dispatch       |
+|  [02]   | `Client<T>`     | typed client map  | promise/async-iterable RPC methods  |
+|  [03]   | `CallOptions`   | call options      | per-call timeout, headers, signal   |
+|  [04]   | `Interceptor`   | middleware type   | request/response wrapping           |
+|  [05]   | `ContextKey<T>` | context key       | typed per-call context slot         |
+|  [06]   | `ContextValues` | context bag       | get/set/delete typed context values |
 
 [PUBLIC_TYPE_SCOPE]: interceptor envelopes
 - rail: transport
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]     | [RAIL]                                 |
 | :-----: | :--------------- | :---------------- | :------------------------------------- |
-|   [1]   | `UnaryRequest`   | request envelope  | single input message, `stream: false`  |
-|   [2]   | `UnaryResponse`  | response envelope | single output message, `stream: false` |
-|   [3]   | `StreamRequest`  | request envelope  | async-iterable input, `stream: true`   |
-|   [4]   | `StreamResponse` | response envelope | async-iterable output, `stream: true`  |
+|  [01]   | `UnaryRequest`   | request envelope  | single input message, `stream: false`  |
+|  [02]   | `UnaryResponse`  | response envelope | single output message, `stream: false` |
+|  [03]   | `StreamRequest`  | request envelope  | async-iterable input, `stream: true`   |
+|  [04]   | `StreamResponse` | response envelope | async-iterable output, `stream: true`  |
 
 [PUBLIC_TYPE_SCOPE]: error and codes
 - rail: transport
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                                    |
 | :-----: | :------------- | :------------ | :---------------------------------------- |
-|   [1]   | `ConnectError` | typed error   | `code`, `metadata`, `rawMessage`, details |
-|   [2]   | `Code`         | numeric enum  | 16 standard RPC error codes               |
+|  [01]   | `ConnectError` | typed error   | `code`, `metadata`, `rawMessage`, details |
+|  [02]   | `Code`         | numeric enum  | 16 standard RPC error codes               |
 
 [PUBLIC_TYPE_SCOPE]: server-side routing
 - rail: transport
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]       | [RAIL]                            |
 | :-----: | :--------------------- | :------------------ | :-------------------------------- |
-|   [1]   | `ConnectRouter`        | router interface    | service and RPC registration      |
-|   [2]   | `ConnectRouterOptions` | router config       | grpc / grpcWeb / connect toggles  |
-|   [3]   | `HandlerContext`       | handler context     | per-RPC signal, headers, trailers |
-|   [4]   | `ServiceImpl<T>`       | impl type map       | service method implementations    |
-|   [5]   | `MethodImpl<M>`        | impl type           | single-method implementation      |
-|   [6]   | `MethodImplSpec`       | discriminated union | kind-tagged impl + descriptor     |
-|   [7]   | `ServiceImplSpec`      | impl wrapper        | service + named method impls      |
+|  [01]   | `ConnectRouter`        | router interface    | service and RPC registration      |
+|  [02]   | `ConnectRouterOptions` | router config       | grpc / grpcWeb / connect toggles  |
+|  [03]   | `HandlerContext`       | handler context     | per-RPC signal, headers, trailers |
+|  [04]   | `ServiceImpl<T>`       | impl type map       | service method implementations    |
+|  [05]   | `MethodImpl<M>`        | impl type           | single-method implementation      |
+|  [06]   | `MethodImplSpec`       | discriminated union | kind-tagged impl + descriptor     |
+|  [07]   | `ServiceImplSpec`      | impl wrapper        | service + named method impls      |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction
 - rail: transport
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :-------------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `createClient<T>(service, transport)`   | client factory | typed `Client<T>` from a `DescService`    |
-|   [2]   | `createUnaryFn(transport, method)`      | fn factory     | standalone unary method handle            |
-|   [3]   | `createServerStreamingFn(transport, m)` | fn factory     | standalone server-streaming method handle |
-|   [4]   | `createClientStreamingFn(transport, m)` | fn factory     | standalone client-streaming method handle |
-|   [5]   | `createBiDiStreamingFn(transport, m)`   | fn factory     | standalone bidi-streaming method handle   |
+|  [01]   | `createClient<T>(service, transport)`   | client factory | typed `Client<T>` from a `DescService`    |
+|  [02]   | `createUnaryFn(transport, method)`      | fn factory     | standalone unary method handle            |
+|  [03]   | `createServerStreamingFn(transport, m)` | fn factory     | standalone server-streaming method handle |
+|  [04]   | `createClientStreamingFn(transport, m)` | fn factory     | standalone client-streaming method handle |
+|  [05]   | `createBiDiStreamingFn(transport, m)`   | fn factory     | standalone bidi-streaming method handle   |
 
 [ENTRYPOINT_SCOPE]: context values
 - rail: transport
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                         |
 | :-----: | :-------------------------------------------- | :------------- | :----------------------------- |
-|   [1]   | `createContextKey<T>(defaultValue, options?)` | key factory    | typed context slot key         |
-|   [2]   | `createContextValues()`                       | bag factory    | empty `ContextValues` instance |
+|  [01]   | `createContextKey<T>(defaultValue, options?)` | key factory    | typed context slot key         |
+|  [02]   | `createContextValues()`                       | bag factory    | empty `ContextValues` instance |
 
 [ENTRYPOINT_SCOPE]: error construction and inspection
 - rail: transport
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]    | [RAIL]                                  |
 | :-----: | :----------------------------------------- | :---------------- | :-------------------------------------- |
-|   [1]   | `new ConnectError(msg, code?, meta?, ...)` | error constructor | typed RPC error with code and metadata  |
-|   [2]   | `ConnectError.from(reason, code?)`         | static converter  | coerce any caught value to ConnectError |
-|   [3]   | `error.findDetails(desc\|registry)`        | detail accessor   | decode typed error detail messages      |
+|  [01]   | `new ConnectError(msg, code?, meta?, ...)` | error constructor | typed RPC error with code and metadata  |
+|  [02]   | `ConnectError.from(reason, code?)`         | static converter  | coerce any caught value to ConnectError |
+|  [03]   | `error.findDetails(desc\|registry)`        | detail accessor   | decode typed error detail messages      |
 
 [ENTRYPOINT_SCOPE]: interceptors and router
 - rail: transport
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]    | [RAIL]                             |
 | :-----: | :-------------------------------------- | :---------------- | :--------------------------------- |
-|   [1]   | `applyInterceptors(next, interceptors)` | interceptor chain | wraps a call fn with interceptors  |
-|   [2]   | `createConnectRouter(options?)`         | router factory    | server-side service registration   |
-|   [3]   | `createHandlerContext(init)`            | context factory   | unit-test handler context creation |
-|   [4]   | `createMethodImplSpec(method, impl)`    | spec factory      | kind-tagged method implementation  |
-|   [5]   | `createServiceImplSpec(service, impl)`  | spec factory      | service implementation wrapper     |
+|  [01]   | `applyInterceptors(next, interceptors)` | interceptor chain | wraps a call fn with interceptors  |
+|  [02]   | `createConnectRouter(options?)`         | router factory    | server-side service registration   |
+|  [03]   | `createHandlerContext(init)`            | context factory   | unit-test handler context creation |
+|  [04]   | `createMethodImplSpec(method, impl)`    | spec factory      | kind-tagged method implementation  |
+|  [05]   | `createServiceImplSpec(service, impl)`  | spec factory      | service implementation wrapper     |
 
 [ENTRYPOINT_SCOPE]: utility exports
 - rail: transport
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                             |
 | :-----: | :---------------------------------------- | :------------- | :--------------------------------- |
-|   [1]   | `encodeBinaryHeader(bytes)`               | header util    | base64-encode binary header value  |
-|   [2]   | `decodeBinaryHeader(value)`               | header util    | base64-decode binary header value  |
-|   [3]   | `appendHeaders(target, init)`             | header util    | merge `HeadersInit` into `Headers` |
-|   [4]   | `cors`                                    | CORS config    | CORS option constants object       |
-|   [5]   | `makeAnyClient<T>(service, transport)`    | any-client     | untyped client for reflection use  |
-|   [6]   | `createRouterTransport(routes, options?)` | test transport | in-memory transport from a router  |
+|  [01]   | `encodeBinaryHeader(bytes)`               | header util    | base64-encode binary header value  |
+|  [02]   | `decodeBinaryHeader(value)`               | header util    | base64-decode binary header value  |
+|  [03]   | `appendHeaders(target, init)`             | header util    | merge `HeadersInit` into `Headers` |
+|  [04]   | `cors`                                    | CORS config    | CORS option constants object       |
+|  [05]   | `makeAnyClient<T>(service, transport)`    | any-client     | untyped client for reflection use  |
+|  [06]   | `createRouterTransport(routes, options?)` | test transport | in-memory transport from a router  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [TRANSPORT_TOPOLOGY]:
 - `Transport` owns two methods: `unary` and `stream`; all client code composes through this interface

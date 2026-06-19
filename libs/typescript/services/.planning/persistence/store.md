@@ -2,11 +2,11 @@
 
 The single SQL persistence boundary and the entity-model registry it carries — `SqlBoundary`, the one `@effect/sql-pg` `PgClient` Layer with the `Model.Class` row schemas and the `Migrator`; and `EntityRegistry`, the ~15-entity set bound to ONE `Model.Class` per entity with projections via `Model.fields`/`Schema.pick`. The Postgres client is the single SQL surface; a second SQL owner, a drizzle/kysely parallel query surface, or N parallel schemas per entity is the named defect. This is a node-only surface and crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[STORE_BOUNDARY]: owns the single `PgClient`/`Migrator` boundary and the one-`Model.Class`-per-entity registry.
+- [01]-[STORE_BOUNDARY]: owns the single `PgClient`/`Migrator` boundary and the one-`Model.Class`-per-entity registry.
 
-## [2]-[STORE_BOUNDARY]
+## [02]-[STORE_BOUNDARY]
 
 - Owner: `SqlBoundary`, the single `@effect/sql-pg` `PgClient` Layer constructed from one config carrying the `provisioning/contract#PROVISIONING` `StackOutputs` Postgres DSN, the pool bounds, and the connect/idle timeouts; the `Migrator` running the entity and store DDL at startup; and `EntityRegistry`, the ~15-entity `Model.Class` set with projections derived off the one class.
 - Cases: the durable cluster's message and runner stores (owned at `execution/backplane#RUNNER_AND_SCHEDULING`) ride this one `SqlClient` surface; row schemas are the one `Model.Class` pattern the corpus uses — `User`, `Permission`, `Session`, `OauthAccount`, `MfaSecret`, `WebauthnCredential`, `ApiKey`, `App`, `Asset`, `AuditLog`, `Job`, `JobDlq`, `Notification`, `KvStore`, plus the `AgentJournal` `execution/ai#AI_ACTIVITY` owns — never parallel structs, and a read projection is `Model.fields`/`Schema.pick` off the one class, never a sibling schema; the credential-specific field shapes of `MfaSecret` and `WebauthnCredential` (the Base32 `Model.Sensitive` secret and `afterTimeStep` replay floor; the credential id, public key, `counter`, transports, and device flags) are authored at their consuming owner `security/auth#VERIFIER`, registered here as one `Model.Class` each on the registry exactly as `AgentJournal` is.

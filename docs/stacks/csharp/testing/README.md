@@ -2,17 +2,17 @@
 
 This folder routes C# proof-tool choices. Package versions and graph state live in the central package manifest; shared testkit behavior lives with the test source owners.
 
-## [1]-[CHOOSE]
+## [01]-[CHOOSE]
 
 This table routes the first proof question. Classify ambiguous behavior in the rail chooser before adding a package, assertion style, or scenario.
 
 | [INDEX] | [QUESTION]                                   | [READ]                                    |
 | :-----: | :------------------------------------------- | :---------------------------------------- |
-|   [1]   | Which managed law or property shape fits?    | [managed laws](managed-laws.md)           |
-|   [2]   | Which evidence rail proves visited behavior? | [evidence rails](evidence-rails.md)       |
-|   [3]   | Which specialized rail owns a boundary?      | [specialized rails](specialized-rails.md) |
+|   [01]   | Which managed law or property shape fits?    | [managed laws](managed-laws.md)           |
+|   [02]   | Which evidence rail proves visited behavior? | [evidence rails](evidence-rails.md)       |
+|   [03]   | Which specialized rail owns a boundary?      | [specialized rails](specialized-rails.md) |
 
-## [2]-[RAIL_CHOOSER]
+## [02]-[RAIL_CHOOSER]
 
 [STATIC_MANAGED_LAW]:
 - Choose: [managed laws](managed-laws.md).
@@ -54,7 +54,7 @@ This table routes the first proof question. Classify ambiguous behavior in the r
 - Use when: parser, decoder, token, or grammar crash resilience is the target.
 - Reject: host-native UI or document behavior.
 
-## [3]-[CLASSIFICATION]
+## [03]-[CLASSIFICATION]
 
 [STATIC_OR_RUNTIME]:
 - Static-managed behavior has a value oracle that can run without host state.
@@ -75,7 +75,7 @@ This table routes the first proof question. Classify ambiguous behavior in the r
 - BenchmarkDotNet owns durable speed or allocation claims.
 - Runtime-host performance stays outside the managed benchmark rail unless a source-owned runtime measurement exists.
 
-## [4]-[BOUNDARIES]
+## [04]-[BOUNDARIES]
 
 Static managed specs prove pure contracts, guards, deterministic algorithms, generated metadata, typed receipts, rail categories, and pre-native rejection. Runtime scenario rails prove host-native documents, UI state, bridge state, app-bundle loading, viewport behavior, and command interaction.
 

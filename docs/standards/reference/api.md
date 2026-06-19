@@ -4,7 +4,7 @@ API documentation is contract-backed reference for a callable surface. It tells 
 
 This standard assumes local source-collection mechanics already live in repo instruction files, route READMEs, generated artifacts, and tooling documentation. Do not restate those mechanics here. Follow the local tool route, then write the smallest API page that preserves contract identity, caller obligations, failure/status behavior, confirmation fields, and adjacent-route handoff.
 
-## [1]-[USE_WHEN]
+## [01]-[USE_WHEN]
 
 Apply this standard to a surface that callers, generated clients, or agents invoke or parse:
 - local HTTP contracts and OpenAPI descriptions;
@@ -25,23 +25,23 @@ Route source-level public symbol comment style to [code-documentation.md](code-d
 - Maintenance triggers: callable contract, parameter, field, status, error, envelope, generated output, source comment, support row, or entrypoint changes.
 - Stale prevention: generated catalogs are linked or regenerated, never hand-copied.
 
-## [2]-[PROFILES]
+## [02]-[PROFILES]
 
 Choose one primary profile per page. Split the page when a second profile would force a different contract source or body structure.
 
 | [INDEX] | [PROFILE]                   | [BODY_OWNS]                                      | [OMIT]                               |
 | :-----: | :-------------------------- | :----------------------------------------------- | :----------------------------------- |
-|   [1]   | Local HTTP contract         | contract link, caller constraints, errors        | hand-copied endpoint catalog         |
-|   [2]   | Local CLI/tool contract     | invocation envelope, channels, statuses, effects | flag inventory and command recipes   |
-|   [3]   | MCP/tool callable contract  | schema/catalog, setup, fields, failure carrier   | plugin installation workflow         |
-|   [4]   | Generated host/API metadata | source key, query shape, output, miss behavior   | broad host/package catalog           |
-|   [5]   | Generated library reference | generation record and symbol-family links        | edited generated mirrors             |
-|   [6]   | Upstream HTTP API facts     | curated upstream facts and caller impact         | copied endpoint catalog              |
-|   [7]   | Upstream SDK/protocol facts | curated upstream facts and local use boundary    | local rail posture or task procedure |
+|  [01]   | Local HTTP contract         | contract link, caller constraints, errors        | hand-copied endpoint catalog         |
+|  [02]   | Local CLI/tool contract     | invocation envelope, channels, statuses, effects | flag inventory and command recipes   |
+|  [03]   | MCP/tool callable contract  | schema/catalog, setup, fields, failure carrier   | plugin installation workflow         |
+|  [04]   | Generated host/API metadata | source key, query shape, output, miss behavior   | broad host/package catalog           |
+|  [05]   | Generated library reference | generation record and symbol-family links        | edited generated mirrors             |
+|  [06]   | Upstream HTTP API facts     | curated upstream facts and caller impact         | copied endpoint catalog              |
+|  [07]   | Upstream SDK/protocol facts | curated upstream facts and local use boundary    | local rail posture or task procedure |
 
 Local and generated profiles name the generated artifact and refresh route. Upstream profiles name the maintained material beside drift-prone facts and never imply local routing of upstream behavior.
 
-## [3]-[REQUIRED_STRUCTURE]
+## [03]-[REQUIRED_STRUCTURE]
 
 Use this skeleton, then replace `<PROFILE_BODY>` with the one selected profile section. Do not publish empty optional headings.
 

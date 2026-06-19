@@ -2,11 +2,11 @@
 
 The native object-store egress owner: one `ObjectEgress` façade over `obstore` for the Arrow/Parquet/GeoParquet/zarr bundles the `columnar`, `geospatial`, and `tensor` owners emit, keyed by runtime `ContentIdentity`. `ObjectEgress` discriminates the `StoreOp` tagged-union axis — put/get/list/delete/copy over the highest-throughput native `object_store` path — onto one `EgressReceipt`; the store is constructed once through `obstore.store.from_url` over the credentials and endpoint the runtime `TransportResource`/`ResourceRef` already carry, never a second transport owner. Every bundle keys by exactly one `ContentIdentity`, and an unchanged content-key is a put no-op by reference.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[EGRESS]: the native object-store egress owner over one `StoreOp` axis composing the runtime transport.
+- [01]-[EGRESS]: the native object-store egress owner over one `StoreOp` axis composing the runtime transport.
 
-## [2]-[EGRESS]
+## [02]-[EGRESS]
 
 - Owner: `ObjectEgress` — the one object-store egress façade over `obstore`; `StoreOp` the tagged-union operation axis (put/get/list/delete/copy), matched by `match`/`case` so a new store operation is one `StoreOp` case, never a `put_object`/`get_object`/`list_objects` method family. `EgressReceipt` is the typed egress receipt — operation, path, byte length, e-tag, content-key. The store backend is the one `obstore.store.from_url` constructs from the `ResourceRef` scheme (`s3://`/`gs://`/`az://`/`file:///`/`memory:///`), so a new cloud backend is one URL scheme, never a parallel store class.
 - Cases: `StoreOp` rows `Put(payload, mode)` (`obstore.put(store, path, file, mode=)` with `mode` ∈ `create|overwrite`, multipart auto-selected when the payload exceeds the chunk size) · `Get(path)` (`obstore.get(store, path).bytes()` zero-copy `Bytes`) · `GetRange(path, start, end)` (`obstore.get_range(store, path, start=, end=)` fetching one byte window — the archival-chunk fast-path the `tensor` VirtualiZarr cube reads against object-store byte ranges, never a full object materialization) · `List(prefix)` (`obstore.list(store, prefix, return_arrow=True)` streaming the `ObjectMeta` rows as `arro3.core.RecordBatch`) · `Delete(path)` (`obstore.delete(store, path)`) · `Copy(source, target)` (`obstore.copy(store, from_, to)` server-side), each binding the exact `obstore` surface that owns it.
@@ -124,6 +124,6 @@ class ObjectEgress(Struct, frozen=True):
         )
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [OBSTORE_PUT_RESULT]: the `obstore` `store.from_url(url)`/`put(store, path, file, mode=)`/`get(store, path).bytes()`/`get_range(store, path, start=, end=)`/`list(store, prefix, return_arrow=True)`/`delete`/`copy` surface the `ObjectEgress` arms transcribe is catalogue-confirmed against the folder `obstore` `.api`; the one open seam is the `PutResult` `e_tag`/`version` `TypedDict` access (`result.get("e_tag")`) and the `ObjectMeta` `RecordBatch` row shape the list arm sums — both confirm against the live `obstore` distribution before the receipt treats the e-tag and the streamed row count as the settled egress evidence. The credential-provider wiring from the runtime `TransportResource` lands on the `roots` seam (the `TransportResource` carries the credentials; `from_url(..., config=...)` consumes them), never a second credential owner here.

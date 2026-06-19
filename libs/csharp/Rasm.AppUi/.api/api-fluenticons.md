@@ -2,7 +2,7 @@
 
 `FluentIcons.Avalonia` supplies `SymbolIcon`/`SymbolImage` controls, font icon variants, and XAML markup extensions over the Fluent icon vocabulary. `FluentIcons.Common` supplies the shared vocabulary types — `Symbol`, `Icon`, `IconVariant`, `IconSize`, and their enumeration helpers — consumed by both the Avalonia layer and any platform-neutral code.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentIcons.Common`
 - package: `FluentIcons.Common`
@@ -19,69 +19,69 @@
 - asset: runtime library
 - rail: icons
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [COMMON_TYPES]: shared vocabulary — `FluentIcons.Common`
 - rail: icons
 
 | [INDEX] | [SYMBOL]            | [KIND]                          | [RAIL]                                   |
 | :-----: | :------------------ | :------------------------------ | :--------------------------------------- |
-|   [1]   | `Symbol`            | int-backed enum, 2785 members   | icon identity by name                    |
-|   [2]   | `Icon`              | int-backed enum (alias surface) | resizable icon identity                  |
-|   [3]   | `IconVariant`       | byte enum (4 cases)             | rendering variant axis                   |
-|   [4]   | `IconSize`          | byte enum (9 sizes)             | discrete size axis                       |
-|   [5]   | `IconSizeValues`    | static enumeration helper       | all `IconSize` cases as `IEnumerable`    |
-|   [6]   | `IconVariantValues` | static enumeration helper       | all `IconVariant` cases as `IEnumerable` |
+|  [01]   | `Symbol`            | int-backed enum, 2785 members   | icon identity by name                    |
+|  [02]   | `Icon`              | int-backed enum (alias surface) | resizable icon identity                  |
+|  [03]   | `IconVariant`       | byte enum (4 cases)             | rendering variant axis                   |
+|  [04]   | `IconSize`          | byte enum (9 sizes)             | discrete size axis                       |
+|  [05]   | `IconSizeValues`    | static enumeration helper       | all `IconSize` cases as `IEnumerable`    |
+|  [06]   | `IconVariantValues` | static enumeration helper       | all `IconVariant` cases as `IEnumerable` |
 
 [ICON_TYPES]: icon controls and image sources — `FluentIcons.Avalonia`
 - rail: icons
 
 | [INDEX] | [SYMBOL]      | [RAIL]            |
 | :-----: | :------------ | :---------------- |
-|   [1]   | `SymbolIcon`  | symbol control    |
-|   [2]   | `SymbolImage` | symbol image      |
-|   [3]   | `FluentIcon`  | glyph control     |
-|   [4]   | `FluentImage` | glyph image       |
-|   [5]   | `Outline`     | outline rendering |
-|   [6]   | `GenericIcon` | icon base         |
+|  [01]   | `SymbolIcon`  | symbol control    |
+|  [02]   | `SymbolImage` | symbol image      |
+|  [03]   | `FluentIcon`  | glyph control     |
+|  [04]   | `FluentImage` | glyph image       |
+|  [05]   | `Outline`     | outline rendering |
+|  [06]   | `GenericIcon` | icon base         |
 
 [MARKUP_TYPES]: XAML markup extensions — `FluentIcons.Avalonia`
 - rail: icons
 
 | [INDEX] | [SYMBOL]               | [RAIL]           |
 | :-----: | :--------------------- | :--------------- |
-|   [1]   | `SymbolIconExtension`  | inline icon      |
-|   [2]   | `SymbolImageExtension` | inline image     |
-|   [3]   | `FluentIconExtension`  | inline glyph     |
-|   [4]   | `FluentImageExtension` | inline glyph img |
+|  [01]   | `SymbolIconExtension`  | inline icon      |
+|  [02]   | `SymbolImageExtension` | inline image     |
+|  [03]   | `FluentIconExtension`  | inline glyph     |
+|  [04]   | `FluentImageExtension` | inline glyph img |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [COMMON_ENTRYPOINTS]: `FluentIcons.Common` vocabulary surfaces
 - rail: icons
 
 | [INDEX] | [SURFACE]                      | [SURFACE_ROOT]      | [RAIL]                                     |
 | :-----: | :----------------------------- | :------------------ | :----------------------------------------- |
-|   [1]   | `Symbol.<member>`              | `Symbol`            | icon identity selection                    |
-|   [2]   | `Icon.<member>`                | `Icon`              | resizable icon identity                    |
-|   [3]   | `IconVariant.Regular`          | `IconVariant`       | regular variant                            |
-|   [4]   | `IconVariant.Filled`           | `IconVariant`       | filled variant                             |
-|   [5]   | `IconVariant.Color`            | `IconVariant`       | color variant                              |
-|   [6]   | `IconVariant.Light`            | `IconVariant`       | light variant                              |
-|   [7]   | `IconSize.Resizable`..`Size48` | `IconSize`          | discrete size cases                        |
-|   [8]   | `IconSizeValues.Enumerable`    | `IconSizeValues`    | all sizes as `IEnumerable<IconSize>`       |
-|   [9]   | `IconVariantValues.Enumerable` | `IconVariantValues` | all variants as `IEnumerable<IconVariant>` |
+|  [01]   | `Symbol.<member>`              | `Symbol`            | icon identity selection                    |
+|  [02]   | `Icon.<member>`                | `Icon`              | resizable icon identity                    |
+|  [03]   | `IconVariant.Regular`          | `IconVariant`       | regular variant                            |
+|  [04]   | `IconVariant.Filled`           | `IconVariant`       | filled variant                             |
+|  [05]   | `IconVariant.Color`            | `IconVariant`       | color variant                              |
+|  [06]   | `IconVariant.Light`            | `IconVariant`       | light variant                              |
+|  [07]   | `IconSize.Resizable`..`Size48` | `IconSize`          | discrete size cases                        |
+|  [08]   | `IconSizeValues.Enumerable`    | `IconSizeValues`    | all sizes as `IEnumerable<IconSize>`       |
+|  [09]   | `IconVariantValues.Enumerable` | `IconVariantValues` | all variants as `IEnumerable<IconVariant>` |
 
 [ICON_ENTRYPOINTS]: icon control properties — `FluentIcons.Avalonia`
 - rail: icons
 
 | [INDEX] | [SURFACE]     | [SURFACE_ROOT] | [RAIL]         |
 | :-----: | :------------ | :------------- | :------------- |
-|   [1]   | `Symbol`      | `SymbolIcon`   | glyph select   |
-|   [2]   | `Symbol`      | `SymbolImage`  | glyph select   |
-|   [3]   | `IconVariant` | `GenericIcon`  | variant select |
-|   [4]   | `FontSize`    | `GenericIcon`  | glyph scale    |
-|   [5]   | `Converter`   | `SymbolIcon`   | string convert |
+|  [01]   | `Symbol`      | `SymbolIcon`   | glyph select   |
+|  [02]   | `Symbol`      | `SymbolImage`  | glyph select   |
+|  [03]   | `IconVariant` | `GenericIcon`  | variant select |
+|  [04]   | `FontSize`    | `GenericIcon`  | glyph scale    |
+|  [05]   | `Converter`   | `SymbolIcon`   | string convert |
 
 [MARKUP_ENTRYPOINTS]: inline XAML construction
 - rail: icons
@@ -89,13 +89,13 @@
 
 | [INDEX] | [SURFACE]      | [RAIL]         |
 | :-----: | :------------- | :------------- |
-|   [1]   | `ProvideValue` | icon construct |
-|   [2]   | `Symbol`       | glyph select   |
-|   [3]   | `IconVariant`  | variant select |
-|   [4]   | `FontSize`     | glyph scale    |
-|   [5]   | `Foreground`   | glyph brush    |
+|  [01]   | `ProvideValue` | icon construct |
+|  [02]   | `Symbol`       | glyph select   |
+|  [03]   | `IconVariant`  | variant select |
+|  [04]   | `FontSize`     | glyph scale    |
+|  [05]   | `Foreground`   | glyph brush    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COMMON_LAW]:
 - Package: `FluentIcons.Common`

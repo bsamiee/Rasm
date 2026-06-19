@@ -2,7 +2,7 @@
 
 `s3fs` supplies the S3 fsspec backend: an async `S3FileSystem`, S3 file handles, an `S3Map` mapping view, and a customisable retryable-error surface. It registers under the `s3`/`s3a` protocols and is reached through fsspec dispatch, never instantiated as a standalone client. It is the runtime S3 transport row for shared-pull cloud resource roots.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `s3fs`
 - package: `s3fs`
@@ -12,29 +12,29 @@
 - namespaces: `s3fs`, `s3fs.core`, `s3fs.mapping`, `s3fs.errors`, `s3fs.utils`
 - capability: async S3 filesystem, S3 file handles, S3 mapping view, retryable-error customisation
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: filesystem family
 - rail: resources
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                           |
 | :-----: | :------------- | :------------ | :------------------------------- |
-|   [1]   | `S3FileSystem` | filesystem    | async S3 fsspec filesystem       |
-|   [2]   | `S3File`       | file handle   | S3 object file handle            |
-|   [3]   | `S3Map`        | mapping       | dict-like view over an S3 prefix |
+|  [01]   | `S3FileSystem` | filesystem    | async S3 fsspec filesystem       |
+|  [02]   | `S3File`       | file handle   | S3 object file handle            |
+|  [03]   | `S3Map`        | mapping       | dict-like view over an S3 prefix |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: backend operations
 - rail: resources
 
 | [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :------------------------- | :------------- | :------------------------------------- |
-|   [1]   | `S3FileSystem`             | build          | construct via fsspec `storage_options` |
-|   [2]   | `add_retryable_error`      | resilience     | extend the retryable-error set         |
-|   [3]   | `set_custom_error_handler` | resilience     | install a custom error handler         |
+|  [01]   | `S3FileSystem`             | build          | construct via fsspec `storage_options` |
+|  [02]   | `add_retryable_error`      | resilience     | extend the retryable-error set         |
+|  [03]   | `set_custom_error_handler` | resilience     | install a custom error handler         |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RESOURCES_TOPOLOGY]:
 - dispatch law: S3 roots are reached through `fsspec.url_to_fs("s3://...", **storage_options)`; the runtime never constructs `S3FileSystem` directly outside the fsspec resolution path.

@@ -2,11 +2,11 @@
 
 Rasm.Compute model generative run: the ORT-GenAI token-streaming generative owner over text/multimodal/streaming-audio/batched shapes with EOS oracle, decoder-hardware pins, in-memory model admission, the LoRA hot-swap registry, and the tool-call arm. The page owns the `GenerationPolicy` search-option and prompt-assembly record with its `SearchKey`/`GuidanceKind`/`RunMode` axes, the `DecoderPin`/`ModelData`/`ToolRequest`/`StopOracle`/`MultiModalAssets` carriers, the `AdapterSet` LoRA registry, and the `GenerativeRun` boundary capsule with its `Stream`/`Stage`/`Collect`/`Receipt` fold over Microsoft.ML.OnnxRuntimeGenAI; the generative handle chain rides `Microsoft.ML.OnnxRuntimeGenAI` and the streaming abstraction `Microsoft.Extensions.AI.Abstractions`, the `ModelIdentity` from `Model/identity#MODEL_IDENTITY`, the `ExecutionProvider` from `Model/providers#EP_AXIS`, the AppHost `CancelScope`/`ClockPolicy` and control dispatch, and `NodaTime` arrive settled. The `Generate` receipt is the catalogued 8-field case at `Runtime/receipts#RECEIPT_UNION`, and a remote generative run crosses solely through the `Runtime/channels#PROTO_VOCABULARY` `Generate` rpc.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[GENERATIVE_RUN]: ORT-GenAI token-streaming owner; one staged-input drain fold; EOS oracle; decoder-hardware pins; in-memory model admission; search-option table; guidance; multimodal, streaming-audio, and batched shapes; tool-call arm.
+- [01]-[GENERATIVE_RUN]: ORT-GenAI token-streaming owner; one staged-input drain fold; EOS oracle; decoder-hardware pins; in-memory model admission; search-option table; guidance; multimodal, streaming-audio, and batched shapes; tool-call arm.
 
-## [2]-[GENERATIVE_RUN]
+## [02]-[GENERATIVE_RUN]
 
 - Owner: `GenerationPolicy` search-option and prompt-assembly record carrying the `SearchKey` `[SmartEnum<string>]` recognized-key axis, the `GenerationPolicy.SearchRows` value table, the decoder-hardware-pin column, the in-memory model-data column, and the tool registry; `GuidanceKind` `[SmartEnum<string>]` structured-output constraint rows; `RunMode` `[SmartEnum<string>]` text/multimodal/streaming-audio/batched generative-shape rows; `Adapters`-backed `AdapterSet` LoRA hot-swap registry; `StopOracle` the EOS/BOS/PAD set read once at stream open; `GenerativeRun` boundary capsule owning the ORT-GenAI handle chain, one staged-input drain fold, the LoRA-activation arm, the streaming-audio arm, the batched arm, and the tool-call arm over Microsoft.ML.OnnxRuntimeGenAI.
 - Cases: `GuidanceKind` rows none · json-schema · regex · lark-grammar · choice; `SearchKey` rows num_beams · length_penalty · repetition_penalty · top_k · top_p · temperature · do_sample · max_length · min_length · early_stopping; `RunMode` rows text · multimodal · streaming-audio · batched.
@@ -303,7 +303,7 @@ stateDiagram-v2
     Done --> [*]
 ```
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [GENAI_LIVE_STREAM]: the full multi-token generative loop and the LoRA hot-swap (`Adapters.LoadAdapter`/`UnloadAdapter` + `Generator.SetActiveAdapter`) run against an operator-provisioned genai-format model asset (`genai_config.json` + ONNX weights + tokenizer + optional `.onnx_adapter` files); int8/int4 quantization is a packaged property of the exported graph, never a managed re-quantization pass. The open leaf is the live-asset run; the member shapes (`SearchKey`/`StopOracle`/`DecoderPin`/`GenerationPolicy.ToolOf`/`EncodeBatch`) are authored in the cluster fences.
 - [GENAI_MULTIMODAL]: the `RunMode.Multimodal`/`StreamingAudio`/`Batched` arms run against a vision-language genai-format asset (image/audio processor config + ONNX weights) to validate the staged-tensor shapes against the exported graph and to decide whether image/audio token counts earn a `Runtime/receipts#RECEIPT_UNION` measured column beyond the `rasm.compute.generate.tokens` `run.mode` tag. The `MultiModalProcessor`/`StreamingProcessor`/`Images.Load`/`Audios.Load`/`NamedTensors` staging is authored in the `Stage` fold.

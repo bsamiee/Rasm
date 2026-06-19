@@ -2,11 +2,11 @@
 
 One live-cell owner, `FeedKind`, the closed vocabulary whose every row carries its own decoded wire union, key projection, and slot merge, and one `feedStore` entrypoint that discriminates on the kind value into a `combinators#KEYED_FOLD` map keyed by the verbatim C# discriminant so the latest receipt per slot is the live cell. The lifecycle, health-and-degradation, snapshot-catalog, and progress feeds are four rows of the one vocabulary, never four parallel stores or four sibling constructors; the state layer is a projection of the wire vocabulary, never a parallel model. A new boundary concept lands as one `FeedKind` row, a new event kind as one `Match.when` arm breaking the exhaustive terminal on that row's key projection.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[LIVE_CELLS]: Owns `FeedKind`, the four feed rows, and the `feedStore` keyed-fold entrypoint.
+- [01]-[LIVE_CELLS]: Owns `FeedKind`, the four feed rows, and the `feedStore` keyed-fold entrypoint.
 
-## [2]-[LIVE_CELLS]
+## [02]-[LIVE_CELLS]
 
 - Owner: `FeedKind`, the four-row `as const` vocabulary — `runtime`, `health`, `snapshot`, `progress` — each row carrying its wire union, its `key` projection, and its `merge` arm; `feedStore`, the one entrypoint that reads the kind row and folds its source through `keyedFold` into a `SubscriptionRef`-backed cell map, with `FeedEvent<K>` deriving each feed's event type from its row `key` so the call site never re-declares the union. The variation between feeds is row data, never a parallel store type or a sibling factory.
 - Cases: each row's `key` is one `Match.value(event).pipe(...)` over the verbatim C# discriminant field. `runtime` and `health` terminate `Match.exhaustive` so a fourth wire case breaks at compile time rather than aliasing into a silent else; `snapshot` terminates `Match.orElse` only because `SnapshotDeltaWire` is the genuine residual (no `id`, no `source`), not a masked new variant. `latestWrite` is the polymorphic merge the `runtime`, `health`, and `snapshot` rows share; the `progress` row carries the monotonic-rank merge where a mark below the held rank never regresses the cell. The `runtime` row folds the `PhaseReceiptWire`/`BootMarkerWire`/`FaultRecordWire`/`DrainReceiptWire` union against `csharp:Rasm.AppHost/Runtime/lifecycle#TS_PROJECTION`; the `health` row folds `HealthSnapshotWire`/`DegradationWire`/`AlertReceiptWire` against `csharp:Rasm.AppHost/Observability/health#TS_PROJECTION`, the retained-capability set on the degradation cell gating which web surfaces are reachable; the `snapshot` row folds `SnapshotCatalogRowWire`/`SnapshotDeltaWire`/`RestoreReceiptWire` against `csharp:Rasm.Persistence/Version/snapshots#TS_PROJECTION`; the `progress` row folds `ProgressMarkWire` against `csharp:Rasm.Compute/Runtime/progress#TS_PROJECTION`.

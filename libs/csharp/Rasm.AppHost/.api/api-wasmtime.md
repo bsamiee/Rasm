@@ -2,7 +2,7 @@
 
 `Wasmtime` supplies a P/Invoke binding over the Wasmtime native runtime (`libwasmtime`), exposing engine configuration, module compilation, store lifecycle, instance execution, WASI configuration, linear memory access, function and global definitions, and a linker that resolves imports across instances.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wasmtime`
 - package: `Wasmtime`
@@ -11,22 +11,22 @@
 - asset: runtime library + native `libwasmtime` (`runtimes/<rid>/native/`)
 - rail: sandbox
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime hierarchy — `Wasmtime`
 - rail: sandbox
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]    | [CAPABILITY]                                       |
 | :-----: | :------------------ | :--------------- | :------------------------------------------------- |
-|   [1]   | `Engine`            | disposable class | root runtime engine; owns the JIT/AOT compiler     |
-|   [2]   | `Config`            | disposable class | engine configuration; fluent builder pattern       |
-|   [3]   | `Store`             | disposable class | execution store; owns state and fuel               |
-|   [4]   | `Module`            | disposable class | compiled WebAssembly module                        |
-|   [5]   | `Linker`            | disposable class | resolves imports, instantiates modules             |
-|   [6]   | `Instance`          | class            | one live module instance inside a `Store`          |
-|   [7]   | `Memory`            | class            | linear memory access, implements `IExternal`       |
-|   [8]   | `Global`            | class            | WebAssembly global variable                        |
-|   [9]   | `Function`          | class            | callable WebAssembly function                      |
+|  [01]   | `Engine`            | disposable class | root runtime engine; owns the JIT/AOT compiler     |
+|  [02]   | `Config`            | disposable class | engine configuration; fluent builder pattern       |
+|  [03]   | `Store`             | disposable class | execution store; owns state and fuel               |
+|  [04]   | `Module`            | disposable class | compiled WebAssembly module                        |
+|  [05]   | `Linker`            | disposable class | resolves imports, instantiates modules             |
+|  [06]   | `Instance`          | class            | one live module instance inside a `Store`          |
+|  [07]   | `Memory`            | class            | linear memory access, implements `IExternal`       |
+|  [08]   | `Global`            | class            | WebAssembly global variable                        |
+|  [09]   | `Function`          | class            | callable WebAssembly function                      |
 |  [10]   | `Table`             | class            | WebAssembly function/externref table               |
 |  [11]   | `Caller`            | class            | host-function callback context inside a call frame |
 |  [12]   | `WasiConfiguration` | class            | WASI preview-1 environment configuration           |
@@ -36,47 +36,47 @@
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                                     |
 | :-----: | :----------- | :------------ | :------------------------------------------------------------------------------- |
-|   [1]   | `ValueKind`  | enum (byte)   | `Int32`, `Int64`, `Float32`, `Float64`, `V128`, `FuncRef`, `ExternRef`, `AnyRef` |
-|   [2]   | `Mutability` | enum          | `Const` or `Mutable` global mutability                                           |
-|   [3]   | `Import`     | class         | one module import descriptor                                                     |
-|   [4]   | `Export`     | class         | one module export descriptor                                                     |
-|   [5]   | `TableKind`  | enum          | `FuncRef` or `ExternRef` element kind                                            |
+|  [01]   | `ValueKind`  | enum (byte)   | `Int32`, `Int64`, `Float32`, `Float64`, `V128`, `FuncRef`, `ExternRef`, `AnyRef` |
+|  [02]   | `Mutability` | enum          | `Const` or `Mutable` global mutability                                           |
+|  [03]   | `Import`     | class         | one module import descriptor                                                     |
+|  [04]   | `Export`     | class         | one module export descriptor                                                     |
+|  [05]   | `TableKind`  | enum          | `FuncRef` or `ExternRef` element kind                                            |
 
 [PUBLIC_TYPE_SCOPE]: compiler and profiling — `Wasmtime`
 - rail: sandbox
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                           |
 | :-----: | :------------------ | :------------ | :------------------------------------- |
-|   [1]   | `CompilerStrategy`  | enum          | `Auto`, `Cranelift`, `Winch`, `Pulley` |
-|   [2]   | `OptimizationLevel` | enum          | `None`, `Speed`, `SpeedAndSize`        |
-|   [3]   | `ProfilingStrategy` | enum          | `None`, `JitDump`, `VTune`, `PerfMap`  |
+|  [01]   | `CompilerStrategy`  | enum          | `Auto`, `Cranelift`, `Winch`, `Pulley` |
+|  [02]   | `OptimizationLevel` | enum          | `None`, `Speed`, `SpeedAndSize`        |
+|  [03]   | `ProfilingStrategy` | enum          | `None`, `JitDump`, `VTune`, `PerfMap`  |
 
 [PUBLIC_TYPE_SCOPE]: error handling — `Wasmtime`
 - rail: sandbox
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                  |
 | :-----: | :------------------ | :------------ | :-------------------------------------------- |
-|   [1]   | `TrapException`     | class         | WebAssembly trap, extends `WasmtimeException` |
-|   [2]   | `WasmtimeException` | class         | base exception for all Wasmtime failures      |
-|   [3]   | `TrapCode`          | enum          | trap cause taxonomy                           |
-|   [4]   | `TrapFrame`         | class         | one stack frame from a trap backtrace         |
+|  [01]   | `TrapException`     | class         | WebAssembly trap, extends `WasmtimeException` |
+|  [02]   | `WasmtimeException` | class         | base exception for all Wasmtime failures      |
+|  [03]   | `TrapCode`          | enum          | trap cause taxonomy                           |
+|  [04]   | `TrapFrame`         | class         | one stack frame from a trap backtrace         |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine and configuration construction
 - rail: sandbox
 
 | [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------ | :------------- | :----------------------------------------- |
-|   [1]   | `Engine()`                                        | constructor    | default engine with AOT compilation        |
-|   [2]   | `Engine(Config)`                                  | constructor    | engine from explicit configuration         |
-|   [3]   | `Engine.IncrementEpoch()`                         | lifecycle call | advances epoch counter for interruption    |
-|   [4]   | `Engine.IsPulleyInterpreter`                      | bool property  | true when using Pulley interpreter         |
-|   [5]   | `Config()`                                        | constructor    | default configuration                      |
-|   [6]   | `Config.WithDebugInfo(bool)`                      | fluent builder | enables DWARF debug info in code           |
-|   [7]   | `Config.WithEpochInterruption(bool)`              | fluent builder | enables epoch-based interruption           |
-|   [8]   | `Config.WithFuelConsumption(bool)`                | fluent builder | enables fuel-metered execution             |
-|   [9]   | `Config.WithCompilerStrategy(CompilerStrategy)`   | fluent builder | selects compiler (Cranelift, Pulley, etc.) |
+|  [01]   | `Engine()`                                        | constructor    | default engine with AOT compilation        |
+|  [02]   | `Engine(Config)`                                  | constructor    | engine from explicit configuration         |
+|  [03]   | `Engine.IncrementEpoch()`                         | lifecycle call | advances epoch counter for interruption    |
+|  [04]   | `Engine.IsPulleyInterpreter`                      | bool property  | true when using Pulley interpreter         |
+|  [05]   | `Config()`                                        | constructor    | default configuration                      |
+|  [06]   | `Config.WithDebugInfo(bool)`                      | fluent builder | enables DWARF debug info in code           |
+|  [07]   | `Config.WithEpochInterruption(bool)`              | fluent builder | enables epoch-based interruption           |
+|  [08]   | `Config.WithFuelConsumption(bool)`                | fluent builder | enables fuel-metered execution             |
+|  [09]   | `Config.WithCompilerStrategy(CompilerStrategy)`   | fluent builder | selects compiler (Cranelift, Pulley, etc.) |
 |  [10]   | `Config.WithOptimizationLevel(OptimizationLevel)` | fluent builder | controls Cranelift optimization level      |
 |  [11]   | `Config.WithMaximumStackSize(int)`                | fluent builder | bounds wasm stack depth                    |
 |  [12]   | `Config.WithParallelCompilation(bool)`            | fluent builder | parallelizes module compilation            |
@@ -86,15 +86,15 @@
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]  | [CAPABILITY]                            |
 | :-----: | :---------------------------------------------------------- | :-------------- | :-------------------------------------- |
-|   [1]   | `Module.FromBytes(Engine, string name, ReadOnlySpan<byte>)` | static factory  | compiles from binary wasm bytes         |
-|   [2]   | `Module.FromFile(Engine, string path)`                      | static factory  | compiles from `.wasm` file              |
-|   [3]   | `Module.FromStream(Engine, string name, Stream)`            | static factory  | compiles from stream                    |
-|   [4]   | `Module.FromText(Engine, string name, string text)`         | static factory  | compiles from WAT text                  |
-|   [5]   | `Module.FromTextFile(Engine, string path)`                  | static factory  | compiles from `.wat` file               |
-|   [6]   | `Module.FromTextStream(Engine, string name, Stream)`        | static factory  | compiles from WAT stream                |
-|   [7]   | `Module.Validate(Engine, ReadOnlySpan<byte>)`               | static call     | validates bytes without compiling       |
-|   [8]   | `Module.Name`                                               | string property | module name used at compilation         |
-|   [9]   | `Module.Imports`                                            | list property   | `IReadOnlyList<Import>` descriptor list |
+|  [01]   | `Module.FromBytes(Engine, string name, ReadOnlySpan<byte>)` | static factory  | compiles from binary wasm bytes         |
+|  [02]   | `Module.FromFile(Engine, string path)`                      | static factory  | compiles from `.wasm` file              |
+|  [03]   | `Module.FromStream(Engine, string name, Stream)`            | static factory  | compiles from stream                    |
+|  [04]   | `Module.FromText(Engine, string name, string text)`         | static factory  | compiles from WAT text                  |
+|  [05]   | `Module.FromTextFile(Engine, string path)`                  | static factory  | compiles from `.wat` file               |
+|  [06]   | `Module.FromTextStream(Engine, string name, Stream)`        | static factory  | compiles from WAT stream                |
+|  [07]   | `Module.Validate(Engine, ReadOnlySpan<byte>)`               | static call     | validates bytes without compiling       |
+|  [08]   | `Module.Name`                                               | string property | module name used at compilation         |
+|  [09]   | `Module.Imports`                                            | list property   | `IReadOnlyList<Import>` descriptor list |
 |  [10]   | `Module.Exports`                                            | list property   | `IReadOnlyList<Export>` descriptor list |
 
 [ENTRYPOINT_SCOPE]: store and instantiation
@@ -102,15 +102,15 @@
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CAPABILITY]                          |
 | :-----: | :-------------------------------------------------- | :------------- | :------------------------------------ |
-|   [1]   | `Store(Engine)`                                     | constructor    | store with no host data               |
-|   [2]   | `Store(Engine, object? data)`                       | constructor    | store with arbitrary host data        |
-|   [3]   | `Store.Fuel`                                        | ulong property | remaining fuel (set or read)          |
-|   [4]   | `Store.SetLimits(memorySize?, tableElements?, ...)` | call           | bounds memory, table, instance counts |
-|   [5]   | `Store.SetWasiConfiguration(WasiConfiguration)`     | call           | attaches WASI environment             |
-|   [6]   | `Store.SetEpochDeadline(ulong ticksBeyondCurrent)`  | call           | sets interruption deadline in epochs  |
-|   [7]   | `Store.GetData()`                                   | call           | retrieves host data object            |
-|   [8]   | `Store.GC()`                                        | call           | runs store garbage collection         |
-|   [9]   | `Linker(Engine)`                                    | constructor    | creates linker for the given engine   |
+|  [01]   | `Store(Engine)`                                     | constructor    | store with no host data               |
+|  [02]   | `Store(Engine, object? data)`                       | constructor    | store with arbitrary host data        |
+|  [03]   | `Store.Fuel`                                        | ulong property | remaining fuel (set or read)          |
+|  [04]   | `Store.SetLimits(memorySize?, tableElements?, ...)` | call           | bounds memory, table, instance counts |
+|  [05]   | `Store.SetWasiConfiguration(WasiConfiguration)`     | call           | attaches WASI environment             |
+|  [06]   | `Store.SetEpochDeadline(ulong ticksBeyondCurrent)`  | call           | sets interruption deadline in epochs  |
+|  [07]   | `Store.GetData()`                                   | call           | retrieves host data object            |
+|  [08]   | `Store.GC()`                                        | call           | runs store garbage collection         |
+|  [09]   | `Linker(Engine)`                                    | constructor    | creates linker for the given engine   |
 |  [10]   | `Linker.AllowShadowing`                             | bool property  | permits import re-definition          |
 |  [11]   | `Linker.DefineWasi()`                               | call           | adds WASI preview-1 imports           |
 |  [12]   | `Linker.Define(module, name, Function)`             | call           | registers a host function import      |
@@ -124,29 +124,29 @@
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------- | :------------- | :---------------------------------------- |
-|   [1]   | `Instance(Store, Module, params object[] imports)` | constructor    | instantiates module with explicit imports |
-|   [2]   | `Instance.GetAction(string name)`                  | typed call     | `Action` export with no parameters        |
-|   [3]   | `Instance.GetAction<TA>(string name)`              | typed call     | `Action<TA>` export                       |
-|   [4]   | `Instance.GetFunction<TR>(string name)`            | typed call     | `Func<TR?>` export                        |
-|   [5]   | `Instance.GetFunction<TA, TR>(string name)`        | typed call     | `Func<TA, TR?>` export                    |
+|  [01]   | `Instance(Store, Module, params object[] imports)` | constructor    | instantiates module with explicit imports |
+|  [02]   | `Instance.GetAction(string name)`                  | typed call     | `Action` export with no parameters        |
+|  [03]   | `Instance.GetAction<TA>(string name)`              | typed call     | `Action<TA>` export                       |
+|  [04]   | `Instance.GetFunction<TR>(string name)`            | typed call     | `Func<TR?>` export                        |
+|  [05]   | `Instance.GetFunction<TA, TR>(string name)`        | typed call     | `Func<TA, TR?>` export                    |
 
 [ENTRYPOINT_SCOPE]: WASI configuration
 - rail: sandbox
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                        |
 | :-----: | :------------------------------------------------------ | :------------- | :---------------------------------- |
-|   [1]   | `WasiConfiguration.WithArg(string)`                     | fluent builder | appends one command-line argument   |
-|   [2]   | `WasiConfiguration.WithArgs(IEnumerable<string>)`       | fluent builder | appends multiple arguments          |
-|   [3]   | `WasiConfiguration.WithInheritedArgs()`                 | fluent builder | inherits host process arguments     |
-|   [4]   | `WasiConfiguration.WithEnvironmentVariable(k, v)`       | fluent builder | sets one environment variable       |
-|   [5]   | `WasiConfiguration.WithInheritedEnvironment()`          | fluent builder | inherits host environment           |
-|   [6]   | `WasiConfiguration.WithPreopenedDirectory(host, guest)` | fluent builder | mounts host path at guest WASI path |
-|   [7]   | `WasiConfiguration.WithStandardInput(path)`             | fluent builder | redirects stdin from file           |
-|   [8]   | `WasiConfiguration.WithStandardOutput(path)`            | fluent builder | redirects stdout to file            |
-|   [9]   | `WasiConfiguration.WithInheritedStandardInput()`        | fluent builder | passes host stdin                   |
+|  [01]   | `WasiConfiguration.WithArg(string)`                     | fluent builder | appends one command-line argument   |
+|  [02]   | `WasiConfiguration.WithArgs(IEnumerable<string>)`       | fluent builder | appends multiple arguments          |
+|  [03]   | `WasiConfiguration.WithInheritedArgs()`                 | fluent builder | inherits host process arguments     |
+|  [04]   | `WasiConfiguration.WithEnvironmentVariable(k, v)`       | fluent builder | sets one environment variable       |
+|  [05]   | `WasiConfiguration.WithInheritedEnvironment()`          | fluent builder | inherits host environment           |
+|  [06]   | `WasiConfiguration.WithPreopenedDirectory(host, guest)` | fluent builder | mounts host path at guest WASI path |
+|  [07]   | `WasiConfiguration.WithStandardInput(path)`             | fluent builder | redirects stdin from file           |
+|  [08]   | `WasiConfiguration.WithStandardOutput(path)`            | fluent builder | redirects stdout to file            |
+|  [09]   | `WasiConfiguration.WithInheritedStandardInput()`        | fluent builder | passes host stdin                   |
 |  [10]   | `WasiConfiguration.WithInheritedStandardOutput()`       | fluent builder | passes host stdout                  |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [RUNTIME_TOPOLOGY]:
 - namespace: `Wasmtime` only; 158 types

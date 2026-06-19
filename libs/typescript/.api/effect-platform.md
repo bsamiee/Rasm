@@ -6,7 +6,7 @@ The package re-exports each module as a namespace from the root (`export * as Ht
 
 ---
 
-## [1]-[FETCH_HTTP_CLIENT]
+## [01]-[FETCH_HTTP_CLIENT]
 
 The browser `HttpClient` binding. `layer` requires nothing and produces `HttpClient`.
 
@@ -23,7 +23,7 @@ export declare const layer: Layer.Layer<HttpClient>
 
 `Fetch` and `RequestInit` are optional `Context` overrides (a custom `fetch` impl, or default `globalThis.RequestInit` fields like `credentials`/`mode`); neither is supplied day-one.
 
-## [2]-[HTTP_CLIENT]
+## [02]-[HTTP_CLIENT]
 
 The polymorphic HTTP client surface. `HttpClient` is `HttpClient.With<HttpClientError>` — the error-typed face.
 
@@ -95,7 +95,7 @@ export declare const makeWith: <E2, R2, E, R>(postprocess: HttpClient.Postproces
 export declare const layerMergedContext: <E, R>(effect: Effect.Effect<HttpClient, E, R>) => Layer<HttpClient, E, R>
 ```
 
-## [3]-[HTTP_CLIENT_REQUEST]
+## [03]-[HTTP_CLIENT_REQUEST]
 
 Immutable request value. The `Options.NoBody`/`Options.NoUrl` projections derive off the one `Options` interface.
 
@@ -137,7 +137,7 @@ export declare const options: (url: string | URL, options?: Options.NoUrl) => Ht
 // patch / put / del follow the NoUrl shape
 ```
 
-## [4]-[HTTP_CLIENT_RESPONSE]
+## [04]-[HTTP_CLIENT_RESPONSE]
 
 ```ts
 // @effect/platform/HttpClientResponse
@@ -163,7 +163,7 @@ export declare const filterStatusOk: (self: HttpClientResponse) => Effect.Effect
 export { schemaBodyJson, schemaBodyUrlParams, schemaHeaders } from "./HttpIncomingMessage.js"
 ```
 
-## [5]-[HTTP_CLIENT_ERROR]
+## [05]-[HTTP_CLIENT_ERROR]
 
 The HTTP client fault rail — two `_tag`-discriminated `YieldableError` classes.
 
@@ -195,7 +195,7 @@ export declare class ResponseError extends ResponseError_base<{
 }
 ```
 
-## [6]-[REQUEST_SUPPORT]
+## [06]-[REQUEST_SUPPORT]
 
 ```ts
 // @effect/platform/HttpMethod
@@ -285,7 +285,7 @@ export declare const get: { (self: Cookies, name: string): Option.Option<Cookie>
 export declare const merge: { (self: Cookies, that: Cookies): Cookies /* + curried */ }
 ```
 
-## [7]-[PLATFORM_ERROR]
+## [07]-[PLATFORM_ERROR]
 
 The platform-wide fault rail — two `Schema.TaggedError` classes sharing a `module` literal axis.
 
@@ -315,7 +315,7 @@ export declare const PlatformError: Schema.Union<[typeof BadArgument, typeof Sys
 export declare const TypeIdError: <const TypeId extends symbol, const Tag extends string>(typeId: TypeId, tag: Tag) => new <A extends Record<string, any>>(args: Simplify<A>) => Cause.YieldableError & Record<TypeId, TypeId> & { readonly _tag: Tag } & Readonly<A>
 ```
 
-## [8]-[KEY_VALUE_STORE]
+## [08]-[KEY_VALUE_STORE]
 
 The platform key-value face. `forSchema` derives a typed `SchemaStore` projection off the one store.
 
@@ -360,7 +360,7 @@ export interface SchemaStore<A, R> {
 export declare const layerSchema: <A, I, R>(schema: Schema.Schema<A, I, R>, tagIdentifier: string) => { readonly tag: Context.Tag<SchemaStore<A, R>, SchemaStore<A, R>>; readonly layer: Layer.Layer<SchemaStore<A, R>, never, KeyValueStore> }
 ```
 
-## [9]-[WORKER_POOL]
+## [09]-[WORKER_POOL]
 
 The `DecodeWorkerPool` backing surface: a `PlatformWorker` spawns a `BackingWorker`, a `WorkerManager` lifts it into typed `Worker`s, and `makePool`/`makePoolLayer` build the pool.
 

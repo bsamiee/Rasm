@@ -2,11 +2,11 @@
 
 Rasm.Compute model execution-provider axis: the EP-parameterized provider rows across CPU and the Apple-silicon CoreML row plus the autoEP `OrtEpDevice` hardware-device discovery and policy-delegate selection, the `ModelPrecision` int8/int4 quantization posture folded into the registration rail, and the model-compatibility warm-start probe. The page owns the `ModelKeyPolicy` ordinal accessor, the `ExecutionProvider` `[SmartEnum<string>]` rows with their probe/OS-gate/option-table/device-policy/register columns, the `ModelPrecision` quantization rows, and the `Devices`/`AutoSelect`/`Compatible`/`WarmStartAdmissible`/`Register`/`ResultKey` autoEP discovery and one-polymorphic-register fold; the provider and device surfaces ride `Microsoft.ML.OnnxRuntime`, the option-table hash rides the one `Model/identity#MODEL_IDENTITY` `ModelFingerprint.Of` ordinal-keyvalue projection, the deterministic-cache `ResultKey` reads `System.IO.Hashing`, and the GPU `Cuda`/`DirectMl` member spellings stay the design record. The `ExecutionProvider`/`ModelPrecision` axis crosses to `Model/sessions#SESSION_CAPSULE`, `Model/inference#RESULT_CACHE`, and `Model/generative#GENERATIVE_RUN` as settled vocabulary.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[EP_AXIS]: execution-provider rows with probe, OS gate, option table; autoEP `OrtEpDevice` discovery, policy-delegate selection, and model-compatibility probe; one polymorphic register.
+- [01]-[EP_AXIS]: execution-provider rows with probe, OS gate, option table; autoEP `OrtEpDevice` discovery, policy-delegate selection, and model-compatibility probe; one polymorphic register.
 
-## [2]-[EP_AXIS]
+## [02]-[EP_AXIS]
 
 - Owner: `ModelKeyPolicy` ordinal accessor; `ExecutionProvider` `[SmartEnum<string>]` rows with probe name, OS gate, `ModelPrecision` quantization posture, frozen option table, device policy, hardware-device-type affinity, and register delegate columns; `ModelPrecision` `[SmartEnum<string>]` int8/int4 quantization rows; the `Devices`/`AutoSelect`/`Compatible`/`WarmStartAdmissible`/`Register` autoEP discovery + one-polymorphic-register fold over `OrtEpDevice`.
 - Cases: `ExecutionProvider` rows `Cpu`, `CoreMl`; `ModelPrecision` rows full · int8 · int4.
@@ -116,26 +116,26 @@ The `CoreMlFlag` column binds the package `Microsoft.ML.OnnxRuntime.CoreMLFlags`
 
 | [INDEX] | [FLAG]                                       | [VALUE] |
 | :-----: | :------------------------------------------- | :-----: |
-|   [1]   | `COREML_FLAG_USE_NONE`                       |    0    |
-|   [2]   | `COREML_FLAG_USE_CPU_ONLY`                   |    1    |
-|   [3]   | `COREML_FLAG_ENABLE_ON_SUBGRAPH`             |    2    |
-|   [4]   | `COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE`    |    4    |
-|   [5]   | `COREML_FLAG_ONLY_ALLOW_STATIC_INPUT_SHAPES` |    8    |
-|   [6]   | `COREML_FLAG_CREATE_MLPROGRAM`               |   16    |
-|   [7]   | `COREML_FLAG_USE_CPU_AND_GPU`                |   32    |
+|  [01]   | `COREML_FLAG_USE_NONE`                       |    0    |
+|  [02]   | `COREML_FLAG_USE_CPU_ONLY`                   |    1    |
+|  [03]   | `COREML_FLAG_ENABLE_ON_SUBGRAPH`             |    2    |
+|  [04]   | `COREML_FLAG_ONLY_ENABLE_DEVICE_WITH_ANE`    |    4    |
+|  [05]   | `COREML_FLAG_ONLY_ALLOW_STATIC_INPUT_SHAPES` |    8    |
+|  [06]   | `COREML_FLAG_CREATE_MLPROGRAM`               |   16    |
+|  [07]   | `COREML_FLAG_USE_CPU_AND_GPU`                |   32    |
 
 The `OrtEpDevice` autoEP descriptor (enumerated through `OrtEnv.GetEpDevices()`) carries the columns the `Devices`/`AutoSelect` fold reads:
 
 | [INDEX] | [MEMBER]                       | [CARRIES]                                                                                      |
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------- |
-|   [1]   | `OrtEpDevice.EpName`           | provider name keyed against the `ExecutionProvider` row                                        |
-|   [2]   | `OrtEpDevice.EpVendor`         | EP vendor string                                                                               |
-|   [3]   | `OrtEpDevice.HardwareDevice`   | `OrtHardwareDevice` — `Type` (`CPU`/`GPU`/`NPU`), `VendorId`, `DeviceId`, `Vendor`, `Metadata` |
-|   [4]   | `OrtEpDevice.EpMetadata`       | `OrtKeyValuePairs` EP self-description                                                         |
-|   [5]   | `OrtEpDevice.EpOptions`        | `OrtKeyValuePairs` default EP option set                                                       |
-|   [6]   | `OrtEpDevice.GetMemoryInfo`    | `OrtMemoryInfo` for the device's default allocation                                            |
-|   [7]   | `OrtEpDevice.CreateSyncStream` | `OrtSyncStream` tying a device-stream lifetime to the device                                   |
+|  [01]   | `OrtEpDevice.EpName`           | provider name keyed against the `ExecutionProvider` row                                        |
+|  [02]   | `OrtEpDevice.EpVendor`         | EP vendor string                                                                               |
+|  [03]   | `OrtEpDevice.HardwareDevice`   | `OrtHardwareDevice` — `Type` (`CPU`/`GPU`/`NPU`), `VendorId`, `DeviceId`, `Vendor`, `Metadata` |
+|  [04]   | `OrtEpDevice.EpMetadata`       | `OrtKeyValuePairs` EP self-description                                                         |
+|  [05]   | `OrtEpDevice.EpOptions`        | `OrtKeyValuePairs` default EP option set                                                       |
+|  [06]   | `OrtEpDevice.GetMemoryInfo`    | `OrtMemoryInfo` for the device's default allocation                                            |
+|  [07]   | `OrtEpDevice.CreateSyncStream` | `OrtSyncStream` tying a device-stream lifetime to the device                                   |
 
-## [3]-[RESEARCH]
+## [03]-[RESEARCH]
 
 - [EP_EXECUTION]: the `Cuda`/`DirectMl` GPU registration members `AppendExecutionProvider_CUDA(int)`/`AppendExecutionProvider_DML(int)` (device id `0`) stay the win/linux-x64 design record, re-entering as one `ExecutionProvider` row each only on a host whose RID carries the GPU EP asset; the live axis is the `Cpu` and `CoreMl` rows enumerated through `OrtEnv.GetEpDevices()` as `OrtEpDevice` rows. The open leaf is the GPU device registration and the `GetModelCompatibilityForEpDevices` warm-start verdict against live GPU hardware.

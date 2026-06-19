@@ -2,7 +2,7 @@
 
 `System.Reactive` supplies observable streams, subjects, schedulers, disposables, notifications, event conversion, joins, and query operators.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Reactive`
 - package: `System.Reactive`
@@ -16,88 +16,88 @@
 - asset: runtime library
 - rail: streams
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [STREAM_TYPES]: observable and observer contracts — rail: streams
 
 | [INDEX] | [SYMBOL]                   | [KIND]             |
 | :-----: | :------------------------- | :----------------- |
-|   [1]   | `IObservable<T>`           | stream contract    |
-|   [2]   | `IObserver<T>`             | observer contract  |
-|   [3]   | `ObservableBase<T>`        | observable base    |
-|   [4]   | `Observer`                 | observer factory   |
-|   [5]   | `Notification<T>`          | notification value |
-|   [6]   | `EventPattern<TEventArgs>` | event value        |
-|   [7]   | `Timestamped<T>`           | timestamp value    |
-|   [8]   | `TimeInterval<T>`          | interval value     |
+|  [01]   | `IObservable<T>`           | stream contract    |
+|  [02]   | `IObserver<T>`             | observer contract  |
+|  [03]   | `ObservableBase<T>`        | observable base    |
+|  [04]   | `Observer`                 | observer factory   |
+|  [05]   | `Notification<T>`          | notification value |
+|  [06]   | `EventPattern<TEventArgs>` | event value        |
+|  [07]   | `Timestamped<T>`           | timestamp value    |
+|  [08]   | `TimeInterval<T>`          | interval value     |
 
 [SUBJECT_TYPES]: subject and connection surfaces — rail: streams
 
 | [INDEX] | [SYMBOL]                    | [KIND]             |
 | :-----: | :-------------------------- | :----------------- |
-|   [1]   | `Subject<T>`                | multicast subject  |
-|   [2]   | `BehaviorSubject<T>`        | current value      |
-|   [3]   | `ReplaySubject<T>`          | replay buffer      |
-|   [4]   | `AsyncSubject<T>`           | terminal value     |
-|   [5]   | `ISubject<T>`               | subject contract   |
-|   [6]   | `IConnectableObservable<T>` | connectable stream |
+|  [01]   | `Subject<T>`                | multicast subject  |
+|  [02]   | `BehaviorSubject<T>`        | current value      |
+|  [03]   | `ReplaySubject<T>`          | replay buffer      |
+|  [04]   | `AsyncSubject<T>`           | terminal value     |
+|  [05]   | `ISubject<T>`               | subject contract   |
+|  [06]   | `IConnectableObservable<T>` | connectable stream |
 
 [SCHEDULER_TYPES]: scheduler and timing surfaces — rail: streams
 
 | [INDEX] | [SYMBOL]                                    | [KIND]            |
 | :-----: | :------------------------------------------ | :---------------- |
-|   [1]   | `IScheduler`                                | schedule contract |
-|   [2]   | `Scheduler`                                 | schedule factory  |
-|   [3]   | `CurrentThreadScheduler`                    | current thread    |
-|   [4]   | `EventLoopScheduler`                        | event loop        |
-|   [5]   | `TaskPoolScheduler`                         | task pool         |
-|   [6]   | `ThreadPoolScheduler`                       | thread pool       |
-|   [7]   | `SynchronizationContextScheduler`           | UI context        |
-|   [8]   | `VirtualTimeScheduler<TAbsolute,TRelative>` | virtual time      |
+|  [01]   | `IScheduler`                                | schedule contract |
+|  [02]   | `Scheduler`                                 | schedule factory  |
+|  [03]   | `CurrentThreadScheduler`                    | current thread    |
+|  [04]   | `EventLoopScheduler`                        | event loop        |
+|  [05]   | `TaskPoolScheduler`                         | task pool         |
+|  [06]   | `ThreadPoolScheduler`                       | thread pool       |
+|  [07]   | `SynchronizationContextScheduler`           | UI context        |
+|  [08]   | `VirtualTimeScheduler<TAbsolute,TRelative>` | virtual time      |
 
 [DISPOSABLE_TYPES]: lifecycle ownership — rail: streams
 
 | [INDEX] | [SYMBOL]                       | [KIND]              |
 | :-----: | :----------------------------- | :------------------ |
-|   [1]   | `CompositeDisposable`          | grouped disposal    |
-|   [2]   | `SerialDisposable`             | replaceable slot    |
-|   [3]   | `SingleAssignmentDisposable`   | one assignment      |
-|   [4]   | `MultipleAssignmentDisposable` | multiple assignment |
-|   [5]   | `RefCountDisposable`           | shared disposal     |
-|   [6]   | `CancellationDisposable`       | token disposal      |
-|   [7]   | `Disposable`                   | disposable factory  |
+|  [01]   | `CompositeDisposable`          | grouped disposal    |
+|  [02]   | `SerialDisposable`             | replaceable slot    |
+|  [03]   | `SingleAssignmentDisposable`   | one assignment      |
+|  [04]   | `MultipleAssignmentDisposable` | multiple assignment |
+|  [05]   | `RefCountDisposable`           | shared disposal     |
+|  [06]   | `CancellationDisposable`       | token disposal      |
+|  [07]   | `Disposable`                   | disposable factory  |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [FACTORY_ENTRYPOINTS]: observable and observer creation
 - rail: streams
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]             |
 | :-----: | :----------------- | :------------- | :----------------- |
-|   [1]   | `Create`           | `Observable`   | stream factory     |
-|   [2]   | `Defer`            | `Observable`   | lazy stream        |
-|   [3]   | `Return`           | `Observable`   | scalar stream      |
-|   [4]   | `Empty`            | `Observable`   | empty stream       |
-|   [5]   | `Never`            | `Observable`   | nonterminal stream |
-|   [6]   | `FromEventPattern` | `Observable`   | event stream       |
-|   [7]   | `Interval`         | `Observable`   | interval stream    |
-|   [8]   | `Timer`            | `Observable`   | timer stream       |
-|   [9]   | `Create`           | `Observer`     | observer factory   |
+|  [01]   | `Create`           | `Observable`   | stream factory     |
+|  [02]   | `Defer`            | `Observable`   | lazy stream        |
+|  [03]   | `Return`           | `Observable`   | scalar stream      |
+|  [04]   | `Empty`            | `Observable`   | empty stream       |
+|  [05]   | `Never`            | `Observable`   | nonterminal stream |
+|  [06]   | `FromEventPattern` | `Observable`   | event stream       |
+|  [07]   | `Interval`         | `Observable`   | interval stream    |
+|  [08]   | `Timer`            | `Observable`   | timer stream       |
+|  [09]   | `Create`           | `Observer`     | observer factory   |
 
 [QUERY_ENTRYPOINTS]: stream projection and composition
 - rail: streams
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT] | [RAIL]         |
 | :-----: | :--------------------- | :------------- | :------------- |
-|   [1]   | `Select`               | `Observable`   | projection     |
-|   [2]   | `Where`                | `Observable`   | filter         |
-|   [3]   | `SelectMany`           | `Observable`   | flatten        |
-|   [4]   | `Merge`                | `Observable`   | merge streams  |
-|   [5]   | `Switch`               | `Observable`   | latest stream  |
-|   [6]   | `CombineLatest`        | `Observable`   | combine state  |
-|   [7]   | `DistinctUntilChanged` | `Observable`   | distinct state |
-|   [8]   | `StartWith`            | `Observable`   | seed stream    |
-|   [9]   | `Throttle`             | `Observable`   | rate limit     |
+|  [01]   | `Select`               | `Observable`   | projection     |
+|  [02]   | `Where`                | `Observable`   | filter         |
+|  [03]   | `SelectMany`           | `Observable`   | flatten        |
+|  [04]   | `Merge`                | `Observable`   | merge streams  |
+|  [05]   | `Switch`               | `Observable`   | latest stream  |
+|  [06]   | `CombineLatest`        | `Observable`   | combine state  |
+|  [07]   | `DistinctUntilChanged` | `Observable`   | distinct state |
+|  [08]   | `StartWith`            | `Observable`   | seed stream    |
+|  [09]   | `Throttle`             | `Observable`   | rate limit     |
 |  [10]   | `TakeUntil`            | `Observable`   | lifecycle stop |
 
 [SCHEDULING_AND_ERROR_ENTRYPOINTS]: scheduling and fault operations
@@ -105,16 +105,16 @@
 
 | [INDEX] | [SURFACE]     | [SURFACE_ROOT]         | [RAIL]                |
 | :-----: | :------------ | :--------------------- | :-------------------- |
-|   [1]   | `ObserveOn`   | `Observable`           | observer schedule     |
-|   [2]   | `SubscribeOn` | `Observable`           | subscription schedule |
-|   [3]   | `Catch`       | `Observable`           | error recovery        |
-|   [4]   | `Retry`       | `Observable`           | retry policy          |
-|   [5]   | `Finally`     | `Observable`           | termination hook      |
-|   [6]   | `Using`       | `Observable`           | resource scope        |
-|   [7]   | `Subscribe`   | `ObservableExtensions` | subscription          |
-|   [8]   | `DisposeWith` | `DisposableMixins`     | lifecycle ownership   |
+|  [01]   | `ObserveOn`   | `Observable`           | observer schedule     |
+|  [02]   | `SubscribeOn` | `Observable`           | subscription schedule |
+|  [03]   | `Catch`       | `Observable`           | error recovery        |
+|  [04]   | `Retry`       | `Observable`           | retry policy          |
+|  [05]   | `Finally`     | `Observable`           | termination hook      |
+|  [06]   | `Using`       | `Observable`           | resource scope        |
+|  [07]   | `Subscribe`   | `ObservableExtensions` | subscription          |
+|  [08]   | `DisposeWith` | `DisposableMixins`     | lifecycle ownership   |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STREAM_LAW]:
 - Package: `System.Reactive`

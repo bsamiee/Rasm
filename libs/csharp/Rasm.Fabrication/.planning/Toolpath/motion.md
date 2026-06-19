@@ -4,11 +4,11 @@ The CAM-motion owner: the toolpath motion kernel one `Cam` static fold dispatche
 
 Wire posture: HOST-LOCAL. The `Motion` toolpath/joint stream crosses only the in-process seam to the `Posting/program#CUT_PROGRAM` emitter — never a browser or peer wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[CAM_MOTION]: owns the `ToolpathKind` contour/pocket/drill/trochoidal move generators over the Geometry2D offset and the `Cam` fold driving each move target through the serial-chain IK; one motion owner over the kind axis.
+- [01]-[CAM_MOTION]: owns the `ToolpathKind` contour/pocket/drill/trochoidal move generators over the Geometry2D offset and the `Cam` fold driving each move target through the serial-chain IK; one motion owner over the kind axis.
 
-## [2]-[CAM_MOTION]
+## [02]-[CAM_MOTION]
 
 - Owner: `ToolpathKind` `[SmartEnum<string>]` the toolpath strategy axis (`contour`/`pocket`/`drill`/`trochoidal`/`turn-rough`/`turn-finish`/`face`/`groove`/`thread`/`thermal-contour`/`slice-layer`), the per-kind move-generation behavior carried by the `Generate` generated total `Switch` arm rather than a parallel behavior flag the dispatch re-derives; `Cam` the static motion fold over the `(Process, ToolpathKind)` pair generating the cut moves, then driving each chain-targeting move through the FK/IK chain and emitting the `Motion` joint stream.
 - Cases: `ToolpathKind` rows `contour` (constant-offset boundary passes via Geometry2D `Offset`) · `pocket` (inward continuous spiral via repeated Geometry2D `Offset` rings) · `drill` (peck-cycle point set) · `trochoidal` (adaptive-clearing HEM over the straight-skeleton medial axis, constant MRR and radial engagement) · `turn-rough`/`turn-finish` (a 1-axis radial sweep over the `BarStock` revolved envelope, the cut profile a Z-vs-radius pass) · `face` (an end-facing radial sweep to a target Z) · `groove` (a plunge-and-dwell radial cut) · `thread` (a constant-lead helical sweep) · `thermal-contour` (the laser/plasma/waterjet contour generator, the same Geometry2D contour offset as milling, the pierce/lead conditioned at posting) · `slice-layer` (the additive perimeter-and-infill move set walking the `Toolpath/slicing#SLICING` layer contour) (11).

@@ -2,7 +2,7 @@
 
 `obstore` supplies a unified object-storage interface over S3, GCS, Azure Blob, HTTP, and local/memory stores via Rust-backed store classes (`S3Store`, `GCSStore`, `AzureStore`, `HTTPStore`, `LocalStore`, `MemoryStore`) and module-level sync/async dispatch functions (`get`, `put`, `head`, `delete`, `list`, `copy`, `rename`, `sign`, `get_range`, `get_ranges`, `list_with_delimiter`, `open_reader`, `open_writer`), with an Arrow-native listing path and a typed exception hierarchy.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `obstore`
 - package: `obstore`
@@ -11,20 +11,20 @@
 - rail: object-storage
 - namespaces: `obstore`, `obstore.store`, `obstore.exceptions`
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: store classes
 - rail: object-storage
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                 |
 | :-----: | :------------------------- | :------------ | :------------------------------------- |
-|   [1]   | `store.S3Store`            | store         | AWS S3 / S3-compatible                 |
-|   [2]   | `store.GCSStore`           | store         | Google Cloud Storage                   |
-|   [3]   | `store.AzureStore`         | store         | Azure Blob Storage                     |
-|   [4]   | `store.HTTPStore`          | store         | generic HTTP object store              |
-|   [5]   | `store.LocalStore`         | store         | local filesystem                       |
-|   [6]   | `store.MemoryStore`        | store         | in-process volatile memory store       |
-|   [7]   | `store.ObjectStoreMethods` | protocol      | structural protocol all stores satisfy |
+|  [01]   | `store.S3Store`            | store         | AWS S3 / S3-compatible                 |
+|  [02]   | `store.GCSStore`           | store         | Google Cloud Storage                   |
+|  [03]   | `store.AzureStore`         | store         | Azure Blob Storage                     |
+|  [04]   | `store.HTTPStore`          | store         | generic HTTP object store              |
+|  [05]   | `store.LocalStore`         | store         | local filesystem                       |
+|  [06]   | `store.MemoryStore`        | store         | in-process volatile memory store       |
+|  [07]   | `store.ObjectStoreMethods` | protocol      | structural protocol all stores satisfy |
 
 [PUBLIC_TYPE_SCOPE]: result and data types
 - rail: object-storage
@@ -32,31 +32,31 @@
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                                                                                  |
 | :-----: | :----------- | :------------ | :-------------------------------------------------------------------------------------- |
-|   [1]   | `Bytes`      | buffer        | zero-copy bytes wrapper with `to_bytes()` method                                        |
-|   [2]   | `GetResult`  | result        | streamed get result; `.meta`, `.range`, `.attributes`, `.bytes()`, `.stream`, `.buffer` |
-|   [3]   | `ObjectMeta` | dict          | `path`, `last_modified`, `size`, `e_tag`, `version`                                     |
-|   [4]   | `PutResult`  | dict          | `e_tag`, `version`                                                                      |
-|   [5]   | `ListResult` | dict          | `common_prefixes`, `objects`                                                            |
+|  [01]   | `Bytes`      | buffer        | zero-copy bytes wrapper with `to_bytes()` method                                        |
+|  [02]   | `GetResult`  | result        | streamed get result; `.meta`, `.range`, `.attributes`, `.bytes()`, `.stream`, `.buffer` |
+|  [03]   | `ObjectMeta` | dict          | `path`, `last_modified`, `size`, `e_tag`, `version`                                     |
+|  [04]   | `PutResult`  | dict          | `e_tag`, `version`                                                                      |
+|  [05]   | `ListResult` | dict          | `common_prefixes`, `objects`                                                            |
 
 [PUBLIC_TYPE_SCOPE]: exceptions family
 - rail: object-storage
 
 | [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [RAIL]                                |
 | :-----: | :---------------------------------------- | :------------- | :------------------------------------ |
-|   [1]   | `exceptions.BaseError`                    | base exception | all obstore errors                    |
-|   [2]   | `exceptions.NotFoundError`                | exception      | path not found                        |
-|   [3]   | `exceptions.AlreadyExistsError`           | exception      | path collision on exclusive write     |
-|   [4]   | `exceptions.PermissionDeniedError`        | exception      | access denied                         |
-|   [5]   | `exceptions.UnauthenticatedError`         | exception      | missing or invalid credentials        |
-|   [6]   | `exceptions.PreconditionError`            | exception      | conditional write failed              |
-|   [7]   | `exceptions.NotModifiedError`             | exception      | conditional get returned not-modified |
-|   [8]   | `exceptions.NotSupportedError`            | exception      | operation not supported by backend    |
-|   [9]   | `exceptions.InvalidPathError`             | exception      | invalid object path                   |
+|  [01]   | `exceptions.BaseError`                    | base exception | all obstore errors                    |
+|  [02]   | `exceptions.NotFoundError`                | exception      | path not found                        |
+|  [03]   | `exceptions.AlreadyExistsError`           | exception      | path collision on exclusive write     |
+|  [04]   | `exceptions.PermissionDeniedError`        | exception      | access denied                         |
+|  [05]   | `exceptions.UnauthenticatedError`         | exception      | missing or invalid credentials        |
+|  [06]   | `exceptions.PreconditionError`            | exception      | conditional write failed              |
+|  [07]   | `exceptions.NotModifiedError`             | exception      | conditional get returned not-modified |
+|  [08]   | `exceptions.NotSupportedError`            | exception      | operation not supported by backend    |
+|  [09]   | `exceptions.InvalidPathError`             | exception      | invalid object path                   |
 |  [10]   | `exceptions.UnknownConfigurationKeyError` | exception      | unknown config key at construction    |
 |  [11]   | `exceptions.GenericError`                 | exception      | unclassified backend error            |
 |  [12]   | `exceptions.JoinError`                    | exception      | async task join failure               |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: object operations (sync and async)
 - rail: object-storage
@@ -64,45 +64,45 @@
 
 | [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]   | [RAIL]                                |
 | :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------ |
-|   [1]   | `get(store, path, *, options=None) -> GetResult`                                                             | object read      | fetch object; stream or buffer result |
-|   [2]   | `put(store, path, file, *, attributes, tags, mode, use_multipart, chunk_size, max_concurrency) -> PutResult` | object write     | upload object                         |
-|   [3]   | `head(store, path) -> ObjectMeta`                                                                            | metadata read    | fetch object metadata dict            |
-|   [4]   | `delete(store, paths) -> None`                                                                               | object delete    | delete one or multiple paths          |
-|   [5]   | `copy(store, from_, to, *, overwrite=True) -> None`                                                          | object copy      | server-side copy                      |
-|   [6]   | `rename(store, from_, to, *, overwrite=True) -> None`                                                        | object move      | server-side rename/move               |
-|   [7]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read byte range from object           |
-|   [8]   | `get_ranges(store, path, *, starts, ends=None, lengths=None, coalesce) -> list[Bytes]`                       | multi-range read | read multiple byte ranges             |
-|   [9]   | `sign(store, method, paths, expires_in)`                                                                     | presign          | generate presigned URL(s)             |
+|  [01]   | `get(store, path, *, options=None) -> GetResult`                                                             | object read      | fetch object; stream or buffer result |
+|  [02]   | `put(store, path, file, *, attributes, tags, mode, use_multipart, chunk_size, max_concurrency) -> PutResult` | object write     | upload object                         |
+|  [03]   | `head(store, path) -> ObjectMeta`                                                                            | metadata read    | fetch object metadata dict            |
+|  [04]   | `delete(store, paths) -> None`                                                                               | object delete    | delete one or multiple paths          |
+|  [05]   | `copy(store, from_, to, *, overwrite=True) -> None`                                                          | object copy      | server-side copy                      |
+|  [06]   | `rename(store, from_, to, *, overwrite=True) -> None`                                                        | object move      | server-side rename/move               |
+|  [07]   | `get_range(store, path, *, start, end=None, length=None) -> Bytes`                                           | partial read     | read byte range from object           |
+|  [08]   | `get_ranges(store, path, *, starts, ends=None, lengths=None, coalesce) -> list[Bytes]`                       | multi-range read | read multiple byte ranges             |
+|  [09]   | `sign(store, method, paths, expires_in)`                                                                     | presign          | generate presigned URL(s)             |
 
 [ENTRYPOINT_SCOPE]: listing operations
 - rail: object-storage
 
 | [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                      |
 | :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------------------ |
-|   [1]   | `list(store, prefix=None, *, offset=None, chunk_size=50, return_arrow=False)`  | list stream    | chunked listing; Arrow or ObjectMeta stream |
-|   [2]   | `list_with_delimiter(store, prefix=None, *, return_arrow=False) -> ListResult` | delimited list | returns `common_prefixes` + `objects`       |
+|  [01]   | `list(store, prefix=None, *, offset=None, chunk_size=50, return_arrow=False)`  | list stream    | chunked listing; Arrow or ObjectMeta stream |
+|  [02]   | `list_with_delimiter(store, prefix=None, *, return_arrow=False) -> ListResult` | delimited list | returns `common_prefixes` + `objects`       |
 
 [ENTRYPOINT_SCOPE]: streaming IO
 - rail: object-storage
 
 | [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                      |
 | :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------------- |
-|   [1]   | `open_reader(store, path, *, buffer_size=..., size=None)`                            | reader         | async/sync streaming reader |
-|   [2]   | `open_writer(store, path, *, attributes, buffer_size=..., tags, max_concurrency=12)` | writer         | async/sync streaming writer |
+|  [01]   | `open_reader(store, path, *, buffer_size=..., size=None)`                            | reader         | async/sync streaming reader |
+|  [02]   | `open_writer(store, path, *, attributes, buffer_size=..., tags, max_concurrency=12)` | writer         | async/sync streaming writer |
 
 [ENTRYPOINT_SCOPE]: store construction
 - rail: object-storage
 
 | [INDEX] | [SURFACE]                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                        |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
-|   [1]   | `store.from_url(url, *, config=None, client_options=None, retry_config=None, credential_provider=None, **kwargs) -> ObjectStore` | URL factory    | dispatch store by URL scheme  |
-|   [2]   | `store.S3Store.from_url(url, *, config, client_options, retry_config, credential_provider, **kwargs)`                            | class factory  | construct S3 store from URL   |
-|   [3]   | `store.GCSStore.from_url(url, ...)` / `store.AzureStore.from_url(url, ...)`                                                      | class factory  | per-provider URL construction |
-|   [4]   | `store.HTTPStore.from_url(url, *, client_options, retry_config)`                                                                 | class factory  | HTTP store from base URL      |
-|   [5]   | `store.LocalStore.from_url(url, *, automatic_cleanup=False, mkdir=False)`                                                        | class factory  | local store from file:// URL  |
-|   [6]   | `parse_scheme(url) -> str`                                                                                                       | utility        | extract URL scheme string     |
+|  [01]   | `store.from_url(url, *, config=None, client_options=None, retry_config=None, credential_provider=None, **kwargs) -> ObjectStore` | URL factory    | dispatch store by URL scheme  |
+|  [02]   | `store.S3Store.from_url(url, *, config, client_options, retry_config, credential_provider, **kwargs)`                            | class factory  | construct S3 store from URL   |
+|  [03]   | `store.GCSStore.from_url(url, ...)` / `store.AzureStore.from_url(url, ...)`                                                      | class factory  | per-provider URL construction |
+|  [04]   | `store.HTTPStore.from_url(url, *, client_options, retry_config)`                                                                 | class factory  | HTTP store from base URL      |
+|  [05]   | `store.LocalStore.from_url(url, *, automatic_cleanup=False, mkdir=False)`                                                        | class factory  | local store from file:// URL  |
+|  [06]   | `parse_scheme(url) -> str`                                                                                                       | utility        | extract URL scheme string     |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [STORAGE_TOPOLOGY]:
 - `ObjectStore` type alias: `S3Store | GCSStore | HTTPStore | AzureStore | LocalStore | MemoryStore`

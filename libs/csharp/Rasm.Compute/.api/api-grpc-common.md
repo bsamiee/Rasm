@@ -2,7 +2,7 @@
 
 `Grpc.Net.Common` supplies the shared gRPC compression-provider contracts and connectivity vocabulary, and `Grpc.Core.Api` supplies the base gRPC API surface the AppHost `ControlService` consumes: server call context, streaming writers, and call metadata. This catalogue covers both base packages that sit under the `Grpc.Net.Client` and `Grpc.AspNetCore` rails.
 
-## [1]-[PACKAGE_SURFACE]
+## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Common`
 - package: `Grpc.Net.Common`
@@ -18,57 +18,57 @@
 - asset: runtime library
 - rail: remote-server
 
-## [2]-[PUBLIC_TYPES]
+## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `Grpc.Net.Common` compression and connectivity contracts
 - rail: remote-wire
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]       | [CAPABILITY]                                   |
 | :-----: | :---------------------------- | :------------------- | :--------------------------------------------- |
-|   [1]   | `ICompressionProvider`        | compression contract | declares an encoding stream pair               |
-|   [2]   | `GzipCompressionProvider`     | gzip provider        | compresses gRPC payloads as gzip               |
-|   [3]   | `DeflateCompressionProvider`  | deflate provider     | compresses gRPC payloads as deflate            |
-|   [4]   | `AsyncStreamReaderExtensions` | reader extension     | reads a stream reader as `IAsyncEnumerable<T>` |
-|   [5]   | `ConnectivityState`           | channel-state enum   | reports channel connectivity                   |
+|  [01]   | `ICompressionProvider`        | compression contract | declares an encoding stream pair               |
+|  [02]   | `GzipCompressionProvider`     | gzip provider        | compresses gRPC payloads as gzip               |
+|  [03]   | `DeflateCompressionProvider`  | deflate provider     | compresses gRPC payloads as deflate            |
+|  [04]   | `AsyncStreamReaderExtensions` | reader extension     | reads a stream reader as `IAsyncEnumerable<T>` |
+|  [05]   | `ConnectivityState`           | channel-state enum   | reports channel connectivity                   |
 
 [PUBLIC_TYPE_SCOPE]: `Grpc.Core.Api` server-call and metadata contracts
 - rail: remote-server
 
 | [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]       | [CAPABILITY]                           |
 | :-----: | :----------------------- | :------------------- | :------------------------------------- |
-|   [1]   | `ServerCallContext`      | server call context  | exposes per-call server state          |
-|   [2]   | `IServerStreamWriter<T>` | server stream writer | writes a server-streaming response     |
-|   [3]   | `IAsyncStreamWriter<T>`  | async stream writer  | base write contract for stream writers |
-|   [4]   | `Metadata`               | call metadata        | carries request and trailing headers   |
-|   [5]   | `Metadata.Entry`         | metadata entry       | one ASCII or binary header pair        |
+|  [01]   | `ServerCallContext`      | server call context  | exposes per-call server state          |
+|  [02]   | `IServerStreamWriter<T>` | server stream writer | writes a server-streaming response     |
+|  [03]   | `IAsyncStreamWriter<T>`  | async stream writer  | base write contract for stream writers |
+|  [04]   | `Metadata`               | call metadata        | carries request and trailing headers   |
+|  [05]   | `Metadata.Entry`         | metadata entry       | one ASCII or binary header pair        |
 
-## [3]-[ENTRYPOINTS]
+## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compression-provider members
 - rail: remote-wire
 
 | [INDEX] | [SURFACE]                                        | [CALL_SHAPE]      | [CAPABILITY]                     |
 | :-----: | :----------------------------------------------- | :---------------- | :------------------------------- |
-|   [1]   | `ICompressionProvider.EncodingName`              | contract property | reports the `grpc-encoding` name |
-|   [2]   | `ICompressionProvider.CreateCompressionStream`   | contract method   | wraps a stream for compression   |
-|   [3]   | `ICompressionProvider.CreateDecompressionStream` | contract method   | wraps a stream for decompression |
-|   [4]   | `GzipCompressionProvider(CompressionLevel)`      | constructor       | sets the default gzip level      |
-|   [5]   | `DeflateCompressionProvider(CompressionLevel)`   | constructor       | sets the default deflate level   |
-|   [6]   | `AsyncStreamReaderExtensions.ReadAllAsync<T>`    | extension method  | enumerates the reader's messages |
+|  [01]   | `ICompressionProvider.EncodingName`              | contract property | reports the `grpc-encoding` name |
+|  [02]   | `ICompressionProvider.CreateCompressionStream`   | contract method   | wraps a stream for compression   |
+|  [03]   | `ICompressionProvider.CreateDecompressionStream` | contract method   | wraps a stream for decompression |
+|  [04]   | `GzipCompressionProvider(CompressionLevel)`      | constructor       | sets the default gzip level      |
+|  [05]   | `DeflateCompressionProvider(CompressionLevel)`   | constructor       | sets the default deflate level   |
+|  [06]   | `AsyncStreamReaderExtensions.ReadAllAsync<T>`    | extension method  | enumerates the reader's messages |
 
 [ENTRYPOINT_SCOPE]: server-call and metadata members
 - rail: remote-server
 
 | [INDEX] | [SURFACE]                                     | [CALL_SHAPE]     | [CAPABILITY]                        |
 | :-----: | :-------------------------------------------- | :--------------- | :---------------------------------- |
-|   [1]   | `ServerCallContext.RequestHeaders`            | context property | reads inbound request `Metadata`    |
-|   [2]   | `ServerCallContext.ResponseTrailers`          | context property | writes outbound trailing `Metadata` |
-|   [3]   | `ServerCallContext.CancellationToken`         | context property | observes call cancellation          |
-|   [4]   | `ServerCallContext.WriteResponseHeadersAsync` | context call     | flushes response headers            |
-|   [5]   | `IServerStreamWriter<T>.WriteAsync`           | stream write     | emits one server-streaming message  |
-|   [6]   | `IAsyncStreamWriter<T>.WriteOptions`          | writer property  | sets per-write flags                |
-|   [7]   | `Metadata.Add`                                | metadata write   | appends an ASCII or binary header   |
-|   [8]   | `Metadata.Get` / `GetValue` / `GetAll`        | metadata read    | reads a header by key               |
+|  [01]   | `ServerCallContext.RequestHeaders`            | context property | reads inbound request `Metadata`    |
+|  [02]   | `ServerCallContext.ResponseTrailers`          | context property | writes outbound trailing `Metadata` |
+|  [03]   | `ServerCallContext.CancellationToken`         | context property | observes call cancellation          |
+|  [04]   | `ServerCallContext.WriteResponseHeadersAsync` | context call     | flushes response headers            |
+|  [05]   | `IServerStreamWriter<T>.WriteAsync`           | stream write     | emits one server-streaming message  |
+|  [06]   | `IAsyncStreamWriter<T>.WriteOptions`          | writer property  | sets per-write flags                |
+|  [07]   | `Metadata.Add`                                | metadata write   | appends an ASCII or binary header   |
+|  [08]   | `Metadata.Get` / `GetValue` / `GetAll`        | metadata read    | reads a header by key               |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Common` decompile-verified members
 - source: `Grpc.Net.Common` 2.80.0 decompile
@@ -76,15 +76,15 @@
 
 | [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                                                                                          |
 | :-----: | :-------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `ICompressionProvider.EncodingName`                 | `string EncodingName { get; }`                                                                                                       |
-|   [2]   | `ICompressionProvider.CreateCompressionStream`      | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
-|   [3]   | `ICompressionProvider.CreateDecompressionStream`    | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
-|   [4]   | `GzipCompressionProvider.ctor`                      | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                                  |
-|   [5]   | `GzipCompressionProvider.EncodingName`              | `string EncodingName => "gzip"`                                                                                                      |
-|   [6]   | `GzipCompressionProvider.CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
-|   [7]   | `GzipCompressionProvider.CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
-|   [8]   | `DeflateCompressionProvider.ctor`                   | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                               |
-|   [9]   | `DeflateCompressionProvider.EncodingName`           | `string EncodingName => "deflate"`                                                                                                   |
+|  [01]   | `ICompressionProvider.EncodingName`                 | `string EncodingName { get; }`                                                                                                       |
+|  [02]   | `ICompressionProvider.CreateCompressionStream`      | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
+|  [03]   | `ICompressionProvider.CreateDecompressionStream`    | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
+|  [04]   | `GzipCompressionProvider.ctor`                      | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                                  |
+|  [05]   | `GzipCompressionProvider.EncodingName`              | `string EncodingName => "gzip"`                                                                                                      |
+|  [06]   | `GzipCompressionProvider.CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
+|  [07]   | `GzipCompressionProvider.CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
+|  [08]   | `DeflateCompressionProvider.ctor`                   | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                               |
+|  [09]   | `DeflateCompressionProvider.EncodingName`           | `string EncodingName => "deflate"`                                                                                                   |
 |  [10]   | `AsyncStreamReaderExtensions.ReadAllAsync`          | `static IAsyncEnumerable<T> ReadAllAsync<T>(this IAsyncStreamReader<T> streamReader, CancellationToken cancellationToken = default)` |
 |  [11]   | `ConnectivityState`                                 | `enum ConnectivityState { Idle, Connecting, Ready, TransientFailure, Shutdown }`                                                     |
 
@@ -94,15 +94,15 @@
 
 | [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                 |
 | :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------ |
-|   [1]   | `ServerCallContext.Method`                    | `string Method { get; }`                                                                    |
-|   [2]   | `ServerCallContext.Host`                      | `string Host { get; }`                                                                      |
-|   [3]   | `ServerCallContext.Peer`                      | `string Peer { get; }`                                                                      |
-|   [4]   | `ServerCallContext.Deadline`                  | `DateTime Deadline { get; }`                                                                |
-|   [5]   | `ServerCallContext.RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                          |
-|   [6]   | `ServerCallContext.CancellationToken`         | `CancellationToken CancellationToken { get; }`                                              |
-|   [7]   | `ServerCallContext.ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                        |
-|   [8]   | `ServerCallContext.Status`                    | `Status Status { get; set; }`                                                               |
-|   [9]   | `ServerCallContext.WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                  |
+|  [01]   | `ServerCallContext.Method`                    | `string Method { get; }`                                                                    |
+|  [02]   | `ServerCallContext.Host`                      | `string Host { get; }`                                                                      |
+|  [03]   | `ServerCallContext.Peer`                      | `string Peer { get; }`                                                                      |
+|  [04]   | `ServerCallContext.Deadline`                  | `DateTime Deadline { get; }`                                                                |
+|  [05]   | `ServerCallContext.RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                          |
+|  [06]   | `ServerCallContext.CancellationToken`         | `CancellationToken CancellationToken { get; }`                                              |
+|  [07]   | `ServerCallContext.ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                        |
+|  [08]   | `ServerCallContext.Status`                    | `Status Status { get; set; }`                                                               |
+|  [09]   | `ServerCallContext.WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                  |
 |  [10]   | `ServerCallContext.AuthContext`               | `AuthContext AuthContext { get; }`                                                          |
 |  [11]   | `ServerCallContext.UserState`                 | `IDictionary<object, object> UserState { get; }`                                            |
 |  [12]   | `ServerCallContext.WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                  |
@@ -127,7 +127,7 @@
 |  [31]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                |
 |  [32]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                    |
 
-## [4]-[IMPLEMENTATION_LAW]
+## [04]-[IMPLEMENTATION_LAW]
 
 [COMPRESSION_PROVIDERS]:
 - namespace: `Grpc.Net.Compression`

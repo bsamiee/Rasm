@@ -2,11 +2,11 @@
 
 The durable-unit vocabulary and the cluster-backed engine wiring. `WorkflowOwner` and `ActivityOwner` are the closed durable-unit family — workflow, activity, clock, deferred, queue, rate-limiter — and `ClusterEngine` resolves every kind onto the SAME `@effect/cluster` `WorkflowEngine` layered over the shard manager and message storage. Every unit survives a process restart with exactly-once semantics. The durable tier is the node-side cluster, separate from the browser worker pool `platform` owns. This page crosses no .NET wire.
 
-## [1]-[INDEX]
+## [01]-[INDEX]
 
-- [1]-[ENGINE]: owns the closed durable-unit family, the cluster-engine wiring, and the `DurableFault` rail.
+- [01]-[ENGINE]: owns the closed durable-unit family, the cluster-engine wiring, and the `DurableFault` rail.
 
-## [2]-[ENGINE]
+## [02]-[ENGINE]
 
 - Owner: `WorkflowOwner` and `ActivityOwner`, the durable units; `ClusterEngine`, the cluster-backed `WorkflowEngine` wiring; `DurableFault`, the node-side durable fault family.
 - Cases: the durable-unit vocabulary is one closed family read by unit kind. A workflow is a named resumable unit with a payload schema, success and error schemas, and an execution id that is the idempotency key. An activity is a run-once unit carrying its own success and error schemas, an interrupt-retry schedule, and compensation finalizers. A durable clock pauses an in-flight workflow without holding resources. A durable deferred awaits an externally-signalled exit. A durable queue is a persisted fan-in whose worker drains payloads with the same exactly-once contract. A durable rate limiter caps a remote-lane or fan-out callout durably across restarts. The vocabulary is the closed `DurableUnit` `Data.TaggedEnum` at workflow, activity, clock, deferred, queue, and rate-limiter; `DurableFault` (`CircuitOpen`/`Interrupted`/`Compensated`) is the node-side tagged family distinct from the wire-side `interchange` `FaultDetail`, so a durable rail rejects with a typed `DurableFault.CircuitOpen` rather than an inline anonymous `_tag` shape.

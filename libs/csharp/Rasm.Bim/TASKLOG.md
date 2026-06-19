@@ -2,7 +2,7 @@
 
 Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards with a `[QUEUED]`/`[ACTIVE]`/`[BLOCKED]`/`[UPSTREAM-BLOCKED]`/`[HOST-PROBE-DEFERRED]` leader; `[2]-[CLOSED]` carries `[COMPLETE]`/`[DROPPED]` cards. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
-## [1]-[OPEN]
+## [01]-[OPEN]
 
 [UPSTREAM-BLOCKED] Ground the `BsddResolution` LIVE-WIRE transport leg against the Compute transport seam — `Semantics/classification.md#BSDD_RESOLUTION` `[3]-[BSDD_RESOLUTION]`.
 - The spec-grounding leg is CLOSED this pass: the `BsddPort.Fetch` response shape is grounded against the published buildingSMART bSDD API contract (`BsddClassResponse` `Code`/`Name`/`ClassType`/`Uri`/`Definition` + `ClassProperties` with `PropertyCode`/`DataType`/`PropertySet`/`PredefinedValue`/`IsRequired`, the `/api/Class/v1`·`/api/Dictionary/v1` endpoints), projected through `BsddClass.Of`. The in-process degradation to the row's local code-shape policy (`LocalShape`) is the verified settled present-tense fallback.
@@ -16,6 +16,6 @@ Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards 
 - The `InterchangeFormat` rows, the `InterchangeCodec` discriminants, the `StepProtocol` column, the frame columns, and the `CataloguePending` markers are settled; the import fold faults `import-catalogue-pending` on a candidate row and `import-needs-companion` on a companion-gated row (IFC/STEP/IGES/native), which is the correct present-tense behavior. IGES carries the distinct `iges-ansi` companion codec, not `step-iso10303`, because the ANSI IGES section-based grammar shares neither the STEP physical-file token grammar nor the GeometryGym entity surface.
 - EXTERNAL dependency: the STL/3MF/OBJ/PLY mesh-text reader packages and the managed AP242 STEP reader are unadmitted (`<stl-3mf-obj-ply-reader-pending>`, `<step-ap242-reader-pending>`), and the IGES, Revit/Navisworks/DWG native readers have no managed loader. Close-condition: each candidate codec promotes in place — capability columns flip and the codec body grounds — when the named package catalogue lands (per-package manifest admission); IGES, native-format, and STEP-solid geometry evaluation route through the Compute companion rail (OpenCascade serves the IGES/STEP solid read in the same two-hop the IFC tessellation uses) because the managed branch carries no kernel.
 
-## [2]-[CLOSED]
+## [02]-[CLOSED]
 
 (none)
