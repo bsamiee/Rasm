@@ -1,87 +1,105 @@
 # [TYPESCRIPT_BRANCH_TASKLOG]
 
-The cross-package open and closed work for the TypeScript branch — the wiring, guards, and seams no single folder owns, distilled from the branch concert in `IDEAS.md`. Per-folder work lives in each folder's `TASKLOG.md`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or wiring to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations.
+The cross-package open and closed work for the TypeScript branch — the wiring, guards, and seams no single folder owns, distilled from the branch concert in `IDEAS.md`. Per-folder work lives in each folder's `TASKLOG.md`. Each task is a card whose leader carries a status marker and thesis, followed by `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension` fields.
+
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
 
 ## [01]-[OPEN]
 
-[QUEUED] Wire the mutation gate and the descriptor codegen rail into the root dev-tooling manifest.
-- Land `@stryker-mutator/core`, `@stryker-mutator/typescript-checker`, `@stryker-mutator/vitest-runner`, and `@bufbuild/buf` in the root dev-tooling manifest — they resolve from the workspace catalog but are absent from the root manifest the folders flagged — so the per-package mutation gate and the `interchange` descriptor `buf generate` rail resolve.
-- Integrate the `@stryker-mutator/*` trio and `@bufbuild/buf`; the versions stay centralized in the workspace catalog, never pinned in any package.
-- Wires the root dev-tooling only; each package carries one `stryker.config.mjs`, and `interchange` consumes `buf` at its codegen edge — no folder restates the version or the command.
-- The honesty gap is catalog-present-but-root-absent; until it closes no folder transcribes its mutation spine or emits its `gen/` descriptors, so this task precedes every transcription card.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[QUEUED] Author the per-package manifests and the subpath publication surface.
-- Author the minimal per-package manifest for each of the five folders so the `libs/typescript/*` workspace glob resolves each package and its subpath: `interchange` and `projection` under `.`, `ui` under `./ui`, `platform` under `./web`, `services` under `./node` plus `./provisioning`.
-- Integrate no runtime package; the subpath `exports` and the centralized tsconfig solution references are build wiring.
-- Wires the publication boundary that keeps the browser bundle free of the node/IaC closure and the node bundle free of the browser surface; the `./provisioning` subpath isolates the deploy-time `@pulumi/*` closure off the durable hot path.
-- The manifests land at transcription time, not before; the subpath set is the publication contract the dependency direction in `ARCHITECTURE.md` rests on.
+[WIRE_MUTATION_GATE_DESCRIPTOR_CODEGEN]-[QUEUED]: wire the mutation gate and the descriptor codegen rail into the root dev-tooling manifest.
+- Capability: root dev-tooling admits the mutation gate and descriptor codegen rail that the TypeScript folders already resolve from the workspace catalog.
+- Shape: `@stryker-mutator/core`, `@stryker-mutator/typescript-checker`, `@stryker-mutator/vitest-runner`, and `@bufbuild/buf` land in the root manifest; versions stay centralized in the workspace catalog, each package carries one `stryker.config.mjs`, and `interchange` consumes `buf` only at its codegen edge.
+- Unlocks: per-package mutation spines and `interchange` descriptor `buf generate` transcription resolve without folder-local version pins or command restatement.
+- Anchors: `libs/typescript/.planning/README.md` `[04]-[ROOT_DEV_TOOLING]`, the root workspace catalog, the package-local mutation configs, and the `interchange` descriptor-generation boundary.
+- Tension: the current gap is catalog-present-but-root-absent, so this card precedes every transcription card that needs mutation proof or emitted `gen/` descriptors.
 
-[QUEUED] Materialize the mechanical stratum and import guards through the centralized config.
-- Confirm the centralized monorepo config materializes the folder-stratum module-boundary fence, the `projection/**` `@connectrpc/*` ban, the `ui/**` `../platform` ban, and the `./provisioning` subpath isolation at implementation start, so each cross-folder direction is a typecheck or lint failure rather than a prose review check.
-- Integrate the centralized eslint module-boundary fence and the `tsgo` strictness floor (`isolatedDeclarations`, `erasableSyntaxOnly`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`, `customConditions`); no per-package config.
-- Wires the dependency direction stated once in `ARCHITECTURE.md` into a mechanical guard at the four named surfaces.
-- A transport import in the fold tier, a `platform` import in `ui`, or a `@pulumi/*` type on the hot path each fails the build at exactly one surface; the guard is config, never a runtime check.
+[AUTHOR_PER_PACKAGE_MANIFESTS_SUBPATH]-[QUEUED]: author the per-package manifests and the subpath publication surface.
+- Capability: each TypeScript package resolves through the `libs/typescript/*` workspace glob with the publication subpaths its stratum owns.
+- Shape: the five package manifests expose `interchange` and `projection` under `.`, `ui` under `./ui`, `platform` under `./web`, and `services` under `./node` plus `./provisioning`; centralized tsconfig solution references carry the build wiring without new runtime packages.
+- Unlocks: browser bundles stay free of node and IaC closures, node bundles stay free of browser surfaces, and deploy-time `@pulumi/*` stays isolated behind `./provisioning`.
+- Anchors: branch `ARCHITECTURE.md` dependency direction, the `libs/typescript/*` workspace glob, package `exports`, and centralized TypeScript project references.
+- Tension: the manifests land at transcription time; authoring them earlier would create publication surfaces before their package cards settle.
 
-[QUEUED] Wire the one-fold-one-binding read seam.
-- Confirm each `projection`-derived `Subscribable` (the composite reactive views from the derived-query combinator) binds through the one `ui` `AtomBinding` with no recombination logic crossing into `ui`, so the read path is one fold algebra and one reactive spine.
-- Integrate `effect` `SubscriptionRef.changes`/`Subscribable` on the `projection` side and `@effect-atom/atom`/`@effect-atom/atom-react` on the `ui` side.
-- Wires the `projection` `fold` and `evidence/cells` owners to the `ui` binding spine; a view-state layer in `ui` or a raw-store recombination in a component is the named branch defect both sides forbid. From ONE_FOLD_ONE_BINDING.
-- The derivations are incremental because they fold over base change streams, so the seam never grows per composite view; depends on the `projection` derived-query combinator landing first.
+[MATERIALIZE_MECHANICAL_STRATUM_IMPORT_GUARDS]-[QUEUED]: materialize the mechanical stratum and import guards through the centralized config.
+- Capability: branch dependency direction becomes a centralized typecheck or lint failure instead of a prose review invariant.
+- Shape: the monorepo config owns the folder-stratum module-boundary fence, the `projection/**` `@connectrpc/*` ban, the `ui/**` `../platform` ban, the `./provisioning` subpath isolation, and the `tsgo` strictness floor (`isolatedDeclarations`, `erasableSyntaxOnly`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`, `customConditions`).
+- Unlocks: transport imports in the fold tier, `platform` imports in `ui`, and `@pulumi/*` hot-path types fail at one central config surface, never at runtime.
+- Anchors: branch `ARCHITECTURE.md` `[03]-[DEPENDENCY_DIRECTION]`, centralized eslint module boundaries, and the TypeScript strictness floor.
 
-[QUEUED] Wire the content-addressed off-thread artifact seam.
-- Confirm the `interchange` transferable-stream reassembly pipes to the `platform` `DecodeWorkerPool`, runs the Crc32-verify, stitch, and content-key digest off the main thread, and exposes one `ContentKey`-addressed blob the `ui` viewport renders and the `projection` evidence fold correlates on.
-- Integrate `effect` `Stream`, the transferable `ReadableStream`/BYOB worker primitives in `@effect/platform`/`@effect/platform-browser`, and the resolved 128-bit wasm hash run inside the worker.
-- Wires `interchange` artifacts to the `platform` worker pool and to the `ui` viewport and `projection` evidence correlation; a second hash mint anywhere on this path is the named cross-language drift defect. From CONTENT_ADDRESSED_OFF_THREAD.
-- Depends on the `interchange` content-key parity gate (the 128-bit provider question and the upstream C# `XxHash128` fixtures); until parity is proven the off-thread digest is local-only, not trusted cross-runtime.
+[WIRE_FOLD_BINDING_READ_SEAM]-[QUEUED]: wire the one-fold-one-binding read seam.
+- Capability: the read path stays one `projection` fold algebra and one `ui` reactive spine.
+- Shape: every `projection`-derived `Subscribable` from the derived-query combinator binds through the one `ui` `AtomBinding`; `effect` `SubscriptionRef.changes`/`Subscribable` own the fold side, and `@effect-atom/atom` plus `@effect-atom/atom-react` own the render binding.
+- Unlocks: composite reactive views grow as incremental fold rows over base change streams, not as view-state layers or component-local raw-store recombination.
+- Anchors: `projection` `fold` and `evidence/cells`, the `ui` binding spine, `effect`, `@effect-atom/atom`, `@effect-atom/atom-react`, and `IDEAS.md` `ONE_FOLD_ONE_BINDING`.
+- Tension: the `projection` derived-query combinator lands first so each composite view has one fold owner before `ui` binds it.
 
-[QUEUED] Wire the native route-transition and per-route vital seam.
-- Confirm the `platform` Navigation-API router and view-transition fold drive the `ui` `<ViewTransition>`/`<Activity>` wrappers around the guard-admitted location commit, and the `platform` web-vitals reset/flush reads the same one location cell for per-soft-navigation INP/CLS attribution.
-- Integrate the native Navigation API, `document.startViewTransition`, the React `<ViewTransition>`/`<Activity>`/`useEffectEvent` surface, and `effect` `Stream.asyncScoped`/`Effect.acquireRelease` for the scoped ingress and transition resources.
-- Wires `platform` routing and web-vitals to the `ui` motion surfaces over one location cell; the `<Activity>` preserves the `ui` viewport GL context and tab state across the swap, and a teardown/rebuild on route switch is the named defect. From NATIVE_TRANSITION_PAIR.
-- The location cell is the single coupling seam; a parallel route tracker in web-vitals or a hand-authored FLIP choreography in `ui` is the named defect; the reduced-motion gate is one row.
+[WIRE_CONTENT_ADDRESSED_OFF_THREAD]-[QUEUED]: wire the content-addressed off-thread artifact seam.
+- Capability: large artifact frames reassemble, verify, stitch, and digest off the main thread into one reusable `ContentKey` blob.
+- Shape: `interchange` pipes transferable-stream reassembly into the `platform` `DecodeWorkerPool`; `effect` `Stream`, transferable `ReadableStream`/BYOB worker primitives from `@effect/platform` and `@effect/platform-browser`, and the resolved 128-bit wasm hash run inside the worker.
+- Unlocks: the `ui` viewport renders the same `ContentKey`-addressed blob that the `projection` evidence fold correlates, and a future WebTransport byte leg feeds one existing worker seam.
+- Anchors: `interchange` artifacts, `platform` worker pool, `ui` viewport, `projection` evidence correlation, C# `XxHash128` fixtures, and `IDEAS.md` `CONTENT_ADDRESSED_OFF_THREAD`.
+- Tension: content-key parity must close first; until the 128-bit provider and upstream fixture question is proven, the off-thread digest remains local-only rather than trusted cross-runtime.
 
-[QUEUED] Wire the causal-ordering read off the C# HLC band — wire touchpoint for `libs/.planning` CAUSAL_TENANT_IDENTITY_WIRE.
-- Confirm the `projection` convergence fold reads the HLC two-half causal stamp off the C# wire as an ordering input, promoting `SkewBand` `{ midpointMs, radiusMs }` into the concurrent-uncertain decision rather than forcing a spurious total order, and the `ui` evidence timeline renders the band — never minting a parallel clock.
-- Integrate `effect` (the `projection` fold and `Subscribable` ordering surface); the HLC band is decoded from the upstream wire, no new transport package.
-- Wires `projection` convergence/skew-ordering to the `ui` observation route over the C#-minted HLC stamp; this is the TS anchor the cross-`libs/` CAUSAL_TENANT_IDENTITY_WIRE seam consumes, never restated cross-language. From HONEST_CLOCK_UNCERTAINTY.
-- The causal stamp is a C#-owned wire fact reproduced under the same parity gate as the content seed; a second clock or causal scheme on the TS side is the named cross-language drift defect; depends on the content/causal parity fixture landing.
+[WIRE_NATIVE_ROUTE_TRANSITION_PER]-[QUEUED]: wire the native route-transition and per-route vital seam.
+- Capability: native route transitions and per-route vital attribution share one admitted location cell.
+- Shape: the `platform` Navigation API router and `document.startViewTransition` fold drive `ui` `<ViewTransition>`/`<Activity>` wrappers around the guard-admitted commit; `platform` web-vitals reset and flush use the same location cell for per-soft-navigation INP and CLS attribution.
+- Unlocks: the `ui` viewport preserves GL context and tab state across route swaps, reduced-motion becomes one policy row, and no parallel route tracker or hand-authored FLIP choreography appears.
+- Anchors: Navigation API, View Transitions API, React `<ViewTransition>`/`<Activity>`/`useEffectEvent`, `effect` `Stream.asyncScoped`/`Effect.acquireRelease`, and `IDEAS.md` `NATIVE_TRANSITION_PAIR`.
 
-[QUEUED] Split the concept-named multi-package `.api/` catalogues into one catalogue per package.
-- Split `interchange/.api/transport-wire.md` into `connectrpc-connect.md`, `connectrpc-connect-web.md`, `bufbuild-protobuf.md`, `bufbuild-buf.md`, and `msgpackr.md`; `services/.api/infra-data.md` into one file per `@pulumi/*` provider plus `ioredis.md`, `aws-sdk-client-s3.md`, `maplibre-gl.md`, and `deck-gl.md`; and the `ui/.api/ui-stack.md` plus its identical `platform/.api/ui-stack.md` copy into `react.md`, `react-dom.md`, `react-aria-components.md`, one file per `@radix-ui/react-*` primitive, `tanstack-react-table.md`, `tanstack-react-virtual.md`, `vite.md`, `vitejs-plugin-react.md`, and `vite-plugin-pwa.md`, each named for its package, so the `README.md` `[3]-[API_CATALOGUE_FORM]` one-per-package mandate holds branch-wide and a cold grade verifies a fence against exactly one package file.
-- Integrate no runtime package; the verified `.d.ts` surfaces already captured in the three concept files move verbatim into the per-package files, losing no member, and the `ui-stack.md` split lands one copy per consuming folder (`ui` and `platform`) since the catalogue is a folder-local transcription resource.
-- Re-point every `page#CLUSTER`/fence reference that named a concept catalogue to its package catalogue; the `interchange` transport/codecs/artifacts/faults pages, the `services` provisioning/messaging/execution pages, and the `ui` interaction/render and `platform` build-pipeline/runtime-composition pages carry the references.
-- The split is mechanical relocation, not re-verification — the members are already grounded; the task is form-uniformity, and it precedes any new `.api/` extraction so the new catalogues land in the canonical shape.
+[WIRE_CAUSAL_ORDERING_READ_OFF]-[QUEUED]: wire the causal-ordering read off the C# HLC band — wire touchpoint for `libs/.planning` CAUSAL_TENANT_IDENTITY_WIRE.
+- Capability: TypeScript reads C# HLC uncertainty as a load-bearing ordering input, never as a render-only decoration or second clock.
+- Shape: the `projection` convergence fold decodes the HLC two-half causal stamp from the upstream wire, promotes `SkewBand` `{ midpointMs, radiusMs }` into the concurrent-uncertain decision, and exposes the ordering through an `effect` `Subscribable`; the `ui` evidence timeline renders the same band.
+- Unlocks: causally ambiguous events stay honest in the fold and in the rendered evidence route, and the cross-`libs` `CAUSAL_TENANT_IDENTITY_WIRE` seam gets one TypeScript anchor.
+- Anchors: C#-minted HLC stamp, `projection` convergence and skew-ordering, `ui` observation route, content/causal parity fixtures, and `IDEAS.md` `HONEST_CLOCK_UNCERTAINTY`.
+- Tension: the parity fixture lands before this seam becomes trusted; a second TypeScript clock or causal scheme is the named cross-language drift defect.
 
-[QUEUED] Extend the branch `.api/effect.md` ordered-collection, `Subscribable`, and stream-combinator coverage.
-- Add to the single-owner `libs/typescript/.api/effect.md` the `RedBlackTree` range-cursor module (`empty`/`make`/`insert`/`removeFirst`/`greaterThanEqual`/`at`/`headOption`/`lastOption`), the `SortedMap` keyed-map module (`empty`/`make`/`fromIterable`/`set`/`get`/`remove`/`headOption`/`lastOption`/`entries`/`keys`/`values`/`reduce`/`getOrder` — and the explicit note that `greaterThanEqual` is `RedBlackTree`-only, never `SortedMap`), the `SortedSet` module (`empty`/`make`/`fromIterable`/`add`/`has`/`values`/`reduce`), the `Subscribable` `{ get, changes }` contract plus `Subscribable.make`/`isSubscribable`, the `Equivalence`/`Hash` value-equality owners, and the `Stream` `scan`/`mapAccum`/`broadcast`/`share`/`aggregateWithin`/`changes` combinators — the admitted-but-uncatalogued `effect` members the `projection` ordered-index, projection-face, and causal-delivery tasks transcribe.
-- Integrate `effect` (already branch cross-cutting; no manifest admission — coverage extension only), verified against the installed `effect@3.21.3` `dist/dts`.
-- Single-owner branch `.api/effect.md`; the consuming `projection` folder names the new modules in its README `[CROSS_CUTTING]` note and reads this catalogue before any sorted-index or projection transcription. From the `projection` ORDERED_INDEX_COLLAPSE / SUBSCRIBABLE_PROJECTION_FACE folder ideas, re-tiered here because the catalogue is branch-owned and never mutated folder-side.
-- A member stays a RESEARCH fence until the catalogue carries its verified spelling; the module-to-export mapping is exact — `greaterThanEqual`/`at`/`insert`/`removeFirst` are `RedBlackTree`, the keyed-map range walk is the `SortedMap` in-order `entries`.
+[EXTEND_BRANCH_ORDERED_COLLECTION_STREAM]-[QUEUED]: extend the branch `.api/effect.md` ordered-collection, `Subscribable`, and stream-combinator coverage.
+- Capability: the branch-owned `effect.md` catalogue carries the ordered-collection, `Subscribable`, value-equality, and stream-combinator members that `projection` transcribes.
+- Shape: `libs/typescript/.api/effect.md` adds `RedBlackTree` range cursors (`empty`/`make`/`insert`/`removeFirst`/`greaterThanEqual`/`at`/`headOption`/`lastOption`), `SortedMap` keyed maps (`empty`/`make`/`fromIterable`/`set`/`get`/`remove`/`headOption`/`lastOption`/`entries`/`keys`/`values`/`reduce`/`getOrder`), `SortedSet`, `Subscribable` `{ get, changes }` plus `Subscribable.make`/`isSubscribable`, `Equivalence`/`Hash`, and `Stream` `scan`/`mapAccum`/`broadcast`/`share`/`aggregateWithin`/`changes`.
+- Unlocks: `projection` ordered-index, projection-face, and causal-delivery pages transcribe from one verified branch catalogue instead of folder-side RESEARCH fences.
+- Anchors: installed `effect@3.21.3` `dist/dts`, branch `.api/effect.md`, `projection` README `[CROSS_CUTTING]`, and the `projection` `ORDERED_INDEX_COLLAPSE` / `SUBSCRIBABLE_PROJECTION_FACE` folder ideas.
+- Tension: exact module ownership is load-bearing: `greaterThanEqual`/`at`/`insert`/`removeFirst` are `RedBlackTree`, and keyed-map range walking uses `SortedMap` in-order `entries`.
 
-[QUEUED] Promote the closed-family `_tag`-union lint rule onto the centralized lint surface.
-- Add one rule to the centralized eslint/`tsgo` config flagging any `type`/`interface` union of two or more `{ readonly _tag: <literal>; … }` arms not produced by `Data.taggedEnum`/`Schema.TaggedClass`/`Data.TaggedError`, turning the `shapes.md` `[5]` doctrine line into a build error so a hand-rolled closed family fails the build rather than a cold grade.
-- Integrate the centralized eslint rule surface the module-boundary fence already occupies; no per-package config, and the rule ships with a positive span that fires and a `Data.taggedEnum` form that must not.
-- Wires the branch shape doctrine into the same one-config-owns-the-rule surface as the `projection/**` `@connectrpc/*` and `ui/**` `../platform` import bans; the rule is one row beside those fences. From CLOSED_FAMILY_LINT_FENCE.
-- The rule's regression corpus is a synthetic positive span plus the `Schema.Union(Schema.Struct({ _tag: Schema.Literal(...) }))` wire codec it must NOT flag; the only legal `_tag` unions are the generated families and the boundary discriminated-union `Schema`, so the rule's exemption route is the generator output and the runtime-`Schema` check, never a per-symbol allowlist.
+[PROMOTE_CLOSED_FAMILY_UNION_LINT]-[QUEUED]: promote the closed-family `_tag`-union lint rule onto the centralized lint surface.
+- Capability: closed-family `_tag` unions become mechanically enforced as generated owners, not hand-reviewed prose discipline.
+- Shape: one centralized eslint/`tsgo` rule flags any `type`/`interface` union of two or more `{ readonly _tag: <literal>; ... }` arms unless the family is produced by `Data.taggedEnum`, `Schema.TaggedClass`, or `Data.TaggedError`.
+- Unlocks: `shapes.md` `[5]` becomes a build error; generated families and boundary runtime `Schema` codecs remain legal without per-symbol allowlists.
+- Anchors: centralized module-boundary rule surface, `projection/**` `@connectrpc/*` and `ui/**` `../platform` import bans, the regression corpus positive span, the non-flagged `Data.taggedEnum` form, the `Schema.Union(Schema.Struct({ _tag: Schema.Literal(...) }))` wire codec, and `IDEAS.md` `CLOSED_FAMILY_LINT_FENCE`.
 
-[QUEUED] Extract the `@pulumi/pulumi/automation` event-stream and `rfc6902` `.api/` catalogues so the `services` RESEARCH flags drop.
-- Extract the `@pulumi/pulumi/automation` event-stream surface — `Stack.previewRefresh({ onEvent })`, `EngineEvent.resourcePreEvent.metadata`, `StepEventMetadata.op`/`.detailedDiff`, `OpType`, `PropertyDiff.diffKind`/`.inputDiff`, `DiffKind`, `PreviewResult.changeSummary` — into the per-package pulumi automation catalogue, and the `rfc6902` `createPatch(before, after) -> Operation[]` surface into `rfc6902.md`, both verified against `services/node_modules`, so `provisioning/drift.md` and `execution/ai.md` transcribe their fences from `.api/` and drop their RESEARCH probes.
-- Integrate no new runtime package; both are already in the workspace catalog and the `services` README roster — the task captures their real surface into the folder `.api/`.
-- Wires the `services` provisioning drift fold and the AI-activity JSON-patch primitive to verified catalogues; the pulumi automation members are the open probe the drift page's `[3]-[RESEARCH]` names, and `rfc6902` `Operation[]` is the diff shape `ai-activity.md` composes.
-- Lands after the catalogue-split task so the new pulumi automation file is per-package from the start; until both extractions land, the drift event-stream fold and the AI-activity diff stay RESEARCH-gated, not settled fence code.
+[EXTRACT_EVENT_STREAM_CATALOGUES_RESEARCH]-[QUEUED]: extract the `@pulumi/pulumi/automation` event-stream and `rfc6902` `.api/` catalogues so the `services` RESEARCH flags drop.
+- Capability: `services` drops RESEARCH gates for Pulumi preview events and JSON-patch activity diffs by extracting their real `.api` surfaces.
+- Shape: the `@pulumi/pulumi/automation` catalogue captures `Stack.previewRefresh({ onEvent })`, `EngineEvent.resourcePreEvent.metadata`, `StepEventMetadata.op`/`.detailedDiff`, `OpType`, `PropertyDiff.diffKind`/`.inputDiff`, `DiffKind`, and `PreviewResult.changeSummary`; `rfc6902.md` captures `createPatch(before, after) -> Operation[]`, both verified against `services/node_modules`.
+- Unlocks: `provisioning/drift.md` and `execution/ai.md` transcribe settled fences from `.api`, the provisioning drift fold consumes verified Pulumi event members, and `ai-activity.md` composes the verified `Operation[]` diff shape.
+- Anchors: workspace catalog, `services` README roster, `services` folder `.api/`, drift page `[3]-[RESEARCH]`, and `execution/ai.md`.
+- Tension: the extraction lands after the catalogue split so the Pulumi automation file is per-package from the start.
 
-[QUEUED] Stand up the `libs/typescript/edge/` public-ingress library folder and its four index docs — from `PUBLIC_EDGE_INGRESS`.
-- Author the new `libs/typescript/edge/` package with its four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) and its `.planning/` design-page sub-domains: `api/` (the one declarative `HttpApi` over the closed `HttpApiGroup`/`HttpApiEndpoint` family and the `HttpApiClient`-derived typed SDK), `middleware/` (the `FaultDetail`→RFC 9457 problem-detail fold, CORS, body/rate caps, the `traceparent` extract-and-continue, the auth-context `HttpApiMiddleware`), `runtime/` (the `NodeHttpServer.layer` long-lived process row and the `toWebHandler` fetch-handler edge-worker row as one deployment modality on one `HttpApp`), and `spec/` (the `OpenApi.fromApi` document emit).
-- Integrate `@effect/platform` (`HttpApi`/`HttpApiBuilder`/`HttpApiGroup`/`HttpApiEndpoint`/`HttpApiMiddleware`/`HttpApiClient`/`OpenApi`/`HttpServer`/`Multipart`) and `@effect/platform-node` (`NodeHttpServer.layer`/`toWebHandler`) — all admitted, none consumed today; no new runtime package admitted, and the `.api/effect-platform.md` HttpApi-out-of-scope note is reversed for this folder's catalogue.
-- Wires the new package onto the `libs/typescript/*` workspace glob as a seventh folder the branch `ARCHITECTURE.md` adopts at the publication leaf above `services`: `edge` imports `services` (the durable workflows and `messaging/rpc` proxy are the handler implementation), `interchange`/`projection` for decode and availability gating, and composes them behind the one public API; the durable interior never exposes itself, and a second public-API mint anywhere is the named branch defect.
-- The branch `ARCHITECTURE.md` `[3]-[FAULT_OWNERSHIP]` gains a third altitude: the edge problem-detail projection reconstructs the `interchange` `FaultDetail` outward to RFC 9457 at the public boundary, distinct from the wire-reconstruction and node-tier-rail altitudes; the index docs land at this card, the per-page `api`/`middleware`/`runtime`/`spec` design pages follow as folder-local cards once the index docs settle, and the `.api/` carries one catalogue per consumed `@effect/platform` HttpApi module.
+[PUBLIC_EDGE_INGRESS]-[QUEUED]: stand up the `libs/typescript/edge/` public-ingress library folder and its four index docs.
+- Capability: `libs/typescript/edge/` becomes the one public HTTP ingress package above the node durable interior.
+- Shape: the new package lands with `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`, and `.planning/` sub-domains for `api/` (`HttpApiGroup`/`HttpApiEndpoint` family plus `HttpApiClient` SDK), `middleware/` (`FaultDetail` to RFC 9457 problem-detail fold, CORS, body/rate caps, `traceparent`, auth-context `HttpApiMiddleware`), `runtime/` (`NodeHttpServer.layer` and `toWebHandler` as deployment rows on one `HttpApp`), and `spec/` (`OpenApi.fromApi` emit).
+- Unlocks: the branch gains one externally reachable API surface, `services` durable workflows and `messaging/rpc` proxy stay handler internals, `interchange`/`projection` provide decode and availability gating, and `ARCHITECTURE.md` fault ownership gains the edge problem-detail altitude.
+- Anchors: `@effect/platform` `HttpApi`/`HttpApiBuilder`/`HttpApiGroup`/`HttpApiEndpoint`/`HttpApiMiddleware`/`HttpApiClient`/`OpenApi`/`HttpServer`/`Multipart`, `@effect/platform-node` `NodeHttpServer.layer`/`toWebHandler`, branch `ARCHITECTURE.md`, and `IDEAS.md` `PUBLIC_EDGE_INGRESS`.
+- Tension: the index docs land at this branch card; `api`/`middleware`/`runtime`/`spec` design pages follow as folder-local cards after the folder owner settles.
 
-[QUEUED] Reverse the `interchange/.api/effect-platform.md` HttpApi-out-of-scope note for the `edge` folder catalogue — coverage finding.
-- The branch `effect-platform.md` catalogue declares the `HttpApi*`/`HttpServer*`/`HttpRouter`/`HttpApp`/`OpenApi*`/`HttpMiddleware`/`Multipart` modules out of scope because no owner stood up an HTTP server; the new `edge` folder is that owner, so its folder `.api/effect-platform.md` (folder-local, since `edge` is a new consumer) carries the HttpApi surface — `HttpApi.make`/`HttpApiGroup.make`/`HttpApiEndpoint.{get,post,…}`/`HttpApiBuilder.{api,group,handler,toWebHandler}`/`HttpApiClient.make`/`HttpApiMiddleware.Tag`/`OpenApi.fromApi`/`HttpServer.serve` — verified against `node_modules`.
-- Integrate no runtime package; the task captures the real HttpApi surface into the `edge` folder `.api/` so the `api`/`middleware`/`runtime`/`spec` design pages transcribe their fences from a verified catalogue rather than RESEARCH probes.
-- Wires the `edge` folder's HttpApi transcription to a verified catalogue; the branch `effect-platform.md` out-of-scope note narrows to "no browser/neutral owner stands up a server" since `edge` now does, and the note names `edge/.api/effect-platform.md` as the HttpApi owner.
-- Lands with the `edge` folder stand-up; until it lands the `edge` `HttpApi` fences stay RESEARCH-gated, not settled fence code.
+[REVERSE_HTTPAPI_OUT_SCOPE_NOTE]-[QUEUED]: reverse the `interchange/.api/effect-platform.md` HttpApi-out-of-scope note for the `edge` folder catalogue — coverage finding.
+- Capability: the `edge` folder owns the verified HttpApi catalogue surface that the branch catalogue previously marked out of scope.
+- Shape: `edge/.api/effect-platform.md` captures `HttpApi.make`, `HttpApiGroup.make`, `HttpApiEndpoint.{get,post,...}`, `HttpApiBuilder.{api,group,handler,toWebHandler}`, `HttpApiClient.make`, `HttpApiMiddleware.Tag`, `OpenApi.fromApi`, and `HttpServer.serve` against `node_modules`.
+- Unlocks: `edge` `api`/`middleware`/`runtime`/`spec` design pages transcribe from verified `.api` entries, and the branch `effect-platform.md` note narrows to browser/neutral non-ownership while naming `edge/.api/effect-platform.md` as the HttpApi owner.
+- Anchors: `interchange/.api/effect-platform.md`, `edge/.api/effect-platform.md`, `@effect/platform` HttpApi modules, `@effect/platform-node`, and the `PUBLIC_EDGE_INGRESS` stand-up card.
+- Tension: this lands with the `edge` folder stand-up; before that point the `edge` HttpApi fences remain RESEARCH-gated.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

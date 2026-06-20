@@ -1,14 +1,31 @@
 # [RASM_TASKLOG]
 
-The kernel's open and closed work, distilled from the ideas and the design-page RESEARCH residuals. Each task is a card whose leader carries a status marker — `[QUEUED]`/`[ACTIVE]` open, `[UPSTREAM-BLOCKED]`/`[HOST-PROBE-DEFERRED]` blocked on an external dependency, `[COMPLETE]`/`[DROPPED]` closed — plus the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations. `[1]-[OPEN]` carries live work; `[2]-[CLOSED]` records settled or dropped tasks.
+The kernel's open and closed work is distilled from ideas and design-page RESEARCH residuals. Each task is a card whose leader carries `[ID]-[STATUS]: thesis`, followed by `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension` bullets.
+
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
 
 ## [01]-[OPEN]
 
-[UPSTREAM-BLOCKED] Boolean tier-3 native arrangement asset gate, SCALE PATH ONLY (`Processing/repair#BOOLEAN_NATIVE_ASSET`).
-- The design-resolvable half is LANDED: `Processing/repair.md` `Kernels.BooleanArrangement` now composes the managed `Meshing/arrangement#MESH_BOOLEAN` companion through `Arrangement.Apply` for the common cases (the `EXACT_ARRANGEMENT_BOOLEAN` owner, Cherchi-Attene indirect predicates, no native asset, no epsilon snap), `BeyondManagedScope` routing `NativeAssetMissing` only when the operand face-product exceeds `BooleanManagedScopeFaceProduct`.
-- EXTERNAL DEPENDENCY (the remaining blocked half): a robust exact-arithmetic mesh-arrangement native asset for the future performance/scale path the managed exact arrangement does not cover — a charter amendment with its RID burden assessed. Stays UPSTREAM-BLOCKED on that scale path alone; the common-case correctness is owned by the managed companion, so this is non-blocking for correctness.
-- Internal to the healing sub-domain; the managed companion landed the `Apply` re-route this pass, the native-asset admission reserved for scale.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
+
+[T-BOOLEAN-NATIVE-ASSET]-[BLOCKED]: native arrangement asset remains a scale-only gate after the managed exact boolean path lands.
+- Capability: Admit a robust exact-arithmetic mesh-arrangement native asset only for boolean workloads beyond the managed arrangement scale ceiling.
+- Shape: `HealOp.Boolean` composes `Arrangement.Apply(ArrangementKind.MeshBoolean, ...)` for common managed cases; `NativeAssetMissing` stays reserved for the future tier-3 scale route.
+- Unlocks: Large boolean and CSG repair workloads can gain a chartered native acceleration path without blocking managed correctness, planar overlay, or ordinary mesh-boolean repair.
+- Anchors: `Processing/repair#BOOLEAN_NATIVE_ASSET`, `Meshing/arrangement#MESH_BOOLEAN`, `Arrangement.Apply`, exact `Predicate` crossings, constrained `Tessellation`, `SpatialQuery.Winding`, and `DuplicateWeld`.
+- Tension: Native admission is still an external dependency with RID burden and post-condition proof; it is a charter amendment for scale, not a second correctness owner.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

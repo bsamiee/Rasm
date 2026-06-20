@@ -2,25 +2,44 @@
 
 The folder's forward pool of higher-order concepts, each grounded in artifact production and the host-free companion charter. Open ideas are cards in `[1]-[OPEN]`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition. Each idea drives one or more `TASKLOG.md` tasks.
 
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+
 ## [01]-[OPEN]
 
-[ENCODED_MARK_OWNER]-[BLOCKED]:
-- BLOCKED on the `python-barcode` catalogue resolving on uv-sync. The segno QR/Micro-QR half is REALIZED on `figures/preview#PREVIEW` (the `MARK` `PreviewOp` row carrying the `Symbology` `StrEnum` sub-axis, settled fence code); the linear (1D) `python-barcode` rows (`get_barcode_class`-resolved `Code128`/`Code39`/`EAN13`/`EAN8`/`UPCA`/`ITF`/`Codabar`/`ISBN13`/`ISSN`/`PZN`/`GS1_128`) stay a marked RESEARCH seam until the package syncs and `assay api` reflection confirms the registry. Close-condition: uv-sync resolves `python-barcode` and `ApiPackage.reflect` confirms `get_barcode_class`/`SVGWriter`/`PROVIDED_BARCODES`, settling the `.api/python-barcode.md` catalogue and the linear `Symbology` rows.
-- DataMatrix/PDF417 are DROPPED from this axis (python-barcode is strictly linear 1D); 2D-matrix symbologies route to a separate future owner, never a phantom python-barcode member — recorded as RESEARCH work, not a member here.
-- Widen the imaging code-generation arm from QR-only to the full machine-readable-mark family: one `Symbology` axis discriminating QR/Micro-QR over segno and the linear symbologies over the python-barcode `PROVIDED_BARCODES` registry — each symbology a registry-name-keyed row, all serializing to the dependency-free SVG path the segno arm already owns. `segno` owns QR/Micro-QR exclusively (its `PROVIDED` set is QR-only) while linear symbologies have no owner, and the encoded-mark concern is one symbology-row axis, not a parallel code class.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[CONTENT_KEYED_REUSE_AND_SIGNAL]-[BLOCKED]:
-- BLOCKED on the upstream runtime `execution/lanes` `(ContentKey, Work)` admission-elision task (branch `CONTENT_ADDRESSED_REUSE_FABRIC`) and the runtime `observability/metrics` `MeterProvider` instrument-set task (branch `ONE_MEASURED_SIGNAL_STREAM`). The artifacts side is the receipt-fold consumer of both, authored as the settled consumer edge at `receipt/receipt#SIGNALS` (the `contribute` fold carries the hit/miss distinction and feeds the instruments) — verification-and-consume only, zero new artifacts surface. Close-condition: the runtime lane-admission surface and the `MeterProvider` instrument set land, then the producers thread the existing `ContentIdentity.of` key into the admission and `contribute` records against the instruments.
-- Realize the two branch fabrics on the one receipt edge every producer already owns: thread each producer's `(ContentKey, Work)` pair into the runtime `execution/lanes` admission elision so an identical spec at an identical content key short-circuits to the cached key with the `ArtifactReceipt` carrying the hit/miss distinction, AND route every production duration/byte-volume/compression-ratio signal through the runtime `observability/metrics` `MeterProvider` — both folded through the single `receipt/receipt#RECEIPT` `contribute` path, never a parallel cache owner or metric owner, so the receipt is the one fact carrier the reuse fabric and the metric stream both consume.
-- Unlocks the inheritance the architecture names: every `_emit` already returns `ContentIdentity.of(...)`, so the most expensive outputs (a signed archival PDF, a rendered notebook, an offscreen 3D scene) become elision targets and observable render-duration histograms with zero new surface — the producers are pre-keyed consumers of the branch fabrics, not second owners.
-- Draws on the branch `CONTENT_ADDRESSED_REUSE_FABRIC` and `ONE_MEASURED_SIGNAL_STREAM` seeding: the artifacts side is the receipt-fold consumer of both, aligned on the runtime lane-admission and `MeterProvider` tasks landing the instrument set.
+[ENCODED_MARK_OWNER]-[QUEUED]: one encoded-mark axis covers QR/Micro-QR and linear 1D marks.
+- Capability: machine-readable mark production joins the preview owner as one encoded-mark family, not a QR-only special case or per-symbology class set.
+- Shape: `figures/preview#PREVIEW` carries one `PreviewOp.MARK` row and one `Symbology` axis over `segno` QR/Micro-QR plus `python-barcode` linear registry rows.
+- Unlocks: dependency-free SVG mark output for QR, Micro-QR, and linear 1D marks without phantom DataMatrix/PDF417 membership.
+- Anchors: `figures/preview#PREVIEW`, `PreviewOp.MARK`, `Symbology`, `segno`, `python-barcode` `get_barcode_class`, `SVGWriter`, `PROVIDED_BARCODES`, and `.api/python-barcode.md`.
+- Tension: the linear rows stay blocked on uv-sync plus `assay api` reflection; DataMatrix/PDF417 belong to a separate 2D-matrix owner.
 
-[OUTWARD_FIGURE_HANDOFF_AND_DRIFT]-[BLOCKED]:
-- BLOCKED on the upstream `compute/graduation` `HandoffAxis` task and the `runtime/evidence` `Structural.drift` detector landing. The artifacts side is alignment-and-verification only: the `ARCHITECTURE.md` charter (lines 25-26) already asserts the single `HandoffAxis` model-asset outward edge and zero canonical-concept re-mints, and every `_emit` returns `ContentIdentity.of(...)` consuming the runtime ports — no new owner, no new package. Close-condition: the upstream graduation `HandoffAxis` task and the runtime `Structural.drift` detector land, then the artifacts sources confirm against the live drift query.
-- Hold the artifacts outward edge to the one branch `HandoffAxis` and the cross-language drift guard: a figure/table/chart that crosses outward to a sibling package travels only as the one `compute/graduation` `HandoffAxis` model-asset case keyed by `ContentIdentity`, never a parallel per-artifact handoff, and the artifacts sources admit the `runtime/evidence` `Structural.drift` query so a re-minted content-identity seed, receipt rail, or wire-projection name in any artifacts module is detected — the artifacts package re-mints no canonical concept and exports figures only through the managed owner.
-- Unlocks the branch invariant that no package grows a private handoff or re-mints a canonical concept: the artifacts producers consume `ContentIdentity`/`RuntimeRail`/`Receipt`/`ReceiptContributor` from runtime and contribute one `ArtifactReceipt` case, so the drift guard finds zero re-mints and the outward figure path is the single `HandoffAxis` model-asset case.
-- Draws on the branch `ONE_GRADUATION_RAIL_OUTWARD` and master `CROSS_PACKAGE_DRIFT_GUARD` seeding: the artifacts contribution is verification-and-alignment, the figure-handoff edge and the drift-clean source surface, never a new owner.
+[CONTENT_KEYED_REUSE_AND_SIGNAL]-[QUEUED]: artifact receipts become the reuse and measurement edge.
+- Capability: artifact production contributes cache-hit and measured-output facts through the existing receipt fold instead of minting an artifacts cache or metrics owner.
+- Shape: every producer threads `(ContentKey, Work)` into runtime lane admission and reports duration, bytes, compression ratio, and hit/miss through `receipt/receipt#RECEIPT` `contribute`.
+- Unlocks: expensive PDFs, notebooks, publication tables, bundles, and offscreen scenes become content-keyed elision targets and observable render outputs with no new artifacts surface.
+- Anchors: `ContentIdentity.of(...)`, `ArtifactReceipt`, `receipt/receipt#RECEIPT`, branch `CONTENT_ADDRESSED_REUSE_FABRIC`, branch `ONE_MEASURED_SIGNAL_STREAM`, runtime `execution/lanes`, and runtime `observability/metrics`.
+- Tension: runtime lane-admission elision and the `MeterProvider` instrument set must land before artifacts can consume them.
+
+[OUTWARD_FIGURE_HANDOFF_AND_DRIFT]-[QUEUED]: figures leave through one handoff axis and one drift guard.
+- Capability: outward artifact figures share the Python graduation rail and structural drift detector rather than creating an artifacts-specific handoff or canonical-name guard.
+- Shape: figure, table, chart, and scene outputs cross outward only as the `compute/graduation` `HandoffAxis` `model-asset` case keyed by `ContentIdentity`.
+- Unlocks: artifacts can export sibling-consumable visual assets while proving zero private handoff rails and zero canonical-concept re-mints.
+- Anchors: `ContentIdentity`, `RuntimeRail`, `Receipt`, `ReceiptContributor`, `ArtifactReceipt`, `compute/graduation#GRADUATION`, branch `ONE_GRADUATION_RAIL_OUTWARD`, and branch `CROSS_PACKAGE_DRIFT_GUARD`.
+- Tension: upstream `compute/graduation` `HandoffAxis` and runtime `Structural.drift` must land before artifacts can verify the live drift query.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

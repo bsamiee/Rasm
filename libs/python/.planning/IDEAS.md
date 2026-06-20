@@ -2,53 +2,72 @@
 
 The cross-package Python concert: higher-order concepts that couple two or more of the five packages or deepen a shared branch owner, distilled from the folder ideas. A concept grounded in one folder's domain stays on that folder's `IDEAS.md`; a concept crossing a language boundary stays in the cross-`libs/` `IDEAS.md` and is referenced as a wire seam, never restated here. `[1]-[OPEN]` holds the live concert as cards — a bracketed slug, the capability, what it unlocks, and the cross-package gap it draws on; `[2]-[CLOSED]` records dispositions.
 
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+
 ## [01]-[OPEN]
 
-[CONTENT_ADDRESSED_REUSE_FABRIC]:
-- Fold the runtime `ContentIdentity` seed into the runtime lane admission so a unit of work admitted as a `(ContentKey, Work[T])` pair short-circuits when the key already carries a result, and key every consumer's most expensive output — a `compute` graduated sub-result, a `geometry` tessellated GLB, a `data` egress bundle, an `artifacts` document — by that same key.
-- Unlocks by-reference reuse across a companion session and across packages: the identity seed becomes an execution-elision key, not only an interchange key, so determinism and cache-hit-by-reference are derivable from the key rather than re-declared per owner.
-- Draws on the gap that identity keys artifacts and lanes drain work as independent runtime owners, with nothing folding the key into the lane admission decision; the four consumers each key their outputs by `ContentIdentity` already, so the elision fabric is one runtime fold the whole branch inherits.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[GEOMETRY_KERNEL_OFFLOAD_LANE]:
-- Add a CPU-bound offload variant to the runtime `LanePolicy` over `anyio.to_interpreter.run_sync` that the geometry and compute siblings hand a caller-supplied numeric kernel to — the open3d/trimesh registration loops, the scipy/JAX solver kernels — executed per-subinterpreter under the same `CapacityLimiter` and `DrainReceipt`, the lane never importing the kernel.
-- Unlocks true-parallel CPU geometry and numeric work on subinterpreter-capable runtimes without a process-pool pickle tax, keeping one lane spine for I/O-bound and CPU-bound work and freeing the companion event loop during heavy tessellation and registration.
-- Draws on PEP 734 subinterpreters and `anyio.to_interpreter` as a lower-overhead isolation seam the lane has not absorbed; the geometry registration stack and the compute solver routes are exactly the heavy CPU kernels that today stall the loop or serialize through `to_process`.
+[CONTENT_ADDRESSED_REUSE_FABRIC]-[QUEUED]: content keys become the branch-wide execution reuse fabric.
+- Capability: branch-wide execution reuse keyed by the same `ContentIdentity` seed that names portable artifacts.
+- Shape: runtime lane admission accepts `(ContentKey, Work[T])` pairs and short-circuits when the session cache already holds an `Ok` result for the key; `compute`, `geometry`, `data`, and `artifacts` key their most expensive outputs by that same identity.
+- Unlocks: by-reference reuse across companion sessions and package boundaries, with determinism and cache hits derived from the key instead of re-declared by each owner.
+- Anchors: runtime `identity`, `execution/lanes`, `DrainReceipt`, `expression` `frozendict`/`Result`, `msgspec`, and the branch rule that the four consumers compose runtime-owned shapes.
+- Tension: the cache is session-local and bounded; durable federation remains the C# persistence owner consumed at the wire.
 
-[ONE_MEASURED_SIGNAL_STREAM]:
-- Build the runtime `observability/metrics` instrument set — companion request-duration histogram, lane drain counters folded from `DrainReceipt`, `psutil` process gauges — against one `MeterProvider`, and route every package's measured-execution signal (graduation latency, tessellation throughput, egress volume, render duration) through that one stream rather than per-package log fields.
-- Unlocks one measured-execution signal stream the host scrapes without per-package metric reinvention; lane saturation, retry exhaustion, and companion latency become first-class observable metrics shared by all five packages.
-- Draws on the gap that runtime receipts emit logs and trace context but mint no metrics, while the companion server and lane spine across every consumer produce exactly the count/duration/gauge signals OTel metrics own, currently lost or stuffed into log fields.
+[GEOMETRY_KERNEL_OFFLOAD_LANE]-[QUEUED]: CPU-bound kernels run through one runtime offload lane.
+- Capability: one runtime-owned CPU offload lane for geometry and numerical kernels.
+- Shape: `LanePolicy` gains a CPU-bound variant over `anyio.to_interpreter.run_sync`; geometry registration/tessellation loops and compute solver kernels enter as caller-supplied functions under the same `CapacityLimiter` and `DrainReceipt`, while the lane never imports sibling kernels.
+- Unlocks: true-parallel offline geometry and numeric work on subinterpreter-capable runtimes without creating separate process-pool owners per package.
+- Anchors: PEP 734 subinterpreters, `anyio.to_interpreter`, the existing `to_process` isolation seam, geometry registration stacks, and compute solver routes.
+- Tension: the process fallback requires picklable callables, so the callable boundary is part of the lane contract rather than a hidden implementation detail.
 
-[CROSS_PACKAGE_DRIFT_GUARD]:
-- Extend the runtime `evidence` `Structural.drift` query family into the drift detector locating a re-minted canonical concept — a second content-identity seed, receipt rail, retry owner, or wire-projection name — across the `compute`/`data`/`geometry`/`artifacts` Python sources and, on the same fold, the C# and TypeScript wire-projection sources, feeding the `assay code` rail the named drift defect the topology law forbids; the namespace-multiplicity filter emits a `DriftSpan` only where a name binds in more than one language namespace, so the intra-branch Python case and the cross-language wire case are one detector, not two.
-- Unlocks an automated guard on the one-owner-per-axis law: a sibling re-minting a runtime shape is caught at the source before it lands. The fence (`evidence/evidence.md`) carries the cross-language form over the `GRAMMARS` Python/TypeScript rows because a re-minted seed crosses languages at the wire; the tri-language wire-source leg of the scan is the drift surface the cross-`libs/` pool must adopt as the mechanical enforcer of its named-drift-defect law (no cross-libs card consumes it yet — the seam the master tier ratifies rather than minting a parallel cross-language guard), while the intra-branch Python-source scan is branch-owned and self-contained.
-- Draws on the gap that `Structural.query` returns raw byte spans with no semantic over them and the drift defect is defined in law with no detector; the tree-sitter Python and TypeScript grammars already in the manifest are the surface, the `canonical` one-name-one-owner set the caller threads, never a second registry minted here.
+[ONE_MEASURED_SIGNAL_STREAM]-[QUEUED]: every package contributes measured execution signals to one runtime stream.
+- Capability: one runtime metrics stream for branch execution evidence.
+- Shape: runtime `observability/metrics` owns the companion request-duration histogram, `DrainReceipt` lane counters, and `psutil` process gauges behind one `MeterProvider`; package signals such as graduation latency, tessellation throughput, egress volume, and render duration flow through that stream.
+- Unlocks: host-readable execution telemetry without per-package metric reinvention, making lane saturation, retry exhaustion, companion latency, and heavy-output throughput visible as shared metrics.
+- Anchors: `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, `psutil`, runtime receipt logs, and the companion server.
+- Tension: product telemetry and health semantics stay AppHost-owned across the wire; Python emits local evidence, not a second product-health surface.
 
-[ONE_GRADUATION_RAIL_OUTWARD]:
-- Hold the compute `graduation` rail as the single evidence path every package's useful offline result crosses outward, with the `geometry` registration transforms, reconstructed meshes, topology graphs, network graphs, and form-finding reaching the managed owner system through the `HandoffAxis` geometry case rather than a parallel per-package handoff.
-- Unlocks one outward contract: a result graduates the same way regardless of which package produced it, so the C# owner system consumes one rail and the determinism closure references one key, never a handoff family.
-- Draws on the gap that geometry, compute, and the data egress each produce graduatable evidence while only the compute rail is designed to carry it outward; the geometry case on the compute rail already exists as the single crossing, leaving the law to hold the rail singular.
+[ONE_GRADUATION_RAIL_OUTWARD]-[QUEUED]: offline results graduate outward through one evidence rail.
+- Capability: one outward graduation rail for offline Python evidence.
+- Shape: the compute `graduation` rail remains the only evidence path for useful results from `geometry`, `compute`, and `data`; registration transforms, reconstructed meshes, topology graphs, network graphs, and form-finding cross through `HandoffAxis` cases instead of per-package handoffs.
+- Unlocks: one C#-consumable outward contract where every graduated result references the same determinism key and rail shape.
+- Anchors: compute `graduation`, `HandoffAxis`, runtime `ContentIdentity`, geometry registration/tessellation results, and data egress bundles.
+- Tension: geometry and data produce graduatable evidence but never own outward handoff families; the compute rail is singular.
 
-[CONTENT_IDENTITY_PARITY_GATE]:
-- Prove the runtime `evidence/identity` `XxHash128`/`XxHash3` digest-endianness reproduces the C# `System.IO.Hashing` seed bit-identically on the companion interpreter where `xxhash` resolves, so the one content key the whole branch trusts is verified before any consumer keys an output by it; the cp315 core confirms the same parity only once a cp315/abi3 `xxhash` wheel exists upstream.
-- Unlocks the cross-package reuse fabric, the graduation rail, and the wire content-identity seam as a single proven precondition rather than a per-owner assumption: the lane-admission elision, the geometry GLB key, the data egress bundle key, and the artifacts document key all reduce to one verified seed.
-- Draws on the gap that `xxhash` ships cp38-cp314 per-version wheels with no abi3/cp315 build (`xxhash>=3.7.0`), so it resolves on the `python_version<'3.15'` companion floor and is architecturally absent from the cp315 core — not merely sync-pending. The digest-endianness against the C# seam confirms on the companion interpreter today via `xxh3_128_intdigest`/`xxh3_64_intdigest` and the `to_bytes(16, "little")` child serialization matching the C# `BinaryPrimitives.WriteUInt128LittleEndian` writer; the cp315 leg is the one install-gated link, blocked on an upstream cp315 wheel rather than a host `.venv` sync, and is never fabricated as present.
+[CONTENT_IDENTITY_PARITY_GATE]-[QUEUED]: digest parity proves the Python content key against the C# seed.
+- Capability: content-key parity proof for the one seed every Python package trusts.
+- Shape: runtime `evidence/identity` proves `XxHash128`/`XxHash3` digest-endianness against the C# `System.IO.Hashing` seed on the companion interpreter where `xxhash` resolves; the cp315 core confirms the same parity only after an upstream cp315 or abi3 wheel exists.
+- Unlocks: the reuse fabric, graduation rail, geometry GLB key, data egress key, and artifacts document key as consumers of one verified content identity rather than package-local assumptions.
+- Anchors: `xxhash`, `xxh3_128_intdigest`, `xxh3_64_intdigest`, `to_bytes(16, "little")`, C# `BinaryPrimitives.WriteUInt128LittleEndian`, the multi-runtime golden fixture, and runtime `ContentIdentity`.
+- Tension: `xxhash>=3.7.0` ships cp38-cp314 wheels without cp315/abi3 coverage, so the cp315 leg is upstream-blocked rather than host-sync-pending.
 
-[GRADIENT_DRIVEN_INVERSE_DESIGN]:
-- Add the `compute/optimization` sub-domain owning the gradient-driven inverse-design loop the autodifferentiable solver chain already enables but no owner closes: one `DesignProblem`-discriminated optimizer that drives an Equinox-parameterized objective (a field problem, a parametric mesh, a material-distribution density) to optimality through Optimistix `minimise`/`least_squares`, reading the implicit-function-theorem gradient the `solvers/sensitivity` owner already pulls back through the converged solve, folding one `OptimizationReceipt` over iterates/objective-trace/KKT-residual keyed by `ContentIdentity`.
-- Unlocks PDE-constrained optimal design and inverse identification as a first-class offline-science capability — topology/shape/size optimization, parameter recovery from sparse observations, and design-of-experiment-seeded warm starts — composed entirely from admitted primitives (`optimistix`/`equinox`/`jax`/`scikit-fem`/`diffrax`), graduating each converged design as the `solver` `HandoffAxis` case, never a parallel optimizer surface beside the solve.
-- Draws on the gap that `compute` owns autodifferentiable solves (`solvers/linear`/`nonlinear`/`differential`), the implicit-adjoint VJP (`solvers/sensitivity`), DOE sampling (`experiments/study`), and the FEM assembly (`solvers/mesh`) yet has no owner that drives a parameterized objective to a stationary point — the design-optimization loop is the missing apex the JAX-FEM/JAX-SSO composition draws from exactly these pieces; the only optional admission is `optax` as a first-order-descent axis row beside the Optimistix core, carded as an integration step the optimizer task carries, never a phantom registry dependency.
+[GRADIENT_DRIVEN_INVERSE_DESIGN]-[QUEUED]: inverse design becomes the apex of the differentiable solver stack.
+- Capability: gradient-driven inverse design over the differentiable solver stack.
+- Shape: `compute/optimization` owns one `DesignProblem`-discriminated optimizer that drives Equinox-parameterized objectives through Optimistix `minimise`/`least_squares`, reads the implicit-adjoint gradient from `solvers/sensitivity`, and folds an `OptimizationReceipt` over iterates, objective trace, KKT residual, and `ContentIdentity`.
+- Unlocks: PDE-constrained optimal design, inverse identification, topology/shape/size optimization, sparse-observation parameter recovery, and design-of-experiment warm starts as first-class offline science.
+- Anchors: `optimistix`, `equinox`, `jax`, `scikit-fem`, `diffrax`, `solvers/linear`, `solvers/nonlinear`, `solvers/differential`, `solvers/sensitivity`, `solvers/mesh`, `experiments/study`, and the `solver` `HandoffAxis` case.
+- Tension: `optax` remains a conditional first-order-descent axis row carried by the task, not a phantom registry dependency.
 
-[CF_FIELD_DATASET_OWNER]:
-- Add the `data/gridded` sub-domain owning the CF-conventioned labelled N-D field dataset the branch admits but no fence consumes: one `FieldDataset` owner over `xarray` reading/writing `netcdf4`/HDF5/Zarr CF-metadata field cubes, exposing CF-aware coordinate selection, label-indexed slicing, grouped/resampled reductions, and unit/coordinate-reference metadata, materializing to the same content-keyed `pyarrow`/Zarr egress the columnar and tensor owners already speak, never a second labelled-array store.
-- Unlocks first-class environmental/simulation/scientific field interchange — climate/CFD/sensor-grid/geophysical field cubes the AEC companion ingests and slices offline — closing the one admitted-but-unconsumed package (`netcdf4`, manifest-registered for field IO) and promoting the already-catalogued `xarray` (`data/.api/xarray.md` is present, member-rich) from a `compute`-study-input array helper to its own CF field owner, the labelled-field counterpart of the dense `gridded/tensor` chunked-array owner.
-- Draws on the gap that `gridded/tensor` owns the chunk grid and codec pipeline while the present `xarray` catalogue is consumed only as a `compute`-study labelled-array input (`sel`/`isel`/`chunk`/`apply_ufunc`), not as a CF field-cube owner, and `netcdf4`/`h5py` carry present catalogues with zero design-page consumer; the CF-labelled field concern is distinct from the dense chunked store (labels/coordinates/CF-metadata semantics versus chunk-grid bytes), so it is one new owner composing the existing tensor egress and the runtime content key, the `<'3.15'`-banded `xarray`/`netcdf4` arms dispatching to the runtime subprocess seam exactly as the gated data rows do.
-
-[API_CATALOGUE_COVERAGE]:
-- Re-grade and close the residual `.api/<pkg>.md` coverage: the compute JAX-scientific/inference families (`optimistix`, `lineax`, `diffrax`, `equinox`, `numpyro`, `nutpie`, `pymc`, `arviz`, `salib`, `python-flint`, `mpmath`, `array-api-compat`, `array-api-extra`, `scikit-fem`, `skl2onnx`), the data graph/columnar/interop families (`rustworkx`, `zarr`, `cubed`, `awkward`, `narwhals`, `arro3-core`, `nanoarrow`), the field-IO rows (`xarray`, `netcdf4`, `h5py` — all three present and member-rich), and the runtime/branch instrument rows (`psutil`, `opentelemetry-sdk`) are all present catalogues — the original coverage gap is realized. The sole genuinely-absent catalogue is `compute/.api/optax.md`, conditional on the optimizer admitting the first-order-descent axis row; the field move binds the already-present `xarray.md`/`netcdf4.md`/`h5py.md` to a consumer (a re-owner pass on the present `xarray` catalogue from study-input framing to CF field-owner framing), not a new catalogue authored.
-- Unlocks the one-catalogue-per-library `[1]-[DOC_SET]` invariant holding: the field fence's `xarray` CF-selection/groupby/resample spellings are already catalogue-backed (`data/.api/xarray.md`), so that fence settles immediately; only the inverse-design fence's `optax.OptaxMinimiser` first-order-descent spelling waits on `compute/.api/optax.md` if that axis admits — every other named member is catalogue-backed today.
-- Draws on the gap that the branch coverage audit must distinguish the realized historical gap (the JAX/inference/graph/field-IO catalogues now present) from the live residual (the lone `optax.md`, conditional), captured on the resolving interpreter: the cp315 core for the pure-Python rows and the gated `<'3.15'` band for `optax` (native jaxlib chain), drawn from a uv-sync reflection pass via the runtime `evidence/evidence` `ApiPackage.reflect` surface, never guessed.
+[CF_FIELD_DATASET_OWNER]-[QUEUED]: CF-labelled field cubes become a first-class data owner.
+- Capability: CF-conventioned labelled field cubes as a data owner.
+- Shape: `data/gridded` owns one `FieldDataset` over `xarray` that reads and writes `netcdf4`/HDF5/Zarr CF-metadata field cubes, exposes coordinate selection, label-indexed slicing, grouped/resampled reductions, and unit/coordinate-reference metadata, and materializes through content-keyed `pyarrow`/Zarr egress.
+- Unlocks: first-class environmental, simulation, scientific, sensor-grid, and geophysical field interchange for offline AEC companion work.
+- Anchors: `xarray`, `netcdf4`, `h5py`, `pyarrow`, Zarr, `gridded/tensor`, runtime `ContentIdentity`, and the present `data/.api/xarray.md`, `data/.api/netcdf4.md`, and `data/.api/h5py.md` catalogues.
+- Tension: the CF-labelled field owner is distinct from the dense chunk-grid owner; labels, coordinates, and CF metadata do not become a second tensor store.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

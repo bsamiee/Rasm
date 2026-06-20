@@ -2,18 +2,37 @@
 
 The forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader plus a few bullets stating the capability, what it unlocks, and the gap or modern technique it draws on. An idea drives one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+
 ## [01]-[OPEN]
 
-[DRL_NEST_POLICY]:
-- A deep-reinforcement-learning-guided nesting placement policy as a `NestPolicy` column carrying an injected placement-score delegate the app-platform consumer wires from the `Rasm.Compute/Model/inference#INFERENCE_MODES` OrtValue run-mode fold to rank placements over the same NFP primitive.
-- Unlocks higher utilization on irregular sheet-metal nesting as one `NestPolicy` delegate column, the NFP primitive unchanged; the inference runs in the app-platform consumer over the existing Compute session substrate and the ranked score crosses into Fabrication as a raw scalar, never a second runtime and never a Fabrication-side Compute reference.
-- Strata-gated, not Fabrication-author: Fabrication is AEC-domain and the strata law forbids the downward edge to the app-platform `Rasm.Compute`, so the learned ranking is injected as a `Func<NoFitPolygon, PartTransform, double>` delegate the consumer fills from the realized `Rasm.Compute/Model/inference#INFERENCE_MODES` `RunOps.Infer` lane — the same pattern the `RemovalBudget` quantity ingress uses (raw scalars cross the seam, the upstream owner is never referenced). The inference lane is realized; the residual block is the trained placement-ranking model asset plus the consumer-side wiring. Phase-1 ships the bottom-left/genetic folds with the Geometry2D-routed NFP and the content-keyed remnant; the learned column lands once that wiring and the model asset exist.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[CSG_SILHOUETTE]:
-- A watertight-solid silhouette path — the exact outline of a boolean-combined solid rather than the per-facet silhouette the HLR kernel extracts — landing on the kernel `ROBUST_ARRANGEMENT_SUBSTRATE` managed exact arrangement rather than a native CSG asset.
-- Unlocks exact drafted outlines of boolean-assembled solids (the true profile a mesh-facet silhouette only approximates); held forward and gated so the per-facet HLR kernel stays pure-managed and the folder carries no native asset.
-- Trickle-down realized against the C# branch `ROBUST_ARRANGEMENT_SUBSTRATE`: the kernel exact-arithmetic arrangement owner (`Rasm.Geometry/Meshing/arrangement#ARRANGEMENT` `Arrangement` `[Union]` over the settled `Meshing/delaunay#TESSELLATION` constrained-Delaunay + `Meshing/offset#STRAIGHT_SKELETON` substrates) is the managed exact path the silhouette composes — `Posting/projection` reads the kernel arrangement's exact kept-cell outline through `Arrangement.Apply`/`ToMesh` rather than a native CSG kernel, so the admission is no longer an external block but a compose-the-kernel-arrangement task held until the realized C# arrangement owner lands. The arrangement DESIGN page is authored (the compose-target anchor is settled); the per-facet HLR kernel stays the pure-managed default until the C# owner exists.
+[DRL_NEST_POLICY]-[QUEUED]: learned placement scoring becomes a policy column over the existing NFP primitive.
+- Capability: a learned placement-score slot that deepens `Nesting/nfp#NESTING` without changing the no-fit-polygon geometry owner.
+- Shape: `NestPolicy.Score` carries an injected `Func<NoFitPolygon, PartTransform, double>` delegate ranking candidate transforms inside the existing bottom-left/genetic folds.
+- Unlocks: higher utilization on irregular sheet-metal nesting without a Fabrication-side `Rasm.Compute` reference, second runtime, or learned-vs-heuristic packer split.
+- Anchors: `Rasm.Compute/Model/inference#INFERENCE_MODES`, `RunOps.Infer`, `Nesting/nfp#NESTING`, and the raw-scalar ingress pattern used by `RemovalBudget`.
+- Tension: the trained placement-ranking model asset and consumer-side wiring must exist before the learned column joins the bottom-left/genetic folds.
+
+[CSG_SILHOUETTE]-[QUEUED]: watertight boolean solids project through the managed arrangement substrate.
+- Capability: a watertight-solid silhouette arm that composes the kernel arrangement output instead of authoring CSG inside Fabrication.
+- Shape: `Posting/projection#PROJECTION_HIDDEN_LINE` reads the kept-cell boundary re-emitted by `Arrangement.Apply` / `ToMesh` for a boolean-combined solid while the per-facet HLR kernel remains the default.
+- Unlocks: drafted outlines for true boolean profiles with no native CSG asset, no in-folder CSG kernel, and no coupling to `ArrangementStore` / `SimplexStore` internals.
+- Anchors: `Rasm.Geometry/Meshing/arrangement#ARRANGEMENT`, `Meshing/delaunay#TESSELLATION`, `Meshing/offset#STRAIGHT_SKELETON`, and the branch `ROBUST_ARRANGEMENT_SUBSTRATE`.
+- Tension: `Posting/projection` can read exact kept-cell outlines only after the realized C# arrangement owner lands.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

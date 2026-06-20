@@ -1,23 +1,38 @@
 # [PROJECTION_TASKLOG]
 
-Open and closed work distilled from `IDEAS.md`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
+Open and closed work distilled from `IDEAS.md`. Each task is a card whose leader carries `[ID]-[STATUS]:` plus a concise thesis, followed by `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension` fields. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
+
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
 
 ## [01]-[OPEN]
 
-[BLOCKED] Wire the `convergence/law` harness onto the frozen fixture corpus.
-- Re-found the `convergence/law#CONVERGENCE_LAW` `opLogEntryArb`/`conflictReceiptArb` arbitraries on the cross-libs `ONE_WIRE_FIXTURE_CORPUS` content-addressed golden bytes (the CRDT op-set, the HLC two-half stamps) read through the new branch `typescript:testing/` fixture reader rather than folder-local hand-minted bytes, so a parity drift surfaces as one corpus mismatch.
-- Integrate `fast-check` (the arbitrary spine reads the frozen corpus as a `constantFrom` seed set) and `@effect/vitest`; the corpus derives from the one `@bufbuild/buf`-pinned descriptor source the C# wire authors.
-- Internal to `convergence/`, reading the branch `testing/` fixture corpus (the `ONE_WIRE_FIXTURE_CORPUS` named TS consumer); the law unchanged, only the arbitrary seed source. From CONVERGENCE_PROOF_HARNESS re-open.
-- The op vocabulary stays decode-admitted; the corpus is the one frozen source rather than per-folder fixtures, the cross-language parity drift caught as a single mismatch.
-- Close-condition: the `de-hardcode` task landed the named `CollisionBounds` frozen table on `convergence/law#CONVERGENCE_LAW` (the `[3]-[RESEARCH]` `CORPUS_SEED_BINDING` note records the swap), so the re-founding is a one-line re-pointing of `CollisionBounds` to the fixture reader's `constantFrom` seed once the branch `typescript:testing/` fixture reader exists — confirmed absent today, and `TESTING_LIB_FOLDER` is not a committed big idea. Realizes when the fixture reader lands.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[BLOCKED] Merkle anti-entropy range reconciliation.
-- Build a read-side `MerkleRangeWire` digest-comparison handshake over the `causality/vector#VERSION_VECTOR` `dominates` algebra so a reconnecting peer reconciles its `CAUSAL_STABILITY_DELIVERY` stable prefix by set-difference rather than a full changefeed re-fold.
-- Integrate `effect` `HashMap`/`SortedMap`/`Order`; the `MerkleRangeWire` shape arrives from `csharp:Rasm.Persistence/Version/commits#TS_PROJECTION`.
-- Internal to `causality/`; depends on the `causality/vector` wiring, the `causality/frontier` causal-stability horizon (the reconciliation prefix unit), and the `MerkleRangeWire` decode landing. From MERKLE_ANTI_ENTROPY.
-- Bounds reconnect cost to the divergent range; the digest names the slice a peer pulls, never an unbounded re-scan.
-- Close-condition: the forward `causality/vector#MERKLE_RECONCILE` stub cluster is named (owner, cases, boundary), but the fence body is blocked-gated on (1) `MerkleRangeWire` arriving decode-admitted on the `libs/typescript/interchange` decode rail (confirmed absent: 0 hits across `interchange/.planning`) and (2) the now-landed `causality/frontier#STABILITY_FRONTIER` stable prefix as the reconciliation unit. Realizes the fence when the C# `Version/commits#TS_PROJECTION` `MerkleRangeWire` decode lands.
+[CONVERGENCE_FIXTURE_CORPUS]-[BLOCKED]: the convergence law reads the shared frozen corpus instead of folder-local seed bytes.
+- Capability: `convergence/law#CONVERGENCE_LAW` re-founds `opLogEntryArb` and `conflictReceiptArb` on the cross-libs `ONE_WIRE_FIXTURE_CORPUS` CRDT op-set and HLC two-half stamp bytes.
+- Shape: the existing `fast-check` arbitrary spine reads the frozen corpus through `constantFrom` seed sets supplied by the branch `typescript:testing/` fixture reader; the `@effect/vitest` law suite and convergence assertions stay unchanged.
+- Unlocks: parity drift surfaces as one content-addressed corpus mismatch instead of separate folder-local fixture divergence, preserving the reopened `CONVERGENCE_PROOF_HARNESS` task without widening the law surface.
+- Anchors: `convergence/law#CONVERGENCE_LAW`, `libs/.planning#ONE_WIRE_FIXTURE_CORPUS`, the C# wire-authored CRDT op-set, the HLC two-half stamps, `fast-check`, `@effect/vitest`, and the `@bufbuild/buf`-pinned descriptor source.
+- Tension: blocked until the branch `typescript:testing/` fixture reader lands; `TESTING_LIB_FOLDER` is not yet a committed big idea, and the decode-admitted op vocabulary stays the floor until that owner exists.
+
+[MERKLE_RECONCILE]-[BLOCKED]: Merkle range digests reconcile the causal stable prefix without a full changefeed re-fold.
+- Capability: `causality/vector#MERKLE_RECONCILE` builds a read-side `MerkleRangeWire` digest-comparison handshake over `causality/vector#VERSION_VECTOR` `dominates`.
+- Shape: the handshake compares stable-prefix ranges, names the divergent slice with the existing vector algebra, and folds only that slice through `effect` `HashMap`, `SortedMap`, and `Order` structures.
+- Unlocks: a reconnecting browser peer reconciles its `CAUSAL_STABILITY_DELIVERY` prefix by set difference, bounding reconnect cost to the divergent range instead of replaying the whole changefeed.
+- Anchors: `causality/vector`, `causality/frontier#STABILITY_FRONTIER`, `csharp:Rasm.Persistence/Version/commits#TS_PROJECTION` `MerkleRangeWire`, `libs/typescript/interchange`, and the `MERKLE_ANTI_ENTROPY` idea card.
+- Tension: blocked until `MerkleRangeWire` is decode-admitted on the `libs/typescript/interchange` rail; the named vector stub realizes only after the C# wire decode and causal stability prefix are both present.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)

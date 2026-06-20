@@ -1,86 +1,94 @@
 # [PYTHON_TASKLOG]
 
-The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two or more packages or land on a shared runtime owner the whole branch inherits. Per-folder work lives on the owning folder `TASKLOG.md`; cross-language work lives in the cross-`libs/` `TASKLOG.md`. Each card leads with a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` open; `[COMPLETE]` or `[DROPPED]` closed — and carries the capability or file to build, the external packages to integrate, the integration points and boundaries, and the key considerations.
+The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two or more packages or land on a shared runtime owner the whole branch inherits. Per-folder work lives on the owning folder `TASKLOG.md`; cross-language work lives in the cross-`libs/` `TASKLOG.md`. Each card uses `[ID]-[STATUS]:` plus `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension`.
+
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
 
 ## [01]-[OPEN]
 
-[QUEUED] Fold content identity into lane admission — from `CONTENT_ADDRESSED_REUSE_FABRIC`.
-- Extend the runtime `execution/lanes` `LanePolicy.run` to accept work as `(ContentKey, Work[T])` pairs threading a session-local `frozendict[ContentKey, T]` cache, so a unit whose key already carries a result short-circuits, the `DrainReceipt` gaining a `hit` count distinct from `completed`.
-- Integrate `xxhash` (via runtime `identity`), `expression` (`frozendict`/`Result`), `msgspec`.
-- The fold lands inside the runtime `concurrency/` owner reading the `evidence/identity` `ContentKey` shape; the four consumers inherit the elision by keying their `(ContentKey, Work)` admission, never a second cache owner; the cache is session-local, durable federation staying the C# owner consumed at the wire.
-- The key folds the `IdentityPolicy` so a settings change misses correctly; only an `Ok` outcome caches; eviction is bounded by an LRU cap so the session cache never grows unbounded.
+<!-- source-only: open idea card template:
+[ID]-[STATUS]: <ambitious concise thesis>.
+- Capability: <higher-order concept, invariant, or owner capability>.
+- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
+- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
+- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
+- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+-->
 
-[QUEUED] Add the CPU-offload lane variant — from `GEOMETRY_KERNEL_OFFLOAD_LANE`.
-- Extend the runtime `execution/lanes` `LanePolicy` with a CPU-bound offload variant over `anyio.to_interpreter.run_sync`, routing caller-supplied geometry and compute kernels into per-subinterpreter execution under the same `CapacityLimiter` and `DrainReceipt`.
-- Integrate `anyio` (`to_interpreter.run_sync`, `to_process.run_sync` as the fallback when subinterpreters are unavailable).
-- The lane lands in the runtime `concurrency/` owner; the offloaded kernels are the `geometry` registration/tessellation loops and the `compute` solver kernels handed in by the sibling — the lane offloads, never imports the kernel; the receipt drains through the one `DrainReceipt`.
-- Subinterpreter availability is runtime-gated (PEP 734); the variant falls back to `to_process.run_sync` when `to_interpreter` is absent, and the offloaded callable must be picklable on the process path.
+[CONTENT_ADDRESSED_REUSE_FABRIC]-[QUEUED]: fold content identity into lane admission.
+- Capability: runtime lane admission accepts work as `(ContentKey, Work[T])` pairs, caches successful session-local results by key, and reports cache hits separately from completed work.
+- Shape: extend `execution/lanes` `LanePolicy.run` and `DrainReceipt` around `ContentKey`, `IdentityPolicy`, `frozendict[ContentKey, T]`, `Result`, and `msgspec` payloads; only `Ok` outcomes enter the bounded LRU cache.
+- Unlocks: `compute`, `data`, `geometry`, and `artifacts` inherit execution elision by keying their expensive outputs without minting package-local cache owners.
+- Anchors: runtime `identity`, runtime `concurrency`, `xxhash`, `expression`, `msgspec`, and the C# content-identity wire seed.
+- Tension: settings drift must miss correctly, and durable federation remains C#-owned across the wire rather than promoted into this session cache.
 
-[QUEUED] Build the one measured-signal stream — from `ONE_MEASURED_SIGNAL_STREAM`.
-- Author the runtime `observability/metrics` instrument set — a companion request-duration histogram, lane drain counters folded from `DrainReceipt`, and `psutil` RSS/CPU gauges — against one `MeterProvider` carrying the process/runtime semantic-conventions resource, exported over the same OTLP exporter the logs and traces use.
-- Integrate `opentelemetry-api`, `opentelemetry-sdk` (`MeterProvider`/`ObservableGauge`/`ObservableCounter`), `opentelemetry-exporter-otlp-proto-http`, `psutil`.
-- The instruments land in the runtime `observability/` owner; the drain-counter source is the `execution/lanes` `DrainReceipt` and the request source is the `transport/serve` companion, so every consumer's measured signal rides one stream; async-observable callbacks read live state without holding a lane lock.
-- The metric stream is local-evidence only — product telemetry export and health stay AppHost-owned across the wire, never re-minted on a Python surface.
+[GEOMETRY_KERNEL_OFFLOAD_LANE]-[QUEUED]: add the CPU-offload lane variant.
+- Capability: runtime owns one CPU-bound offload lane for caller-supplied `geometry` registration/tessellation kernels and `compute` solver kernels.
+- Shape: add a `LanePolicy` variant over `anyio.to_interpreter.run_sync` under the existing `CapacityLimiter` and `DrainReceipt`, with `to_process.run_sync` as the fallback path.
+- Unlocks: heavy numeric and geometry work stops blocking the companion event loop while preserving one lane spine for I/O-bound and CPU-bound execution.
+- Anchors: runtime `concurrency`, `anyio`, PEP 734 subinterpreters, `geometry` registration/tessellation loops, and `compute` solver kernels.
+- Tension: the lane never imports sibling kernels, and the fallback path admits only callables that remain picklable for process execution.
 
-[QUEUED] Extend the structural drift detector across the branch and the wire — from `CROSS_PACKAGE_DRIFT_GUARD`.
-- The runtime `evidence/evidence` `Structural.drift` query locates a re-minted canonical concept (a second content-identity seed, receipt rail, retry owner, or wire-projection name) over one fold across the `compute`/`data`/`geometry`/`artifacts` Python sources and the C#/TypeScript wire-projection sources, emitting a `DriftSpan` only where a name binds in more than one language namespace, returning the offending spans for the `assay code` rail.
-- Integrate `tree-sitter`, `tree-sitter-python`, `tree-sitter-typescript`.
-- The query lands in the runtime `evidence/` owner over the `GRAMMARS` Python/TypeScript rows; it consumes the shared canonical-name set and feeds the `assay code` rail and the one-owner-per-axis law, never minting a parallel registry; the tri-language wire-source leg is the mechanical enforcer the cross-`libs/` named-drift-defect law must adopt (no cross-libs card consumes it yet — the seam the master tier ratifies, never a parallel cross-language guard), while the intra-branch Python-source case is branch-owned — one detector spans both.
-- A false positive on a legitimately distinct same-named concept in a single namespace is filtered by the namespace-multiplicity gate, never a blanket name match.
+[ONE_MEASURED_SIGNAL_STREAM]-[QUEUED]: build the one measured-signal stream.
+- Capability: runtime emits one measured execution stream for companion requests, lane drains, and process health.
+- Shape: author `observability/metrics` around one `MeterProvider`, request-duration histograms, `DrainReceipt` counters, `psutil` RSS/CPU gauges, and the OTLP HTTP exporter shared with logs and traces.
+- Unlocks: every package contributes graduation latency, tessellation throughput, egress volume, render duration, lane saturation, and retry exhaustion through one observable surface.
+- Anchors: runtime `observability`, `execution/lanes`, `transport/serve`, `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, and `psutil`.
+- Tension: the stream is local evidence only; product telemetry export and health remain AppHost-owned across the wire.
 
-[BLOCKED] Serve the C# wire and consume the generated SDK — wire touchpoint for `libs/.planning` PYTHON_COMPANION_SERVES_WIRE / CAPABILITY_SDK_CODEGEN / CRDT_OPLOG_WIRE_AMENDMENT.
-- Stand up the runtime `transport/serve` companion serving the C# `ComputeService`/`ArtifactSync` gRPC over the UDS/InProcess leg and deriving its command surface from the upstream `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` descriptor, decoding the amended CRDT op payload as the one wire vocabulary — never a hand-written client and never a second op kind the wire does not carry.
-- Integrate `grpcio`/`protobuf` (the `grpc.aio` server-runtime, transitively present on the cp315 core via `specklepy`); `grpcio-tools` (the proto codegen compiler) rides the Forge companion lane.
-- The companion reaches no C# interior; it decodes the one C#-owned wire vocabulary and consumes the generated descriptor as settled command metadata; this is the Python anchor the cross-`libs/` PYTHON_COMPANION_SERVES_WIRE, CAPABILITY_SDK_CODEGEN, and CRDT_OPLOG_WIRE_AMENDMENT seams consume, never restated cross-language.
-- Blocked on the upstream descriptor source and the CRDT op landing on the wire.
+[SERVE_C_WIRE_CONSUME_GENERATED]-[BLOCKED]: serve the C# wire and consume the generated SDK — wire touchpoint for `libs/.planning` PYTHON_COMPANION_SERVES_WIRE / CAPABILITY_SDK_CODEGEN / CRDT_OPLOG_WIRE_AMENDMENT.
+- Capability: runtime serves the C# `ComputeService`/`ArtifactSync` companion wire and derives command metadata from the generated capability SDK descriptor.
+- Shape: build `transport/serve` over `grpc.aio`, `protobuf`, the UDS/InProcess leg, and companion-lane `grpcio-tools` codegen while decoding the amended CRDT op payload as the single C#-owned wire vocabulary.
+- Unlocks: Python becomes the anchor for `PYTHON_COMPANION_SERVES_WIRE`, `CAPABILITY_SDK_CODEGEN`, and `CRDT_OPLOG_WIRE_AMENDMENT` without hand-written clients or branch-local op kinds.
+- Anchors: runtime `transport/serve`, `grpcio`, `protobuf`, Forge companion `grpcio-tools`, and `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN`.
+- Tension: blocked on the upstream descriptor source and the CRDT op landing on the wire.
 
-[BLOCKED] Prove the content and causal identity parity inbound — wire touchpoint for `libs/.planning` CONTENT_IDENTITY_PARITY / CAUSAL_TENANT_IDENTITY_WIRE.
-- Reproduce the C#-owned `XxHash128` content seed (seed zero, two-half order) bit-identically in the runtime `evidence/identity` owner via `xxh3_128_intdigest`, and propagate the same HLC two-half causal stamp and tenant frame on the receipt inbound, asserting both against the multi-runtime golden fixture; the content-seed leg asserts on the companion interpreter where `xxhash` resolves and is cp315-blocked behind the upstream wheel per the parity-gate card below, while the HLC stamp and tenant frame are pure-Python and assert on the cp315 core.
-- Integrate `xxhash` (`xxh3_128_intdigest`), `msgspec`.
-- This is the Python anchor the cross-`libs/` CONTENT_IDENTITY_PARITY and CAUSAL_TENANT_IDENTITY_WIRE seams consume; the seed and stamp are the single C#-owned source the runtime reproduces, never a second mint; the lane-admission reuse fabric and the graduation rail both trust this parity as their precondition.
-- The HLC two-64-bit-half order rides the same parity fixture as the content seed; a logical off-by-one-half corrupts ordering with no other signal.
+[PROVE_CONTENT_CAUSAL_IDENTITY_PARITY]-[BLOCKED]: prove the content and causal identity parity inbound — wire touchpoint for `libs/.planning` CONTENT_IDENTITY_PARITY / CAUSAL_TENANT_IDENTITY_WIRE.
+- Capability: runtime proves inbound content identity, HLC causal stamp, and tenant frame parity against the C# source of truth.
+- Shape: implement `evidence/identity` assertions for `XxHash128` seed zero/two-half order through `xxh3_128_intdigest`, `msgspec` receipt payloads, and the multi-runtime golden fixture; pure-Python HLC and tenant frames assert on the cp315 core.
+- Unlocks: `CONTENT_IDENTITY_PARITY`, `CAUSAL_TENANT_IDENTITY_WIRE`, lane-admission reuse, and graduation evidence trust one verified inbound identity precondition.
+- Anchors: runtime `evidence/identity`, `xxhash`, `msgspec`, the C# seed owner, and the multi-runtime golden fixture.
+- Tension: blocked by the cp315 `xxhash` wheel gap for the content-seed leg, and the HLC half-order has no recovery signal if encoded in the wrong order.
 
-[QUEUED] Graduate offline evidence on the one content-keyed rail — wire touchpoint for `libs/.planning` GRADUATION_EVIDENCE_INWARD.
-- Pack every graduatable offline result (the `geometry` registration transforms, reconstructed meshes, topology graphs, network graphs, form-finding, the ONNX surrogate fit) into the compute `graduation` `HandoffAxis` evidence shape keyed by `ContentIdentity`, the single outward contract the C# determinism closure re-imports by the one key.
-- Integrate `onnx` (the surrogate-fit artifact), `msgspec` (the evidence shape); composes the runtime `identity` content key.
-- The rail stays singular — geometry, compute, and data egress reach it through the `HandoffAxis` geometry/result case, never a parallel per-package handoff; this is the Python anchor the cross-`libs/` GRADUATION_EVIDENCE_INWARD seam consumes, the C# side running ONNX inference over the artifact, never an in-process training loop.
-- Depends on the content-identity parity touchpoint so the outward key matches the inward closure key.
+[GRADUATE_OFFLINE_EVIDENCE_CONTENT_KEYED]-[QUEUED]: graduate offline evidence on the one content-keyed rail — wire touchpoint for `libs/.planning` GRADUATION_EVIDENCE_INWARD.
+- Capability: compute graduates every useful offline result outward through one content-keyed evidence rail.
+- Shape: pack `geometry` registration transforms, reconstructed meshes, topology graphs, network graphs, form-finding, and ONNX surrogate fits into the compute `graduation` `HandoffAxis` evidence shape keyed by runtime `ContentIdentity`.
+- Unlocks: C# determinism closure re-imports Python offline evidence by one key and one rail instead of a per-package handoff family.
+- Anchors: compute `graduation`, runtime `identity`, `HandoffAxis`, `onnx`, `msgspec`, and `GRADUATION_EVIDENCE_INWARD`.
+- Tension: the rail depends on content-identity parity so the outward key matches the inward closure key.
 
-[BLOCKED] Prove the digest-endianness parity gate, cp315 leg blocked on an upstream `xxhash` wheel — from `CONTENT_IDENTITY_PARITY_GATE`.
-- `xxhash` ships cp38-cp314 per-version wheels with no abi3/cp315 build (`xxhash>=3.7.0`), so it resolves on the `python_version<'3.15'` companion floor and is architecturally absent from the cp315 core — the runtime `evidence/identity` `xxh3_128_intdigest`/`xxh3_64_intdigest` spellings and the `XxHash128`/`XxHash3` digest-endianness parity against the C# `System.IO.Hashing` seam reflection-verify and assert on the companion interpreter today, while the cp315 core leg stays blocked until an upstream cp315/abi3 wheel exists.
-- Integrate `xxhash` (companion-resolved), the runtime `evidence/evidence` `ApiPackage.reflect` capture, and the multi-runtime golden fixture the C# seed owner produces.
-- This gate is the precondition the whole branch inherits: the content-identity parity touchpoint, the content-addressed lane-admission reuse fabric, and the graduation rail all trust the seed reproduces bit-identically, so the digest-endianness mismatch surfaces here before any consumer keys an output by a corrupt key.
-- Blocked on the upstream cp315/abi3 `xxhash` wheel landing, not a host `.venv` sync; the companion-interpreter parity is assertable now (the `to_bytes(16, "little")` child serialization matching the C# `WriteUInt128LittleEndian` writer and the seed-keyword spellings confirm there), and the cp315 fence stays the single install-gated `RESEARCH` link, never a fabricated signature; the cross-`libs/` `CONTENT_IDENTITY_PARITY` seam consumes this gate as its Python-side precondition.
+[CONTENT_IDENTITY_PARITY_GATE]-[BLOCKED]: prove the digest-endianness parity gate, cp315 leg blocked on an upstream `xxhash` wheel.
+- Capability: runtime verifies digest-endianness parity for `XxHash128` and `XxHash3` before any consumer trusts a Python content key.
+- Shape: use companion-resolved `xxhash`, `xxh3_128_intdigest`, `xxh3_64_intdigest`, `ApiPackage.reflect`, and the C# golden fixture to prove little-endian child serialization against `System.IO.Hashing`.
+- Unlocks: the content-identity touchpoint, lane-admission reuse fabric, and graduation rail inherit one verified seed-parity gate.
+- Anchors: runtime `evidence/identity`, runtime `evidence/evidence`, `xxhash>=3.7.0`, C# `WriteUInt128LittleEndian`, and cross-`libs/` `CONTENT_IDENTITY_PARITY`.
+- Tension: blocked on an upstream cp315/abi3 `xxhash` wheel, not a local environment sync; the companion-interpreter proof is assertable now, and the cp315 fence remains the single install-gated `RESEARCH` link.
 
-[QUEUED] Seed the gradient-driven inverse-design optimization owner — from `GRADIENT_DRIVEN_INVERSE_DESIGN`.
-- Stand up the new `compute/optimization` sub-domain on the compute folder `ARCHITECTURE.md`, `IDEAS.md`, and a `compute/.planning/optimization/design.md` design page owning one `DesignProblem`-discriminated optimizer that drives an Equinox-parameterized objective (field problem / parametric mesh / density distribution) through Optimistix `minimise`/`least_squares`, reading the `solvers/sensitivity#SENSITIVITY` implicit-adjoint gradient and folding one content-keyed `OptimizationReceipt` over iterates/objective-trace/KKT-residual.
-- Integrate `optimistix` (`minimise`/`least_squares`/`OptaxMinimiser`), `equinox` (PyTree parameterization, `partition`/`combine`), `jax` (the cotangent the sensitivity owner pulls back), composing `solvers/{linear,nonlinear,differential}.md` autodifferentiable solves and `solvers/mesh.md` assembly; the optional `optax` first-order-descent axis row is one admission step the task carries (manifest row delta returned to the orchestrator), never a phantom registry entry.
-- The owner lands in the compute `optimization/` sub-domain reading the runtime `ContentIdentity`/`RuntimeRail`/`Receipt` and the compute solver/sensitivity owners; the converged design graduates as the `solver` `HandoffAxis` case on the one graduation rail, never a parallel optimizer beside the solve; the loop is offline optimal-design only, never a training loop or a production solver session.
-- The `jax`/`optimistix`/`equinox` stack carries the `python_version<'3.15'` jaxlib floor, so the optimizer body is authored against the documented API on the gated band; the new `compute/.api/optax.md` catalogue (if admitted) is a row on the coverage task below.
+[GRADIENT_DRIVEN_INVERSE_DESIGN]-[QUEUED]: seed the gradient-driven inverse-design optimization owner.
+- Capability: compute owns gradient-driven inverse design as the apex of the differentiable solver stack.
+- Shape: seed `compute/optimization` in compute `ARCHITECTURE.md`, `IDEAS.md`, and `compute/.planning/optimization/design.md` around one `DesignProblem` optimizer, Equinox objectives, Optimistix `minimise`/`least_squares`, `solvers/sensitivity#SENSITIVITY`, and a content-keyed `OptimizationReceipt`.
+- Unlocks: PDE-constrained optimal design, inverse identification, parameter recovery, and design-of-experiment warm starts graduate as the `solver` `HandoffAxis` case on the single evidence rail.
+- Anchors: `optimistix`, `equinox`, `jax`, optional `optax`, compute solver/sensitivity pages, runtime `ContentIdentity`/`RuntimeRail`/`Receipt`, and the `python_version<'3.15'` jaxlib band.
+- Tension: optional `optax.OptaxMinimiser` remains tied to the `compute/.api/optax.md` coverage task if the first-order-descent axis admits.
 
-[QUEUED] Seed the CF-conventioned field owner — from `CF_FIELD_DATASET_OWNER`.
-- Stand up the new `data/gridded` sub-domain on the data folder `ARCHITECTURE.md`, `IDEAS.md`, and a `data/.planning/gridded/field.md` design page owning one `FieldDataset` over `xarray` reading/writing CF-metadata field cubes (`netcdf4`/HDF5/Zarr), exposing CF-aware coordinate selection, label-indexed slicing, grouped/resampled reductions, and unit/coordinate-reference metadata, materializing to the content-keyed `pyarrow`/Zarr egress the columnar and tensor owners already speak.
-- Integrate `xarray` (`open_dataset`/`sel`/`isel`/`groupby`/`resample`/`to_netcdf`/`to_zarr`), `netcdf4` (the CF reader engine), `h5py` (the HDF5 engine), composing `gridded/tensor.md` Zarr egress and the runtime `ContentIdentity`/`TransportResource`; the `data/.api/xarray.md`, `data/.api/netcdf4.md`, and `data/.api/h5py.md` catalogues are present and member-rich, so the fence spellings settle immediately — the only catalogue work is re-owning the present `xarray.md` framing from `compute`-study array input to CF field-owner, never authoring a new catalogue.
-- The owner lands in the data `gridded/` sub-domain reading the runtime content key and composing the existing tensor/columnar egress; the labelled CF-field concern is distinct from the dense chunk-grid `gridded/tensor` owner (coordinates/labels/CF-metadata versus chunk bytes), so it is a new owner, never a second labelled-array store inside `tensor`.
-- `xarray`/`netcdf4` ride the `python_version<'3.15'` native-dependency band (or the Forge scientific toolchain source-build), so the gated arms dispatch to the runtime `anyio.to_process.run_sync` subprocess seam exactly as the existing gated data rows do; this closes the one admitted-but-unconsumed package (`netcdf4`).
+[CF_FIELD_DATASET_OWNER]-[QUEUED]: seed the CF-conventioned field owner.
+- Capability: data owns CF-conventioned labelled field cubes as a first-class gridded data owner.
+- Shape: seed `data/gridded` in data `ARCHITECTURE.md`, `IDEAS.md`, and `data/.planning/gridded/field.md` around one `FieldDataset` over `xarray`, `netcdf4`, HDF5/Zarr, CF-aware coordinates, label slicing, group/resample reductions, units, CRS metadata, and content-keyed `pyarrow`/Zarr egress.
+- Unlocks: environmental, CFD, sensor-grid, and geophysical field interchange becomes a branch-owned data capability rather than an incidental compute study input.
+- Anchors: `data/.api/xarray.md`, `data/.api/netcdf4.md`, `data/.api/h5py.md`, `gridded/tensor.md`, runtime `ContentIdentity`, runtime `TransportResource`, and the `python_version<'3.15'` native-dependency band.
+- Tension: the owner is distinct from dense chunk-grid tensor storage, and gated `xarray`/`netcdf4` arms dispatch through the runtime subprocess seam.
 
-[QUEUED] Re-grade the `.api/` catalogue coverage and close the realized historical gap — from `API_CATALOGUE_COVERAGE`.
-- The original coverage gap is realized: `compute/.api/{optimistix,lineax,diffrax,equinox,numpyro,nutpie,pymc,arviz,salib,python-flint,mpmath,array-api-compat,array-api-extra,scikit-fem,skl2onnx}.md`, `data/.api/{rustworkx,zarr,cubed,awkward,narwhals,arro3-core,nanoarrow,xarray,netcdf4,h5py}.md`, and the branch instrument rows (`psutil`, `opentelemetry-sdk` at `libs/python/.api/`) are all present and the fences they back are catalogue-settled; the sole residual catalogue is `compute/.api/optax.md` if the optimizer admits the first-order axis — the field move is a consumer-binding + re-owner pass on the present `xarray.md`/`netcdf4.md`/`h5py.md`, not new catalogues.
-- Integrate `importlib.metadata` and the runtime `evidence/evidence` `ApiPackage.reflect` surface; the capture runs on the interpreter each package resolves on — the cp315 core for the pure-Python rows, the gated `python_version<'3.15'` band for the `optax` native jaxlib chain via the Forge scientific toolchain.
-- The lone absent catalogue lands in the owning folder `.api/` (bare `optax.md`, never an `api-`-prefixed filename); until it lands the inverse-design first-order-descent fence member (`optax.OptaxMinimiser`) stays a marked `RESEARCH` seam, while the field `xarray` CF-selection/groupby/resample spellings are catalogue-settled today and finalize as fence code immediately.
-- The `[6]-[REVIEW]` fence-truthfulness rule fails any fence whose external member has no present catalogue; the field page passes against the present `xarray.md`/`netcdf4.md`/`h5py.md`, and only the inverse-design optimizer's optional `optax` axis is the residual coverage gap the branch tracks.
-
-[QUEUED] Reclassify the runtime `API_CATALOGUE_CAPTURE` provenance — from `API_CATALOGUE_COVERAGE`.
-- Split the runtime `[API_CATALOGUE_CAPTURE]` quartet by resolvability: `obstore`/`apscheduler`/`keyring` resolve on the cp315 core (spellings live-verified), so their catalogue capture is a pending uv-sync reflection pass, not a gated dependency; `xxhash` alone resolves only on the `python_version<'3.15'` companion floor (no cp315/abi3 wheel exists upstream), so its capture rides the companion interpreter and its cp315 leg stays blocked behind the `[CONTENT_IDENTITY_PARITY_GATE]` card above — an upstream-wheel block, not a host install gate.
-- Integrate the runtime `evidence/evidence` `ApiPackage.reflect` surface against the synced `.venv`; no member signature is authored without reflection evidence.
-- The reclassify keeps the runtime folder `TASKLOG` honest — three core-resolvable captures are RESEARCH-capture-pending and one is companion-floor-resolved with a cp315 leg upstream-blocked — so a page is never blocked on an environment floor a package does not actually need.
-
-[QUEUED] Route the admitted `pye57` E57 reader into scan ingestion — branch-wide under-utilization from `API_CATALOGUE_COVERAGE`.
-- `pye57` carries a `geometry/.api/pye57.md` catalogue but no fence reads it: `scan/registration.md` ingests clouds through `open3d`/`kiss_matcher`/`small_gicp` and `data/spatial/mesh.md` owns `laspy`/`pdal` point-cloud exchange, leaving the E57 structured-scan format (the dominant terrestrial-laser-scanner interchange) with a present catalogue and zero consumer — the one admitted package whose roster no fence exploits.
-- Integrate `pye57` (`E57.read_scan_raw`/`scan_count`/header pose) as the E57 ingestion arm on the data mesh-exchange owner or as a `scan-registration` cloud source, never a parallel reader file — one ingestion arm folding the E57 scan into the existing `o3d.t.geometry.PointCloud` admission the registration owner already consumes.
-- The arm lands on the owning data/geometry seam, not a new owner; E57 is one source format the existing point-cloud admission decodes, the per-scan pose folding into the same `RegistrationResult` transform spine.
-- Catalogue-present, consumer-absent: this is an exploitation gap, not an environment block; `pye57` resolves on the companion floor beside the native geometry stack.
+[PYE57_SCAN_INGESTION]-[QUEUED]: route the admitted `pye57` E57 reader into scan ingestion.
+- Capability: the admitted `pye57` E57 reader becomes an ingestion arm for structured terrestrial-laser-scan data.
+- Shape: fold `E57.read_scan_raw`, `scan_count`, and header pose data into the existing data mesh-exchange owner or `scan/registration.md` cloud-source admission, producing the `o3d.t.geometry.PointCloud` shape the registration owner already consumes.
+- Unlocks: E57 scan files enter the existing point-cloud registration and `RegistrationResult` transform spine without a parallel reader file.
+- Anchors: `geometry/.api/pye57.md`, `scan/registration.md`, `data/spatial/mesh.md`, `open3d`, `kiss_matcher`, `small_gicp`, `laspy`, `pdal`, and the companion native geometry floor.
+- Tension: this is a catalogue-present consumer gap, not an environment block; ownership lands on the data/geometry seam rather than a new package owner.
 
 ## [02]-[CLOSED]
+
+<!-- source-only: closed task card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+-->
 
 (none)
