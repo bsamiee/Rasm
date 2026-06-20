@@ -19,7 +19,8 @@ Rasm.Materials/
 │   ├── Connection.cs     # ConnectionItem polymorphic owner over ConnectionFamily axis
 │   ├── Reinforcement.cs  # Reinforcement ConnectionFamily over ASTM A615/A706 bar record
 │   ├── Fastener.cs       # Fastener ConnectionFamily over ISO 898/SAE J429 thread record
-│   └── Hanger.cs         # Hanger ConnectionFamily over carried-member/capacity record
+│   ├── Hanger.cs         # Hanger ConnectionFamily over carried-member/capacity record
+│   └── Joint.cs          # Joint ConnectionFamily over AWS D1.1 weld/adhesive/stud continuous-connection record
 ├── Appearance/           # Measured appearance engine
 │   ├── Bsdf.cs           # Closed seven-lobe BsdfLobe family and scene-linear spectral edge
 │   ├── Graph.cs          # Node-DAG MaterialGraph program and MaterialLibrary row table
@@ -28,12 +29,14 @@ Rasm.Materials/
 │   ├── Weathering.cs     # Weathering aging fold over closed WeatheringEffect union
 │   ├── Acquisition.cs    # Acquisition import fold over closed CaptureSource union
 │   ├── Finish.cs         # FinishMix Kubelka-Munk pigment-reflectance engine
-│   └── Interchange.cs    # MaterialWire and MaterialX .mtlx interchange projection
+│   ├── Interchange.cs    # MaterialWire and MaterialX .mtlx interchange projection
+│   └── Surface.cs        # SpectralUpsample/ToneMap/ConductorIor/SlabStack OpenPBR color-science lowering
 ├── Construction/         # Host-neutral construction model
 │   ├── Assembly.cs       # IFC 4.3 material-assignment owner and Element placed-unit model
 │   └── Layout.cs         # One ConstructionLayout.Resolve placement fold over any ProfileFamily
 └── Properties/           # Typed engineering-property model
-    └── Properties.cs     # MaterialProperty closed family with quantity-coercion fold
+    ├── Properties.cs     # MaterialProperty closed family with quantity-coercion fold
+    └── Sustainability.cs # Environmental/Cost/Classification MaterialProperty discipline with lifecycle aggregation folds
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new cross-section is a `ProfileFamily` row, a new material a `MaterialLibrary` row, a new lobe a `BsdfLobe` `[Union]` case, a new connection a `ConnectionFamily` row, a new engineering property a `MaterialProperty` case — never a new surface. The rail is named in the return type: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes — `ProfileFault` 2300, `ConstructionFault` 2350, `ConnectionFault` 2360, `MaterialFault` 2450, all disjoint from the kernel `GeometryFault` band 2400. C# is the sole producer of the material wire: `Appearance/Interchange` `MaterialWire` and `MtlxDocument` mint the OpenPBR-vector and MaterialX `.mtlx` interchange once, and the TypeScript and Python peers decode both — a peer re-mint of the OpenPBR algebra, the `ConductorIor` table, or the MaterialX schema is the named cross-language drift defect.
@@ -41,15 +44,23 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Appearance/interchange  →  typescript:interchange/codec     # [WIRE]: MaterialWire OpenPBR vector wire
-Appearance/bsdf         →  csharp:Rasm.Bim/Semantics        # [CONTENT_KEY]: BimAppearance
-Appearance/bsdf         ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance for emission
-Appearance/photometric  ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance seam
-Connection              →  csharp:Rasm.Bim/Model            # [WIRE]: ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener
-Properties              →  csharp:Rasm.Fabrication/Process  # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
-Construction/assembly   →  csharp:Rasm.Bim/Semantics        # [PROJECTION]: MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet
-Appearance/bsdf         →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf shading at path tracer
-Appearance/graph        →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: SurfaceShade to path tracer
+Appearance/interchange     →  typescript:interchange/codec     # [WIRE]: MaterialWire OpenPBR vector wire
+Appearance/bsdf            →  csharp:Rasm.Bim/Semantics        # [CONTENT_KEY]: BimAppearance
+Appearance/bsdf            ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance for emission
+Appearance/bsdf            ←  csharp:Rasm.Compute/Symbolic     # [PORT]: ONNX spectral-reconstruction conductor curve
+Appearance/photometric     ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance seam
+Appearance/acquisition     ←  csharp:Rasm.Compute/algorithms   # [PORT]: QR/LM least-squares BRDF fit over GGX/Smith
+Appearance/surface         →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf + SlabStack at path tracer
+Appearance/bsdf            →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf shading at path tracer
+Appearance/graph           →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: SurfaceShade to path tracer
+Appearance/graph           →  csharp:Rasm.Persistence          # [TRANSPORT]: MaterialLibrary content-keyed durable catalogue rows
+Connection                 →  csharp:Rasm.Bim/Model            # [WIRE]: ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener
+Connection/joint           →  csharp:Rasm.Bim/Model            # [WIRE]: weld/stud IfcMechanicalFastener + IfcRelConnectsWithRealizingElements
+Properties                 →  csharp:Rasm.Fabrication/Process  # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
+Properties/sustainability  →  csharp:Rasm.Bim/Semantics        # [PROJECTION]: Pset_EnvironmentalImpactValues + Uniclass/OmniClass
+Properties/sustainability  →  cs:AEC_SIMULATION_BRIDGE         # [WIRE]: embodied-carbon GWP + cost rollup by MaterialId
+Construction/assembly      →  csharp:Rasm.Bim/Semantics        # [PROJECTION]: MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet
+Construction/layout        →  csharp:Rasm.Rhino                # [BOUNDARY]: Placement / RebarBend / dome ring-course host materialization
 ```
 
 ## [03]-[DOMAIN_LAW]

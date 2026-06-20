@@ -8,9 +8,9 @@ This table routes the first proof question. Classify ambiguous behavior in the r
 
 | [INDEX] | [QUESTION]                                   | [READ]                                    |
 | :-----: | :------------------------------------------- | :---------------------------------------- |
-|   [01]   | Which managed law or property shape fits?    | [managed laws](managed-laws.md)           |
-|   [02]   | Which evidence rail proves visited behavior? | [evidence rails](evidence-rails.md)       |
-|   [03]   | Which specialized rail owns a boundary?      | [specialized rails](specialized-rails.md) |
+|  [01]   | Which managed law or property shape fits?    | [managed laws](managed-laws.md)           |
+|  [02]   | Which evidence rail proves visited behavior? | [evidence rails](evidence-rails.md)       |
+|  [03]   | Which specialized rail owns a boundary?      | [specialized rails](specialized-rails.md) |
 
 ## [02]-[RAIL_CHOOSER]
 

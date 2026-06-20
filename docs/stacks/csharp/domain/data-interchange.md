@@ -8,15 +8,15 @@ This table routes an interchange concern to its owning surface; the most specifi
 
 | [INDEX] | [CONCERN]                      | [OWNER]                              | [REJECTED_FORM]                 |
 | :-----: | :----------------------------- | :----------------------------------- | :------------------------------ |
-|   [01]   | analytical session             | posture record + one anchor          | open-per-query connections      |
-|   [02]   | in-process engine concurrency  | `Duplicate()` lanes over one handle  | command interleaving            |
-|   [03]   | foreign store reads            | read-only `ATTACH`                   | export-import shuffle           |
-|   [04]   | bulk ingest                    | mapped appender + explicit `Close()` | row-at-a-time `INSERT` loop     |
-|   [05]   | large result reads             | streaming-mode reader                | `DataTable` materialization     |
-|   [06]   | in-process sequence in a query | registered table function            | single-query staging table      |
-|   [07]   | columnar egress                | one `COPY` rail + policy rows        | per-format export paths         |
-|   [08]   | artifact generations           | name-keyed union reads               | in-place rewrites               |
-|   [09]   | delimited exchange             | one profile record, derived triple   | per-site option drift           |
+|  [01]   | analytical session             | posture record + one anchor          | open-per-query connections      |
+|  [02]   | in-process engine concurrency  | `Duplicate()` lanes over one handle  | command interleaving            |
+|  [03]   | foreign store reads            | read-only `ATTACH`                   | export-import shuffle           |
+|  [04]   | bulk ingest                    | mapped appender + explicit `Close()` | row-at-a-time `INSERT` loop     |
+|  [05]   | large result reads             | streaming-mode reader                | `DataTable` materialization     |
+|  [06]   | in-process sequence in a query | registered table function            | single-query staging table      |
+|  [07]   | columnar egress                | one `COPY` rail + policy rows        | per-format export paths         |
+|  [08]   | artifact generations           | name-keyed union reads               | in-place rewrites               |
+|  [09]   | delimited exchange             | one profile record, derived triple   | per-site option drift           |
 |  [10]   | artifact identity              | descriptor stamp + content hash      | filename-convention trust       |
 |  [11]   | schema evolution               | lattice diff verdict                 | per-consumer compatibility code |
 |  [12]   | geo vocabulary                 | NTS interior, two wire projections   | coordinate DTO forks            |

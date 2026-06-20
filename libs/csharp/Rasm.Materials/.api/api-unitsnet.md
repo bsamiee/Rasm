@@ -62,6 +62,15 @@ measured execution inputs and receipts.
 |  [04]   | `LuminousIntensity` | quantity       | `LuminousIntensityUnit.Candela` SI base       |
 |  [05]   | `Irradiance`        | quantity       | `IrradianceUnit.WattPerSquareMeter` SI base   |
 
+[PUBLIC_TYPE_SCOPE]: admitted thermal and heat-transfer quantity families
+- rail: units
+
+| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE] | [CAPABILITY]                                                   |
+| :-----: | :------------------------ | :------------- | :------------------------------------------------------------- |
+|  [01]   | `ThermalConductivity`     | quantity       | `ThermalConductivityUnit.WattPerMeterKelvin` SI base           |
+|  [02]   | `SpecificEntropy`         | quantity       | `SpecificEntropyUnit.JoulePerKilogramKelvin` SI base           |
+|  [03]   | `HeatTransferCoefficient` | quantity       | `HeatTransferCoefficientUnit.WattPerSquareMeterKelvin` SI base |
+
 [PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
 - rail: units
 
@@ -94,6 +103,15 @@ measured execution inputs and receipts.
 |  [03]   | `LuminousFluxUnit`      | unit enum      | `Lumen` canonical and display                                    |
 |  [04]   | `LuminousIntensityUnit` | unit enum      | `Candela` canonical and display                                  |
 |  [05]   | `IrradianceUnit`        | unit enum      | `WattPerSquareMeter` canonical, `KilowattPerSquareMeter` display |
+
+[PUBLIC_TYPE_SCOPE]: admitted thermal and heat-transfer unit enum families (`UnitsNet.Units`)
+- rail: units
+
+| [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE] | [CAPABILITY]                                                              |
+| :-----: | :---------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `ThermalConductivityUnit`     | unit enum      | `WattPerMeterKelvin` canonical, `BtuPerHourFootFahrenheit` display        |
+|  [02]   | `SpecificEntropyUnit`         | unit enum      | `JoulePerKilogramKelvin` canonical, `KilojoulePerKilogramKelvin` display  |
+|  [03]   | `HeatTransferCoefficientUnit` | unit enum      | `WattPerSquareMeterKelvin` canonical, `WattPerSquareMeterCelsius` display |
 
 [PUBLIC_TYPE_SCOPE]: parsing, metadata, and units
 - rail: units
@@ -181,6 +199,12 @@ measured execution inputs and receipts.
 - `LuminousIntensity.BaseUnit` is `LuminousIntensityUnit.Candela`.
 - `Irradiance.BaseUnit` is `IrradianceUnit.WattPerSquareMeter`.
 - The `photometric` author-kernel rescales measured photometric and radiometric inputs to these SI base units.
+
+[THERMAL_BASE_UNITS]:
+- `ThermalConductivity.BaseUnit` is `ThermalConductivityUnit.WattPerMeterKelvin`.
+- `SpecificEntropy.BaseUnit` is `SpecificEntropyUnit.JoulePerKilogramKelvin`; the quantity carries specific-heat-capacity values at this base.
+- `HeatTransferCoefficient.BaseUnit` is `HeatTransferCoefficientUnit.WattPerSquareMeterKelvin`.
+- `ThermalConductivity.From`, `SpecificEntropy.From`, and `HeatTransferCoefficient.From` admit a `QuantityValue` plus the unit enum; the `physical-properties` author-kernel rescales measured conductivity, specific-heat, and thermal-transmittance inputs to these SI base units.
 
 [QUANTITY_POLICY]:
 - parsing: `QuantityParser` and `UnitParser`

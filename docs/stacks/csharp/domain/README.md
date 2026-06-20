@@ -6,15 +6,15 @@ The domain stack routes specialized C# implementation decisions after the root s
 
 | [INDEX] | [DECISION]              | [READ]                                  |
 | :-----: | :---------------------- | :-------------------------------------- |
-|   [01]   | hosting and runtime     | [runtime](runtime.md)                   |
-|   [02]   | concurrency and streams | [concurrency](concurrency.md)           |
-|   [03]   | telemetry signal        | [diagnostics](diagnostics.md)           |
-|   [04]   | boundary validation     | [validation](validation.md)             |
-|   [05]   | resilience policy       | [resilience](resilience.md)             |
-|   [06]   | wire transport          | [transport](transport.md)               |
-|   [07]   | data persistence        | [persistence](persistence.md)           |
-|   [08]   | embedded durability     | [durability](durability.md)             |
-|   [09]   | postgres surface        | [postgres](postgres.md)                 |
+|  [01]   | hosting and runtime     | [runtime](runtime.md)                   |
+|  [02]   | concurrency and streams | [concurrency](concurrency.md)           |
+|  [03]   | telemetry signal        | [diagnostics](diagnostics.md)           |
+|  [04]   | boundary validation     | [validation](validation.md)             |
+|  [05]   | resilience policy       | [resilience](resilience.md)             |
+|  [06]   | wire transport          | [transport](transport.md)               |
+|  [07]   | data persistence        | [persistence](persistence.md)           |
+|  [08]   | embedded durability     | [durability](durability.md)             |
+|  [09]   | postgres surface        | [postgres](postgres.md)                 |
 |  [10]   | data interchange        | [data interchange](data-interchange.md) |
 |  [11]   | compute lane            | [compute](compute.md)                   |
 |  [12]   | render and visuals      | [visuals](visuals.md)                   |

@@ -2,7 +2,7 @@
 
 The forward pool of higher-order concepts for `geometry`, grounded in the host-free companion role. Each idea is a card — slug leader plus the capability, what it unlocks, and the gap or modern technique it draws on — and spawns one or more tasks in `TASKLOG.md`. `[1]-[OPEN]` holds live concepts; `[2]-[CLOSED]` records dispositions so an idea is never re-litigated.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
 [COMPANION_CPU_OFFLOAD]-[QUEUED]: geometry hands heavy CPU kernels to the runtime offload lane.

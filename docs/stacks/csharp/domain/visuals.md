@@ -8,15 +8,15 @@ This table routes a visual concern to its owning surface; the most specific row 
 
 | [INDEX] | [CONCERN]           | [OWNER]                               | [REJECTED_FORM]             |
 | :-----: | :------------------ | :------------------------------------ | :-------------------------- |
-|   [01]   | output target       | target row over one render capsule    | bespoke pipeline per target |
-|   [02]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
-|   [03]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
-|   [04]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
-|   [05]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
-|   [06]   | font fallback       | frozen role × script grid             | host registry probe at draw |
-|   [07]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
-|   [08]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
-|   [09]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
+|  [01]   | output target       | target row over one render capsule    | bespoke pipeline per target |
+|  [02]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
+|  [03]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
+|  [04]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
+|  [05]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
+|  [06]   | font fallback       | frozen role × script grid             | host registry probe at draw |
+|  [07]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
+|  [08]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
+|  [09]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
 |  [10]   | chart               | series-spec table + headless twin     | per-chart code-behind       |
 |  [11]   | styling values      | one frozen token algebra              | call-site literals          |
 |  [12]   | color motion        | perceptual tween row                  | componentwise sRGB lerp     |

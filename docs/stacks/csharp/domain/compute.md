@@ -8,15 +8,15 @@ This table routes a compute concern to its owning surface; the most specific row
 
 | [INDEX] | [CONCERN]                     | [OWNER]                            | [REJECTED_FORM]                |
 | :-----: | :---------------------------- | :--------------------------------- | :----------------------------- |
-|   [01]   | rank-N numeric payload        | `Tensor<T>` + span views           | local NDArray wrapper          |
-|   [02]   | flat numeric kernel           | `TensorPrimitives` kernel row      | element loop                   |
-|   [03]   | scratch and staging buffers   | five-class allocation row          | `new T[]` per request          |
-|   [04]   | byte payloads across IO seams | one process stream pool            | raw growable `MemoryStream`    |
-|   [05]   | model execution               | fingerprinted session + `OrtValue` | per-call dictionary marshal    |
-|   [06]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
-|   [07]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
-|   [08]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
-|   [09]   | compute evidence              | typed route receipt                | generic ledger                 |
+|  [01]   | rank-N numeric payload        | `Tensor<T>` + span views           | local NDArray wrapper          |
+|  [02]   | flat numeric kernel           | `TensorPrimitives` kernel row      | element loop                   |
+|  [03]   | scratch and staging buffers   | five-class allocation row          | `new T[]` per request          |
+|  [04]   | byte payloads across IO seams | one process stream pool            | raw growable `MemoryStream`    |
+|  [05]   | model execution               | fingerprinted session + `OrtValue` | per-call dictionary marshal    |
+|  [06]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
+|  [07]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
+|  [08]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
+|  [09]   | compute evidence              | typed route receipt                | generic ledger                 |
 |  [10]   | physical numerics             | quantity admission + dual evidence | literal conversion factor      |
 
 ## [02]-[TENSOR_LAW]

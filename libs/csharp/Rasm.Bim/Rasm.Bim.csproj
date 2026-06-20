@@ -19,6 +19,7 @@
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="Openize.Drako" />
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Speckle Sync Seam">

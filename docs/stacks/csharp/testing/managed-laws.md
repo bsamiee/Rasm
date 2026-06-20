@@ -35,10 +35,10 @@ This table is a lookup by focused test input.
 
 | [INDEX] | [INPUT]            | [FLAG]            | [USE]          |
 | :-----: | :----------------- | :---------------- | :------------- |
-|   [01]   | `/assembly/...`    | `--filter-query`  | xUnit query    |
-|   [02]   | `Category=Algebra` | `--filter-trait`  | trait contract |
-|   [03]   | `SomeSpec`         | `--filter-class`  | spec focus     |
-|   [04]   | `SomeLaw`          | `--filter-method` | law focus      |
+|  [01]   | `/assembly/...`    | `--filter-query`  | xUnit query    |
+|  [02]   | `Category=Algebra` | `--filter-trait`  | trait contract |
+|  [03]   | `SomeSpec`         | `--filter-class`  | spec focus     |
+|  [04]   | `SomeLaw`          | `--filter-method` | law focus      |
 
 MTP commands use the local runner or `dotnet test --project <test-project>`. Positional project paths are invalid in MTP mode.
 

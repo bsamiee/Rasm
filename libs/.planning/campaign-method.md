@@ -32,6 +32,8 @@ These are lib-grade foundations, not app scaffolding. The bar for every package,
 
 ## [04]-[WORKFLOW_ORCHESTRATION]
 
+NOTE: Workflow may be altered by prompt based on scope of `<TARGET>`, IF the target is the full `libs/`, or language specific, like `libs/csharp/`, then proceed with proper multi-tiered workflow instead of scoped/specific workflow.
+
 Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each:
 
 - Tiers: per-folder, then a per-language pass, then the cross-`libs/` master. IDEATE runs top-down so a master concept seeds language ideas that seed folder tasks; IMPLEMENT and REFINE run bottom-up so each higher tier works a settled lower one. Each higher tier is a FULL pass at broader scope, never a thin reconcile or aggregation: it runs the same research/author/critique/red-team depth as the folder tier, adds the ideas, tasks, and fences that only emerge at the language or cross-`libs/` altitude, and reviews, refines, and massages the lower tier's items into cross-folder and cross-language alignment — widening scope or integration where it raises value and correcting or removing any item formulated in isolation of its folder's ground-up code-doctrine integration. A cross-language idea lands at its right touchpoint the same turn and is never stranded at one tier.

@@ -8,15 +8,15 @@ This table routes a resilience concern to its owning surface; the most specific 
 
 | [INDEX] | [CONCERN]                | [OWNER]                                    | [REJECTED_FORM]                  |
 | :-----: | :----------------------- | :----------------------------------------- | :------------------------------- |
-|   [01]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the seam   |
-|   [02]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag         |
-|   [03]   | transient classification | one predicate row per failure family       | per-site exception switch        |
-|   [04]   | seam execution           | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above seam   |
-|   [05]   | HTTP seam posture        | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers |
-|   [06]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy      |
-|   [07]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations  |
-|   [08]   | domain-internal retry    | `Schedule` policy on rails                 | pipeline around domain logic     |
-|   [09]   | store transaction retry  | store execution strategy                   | pipeline around store calls      |
+|  [01]   | outbound hop protection  | hop row + root registry claim              | pipeline built inside the seam   |
+|  [02]   | strategy arrangement     | canonical declaration order                | order-blind strategy bag         |
+|  [03]   | transient classification | one predicate row per failure family       | per-site exception switch        |
+|  [04]   | seam execution           | `ExecuteOutcomeAsync` + one outcome fold   | thrown control flow above seam   |
+|  [05]   | HTTP seam posture        | `AddStandardResilienceHandler` slot record | hand-stacked delegating handlers |
+|  [06]   | concurrent duplication   | hedging on idempotent + replayable rows    | hedging as a failure remedy      |
+|  [07]   | per-target isolation     | `SelectPipelineByAuthority` instances      | per-target client registrations  |
+|  [08]   | domain-internal retry    | `Schedule` policy on rails                 | pipeline around domain logic     |
+|  [09]   | store transaction retry  | store execution strategy                   | pipeline around store calls      |
 |  [10]   | operator-forced dark     | one manual control per capability group    | restore-previous toggle          |
 |  [11]   | fault injection          | chaos block below tested strategies        | bolt-on test-only harness        |
 
@@ -152,9 +152,9 @@ The retry-owner table is a decision procedure; rows overlap and first match wins
 
 | [INDEX] | [SEAM_FACT]                         | [RETRY_OWNER]                        |
 | :-----: | :---------------------------------- | :----------------------------------- |
-|   [01]   | callee owns transactional semantics | store execution strategy             |
-|   [02]   | call crosses a process seam         | hop pipeline at the root             |
-|   [03]   | typed fault on rails, in-process    | `Schedule` policy on the effect rail |
+|  [01]   | callee owns transactional semantics | store execution strategy             |
+|  [02]   | call crosses a process seam         | hop pipeline at the root             |
+|  [03]   | typed fault on rails, in-process    | `Schedule` policy on the effect rail |
 
 - Law: the split is exclusive per seam — schedule m × pipeline n multiplies attempts invisibly and inflates the idempotency window by m, and each layer is locally correct, so only seam exclusivity catches the stack; ambiguity after both questions means the seam is mis-factored, never that the table needs a fourth row.
 - Law: pipeline predicates speak the wire's vocabulary — routing domain values through exceptions so a pipeline can retry them inverts the fault architecture; a pipeline around store work replays from the wrong boundary, the one misclassification that corrupts data, so the audit order is stores, then wire seams, then rails.

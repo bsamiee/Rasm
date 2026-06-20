@@ -2,7 +2,7 @@
 
 The cross-package concert for the TypeScript branch — the higher-order ideas that couple two or more TS folders, distilled from the folder ideas, not the folder-local concepts. Each open idea is a card: `[ID]-[STATUS]: thesis` plus `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension`. A cross-language idea lives in `libs/.planning/IDEAS.md`, never here. A finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
 [ONE_FOLD_ONE_BINDING]-[QUEUED]: the read path is one fold algebra in `projection` and one reactive spine in `ui`, with no view-state layer between them.

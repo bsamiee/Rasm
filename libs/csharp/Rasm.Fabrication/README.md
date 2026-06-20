@@ -27,7 +27,23 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `Clipper2`
 
 [CAD_IMPORT]:
-- `ACadSharp`
+- `ACadSharp` — the SOLE read-side CAD owner (DXF + DWG AC1014-AC1032, block traversal, the native `Spline`/`Arc`/`Circle` sampler). DXF/DWG WRITE is an `Rasm.AppUi`/Render drafting concern, not a Fabrication rail; this folder admits the read surface only.
+
+[RECT_PACKING]:
+- `RectpackSharp`
+
+[ARC_FIT]:
+- `geometry4Sharp`
+
+[QUANTITY_INGRESS]:
+- `UnitsNet`
+
+[CONTENT_IDENTITY]:
+- `System.IO.Hashing` — the Nesting content-identity owner: the `Remnant`/`Stock` `XxHash128` content address and the `NoFitPolygon.PairKey` precompute-memo digest. No cross-kernel `NAMING_HASH` owner consumes it; the federation hash is wired wholly in-folder.
+
+[REJECTED]:
+- `netDxf` — present in the central manifest as an `Rasm.AppUi` DXF-write dependency, NOT a Fabrication rail. Rejected as a second DXF reader: DXF-only (no DWG, no AC1014-AC1032 spread), no managed `Spline`/bulge sampler parity with `ACadSharp`. No sibling kernel opens a `netDxf` reader beside `ProfileImport`.
+- `MaxRect`, `BinPack.NET` — rejected rectangle packers: AABB-only, cannot express true-shape NFP feasibility, superseded by `RectpackSharp` as the axis-aligned fast-path arm.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -37,9 +53,6 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
-
-[TIME_IDENTITY]:
-- `System.IO.Hashing`
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.core`

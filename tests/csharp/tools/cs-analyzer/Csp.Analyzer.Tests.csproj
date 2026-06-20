@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <RootNamespace>Rasm.Csp.Tests</RootNamespace>
-        <!-- Verify.props searches two parents; this project pins workspace-root discovery. -->
-        <SolutionDir Condition="'$(SolutionDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', '..', '..'))</SolutionDir>
-        <SolutionName Condition="'$(SolutionName)' == ''">Workspace</SolutionName>
     </PropertyGroup>
 
     <ItemGroup>

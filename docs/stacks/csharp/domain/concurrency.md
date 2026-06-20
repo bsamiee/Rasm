@@ -8,15 +8,15 @@ This table routes a throughput concern to its owning surface; the most specific 
 
 | [INDEX] | [CONCERN]                     | [OWNER]                                | [REJECTED_FORM]                 |
 | :-----: | :---------------------------- | :------------------------------------- | :------------------------------ |
-|   [01]   | producer hand-off             | lane row from the closed table         | inline channel options per site |
-|   [02]   | async parallel consumption    | `Parallel.ForEachAsync` over a lane    | task spawn per item             |
-|   [03]   | cpu associative aggregate     | total-spelling PLINQ                   | bare `AsParallel()`             |
-|   [04]   | outbound pacing and admission | limiter row + typed verdict            | semaphore gate                  |
-|   [05]   | identical concurrent intents  | keyed single-flight cell               | duplicate spend                 |
-|   [06]   | time or combination logic     | one declared observable chain          | event-handler mesh              |
-|   [07]   | cadence-bound delivery        | delivery-edge triple                   | raw push to a slow observer     |
-|   [08]   | live collection state         | source + one change-set chain          | snapshot re-query               |
-|   [09]   | global invalidation           | one of five resolution rows            | per-consumer root subscriptions |
+|  [01]   | producer hand-off             | lane row from the closed table         | inline channel options per site |
+|  [02]   | async parallel consumption    | `Parallel.ForEachAsync` over a lane    | task spawn per item             |
+|  [03]   | cpu associative aggregate     | total-spelling PLINQ                   | bare `AsParallel()`             |
+|  [04]   | outbound pacing and admission | limiter row + typed verdict            | semaphore gate                  |
+|  [05]   | identical concurrent intents  | keyed single-flight cell               | duplicate spend                 |
+|  [06]   | time or combination logic     | one declared observable chain          | event-handler mesh              |
+|  [07]   | cadence-bound delivery        | delivery-edge triple                   | raw push to a slow observer     |
+|  [08]   | live collection state         | source + one change-set chain          | snapshot re-query               |
+|  [09]   | global invalidation           | one of five resolution rows            | per-consumer root subscriptions |
 |  [10]   | cross-process exclusivity     | heartbeat lease + staleness inequality | read-then-write claim           |
 |  [11]   | shutdown loss accounting      | two-phase participation + `DrainFact`  | unreceipted teardown            |
 
@@ -34,12 +34,12 @@ This table routes a throughput concern to its owning surface; the most specific 
 
 | [INDEX] | [ROW]        | [SHAPE]                                   | [DELETES]                      |
 | :-----: | :----------- | :---------------------------------------- | :----------------------------- |
-|   [01]   | mailbox      | capacity 1, `DropOldest`                  | hand-rolled latest-value locks |
-|   [02]   | ordered-work | bounded, `Wait`, single consumer          | semaphore-plus-queue pairs     |
-|   [03]   | handshake    | capacity 0, `Wait`                        | completion-source ping-pong    |
-|   [04]   | shed-ingest  | bounded, `DropWrite`                      | try-lock admission scatter     |
-|   [05]   | control      | prioritized, `(priority, sequence)` order | parallel urgent/normal queues  |
-|   [06]   | firehose     | unbounded, single reader                  | fire-and-forget task per event |
+|  [01]   | mailbox      | capacity 1, `DropOldest`                  | hand-rolled latest-value locks |
+|  [02]   | ordered-work | bounded, `Wait`, single consumer          | semaphore-plus-queue pairs     |
+|  [03]   | handshake    | capacity 0, `Wait`                        | completion-source ping-pong    |
+|  [04]   | shed-ingest  | bounded, `DropWrite`                      | try-lock admission scatter     |
+|  [05]   | control      | prioritized, `(priority, sequence)` order | parallel urgent/normal queues  |
+|  [06]   | firehose     | unbounded, single reader                  | fire-and-forget task per event |
 
 ```csharp conceptual
 [SmartEnum]
@@ -260,10 +260,10 @@ The worlds cross at four canonical seams — `OnNext` has no park position, so t
 
 | [INDEX] | [CROSSING]     | [SPELLING]                                      | [EVIDENCE]                 |
 | :-----: | :------------- | :---------------------------------------------- | :------------------------- |
-|   [01]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
-|   [02]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
-|   [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop receipts              |
-|   [04]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
+|  [01]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
+|  [02]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
+|  [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop receipts              |
+|  [04]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
 
 ## [06]-[CHANGE_SETS]
 

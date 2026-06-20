@@ -2,7 +2,7 @@
 
 The cross-package Python work, distilled from `IDEAS.md`: tasks that couple two or more packages or land on a shared runtime owner the whole branch inherits. Per-folder work lives on the owning folder `TASKLOG.md`; cross-language work lives in the cross-`libs/` `TASKLOG.md`. Each card uses `[ID]-[STATUS]:` plus `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension`.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
 [CONTENT_ADDRESSED_REUSE_FABRIC]-[QUEUED]: fold content identity into lane admission.

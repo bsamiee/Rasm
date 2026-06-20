@@ -2,7 +2,7 @@
 
 The forward concept pool for the host-free browser UI library. Open ideas are higher-order folder concepts grounded in the browser-platform purpose and the current effect-atom, React concurrent-features, WebGPU, and design-system capability surfaces; each drives one or more task cards in `TASKLOG.md`. A finished or dropped idea moves to closed with a one-line disposition so it is never re-litigated.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
 (none)

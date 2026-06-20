@@ -2,7 +2,7 @@
 
 The cross-package C# work no single folder owns, plus the mature-folder open work that carries no `.planning/` scaffold. Per-folder work lives in each package `TASKLOG.md`; this node carries the cross-folder seam arbitrations, the mature `Rasm` cleanup, and the host-boundary seams the future app root composes. Cross-language amendments (the CRDT wire-vocabulary change, the SDK-codegen consumption) live in `libs/.planning/TASKLOG.md` and are referenced as wire seams, never restated.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
 [CAPTURE_TWO_SIDED_CLASH_SEAM]-[QUEUED]: capture the two-sided clash-seam golden fixture between the kernel spatial index and the Compute clash compute.
@@ -66,13 +68,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: captured splat/point payloads become BIM semantics through one reconstruction owner, while Persistence joins source-cloud lineage by `(GeometryHash, content-key)` and AppUi replays reality capture over the reconstructed model.
 - Anchors: `Rasm/Vectors` `Align` and cloud-ICP, `Rasm/Geometry/spatial`, `Rasm.Compute/Runtime/codecs`, `Model/query#ELEMENT_SET`, `libs/.planning` graduation `reconstructed-mesh` and `topology-graph` geometry axes, and `Rasm.AppUi/Render/reality`.
 - Tension: C# re-imports offline RANSAC or learned-segmentation results; it does not host an in-process learned segmenter.
-
-[DRAFTING_DOCUMENT_PRODUCTION]-[QUEUED]: land the drafting-and-document production rail across the kernel/Fabrication projection, the AppUi sheet engine, and the OOXML/DWG export.
-- Capability: compose the construction-documentation rail across projection, sheet production, schedules, and export.
-- Shape: `Rasm.Fabrication/Posting/projection#PROJECTION_HIDDEN_LINE` and kernel `Rasm/Geometry` arrangement produce 2D drawing geometry; `Rasm.AppUi/Render/drafting` owns sheet sets and ASME Y14.5 dimensioning; `Rasm.Persistence/Query/federation#ELEMENT_SET` and `Rasm.Persistence/Sync/schedule` feed schedules; `Rasm.AppUi/Render/capture` emits DWG, DXF, and OOXML deliverables.
-- Unlocks: drawings, schedules, quantities, and reports are views of the federated model, with new sheet standards as title-block rows and new export formats as writer rows.
-- Anchors: ACadSharp, netDxf, `DocumentFormat.OpenXml`, `Rasm.AppUi/.api/api-drafting-export.md`, AppUi `drafting`/`visuals`, Fabrication `projection`, and Persistence `federation`/`schedule`.
-- Tension: a second drafting or document model is the drift defect.
 
 ## [02]-[CLOSED]
 

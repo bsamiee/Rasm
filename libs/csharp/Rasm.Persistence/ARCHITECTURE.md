@@ -55,6 +55,16 @@ Query/cache         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: TenantId R
 Sync                →  csharp:Rasm.Compute/Runtime        # [PROJECTION]: content-key delta via FastCDC
 Sync                →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: NotebookOp op-log
 Sync/annotation     →  csharp:Rasm.AppUi/Editing          # [PROJECTION]: annotation collaboration op-log
+*                   ←  csharp:Rasm.Materials/Appearance   # [TRANSPORT]: MaterialLibrary content-keyed durable catalogue rows
+Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
+Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: Reimport prior-BimModel content-key delta join
+Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: BimWire snapshot content-key ArtifactIndexRow join
+Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: AuditEntry chained ElementChange mutation log
+Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: BimCommit content-addressed commit-DAG
+Sync                ←  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: OpLogWire ElementChange op-stream CRDT convergence
+Sync                ←  csharp:Rasm.Bim/Review             # [SHAPE]: BimCommit DAG common-ancestor merge substrate
+Schema              ←  csharp:Rasm.Fabrication/Posting    # [WIRE]: CutProgram AST content-addressed durable-row projection
+Schema              ←  csharp:Rasm.Fabrication/Nesting    # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
 ```
 
 ## [03]-[SPINE]

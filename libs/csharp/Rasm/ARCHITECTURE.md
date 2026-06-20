@@ -41,15 +41,19 @@ The mature siblings carry realized capability in their own source and `Vectors/_
 ## [02]-[SEAMS]
 
 ```text seams
-Geometry/Spatial/reconciliation  ⇄  python:runtime/evidence          # [CONTENT_KEY]: XxHash128 canonical-byte content-identity
-Geometry/Spatial/reconciliation  ⇄  typescript:interchange/codec     # [CONTENT_KEY]: XxHash128 content-hashing wasm
-Geometry/Drawing/pack            →  csharp:Rasm.AppHost/Runtime      # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
-Geometry/Meshing/intersection    →  csharp:Rasm.Fabrication/Posting  # [WIRE]: IntersectResult / PlaneMesh section curve
-Geometry/Numerics/predicates     ←  csharp:Rasm.Fabrication/Posting  # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
-Geometry/Drawing/view            →  csharp:Rasm.Fabrication/Posting  # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
-Geometry/Drawing/view            →  csharp:Rasm.AppUi/Render         # [PROJECTION]: DrawingProjection / drafting-sheet layout
-Geometry/Processing/flatten      →  csharp:Rasm.Fabrication/Posting  # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
-Geometry/Processing/flatten      →  csharp:Rasm.AppUi/Render         # [PROJECTION]: ChartAtlas / texture UV channel
+Geometry/Spatial/reconciliation  ⇄  python:runtime/evidence                     # [CONTENT_KEY]: XxHash128 canonical-byte content-identity
+Geometry/Spatial/reconciliation  ⇄  typescript:interchange/codec                # [CONTENT_KEY]: XxHash128 content-hashing wasm
+Geometry/Drawing/pack            →  csharp:Rasm.AppHost/Runtime                 # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
+Geometry/Meshing/intersection    →  csharp:Rasm.Fabrication/Posting             # [WIRE]: IntersectResult / PlaneMesh section curve
+Geometry/Numerics/predicates     ←  csharp:Rasm.Fabrication/Posting             # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
+Geometry/Drawing/view            →  csharp:Rasm.Fabrication/Posting             # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
+Geometry/Drawing/view            →  csharp:Rasm.AppUi/Render                    # [PROJECTION]: DrawingProjection / drafting-sheet layout
+Geometry/Processing/flatten      →  csharp:Rasm.Fabrication/Posting             # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
+Geometry/Processing/flatten      →  csharp:Rasm.AppUi/Render                    # [PROJECTION]: ChartAtlas / texture UV channel
+Geometry/Meshing/arrangement     →  csharp:Rasm.Fabrication/Posting/projection  # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
+Geometry/Spatial/index           →  csharp:Rasm.Fabrication/Toolpath/guard      # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
+Geometry/Spatial/index           ←  csharp:Rasm.Fabrication/Posting/projection  # [SHAPE]: SpatialIndex BVH broad-phase
+*                                ←  csharp:Rasm.Fabrication                     # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 
 ## [03]-[NAMESPACE_LAW]

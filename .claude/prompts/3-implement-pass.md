@@ -31,6 +31,8 @@ Note: `docs/stacks/<lang>/` for the tier's language is the governing code doctri
 
 ## [GOALS]
 
+[CRITICAL]: During planning phase we MUST list + identify ALL `TASKLOG.md` + `IDEAS.md` files, many ideas/tasks have ripples, creating related cards in other folders where ripples need to be addressed. These ripples/related line items are PART of our SCOPE, we MUST implement all ripples for all tasks + ideas we execute on in `<TARGET>`, which requires honest exploration/understanding of all `TASKLOG.md` + `IDEAS.md` during planning phase (use agents to read/explore to idenitfy all the real ripple cards outside `<TARGET>`).
+
 [SCOPE]:
 - ALL `IDEAS.md` file(s) open items in all `libs/.planning/planning-targets.md`
 - ALL `TASKLOG.MD` file(s) open items in all `libs/.planning/planning-targets.md`

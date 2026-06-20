@@ -55,6 +55,12 @@
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.3.0"
         }
       },
+      "UnitsNet": {
+        "type": "Direct",
+        "requested": "[5.75.0, )",
+        "resolved": "5.75.0",
+        "contentHash": "CgzvfvE2FaFE+swo7SzZFjhosmh4GpiVJ7Y1N4cQ1qChaUaw3ymw4al+ZxpoBh1RFoo88d+fo2SG194P9G1X+A=="
+      },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",
         "resolved": "10.3.0",

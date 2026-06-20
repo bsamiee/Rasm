@@ -14,7 +14,7 @@ THE MATERIAL WIRE VOCABULARY and THE MATERIALX NODE-GRAPH INTERCHANGE. One `Mate
 - Packages: Wacton.Unicolour (composed — scene-linear color hex/linear-triple projection for the wire color fields), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new OpenPBR parameter is one column on `OpenPbrGroupsWire` (and its TS/Py decode row), defaulted so existing rows decode unchanged; a new wire receipt field is one `WireProvenance` column; a new metal is one `ConductorMetal` row the wire names by key — never a parallel material wire shape and never a per-material wire type. The `MaterialWire` is the OpenPBR-vector wire the `bsdf#OPENPBR_SLAB` `SlabStack` defines; the renderer-side consumer at `Rasm.AppUi/Render/viewport#PATH_TRACE` reads the C# `MaterialParameters` interior directly (same runtime), and the cross-language peers read `MaterialWire` over the wire.
 - Law: C# is the sole producer of the material wire vocabulary — the OpenPBR parameter groups, the `ConductorMetal` key, the `SurfaceShade` preview, and the `WireProvenance` receipt are minted once at `MaterialProjection.Mint` and decoded by every peer; a TS or Python re-derivation of the OpenPBR lowering, the conductor-IOR table, or the MaterialX node schema is the named cross-language drift defect, so the peers carry a decode-only `MaterialWire` shape that mirrors this projection field-for-field and never an OpenPBR construction of their own.
-- Boundary: `MaterialWire` is the ONE material wire — a per-consumer material DTO is the deleted form; the wire carries the `MaterialId` `family.name` key, the `OpenPbrGroupsWire` flat OpenPBR vector (the `bsdf#OPENPBR_SLAB` `OpenPbrSurface` columns projected to wire scalars and color triples), the `ConductorMetal` key string for the metal grounding (empty for a dielectric), the `WireProvenance` receipt (the `acquisition#ACQUISITION` `Provenance` device/wavelength/residual), and the resolved `SurfaceShade` preview as a scene-linear linear-RGB triple plus the `Hex` byte string the web swatch reads; color fields cross as the scene-linear `RgbLinear.Triplet` `(First, Second, Third)` triple and the clipped `Hex` so a peer renders without re-deriving the ACEScg working space, the linear triple the shading truth and the hex the preview; the `Provenance.Authored` receipt marks a hand-authored row and a measured row carries its device/residual so a consumer distinguishes a measured material from an authored guess on the wire; the wire is a portable data record (no `Rhino.Geometry`, no `Unicolour` object crosses — only the projected scalars/triples) so the TS interface and the Python dataclass decode it structurally; the single-mint invariant is verified end-to-end — `MaterialProjection.Mint` is the only OpenPBR-vector construction site, the TS `decodeMaterialWire` and the Python `MaterialWire.from_wire` are pure structural decoders that never call an OpenPBR lowering, and a peer that re-mints the OpenPBR vector or the conductor table is the rejected form.
+- Boundary: `MaterialWire` is the ONE material wire — a per-consumer material DTO is the deleted form; the wire carries the `MaterialId` `family.name` key, the `OpenPbrGroupsWire` flat OpenPBR vector (the `bsdf#OPENPBR_SLAB` `OpenPbrSurface` columns projected to wire scalars and color triples, the `graph#MATERIAL_LIBRARY` `SubsurfaceRadius` band carrier flattening to its `R`/`G`/`B` mean-free-path scalars `SubsurfaceRadiusR`/`G`/`B` rather than a `Vector3d.X`/`Y`/`Z` decomposition so the cross-language peers decode the same per-channel scatter bands), the `ConductorMetal` key string for the metal grounding (empty for a dielectric), the `WireProvenance` receipt (the `acquisition#ACQUISITION` `Provenance` device/wavelength/residual), and the resolved `SurfaceShade` preview as a scene-linear linear-RGB triple plus the `Hex` byte string the web swatch reads; color fields cross as the scene-linear `RgbLinear.Triplet` `(First, Second, Third)` triple and the clipped `Hex` so a peer renders without re-deriving the ACEScg working space, the linear triple the shading truth and the hex the preview; the `Provenance.Authored` receipt marks a hand-authored row and a measured row carries its device/residual so a consumer distinguishes a measured material from an authored guess on the wire; the wire is a portable data record (no `Rhino.Geometry`, no `Unicolour` object crosses — only the projected scalars/triples) so the TS interface and the Python dataclass decode it structurally; the single-mint invariant is verified end-to-end — `MaterialProjection.Mint` is the only OpenPBR-vector construction site, the TS `decodeMaterialWire` and the Python `MaterialWire.from_wire` are pure structural decoders that never call an OpenPBR lowering, and a peer that re-mints the OpenPBR vector or the conductor table is the rejected form.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ public readonly record struct OpenPbrGroupsWire(
     double BaseWeight, WireColor BaseColor, double BaseMetalness, double BaseDiffuseRoughness,
     double SpecularWeight, double SpecularRoughness, double SpecularIor, double SpecularAnisotropy,
     double TransmissionWeight, double TransmissionRoughness,
-    double SubsurfaceWeight, double SubsurfaceRadiusX, double SubsurfaceRadiusY, double SubsurfaceRadiusZ,
+    double SubsurfaceWeight, double SubsurfaceRadiusR, double SubsurfaceRadiusG, double SubsurfaceRadiusB,
     double CoatWeight, double CoatRoughness, double CoatIor,
     double FuzzWeight, double FuzzRoughness,
     double ThinFilmWeight, double ThinFilmThickness, double ThinFilmIor,
@@ -45,7 +45,7 @@ public readonly record struct OpenPbrGroupsWire(
         new(s.BaseWeight, WireColor.Of(s.BaseColor), s.BaseMetalness, s.BaseDiffuseRoughness,
             s.SpecularWeight, s.SpecularRoughness, s.SpecularIor, s.SpecularAnisotropy,
             s.TransmissionWeight, s.TransmissionRoughness,
-            s.SubsurfaceWeight, s.SubsurfaceRadius.X, s.SubsurfaceRadius.Y, s.SubsurfaceRadius.Z,
+            s.SubsurfaceWeight, s.SubsurfaceRadius.R, s.SubsurfaceRadius.G, s.SubsurfaceRadius.B,
             s.CoatWeight, s.CoatRoughness, s.CoatIor,
             s.FuzzWeight, s.FuzzRoughness,
             s.ThinFilmWeight, s.ThinFilmThickness, s.ThinFilmIor,
@@ -61,7 +61,7 @@ public sealed record MaterialWire(
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class MaterialProjection {
-    private static RgbSpectrum Linear(Unicolour colour) { var lin = colour.RgbLinear; return new RgbSpectrum(lin.R, lin.G, lin.B); }
+    private static RgbSpectrum Linear(Unicolour colour) { var lin = colour.RgbLinear; return RgbSpectrum.Create(Math.Max(0.0, lin.R), Math.Max(0.0, lin.G), Math.Max(0.0, lin.B)); }
 
     public static OpenPbrSurface ToOpenPbr(MaterialParameters p, ConductorMetal conductor) =>
         new(BaseWeight: 1.0, Linear(p.BaseColor), p.Metalness, p.Roughness,
@@ -116,9 +116,9 @@ interface OpenPbrGroupsWire {
   readonly transmissionWeight: number;
   readonly transmissionRoughness: number;
   readonly subsurfaceWeight: number;
-  readonly subsurfaceRadiusX: number;
-  readonly subsurfaceRadiusY: number;
-  readonly subsurfaceRadiusZ: number;
+  readonly subsurfaceRadiusR: number;
+  readonly subsurfaceRadiusG: number;
+  readonly subsurfaceRadiusB: number;
   readonly coatWeight: number;
   readonly coatRoughness: number;
   readonly coatIor: number;
@@ -169,9 +169,9 @@ class OpenPbrGroupsWire:
     transmission_weight: float
     transmission_roughness: float
     subsurface_weight: float
-    subsurface_radius_x: float
-    subsurface_radius_y: float
-    subsurface_radius_z: float
+    subsurface_radius_r: float
+    subsurface_radius_g: float
+    subsurface_radius_b: float
     coat_weight: float
     coat_roughness: float
     coat_ior: float

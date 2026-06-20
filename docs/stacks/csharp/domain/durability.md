@@ -8,15 +8,15 @@ This table routes a durability concern to its owning surface; the most specific 
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                | [REJECTED_FORM]                         |
 | :-----: | :------------------------ | :------------------------------------- | :-------------------------------------- |
-|   [01]   | store open and migration  | one idempotent ritual fold             | per-process bootstrap branches          |
-|   [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
-|   [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
-|   [04]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
-|   [05]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
-|   [06]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
-|   [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
-|   [08]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
-|   [09]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
+|  [01]   | store open and migration  | one idempotent ritual fold             | per-process bootstrap branches          |
+|  [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
+|  [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
+|  [04]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
+|  [05]   | binary contract           | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
+|  [06]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
+|  [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
+|  [08]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
+|  [09]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
 |  [10]   | deletion and preservation | class rows + hold-first sweep fold     | unreceipted cleanup, export-to-preserve |
 
 ## [02]-[EMBEDDED_STORE]

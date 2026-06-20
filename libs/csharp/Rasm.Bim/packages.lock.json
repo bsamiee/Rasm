@@ -8,6 +8,12 @@
         "resolved": "1.2.1",
         "contentHash": "NVhA5Gloos3k63dFPxQvildbXRE2shBkwbBQhccB7G4D9ZAOHBxacPK2LEq4j1Lp/+a7u/KqieDBYLZDrW5/Pg=="
       },
+      "geometry3Sharp": {
+        "type": "Direct",
+        "requested": "[1.0.324, )",
+        "resolved": "1.0.324",
+        "contentHash": "vdEC1zaX6lV8LI9BvqizplraEJ6zFE98rMM+hDZqVPXMtwDIIY/RpTQQtxe043E9gsSdx0Xyz1TbSqIYQnBPaw=="
+      },
       "GeometryGymIFC_Core": {
         "type": "Direct",
         "requested": "[25.7.30, )",

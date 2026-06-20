@@ -8,13 +8,13 @@ This table routes a runtime concern to its owning surface; the most specific row
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                      | [REJECTED_FORM]                 |
 | :-----: | :------------------------ | :------------------------------------------- | :------------------------------ |
-|   [01]   | process-shape variance    | modality row + one boot fold                 | per-modality bootstrap files    |
-|   [02]   | service registration      | module descriptor rows + sealed fold         | extension-call scatter          |
-|   [03]   | configuration and options | derived keys + generated stack + frozen cell | monitor reads in consumers      |
-|   [04]   | lifecycle and shutdown    | one phase cell + banded drain ledger         | parallel token reads, flat stop |
-|   [05]   | capability state          | health rank fold                             | per-component degraded flags    |
-|   [06]   | rebuild-cost bounding     | cache and pool retention rows                | hand-rolled caches and limiters |
-|   [07]   | time and cadence          | one clock seam + schedule catalog            | ambient now, per-job timers     |
+|  [01]   | process-shape variance    | modality row + one boot fold                 | per-modality bootstrap files    |
+|  [02]   | service registration      | module descriptor rows + sealed fold         | extension-call scatter          |
+|  [03]   | configuration and options | derived keys + generated stack + frozen cell | monitor reads in consumers      |
+|  [04]   | lifecycle and shutdown    | one phase cell + banded drain ledger         | parallel token reads, flat stop |
+|  [05]   | capability state          | health rank fold                             | per-component degraded flags    |
+|  [06]   | rebuild-cost bounding     | cache and pool retention rows                | hand-rolled caches and limiters |
+|  [07]   | time and cadence          | one clock seam + schedule catalog            | ambient now, per-job timers     |
 
 ## [02]-[MODALITY_AXIS]
 

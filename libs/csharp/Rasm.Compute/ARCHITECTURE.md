@@ -67,8 +67,15 @@ Runtime/progress  →  typescript:interchange/codec         # [PROJECTION]: Prog
 Runtime           ←  python:geometry                      # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
 Runtime           →  csharp:Rasm.AppUi/Render             # [PROJECTION]: ResidencyManifest.Mint web geometry residency
 Solver            ←  csharp:Rasm.Bim/Model                # [CONTENT_KEY]: AnalysisModel (GeometryKey, PropertyKey) content-key
+Runtime           ←  csharp:Rasm.Bim/Semantics            # [PROJECTION]: IFC/glTF semantic metadata layer
+Runtime/channels  →  csharp:Rasm.Bim/Semantics            # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse, LocalShape degrade
+Runtime/codecs    ←  csharp:Rasm.Bim/Model                # [CONTENT_KEY]: (GeometryKey, *Key) XxHash128.HashToUInt128 pair joining InterchangeIdentity
+Runtime/codecs    ←  csharp:Rasm.Bim/Exchange             # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
+Runtime/codecs    ←  csharp:Rasm.Bim/Review               # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
 Symbolic          →  csharp:Rasm.Fabrication/Process      # [WIRE]: UnitsNet quantity canonicalization to SI scalar
 Symbolic          →  csharp:Rasm.Materials/Appearance     # [PORT]: QuantityFamily illuminance
+Symbolic          →  csharp:Rasm.Materials/Appearance     # [PORT]: ONNX spectral-reconstruction conductor curve
+algorithms        →  csharp:Rasm.Materials/Appearance     # [PORT]: QR/LM least-squares BRDF fit over GGX/Smith
 Runtime           ⇄  csharp:Rasm.Persistence/Query/lanes  # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
 Runtime           ⇄  python:compute/graduation            # [GRADUATION]: HandoffAxis graduation evidence
 Runtime           ←  python:data/tabular                  # [SHAPE]: DOE dataset / labelled-array study input

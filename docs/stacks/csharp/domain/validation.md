@@ -8,15 +8,15 @@ This table routes a validation concern to its owning surface; the most specific 
 
 | [INDEX] | [CONCERN]                 | [OWNER]                                       | [REJECTED_FORM]                  |
 | :-----: | :------------------------ | :-------------------------------------------- | :------------------------------- |
-|   [01]   | boundary shape rules      | one `AbstractValidator<T>` per shape          | per-variant subclass family      |
-|   [02]   | seam governance           | matrix row: owner, carrier, trigger, override | ambient auto-validation          |
-|   [03]   | recurring predicate       | named `PropertyValidator<T,TProperty>`        | repeated `Must` lambdas          |
-|   [04]   | seam variant              | ruleset row on the one owner                  | sibling validator per surface    |
-|   [05]   | abort versus accumulate   | cascade per chain, carrier per row            | boolean strict-mode flag         |
-|   [06]   | outcome projection        | one severity-partition bridge                 | per-seam mapping switch          |
-|   [07]   | fault identity            | pinned `ErrorCode` band                       | message-text dispatch            |
-|   [08]   | options shape             | rule graph + `IValidateOptions<T>` projection | second validation path           |
-|   [09]   | open registration surface | closure-proof fold at boot                    | runtime-discovery trust          |
+|  [01]   | boundary shape rules      | one `AbstractValidator<T>` per shape          | per-variant subclass family      |
+|  [02]   | seam governance           | matrix row: owner, carrier, trigger, override | ambient auto-validation          |
+|  [03]   | recurring predicate       | named `PropertyValidator<T,TProperty>`        | repeated `Must` lambdas          |
+|  [04]   | seam variant              | ruleset row on the one owner                  | sibling validator per surface    |
+|  [05]   | abort versus accumulate   | cascade per chain, carrier per row            | boolean strict-mode flag         |
+|  [06]   | outcome projection        | one severity-partition bridge                 | per-seam mapping switch          |
+|  [07]   | fault identity            | pinned `ErrorCode` band                       | message-text dispatch            |
+|  [08]   | options shape             | rule graph + `IValidateOptions<T>` projection | second validation path           |
+|  [09]   | open registration surface | closure-proof fold at boot                    | runtime-discovery trust          |
 |  [10]   | domain semantics          | generated-owner admission                     | boundary re-check of owner facts |
 
 ## [02]-[RULE_GRAPH]

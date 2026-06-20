@@ -159,8 +159,8 @@ public static class Microfacet {
         return 0.5 * (rp + rs);
     }
 
-    public static RgbSpectrum FresnelConductor(double cosI, RgbSpectrum eta, RgbSpectrum k) =>
-        eta.Zip(k, (e, kk) => FresnelConductor(cosI, e, kk));
+    public static RgbSpectrum FresnelConductor(double cosI, ComplexIor ior) =>
+        ior.Eta.Zip(ior.K, (e, kk) => FresnelConductor(cosI, e, kk));
 
     public static LocalVector SampleVisibleNormal(LocalVector wo, double alphaX, double alphaY, double u0, double u1) {
         LocalVector vh = new LocalVector(alphaX * wo.X, alphaY * wo.Y, wo.Z).Normalize();
@@ -184,28 +184,46 @@ public static class Microfacet {
 ## [04]-[LOBE_FAMILY]
 
 - Owner: `BsdfLobe` `[Union]` closed lobe family; `LobeSample` the typed sample receipt.
-- Entry: `public RgbSpectrum Evaluate(LocalVector wo, LocalVector wi)` · `public Fin<LobeSample> Sample(LocalVector wo, double u0, double u1, Op key)` · `public double Pdf(LocalVector wo, LocalVector wi)` — the three-method contract every lobe case implements through one total `Switch`; the lobe is frame-local, so `Evaluate`/`Pdf` read the local-frame `LocalVector` triples the integrator transforms once and `Sample` carries the `Op key` for its `MaterialFault` rail; `RgbSpectrum` is the per-band reflectance triple, NEVER a host color type at an interior signature.
+- Entry: `public RgbSpectrum Evaluate(LocalVector wo, LocalVector wi)` · `public Fin<LobeSample> Sample(LocalVector wo, double u0, double u1, Op key)` · `public double Pdf(LocalVector wo, LocalVector wi)` — the three-method contract every lobe case implements through one total `Switch`; the lobe is frame-local, so `Evaluate`/`Pdf` read the local-frame `LocalVector` triples the integrator transforms once and `Sample` carries the `Op key` for its `MaterialFault` rail; `RgbSpectrum` is the validated three-band `[ComplexValueObject]` reflectance carrier gating non-finite/negative channels once at `Create`, NEVER a host color type at an interior signature and NEVER an unvalidated raw triple a downstream `IsFinite` re-checks.
 - Packages: Rasm (project — `Direction.Reflect`/`Refract`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new physical lobe is one `BsdfLobe` case admitted ONLY when no parameterization of the existing seven reproduces the measured physics — and then it serves ALL materials, never one material; a new material is NEVER a lobe. The lobe set is closed at seven: diffuse, conductor, dielectric, sheen, clearcoat, subsurface, thin-film. The `[9]-[OPENPBR_SLAB]` `SlabStack` is the realized formal layering construction over these lobes — the fuzz slab lowers to the `Sheen` lobe and the albedo-scaling operators compose the stack the `LayeredBsdf` weighted fold the integrator shades collapses from.
-- Boundary: every lobe `Evaluate` returns the BSDF value times nothing — the cosine-weight and division by pdf live in the integrator (`LayeredBsdf.Sample`), so a lobe is the pure `f(wo, wi)` and never folds in the geometry term twice; the conductor and dielectric lobes drive `Microfacet` with their `(alphaX, alphaY)` and `FresnelMode.Exact`, the clearcoat is a fixed-IOR-1.5 dielectric GGX layer over the base, the sheen is the Estevez-Kulla inverted-Gaussian retroreflective fabric lobe, the subsurface is a normalized Burley diffusion-profile diffuse approximation parameterized by mean-free-path, and the thin-film is the Belcour-Barla spectral interference term modulating the base Fresnel; the diffuse lobe carries the Oren-Nayar roughness term (Lambert is `roughness == 0`), so one diffuse case spans matte-to-rough, never a separate Lambert and Oren-Nayar type; the multi-scatter energy compensation is the Kulla-Conty term added to the conductor/dielectric single-scatter, recovering the energy the single-scatter Smith model loses at high roughness — without it the white-furnace test fails above α≈0.5; the lobe sampler is frame-local and host-free — `LobeSample.Direction` is a `LocalVector`, the dielectric transmission runs the same exact Snell formula `Rasm.Vectors.Direction.Refract` owns (eta·d + (eta·cosI−√k)·n, TIR-rejected) so the math is single-sourced; the WORLD reflected/refracted ray the path tracer needs for the next bounce is the integrator's `ShadingFrame.ToWorld` composition, and when the renderer prefers the host `Direction` it COMPOSES the instance `Direction.Reflect(Direction normal)` and the static `Direction.Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key)` at that world seam (the 5-arg Snell — `etaIncident`/`etaTransmitted` are the two media IORs, not an `(eta, cosI, n)` shorthand) — Snell and the mirror are NEVER re-minted as a parallel kernel; `DielectricPdf` keys its reflect/transmit split on the half-vector cosine `wo.Dot(h)` exactly as `DielectricSample` does, never the geometric `wo.CosTheta`, so the balance-heuristic pdf stays unbiased and the white-furnace harness closes for rough glass.
+- Boundary: every lobe `Evaluate` returns the BSDF value times nothing — the cosine-weight and division by pdf live in the integrator (`LayeredBsdf.Sample`), so a lobe is the pure `f(wo, wi)` and never folds in the geometry term twice; the `Conductor` and `ThinFilm` lobes carry one `ComplexIor` `[ComplexValueObject]` band (its `Eta`/`K` two validated `RgbSpectrum` carriers) the `Microfacet.FresnelConductor(cosI, ComplexIor)` overload reads, never a parallel `(Eta, K)`/`(BaseEta, BaseK)` triple pair; the conductor and dielectric lobes drive `Microfacet` with their `(alphaX, alphaY)` and `FresnelMode.Exact`, the clearcoat is a fixed-IOR-1.5 dielectric GGX layer over the base, the sheen is the Estevez-Kulla inverted-Gaussian retroreflective fabric lobe, the subsurface is a normalized Burley diffusion-profile diffuse approximation parameterized by mean-free-path, and the thin-film is the Belcour-Barla spectral interference term modulating the base Fresnel; the diffuse lobe carries the Oren-Nayar roughness term (Lambert is `roughness == 0`), so one diffuse case spans matte-to-rough, never a separate Lambert and Oren-Nayar type; the multi-scatter energy compensation is the Kulla-Conty term added to the conductor/dielectric single-scatter, recovering the energy the single-scatter Smith model loses at high roughness — without it the white-furnace test fails above α≈0.5; the lobe sampler is frame-local and host-free — `LobeSample.Direction` is a `LocalVector`, the dielectric transmission runs the same exact Snell formula `Rasm.Vectors.Direction.Refract` owns (eta·d + (eta·cosI−√k)·n, TIR-rejected) so the math is single-sourced; the WORLD reflected/refracted ray the path tracer needs for the next bounce is the integrator's `ShadingFrame.ToWorld` composition, and when the renderer prefers the host `Direction` it COMPOSES the instance `Direction.Reflect(Direction normal)` and the static `Direction.Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key)` at that world seam (the 5-arg Snell — `etaIncident`/`etaTransmitted` are the two media IORs, not an `(eta, cosI, n)` shorthand) — Snell and the mirror are NEVER re-minted as a parallel kernel; `DielectricPdf` keys its reflect/transmit split on the half-vector cosine `wo.Dot(h)` exactly as `DielectricSample` does, never the geometric `wo.CosTheta`, so the balance-heuristic pdf stays unbiased and the white-furnace harness closes for rough glass.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-public readonly record struct RgbSpectrum(double R, double G, double B) {
-    public static readonly RgbSpectrum Black = new(0.0, 0.0, 0.0);
-    public static readonly RgbSpectrum White = new(1.0, 1.0, 1.0);
-    public RgbSpectrum Map(Func<double, double> f) => new(f(R), f(G), f(B));
-    public RgbSpectrum Zip(RgbSpectrum o, Func<double, double, double> f) => new(f(R, o.R), f(G, o.G), f(B, o.B));
-    public RgbSpectrum Scale(double s) => new(R * s, G * s, B * s);
-    public RgbSpectrum Mul(RgbSpectrum o) => new(R * o.R, G * o.G, B * o.B);
-    public RgbSpectrum Add(RgbSpectrum o) => new(R + o.R, G + o.G, B + o.B);
-    public RgbSpectrum Lerp(RgbSpectrum o, double t) => new(R + (o.R - R) * t, G + (o.G - G) * t, B + (o.B - B) * t);
+[ComplexValueObject]
+public readonly partial struct RgbSpectrum {
+    public double R { get; }
+    public double G { get; }
+    public double B { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double r, ref double g, ref double b) {
+        if (!double.IsFinite(r) || !double.IsFinite(g) || !double.IsFinite(b) || r < 0.0 || g < 0.0 || b < 0.0)
+            validationError = new ValidationError($"<rgb-spectrum-out-of-band:{r:R},{g:R},{b:R}>");
+    }
+
+    public static readonly RgbSpectrum Black = Create(0.0, 0.0, 0.0);
+    public static readonly RgbSpectrum White = Create(1.0, 1.0, 1.0);
+    public RgbSpectrum Map(Func<double, double> f) => Create(f(R), f(G), f(B));
+    public RgbSpectrum Zip(RgbSpectrum o, Func<double, double, double> f) => Create(f(R, o.R), f(G, o.G), f(B, o.B));
+    public RgbSpectrum Scale(double s) => Create(R * s, G * s, B * s);
+    public RgbSpectrum Mul(RgbSpectrum o) => Create(R * o.R, G * o.G, B * o.B);
+    public RgbSpectrum Add(RgbSpectrum o) => Create(R + o.R, G + o.G, B + o.B);
+    public RgbSpectrum Lerp(RgbSpectrum o, double t) => Create(R + (o.R - R) * t, G + (o.G - G) * t, B + (o.B - B) * t);
     public double Luminance => 0.2722287 * R + 0.6740818 * G + 0.0536895 * B;
-    public bool IsFinite => double.IsFinite(R) && double.IsFinite(G) && double.IsFinite(B);
+}
+
+[ComplexValueObject]
+public readonly partial struct ComplexIor {
+    public RgbSpectrum Eta { get; }
+    public RgbSpectrum K { get; }
+
+    public RgbSpectrum FresnelNormal =>
+        Eta.Zip(K, static (e, k) => ((e - 1.0) * (e - 1.0) + k * k) / ((e + 1.0) * (e + 1.0) + k * k));
 }
 
 public readonly record struct LobeSample(LocalVector Direction, RgbSpectrum Value, double Pdf, bool Transmission) {
-    public bool IsValid => Pdf > 0.0 && Value.IsFinite;
+    public bool IsValid => Pdf > 0.0;
 }
 
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -214,14 +232,14 @@ public abstract partial record BsdfLobe {
     private BsdfLobe() { }
 
     public sealed record Diffuse(RgbSpectrum Albedo, double Roughness) : BsdfLobe;
-    public sealed record Conductor(RgbSpectrum Eta, RgbSpectrum K, double AlphaX, double AlphaY) : BsdfLobe;
+    public sealed record Conductor(ComplexIor Ior, double AlphaX, double AlphaY) : BsdfLobe;
     public sealed record Dielectric(double Ior, double AlphaX, double AlphaY, RgbSpectrum Transmittance) : BsdfLobe;
     public sealed record Sheen(RgbSpectrum Tint, double Roughness) : BsdfLobe;
     public sealed record Clearcoat(double Weight, double Roughness) : BsdfLobe {
         public static double Alpha(Clearcoat c) => Microfacet.AlphaOf(c.Roughness);
     }
     public sealed record Subsurface(RgbSpectrum Albedo, double MeanFreePath) : BsdfLobe;
-    public sealed record ThinFilm(double Thickness, double FilmIor, double Roughness, RgbSpectrum BaseEta, RgbSpectrum BaseK) : BsdfLobe {
+    public sealed record ThinFilm(double Thickness, double FilmIor, double Roughness, ComplexIor BaseIor) : BsdfLobe {
         public static double AlphaX(ThinFilm f) => Microfacet.AlphaOf(f.Roughness);
         public static double AlphaY(ThinFilm f) => Microfacet.AlphaOf(f.Roughness);
     }
@@ -276,7 +294,7 @@ public abstract partial record BsdfLobe {
         double d = Microfacet.Ndf(h, c.AlphaX, c.AlphaY);
         double g = Microfacet.MaskingShadowing(wo, wi, c.AlphaX, c.AlphaY);
         double cosH = Math.Abs(wo.Dot(h));
-        RgbSpectrum fr = Microfacet.FresnelConductor(cosH, c.Eta, c.K);
+        RgbSpectrum fr = Microfacet.FresnelConductor(cosH, c.Ior);
         double denom = 4.0 * Math.Abs(wo.CosTheta) * Math.Abs(wi.CosTheta);
         RgbSpectrum single = fr.Scale(d * g / denom);
         return single.Add(MultiScatter.KullaConty(c.AlphaX, fr, wo, wi));
@@ -339,8 +357,8 @@ public abstract partial record BsdfLobe {
         double d = Microfacet.Ndf(h, ax, ay);
         double mask = Microfacet.MaskingShadowing(wo, wi, ax, ay);
         double denom = 4.0 * Math.Abs(wo.CosTheta) * Math.Abs(wi.CosTheta);
-        RgbSpectrum interf = new(Interference(opd, SpectralBand.Red.CenterNm), Interference(opd, SpectralBand.Green.CenterNm), Interference(opd, SpectralBand.Blue.CenterNm));
-        RgbSpectrum baseF = Microfacet.FresnelConductor(cosI, f.BaseEta, f.BaseK);
+        RgbSpectrum interf = RgbSpectrum.Create(Interference(opd, SpectralBand.Red.CenterNm), Interference(opd, SpectralBand.Green.CenterNm), Interference(opd, SpectralBand.Blue.CenterNm));
+        RgbSpectrum baseF = Microfacet.FresnelConductor(cosI, f.BaseIor);
         return baseF.Mul(interf).Scale(d * mask / denom);
     }
     private static double Interference(double opd, double wavelengthNm) => 0.5 * (1.0 + Math.Cos(2.0 * Math.PI * opd / wavelengthNm));
@@ -462,9 +480,9 @@ public sealed record LayeredBsdf {
         return chosen.Lobe.Sample(lo, u0, u1, key).Bind(sample => {
             double mixedPdf = Lobes.Fold(0.0, (p, lw) => p + lw.Weight.Value * lw.Lobe.Pdf(lo, sample.Direction));
             RgbSpectrum mixedValue = Lobes.Fold(RgbSpectrum.Black, (v, lw) => v.Add(lw.Lobe.Evaluate(lo, sample.Direction).Scale(lw.Weight.Value)));
-            return mixedPdf > 0.0 && mixedValue.IsFinite
+            return mixedPdf > 0.0
                 ? Fin.Succ(sample with { Pdf = mixedPdf, Value = mixedValue })
-                : Fin.Fail<LobeSample>(MaterialFault.Gamut(key, "<non-finite-shade>"));
+                : Fin.Fail<LobeSample>(MaterialFault.Graph(key, "<degenerate-mixed-pdf>"));
         });
     }
 }
@@ -502,7 +520,6 @@ public static class SpectralUpsample {
     private static readonly double[] BlueB =   [1.0, 1.0, 0.89, 0.46, 0.06, 0.0, 0.0, 0.0, 0.0, 0.05];
 
     public static Fin<Spd> ToSpd(RgbSpectrum rgb, Op key) {
-        if (!rgb.IsFinite || rgb.R < 0.0 || rgb.G < 0.0 || rgb.B < 0.0) { return Fin.Fail<Spd>(MaterialFault.Parameter(key, "<negative-or-nonfinite-rgb>")); }
         double[] r = new double[10];
         double red = rgb.R, green = rgb.G, blue = rgb.B;
         if (red <= green && red <= blue) { Acc(r, White, red); if (green <= blue) { Acc(r, Cyan, green - red); Acc(r, BlueB, blue - green); } else { Acc(r, Cyan, blue - red); Acc(r, GreenB, green - blue); } }
@@ -522,8 +539,9 @@ public static class SpectralUpsample {
     public static Fin<RgbSpectrum> SceneLinear(Unicolour colour, Op key) {
         Unicolour mapped = colour.IsInRgbGamut ? colour : colour.MapToRgbGamut(GamutMap.OklchChromaReduction);
         ColourTriplet lin = mapped.RgbLinear.Triplet;
-        RgbSpectrum rgb = new(lin.First, lin.Second, lin.Third);
-        return rgb.IsFinite ? Fin.Succ(rgb) : Fin.Fail<RgbSpectrum>(MaterialFault.Gamut(key, "<non-finite-linear-rgb>"));
+        return RgbSpectrum.TryCreate(Math.Max(0.0, lin.First), Math.Max(0.0, lin.Second), Math.Max(0.0, lin.Third), out RgbSpectrum rgb)
+            ? Fin.Succ(rgb)
+            : Fin.Fail<RgbSpectrum>(MaterialFault.Gamut(key, "<non-finite-linear-rgb>"));
     }
     public static readonly Configuration SceneConfig = new(RgbConfiguration.Acescg);
     public static RgbSpectrum FromAcescg(double r, double g, double b, Op key) {
@@ -585,11 +603,11 @@ public static class ToneMap {
 
 ## [08]-[CONDUCTOR_IOR]
 
-- Owner: `ConductorMetal` `[SmartEnum<string>]` the measured-metal axis; `ConductorIor` the per-band complex-IOR `(Eta, K)` table; the `Conductor` lobe grounding.
-- Entry: `public static (RgbSpectrum Eta, RgbSpectrum K) Of(ConductorMetal metal)` reads the measured complex refractive index per RGB band, and `public static BsdfLobe.Conductor Lobe(ConductorMetal metal, double alphaX, double alphaY)` constructs the grounded `Conductor` lobe — the metal F0 is the measured `(η, k)` Fresnel, NEVER a hand-authored RGB albedo scaled to a guess.
+- Owner: `ConductorMetal` `[SmartEnum<string>]` the measured-metal axis; `ConductorIor` the per-band `ComplexIor` table; the `Conductor` lobe grounding.
+- Entry: `public static ComplexIor Of(ConductorMetal metal)` reads the measured complex refractive index per RGB band as one `ComplexIor` carrier (its `Eta`/`K` two validated `RgbSpectrum` bands), and `public static BsdfLobe.Conductor Lobe(ConductorMetal metal, double alphaX, double alphaY)` constructs the grounded `Conductor` lobe from it — the metal F0 is the measured `ComplexIor` Fresnel, NEVER a hand-authored RGB albedo scaled to a guess.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new measured metal is one `ConductorMetal` row carrying its three-band `(η, k)` measured pair from the published refractive-index table; the table is the INTERNAL leg of `graph#MEASURED_SPECTRAL_LIBRARY` — the conductor rows ground here rather than carrying a hand-authored Acescg albedo. A spectral 195-wavelength conductor curve (EPFL RGL goniophotometer or a full `refractiveindex.info` n/k spectrum) is the [UPSTREAM-BLOCKED] extension that admits through `[6]-[SPECTRAL_UPSAMPLE]` `ToSpd` per band once a managed `.bsdf`/spectral reader lands at `acquisition#EPFL_RGL_BRDF_LOADER`; zero new surface.
-- Boundary: the complex refractive index `(η, k)` per RGB band is the physically-correct conductor F0 — the `Microfacet.FresnelConductor(cosI, RgbSpectrum eta, RgbSpectrum k)` overload reads it directly, so a metal's edge tint and grazing-angle hue shift emerge from the measured dispersion rather than an artist's base-color triple; the three-band `(η, k)` values transcribe the Johnson-Christy / `refractiveindex.info` measured dataset at the RGB band centres `SpectralBand.Red`/`Green`/`Blue` carry (610/550/465 nm sampled against the published 630/532/465 nm anchors); the `graph#MATERIAL_LIBRARY` conductor rows carry a measured `BaseColor` for the diffuse-substitute preview path AND name a `ConductorMetal` so the `bsdf#LOBE_FAMILY` `Conductor` lobe grounds from `ConductorIor.Of`, the base color the perceptual seed and the `(η, k)` the shading truth; a metal absent from the table falls back to the `graph#MATERIAL_LIBRARY` base-color-as-F0 dielectric-Schlick approximation rather than faulting, so the table grounds the eight named metals and a ninth row admits without a rebuild; the conductor F0 round-trips in-gamut through the `[10]-[RESEARCH]` `WHITE_FURNACE_HARNESS` lossless-conductor furnace (F≡1 reflects unit energy) so a measured metal conserves energy under the Kulla-Conty multi-scatter term.
+- Boundary: the complex refractive index `(η, k)` per RGB band is the physically-correct conductor F0 carried as one `ComplexIor` `[ComplexValueObject]` band — the `Microfacet.FresnelConductor(cosI, ComplexIor ior)` overload reads it directly, so a metal's edge tint and grazing-angle hue shift emerge from the measured dispersion rather than an artist's base-color triple; the three-band `Eta`/`K` values transcribe the Johnson-Christy / `refractiveindex.info` measured dataset at the RGB band centres `SpectralBand.Red`/`Green`/`Blue` carry (610/550/465 nm sampled against the published 630/532/465 nm anchors); the `graph#MATERIAL_LIBRARY` conductor rows carry a measured `BaseColor` for the diffuse-substitute preview path AND name a `ConductorMetal` so the `bsdf#LOBE_FAMILY` `Conductor` lobe grounds from `ConductorIor.Of`, the base color the perceptual seed and the `(η, k)` the shading truth; a metal absent from the table falls back to the `graph#MATERIAL_LIBRARY` base-color-as-F0 dielectric-Schlick approximation rather than faulting, so the table grounds the eight named metals and a ninth row admits without a rebuild; the conductor F0 round-trips in-gamut through the `[10]-[RESEARCH]` `WHITE_FURNACE_HARNESS` lossless-conductor furnace (F≡1 reflects unit energy) so a measured metal conserves energy under the Kulla-Conty multi-scatter term.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -609,32 +627,27 @@ public sealed partial class ConductorMetal {
 
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class ConductorIor {
-    private static readonly FrozenDictionary<ConductorMetal, (RgbSpectrum Eta, RgbSpectrum K)> Table =
-        new (ConductorMetal Metal, RgbSpectrum Eta, RgbSpectrum K)[] {
-            (ConductorMetal.Gold,     new RgbSpectrum(0.183, 0.421, 1.373), new RgbSpectrum(3.424, 2.346, 1.770)),
-            (ConductorMetal.Copper,   new RgbSpectrum(0.271, 0.677, 1.316), new RgbSpectrum(3.609, 2.625, 2.292)),
-            (ConductorMetal.Aluminum, new RgbSpectrum(1.346, 0.965, 0.617), new RgbSpectrum(7.475, 6.400, 5.303)),
-            (ConductorMetal.Silver,   new RgbSpectrum(0.159, 0.145, 0.135), new RgbSpectrum(3.929, 3.190, 2.381)),
-            (ConductorMetal.Iron,     new RgbSpectrum(2.911, 2.950, 2.585), new RgbSpectrum(3.089, 2.932, 2.767)),
-            (ConductorMetal.Chromium, new RgbSpectrum(2.020, 2.790, 2.020), new RgbSpectrum(3.860, 4.200, 3.860)),
-            (ConductorMetal.Titanium, new RgbSpectrum(2.741, 2.542, 2.267), new RgbSpectrum(3.814, 3.435, 3.039)),
-            (ConductorMetal.Brass,    new RgbSpectrum(0.444, 0.527, 1.094), new RgbSpectrum(3.695, 2.765, 1.829)),
-        }.ToFrozenDictionary(static r => r.Metal, static r => (r.Eta, r.K));
+    private static readonly FrozenDictionary<ConductorMetal, ComplexIor> Table =
+        new (ConductorMetal Metal, ComplexIor Ior)[] {
+            (ConductorMetal.Gold,     ComplexIor.Create(RgbSpectrum.Create(0.183, 0.421, 1.373), RgbSpectrum.Create(3.424, 2.346, 1.770))),
+            (ConductorMetal.Copper,   ComplexIor.Create(RgbSpectrum.Create(0.271, 0.677, 1.316), RgbSpectrum.Create(3.609, 2.625, 2.292))),
+            (ConductorMetal.Aluminum, ComplexIor.Create(RgbSpectrum.Create(1.346, 0.965, 0.617), RgbSpectrum.Create(7.475, 6.400, 5.303))),
+            (ConductorMetal.Silver,   ComplexIor.Create(RgbSpectrum.Create(0.159, 0.145, 0.135), RgbSpectrum.Create(3.929, 3.190, 2.381))),
+            (ConductorMetal.Iron,     ComplexIor.Create(RgbSpectrum.Create(2.911, 2.950, 2.585), RgbSpectrum.Create(3.089, 2.932, 2.767))),
+            (ConductorMetal.Chromium, ComplexIor.Create(RgbSpectrum.Create(2.020, 2.790, 2.020), RgbSpectrum.Create(3.860, 4.200, 3.860))),
+            (ConductorMetal.Titanium, ComplexIor.Create(RgbSpectrum.Create(2.741, 2.542, 2.267), RgbSpectrum.Create(3.814, 3.435, 3.039))),
+            (ConductorMetal.Brass,    ComplexIor.Create(RgbSpectrum.Create(0.444, 0.527, 1.094), RgbSpectrum.Create(3.695, 2.765, 1.829))),
+        }.ToFrozenDictionary(static r => r.Metal, static r => r.Ior);
 
-    public static (RgbSpectrum Eta, RgbSpectrum K) Of(ConductorMetal metal) => Table[metal];
+    public static ComplexIor Of(ConductorMetal metal) => Table[metal];
 
-    public static BsdfLobe.Conductor Lobe(ConductorMetal metal, double alphaX, double alphaY) {
-        (RgbSpectrum eta, RgbSpectrum k) = Of(metal);
-        return new BsdfLobe.Conductor(eta, k, alphaX, alphaY);
-    }
+    public static BsdfLobe.Conductor Lobe(ConductorMetal metal, double alphaX, double alphaY) =>
+        new(Of(metal), alphaX, alphaY);
 
     public static Option<ConductorMetal> Resolve(string family, string name) =>
         family == "metal" && ConductorMetal.TryGet(name, out ConductorMetal? metal) ? Optional(metal) : Option<ConductorMetal>.None;
 
-    public static RgbSpectrum FresnelNormal(ConductorMetal metal) {
-        (RgbSpectrum eta, RgbSpectrum k) = Of(metal);
-        return eta.Zip(k, static (e, kk) => ((e - 1.0) * (e - 1.0) + kk * kk) / ((e + 1.0) * (e + 1.0) + kk * kk));
-    }
+    public static RgbSpectrum FresnelNormal(ConductorMetal metal) => Of(metal).FresnelNormal;
 }
 ```
 
@@ -645,7 +658,7 @@ public static class ConductorIor {
 - Packages: Rasm (project — `UnitInterval`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new layering modifier is one `Slab` case carrying its albedo-scaling operator (the fuzz slab is the new closed lobe case the seven-lobe set lacked, realized as the `Sheen` lobe at the fuzz position; a thin-film modifier rides the `Coat` slab's `ThinFilm` field); a new OpenPBR parameter is one `OpenPbrSurface` column the `Lower` reads — the standard column set (`base`, `specular`, `transmission`, `subsurface`, `coat`, `fuzz`, `thin_film`, `emission`, `geometry`) the `graph#MATERIAL_LIBRARY` `MaterialParameters` aligns to; zero new surface. The `interchange#MATERIAL_WIRE` `MaterialWire` is the OpenPBR-vector wire projection this stack defines and the TS/Py consumers decode.
 - Law: the slab stack is the formal OpenPBR Surface 1.1 layering order outermost-to-base — `fuzz` over `coat` over `emission` over the `base` substrate — composed by albedo-scaling layering operators (each slab transmits `1 − E(slab)` of the energy below it, where `E` is the slab's directional albedo from `[4]-[LOBE_FAMILY]` `MultiScatter.DirectionalAlbedo`), NOT the additive convex-combination weight fold `[5]-[LAYERED_COMPOSITION]` predated; the base substrate is the metalness-mixed conductor-vs-dielectric the `bsdf#CONDUCTOR_IOR` table grounds, the dielectric arm carrying the opaque glossy-diffuse-plus-subsurface or the translucent transmission per the `transmission` weight.
-- Boundary: `SlabStack.Lower` is the ONE OpenPBR construction — a per-material slab builder is the deleted form; the fuzz slab lowers to a `Sheen` lobe weighted by `fuzz_weight`, the coat slab to a `Clearcoat` lobe weighted by `coat_weight` (its `thin_film` field a `ThinFilm` lobe modifier when `thin_film_weight > 0`), the emission slab to the `graph#MATERIAL_GRAPH` emission carrier (energy-additive, never occluding), and the base substrate to the metalness lerp between a `Conductor` lobe (grounded from the `ConductorMetal` the row names through `bsdf#CONDUCTOR_IOR`) and a `Dielectric`/`Diffuse`/`Subsurface` mix per `transmission`/`subsurface`; `ToLayered` collapses the albedo-scaled slab weights into the `[5]-[LAYERED_COMPOSITION]` `LayeredBsdf.Of` normalized lobe list so the integrator shades one `LayeredBsdf` and never re-derives the slab nesting per sample — the albedo-scaling is computed once at lowering, the energy each outer slab leaves for the layer below baked into the lobe weight; the OpenPBR z-up local-frame convention matches the `[2]-[SHADING_FRAME]` `LocalVector` basis so no slab re-derives `cosθ`; an over-unit total or a non-finite slab weight rails `MaterialFault.Parameter` at `Lower`, never a propagated energy gain; the `weathering#WEATHERING` aging operator targets the slab columns directly once lowered (chalking raises `coat_roughness`, soiling raises `fuzz_weight`, patina swaps the base `ConductorMetal`), the flat `MaterialParameters` interpolation the form until a consumer drives the slab columns.
+- Boundary: `SlabStack.Lower` is the ONE OpenPBR construction — a per-material slab builder is the deleted form; the fuzz slab lowers to a `Sheen` lobe weighted by `fuzz_weight`, the coat slab to a `Clearcoat` lobe weighted by `coat_weight` (its `thin_film` field a `ThinFilm` lobe modifier when `thin_film_weight > 0`), the emission slab to the `graph#MATERIAL_GRAPH` emission carrier (energy-additive, never occluding), and the base substrate to the metalness lerp between a `Conductor` lobe (grounded from the `ConductorMetal` the row names through `bsdf#CONDUCTOR_IOR`) and a `Dielectric`/`Diffuse`/`Subsurface` mix per `transmission`/`subsurface`, the `Subsurface` lobe reading the validated three-band `SubsurfaceRadius` `[ComplexValueObject]` carrier's `Magnitude` for the Burley diffusion radius (the carrier declared on `graph#MATERIAL_LIBRARY` `MaterialParameters`, gating a negative or non-finite millimetre mean-free-path once at `Create` so no `Vector3d` scatter vector threads the slab signatures); `ToLayered` collapses the albedo-scaled slab weights into the `[5]-[LAYERED_COMPOSITION]` `LayeredBsdf.Of` normalized lobe list so the integrator shades one `LayeredBsdf` and never re-derives the slab nesting per sample — the albedo-scaling is computed once at lowering, the energy each outer slab leaves for the layer below baked into the lobe weight; the OpenPBR z-up local-frame convention matches the `[2]-[SHADING_FRAME]` `LocalVector` basis so no slab re-derives `cosθ`; an over-unit total or a non-finite slab weight rails `MaterialFault.Parameter` at `Lower`, never a propagated energy gain; the `weathering#WEATHERING` aging operator targets the slab columns directly once lowered (chalking raises `coat_roughness`, soiling raises `fuzz_weight`, patina swaps the base `ConductorMetal`), the flat `MaterialParameters` interpolation the form until a consumer drives the slab columns.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -666,7 +679,7 @@ public abstract partial record Slab {
     public sealed record Fuzz(double Weight, RgbSpectrum Color, double Roughness) : Slab;
     public sealed record Coat(double Weight, RgbSpectrum Color, double Roughness, double Ior, Option<double> ThinFilmThickness, double ThinFilmIor) : Slab;
     public sealed record Emission(RgbSpectrum Radiance, double Luminance) : Slab;
-    public sealed record Base(double Metalness, ConductorMetal Conductor, RgbSpectrum BaseColor, double Roughness, double SpecularIor, double Anisotropy, double Transmission, double TransmissionRoughness, double Subsurface, Vector3d SubsurfaceRadius) : Slab;
+    public sealed record Base(double Metalness, ConductorMetal Conductor, RgbSpectrum BaseColor, double Roughness, double SpecularIor, double Anisotropy, double Transmission, double TransmissionRoughness, double Subsurface, SubsurfaceRadius SubsurfaceRadius) : Slab;
 
     public SlabKind Kind => Switch<SlabKind>(
         fuzz:     static _ => SlabKind.Fuzz,
@@ -680,7 +693,7 @@ public readonly record struct OpenPbrSurface(
     double BaseWeight, RgbSpectrum BaseColor, double BaseMetalness, double BaseDiffuseRoughness,
     double SpecularWeight, double SpecularRoughness, double SpecularIor, double SpecularAnisotropy,
     double TransmissionWeight, double TransmissionRoughness,
-    double SubsurfaceWeight, Vector3d SubsurfaceRadius,
+    double SubsurfaceWeight, SubsurfaceRadius SubsurfaceRadius,
     double CoatWeight, double CoatRoughness, double CoatIor,
     double FuzzWeight, double FuzzRoughness,
     double ThinFilmWeight, double ThinFilmThickness, double ThinFilmIor,
@@ -713,18 +726,17 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
         @base:    b => LowerBase(b, baseAlpha, pass));
 
     private static Seq<LobeWeight> LowerBase(Slab.Base b, double alpha, double pass) {
-        (RgbSpectrum eta, RgbSpectrum k) = ConductorIor.Of(b.Conductor);
-        BsdfLobe conductor = new BsdfLobe.Conductor(eta, k, alpha, alpha);
+        BsdfLobe conductor = new BsdfLobe.Conductor(ConductorIor.Of(b.Conductor), alpha, alpha);
         BsdfLobe dielectric = b.Transmission > 0.0
             ? new BsdfLobe.Dielectric(b.SpecularIor, Microfacet.AlphaOf(b.TransmissionRoughness), Microfacet.AlphaOf(b.TransmissionRoughness), b.BaseColor)
             : b.Subsurface > 0.0
-                ? new BsdfLobe.Subsurface(b.BaseColor, b.SubsurfaceRadius.Length)
+                ? new BsdfLobe.Subsurface(b.BaseColor, b.SubsurfaceRadius.Magnitude)
                 : new BsdfLobe.Diffuse(b.BaseColor, b.Roughness);
         double mw = Math.Clamp(b.Metalness, 0.0, 1.0) * pass, dw = (1.0 - Math.Clamp(b.Metalness, 0.0, 1.0)) * pass;
         return Seq(new LobeWeight(conductor, UnitInterval.Create(Math.Clamp(mw, 0.0, 1.0))), new LobeWeight(dielectric, UnitInterval.Create(Math.Clamp(dw, 0.0, 1.0))));
     }
 
-    private static RgbSpectrum AcescgRgb(Unicolour colour) { var lin = colour.RgbLinear; return new RgbSpectrum(lin.R, lin.G, lin.B); }
+    private static RgbSpectrum AcescgRgb(Unicolour colour) { var lin = colour.RgbLinear; return RgbSpectrum.Create(Math.Max(0.0, lin.R), Math.Max(0.0, lin.G), Math.Max(0.0, lin.B)); }
 }
 ```
 

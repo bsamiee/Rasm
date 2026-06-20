@@ -41,9 +41,15 @@ The IFC/glTF/STEP interchange and geodetic domain packages this folder consumes 
 - `SharpGLTF.Runtime`
 - `SharpGLTF.Ext.3DTiles`
 
+[CAD_INTERCHANGE]:
+- `ACadSharp`
+
 [MESH_COMPRESSION]:
 - `Openize.Drako`
 - `Alimer.Bindings.MeshOptimizer`
+
+[MESH_TEXT]:
+- `geometry3Sharp`
 
 [SPECKLE_SYNC]:
 - `Speckle.Sdk`
@@ -51,6 +57,9 @@ The IFC/glTF/STEP interchange and geodetic domain packages this folder consumes 
 
 [GEODETIC]:
 - `ProjNET`
+
+[QUANTITY_UNIT]:
+- `UnitsNet`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

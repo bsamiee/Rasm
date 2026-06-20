@@ -8,15 +8,15 @@ This table routes a persistence concern to its owning surface; the most specific
 
 | [INDEX] | [CONCERN]               | [OWNER]                                | [REJECTED_FORM]                 |
 | :-----: | :---------------------- | :------------------------------------- | :------------------------------ |
-|   [01]   | deployment topology     | profile row on three axes              | per-topology store code         |
-|   [02]   | context lifetime        | pooled factory + per-acquisition stamp | injected long-lived context     |
-|   [03]   | domain types in columns | one generated-converter admission      | hand-written converter per type |
-|   [04]   | aggregate document      | complex-type mapping declaration       | owned-entity JSON               |
-|   [05]   | save observation        | interceptor spine rows                 | service-layer try/catch         |
-|   [06]   | schema state at boot    | migration verdict fold                 | best-effort open                |
-|   [07]   | destructive change      | generation-time class gate + waves     | apply-time gating               |
-|   [08]   | row identity            | identity policy row + one key selector | per-surface key respelling      |
-|   [09]   | store operations        | one op family + one bracket            | repository per aggregate        |
+|  [01]   | deployment topology     | profile row on three axes              | per-topology store code         |
+|  [02]   | context lifetime        | pooled factory + per-acquisition stamp | injected long-lived context     |
+|  [03]   | domain types in columns | one generated-converter admission      | hand-written converter per type |
+|  [04]   | aggregate document      | complex-type mapping declaration       | owned-entity JSON               |
+|  [05]   | save observation        | interceptor spine rows                 | service-layer try/catch         |
+|  [06]   | schema state at boot    | migration verdict fold                 | best-effort open                |
+|  [07]   | destructive change      | generation-time class gate + waves     | apply-time gating               |
+|  [08]   | row identity            | identity policy row + one key selector | per-surface key respelling      |
+|  [09]   | store operations        | one op family + one bracket            | repository per aggregate        |
 |  [10]   | pagination              | keyset page op, `Option<Cursor>` input | offset paging                   |
 |  [11]   | write mass              | set-based, copy, and merge lanes       | tracked-graph loops             |
 |  [12]   | read-through cache      | derived tag grammar port row           | free-string invalidation        |
@@ -223,13 +223,13 @@ public static class SchemaGate {
 
 | [INDEX] | [UP_OPERATION]                                  | [PHYSICAL_CLASS] | [DISPOSITION]         |
 | :-----: | :---------------------------------------------- | :--------------- | :-------------------- |
-|   [01]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
-|   [02]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
-|   [03]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
-|   [04]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
-|   [05]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
-|   [06]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
-|   [07]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
+|  [01]   | `AddColumnOperation` nullable or defaulted      | additive         | expand                |
+|  [02]   | `AddColumnOperation` required, no default       | destructive      | rejected expand       |
+|  [03]   | `RenameTableOperation`, `RenameColumnOperation` | rename           | forbidden middle      |
+|  [04]   | `AlterColumnOperation` on a rebuilding engine   | rebuild          | gated as full rewrite |
+|  [05]   | `AlterColumnOperation` tightening nullability   | destructive      | contract              |
+|  [06]   | `DropTableOperation`, `DropColumnOperation`     | destructive      | contract              |
+|  [07]   | `SqlOperation` without a class token            | destructive      | worst-case default    |
 
 ## [06]-[IDENTITY_AXIS]
 

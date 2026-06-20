@@ -190,6 +190,12 @@
              which firebreaks it out of any net48 in-Rhino plugin ALC). Both Compute EXPORT_RAIL, outside-Rhino. -->
         <PackageVersion Include="Openize.Drako" Version="26.2.0" />
         <PackageVersion Include="Alimer.Bindings.MeshOptimizer" Version="1.2.1" />
+        <!-- Mesh-text managed import: geometry3Sharp (gradientspace, pure-managed netstandard2.0, zero deps,
+             ALC-safe IL-only AnyCPU) grounds the MeshText InterchangeCodec OBJ/STL/OFF leg via OBJReader/
+             STLReader/StandardMeshReader. PLY and 3MF stay codec-pending: no pure-managed RID-safe NuGet
+             reader exists (lib3mf is native C++, Aspose.3D is closed/commercial), so those two MeshText rows
+             keep CanImport=false until a managed reader admits. AssimpNet is rejected: native libassimp RID-coupled. -->
+        <PackageVersion Include="geometry3Sharp" Version="1.0.324" />
     </ItemGroup>
 
     <!-- Materials: color/spectral engine. Wacton.Unicolour (pure-managed netstandard2.0, zero deps, ALC-safe) is a

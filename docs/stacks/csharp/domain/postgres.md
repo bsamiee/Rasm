@@ -8,15 +8,15 @@ This table routes a store concern to its owning surface; the most specific row w
 
 | [INDEX] | [CONCERN]             | [OWNER]                               | [REJECTED_FORM]              |
 | :-----: | :-------------------- | :------------------------------------ | :--------------------------- |
-|   [01]   | store configuration   | one data-source builder fold          | raw-string connections       |
-|   [02]   | SQL construct routing | translated-LINQ or typed-SQL two-door | string-concatenated SQL      |
-|   [03]   | statement failure     | SQLSTATE-class disposition fold       | per-statement catch arms     |
-|   [04]   | extension capability  | declared row + admission verdict      | runtime `CREATE EXTENSION`   |
-|   [05]   | multi-axis retrieval  | lane-composed typed query rail        | per-lane sibling queries     |
-|   [06]   | bulk writes           | binary COPY + MERGE reconcile         | batched INSERT loops         |
-|   [07]   | change consumption    | slot decode + NOTIFY wake             | payload-as-data notification |
-|   [08]   | schema deployment     | compiled bundle + epoch publication   | migrate-at-startup           |
-|   [09]   | store maintenance     | suite-scheduler rows                  | in-database cron             |
+|  [01]   | store configuration   | one data-source builder fold          | raw-string connections       |
+|  [02]   | SQL construct routing | translated-LINQ or typed-SQL two-door | string-concatenated SQL      |
+|  [03]   | statement failure     | SQLSTATE-class disposition fold       | per-statement catch arms     |
+|  [04]   | extension capability  | declared row + admission verdict      | runtime `CREATE EXTENSION`   |
+|  [05]   | multi-axis retrieval  | lane-composed typed query rail        | per-lane sibling queries     |
+|  [06]   | bulk writes           | binary COPY + MERGE reconcile         | batched INSERT loops         |
+|  [07]   | change consumption    | slot decode + NOTIFY wake             | payload-as-data notification |
+|  [08]   | schema deployment     | compiled bundle + epoch publication   | migrate-at-startup           |
+|  [09]   | store maintenance     | suite-scheduler rows                  | in-database cron             |
 |  [10]   | driver telemetry      | store-profile tracing rows            | per-call-site spans          |
 
 ## [02]-[STORE_PROFILE]
@@ -88,14 +88,14 @@ public static class StoreProfile {
 
 | [INDEX] | [CONSTRUCT_FAMILY]                                    | [DOOR]    |
 | :-----: | :---------------------------------------------------- | :-------- |
-|   [01]   | array, range, network, KNN, temporal aggregates       | LINQ      |
-|   [02]   | full-text, trigram, phonetic, `ILike`                 | LINQ      |
-|   [03]   | JSON traversal, containment, `jsonb_set` updates      | LINQ      |
-|   [04]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree      | LINQ      |
-|   [05]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY     | typed SQL |
-|   [06]   | `JSON_TABLE`, `LATERAL`, `DISTINCT ON`, recursive CTE | typed SQL |
-|   [07]   | translated construct re-spelled as raw SQL            | rejected  |
-|   [08]   | DDL text in either query lane                         | rejected  |
+|  [01]   | array, range, network, KNN, temporal aggregates       | LINQ      |
+|  [02]   | full-text, trigram, phonetic, `ILike`                 | LINQ      |
+|  [03]   | JSON traversal, containment, `jsonb_set` updates      | LINQ      |
+|  [04]   | `ArrayAgg`/`JsonbAgg` grouped projections, ltree      | LINQ      |
+|  [05]   | `MERGE`, `ON CONFLICT`, `RETURNING old/new`, COPY     | typed SQL |
+|  [06]   | `JSON_TABLE`, `LATERAL`, `DISTINCT ON`, recursive CTE | typed SQL |
+|  [07]   | translated construct re-spelled as raw SQL            | rejected  |
+|  [08]   | DDL text in either query lane                         | rejected  |
 
 ## [04]-[FAULT_DISPOSITION]
 

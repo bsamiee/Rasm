@@ -67,8 +67,8 @@ public static class Acquisition {
     static Fin<MaterialParameters> GroundSpectral(Spd reflectance, double metalness, double roughness, Op key) {
         Unicolour color = new(new Configuration(RgbConfiguration.Acescg), reflectance);
         return SpectralUpsample.SceneLinear(color, key)
-            .Bind(rgb => rgb.IsFinite && color.IsInRgbGamut
-                ? Fin.Succ(new MaterialParameters(color, metalness, roughness, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Vector3d.Zero, Black, 0.0))
+            .Bind(rgb => color.IsInRgbGamut
+                ? Fin.Succ(new MaterialParameters(color, metalness, roughness, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SubsurfaceRadius.None, Black, 0.0))
                 : MaterialFault.Gamut(key, "<acquired-color-out-of-gamut>"));
     }
 }

@@ -8,15 +8,15 @@ This table routes a telemetry concern to its owning surface; the most specific r
 
 | [INDEX] | [CONCERN]             | [OWNER]                                   | [REJECTED_FORM]                  |
 | :-----: | :-------------------- | :---------------------------------------- | :------------------------------- |
-|   [01]   | event emission        | `[LoggerMessage]` partial in the owner    | interpolated calls, name switch  |
-|   [02]   | log projection        | one `LoggerConfiguration` policy table    | per-module logger configuration  |
-|   [03]   | signal admission      | `AddSource`/`AddMeter` rows at one root   | per-library provider scaffolding |
-|   [04]   | telemetry volume      | one root sampler, derived thrice          | per-signal probabilities         |
-|   [05]   | metric shaping        | view rows + cardinality limits            | call-site meter gating           |
-|   [06]   | export                | `UseOtlpExporter` once                    | per-signal exporter scatter      |
-|   [07]   | cross-process context | versioned envelope + one propagator pair  | ad-hoc baggage writes            |
-|   [08]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
-|   [09]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
+|  [01]   | event emission        | `[LoggerMessage]` partial in the owner    | interpolated calls, name switch  |
+|  [02]   | log projection        | one `LoggerConfiguration` policy table    | per-module logger configuration  |
+|  [03]   | signal admission      | `AddSource`/`AddMeter` rows at one root   | per-library provider scaffolding |
+|  [04]   | telemetry volume      | one root sampler, derived thrice          | per-signal probabilities         |
+|  [05]   | metric shaping        | view rows + cardinality limits            | call-site meter gating           |
+|  [06]   | export                | `UseOtlpExporter` once                    | per-signal exporter scatter      |
+|  [07]   | cross-process context | versioned envelope + one propagator pair  | ad-hoc baggage writes            |
+|  [08]   | event ordering        | one stamp cell per process                | consumer-inferred timestamps     |
+|  [09]   | sensitive data        | classification taxonomy + redactor map    | sink scrubbing, regex masking    |
 |  [10]   | resource signals      | governed meter admission + publisher rows | counter polling loops            |
 |  [11]   | operational views     | folds over the one fact stream            | parallel hand-synced counters    |
 

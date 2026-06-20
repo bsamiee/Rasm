@@ -1,5 +1,7 @@
 <Project>
     <PropertyGroup Label="Project Classification">
+        <SolutionDir Condition="'$(SolutionDir)' == '' or '$(SolutionDir)' == '*Undefined*'">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</SolutionDir>
+        <SolutionName Condition="'$(SolutionName)' == '' or '$(SolutionName)' == '*Undefined*'">Workspace</SolutionName>
         <CSharpLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'csharp'))</CSharpLibsRoot>
         <RasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Grasshopper'))</RasmGrasshopperRoot>
         <RasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Rhino'))</RasmRhinoRoot>

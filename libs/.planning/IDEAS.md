@@ -2,7 +2,7 @@
 
 Cross-language ideas span two or more of C# / Python / TypeScript at the wire and the companion/offline seams. A concept that couples packages within one language lives in that branch's `IDEAS.md`, never here. `[1]-[OPEN]` holds the live concert; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
-OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items.
+OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
 ## [01]-[OPEN]
 
@@ -13,6 +13,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
 - Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
+- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
 [THE_CONCERT]-[QUEUED]: one host-authored model computes across Python and surfaces through TypeScript without crossing runtime interiors.
@@ -40,13 +41,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: one geometry-evaluation companion with no duplicate mesh pipeline; meshing keeps one owner per runtime, and IFC keeps one semantic owner per runtime while meeting only at the content-keyed GLB.
 - Anchors: one-owner-per-runtime geometry law, IfcOpenShell/OpenCascade companion two-hop, `SharpGLTF.Ext.3DTiles` builders (`FeatureIDBuilder`, `PropertyTable`, `EXTStructuralMetadataRoot`), and per-tile `EXT_structural_metadata`/`EXT_mesh_features` carrying IFC class and field bands on the same key.
 - Tension: the AP242 STEP arm rides the same OpenCascade companion shape but waits on `cadquery-ocp` companion admission.
-
-[ONE_CAPABILITY_CATALOG]-[QUEUED]: one descriptor source emits polyglot SDKs and the related MCP projection.
-- Capability: capability catalog and SDK codegen source shared by C#, TypeScript, Python, and the agent surface.
-- Shape: `csharp:Rasm.AppHost/Agent/capability#SDK_CODEGEN` mints each operation as a typed, effect-classed, cost-modeled `CapabilityDescriptor`; the MCP projection adopts descriptors through `McpServerTool.Create`, and `typescript:interchange` plus `python:runtime/transport/serve` derive command surfaces from the generated descriptor.
-- Unlocks: a new operation as one descriptor row that reaches three SDKs and the agent surface without parallel clients or second op-metadata owners.
-- Anchors: official MCP C# SDK protocol ownership, never-hand-roll rule, signed grant attestation into the determinism event log, and `@bufbuild/buf` as the cross-`libs/` `FileDescriptorSet` owner for the schema source.
-- Tension: descriptor-to-SDK codegen lives here, while effect-hints, cost-preview, progress, and resume-token decode belong to sibling idea `ONE_AGENT_TOOL_PROJECTION`.
 
 [CRDT_COLLABORATION]-[QUEUED]: op-log CRDT becomes a breaking amendment to the one wire vocabulary.
 - Capability: multi-runtime collaborative editing over a single op-log changefeed.

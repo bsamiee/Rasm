@@ -11,6 +11,7 @@
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="Clipper2" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup>

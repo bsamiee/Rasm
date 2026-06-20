@@ -8,15 +8,15 @@ This table routes a wire concern to its owning surface; the most specific row wi
 
 | [INDEX] | [CONCERN]            | [OWNER]                                   | [REJECTED_FORM]                |
 | :-----: | :------------------- | :---------------------------------------- | :----------------------------- |
-|   [01]   | peer channel         | one channel row per authority at the root | per-call `ForAddress` scatter  |
-|   [02]   | cross-package calls  | port record + transport-row column        | `if (remote)` call-site branch |
-|   [03]   | wire retry           | per-row owner column: channel or seam     | stacked double owner           |
-|   [04]   | contract evolution   | descriptor-diff classifier verdict        | per-seam compatibility checks  |
-|   [05]   | temporal wire values | well-known types + converter slots        | serialized temporal text       |
-|   [06]   | server exposure      | one exposure record fold at the app root  | per-service options scatter    |
-|   [07]   | wire faults          | structured detail in `-bin` trailers      | code-plus-string parsing       |
-|   [08]   | browser access       | translation row + endpoint consent        | second browser client          |
-|   [09]   | local endpoint       | manifest-gated UDS lifecycle              | ad-hoc socket paths            |
+|  [01]   | peer channel         | one channel row per authority at the root | per-call `ForAddress` scatter  |
+|  [02]   | cross-package calls  | port record + transport-row column        | `if (remote)` call-site branch |
+|  [03]   | wire retry           | per-row owner column: channel or seam     | stacked double owner           |
+|  [04]   | contract evolution   | descriptor-diff classifier verdict        | per-seam compatibility checks  |
+|  [05]   | temporal wire values | well-known types + converter slots        | serialized temporal text       |
+|  [06]   | server exposure      | one exposure record fold at the app root  | per-service options scatter    |
+|  [07]   | wire faults          | structured detail in `-bin` trailers      | code-plus-string parsing       |
+|  [08]   | browser access       | translation row + endpoint consent        | second browser client          |
+|  [09]   | local endpoint       | manifest-gated UDS lifecycle              | ad-hoc socket paths            |
 |  [10]   | peer identity        | connection-level kernel credentials       | call-context peer read         |
 |  [11]   | artifact corridor    | framed-corridor invariant                 | unframed stream writes         |
 |  [12]   | suite JSON contracts | resolver merge + frozen options           | reflection-fallback chain      |
