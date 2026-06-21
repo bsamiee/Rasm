@@ -59,7 +59,7 @@ const RESIDUAL_LAW = [
   'YOU RESOLVE CROSS-FILE RESIDUALS: each residual is a real, open, cross-FILE defect or deferred decision the per-page rebuild + reconcile could not close. Resolve it PROPERLY and FULLY — add the functionality/feature/axis, unify the ambiguous contract, lock the signature — across EVERY design page it spans, leaving the corpus internally consistent.',
   'DEFERRED DECISIONS ARE RESOLVED, NOT PUNTED: where a residual is a design decision (a new policy axis, an autodiff consumer, a canonical contract), make the STRONGEST principled choice the domain + standards admit (research it; apply the 7-point density rubric; choose the most polymorphic, parameterized, future-ready form) and IMPLEMENT it. Only leave an `open_question` when the choice genuinely requires an operator product decision you cannot ground.',
   'REALIZATION-GATE ITEMS STAY IN THE DESIGN PAGE: where a residual notes an owner is "not yet realized as .py", the resolution is to SIGNATURE-LOCK the exact contract on the owning DESIGN PAGE so consumers cite it consistently — NEVER create `.py` source (that is the deferred implement pass).',
-  'RESEARCH MANDATE — no guessing: where a claim hinges on a real package member, VERIFY it via `uv run --frozen python -m tools.assay api resolve <pkg>` (READ tools/assay/README.md first for the api-arm contract); where it catalogs a missing member, write it into the `.api` catalog. Where a claim hinges on a domain/math contract (e.g. spectral power vs amplitude), research the real convention before deciding. Cite only verified members.',
+  'RESEARCH MANDATE — no guessing: where a claim hinges on a real package member, VERIFY it via `uv run --frozen python -m tools.assay api resolve <pkg>` (READ tools/assay/README.md FIRST for the api-arm contract and the correct invocation). For a GATED/companion package (a `python_version<\'3.15\'` or companion-band marker — e.g. cadquery-ocp, topologicpy, open3d, compas, manifold3d, pye57), resolve members on the CORRECT companion interpreter band per tools/assay/README.md; if the companion genuinely cannot resolve a member, document the gap explicitly in the catalog WITH the band caveat rather than leaving a vague hedge or asserting a phantom member. Where a claim catalogs missing members, WRITE them into the owning `.api/*.md` catalog — resolutions MAY edit `.api` catalog files as well as design pages. Where a claim hinges on a domain/math contract (e.g. spectral power vs amplitude), research the real convention before deciding. Cite only verified members.',
   'WRITE-FULLY: every edit you identify you MUST make NOW via Edit/Write; the fix-log REPORTS edits already made. Leave behind only a genuine still-cross-file item (residual) or a true operator decision (open_question).',
 ].join('\n')
 
@@ -73,9 +73,15 @@ const verifyPrompt = (p) => [DESIGN_BAR, '', 'TASK (ADVERSARIAL VERIFY): residua
 // --- [COMPOSITION] -----------------------------------------------------------------------
 phase('Investigate')
 log('Investigating ' + RESIDUALS.length + ' residuals')
-const plans = (await pool(RESIDUALS, CAP, (r) => agent(investigatePrompt(r), { label: 'investigate:' + r.id, phase: 'Investigate', schema: PLAN_SCHEMA, effort: 'max', stallMs: 300000 }).then((p) => p ? { ...p, claim: p.claim || r.claim } : null))).filter(Boolean)
+const investigateOne = (r) => agent(investigatePrompt(r), { label: 'investigate:' + r.id, phase: 'Investigate', schema: PLAN_SCHEMA, effort: 'max', stallMs: 300000 }).then((p) => p ? { ...p, id: p.id || r.id, claim: p.claim || r.claim } : null)
+const firstPass = await pool(RESIDUALS, CAP, investigateOne)
+// ONE bounded re-attempt for any residual whose investigate returned no plan: a transient agent death (connection closed mid-response) must never silently lose a residual. Death-recovery, not speculative retry.
+const deadIdx = firstPass.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0)
+if (deadIdx.length) { log('Investigate produced no plan for ' + deadIdx.length + ' residual(s) — one re-attempt: ' + deadIdx.map((i) => RESIDUALS[i].id).join(',')); const re = await pool(deadIdx.map((i) => RESIDUALS[i]), CAP, investigateOne); deadIdx.forEach((i, k) => { firstPass[i] = re[k] }) }
+const plans = firstPass.filter(Boolean)
+const failed_investigate = RESIDUALS.filter((_, i) => !firstPass[i]).map((r) => r.id)
 const clusters = clusterByFiles(plans)
-log('Investigate: ' + plans.length + '/' + RESIDUALS.length + ' plans -> ' + clusters.length + ' file-clusters')
+log('Investigate: ' + plans.length + '/' + RESIDUALS.length + ' plans' + (failed_investigate.length ? ' — STILL FAILED after re-attempt (surfaced, not lost): ' + failed_investigate.join(',') : '') + ' -> ' + clusters.length + ' file-clusters')
 
 phase('Implement')
 const impl = (await pool(clusters, CAP, (cl) => agent(implementPrompt(cl), { label: 'implement:' + cl.map((p) => p.id).join('+').slice(0, 40), phase: 'Implement', schema: FIXLOG_SCHEMA, effort: 'max', stallMs: 300000 }).then((r) => r ? { cluster: cl, log: r } : null))).filter(Boolean)
@@ -92,5 +98,6 @@ return {
   clusters: clusters.length,
   resolved: verify.filter((v) => v.status === 'resolved').map((v) => v.id),
   open: open.map((v) => ({ id: v.id, remains: v.summary })),
+  failed_investigate,
   open_questions: plans.filter((p) => p.open_question).map((p) => ({ id: p.id, q: p.open_question })),
 }
