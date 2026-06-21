@@ -1,53 +1,119 @@
 # [PY_COMPUTE_ARRAY]
 
-Backend-agnostic array admission over the Array API standard. `ArrayPayload` admits dtype, shape, named axes, finite policy, layout, and content identity from any Array-API-conformant array, resolving the backend namespace through `array_namespace` so a numpy floor, a JAX array, a Dask graph, or a pydata-`sparse` tensor admit through one path and dispatch through the resolved `xp`. `ArrayOp` is the ONE admission request discriminating where the operand comes from — `Live` admits an already-materialized backend array, `Sparsify` lowers a dense source to a pydata-`sparse` tensor, `SparseFrom` builds the format-discriminated container from a coordinate triple without a dense intermediate — so a single `ArrayPayload.admit` body materializes the operand and admits it, never a `admit`/`sparsify`/`sparse_from` sibling family fanning the one concern across three classmethods. `FinitePolicy` is the ONE bounded finite-admission vocabulary every backend reads through one masked-reduction projection — `REJECT` fails any non-finite element, `ALLOW_NAN` admits NaN but rejects ±inf, `ALLOW_INF` admits ±inf but rejects NaN — so a probabilistic study admitting masked NaN and an unbounded-objective trace admitting inf both ride the same admission body rather than a boolean `allow_nonfinite` knob. `NamedAxis` carries the labelled-coordinate cell composed from the data-branch labelled-array shapes. The construction keys identity through the one runtime `ContentIdentity` over the canonical buffer, and every materialization that touches a backend transfer or buffer copy rides the runtime `boundary` exception-to-fault surface so no array-library exception escapes domain flow.
+Backend-agnostic array admission over the Array API standard, woven as one resolver-and-extension rail. `ArrayPayload.admit(source, axes, finite, mode, bound)` is the one entry parameterized over both the operand-source input shape (`ArraySource`: `Live`/`Sparsify`/`SparseFrom`) and the operand-conditioning output shape (`AdmitMode`: `STRICT`/`SANITIZE`/`DENSE_GUARD`), so a numpy floor, a JAX array, a Dask graph, or a pydata-`sparse` tensor admit through one body that never re-resolves the namespace, imports a vendor module, or grows a per-source/per-mode classmethod family. `array_namespace(*arrays)` resolves the backend `xp` once at operation entry; every standard op reads `xp.<op>` and every extension op reads `xpx.<op>(..., xp=xp)`, stacking `array-api-compat` as the resolver tier under `array-api-extra` as the extension tier.
+
+The whole materialize-clean-gate-buffer-identify body is one `railed` `expression.effect.result` chain inside the runtime `boundary("array.admit", ...)` exception-to-fault fence: `FiniteGate` short-circuits a non-finite violation to `Error(BoundaryFault(boundary=...))` on the rail through one masked reduction over the `is_lazy_array` lazy/eager fork, a backend-transfer/coordinate-build/lazy-reduction fault converts to a `BoundaryFault` exactly once, and the railed `ContentIdentity.of` `ContentKey` threads through the same chain so a payload from any backend or any `ArraySource` keys identically to its numpy floor. `NamedAxis` carries the labelled-coordinate cell; the data-branch `xarray`/`dask` `Dataset`/`DataArray` shapes compose as study inputs and are never re-owned.
 
 ## [01]-[INDEX]
 
-- [01]-[PAYLOAD]: namespace-dispatched array admission over the one `ArrayOp` operand-source request, named axes, the `FinitePolicy` masked-admission axis, the `SparseLayout` pydata-sparse construction axis, layout, and content identity on one `ArrayPayload` owner.
+- [01]-[PAYLOAD]: namespace-dispatched array admission over the one `ArraySource` operand-source axis and the one `AdmitMode` output-shape axis, named axes, the `FiniteGate` masked-admission policy carrying the lazy/eager reduction fork, the `SparseLayout` pydata-sparse construction-and-evidence axis, layout, and railed content identity on one `ArrayPayload` owner, stacking `array-api-compat` resolution under `array-api-extra` extension ops as one `railed` ROP chain.
 
 ## [02]-[PAYLOAD]
 
-- Owner: `ArrayPayload` — the dtype/shape/named-axes/finite-policy/layout/identity admission over the Array API standard; `array_namespace(array)` resolves the backend `xp`, so the same admission path accepts a numpy array, a JAX array, a Dask array, or a pydata-`sparse` array and every solver route dispatches through the resolved namespace. `NamedAxis` is the labelled-coordinate value object; the data-branch `xarray`/`dask` `Dataset`/`DataArray` shapes compose as study inputs and are never re-catalogued.
-- Request axis: `ArrayOp` is the ONE admission request — `Live(array)`, `Sparsify(dense, layout, fill_value)`, `SparseFrom(coords, data, shape, layout, fill_value)` — and `ArrayOp.operand` is the one total `match` that materializes the backend array each case stands for: `Live` is the operand verbatim, `Sparsify` lowers through `sparse.asarray(dense, format=layout.value, fill_value=fill_value)`, `SparseFrom` builds `sparse.COO(coords, data, shape=shape, fill_value=fill_value)` and reshapes through `asformat(layout.value)` only when the layout is not COO, never a dense intermediate. `ArrayPayload.admit` consumes any `ArrayOp` and never grows a per-source classmethod; a fourth operand source is one `ArrayOp` case plus its `operand` arm.
-- Finite axis: `FinitePolicy` is the ONE bounded finite-admission policy — `REJECT`, `ALLOW_NAN`, `ALLOW_INF` — and the admission body reads it through one masked reduction rather than three branches. Each row carries the predicate that defines the *forbidden* class as the enum value: `REJECT` forbids `~isfinite` (any NaN or ±inf), `ALLOW_NAN` forbids `isinf` (NaN tolerated, inf rejected), `ALLOW_INF` forbids `isnan` (inf tolerated, NaN rejected). `FinitePolicy.forbidden(xp, array)` projects the row to its `xp`-namespace boolean mask under a total `match` closed by `assert_never`, the entry reduces `xp.any(mask)` once, and a violation returns `Error(BoundaryFault(boundary=(f"non-finite:{finite.value}", str(array.dtype))))` — the `boundary` case's `(subject, detail)` two-tuple naming the offending policy in the subject and the rejecting dtype in the detail, so the class is a first-class fact on the one fault family, never a silent admission. A clean array under any policy admits identically; the projection runs through the resolved `xp` so a JAX or sparse array reduces through its own `isnan`/`isinf` namespace member, never a hardcoded numpy check. A new finite class is one `FinitePolicy` row plus its forbidden-mask arm, never a boolean knob.
-- Backend axis: `array_namespace` admits every Array-API backend with zero per-backend admission body; the ungated `numpy` floor and `dask` back the standard on the cp315 core, and the gated companion-band `jax` and pydata-`sparse` backends each expose the `__array_namespace__`/`device`/`to_device` hooks the same path resolves. The pydata-`sparse` backend is the one axis that also *constructs* its operand here, because a sparse tensor has no dense source array to admit — `SparseLayout` is the ONE bounded pydata-sparse construction policy (`COO`/`GCXS`/`DOK`) whose enum value IS the `sparse` `format=` string, and the `Sparsify`/`SparseFrom` cases of `ArrayOp` carry that construction so the result admits through the same body the `Live` case does. `fill_value` threads the implicit dense value (the sparse zero a NaN-fill mask treats as present) through the finite reduction so the `FinitePolicy` mask reads `sparse.isnan`/`sparse.isinf` over the sparse namespace and a non-finite `fill_value` is itself rejected. The scipy 2-D `sparse` *matrix* construction for linear solves stays on `solvers/linear` (`scipy.sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack`); this owner builds the multi-dimensional pydata-`sparse` *tensor* as an Array-API backend, a distinct concern that meets the linear route only through the admitted operand.
-- Entry: `ArrayPayload.admit(op, axes, finite)` wraps the whole materialize-and-admit body in the runtime `boundary("array.admit", ...)` exception-to-fault surface and joins the inner rail through `bind`, so a backend transfer fault (`to_device`), a coordinate-build fault (`sparse.COO`), or a buffer-copy fault (`tobytes`) converts to a `BoundaryFault` exactly once at this owner rather than escaping domain flow; `_admit` resolves the namespace, enforces the finite policy through the one `FinitePolicy.forbidden` masked reduction, and returns `RuntimeRail[ArrayPayload]`. The identity keys through `ContentIdentity.of("array", host.tobytes(), IdentityPolicy())` over the canonical contiguous buffer — a host transfer through `to_device(..., "cpu")` when the operand is off-host, with a pydata-`sparse` operand densified through `sparse.asnumpy` only at the identity boundary — so a payload admitted from any backend or any `ArrayOp` case keys identically to its numpy floor through the one `admit` body, never a parallel sparse admission.
-- Receipt: `ArrayPayload.contribute` emits one `Receipt.of("emitted", "compute.array", backend, facts)` carrying the backend, dtype, shape, and finite policy, merging the `SparseLayout` fact through the `dict` `|` union (the same `facts | {...}` merge the sibling receipts use) when the operand is sparse, so a sparse admission graduates its format as evidence beside the dense facts without an imperative mutation branch.
-- Packages: `array-api-compat` (`array_namespace`, `is_pydata_sparse_array`, `device`, `to_device`), `numpy` (`asarray`, the Array API floor), `sparse` (`asarray`, `COO`, `GCXS`, `DOK`, `asnumpy`, `format=`/`asformat`, `fill_value`, `density`, `isnan`/`isinf` — the pydata-sparse construction and backend; `GCXS`/`DOK` are reached through the `asformat(layout.value)` reshape, and an already-formatted operand recovers its layout from the concrete class through `SparseLayout(type(array).__name__.lower())` — the `COO`/`GCXS`/`DOK` class name lowercased is exactly the `SparseLayout` value, the catalogued discriminant the `sparse` properties surface carries, never a phantom `.format` instance attribute), `jax` and `dask` (admitted Array-API backends `array_namespace` resolves through their `__array_namespace__`/`device`/`to_device` hooks, never a per-backend admission body), data-branch `xarray`/`dask` labelled-array shapes, runtime (`RuntimeRail`/`boundary`/`BoundaryFault` from `runtime/faults`, `ContentIdentity`/`ContentKey`/`IdentityPolicy` from `runtime/content_identity`, `Receipt`/`ReceiptContributor` from `runtime/receipts`).
-- Growth: a new operand source is one `ArrayOp` case plus its `operand` arm; a new backend is admitted by `array_namespace` with zero new surface; a new sparse format is one `SparseLayout` row whose value is the `sparse` `format=` string; a new finite class is one `FinitePolicy` row plus its forbidden-mask arm; a new layout is one column on `ArrayPayload`.
-- Boundary: no production tensor runtime and no per-backend admission family — `array_namespace` collapses the backend selection into one dispatch, the three finite policies fold into one masked reduction, and the three operand sources fold into one `ArrayOp` request. A numpy-only admission floor with a separate per-accelerator JIT wrap, a hand-rolled finite-check loop, a three-branch `if finite is REJECT / ALLOW_NAN / ALLOW_INF` ladder, a boolean `allow_nonfinite` knob, an `admit`/`sparsify`/`sparse_from` sibling-classmethod family, a raw `Error(BoundaryFault(...))` body that lets a transfer exception escape the rail, a scipy 2-D sparse-matrix builder duplicated here, a dense intermediate inside `SparseFrom`, and a re-catalogued `xarray` surface are the deleted forms. JAX rides the namespace as a backend, never a wrap; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner, distinct from the Array API admission; scipy 2-D sparse-matrix construction stays on `solvers/linear`.
+- Owner: `ArrayPayload` — the dtype/shape/named-axes/finite-policy/layout/identity admission over the Array API standard, parameterized over input shape through `ArraySource` and output shape through `AdmitMode`. `array_namespace(*arrays)` resolves the backend `xp` once at operation entry, so the same admission path accepts a numpy array, a JAX array, a Dask array, or a pydata-`sparse` array and every standard op reads `xp.<op>` while every extension op reads `xpx.<op>(..., xp=xp)`, never a re-resolution inside the body and never a hardcoded vendor import. `NamedAxis` is the labelled-coordinate value object; the data-branch `xarray`/`dask` `Dataset`/`DataArray` shapes compose as study inputs and are never re-catalogued.
+- Type axis: `Array` is the one structural array type the whole owner threads — the union of every `array-api-compat` backend the `TypeIs` guards narrow (`NDArray`, `jax.Array`, `da.Array`, `SparseArray`) declared once under `TYPE_CHECKING` so no signature degrades to a bare `object` and the gated `jax`/`sparse`/`dask` symbols never import at runtime. `Mask` is the boolean array a `FiniteGate` projection returns. `ArrayNamespace` is the `Protocol` that types the resolved `xp` the catalogue declares `array_namespace(*xs) -> Namespace`, naming the exact standard members the owner reads (`isnan`/`isinf`/`logical_or`/`any` and the `bool` dtype attribute) so every `xp.<op>` is a typed call rather than a phantom member off a bare `object` — the same `expr: object`-to-`Protocol` collapse `numerics/interval.md#ENCLOSURE` holds. The `BackendArray` `Protocol` names the `shape`/`dtype`/`device` members `array_namespace` admits across backends, so `_host_buffer` reads a typed `.device` rather than a `getattr(array, "device", ...)` escape.
+- Stacking rail: `array-api-compat` is the resolver tier and `array-api-extra` the extension tier directly on top — the canonical kernel does `xp = array_namespace(*arrays)` then threads that one `xp` into both the standard namespace (`xp.isnan`/`xp.isinf`/`xp.any`/`xp.bool`) and every extension call (`xpx.nan_to_num`/`xpx.lazy_apply`), so the admission body is one backend-agnostic rail across numpy/JAX/Dask/sparse with no per-backend branch. The execution-model guard the finite reduction requires rides the same resolution: `is_lazy_array(array)` (true for a JAX-traced or Dask operand) selects the deferred `xpx.lazy_apply` reduction over the eager `xp.any` reduction — the same lazy/eager fork the downstream `jax`/`equinox`/`diffrax` rails consume, established here at the admission boundary rather than re-derived per consumer. The mutate/copy fork (`is_writeable_array` gating a `copy=False` `xpx.at` write) belongs to a transforming consumer, not this read-only admission owner, which never writes the operand.
+- Source axis: `ArraySource` is the ONE operand-source request — `Live(array)`, `Sparsify(dense, layout, fill_value)`, `SparseFrom(coords, data, shape, layout, fill_value)` — and `ArraySource.operand` is the one total `match` that materializes the backend `Array` each case stands for: `Live` is the operand verbatim, while both sparse arms share one `COO`-build-then-`SparseLayout.reformat` shape — `Sparsify` lowers a dense source through `sparse.COO.from_numpy(dense, fill_value=fill_value)` (`sparse.asarray` carries no `fill_value`; `from_numpy` is the densify-to-sparse path that sets the implicit dense value), `SparseFrom` builds `sparse.COO(coords, data, shape=shape, fill_value=fill_value)` from the coordinate triple, and each reshapes through `reformat` only when the layout is not COO, never a dense intermediate. `ArrayPayload.admit` consumes any `ArraySource` and never grows a per-source classmethod; a fourth operand source is one `ArraySource` case plus its `operand` arm.
+- Mode axis: `AdmitMode` is the ONE bounded output-shape policy that owns how the resolved operand is conditioned before identity — `STRICT` admits the operand verbatim, `SANITIZE` replaces every non-finite cell through `xpx.nan_to_num(array, xp=xp)` (the finite-fill output a downstream solver tolerates without a masked branch), and `DENSE_GUARD` routes the sparse host transfer through `sparse.maybe_densify(max_size, min_density)` so a densification that would blow memory raises a typed boundary the rail converts rather than an OOM. The `DENSE_GUARD` ceiling is the `DenseBound` value object the caller threads on `admit` — a `Meta`-bounded `(max_size, min_density)` pair (a non-positive cap or out-of-unit-interval density is a decode-time rejection) defaulting to the documented `(1000, 0.25)` — so the guard threshold is a parameterized policy rather than the library default hardcoded into the fold. `AdmitMode.condition(xp, array)` is the one total `match` that applies the tag to the resolved operand, so a new output conditioning is one `AdmitMode` row plus its arm, never a boolean `sanitize=`/`guard=` knob and never a parallel `admit_sanitized` entrypoint. The mode and the bound thread alongside the source on one `admit` so the input axis and the output axis stay orthogonal columns on one entry rather than a combinatorial method matrix.
+- Finite axis: `FiniteGate` is the ONE bounded finite-admission policy — `REJECT`, `ALLOW_NAN`, `ALLOW_INF` — and the admission body reads it through one masked reduction rather than three branches. Each row's enum value names the *forbidden* class: `REJECT` forbids any non-finite (NaN or ±inf), `ALLOW_NAN` forbids `isinf` (NaN tolerated, inf rejected), `ALLOW_INF` forbids `isnan` (inf tolerated, NaN rejected). `FiniteGate.forbidden(xp, array)` projects the row to its `xp`-namespace boolean `Mask` under a total `match` closed by `assert_never`, and `FiniteGate.violated(xp, array)` reduces that mask through the one lazy/eager fork: `is_lazy_array(array)` routes a Dask/JAX-deferred operand through `xpx.lazy_apply(reduce_any, array, shape=(), dtype=xp.bool, xp=xp)` declaring the scalar `xp.bool` output (the Array API guarantees `bool` on every conformant namespace) so the mask-then-`any` is one deferred node materialized once at this boundary, while an eager backend reduces `xp.any(mask)` and reads `bool(...)` directly. A violation short-circuits the `railed` chain to `Error(BoundaryFault(boundary=(f"non-finite:{gate.value}", str(array.dtype))))` — the `boundary` case's `(subject, detail)` two-tuple naming the offending policy in the subject and the rejecting dtype in the detail — so the class is a first-class fact on the one fault family, never a silent admission. A new finite class is one `FiniteGate` row plus its forbidden-mask arm, never a boolean knob and never a `bool(xp.any(...))` that forces a graph backend to materialize.
+- Backend axis: `array_namespace` admits every Array-API backend with zero per-backend admission body; the ungated `numpy` floor and `dask` back the standard on the cp315 core, and the gated companion-band `jax` and pydata-`sparse` backends each expose the `__array_namespace__`/`device`/`to_device` hooks the same path resolves. The pydata-`sparse` backend is the one axis that also *constructs* its operand here, because a sparse tensor has no dense source array to admit — `SparseLayout` is the ONE bounded pydata-sparse policy (`COO`/`GCXS`/`DOK`) whose enum value IS the `sparse` `format=` string, owning both the `Sparsify`/`SparseFrom` construction through `reformat` and the layout recovery from a resolved operand through `SparseLayout.recover(array)` (the concrete-class name lowercased is exactly the `SparseLayout` value, the catalogued discriminant the `sparse` properties surface carries, never a phantom `.format` instance attribute). `fill_value` threads the implicit dense value (the sparse zero a NaN-fill mask treats as present) through the finite reduction so the `FiniteGate` mask reads `sparse.isnan`/`sparse.isinf` over the sparse namespace and a non-finite `fill_value` is itself rejected. The scipy 2-D `sparse` *matrix* construction for linear solves stays on `solvers/linear` (`scipy.sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack`); this owner builds the multi-dimensional pydata-`sparse` *tensor* as an Array-API backend, a distinct concern that meets the linear route only through the admitted operand.
+- Entry: `ArrayPayload.admit(source, axes, finite, mode, bound)` wraps the whole materialize-clean-gate-buffer-identify body in the runtime `boundary("array.admit", ...)` exception-to-fault surface and joins the inner rail through `bind`, so a backend transfer fault (`to_device`), a coordinate-build fault (`sparse.COO`), a lazy-reduction fault (`xpx.lazy_apply`), a densification-bound fault (`sparse.maybe_densify`), or a buffer-copy fault converts to a `BoundaryFault` exactly once at this owner. `_admit` is one `railed` `expression.effect.result` chain: it resolves the namespace, conditions the operand through `mode.condition`, enforces the finite policy through `FiniteGate.forbidden`/`violated` short-circuiting `Error(BoundaryFault(...))` on a violation, binds the host buffer once through the one `_host_buffer` backend fold — reading `shape`/`count` off that always-concrete `np.ndarray` rather than the possibly-lazy operand whose `size` is `None` — and `yield from`-binds the railed `ContentIdentity.of` `ContentKey` over the same buffer so a canonical-encode fault propagates on the one rail rather than a bare-`ContentKey` assignment or a `match`/`raise RuntimeError(fault)` re-raise. `_host_buffer` is the one backend-discriminated host-transfer fold: a pydata-`sparse` operand densifies through `sparse.asnumpy` (or `maybe_densify` under `DENSE_GUARD`), an off-host lazy/device operand transfers through `to_device(array, "cpu")` before `np.ascontiguousarray`, and an on-host eager operand reads `np.ascontiguousarray` directly — so the canonical contiguous buffer is one fold over the backend's residence rather than an inline ternary, and the contiguous `np.ndarray` it returns passes to `ContentIdentity.of` directly as the PEP 688 `Buffer` the `whole` arm coerces, never a redundant `.tobytes()`.
+- Receipt: `ArrayPayload.contribute` returns the one-element `tuple[Receipt, ...]` the runtime `ReceiptContributor` port streams — `Receipt.of("compute.array", ("emitted", self.backend, self.facts()))` against the runtime two-argument `of(owner, evidence)` contract over the `(Phase, subject, facts)` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` form the runtime owner deletes and never a single-`Receipt` return against the `Iterable[Receipt]` port. `facts()` folds the backend, dtype, finite policy, admit mode, element count, and the `shape` tuple — the count and shape read off the always-concrete host buffer rather than a lazy operand — as native scalars the `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `repr`/`str` coerce, merging the `SparseFacts` `density`/`nnz`/`fill_value`/`layout` map through the `dict` `|` union when the operand is sparse so a sparse admission graduates its sparsity evidence beside the dense facts without an imperative mutation branch, the same `facts | {...}` merge the sibling receipts use.
+- Packages: `array-api-compat` (`array_namespace`, `is_pydata_sparse_array`, `is_lazy_array`, `to_device` — the resolver tier, the lazy/eager execution-model guard, and the cpu host transfer; `is_writeable_array`/`device`/`size` are the same surface a transforming consumer reaches, `size` reserved for a known-shape eager fact while this owner reads the count off the materialized host buffer), `array-api-extra` (`lazy_apply` threaded as `xpx.lazy_apply(fn, array, shape=(), dtype=xp.bool, xp=xp)` for the deferred finite reduction on a graph backend, `nan_to_num` the `SANITIZE` finite-fill conditioning; `default_dtype`/`isclose`/`at` are the available extension ops a transforming consumer threads on the same resolved `xp` when it allocates a precision-bearing result buffer), `numpy` (`asarray`, `ascontiguousarray` — the Array API floor and the canonical C-contiguous host buffer), `sparse` (`COO`, `COO.from_numpy`, `asformat`, `asnumpy`, `maybe_densify`, `format=`, `fill_value`, `density`, `nnz`, `isnan`/`isinf` — the pydata-sparse coordinate and densify-to-sparse construction (`COO.from_numpy` the `fill_value`-carrying dense lowering `asarray` cannot express), the guarded densification, the sparsity evidence, and the sparse-namespace finite mask; `GCXS`/`DOK` are reached through `SparseLayout.reformat`), `jax` and `dask` (admitted Array-API backends `array_namespace` resolves through their `__array_namespace__`/`device`/`to_device` hooks and `is_lazy_array` flags as deferred, never a per-backend admission body), `expression` (`tagged_union`/`tag`/`case` the `ArraySource` ADT, `effect.result` the bound `railed` builder the admission chain threads, `Error`/`Ok` the rail outcomes), data-branch `xarray`/`dask` labelled-array shapes, runtime (`RuntimeRail`/`boundary`/`BoundaryFault`/`railed` from `reliability/faults#FAULT` — `railed` the bound `effect.result[Any, BoundaryFault]()` builder — `ContentIdentity`/`ContentKey`/`IdentityPolicy` from `evidence/identity#IDENTITY`, `Receipt`/`ReceiptContributor` from `observability/receipts#RECEIPT`).
+- Growth: a new operand source is one `ArraySource` case plus its `operand` arm; a new output conditioning is one `AdmitMode` row plus its `condition` arm; a new backend is admitted by `array_namespace` with zero new surface and rides the existing lazy/eager fork through `is_lazy_array`; a new sparse format is one `SparseLayout` row whose value is the `sparse` `format=` string; a new finite class is one `FiniteGate` row plus its forbidden-mask arm; a new densification knob is one `Meta`-bounded `DenseBound` field; a new layout column is one field on `ArrayPayload`; a new extension op is one `xpx` call threaded on the resolved `xp`, never a re-resolution.
+- Boundary: no production tensor runtime, no per-backend admission family, and no per-mode entrypoint family — `array_namespace` collapses the backend selection into one dispatch, `array-api-extra` supplies every extension op on the resolved `xp`, the three finite policies fold into one masked reduction over the lazy/eager fork, the three operand sources fold into one `ArraySource` request, and the three output conditionings fold into one `AdmitMode` policy. A numpy-only admission floor with a separate per-accelerator JIT wrap, a hardcoded vendor `import` in the admission body, a re-resolution of `array_namespace` inside the reduction, a hand-rolled finite-check loop, a `bool(xp.any(...))` eager reduction that forces a JAX/Dask graph to materialize where `is_lazy_array` selects `xpx.lazy_apply`, a three-branch `if finite is REJECT / ALLOW_NAN / ALLOW_INF` ladder, a boolean `allow_nonfinite`/`sanitize` knob, an `admit`/`sparsify`/`sparse_from`/`admit_sanitized` sibling-classmethod family, a `match`/`raise RuntimeError(fault)` re-raise or a bare-`ContentKey` assignment off the railed `ContentIdentity.of` where the `railed` `yield from`-bind threads the canonical-encode fault, a four-positional `Receipt.of` against the two-argument `(owner, evidence)` contract, an inline host-transfer ternary where `_host_buffer` folds the backend residence, a `size(conditioned) or 0` count read off a lazy operand whose `size` is `None` where the always-concrete host buffer carries the true `shape`/`count`, a redundant `.tobytes()` on a contiguous buffer the `ContentIdentity.of` `whole` arm coerces, a sparse admission that drops the `density`/`nnz`/`fill_value` evidence, an unguarded `sparse.asnumpy` densification where `DENSE_GUARD` routes `maybe_densify`, a library-default `maybe_densify()` call hardcoding the bound where the `DenseBound` policy carries the caller's ceiling, a `fill_value=` passed to `sparse.asarray` (which has no such keyword) where `COO.from_numpy` carries the implicit dense value, an `xp: object` namespace the body reads `isnan`/`any`/`bool` off where the `ArrayNamespace` `Protocol` types the resolved namespace, a `getattr(array, "device", ...)` escape where the `BackendArray` `Protocol` types `.device`, a scipy 2-D sparse-matrix builder duplicated here, a dense intermediate inside `SparseFrom`, and a re-catalogued `xarray` surface are the deleted forms. JAX rides the namespace as a backend, never a wrap; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner, distinct from the Array API admission; scipy 2-D sparse-matrix construction stays on `solvers/linear`.
 
 ```python signature
+# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 from enum import StrEnum
-from typing import Literal, assert_never
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, assert_never
 
+import array_api_extra as xpx
 import numpy as np
 import sparse
-from array_api_compat import array_namespace, device, is_pydata_sparse_array, to_device
-from expression import Error, Ok, case, tag, tagged_union
-from msgspec import Struct
+from array_api_compat import array_namespace, is_lazy_array, is_pydata_sparse_array, to_device
+from expression import Error, case, tag, tagged_union
+from msgspec import Meta, Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.receipts import Receipt
+
+if TYPE_CHECKING:
+    # the gated backend array types `array-api-compat` narrows through its `TypeIs` guards, unioned
+    # into the one `Array` the owner threads so no signature degrades to a bare `object`; the
+    # `jax`/`sparse`/`dask` wheels are companion-gated and never import at runtime, so the union is a
+    # `TYPE_CHECKING`-only alias and `BackendArray` names the shape/dtype/device members shared across
+    # every backend `array_namespace` admits.
+    import dask.array as da
+    import jax
+    from numpy.typing import NDArray
+    from sparse import SparseArray
+
+    type Array = NDArray[Any] | jax.Array | da.Array | SparseArray
+    type Mask = Array
+
+    class BackendArray(Protocol):
+        @property
+        def shape(self) -> tuple[int, ...]: ...
+        @property
+        def dtype(self) -> object: ...
+        @property
+        def device(self) -> object: ...
+
+    class ArrayNamespace(Protocol):
+        # the resolved `xp` the catalogue declares `array_namespace(*xs) -> Namespace`; naming the
+        # exact standard members the owner reads keeps every `xp.<op>` a typed call, not a phantom
+        # attribute off a bare `object`, the `expr: object`-to-`Protocol` collapse the siblings hold.
+        __name__: str
+        bool: object
+        def isnan(self, x: "Array", /) -> "Mask": ...
+        def isinf(self, x: "Array", /) -> "Mask": ...
+        def logical_or(self, x1: "Mask", x2: "Mask", /) -> "Mask": ...
+        def any(self, x: "Mask", /) -> "Array": ...
 
 
 # --- [TYPES] -------------------------------------------------------------------------------
 
-class FinitePolicy(StrEnum):
+class FiniteGate(StrEnum):
     REJECT = "reject"
     ALLOW_NAN = "allow-nan"
     ALLOW_INF = "allow-inf"
 
-    def forbidden(self, xp: object, array: object) -> object:
+    def forbidden(self, xp: "ArrayNamespace", array: "Array") -> "Mask":
         match self:
-            case FinitePolicy.REJECT:
-                return xp.logical_not(xp.isfinite(array))
-            case FinitePolicy.ALLOW_NAN:
+            case FiniteGate.REJECT:
+                return xp.logical_or(xp.isnan(array), xp.isinf(array))
+            case FiniteGate.ALLOW_NAN:
                 return xp.isinf(array)
-            case FinitePolicy.ALLOW_INF:
+            case FiniteGate.ALLOW_INF:
                 return xp.isnan(array)
+            case unreachable:
+                assert_never(unreachable)
+
+    def violated(self, xp: "ArrayNamespace", array: "Array") -> bool:
+        # lazy/eager fork: a Dask/JAX-deferred operand builds the mask-then-`any` as one deferred
+        # node through `xpx.lazy_apply` declaring the scalar `xp.bool` output (the Array API
+        # guarantees `bool` on every conformant namespace), materialized once here at the admission
+        # boundary rather than a `bool(xp.any(...))` that forces the whole operand graph eager; an
+        # eager backend reduces `xp.any` and reads `bool` directly.
+        if is_lazy_array(array):
+            reduced = xpx.lazy_apply(lambda a: xp.any(self.forbidden(xp, a)), array, shape=(), dtype=xp.bool, xp=xp)
+            return bool(np.asarray(reduced))
+        return bool(xp.any(self.forbidden(xp, array)))
+
+
+class AdmitMode(StrEnum):
+    STRICT = "strict"            # admit the resolved operand verbatim under the finite gate
+    SANITIZE = "sanitize"        # replace every non-finite cell through `xpx.nan_to_num` before the gate
+    DENSE_GUARD = "dense-guard"  # route the sparse host transfer through `maybe_densify` under `DenseBound`
+
+    def condition(self, xp: "ArrayNamespace", array: "Array") -> "Array":
+        match self:
+            case AdmitMode.STRICT | AdmitMode.DENSE_GUARD:
+                return array
+            case AdmitMode.SANITIZE:
+                return xpx.nan_to_num(array, xp=xp)
             case unreachable:
                 assert_never(unreachable)
 
@@ -57,44 +123,87 @@ class SparseLayout(StrEnum):
     GCXS = "gcxs"
     DOK = "dok"
 
+    def reformat(self, array: "SparseArray") -> "SparseArray":
+        # the format-discriminated reshape: COO is the build floor, the other rows recover through
+        # the catalogued `asformat(format=)` reshape rather than a per-class constructor.
+        return array if self is SparseLayout.COO else array.asformat(self.value)
+
+    @staticmethod
+    def recover(array: "SparseArray") -> "SparseLayout":
+        # the concrete-class name lowercased IS the `format=` value the `sparse` surface carries;
+        # there is no `.format` instance attribute to read.
+        return SparseLayout(type(array).__name__.lower())
+
 
 # --- [MODELS] ------------------------------------------------------------------------------
 
-class NamedAxis(Struct, frozen=True):
+class NamedAxis(Struct, frozen=True, gc=False):
     name: str
     size: int
 
 
+class DenseBound(Struct, frozen=True, gc=False):
+    # the `DENSE_GUARD` densification ceiling threaded onto `maybe_densify(max_size, min_density)`, so
+    # the host-transfer bound is a caller-parameterized policy value rather than the library default
+    # hardcoded into the fold. `Meta`-bounded: a non-positive cap or an out-of-unit-interval density
+    # is a decode-time rejection, never a silent blow-through.
+    max_size: Annotated[int, Meta(gt=0)] = 1000
+    min_density: Annotated[float, Meta(ge=0.0, le=1.0)] = 0.25
+
+
+class SparseFacts(Struct, frozen=True, gc=False):
+    # the sparse-array evidence the fold graduates beside the dense facts: the layout, the implicit
+    # dense `fill_value`, the stored-element count, and the occupancy `density`, projected off the
+    # `sparse` properties surface so a sparse admission's sparsity is first-class receipt evidence.
+    layout: SparseLayout
+    fill_value: float
+    nnz: int
+    density: float
+
+    @staticmethod
+    def of(array: "SparseArray") -> "SparseFacts":
+        return SparseFacts(
+            layout=SparseLayout.recover(array),
+            fill_value=float(array.fill_value),
+            nnz=int(array.nnz),
+            density=float(array.density),
+        )
+
+    def as_map(self) -> dict[str, object]:
+        return {"layout": self.layout.value, "fill_value": self.fill_value, "nnz": self.nnz, "density": self.density}
+
+
 @tagged_union(frozen=True)
-class ArrayOp:
+class ArraySource:
     tag: Literal["live", "sparsify", "sparse_from"] = tag()
-    live: object = case()
-    sparsify: tuple[object, SparseLayout, float] = case()
-    sparse_from: tuple[object, object, tuple[int, ...], SparseLayout, float] = case()
+    live: "Array" = case()
+    sparsify: tuple["Array", SparseLayout, float] = case()
+    sparse_from: tuple["Array", "Array", tuple[int, ...], SparseLayout, float] = case()
 
     @staticmethod
-    def Live(array: object) -> "ArrayOp":
-        return ArrayOp(live=array)
+    def Live(array: "Array") -> "ArraySource":
+        return ArraySource(live=array)
 
     @staticmethod
-    def Sparsify(dense: object, layout: SparseLayout = SparseLayout.COO, fill_value: float = 0.0) -> "ArrayOp":
-        return ArrayOp(sparsify=(dense, layout, fill_value))
+    def Sparsify(dense: "Array", layout: SparseLayout = SparseLayout.COO, fill_value: float = 0.0) -> "ArraySource":
+        return ArraySource(sparsify=(dense, layout, fill_value))
 
     @staticmethod
     def SparseFrom(
-        coords: object, data: object, shape: tuple[int, ...], layout: SparseLayout = SparseLayout.COO, fill_value: float = 0.0
-    ) -> "ArrayOp":
-        return ArrayOp(sparse_from=(coords, data, shape, layout, fill_value))
+        coords: "Array", data: "Array", shape: tuple[int, ...], layout: SparseLayout = SparseLayout.COO, fill_value: float = 0.0
+    ) -> "ArraySource":
+        return ArraySource(sparse_from=(coords, data, shape, layout, fill_value))
 
-    def operand(self) -> object:
+    def operand(self) -> "Array":
         match self:
-            case ArrayOp(tag="live", live=array):
+            case ArraySource(tag="live", live=array):
                 return array
-            case ArrayOp(tag="sparsify", sparsify=(dense, layout, fill_value)):
-                return sparse.asarray(dense, format=layout.value, fill_value=fill_value)
-            case ArrayOp(tag="sparse_from", sparse_from=(coords, data, shape, layout, fill_value)):
-                built = sparse.COO(coords, data, shape=shape, fill_value=fill_value)
-                return built if layout is SparseLayout.COO else built.asformat(layout.value)
+            case ArraySource(tag="sparsify", sparsify=(dense, layout, fill_value)):
+                # `sparse.asarray` carries no `fill_value`; `COO.from_numpy(dense, fill_value=)` is the
+                # densify-to-sparse path that sets the implicit dense value, then `reformat` to layout.
+                return layout.reformat(sparse.COO.from_numpy(dense, fill_value=fill_value))
+            case ArraySource(tag="sparse_from", sparse_from=(coords, data, shape, layout, fill_value)):
+                return layout.reformat(sparse.COO(coords, data, shape=shape, fill_value=fill_value))
             case unreachable:
                 assert_never(unreachable)
 
@@ -103,45 +212,93 @@ class ArrayPayload(Struct, frozen=True):
     backend: str
     dtype: str
     shape: tuple[int, ...]
+    count: int
     axes: tuple[NamedAxis, ...]
-    finite: FinitePolicy
-    layout: SparseLayout | None
+    finite: FiniteGate
+    mode: AdmitMode
+    sparse_facts: SparseFacts | None
     content_key: ContentKey
 
     # --- [OPERATIONS] ----------------------------------------------------------------------
 
     @classmethod
-    def admit(cls, op: ArrayOp, axes: tuple[NamedAxis, ...], finite: FinitePolicy) -> "RuntimeRail[ArrayPayload]":
-        return boundary("array.admit", lambda: cls._admit(op.operand(), axes, finite)).bind(lambda outcome: outcome)
+    def admit(
+        cls,
+        source: ArraySource,
+        axes: tuple[NamedAxis, ...],
+        finite: FiniteGate,
+        mode: AdmitMode = AdmitMode.STRICT,
+        bound: DenseBound = DenseBound(),
+    ) -> "RuntimeRail[ArrayPayload]":
+        return boundary("array.admit", lambda: cls._admit(source.operand(), axes, finite, mode, bound)).bind(lambda outcome: outcome)
 
     @classmethod
-    def _admit(cls, array: object, axes: tuple[NamedAxis, ...], finite: FinitePolicy) -> "RuntimeRail[ArrayPayload]":
+    @railed
+    def _admit(cls, array: "Array", axes: tuple[NamedAxis, ...], finite: FiniteGate, mode: AdmitMode, bound: DenseBound) -> "ArrayPayload":
+        # one `railed` `effect.result` chain inside the enclosing `array.admit` fence: resolve the
+        # namespace, condition the operand by the output mode, short-circuit a finite violation onto
+        # the rail, fold the host buffer, and `yield from`-bind the railed `ContentIdentity.of` key so
+        # a canonical-encode `Error` propagates on the one rail rather than a `match`/`raise` re-raise.
         xp = array_namespace(array)
-        if bool(xp.any(finite.forbidden(xp, array))):
-            return Error(BoundaryFault(boundary=(f"non-finite:{finite.value}", str(array.dtype))))
-        sparse_in = is_pydata_sparse_array(array)
-        host = sparse.asnumpy(array) if sparse_in else np.asarray(array if device(array) == "cpu" else to_device(array, "cpu"))
-        return Ok(
-            cls(
-                backend=xp.__name__,
-                dtype=str(array.dtype),
-                shape=tuple(array.shape),
-                axes=axes,
-                finite=finite,
-                layout=SparseLayout(type(array).__name__.lower()) if sparse_in else None,
-                content_key=ContentIdentity.of("array", host.tobytes(), IdentityPolicy()),
-            )
+        conditioned = mode.condition(xp, array)
+        if finite.violated(xp, conditioned):
+            # `yield from Error(...)` invokes `Result.__iter__`, which raises `EffectError` on the
+            # `Error` case so the builder short-circuits the chain — a bare `yield Error(...)` would
+            # bind the fault as an `Ok` value, the deleted form.
+            yield from Error(BoundaryFault(boundary=(f"non-finite:{finite.value}", str(conditioned.dtype))))
+        sparse_in = is_pydata_sparse_array(conditioned)
+        # the host buffer is the one always-concrete materialization: `shape`/`count` read off it
+        # rather than off a lazy operand whose `array_api_compat.size` is `None` and whose `.shape`
+        # carries unknown entries — `size(conditioned) or 0` would record a `0` count, the lie.
+        buffer = cls._host_buffer(conditioned, sparse_in, mode, bound)
+        key: ContentKey = yield from ContentIdentity.of("array", buffer, IdentityPolicy())
+        return cls(
+            backend=xp.__name__,
+            dtype=str(conditioned.dtype),
+            shape=buffer.shape,
+            count=buffer.size,
+            axes=axes,
+            finite=finite,
+            mode=mode,
+            sparse_facts=SparseFacts.of(conditioned) if sparse_in else None,
+            content_key=key,
         )
 
-    def contribute(self) -> Receipt:
-        sparse_facts = {"layout": self.layout.value} if self.layout is not None else {}
-        facts = {"backend": self.backend, "dtype": self.dtype, "shape": repr(self.shape), "finite": self.finite.value} | sparse_facts
-        return Receipt.of("emitted", "compute.array", self.backend, facts)
+    @staticmethod
+    def _host_buffer(array: "Array", sparse_in: bool, mode: AdmitMode, bound: DenseBound) -> np.ndarray:
+        # one backend-residence fold returning the canonical C-contiguous host buffer: a sparse tensor
+        # densifies (guarded through `maybe_densify(max_size, min_density)` under `DENSE_GUARD` so a
+        # memory blow is a typed boundary, not an OOM, the ceiling carried by the caller's `DenseBound`),
+        # an off-host lazy/device array transfers to cpu first, an on-host eager array reads its
+        # contiguous buffer directly. The returned `ndarray` is the PEP 688 `Buffer` `ContentIdentity.of`
+        # coerces — no redundant `.tobytes()`.
+        if sparse_in:
+            densified = array.maybe_densify(max_size=bound.max_size, min_density=bound.min_density) if mode is AdmitMode.DENSE_GUARD else array
+            return sparse.asnumpy(densified)
+        backend: BackendArray = array
+        off_host = is_lazy_array(array) or backend.device != "cpu"
+        return np.ascontiguousarray(to_device(array, "cpu") if off_host else array)
+
+    def facts(self) -> dict[str, object]:
+        base: dict[str, object] = {
+            "backend": self.backend,
+            "dtype": self.dtype,
+            "shape": self.shape,
+            "count": self.count,
+            "finite": self.finite.value,
+            "mode": self.mode.value,
+        }
+        return base | (self.sparse_facts.as_map() if self.sparse_facts is not None else {})
+
+    def contribute(self) -> tuple[Receipt, ...]:
+        return (Receipt.of("compute.array", ("emitted", self.backend, self.facts())),)
 ```
 
 ## [03]-[RESEARCH]
 
-- [ARRAY_API_NAMESPACE]: `array-api-compat` resolves on the cp315 core (pure-Python, cp315-clean); the `array_namespace`/`device`/`to_device`/`is_pydata_sparse_array` spellings verify against `compute/.api/array-api-compat.md` under a uv-sync reflection pass. The `numpy>=2.0` floor and `dask` are ungated cp315 core (numpy 2.x ships cp315 wheels, dask is pure Python), so they back the standard on the cp315 core; `jax` (`python_version<'3.15'`, gated by the jaxlib cp315 floor) and `sparse` (`python_version<'3.15'`, gated by the numba/llvmlite cp315 floor) are the structurally gated companion band, each exposing the same `__array_namespace__`/`device`/`to_device` Array-API hooks `compute/.api/sparse.md` catalogues, so `array_namespace` admits every backend through the one path at its own manifest gate rather than a per-backend admission body — the gated band lands when its stack ships stable cp315 wheels, never a design defect in this owner.
-- [FINITE_POLICY]: the three `FinitePolicy` rows fold into one masked reduction because the Array API guarantees `isfinite`/`isnan`/`isinf` on every conformant namespace; the forbidden-mask projection reads the resolved `xp`'s member under a total `match` closed by `assert_never`, so `REJECT` rejects any non-finite, `ALLOW_NAN` rejects only inf, and `ALLOW_INF` rejects only NaN, with no per-policy branch in the entry body and no boolean knob. The mask reduces through `xp.any` once and the violating policy/dtype land on the `boundary` case's `(subject, detail)` two-tuple — `subject=f"non-finite:{policy}"`, `detail=dtype` — matching the `runtime/reliability/faults` `BoundaryFault.boundary: tuple[str, str]` shape exactly rather than a three-tuple the fault family does not admit.
-- [RAIL_BOUNDARY]: the materialize-and-admit body rides `boundary("array.admit", ...)` from `runtime/faults` so a `to_device` transfer, a `sparse.COO` build, or a `tobytes` buffer copy that raises converts to a `BoundaryFault` exactly once at this owner; `ArrayPayload.admit` joins the inner `RuntimeRail` the thunk returns through `bind`, keeping the entry a single rail rather than a raw `Error(BoundaryFault(...))` that lets an array-library exception escape domain flow.
-- [SPARSE_CONSTRUCTION]: pydata-`sparse` is the gated companion band (`python_version<'3.15'`, gated by the numba/llvmlite cp315 floor, not numpy which ships cp315 wheels), so the `ArrayOp.Sparsify`/`ArrayOp.SparseFrom` operand bodies are authored against the documented `sparse.asarray(format=)`/`COO`/`asformat`/`asnumpy`/`fill_value`/`density` surface in `compute/.api/sparse.md`; `SparseLayout` enum values are the verified `format=` construction strings (`'coo'`/`'gcxs'`/`'dok'`) the creation/`asformat` path consumes, and the same lowercased token is the `COO`/`GCXS`/`DOK` concrete-class name the layout-recovery reads, since the catalogued properties surface carries no `.format` instance attribute. This is the multi-dimensional pydata-sparse *tensor* backend axis — distinct from the scipy 2-D sparse *matrix* construction (`scipy.sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack`) that `solvers/linear` owns for the linear-solve operand; there is no separate `numerics/sparse` page, and the two meet only through the admitted operand the linear route reads.
+- [ARRAY_API_STACK]: `array-api-compat` is the resolver tier and `array-api-extra` the extension tier directly on top, both ungated pure-Python on the cp315 core; the canonical rail `xp = array_namespace(*arrays)` then `xpx.<op>(..., xp=xp)` is the documented stack in `compute/.api/array-api-compat.md` `[04]-[STACKING]` and `compute/.api/array-api-extra.md` `[04]-[STACKING]`, so this owner resolves the namespace once and threads the one `xp` into both the standard and extension calls rather than re-resolving or importing a vendor namespace. `array_namespace`/`to_device`/`is_pydata_sparse_array`/`is_lazy_array`/`size` verify against `compute/.api/array-api-compat.md` ENTRYPOINTS [01]/[04]/[05] and backend-predicate [08]/[09]; the wired `xpx.lazy_apply(func, *args, shape=, dtype=, xp=)` and `xpx.nan_to_num(x, *, fill_value=0.0, xp=)` verify against `compute/.api/array-api-extra.md` ENTRYPOINTS [13]/[14], and the lazy-reduction output dtype is the standard `xp.bool` the Array API guarantees on every conformant namespace (`xpx.default_dtype(xp, kind=...)` ENTRYPOINTS [08] is the catalogued backend-canonical query for a *precision-bearing* `'real floating'`/`'integral'` result buffer, not the boolean mask, so it is reserved for a transforming consumer; `isclose`/`at` [10]/[01] are the same consumer-threaded extension surface on the resolved `xp`). The `numpy>=2.0` floor and `dask` are ungated cp315 core (numpy 2.x ships cp315 wheels, dask is pure Python), while `jax` (`python_version<'3.15'`, gated by the jaxlib cp315 floor) and `sparse` (`python_version<'3.15'`, gated by the numba/llvmlite cp315 floor) are the structurally gated companion band, each exposing the same `__array_namespace__`/`device`/`to_device` Array-API hooks `array_namespace` admits through the one path at its own manifest gate.
+- [INPUT_OUTPUT_AXES]: the owner is parameterized over both the operand-source input shape (`ArraySource`) and the output-conditioning shape (`AdmitMode`), the two orthogonal columns on one `admit` rather than a combinatorial method matrix. `AdmitMode.SANITIZE` realizes the `xpx.nan_to_num` cleaning op the catalogue documents at ENTRYPOINTS [14] as the finite-fill conditioning a downstream solver tolerates, and `AdmitMode.DENSE_GUARD` realizes the `sparse.maybe_densify(max_size, min_density)` guarded densification the `compute/.api/sparse.md` `[04]-[LOCAL_ADMISSION]` names as "the correct boundary for handing a result to a dense consumer" so a densification that would blow memory raises a typed boundary the rail converts rather than an OOM. `condition` is one total `match` closed by `assert_never`, so a fourth output shape is one row plus one arm, never a `sanitize=`/`guard=` boolean knob nor a parallel `admit_sanitized` entrypoint — the same input-and-output parameterization the runtime `evidence/identity#IDENTITY` `ContentIdentity.of` holds over its `view` projection.
+- [LAZY_EAGER_FORK]: `is_lazy_array(array)` is true for a Dask and a JAX-deferred operand per `compute/.api/array-api-compat.md` ENTRYPOINTS [09], and the `[04]-[STACKING]` row binds it to `xpx.lazy_apply` for the deferred path against the direct eager `xp` op. `FiniteGate.violated` reads that guard: a lazy operand builds the `xp.any(forbidden(...))` reduction as one deferred node through `xpx.lazy_apply(fn, array, shape=(), dtype=xp.bool, xp=xp)` declaring the scalar `xp.bool` output per `compute/.api/array-api-extra.md` `[04]-[ARRAY_API_EXTRA_TOPOLOGY]`/`[LOCAL_ADMISSION]` ("`lazy_apply` is required when `func` uses control flow incompatible with graph tracing"), materialized once at this admission boundary, while an eager backend reduces `xp.any` and reads `bool(...)` directly — a `bool(xp.any(...))` over a Dask or JAX-traced array forces the whole operand graph eager or raises a `TracerBoolConversionError`, the deleted form. `is_writeable_array` gates the `copy=False` `xpx.at` write per `compute/.api/array-api-compat.md` `[04]-[STACKING]`, established here at the admission boundary as the same lazy/eager and mutate/copy forks the downstream `jax`/`diffrax`/`equinox` rails consume.
+- [FINITE_GATE]: the three `FiniteGate` rows fold into one masked reduction because the Array API guarantees `isnan`/`isinf` on every conformant namespace; the forbidden-mask projection reads the resolved `xp`'s member under a total `match` closed by `assert_never`, so `REJECT` rejects any non-finite (`isnan | isinf`), `ALLOW_NAN` rejects only inf, and `ALLOW_INF` rejects only NaN, with no per-policy branch in the entry body and no boolean knob. The mask reduces through the lazy/eager fork once and the violating policy/dtype land on the `boundary` case's `(subject, detail)` two-tuple — `subject=f"non-finite:{policy}"`, `detail=dtype` — matching the `reliability/faults#FAULT` `BoundaryFault.boundary: tuple[str, str]` shape exactly rather than a three-tuple the fault family does not admit. This is a domain rejection minted directly on the fault family, yielded onto the `railed` chain as `Error(BoundaryFault(...))` (the same in-fence `Error` form the `quantity.md` `convert` pre-check documents), distinct from the exception-to-fault conversion `boundary` owns for a raising transfer.
+- [RAIL_BOUNDARY]: the materialize-clean-gate-buffer-identify body rides `boundary("array.admit", ...)` from `reliability/faults` so a `to_device` transfer, a `sparse.COO` build, an `xpx.lazy_apply` lazy reduction, a `sparse.maybe_densify` densification bound, or a buffer copy that raises converts to a `BoundaryFault` exactly once at this owner; `ArrayPayload.admit` joins the inner `RuntimeRail` the thunk returns through `bind`, keeping the entry a single rail. `_admit` is the `railed` `effect.result[Any, BoundaryFault]()` builder the faults owner exposes for the free-form interleaved-bind past the three-level threshold: a finite violation `yield from Error(...)` invokes `Result.__iter__` raising `EffectError` so the chain short-circuits to the fault (a bare `yield Error(...)` would bind it as an `Ok` value, the deleted form), and the railed `ContentIdentity.of` `ContentKey` threads through `key = yield from ContentIdentity.of(...)` per the `evidence/identity#IDENTITY` `ContentIdentity.of(fmt, source, policy, *, view="value") -> RuntimeRail[ContentKey]` contract, so the canonical-encode fault rides the one rail rather than the prior `match ContentIdentity.of(...)`/`raise RuntimeError(fault)` re-raise — the `railed`-over-`match` collapse the runtime `reliability/faults#FAULT` owner names as the capability `traversed` cannot express. The `ContentIdentity.of` `source` argument is the contiguous `np.ndarray` `_host_buffer` returns, bound once and admitted directly as the PEP 688 `Buffer` the `IdentitySource.lift` `whole` arm coerces through `bytes(...)`, so the redundant `.tobytes()` is dropped and `shape`/`count` read off that always-concrete buffer rather than a lazy operand whose `array_api_compat.size` is `None` (the `size(conditioned) or 0` count lie the deleted form). `_host_buffer` folds the backend residence — `sparse.asnumpy`/`maybe_densify` for a sparse tensor, `to_device(array, "cpu")` for an off-host lazy/device operand, `np.ascontiguousarray` direct for an on-host eager operand — reading the `BackendArray` `Protocol` `.device` member rather than a `getattr(array, "device", ...)` escape, so the canonical contiguous identity buffer is one typed fold rather than an inline ternary.
+- [SPARSE_CONSTRUCTION_AND_EVIDENCE]: pydata-`sparse` is the gated companion band (`python_version<'3.15'`, gated by the numba/llvmlite cp315 floor, not numpy which ships cp315 wheels), so the `ArraySource.Sparsify`/`ArraySource.SparseFrom` operand bodies are authored against the documented `COO`/`COO.from_numpy`/`asformat`/`asnumpy`/`maybe_densify`/`fill_value`/`density`/`nnz`/`isnan`/`isinf` surface in `compute/.api/sparse.md` PUBLIC_TYPES/ENTRYPOINTS. Both sparse arms build a `COO` carrying the implicit-dense `fill_value` then `reformat` — `Sparsify` lowers a dense source through `COO.from_numpy(dense, fill_value=)` and `SparseFrom` through `COO(coords, data, shape=, fill_value=)`; `sparse.asarray(obj, *, dtype, format, copy)` (ENTRYPOINTS [05]) carries no `fill_value` keyword, so the `fill_value`-bearing densify-to-sparse path is `COO.from_numpy`, not `asarray`. `SparseLayout` enum values are the verified `format=`/`asformat` construction strings (`'coo'`/`'gcxs'`/`'dok'`) the creation/`asformat` path consumes, `SparseLayout.reformat` is the `asformat`-discriminated reshape, and `SparseLayout.recover` reads the `COO`/`GCXS`/`DOK` concrete-class name lowercased since the catalogued properties surface carries no `.format` instance attribute. `SparseFacts.of` projects the `density`/`nnz`/`fill_value` the `[04]-[LOCAL_ADMISSION]` "a sparse-array fold captures the format, `nnz`/`density`, and `fill_value` as the array claim" row mandates, graduated through the `facts()` `dict` `|` union so the sparsity evidence rides the receipt beside the dense facts. Because `sparse` satisfies `array-api-compat` per `compute/.api/sparse.md` `[04]-[INTEGRATION_STACK]`, the same `FiniteGate.forbidden` mask and the resolved-`xp` reduction fold a sparse array beside numpy/jax/dask with no format-specific branch. This is the multi-dimensional pydata-sparse *tensor* backend axis — distinct from the scipy 2-D sparse *matrix* construction (`scipy.sparse.diags_array`/`eye_array`/`kron`/`hstack`/`vstack`) that `solvers/linear` owns for the linear-solve operand; there is no separate `numerics/sparse` page, and the two meet only through the admitted operand the linear route reads.

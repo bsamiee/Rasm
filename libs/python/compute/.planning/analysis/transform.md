@@ -1,30 +1,50 @@
 # [PY_COMPUTE_TRANSFORM]
 
-The one frequency-domain transform owner spanning the pocketfft discrete-Fourier family, the trigonometric cosine/sine transforms, and the FFT-backed analytic signal on a single `Transform`. `TransformOp` discriminates the 1-D-or-n-D complex DFT (`fft`/`ifft`, `fftn`/`ifftn`), the half-spectrum real DFT (`rfft`/`irfft`), the discrete cosine and sine transforms (`dct`/`dst`), and the analytic-signal envelope (`scipy.signal.hilbert`) over `scipy.fft`, so a spectrum, an energy-compacted trigonometric basis, and the instantaneous amplitude/phase/frequency of a non-stationary mode are first-class transform evidence on the same owner rather than a per-transform method family. One `Fourier` row carries the `real`, `axes`, and `invert` policy as case data: the forward path runs the complex or real DFT (multi-axis `fftn` over the `axes` tuple, or the half-spectrum `rfft` along the lead axis), folds the dominant frequency from the `fftfreq`/`rfftfreq` grid against the magnitude spectrum, and reads the total Parseval energy; setting `invert` runs the matching inverse over the same spectrum and folds the round-trip reconstruction residual under the perfect-inversion invariant in the same arm — never a second arm re-deriving the forward spectrum. The trigonometric path folds the leading-coefficient spectral-energy concentration, and the `hilbert` path folds the mean envelope and the instantaneous-frequency band from the analytic phase derivative. `scipy.fft` is the pocketfft transform tier `scipy.md#TRANSFORM` routes here and is Array-API-aware in scipy 1.17, so every op admits any backend array from `numerics/array.md#PAYLOAD`. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners. The dominant-band, reconstruction-residual, energy-concentration, and envelope evidence the study spine reads flow through one `TransformReceipt`.
+The one frequency-domain transform owner spanning the pocketfft discrete-Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal on a single `Transform`. `TransformOp` discriminates the complex DFT, the half-spectrum real DFT, the Hermitian-spectrum DFT, the discrete cosine and sine transforms, the log-radial Hankel transform, and the analytic-signal envelope over `scipy.fft` and `scipy.signal.hilbert`, so a spectrum, an energy-compacted trigonometric basis, a log-radial Hankel coefficient set, and the instantaneous amplitude/phase/frequency of a non-stationary mode are first-class transform evidence on the same owner rather than a per-transform method family. Every Fourier path resolves one `FourierBasis` row through the `FOURIER_ROUTES` callable table — a `(forward, inverse, freqs)` triple per basis — so the eight pocketfft entrypoints (`fft`/`ifft`, `fftn`/`ifftn`, `rfft`/`irfft`, `hfft`/`ihfft`) collapse to one forward body and one inverse body that index the basis, never a nested `if real else ...` ternary ladder selecting an entrypoint inline. The terminal `TransformEvidence` `@tagged_union` over `spectrum`/`compaction`/`envelope`/`roundtrip` cases owns its own `facts()` projection, and `TransformReceipt(op, length, content_key, evidence)` carries it whole — one discriminated outcome the receipt spreads, never a struct of mutually-exclusive default-`0.0` fields — the same collapse `analysis/signal.md#DSP` holds over `Spectral`/`Multiresolution`/`Scale`/`Packet`, `analysis/symbolic.md#OP` over its `Outcome`, and `analysis/spatial.md#SPATIAL` over `Proximity`/`Complex`/`Boundary`. The spectral readout is itself parameterized: one `SpectralReadout` axis folds the magnitude spine to a `PEAK`, `CENTROID`, `BANDWIDTH`, or `FLATNESS` scalar through one masked projection, so the dominant-band read is a polymorphic output fold rather than a hardcoded `argmax`. The operand admits through `numerics/array.md#PAYLOAD` — `ArrayPayload.admit(ArrayOp.Live(samples), (), FiniteGate.REJECT)` resolves the backend `xp` once for the Array-API-aware `scipy.fft` of scipy 1.17, fails a non-finite operand at admission rather than poisoning the spectrum, and keys the `TransformReceipt` by the `ArrayPayload.content_key` so a repeated transform on identical samples is a cache hit by reference. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners. `TransformReceipt` is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm, so the dominant-band, reconstruction-residual, energy-concentration, and envelope evidence streams without an inline `emit`.
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSFORM]: 1-D-or-n-D complex DFT with optional inverse round trip, half-spectrum real DFT, discrete cosine/sine transforms, and the analytic-signal envelope on one `Transform` owner over `scipy.fft` + `scipy.signal.hilbert`.
+- [01]-[TRANSFORM]: complex/real/Hermitian n-D DFT with an optional inverse round trip over the `FOURIER_ROUTES` callable table, the n-D discrete cosine/sine transforms, the FFTLog fast Hankel transform, and the analytic-signal envelope on one `Transform` owner, the terminal `TransformEvidence` union owning the `facts()` projection one `TransformReceipt` carries whole, the `SpectralReadout` axis folding the magnitude spine to a parameterized band scalar the Fourier and Hankel paths share, and the `ArrayPayload`-admitted `ContentIdentity` key the study spine's `@receipted` aspect harvests off the `Ok`-arm contributor.
 
 ## [02]-[TRANSFORM]
 
-- Owner: `Transform` — the ONE frequency-domain transform owner; `TransformOp` discriminates the rows `Fourier(real, axes, invert)` (`scipy.fft.fft`/`ifft` complex DFT, `scipy.fft.fftn`/`ifftn` multi-axis complex DFT over the `axes` tuple, and `scipy.fft.rfft`/`irfft` half-spectrum real DFT along the lead axis — `real` selects the half-spectrum entrypoints, a non-empty `axes` tuple selects the complex n-D entrypoints (the half-spectrum path stays single-axis along `axes[0]`), and `invert` adds the inverse round trip within the same arm), `Trigonometric(kind, variant)` (`scipy.fft.dct`/`dst` discrete cosine/sine transforms, `TrigKind` selecting cosine/sine and `variant` the I-IV pocketfft `type`), and `Analytic()` (`scipy.signal.hilbert` FFT-backed analytic signal), all as rows on the same owner, never a per-transform method family and never a second transform surface. The `fftfreq`/`rfftfreq` frequency-grid helpers are composed inside the Fourier fold to read the dominant band, never standalone ops.
-- Entry: `Transform.apply` returns `RuntimeRail[TransformReceipt]`; the Fourier path selects one of the six pocketfft entrypoints from `(real, axes)`, builds the matching `fftfreq`/`rfftfreq` grid against the sample spacing along the first transformed axis, reads the dominant frequency at the peak magnitude, and reads the total Parseval energy; when `invert` is set it runs the matching `ifft`/`ifftn`/`irfft` over the spectrum it already holds and folds the normalized round-trip residual in the same arm rather than re-deriving the forward transform. The trigonometric path runs the orthonormal `dct`/`dst` of the requested type and folds the fraction of total spectral energy held by the leading coefficients through one descending `cumsum`; the analytic path runs `hilbert`, reads the mean envelope as the analytic-signal magnitude and the instantaneous frequency from the unwrapped-phase derivative scaled by the sample rate, and reads the dominant instantaneous band. Every backend array is admitted through `numerics/array.md#PAYLOAD` before the transform, and a non-finite input returns the boundary fault that admission raises.
-- Receipt: `TransformReceipt.contribute` emits one `Receipt.of("emitted", ...)` row; the dominant frequency and total spectral energy are the DFT evidence, the `energy_concentration` is the trigonometric compaction evidence, and the `mean_envelope`, `instantaneous_hz`, and `reconstruction_residual` are the analytic-signal and inverse-round-trip evidence a study run records through `experiments/study.md#STUDY`.
-- Packages: `scipy` (`fft.fft`, `fft.ifft`, `fft.fftn`, `fft.ifftn`, `fft.rfft`, `fft.irfft`, `fft.dct`, `fft.dst`, `fft.fftfreq`, `fft.rfftfreq`, `signal.hilbert`), `numpy` (`asarray`, `abs`, `argmax`, `angle`, `unwrap`, `diff`, `sort`, `cumsum`, `sum`, `mean`, `median`, `linalg.norm`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor`).
-- Growth: a new transform is one `TransformOp` case; an n-D spectrum is a non-empty `axes` value on the existing `Fourier` row; a new trigonometric variant is one `TrigKind` row or `variant` value; zero new surface.
-- Boundary: in-memory frequency-domain transforms only — the 1-D and n-D DFT family, the trigonometric transforms, and the analytic-signal envelope are in-scope; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners, and the stationary Welch spectral estimate, polyphase resampling, and the multiresolution wavelet fold stay on `analysis/signal.md#DSP`. `scipy` carries the companion `python_version<'3.15'` band (no cp315 wheel), so every body is authored against the documented API on the gated band; scipy 1.17 makes `scipy.fft` Array-API-aware so the ops admit any backend array from the payload admission. Perfect inversion `ifft(fft(x)) ≈ x` and `ifftn(fftn(x)) ≈ x` (pocketfft's documented exact round trip) is the verification invariant the `invert` fold records as the reconstruction residual on the same arm that produced the spectrum.
+- Owner: `Transform` — the ONE frequency-domain transform owner; `TransformOp` discriminates `Fourier(basis, axes, readout, pad, invert)` (the pocketfft DFT family routed through `FOURIER_ROUTES`), `Trigonometric(kind, variant, axes, keep)` (`scipy.fft.dct`/`dst` and the n-D `dctn`/`dstn` selected by a non-empty `axes`, `TrigKind` choosing cosine/sine, `variant` the I-IV pocketfft `type`, and `keep` the leading-coefficient fraction the compaction read measures), `Analytic(readout)` (`scipy.signal.hilbert`), and `Hankel(dln, mu, readout, invert)` (the FFTLog `scipy.fft.fht`/`ifht` over a log-spaced periodic sequence, `dln` the uniform log-spacing and `mu` the transform order), all rows on the same owner, never a per-transform method family. `FourierBasis` discriminates `COMPLEX`/`REAL`/`HERMITIAN` and keys `FOURIER_ROUTES` so the 1-D forward transform, the matching inverse, and the `fftfreq`/`rfftfreq` grid builder live as one table row rather than an inline ternary; a non-empty `axes` runs the complex `fftn`/`ifftn` mirror on the `fftfreq` grid regardless of `basis` (scipy catalogs no `rfftn`/`hfftn`), under one `set_workers` pool, padding each transformed axis to its own `next_fast_len`. The n-D magnitude marginalizes to the lead-axis spine through one `np.max` off-axis projection — `readout.fold` is order-invariant, so the grid and spine never co-order through `fftshift`.
+- Entry: `Transform.apply` admits the operand through `ArrayPayload.admit(ArrayOp.Live(samples), (), FiniteGate.REJECT)`, binds the resolved payload into `boundary(f"transform.{op.tag}", ...)`, and returns `RuntimeRail[TransformReceipt]`. The Fourier path resolves the `FourierBasis` row, pads each transformed axis to its own `next_fast_len` under the `PadPolicy`, runs the row's 1-D forward transform (or the complex `fftn` mirror under a `set_workers` thread pool for the n-D `axes` case), builds the frequency grid against the sample spacing along the lead axis, marginalizes the n-D magnitude to the lead-axis spine through one `np.max` off-axis projection, folds that spine to the `SpectralReadout` scalar, and reads the total Parseval energy through one `einsum` magnitude-square contraction; when `invert` is set it runs the row's inverse over the spectrum it already holds and folds the normalized round-trip residual into a `roundtrip`-tagged `TransformEvidence` rather than re-deriving the forward transform. The trigonometric path runs the orthonormal `dct`/`dst` (or the n-D `dctn`/`dstn` over `axes`) and folds the fraction of total spectral energy held by the leading `keep`-fraction of coefficients through one descending `cumsum`, the compaction window a parameter rather than a fixed top-decile. The analytic path runs `hilbert`, reads the mean envelope as the analytic-signal magnitude and the instantaneous frequency from the unwrapped-phase derivative scaled by the sample rate, and folds the `SpectralReadout` band of the instantaneous-frequency track. The Hankel path runs `fht(x, dln, mu)` over the log-spaced periodic operand, builds the conjugate log-radial abscissa `exp(dln * (arange(n) - n/2))` so the readout reads a real radial frequency, folds the coefficient magnitude through the same `SpectralReadout` axis and Parseval `einsum` energy as the Fourier path, and on `invert` runs `ifht` and folds the round-trip residual into the shared `roundtrip` evidence rather than minting a Hankel-specific outcome shape. The `FiniteGate.REJECT` admission fails a non-finite operand before any transform, so a clean `np.nan_to_num` inside the spine guards only the divide/log degeneracy of an all-zero band, and an admission fault returns the boundary fault that `ArrayPayload.admit` raises rather than producing a NaN-poisoned spectrum.
+- Output: `TransformEvidence` parameterizes the result shape the way the input is parameterized — `spectrum(readout, band_hz, energy)` for a forward DFT, `compaction(leading, concentration, energy)` for a trigonometric basis, `envelope(mean, inst_hz, band_hz)` for the analytic signal, and `roundtrip(band_hz, energy, residual)` for an inverted Fourier path — and owns the total `facts()` projection the receipt spreads, so each shape names only its own slots: a `spectrum` receipt names `readout`/`band_hz`/`spectral_energy`, a `compaction` receipt `leading`/`energy_concentration`/`spectral_energy`, an `envelope` receipt `mean_envelope`/`instantaneous_hz`/`band_hz`, and a `roundtrip` receipt `band_hz`/`spectral_energy`/`reconstruction_residual` — collapsing what would be one struct of six default-`0.0` fields into one discriminated carrier, exactly as `analysis/signal.md#DSP` collapses `Spectral`/`Multiresolution`/`Scale`/`Packet` and `analysis/spatial.md#SPATIAL` collapses `Proximity`/`Complex`/`Boundary`. A new readout is one `SpectralReadout` row; a new outcome is one `TransformEvidence` case plus its `facts()` arm.
+- Receipt: `TransformReceipt.of(op, length, key, evidence)` folds the `(op_tag, length, content_key, evidence)` carrier with no per-case projection — the discrimination lives in `TransformEvidence.facts()`, not a `match` over nullable fields — the same shape `analysis/signal.md#DSP` holds. `contribute` returns the `Iterable[Receipt]` the `ReceiptContributor` Protocol declares, one `Receipt.of("compute.transform", ("emitted", op_tag, facts))` row — the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never a four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit — whose `facts` spreads the `op`/`length`/`content_key` plus the matched `TransformEvidence.facts()` slots a study run records through `experiments/study.md#STUDY`. `apply` is the `RuntimeRail[TransformReceipt]` boundary owner (the error arm carries no contributor), so emission is not an `@receipted` decorator on `apply` but the study spine harvesting the resolved `TransformReceipt` contributor through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm — the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold, the receipt the contributor and the rail the boundary form.
+- Packages: `scipy` (`fft.fft`/`ifft`, `fft.fftn`/`ifftn`, `fft.rfft`/`irfft`, `fft.hfft`/`ihfft`, `fft.dct`/`dst`, `fft.dctn`/`dstn`, `fft.fht`/`ifht`, `fft.fftfreq`/`rfftfreq`, `fft.next_fast_len`, `fft.set_workers`, `signal.hilbert`), `numpy` (`asarray`, `arange`, `abs`, `angle`, `unwrap`, `diff`, `sort`, `cumsum`, `argmax`, `max`, `einsum`, `nan_to_num`, `errstate`, `linalg.norm`, `ravel`, `sqrt`, `mean`, `median`, `log`, `exp`, `zeros`), `expression` (`tagged_union`/`tag`/`case` the `TransformOp` and `TransformEvidence` ADTs, `Map` the `FOURIER_ROUTES` table), `msgspec` (`Struct(frozen=True)` the `TransformReceipt`), `numerics/array.md#PAYLOAD` (`ArrayPayload.admit`/`ArrayOp.Live`/`FiniteGate` admitting the operand and keying the `content_key`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor` from `runtime/receipts`, `ContentKey` carried by the admitted payload, the `runtime/observability/receipts#RECEIPT` `@receipted` study-spine harvest of the `Ok`-arm contributor, not an import this owner threads).
+- Growth: a new transform is one `TransformOp` case (the `Hankel` row is exactly this — one case folding into the existing `spectrum`/`roundtrip` evidence, zero new outcome shape); a new spectral basis is one `FourierBasis` row plus its `FOURIER_ROUTES` triple; an n-D spectrum is a non-empty `axes` value on the existing `Fourier`/`Trigonometric` row; a new trigonometric variant is one `TrigKind` row or `variant` value; the compaction window is the `keep` fraction on the `Trigonometric` row, never a body-buried literal; a new band readout is one `SpectralReadout` row; a new terminal outcome is one `TransformEvidence` case plus its `facts()` arm; zero new surface.
+- Boundary: in-memory frequency-domain transforms only — the complex/real/Hermitian DFT family, the trigonometric transforms, the FFTLog fast Hankel transform, and the analytic-signal envelope are in-scope; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners, and the stationary Welch spectral estimate, the time-frequency `ShortTimeFFT`, polyphase resampling, and the multiresolution wavelet fold stay on `analysis/signal.md#DSP`. `scipy` carries the companion `python_version<'3.15'` band (no cp315 wheel), so every body is authored against the documented API on the gated band; scipy 1.17 makes `scipy.fft` Array-API-aware so the ops dispatch through the backend `xp` the `numerics/array.md#PAYLOAD` admission resolves. Perfect inversion `ifft(fft(x)) ≈ x`, `ifftn(fftn(x)) ≈ x`, `ihfft(hfft(x)) ≈ x`, and `ifht(fht(x)) ≈ x` (pocketfft's and FFTLog's documented exact round trips) is the verification invariant the `invert` fold records as the reconstruction residual on the same arm that produced the spectrum. The `numerics/array.md#PAYLOAD` admission owns backend resolution and finite policy; this owner never re-rolls the `array_namespace` dispatch or the finite reduction. The deleted forms are a `TransformReceipt` of six default-`0.0` fields where the `TransformEvidence` `facts()` discriminates the outcome, a four-positional `Receipt.of("emitted", owner, subject, facts)` the factory rejects, a `contribute` returning one bare `Receipt` where the `ReceiptContributor` port declares `Iterable[Receipt]`, an unadmitted `np.asarray(samples)` intake bypassing the `ArrayPayload` finite gate and `content_key` mint, a nested `fft.rfft(...) if real else fft.fftn(...) if axes else ...` ternary where `FOURIER_ROUTES` indexes the basis, a hardcoded `argmax` dominant-band read where the `SpectralReadout` axis folds the spine, a hardcoded `energy.size // 10` compaction window where the `keep` fraction parameterizes it, a single-threaded n-D transform where `set_workers` pools the pocketfft backend, and a 1-D-only trigonometric path where `dctn`/`dstn` mirror the n-D Fourier reach.
 
 ```python signature
+from collections.abc import Callable, Iterable
 from enum import StrEnum
+from functools import cache
 from typing import Literal, assert_never
 
 import numpy as np
 from expression import case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct
 
+from rasm.compute.numerics.array import ArrayOp, ArrayPayload, FiniteGate
+from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type FourierRoute = tuple[
+    Callable[..., np.ndarray],  # forward transform over the lead axis or the `axes` tuple
+    Callable[..., np.ndarray],  # matching inverse over the held spectrum (takes the original `n`)
+    Callable[[int, float], np.ndarray],  # frequency grid for the lead-axis bin count
+]
+
+
+class FourierBasis(StrEnum):
+    COMPLEX = "complex"      # fft/ifft, lifted to fftn/ifftn over a non-empty `axes`
+    REAL = "real"            # rfft/irfft half-spectrum of real input
+    HERMITIAN = "hermitian"  # hfft/ihfft transform of a Hermitian-symmetric spectrum
 
 
 class TrigKind(StrEnum):
@@ -32,100 +52,255 @@ class TrigKind(StrEnum):
     SINE = "sine"
 
 
+class PadPolicy(StrEnum):
+    EXACT = "exact"        # transform the operand verbatim
+    FAST = "fast"          # zero-pad each transformed axis to its own `next_fast_len` for the pocketfft radix
+
+
+class SpectralReadout(StrEnum):
+    PEAK = "peak"            # frequency at the maximum-magnitude bin
+    CENTROID = "centroid"    # magnitude-weighted mean frequency
+    BANDWIDTH = "bandwidth"  # magnitude-weighted spectral spread about the centroid
+    FLATNESS = "flatness"    # geometric-over-arithmetic mean (Wiener entropy)
+
+    def fold(self, freqs: np.ndarray, magnitude: np.ndarray) -> float:
+        weight = magnitude / (float(np.einsum("i->", magnitude)) + 1e-30)
+        match self:
+            case SpectralReadout.PEAK:
+                return float(np.abs(freqs[int(np.argmax(magnitude))]))
+            case SpectralReadout.CENTROID:
+                return float(np.einsum("i,i->", np.abs(freqs), weight))
+            case SpectralReadout.BANDWIDTH:
+                center = float(np.einsum("i,i->", np.abs(freqs), weight))
+                return float(np.sqrt(np.einsum("i,i->", (np.abs(freqs) - center) ** 2, weight)))
+            case SpectralReadout.FLATNESS:
+                safe = magnitude + 1e-30
+                return float(np.exp(np.mean(np.log(safe))) / np.mean(safe))
+            case unreachable:
+                assert_never(unreachable)
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+@tagged_union(frozen=True)
+class TransformEvidence:
+    # the output is parameterized as tightly as the input: one discriminated carrier per
+    # outcome shape, not one struct of six default-zero fields. `facts()` is the total
+    # projection the receipt spreads, so each shape names only its own slots.
+    tag: Literal["spectrum", "compaction", "envelope", "roundtrip"] = tag()
+    spectrum: tuple[SpectralReadout, float, float] = case()      # (readout, band_hz, energy)
+    compaction: tuple[int, float, float] = case()                # (leading, concentration, energy)
+    envelope: tuple[float, float, float] = case()                # (mean, inst_hz, band_hz)
+    roundtrip: tuple[float, float, float] = case()               # (band_hz, energy, residual)
+
+    @staticmethod
+    def Spectrum(readout: SpectralReadout, band_hz: float, energy: float) -> "TransformEvidence":
+        return TransformEvidence(spectrum=(readout, band_hz, energy))
+
+    @staticmethod
+    def Compaction(leading: int, concentration: float, energy: float) -> "TransformEvidence":
+        return TransformEvidence(compaction=(leading, concentration, energy))
+
+    @staticmethod
+    def Envelope(mean: float, inst_hz: float, band_hz: float) -> "TransformEvidence":
+        return TransformEvidence(envelope=(mean, inst_hz, band_hz))
+
+    @staticmethod
+    def Roundtrip(band_hz: float, energy: float, residual: float) -> "TransformEvidence":
+        return TransformEvidence(roundtrip=(band_hz, energy, residual))
+
+    def facts(self) -> dict[str, object]:
+        match self:
+            case TransformEvidence(tag="spectrum", spectrum=(readout, band, energy)):
+                return {"readout": readout.value, "band_hz": f"{band:.3f}", "spectral_energy": f"{energy:.3e}"}
+            case TransformEvidence(tag="compaction", compaction=(leading, concentration, energy)):
+                return {"leading": leading, "energy_concentration": f"{concentration:.3f}", "spectral_energy": f"{energy:.3e}"}
+            case TransformEvidence(tag="envelope", envelope=(mean, inst, band)):
+                return {"mean_envelope": f"{mean:.3e}", "instantaneous_hz": f"{inst:.3f}", "band_hz": f"{band:.3f}"}
+            case TransformEvidence(tag="roundtrip", roundtrip=(band, energy, residual)):
+                return {"band_hz": f"{band:.3f}", "spectral_energy": f"{energy:.3e}", "reconstruction_residual": f"{residual:.3e}"}
+            case unreachable:
+                assert_never(unreachable)
+
+
 class TransformReceipt(Struct, frozen=True):
     op: str
-    dominant_hz: float
-    spectral_energy: float
     length: int
-    energy_concentration: float = 0.0
-    mean_envelope: float = 0.0
-    instantaneous_hz: float = 0.0
-    reconstruction_residual: float = 0.0
+    content_key: ContentKey
+    evidence: TransformEvidence
 
-    def contribute(self) -> Receipt:
-        facts = {"op": self.op, "dominant_hz": f"{self.dominant_hz:.3f}", "spectral_energy": f"{self.spectral_energy:.3e}"}
-        if self.energy_concentration:
-            facts["energy_concentration"] = f"{self.energy_concentration:.3f}"
-        if self.mean_envelope:
-            facts["mean_envelope"] = f"{self.mean_envelope:.3e}"
-        if self.instantaneous_hz:
-            facts["instantaneous_hz"] = f"{self.instantaneous_hz:.3f}"
-        if self.reconstruction_residual:
-            facts["reconstruction_residual"] = f"{self.reconstruction_residual:.3e}"
-        return Receipt.of("emitted", "compute.transform", self.op, facts)
+    @staticmethod
+    def of(op: str, length: int, key: ContentKey, evidence: TransformEvidence) -> "TransformReceipt":
+        return TransformReceipt(op, length, key, evidence)
+
+    def contribute(self) -> Iterable[Receipt]:
+        facts = {"op": self.op, "length": self.length, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
+        yield Receipt.of("compute.transform", ("emitted", self.op, facts))
 
 
 @tagged_union(frozen=True)
 class TransformOp:
-    tag: Literal["fourier", "trigonometric", "analytic"] = tag()
-    fourier: tuple[bool, tuple[int, ...], bool] = case()
-    trigonometric: tuple[TrigKind, int] = case()
-    analytic: tuple[()] = case()
+    tag: Literal["fourier", "trigonometric", "analytic", "hankel"] = tag()
+    fourier: tuple[FourierBasis, tuple[int, ...], SpectralReadout, PadPolicy, bool] = case()
+    trigonometric: tuple[TrigKind, int, tuple[int, ...], float] = case()  # (kind, variant, axes, keep fraction)
+    analytic: SpectralReadout = case()
+    hankel: tuple[float, float, SpectralReadout, bool] = case()  # (dln log-spacing, mu order, readout, invert)
 
     @staticmethod
-    def Fourier(real: bool = False, axes: tuple[int, ...] = (), invert: bool = False) -> "TransformOp":
-        return TransformOp(fourier=(real, axes, invert))
+    def Fourier(
+        basis: FourierBasis = FourierBasis.COMPLEX,
+        axes: tuple[int, ...] = (),
+        readout: SpectralReadout = SpectralReadout.PEAK,
+        pad: PadPolicy = PadPolicy.EXACT,
+        invert: bool = False,
+    ) -> "TransformOp":
+        return TransformOp(fourier=(basis, axes, readout, pad, invert))
 
     @staticmethod
-    def Trigonometric(kind: TrigKind = TrigKind.COSINE, variant: int = 2) -> "TransformOp":
-        return TransformOp(trigonometric=(kind, variant))
+    def Trigonometric(kind: TrigKind = TrigKind.COSINE, variant: int = 2, axes: tuple[int, ...] = (), keep: float = 0.1) -> "TransformOp":
+        # `keep` is the leading-coefficient fraction the energy-compaction read measures, so the
+        # compaction window is a parameter the way `Scalogram.resolution` sizes its scale grid,
+        # never a hardcoded `// 10` literal buried in the body.
+        return TransformOp(trigonometric=(kind, variant, axes, keep))
 
     @staticmethod
-    def Analytic() -> "TransformOp":
-        return TransformOp(analytic=())
+    def Analytic(readout: SpectralReadout = SpectralReadout.PEAK) -> "TransformOp":
+        return TransformOp(analytic=readout)
+
+    @staticmethod
+    def Hankel(dln: float, mu: float = 0.0, readout: SpectralReadout = SpectralReadout.PEAK, invert: bool = False) -> "TransformOp":
+        return TransformOp(hankel=(dln, mu, readout, invert))
 
 
-def apply(samples: np.ndarray, fs: float, op: TransformOp) -> "RuntimeRail[TransformReceipt]":
-    return boundary(f"transform.{op.tag}", lambda: _apply(samples, fs, op))
+# --- [TABLES] ---------------------------------------------------------------------------
+
+# one row per FourierBasis carrying the (forward, inverse, freq-grid) triple over the
+# lead-axis 1-D entrypoints; `@cache` defers the import-banned scipy load to first call and
+# memoizes the one Map so the table builds once. The n-D path runs the complex fftn/ifftn
+# mirror directly. Every 1-D inverse accepts the original `n`, so the round trip reconstructs
+# to the source length under any PadPolicy.
+@cache
+def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
+    import scipy.fft as fft
+
+    return Map.of_seq([
+        (FourierBasis.COMPLEX, (fft.fft, fft.ifft, fft.fftfreq)),
+        (FourierBasis.REAL, (fft.rfft, fft.irfft, fft.rfftfreq)),
+        (FourierBasis.HERMITIAN, (fft.hfft, fft.ihfft, fft.fftfreq)),
+    ])
 
 
-def _apply(samples: np.ndarray, fs: float, op: TransformOp) -> TransformReceipt:
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def apply(samples: object, fs: float, op: TransformOp) -> "RuntimeRail[TransformReceipt]":
+    return ArrayPayload.admit(ArrayOp.Live(samples), (), FiniteGate.REJECT).bind(
+        lambda payload: boundary(f"transform.{op.tag}", lambda: _apply(samples, fs, op, payload.content_key))
+    )
+
+
+def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey) -> TransformReceipt:
     import scipy.fft as fft
     import scipy.signal as sig
 
-    x = np.asarray(samples)
-    spacing = 1.0 / fs
-    match op:
-        case TransformOp(tag="fourier", fourier=(real, axes, invert)):
-            lead = axes[0] if axes else (x.ndim - 1)
-            spectrum = (fft.rfft(x, axis=lead) if real else fft.fftn(x, axes=axes)) if axes else (fft.rfft(x) if real else fft.fft(x))
-            freqs = fft.rfftfreq(x.shape[lead], d=spacing) if real else fft.fftfreq(x.shape[lead], d=spacing)
-            magnitude = np.abs(spectrum)
-            spine = magnitude if magnitude.ndim == 1 else np.sum(magnitude, axis=tuple(a for a in range(magnitude.ndim) if a != lead))
-            dominant = float(np.abs(freqs[int(np.argmax(spine))]))
-            energy = float(np.sum(magnitude ** 2))
-            residual = 0.0
-            if invert:
-                rebuilt = (fft.irfft(spectrum, n=x.shape[lead], axis=lead) if real else fft.ifftn(spectrum, axes=axes)) if axes else (fft.irfft(spectrum, n=x.size) if real else fft.ifft(spectrum))
-                residual = float(np.linalg.norm((np.real(rebuilt) - x).ravel()) / (np.linalg.norm(x.ravel()) + 1e-30))
-            return TransformReceipt("fourier", dominant, energy, x.size, reconstruction_residual=residual)
-        case TransformOp(tag="trigonometric", trigonometric=(kind, variant)):
-            coeffs = fft.dst(x, type=variant, norm="ortho") if kind is TrigKind.SINE else fft.dct(x, type=variant, norm="ortho")
-            energy = np.abs(coeffs) ** 2
-            total = float(np.sum(energy)) + 1e-30
-            leading = max(1, coeffs.size // 10)
-            concentration = float(np.cumsum(np.sort(energy)[::-1])[leading - 1] / total)
-            dominant = float(np.argmax(energy) * fs / (2 * x.size))
-            return TransformReceipt(kind.value, dominant, total, x.size, energy_concentration=concentration)
-        case TransformOp(tag="analytic", analytic=()):
-            analytic = sig.hilbert(x)
-            envelope = np.abs(analytic)
-            phase = np.unwrap(np.angle(analytic))
-            inst = np.diff(phase) * fs / (2.0 * np.pi)
-            dominant = float(np.median(inst)) if inst.size else 0.0
-            return TransformReceipt(
-                "analytic",
-                dominant,
-                float(np.sum(envelope ** 2)),
-                x.size,
-                mean_envelope=float(np.mean(envelope)),
-                instantaneous_hz=dominant,
-            )
-        case unreachable:
-            assert_never(unreachable)
+    # admission already rejected any non-finite operand; this scope quiets only the all-zero-band
+    # degeneracy — `divide` for the log/ratio and `invalid` for the `0/0` weight normalization the
+    # CENTROID/BANDWIDTH/FLATNESS folds form — which `nan_to_num` then sanitizes to a finite read.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        x = np.asarray(samples)
+        spacing = 1.0 / fs
+        match op:
+            case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, invert)):
+                return TransformReceipt.of("fourier", x.size, key, _fourier(fft, x, spacing, basis, axes, readout, pad, invert))
+            case TransformOp(tag="trigonometric", trigonometric=(kind, variant, axes, keep)):
+                return TransformReceipt.of(kind.value, x.size, key, _trigonometric(fft, x, kind, variant, axes, keep))
+            case TransformOp(tag="analytic", analytic=readout):
+                return TransformReceipt.of("analytic", x.size, key, _analytic(sig, x, fs, readout))
+            case TransformOp(tag="hankel", hankel=(dln, mu, readout, invert)):
+                return TransformReceipt.of("hankel", x.size, key, _hankel(fft, x, dln, mu, readout, invert))
+            case unreachable:
+                assert_never(unreachable)
+
+
+def _fourier(
+    fft: object, x: np.ndarray, spacing: float,
+    basis: FourierBasis, axes: tuple[int, ...], readout: SpectralReadout, pad: PadPolicy, invert: bool,
+) -> TransformEvidence:
+    forward, inverse, grid = _fourier_routes()[basis]
+    lead = axes[0] if axes else (x.ndim - 1)
+    fast = (lambda a, real: fft.next_fast_len(x.shape[a], real=real)) if pad is PadPolicy.FAST else (lambda a, real: x.shape[a])
+    n = fast(lead, basis is FourierBasis.REAL)
+    # the n-D path is the complex `fftn`/`ifftn` mirror (scipy catalogs no `rfftn`/`hfftn`), so a
+    # non-empty `axes` runs the complex transform on the `fftfreq` grid regardless of `basis`,
+    # padding each transformed axis to its OWN fast length rather than forcing the lead length.
+    with fft.set_workers(-1):
+        spectrum = fft.fftn(x, s=tuple(fast(a, False) for a in axes), axes=axes) if axes else forward(x, n=n, axis=lead)
+    freqs = np.asarray(fft.fftfreq(spectrum.shape[lead], spacing) if axes else grid(n, spacing))
+    magnitude = np.nan_to_num(np.abs(spectrum))
+    energy = float(np.einsum("...,...->", magnitude, magnitude))
+    # max-project the off-lead axes (a peak track per bin, never a summed blur); `lead` is a
+    # valid `magnitude` position because the pocketfft forward preserves rank, and the
+    # order-invariant `readout.fold` needs no fftshift co-ordering.
+    spine = magnitude if magnitude.ndim == 1 else np.max(magnitude, axis=tuple(i for i in range(magnitude.ndim) if i != lead))
+    band = readout.fold(freqs[: spine.shape[0]], spine)
+    if not invert:
+        return TransformEvidence.Spectrum(readout, band, energy)
+    # the inverse reconstructs to the ORIGINAL lengths so the residual against `x` is
+    # shape-correct under PadPolicy.FAST: the n-D path pins `s` to the source `axes` shape
+    # and every 1-D basis inverse pins `n` to the source lead length.
+    rebuilt = fft.ifftn(spectrum, s=tuple(x.shape[a] for a in axes), axes=axes) if axes else inverse(spectrum, n=x.shape[lead], axis=lead)
+    # `np.linalg.norm` over the complex difference keeps the Hermitian round trip honest —
+    # `ihfft` reconstructs a complex half-spectrum, so forcing `np.real` would truncate its
+    # imaginary part and inflate the residual; the complex norm holds for all three bases.
+    residual = float(np.linalg.norm(np.ravel(rebuilt - x)) / (np.linalg.norm(np.ravel(x)) + 1e-30))
+    return TransformEvidence.Roundtrip(band, energy, residual)
+
+
+def _hankel(fft: object, x: np.ndarray, dln: float, mu: float, readout: SpectralReadout, invert: bool) -> TransformEvidence:
+    # the conjugate log-radial abscissa is `exp(dln * (i - n/2))` so the readout reads a real radial
+    # frequency rather than a bare bin index; the fold/energy/inverse are the Fourier path's, not Hankel-only.
+    coeffs = np.asarray(fft.fht(x, dln, mu))
+    grid = np.exp(dln * (np.arange(coeffs.shape[-1], dtype=float) - 0.5 * coeffs.shape[-1]))
+    magnitude = np.nan_to_num(np.abs(coeffs))
+    energy = float(np.einsum("...,...->", magnitude, magnitude))
+    spine = magnitude if magnitude.ndim == 1 else np.max(magnitude, axis=tuple(range(magnitude.ndim - 1)))
+    band = readout.fold(grid[: spine.shape[0]], spine)
+    if not invert:
+        return TransformEvidence.Spectrum(readout, band, energy)
+    rebuilt = np.asarray(fft.ifht(coeffs, dln, mu))
+    residual = float(np.linalg.norm(np.ravel(rebuilt - x)) / (np.linalg.norm(np.ravel(x)) + 1e-30))
+    return TransformEvidence.Roundtrip(band, energy, residual)
+
+
+def _trigonometric(fft: object, x: np.ndarray, kind: TrigKind, variant: int, axes: tuple[int, ...], keep: float) -> TransformEvidence:
+    transform = (fft.dstn if axes else fft.dst) if kind is TrigKind.SINE else (fft.dctn if axes else fft.dct)
+    coeffs = np.asarray(transform(x, type=variant, axes=axes, norm="ortho") if axes else transform(x, type=variant, norm="ortho"))
+    energy = np.nan_to_num(np.abs(coeffs) ** 2)
+    total = float(np.einsum("...->", energy)) + 1e-30
+    # the leading window is the `keep` fraction of the coefficient count, so the compaction read
+    # is parameterized by the op rather than a fixed top-decile; descending `cumsum` reads the
+    # fraction of total energy the leading magnitudes hold.
+    leading = max(1, int(round(keep * energy.size)))
+    concentration = float(np.cumsum(np.sort(energy.ravel())[::-1])[leading - 1] / total)
+    return TransformEvidence.Compaction(leading, concentration, total)
+
+
+def _analytic(sig: object, x: np.ndarray, fs: float, readout: SpectralReadout) -> TransformEvidence:
+    analytic = sig.hilbert(x)
+    envelope = np.abs(analytic)
+    inst = np.diff(np.unwrap(np.angle(analytic))) * fs / (2.0 * np.pi)
+    inst = np.nan_to_num(inst) if inst.size else np.zeros(1)
+    band = readout.fold(inst, np.abs(inst))
+    return TransformEvidence.Envelope(float(np.mean(envelope)), float(np.median(inst)), band)
 ```
 
 ## [03]-[RESEARCH]
 
-- [SCIPY_FFT]: the `scipy.fft.fft`/`ifft`/`fftn`/`ifftn`/`rfft`/`irfft`/`dct`/`dst`/`fftfreq`/`rfftfreq` spellings carry the `python_version<'3.15'` marker and verify against the `scipy.fft` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md` under a uv-sync reflection pass once the scipy wheel resolves. The single `Fourier` arm selects among the six entrypoints from `(real, axes)` and runs the matching inverse over the spectrum it holds only when `invert` is set, so the forward read is never re-derived for the round trip. scipy 1.17 makes `scipy.fft` Array-API-aware, so the op admits any backend array resolved through `numerics/array.md#PAYLOAD`. Perfect inversion `ifft(fft(x)) ≈ x` and `ifftn(fftn(x)) ≈ x` is the verification invariant the `invert` fold records as the reconstruction residual.
-- [SCIPY_HILBERT]: `scipy.signal.hilbert(x, N, axis)` returns the FFT-backed complex analytic signal and verifies against the `scipy.signal` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md`; the envelope is the analytic magnitude `np.abs`, the instantaneous frequency the unwrapped-phase derivative scaled by `fs / (2π)`.
+- [SCIPY_FFT]: the `scipy.fft.fft`/`ifft`/`fftn`/`ifftn`/`rfft`/`irfft`/`hfft`/`ihfft`/`dct`/`dst`/`dctn`/`dstn`/`fht`/`ifht`/`fftfreq`/`rfftfreq`/`next_fast_len`/`set_workers` spellings carry the `python_version<'3.15'` marker and verify against the `scipy.fft` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md` (rows [01]-[12]) under a uv-sync reflection pass once the scipy wheel resolves. The `FOURIER_ROUTES` table carries the `(forward, inverse, freq-grid)` triple per `FourierBasis`, so the `COMPLEX`/`REAL`/`HERMITIAN` bases index one 1-D forward body and one 1-D inverse body, never an inline `fft.rfft(...) if real else ...` ternary. The n-D `axes` case is the complex `fftn`/`ifftn` mirror on the `fftfreq` grid regardless of `basis` (scipy catalogs no `rfftn`/`hfftn`), under one `set_workers(-1)` pocketfft thread pool. Every 1-D inverse accepts the source length `n` and the n-D inverse pins `s` to the source `axes` shape, so the round trip reconstructs to the original shape under any `PadPolicy` and the residual subtraction against `x` is shape-correct. The `PadPolicy.FAST` row zero-pads each transformed axis to its own `next_fast_len(n, real=...)` so the pocketfft radix sees an optimal-length operand; `PadPolicy.EXACT` transforms verbatim. scipy 1.17 makes `scipy.fft` Array-API-aware, so the op dispatches through the backend `xp` the `numerics/array.md#PAYLOAD` admission resolves. Perfect inversion `ifft(fft(x)) ≈ x`, `ifftn(fftn(x)) ≈ x`, and `ihfft(hfft(x)) ≈ x` is the verification invariant the `invert` fold records as the `roundtrip` reconstruction residual.
+- [SCIPY_HILBERT]: `scipy.signal.hilbert(x, N, axis)` returns the FFT-backed complex analytic signal and verifies against the `scipy.signal` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md` (row [09]); the envelope is the analytic magnitude `np.abs`, the instantaneous frequency the unwrapped-phase derivative scaled by `fs / (2π)`, and the `SpectralReadout` axis folds the instantaneous-frequency track to the band scalar so the analytic path reads the same parameterized output projection as the Fourier path rather than a fixed `median`.
+- [SCIPY_FHT]: `scipy.fft.fht(a, dln, mu)` / `ifht(A, dln, mu)` is the FFTLog fast Hankel transform of a logarithmically-spaced periodic sequence — `a` the log-spaced operand, `dln` its uniform log-spacing, `mu` the transform order — verifying against the `scipy.fft` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md` (row [10], the n-D / log transform family beside `dctn`/`dstn`). The `Hankel` row is the log-radial member of the one frequency-domain owner: it reads the coefficient magnitude through the same `SpectralReadout.fold` and Parseval `einsum` energy as the Fourier path and records the `ifht` round-trip residual on the shared `roundtrip` evidence, so a radial spectral read is one `TransformOp` case folding into the existing outcome shapes rather than a parallel transform surface or a new `TransformEvidence` case. The conjugate log-radial abscissa is `exp(dln * (arange(n) - n/2))` so the readout reads a real radial frequency rather than a bare bin index.
+- [SPECTRAL_READOUT]: the `SpectralReadout` axis parameterizes the band output through one `fold` `match` closed by `assert_never` — `PEAK` reads the `argmax` bin, `CENTROID` the magnitude-weighted mean frequency through an `einsum` contraction, `BANDWIDTH` the weighted spread about that centroid, and `FLATNESS` the geometric-over-arithmetic mean (Wiener entropy) — so the dominant-band read is a polymorphic output fold reused by the Fourier and analytic paths, never a hardcoded `float(np.abs(freqs[argmax]))`. The Parseval energy is the `einsum("...,...->", magnitude, magnitude)` magnitude-square contraction over any rank, and the n-D magnitude marginalizes to the lead-axis spine through one `np.max(axis=...)` off-lead projection (the peak frequency track per bin, not a summed blur) rather than a summing `einsum` axis fold that would average the spectral structure away. The `FiniteGate.REJECT` admission rejects any non-finite operand before the transform, so the `np.errstate(divide="ignore", invalid="ignore")` scope quiets only the all-zero-band degeneracy — `divide` for the `FLATNESS` log/ratio and `invalid` for the `0/0` weight normalization the `CENTROID`/`BANDWIDTH` folds form — which `np.nan_to_num` then sanitizes to a finite band rather than guarding against an unfiltered NaN input the admission already excludes.
+- [TRANSFORM_EVIDENCE]: the terminal `TransformEvidence` `@tagged_union` over `spectrum`/`compaction`/`envelope`/`roundtrip` carries the whole outcome on the `TransformReceipt(op, length, content_key, evidence)` carrier with no per-case projection, collapsing what would be a `TransformReceipt` of six default-`0.0` fields into one discriminated outcome the receipt spreads through the evidence's own total `facts()` projection, mirroring `analysis/signal.md#DSP`'s `SignalEvidence.facts()`, `analysis/symbolic.md#OP`'s `Outcome` union, and `analysis/spatial.md#SPATIAL`'s `Proximity`/`Complex`/`Boundary` collapse; the `roundtrip` case carries the inverse residual so the forward read is never re-derived for the round trip, and a new outcome is one `TransformEvidence` case plus one `facts()` arm rather than a new nullable field on a fat struct.
+- [ARRAY_ADMISSION]: `Transform.apply` admits the operand through `ArrayPayload.admit(ArrayOp.Live(samples), (), FiniteGate.REJECT)` from `numerics/array.md#PAYLOAD` and binds the resolved payload into the `boundary` thunk, so a non-finite input returns the admission fault rather than producing a NaN-poisoned spectrum, the backend `xp` resolves once through `array_namespace` for the Array-API-aware `scipy.fft`, and the `ArrayPayload.content_key` keys the `TransformReceipt` through `ContentIdentity` the way `analysis/signal.md#DSP` keys its sample query — a repeated transform on identical samples a cache hit by reference. The `FiniteGate.REJECT` row (the `numerics/array.md#PAYLOAD` finite axis forbidding any NaN or ±inf) is the admission policy; the owner never re-rolls the `array_namespace` dispatch or the `FiniteGate.forbidden`/`violated` reduction the payload owner holds.
+- [RECEIPT_SHAPE]: `TransformReceipt.contribute` returns the `Iterable[Receipt]` the `runtime/observability/receipts#RECEIPT` `ReceiptContributor` Protocol declares (`contribute(self) -> Iterable[Receipt]`), and the row is `Receipt.of("compute.transform", ("emitted", op_tag, facts))` — the two-argument shape-polymorphic factory over the `(Phase, subject, facts)` `Evidence` triple, never a four-positional `Receipt.of("emitted", owner, subject, facts)` the factory does not admit. `TransformEvidence` parameterizes the output shape and owns its own `facts()` projection, so the receipt spreads only the slots the matched evidence carries beside the `op`/`length`/`content_key`. `apply` is the `RuntimeRail[TransformReceipt]` boundary owner (the error arm carries no contributor), so emission is not an `@receipted` decorator on `apply` but the study spine harvesting the resolved `TransformReceipt` contributor through the `@receipted` aspect on the `Ok` arm — the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold, the receipt the contributor and the rail the boundary form.

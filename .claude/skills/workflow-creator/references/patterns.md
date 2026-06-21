@@ -239,6 +239,76 @@ return { article }
 
 ---
 
+## 10. Fan-out then reconcile deferrals
+
+**When:** a fan-out where each worker fixes what it can alone but DEFERS work that
+spans items it does not own — a cross-file seam, a type two siblings must share, a
+dangling cross-reference. A plain fan-out collects those deferrals and drops them:
+the exact class of fix that needs an owner is surfaced and abandoned. The remedy is
+a terminal reconcile stage that consumes them.
+
+The deferral must be DATA whose resource slot is a LIST, so a deferral spanning two
+files names BOTH — that is the only thing that lets you cluster by shared resource.
+
+```js
+// per-worker schema: a residual carries a FILE LIST, not a free string
+const FIX = { type: 'object', required: ['file'], properties: {
+  file: { type: 'string' },
+  residual: { type: 'array', items: { type: 'object', required: ['files', 'claim'],
+    properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
+
+const done = (await parallel(items.map(it => () => agent(workPrompt(it), { schema: FIX })))).filter(Boolean)
+
+// BARRIER (pure JS, zero tokens): collect, dedup, cluster by connected file-set (union-find).
+const all = done.flatMap(d => d.residual ?? [])
+const uniq = [...new Map(all.map(r => [r.files.join(',') + '|' + r.claim, r])).values()]
+const clusters = unionFindBySharedFile(uniq)   // residuals sharing any file land in one cluster
+
+let hard = []
+if (clusters.length) {                          // count-barrier early-exit (pattern #3)
+  const out = await pipeline(                    // each disjoint cluster verifies the moment ITS fix lands
+    clusters,
+    cl       => agent('Fix these cross-file deferrals in place; read every listed file.\n' + JSON.stringify(cl), { schema: FIXED }),
+    (fix, cl) => agent('Adversarially verify each claim is ACTUALLY resolved; read the files from disk. One verdict per claim.\n' + JSON.stringify(cl), { schema: VERIFY }).then(v => ({ cl, v })))
+  hard = out.filter(Boolean).flatMap(o => (o.v?.claims ?? []).filter(c => !c.resolved).map(c => c.claim))
+}
+return { hard }                                  // only genuinely-unresolvable deferrals reach the human
+```
+
+Why each choice: disjoint clusters write non-overlapping files, so the per-cluster
+fixers run concurrently with no collision — `isolation:'worktree'` is unnecessary.
+The verifier is a SEPARATE agent (a single self-reviewing fixer is the
+self-correction anti-pattern) handed the claims as a checklist, and the
+one-verdict-per-claim schema is what proves completeness — a dropped claim cannot
+validate. Distinct from #1 (synthesize into one report) and #6 (skeptic vote on one
+claim): this is cluster-by-shared-resource, then fix-and-verify each cluster. The
+full worked file is `assets/examples/rebuild-and-reconcile.js`.
+
+---
+
+## 11. Steady worker pool for a large list of long chains
+
+**When:** the list is large (hundreds) and each item is a long multi-stage chain.
+`parallel(thunks)` enqueues all N at once and leans on the limiter to dequeue ~cap;
+a steady worker pool holds a true steady state of ≤cap long chains, which is what
+you want when each chain runs for minutes.
+
+```js
+const pool = async (items, cap, worker) => {
+  const out = new Array(items.length)
+  let next = 0
+  const run = async () => { while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, run))
+  return out
+}
+const done = (await pool(pages, 14, p => processPage(p))).filter(Boolean)
+```
+
+`parallel()` is still correct for a small fixed fan-out that needs a barrier; reach
+for the pool only for the large-corpus case `parallel()` does not serve as well.
+
+---
+
 ## Defining schemas
 
 A schema is a plain JSON Schema object. Keep them small and `required`-tight so

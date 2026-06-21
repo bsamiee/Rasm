@@ -1,179 +1,384 @@
 # [PY_COMPUTE_PROGRAM]
 
-The constrained, global, and discrete counterpart of the gradient-driven design loop — the math-program routes the differentiable optimizer in `optimization/design.md#DESIGN` structurally cannot reach. `ProgramIntent` discriminates a linear program, a mixed-integer program, a derivative-free global minimum, a bounded/constrained smooth minimum, and an optimal assignment over `scipy.optimize`, every route folding the host termination verdict, the objective value, and the maximum constraint-violation residual into the `program` case of the shared content-keyed `OutcomeReceipt` (`optimization/design.md#DESIGN`), the one optimization-outcome owner whose sibling `design` case carries the first-order convergence verdict — the feasibility verdict and the convergence verdict are two cases of one `@tagged_union`, never two parallel structs. The `program` case carries the `SolveStatus` termination vocabulary `solvers/receipt.md#RECEIPT` owns rather than a lone `bool success`: the `linprog`/`milp` `OptimizeResult.status` integer code and the `differential_evolution`/`minimize` `.success` flag fold into the same bounded `StrEnum` that adjudicates every solver route, so an infeasible LP, an unbounded LP, an iteration-limit MILP, and a numerically-failed SLSQP solve are distinct first-class verdicts the C# graduation gate and the sibling `convex`/`solver` status fields read by one vocabulary — never a boolean collapsing every non-success cause to `False`. The typed feasibility receipt is the `program` case projection: the success contract survives as the derived predicate `status is SolveStatus.SUCCESS`, while the receipt also carries *why* a program did not solve. The five routes share one tag-keyed `scipy.optimize` dispatch — the entrypoint, the constraint-assembly probe, the violation reduction, and the host-status adjudication are the row — and the program data admits through `numerics/array.md#PAYLOAD` keying on the same `ContentIdentity` seed. Unlike `design.md` and `solvers/nonlinear.md#NONLINEAR`, this owner carries no numpy floor: the math-program solve *is* `scipy.optimize`, so a cp315 run without the scipy wheel returns `Error(Import)` rather than a degraded estimate, mirroring the no-floor hull/Delaunay routes of `analysis/spatial.md#QUERY` where Qhull is the gated capability itself. The certified optimum graduates as the existing `solver` `HandoffAxis` case through `graduation/handoff.md#GRADUATION`, the discrete/constrained sibling of the differentiable design optimum on the one rail.
+The constrained, global, and discrete counterpart of the gradient-driven design loop — the math-program reaches what the differentiable optimizer in `optimization/design.md#DESIGN` structurally cannot. `ProgramIntent` discriminates a linear program, a mixed-integer program, a derivative-free global minimum, a bounded constrained smooth minimum, and an optimal assignment over `scipy.optimize`. Every route folds the host termination verdict, the objective value, and the maximum constraint-violation residual into the `program` case of the shared content-keyed `OutcomeReceipt` (`optimization/design.md#DESIGN`); the `program` feasibility verdict and the sibling `design` first-order convergence verdict are two cases of one `@tagged_union`, never two structs.
+
+The `program` case carries the `SolveStatus` `StrEnum` `solvers/receipt.md#RECEIPT` owns rather than a lone `bool success`. The `linprog`/`milp` `OptimizeResult.status` integer code and the `differential_evolution`/`dual_annealing`/`shgo`/`direct`/`minimize` `.success` flag fold into that one vocabulary through the `Termination` adjudicator, so an infeasible LP (`status == 2`), an unbounded LP (`status == 3`), an iteration-limit MILP (`status == 1`), and a numerically-failed `trust-constr` solve are distinct first-class verdicts the C# graduation gate reads, never a boolean collapsing every non-success cause to `False`. The success contract survives as the derived `status is SolveStatus.SUCCESS` predicate while the receipt also carries why a program did not solve.
+
+The five routes are five `_PROGRAM_ROUTES` rows over one fold: each `ProgramRoute` carries the static `Termination` policy, the `seeded` flag, and the bound `scipy.optimize` `entry` callable plus the `iterate`/`carriers` projections as data, the per-tag buffer-and-key projection owned once by the `_project` `match` rather than re-carried as a constant route column. The result-shape adjudication is the `Termination` `StrEnum` carried per route — `CODED`, `FLAGGED`, `FEASIBLE` — reading a typed `OptimizeResult | None`, never a `coded` boolean knob over a bare-`object` result. The `entry` callable returns ONLY the raw carrier so a non-success `linprog` whose `result.x`/`result.fun` are `None` adjudicates to its typed verdict before the `iterate` reader ever touches the carrier, never a `float(None)` crash folded into a generic fault. The program data admits through `numerics/array.md#PAYLOAD` on the same `ContentIdentity` seed, and `_program_key` returns the railed `RuntimeRail[ContentKey]` the receipt fold threads through `Result.map`, never a bare key dropping the digest fault.
+
+The derivative-free `Global` case carries the full catalogued global-search family as a `GlobalMethod` policy, not one hardcoded solver: `differential_evolution`, `dual_annealing`, `shgo`, and `direct` (scipy.md row `[12]`) are arms of one `GlobalMethod.solve(func, box, seed)` projection threading the SPEC-007 `rng` keyword, defaulted to `DE` through the `_DEFAULT_GLOBAL` anchor and overridable per call — the same engine-as-policy shape `design.md`'s `Descent` `@tagged_union` and `_DEFAULT_DESCENT` table own, so a differential-evolution population search, a simulated-annealing escape, a simplicial-homology global search, and a Lipschitz `DIRECT` partition are one owner discriminated by a policy value, never four parallel global-optimizer cases beside the LP/MILP solve. `DE` threads its advanced surface — `workers=-1` process-parallel population evaluation, `polish=True` L-BFGS-B refinement of the incumbent, and a `strategy` mutation policy — so the global route runs at its full power, never the single-feature `differential_evolution(func, bounds)` subset.
+
+This owner carries no numpy floor: the math-program solve *is* `scipy.optimize`, so a cp315 run without the scipy wheel returns `Error(Import)` rather than a degraded estimate — the deliberate floor asymmetry against `design.md` and `solvers/nonlinear.md#NONLINEAR`, mirroring the no-floor hull/Delaunay routes of `analysis/spatial.md#SPATIAL` where Qhull is the gated capability itself. The certified optimum graduates on the existing `solver` `HandoffAxis` case through `graduation/handoff.md#GRADUATION`, the discrete/constrained sibling of the differentiable design optimum on the one rail.
 
 ## [01]-[INDEX]
 
-- [01]-[PROGRAM]: linear / integer / global / constrained / assignment math programs over `scipy.optimize` folding the `program` case of the shared content-keyed `OutcomeReceipt` on the one `ProgramIntent` owner.
+- [01]-[PROGRAM]: linear, integer, global, constrained, and assignment math programs over `scipy.optimize` driven by the one `_PROGRAM_ROUTES` data table (each row a static `termination`/`seeded` policy plus the bound `entry` callable and the `iterate` / `carriers` projections, the iterate read only past a `SUCCESS` adjudication, the buffer projection owned once by `_project`), the `Global` case threading the catalogued `differential_evolution`/`dual_annealing`/`shgo`/`direct` family as a `GlobalMethod` policy defaulted through `_DEFAULT_GLOBAL`, folding the `program` case of the shared content-keyed `OutcomeReceipt` on the one `ProgramIntent` owner.
 
 ## [02]-[PROGRAM]
 
-- Owner: `ProgramIntent` — the math-program cases discriminated by constraint-and-integrality structure recoverable from the problem value itself, never a differentiable objective; `Linear(c, a_ub, b_ub, bounds, *, a_eq, b_eq)` over `scipy.optimize.linprog` on the HiGHS backend threading both the inequality `A_ub x ≤ b_ub` and the equality `A_eq x = b_eq` blocks (each block passed only when non-empty, so a pure-inequality, pure-equality, or mixed LP is one shape, never a parallel equality-LP owner), `Integer(c, integrality, bounds, constraints)` over `scipy.optimize.milp` threading the integrality vector and the `Bounds` box, `Global(objective, bounds)` (the `stochastic` case, the python-keyword-free tag for the derivative-free global search) over `scipy.optimize.differential_evolution` seeded for a reproducible content-keyed solve, `Constrained(objective, x0, bounds, constraints)` over `scipy.optimize.minimize(method="trust-constr")` threading the `LinearConstraint`/`NonlinearConstraint` carriers **directly** (the documented `minimize` constraint-carrier route, never lowered to legacy `{"type": "ineq", "fun": ...}` dicts scipy already accepts), and `Assignment(cost)` over `scipy.optimize.linear_sum_assignment`. The five routes share one tag-keyed dispatch in `_program_receipt` — the `scipy.optimize` entrypoint, the constraint carrier, and the one `_violation` fold are the row behind the gated import, never five parallel helper bodies. The discriminant is the program shape, so the gradient loop and the math-program loop are sibling cases on the one `optimization` sub-domain, never a duplicated optimizer surface beside the solve.
-- Entry: `ProgramIntent.solve(intent, *, seed)` enters one `boundary(f"program.{intent.tag}", ...)`; every route reads the `OptimizeResult` (or the `linear_sum_assignment` row/column pair) into `OutcomeReceipt.Program` carrying the `SolveStatus` host verdict, the objective value, and the maximum constraint-violation residual, and keys by `ContentIdentity.of` over the canonical problem-data buffer. The `Linear`/`Integer` routes read `result.fun`/`result.x` and fold `result.status` — the documented `linprog`/`milp` integer termination code (`0` optimal, `1` iteration-limit, `2` infeasible, `3` unbounded, `4` numerical) — through `_program_status(result, coded=True)` into `SolveStatus`; the `Global`/`Constrained` routes (whose `differential_evolution`/`minimize` `OptimizeResult` carries the boolean `.success` rather than the uniform integer code) fold through `_program_status(result, coded=False)` reading `.success`; the per-route `coded` flag replaces a reflective `getattr(result, "status")` probe — the dispatch already knows which result shape each scipy entry returns. The `Assignment` route is feasible by construction, so it folds `SolveStatus.SUCCESS` and a zero violation. The residual reduces through the ONE `_violation` fold over `LinearConstraint`/`NonlinearConstraint` carriers — the `Linear` route reifies its `(A_ub, b_ub)` inequality block as `LinearConstraint(A_ub, -inf, b_ub)` and its `(A_eq, b_eq)` block as `LinearConstraint(A_eq, b_eq, b_eq)` so every route's violation flows through one `max(0, lb − Ax, Ax − ub)` reduction rather than a raw-row probe parallel to the carrier probe — and is `inf` on a non-`SUCCESS` LP/MILP where no feasible iterate exists.
-- Receipt: `OutcomeReceipt.contribute` matches the `program` case to emit one `Receipt.of("emitted", "compute.optimization.program", ...)` row carrying the program tag, the objective value, the `SolveStatus` termination verdict, the derived `converged` success flag, the constraint violation, and the content key; a certified optimum (`status is SolveStatus.SUCCESS` with a within-tolerance violation) graduates outward through `graduation/handoff.md#GRADUATION` on the existing `solver` `HandoffAxis` case — no new literal, no graduation edit, the discrete/constrained counterpart of the `design.md` differentiable optimum on the one rail. The status vocabulary is the same one the graduation gate reads for the `solver`-axis convergence verdict, so an infeasible or unbounded program is an admission rejection carrying its termination reason rather than a bare `False`.
-- Packages: `scipy` (`optimize.linprog` threading `A_ub`/`b_ub`/`A_eq`/`b_eq`, `optimize.milp`, `optimize.differential_evolution` with `seed`, `optimize.minimize` on `method="trust-constr"` consuming the constraint carriers directly, `optimize.linear_sum_assignment`, `optimize.Bounds`, `optimize.LinearConstraint`, `optimize.NonlinearConstraint`, `optimize.OptimizeResult` — the `.status` integer diagnostic for `linprog`/`milp` and the `.success`/`.fun`/`.x` fields all catalogued in `compute/.api/scipy.md`'s `scipy.optimize` entrypoint and public-type tables), `numpy` (`asarray`, `ascontiguousarray`, `atleast_2d`, `empty`, `maximum`, `inf` — the canonical problem-data buffer, the empty-block sentinels, and the constraint-violation max-reduction), `numerics/array.md#PAYLOAD` (the cost vector, constraint matrix, bounds, and integrality admit as an `ArrayPayload` keying through the same `ContentIdentity.of` seed), `solvers/receipt.md#RECEIPT` (`SolveStatus` — the ONE bounded termination vocabulary the host `OptimizeResult` verdict folds into, the same `StrEnum` every solver route adjudicates), `optimization/design.md#DESIGN` (`OutcomeReceipt` — the shared optimization-outcome receipt this owner folds its `program` case into, carrying the `Receipt`/`ReceiptContributor` contribution), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`).
-- Growth: a new math-program route is one `ProgramIntent` case plus one row in the `_program_receipt` route table folding the shared `OutcomeReceipt.Program`; a new constraint block (equality, inequality) is one reified `LinearConstraint`/`NonlinearConstraint` carrier flowing through the existing `_violation` fold, never a new violation helper; a new host termination code is one `_PROGRAM_STATUS` row mapping the `OptimizeResult.status` integer into the existing `SolveStatus` vocabulary; zero new surface, never a per-program owner, never a parallel linear-program-and-assignment owner, never a per-route `_*_receipt` helper body, never a per-shape violation probe parallel to the carrier fold, never a legacy constraint-dict lowering parallel to the carrier the host already accepts, never a second optimization-outcome receipt struct beside `OutcomeReceipt`, never a boolean termination notion parallel to the shared `SolveStatus`.
-- Boundary: constrained, global, and discrete optimization over `scipy.optimize` only — the linear program, the mixed-integer program, the derivative-free global minimum, the constrained smooth minimum, and the optimal assignment are in-scope; the differentiable inverse-design loop stays on `design.md` and never duplicates here. The termination vocabulary is consumed, not owned: `SolveStatus` lives on `solvers/receipt.md#RECEIPT` and this owner maps the host `OptimizeResult` verdict into it at the boundary, never re-declaring a parallel program-status enum and never folding the duality-gap certificate `convex.md#CONVEX` carries on its distinct `ConvexReceipt`. This owner carries **no numpy floor**: the math program *is* `scipy.optimize` (HiGHS LP, the MILP branch-and-bound, the DE population, the assignment Hungarian), so a cp315 run without the scipy wheel returns `Error(Import)` rather than a degraded estimate — the deliberate floor asymmetry against `design.md` and `solvers/nonlinear.md#NONLINEAR` (which carry a reachable numpy central-difference floor), matching the no-floor hull/Delaunay/Voronoi routes of `analysis/spatial.md#QUERY`. A training loop, a production solver session, a hand-rolled simplex or branch-and-bound kernel `scipy.optimize` owns, a legacy `{"type": "ineq", "fun": ...}` constraint-dict lowering parallel to the `LinearConstraint`/`NonlinearConstraint` carrier `minimize(method="trust-constr")` already consumes, a raw-row violation probe parallel to the carrier-keyed `_violation` fold, a parallel optimizer surface beside the differentiable solve, and a `bool success` field parallel to the shared `SolveStatus` are the deleted forms.
+- Owner: `ProgramIntent` — the math-program cases discriminated by constraint-and-integrality structure recoverable from the problem value itself, never a differentiable objective; `Linear(c, a_ub, b_ub, bounds, *, a_eq, b_eq)` over `scipy.optimize.linprog` on the HiGHS backend threading both the inequality `A_ub x ≤ b_ub` and the equality `A_eq x = b_eq` blocks (each block passed only when non-empty, so a pure-inequality, pure-equality, or mixed LP is one shape, never a parallel equality-LP owner), `Integer(c, integrality, bounds, constraints)` over `scipy.optimize.milp` threading the integrality vector and the `Bounds` box, `Global(objective, bounds, *, method)` (the `stochastic` case, the python-keyword-free tag for the derivative-free global search) carrying its `GlobalMethod` engine policy and dispatching it over `scipy.optimize.differential_evolution`/`dual_annealing`/`shgo`/`direct` seeded through the SPEC-007 `rng` keyword for a reproducible content-keyed solve, `Constrained(objective, x0, bounds, constraints)` over `scipy.optimize.minimize(method="trust-constr")` threading the `LinearConstraint`/`NonlinearConstraint` carriers **directly** (the documented `minimize` constraint-carrier route, never lowered to legacy `{"type": "ineq", "fun": ...}` dicts scipy already accepts), and `Assignment(cost)` over `scipy.optimize.linear_sum_assignment`. The discriminant is the program shape, so the gradient loop and the math-program loop are sibling cases on the one `optimization` sub-domain, never a duplicated optimizer surface beside the solve.
+- Global engine: `GlobalMethod` is the `@tagged_union` global-search vocabulary — `DE` (`differential_evolution`, carrying the `(workers, polish, strategy)` advanced surface), `Annealing` (`dual_annealing`), `Simplicial` (`shgo`), and `Direct` (`direct`) — projected to its `scipy.optimize` entrypoint through one `GlobalMethod.solve(func, box, seed) -> OptimizeResult` total `match`/`assert_never`, the engine-as-policy union `design.md`'s `Descent` `@tagged_union` also holds. The policy rides the `Global` factory's keyword-only `method` parameter — not the `solve` entry the sibling `design.md` carries `descent` on — because `GlobalMethod` discriminates the ONE `stochastic` route while `Descent` spans all three design routes, so an engine knob on `program.solve` would be `None` for the LP/MILP/`trust-constr`/assignment routes it cannot reach; carrying it on the only case it affects is the denser placement, defaulted to `DE` through the `_DEFAULT_GLOBAL` anchor. The four derivative-free global optimizers are one owner discriminated by a policy value carried on the case, never four parallel `ProgramIntent` cases; `DE`'s `workers=-1`/`polish=True`/`strategy` cell rides on the case so a population search runs process-parallel and L-BFGS-B-polished at its full catalogued power. A new global solver is one `GlobalMethod` case plus one `solve` arm, never a new `ProgramIntent` tag and never a new `_PROGRAM_ROUTES` row.
+- Route table: each `ProgramRoute` `Struct` carries the static `Termination` policy, the `seeded` flag, the bound `entry` callable (`(Carried, int) -> ProgramSolve`, closing over the route's `scipy.optimize` entrypoint and returning the RAW carrier), and two orthogonal projections — `iterate` (`(Carried, ProgramSolve) -> (np.ndarray, float)`, reading the optimal iterate and objective off the carrier read ONLY past a `SUCCESS` adjudication) and `carriers` (`(Carried, ProgramSolve) -> tuple[object, ...]`, reifying the `_violation` fold inputs). The buffer-and-key projection is NOT a route column: `_project` is the one `match` owning every per-tag `Carried` shape, so the route table never re-carries `_project` as a constant fifth field the way a closure-quad would. The single `_program_receipt` body resolves the row, projects buffers through `_project`, evaluates `entry`, adjudicates the row's `termination`, reads `iterate` on `SUCCESS` (else folds `inf`), reifies `carriers`, and reduces `_violation`, so a new route is one row plus one `_project` arm, never an arm in a five-way solve fold. `ProgramSolve` carries ONLY the raw `OptimizeResult | None` and the assignment `tuple | None` — never a derived `objective`/`x`, since reading `result.fun`/`result.x` eagerly inside the `entry` body would coerce the `None` an infeasible `linprog` returns into a `float(None)` crash captured as a generic `boundary` fault rather than the typed `INFEASIBLE` verdict the page advertises; the lazy `iterate` read past adjudication is what keeps the feasibility verdict first-class.
+- Termination: `Termination` is the ONE result-shape adjudicator carried per route as a static `StrEnum` field on `ProgramRoute`, never reconstructed inside an `entry` body, never a three-`None`-case union, nor the prior `_program_status(result, *, coded)` boolean knob. `CODED` reads the `linprog`/`milp` integer `OptimizeResult.status` (`0` optimal, `1` iteration/time limit, `2` infeasible, `3` unbounded, `4` numerical) through the `_PROGRAM_STATUS` boundary table; `FLAGGED` reads the boolean `OptimizeResult.success` every global-search engine (`differential_evolution`/`dual_annealing`/`shgo`/`direct`) and `minimize(method="trust-constr")` surface; `FEASIBLE` folds `SolveStatus.SUCCESS` for the `linear_sum_assignment` route optimal by construction. `Termination.adjudicate(result)` is one total `match`/`assert_never` whose leading `FEASIBLE` arm folds `SUCCESS` over the `None` assignment carrier and whose `case _ if result is None` guard narrows the declared `OptimizeResult | None` to `OTHER` before the `CODED`/`FLAGGED` arms read `.status`/`.success`, so each field is named on the catalogued result type with the `| None` narrowed away rather than accessed off a phantom bare `object` — and the match dispatches on `self` so it never names the `TYPE_CHECKING`-only `opt.OptimizeResult` as a runtime class pattern. A new termination-source shape is one `Termination` member plus one `adjudicate` arm plus the row's `termination` cell.
+- Entry: `solve(intent, *, seed)` enters one `boundary(f"program.{intent.tag}", ...)` and `.bind`-flattens the railed `_program_receipt`, so the scipy solve fence and the `RuntimeRail[ContentKey]` digest rail join on one `RuntimeRail[OutcomeReceipt]` without double-wrapping. The body projects the `Carried` buffers through `_project`, evaluates the row's `entry` into a `ProgramSolve` carrying ONLY the host `OptimizeResult | None` and the `linear_sum_assignment` row/column `tuple | None`, adjudicates the row's static `termination` into the `SolveStatus` verdict, reads the `(x, objective)` pair through the route's `iterate` projection ONLY on a `SUCCESS` adjudication (else `(_EMPTY_1D, inf)` so the `None` carrier is never coerced), and `.map`s the railed `_program_key` into `OutcomeReceipt.Program`. The residual reduces through the ONE `_violation` fold over the reified carriers against that iterate — the `Linear` route reifies its `(A_ub, b_ub)` inequality block as `LinearConstraint(A_ub, -inf, b_ub)` and its `(A_eq, b_eq)` block as `LinearConstraint(A_eq, b_eq, b_eq)`, the `Integer`/`Constrained` routes forward their caller carriers, and the `Global`/`Assignment` routes carry none — so every violation flows through one typed `max(0, lb − Ax, Ax − ub)` reduction (a `match` on the carrier class, never a `hasattr(con, "A")` reflective probe) and is `inf` where the iterate is the empty non-success sentinel.
+- Receipt: `OutcomeReceipt.contribute` matches the `program` case to emit one `Receipt.of("compute.optimization.program", ("emitted", program_tag, facts))` row carrying the program tag, the objective value, the `SolveStatus` termination verdict, the derived `converged` flag, the constraint violation, and the content key, the facts riding as native scalars the `enc_hook=repr` renderer serializes without a coerce. A certified optimum (`status is SolveStatus.SUCCESS` with a within-tolerance violation) graduates through `graduation/handoff.md#GRADUATION` on the existing `solver` `HandoffAxis` case — no new literal, no graduation edit — so an infeasible or unbounded program is an admission rejection carrying its termination reason rather than a bare `False`.
+- Packages: `scipy` (`optimize.linprog` threading `A_ub`/`b_ub`/`A_eq`/`b_eq`, `optimize.milp`, the global-search family `optimize.differential_evolution` with `rng`/`workers`/`polish`/`strategy`, `optimize.dual_annealing`, `optimize.shgo`, `optimize.direct` (scipy.md row `[12]`, all four the `GlobalMethod` arms), `optimize.minimize` on `method="trust-constr"` consuming the constraint carriers directly, `optimize.linear_sum_assignment`, `optimize.Bounds`, `optimize.LinearConstraint`, `optimize.NonlinearConstraint`, `optimize.OptimizeResult` — the `.status` integer diagnostic for `linprog`/`milp` and the `.success`/`.fun`/`.x` fields all catalogued in `compute/.api/scipy.md`'s `scipy.optimize` entrypoint and public-type tables, imported under `TYPE_CHECKING` so `ProgramSolve.result`, `Termination.adjudicate`, and `GlobalMethod.solve` annotate the real `OptimizeResult` carrier rather than a bare `object` while the gated wheel never imports at runtime, entrypoints staying boundary-scoped per the manifest import policy), `numpy` (`asarray`, `ascontiguousarray`, `atleast_2d`, `empty`, `maximum`, `inf` — the canonical problem-data buffer, the empty-block sentinels, and the constraint-violation max-reduction), `expression` (`tag`/`case`/`tagged_union` — the `ProgramIntent` and `GlobalMethod` discriminated unions; `Result.bind`/`Result.map` — the rail join flattening `boundary` over the railed key and the `OutcomeReceipt.Program` mapping), `msgspec` (`Struct` — the frozen `ProgramRoute` row and `ProgramSolve` result carrier, both GC-tracked rather than `gc=False` because each holds container/closure fields (`ProgramRoute` the entry/iterate/carriers closures, `ProgramSolve` the host `OptimizeResult` and assignment tuple), the closure-carrying sibling of the convex `ConeRow`/`ConeKKT`), `numerics/array.md#PAYLOAD` (the cost vector, constraint matrix, bounds, and integrality admit as an `ArrayPayload` keying through the same `ContentIdentity.of` seed), `solvers/receipt.md#RECEIPT` (`SolveStatus` — the ONE bounded termination vocabulary the host `OptimizeResult` verdict folds into, the same `StrEnum` every solver route adjudicates), `optimization/design.md#DESIGN` (`OutcomeReceipt` — the shared optimization-outcome receipt this owner folds its `program` case into, carrying the `Receipt`/`ReceiptContributor` contribution), runtime (`RuntimeRail`/`boundary` the solve fence and rail carrier, `ContentIdentity.of` the railed key over an `IdentityPolicy`, `ContentKey` the resolved key).
+- Growth: a new math-program route is one `ProgramIntent` case, one `_PROGRAM_ROUTES` row, and one `_project` arm folding the shared `OutcomeReceipt.Program`; a new derivative-free global solver is one `GlobalMethod` case plus one `GlobalMethod.solve` arm on the existing `Global` route, never a new `ProgramIntent` tag; a new constraint block is one reified `LinearConstraint`/`NonlinearConstraint` carrier the row's `carriers` reifier emits into the existing `_violation` fold; a new termination-source shape is one `Termination` member plus one `adjudicate` arm; a new host termination code is one `_PROGRAM_STATUS` row mapping the `OptimizeResult.status` integer into the existing `SolveStatus` vocabulary. Zero new surface: never a per-program owner, never a parallel linear-program-and-assignment owner, never a parallel global-optimizer case beside the `GlobalMethod` policy, never a per-route `_*_receipt` body, never a per-arm solve fold parallel to the route table, never a per-shape violation probe parallel to the carrier fold, never a second optimization-outcome receipt struct beside `OutcomeReceipt`.
+- Boundary: constrained, global, and discrete optimization over `scipy.optimize` only — the linear program, the mixed-integer program, the derivative-free global minimum (the `differential_evolution`/`dual_annealing`/`shgo`/`direct` family under one `GlobalMethod` policy), the constrained smooth minimum, and the optimal assignment are in-scope; the differentiable inverse-design loop stays on `design.md`. The termination vocabulary is consumed, not owned: `SolveStatus` lives on `solvers/receipt.md#RECEIPT` and this owner maps the host `OptimizeResult` verdict into it at the boundary, never re-declaring a program-status enum and never folding the duality-gap certificate `convex.md#CONVEX` carries on its distinct `ConvexReceipt`. The graduation `content.graduate` span and the `@beartype(conf=FAULT_CONF)` ledger fence stay on `graduation/handoff.md#GRADUATION`; this owner enters only the runtime `boundary` solve fence and never re-opens a span the graduation rail owns. The math program *is* `scipy.optimize` (HiGHS LP, MILP branch-and-bound, the global-search population/annealing/simplicial/Lipschitz engines, the assignment Hungarian), so a cp315 run without the scipy wheel returns `Error(Import)` — the deliberate floor asymmetry against `design.md` and `solvers/nonlinear.md#NONLINEAR`. The deleted forms: a hand-rolled simplex or branch-and-bound kernel `scipy.optimize` owns, a hardcoded single `differential_evolution` call where the `GlobalMethod` policy folds the catalogued global-search family, a bare `differential_evolution(func, bounds)` dropping the `workers`/`polish`/`strategy` advanced surface, a legacy `{"type": "ineq", "fun": ...}` constraint-dict lowering parallel to the carrier `minimize(method="trust-constr")` already consumes, a `hasattr` violation probe parallel to the typed carrier `_violation` fold, a `coded` boolean knob or three-`None`-case union parallel to the `Termination` `StrEnum`, an untyped `result: object` carrier the body reads `.status`/`.success` off, a `_project` constant column re-carried on every `ProgramRoute` row parallel to the one `_project` `match`, a bare `ContentKey` return dropping the railed digest fault, a parallel optimizer surface beside the differentiable solve, and a `bool success` field parallel to the shared `SolveStatus`.
 
 ```python signature
 from collections.abc import Callable
-from typing import Literal, assert_never
+from enum import StrEnum
+from typing import TYPE_CHECKING, Literal, Self, assert_never
 
 import numpy as np
 from beartype import FrozenDict
 from expression import case, tag, tagged_union
+from msgspec import Struct
 
 from rasm.compute.optimization.design import OutcomeReceipt
 from rasm.compute.solvers.receipt import SolveStatus
 from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
 from rasm.runtime.faults import RuntimeRail, boundary
 
-_SEED = 0
-_EMPTY_1D: np.ndarray = np.empty(0, dtype=float)
+if TYPE_CHECKING:
+    import scipy.optimize as opt  # `OptimizeResult`/`Bounds` annotation carriers only; the gated wheel never imports at runtime
+
+# --- [TYPES] -------------------------------------------------------------------------------
+
+type Bound = tuple[float, float]
+type Objective = Callable[[np.ndarray], float]
+type Carried = tuple[object, ...]  # per-route prepared problem buffers; the key seed and the route's solve inputs
+
+
+class Termination(StrEnum):
+    # the result-shape adjudicator carried as a route policy value, one table-driven `adjudicate` over
+    # the three host-result shapes: `CODED` reads the integer `.status`, `FLAGGED` the boolean `.success`,
+    # `FEASIBLE` the assignment route optimal-by-construction (no host result).
+    CODED = "coded"
+    FLAGGED = "flagged"
+    FEASIBLE = "feasible"
+
+    def adjudicate(self, result: "opt.OptimizeResult | None") -> SolveStatus:
+        # the `FEASIBLE` arm folds `SUCCESS` over the `None` assignment carrier; `CODED`/`FLAGGED` ride a
+        # non-`None` host carrier by route construction, so the `result is None` arm narrows the `| None`
+        # to `OTHER` and the `.status`/`.success` reads stay type-checker-total without naming the
+        # `TYPE_CHECKING`-only `opt.OptimizeResult` as a runtime match class.
+        match self:
+            case Termination.FEASIBLE:
+                return SolveStatus.SUCCESS
+            case _ if result is None:
+                return SolveStatus.OTHER
+            case Termination.CODED:
+                return _PROGRAM_STATUS.get(int(result.status), SolveStatus.OTHER)
+            case Termination.FLAGGED:
+                return SolveStatus.SUCCESS if bool(result.success) else SolveStatus.STAGNATION
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+@tagged_union(frozen=True)
+class GlobalMethod:
+    # the derivative-free global-search family as ONE engine-as-policy union (the `design.md` `Descent`
+    # shape): `DE` carries its `(workers, polish, strategy)` advanced surface, the rest are bare cases.
+    # `solve` is the one total projection binding each arm's `scipy.optimize` entrypoint behind the
+    # gated import, threading the SPEC-007 `rng` seed so a reproducible content-keyed global solve maps
+    # to a fixed iterate — never four parallel `ProgramIntent` cases beside the LP/MILP solve.
+    tag: Literal["de", "annealing", "simplicial", "direct"] = tag()
+    de: tuple[int, bool, str] = case()  # (workers, polish, strategy)
+    annealing: None = case()
+    simplicial: None = case()
+    direct: None = case()
+
+    @classmethod
+    def DE(cls, workers: int = -1, polish: bool = True, strategy: str = "best1bin") -> Self:
+        return cls(de=(workers, polish, strategy))
+
+    @classmethod
+    def Annealing(cls) -> Self:
+        return cls(annealing=None)
+
+    @classmethod
+    def Simplicial(cls) -> Self:
+        return cls(simplicial=None)
+
+    @classmethod
+    def Direct(cls) -> Self:
+        return cls(direct=None)
+
+    def solve(self, func: Objective, box: np.ndarray, seed: int) -> "opt.OptimizeResult":
+        from scipy.optimize import differential_evolution, direct, dual_annealing, shgo
+
+        pairs = box.reshape(-1, 2)
+        match self:
+            case GlobalMethod(tag="de", de=(workers, polish, strategy)):
+                return differential_evolution(func, pairs, rng=seed, workers=workers, polish=polish, strategy=strategy)
+            case GlobalMethod(tag="annealing"):
+                return dual_annealing(func, pairs, rng=seed)
+            case GlobalMethod(tag="simplicial"):
+                return shgo(func, pairs)  # deterministic simplicial-homology global search; no `rng` keyword
+            case GlobalMethod(tag="direct"):
+                return direct(func, pairs)  # deterministic Lipschitz partition; no `rng` keyword
+            case _ as unreachable:
+                assert_never(unreachable)
+
+
+_EMPTY_1D: np.ndarray = np.empty(0, dtype=float)  # `ProgramIntent.Linear` default-arg anchors, read at class definition
 _EMPTY_2D: np.ndarray = np.empty((0, 0), dtype=float)
+
+
+_DEFAULT_GLOBAL: GlobalMethod = GlobalMethod.DE()  # the global-route default engine; per-call `method` overrides it
 
 
 @tagged_union(frozen=True)
 class ProgramIntent:
     tag: Literal["linear", "integer", "stochastic", "constrained", "assignment"] = tag()
-    linear: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[tuple[float, float], ...]] = case()
-    integer: tuple[np.ndarray, np.ndarray, tuple[tuple[float, float], ...], tuple[object, ...]] = case()
-    stochastic: tuple[object, tuple[tuple[float, float], ...]] = case()
-    constrained: tuple[object, np.ndarray, tuple[tuple[float, float], ...], tuple[object, ...]] = case()
+    linear: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, tuple[Bound, ...]] = case()
+    integer: tuple[np.ndarray, np.ndarray, tuple[Bound, ...], tuple[object, ...]] = case()
+    stochastic: tuple[Objective, tuple[Bound, ...], GlobalMethod] = case()
+    constrained: tuple[Objective, np.ndarray, tuple[Bound, ...], tuple[object, ...]] = case()
     assignment: np.ndarray = case()
 
-    @staticmethod
+    @classmethod
     def Linear(
+        cls,
         c: np.ndarray,
         a_ub: np.ndarray = _EMPTY_2D,
         b_ub: np.ndarray = _EMPTY_1D,
-        bounds: tuple[tuple[float, float], ...] = (),
+        bounds: tuple[Bound, ...] = (),
         *,
         a_eq: np.ndarray = _EMPTY_2D,
         b_eq: np.ndarray = _EMPTY_1D,
-    ) -> "ProgramIntent":
-        return ProgramIntent(linear=(c, a_ub, b_ub, a_eq, b_eq, bounds))
+    ) -> Self:
+        return cls(linear=(c, a_ub, b_ub, a_eq, b_eq, bounds))
 
-    @staticmethod
-    def Integer(
-        c: np.ndarray, integrality: np.ndarray, bounds: tuple[tuple[float, float], ...], constraints: tuple[object, ...] = ()
-    ) -> "ProgramIntent":
-        return ProgramIntent(integer=(c, integrality, bounds, constraints))
+    @classmethod
+    def Integer(cls, c: np.ndarray, integrality: np.ndarray, bounds: tuple[Bound, ...], constraints: tuple[object, ...] = ()) -> Self:
+        return cls(integer=(c, integrality, bounds, constraints))
 
-    @staticmethod
-    def Global(objective: Callable[[np.ndarray], float], bounds: tuple[tuple[float, float], ...]) -> "ProgramIntent":
-        return ProgramIntent(stochastic=(objective, bounds))
+    @classmethod
+    def Global(cls, objective: Objective, bounds: tuple[Bound, ...], *, method: GlobalMethod = _DEFAULT_GLOBAL) -> Self:
+        return cls(stochastic=(objective, bounds, method))
 
-    @staticmethod
-    def Constrained(
-        objective: Callable[[np.ndarray], float], x0: np.ndarray, bounds: tuple[tuple[float, float], ...], constraints: tuple[object, ...] = ()
-    ) -> "ProgramIntent":
-        return ProgramIntent(constrained=(objective, x0, bounds, constraints))
+    @classmethod
+    def Constrained(cls, objective: Objective, x0: np.ndarray, bounds: tuple[Bound, ...], constraints: tuple[object, ...] = ()) -> Self:
+        return cls(constrained=(objective, x0, bounds, constraints))
 
-    @staticmethod
-    def Assignment(cost: np.ndarray) -> "ProgramIntent":
-        return ProgramIntent(assignment=cost)
+    @classmethod
+    def Assignment(cls, cost: np.ndarray) -> Self:
+        return cls(assignment=cost)
 
+
+# --- [CONSTANTS] ---------------------------------------------------------------------------
+
+_SEED = 0
 
 _PROGRAM_STATUS: FrozenDict[int, SolveStatus] = FrozenDict(
-    {
-        0: SolveStatus.SUCCESS,
-        1: SolveStatus.MAX_STEPS,
-        2: SolveStatus.INFEASIBLE,
-        3: SolveStatus.UNBOUNDED,
-        4: SolveStatus.ILL_CONDITIONED,
-    }
+    {0: SolveStatus.SUCCESS, 1: SolveStatus.MAX_STEPS, 2: SolveStatus.INFEASIBLE, 3: SolveStatus.UNBOUNDED, 4: SolveStatus.ILL_CONDITIONED}
 )
 
 
-def _program_status(result: object, *, coded: bool) -> SolveStatus:
-    if coded:
-        return _PROGRAM_STATUS.get(int(result.status), SolveStatus.OTHER)
-    return SolveStatus.SUCCESS if bool(result.success) else SolveStatus.STAGNATION
+# --- [MODELS] ------------------------------------------------------------------------------
+
+class ProgramSolve(Struct, frozen=True):  # GC-tracked: carries the host `OptimizeResult` and assignment tuple
+    # the raw host carrier and nothing derived: the iterate and objective are read LAZILY off the
+    # carrier only past `Termination.adjudicate`, so an infeasible `linprog` whose `result.x`/`result.fun`
+    # are `None` adjudicates to `SolveStatus.INFEASIBLE` rather than crashing a `float(None)` into the fence.
+    result: "opt.OptimizeResult | None"        # host result, or `None` for the closed-form assignment route
+    assignment: "tuple[np.ndarray, np.ndarray] | None"  # the `linear_sum_assignment` row/column pair, else `None`
 
 
-def _program_key(intent: ProgramIntent, fields: tuple[np.ndarray, ...]) -> ContentKey:
-    buffer = b"".join(np.ascontiguousarray(field).tobytes() for field in fields if field.size)
-    return ContentIdentity.of(f"program.{intent.tag}", buffer, IdentityPolicy())
+class ProgramRoute(Struct, frozen=True):  # GC-tracked: carries the entry/iterate/carriers closures
+    # the buffer-and-key projection is NOT a route column: `_project` owns every per-tag `Carried`
+    # shape in one `match`, so the row carries only what genuinely varies per route.
+    entry: Callable[[Carried, int], ProgramSolve]                         # binds the route's `scipy.optimize` entrypoint, returning the RAW carrier
+    iterate: Callable[[Carried, ProgramSolve], tuple[np.ndarray, float]]  # reads (x, objective) off the SUCCESS carrier
+    carriers: Callable[[Carried, ProgramSolve], tuple[object, ...]]       # reifies the `LinearConstraint`/`NonlinearConstraint` fold inputs
+    termination: Termination                                             # the static result-shape adjudicator policy for this route
+    seeded: bool                                                         # whether the `rng` seed alters the iterate, so it folds into the content key
 
+
+# --- [OPERATIONS] --------------------------------------------------------------------------
 
 def solve(intent: ProgramIntent, *, seed: int = _SEED) -> "RuntimeRail[OutcomeReceipt]":
-    return boundary(f"program.{intent.tag}", lambda: _program_receipt(intent, seed))
+    # `boundary` fences the scipy solve (raising routes, the gated `ImportError`); the railed
+    # `ContentIdentity.of` key threads through `.bind` so a digest fault propagates on the one rail
+    # rather than collapsing to a phantom bare `ContentKey`.
+    return boundary(f"program.{intent.tag}", lambda: _program_receipt(intent, seed)).bind(lambda r: r)
 
 
-def _program_receipt(intent: ProgramIntent, seed: int) -> OutcomeReceipt:
-    from scipy.optimize import LinearConstraint, differential_evolution, linear_sum_assignment, linprog, milp, minimize
+def _program_receipt(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
+    route = _PROGRAM_ROUTES[intent.tag]
+    fields = _project(intent)
+    outcome = route.entry(fields, seed)
+    status = route.termination.adjudicate(outcome.result)
+    # the iterate and objective are read only on SUCCESS, so a non-success carrier's `None` fields are
+    # never coerced; an infeasible/unbounded/iteration-limited program folds `inf`/`inf` with its verdict.
+    x, objective = route.iterate(fields, outcome) if status is SolveStatus.SUCCESS else (_EMPTY_1D, float("inf"))
+    violation = _violation(route.carriers(fields, outcome), x)
+    return _program_key(intent, fields, seed if route.seeded else None).map(
+        lambda key: OutcomeReceipt.Program(intent.tag, objective, status, violation, key)
+    )
 
+
+def _program_key(intent: ProgramIntent, fields: Carried, seed: int | None) -> "RuntimeRail[ContentKey]":
+    arrays = (f for f in fields if isinstance(f, np.ndarray) and f.size)  # callables/carrier tuples never seed identity
+    buffer = b"".join(np.ascontiguousarray(field).tobytes() for field in arrays)
+    # a seeded route folds its `rng` seed AND the `GlobalMethod` engine discriminant into the fmt so two
+    # `differential_evolution` runs at distinct seeds, and a DE-vs-DIRECT solve on identical data and
+    # seed, key DISTINCTLY (the iterate is both seed- and engine-dependent); the deterministic
+    # LP/MILP/assignment routes pass `None` so a re-solve on identical data is a cache hit regardless of
+    # the ignored seed argument (`_engine_tag` contributes only on the seeded stochastic route).
+    seed_tag = f".{seed}{_engine_tag(intent)}" if seed is not None else ""
+    return ContentIdentity.of(f"program.{intent.tag}{seed_tag}", buffer, IdentityPolicy())
+
+
+def _engine_tag(intent: ProgramIntent) -> str:
+    # the `Global` route's iterate is engine-dependent, so the chosen `GlobalMethod` (and the DE strategy,
+    # which alters the mutation walk) folds into the content key; every other route returns "".
     match intent:
-        case ProgramIntent(tag="linear", linear=(c, a_ub, b_ub, a_eq, b_eq, bounds)):
-            cost = np.asarray(c, dtype=float)
-            ub_mat, ub_rhs = np.atleast_2d(np.asarray(a_ub, dtype=float)), np.asarray(b_ub, dtype=float)
-            eq_mat, eq_rhs = np.atleast_2d(np.asarray(a_eq, dtype=float)), np.asarray(b_eq, dtype=float)
-            result = linprog(
-                cost,
-                A_ub=ub_mat if ub_rhs.size else None,
-                b_ub=ub_rhs if ub_rhs.size else None,
-                A_eq=eq_mat if eq_rhs.size else None,
-                b_eq=eq_rhs if eq_rhs.size else None,
-                bounds=bounds or None,
-                method="highs",
-            )
-            status = _program_status(result, coded=True)
-            solved = status is SolveStatus.SUCCESS
-            carriers = (
-                *(LinearConstraint(ub_mat, -np.inf, ub_rhs),) * bool(ub_rhs.size),
-                *(LinearConstraint(eq_mat, eq_rhs, eq_rhs),) * bool(eq_rhs.size),
-            )
-            x = np.asarray(result.x, dtype=float) if solved else _EMPTY_1D
-            objective = float(result.fun) if solved else float("inf")
-            violation = _violation(carriers, x) if solved else float("inf")
-            return OutcomeReceipt.Program("linear", objective, status, violation, _program_key(intent, (cost, ub_mat, ub_rhs, eq_mat, eq_rhs)))
-        case ProgramIntent(tag="integer", integer=(c, integrality, bounds, constraints)):
-            cost, flags = np.asarray(c, dtype=float), np.asarray(integrality)
-            result = milp(cost, integrality=flags, bounds=_bounds(bounds), constraints=list(constraints) or None)
-            status = _program_status(result, coded=True)
-            solved = status is SolveStatus.SUCCESS
-            objective = float(result.fun) if solved else float("inf")
-            violation = _violation(constraints, np.asarray(result.x, dtype=float)) if solved else float("inf")
-            return OutcomeReceipt.Program("integer", objective, status, violation, _program_key(intent, (cost, flags)))
-        case ProgramIntent(tag="stochastic", stochastic=(objective_fn, bounds)):
-            box = np.asarray([[lo, hi] for lo, hi in bounds], dtype=float)
-            result = differential_evolution(objective_fn, box, rng=seed)
-            return OutcomeReceipt.Program("stochastic", float(result.fun), _program_status(result, coded=False), 0.0, _program_key(intent, (box,)))
-        case ProgramIntent(tag="constrained", constrained=(objective_fn, x0, bounds, constraints)):
-            start = np.asarray(x0, dtype=float)
-            result = minimize(objective_fn, start, method="trust-constr", bounds=_bounds(bounds), constraints=list(constraints))
-            status = _program_status(result, coded=False)
-            objective = float(result.fun) if status is SolveStatus.SUCCESS else float("inf")
-            violation = _violation(constraints, np.asarray(result.x, dtype=float))
-            return OutcomeReceipt.Program("constrained", objective, status, violation, _program_key(intent, (start,)))
-        case ProgramIntent(tag="assignment", assignment=cost):
-            matrix = np.atleast_2d(np.asarray(cost, dtype=float))
-            rows, cols = linear_sum_assignment(matrix)
-            return OutcomeReceipt.Program("assignment", float(matrix[rows, cols].sum()), SolveStatus.SUCCESS, 0.0, _program_key(intent, (matrix,)))
-        case unreachable:
-            assert_never(unreachable)
+        case ProgramIntent(tag="stochastic", stochastic=(_, _, GlobalMethod(tag="de", de=(_, _, strategy)))):
+            return f".de.{strategy}"
+        case ProgramIntent(tag="stochastic", stochastic=(_, _, method)):
+            return f".{method.tag}"
+        case _:
+            return ""
 
 
-def _bounds(bounds: tuple[tuple[float, float], ...]) -> object:
+def _bounds(box: np.ndarray) -> "opt.Bounds | None":
     from scipy.optimize import Bounds
 
-    box = np.asarray(bounds, dtype=float).reshape(-1, 2)
-    return Bounds(box[:, 0], box[:, 1])
+    pairs = box.reshape(-1, 2)
+    return Bounds(pairs[:, 0], pairs[:, 1]) if pairs.size else None  # the one `Bounds` carrier linprog/milp/minimize all accept
 
 
 def _violation(constraints: tuple[object, ...], x: np.ndarray) -> float:
-    if not x.size:
-        return float("inf")
-    residual = (
-        float(np.maximum(np.maximum(con.lb - (value := con.A @ x if hasattr(con, "A") else np.asarray(con.fun(x))), value - con.ub), 0.0).max(initial=0.0))
-        for con in constraints
+    from scipy.optimize import LinearConstraint, NonlinearConstraint
+
+    def residual(con: object) -> float:
+        match con:
+            case LinearConstraint():
+                value = np.asarray(con.A, dtype=float) @ x
+            case NonlinearConstraint():
+                value = np.asarray(con.fun(x), dtype=float)
+            case _:
+                return 0.0
+        excess = np.maximum(np.maximum(np.asarray(con.lb) - value, value - np.asarray(con.ub)), 0.0)
+        return float(excess.max(initial=0.0))
+
+    return float(max((residual(con) for con in constraints), default=0.0)) if x.size else float("inf")
+
+
+# --- [COMPOSITION] -------------------------------------------------------------------------
+
+def _entry_linear(fields: Carried, _: int) -> ProgramSolve:
+    from scipy.optimize import linprog
+
+    cost, ub_mat, ub_rhs, eq_mat, eq_rhs, box = fields
+    return ProgramSolve(
+        linprog(
+            cost,
+            A_ub=ub_mat if ub_rhs.size else None,
+            b_ub=ub_rhs if ub_rhs.size else None,
+            A_eq=eq_mat if eq_rhs.size else None,
+            b_eq=eq_rhs if eq_rhs.size else None,
+            bounds=_bounds(box),
+            method="highs",
+        ),
+        None,
     )
-    return float(max(residual, default=0.0))
+
+
+def _entry_integer(fields: Carried, _: int) -> ProgramSolve:
+    from scipy.optimize import milp
+
+    cost, flags, box, constraints = fields
+    return ProgramSolve(milp(cost, integrality=flags, bounds=_bounds(box), constraints=list(constraints) or None), None)
+
+
+def _entry_stochastic(fields: Carried, seed: int) -> ProgramSolve:
+    objective_fn, box, method = fields  # the `GlobalMethod` policy carried on the case dispatches the engine
+    return ProgramSolve(method.solve(objective_fn, box, seed), None)
+
+
+def _entry_constrained(fields: Carried, _: int) -> ProgramSolve:
+    from scipy.optimize import minimize
+
+    objective_fn, start, box, constraints = fields
+    return ProgramSolve(minimize(objective_fn, start, method="trust-constr", bounds=_bounds(box), constraints=list(constraints)), None)
+
+
+def _entry_assignment(fields: Carried, _: int) -> ProgramSolve:
+    from scipy.optimize import linear_sum_assignment
+
+    (matrix,) = fields
+    return ProgramSolve(None, linear_sum_assignment(matrix))
+
+
+def _iterate_host(_: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]:
+    return np.asarray(outcome.result.x, dtype=float), float(outcome.result.fun)  # read only past SUCCESS
+
+
+def _iterate_assignment(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]:
+    (matrix,) = fields
+    rows, cols = outcome.assignment
+    selected = matrix[rows, cols]
+    return np.asarray(selected, dtype=float), float(selected.sum())
+
+
+def _carriers_linear(fields: Carried, _: ProgramSolve) -> tuple[object, ...]:
+    from scipy.optimize import LinearConstraint
+
+    _cost, ub_mat, ub_rhs, eq_mat, eq_rhs, _box = fields
+    return (
+        *(LinearConstraint(ub_mat, -np.inf, ub_rhs),) * bool(ub_rhs.size),
+        *(LinearConstraint(eq_mat, eq_rhs, eq_rhs),) * bool(eq_rhs.size),
+    )
+
+
+def _no_carriers(_: Carried, __: ProgramSolve) -> tuple[object, ...]:
+    return ()  # the global and assignment routes are unconstrained / feasible-by-construction
+
+
+def _fwd_carriers(fields: Carried, _: ProgramSolve) -> tuple[object, ...]:
+    return tuple(fields[-1])  # the integer/constrained routes carry their caller `LinearConstraint`/`NonlinearConstraint` tuple last
+
+
+def _project(intent: ProgramIntent) -> Carried:
+    match intent:
+        case ProgramIntent(tag="linear", linear=(c, a_ub, b_ub, a_eq, b_eq, bounds)):
+            return (
+                np.asarray(c, dtype=float),
+                np.atleast_2d(np.asarray(a_ub, dtype=float)), np.asarray(b_ub, dtype=float),
+                np.atleast_2d(np.asarray(a_eq, dtype=float)), np.asarray(b_eq, dtype=float),
+                np.asarray(bounds, dtype=float),
+            )
+        case ProgramIntent(tag="integer", integer=(c, integrality, bounds, constraints)):
+            return (np.asarray(c, dtype=float), np.asarray(integrality), np.asarray(bounds, dtype=float), constraints)
+        case ProgramIntent(tag="stochastic", stochastic=(objective_fn, bounds, method)):
+            return (objective_fn, np.asarray(bounds, dtype=float), method)
+        case ProgramIntent(tag="constrained", constrained=(objective_fn, x0, bounds, constraints)):
+            return (objective_fn, np.asarray(x0, dtype=float), np.asarray(bounds, dtype=float), constraints)
+        case ProgramIntent(tag="assignment", assignment=cost):
+            return (np.atleast_2d(np.asarray(cost, dtype=float)),)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+_PROGRAM_ROUTES: FrozenDict[str, ProgramRoute] = FrozenDict(
+    {
+        "linear": ProgramRoute(_entry_linear, _iterate_host, _carriers_linear, Termination.CODED, False),
+        "integer": ProgramRoute(_entry_integer, _iterate_host, _fwd_carriers, Termination.CODED, False),
+        "stochastic": ProgramRoute(_entry_stochastic, _iterate_host, _no_carriers, Termination.FLAGGED, True),
+        "constrained": ProgramRoute(_entry_constrained, _iterate_host, _fwd_carriers, Termination.FLAGGED, False),
+        "assignment": ProgramRoute(_entry_assignment, _iterate_assignment, _no_carriers, Termination.FEASIBLE, False),
+    }
+)
 ```
 
 ## [03]-[RESEARCH]
 
-- [SCIPY_OPTIMIZE]: the `scipy.optimize.linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)` (the catalogued signature threading both the inequality and equality blocks, each passed only when non-empty), `milp(c, integrality, bounds, constraints)`, `differential_evolution(func, bounds, strategy)` (driven through the SPEC-007 `rng` keyword for a reproducible global solve so the content key maps to a fixed result — `seed` is the deprecated interim alias `compute/.api/scipy.md` flags), `minimize(fun, x0, method, bounds, constraints)` on `method="trust-constr"` consuming the `LinearConstraint`/`NonlinearConstraint` carriers directly (the catalogued constraint-carrier route — line 208's `constraints route through Bounds, LinearConstraint, and NonlinearConstraint` — never a legacy `{"type": "ineq", "fun": ...}` dict lowering scipy already owns), and `linear_sum_assignment(cost_matrix)` spellings — with the `Bounds`/`LinearConstraint`/`NonlinearConstraint` constraint carriers and the `OptimizeResult.status`/`.success`/`.fun`/`.x` result fields — are fully catalogued in `compute/.api/scipy.md`'s `scipy.optimize` entrypoint table (`linprog`/`milp`/`differential_evolution`/`linear_sum_assignment`) and public-type table (`OptimizeResult` carrying the solution, success flag, and diagnostics), so the body verifies against the present catalogue directly. The `linprog`/`milp` `OptimizeResult.status` integer code — `0` optimal, `1` iteration/time limit, `2` infeasible, `3` unbounded, `4` numerical difficulty — is the documented HiGHS/MILP termination diagnostic the `_PROGRAM_STATUS` table reads; `differential_evolution`/`minimize` surface the boolean `.success` rather than that uniform code, so those routes adjudicate through the `.success` branch of the same fold. The spellings carry the `python_version<'3.15'` scipy marker and settle against the installed wheel under a uv-sync reflection pass on that gated band; this owner carries no numpy floor because `scipy.optimize` is the gated capability itself, so a cp315 run without the scipy wheel returns `Error(Import)` for every route — the deliberate floor asymmetry against `design.md` and `solvers/nonlinear.md#NONLINEAR`.
-- [PROGRAM_STATUS]: `_program_status` folds the host `OptimizeResult` termination into the `SolveStatus` `StrEnum` `solvers/receipt.md#RECEIPT` owns — the `linprog`/`milp` integer `.status` through the `_PROGRAM_STATUS` boundary table (`0`→`SUCCESS`, `1`→`MAX_STEPS` iteration/time limit, `2`→`INFEASIBLE`, `3`→`UNBOUNDED`, `4`→`ILL_CONDITIONED` numerical), reading the two feasibility-verdict members `solvers/receipt.md#RECEIPT` carries for exactly this discrete/constrained case rather than collapsing an infeasible LP onto an iterative `BREAKDOWN` or an unbounded LP onto a `DIVERGENCE`, and the `differential_evolution`/`minimize` `.success` flag through `SUCCESS`/`STAGNATION` — so the math-program feasibility verdict speaks the one vocabulary every solver route and the graduation gate read, never a parallel program-status enum. The `program` case of `OutcomeReceipt` carries this `SolveStatus`, and the `success` contract survives as the derived predicate `status is SolveStatus.SUCCESS` in `OutcomeReceipt.contribute` — the host receipt collapse that retires the lone `bool success` field while preserving the typed feasibility receipt as the `program` case projection. The fold lives at this boundary so `solvers/receipt.md#RECEIPT` stays the vocabulary owner and the `program` case stays one of the two `OutcomeReceipt` verdicts (`optimization/design.md#DESIGN`), whose `program` tuple is `(str, float, SolveStatus, float, ContentKey)` carrying the status in the third slot the prior `bool` held.
-- [PROGRAM_CONTENT_KEY]: `_program_key` derives the `ContentKey` over the canonical contiguous problem-data buffer (the concatenated `tobytes()` of the cost vector, the inequality and equality constraint blocks, integrality, or cost matrix — empty blocks contribute nothing through the `field.size` guard so a pure-inequality and a mixed LP key distinctly only when the equality block is populated) through `ContentIdentity.of("program.<tag>", ...)` under the runtime `IdentityPolicy`, so a program whose data admits through `numerics/array.md#PAYLOAD` keys under the same `ContentIdentity` seed algebra and a repeated solve on identical data is a cache hit by reference. The objective callables of the `Global` and `Constrained` cases are excluded from the key buffer — only the array-shaped problem data seeds identity, matching the payload admission's host-transfer buffer; the `Global` route's `seed` makes the keyed `differential_evolution` solve reproducible so the cache hit returns the same global iterate.
+- [SCIPY_OPTIMIZE]: the `scipy.optimize.linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)` (threading both the inequality and equality blocks, each passed only when non-empty), `milp(c, integrality, bounds, constraints)`, the global-search family the `GlobalMethod` policy folds — `differential_evolution(func, bounds, *, rng, workers, polish, strategy)` (the SPEC-007 `rng` keyword for a reproducible global solve so the content key maps to a fixed result — `seed` is the deprecated interim alias `compute/.api/scipy.md` flags — plus the `workers`/`polish`/`strategy` advanced surface), `dual_annealing(func, bounds, *, rng)`, `shgo(func, bounds)`, and `direct(func, bounds)` (the `[12]` global-optimize entry family; `shgo`/`direct` are deterministic and carry no `rng`) — `minimize(fun, x0, method, bounds, constraints)` on `method="trust-constr"` consuming the `LinearConstraint`/`NonlinearConstraint` carriers directly (the `[IMPLEMENTATION_LAW]` `optimization` row records `constraints route through Bounds, LinearConstraint, and NonlinearConstraint`, never a legacy `{"type": "ineq", "fun": ...}` dict lowering), and `linear_sum_assignment(cost_matrix)` spellings — with the `Bounds`/`LinearConstraint`/`NonlinearConstraint` carriers and the `OptimizeResult.status`/`.success`/`.fun`/`.x` fields — are catalogued in `compute/.api/scipy.md`'s `scipy.optimize` entrypoint table and public-type table, so each `_PROGRAM_ROUTES` row's `entry` and each `GlobalMethod.solve` arm verifies against the present catalogue. The one `Bounds` carrier `_bounds` reifies (returning `None` on an empty box) is the single bounds form `linprog`, `milp`, and `minimize` all accept, so the three constrained routes never carry a per-entry `(lo, hi)`-pair-versus-`Bounds` split. The `linprog`/`milp` integer code — `0` optimal, `1` iteration/time limit, `2` infeasible, `3` unbounded, `4` numerical — is the documented HiGHS/MILP diagnostic `Termination.CODED` reads; every global-search engine and `minimize` surface the boolean `.success` `FLAGGED` reads; `linear_sum_assignment` carries no result object, so `FEASIBLE` folds `SUCCESS` over a `None` result. The spellings carry the `python_version<'3.15'` scipy marker and settle against the installed wheel under a uv-sync reflection pass on that gated band; this owner carries no numpy floor because `scipy.optimize` is the gated capability itself.
+- [PROGRAM_STATUS]: `Termination.adjudicate(result)` folds the host `OptimizeResult` termination into the `SolveStatus` `StrEnum` `solvers/receipt.md#RECEIPT` owns through one total `match`/`assert_never` over a typed `OptimizeResult | None`. `CODED` maps the `linprog`/`milp` integer `.status` through `_PROGRAM_STATUS` (`0`→`SUCCESS`, `1`→`MAX_STEPS`, `2`→`INFEASIBLE`, `3`→`UNBOUNDED`, `4`→`ILL_CONDITIONED`), reading the two feasibility-verdict members `solvers/receipt.md#RECEIPT` carries for exactly this discrete/constrained case rather than collapsing an infeasible LP onto an iterative `BREAKDOWN` or an unbounded LP onto a `DIVERGENCE`; `FLAGGED` maps the boolean `.success` flag every global-search engine (`differential_evolution`/`dual_annealing`/`shgo`/`direct`) and `minimize` surface through `SUCCESS`/`STAGNATION`; `FEASIBLE` folds `SUCCESS` for the assignment route. The `Termination` `StrEnum` is a static `ProgramRoute.termination` cell adjudicated by `_program_receipt`, never reconstructed inside a `solve` body — and never the prior `_program_status(result: object, *, coded: bool)` whose boolean knob branched the body and whose bare-`object` parameter read a phantom `.status`/`.success`, and never a three-`None`-case union spending a tag declaration on a member-free dispatch a `StrEnum` carries denser. The `program` case of `OutcomeReceipt` carries this `SolveStatus`, the success contract surviving as the derived `status is SolveStatus.SUCCESS` predicate. The `program` tuple is `(str, float, SolveStatus, float, ContentKey)` carrying the status in the third slot the prior `bool` held.
+- [PROGRAM_VIOLATION]: `_violation` reduces the maximum constraint residual through one typed `match` over the scipy carrier classes — a `LinearConstraint()` arm contracting `con.A @ x`, a `NonlinearConstraint()` arm evaluating `con.fun(x)`, both folding the `max(0, lb − Ax, Ax − ub)` excess through `np.maximum`, never a `hasattr(con, "A")` reflective probe. Every route feeds the fold through its `ProgramRoute.carriers` reifier: the `linear` row reifies its `(A_ub, b_ub)`/`(A_eq, b_eq)` blocks into `LinearConstraint` carriers, the `integer`/`constrained` rows forward their caller carrier tuple, and the `stochastic`/`assignment` rows carry none — so a route's violation inputs are a declarative cell on its row, and an infeasible solve where `x.size` is zero folds to `inf`.
+- [PROGRAM_CONTENT_KEY]: `_program_key` derives the railed `RuntimeRail[ContentKey]` over the canonical contiguous problem-data buffer (the concatenated `tobytes()` of the cost vector, the inequality and equality constraint blocks, integrality, or cost matrix — non-array `Carried` slots and empty blocks contribute nothing through the `isinstance(f, np.ndarray) and f.size` guard, so a pure-inequality and a mixed LP key distinctly only when the equality block is populated) through `ContentIdentity.of(fmt, buffer, IdentityPolicy())`, whose `view="value"` default returns `RuntimeRail[ContentKey]`. The `fmt` discriminant folds the `rng` seed plus the `_engine_tag` `GlobalMethod` discriminant (`f"program.{tag}.{seed}.{engine}"`) for a `ProgramRoute.seeded` route and stays seed-free (`f"program.{tag}"`) otherwise: the `Global` route's iterate is BOTH seed- and engine-dependent, so two `differential_evolution` runs at distinct seeds, and a DE-vs-`dual_annealing`-vs-`direct` solve on identical data and seed, MUST key distinctly or a cache hit returns the wrong global iterate — `_engine_tag` folds the engine tag and the DE `strategy` (which alters the mutation walk) into the seed suffix and returns `""` off the deterministic LP/MILP/`trust-constr`/assignment routes that ignore both arguments, so a re-solve on identical data is a cache hit regardless. The fold threads that rail through `Result.map` into `OutcomeReceipt.Program` rather than treating the result as a bare `ContentKey`, so a digest fault propagates on the one rail and `solve` joins it under `.bind`. A program whose data admits through `numerics/array.md#PAYLOAD` keys under the same `ContentIdentity` seed algebra; the objective callable and the `GlobalMethod` policy ride the `Carried` projection but never seed the data buffer (the engine folds into `fmt`, not the bytes), and the seeded global cache key reproduces the same global iterate per `(data, seed, engine)` triple.

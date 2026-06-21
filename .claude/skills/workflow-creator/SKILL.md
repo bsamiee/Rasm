@@ -44,26 +44,11 @@ is in `scripts/`.
 
 ## Step 0 — Confirm the Workflow tool is available
 
-A workflow can only **run** if the Workflow tool is enabled. It is **off by
-default**, gated behind an environment variable. You can always *write* the file,
-but check this so you can tell the user the truth about running it:
-
-```bash
-echo "${CLAUDE_CODE_WORKFLOWS:-<not set>}"
-```
-
-If it is not set, the workflow file is still worth writing — but tell the user
-they must enable the tool before it will run, either of:
-
-```bash
-# per session
-export CLAUDE_CODE_WORKFLOWS=1 && claude
-```
-
-```jsonc
-// or persistently, in .claude/settings.local.json
-{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
-```
+The Workflow tool is **enabled by default** in current Claude Code (verified on
+v2.1.185: `CLAUDE_CODE_WORKFLOWS` unset, workflows run regardless). Earlier builds
+gated it behind a `CLAUDE_CODE_WORKFLOWS=1` opt-in — historical, no longer needed.
+You can always *write* a workflow file; if one will not *run*, confirm the Claude
+Code version is current rather than exporting the old variable.
 
 Workflow files live in `.claude/workflows/<name>.js` (project-local) or
 `~/.claude/workflows/<name>.js` (global). The filename is not the workflow name —
@@ -104,6 +89,14 @@ Before writing a line of code, answer these. The answers pick the topology for y
 4. **Does any later step need *all* the earlier results at once** — to dedup,
    merge, count, or early-exit on a zero total? If yes, you need a **barrier**.
    If no, you do not — and you should prefer `pipeline`.
+4b. **Does any unit DEFER work it cannot do alone** (cross-item, cross-file,
+   "report and move on")? If yes, a fan-out is not enough — add a terminal
+   **reconcile** stage that consumes the collected deferrals, or they reach the
+   conversation and nothing acts on them. Structure each deferral as DATA whose
+   resource slot is a LIST (`{files: string[], claim}`) so a deferral spanning two
+   files names BOTH — that is what lets you cluster deferrals by shared resource in
+   plain JS, then fix-and-verify each cluster (pattern #10). A single-resource slot
+   can only group same-resource items and silently cannot express a cross-item seam.
 5. **Does a step need structured data back** (not free text)? Then that
    `agent()` call needs a `schema`.
 
@@ -211,6 +204,13 @@ to `'haiku'`; leave judgement-heavy work on the inherited model. Two cautions:
   for the permission dialog only. The model is set *solely* by the `model` opt on
   the `agent()` call. For a Haiku phase, set `model` in *both* places: the phase
   entry (honest dialog) and every `agent()` call in it (actual effect).
+
+**Reasoning effort — `agent(prompt, { effort })`.** Sets the reasoning-effort tier
+for that call — `'low'` | `'high'` | `'xhigh'` | `'max'` (mirrors `/effort`). Match
+it to the stage's role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial
+judgment; `'low'` for mechanical discovery/classification leaf work. It is
+independent of `model` (tier the *reasoning*, not the model) and is **not** part of
+the resume cache key, so changing `effort` alone never re-runs a cached call.
 
 **Structured output — `agent(prompt, { schema })`.** Without `schema` you get the
 agent's final text as a **string**. Pass a JSON Schema and the agent is *forced*

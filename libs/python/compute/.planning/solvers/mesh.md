@@ -1,37 +1,134 @@
 # [PY_COMPUTE_MESH]
 
-The one simulation mesh-and-field interchange and weak-form assembly owner beside the FEM solver route. `MeshField` carries the mesh topology, the per-node and per-cell field arrays, and the reusable `assemble` that lowers a weak form to the sparse stiffness/load pair the `solvers/quadrature.md#QUADRATURE` FEM route and a Diffrax field problem both consume, never re-owning the solve. `MeshExchange` reads and writes the mesh-and-field through the meshio format registry. The assembly composes the scikit-fem `Basis`/`asm` pair over the same `ElementKind` axis the quadrature route discriminates; the solve stays on the quadrature owner, so the FEM page consumes the assembled pair rather than the reverse. `meshio` resolves on the cp315 core; `scikit-fem` rides the gated FEM `python_version<'3.15'` band.
+The one simulation mesh-and-field interchange and weak-form assembly owner beside the FEM solver route. The owner holds assembly and interchange only — never the solve, never a parallel mesh container beside the meshio `Mesh`.
+
+`MeshField` is the frozen topology-and-field value object carrying the `points` node coordinates, the `cells` connectivity for its `ElementKind`, the per-node `node_fields` and per-cell `cell_fields` array maps, the `node_sets`/`cell_sets` named physical groups, the `field_data` format metadata, and the `content_key` over the canonical mesh-and-field buffer through `ContentIdentity`.
+
+`MeshExchange` is the ONE `@tagged_union` operation owner discriminating the three transforms a discretized mesh-and-field admits: `assemble` lowers a `FemForm` weak form to the sparse `(stiffness, load, dirichlet_dofs)` pair through the scikit-fem `Basis`/`asm` fold, `read` parses any meshio-registry format into a `MeshField` recovering its physical groups, and `write` serializes a `MeshField` back through the meshio format dispatch promoting its physical groups.
+
+Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operation and whose per-case payload shape, `.status` read, accessor projection, and observability row are all driven by one `_SLOTS` field-name table — exactly as `solvers/field.md#FIELD` `FieldReceipt` and `solvers/receipt.md#RECEIPT` `SolverReceipt` drive their cases, each terminating in the shared `SolveStatus` verdict the `solvers/receipt.md#RECEIPT` floor adjudicates. The three `@classmethod` factories returning `Self` are the canonical constructors, and receipt emission rides the runtime `@receipted` aspect every solver route wears.
+
+`meshio` is pure-Python and cp315-clean, so the `read`/`write` interchange runs unconditionally as a top-level import; `scikit-fem` carries no cp315 wheel, so the `assemble` fold rides the gated `python_version<'3.15'` band behind the boundary.
 
 ## [01]-[INDEX]
 
-- [01]-[MESH_FIELD]: the mesh topology, the per-node/per-cell field arrays, and the assemble fold
-- [02]-[INTERCHANGE]: the meshio read/write mesh-and-field file interchange
+- [01]-[MESH_FIELD]: the frozen mesh-and-field value object, the one `_CTOR` `(Mesh*, Element*, cell-type)` triple table shared with the assemble/solve/readout routes, and the `ContentIdentity` `stream`-modality content key over its array buffers.
+- [02]-[EXCHANGE]: the `assemble`/`read`/`write` operations on one `MeshExchange` `@tagged_union`, the scikit-fem weak-form lowering, the meshio registry round-trip with physical-group transfer, and the `_SLOTS`-driven `MeshReceipt` folded through the shared `SolveStatus` floor under `@receipted`.
 
 ## [02]-[MESH_FIELD]
 
-- Owner: `MeshField` — the mesh-and-field interchange carrying the `points` node coordinates, the `cells` per-block connectivity keyed by `ElementKind`, the per-node `node_fields` and per-cell `cell_fields` array maps, and the content key over the canonical mesh-and-field buffer. `assemble(form)` lowers a `WeakForm` to the sparse `(stiffness, load)` pair through the scikit-fem `Basis`/`asm` fold over the element the `ElementKind` selects; the pair is the artifact the FEM solve and the field problem consume. The owner holds assembly and interchange only — never the solve, never a parallel mesh container beside the meshio `Mesh`.
-- Element axis: `ElementKind` and the `_ELEMENT_CTOR` skfem-constructor table both live on the quadrature owner (`solvers/quadrature.md#QUADRATURE`) and are imported here, never redeclared — so a `MeshField` assembled for `ElementKind.TRI_P1` resolves the same `getattr(skfem, _ELEMENT_CTOR[ElementKind.TRI_P1])()` constructor the quadrature solve reads, and a new element is one shared row both routes pick up; `FemForm` carries the bilinear and linear integrand thunks and the boundary-facet Dirichlet condition, so the assemble and the solve never diverge on the element family or the weak-form shape.
-- Entry: `MeshField.assemble` enters one `boundary("mesh.assemble", ...)` returning `RuntimeRail[AssembledSystem]`; it builds the `skfem.Basis` over the element, runs `skfem.asm(form.bilinear, basis)` for the stiffness and `skfem.asm(form.linear, basis)` for the load, and folds them into `AssembledSystem` carrying the sparse stiffness, the load vector, the Dirichlet dof indices from `basis.get_dofs`, and the dof count. The FEM solve route reads `AssembledSystem` and condenses-and-solves; the differential route reads the stiffness as a stationary field operator.
-- Receipt: `AssembledSystem.contribute` emits one `Receipt.of("emitted", ...)` row carrying the element kind, the dof count, and the content key; a discretized field assembled once feeds the stiffness solve, the transient integration, and the study spine, each reading the same pair.
-- Packages: `skfem` (`Basis`, `asm`, the `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` constructors resolved by name through the imported `_ELEMENT_CTOR` table, `BilinearForm`, `LinearForm`, `MeshLine1`, `MeshTri1`, `MeshTet1`, `MeshQuad1`, `MeshHex1`), `meshio` (`Mesh`, `CellBlock`, `read`, `write`), `numpy` (`asarray`, `ascontiguousarray`, `concatenate`), `solvers/quadrature.md#QUADRATURE` (`ElementKind`, `FemForm`, `_ELEMENT_CTOR` — the shared element enum, weak-form axis, and the single element-constructor table the solve and the assemble both read), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
-- Growth: a new element is one `ElementKind` row shared with the quadrature route; a new field array is one entry in `node_fields` or `cell_fields`; a new assembled artifact is one field on `AssembledSystem`; zero new surface, never a parallel mesh container beside the meshio `Mesh` and never a solve on this owner.
-- Boundary: assembly and interchange only — the mesh topology, the per-node/per-cell field arrays, the weak-form lowering, and the meshio file round-trip are in-scope; the solve stays on `solvers/quadrature.md#QUADRATURE` and the transient integration on `solvers/differential.md#DIFFERENTIAL`, so the FEM page consumes `MeshField` rather than the reverse. `meshio` is pure-Python and cp315-clean, so the interchange runs unconditionally; `scikit-fem` carries no cp315 wheel, so the `assemble` fold is authored against the documented `skfem` API on the gated band. A solve on this owner, a hand-rolled assembly loop where `BilinearForm`/`LinearForm`/`asm` own the concern, and a parallel per-format mesh container beside the meshio `Mesh` are the deleted forms; the mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
+- Owner: `MeshField` — the `msgspec.Struct(frozen=True)` mesh-and-field value object carrying the source `ElementKind`, the `points` node coordinates, the `cells` connectivity for that element, the per-node `node_fields` and per-cell `cell_fields` array maps, the `node_sets`/`cell_sets` named physical groups and `field_data` format metadata the meshio `*_sets`/`field_data` surface owns, and `content_key` the `ContentKey` over the canonical mesh-and-field buffer; it carries no `gc=False` because the record holds tracked `ndarray`/`dict` containers, so the leaf-only GC opt-out the `runtime/evidence/identity.md#IDENTITY` `ContentKey` scalar value object takes does not apply here. The topology is the artifact the assemble fold reads, the readout (`solvers/field.md#FIELD`) consumes, and the interchange round-trips with its physical groups intact; it never assembles, never solves, and never stands up a parallel per-format mesh shape beside the meshio `Mesh`.
+- Element axis: `_CTOR` is the ONE `FrozenDict[ElementKind, tuple[str, str, str]]` row table keying each `ElementKind` to its `(Mesh*-constructor, Element*-constructor, meshio-cell-type)` triple — `MeshLine1`/`ElementLineP1`/`line`, `MeshTri1`/`ElementTriP1`/`triangle`, `MeshTet1`/`ElementTetP1`/`tetra`, `MeshQuad1`/`ElementQuad1`/`quad`, `MeshHex1`/`ElementHex1`/`hexahedron`, and the P2 rows sharing the affine `Mesh*1`/`triangle`/`tetra` spellings with the quadratic `Element*P2` — so the assemble fold, the FEM solve (`solvers/quadrature.md#QUADRATURE`), the field readout (`solvers/field.md#FIELD`), and the meshio cell-type mapping all resolve through ONE table rather than the three parallel `_ELEMENT_CTOR`/`_MESH_CTOR`/`_CELL_TYPE` maps the prior page split. `ElementKind` and `FemForm` are imported from `solvers/quadrature.md#QUADRATURE`, never redeclared; a new element is one `_CTOR` row read by every route. The mesh- and element-constructor spellings resolve through `getattr(skfem, ...)` at assemble time behind the gated import; the cell-type string is cp315-clean and the `read`/`write` paths read it directly.
+- Content key: `MeshField.content_key` is a stored `ContentKey` field minted once through the `_field` single-pass fold — the `points`, `cells`, each `node_fields`/`cell_fields` array, and each `node_sets`/`cell_sets` physical-group array cross as `ascontiguousarray(...).tobytes()` buffers so the `Source`-alias `Iterable[bytes]` keys the `stream` modality's order-sensitive stateful-updater fold the `runtime/evidence/identity.md#IDENTITY` owner mints, never a hand-rolled `b"\x00".join(tobytes())` concatenation that re-implements the digest. It is a stored field, NOT a `@property`, because `ContentIdentity.of` returns `RuntimeRail[ContentKey]` over the fallible canonical-derive seam, so `_field` is a `@railed` `effect.result` mint that `yield from`-binds the key off the rail before the construct — a canonical-encode fault propagates on the one `RuntimeRail` the `_dispatch` chain returns, never a `@property` masquerading as a pure attribute read, a `RuntimeRail` bound straight into the `ContentKey` field, or a `match`/`raise` re-raise through a phantom `BoundaryFault.as_exception`. Identical bytes at identical `IdentityPolicy` settings key identically, feeding the reuse-fabric cache the `execution/lanes.md#LANE` `Map[ContentKey, T]` keys.
+- Growth: a new element is one `_CTOR` row shared with the quadrature/field routes; a new field array is one entry in `node_fields` or `cell_fields` and a new physical group one entry in `node_sets` or `cell_sets`, automatically folded into the content key by the `_field` buffer fold; zero new surface, never a parallel mesh container beside the meshio `Mesh`, never a solve on this owner, never a parallel element-spelling map beside `_CTOR`, never a write-only physical-group promotion lacking the inbound recovery.
+- Boundary: topology and field carry only — the node coordinates, the per-block connectivity, the per-node/per-cell field arrays, and the content key are in-scope; the assemble and interchange operations live on `MeshExchange`, the solve on `solvers/quadrature.md#QUADRATURE`, and the transient integration on `solvers/differential.md#DIFFERENTIAL`. A solve on this owner, a hand-rolled content digest where `ContentIdentity`/`IdentitySource` own the concern, three parallel `_ELEMENT_CTOR`/`_MESH_CTOR`/`_CELL_TYPE` maps where one `_CTOR` triple carries every spelling, and a parallel per-format mesh container beside the meshio `Mesh` are the deleted forms; the mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
+
+## [03]-[EXCHANGE]
+
+- Owner: `MeshExchange` — the ONE `@tagged_union(frozen=True)` operation owner discriminating `assemble` (a `MeshField` plus a `FemForm` weak form → the sparse `(stiffness, load, dirichlet_dofs)` system through the scikit-fem `Basis`/`asm` fold), `read` (a `Path` plus an `ElementKind` plus an optional `file_format` disambiguator → a `MeshField` projected off the meshio `Mesh`), and `write` (a `MeshField` plus a `Path` plus an optional `file_format` → the meshio serialize), exactly as `solvers/quadrature.md#QUADRATURE` `QuadratureIntent` and `solvers/field.md#FIELD` `FieldQuery` discriminate their operations on one owner rather than a free `MeshField.assemble` method beside a `read`/`write` static-method pair. The three `@staticmethod` constructors `Assemble`/`Read`/`Write` are the canonical tagged-union entries; the meshio `Mesh` is the canonical container the `read`/`write` cases project through, never a parallel per-format shape.
+- Assembled artifact: `AssembledSystem` is the `msgspec.Struct(frozen=True)` artifact the `assemble` case lowers — carrying the source `ElementKind`, the `scipy.sparse` `stiffness` matrix typed `object` at the cp315 band boundary exactly as `solvers/linear.md#LINEAR` `LinearMap.SparseMat(matrix: object, ...)` carries its container, the `load` vector, the `dirichlet_dofs` index array from `basis.get_dofs`, the `dof_count` off `basis.N`, and the `content_key` over the assembled buffers — the system the `solvers/quadrature.md#QUADRATURE` FEM route condenses-and-solves through `skfem.condense`/`skfem.solve`, the single consumer of this artifact. The assemble runs the gated body: it resolves the `(mesh_ctor, element_ctor, _)` triple off `_CTOR`, builds `getattr(skfem, mesh_ctor)(points.T, cells.T)` over the `(dim, n)`/`(verts, n_elem)` node-major/element-major layout `skfem` stores `mesh.p`/`mesh.t` in, constructs `getattr(skfem, element_ctor)()`, folds the bilinear integrand through `skfem.asm(form.bilinear, basis)` for the stiffness and the linear integrand through `skfem.asm(form.linear, basis)` for the load, and reads the Dirichlet dofs through `basis.get_dofs(form.boundary_facets)` — the single polymorphic skfem DOF selector, never a parallel `get_boundary_dofs` family. The FEM solve reads `AssembledSystem` and never re-runs the assemble.
+- Interchange: the `read` case calls `meshio.read(str(path), file_format)` — passing the optional `file_format` through to disambiguate the ambiguous `.msh`/`.dat` extensions the catalogue flags, `None` triggering extension detection — and projects the meshio `Mesh` onto a `MeshField`: the `points` onto the node coordinates, the `cells_dict[cell_type]` merged connectivity (the `_CTOR[element]` cell-type string) onto the FEM-facing topology, the `point_data` onto `node_fields`, the per-block `cell_data` first-block array onto `cell_fields`, and the FULL physical-group surface onto `node_sets`/`cell_sets`/`field_data`. The read first inverts any integer-label field a Gmsh/VTK source wrote through `mesh.cell_data_to_sets(column)`/`mesh.point_data_to_sets(column)` so a region tag that crossed as an integer column recovers into named sets rather than being dropped, the inverse of the write promotion. The `write` case builds `meshio.Mesh(points, [meshio.CellBlock(cell_type, cells)], point_data=..., cell_data=..., field_data=..., point_sets=..., cell_sets=...)` — the `cell_data` field arrays and the `cell_sets` index arrays each wrapped in the single-element per-block list the meshio block-parallel contract mandates — then promotes the named groups through `mesh.cell_sets_to_data()`/`mesh.point_sets_to_data()` so a Gmsh/VTK round-trip carries the region tags through formats that only support integer labels, and calls `meshio.write(str(path), mesh, file_format)` with extension-driven or explicit format detection. A hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` array dropping the block-parallel list, and a write-only `cell_sets_to_data` that promotes physical groups outbound but never recovers them on read are the deleted forms; meshio owns the ~40-format registry and this owner composes its full `Mesh` surface.
+- Entry: `MeshExchange.run` enters one `boundary(f"mesh.{self.tag}", lambda: _dispatch(self)).bind(lambda rail: rail)` returning `RuntimeRail[MeshReceipt]`, joining the inner `_dispatch` rail without double-wrapping — the rail-join shape `numerics/array.md#PAYLOAD` `ArrayPayload.admit` and `optimization/design.md#DESIGN` `DesignProblem.solve` hold. `_dispatch` is the `@railed` `effect.result` chain whose `match` dispatches the three cases through total `assert_never` exhaustion: the assemble arm folds the assembled system into the `assembled` case, the read arm `yield from`-binds `_read`'s `RuntimeRail[MeshField]` and folds the projected node/cell counts into the `read` case, and the write arm the serialized byte length and format into the `written` case. The `assemble` and `write` arms hold no fallible derive and reuse the `field.content_key` the mesh owner already minted; only the `read` arm threads the `_field` `ContentIdentity.of` rail, so no case re-digests a buffer it already holds a key for and a canonical-encode fault rides the one rail rather than a `match`/`raise` re-raise. Each arm folds into the `@receipted(_REDACTION)` `_emit` kernel that returns the `MeshReceipt` contributor and emits its harvested stream on exit, so receipt production is a decorator rail rather than an inline `Signals.emit` — `@receipted` decorates the pure builder that returns the contributor, never the receipt's own `contribute`, exactly as the runtime owner declares. The meshio `ReadError`/`WriteError` and the skfem assembly exceptions convert exactly once at the `boundary` fence into the `BoundaryFault` rail through the `runtime/reliability/faults.md#FAULT` `CLASSIFY` fold, so a malformed input or an unsupported cell type is a typed rail rather than a raised exception in domain flow.
+- Receipt: `MeshReceipt` is the ONE `@tagged_union(frozen=True)` receipt whose `Literal` `tag` IS the operation, read directly through `.tag`. The per-case payload shapes are NOT hand-spelled: one `_SLOTS` table names each operation's payload field sequence — `assembled → (key, element, dof_count, dirichlet_count, residual, status)`, `read → (key, element, point_count, cell_count, status)`, `written → (key, fmt, byte_count, status)` — with `key` the common leading slot and `status` the common trailing slot, exactly as `solvers/receipt.md#RECEIPT` `_SLOTS` drives `SolverReceipt`. That single table drives the structural shape, the `.status` trailing-slot read through one `case (*_, status)` pattern closed by `assert_never`, every named accessor (`.content_key`/`.element` read off `.facts`, never parallel `getattr(self, self.tag)[N]` properties), and the `.facts` projection through `zip(_SLOTS[self.tag], payload, strict=True)` — so the table and the case tuples cannot drift. The three `@classmethod` factories `Assembled`/`Read`/`Written` return `Self`, binding the subtype once rather than a `@staticmethod`-plus-`"MeshReceipt"`-forward-ref re-spelled three times, exactly as `solvers/receipt.md#RECEIPT` `SolverReceipt` and `solvers/field.md#FIELD` `FieldReceipt` do; each folds its extent or residual through the shared `_status(None, value, _TOL[op])` floor imported from `solvers/receipt.md#RECEIPT`, the same cross-module private import `solvers/field.md#FIELD` uses, so the mesh receipt reuses the one termination vocabulary every solver route folds into. `MeshReceipt.contribute` implements the runtime `ReceiptContributor` port structurally, returning the one-element `Iterable[Receipt]` the port declares — `(Receipt.of("compute.mesh", ("emitted", subject, facts)),)` — through the runtime two-argument `(owner, (phase, subject, facts))` contract, never the four-positional form the runtime owner deletes and never a bare `Receipt` against the `Iterable[Receipt]` port the siblings yield a one-element tuple for; the row carries the operation tag, the derived `converged` flag, and the spread of `.facts` riding as native `float`/`int` scalars through the runtime `Signals` `msgspec` encoder, never a `str()` coerce, keyed by the content key. `contribute` itself carries NO `@receipted` decorator — the aspect wraps the `_emit` builder that returns the contributor, exactly as `solvers/receipt.md#RECEIPT` `SolverReceipt.contribute` stays an undecorated port method.
+- Packages: `skfem` (`Basis`, `asm`, the `MeshLine1`/`MeshTri1`/`MeshTet1`/`MeshQuad1`/`MeshHex1` and `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` constructors resolved by name through `_CTOR`, `BilinearForm`/`LinearForm` the integrand arities the `FemForm` thunks carry, `basis.get_dofs` the polymorphic DOF selector, `basis.N` the dof count), `meshio` (`read`, `write`, `Mesh`, `CellBlock`, `Mesh.points`/`cells_dict`/`point_data`/`cell_data`/`point_sets`/`cell_sets`/`field_data` the container surface, `cell_sets_to_data`/`point_sets_to_data`/`cell_data_to_sets`/`point_data_to_sets` the physical-group promoter/inverter family closing the read-recover/write-promote round-trip, `ReadError`/`WriteError` the boundary-folded failures), `numpy` (`asarray`, `ascontiguousarray`, `linalg.norm` the residual fold), `expression` (`tag`, `case`, `tagged_union`, `Map.empty` the empty `_REDACTION` classification map), `solvers/quadrature.md#QUADRATURE` (`ElementKind`, `FemForm` — the shared element enum and weak-form axis the assemble reads, the solve route consuming `AssembledSystem` back), `solvers/receipt.md#RECEIPT` (`SolveStatus`, `_status` — the shared termination vocabulary and residual-floor verdict), runtime (`RuntimeRail`, `boundary`, `railed` the bound `effect.result` builder the `_dispatch`/`_field` chains thread, the `@receipted`/`Redaction` aspect pair, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor` the contributor port, `Signals` the encoder the facts ride — referenced as the egress contract the aspect drives, not imported directly).
+- Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case plus one `_SLOTS` row sharing the `_CTOR` resolution and the status floor; a new element is one `_CTOR` row shared with every route; a new assembled artifact field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member shared with every solver route; zero new surface, never a parallel mesh container, never a solve on this owner, never a per-operation factory plus per-operation fact dict beside the `_SLOTS` projection.
+- Boundary: assembly and interchange only — the weak-form lowering, the meshio file round-trip, and the physical-group transfer are in-scope; the solve stays on `solvers/quadrature.md#QUADRATURE` and the transient integration on `solvers/differential.md#DIFFERENTIAL`, so the FEM page consumes `AssembledSystem` rather than the reverse. `meshio` is cp315-clean so the `read`/`write` cases run unconditionally; `scikit-fem` carries no cp315 wheel so the `assemble` fold rides the gated band against the documented `skfem` API. A solve on this owner, a hand-rolled assembly loop where `BilinearForm`/`LinearForm`/`asm` own the concern, a hand-rolled format parser where meshio owns the registry, a flat receipt with a stringly `operation` field and hand-spelled per-case accessors beside the `_SLOTS` projection, a `@staticmethod`-plus-`"MeshReceipt"`-forward-ref factory where the `@classmethod`-plus-`Self` form binds the subtype once, an inline `Signals.emit` where `@receipted` aspects the egress, a `str()`-coerced fact where the runtime encoder carries native scalars, a four-positional `Receipt.of("emitted", owner, subject, facts)` against the two-argument contract, a `match ContentIdentity.of(...)`/`raise fault.as_exception()` re-raise through a phantom `BoundaryFault` exception bridge where the `railed` `yield from`-bind threads the canonical-encode fault onto the one rail, and a parallel per-format mesh container beside the meshio `Mesh` are the deleted forms; the mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
 
 ```python signature
-from typing import TYPE_CHECKING
+# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Literal, Self, assert_never
 
+import meshio  # cp315-clean pure-Python; unconditional top-level, never deferred behind TYPE_CHECKING
 import numpy as np
+from beartype import FrozenDict
+from expression import case, tag, tagged_union
+from expression.collections import Map
 from msgspec import Struct
 
-from rasm.compute.solvers.quadrature import _ELEMENT_CTOR, ElementKind, FemForm
+from rasm.compute.solvers.quadrature import ElementKind, FemForm
+from rasm.compute.solvers.receipt import SolveStatus, _status
 from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
-
-if TYPE_CHECKING:
-    import meshio
+from rasm.runtime.faults import RuntimeRail, boundary, railed
+from rasm.runtime.receipts import Receipt, Redaction, receipted
 
 
+# --- [TYPES] -------------------------------------------------------------------------------
+
+type MeshOp = Literal["assembled", "read", "written"]
+
+
+# --- [CONSTANTS] ---------------------------------------------------------------------------
+
+# ElementKind -> (Mesh*-constructor, Element*-constructor, meshio-cell-type) triple, the ONE
+# element-spelling table the assemble fold, the FEM solve, the field readout, and the meshio
+# round-trip all resolve through — collapsing the prior parallel _ELEMENT_CTOR/_MESH_CTOR/_CELL_TYPE
+# maps. The Mesh*/Element* names resolve through getattr(skfem, ...) behind the gated import; the
+# cell-type string is cp315-clean and the read/write cases read it directly. P2 rows share the
+# affine Mesh*1 geometry and the cell-type string with their P1 sibling, varying only the Element*.
+_CTOR: FrozenDict[ElementKind, tuple[str, str, str]] = FrozenDict(
+    {
+        ElementKind.P1: ("MeshLine1", "ElementLineP1", "line"),
+        ElementKind.P2: ("MeshLine1", "ElementLineP2", "line"),
+        ElementKind.TRI_P1: ("MeshTri1", "ElementTriP1", "triangle"),
+        ElementKind.TRI_P2: ("MeshTri1", "ElementTriP2", "triangle"),
+        ElementKind.TET_P1: ("MeshTet1", "ElementTetP1", "tetra"),
+        ElementKind.TET_P2: ("MeshTet1", "ElementTetP2", "tetra"),
+        ElementKind.QUAD_P1: ("MeshQuad1", "ElementQuad1", "quad"),
+        ElementKind.HEX_P1: ("MeshHex1", "ElementHex1", "hexahedron"),
+    }
+)
+
+# Per-operation residual-floor tolerance, one row per MeshOp; the read/written rows floor a
+# finiteness-only verdict where no transfer residual exists. A new operation tolerance is one row.
+_TOL: FrozenDict[MeshOp, float] = FrozenDict({"assembled": 1e-6, "read": 1e-6, "written": 1e-6})
+
+# Per-operation payload field names, one tuple per tag, `key` the common leading slot and `status`
+# the common trailing slot. The single owner over the case shapes: the factory packs by it, the
+# accessors read fixed slots off it, `.status` reads the last slot, and `.facts` projects each named
+# slot — mirroring solvers/receipt.md#RECEIPT `_SLOTS`, so an operation's evidence is one row.
+_SLOTS: FrozenDict[MeshOp, tuple[str, ...]] = FrozenDict(
+    {
+        "assembled": ("key", "element", "dof_count", "dirichlet_count", "residual", "status"),
+        "read": ("key", "element", "point_count", "cell_count", "status"),
+        "written": ("key", "fmt", "byte_count", "status"),
+    }
+)
+
+# Field-redaction policy the @receipted aspect binds; the mesh facts carry no secret, so the
+# classification Map is empty and every fact reaches the line natively — the one policy object
+# the aspect threads, never a per-call construction.
+_REDACTION: Redaction = Redaction(classified=Map.empty())
+
+
+# --- [MODELS] ------------------------------------------------------------------------------
+
+# content_key is a stored field, not a property, because ContentIdentity.of runs the fallible
+# canonical-derive seam: the key folds once at the `_field` mint inside the `_dispatch` boundary and
+# rides as a plain field rather than a derive-returning attribute masquerading as a pure read. No
+# gc=False: the record holds tracked ndarray/dict containers, so the leaf-only GC opt-out does not apply.
+# `node_sets`/`cell_sets`/`field_data` carry the named physical groups and format metadata the meshio
+# `*_sets`/`field_data` surface owns, so a Gmsh/VTK round-trip survives read->write through the
+# `cell_data_to_sets`/`cell_sets_to_data` promoter family rather than dropping the region tags on read.
+class MeshField(Struct, frozen=True):
+    element: ElementKind
+    points: np.ndarray
+    cells: np.ndarray
+    node_fields: dict[str, np.ndarray]
+    cell_fields: dict[str, np.ndarray]
+    node_sets: dict[str, np.ndarray]
+    cell_sets: dict[str, np.ndarray]
+    field_data: dict[str, np.ndarray]
+    content_key: ContentKey
+
+
+# `stiffness` is typed `object`: the assembled matrix is a `scipy.sparse` container (`csr_array`/
+# `csc_array`), but scipy carries no cp315 wheel, so the canonical corpus convention — the same erased
+# carrier `solvers/linear.md#LINEAR` `LinearMap.SparseMat(matrix: object, ...)` takes — sits at the band
+# boundary rather than a gated `scipy.sparse` import forced at module load. No gc=False: the `load`/
+# `dirichlet_dofs` arrays are tracked containers, so the leaf-only GC opt-out does not apply, exactly
+# as `MeshField` declines it for the same reason.
 class AssembledSystem(Struct, frozen=True):
     element: ElementKind
     stiffness: object
@@ -40,134 +137,221 @@ class AssembledSystem(Struct, frozen=True):
     dof_count: int
     content_key: ContentKey
 
-    def contribute(self) -> Receipt:
-        facts = {"element": self.element.value, "dofs": str(self.dof_count), "key": str(self.content_key.value)}
-        return Receipt.of("emitted", "compute.mesh", self.element.value, facts)
+
+@tagged_union(frozen=True)
+class MeshReceipt:
+    tag: MeshOp = tag()
+    assembled: tuple[ContentKey, ElementKind, int, int, float, SolveStatus] = case()
+    read: tuple[ContentKey, ElementKind, int, int, SolveStatus] = case()
+    written: tuple[ContentKey, str, int, SolveStatus] = case()
+
+    @classmethod
+    def Assembled(cls, key: ContentKey, element: ElementKind, dof_count: int, dirichlet_count: int, residual: float) -> Self:
+        return cls(assembled=(key, element, dof_count, dirichlet_count, residual, _status(None, residual, _TOL["assembled"])))
+
+    @classmethod
+    def Read(cls, key: ContentKey, element: ElementKind, point_count: int, cell_count: int) -> Self:
+        extent = 0.0 if point_count and cell_count else float("inf")
+        return cls(read=(key, element, point_count, cell_count, _status(None, extent, _TOL["read"])))
+
+    @classmethod
+    def Written(cls, key: ContentKey, fmt: str, byte_count: int) -> Self:
+        extent = 0.0 if byte_count else float("inf")
+        return cls(written=(key, fmt, byte_count, _status(None, extent, _TOL["written"])))
+
+    @property
+    def facts(self) -> dict[str, object]:
+        return dict(zip(_SLOTS[self.tag], getattr(self, self.tag), strict=True))
+
+    @property
+    def content_key(self) -> ContentKey:
+        return self.facts["key"]
+
+    @property
+    def element(self) -> ElementKind | None:
+        return self.facts.get("element")
+
+    @property
+    def status(self) -> SolveStatus:
+        match getattr(self, self.tag):
+            case (*_, SolveStatus() as status):
+                return status
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    @property
+    def converged(self) -> bool:
+        return self.status is SolveStatus.SUCCESS
+
+    def contribute(self) -> Iterable[Receipt]:
+        subject = self.element.value if self.element is not None else self.tag
+        facts: dict[str, object] = {"operation": self.tag, "converged": self.converged, **self.facts}
+        return (Receipt.of("compute.mesh", ("emitted", subject, facts)),)
 
 
-class MeshField(Struct, frozen=True):
-    element: ElementKind
-    points: np.ndarray
-    cells: np.ndarray
-    node_fields: dict[str, np.ndarray]
-    cell_fields: dict[str, np.ndarray]
-
-    def assemble(self, form: FemForm, /) -> "RuntimeRail[AssembledSystem]":
-        return boundary("mesh.assemble", lambda: self._assemble(form))
-
-    def _assemble(self, form: FemForm) -> AssembledSystem:
-        import skfem
-
-        mesh = getattr(skfem, _MESH_CTOR[self.element])(np.ascontiguousarray(self.points.T), np.ascontiguousarray(self.cells.T))
-        element = getattr(skfem, _ELEMENT_CTOR[self.element])()
-        basis = skfem.Basis(mesh, element)
-        stiffness = skfem.asm(form.bilinear, basis)
-        load = skfem.asm(form.linear, basis)
-        dofs = basis.get_dofs(form.boundary_facets)
-        return AssembledSystem(
-            element=self.element,
-            stiffness=stiffness,
-            load=np.asarray(load),
-            dirichlet_dofs=np.asarray(dofs.flatten()),
-            dof_count=int(basis.N),
-            content_key=self._content_key(),
-        )
-
-    def _content_key(self) -> ContentKey:
-        buffers = (
-            np.ascontiguousarray(self.points).tobytes(),
-            np.ascontiguousarray(self.cells).tobytes(),
-            *(np.ascontiguousarray(v).tobytes() for v in self.node_fields.values()),
-            *(np.ascontiguousarray(v).tobytes() for v in self.cell_fields.values()),
-        )
-        return ContentIdentity.of("mesh-field", b"\x00".join(buffers), IdentityPolicy())
-
-
-_MESH_CTOR = {
-    ElementKind.P1: "MeshLine1",
-    ElementKind.P2: "MeshLine1",
-    ElementKind.TRI_P1: "MeshTri1",
-    ElementKind.TRI_P2: "MeshTri1",
-    ElementKind.TET_P1: "MeshTet1",
-    ElementKind.TET_P2: "MeshTet1",
-    ElementKind.QUAD_P1: "MeshQuad1",
-    ElementKind.HEX_P1: "MeshHex1",
-}
-```
-
-## [03]-[INTERCHANGE]
-
-- Owner: `MeshExchange` — the meshio read/write interchange between a `MeshField` and the on-disk unstructured-mesh formats; `read` parses any meshio-supported format into a `MeshField`, mapping the meshio `points` and the first `CellBlock` connectivity onto the topology and the meshio `point_data`/`cell_data` onto the field maps, and `write` serializes a `MeshField` back through the meshio format dispatch. The meshio `Mesh` is the canonical container; this owner never assembles a parallel per-format mesh shape.
-- Entry: `MeshExchange.read` returns `RuntimeRail[MeshField]` through one `boundary`, calling `meshio.read(path)` and projecting the container; `MeshExchange.write` returns `RuntimeRail[None]`, building a `meshio.Mesh(points, [CellBlock(cell_type, cells)], point_data=..., cell_data=...)` and calling `meshio.write(path, mesh)` with extension-driven format detection. The `_CELL_TYPE` map keys the `ElementKind` to the meshio cell-type string (`line`/`triangle`/`tetra`).
-- Packages: `meshio` (`read`, `write`, `Mesh`, `CellBlock`, `points`, `cells`, `point_data`, `cell_data`, `cells_dict`), `numpy`, runtime (`RuntimeRail`, `boundary`).
-- Growth: a new element-to-meshio cell type is one `_CELL_TYPE` row; a new format is zero new surface because meshio owns the format registry; never a hand-rolled format parser.
-- Boundary: file interchange through the meshio registry only — the format detection, the cell-type mapping, and the field round-trip are in-scope. A hand-rolled format parser and a wrapper-rename of `read`/`write` are the deleted forms; meshio owns the ~40-format registry and this owner composes it.
-
-```python signature
-from pathlib import Path
-from typing import TYPE_CHECKING
-
-import numpy as np
-
-from rasm.compute.solvers.quadrature import ElementKind
-from rasm.runtime.faults import RuntimeRail, boundary
-
-if TYPE_CHECKING:
-    import meshio
-
-
-_CELL_TYPE: dict[ElementKind, str] = {
-    ElementKind.P1: "line",
-    ElementKind.P2: "line",
-    ElementKind.TRI_P1: "triangle",
-    ElementKind.TRI_P2: "triangle",
-    ElementKind.TET_P1: "tetra",
-    ElementKind.TET_P2: "tetra",
-    ElementKind.QUAD_P1: "quad",
-    ElementKind.HEX_P1: "hexahedron",
-}
-
-
+@tagged_union(frozen=True)
 class MeshExchange:
-    @staticmethod
-    def read(path: Path, element: ElementKind, /) -> "RuntimeRail[MeshField]":
-        return boundary("mesh.read", lambda: MeshExchange._read(path, element))
+    tag: Literal["assemble", "read", "write"] = tag()
+    assemble: tuple[MeshField, FemForm] = case()
+    read: tuple[Path, ElementKind, str | None] = case()
+    write: tuple[MeshField, Path, str | None] = case()
 
     @staticmethod
-    def write(field: "MeshField", path: Path, /) -> "RuntimeRail[None]":
-        return boundary("mesh.write", lambda: MeshExchange._write(field, path))
+    def Assemble(field: MeshField, form: FemForm, /) -> "MeshExchange":
+        return MeshExchange(assemble=(field, form))
 
     @staticmethod
-    def _read(path: Path, element: ElementKind) -> "MeshField":
-        import meshio
-
-        mesh = meshio.read(str(path))
-        cells = mesh.cells_dict[_CELL_TYPE[element]]
-        return MeshField(
-            element=element,
-            points=np.asarray(mesh.points),
-            cells=np.asarray(cells),
-            node_fields={k: np.asarray(v) for k, v in mesh.point_data.items()},
-            cell_fields={k: np.asarray(v[0]) for k, v in mesh.cell_data.items()},
-        )
+    def Read(path: Path, element: ElementKind, file_format: str | None = None, /) -> "MeshExchange":
+        return MeshExchange(read=(path, element, file_format))
 
     @staticmethod
-    def _write(field: "MeshField", path: Path) -> None:
-        import meshio
+    def Write(field: MeshField, path: Path, file_format: str | None = None, /) -> "MeshExchange":
+        return MeshExchange(write=(field, path, file_format))
 
-        cell_type = _CELL_TYPE[field.element]
-        mesh = meshio.Mesh(
-            points=np.asarray(field.points),
-            cells=[meshio.CellBlock(cell_type, np.asarray(field.cells))],
-            point_data={k: np.asarray(v) for k, v in field.node_fields.items()},
-            cell_data={k: [np.asarray(v)] for k, v in field.cell_fields.items()},
-        )
-        meshio.write(str(path), mesh)
+    def run(self) -> "RuntimeRail[MeshReceipt]":
+        return boundary(f"mesh.{self.tag}", lambda: _dispatch(self)).bind(lambda rail: rail)
+
+
+# --- [OPERATIONS] --------------------------------------------------------------------------
+
+# `_dispatch` is the one `railed` `effect.result` chain `run` joins through `bind`: the read arm
+# `yield from`-binds `_read`'s `RuntimeRail[MeshField]` so a meshio parse or canonical-encode fault
+# rides the one rail, while the assemble and write arms hold no fallible derive and lift their value
+# straight. The chain folds each arm into the `@receipted` `_emit` kernel that returns the `MeshReceipt`
+# contributor and emits its `.contribute()` stream on exit, so receipt egress is a decorator rail on the
+# pure builder while the fallible read derive stays on the rail — the `railed`-over-`match`/`raise` ROP
+# collapse `numerics/array.md#PAYLOAD` `_admit` runs, never a `BoundaryFault.as_exception` re-raise.
+@railed
+def _dispatch(exchange: MeshExchange) -> MeshReceipt:
+    match exchange:
+        case MeshExchange(tag="assemble", assemble=(field, form)):
+            system = _assemble(field, form)
+            residual = float(np.linalg.norm(system.load))
+            return _emit(MeshReceipt.Assembled(system.content_key, system.element, system.dof_count, int(system.dirichlet_dofs.size), residual))
+        case MeshExchange(tag="read", read=(path, element, fmt)):
+            field: MeshField = yield from _read(path, element, fmt)
+            return _emit(MeshReceipt.Read(field.content_key, element, int(field.points.shape[0]), int(field.cells.shape[0])))
+        case MeshExchange(tag="write", write=(field, path, fmt)):
+            written = _write(field, path, fmt)
+            return _emit(MeshReceipt.Written(field.content_key, written, int(path.stat().st_size)))
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+# `@receipted(_REDACTION)` wraps the pure builder that returns the `MeshReceipt` contributor and emits
+# its `.contribute()` stream on exit, so receipt production is a decorator rail rather than an inline
+# `Signals.emit`. The aspect decorates this kernel — never the receipt's own `contribute` — matching the
+# runtime owner's "wraps a ReceiptContributor-returning op"; `_dispatch` calls it once the rail resolves.
+@receipted(_REDACTION)
+def _emit(receipt: MeshReceipt) -> MeshReceipt:
+    return receipt
+
+
+# `_field` is the one MeshField mint folding the content key from every component array in a single
+# pass — each `points`/`cells`/field/sets buffer crosses as C-contiguous bytes keying the identity
+# owner's `stream` modality (order-sensitive stateful-updater fold) without a hand-rolled join, so a
+# physical-group change re-keys the topology. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`
+# (its `derived` aspect fault-fences the canonical-encode against `EncodeError`), so the key threads
+# through the `railed` chain by `yield from`-binding the rail — a canonical-encode fault propagates on
+# the one `RuntimeRail` the `_dispatch` chain returns rather than a `match`/`raise` re-raise through a
+# phantom `BoundaryFault.as_exception`, the `railed`-over-`match` ROP collapse the runtime
+# `reliability/faults#FAULT` owner names and `numerics/array.md#PAYLOAD` `_admit` runs.
+@railed
+def _field(
+    element: ElementKind,
+    points: np.ndarray,
+    cells: np.ndarray,
+    node_fields: dict[str, np.ndarray],
+    cell_fields: dict[str, np.ndarray],
+    node_sets: dict[str, np.ndarray],
+    cell_sets: dict[str, np.ndarray],
+    field_data: dict[str, np.ndarray],
+) -> MeshField:
+    buffers = tuple(
+        np.ascontiguousarray(buf).tobytes()
+        for buf in (points, cells, *node_fields.values(), *cell_fields.values(), *node_sets.values(), *cell_sets.values())
+    )
+    key: ContentKey = yield from ContentIdentity.of("mesh-field", buffers, IdentityPolicy())
+    return MeshField(
+        element=element, points=points, cells=cells, node_fields=node_fields, cell_fields=cell_fields,
+        node_sets=node_sets, cell_sets=cell_sets, field_data=field_data, content_key=key,
+    )
+
+
+# The skfem assemble rides the gated band: _CTOR resolves the (Mesh*, Element*) pair through getattr
+# behind the import, the .T transpose matches the (dim, n)/(verts, n_elem) layout skfem stores
+# mesh.p/mesh.t in, and asm folds the BilinearForm/LinearForm integrand thunks the FemForm carries.
+# get_dofs is the one polymorphic DOF selector; the FEM solve consumes AssembledSystem back.
+def _assemble(field: MeshField, form: FemForm) -> AssembledSystem:
+    import skfem
+
+    mesh_ctor, element_ctor, _ = _CTOR[field.element]
+    mesh = getattr(skfem, mesh_ctor)(np.ascontiguousarray(field.points.T), np.ascontiguousarray(field.cells.T))
+    basis = skfem.Basis(mesh, getattr(skfem, element_ctor)())
+    return AssembledSystem(
+        element=field.element,
+        stiffness=skfem.asm(form.bilinear, basis),
+        load=np.asarray(skfem.asm(form.linear, basis)),
+        dirichlet_dofs=np.asarray(basis.get_dofs(form.boundary_facets).flatten()),
+        dof_count=int(basis.N),
+        content_key=field.content_key,
+    )
+
+
+# meshio owns the ~40-format registry; file_format disambiguates the .msh/.dat extensions the
+# catalogue flags, None triggering extension detection. The FEM-facing topology reads the one element's
+# connectivity through `cells_dict[cell_type]` (the merged-by-type view) for the assemble fold, while
+# the physical-group round-trip recovers the FULL `point_sets`/`cell_sets`/`field_data` surface meshio
+# carries — `cell_data_to_sets`/`point_data_to_sets` invert any integer-label field a Gmsh/VTK source
+# wrote into named sets first, so a region tag that crossed as an integer column survives back into
+# `MeshField.cell_sets` rather than being dropped on read. The per-block `cell_data` reads `v[0]` for
+# the FEM element's block and the per-block `cell_sets` takes the first non-`None` block entry, the
+# block-parallel-list contract.
+def _read(path: Path, element: ElementKind, fmt: str | None) -> RuntimeRail[MeshField]:
+    *_, cell_type = _CTOR[element]
+    mesh = meshio.read(str(path), fmt)
+    for column in tuple(mesh.cell_data):
+        mesh.cell_data_to_sets(column)
+    for column in tuple(mesh.point_data):
+        mesh.point_data_to_sets(column)
+    return _field(
+        element,
+        np.asarray(mesh.points),
+        np.asarray(mesh.cells_dict[cell_type]),
+        {k: np.asarray(v) for k, v in mesh.point_data.items()},
+        {k: np.asarray(v[0]) for k, v in mesh.cell_data.items()},
+        {k: np.asarray(v) for k, v in mesh.point_sets.items()},
+        {k: np.asarray(next((b for b in v if b is not None), ())) for k, v in mesh.cell_sets.items()},
+        {k: np.asarray(v) for k, v in mesh.field_data.items()},
+    )
+
+
+# cell_data field arrays wrap in the single-element per-block list meshio mandates; the named physical
+# groups rebind onto `Mesh.point_sets`/`cell_sets` and `field_data`, then `cell_sets_to_data`/
+# `point_sets_to_data` promote them into integer label fields so the region tags round-trip through
+# formats that carry only integer labels — closing the read-recover/write-promote round-trip a
+# write-only `cell_sets_to_data` left half-open. The returned format string rides the written receipt.
+def _write(field: MeshField, path: Path, fmt: str | None) -> str:
+    *_, cell_type = _CTOR[field.element]
+    mesh = meshio.Mesh(
+        points=np.asarray(field.points),
+        cells=[meshio.CellBlock(cell_type, np.asarray(field.cells))],
+        point_data={k: np.asarray(v) for k, v in field.node_fields.items()},
+        cell_data={k: [np.asarray(v)] for k, v in field.cell_fields.items()},
+        field_data={k: np.asarray(v) for k, v in field.field_data.items()},
+        point_sets={k: np.asarray(v) for k, v in field.node_sets.items()},
+        cell_sets={k: [np.asarray(v)] for k, v in field.cell_sets.items()},
+    )
+    mesh.cell_sets_to_data()
+    mesh.point_sets_to_data()
+    meshio.write(str(path), mesh, fmt)
+    return fmt or path.suffix.lstrip(".")
 ```
 
 ## [04]-[RESEARCH]
 
-- [SKFEM_ASSEMBLE]: the `skfem.Basis(mesh, element)`, `skfem.asm(form, basis)`, `basis.get_dofs(facets)`, `basis.N` dof-count, and the `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` element and `MeshLine1`/`MeshTri1`/`MeshTet1`/`MeshQuad1`/`MeshHex1` mesh-constructor spellings verify against `compute/.api/scikit-fem.md`; every `ElementKind` row resolves a catalogued element-and-mesh constructor pair through `_ELEMENT_CTOR`/`_MESH_CTOR`, so the assemble fold spans the full P1/P2 line/tri/tet plus the bilinear-quad and trilinear-hex family rather than catalogued-but-unreached constructors. The `Mesh(points.T, cells.T)` node-major/element-major array layout (`skfem` stores `mesh.p` as `(dim, n)` and `mesh.t` as `(verts, n_elem)`) confirms the `.T` transpose against the catalogue at fence transcription. `scikit-fem` carries no cp315 wheel, so the assemble fold rides the gated `python_version<'3.15'` band.
-- [MESHIO_INTERCHANGE]: the `meshio.read(path)`, `meshio.write(path, mesh)`, `meshio.Mesh(points, cells, point_data, cell_data)`, `meshio.CellBlock(cell_type, data)`, and `Mesh.cells_dict`/`point_data`/`cell_data` spellings verify against `compute/.api/meshio.md`; `cell_data` values parallel the `cells` block list as a per-block array list, so the read projects `v[0]` for the first block and the write wraps each field array in a single-element list. `meshio` is pure-Python and cp315-clean, so the interchange runs unconditionally on cp315.
-- [SHARED_ELEMENT_AXIS]: `ElementKind` and `FemForm` are owned by `solvers/quadrature.md#QUADRATURE`; this owner composes them so the weak-form shape and the element vocabulary never diverge between the assembly owner and the FEM solve route. The `_ELEMENT_CTOR`/`_MESH_CTOR` string maps name the `skfem` constructors resolved by `getattr(skfem, ...)` at assemble time, keeping the gated import behind the boundary.
-```
+- [SKFEM_ASSEMBLE]: the `skfem.Basis(mesh, element)`, `skfem.asm(form, basis)`, `basis.get_dofs(facets)` polymorphic DOF selector, `basis.N` dof-count, and the `MeshLine1`/`MeshTri1`/`MeshTet1`/`MeshQuad1`/`MeshHex1` mesh and `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` element-constructor spellings verify against `compute/.api/scikit-fem.md` ([ENTRYPOINTS] basis `[01]`, assembly `[01]`, DOF query `[03]`/`[04]`); `asm` is the unified dispatcher folding the `BilinearForm`/`LinearForm` integrand arities the `FemForm` thunks carry. Every `ElementKind` row resolves a catalogued `(Mesh*, Element*)` pair through `_CTOR`, spanning the full P1/P2 line/tri/tet plus the bilinear-quad and trilinear-hex family rather than catalogued-but-unreached constructors. The `Mesh(points.T, cells.T)` node-major/element-major layout (`skfem` stores `mesh.p` as `(dim, n)`, `mesh.t` as `(verts, n_elem)`) confirms the `.T` transpose against the catalogue. `scikit-fem` carries no cp315 wheel, so the assemble fold rides the gated `python_version<'3.15'` band behind the deferred `import skfem`.
+- [MESHIO_INTERCHANGE]: the `meshio.read(path, file_format)`, `meshio.write(path, mesh, file_format)`, `meshio.Mesh(points, cells, point_data, cell_data, field_data, point_sets, cell_sets)`, `meshio.CellBlock(cell_type, data)`, `Mesh.cells_dict`/`point_data`/`cell_data`/`point_sets`/`cell_sets`/`field_data`, the `Mesh.cell_sets_to_data()`/`point_sets_to_data()` promoters and the `cell_data_to_sets(key)`/`point_data_to_sets(key)` inverters, and the `ReadError`/`WriteError` failure types verify against `compute/.api/meshio.md` ([ENTRYPOINTS] `[01]`/`[02]`, `Mesh` members `[06]`/`[07]`/`[10]`/`[03]`/`[04]`/`[05]`/`[15]`/`[16]`/`[17]`/`[18]`, PUBLIC_TYPES `[03]`/`[04]`). `cell_data` and `cell_sets` values parallel the `cells` block list as per-block array lists, so the read projects `v[0]`/`next(iter(v), ())` for the FEM element's block and the write wraps each array in a single-element list; the `[MESHIO_TOPOLOGY]` law mandates preserving block order and reading per-type connectivity through `cells_dict`. `file_format=None` triggers extension detection while an explicit string disambiguates the ambiguous `.msh`/`.dat` extensions the `extension_to_filetypes` mapping flags. The four `*_to_data`/`*_to_sets` promoters are the round-trip the `[MESHIO_TOPOLOGY]` law names for carrying Gmsh/physical-group tags through integer-label formats: the write promotes named sets into integer fields outbound and the read inverts integer fields back into named sets inbound, so a region tag survives both directions rather than the write-only promotion that left the inbound recovery unimplemented. `meshio` is pure-Python and cp315-clean (the catalogue's `floor: unconditional manifest dependency`), so the interchange is a top-level import running unconditionally, never deferred behind `TYPE_CHECKING`; the `ReadError`/`WriteError` and skfem assembly raises convert once at the `boundary` fence through the `runtime/reliability/faults.md#FAULT` `CLASSIFY` fold.
+- [SHARED_ELEMENT_AXIS]: `ElementKind` and `FemForm` are owned by `solvers/quadrature.md#QUADRATURE`; this owner composes them so the weak-form shape and the element vocabulary never diverge between the assemble owner and the FEM solve route. The one `_CTOR` `FrozenDict[ElementKind, tuple[str, str, str]]` triple table is the single element-spelling owner the assemble fold, the FEM solve (`solvers/quadrature.md#QUADRATURE`), the field readout (`solvers/field.md#FIELD`), and the meshio cell-type mapping resolve through — collapsing the three parallel `_ELEMENT_CTOR`/`_MESH_CTOR`/`_CELL_TYPE` maps the prior corpus split, exactly the consolidation the `solvers/field.md#FIELD` `[SHARED_ELEMENT_AXIS]` row names as the canonical form. The `Mesh*`/`Element*` names resolve through `getattr(skfem, ...)` at assemble time, keeping the gated import behind the boundary; the cell-type string is cp315-clean.
+- [SHARED_RECEIPT_FOLD]: `MeshReceipt` mirrors `solvers/receipt.md#RECEIPT` `SolverReceipt` and `solvers/field.md#FIELD` `FieldReceipt` end to end — the `Literal` `tag` IS the operation, the per-case shape is driven by one `_SLOTS` `FrozenDict[MeshOp, tuple[str, ...]]` rather than hand-spelled three times, the three `@classmethod` factories `Assembled`/`Read`/`Written` return `Self` (never a `@staticmethod`-plus-forward-ref the receipt owner deletes), `.status` reads the trailing slot through one `case (*_, status)` pattern closed by `assert_never`, `.content_key`/`.element` read fixed slots off `_SLOTS` through `.facts` rather than parallel `getattr(self, self.tag)[N]` properties, and `.facts` zips `_SLOTS[self.tag]` against the case tuple under `strict=True` so the table and the case shapes cannot drift. The factories fold the residual or finiteness extent through the shared `_status(None, value, _TOL[op])` floor imported from the receipt owner — the same cross-module private import `solvers/field.md#FIELD` uses — so the mesh receipt reuses the one termination vocabulary every solver route folds into. `MeshReceipt.contribute` is the undecorated `ReceiptContributor` port method returning the one-element `Iterable[Receipt]` tuple through the runtime two-argument `Receipt.of("compute.mesh", ("emitted", subject, facts))` contract, the facts riding as native scalars through the runtime `Signals` `msgspec` encoder rather than a `str()` coerce; the `@receipted(_REDACTION)` aspect wears the `_emit` builder that returns the contributor, so receipt production is a decorator rail rather than an inline `Signals.emit` and the aspect never decorates the receipt's own `contribute` — exactly as `solvers/receipt.md#RECEIPT` `SolverReceipt.contribute` stays an undecorated port method. The `_dispatch` chain is `@railed` and `run` joins it through `boundary(...).bind(lambda rail: rail)`, the rail-join shape `numerics/array.md#PAYLOAD` `ArrayPayload.admit` holds, so the read-arm `ContentIdentity.of` fault rides the one rail rather than the `@receipted`-on-`_dispatch` shape the prior page drifted to.
+- [CONTENT_KEY_STREAM]: `MeshField.content_key` folds the `points`, `cells`, each `node_fields`/`cell_fields` array, and each `node_sets`/`cell_sets` physical-group array as `ascontiguousarray(...).tobytes()` buffers into a `tuple[bytes, ...]` and hands it to `ContentIdentity.of("mesh-field", buffers, IdentityPolicy())`, whose `Source` alias (`bytes | Iterable[bytes] | tuple[ContentKey, ...] | Struct` per `runtime/evidence/identity.md#IDENTITY`) routes the `Iterable[bytes]` to the `stream` modality the owner's `IdentitySource.lift` selects — the order-sensitive stateful-updater fold, never the caller pre-calling `IdentitySource.lift` since `of` lifts internally. This replaces the prior hand-rolled `b"\x00".join(tobytes())` concatenation that re-implemented the digest the identity owner owns; the `runtime/evidence/identity.md#IDENTITY` `[02]-[IDENTITY]` Boundary row names a hand-rolled second hashing owner as a deleted form. `ascontiguousarray` guarantees the C-contiguous layout the buffer crosses on per the `numpy` `[STACKS_WITH]` msgspec wire-round-trip row. The key feeds the reuse-fabric cache the `execution/lanes.md#LANE` `Map[ContentKey, T]` keys, so a re-assembled mesh at identical settings is a cache hit by reference. `ContentIdentity.of` returns `RuntimeRail[ContentKey]` at the identity owner; `_field` is a `@railed` `effect.result` mint that `yield from`-binds the key off the rail (`key = yield from ContentIdentity.of(...)`) so a canonical-encode fault propagates on the one `RuntimeRail` the `_dispatch` chain returns — the `railed`-over-`match`/`raise` ROP collapse `numerics/array.md#PAYLOAD` `_admit` runs, the derive's own `derived` aspect fencing the canonical-encode while the `run` `boundary` fences the enclosing mesh op — never a rail bound straight into the `ContentKey` field and never a `case Error(fault)`/`raise fault.as_exception()` re-raise through a phantom exception bridge.

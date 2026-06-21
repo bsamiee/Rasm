@@ -21,12 +21,16 @@ NEVER ALLOW TASKS/IDEAS TO BE PLANNED/MADE FOR "TESTING" OR WORK TO DO IN TEST D
 
 ASK THE USER AS MANY QUESTIONS AS POSSIBLE, EARLY DURING PLAN MODE, DURING PLAN MODE, MIDDLE OF PLAN MODE, AND WELL BEFORE FINAL PRESENTATION TO ENSURE PLAN IS DONE WITHOUT MISUNDERSTANDING. THE PLAN MUST BE EXTREMELY DETAILED, ALL WORKFLOWS MUST REFERENCE/READ IT AND OTHER STANDARDS NEEDED PRIOR TO PROCEEDING, YOU AND ALL WORKFLOW AGENTS MUST TREAT THE PLAN AS TRUTH, ADJUST ONLY BASED ON EARLIER SESSION WORK TO IMPLEMENT LATER WORK PROPERLY.
 
-[READ]: 
+[READ]:
 - Planning Projects: `libs/.planning/planning-targets.md`
 - Mandated Approach: `libs/.planning/campaign-method.md`
 - Planning Infrastructure: `libs/.planning/README.md`
 - Planning Topology: `libs/.planning/architecture.md`
 - MUST READ: `CLAUDE.md` + `AGENTS.md` + `README.md` + `tools/assay/README.md`
+
+## [WORKFLOWS]
+- PLAN: build the plan with `scout` (read-only; returns the decision-complete IDEAS/TASKS blueprint, never edits) — `Workflow({ name: 'scout', args: { scope: '<one TARGET>', mode: 'ideate' } })`, one `<TARGET>` at a time. Fold each blueprint into this plan and resolve its `open_questions` with the user.
+- EXECUTE on plan-leave, one scope at a time (never one long run): `Workflow({ name: 'ideate', args: '<folder>' })` per `<TARGET>` folder to author the card pool, plus `Workflow({ name: 'rebuild-<lang>', args: '<folder>' })` for any design page the plan rebuilds; then `Workflow({ name: 'align-cards', args: '<scope>' })` and `Workflow({ name: 'hygiene-sweep', args: '<scope>' })` to settle ripples, manifests, and ARCHITECTURE/README.
 
 [CODE_DOCTRINE] - Universal, regardless of language, all other languages must meet these same standards of density, complexity, advancement, no flat code.
 - Foundation: `docs/stacks/csharp/README.md`

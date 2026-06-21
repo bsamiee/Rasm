@@ -21,15 +21,19 @@ IFC model mutation as a transactional verb script — the write-side companion t
 ```python contract
 import functools
 import importlib
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+
+import ifcopenshell
+import ifcopenshell.guid
+import ifcopenshell.util.element
 from enum import StrEnum
 from typing import assert_never
 
-from expression import Error, Ok, Result, case, identity, tag, tagged_union
+from expression import Error, Ok, case, identity, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
+from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.receipts import Receipt, ReceiptContributor
 
 # --- [TYPES] ---------------------------------------------------------------------------
@@ -68,35 +72,38 @@ class AuthorPayload:
     edit: tuple[str, dict[str, object]] = case()  # slot, attributes
     attach: tuple[str, str] = case()  # product slot, context slot
     define: tuple[str | None, str, dict[str, object]] = case()  # optional product slot (PSET), name, scalar args
-    relate: tuple[tuple[str, ...], str, str] = case()  # product slots, relating slot, relating keyword
+    relate: tuple[tuple[str, ...], str] = case()  # product slots, relating slot
     stamp: tuple[str | None] = case()  # existing OwnerHistory slot
 
-    def to_kwargs(self, slots: "Map[str, object]") -> "RuntimeRail[dict[str, object]]":
+    @railed
+    def to_kwargs(self, slots: "Map[str, object]") -> "Generator[RuntimeRail[object], object, dict[str, object]]":
+        # The `railed` `effect.result` builder threads each `yield from bound(slot)` slot-resolve
+        # and short-circuits the whole projection on the first absent-slot `Error` — the canonical
+        # interleaved-bind rail the runtime owns, never a hand-rolled `functools.reduce(acc.bind...)`.
+        # Canonical relating keys (`products`/`relating`) bind here; `IfcAuthor._step` re-keys them
+        # to the verb row's true `relating_structure`/`relating_object`/`relating_type` name, so the
+        # per-usecase keyword stays table-driven, never carried per payload.
         def bound(slot: str) -> "RuntimeRail[object]":
             return Ok(slots[slot]) if slot in slots else Error(BoundaryFault(resource=("ifc.authoring.slot", slot)))
 
         match self:
             case AuthorPayload(tag="spawn", spawn=(cls, pre, name)):
-                return Ok({"ifc_class": cls} | ({"predefined_type": pre} if pre else {}) | ({"name": name} if name else {}))
+                return {"ifc_class": cls} | ({"predefined_type": pre} if pre else {}) | ({"name": name} if name else {})
             case AuthorPayload(tag="target", target=slot):
-                return bound(slot).map(lambda product: {"product": product})
+                return {"product": (yield from bound(slot))}
             case AuthorPayload(tag="edit", edit=(slot, attrs)):
-                return bound(slot).map(lambda product: {"product": product, "attributes": attrs})
+                return {"product": (yield from bound(slot)), "attributes": attrs}
             case AuthorPayload(tag="attach", attach=(prod, ctx)):
-                return bound(prod).bind(lambda p: bound(ctx).map(lambda c: {"product": p, "context": c}))
+                return {"product": (yield from bound(prod)), "context": (yield from bound(ctx))}
             case AuthorPayload(tag="define", define=(None, name, args)):
-                return Ok({"name": name} | args)
+                return {"name": name} | args
             case AuthorPayload(tag="define", define=(slot, name, args)):
-                return bound(slot).map(lambda product: {"product": product, "name": name} | args)
-            case AuthorPayload(tag="relate", relate=(prods, rel, rel_kw)):
-                resolved: RuntimeRail[tuple[object, ...]] = functools.reduce(
-                    lambda acc, p: acc.bind(lambda done: bound(p).map(lambda product: (*done, product))),
-                    prods,
-                    Ok(()),
-                )
-                return resolved.bind(lambda products: bound(rel).map(lambda r: {"products": products, rel_kw: r}))
+                return {"product": (yield from bound(slot)), "name": name} | args
+            case AuthorPayload(tag="relate", relate=(prods, rel)):
+                products = tuple([(yield from bound(slot)) for slot in prods])
+                return {"products": products, "relating": (yield from bound(rel))}
             case AuthorPayload(tag="stamp", stamp=(existing,)):
-                return Ok({}) if existing is None else bound(existing).map(lambda h: {"owner_history": h})
+                return {} if existing is None else {"owner_history": (yield from bound(existing))}
             case _:
                 assert_never(self)
 
@@ -107,6 +114,10 @@ class IfcApiVerb(Struct, frozen=True):
     mints: bool  # the usecase returns a new entity whose GlobalId keys the receipt
     relates: bool  # the usecase returns a relationship instance, not a minted root
     reads: bool  # size the pset/inverse footprint after the mutation
+    # the per-usecase relating/products keyword, table-driven because it DIFFERS per usecase
+    # (relating_structure | relating_object | relating_type | related_objects); "" for the
+    # non-relating verbs whose `relate` payload re-key never fires
+    relating_kw: tuple[str, str] = ("", "")  # (products-keyword, relating-keyword)
 
 
 class AuthorOp(Struct, frozen=True):
@@ -151,6 +162,10 @@ class AuthorReceipt(Struct, frozen=True):
 
 # --- [TABLES] --------------------------------------------------------------------------
 
+# the closed authoring vocabulary: one row per verb binding its dotted usecase, the
+# mints/relates/reads capability columns the aspects key on, and the per-usecase
+# (products, relating) keyword pair the relating verbs re-key `to_kwargs` to. Keyword
+# spellings are decompile-confirmed per usecase — they DIFFER per row, never one generic name.
 IFC_API_VERBS: dict[AuthorVerb, IfcApiVerb] = {
     AuthorVerb.CREATE: IfcApiVerb(AuthorVerb.CREATE, "root.create_entity", True, False, False),
     AuthorVerb.REMOVE: IfcApiVerb(AuthorVerb.REMOVE, "root.remove_product", False, False, True),
@@ -160,12 +175,12 @@ IFC_API_VERBS: dict[AuthorVerb, IfcApiVerb] = {
     AuthorVerb.PLACE: IfcApiVerb(AuthorVerb.PLACE, "geometry.edit_object_placement", False, False, False),
     AuthorVerb.CONTEXT: IfcApiVerb(AuthorVerb.CONTEXT, "context.add_context", True, False, False),
     AuthorVerb.UNIT_SI: IfcApiVerb(AuthorVerb.UNIT_SI, "unit.add_si_unit", True, False, False),
-    AuthorVerb.UNIT_ASSIGN: IfcApiVerb(AuthorVerb.UNIT_ASSIGN, "unit.assign_unit", False, True, False),
+    AuthorVerb.UNIT_ASSIGN: IfcApiVerb(AuthorVerb.UNIT_ASSIGN, "unit.assign_unit", False, True, False, ("units", "units")),
     AuthorVerb.PSET: IfcApiVerb(AuthorVerb.PSET, "pset.add_pset", True, False, True),
-    AuthorVerb.CONTAIN: IfcApiVerb(AuthorVerb.CONTAIN, "spatial.assign_container", False, True, False),
-    AuthorVerb.AGGREGATE: IfcApiVerb(AuthorVerb.AGGREGATE, "aggregate.assign_object", False, True, False),
+    AuthorVerb.CONTAIN: IfcApiVerb(AuthorVerb.CONTAIN, "spatial.assign_container", False, True, False, ("products", "relating_structure")),
+    AuthorVerb.AGGREGATE: IfcApiVerb(AuthorVerb.AGGREGATE, "aggregate.assign_object", False, True, False, ("products", "relating_object")),
     AuthorVerb.MATERIAL: IfcApiVerb(AuthorVerb.MATERIAL, "material.add_material", True, False, False),
-    AuthorVerb.TYPE: IfcApiVerb(AuthorVerb.TYPE, "type.assign_type", False, True, False),
+    AuthorVerb.TYPE: IfcApiVerb(AuthorVerb.TYPE, "type.assign_type", False, True, False, ("related_objects", "relating_type")),
     AuthorVerb.OWNER_NEW: IfcApiVerb(AuthorVerb.OWNER_NEW, "owner.create_owner_history", True, False, False),
     AuthorVerb.OWNER_UPD: IfcApiVerb(AuthorVerb.OWNER_UPD, "owner.update_owner_history", False, False, False),
 }

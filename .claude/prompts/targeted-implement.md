@@ -18,6 +18,10 @@ ASK THE USER AS MANY QUESTIONS AS POSSIBLE, EARLY DURING PLAN MODE, DURING PLAN 
 - Planning Topology: `libs/.planning/architecture.md`
 - MUST READ: `CLAUDE.md` + `AGENTS.md` + `README.md` + `tools/assay/README.md`
 
+## [WORKFLOWS]
+- PLAN: build the plan with `scout` (read-only; returns the decision-complete realize-into-fences blueprint, never edits) — `Workflow({ name: 'scout', args: { scope: '<one TARGET>', mode: 'implement' } })`, one `<TARGET>` at a time. Fold each blueprint into this plan and resolve its `open_questions` with the user.
+- EXECUTE on plan-leave, one scope at a time (never one long run): `Workflow({ name: 'rebuild-api', args: '<scope>' })` to mature the `.api` first, then `Workflow({ name: 'rebuild-<lang>', args: '<folder>' })` per `<TARGET>` folder to realize the fences; then `Workflow({ name: 'align-cards', args: '<scope>' })` and `Workflow({ name: 'hygiene-sweep', args: '<scope>' })` to close cards and settle ripples/manifests/ARCHITECTURE.
+
 [CODE_DOCTRINE] - Universal, regardless of language, all other languages must meet these same standards of density, complexity, advancement, no flat code.
 - Foundation: `docs/stacks/csharp/README.md`
 - Core (read all ROOT files in dir): `docs/stacks/csharp`

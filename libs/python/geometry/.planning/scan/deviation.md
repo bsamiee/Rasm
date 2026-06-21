@@ -23,7 +23,8 @@ import numpy as np
 from enum import StrEnum
 from typing import assert_never
 
-from msgspec import Struct
+from msgspec import Struct, field
+from msgspec.structs import replace
 
 from rasm.runtime.content_identity import ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
@@ -101,31 +102,43 @@ class DeviationBand(Struct, frozen=True, gc=False):
     def verdict(self, tolerance: float, fraction: float) -> bool:
         return self.max_distance <= tolerance and self.noncompliant_fraction <= fraction
 
-    def facts(self) -> dict[str, str]:
+    def facts(self) -> dict[str, object]:
+        # native float/int slots: the `observability/receipts#RECEIPT` `EventDict` is `dict[str, object]`
+        # and its `Encoder(enc_hook=repr, order="deterministic")` renderer serializes them without a
+        # `str()`/`repr()` coerce — pre-formatting here is the deleted form the receipts owner rejects.
         return {
-            "over_extreme": repr(self.over_extreme), "under_extreme": repr(self.under_extreme),
-            "max_distance": repr(self.max_distance), "mean_distance": repr(self.mean_distance),
-            "std_distance": repr(self.std_distance), "rms_distance": repr(self.rms_distance),
-            "over_count": str(self.over_count), "under_count": str(self.under_count),
-            "noncompliant_fraction": repr(self.noncompliant_fraction),
+            "over_extreme": self.over_extreme, "under_extreme": self.under_extreme,
+            "max_distance": self.max_distance, "mean_distance": self.mean_distance,
+            "std_distance": self.std_distance, "rms_distance": self.rms_distance,
+            "over_count": self.over_count, "under_count": self.under_count,
+            "noncompliant_fraction": self.noncompliant_fraction,
         }
 
 
 class Segment(Struct, frozen=True, gc=False):
     plane: tuple[float, float, float, float]
     normal: tuple[float, float, float]
-    inliers: int
+    members: tuple[int, ...]              # inlier indices into the ORIGINAL cloud, surviving the iterative peel
     kind: PrimitiveClass
-    band: DeviationBand | None = None
+    band: DeviationBand = field(default_factory=DeviationBand.identity)
+
+    @property
+    def inliers(self) -> int:
+        return len(self.members)
 
     @staticmethod
-    def classify(model: "np.ndarray", inliers: int, verticality: tuple[float, float]) -> "Segment":
+    def classify(model: "np.ndarray", members: "np.ndarray", verticality: tuple[float, float]) -> "Segment":
         up_axis, flat_axis = verticality
         normal = np.asarray(model[:3], dtype=np.float64)
         unit = normal / max(float(np.linalg.norm(normal)), 1e-12)
         vert = abs(float(unit[2]))
         kind = PrimitiveClass.SLAB if vert >= up_axis else PrimitiveClass.WALL if vert <= flat_axis else PrimitiveClass.GENERIC
-        return Segment(tuple(float(c) for c in model), tuple(float(c) for c in unit), inliers, kind)
+        return Segment(tuple(float(c) for c in model), tuple(float(c) for c in unit), tuple(int(i) for i in members), kind)
+
+    def attributed(self, signed: "np.ndarray", working_tolerance: float) -> "Segment":
+        # fold the per-segment signed sub-band over this segment's original-cloud members so the
+        # `ATTRIBUTED` overlay groups deviation by primitive; the index survives the `_segment` peel.
+        return replace(self, band=DeviationBand.fold(signed[list(self.members)], working_tolerance))
 
 
 class DeviationPolicy(Struct, frozen=True):
@@ -165,11 +178,12 @@ class DeviationResult(Struct, frozen=True):
         compliant = stage is not DeviationStage.SEGMENT and band.verdict(policy.tolerance, policy.fraction)
         return DeviationResult(stage, element, band, segments, triangle_ids, compliant)
 
-    def contribute(self) -> Receipt:
+    def contribute(self) -> tuple[Receipt, ...]:
+        # the runtime `Receipt.of(owner, evidence)` two-argument contract: the `(Phase, subject, facts)`
+        # triple mints the `fact` case at `emitted`, never a four-positional call against the port.
         kinds = {f"class.{c.value}": sum(s.kind is c for s in self.segments) for c in PrimitiveClass}
-        facts = {"stage": self.stage.value, "element": self.element, "compliant": str(self.compliant)}
-        facts |= self.band.facts() | {k: str(v) for k, v in kinds.items()}
-        return Receipt.of("emitted", "geometry.scan.deviation", self.element, facts)
+        facts: dict[str, object] = {"stage": self.stage.value, "compliant": self.compliant, **self.band.facts(), **kinds}
+        return (Receipt.of("geometry.scan.deviation", ("emitted", self.element, facts)),)
 
     def graduates(self, evidence_key: ContentKey) -> RuntimeRail[GraduationReceipt]:
         return GraduationReceipt.graduates(
@@ -192,17 +206,19 @@ class ScanDeviation(Struct, frozen=True):
     def _dispatch(self, cloud: "o3d.geometry.PointCloud", reference_glb: bytes, element: str, stage: DeviationStage) -> DeviationResult:
         match stage:
             case DeviationStage.SEGMENT:
-                segments = self._segment(cloud)
-                return DeviationResult.of(stage, element, DeviationBand.identity(), self.policy, segments=segments)
+                return DeviationResult.of(stage, element, DeviationBand.identity(), self.policy, segments=self._segment(cloud))
             case DeviationStage.DEVIATE:
-                signed, _ = self._signed(cloud, reference_glb)
-                return DeviationResult.of(stage, element, DeviationBand.fold(signed, self.policy.working_tolerance), self.policy)
+                query, points = self._query(reference_glb, cloud)
+                band = DeviationBand.fold(query.signed_distance(points), self.policy.working_tolerance)
+                return DeviationResult.of(stage, element, band, self.policy)
             case DeviationStage.ATTRIBUTED:
-                import trimesh  # noqa: PLC0415
-
-                signed, mesh = self._signed(cloud, reference_glb)
-                _, _, triangle_id = trimesh.proximity.closest_point(mesh, np.asarray(cloud.points))
-                segments = self._segment(cloud)
+                query, points = self._query(reference_glb, cloud)
+                # one persistent rtree index serves the element band, the per-segment grouping, AND the
+                # per-face triangle ids; `on_surface` returns the `(points, distances, triangle_id)` 3-tuple,
+                # so the colored-overlay attribution rides the same index the band reads, never a second build.
+                signed = query.signed_distance(points)
+                _, _, triangle_id = query.on_surface(points)
+                segments = tuple(s.attributed(signed, self.policy.working_tolerance) for s in self._segment(cloud))
                 return DeviationResult.of(
                     stage, element, DeviationBand.fold(signed, self.policy.working_tolerance), self.policy,
                     segments=segments, triangle_ids=tuple(int(t) for t in np.asarray(triangle_id)),
@@ -210,22 +226,27 @@ class ScanDeviation(Struct, frozen=True):
             case unreachable:
                 assert_never(unreachable)
 
-    def _signed(self, cloud: "o3d.geometry.PointCloud", reference_glb: bytes) -> tuple["np.ndarray", object]:
+    def _query(self, reference_glb: bytes, cloud: "o3d.geometry.PointCloud") -> tuple["trimesh.proximity.ProximityQuery", "np.ndarray"]:
         import trimesh  # noqa: PLC0415
 
         mesh = trimesh.load_mesh(io.BytesIO(reference_glb), file_type="glb")
-        if not mesh.is_watertight:  # signed sign is unreliable on a non-watertight reference; daemon welds vertices
+        if not mesh.is_watertight:  # signed sign is unreliable on a non-watertight reference; the daemon welds vertices
             raise ValueError("reference GLB is not watertight; signed deviation requires the welded daemon output")
-        return trimesh.proximity.signed_distance(mesh, np.asarray(cloud.points)), mesh
+        # `ProximityQuery` amortizes the one rtree triangle-index build across the whole point batch and both
+        # the `signed_distance` and `on_surface` reads, never a fresh index per one-shot proximity call.
+        return trimesh.proximity.ProximityQuery(mesh), np.asarray(cloud.points)
 
     def _segment(self, cloud: "o3d.geometry.PointCloud") -> tuple[Segment, ...]:
-        remainder, found, verticality = cloud, [], self.policy.verticality
+        # `surviving` maps each remainder index back to its ORIGINAL-cloud index across the peel, so each
+        # classified `Segment` carries members into the original cloud the `ATTRIBUTED` per-segment band reads.
+        remainder, surviving, found, verticality = cloud, np.arange(len(cloud.points)), [], self.policy.verticality
         for _ in range(self.policy.max_planes):
             if len(remainder.points) < self.policy.ransac_n:
                 break
             model, inliers = remainder.segment_plane(*self.policy.segment_args)
-            found.append(Segment.classify(np.asarray(model), len(inliers), verticality))
+            found.append(Segment.classify(np.asarray(model), surviving[inliers], verticality))
             remainder = remainder.select_by_index(inliers, invert=True)
+            surviving = np.delete(surviving, inliers)  # the `select_by_index(invert=True)` index complement
         return tuple(found)
 ```
 

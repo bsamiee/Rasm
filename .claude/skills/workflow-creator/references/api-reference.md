@@ -5,29 +5,18 @@ first time; after that, jump to the section you need.
 
 ## Contents
 
-- [The Workflow Tool — Complete Reference](#the-workflow-tool--complete-reference)
-  - [Contents](#contents)
-  - [1. What a workflow is](#1-what-a-workflow-is)
-  - [2. Enabling the tool](#2-enabling-the-tool)
-  - [3. The Workflow tool's input](#3-the-workflow-tools-input)
-  - [4. File anatomy](#4-file-anatomy)
-    - [Part 1 — `meta` (mandatory, first statement, pure literal)](#part-1--meta-mandatory-first-statement-pure-literal)
-    - [Part 2 — the body](#part-2--the-body)
-  - [5. The script API](#5-the-script-api)
-    - [`args` — normalizing input](#args--normalizing-input)
-  - [6. `agent()` in full](#6-agent-in-full)
-    - [Setting the model](#setting-the-model)
-    - [Structured output with `schema`](#structured-output-with-schema)
-    - [Custom agent types](#custom-agent-types)
-  - [7. `pipeline()` vs `parallel()`](#7-pipeline-vs-parallel)
-    - [`pipeline(items, stage1, stage2, …)`](#pipelineitems-stage1-stage2-)
-    - [`parallel(thunks)`](#parallelthunks)
-    - [The rule](#the-rule)
-  - [8. `budget` and token-aware loops](#8-budget-and-token-aware-loops)
-  - [9. `workflow()` — nesting](#9-workflow--nesting)
-  - [10. Caps, limits, and what happens at each](#10-caps-limits-and-what-happens-at-each)
-  - [11. The determinism sandbox](#11-the-determinism-sandbox)
-  - [12. Execution, the journal, and resume](#12-execution-the-journal-and-resume)
+1. [What a workflow is](#1-what-a-workflow-is)
+2. [Enabling the tool](#2-enabling-the-tool)
+3. [The Workflow tool's input](#3-the-workflow-tools-input)
+4. [File anatomy](#4-file-anatomy)
+5. [The script API](#5-the-script-api) · [`args` — normalizing input](#args--normalizing-input)
+6. [`agent()` in full](#6-agent-in-full) · [Setting the model](#setting-the-model) · [Structured output with `schema`](#structured-output-with-schema) · [Custom agent types](#custom-agent-types)
+7. [`pipeline()` vs `parallel()`](#7-pipeline-vs-parallel)
+8. [`budget` and token-aware loops](#8-budget-and-token-aware-loops)
+9. [`workflow()` — nesting](#9-workflow--nesting)
+10. [Caps, limits, and what happens at each](#10-caps-limits-and-what-happens-at-each)
+11. [The determinism sandbox](#11-the-determinism-sandbox)
+12. [Execution, the journal, and resume](#12-execution-the-journal-and-resume)
 
 ---
 
@@ -63,22 +52,13 @@ than any one window could hold.
 
 ## 2. Enabling the tool
 
-The Workflow tool is **off by default**, gated behind an environment variable.
-
-```bash
-# per session
-export CLAUDE_CODE_WORKFLOWS=1
-claude
-```
-
-```jsonc
-// or persistently — .claude/settings.local.json
-{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
-```
-
-With the variable unset, the tool never appears and `/workflows` does nothing.
-Enabling the tool also lights up the `/workflows` slash command — a live tree of
-phases and agents you can watch, and where you can skip or retry a running agent.
+The Workflow tool is **enabled by default** in current Claude Code (verified on
+v2.1.185: `CLAUDE_CODE_WORKFLOWS` is unset and workflows run regardless). Earlier
+builds gated it behind a `CLAUDE_CODE_WORKFLOWS=1` opt-in; that is historical and
+no longer required. If a workflow will not launch, confirm the Claude Code version
+is current rather than exporting the old variable. The `/workflows` slash command —
+a live tree of phases and agents you can watch, and where you can skip or retry a
+running agent — is available alongside it.
 
 ---
 
@@ -231,13 +211,14 @@ the agent from `/workflows`, `agent()` returns `null` — which is why you
 | `phase` | string | Assign this agent to a named progress group. Use inside `pipeline`/`parallel` stages so concurrent calls land in the right group instead of racing on the global `phase()`. Not part of the cache key. |
 | `schema` | object | A JSON Schema. Forces structured output — `agent()` returns the validated object. See **Structured output** below. |
 | `model` | string | Per-agent model. `'haiku'`, `'sonnet'`, `'opus'`, `'inherit'`, or a full model ID. Omit to inherit the session model. See **Setting the model** below. |
+| `effort` | string | Reasoning-effort tier for this call — `'low'`/`'high'`/`'xhigh'`/`'max'` (mirrors `/effort`). Independent of `model` — it tiers the *reasoning*, not the model. Match it to the stage role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for mechanical discovery/classification leaf work. NOT part of the resume cache key. |
 | `isolation` | `'worktree'` | Run the agent in a fresh git worktree. Expensive (~200–500 ms + disk each). Use **only** when parallel agents mutate files and would otherwise collide; the worktree is auto-removed if unchanged. `'worktree'` is the only accepted value — `'remote'` exists in the binary but is disabled in this build. |
 | `agentType` | string | Run as a registered subagent type instead of the default workflow subagent. See **Custom agent types** below. |
 | `stallMs` | number | Override this agent's stall timeout (default **180000 ms / 3 min**). Raise it for a legitimately slow agent so it is not aborted as "stalled". Real but undocumented. |
 
 `schema`, `model`, `isolation`, and `agentType` are the four options baked into
 the resume cache key — change any of them and that `agent()` call re-runs.
-`label` and `phase` are cosmetic and never invalidate a cached result.
+`label`, `phase`, `effort`, and `stallMs` are not part of the cache key and never invalidate a cached result.
 
 ### Setting the model
 
