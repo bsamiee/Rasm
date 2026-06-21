@@ -6,8 +6,7 @@ first time; after that, jump to the section you need.
 ## Contents
 
 1. [What a workflow is](#1-what-a-workflow-is)
-2. [Enabling the tool](#2-enabling-the-tool)
-3. [The Workflow tool's input](#3-the-workflow-tools-input)
+2. [The Workflow tool's input](#3-the-workflow-tools-input)
 4. [File anatomy](#4-file-anatomy)
 5. [The script API](#5-the-script-api) · [`args` — normalizing input](#args--normalizing-input)
 6. [`agent()` in full](#6-agent-in-full) · [Setting the model](#setting-the-model) · [Structured output with `schema`](#structured-output-with-schema) · [Custom agent types](#custom-agent-types)
@@ -50,19 +49,7 @@ than any one window could hold.
 
 ---
 
-## 2. Enabling the tool
-
-The Workflow tool is **enabled by default** in current Claude Code (verified on
-v2.1.185: `CLAUDE_CODE_WORKFLOWS` is unset and workflows run regardless). Earlier
-builds gated it behind a `CLAUDE_CODE_WORKFLOWS=1` opt-in; that is historical and
-no longer required. If a workflow will not launch, confirm the Claude Code version
-is current rather than exporting the old variable. The `/workflows` slash command —
-a live tree of phases and agents you can watch, and where you can skip or retry a
-running agent — is available alongside it.
-
----
-
-## 3. The Workflow tool's input
+## 2. The Workflow tool's input
 
 When Claude calls `Workflow`, it provides one of these. You must supply at least
 one of `script`, `name`, or `scriptPath`.
