@@ -1,46 +1,53 @@
 # [PY_COMPUTE_API_JAX]
 
-`jax` supplies XLA-compiled, autodiff-capable array computation with composable function transforms for the compute accelerator rail. The package owner compiles, differentiates, vectorizes, and parallelizes numeric-study kernels through `jit`, `grad`, `vmap`, and `pmap`; it never re-implements an autodiff or XLA pipeline jax owns. The distribution is marker-gated `python_version<'3.15'` because jaxlib ships no cp315 wheel.
+`jax` is the XLA-compiled, autodiff-capable array substrate every JAX-ecosystem sibling in this rail (`diffrax`, `lineax`, `optimistix`, `optax`, `equinox`, `interpax`, `quadax`, `numpyro`, `blackjax`) builds on: each consumes `jax.numpy` arrays, registers its carriers as `tree_util` pytrees, and is differentiated/compiled by the same `grad`/`jit`/`vmap` transforms cataloged here. The package owner compiles, differentiates, vectorizes, and parallelizes numeric-study kernels through composable function transforms; it never re-implements an autodiff or XLA pipeline jax owns. The distribution is marker-gated `python_version<'3.15'` because jaxlib ships no cp315 wheel.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jax`
-- package: `jax` (runtime `jaxlib`)
-- import: `jax`; submodules `jax.numpy`, `jax.lax`, `jax.random`, `jax.nn`, `jax.scipy`, `jax.tree_util`
+- package: `jax` (runtime backend `jaxlib`; XLA)
+- import: `jax`; submodules `jax.numpy`, `jax.lax`, `jax.random`, `jax.nn`, `jax.scipy`, `jax.tree_util`, `jax.sharding`, `jax.debug`, `jax.experimental`
 - owner: `compute`
 - rail: accelerator
-- installed: marker-gated `python_version<'3.15'` (`jax>=0.10.1`; jaxlib ships no cp315 wheel)
-- capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, and structured control-flow primitives
+- installed: marker-gated `python_version<'3.15'` (`jax>=0.10.1`; jaxlib ships no cp315 wheel); license Apache-2.0; `jax` wheel is `py3-none-any` (pure Python) but the `jaxlib` backend wheel is ABI-specific (`cp3XX`, platform-tagged) and has no cp315 build — that backend wheel gap is the gate, not `jax` itself. `assay api resolve jax` is `unsupported` on the cp315 core (uninstalled, marker-gated); surface authored from the official JAX module API
+- default precision: arrays default to 32-bit; `jax.config.update("jax_enable_x64", True)` promotes the rail to float64 (required when feeding `lineax`/`optimistix` solves that assume double precision)
+- capability: XLA-compiled array computation with composable transforms — JIT compilation, forward/reverse-mode autodiff, automatic vectorization, device-parallel mapping, structured control-flow primitives, pytree registration, and a NumPy/SciPy-API mirror on XLA
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: array, device, and sharding types
 - rail: accelerator
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [CAPABILITY]                                        |
-| :-----: | :----------------- | :--------------- | :-------------------------------------------------- |
-|  [01]   | `Array`            | array type       | unified on-device array type                        |
-|  [02]   | `ShapeDtypeStruct` | shape spec       | abstract shape/dtype for `eval_shape` and tracing   |
-|  [03]   | `Device`           | device handle    | a single addressable XLA device                     |
-|  [04]   | `NamedSharding`    | sharding spec    | mesh-and-partition-spec array sharding              |
-|  [05]   | `P`                | partition spec   | `PartitionSpec` for `shard_map` and `NamedSharding` |
-|  [06]   | `Shard`            | shard view       | one device's slice of a global array                |
-|  [07]   | `custom_jvp`       | custom-rule type | user-defined forward-mode differentiation rule      |
-|  [08]   | `custom_vjp`       | custom-rule type | user-defined reverse-mode differentiation rule      |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]    | [CAPABILITY]                                                                 |
+| :-----: | :---------------------------------- | :--------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Array`                             | array type       | unified on-device array type (`jax.Array`); the leaf every sibling carries  |
+|  [02]   | `ShapeDtypeStruct(shape, dtype)`    | shape spec       | abstract shape/dtype for `eval_shape`/`make_jaxpr` and `pure_callback` decl |
+|  [03]   | `Device`                            | device handle    | a single addressable XLA device                                             |
+|  [04]   | `Sharding`                          | sharding base    | abstract base for `NamedSharding`/`PositionalSharding`/`SingleDeviceShard.` |
+|  [05]   | `NamedSharding(mesh, spec)`         | sharding spec    | mesh-and-partition-spec array sharding                                      |
+|  [06]   | `P` / `PartitionSpec`               | partition spec   | partition spec for `shard_map` and `NamedSharding`                          |
+|  [07]   | `Shard`                             | shard view       | one device's slice of a global array (`.device`, `.data`, `.index`)         |
+|  [08]   | `custom_jvp(fun, nondiff_argnums)`  | custom-rule type | forward-mode rule object; bind via `@f.defjvp` / `f.defjvps(*tangent_outs)` |
+|  [09]   | `custom_vjp(fun, nondiff_argnums)`  | custom-rule type | reverse-mode rule object; bind via `@f.defvjp(fwd, bwd)`                     |
+|  [10]   | `Tracer`                            | trace value      | the abstract value flowing through a transform; never `bool()`/`.item()`-ed |
+|  [11]   | `dtypes.canonicalize_dtype(dtype)`  | dtype policy     | resolves a dtype under the active x32/x64 precision mode                     |
 
 [PUBLIC_TYPE_SCOPE]: submodule namespaces
 - rail: accelerator
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                                     |
-| :-----: | :----------------- | :-------------- | :----------------------------------------------- |
-|  [01]   | `jax.numpy`        | array namespace | NumPy-compatible array API on XLA                |
-|  [02]   | `jax.lax`          | primitive ops   | low-level XLA primitives and control flow        |
-|  [03]   | `jax.random`       | PRNG namespace  | splittable counter-based random generation       |
-|  [04]   | `jax.nn`           | NN primitives   | activations and neural-network helpers           |
-|  [05]   | `jax.scipy`        | SciPy on XLA    | XLA-backed subset of the SciPy API               |
-|  [06]   | `jax.tree_util`    | pytree ops      | pytree flatten, map, and node registration       |
-|  [07]   | `jax.sharding`     | sharding API    | `Mesh`, `Sharding`, and partition specifications |
-|  [08]   | `jax.experimental` | staging area    | sparse, ODE, and pallas experimental APIs        |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [CAPABILITY]                                                          |
+| :-----: | :--------------------- | :--------------- | :------------------------------------------------------------------- |
+|  [01]   | `jax.numpy` (`jnp`)    | array namespace  | NumPy-compatible array API on XLA; the array constructor every sibling reads |
+|  [02]   | `jax.lax`              | primitive ops    | low-level XLA primitives, control flow, and lowered linear algebra   |
+|  [03]   | `jax.random`           | PRNG namespace   | splittable counter-based random generation                           |
+|  [04]   | `jax.nn`               | NN primitives    | activations (`relu`, `gelu`, `softmax`, `softplus`) and `nn.initializers` |
+|  [05]   | `jax.scipy`            | SciPy on XLA     | XLA-backed subset of SciPy (`linalg`, `optimize`, `special`, `stats`) |
+|  [06]   | `jax.tree_util`        | pytree ops       | pytree flatten, map, leaves, structure, and node registration        |
+|  [07]   | `jax.sharding`         | sharding API     | `Mesh`, `Sharding`, `NamedSharding`, and `PartitionSpec`             |
+|  [08]   | `jax.debug`            | side-effect ops  | `print`/`callback`/`breakpoint` legal inside `jit`/`grad`/`vmap`     |
+|  [09]   | `jax.config`           | runtime config   | `update("jax_enable_x64", ...)`, `jax_default_matmul_precision`, etc. |
+|  [10]   | `jax.experimental.ode` | ODE staging      | `odeint` (legacy ODE); production ODE solves route to `diffrax`      |
+|  [11]   | `jax.experimental.sparse` | sparse staging | `BCOO`/`BCSR` sparse arrays and sparsified transforms                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -92,7 +99,58 @@
 |  [09]   | `lax.fori_loop(lower, upper, body_fun, init_val)` | control flow    | compiled counted loop                   |
 |  [10]   | `lax.cond(pred, true_fun, false_fun, *operands)`  | control flow    | compiled conditional branch             |
 |  [11]   | `lax.while_loop(cond_fun, body_fun, init_val)`    | control flow    | compiled while loop                     |
-|  [12]   | `tree_util.tree_map(f, tree, *rest)`              | pytree map      | map a function over pytree leaves       |
+|  [12]   | `lax.associative_scan(fn, elems, reverse, axis)`  | control flow    | parallel-prefix (log-depth) scan        |
+|  [13]   | `lax.switch(index, branches, *operands)`          | control flow    | compiled n-way branch by integer index  |
+|  [14]   | `lax.stop_gradient(x)`                            | autodiff barrier | identity forward, zero cotangent        |
+|  [15]   | `lax.linalg.{cholesky,qr,svd,eigh,lu}`            | dense linalg    | XLA-lowered factorizations behind solves |
+
+[ENTRYPOINT_SCOPE]: `jax.numpy` array construction, predicates, and reductions
+- rail: accelerator
+- the array constructor surface every sibling carrier is built from; arrays are immutable, so writes go through `x.at[idx].set/add/mul(v)`. `jnp.asarray` is the canonical host->device adoption boundary; `isfinite`/`isnan` are the finiteness predicates a solver/receipt rail reads to gate divergence.
+
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]   | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
+|  [01]   | `numpy.asarray(x, dtype=None)` / `array(...)`      | adoption         | adopt host/NumPy data to a device `Array` under active precision |
+|  [02]   | `numpy.isfinite(x)` / `isnan(x)` / `isinf(x)`      | predicate        | element-wise finiteness mask; the divergence/finiteness gate |
+|  [03]   | `numpy.diagonal(a, offset=0, axis1=0, axis2=1)`    | extraction       | diagonal of a matrix/batched matrix (Hessian-diag, trace prep) |
+|  [04]   | `numpy.where(cond, x, y)` / `clip(a, min, max)`    | selection        | branchless select / clamp inside a traced kernel             |
+|  [05]   | `numpy.einsum(subscripts, *operands)`              | contraction      | named-index tensor contraction lowered to XLA dot-general    |
+|  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}`| dense linalg     | NumPy-API linear algebra; `lineax` owns the iterative/structured path |
+
+[ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
+- rail: accelerator
+- every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree; these are the flatten/map/leaf operations that walk and reconstruct those carriers. `tree_leaves` is the canonical "all array leaves of a model/state" extraction the receipt and finiteness rails fold over.
+
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]   | [CAPABILITY]                                                  |
+| :-----: | :-------------------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
+|  [01]   | `tree_util.tree_map(f, tree, *rest)`                            | pytree map       | map a function over the leaves of one-or-more aligned trees  |
+|  [02]   | `tree_util.tree_leaves(tree, is_leaf=None)`                     | pytree extract   | flat list of leaves in deterministic order (fold/finiteness scan source) |
+|  [03]   | `tree_util.tree_structure(tree)` / `tree_flatten(tree)`         | pytree split     | `PyTreeDef` (+ leaves) for structure-preserving reconstruction |
+|  [04]   | `tree_util.tree_unflatten(treedef, leaves)`                     | pytree rebuild   | rebuild a tree from a `PyTreeDef` and a leaf list            |
+|  [05]   | `tree_util.tree_reduce(f, tree, initializer)`                   | pytree fold      | fold a binary op over all leaves (norm/sum receipts)         |
+|  [06]   | `tree_util.register_pytree_node(cls, flatten, unflatten)`       | registration     | register a custom carrier as a pytree node                   |
+|  [07]   | `tree_util.Partial(fun, *args, **kwargs)`                       | pytree closure   | pytree-compatible partial application (traceable closure)    |
+
+[ENTRYPOINT_SCOPE]: neural-net and SciPy mirrors (`jax.nn`, `jax.scipy`)
+- rail: accelerator
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------- | :--------------- | :---------------------------------------------------- |
+|  [01]   | `nn.{relu,gelu,sigmoid,softmax,log_softmax,softplus}`| activation       | differentiable activations for `equinox.nn` layers    |
+|  [02]   | `nn.initializers.{glorot_normal,he_normal,orthogonal}`| init             | parameter initializers seeded by a PRNG key           |
+|  [03]   | `scipy.linalg.{solve,cho_factor,cho_solve,expm}`     | dense linalg     | SciPy-API factorizations on XLA                       |
+|  [04]   | `scipy.optimize.minimize(fun, x0, method='BFGS')`    | optimize         | basic minimize; production routes to `optimistix`     |
+|  [05]   | `scipy.special.{gammaln,logsumexp,erf}` / `scipy.stats`| special/stats   | special functions and log-densities (`numpyro` priors)|
+
+[ENTRYPOINT_SCOPE]: side effects, configuration, and sharding context
+- rail: accelerator
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------- | :--------------- | :---------------------------------------------------- |
+|  [01]   | `debug.print(fmt, *args)` / `debug.callback(cb, *a)` | traced side effect | print/callback legal inside `jit`/`grad`/`vmap`      |
+|  [02]   | `config.update("jax_enable_x64", True)`              | precision        | promote the rail to float64 (double-precision solves) |
+|  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh      | named device mesh for `NamedSharding`/`shard_map`     |
+|  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh      | construct a `Mesh` from axis shapes/names             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -106,15 +164,23 @@
 - shapes are static at trace time; `eval_shape` returns `ShapeDtypeStruct` without executing the computation
 - arrays are immutable; in-place updates use the indexed-update syntax `x.at[idx].set(v)`
 
+[SIBLING_INTEGRATION]:
+- `jax` is the substrate; the sibling rails compose ON it, never beside it. The canonical stacked rail is: define carriers as `equinox.Module` pytrees -> assemble the objective from `jax.numpy`/`interpax` interpolants and `quadax` quadrature -> integrate dynamics with `diffrax.diffeqsolve` (inner linear solves via `lineax`) -> differentiate the whole pipeline with `jax.grad`/`equinox.filter_grad` -> descend with `optax`/`optimistix` -> compile the step with `jax.jit`/`equinox.filter_jit`.
+- `tree_util` is the seam: `diffrax.Solution`, `optimistix.Solution`, `lineax` operators/states, `optax.OptState`, and `equinox.Module` are all registered pytree nodes, so `tree_map`/`tree_leaves`/`tree_structure` walk and reconstruct any sibling carrier uniformly. A finiteness/divergence receipt folds `numpy.isfinite` over `tree_leaves(state)`.
+- `random.key`/`split` is the determinism backbone for every stochastic sibling — `diffrax` Brownian paths, `numpyro`/`blackjax` MCMC chains, `equinox.nn` initialization, and `optax.add_noise` all consume a split key, never a reseeded global RNG.
+- `config.update("jax_enable_x64", True)` is a rail-wide precondition: `lineax`/`optimistix`/`diffrax` solves and `numpyro` log-densities assume float64; the x32 default silently degrades solver accuracy.
+- `custom_jvp`/`custom_vjp` attach analytic derivative rules where a sibling's internal solve is non-differentiable or where the implicit-function theorem gives a closed-form adjoint (the same mechanism `lineax`/`optimistix` use internally for differentiable solves).
+
 [LOCAL_ADMISSION]:
-- Numeric-study kernels are written once as pure functions and wrapped with `jit` at the call boundary, not inside hot loops.
-- Gradients use `grad` and `value_and_grad`; second-order studies use `hessian` or nested `jacfwd`/`jacrev`.
-- Batch dimensions are expressed through `vmap`; device parallelism uses `pmap` or `shard_map`.
-- PRNG keys thread explicitly through a study; a captured key plus its `split` lineage is the determinism receipt.
-- Host interaction inside a transform routes through `pure_callback` with declared `result_shape_dtypes`.
+- Numeric-study kernels are written once as pure functions and wrapped with `jit` (or `equinox.filter_jit` for `Module` carriers) at the call boundary, not inside hot loops.
+- Gradients use `grad`/`value_and_grad`; second-order studies use `hessian` or nested `jacfwd`/`jacrev`; for `Module` carriers the filtered mirrors (`equinox.filter_grad`) replace the bare transforms so static leaves bypass differentiation.
+- Batch dimensions are expressed through `vmap`; device parallelism uses `shard_map` over a `Mesh` (`pmap` is the legacy single-axis form).
+- PRNG keys thread explicitly through a study; a captured key plus its `split` lineage is the determinism receipt shared with every stochastic sibling.
+- Host interaction inside a transform routes through `pure_callback` (functionally pure) or `debug.callback` (ordered side effect) with declared `result_shape_dtypes`/`ShapeDtypeStruct`.
+- Custom array carriers register via `tree_util.register_pytree_node` so the sibling transforms treat them as first-class leaves; ad-hoc Python containers break tracing.
 
 [RAIL_LAW]:
 - Package: `jax`
-- Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, and structured control flow
-- Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`, and batched through `vmap`
-- Reject: hand-rolled autodiff or XLA lowering; Python control flow over traced values; PRNG key reuse; jax in a deterministic product runtime path on cp315
+- Owns: XLA compilation, automatic differentiation, vectorization, device parallelism, structured control flow, the `jax.numpy`/`jax.scipy` array+linalg mirror, and the `tree_util` pytree protocol every sibling carrier registers against
+- Accept: pure numeric-study functions compiled through `jit`, differentiated through `grad`/`jacrev`/`custom_vjp`, batched through `vmap`, with state carried as registered pytrees and randomness threaded through split keys
+- Reject: hand-rolled autodiff or XLA lowering; Python control flow / `if`-on-`Tracer` / `bool(Tracer)` over traced values; PRNG key reuse or a reseeded global RNG; mutable in-place array writes outside `x.at[...]`; jax in a deterministic product runtime path on cp315

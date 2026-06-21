@@ -1,14 +1,17 @@
 # [PY_DATA_API_PANDERA]
 
-`pandera` declares and enforces dataframe contracts through two equivalent surfaces: object-style `DataFrameSchema`/`Column`/`Index` and class-style `DataFrameModel` with `Field` annotations. `Check` and `Hypothesis` carry built-in and custom validation predicates, `Parser` applies pre-validation transforms, and `check_types`/`check_input`/`check_output`/`check_io` decorate functions to validate arguments and returns against typed `Series`/`DataFrame` annotations. `validate` runs eager or `lazy` (collect-all-errors) validation and raises `SchemaError`/`SchemaErrors`; schemas round-trip through `to_yaml`/`from_yaml`, `to_json`/`from_json`, and `to_script`, and `infer_schema` bootstraps a schema from data.
+`pandera` declares and enforces dataframe contracts through two equivalent surfaces: object-style `DataFrameSchema`/`Column`/`Index` and class-style `DataFrameModel` with `Field` annotations, bound to a frame library by the imported backend namespace (`pandera.pandas`, `pandera.polars`, `pandera.pyspark`, `pandera.geopandas`) rather than a runtime branch — the polars backend pushes validation into the `LazyFrame` scan. `Check` and `Hypothesis` carry built-in and custom validation predicates, `Parser` applies pre-validation transforms, and `check_types`/`check_input`/`check_output`/`check_io` decorate functions to validate arguments and returns against typed `pandera.typing.Series`/`DataFrame`/`Index` annotations. `validate` runs eager or `lazy` (collect-all-errors) validation and raises `SchemaError`/`SchemaErrors` (whose `.failure_cases` is a foldable frame); `SchemaInitError`/`SchemaDefinitionError` fail fast at build time. Schemas round-trip through `to_yaml`/`from_yaml`, `to_json`/`from_json`, and `to_script`, and `infer_schema` bootstraps a schema from data.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pandera`
 - package: `pandera`
 - module: `pandera`
-- asset: pure Python
+- floor: `>=0.31.1`
+- license: MIT
+- asset: pure Python (`py3-none-any`)
 - rail: dataframe contract validation
+- import: `import pandera.pandas as pa` is the canonical backend-namespaced import at the `>=0.31` floor; the bare `import pandera as pa` is the legacy path and resolves the pandas backend only — author against `pandera.pandas`/`pandera.polars`/`pandera.pyspark` so the schema engine binds to the frame library without a per-call branch.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -27,9 +30,13 @@
 |  [08]   | `Hypothesis`                              | predicate      | statistical-test validation predicate                                                                          |
 |  [09]   | `Parser`                                  | transform      | pre-validation column/frame transform                                                                          |
 |  [10]   | `DataType`                                | dtype          | pandera logical dtype base                                                                                     |
-|  [11]   | `pandera.errors.SchemaError`              | failure        | single validation failure; `.schema`/`.check` attrs                                                            |
-|  [12]   | `pandera.errors.SchemaErrors`             | failure        | aggregated lazy-validation failures; `.failure_cases` frame (`column`/`check` columns)                         |
-|  [13]   | `pandera.polars.{DataFrameSchema,Column}` | polars backend | native polars `LazyFrame`/`DataFrame` schema (`pandera.api.polars.container`), pushes validation into the scan |
+|  [11]   | `pandera.errors.SchemaError`              | failure        | single validation failure; `.schema`/`.check`/`.failure_cases` attrs                                           |
+|  [12]   | `pandera.errors.SchemaErrors`             | failure        | aggregated lazy-validation failures; `.failure_cases` frame (`schema_context`/`column`/`check`/`failure_case`) |
+|  [13]   | `pandera.errors.{SchemaInitError,SchemaDefinitionError}` | failure | schema-construction and ill-formed-definition errors raised at build time, not validation time          |
+|  [14]   | `pandera.polars.{DataFrameSchema,DataFrameModel,Column}` | polars backend | native polars `LazyFrame`/`DataFrame` schema/model (`pandera.api.polars`), pushes validation into the lazy scan |
+|  [15]   | `pandera.pyspark.{DataFrameSchema,DataFrameModel}` | pyspark backend | native PySpark SQL schema validating distributed frames; same `Column`/`Check`/`Field` vocabulary    |
+|  [16]   | `pandera.geopandas.{GeoDataFrameSchema,GeoSeriesSchema}` | geo backend | geometry-aware schema/series for GeoPandas frames over the `geopandas` extra                            |
+|  [17]   | `pandera.typing.{Series,DataFrame,Index}` | annotation     | typed annotations driving `@check_types`; `pandera.typing.polars.{Series,DataFrame}` mirror for the polars backend |
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 - rail: dataframe contract validation
@@ -91,22 +98,25 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONTRACT_TOPOLOGY]:
-- object schemas (`DataFrameSchema` over `Column`/`Index`) and class schemas (`DataFrameModel` with `Field`) are equivalent; `DataFrameModel.to_schema()` lowers the class form to the object form
-- `validate(check_obj, lazy=False)` raises `SchemaError` on first failure; `lazy=True` collects all violations into `SchemaErrors` with a failure-case report
+- backend axis: the validation engine is selected by the namespace, not by a runtime branch — `pandera.pandas` validates pandas frames, `pandera.polars` pushes the same `Column`/`Check`/`Field` vocabulary into a polars `LazyFrame` scan (validation rides the lazy plan, never a collected materialization), `pandera.pyspark` validates distributed Spark frames, and `pandera.geopandas` adds geometry-aware columns; one schema vocabulary, one backend binding
+- object schemas (`DataFrameSchema` over `Column`/`Index`) and class schemas (`DataFrameModel` with `Field`) are equivalent; `DataFrameModel.to_schema()` lowers the class form to the object form, and the polars-native `pandera.polars.DataFrameModel` lowers the same way for the lazy backend
+- `validate(check_obj, lazy=False)` raises `SchemaError` on first failure; `lazy=True` collects all violations into `SchemaErrors` whose `.failure_cases` is itself a frame (`schema_context`/`column`/`check`/`failure_case`/`index`) — the report is a dataframe to be folded over, not a string to be parsed
 - `head`, `tail`, `sample`, and `random_state` bound validation to a subset for large frames
-- `Column`/`Field` carry `nullable`, `unique`, `coerce`, `required`, `regex`, `default`, and `drop_invalid_rows`; `coerce` casts before validation and `drop_invalid_rows` filters failing rows
+- `Column`/`Field` carry `nullable`, `unique`, `coerce`, `required`, `regex`, `default`, and `drop_invalid_rows`; `coerce` casts before validation and `drop_invalid_rows` filters failing rows (returns the surviving frame instead of raising)
 - `Check` predicates run element-wise or vectorized and may group by another column; `Hypothesis` wraps statistical tests; `Parser` transforms data before checks run
 - schema-evolution methods (`update_column`, `add_columns`, `set_index`, ...) return new immutable schemas
-- decorators validate against `pandera.typing.Series`/`DataFrame` annotations; `check_types` enforces annotated function signatures
+- decorators validate against `pandera.typing.Series`/`DataFrame`/`Index` annotations (and `pandera.typing.polars.*` for the polars backend); `check_types` enforces annotated function signatures
+- `SchemaInitError`/`SchemaDefinitionError` raise at schema-build time (bad dtype, ill-formed model), distinct from the `SchemaError`/`SchemaErrors` validation rail — fail-fast on definition versus collect-all on data
 
 [LOCAL_ADMISSION]:
-- Define contracts as `DataFrameModel` subclasses with typed `Field` constraints for static-checkable, reusable schemas; use `DataFrameSchema` where schemas are built dynamically.
-- Gate function boundaries with `@check_types` (or `@check_input`/`@check_output`/`@check_io`) so typed `Series`/`DataFrame` annotations are enforced at call time.
-- Use `lazy=True` to collect a full failure report at boundaries; use `coerce=True` and `Parser` to normalize before validation rather than pre-cleaning by hand.
+- Define contracts as `DataFrameModel` subclasses with typed `Field` constraints for static-checkable, reusable schemas; use `DataFrameSchema` where schemas are built dynamically. Import the backend namespace (`pandera.polars`/`pandera.pandas`) matching the frame the page owns rather than the bare `pandera`.
+- Gate function boundaries with `@check_types` (or `@check_input`/`@check_output`/`@check_io`) so typed `Series`/`DataFrame` annotations are enforced at call time; the typed annotation is the contract, not a docstring.
+- Use `lazy=True` and fold `SchemaErrors.failure_cases` into a typed failure receipt — the failure-case frame stacks directly into a `pointblank`/`dataframely`-style grade rather than re-deriving per-column error counts by hand; use `coerce=True` and `Parser` to normalize before validation rather than pre-cleaning by hand.
+- On the polars plane, define `pandera.polars.DataFrameModel` so validation stays inside the `LazyFrame` scan that `polars`/`narwhals` already builds, never collecting to pandas to validate.
 - Round-trip schemas through `to_yaml`/`from_yaml` for versioned contracts and use `infer_schema` plus `to_script` to bootstrap, never as the final contract.
 
 [RAIL_LAW]:
 - Package: `pandera`
-- Owns: declarative dataframe/series contracts, validation execution, and function-boundary enforcement
-- Accept: pandas (and supported backend) frames and series, typed annotations, and serialized schema definitions
-- Reject: ad-hoc `assert`-based column checks, manual dtype/range validation loops, untyped boundary functions that skip schema enforcement
+- Owns: declarative dataframe/series contracts across pandas/polars/pyspark/geopandas backends, validation execution, and function-boundary enforcement
+- Accept: backend frames and series via the matching namespace, typed `pandera.typing` annotations, and serialized schema definitions
+- Reject: ad-hoc `assert`-based column checks, manual dtype/range validation loops, untyped boundary functions that skip schema enforcement, collecting a `LazyFrame` to pandas solely to validate when `pandera.polars` validates the scan in place, bare `import pandera as pa` where the backend namespace fixes the engine

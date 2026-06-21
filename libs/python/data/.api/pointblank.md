@@ -1,6 +1,6 @@
 # [PY_DATA_API_POINTBLANK]
 
-`pointblank` supplies the graded data-quality validation surface for the data grading rail: a `Validate` workflow that chains `col_vals_*`, `col_schema_match`, `rows_distinct`, and `row_count_match` validation steps against a Narwhals-backed frame (Polars/Pandas/Ibis/DuckDB/CSV/Parquet), interrogates the plan with `interrogate()`, and emits a `great_tables.GT` renderable report through `get_tabular_report()`. `Thresholds` and `Actions` grade each step at warning/error/critical severity; the boolean rails `all_passed`, `n_passed`/`f_passed`, and `above_threshold`/`assert_below_threshold` reduce the interrogated plan to a pass/fail grade. The package owner composes `Validate`, `Thresholds`, and `get_tabular_report` into the `PROFILE_POINTBLANK_GRADE` path; it consumes the in-package step algebra and severity grading rather than re-implementing a row-level assertion engine, and routes the emitted `GT` frame to the renderer.
+`pointblank` supplies the graded data-quality validation surface for the data grading rail: a `Validate` workflow that chains `col_vals_*`, `col_schema_match`, `rows_distinct`, and `row_count_match` validation steps against a Narwhals-backed frame (Polars/Pandas/Ibis/DuckDB/CSV/Parquet/database connection), interrogates the plan with `interrogate()`, and emits a `great_tables.GT` renderable report through `get_tabular_report()`. `Thresholds` and `Actions`/`FinalActions` grade each step at warning/error/critical severity, `send_slack_notification`/`emit_otel` ship action side-effects, and the boolean rails `all_passed`, `n_passed`/`f_passed`, and `above_threshold`/`assert_below_threshold` reduce the interrogated plan to a pass/fail grade. The declarative `Contract`/`Pipeline` surface, YAML interrogation, and `import_contract`/`export_contract` adapters persist a plan; `Schema`-driven `generate_dataset` (with `int_field`/`string_field`/... helpers or `IntField`/`StringField`/... classes) synthesizes tables, and the metadata/SDTM/ADaM families validate clinical-trial dataset structure. The package owner composes `Validate`, `Thresholds`, and `get_tabular_report` into the `PROFILE_POINTBLANK_GRADE` path; it consumes the in-package step algebra and severity grading rather than re-implementing a row-level assertion engine, and routes the emitted `GT` frame to the renderer.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,36 +9,36 @@
 - import: `pointblank`
 - owner: `data`
 - rail: grade
-- installed: `0.24.0` reflected via `python -c "import pointblank"` on cp315
+- license: MIT
+- floor: requires-python `>=3.10`; version is `setuptools_scm`-derived (do not pin a literal release)
+- asset: pure Python; core deps `narwhals>=2`, `great-tables>=0.22`, `commonmark`, `requests`, `click`, `rich`, `pyyaml`
 - entry points: console script `pb` (`pointblank.cli:cli`); library use is import-only
-- capability: chained validation plan over Narwhals-backed frames (Polars/Pandas/Ibis/DuckDB/CSV/Parquet/database connection), per-step warning/error/critical thresholds with severity actions, column and row-level assertions, schema match, AI-driven `prompt`/`specially`/`conjointly` steps, `great_tables.GT` tabular/step/dataframe/JSON reports, table profiling via `DataScan`/`col_summary_tbl`/`missing_vals_tbl`, sundered pass/fail splitting, YAML-driven validation, and synthetic dataset generation from a `Schema`
+- capability: chained validation plan over Narwhals-backed frames (Polars/Pandas/Ibis/DuckDB/CSV/Parquet/database connection), per-step warning/error/critical thresholds with severity actions and `send_slack_notification`/`emit_otel` side-effects, column and row-level assertions, schema match, AI-driven `prompt`/`specially`/`conjointly`/`assistant`/`DraftValidation` steps, `great_tables.GT` tabular/step/dataframe/JSON reports, table profiling via `DataScan`/`col_summary_tbl`/`missing_vals_tbl`/`preview`, sundered pass/fail splitting, declarative `Contract`/`Pipeline` and YAML-driven validation with `import_contract`/`export_contract` adapters, `Schema`-driven synthetic dataset generation (`generate_dataset` + `*_field`/`*Field` helpers + `GeneratorConfig`), and CDISC SDTM/ADaM clinical-dataset structure validation
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validation workflow, grading, schema, and profiling roots
 - rail: grade
 
-`Validate` is the workflow root; validation-step methods return `Validate` for chaining and `interrogate()` populates the reporting data. `Thresholds` grades failing test units at three severity levels and `Actions`/`FinalActions` bind callables to a severity. `Schema` declares column names and dtypes for `col_schema_match` and synthetic generation, and the `Field` family declares per-column generation constraints. `DataScan` profiles a table independent of a validation plan.
+`Validate` is the workflow root; validation-step methods return `Validate` for chaining and `interrogate()` populates the reporting data. `Thresholds` grades failing test units at three severity levels and `Actions`/`FinalActions` bind callables to a severity. `Contract`/`Step`/`Pipeline`/`PipelineResult` are the declarative, serializable plan model the YAML and `import_contract`/`export_contract` paths build. `Schema` declares column names and dtypes for `col_schema_match` and synthetic generation; the `Field`/`*Field` classes and the `*_field` helper functions are two equivalent idioms for per-column generation constraints. `DataScan` profiles a table independent of a validation plan, and `MissingSpec` declares custom missing-value sentinels.
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]    | [RAIL]                                                       |
-| :-----: | :---------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `Validate`        | workflow         | validation-plan root that interrogates and reports a grade   |
-|  [02]   | `Thresholds`      | grading          | warning/error/critical failing-unit limits                   |
-|  [03]   | `Actions`         | grading          | per-severity callables fired when a step threshold is met    |
-|  [04]   | `FinalActions`    | grading          | callables fired once after interrogation completes           |
-|  [05]   | `Schema`          | schema           | column-name and dtype declaration for match and generation   |
-|  [06]   | `DataScan`        | profiling        | standalone table profile with tabular and JSON reports       |
-|  [07]   | `GeneratorConfig` | generation       | synthetic-dataset row count, seed, locale, and output policy |
-|  [08]   | `DraftValidation` | authoring        | AI-drafted validation plan from a table and model            |
-|  [09]   | `Field`           | generation value | base per-column synthetic-generation constraint              |
-|  [10]   | `IntField`        | generation value | integer column constraint (`min_val`/`max_val`/`allowed`)    |
-|  [11]   | `FloatField`      | generation value | float column constraint                                      |
-|  [12]   | `StringField`     | generation value | string column constraint (`pattern`/`preset`/`min_length`)   |
-|  [13]   | `BoolField`       | generation value | boolean column constraint                                    |
-|  [14]   | `DateField`       | generation value | date column constraint                                       |
-|  [15]   | `DatetimeField`   | generation value | datetime column constraint                                   |
-|  [16]   | `TimeField`       | generation value | time column constraint                                       |
-|  [17]   | `DurationField`   | generation value | duration column constraint                                   |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [RAIL]                                                                                  |
+| :-----: | :---------------------- | :--------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `Validate`              | workflow         | validation-plan root that interrogates and reports a grade                              |
+|  [02]   | `Thresholds`            | grading          | warning/error/critical failing-unit limits                                              |
+|  [03]   | `Actions`               | grading          | per-severity callables fired when a step threshold is met                               |
+|  [04]   | `FinalActions`          | grading          | callables fired once after interrogation completes                                      |
+|  [05]   | `Contract`              | declarative plan | serializable contract bundling a `Validate` plan, metadata, and adapter binding         |
+|  [06]   | `Step`                  | declarative plan | one declarative validation step inside a `Contract`/`Pipeline`                          |
+|  [07]   | `Pipeline`              | declarative plan | ordered multi-table contract execution returning `PipelineResult`                       |
+|  [08]   | `PipelineResult`        | declarative plan | aggregated per-contract grade from a `Pipeline.run`                                      |
+|  [09]   | `Schema`                | schema           | column-name and dtype declaration for match and generation                              |
+|  [10]   | `MissingSpec`           | schema           | custom missing-value sentinel declaration for missing-value steps and profiling         |
+|  [11]   | `DataScan`              | profiling        | standalone table profile with tabular and JSON reports                                  |
+|  [12]   | `GeneratorConfig`       | generation       | synthetic-dataset row count, seed, locale, and output policy                            |
+|  [13]   | `DraftValidation`       | authoring        | AI-drafted validation plan from a table and model                                       |
+|  [14]   | `Field` / `*Field`      | generation value | per-column generation constraint classes (`Field`, `IntField`, `FloatField`, `StringField`, `BoolField`, `DateField`, `DatetimeField`, `TimeField`, `DurationField`) |
+|  [15]   | `int_field` … `duration_field` | generation value | snake-case factory functions mirroring the `*Field` classes (`int_field`/`float_field`/`string_field`/`bool_field`/`date_field`/`datetime_field`/`time_field`/`duration_field`), preferred inside a `Schema` column spec |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -94,7 +94,7 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 [ENTRYPOINT_SCOPE]: grading, profiling, schema, and I/O functions
 - rail: grade
 
-`Thresholds`/`Actions` configure grading; `DataScan`, `col_summary_tbl`, `missing_vals_tbl`, and `preview` emit `GT` frames without a validation plan. `load_dataset`/`generate_dataset` supply input tables, `connect_to_table` opens a database table, and `yaml_interrogate`/`read_file` rebuild a `Validate` from a declarative source.
+`Thresholds`/`Actions` configure grading and `send_slack_notification`/`emit_otel` build action callables fired on breach; `DataScan`, `col_summary_tbl`, `missing_vals_tbl`, and `preview` emit `GT` frames without a validation plan. `load_dataset`/`generate_dataset` supply input tables, `connect_to_table` opens a database table, `schema_from_tbl` infers a `Schema`, and `yaml_interrogate`/`read_file`/`import_contract` rebuild a `Validate`/`Contract` from a declarative source. `get_action_metadata`/`get_validation_summary` read interrogation context inside an action callable.
 
 | [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                                                                             | [CAPABILITY]                                      |
 | :-----: | :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------ |
@@ -107,13 +107,20 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 |  [07]   | `preview`          | `preview(data, columns_subset=None, n_head=5, n_tail=5, limit=50, show_row_numbers=True, max_col_width=250, min_tbl_width=500, incl_header=None) -> GT`                  | head/tail preview `GT` frame                      |
 |  [08]   | `get_row_count`    | `get_row_count(data) -> int`; `get_column_count(data) -> int`                                                                                                            | frame shape                                       |
 |  [09]   | `load_dataset`     | `load_dataset(dataset='small_table', tbl_type='polars') -> Any`; `get_data_path(dataset='small_table', file_type='csv') -> str`                                          | built-in datasets and on-disk paths               |
-|  [10]   | `generate_dataset` | `generate_dataset(schema, n=100, seed=None, output='polars', country='US', shuffle=True, weighted=True) -> Any`                                                          | synthetic table from a `Schema`                   |
-|  [11]   | `connect_to_table` | `connect_to_table(connection_string) -> Any`; `print_database_tables(connection_string) -> list[str]`                                                                    | open a database-backed table                      |
-|  [12]   | `yaml_interrogate` | `yaml_interrogate(yaml, set_tbl=None, namespaces=None) -> Validate`; `validate_yaml(yaml) -> None`; `yaml_to_python(yaml) -> str`                                        | build and interrogate a plan from YAML            |
-|  [13]   | `read_file`        | `read_file(filepath) -> Validate`; `write_file(validation, filename, path=None, keep_tbl=False, keep_extracts=False, quiet=False) -> None`                               | persist and reload an interrogated plan           |
-|  [14]   | `col`              | `col(exprs) -> Column`; `ref(column_name) -> ReferenceColumn`; `expr_col(column_name) -> ColumnExpression`                                                               | column reference for step targets and comparisons |
-|  [15]   | column selectors   | `starts_with(text, case_sensitive=False)`; `ends_with(...)`; `contains(...)`; `matches(pattern, ...)`; `everything()`; `first_n(n, offset=0)`; `last_n(n, offset=0)`     | resolve a column set for `columns`                |
-|  [16]   | `config`           | `config(report_incl_header=True, report_incl_footer=True, report_incl_footer_timings=True, report_incl_footer_notes=True, preview_incl_header=True) -> PointblankConfig` | global report/preview defaults                    |
+|  [10]   | `generate_dataset` | `generate_dataset(schema, n=100, seed=None, output='polars', country='US', shuffle=True, weighted=True) -> Any`                                                          | synthetic table from a `Schema`; columns use `*_field()` helpers or `*Field` classes |
+|  [11]   | `*_field` helpers  | `int_field(min_val=, max_val=, allowed=, ...)`; `float_field(...)`; `string_field(pattern=, preset=, min_length=, ...)`; `bool_field(...)`; `date_field(...)`; `datetime_field(...)`; `time_field(...)`; `duration_field(...)` -> `Field`; `GeneratorConfig(...)` | per-column generation constraint factories and global generation policy |
+|  [12]   | `schema_from_tbl`  | `schema_from_tbl(tbl) -> Schema`; `profile_fields(tbl) -> list[Field]`                                                                                                   | infer a `Schema` / column-generation fields from a table |
+|  [13]   | `connect_to_table` | `connect_to_table(connection_string) -> Any`; `print_database_tables(connection_string) -> list[str]`                                                                    | open a database-backed table                      |
+|  [14]   | `yaml_interrogate` | `yaml_interrogate(yaml, set_tbl=None, namespaces=None) -> Validate`; `validate_yaml(yaml) -> None`; `yaml_to_python(yaml) -> str`                                        | build and interrogate a plan from YAML            |
+|  [15]   | `read_file`        | `read_file(filepath) -> Validate`; `write_file(validation, filename, path=None, keep_tbl=False, keep_extracts=False, quiet=False) -> None`                               | persist and reload an interrogated plan           |
+|  [16]   | `import_contract`  | `import_contract(...) -> Contract`; `export_contract(contract, ...) -> None`; `register_adapter(adapter)`; `list_adapters() -> list[str]`; `ContractAdapter`/`ContractImport` | serialize a declarative `Contract` through pluggable adapters |
+|  [17]   | `col`              | `col(exprs) -> Column`; `ref(column_name) -> ReferenceColumn`; `expr_col(column_name) -> ColumnExpression`                                                               | column reference for step targets and comparisons |
+|  [18]   | column selectors   | `starts_with(text, case_sensitive=False)`; `ends_with(...)`; `contains(...)`; `matches(pattern, ...)`; `everything()`; `first_n(n, offset=0)`; `last_n(n, offset=0)`     | resolve a column set for `columns`                |
+|  [19]   | `seg_group`        | `seg_group(columns)`                                                                                                                                                     | declare a multi-column segmentation group for `segments` |
+|  [20]   | action callables   | `send_slack_notification(...)`; `emit_otel(...)`; `get_action_metadata() -> dict`; `get_validation_summary() -> dict`                                                    | side-effecting/context action helpers fired inside `Actions`/`FinalActions` |
+|  [21]   | `assistant`        | `assistant(...)`; `DraftValidation(tbl, model, api_key=None, ...)`                                                                                                       | LLM-authored validation drafting and chat assistant |
+|  [22]   | `config`           | `config(report_incl_header=True, report_incl_footer=True, report_incl_footer_timings=True, report_incl_footer_notes=True, preview_incl_header=True) -> PointblankConfig` | global report/preview defaults                    |
+|  [23]   | CDISC metadata     | `import_metadata`/`export_metadata`; `validate_sdtm`/`validate_adam`; `get_sdtm_domain`/`get_adam_dataset`; `sdtm_to_metadata`/`adam_to_metadata`; `Codelist`/`VariableMetadata`/`SDTMVariableSpec`/`ADaMVariableSpec` | clinical-trial dataset metadata and SDTM/ADaM structure validation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -122,16 +129,19 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 - plan axis: one `Validate` owns the validation plan; each `col_vals_*`/`rows_*`/`col_schema_match`/`row_count_match` call is a step row returning `Validate`, never a per-rule validator object — the plan is a chained fold, not a list of hand-instantiated checks.
 - comparison axis: `col_vals_gt`/`ge`/`lt`/`le`/`eq`/`ne`/`between`/`outside`/`in_set`/`not_in_set`/`regex`/`within_spec` is one comparison surface discriminated by operator and value shape; `value` accepts a literal, `col(...)`, or `ref(...)`, never a parallel step type per operator.
 - column axis: `columns` resolves a name, list, `col(...)`, or selector (`starts_with`/`ends_with`/`contains`/`matches`/`everything`/`first_n`/`last_n`); selectors are rows, never a hand-built column-name loop.
-- grade axis: `Thresholds(warning, error, critical)` grades failing test units at three severity levels as counts or fractions; `Actions` binds callables to a severity and `above_threshold`/`assert_below_threshold` reduce the interrogated plan to a pass/fail grade — `all_passed`/`n_passed`/`f_passed` are the boolean and fractional grade rails.
+- grade axis: `Thresholds(warning, error, critical)` grades failing test units at three severity levels as counts or fractions; `Actions`/`FinalActions` bind callables to a severity and `above_threshold`/`assert_below_threshold` reduce the interrogated plan to a pass/fail grade — `all_passed`/`n_passed`/`f_passed` are the boolean and fractional grade rails.
+- action axis: severity callables are the package's own side-effect rail — `send_slack_notification`/`emit_otel` are built `Actions` payloads (the OTel span is emitted by pointblank, never hand-stitched around `interrogate`), and `get_action_metadata`/`get_validation_summary` read the breaching-step context inside the callable; bind side-effects through `Actions`, never wrap `interrogate()` in an external try/notify block.
+- generation axis: `generate_dataset(schema, ...)` synthesizes a table from a `Schema` whose columns are `int_field()`/`string_field()`/... helpers (or the equivalent `IntField`/`StringField`/... classes) plus a `GeneratorConfig` policy; `schema_from_tbl`/`profile_fields` round-trip a real frame into a generation `Schema` — synthetic fixtures stack into the same `Validate` plan, never a parallel mock-frame builder.
 - interrogate axis: `interrogate()` is the single execution surface that acts on the plan; sampling (`sample_n`/`sample_frac`/`get_first_n`) and extract limits are call rows, never a separate runner type.
 - render axis: `get_tabular_report()` emits the `great_tables.GT` grade frame keyed by the interrogated plan; `get_step_report`/`get_dataframe_report`/`get_json_report` are report rows for the same plan, and `col_summary_tbl`/`missing_vals_tbl`/`preview`/`DataScan.get_tabular_report` emit `GT` frames for profiling without a plan — the `GT` object feeds the renderer directly, never a re-rendered HTML table.
 - frame axis: `data` accepts a Polars/Pandas/Ibis frame, a CSV/Parquet path or glob, a GitHub URL, or a database connection string through Narwhals; `connect_to_table` and `load_dataset`/`generate_dataset` supply tables — the validation engine is backend-agnostic, never re-implemented per frame library.
-- declarative axis: `yaml_interrogate`/`validate_yaml`/`yaml_to_python` build and interrogate a plan from YAML and `read_file`/`write_file` persist an interrogated `Validate`; declarative validation is a source row, never a parallel plan API.
+- declarative axis: `yaml_interrogate`/`validate_yaml`/`yaml_to_python` build and interrogate a plan from YAML and `read_file`/`write_file` persist an interrogated `Validate`; the typed `Contract`/`Step`/`Pipeline`/`PipelineResult` model plus `import_contract`/`export_contract` over registered `ContractAdapter`s is the serializable plan owner, and `Pipeline` runs a multi-table contract set — declarative validation is a source/contract row, never a parallel plan API.
+- clinical axis: the SDTM/ADaM metadata family (`validate_sdtm`/`validate_adam`, `get_sdtm_domain`/`get_adam_dataset`, `import_metadata`/`export_metadata`, `Codelist`/`SDTMVariableSpec`/`ADaMVariableSpec`) validates CDISC dataset structure against a domain template inside the same grading engine; it is a domain-template row over the `Validate` plan, never a separate validator.
 - evidence: each interrogated plan captures step count, per-step passing/failing test-unit counts and fractions, severity grade per level, threshold breach flags, sundered row counts, and the emitted report kind as a grade receipt.
-- boundary: pointblank owns the validation plan, severity grading, and `GT` report emission; `great_tables` (`GT` 0.21.0) owns the renderable frame downstream; Narwhals owns frame normalization; the emitted `GT` feeds the document and visuals owners; live UI stays outside this package.
+- boundary: pointblank owns the validation plan, severity grading, and `GT` report emission; `great_tables` (`>=0.22`) owns the renderable frame downstream; Narwhals owns frame normalization; the emitted `GT` feeds the document and visuals owners; live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `pointblank`
-- Owns: chained validation-plan authoring over Narwhals-backed frames, warning/error/critical threshold grading with severity actions, column/row/schema/aggregate assertions, table profiling, and `great_tables.GT` report emission
+- Owns: chained validation-plan authoring over Narwhals-backed frames, warning/error/critical threshold grading with severity actions and `send_slack_notification`/`emit_otel` side-effects, column/row/schema/aggregate assertions, table profiling, `Schema`-driven synthetic-dataset generation, declarative `Contract`/`Pipeline`/YAML plans with pluggable adapters, CDISC SDTM/ADaM structure validation, and `great_tables.GT` report emission
 - Accept: graded data-quality validation feeding a renderable `GT` frame to the document, visuals, and grade owners
-- Reject: wrapper-renames of `Validate`/`interrogate`/`get_tabular_report`; a hand-rolled row-level assertion engine; a parallel step type per comparison operator or per frame library; a re-rendered HTML table where the in-package `GT` frame needs none; identity or threshold-grade minting the runtime owns
+- Reject: wrapper-renames of `Validate`/`interrogate`/`get_tabular_report`; a hand-rolled row-level assertion engine; a parallel step type per comparison operator or per frame library; a re-rendered HTML table where the in-package `GT` frame needs none; an external try/notify or OTel-span wrapper around `interrogate()` where `Actions`+`emit_otel`/`send_slack_notification` own the side-effect rail; a hand-built mock frame where `generate_dataset`+`Schema` synthesizes one; identity or threshold-grade minting the runtime owns

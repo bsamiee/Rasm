@@ -10,8 +10,12 @@
 - owner: `geometry`
 - rail: step-bridge / cad-kernel
 - installed: `7.9.3.1.1` reflected via `import OCP` on cp313
+- license: Apache-2.0 (the OCCT LGPL-with-exception kernel is statically linked into the wheel; the published wheel classifier is Apache-2.0)
+- wheel-floor: binary wheels cp310-cp314 only (no abi3, no cp315); the single `OCP/OCP.cpython-3XX-<plat>.so` is ~148 MB and dynamically links VTK at load time, so the runtime is split across `cadquery-ocp-proxy==7.9.3.1.1` (data/stub side) and a hard `vtk==9.6.2` dependency whose `libvtkWrappingPythonCore3.XX.dylib`/`.so` must resolve or `import OCP` raises `ImportError` — ABI: pybind11 native + VTK 9.6.2 native
+- pin: `cadquery-ocp; python_version<'3.15'` (the `<3.15` requires-python gate; companion-side band alongside the COMPAS/ifcopenshell companions)
+- depends: `cadquery-ocp-proxy==7.9.3.1.1`, `vtk==9.6.2` (both exact-pinned by the wheel)
 - entry points: none (library only)
-- capability: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive and feature shape construction, Boolean and offset operations, mesh triangulation, STEP/IGES exchange, and the XCAF document model carrying assembly structure, colors, names, layers, and materials
+- capability: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive and feature shape construction, n-ary Boolean and offset operations over `TopTools_ListOfShape`, fillet/chamfer local operations, mesh triangulation, STEP/IGES exchange, and the XCAF document model carrying assembly structure, colors, names, layers, and materials
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -103,9 +107,13 @@
 |  [10]   | `BRepAlgoAPI_Common`           | Boolean isect      | intersect two shapes            |
 |  [11]   | `BRepAlgoAPI_Section`          | Boolean section    | cross-section wire/edge result  |
 |  [12]   | `BRepAlgoAPI_Splitter`         | shape splitter     | split shape by tool shapes      |
-|  [13]   | `BRepOffsetAPI_MakeThickSolid` | shell              | thick-walled solid from removal |
+|  [13]   | `BRepOffsetAPI_MakeThickSolid` | shell              | hollow solid via `MakeThickSolidByJoin`/`MakeThickSolidBySimple` (no-arg ctor) |
 |  [14]   | `BRepOffsetAPI_ThruSections`   | loft               | surface through cross-sections  |
 |  [15]   | `BRepOffsetAPI_MakePipeShell`  | sweep              | evolving section along a spine  |
+|  [16]   | `BRepFilletAPI_MakeFillet`     | fillet             | rolling-ball fillet on selected edges |
+|  [17]   | `BRepFilletAPI_MakeChamfer`    | chamfer            | chamfer on selected edges       |
+|  [18]   | `TopTools_ListOfShape`         | shape collection   | the `Append`/`Prepend`/`Extent`/`First` list feeding Boolean `SetArguments`/`SetTools` and `MakeThickSolidByJoin` |
+|  [19]   | `BRepOffset_Mode` / `GeomAbs_JoinType` | enums      | offset-construction mode and join type for thick-solid/offset ops |
 
 [PUBLIC_TYPE_SCOPE]: exchange and XCAF document — `OCP.STEPControl` / `OCP.IGESControl` / `OCP.STEPCAFControl` / `OCP.XCAFDoc` / `OCP.TDocStd`
 - rail: cad-kernel data exchange
@@ -162,7 +170,7 @@
 | [INDEX] | [SURFACE]                                                                               | [ENTRY_FAMILY] | [CAPABILITY]                      |
 | :-----: | :-------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
 |  [01]   | `STEPCAFControl_Reader.ReadFile(path) -> IFSelect_ReturnStatus`                         | reader         | load STEP into the CAF reader     |
-|  [02]   | `STEPCAFControl_Reader.SetColorMode(bool)` / `SetNameMode(bool)` / `SetLayerMode(bool)` | config         | select transferred metadata       |
+|  [02]   | `STEPCAFControl_Reader.SetColorMode(bool)` / `SetNameMode(bool)` / `SetLayerMode(bool)` / `SetGDTMode(bool)` / `SetMatMode(bool)` / `SetViewMode(bool)` / `SetPropsMode(bool)` | config | select transferred metadata channels |
 |  [03]   | `STEPCAFControl_Reader.Transfer(doc) -> bool`                                           | transfer       | populate the XCAF document        |
 |  [04]   | `STEPCAFControl_Reader.Perform(path, doc) -> bool`                                      | transfer       | read plus transfer in one call    |
 |  [05]   | `XCAFDoc_DocumentTool.ShapeTool_s(label) -> XCAFDoc_ShapeTool`                          | accessor       | assembly/instance label tree      |
@@ -187,6 +195,22 @@ Every `Make*` builder follows the OCCT command pattern: construct, optionally co
 |  [08]   | `BRepAlgoAPI_Cut(S1, S2).Shape()`         | Boolean diff   | difference of two shapes   |
 |  [09]   | `BRepAlgoAPI_Common(S1, S2).Shape()`      | Boolean isect  | intersection of two shapes |
 
+[ENTRYPOINT_SCOPE]: n-ary Boolean, fillet/chamfer, and thick-solid construction
+- rail: cad-kernel modeling
+
+The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2)` ctor: feed `TopTools_ListOfShape` collections to `SetArguments`/`SetTools` for n-ary operations, set `SetFuzzyValue`/`SetRunParallel`/`SetNonDestructive`/`SetGlue` before `Build()`, and read `SectionEdges()`/`History()`/`HasModified`/`HasGenerated`/`HasDeleted` after. `MakeThickSolid` is a no-arg-constructed builder driven by a method, not a 4-arg ctor; the faces-to-remove argument is a real `TopTools_ListOfShape` (an empty list yields a uniform offset shell). Fillet/chamfer add edges before `Build()`.
+
+| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                            |
+| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `op.SetArguments(TopTools_ListOfShape)` / `op.SetTools(TopTools_ListOfShape)` then `op.Build()` / `op.Shape()` | n-ary Boolean  | union/cut/common over shape lists       |
+|  [02]   | `op.SetFuzzyValue(tol)` / `SetRunParallel(flag)` / `SetNonDestructive(flag)` / `SetGlue(mode)`             | config         | tolerance, parallelism, non-destruct, glue |
+|  [03]   | `op.SectionEdges() -> TopTools_ListOfShape` / `op.History()` / `HasModified()` / `HasGenerated()`          | history        | section edges and modification history  |
+|  [04]   | `mts = BRepOffsetAPI_MakeThickSolid(); mts.MakeThickSolidByJoin(S, ClosingFaces: TopTools_ListOfShape, Offset, Tol, Mode=BRepOffset_Skin, ...)` then `mts.Shape()` | shell | hollow solid removing `ClosingFaces` (empty list -> uniform shell) |
+|  [05]   | `mts.MakeThickSolidBySimple(S, Offset)`                                                                     | shell          | simple uniform-offset shell             |
+|  [06]   | `mf = BRepFilletAPI_MakeFillet(shape); mf.Add(radius, edge)` then `mf.Build()` / `mf.Shape()`              | fillet         | rolling-ball fillet on added edges      |
+|  [07]   | `mc = BRepFilletAPI_MakeChamfer(shape); mc.Add(dist, edge)` then `mc.Build()` / `mc.Shape()`              | chamfer        | chamfer on added edges                  |
+|  [08]   | `ts = BRepOffsetAPI_ThruSections(isSolid); ts.AddWire(wire)` then `ts.Build()` / `ts.Shape()`             | loft           | lofted surface/solid through wires      |
+
 [ENTRYPOINT_SCOPE]: traversal, triangulation, and properties
 - rail: cad-kernel topology and tessellation
 
@@ -209,10 +233,11 @@ Every `Make*` builder follows the OCCT command pattern: construct, optionally co
 - shape hierarchy: `TopoDS_Vertex` < `TopoDS_Edge` < `TopoDS_Wire` < `TopoDS_Face` < `TopoDS_Shell` < `TopoDS_Solid` < `TopoDS_CompSolid`/`TopoDS_Compound`; `TopAbs_ShapeEnum` enumerates the same kinds for `TopExp_Explorer`.
 - downcast: static `TopoDS.Edge_s`/`Face_s`/`Vertex_s`/`Wire_s` cast a `TopoDS_Shape` to the concrete type before type-specific member access; a wrong-type cast raises.
 - builder pattern: every `Make*` builder constructs, configures, calls `Build()`, checks `IsDone()`, and yields `Shape()` or a typed accessor such as `Edge()`/`Face()`/`Solid()`; results carry `Generated`/`Modified`/`IsDeleted` for downstream history queries.
+- Boolean/offset detail: `BRepAlgoAPI_*` are n-ary BOPAlgo operators — the binary `(S1, S2)` ctor is sugar over `SetArguments`/`SetTools` taking `TopTools_ListOfShape`; `BRepOffsetAPI_MakeThickSolid` has a no-arg ctor and is driven by `MakeThickSolidByJoin(S, ClosingFaces: TopTools_ListOfShape, Offset, Tol, Mode=BRepOffset_Skin, ...)` or `MakeThickSolidBySimple(S, Offset)`, never a 4-positional-arg ctor; pass an empty `TopTools_ListOfShape` (or empty Python list, which pybind11 marshals) for a uniform offset shell. Fillet/chamfer (`BRepFilletAPI_MakeFillet`/`MakeChamfer`) add edges via `Add(...)` before `Build()`.
 
 [STEP_BRIDGE]:
-- assembly path: the `STEPCAFControl_Reader` plus `TDocStd_Document` plus `XCAFDoc_DocumentTool` triad is the load-bearing STEP entry; it preserves the assembly instance tree, per-shape colors, names, layers, and GD&T that the shape-only `STEPControl_Reader` discards, and `SetColorMode`/`SetNameMode`/`SetLayerMode` select which metadata transfers.
-- exchange status: STEP/IGES read and write return `IFSelect_ReturnStatus` (`RetVoid`/`RetDone`/`RetError`/…); check the status before consuming `OneShape()` or `Shape(n)`.
+- assembly path: the `STEPCAFControl_Reader` plus `TDocStd_Document` plus `XCAFDoc_DocumentTool` triad is the load-bearing STEP entry; it preserves the assembly instance tree, per-shape colors, names, layers, GD&T, materials, and validation props that the shape-only `STEPControl_Reader` discards, and the `SetColorMode`/`SetNameMode`/`SetLayerMode`/`SetGDTMode`/`SetMatMode`/`SetViewMode`/`SetPropsMode` toggles select which metadata channels transfer. The label tree is read through static `XCAFDoc_DocumentTool.ShapeTool_s(label)`/`ColorTool_s(label)`; `XCAFDoc_ShapeTool.GetFreeShapes`/`GetShapes`/`GetShape_s`/`GetReferredShape_s`/`GetLocation_s` walk the assembly instances and locations.
+- exchange status: STEP/IGES read and write return `IFSelect_ReturnStatus` (`IFSelect_RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`); check the status equals `IFSelect_RetDone` before consuming `OneShape()` or `Shape(n)`, and read the pre-transfer root count from `NbRootsForTransfer()`.
 - tessellation: `BRepMesh_IncrementalMesh(shape, deflection)` mutates the shape's stored triangulation in place; `RWGltf_CafWriter` and `StlAPI_Writer` consume that triangulation, so meshing precedes glTF/STL export.
 - evidence: `BRepGProp.VolumeProperties_s`/`SurfaceProperties_s` populate a `GProp_GProps` accumulator exposing `Mass`/`CentreOfMass`/`MatrixOfInertia` as the geometric receipt for a transferred solid.
 
@@ -220,10 +245,10 @@ Every `Make*` builder follows the OCCT command pattern: construct, optionally co
 
 [RAIL_LAW]:
 - Package: `cadquery-ocp`
-- Owns: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive/feature/Boolean shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name document model for the STEP bridge
-- Accept: STEP/IGES source bytes for the B-rep hop; `TopoDS_Shape` topology feeding the tessellation and mesh-export owners
-- Reject: a hand-rolled STEP/IGES parser, B-rep topology, Boolean kernel, or triangulator where OCP is admitted; wrapper-renames of `STEPCAFControl_Reader`/`BRepMesh_IncrementalMesh`; shape-only `STEPControl_Reader` where the assembly/color/name metadata is required; the retired conda-only `pythonocc-core` `OCC.Core.*` path
+- Owns: OCCT BREP topology, parametric `gp`/`Geom` geometry, primitive/feature/Boolean/fillet/chamfer/thick-solid shape construction, mesh triangulation, STEP/IGES exchange, and the XCAF assembly/color/name/material document model for the STEP bridge
+- Accept: STEP/IGES source bytes for the B-rep hop; `TopoDS_Shape` topology feeding the tessellation and mesh-export owners; `TopTools_ListOfShape` collections for the n-ary Boolean and thick-solid arms
+- Reject: a hand-rolled STEP/IGES parser, B-rep topology, Boolean kernel, fillet/offset algebra, or triangulator where OCP is admitted; wrapper-renames of `STEPCAFControl_Reader`/`BRepMesh_IncrementalMesh`; shape-only `STEPControl_Reader` where the assembly/color/name metadata is required; the retired conda-only `pythonocc-core` `OCC.Core.*` path; a bare-4-arg `MakeThickSolid(...)` ctor assumption (the operation is `MakeThickSolidByJoin`/`BySimple`)
 
 [CAPTURE_GAP]:
-- floor: `cadquery-ocp 7.9.3.1.1` requires `<3.15,>=3.10` and ships binary wheels cp310-cp314 only (no abi3, no cp315), so it is a `python_version<'3.15'` gated companion package; reflection runs on a cp313 companion interpreter while the cp315 project venv carries no wheel
-- members: verified by introspection against the installed cp313 distribution; the `OCP.*` submodule set, the XCAF reader/writer mode toggles, the `Make*` builder accessors, and the exchange status enums resolve against the live pybind11 bindings — no phantom
+- floor: `cadquery-ocp 7.9.3.1.1` requires `<3.15,>=3.10` and ships binary wheels cp310-cp314 only (no abi3, no cp315) under the Apache-2.0 wheel classifier; it is a `python_version<'3.15'` gated companion package whose ~148 MB `OCP.so` hard-links the exact-pinned `vtk==9.6.2` (plus the `cadquery-ocp-proxy==7.9.3.1.1` data side) — `import OCP` raises `ImportError` if the VTK Python-wrapping libraries are absent. Reflection ran by importing the cp313 wheel in an ephemeral `cadquery-ocp+vtk` environment; the cp315 project venv carries no wheel and `assay api resolve cadquery-ocp` resolves no source.
+- members: verified by live import against the installed cp313 pybind11 bindings; the `OCP.*` submodule set, the seven STEPCAF mode toggles, the n-ary Boolean `SetArguments`/`SetTools`/`SetFuzzyValue`/`SectionEdges` surface, the no-arg `MakeThickSolid` + `MakeThickSolidByJoin(S, TopTools_ListOfShape, Offset, Tol, ...)` signature, the fillet/chamfer `Add`/`Build`/`Shape` makers, the `IFSelect_ReturnStatus` members (`RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`), the `XCAFDoc_ShapeTool.GetFreeShapes`/`GetShape_s` walk, and the `GProp_GProps.Mass`/`CentreOfMass`/`MatrixOfInertia` accessors all resolve against the live bindings — no phantom.

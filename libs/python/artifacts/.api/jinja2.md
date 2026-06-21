@@ -9,9 +9,11 @@
 - import: `import jinja2` (lint alias `j2`)
 - owner: `artifacts`
 - rail: report-templating
-- installed: `3.1.6` reflected via `python -c "import jinja2"` on cp315
+- license: BSD-3-Clause (runtime dep `MarkupSafe>=2.0`; `Babel>=2.7` only under the `i18n` extra)
+- asset: runtime library; pure Python (`py3-none-any`, flit-built), no ABI gate, cp315-clean (manifest floor `jinja2>=3.1.6`, no `python_version` marker)
+- installed: `3.1.6` reflected via `assay api resolve jinja2`
 - entry points: none (library only)
-- capability: text/markup template engine; lexer, parser, compiler, sandboxed execution, loader hierarchy, autoescape policy, undefined-value algebra, sync and async rendering, bytecode caching, extension hooks
+- capability: text/markup template engine; lexer, parser, compiler, sandboxed execution, loader hierarchy, autoescape policy, undefined-value algebra, sync and async rendering, native-type rendering, bytecode caching, mutable filter/test/global/policy registries, and the extension-hook family (i18n, expression-statement, loop-control, debug)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -22,11 +24,13 @@ Environment rows carry delimiter, whitespace, extension, undefined, finalize, au
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                       |
 | :-----: | :-------------------------------------- | :---------------- | :--------------------------------- |
-|  [01]   | `Environment`                           | engine root       | configured compilation/render root |
+|  [01]   | `Environment`                           | engine root       | configured compilation/render root; mutable `.filters`/`.tests`/`.globals`/`.policies` registries |
 |  [02]   | `Template`                              | compiled unit     | sync/async render entrypoints      |
 |  [03]   | `sandbox.SandboxedEnvironment`          | restricted engine | filtered untrusted-template engine |
 |  [04]   | `sandbox.ImmutableSandboxedEnvironment` | hardened engine   | sandbox blocking object mutation   |
 |  [05]   | `sandbox.SecurityError`                 | sandbox fault     | forbidden sandbox access           |
+|  [06]   | `nativetypes.NativeEnvironment`         | native engine     | renders to the native Python object of a single expression, not a string |
+|  [07]   | `nativetypes.NativeTemplate`            | native unit       | `render(...)` yields the evaluated Python value (int/list/dict) for typed report-value extraction |
 
 [PUBLIC_TYPE_SCOPE]: loader axis
 - rail: report-templating
@@ -68,6 +72,19 @@ Environment rows carry delimiter, whitespace, extension, undefined, finalize, au
 |  [06]   | `TemplateRuntimeError`   | runtime fault    | a runtime error raised during render       |
 |  [07]   | `UndefinedError`         | undefined fault  | a strict/undefined access raised           |
 
+[PUBLIC_TYPE_SCOPE]: extension family (`jinja2.ext`)
+- rail: report-templating
+
+Extensions register via `Environment(extensions=[...])` or `add_extension`; they add tags, filters, and parser hooks. `Extension` is the subclass base for custom `{% %}` tags. The shorthand identifier strings (`"jinja2.ext.i18n"`, `"jinja2.ext.do"`, `"jinja2.ext.loopcontrols"`, `"jinja2.ext.debug"`) resolve to these classes.
+
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                                       |
+| :-----: | :---------------------------------- | :------------------ | :----------------------------------------------------------------- |
+|  [01]   | `ext.Extension`                     | extension base      | subclass to add custom `{% %}` tags, filters, and parse hooks      |
+|  [02]   | `ext.InternationalizationExtension` | i18n extension      | `{% trans %}` / `gettext`/`ngettext` translation (`"jinja2.ext.i18n"`) |
+|  [03]   | `ext.ExprStmtExtension`             | expr-stmt extension | `{% do %}` side-effecting expression statement (`"jinja2.ext.do"`) |
+|  [04]   | `ext.LoopControlExtension`          | loop-control        | `{% break %}` / `{% continue %}` inside loops (`"jinja2.ext.loopcontrols"`) |
+|  [05]   | `ext.DebugExtension`                | debug extension     | `{% debug %}` dumps the render context (`"jinja2.ext.debug"`)      |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction and resolution
@@ -85,6 +102,9 @@ The `Environment` row carries delimiter, whitespace, extension, undefined, final
 |  [06]   | `Environment.compile_expression`     | expression plus undefined policy | compile a single expression to a callable           |
 |  [07]   | `Environment.overlay`                | partial config override          | derive a reconfigured child environment             |
 |  [08]   | `Environment.add_extension`          | extension identifier             | register an extension after construction            |
+|  [09]   | `Environment.compile`                | source/AST -> code               | `compile(source, name, filename, raw=False, defer_init=False)` — compile to a code object or (raw) Python module string for `ModuleLoader` |
+|  [10]   | `Environment.compile_templates`      | loader -> compiled archive       | precompile every loader template to a zip/dir the `ModuleLoader` then serves |
+|  [11]   | `Environment.filters` / `.tests` / `.globals` / `.policies` | mutable registries  | inject custom filters/tests/globals after construction (the surface `pass_context`/`pass_environment` decorate) |
 
 [ENTRYPOINT_SCOPE]: render path (sync and async)
 - rail: report-templating
@@ -136,8 +156,16 @@ Policy rows carry extension defaults, logging base class, object probe, cache st
 - engine construction: one `Environment` (or `SandboxedEnvironment` for untrusted report sources) is the single owner; `autoescape=select_autoescape(...)`, `undefined=StrictUndefined`, and `enable_async=True` are the default report-templating policy — a missing variable is a fault, not a silent blank.
 - loader axis: the loader is a row value (`FileSystemLoader`, `PackageLoader`, `DictLoader`, `PrefixLoader`, `ChoiceLoader`), never a parallel engine per source; report template roots are loader rows.
 - render axis: `render` and `render_async` are the one sync/async pair; `generate`/`stream` own chunked output for large reports; the render context carries the `VisualSpec`/`ExportPlan` projection and the runtime `ContentIdentity`, never a re-minted identity.
+- native axis: when a template must yield a typed Python value (a computed number, a list, a dict) rather than a string, `NativeEnvironment`/`NativeTemplate.render` is the row — never `ast.literal_eval` over a string render; string reports stay on `Environment`.
+- extension and registry axis: custom report tags register through `Environment(extensions=[...])` / `add_extension` (`ext.Extension` subclass or the `"jinja2.ext.*"` identifiers); custom filters/tests/globals attach to the mutable `Environment.filters`/`.tests`/`.globals` registries and use `pass_context`/`pass_environment`/`pass_eval_context` to receive engine state — these are configuration rows on the one engine, never a second engine.
+- precompile axis: `compile_templates(target)` emits a zip/dir archive that `ModuleLoader(path)` serves with no parse cost; `FileSystemBytecodeCache`/`MemcachedBytecodeCache` is the per-template cache for the live `Environment` — choose precompiled archive for sealed report sets, bytecode cache for hot reload.
 - evidence: each render captures the resolved template name, the loader row, the autoescape decision, the undefined policy, and the output byte length as a templating receipt.
 - boundary: jinja2 renders the report body offline; the rendered bytes feed the document/PDF owner; live UI templating and browser state stay outside this package.
+
+[STACKING]:
+- the rendered HTML/markup feeds the document/PDF owners: a `great_tables` (`.api/great-tables.md`) `as_raw_html()` fragment embeds via `{{ table_html | safe }}` (or an autoescape-off block), the assembled body prints through `weasyprint` (`.api/weasyprint.md`) to PDF or stitches via `pymupdf`/`pikepdf`; a Typst/LaTeX target consumes a `\(...\)`-delimited variant
+- the `docxtpl` (`.api/docxtpl.md`) DOCX rail uses jinja2 as its in-document engine — a shared `Environment` (passed to `DocxTemplate.render(context, jinja_env=...)`) keeps custom filters/globals identical across the HTML report body and the `.docx` body
+- `select_autoescape` is the autoescape policy for the HTML/markup branch; the `i18n` extension (`InternationalizationExtension`) stacks with `Babel` (the declared `i18n` extra) for locale-aware report strings beside the locale-aware `great_tables` cell formatting
 
 [SANDBOX_POLICY]:
 - untrusted source: report templates from outside the package use `ImmutableSandboxedEnvironment`; a `SecurityError` is a typed fault on the templating rail, never an escape.
@@ -147,6 +175,6 @@ Policy rows carry extension defaults, logging base class, object probe, cache st
 
 [RAIL_LAW]:
 - Package: `jinja2`
-- Owns: report-templating composition — sandboxed template engine, loader axis, undefined-handling axis, autoescape policy, and the sync/async render path that drives report generation
-- Accept: report-body rendering from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity` into bytes the document/PDF owner consumes
-- Reject: wrapper-renames of `render`/`get_template`; a second engine per template source where a loader row suffices; live UI templating; identity minting the runtime already owns
+- Owns: report-templating composition — sandboxed template engine, loader axis, undefined-handling axis, autoescape policy, native-type rendering, the extension/filter/test/global registries, bytecode/precompile caching, and the sync/async render path that drives report generation
+- Accept: report-body rendering from a `VisualSpec`/`ExportPlan` and runtime `ContentIdentity` into bytes the document/PDF owner consumes; a shared `Environment` passed into `docxtpl`'s render
+- Reject: wrapper-renames of `render`/`get_template`; a second engine per template source where a loader row suffices; a parallel engine for native-value output where `NativeEnvironment` is the row; a custom-tag hack where an `ext.Extension` belongs; live UI templating; identity minting the runtime already owns

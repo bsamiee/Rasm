@@ -10,7 +10,7 @@
 - owner: `geometry`
 - rail: geometry-algebra (LICENSE-GATED, opt-in / Forge-lane only)
 - license: `AGPL-3.0-or-later` (own) — NETWORK COPYLEFT; pure-Python distribution riding the `topologic-core` native floor, but the AGPL source-disclosure trigger fires for any network-accessible service that links it. The package MUST be excluded from the default server build and is admitted opt-in on the Forge lane only; replacement is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]`. The upstream PyPI `License ::` classifier is mislabeled `GPLv3`, but the bundled `LICENSE` text and `__init__.py` header are AGPLv3 "or any later version" — treat the binding license as AGPL network-copyleft
-- installed: `0.9.50` authored from ledger ([04]-sourced). Members below remain the cp313 per-class introspection of `topologicpy` over `topologic-core` (`>=7.0.1` declared floor; introspection ran against `8.0.4`); the static-method counts and facade roster carry forward unchanged at `0.9.50`
+- installed: `0.9.50` (dist-info metadata `Requires-Python: <3.15,>=3.8`, `License: AGPL v3 License`, `topologic_core>=7.0.1`). Static-method counts confirmed by AST parse of the `0.9.50` per-facade source; `topologic_core` is the native floor a live import requires but the pure-Python facade surface introspects without it
 - requires-python: `>=3.8,<3.15` (declared in package metadata) — a hard upper bound. The wheel is `py3-none-any`, but the `Requires-Python: <3.15` ceiling makes the cp315 project venv refuse the install at resolution time regardless of ABI tag; opt-in installs land on a companion cp313/cp314 interpreter, not cp315
 - build exclusion: the default server build excludes `topologicpy`; opt-in installs gate behind the Forge lane and assume the AGPL obligation. Two gates apply — the `AGPL-3.0-or-later` network-copyleft license AND the `<3.15` requires-python ceiling (no cp315 admission until the upstream bound lifts)
 - entry points: none (library only)
@@ -44,9 +44,9 @@ Each facade is a stateless static-method namespace; `By*` constructors return a 
 | [INDEX] | [SYMBOL]       | [METHODS] | [CAPABILITY]                                      |
 | :-----: | :------------- | --------: | :------------------------------------------------ |
 |  [01]   | `Graph`        |       179 | graph build, adjacency, centrality, shortest path |
-|  [02]   | `Dictionary`   |        30 | key/value attribute attachment and boolean ops    |
-|  [03]   | `Vector`       |        53 | vector algebra, azimuth/altitude, compass         |
-|  [04]   | `Plotly`       |        25 | figure construction for topologies and graphs     |
+|  [02]   | `Dictionary`   |        29 | key/value attribute attachment and boolean ops    |
+|  [03]   | `Vector`       |        42 | vector algebra, azimuth/altitude, compass         |
+|  [04]   | `Plotly`       |        26 | figure construction for topologies and graphs     |
 |  [05]   | `Helper`       |        20 | iteration, flattening, and conversion utilities   |
 |  [06]   | `Sun`          |        17 | solar position and shadow analysis                |
 |  [07]   | `Matrix`       |        13 | transform matrices, eigen, multiply/invert        |
@@ -153,4 +153,4 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 
 [CAPTURE_GAP]:
 - floor: `topologicpy` is an undeclared, LICENSE-GATED candidate riding the `topologic-core` native floor (declared `topologic-core>=7.0.1`; cp313 introspection ran against `8.0.4`). The wheel is pure-Python `py3-none-any`, but the package declares `Requires-Python: >=3.8,<3.15`, so it carries a hard cp315 ceiling: the cp315 project venv cannot resolve it on requires-python grounds, and opt-in installs land on a cp313/cp314 companion interpreter. Two gates apply — the `AGPL-3.0-or-later` network-copyleft license and the `<3.15` requires-python ceiling
-- members: every documented facade, integration module, and `Topology`/`Graph` static-method count was introspected against the live cp313 class surfaces and carries forward at `0.9.50` ([04]-sourced) — no phantom
+- members: every documented facade, integration module, and `Topology`/`Graph` entrypoint resolves against the `0.9.50` source (`Topology.By*`/`Export*`/accessors/boolean, the `Vertex`->`CellComplex` `By*` constructor chain, `Graph.ByTopology`/`ShortestPath`/`BetweennessCentrality`, `Dictionary.ByKeysValues`/`ValueAtKey`); the `IFC`/`Honeybee`/`Speckle`/`EnergyModel`/`Neo4j`/`Kuzu`/`Ontology`/`GraphRAG`/`Polyskel` modules are present as source files. Static-method counts are AST-confirmed against `0.9.50` — no phantom

@@ -6,10 +6,12 @@
 
 [PACKAGE_SURFACE]: `laszip`
 - package: `laszip`
-- import: `laszip`
+- version: `0.3.0`
+- license: MIT
+- module: `laszip`
 - owner: `data`
 - rail: point-cloud
-- installed: `0.3.0` docs-derived (companion <3.15); live reflection pending env provisioning
+- asset: pybind11 native extension (`laszip_core`); wheels span `cp310`-`cp314` on macOS arm64/x86_64, manylinux_2_28 aarch64/x86_64, musllinux_1_2, win_amd64 — no `cp315` wheel, so admitted only on the `python_version<'3.15'` companion band; live reflection pending env provisioning
 - entry points: none; library use is import-only. `import laszip` re-exports the compiled `laszip_core` extension flat (`from .laszip_core import *`)
 - capability: LASzip LAZ stream compression/decompression over a Python file object via `LasUnZipper.decompress_into`/`LasZipper.compress`, point-index `seek`, selective-field decompression through `DECOMPRESS_SELECTIVE_*` masks, per-point `LasZipDll` read/write with `LasZipHeader`/`LasZipPoint`, and `LaszipError` failure signaling — the LAZ backend `laspy` invokes as `LazBackend.Laszip`
 
@@ -20,21 +22,21 @@
 
 `LasUnZipper` and `LasZipper` are the streaming LAZ codecs `laspy` constructs around a source/destination file object; `LasZipDll` drives the per-point read/write path exposing `LasZipHeader` and `LasZipPoint` by reference. `LaszipError` is raised on any LASzip codec failure (stream open, chunk overflow, malformed header).
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                                                         |
-| :-----: | :------------- | :------------ | :------------------------------------------------------------- |
-|  [01]   | `LasUnZipper`  | stream codec  | LAZ decompressor over a source file object                     |
-|  [02]   | `LasZipper`    | stream codec  | LAZ compressor over a destination file object                  |
-|  [03]   | `LasZipDll`    | per-point IO  | per-point reader/writer exposing header and point by reference |
-|  [04]   | `LasZipHeader` | record        | mutable LAS header (scale/offset/extent/counts/format)         |
-|  [05]   | `LasZipPoint`  | record        | mutable LAS point record (legacy and extended fields)          |
-|  [06]   | `LaszipError`  | error         | LASzip codec failure                                           |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                                                                                |
+| :-----: | :------------- | :------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `LasUnZipper`  | stream codec  | LAZ decompressor over a source file object; `decompress_into`/`seek`/`header`          |
+|  [02]   | `LasZipper`    | stream codec  | LAZ compressor over a destination file object; `compress`/`done`/`header`              |
+|  [03]   | `LasZipDll`    | per-point IO  | per-point reader/writer exposing `LasZipHeader`/`LasZipPoint` by reference             |
+|  [04]   | `LasZipHeader` | record        | mutable LAS header; `point_data_format`/`point_data_record_length`/scale/offset/extent |
+|  [05]   | `LasZipPoint`  | record        | mutable LAS point record (legacy and extended fields)                                 |
+|  [06]   | `LaszipError`  | error         | LASzip codec failure raised across stream open, chunk overflow, malformed header       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `LasUnZipper` decode
 - rail: point-cloud
 
-`LasUnZipper(source)` opens the LAZ stream; the second-arity constructor accepts a `decompression_selection` mask built from the `DECOMPRESS_SELECTIVE_*` constants to skip fields. `decompress_into` fills a caller-provided point buffer; `seek` repositions to a point index; `header` exposes the parsed `LasZipHeader`.
+`LasUnZipper(source)` opens the LAZ stream; the second-arity constructor accepts a `decompression_selection` mask built from the `DECOMPRESS_SELECTIVE_*` constants to skip fields. `decompress_into` fills a caller-provided `bytearray(n * point_size)` buffer; `seek` repositions to a point index; `header` exposes the parsed `LasZipHeader` whose `point_data_format`/`point_data_record_length` the `laspy` backend asserts against `LasHeader.point_format.id`/`.size` before reading.
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                        | [CAPABILITY]                                    |
 | :-----: | :---------------------------- | :-------------------------------------------------- | :---------------------------------------------- |
@@ -110,11 +112,13 @@
 - selection axis: `decompression_selection` is one `int` mask folded from `DECOMPRESS_SELECTIVE_*` constants on the second-arity `LasUnZipper` constructor; `laspy.DecompressionSelection.to_laszip()` is the only producer — field skipping is a mask row, never a parallel reader.
 - per-point axis: `LasZipDll` owns the per-point path; `header()`/`point()` return live `LasZipHeader`/`LasZipPoint` references mutated in place across `read_point`/`write_point`, with `set_header`/`set_point_type_and_size`/`set_point`/`update_inventory` driving the writer — never duplicated header/point structs per direction.
 - failure axis: `LaszipError` is the single raised failure for stream open, chunk overflow, and malformed header; it crosses the boundary into the data rail's typed error, never silently swallowed.
+- append axis: the `laspy` `LaszipBackend.supports_append` is `False` and `create_appender` raises `LaspyException("Laszip backend does not support appending")`; LAZ append routes to `LazBackend.Lazrs`/`LazrsParallel`, never to this codec — the per-point `LasZipDll` writer path is a full rewrite, not an in-place append.
 - evidence: each codec run captures point-data format, record length, point count, selective mask, bound LASzip version from `get_version()`, and compressed/decompressed byte length as a point-cloud receipt.
-- boundary: laszip owns LAZ stream and per-point LASzip codec only; `laspy` selects it as `LazBackend.Laszip` when `lazrs` is unavailable or errors. The package reads/writes against the file object `laspy` supplies; LAS/LAZ container framing, CRS, and array assembly route to `laspy`, never re-implemented here. [RESEARCH] `LasZipper.compress` argument arity is documented from the `laspy` `LaszipBackend` call `self.zipper.compress(points_bytes)`; confirm the exact `py::arg` name on the compiled binding when env provisioning enables reflection.
+- stack: `laspy.DecompressionSelection.to_laszip() -> int` is the only mask producer; the `laspy` reader binds `LasUnZipper(source, selection)` then drives `decompress_into(bytearray(n * point_size))` per chunk and asserts the binding `header.point_data_format`/`point_data_record_length` against `LasHeader.point_format`. The writer seeds `LasZipper(dest, header_bytes)` from a `set_compressed(False)` header serialized via `LasHeader.write_to`, streams `compress(np.frombuffer(record.array, np.uint8))`, then `done()`; EVLR-count fixups rewrite the LAS header out-of-band, never through this codec. laszip stacks UNDER `laspy` as one `LazBackend.Laszip` selection — never invoked directly by domain code.
+- boundary: laszip owns LAZ stream and per-point LASzip codec only; `laspy` selects it as `LazBackend.Laszip` when `lazrs` is unavailable or errors. The package reads/writes against the file object `laspy` supplies; LAS/LAZ container framing, CRS, and array assembly route to `laspy`, never re-implemented here.
 
 [RAIL_LAW]:
 - Package: `laszip`
 - Owns: LASzip LAZ stream compression/decompression over a Python file object, selective-field decompression masks, per-point `LasZipDll` read/write with header/point records, and `LaszipError` signaling
 - Accept: LAZ decode/encode feeding the `laspy` point-cloud owner as the `LazBackend.Laszip` backend
-- Reject: wrapper-renames of `LasUnZipper`/`LasZipper`; a hand-rolled LASzip arithmetic codec or LAZ chunk reader; a parallel codec type per chunk or per field; duplicated header/point structs per IO direction; LAS container/CRS framing the `laspy` owner holds; selective decompression rebuilt outside the `DECOMPRESS_SELECTIVE_*` mask
+- Reject: wrapper-renames of `LasUnZipper`/`LasZipper`; a hand-rolled LASzip arithmetic codec or LAZ chunk reader; a parallel codec type per chunk or per field; duplicated header/point structs per IO direction; LAS container/CRS framing the `laspy` owner holds; selective decompression rebuilt outside the `DECOMPRESS_SELECTIVE_*` mask; any LAZ append path through this backend (unsupported — route append to `LazBackend.Lazrs`); direct `laszip.*` calls from domain code bypassing the `laspy` `LazBackend.Laszip` selection

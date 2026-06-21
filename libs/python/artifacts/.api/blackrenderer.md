@@ -9,33 +9,37 @@
 - import: `blackrenderer`
 - owner: `artifacts`
 - rail: rasterize
-- installed: `0.8.2` reflected via `assay api` on cp315
+- version: `0.8.2`; license `Apache-2.0`; pure-Python (no compiled extension), markerless in the manifest (cp315-clean)
+- deps: requires `fontTools>=4.62.1` + `uharfbuzz>=0.53.2`; the rasterizing backends are optional extras (`[skia]` -> `skia-python`+`numpy`, `[cairo]` -> `pycairo`, `[cg]` -> `pyobjc` on darwin) — the pure-Python SVG backend needs no extra
 - entry points: console script `blackrenderer` (`blackrenderer.__main__:main` CLI); library use is import-only via `blackrenderer.font`, `blackrenderer.render`, and `blackrenderer.backends`
-- capability: COLRv1 and COLRv0 color-glyph decoding and rasterization — `COLR`/`CPAL` paint-graph traversal, HarfBuzz text shaping, variable-font location instancing, palette selection, glyph bounds, and serialization to PNG/PDF/SVG through pluggable skia, cairo, coregraphics, and pure-Python SVG backends
+- capability: COLRv1 and COLRv0 color-glyph decoding and rasterization — `COLR`/`CPAL` paint-graph traversal of the full 32-format `PaintFormat` set, HarfBuzz text shaping, variable-font location instancing through `VarStoreInstancer`, palette selection, glyph bounds, the 28-mode `CompositeMode` blend set, and serialization to PNG/PDF/SVG through pluggable skia, cairo, coregraphics, and pure-Python SVG backends
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: font, render, and backend roots
 - rail: rasterize
 
-`BlackRendererFont` owns font loading and the COLRv1 paint dispatch; `Canvas`/`Surface` are the abstract backend protocol; each concrete `*Surface` is one backend-plus-format pair selected by `getSurfaceClass`. `GlyphInfo` is the shaped-glyph record `buildGlyphLine` emits. `BackendUnavailableError` is raised when the requested backend module is not importable.
+`BlackRendererFont` owns font loading and the COLRv1 paint dispatch; `Canvas`/`Surface` are the abstract backend protocols (`Surface.fileExtension` names its output suffix); each concrete `*Surface` is one backend-plus-format pair selected by `getSurfaceClass`. `GlyphInfo` is the shaped-glyph record `buildGlyphLine` emits. `PaintFormat` is the 32-member COLRv1 paint-graph vocabulary and `CompositeMode` the 28-member Porter-Duff/HSL blend set both decoded in-package. `VarStoreInstancer`/`VarColorLine` resolve COLRv1 `PaintVar*` deltas at a variable-font location. `BackendUnavailableError` is raised when the requested backend module is not importable.
 
 | [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]       | [RAIL]                                                      |
 | :-----: | :------------------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
 |  [01]   | `blackrenderer.font.BlackRendererFont`                         | font owner          | font load, COLR/CPAL decode, glyph draw, palette, location  |
-|  [02]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: name, gid, advances, offsets              |
-|  [03]   | `blackrenderer.render.BackendUnavailableError`                 | error               | requested backend module is not importable                  |
-|  [04]   | `blackrenderer.backends.base.Canvas`                           | abstract protocol   | path build, transform, clip, solid/gradient draw, composite |
-|  [05]   | `blackrenderer.backends.base.Surface`                          | abstract protocol   | `canvas(boundingBox)` context plus `saveImage(path)`        |
-|  [06]   | `blackrenderer.backends.skia.SkiaPixelSurface`                 | surface             | skia PNG raster surface (`.png`)                            |
-|  [07]   | `blackrenderer.backends.skia.SkiaPDFSurface`                   | surface             | skia PDF surface (`.pdf`)                                   |
-|  [08]   | `blackrenderer.backends.skia.SkiaSVGSurface`                   | surface             | skia SVG surface (`.svg`)                                   |
-|  [09]   | `blackrenderer.backends.cairo.CairoPixelSurface`               | surface             | cairo PNG raster surface (`.png`)                           |
-|  [10]   | `blackrenderer.backends.cairo.CairoPDFSurface`                 | surface             | cairo PDF surface (`.pdf`)                                  |
-|  [11]   | `blackrenderer.backends.cairo.CairoSVGSurface`                 | surface             | cairo SVG surface (`.svg`)                                  |
-|  [12]   | `blackrenderer.backends.coregraphics.CoreGraphicsPixelSurface` | surface             | CoreGraphics PNG raster surface (`.png`, macOS)             |
-|  [13]   | `blackrenderer.backends.coregraphics.CoreGraphicsPDFSurface`   | surface             | CoreGraphics PDF surface (`.pdf`, macOS)                    |
-|  [14]   | `blackrenderer.backends.svg.SVGSurface`                        | surface             | pure-Python SVG surface, no native dependency (`.svg`)      |
+|  [02]   | `blackrenderer.font.PaintFormat`                               | enum (32 members)   | COLRv1 paint-graph vocabulary (solid/gradient/transform/composite + Var mirrors) |
+|  [03]   | `blackrenderer.font.CompositeMode`                             | enum (28 members)   | COLRv1 blend set (CLEAR/SRC_OVER..XOR/PLUS..HSL_LUMINOSITY) |
+|  [04]   | `blackrenderer.font.VarStoreInstancer`                         | var resolver        | resolve `PaintVar*` deltas at a normalized axis location    |
+|  [05]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: name, gid, advances, offsets              |
+|  [06]   | `blackrenderer.render.BackendUnavailableError`                 | error               | requested backend module is not importable                  |
+|  [07]   | `blackrenderer.backends.base.Canvas`                           | abstract protocol   | path build, transform/scale/translate, clip, solid/gradient/rect draw, composite |
+|  [08]   | `blackrenderer.backends.base.Surface`                          | abstract protocol   | `canvas(boundingBox)` context, `saveImage(path)`, `fileExtension` |
+|  [09]   | `blackrenderer.backends.skia.SkiaPixelSurface`                 | surface             | skia PNG raster surface (`.png`)                            |
+|  [10]   | `blackrenderer.backends.skia.SkiaPDFSurface`                   | surface             | skia PDF surface (`.pdf`)                                   |
+|  [11]   | `blackrenderer.backends.skia.SkiaSVGSurface`                   | surface             | skia SVG surface (`.svg`)                                   |
+|  [12]   | `blackrenderer.backends.cairo.CairoPixelSurface`               | surface             | cairo PNG raster surface (`.png`)                           |
+|  [13]   | `blackrenderer.backends.cairo.CairoPDFSurface`                 | surface             | cairo PDF surface (`.pdf`)                                  |
+|  [14]   | `blackrenderer.backends.cairo.CairoSVGSurface`                 | surface             | cairo SVG surface (`.svg`)                                  |
+|  [15]   | `blackrenderer.backends.coregraphics.CoreGraphicsPixelSurface` | surface             | CoreGraphics PNG raster surface (`.png`, macOS)             |
+|  [16]   | `blackrenderer.backends.coregraphics.CoreGraphicsPDFSurface`   | surface             | CoreGraphics PDF surface (`.pdf`, macOS)                    |
+|  [17]   | `blackrenderer.backends.svg.SVGSurface`                        | surface             | pure-Python SVG surface, no native dependency (`.svg`)      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -72,22 +76,23 @@ The font constructor admits either a `path` or a paired `ttFont`+`hbFont`; passi
 [ENTRYPOINT_SCOPE]: `Surface`/`Canvas` backend protocol
 - rail: rasterize
 
-`Surface.canvas(boundingBox)` is the context manager that yields a `Canvas` flipped into font space; `saveImage(path)` writes the accumulated drawing. `Canvas` is the draw protocol every backend implements; the skia pixel surface accepts an explicit `format` on save.
+`Surface.canvas(boundingBox)` is the context manager that yields a `Canvas` flipped into font space; `saveImage(path)` writes the accumulated drawing; `fileExtension` is the surface's output suffix. `Canvas` is the draw protocol every backend implements: it carries both path- and rect-keyed solid/gradient draw arms (the COLRv1 paint graph fills a clipped path; a bare `PaintGlyph`-less gradient fills a rect), the affine helpers `transform`/`scale`/`translate`, and the `compositeMode`/`savedState`/`clipPath` state-management context managers. The skia pixel surface accepts an explicit `format` on save.
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                                             | [CAPABILITY]                                        |
 | :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------- |
 |  [01]   | `Surface.canvas`                | `canvas(boundingBox)` -> context manager yielding `Canvas`                                                               | open a draw context for `(xMin, yMin, xMax, yMax)`  |
 |  [02]   | `Surface.saveImage`             | `saveImage(path)`                                                                                                        | serialize the drawing to the backend file format    |
-|  [03]   | `SkiaPixelSurface.saveImage`    | `saveImage(path, format=skia.kPNG)`                                                                                      | write skia raster image with explicit encode format |
-|  [04]   | `Canvas.newPath`                | `newPath()` -> path pen                                                                                                  | new backend path/pen for outline construction       |
-|  [05]   | `Canvas.drawPathSolid`          | `drawPathSolid(path, color)`                                                                                             | fill a path with an RGBA color tuple                |
-|  [06]   | `Canvas.drawPathLinearGradient` | `drawPathLinearGradient(path, colorLine, pt1, pt2, extendMode, gradientTransform)`                                       | linear COLRv1 gradient fill                         |
-|  [07]   | `Canvas.drawPathRadialGradient` | `drawPathRadialGradient(path, colorLine, startCenter, startRadius, endCenter, endRadius, extendMode, gradientTransform)` | radial gradient fill                                |
-|  [08]   | `Canvas.drawPathSweepGradient`  | `drawPathSweepGradient(path, colorLine, center, startAngle, endAngle, extendMode, gradientTransform)`                    | sweep gradient fill                                 |
-|  [09]   | `Canvas.compositeMode`          | `compositeMode(compositeMode)` -> context manager                                                                        | push a COLRv1 `CompositeMode` blend layer           |
-|  [10]   | `Canvas.savedState`             | `savedState()` -> context manager                                                                                        | save/restore transform + clip state                 |
-|  [11]   | `Canvas.transform`              | `transform(transform)`                                                                                                   | concat a 6-tuple affine onto the canvas             |
-|  [12]   | `Canvas.clipPath`               | `clipPath(path)`                                                                                                         | intersect the clip region with a path               |
+|  [03]   | `Surface.fileExtension`         | property -> `str`                                                                                                        | the surface's output suffix (`.png`/`.pdf`/`.svg`)  |
+|  [04]   | `SkiaPixelSurface.saveImage`    | `saveImage(path, format=skia.kPNG)`                                                                                      | write skia raster image with explicit encode format |
+|  [05]   | `Canvas.newPath`                | `newPath()` -> path pen                                                                                                  | new backend path/pen for outline construction       |
+|  [06]   | `Canvas.drawPathSolid`          | `drawPathSolid(path, color)`; `drawRectSolid(rect, color)`                                                               | fill a path / rect with an RGBA color tuple         |
+|  [07]   | `Canvas.drawPathLinearGradient` | `drawPathLinearGradient(path, colorLine, pt1, pt2, extendMode, gradientTransform)`; `drawRect*` mirror                   | linear COLRv1 gradient fill (path or rect arm)      |
+|  [08]   | `Canvas.drawPathRadialGradient` | `drawPathRadialGradient(path, colorLine, startCenter, startRadius, endCenter, endRadius, extendMode, gradientTransform)`; `drawRect*` mirror | radial gradient fill                  |
+|  [09]   | `Canvas.drawPathSweepGradient`  | `drawPathSweepGradient(path, colorLine, center, startAngle, endAngle, extendMode, gradientTransform)`; `drawRect*` mirror | sweep gradient fill                                |
+|  [10]   | `Canvas.compositeMode`          | `compositeMode(compositeMode)` -> context manager                                                                        | push a COLRv1 `CompositeMode` blend layer           |
+|  [11]   | `Canvas.savedState`             | `savedState()` -> context manager                                                                                        | save/restore transform + clip state                 |
+|  [12]   | `Canvas.transform`              | `transform(transform)`; `scale(sx, sy)`; `translate(dx, dy)`                                                            | concat a 6-tuple affine (or scale/translate) onto the canvas |
+|  [13]   | `Canvas.clipPath`               | `clipPath(path)`                                                                                                         | intersect the clip region with a path               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -96,10 +101,12 @@ The font constructor admits either a `path` or a paired `ttFont`+`hbFont`; passi
 - font axis: one `BlackRendererFont` owns load and decode; `path` versus paired `ttFont`+`hbFont` is a constructor row, never a parallel loader type; the COLR version (0 versus 1), `CPAL` palettes, and `fvar` axes are decoded once at construction, never re-parsed per glyph.
 - draw axis: `drawGlyph` is the single per-glyph surface; COLRv1 paint-graph traversal, COLRv0 layer iteration, and plain-outline fallback are internal dispatch arms keyed by glyph membership, never caller-selected modes — the full `PaintFormat` set (solid, linear/radial/sweep gradient, transform/translate/rotate/scale/skew and their around-center forms, composite, location, var-delta wrapping) is owned in `font`, never re-implemented at the call site.
 - backend axis: `getSurfaceClass(backendName, imageExtension)` is the single selector over the `_surfaces` registry; backend (`skia`/`cairo`/`coregraphics`/`svg`) and output format (`.png`/`.pdf`/`.svg`) are registry rows, never a per-combination factory function; `None` return signals an unimportable native backend and routes to `BackendUnavailableError`.
-- shaping axis: `renderText` delegates segmentation, script/language, features, and variations to `uharfbuzz`; `buildGlyphLine`/`calcGlyphLineBounds` map shaping output to `GlyphInfo` records and font-unit bounds, never a hand-rolled layout engine.
-- location axis: `setLocation` is the variable-font row; normalized axis values flow through the `VarStoreInstancer` so COLRv1 `PaintVar*` deltas resolve, never a static-instance pre-bake per location.
-- evidence: each render captures font path, glyph count, COLR version, resolved palette index, backend name, output format, pixel bounds (`margin`-inset), and output byte length as a rasterize receipt.
-- boundary: `blackrenderer` owns COLRv1/COLRv0 decode and color-glyph rasterization; the SVG backend serializes with no native dependency and feeds the document and visuals owners directly; PNG/PDF raster output routes through the skia or cairo backend; HarfBuzz shaping and font-table decode stay inside `uharfbuzz`/`fontTools`; live UI stays outside this package.
+- paint axis: `PaintFormat` is the decoded COLRv1 paint-graph vocabulary and `CompositeMode` the blend set; the full set (solid, linear/radial/sweep gradient with `extendMode`, transform/translate/rotate/scale/skew and around-center forms, composite, ColrLayers, ColrGlyph, plus every `PaintVar*` mirror) is owned in `font` and lowered onto the `Canvas` path/rect draw arms, never re-decoded or re-dispatched at the call site.
+- shaping axis: `renderText` delegates segmentation, script/language, features, and variations to `uharfbuzz` (the sibling admitted HarfBuzz binding); `buildGlyphLine`/`calcGlyphLineBounds` map shaping output to `GlyphInfo` records and font-unit bounds, never a hand-rolled layout engine.
+- location axis: `setLocation` is the variable-font row; normalized axis values flow through `VarStoreInstancer` so COLRv1 `PaintVar*` deltas resolve, never a static-instance pre-bake per location; the `fvar`/`avar` decode reuses the sibling `fontTools` tables already loaded.
+- stacking: this is the COLR arm of the typography rail — `fontTools` (the admitted subsetter/instancer) prepares the `TTFont`, `uharfbuzz` shapes the run, `blackrenderer` decodes and rasterizes the COLR paint graph, and the chosen backend serializes; the pure-Python SVG backend feeds the document/visuals SVG path with zero native dependency while skia/cairo back the raster/PDF path; non-COLR vector SVG rasterization routes to the sibling `resvg-py`/`vl-convert` owners, never re-implemented here.
+- evidence: each render captures font path, glyph count, COLR version, decoded `PaintFormat` set, resolved palette index, backend name, output format, pixel bounds (`margin`-inset), and output byte length as a rasterize receipt.
+- boundary: `blackrenderer` owns COLRv1/COLRv0 decode and color-glyph rasterization; the SVG backend serializes with no native dependency and feeds the document and visuals owners directly; PNG/PDF raster output routes through the skia or cairo backend (their optional extras); HarfBuzz shaping and font-table decode stay inside `uharfbuzz`/`fontTools`; live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `blackrenderer`

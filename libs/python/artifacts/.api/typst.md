@@ -9,31 +9,33 @@
 - import: `typst`
 - owner: `artifacts`
 - rail: documents
-- installed: `0.15.0` reflected via `python -c "import typst"` on cp315
+- license: Apache-2.0 (PyO3 binding over the bundled Rust Typst compiler + `comemo` world cache; no LaTeX/Node/external process)
+- asset: runtime library (Rust extension); `cp38-abi3` wheel, `Requires-Python>=3.8`, cp315-clean (no `python_version` marker)
+- installed: `0.15.0` reflected via `import typst` on cp315
 - entry points: none (library only)
-- capability: Typst markup compilation to PDF/PNG/SVG/HTML, expression evaluation, document querying, PDF/A standard selection, system-input injection, font-path control, and a font-caching reusable `Compiler`
+- capability: Typst markup compilation to PDF/PNG/SVG/HTML, expression evaluation, document querying, PDF/A and PDF/UA standard selection, system-input (`sys.inputs`) injection, font-path/system-font control, deterministic-timestamp control, registry package-path/cache control, resolved-font enumeration, and a font/world-caching reusable `Compiler`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compiler and font roots
 - rail: documents
 
-The free functions construct a single-shot `Compiler` internally; the owner holds a `Compiler` when amortizing font loading across many renders. `Fonts`/`FontInfo` expose the resolved font set; `TypstError`/`TypstWarning` are the diagnostic carriers raised and surfaced by the compile path.
+The free functions construct a single-shot `Compiler` internally; the owner holds a `Compiler` when amortizing font loading across many renders. `Fonts`/`FontInfo` expose the resolved font set; `TypstError`/`TypstWarning` are the diagnostic carriers raised and surfaced by the compile path. The module surface is exactly `{compile, compile_with_warnings, eval, query, Compiler, Fonts, FontInfo, TypstError, TypstWarning}` — there is no per-format render function; `format`/`output`/`pdf_standards` are rows on the one compile surface.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [RAIL]                                        |
-| :-----: | :------------- | :-------------- | :-------------------------------------------- |
-|  [01]   | `Compiler`     | compiler        | reusable font-cached document compiler        |
-|  [02]   | `Fonts`        | font set        | resolved font collection (`families`/`fonts`) |
-|  [03]   | `FontInfo`     | font descriptor | one resolved font face                        |
-|  [04]   | `TypstError`   | diagnostic      | compile failure carrier                       |
-|  [05]   | `TypstWarning` | diagnostic      | compile warning carrier                       |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [RAIL]                                                                                       |
+| :-----: | :------------- | :-------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `Compiler`     | compiler        | reusable font/world-cached document compiler                                                 |
+|  [02]   | `Fonts`        | font set        | resolved font collection: `.families` (family-name list), `.fonts` (`FontInfo` list)          |
+|  [03]   | `FontInfo`     | font descriptor | one resolved font face: `.family`, `.index`, `.path`, `.stretch`, `.style`, `.weight`         |
+|  [04]   | `TypstError`   | diagnostic      | compile failure carrier (`Exception` subclass; carries the rendered Typst diagnostic message) |
+|  [05]   | `TypstWarning` | diagnostic      | compile warning carrier (`Exception` subclass; element of the `compile_with_warnings` list)   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: module free functions
 - rail: documents
 
-The free functions take `input` (source path or `bytes`) and share `root`, `font_paths`, `ignore_system_fonts`, `sys_inputs`, `pdf_standards`, `package_path`, and `package_cache_path` policy; `output` of `None` returns rendered `bytes`.
+The free functions take `input` (source path or `bytes`) and share `root`, `font_paths`, `ignore_system_fonts`, `sys_inputs`, `pdf_standards`, `package_path`, and `package_cache_path` policy; `output` of `None` returns rendered `bytes`. `format` is `"pdf"`/`"png"`/`"svg"`/`"html"` (inferred from the `output` extension when `None`); `ppi` only affects `png`; `pdf_standards` is a string/sequence of PDF-conformance tokens (`"1.7"`, `"a-2b"`, `"a-3b"`, `"ua-1"`); `sys_inputs` is a `dict[str, str]` exposed to the document as `sys.inputs`; `timestamp` is an epoch int that pins the document's creation time for reproducible byte output.
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                                                                                                                                            | [CAPABILITY]                                       |
 | :-----: | :---------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
@@ -76,8 +78,14 @@ The compiled Typst source the owner emits drives these built-in markup functions
 - standard axis: `pdf_standards` selects the archival PDF/A target; archival conformance is a render row, never a parallel signer path — PAdES signing routes to `pyhanko`.
 - query axis: `query`/`eval` answer the document-introspection question over `selector`/`field`; structured extraction is a row, never a re-parsed AST.
 - markup axis: the lowering authors `image(.., alt=..)` for embedded graphics and `figure(.., caption: ..)` for numbered blocks; the `alt` equivalent rides the inner `image`, never doubled onto the enclosing `figure`, so a PDF/UA `pdf_standards` render writes one marked-content structure element per figure. Interpolated `alt`/source strings are Typst-string-escaped (`\` and `"`) before emission; raw interpolation of an `alt` carrying a quote yields invalid markup.
-- evidence: each render captures source identity, output format, page/byte count, PDF standard, and collected warnings as a document receipt.
+- reproducibility axis: `timestamp` pins the document creation date and `ignore_system_fonts=True` + explicit `font_paths` pins the font set, so a PDF/A render is byte-deterministic across machines; the owner sets both for archival output.
+- evidence: each render captures source identity, output format, page/byte count, PDF standard, resolved font set (`Fonts.fonts`), and collected warnings as a document receipt.
 - boundary: typst owns Typst markup typesetting; reportlab/weasyprint own their own document models; raster post-processing routes to `pillow`; PAdES signing routes to `pyhanko`; live UI stays outside this package.
+
+[STACK_INTEGRATION]:
+- `typst` -> `vl_convert` figure rail: a chart rendered by `vl_convert.vegalite_to_svg` is embedded into the Typst source via `image(<svg-bytes>, alt: ..)`; Typst lays out and paginates the figure, and the one `format="pdf"` render writes the chart plus the surrounding tagged document — no second PDF merge step.
+- `typst` font set vs the shaping rail: `Fonts.fonts` (resolved `FontInfo` faces) is the same OTF/TTF the `fonttools`/`uharfbuzz` rails own; the owner registers the document's fonts via `font_paths` and reads back `Fonts` to confirm the resolved face matches the shaped/subsetted font before an archival render.
+- `typst` -> `pyhanko` signing: the archival PDF/A bytes from a `pdf_standards` render are handed to the `pyhanko` PAdES signer as input; signing is never minted here — `typst` produces the conformant unsigned PDF, `pyhanko` owns the signature.
 
 [RAIL_LAW]:
 - Package: `typst`

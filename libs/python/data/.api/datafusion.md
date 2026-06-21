@@ -9,9 +9,10 @@
 - import: `datafusion`
 - owner: `data`
 - rail: engine
-- installed: `53.0.0` reflected via `import datafusion` on cp315 (561 types across 16 namespaces; `_internal.abi3.so` Rust core)
+- version: `53.0.0` (locked); license `Apache-2.0`
+- wheel/ABI: `cp310-abi3` wheels for macOS x86_64/arm64, manylinux_2_28 aarch64/x86_64, win_amd64; `_internal` is a Rust core (`.abi3.so`) so the cp310 abi3 wheel is forward-compatible to cp315; runtime dep is `pyarrow` only
 - entry points: library use is import-only; no console script
-- capability: SQL and DataFrame query execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration (CSV/Parquet/JSON/Avro/Arrow), in-memory and foreign-catalog table providers, object-store federation, scalar/aggregate/window/table user-defined functions, lazy `LogicalPlan`/`ExecutionPlan` inspection, sync and async `RecordBatchStream` streaming, zero-copy export to pandas/polars/pyarrow, and Substrait `Plan` serialize/deserialize for cross-engine portability
+- capability: SQL and DataFrame query execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration (CSV/Parquet/JSON/Avro/Arrow), in-memory and foreign-catalog table providers, object-store federation, scalar/aggregate/window/table user-defined functions via `udf`/`udaf`/`udwf` factories over `Accumulator`/`WindowEvaluator` bases, the `functions` built-in expression namespace, lazy `LogicalPlan`/`ExecutionPlan` inspection, sync and async `RecordBatchStream` streaming, zero-copy export to pandas/polars/pyarrow, and Substrait `Plan` serialize/deserialize for cross-engine portability
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -40,10 +41,13 @@
 |  [16]   | `WindowUDF`          | udf               | window user-defined function                             |
 |  [17]   | `TableFunction`      | udtf              | table-returning user-defined function                    |
 |  [18]   | `WindowFrame`        | window            | window-frame bound specification                         |
-|  [19]   | `substrait.Plan`     | interchange       | portable Substrait plan (`encode`/`to_json`/`from_json`) |
-|  [20]   | `substrait.Serde`    | interchange codec | SQL <-> `Plan` serialize/deserialize over bytes and path |
-|  [21]   | `substrait.Producer` | interchange codec | `LogicalPlan` -> `Plan`                                  |
-|  [22]   | `substrait.Consumer` | interchange codec | `Plan` -> `LogicalPlan`                                  |
+|  [19]   | `Accumulator`        | udf base          | Python aggregate state machine for `udaf`                |
+|  [20]   | `WindowEvaluator`    | udf base          | Python window evaluation strategy for `udwf`             |
+|  [21]   | `functions` (`f.*`)  | expression ns     | built-in scalar/aggregate/window `Expr` builders         |
+|  [22]   | `substrait.Plan`     | interchange       | portable Substrait plan (`encode`/`to_json`/`from_json`) |
+|  [23]   | `substrait.Serde`    | interchange codec | SQL <-> `Plan` serialize/deserialize over bytes and path |
+|  [24]   | `substrait.Producer` | interchange codec | `LogicalPlan` -> `Plan`                                  |
+|  [25]   | `substrait.Consumer` | interchange codec | `Plan` -> `LogicalPlan`                                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -93,17 +97,20 @@
 |  [09]   | `DataFrame.union`                      | `union(other: DataFrame, distinct: bool = False) -> DataFrame` (peers: `intersect`, `except_all`, `union_by_name`)                        | set algebra over frames                                    |
 |  [10]   | `DataFrame.window`                     | `window(*exprs: Expr) -> DataFrame`                                                                                                       | apply window expressions                                   |
 |  [11]   | `DataFrame.unnest_columns`             | `unnest_columns(*columns: str, preserve_nulls: bool = True, recursions: list[tuple[str, str, int]]                                        | None = None) -> DataFrame`                                 | explode list/struct columns                                                                   |
-|  [12]   | `DataFrame.collect`                    | `collect() -> list[pa.RecordBatch]`                                                                                                       | materialize all partitions to Arrow                        |
-|  [13]   | `DataFrame.execute_stream`             | `execute_stream() -> RecordBatchStream`                                                                                                   | stream results lazily                                      |
-|  [14]   | `DataFrame.execute_stream_partitioned` | `execute_stream_partitioned() -> list[RecordBatchStream]`                                                                                 | one stream per output partition                            |
-|  [15]   | `DataFrame.to_arrow_table`             | `to_arrow_table() -> pa.Table`                                                                                                            | materialize to a pyarrow `Table`                           |
-|  [16]   | `DataFrame.to_polars`                  | `to_polars() -> pl.DataFrame` (peers: `to_pandas`, `to_pylist`, `to_pydict`)                                                              | export to a foreign frame                                  |
-|  [17]   | `DataFrame.logical_plan`               | `logical_plan() -> LogicalPlan` (peers: `optimized_logical_plan`, `execution_plan`)                                                       | inspect plan stages                                        |
-|  [18]   | `DataFrame.explain`                    | `explain(verbose: bool = False, analyze: bool = False, format: ExplainFormat                                                              | None = None) -> None`                                      | print the plan tree                                                                           |
-|  [19]   | `DataFrame.write_parquet`              | `write_parquet(path, compression: str                                                                                                     | Compression                                                | ParquetWriterOptions = Compression.ZSTD, compression_level=None, write_options=None) -> None` | sink to Parquet (overloaded on options) |
-|  [20]   | `DataFrame.write_csv`                  | `write_csv(path, with_header: bool = False, write_options: DataFrameWriteOptions                                                          | None = None) -> None` (peers: `write_json`, `write_table`) | sink to CSV/JSON/registered table                                                             |
-|  [21]   | `DataFrame.into_view`                  | `into_view(temporary: bool = False) -> Table`                                                                                             | promote a frame to a registrable view                      |
-|  [22]   | `DataFrame.count`                      | `count() -> int`                                                                                                                          | materialize a row count                                    |
+|  [12]   | `DataFrame.with_columns`               | `with_columns(*exprs: Expr, **named_exprs: Expr) -> DataFrame` (peers: `with_column_renamed`, `drop`, `distinct`)                         | append/rename/drop a cohort of derived columns in one node |
+|  [13]   | `DataFrame.repartition`                | `repartition(num: int) -> DataFrame` (peers: `repartition_by_hash(*exprs, num)`)                                                          | force a partition fan-out for parallel streaming           |
+|  [14]   | `DataFrame.cache`                      | `cache() -> DataFrame`                                                                                                                    | materialize once and reuse across downstream plans         |
+|  [15]   | `DataFrame.fill_null`                  | `fill_null(value: Any, subset: list[str]                                                                                                  | None = None) -> DataFrame`                                 | replace nulls before egress, never a manual `coalesce` loop                                   |
+|  [16]   | `DataFrame.collect`                    | `collect() -> list[pa.RecordBatch]` (peers: `head(n)`, `tail(n)`, `count()`)                                                              | materialize all partitions to Arrow                        |
+|  [17]   | `DataFrame.execute_stream`             | `execute_stream() -> RecordBatchStream`                                                                                                   | stream results lazily                                      |
+|  [18]   | `DataFrame.execute_stream_partitioned` | `execute_stream_partitioned() -> list[RecordBatchStream]`                                                                                 | one stream per output partition                            |
+|  [19]   | `DataFrame.to_arrow_table`             | `to_arrow_table() -> pa.Table`                                                                                                            | materialize to a pyarrow `Table`                           |
+|  [20]   | `DataFrame.to_polars`                  | `to_polars() -> pl.DataFrame` (peers: `to_pandas`, `to_pylist`, `to_pydict`)                                                              | export to a foreign frame                                  |
+|  [21]   | `DataFrame.logical_plan`               | `logical_plan() -> LogicalPlan` (peers: `optimized_logical_plan`, `execution_plan`)                                                       | inspect plan stages                                        |
+|  [22]   | `DataFrame.explain`                    | `explain(verbose: bool = False, analyze: bool = False, format: ExplainFormat                                                              | None = None) -> None`                                      | print the plan tree                                                                           |
+|  [23]   | `DataFrame.write_parquet`              | `write_parquet(path, compression: str                                                                                                     | Compression                                                | ParquetWriterOptions = Compression.ZSTD, compression_level=None, write_options=None) -> None` | sink to Parquet (overloaded on options) |
+|  [24]   | `DataFrame.write_csv`                  | `write_csv(path, with_header: bool = False, write_options: DataFrameWriteOptions                                                          | None = None) -> None` (peers: `write_json`, `write_table`) | sink to CSV/JSON/registered table                                                             |
+|  [25]   | `DataFrame.into_view`                  | `into_view(temporary: bool = False) -> Table`                                                                                             | promote a frame to a registrable view                      |
 
 [ENTRYPOINT_SCOPE]: streaming, expression, and builder surfaces
 - rail: engine
@@ -119,6 +126,20 @@
 |  [05]   | `SessionConfig.with_target_partitions`   | `with_target_partitions(target_partitions: int) -> SessionConfig` (fluent peers: `with_batch_size`, `with_information_schema`, `with_repartition_joins`, `set`) | tune session policy fluently          |
 |  [06]   | `RuntimeEnvBuilder.with_fair_spill_pool` | `with_fair_spill_pool(size: int) -> RuntimeEnvBuilder` (fluent peers: `with_greedy_memory_pool`, `with_disk_manager_specified`, `with_temp_file_path`)          | tune runtime memory/disk fluently     |
 |  [07]   | `SQLOptions.with_allow_ddl`              | `with_allow_ddl(allow: bool = True) -> SQLOptions` (fluent peers: `with_allow_dml`, `with_allow_statements`)                                                    | gate SQL DDL/DML/statements           |
+
+[ENTRYPOINT_SCOPE]: built-in functions and user-defined functions
+- rail: engine
+
+`functions` is the built-in expression namespace (`import datafusion.functions as f`): `f.col`-composing scalar/aggregate/window builders (`f.sum`, `f.avg`, `f.lower`, `f.array_agg`, `f.lead`, `f.row_number`, `f.coalesce`, `f.case`) that return `Expr` and compose with `over(WindowFrame(...))`. UDFs are minted by the module factories `udf`/`udaf`/`udwf` over the `Accumulator`/`WindowEvaluator` base classes and a `Volatility` policy, then handed to `SessionContext.register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; one factory family owns all four UDF modalities, never a builder per UDF kind.
+
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                                                            | [CAPABILITY]                                          |
+| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `functions` (`f.*`)  | `f.sum(expr).over(WindowFrame('rows', start, end))` (scalar/aggregate/window builder namespace returning `Expr`)                         | compose built-in SQL functions as `Expr` trees        |
+|  [02]   | `udf`                | `udf(func: Callable, input_types: list[pa.DataType], return_type: pa.DataType, volatility: str, name: str = ...) -> ScalarUDF`           | mint a scalar UDF (Arrow-vectorized `func`)           |
+|  [03]   | `udaf`               | `udaf(accum: type[Accumulator], input_types, return_type: pa.DataType, state_type: list[pa.DataType], volatility: str) -> AggregateUDF` | mint an aggregate UDF over an `Accumulator` subclass   |
+|  [04]   | `udwf`               | `udwf(evaluator: WindowEvaluator, input_types, return_type: pa.DataType, volatility: str) -> WindowUDF`                                  | mint a window UDF over a `WindowEvaluator` subclass    |
+|  [05]   | `Accumulator`        | base class: `update(*arrays)`, `merge(states)`, `state() -> list[pa.Scalar]`, `evaluate() -> pa.Scalar`                                  | aggregate state machine implemented in Python          |
+|  [06]   | `WindowEvaluator`    | base class: `evaluate_all(values, num_rows)`, `evaluate(...)`, `evaluate_all_with_rank(...)`                                            | window evaluation strategy implemented in Python       |
 
 [ENTRYPOINT_SCOPE]: `substrait` portability codec
 - rail: interchange
@@ -149,11 +170,18 @@ The `substrait` namespace round-trips a SQL string or `LogicalPlan` through a po
 - interchange axis: the `substrait` namespace owns the portable `Plan`; SQL serializes through `Serde`, an in-process `LogicalPlan` bridges through `Producer`/`Consumer`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire form for the SUBSTRAIT_PORTABILITY rail; never hand-roll Substrait protobuf encoding.
 - expression axis: `col`/`column` mint column references and `lit` and peers mint literals as `Expr` nodes; predicates and projections are `Expr` trees or SQL fragments parsed via `parse_sql_expr`, never string interpolation into SQL text.
 - export axis: `to_arrow_table`/`to_pandas`/`to_polars`/`to_pylist`/`to_pydict` are zero-copy or near-zero-copy Arrow exports; foreign-frame interchange is a `to_*`/`from_*` row, never a manual batch concatenation.
+- udf axis: `udf`/`udaf`/`udwf` are the three UDF factories over `Accumulator`/`WindowEvaluator` and a volatility policy; one factory family owns all UDF modalities and routes to `register_udf`/`register_udaf`/`register_udwf`/`register_udtf`, never a builder per kind; the `functions` namespace composes built-in expressions as `Expr` trees before any Python UDF is admitted.
 - evidence: each execution captures session id, plan stage (logical/optimized/physical), partition count, batch and row counts, and Substrait `Plan` byte length as an engine receipt.
 - boundary: datafusion owns Arrow-native SQL/DataFrame execution, multi-source federation, streaming, and Substrait interchange; pyarrow owns the `RecordBatch`/`Schema` wire types at the seam; object-store and catalog federation register foreign providers rather than copying data; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
 
+[INTEGRATION_STACKING]:
+- substrait spine: `datafusion.substrait` and `duckdb-substrait` are the two ends of one cross-engine plan rail — a `LogicalPlan` bridged through `substrait.Producer.to_substrait_plan` emits the identical wire `Plan` that `con.from_substrait(plan.encode())` re-binds on DuckDB, and DuckDB's `con.get_substrait(sql)` BLOB re-binds through `substrait.Consumer.from_substrait_plan`; both engines share the protobuf `Plan` and JSON twin, so the data owner round-trips one artifact rather than re-serializing per engine.
+- arrow zero-copy seam: `from_arrow`/`from_polars`/`from_pandas` ingest and `to_arrow_table`/`to_polars`/`to_pandas` egress thread the same Arrow C-data capsule polars and pyarrow expose; a DuckDB `fetch_arrow_table()`/`to_arrow_reader()` or a `deltalake` `DeltaTable.to_pyarrow_dataset()` registers directly via `register_table`/`from_arrow` with no intermediate copy, so federation is provider registration, never frame materialization.
+- delta federation: a `deltalake.DeltaTable` exposes `to_pyarrow_dataset()` (a `pa.dataset.Dataset`) that `SessionContext.register_table`/`read_table` adopts as a pushdown-capable provider, so a Delta lakehouse table joins a Parquet listing and an object-store CSV under one `SessionContext.sql` without leaving Arrow; predicate/column pruning pushes into the Delta dataset scan.
+- retry/observability stack: a federated `execute_stream` over a remote object store composes under a `stamina` `retry_context` for transient store faults and an OpenTelemetry span keyed by the engine receipt (session id, plan byte length, row count), so the streaming pull is one instrumented, retried rail rather than a bare loop.
+
 [RAIL_LAW]:
 - Package: `datafusion`
-- Owns: Arrow-native SQL and DataFrame execution, multi-format and object-store/catalog federation, scalar/aggregate/window/table UDFs, lazy plan inspection, sync/async `RecordBatchStream` streaming, and Substrait `Plan` serialize/deserialize
-- Accept: federated query execution and streaming over registered sources, and Substrait plan interchange feeding the SUBSTRAIT_PORTABILITY and federation owners
-- Reject: wrapper-renames of `SessionContext`/`DataFrame`/`substrait`; a hand-rolled SQL planner, execution kernel, or Substrait protobuf codec; a reader type per file format where `register_*`/`read_*` rows suffice; a parallel context type per policy where the fluent builders own the axis; raw `_internal` handles crossing the package boundary
+- Owns: Arrow-native SQL and DataFrame execution, multi-format and object-store/catalog federation, scalar/aggregate/window/table UDFs via `udf`/`udaf`/`udwf` over `Accumulator`/`WindowEvaluator`, the `functions` built-in expression namespace, lazy plan inspection, sync/async `RecordBatchStream` streaming, and Substrait `Plan` serialize/deserialize
+- Accept: federated query execution and streaming over registered sources (including a `deltalake` `to_pyarrow_dataset` provider and a DuckDB Arrow reader), and Substrait plan interchange round-tripping the same wire `Plan` with `duckdb-substrait` for the SUBSTRAIT_PORTABILITY rail
+- Reject: wrapper-renames of `SessionContext`/`DataFrame`/`substrait`; a hand-rolled SQL planner, execution kernel, or Substrait protobuf codec; a reader type per file format where `register_*`/`read_*` rows suffice; a parallel context type per policy where the fluent builders own the axis; a UDF builder per kind where `udf`/`udaf`/`udwf` own the axis; re-serializing a plan per engine where one portable `Plan` crosses both engines; raw `_internal` handles crossing the package boundary

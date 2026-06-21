@@ -6,10 +6,12 @@
 
 [PACKAGE_SURFACE]: `ifc5d`
 - package: `ifc5d`
-- import: `import ifc5d`
+- import: `import ifc5d.qto` / `import ifc5d.ifc5Dspreadsheet`
 - owner: `geometry`
 - rail: ifc-analysis / 5d-costing
-- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band (depends `ifcopenshell`; `typst` only under the `advanced` extra)
+- installed: `0.8.5`, the IfcOpenShell-ecosystem companion-lane band (depends `ifcopenshell`; `typst` only under the `advanced` extra); `assay api resolve ifc5d` resolves no source on the cp315 (`3.15.0b2`) core — resolves only where `ifcopenshell` resolves (cp313 companion), the documented lane gap, not a catalog fault
+- license: LGPL-3.0-or-later (the IfcOpenShell-ecosystem license)
+- wheel-floor: pure-Python `py3-none-any` wheel for `ifc5d` itself, but inert without the `ifcopenshell` cp313 core it depends on (no cp315 wheel); ABI: none for `ifc5d`, native via the `ifcopenshell` spine
 - entry points: none (library only)
 - capability: rule-driven quantity take-off across the IFC element set (`qto.quantify`/`edit_qtos` over the `qto.rules` `RULE_SET` table) and structured cost-schedule export (`ifc5Dspreadsheet` CSV/ODS/XLSX, typst PDF under the `advanced` extra); the cost-item resource rollup itself is `ifcopenshell.api.cost`, not an `ifc5d` member
 
@@ -58,9 +60,10 @@ Quantity rows consume an `ifcopenshell.file` plus an element set and a rule set;
 [FIVE_D_TOPOLOGY]:
 - import: `import ifc5d.qto` / `import ifc5d.ifc5Dspreadsheet` / `import ifcopenshell.api.cost` at boundary scope only; module-level import is banned by the manifest import policy.
 - quantity axis: `qto.quantify(file, elements, rules)` computes the base-quantity `ResultsDict` from the geometric measurement kernel keyed by the `qto.rules[RULE_SET]` rule table, and `qto.edit_qtos(file, results)` writes `IfcElementQuantity` back into the model — the rule-driven take-off the hand-rolled `get_psets(qtos_only=True)` fold over a single `NetFloorArea` key replaces. The rule set is the closed quantity vocabulary (`RULE_SET` literal), never a per-class literal.
-- cost axis: the per-item resource rollup is `ifcopenshell.api.cost.calculate_cost_item_resource_value(file, cost_item)` (NOT an `ifc5d.cost` member — `ifc5d` has no `cost` module); the structured export is `ifc5d.ifc5Dspreadsheet.Ifc5DCsvWriter`/`Ifc5DOdsWriter`, each `(file, output, cost_schedule).write()` writing the spreadsheet to `output`, the structured 5D output the analysis owner graduates.
-- evidence: each take-off captures the element count, the quantity rows derived, and the quantity keys; each cost rollup captures the schedule id and the per-item `IfcCostValue.AppliedValue` rows as a 5d receipt.
-- boundary: `ifc5d` owns 5D quantity take-off and cost-schedule export over the `ifcopenshell` model; geometric measurement stays inside the `ifc5d.qto` kernel, never re-derived against a local pset fold; the cost-item resource rollup stays `ifcopenshell.api.cost`; IFC parse and tessellation stay `ifcopenshell`; clash stays `ifcclash`; IDS stays `ifctester`.
+- cost axis: the per-item resource rollup is `ifcopenshell.api.cost.calculate_cost_item_resource_value(file, cost_item)` (NOT an `ifc5d.cost` member — `ifc5d` has no `cost` module); the structured export is `ifc5d.ifc5Dspreadsheet.Ifc5DCsvWriter`/`Ifc5DOdsWriter`/`Ifc5DXlsxWriter`, each `(file, output, cost_schedule).write()` writing the spreadsheet to `output`, the structured 5D output the analysis owner graduates.
+- lifecycle stacking: `ifc/costing.md#LIFECYCLE` is the integration owner — the `COST` phase runs `ifcopenshell.api.cost.calculate_cost_item_resource_value` over every `model.by_type("IfcCostItem")`, reads each `IfcCostItem.CostValues` `IfcCostValue.AppliedValue` back as typed `LifecycleRow.of_cost` rows, then binds the `CostReport`-selected `ifc5Dspreadsheet` writer CLASS (`{CSV: Ifc5DCsvWriter, ODS: Ifc5DOdsWriter, XLSX: Ifc5DXlsxWriter}[report]`) onto the receipt subject for the `python:data/spatial` boundary to drive `.write()` against a durable path — never a throwaway `tempfile.TemporaryDirectory()` write the run discards. The `QUANTITY` phase threads its element selector through the shared `IfcSelector.filter` validated gate (the lark grammar) so a malformed selector is a `BoundaryFault` at admission before `quantify` runs, then folds the `ResultsDict` (`element → qto-name → quantity-name → float`) into typed `LifecycleRow.of_quantity` rows. A new rule set is one `qto.rules` `RULE_SET` key authored upstream; a new report format is one `CostReport` row binding its `ifc5Dspreadsheet` writer subclass — zero new surface.
+- evidence: each take-off captures the element count, the quantity rows derived, and the quantity keys; each cost rollup captures the schedule id and the per-item `IfcCostValue.AppliedValue` rows; the lifecycle receipt keys the empty-row fraction (a non-empty subject producing no quantity/cost rows is a degenerate run) as the 5d residual the graduation leg folds against the caller ceiling.
+- boundary: `ifc5d` owns 5D quantity take-off and cost-schedule export over the `ifcopenshell` model; geometric measurement stays inside the `ifc5d.qto` kernel, never re-derived against a local pset fold; the cost-item resource rollup stays `ifcopenshell.api.cost`; the columnar spreadsheet write defers to `python:data/spatial` (this owner binds the writer class, never holds a file handle); IFC parse and tessellation stay `ifcopenshell`; element selection stays the shared `IfcSelector` gate; clash stays `ifcclash`; IDS stays `ifctester`; schedule stays `ifc4d`; revision diff stays `ifcdiff`.
 
 ## [05]-[LOCAL_ADMISSION]
 

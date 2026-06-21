@@ -9,36 +9,41 @@
 - import: `nbconvert`
 - owner: `artifacts`
 - rail: report
-- installed: `7.17.1` reflected via `assay api` on cp315
+- installed: `7.17.1` reflected via isolated `uv pip` install + reflection (assay finds no source in the project venv)
+- license: BSD-3-Clause
+- abi: pure Python; no native extension, no wheel/ABI floor; cp315-clean. PDF/slides targets need external runtimes at call time, not at install: `PDFExporter` requires a TeX toolchain (xelatex), `WebPDFExporter` requires a Playwright/Chromium browser, `QtPDFExporter`/`QtPNGExporter` require `pyqtwebengine`.
+- deps: `nbformat`, `jupyter_core`, `jinja2`, `mistune` (Markdown), `bleach`/`defusedxml` (HTML sanitize), `beautifulsoup4`, `pygments`/`jupyterlab-pygments` (highlight), `pandocfilters`, `tinycss2`
 - entry points: console scripts `jupyter-nbconvert` (CLI conversion) and `jupyter-dejavu` (notebook diff); 14 `nbconvert.exporters` plugin rows (`asciidoc`, `custom`, `html`, `latex`, `markdown`, `notebook`, `pdf`, `python`, `qtpdf`, `qtpng`, `rst`, `script`, `slides`, `webpdf`)
-- capability: resolve an export target by name, instantiate the matching `Exporter`, and convert a `NotebookNode`/file/stream to PDF/HTML/LaTeX/Markdown/RST/AsciiDoc/Python/script/slides/notebook output paired with a resources dict, driving the Jinja template, preprocessor, and PDF-assembly pipeline in-process
+- capability: resolve an export target by name, instantiate the matching `Exporter`, and convert a `NotebookNode`/file/stream to PDF/HTML/LaTeX/Markdown/RST/AsciiDoc/Python/script/slides/notebook output paired with a resources dict, driving the Jinja template, preprocessor chain, filter map, and PDF-assembly pipeline in-process; persist via the `writers` family
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exporter classes and resolution failures
 - rail: report
 
-`Exporter` is the base that runs preprocessors and produces `(output, resources)`; `TemplateExporter` adds the Jinja template layer that the format exporters extend. `PDFExporter` assembles via LaTeX, `WebPDFExporter` via headless Chromium, `QtPDFExporter`/`QtPNGExporter` via a Qt screenshot. `ExporterNameError` is raised when `get_exporter` cannot resolve a name; `FilenameExtension` is the traitlets trait that types an exporter's output extension.
+`Exporter` is the base that runs preprocessors and produces `(output, resources)` — the base alone returns `(NotebookNode, dict)`, while `TemplateExporter` (the layer the document exporters extend) renders through Jinja and returns `(str, dict)`. `PDFExporter` assembles via LaTeX, `WebPDFExporter` via headless Chromium, `QtPDFExporter`/`QtPNGExporter` via a Qt screenshot. `ExporterNameError` is raised when `get_exporter` cannot resolve a name and `ExporterDisabledError` when the name resolves but is disabled by config; both live in `nbconvert.exporters`. `FilenameExtension` is the traitlets trait typing an exporter's output extension; `ResourcesDict` is the dict subtype returned as the second half of every conversion tuple (auto-creates missing keys).
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                              |
-| :-----: | :------------------ | :------------ | :-------------------------------------------------- |
-|  [01]   | `Exporter`          | exporter base | preprocessor-runner producing `(output, resources)` |
-|  [02]   | `TemplateExporter`  | exporter base | Jinja-template exporter base for format exporters   |
-|  [03]   | `HTMLExporter`      | exporter      | HTML document export                                |
-|  [04]   | `PDFExporter`       | exporter      | PDF via LaTeX assembly                              |
-|  [05]   | `WebPDFExporter`    | exporter      | PDF via headless Chromium                           |
-|  [06]   | `LatexExporter`     | exporter      | LaTeX `.tex` document export                        |
-|  [07]   | `MarkdownExporter`  | exporter      | Markdown `.md` document export                      |
-|  [08]   | `RSTExporter`       | exporter      | reStructuredText document export                    |
-|  [09]   | `ASCIIDocExporter`  | exporter      | AsciiDoc `.asciidoc` document export                |
-|  [10]   | `SlidesExporter`    | exporter      | reveal.js HTML slides export                        |
-|  [11]   | `NotebookExporter`  | exporter      | round-trip `.ipynb` notebook export                 |
-|  [12]   | `PythonExporter`    | exporter      | Python `.py` source export                          |
-|  [13]   | `ScriptExporter`    | exporter      | kernel-language script export                       |
-|  [14]   | `QtPDFExporter`     | exporter      | PDF via Qt screenshot                               |
-|  [15]   | `QtPNGExporter`     | exporter      | PNG via Qt screenshot                               |
-|  [16]   | `FilenameExtension` | trait         | traitlets filename-extension trait                  |
-|  [17]   | `ExporterNameError` | error         | unknown/unresolvable export-name failure            |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                                              |
+| :-----: | :---------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `Exporter`              | exporter base | preprocessor-runner producing `(NotebookNode, resources)`          |
+|  [02]   | `TemplateExporter`      | exporter base | Jinja-template exporter base; produces `(str, resources)`          |
+|  [03]   | `HTMLExporter`          | exporter      | HTML document export                                               |
+|  [04]   | `PDFExporter`           | exporter      | PDF via LaTeX assembly                                             |
+|  [05]   | `WebPDFExporter`        | exporter      | PDF via headless Chromium                                         |
+|  [06]   | `LatexExporter`         | exporter      | LaTeX `.tex` document export                                      |
+|  [07]   | `MarkdownExporter`      | exporter      | Markdown `.md` document export                                    |
+|  [08]   | `RSTExporter`           | exporter      | reStructuredText document export                                  |
+|  [09]   | `ASCIIDocExporter`      | exporter      | AsciiDoc `.asciidoc` document export                              |
+|  [10]   | `SlidesExporter`        | exporter      | reveal.js HTML slides export                                      |
+|  [11]   | `NotebookExporter`      | exporter      | round-trip `.ipynb` notebook export                               |
+|  [12]   | `PythonExporter`        | exporter      | Python `.py` source export                                        |
+|  [13]   | `ScriptExporter`        | exporter      | kernel-language script export                                     |
+|  [14]   | `QtPDFExporter`         | exporter      | PDF via Qt screenshot                                             |
+|  [15]   | `QtPNGExporter`         | exporter      | PNG via Qt screenshot                                             |
+|  [16]   | `FilenameExtension`     | trait         | traitlets filename-extension trait                                |
+|  [17]   | `ResourcesDict`         | result carrier| auto-vivifying dict returned as the second tuple element          |
+|  [18]   | `ExporterNameError`     | error         | unknown/unresolvable export-name failure (from `get_exporter`)    |
+|  [19]   | `ExporterDisabledError` | error         | export-name resolves but is config-disabled                       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -56,14 +61,38 @@
 [ENTRYPOINT_SCOPE]: `Exporter` construct and convert
 - rail: report
 
-The exporter constructor takes `config` plus traitlets `**kw`; the same constructor shape spans every concrete exporter. The three `from_*` methods each return `(NotebookNode-output, resources-dict)`; `from_notebook_node` is the in-memory path the campaign consumes, `from_filename`/`from_file` read from disk or a stream.
+The exporter constructor takes `config` plus traitlets `**kw`; the same constructor shape spans every concrete exporter. The three `from_*` methods each return `(output, resources)`; the output type is `str` for every `TemplateExporter` subclass (HTML/LaTeX/Markdown/RST/slides/script) and `NotebookNode` for the base `Exporter`/`NotebookExporter` round-trip. `from_notebook_node` is the in-memory path the campaign consumes; `from_filename`/`from_file` read from disk or a stream.
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                      | [CAPABILITY]                                                |
 | :-----: | :---------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------- |
 |  [01]   | `Exporter`                    | `Exporter(config=None, **kw)`                                                                                                     | construct an exporter with config and traitlets kwargs      |
-|  [02]   | `Exporter.from_notebook_node` | `from_notebook_node(nb: NotebookNode, resources: t.Any \| None = None, **kw: t.Any) -> tuple[NotebookNode, dict[str, t.Any]]`     | convert an in-memory notebook node to `(output, resources)` |
-|  [03]   | `Exporter.from_filename`      | `from_filename(filename: str, resources: dict[str, t.Any] \| None = None, **kw: t.Any) -> tuple[NotebookNode, dict[str, t.Any]]`  | convert a notebook file path to `(output, resources)`       |
-|  [04]   | `Exporter.from_file`          | `from_file(file_stream: t.Any, resources: dict[str, t.Any] \| None = None, **kw: t.Any) -> tuple[NotebookNode, dict[str, t.Any]]` | convert a notebook stream to `(output, resources)`          |
+|  [02]   | `Exporter.from_notebook_node` | `from_notebook_node(nb: NotebookNode, resources: t.Any \| None = None, **kw: t.Any) -> tuple[str \| NotebookNode, dict[str, t.Any]]` | convert an in-memory notebook node to `(output, resources)` |
+|  [03]   | `Exporter.from_filename`      | `from_filename(filename: str, resources: dict[str, t.Any] \| None = None, **kw: t.Any) -> tuple[str \| NotebookNode, dict[str, t.Any]]`  | convert a notebook file path to `(output, resources)`       |
+|  [04]   | `Exporter.from_file`          | `from_file(file_stream: t.Any, resources: dict[str, t.Any] \| None = None, **kw: t.Any) -> tuple[str \| NotebookNode, dict[str, t.Any]]` | convert a notebook stream to `(output, resources)`          |
+|  [05]   | `Exporter.register_preprocessor` | `register_preprocessor(preprocessor, enabled=False)`                                                                          | append a preprocessor (class/instance/dotted-name) to the chain |
+|  [06]   | `TemplateExporter.register_filter` | `register_filter(name, jinja_filter)`                                                                                       | register a Jinja filter callable usable from the template   |
+
+[ENTRYPOINT_SCOPE]: preprocessor chain and output writers
+- rail: report
+
+The preprocessor chain mutates `(nb, resources)` before the template renders; nbconvert ships the chain as configurable `Preprocessor` subclasses rather than a hard-coded transform. `ExecutePreprocessor` is the nbconvert wrapper over `nbclient.NotebookClient` — the campaign executes through nbclient directly and leaves `enabled=False` (default) to avoid a double execution. The `writers` family is the persistence half: `FilesWriter` writes `output` plus every entry in `resources['outputs']` (extracted figures) to disk under a build directory, which is how `ExtractOutputPreprocessor`'s figure bytes reach the filesystem.
+
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                          | [CAPABILITY]                                                  |
+| :-----: | :------------------------------- | :------------------------------------ | :----------------------------------------------------------- |
+|  [01]   | `preprocessors.ExecutePreprocessor` | config trait `enabled`             | run the notebook via `nbclient` before render (off by default) |
+|  [02]   | `preprocessors.ExtractOutputPreprocessor` | config trait `enabled`        | pull display outputs (figures) into `resources['outputs']`   |
+|  [03]   | `preprocessors.ExtractAttachmentsPreprocessor` | config trait `enabled`   | pull cell attachments into `resources`                       |
+|  [04]   | `preprocessors.TagRemovePreprocessor` | `remove_cell_tags`/`remove_input_tags`/`remove_all_outputs_tags` | drop tagged cells/inputs/outputs before render |
+|  [05]   | `preprocessors.ClearOutputPreprocessor` | config trait `enabled`          | strip all outputs (clean-notebook export)                    |
+|  [06]   | `preprocessors.ClearMetadataPreprocessor` | config trait `enabled`        | strip cell/notebook metadata                                 |
+|  [07]   | `preprocessors.CoalesceStreamsPreprocessor` | config trait `enabled`      | merge consecutive stream outputs                             |
+|  [08]   | `preprocessors.RegexRemovePreprocessor` | `patterns`                      | drop cells whose source matches a regex                      |
+|  [09]   | `preprocessors.CSSHTMLHeaderPreprocessor` | config trait `enabled`        | inject Pygments/CSS into `resources` for HTML                |
+|  [10]   | `preprocessors.HighlightMagicsPreprocessor` | config trait `enabled`      | tag `%%`-magic cells with their language for highlighting    |
+|  [11]   | `preprocessors.SVG2PDFPreprocessor` / `ConvertFiguresPreprocessor` | config trait `enabled` | rasterize/convert figures for LaTeX/PDF        |
+|  [12]   | `writers.FilesWriter`            | `write(output, resources, notebook_name)` | persist output + extracted resources to a build directory |
+|  [13]   | `writers.StdoutWriter`           | `write(output, resources, notebook_name)` | stream output to stdout                                  |
+|  [14]   | `postprocessors.ServePostProcessor` | `__call__(input)`                  | serve reveal.js slides over HTTP                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -71,8 +100,10 @@ The exporter constructor takes `config` plus traitlets `**kw`; the same construc
 - import: `import nbconvert` at boundary scope only; module-level import is banned by the manifest import policy.
 - resolution axis: one `get_exporter` owns export-target resolution; `pdf`/`webpdf`/`html`/`latex`/`markdown`/`rst`/`asciidoc`/`slides`/`notebook`/`python`/`script`/`qtpdf`/`qtpng` are name rows on the `nbconvert.exporters` entrypoint registry, never a per-format selector function; a dotted import path resolves a third-party exporter through the same call.
 - conversion axis: `export` is the single conversion surface that dispatches on the `nb` shape (`NotebookNode` -> `from_notebook_node`, `str` -> `from_filename`, else `from_file`); the campaign uses `from_notebook_node` for the in-memory notebook and reads `output` plus the `resources` dict, never a parallel per-format convert function.
-- exporter axis: each concrete exporter is a `TemplateExporter`/`Exporter` subclass selected by name, never a hand-rolled renderer; `PDFExporter` assembles through LaTeX, `WebPDFExporter` through headless Chromium, `QtPDFExporter`/`QtPNGExporter` through a Qt screenshot, and the template/preprocessor/filter pipeline stays owned by nbconvert.
-- config axis: exporter behavior (template name, preprocessors, execution, extraction) is traitlets config passed through `config=` or `**kw` at construction, never a parallel exporter subclass per option.
+- exporter axis: each concrete exporter is a `TemplateExporter`/`Exporter` subclass selected by name, never a hand-rolled renderer; the base `Exporter` returns a `NotebookNode`, every `TemplateExporter` returns rendered `str`; `PDFExporter` assembles through LaTeX, `WebPDFExporter` through headless Chromium, `QtPDFExporter`/`QtPNGExporter` through a Qt screenshot; `ExporterDisabledError` is raised when a resolved name is config-disabled.
+- pipeline axis: the preprocessor chain mutates `(nb, resources)` before render and is configured as `Preprocessor` rows or appended via `register_preprocessor`, never inlined into the exporter; the campaign executes through `nbclient` directly and leaves `ExecutePreprocessor` disabled to avoid double execution; figure extraction (`ExtractOutputPreprocessor`) and tag removal (`TagRemovePreprocessor`) are configured stages, not bespoke transforms.
+- writer axis: persisting `(output, resources)` is the `writers.FilesWriter`/`StdoutWriter` job (writes `output` plus `resources['outputs']` figure bytes), never a hand-rolled file write that re-derives the resources layout.
+- config axis: exporter behavior (template name, preprocessors, execution, extraction, Jinja filters via `register_filter`) is traitlets config passed through `config=` or `**kw` at construction, never a parallel exporter subclass per option.
 - evidence: each render captures the resolved export name, exporter class, output byte length, the `resources` keys (extracted outputs, output extension, metadata), and the resolved `FilenameExtension` as a report receipt.
 - boundary: nbconvert owns notebook-to-document conversion and the Jinja template/preprocessor pipeline; `from_notebook_node` consumes a `nbformat.NotebookNode` from the upstream notebook owner; PDF output feeds the document owner and HTML output feeds the visuals owner; the `jupyter-nbconvert` CLI stays outside the in-process path.
 

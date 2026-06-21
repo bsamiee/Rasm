@@ -1,115 +1,129 @@
 # [PY_GEOMETRY_API_PDAL]
 
-`pdal` supplies a pipeline-based point-cloud processing engine through `Pipeline`, `Stage`, `Reader`, `Filter`, `Writer`, and `PipelineIterator` for executing PDAL stage graphs, streaming large datasets, accessing output numpy arrays and mesh data, and querying available drivers and dimensions for the geometry scan-processing rail.
+`pdal` supplies a pipeline-based point-cloud processing engine over the native `libpdal` C++ core: a `Pipeline` (the executable stage graph), a `Stage` family (`Reader`/`Filter`/`Writer`) whose concrete drivers are injected as named staticmethods from the runtime driver registry, a `PipelineIterator` for chunked streaming, and module-level `dimensions`/`info` introspection. The scan-processing owner composes typed driver factories (`Reader.las`, `Filter.range`, `Writer.gltf`, ...) under the `|` operator into one `Pipeline`, executes it, and reads output as structured `numpy` arrays, a `meshio.Mesh`, or a `pandas`/`geopandas` frame — it never hand-rolls a point-cloud format parser or calls the libpdal C++ API directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pdal`
 - package: `pdal`
-- module: `pdal`
-- asset: compiled extension (libpdal wrapper) — requires native `libpdal` C++ library; pip install from sdist requires cmake + libpdal headers; conda-forge provides prebuilt wheel
+- import: `import pdal` then `pdal.Reader`/`pdal.Filter`/`pdal.Writer`/`pdal.Pipeline`; `import` time runs `inject_pdal_drivers()` and binds module-level `dimensions`/`info`
+- owner: `geometry`
 - rail: scan-processing
+- installed: `3.5.3`; license BSD; ships the compiled `libpdalpython` extension built against a native `libpdal` C++ library — sdist-only on PyPI (no published wheels), so install needs `cmake` + `libpdal` headers/lib (conda-forge `python-pdal` provides a prebuilt binary); the sdist builds cp313 from source where `libpdal` is present. Manifest `pdal>=3.5.3; python_version<'3.15'` (companion band)
+- entry points: none (library only)
+- capability: PDAL JSON or stage-sequence pipeline construction, driver inference from filename, execute / streaming-execute / chunked-iterate, in-memory `numpy` structured-array inputs and outputs, mesh output to `meshio`, frame output to `pandas`/`geopandas`, pickle round-trip via the pipeline JSON, and full driver/dimension/option introspection
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline and stage family
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]      | [CAPABILITY]                                             |
-| :-----: | :----------------- | :----------------- | :------------------------------------------------------- |
-|  [01]   | `Pipeline`         | execution graph    | build, execute, stream, and query output of stage graph  |
-|  [02]   | `Stage`            | base stage         | type, tag, inputs, options; pipe operator support        |
-|  [03]   | `Reader`           | source stage       | infers reader driver from filename; accepts kwargs       |
-|  [04]   | `Filter`           | transform stage    | requires explicit `type` string; accepts kwargs          |
-|  [05]   | `Writer`           | sink stage         | infers writer driver from filename; accepts kwargs       |
-|  [06]   | `PipelineIterator` | streaming iterator | chunk-by-chunk execution with log/schema/metadata access |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]      | [CAPABILITY]                                                                       |
+| :-----: | :------------------------ | :----------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `Pipeline`                | execution graph    | `libpdalpython.Pipeline` subclass: build/execute/stream/iterate; picklable via pipeline JSON |
+|  [02]   | `Stage`                   | base stage         | `type`/`tag`/`inputs`/`options`; `__or__` and `.pipeline(*arrays)` composition      |
+|  [03]   | `InferableTypeStage`      | filename-typed     | base for `Reader`/`Writer`; `type` falls back to driver inferred from `filename`    |
+|  [04]   | `Reader`                  | source stage       | `_infer_type = libpdalpython.infer_reader_driver`; driver from path or explicit `type` |
+|  [05]   | `Filter`                  | transform stage    | requires explicit `type: str` positional                                            |
+|  [06]   | `Writer`                  | sink stage         | `_infer_type = libpdalpython.infer_writer_driver`; driver from path or explicit `type` |
+|  [07]   | `PipelineIterator`        | streaming iterator | `libpdalpython` chunk iterator with per-chunk `log`/`schema`/`metadata`             |
+|  [08]   | `drivers.Driver` / `drivers.Option` | registry record | dataclass describing one PDAL driver (name/type/description) and one option (name/default/description) |
 
 [PUBLIC_TYPE_SCOPE]: module-level symbols
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]  | [CAPABILITY]                           |
-| :-----: | :----------- | :------------- | :------------------------------------- |
-|  [01]   | `dimensions` | dimension list | all valid PDAL point dimension records |
-|  [02]   | `info`       | version info   | version and configuration details      |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                            |
+| :-----: | :------------------------ | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `pdal.dimensions`         | dimension list  | `libpdalpython.getDimensions()`: every registered point dimension record (name/dtype/size) |
+|  [02]   | `pdal.info`               | version info    | `libpdalpython.getInfo()`: version, GDAL/GEOS/sqlite versions, plugin path |
+|  [03]   | `drivers.StreamableTypes` | `frozenset[str]`| stage type strings whose driver advertises streaming; `Stage.streamable` reads it |
 
 ## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: injected driver factories (the primary construction surface)
+- rail: scan-processing
+
+`inject_pdal_drivers()` runs at import: for each `libpdalpython.getDrivers()` row it binds a `staticmethod` named by the driver short-name onto `Reader`/`Filter`/`Writer`, pre-filling `type=<driver>` and threading `filename` (first option, when present) plus option kwargs. Construct stages through these, not raw `Filter(type=...)`.
+
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `Reader.las(filename, **opts)` / `.e57` / `.copc` / `.ept` / `.ply` / ...  | construction | typed reader factory; `type='readers.<name>'` pre-filled, `filename` first positional |
+|  [02]   | `Filter.range(**opts)` / `.crop` / `.outlier` / `.smrf` / `.poisson` / `.icp` / `.reprojection` / ... | construction | typed filter factory; `type='filters.<name>'` pre-filled |
+|  [03]   | `Writer.las(filename, **opts)` / `.gltf` / `.ply` / `.copc` / `.gdal` / ... | construction | typed writer factory; `type='writers.<name>'` pre-filled |
+|  [04]   | `<driver>.__doc__`                                         | introspection  | each factory's docstring is the driver description plus the `repr` of every `Option` (name=default: description) |
+
+[ENTRYPOINT_SCOPE]: stage construction and composition
+- rail: scan-processing
+
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
+|  [01]   | `Reader(filename=None, **options) -> Reader`                  | construction   | source stage; driver inferred from path when no `type` |
+|  [02]   | `Filter(type: str, **options) -> Filter`                      | construction   | transform stage; explicit `type` required (positional) |
+|  [03]   | `Writer(filename=None, **options) -> Writer`                  | construction   | sink stage; driver inferred from path when no `type`   |
+|  [04]   | `stage \| other -> Pipeline`                                  | composition    | `Stage.__or__` builds a fresh `Pipeline((self, other))` |
+|  [05]   | `stage.pipeline(*arrays, loglevel=logging.ERROR) -> Pipeline` | construction   | wrap one stage in a `Pipeline` with input arrays       |
+|  [06]   | `stage.type / .tag / .inputs / .options`                      | query          | PDAL type string; tag for graph referencing; upstream `Stage\|str` list; option dict copy |
+|  [07]   | `stage.streamable -> bool`                                    | query          | `stage.type in drivers.StreamableTypes`                |
 
 [ENTRYPOINT_SCOPE]: Pipeline construction and execution
 - rail: scan-processing
 
 | [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                       |
 | :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `Pipeline(spec=None, arrays=(), loglevel=logging.ERROR, json=None, dataframes=(), stream_handlers=()) -> Pipeline` | construction   | build from JSON string or stage sequence     |
-|  [02]   | `p.execute(allowed_dims=[]) -> int`                                                                                | execution      | run pipeline; returns output point count     |
-|  [03]   | `p.execute_streaming(chunk_size=10000, allowed_dims=[]) -> int`                                                    | execution      | streaming execution for streamable pipelines |
-|  [04]   | `p.iterator(chunk_size=10000, prefetch=0, allowed_dims=[]) -> PipelineIterator`                                    | execution      | lazy chunk iterator                          |
-|  [05]   | `p.toJSON() -> str`                                                                                                | serialization  | serialize pipeline to PDAL JSON string       |
+|  [01]   | `Pipeline(spec=None, arrays=(), loglevel=logging.ERROR, json=None, dataframes=(), stream_handlers=()) -> Pipeline` | construction   | from PDAL JSON string, stage sequence, or `pandas`/`geopandas` frames (geometry column dropped/expanded to `numpy` records) |
+|  [02]   | `p.execute(allowed_dims=[]) -> int`                                                                                | execution      | run pipeline; returns output point count      |
+|  [03]   | `p.execute_streaming(chunk_size=10000, allowed_dims=[]) -> int`                                                    | execution      | streaming execution; requires `p.streamable`  |
+|  [04]   | `p.iterator(chunk_size=10000, prefetch=0, allowed_dims=[]) -> PipelineIterator`                                    | execution      | lazy chunk iterator; requires `p.streamable`  |
+|  [05]   | `p \| stage -> Pipeline` / `p \|= stage`                                                                          | composition    | `__or__` copies then appends; `__ior__` mutates in place (rejects input-bearing pipeline after another) |
+|  [06]   | `p.toJSON() -> str` / `p.pipeline -> str`                                                                          | serialization  | normalized PDAL JSON (auto-appends `filters.merge` when all stages are readers) |
+|  [07]   | `pickle.dumps(p)` / `copy.copy(p)`                                                                                 | serialization  | `__getstate__`/`__setstate__` round-trip the pipeline JSON; `__copy__` clones inputs+stages |
 
-[ENTRYPOINT_SCOPE]: Pipeline output properties
+[ENTRYPOINT_SCOPE]: Pipeline output and config
 - rail: scan-processing
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :------------------------------------------ | :------------- | :------------------------------------------- |
-|  [01]   | `p.arrays -> list[np.ndarray]`              | output         | list of structured numpy arrays post-execute |
-|  [02]   | `p.meshes -> list`                          | output         | mesh data post-execute                       |
-|  [03]   | `p.metadata -> str`                         | output         | JSON metadata from last execution            |
-|  [04]   | `p.log -> str`                              | output         | execution log from last run                  |
-|  [05]   | `p.schema -> str`                           | output         | output dimension schema as JSON              |
-|  [06]   | `p.srswkt2 -> str`                          | output         | spatial reference WKT2 string                |
-|  [07]   | `p.quickinfo -> str`                        | output         | quick pipeline information                   |
-|  [08]   | `p.stages -> list[Stage]`                   | query          | stages in this pipeline                      |
-|  [09]   | `p.streamable -> bool`                      | query          | whether pipeline supports streaming          |
-|  [10]   | `p.loglevel -> int` / `p.loglevel = value`  | config         | get/set logging level                        |
-|  [11]   | `p.inputs = arrays`                         | config         | set input numpy arrays or stream handlers    |
-|  [12]   | `p.get_meshio(idx) -> Mesh \| None`         | output         | output mesh at index as `meshio.Mesh`        |
-|  [13]   | `p.get_dataframe(idx) -> DataFrame \| None` | output         | output as pandas DataFrame                   |
+Output members are `libpdalpython.Pipeline` C-extension attributes, undefined before `execute()`.
 
-[ENTRYPOINT_SCOPE]: Stage construction and pipe operator
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :----------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `p.arrays -> list[np.ndarray]`                         | output         | one structured `numpy` array per output view; dimension names are the field names |
+|  [02]   | `p.meshes -> list[np.ndarray]`                         | output         | per-view mesh face records (`A`/`B`/`C` vertex indices) |
+|  [03]   | `p.get_meshio(idx) -> meshio.Mesh \| None`             | output         | fold array XYZ + mesh A/B/C into a `meshio.Mesh` with one `triangle` `CellBlock`; `None` when empty |
+|  [04]   | `p.get_dataframe(idx) -> pandas.DataFrame \| None`     | output         | structured array as a `pandas` frame                |
+|  [05]   | `p.get_geodataframe(idx, xyz=False, crs=None) -> geopandas.GeoDataFrame \| None` | output | frame with `points_from_xy` geometry (XY or XYZ) and optional CRS |
+|  [06]   | `p.metadata -> str` / `p.schema -> str` / `p.srswkt2 -> str` / `p.quickinfo -> str` / `p.log -> str` | output | last-run JSON metadata / dimension schema JSON / SRS WKT2 / quick info / execution log |
+|  [07]   | `p.stages -> list[Stage]` / `p.streamable -> bool`     | query          | the Python `Stage` list / whether every stage streams |
+|  [08]   | `p.loglevel -> int` (get/set)                          | config         | maps Python `logging` levels to PDAL log levels      |
+|  [09]   | `p.inputs = [(array, handler), ...]`                   | config         | `numpy` structured arrays as in-memory point sources, each optionally paired with a stream-handler callable |
+
+[ENTRYPOINT_SCOPE]: PipelineIterator and module introspection
 - rail: scan-processing
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------------- |
-|  [01]   | `Reader(filename=None, **options) -> Reader`                  | construction   | source stage; driver inferred from path  |
-|  [02]   | `Filter(type: str, **options) -> Filter`                      | construction   | transform stage; explicit type required  |
-|  [03]   | `Writer(filename=None, **options) -> Writer`                  | construction   | sink stage; driver inferred from path    |
-|  [04]   | `stage \| other -> Pipeline`                                  | composition    | chain stages/pipelines via pipe operator |
-|  [05]   | `pipeline \|= other -> Pipeline`                              | composition    | in-place append stage or pipeline        |
-|  [06]   | `stage.pipeline(*arrays, loglevel=logging.ERROR) -> Pipeline` | construction   | wrap stage in Pipeline with input arrays |
-|  [07]   | `stage.type -> str`                                           | query          | PDAL stage type string                   |
-|  [08]   | `stage.tag -> str \| None`                                    | query          | stage tag for graph referencing          |
-|  [09]   | `stage.inputs -> list[Stage \| str]`                          | query          | upstream stage inputs                    |
-|  [10]   | `stage.options -> dict[str, Any]`                             | query          | stage option dict                        |
-
-[ENTRYPOINT_SCOPE]: PipelineIterator and module-level functions
-- rail: scan-processing
-
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :------------------------------ | :------------- | :------------------------------------- |
-|  [01]   | `iter.__next__() -> np.ndarray` | streaming      | next chunk as structured numpy array   |
-|  [02]   | `iter.log -> str`               | output         | log for completed chunks               |
-|  [03]   | `iter.schema -> str`            | output         | output schema JSON                     |
-|  [04]   | `iter.metadata -> str`          | output         | metadata JSON                          |
-|  [05]   | `pdal.info -> dict`             | query          | PDAL version and build configuration   |
-|  [06]   | `pdal.dimensions -> list`       | query          | all registered point dimension records |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                            |
+| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `iter(p.iterator(...))` / `it.__next__() -> np.ndarray` | streaming | next chunk as a structured `numpy` array          |
+|  [02]   | `it.log / it.schema / it.metadata`         | output         | log / schema JSON / metadata JSON for completed chunks |
+|  [03]   | `libpdalpython.infer_reader_driver(path)` / `infer_writer_driver(path)` | query | driver string inferred from extension (`Reader`/`Writer` use these) |
+|  [04]   | `libpdalpython.getDrivers()` / `getOptions()` / `getDimensions()` / `getInfo()` | query | raw registry rows the driver injection and module-level `dimensions`/`info` consume |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PIPELINE_TOPOLOGY]:
-- `Pipeline` accepts either a PDAL JSON string (`spec`) or a sequence of `Stage` instances; stage sequences are serialized to PDAL JSON internally.
-- `p.execute()` populates `p.arrays`, `p.meshes`, `p.metadata`, `p.log`; these are undefined before execution.
-- `p.execute_streaming()` and `p.iterator()` require a streamable pipeline; check `p.streamable` before calling.
-- `p.arrays` is a list of structured `numpy.ndarray` objects, one per stage that produces output; dimension names are the structured array field names.
-- `Reader` infers its driver from the file extension via `libpdalpython.infer_reader_driver`; an explicit `type` keyword overrides inference. `Filter` always requires an explicit `type`.
-- The pipe operator `|` creates a new `Pipeline`; `|=` mutates the left operand in place.
-- `p.inputs = [array]` supplies numpy arrays as in-memory point sources; `stream_handlers` pass callables for streaming sources.
+- import: `import pdal` at boundary scope only; module-level import is banned by the manifest import policy. The import side-effect (`inject_pdal_drivers`) is what binds the typed driver factories, so the boundary import must complete before any `Reader.las`/`Filter.range` reference.
+- construction axis: build the stage graph through the injected driver factories under `|` — `Reader.las(path) | Filter.range(limits="Z[0:100]") | Writer.las(out)` — never as parallel format-specific pipeline functions. `Filter` is the only stage requiring an explicit `type`; readers/writers infer it from the filename. `Pipeline(spec=...)` also accepts a raw PDAL JSON string or a `Stage` sequence, and `dataframes=`/`stream_handlers=` supply `pandas`/`geopandas` frames or streaming-source callables.
+- execution axis: `execute()` is the polymorphic run; `execute_streaming()`/`iterator()` are the streaming arms gated on `p.streamable` (a fold over `drivers.StreamableTypes`). Output members (`arrays`/`meshes`/`metadata`/`schema`/`log`) are undefined before execute and are read once into the receipt.
+- output axis: `arrays` is the canonical structured-`numpy` egress; `get_meshio` is the direct `meshio.Mesh` seam (XYZ points + `triangle` CellBlock from mesh A/B/C, e.g. after `filters.poisson`/`filters.delaunay`), `get_dataframe`/`get_geodataframe` the tabular seams. A null `Mesh`/frame surfaces as `None`, not an exception.
+- offload axis: `Pipeline` pickles through its JSON state (`__getstate__`/`__setstate__`), so a multi-second pipeline solve hands to the runtime offload lane by JSON, surviving even the `to_process` fallback the in-memory companion kernels cannot.
+- evidence: each run captures output point count, the schema dimension names, the SRS WKT2, and the stage tags as a scan-pipeline receipt; the metadata JSON carries per-stage diagnostics.
+- boundary: pdal owns LAS/LAZ/E57/COPC/EPT/PLY/text pipeline ingestion and the broad filter catalog (crop/range/outlier/SMRF/PMF/reprojection/poisson/ICP). The conditioned `numpy` block or `meshio.Mesh` hands to `open3d`/`small-gicp` registration, `trimesh`/`meshio` mesh exchange, and `laspy` for LAS-specific extra-dimension work; pdal never calls the libpdal C++ API directly from domain code.
 
-[LOCAL_ADMISSION]:
-- Point data enters as either a file path (via `Reader(filename)`) or a numpy structured array (via `p.inputs`).
-- Output exits as `p.arrays` (structured numpy) or `p.get_dataframe(idx)` / `p.get_geodataframe(idx)` for pandas/geopandas consumers.
-- PDAL JSON pipelines persist as strings; `toJSON()` normalizes the in-memory graph back to PDAL JSON for serialization.
+## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `pdal`
-- Owns: PDAL stage graph construction, point-cloud pipeline execution, streaming iteration, and driver introspection
-- Accept: PDAL JSON strings, file-path-based Reader/Writer stages, numpy structured arrays as inputs
-- Reject: hand-rolled point-cloud format parsing; direct libpdal C++ API calls from Python; installation without native libpdal
+- Owns: PDAL stage-graph construction via injected driver factories, pipeline execution (batch/streaming/iterator), `numpy`/`meshio`/`pandas`/`geopandas` IO seams, driver/dimension/option introspection
+- Accept: PDAL JSON strings, filename-typed `Reader`/`Writer` stages, explicit-type `Filter` stages, `numpy` structured arrays and `pandas`/`geopandas` frames as inputs
+- Reject: hand-rolled point-cloud format parsing; direct libpdal C++ API calls from Python; a per-format pipeline function family where the injected driver factory plus `|` composes it; raw `Filter(type=...)` where an injected `Filter.<name>` factory exists; installation without native `libpdal`
+
+[CAPTURE_GAP]:
+- floor: `pdal==3.5.3` is sdist-only (no PyPI wheels) and links a native `libpdal` C++ library; manifest pins `python_version<'3.15'` (companion band). The project-venv `assay api resolve` returns `unsupported` (no source on the current environment); install rides conda-forge `python-pdal` or a `cmake`+`libpdal` source build.
+- members: introspected against the cached sdist source (`src/pdal/__init__.py`, `pipeline.py`, `drivers.py`); every documented type, entrypoint, property, and the `inject_pdal_drivers` factory mechanism resolves — no phantom. The concrete injected driver short-names (`Reader.las`, `Filter.range`, ...) are registry-runtime values from `libpdalpython.getDrivers()`, enumerated here as representative of the live driver set, confirmed against a `pdal.info`/`getDrivers()` call on the installed companion distribution.

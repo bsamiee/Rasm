@@ -9,7 +9,9 @@
 - import: `import duckdb`
 - owner: `data`
 - rail: query
-- capability: in-process SQL execution, lazy relational algebra, multi-frame ingest and egress (Arrow, Pandas, Polars, NumPy, Torch), CSV/JSON/Parquet readers and writers, user-defined functions, extensions, and prepared statements
+- version: `1.5.4` (locked); license `MIT`
+- wheel/ABI: sdist-only at the lock (`duckdb-1.5.4.tar.gz`), so on CPython 3.15 it source-builds the C++ engine via the Parametric_Forge scientific toolchain; the `_duckdb` extension is per-version (no abi3), so the wheel/source floor tracks the interpreter exactly
+- capability: in-process SQL execution (including native `MERGE INTO`), lazy relational algebra, multi-frame ingest and egress (Arrow, Pandas, Polars, NumPy, Torch, TensorFlow), CSV/JSON/Parquet readers and writers, programmatic window functions on the relation, user-defined functions, loadable extensions (including community `substrait`), and prepared statements
 
 ## [02]-[CAPTURE]
 
@@ -51,11 +53,18 @@
 - Relational algebra composes on `DuckDBPyRelation` (`select`/`filter`/`aggregate`/`join`) as the canonical builder; raw SQL strings and the relation builder address the same engine.
 - Prepared parameters pass positionally as `?` or by `$name`; `execute(query, parameters)` binds them, never string interpolation.
 - User-defined functions register through `create_function` with explicit `parameters`/`return_type` and a `PythonExceptionHandling` policy; vectorised UDFs use Arrow `type='arrow'`.
+- Window functions are programmatic relation methods (`row_number`/`rank`/`dense_rank`/`percent_rank`/`cume_dist`/`lag`/`lead`/`first_value`/`last_value`/`n_tile`) taking a `window_spec` string and `projected_columns`, returning a chained `DuckDBPyRelation`; the relation builder and a raw window SQL string address the same execution.
+
+[INTEGRATION_STACKING]:
+- arrow zero-copy spine: `from_arrow`/`register` ingest and `fetch_arrow_table`/`fetch_record_batch`/`to_arrow_reader`/`pl()` egress thread the same Arrow C-data capsule that `datafusion` (`from_arrow`/`to_arrow_table`), `polars`, `deltalake` (`to_pyarrow_dataset`), and `pyarrow` expose, so a frame crosses the engine boundary with no copy — DuckDB scans a registered polars/Arrow object and emits an `arro3`/pyarrow reader the next engine consumes directly.
+- substrait bridge: `con.load_extension("substrait")` attaches `con.get_substrait`/`from_substrait` so a DuckDB plan round-trips with `datafusion.substrait` over one wire `Plan` — this connection is the DuckDB end of the `duckdb-substrait` cross-engine rail, never a re-implemented protobuf codec.
+- lakehouse stack: `con.register`/`from_arrow` adopts a `deltalake.DeltaTable.to_pyarrow_dataset()` for pushdown SQL, and `to_parquet`/`to_arrow_reader` egress feeds a `write_deltalake` commit; DuckDB is the interactive SQL surface over the same Delta/Parquet files the columnar owners write.
+- udf/retry stack: `create_function(..., type='arrow', exception_handling=PythonExceptionHandling.RETURN_NULL)` registers an Arrow-vectorized UDF whose batch is the same capsule the rest of the stack uses; a remote-source query (httpfs/object store) composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by `query_progress()`/profiling output.
 
 ## [03]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `duckdb`
-- Owns: in-process analytical SQL, lazy relational algebra, multi-frame and file ingest/egress, UDFs, extensions, and prepared execution
-- Accept: `connect()` for isolated databases, `DuckDBPyRelation` as the lazy query builder, `register`/`from_arrow` for zero-copy frame scanning, parameter binding via `execute(query, parameters)`, `create_function` for UDFs
-- Reject: string-interpolated SQL parameters, eager per-row Python iteration outside relation egress, duplicate per-frame query entry points, and hand-rolled CSV/Parquet parsing when the reader functions own the format
+- Owns: in-process analytical SQL (with native `MERGE INTO`), lazy relational algebra and programmatic window functions, multi-frame and file ingest/egress, UDFs, loadable extensions, and prepared execution
+- Accept: `connect()` for isolated databases, `DuckDBPyRelation` as the lazy query builder, `register`/`from_arrow` for zero-copy frame scanning across `datafusion`/`polars`/`deltalake`, parameter binding via `execute(query, parameters)`, `create_function` for Arrow-vectorized UDFs, `load_extension("substrait")` for the cross-engine plan bridge
+- Reject: string-interpolated SQL parameters, eager per-row Python iteration outside relation egress, duplicate per-frame query entry points, a window-function SQL loop where the relation window methods own the axis, and hand-rolled CSV/Parquet parsing when the reader functions own the format

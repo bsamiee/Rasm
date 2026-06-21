@@ -88,12 +88,13 @@
 
 [ENTRYPOINT_SCOPE]: raw coefficient generation
 - rail: finite-difference derivatives
+- RETURN SHAPE: `coefficients(deriv, acc=...)` (no explicit `offsets`) returns a dict keyed by scheme position — `{'center': {...}, 'forward': {...}, 'backward': {...}}` — where each inner dict carries `'coefficients'` (the weight array) and `'offsets'` (the integer stencil offsets), plus an `'accuracy'` entry. The consumer reads `result['center']['coefficients']` and `result['center']['offsets']` for the interior stencil and the `'forward'`/`'backward'` keys for the one-sided boundary stencils. `coefficients(deriv, offsets=[...])` (explicit stencil) returns a SINGLE flat dict `{'coefficients': ..., 'offsets': ..., 'accuracy': ...}` with no center/forward/backward partition, because an explicit offset list already fixes the one stencil.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                            |
-| :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------------------------------------- |
-|  [01]   | `coefficients(deriv, acc=None, offsets=None, symbolic=False)` | coefficients   | FD coefficients for derivative order `deriv` at a target accuracy |
-|  [02]   | `coefficients(deriv, offsets=[...], symbolic=False)`          | coefficients   | FD coefficients for an explicit offset stencil (instead of `acc`) |
-|  [03]   | `coefficients(deriv, acc, symbolic=True)`                     | coefficients   | exact `sympy` rational coefficients                               |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                                              |
+| :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `coefficients(deriv, acc=None, offsets=None, symbolic=False)` | coefficients   | FD coefficients for derivative order `deriv` at target accuracy; returns center/forward/backward dict |
+|  [02]   | `coefficients(deriv, offsets=[...], symbolic=False)`          | coefficients   | FD coefficients for an explicit offset stencil; returns one flat `{'coefficients','offsets','accuracy'}` dict |
+|  [03]   | `coefficients(deriv, acc, symbolic=True)`                     | coefficients   | exact `sympy` rational coefficients (same dict layout, `Rational` weights)          |
 
 [ENTRYPOINT_SCOPE]: PDE assembly and solve
 - rail: PDE solve

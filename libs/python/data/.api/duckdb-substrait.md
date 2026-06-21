@@ -9,7 +9,8 @@
 - import: `import duckdb` then `con.load_extension("substrait")` (no top-level Python module; surface attaches to `DuckDBPyConnection`)
 - owner: `data`
 - rail: substrait-portability
-- installed: `1.1.3` docs-derived (duckdb-extension (community)); live reflection pending env provisioning
+- license: `MIT` (community extension, tracking DuckDB core)
+- distribution: loadable DuckDB community extension `substrait`, rebuilt per DuckDB release and resolved against the locked `duckdb 1.5.4` engine; there is no PyPI module floor — the surface is a connection capability fetched from the community repository, not an importable wheel
 - entry points: connection methods `con.get_substrait` / `con.get_substrait_json` / `con.from_substrait` / `con.from_substrait_json`; SQL table functions `get_substrait` / `get_substrait_json` / `from_substrait` / `from_substrait_json`; no console script
 - capability: serialize a DuckDB SQL `SELECT` query into a binary (BLOB) or JSON Substrait plan, and execute a foreign binary or JSON Substrait plan against DuckDB returning a `DuckDBPyRelation`; optimizer participation governed by `enable_optimizer` on generation and by connection-level settings on consumption
 
@@ -75,8 +76,13 @@ The extension is fetched from the community repository and loaded into the conne
 - evidence: each round-trip captures the source SQL, the plan kind (binary vs JSON), the plan byte length, the `enable_optimizer` setting, and the executed relation's column schema as a portability receipt.
 - boundary: the extension owns Substrait protobuf encode/decode and DuckDB plan binding; the data owner composes it for cross-engine plan exchange and never re-implements the Substrait codec, the DuckDB binder, or a parallel plan struct; query inputs are `SELECT`-shaped, and execution is delegated to the returned `DuckDBPyRelation`.
 
+[INTEGRATION_STACKING]:
+- two-engine spine: this extension is the DuckDB end of the same wire `Plan` that `datafusion.substrait` owns — a DuckDB `con.get_substrait(sql)` BLOB binds on DataFusion via `substrait.Consumer.from_substrait_plan`, and a DataFusion `substrait.Producer.to_substrait_plan(...).encode()` binds on DuckDB via `con.from_substrait(...)`; the protobuf BLOB and its JSON twin are the one cross-engine artifact, never re-serialized per engine.
+- arrow egress continuity: `from_substrait` returns a `DuckDBPyRelation` whose `fetch_arrow_table`/`fetch_record_batch`/`pl()` egress feeds polars/pyarrow or a `write_deltalake` commit with no copy, so a foreign plan executes and lands in the lakehouse on one Arrow seam.
+- optimizer placement: set DuckDB optimizer policy on the connection before `from_substrait` (which respects connection settings) and toggle `enable_optimizer` only on the `get_substrait` generation call, so optimizer control stays on the two real surfaces rather than a wrapper flag.
+
 [RAIL_LAW]:
 - Package: `duckdb-substrait`
 - Owns: bidirectional translation between DuckDB query plans and Substrait binary/JSON plans, and execution of foreign Substrait plans against DuckDB
-- Accept: serializing DuckDB `SELECT` queries to portable Substrait plans and executing foreign Substrait plans, feeding the data portability and cross-engine exchange owners
-- Reject: wrapper-renames of `get_substrait`/`from_substrait`; a hand-rolled Substrait protobuf codec; a parallel plan model per encoding; a top-level module import path where the surface is connection-bound; optimizer control invented outside `enable_optimizer` and connection settings
+- Accept: serializing DuckDB `SELECT` queries to portable Substrait plans and executing foreign Substrait plans (including plans produced by `datafusion.substrait`), feeding the data portability and cross-engine exchange owners over one shared wire `Plan`
+- Reject: wrapper-renames of `get_substrait`/`from_substrait`; a hand-rolled Substrait protobuf codec; a parallel plan model per encoding; re-serializing a plan per engine where one BLOB crosses DuckDB and DataFusion; a top-level module import path where the surface is connection-bound; optimizer control invented outside `enable_optimizer` and connection settings

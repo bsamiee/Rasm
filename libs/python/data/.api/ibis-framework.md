@@ -1,14 +1,16 @@
 # [PY_DATA_API_IBIS_FRAMEWORK]
 
-`ibis` supplies a portable SQL-dataframe API that compiles relational `Table`, `Column`, `Scalar`, and `Expr` expressions to SQL via `sqlglot` and executes them through pluggable `BaseBackend` adapters (DuckDB, SQLite, BigQuery, Snowflake, and 20+ others). The core API owns expression construction (`col`, `literal`, `memtable`, `table`), SQL compilation (`to_sql`, `decompile`, `parse_sql`), analytic functions (`rank`, `dense_rank`, `row_number`, `cume_dist`, `ntile`), window builders (`window`, `rows_window`, `range_window`), and set operations (`union`, `intersect`, `difference`). `ibis.connect` is the single connection entry point; the `Schema` type bridges to pandas, Polars, PyArrow, and NumPy schemas.
+`ibis` supplies a portable SQL-dataframe API that builds a relational `Table`/`Column`/`Scalar`/`Expr` expression tree, compiles it to SQL via `sqlglot`, and executes it through pluggable `BaseBackend` adapters (DuckDB default, plus SQLite, Postgres, Polars, DataFusion, BigQuery, Snowflake, ClickHouse, and 25 backends total). The primary surface is the fluent expression algebra on `Table`/`Column` (`select`, `filter`, `mutate`, `group_by().aggregate()`, `join`, `order_by`, `over`), the deferred accessor `ibis._` and `ibis.selectors` for column-set programming, top-level constructors (`memtable`, `table`, `literal`, `cases`), analytic/window functions, set operations, and SQL round-trips (`to_sql`, `decompile`, `parse_sql`). `ibis.connect` is the single connection entry point; the `Schema` type bridges to pandas, Polars, PyArrow, and NumPy; execution materializes to pandas/PyArrow/Polars or streams via `to_pyarrow_batches`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ibis-framework`
 - package: `ibis-framework`
 - module: `ibis`
-- asset: pure Python + sqlglot
+- version: `12.0.0` (locked, `>=12.0.0`); license `Apache-2.0`
+- asset: pure Python; SQL compilation via `sqlglot`; per-backend extras (`ibis-framework[duckdb]`, `[polars]`, `[postgres]`, ...) pull the driver
 - rail: query
+- capability: a backend-agnostic relational expression IR with a fluent `Table`/`Column` algebra, deferred (`_`) and selector-based column programming, scalar/array/struct/map literals, multi-branch `cases`, analytic and window functions, set operations and joins (inner/left/semi/anti/asof/cross), SQL compile/decompile/parse round-trips through sqlglot, scalar/aggregate UDFs (`ibis.udf.scalar.{builtin,pyarrow,pandas,python}`, `ibis.udf.agg.builtin`), pandas/PyArrow/Polars/NumPy schema bridges, and execution to pandas/PyArrow/Polars frames, streaming `RecordBatchReader`, or file sinks across 25 backends
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -33,6 +35,8 @@
 |  [02]   | `DataType`    | type value    | ibis logical type descriptor            |
 |  [03]   | `BaseBackend` | backend class | pluggable SQL execution and IO boundary |
 |  [04]   | `IbisError`   | error type    | root ibis exception                     |
+
+`ibis._` (alias `ibis.deferred`) is the `Deferred` builder used inside `select`/`mutate`/`filter`/`agg` to reference the current table's columns and chain methods without naming the table (`t.filter(_.x > 0).mutate(y=_.x * 2)`). The typed exception rail lives in `ibis.common.exceptions`: `IbisError` (root), `IbisTypeError`, `IbisInputError`/`InputTypeError`, `ExpressionError`, `RelationError`, `IntegrityError`, `UnboundExpressionError`, `OperationNotDefinedError`, `UnsupportedOperationError`/`UnsupportedArgumentError`, `TranslationError`, `BackendConversionError`, and the UDF-decorator failures (`MissingReturnAnnotationError`, `MissingParameterAnnotationError`, `AmbiguousUDFError`, `DuplicateUDFError`, `MissingUDFError`). The typed-expression hierarchy in `ibis.expr.types` discriminates by logical type and arity (`IntegerColumn`/`IntegerScalar`, `StringColumn`, `ArrayValue`, `StructValue`, `MapValue`, `TimestampColumn`, `GeoSpatialColumn`, `JSONColumn`, `DecimalColumn`, ...), so a column expression already carries its dtype-specific method namespace.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -70,6 +74,66 @@
 |  [13]   | `date(value_or_year, month, day)`            | temporal literal | date literal                    |
 |  [14]   | `time(value_or_hour, minute, second)`        | temporal literal | time literal                    |
 |  [15]   | `timestamp(value_or_year, ...)`              | temporal literal | timestamp literal               |
+
+[ENTRYPOINT_SCOPE]: fluent Table relational algebra
+- rail: query
+
+The primary surface: every method returns a new `Table` (lazy expression node), so transforms chain. Column references use `t.col`, `t["col"]`, or the deferred `_.col`.
+
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `Table.select(*exprs, **named)`                            | projection     | choose/derive columns (accepts selectors and deferred) |
+|  [02]   | `Table.mutate(*exprs, **named)`                            | projection     | add/replace columns, keeping existing ones             |
+|  [03]   | `Table.filter(*predicates)`                                | selection      | row predicate (multiple args are AND-combined)         |
+|  [04]   | `Table.group_by(*by).aggregate(*metrics, **named)`         | aggregation    | grouped reduction; `.agg` is the alias                 |
+|  [05]   | `Table.order_by(*keys)`                                    | ordering       | sort by columns / `asc`/`desc` keys                    |
+|  [06]   | `Table.join(right, predicates, how='inner', ...)`          | join           | inner/left/right/outer/semi/anti join                  |
+|  [07]   | `Table.asof_join(right, on, predicates, ...)`              | join           | time-series as-of join                                 |
+|  [08]   | `Table.union/intersect/difference(*rest, distinct=True)`   | set op         | fluent set operations                                  |
+|  [09]   | `Table.limit(n, offset=0)` / `.head(n)` / `.sample(frac)`  | row limiting   | row subset and probabilistic sampling                  |
+|  [10]   | `Table.distinct(on=None, keep='first')`                    | dedup          | distinct rows / per-key dedup                          |
+|  [11]   | `Table.pivot_longer(col, ...)` / `.pivot_wider(...)`       | reshape        | long/wide reshape                                      |
+|  [12]   | `Table.unnest(col, ...)`                                   | reshape        | explode an array column to rows                        |
+|  [13]   | `Table.rename(...)` / `.drop(*cols)` / `.relocate(*cols)`  | columns        | rename/drop/reorder columns                            |
+|  [14]   | `Table.fill_null(...)` / `.drop_null(...)`                 | null handling  | fill or drop null rows/values                          |
+|  [15]   | `Table.window_by(time_col)` / `.sql(query)`                | window/escape  | windowed table / raw-SQL escape on the bound backend   |
+|  [16]   | `Table.cache()` / `.alias(name)` / `.view()`               | materialize    | cache result / name for raw SQL / unique-named view    |
+|  [17]   | `Table.schema()` / `.columns` / `.count()` / `.describe()` | introspect     | schema, column names, row count, summary stats         |
+
+[ENTRYPOINT_SCOPE]: Column / Value expression operations
+- rail: query
+
+Column methods are dtype-discriminated (`ibis.expr.types`): numeric, string, temporal, array, struct, map, and geospatial columns each carry their own namespace; the shared core is below.
+
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [CAPABILITY]                                  |
+| :-----: | :-------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `Column.cast(type)` / `.try_cast(type)`                         | type            | strict / null-on-failure cast                 |
+|  [02]   | `Column.over(window)`                                           | window          | evaluate analytic expr over a window frame    |
+|  [03]   | `Column.cases((cond, val), ..., else_=)` / `.substitute(...)`   | conditional     | per-column CASE / value remap                 |
+|  [04]   | `Column.fill_null(v)` / `.nullif(v)` / `.coalesce(*args)`       | null handling   | null fill / null-if / first non-null          |
+|  [05]   | `Column.isin(values)` / `.notin(values)` / `.between(lo, hi)`   | membership      | set membership / range predicate              |
+|  [06]   | `Column.sum/mean/min/max/std/var()`                             | aggregate       | standard reductions                           |
+|  [07]   | `Column.count()` / `.nunique()` / `.approx_nunique()`           | aggregate       | exact and HLL-approximate cardinality         |
+|  [08]   | `Column.quantile(q)` / `.approx_median()` / `.arbitrary()`      | aggregate       | quantile, approx median, any-value            |
+|  [09]   | `Column.collect()` / `.group_concat(sep)`                       | aggregate       | gather to array / string-join group           |
+|  [10]   | `Column.lag(n)` / `.lead(n)` / `.first()` / `.last()`           | window          | offset and frame-edge analytic functions      |
+|  [11]   | `Column.cumsum()` / `.cummax()` / `.cummin()` / `.cummean()`    | window          | cumulative aggregates                         |
+|  [12]   | `Column.bucket(buckets, ...)` / `.histogram(nbins)`             | binning         | discretize into buckets / histogram bins      |
+
+[ENTRYPOINT_SCOPE]: selectors and user-defined functions
+- rail: query
+
+`ibis.selectors` (`import ibis.selectors as s`) resolves column sets inside `select`/`mutate`/`agg`; UDFs register Python/PyArrow/pandas callables as expressions.
+
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `s.numeric()` / `s.of_type(t)` / `s.matches(regex)`        | selector       | select by dtype / regex name match                 |
+|  [02]   | `s.startswith(p)` / `s.endswith(s)` / `s.contains(sub)`    | selector       | select by name affix                               |
+|  [03]   | `s.cols(*names)` / `s.all()` / `s.none()` / `s.index[...]` | selector       | explicit / all / none / positional column set      |
+|  [04]   | `s.across(selector, func, names=)`                         | selector       | apply one expr template across a column set        |
+|  [05]   | `s.if_any(...)` / `s.if_all(...)` / `s.where(predicate)`   | selector       | predicate-combined column selection                |
+|  [06]   | `@ibis.udf.scalar.python` / `.pyarrow` / `.pandas`         | scalar UDF     | register a row-wise scalar function (typed signature) |
+|  [07]   | `@ibis.udf.scalar.builtin` / `@ibis.udf.agg.builtin`       | builtin UDF    | bind a backend-native scalar/aggregate function    |
 
 [ENTRYPOINT_SCOPE]: analytic and window functions
 - rail: query
@@ -127,39 +191,43 @@
 [ENTRYPOINT_SCOPE]: BaseBackend execution interface
 - rail: query
 
-| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [CAPABILITY]                        |
-| :-----: | :------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `BaseBackend.execute(expr, params, limit)`         | execution      | run expression, return pandas frame |
-|  [02]   | `BaseBackend.to_pandas(expr, params, limit)`       | execution      | execute and return pandas           |
-|  [03]   | `BaseBackend.to_pyarrow(expr, params, limit)`      | execution      | execute and return PyArrow table    |
-|  [04]   | `BaseBackend.to_polars(expr, params, limit)`       | execution      | execute and return Polars frame     |
-|  [05]   | `BaseBackend.to_parquet(expr, path, params, ...)`  | IO export      | write result to Parquet             |
-|  [06]   | `BaseBackend.to_csv(expr, path, params, ...)`      | IO export      | write result to CSV                 |
-|  [07]   | `BaseBackend.to_delta(expr, path, params, ...)`    | IO export      | write result to Delta Lake          |
-|  [08]   | `BaseBackend.compile(expr, limit, params, ...)`    | compilation    | compile to SQL string               |
-|  [09]   | `BaseBackend.table(name, database)`                | table access   | reference backend table by name     |
-|  [10]   | `BaseBackend.list_tables(like, database)`          | catalog        | list available tables               |
-|  [11]   | `BaseBackend.create_table(name, obj, schema, ...)` | DDL            | create table from expression        |
-|  [12]   | `BaseBackend.drop_table(name, database, force)`    | DDL            | drop table                          |
+Execution methods exist both on `Expr`/`Table` (delegating to the bound backend) and on `BaseBackend`. The 25 backends (`ibis.duckdb` default, `sqlite`, `postgres`, `mysql`, `mssql`, `oracle`, `polars`, `datafusion`, `clickhouse`, `snowflake`, `bigquery`, `databricks`, `trino`, `pyspark`, `flink`, `risingwave`, `impala`, `druid`, `exasol`, `athena`, `singlestoredb`) are submodules; `ibis.connect(uri)` selects one.
+
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `Expr.execute(*, limit='default', params)`             | execution      | run expression, return pandas frame       |
+|  [02]   | `Expr.to_pandas(...)` / `.to_polars(...)`              | execution      | execute and return pandas / Polars frame  |
+|  [03]   | `Expr.to_pyarrow(...)`                                 | execution      | execute and return a PyArrow `Table`      |
+|  [04]   | `Expr.to_pyarrow_batches(*, chunk_size, ...)`          | streaming      | stream a PyArrow `RecordBatchReader`      |
+|  [05]   | `Expr.to_torch(...)` / `.to_parquet(path, ...)`        | execution/IO   | tensor dict / write result to Parquet     |
+|  [06]   | `Expr.to_csv(path, ...)` / `.to_delta(path, ...)`      | IO export      | write result to CSV / Delta Lake          |
+|  [07]   | `BaseBackend.compile(expr, limit, params, ...)`        | compilation    | compile to backend SQL string             |
+|  [08]   | `BaseBackend.sql(query, schema=None)`                  | SQL escape     | wrap a raw SQL string as a `Table`        |
+|  [09]   | `BaseBackend.table(name, database)`                    | table access   | reference backend table by name           |
+|  [10]   | `BaseBackend.list_tables(like, database)`              | catalog        | list available tables                     |
+|  [11]   | `BaseBackend.create_table(name, obj, schema, temp, overwrite, ...)` | DDL | create table from expression / data    |
+|  [12]   | `BaseBackend.create_view(name, obj, ...)` / `.drop_table(name, force)` | DDL | create view / drop table             |
+|  [13]   | `BaseBackend.insert(name, obj, ...)` / `.raw_sql(query)` | DML/escape   | append rows / execute raw SQL on the connection |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [QUERY_TOPOLOGY]:
-- namespace: `ibis`; expression types in `ibis.expr.types` (`ibis.ir`)
-- `Table.execute()` / `Expr.execute()` delegate to the bound backend; the backend is set by `connect()` or `set_backend()`
-- `to_sql()` compiles the expression through `sqlglot` to any supported SQL dialect without connecting
-- `Deferred` (`_`) enables method-chaining without an explicit column reference: `_.col_name.func()`
-- `Schema` is an `ibis` type object; use `from_pandas/pyarrow/polars` bridges at the backend boundary
+- namespace: `ibis`; expression types in `ibis.expr.types` (alias `ibis.ir`), operations in `ibis.expr.operations` (alias `ibis.ops`)
+- the fluent `Table`/`Column` algebra is the primary surface; each method returns a new lazy expression node and nothing executes until `execute`/`to_*` is called on the bound backend
+- the backend is set by `connect()` (per-expression) or `set_backend()` (process default); `Expr.execute()` delegates to it
+- `to_sql()` compiles the expression through `sqlglot` to any supported SQL dialect without connecting; `decompile()` emits ibis Python from an expression and `parse_sql()` parses a SQL string into an expression tree
+- the deferred `_` (= `ibis.deferred`) references the current table inside chained methods: `t.filter(_.x > 0).group_by(_.k).agg(total=_.v.sum())`
+- `Schema` is an `ibis` type object; use `from_pandas`/`from_pyarrow`/`from_polars`/`from_numpy` bridges at the backend boundary
 
-[LOCAL_ADMISSION]:
-- Build expressions with `table()`, `memtable()`, `literal()`, and column operations before calling `execute()` or `to_sql()`.
-- Use `connect(URI)` to select the backend; the default backend is DuckDB when no connection is set.
-- Keep `Schema` construction through `ibis.schema()` or bridge methods; never build from raw format strings.
-- Use `to_sql(dialect=...)` for cross-dialect SQL emission; do not call `compile()` directly when portability is the goal.
-- `parse_sql` round-trips SQL strings back to ibis expression trees for programmatic modification.
+[INTEGRATION_LAW]:
+- sqlglot seam: ibis compiles to a `sqlglot` AST, then generates dialect SQL; the sqlglot owner (`QUERY_IR_AND_SQLGATE`) and ibis share the same compiler, so emit cross-dialect SQL with `to_sql(dialect=...)` and validate/optimize the resulting string through the sqlglot owner rather than re-parsing by hand.
+- duckdb seam: the default in-process backend is DuckDB; `ibis.connect("duckdb://")` (or the bare default) executes against the embedded engine, and `memtable(arrow_table_or_polars_df)` registers a zero-copy `pyarrow`/`polars` frame as a queryable table with no copy.
+- columnar hand-off: `to_pyarrow()` returns a `pyarrow.Table` and `to_pyarrow_batches()` a streaming `RecordBatchReader`, so an ibis result feeds `polars`/`datafusion`/the Arrow columnar rail directly; `to_polars()` returns a `polars.DataFrame`. Read results in Arrow/Polars, not pandas, when staying in the columnar rail.
+- schema bridge: a `polars`/`pyarrow`/`pandas` schema crosses into ibis via `Schema.from_polars`/`from_pyarrow`/`from_pandas` and back via `to_*`; this is the single typed boundary — never reconstruct an ibis schema from raw dtype strings.
+- UDF seam: register a `pyarrow`-compute or pandas callable as `@ibis.udf.scalar.pyarrow`/`.pandas` so the function pushes into the backend's vectorized execution; reserve `@ibis.udf.scalar.python` (row-wise) for backends without a vectorized path.
 
 [RAIL_LAW]:
 - Package: `ibis-framework`
-- Owns: portable relational expression compiler and multi-backend execution surface
-- Accept: any `BaseBackend`-compatible connection, Python/Arrow in-memory data via `memtable`
-- Reject: backend-specific SQL strings inside expression pipelines, direct backend-module imports bypassing `ibis.connect`
+- Owns: the portable relational expression IR, the fluent `Table`/`Column` algebra, deferred/selector column programming, SQL compile/decompile/parse round-trips, and the multi-backend execution and IO surface
+- Accept: any `BaseBackend`-compatible connection via `ibis.connect(uri)`, Python/Arrow/Polars in-memory data via `memtable`, the deferred `_` and `ibis.selectors` for column sets, `to_pyarrow`/`to_pyarrow_batches`/`to_polars` as the columnar hand-off, the typed `ibis.common.exceptions` rail
+- Reject: backend-specific SQL strings inside expression pipelines (use `to_sql(dialect=...)` or `BaseBackend.sql`), direct backend-driver imports bypassing `ibis.connect`, a `ibis.col` accessor that does not exist (reference columns via `t.col`/`t["col"]`/`_.col`), `Schema` built from raw format strings, and re-implementing the sqlglot compiler ibis already drives

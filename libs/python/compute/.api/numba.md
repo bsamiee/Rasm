@@ -8,9 +8,12 @@
 - package: `numba`
 - import: `numba`; submodules `numba.types`, `numba.typed`, `numba.extending`, `numba.experimental`
 - owner: `compute`
+- version: `0.65.1`
+- license: BSD-2-Clause
 - rail: accelerator
-- installed: cp313 only (manifest pin `numba>=0.65.1; python_version<'3.15'`; llvmlite ships no cp315 wheel)
-- capability: LLVM JIT of NumPy-typed functions in nopython and object modes, automatic parallelization, threadpool control, scalar-to-ufunc lifting, and `jitclass`/`overload` extension
+- asset: native-extension wheel via `llvmlite` (LLVM binding); deps `llvmlite>=0.47,<0.48`, `numpy>=1.22,<2.5`
+- floor: cp313 only (manifest pin `numba>=0.65.1; python_version<'3.15'`); `llvmlite` ships no cp315 wheel and pins `numpy<2.5`, so the accelerator rail is unavailable in the cp315 project venv
+- capability: LLVM JIT of NumPy-typed functions in nopython and object modes, automatic parallelization, threadpool/threading-layer control, scalar-to-ufunc lifting, C-callback emission, and `jitclass`/`structref`/`overload` extension
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -71,26 +74,44 @@
 |  [05]   | `objmode(**vars)`                     | escape hatch       | runs a Python block in object mode inside nopython         |
 |  [06]   | `literally(x)` / `literal_unroll(it)` | literal force      | forces literal typing / unrolls a heterogeneous tuple loop |
 |  [07]   | `typeof(x)` / `from_dtype(dt)`        | type reflection    | infers a numba type from a value or NumPy dtype            |
-|  [08]   | `extending.overload(fn)`              | overload registrar | registers a nopython implementation for `fn`               |
-|  [09]   | `extending.intrinsic(fn)`             | intrinsic          | declares a low-level typed code-generation primitive       |
-|  [10]   | `extending.register_jitable(fn)`      | jitable mark       | marks a pure-Python helper callable from nopython          |
+|  [08]   | `get_thread_id()` / `threading_layer()` | thread introspection | active worker thread id / resolved backend (`tbb`/`omp`/`workqueue`) |
+|  [09]   | `get_parallel_chunksize()` / `set_parallel_chunksize(n)` | chunk query/set | read or set the parallel chunk size outside a context manager |
+|  [10]   | `carray(ptr, shape, dtype=None)` / `farray(...)` | FFI bridge      | wrap a raw C pointer as a C-/Fortran-ordered NumPy array inside nopython |
+|  [11]   | `gdb()` / `gdb_init(...)` / `gdb_breakpoint()` | debug          | attach gdb to a running compiled kernel                    |
+|  [12]   | `extending.overload(fn)` / `overload_method(typ, name)` / `overload_attribute(typ, name)` | overload registrar | register nopython implementations for a function, method, or attribute |
+|  [13]   | `extending.intrinsic(fn)`             | intrinsic          | declares a low-level typed code-generation primitive       |
+|  [14]   | `extending.register_jitable(fn)`      | jitable mark       | marks a pure-Python helper callable from nopython          |
+|  [15]   | `extending.as_numba_type(py_type)` / `typeof_impl.register` | type mapping | maps a Python/annotation type to a numba type; teaches `typeof` |
+|  [16]   | `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` | native model | full data-model extension to expose a foreign type to nopython |
+|  [17]   | `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing` | struct ref | mutable, reference-semantics struct type for nopython (the `jitclass` alternative) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISPATCHER_TOPOLOGY]:
-- A decorated kernel becomes a `CPUDispatcher`; calling it specializes and caches one compiled signature per argument-type tuple.
-- `signatures` lists the compiled specializations; `inspect_types`, `inspect_asm`, and `inspect_llvm` expose the lowered IR for evidence capture.
-- `parallel=True` plus `prange` enables auto-parallelization; `parallel_diagnostics()` reports fusion, allocation hoisting, and parallel-region decisions.
-- `cache=True` persists compiled code to an on-disk cache keyed by source hash; `fastmath=True` relaxes IEEE ordering for speed.
-- `njit` is `jit` with `nopython=True`; object-mode fallback exists only on `jit` and is the slow path.
+- A decorated kernel becomes a `CPUDispatcher`; calling it specializes and caches one compiled signature per argument-type tuple. `signatures`/`nopython_signatures` list the compiled specializations; `overloads` maps signature → compile result; `py_func` recovers the uncompiled original.
+- Evidence capture: `inspect_types()`, `inspect_asm()`, `inspect_llvm()`, `inspect_cfg()`, and `get_metadata()` expose the lowered Python-typed source, native assembly, LLVM IR, control-flow graph, and compile metadata respectively — capture these as the study receipt rather than a bare timing.
+- Lifecycle control: `recompile()` forces recompilation; `disable_compile()` freezes the dispatcher to its cached specializations; `enable_caching()` arms the on-disk cache.
+- `parallel=True` plus `prange` enables auto-parallelization; `parallel_diagnostics()` reports loop fusion, allocation hoisting, and parallel-region decisions — the canonical parallelization-evidence source.
+- `cache=True` persists compiled code to an on-disk cache keyed by source hash (requires a real source file, not `<string>`); `fastmath=True` relaxes IEEE ordering for speed; `boundscheck=True` adds array-bounds checks; `nogil=True` releases the GIL for the compiled region.
+- `njit` is `jit` with `nopython=True`; object-mode fallback exists only on `jit` and is the slow path. `cfunc` yields a C-callable artifact carrying `ctypes`, `address`, and `native_name` — the bridge into `scipy.LowLevelCallable` and ctypes FFI. `vectorize` yields a `DUFunc` (a true NumPy ufunc) that broadcasts, reduces, and accumulates like any ufunc.
 
 [STUDY_ROUTING]:
 - A `NumericIntent` kernel marked for the LLVM-JIT accelerator row compiles through `njit`; parallel kernels add `prange` under `parallel=True`.
 - The accelerator row captures the compile mode, the resolved signature, and the speedup class as study evidence; no production runtime depends on numba.
 - Typed containers (`typed.List`, `typed.Dict`) cross the nopython boundary; reflected Python lists and dicts do not.
 
+[INTEGRATION_TOPOLOGY]:
+
+| [INDEX] | [SIBLING]    | [SEAM]                                                                                                            |
+| :-----: | :----------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `numpy`      | the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions; `numpy<2.5` is the hard ABI ceiling |
+|  [02]   | `scipy`      | a `cfunc`-compiled kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable`, so a numba kernel drops directly into `scipy.integrate.quad`/`scipy.ndimage` C callbacks with zero Python-call overhead per sample |
+|  [03]   | `mpmath`     | the validation oracle for an `njit` kernel: run the compiled fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup did not cost accuracy |
+|  [04]   | `sparse`/data | numba's CSR/CSC kernels back the `sparse` package and `xarray-spatial` raster analytics on the cp313 lane; the same cp315 wheel gap moves both off the default build |
+|  [05]   | `extending`  | when an admitted domain type must enter nopython, register it via `as_numba_type`/`box`/`unbox`/`models` rather than copying its fields into a numba-native shape |
+
 [RAIL_LAW]:
 - Package: `numba`
-- Owns: offline LLVM-JIT acceleration of numeric-study kernels (the `NumericIntent` LLVM-JIT row)
-- Accept: a study kernel compiled through `njit`, with the compiled signature and speedup class captured as a study receipt
-- Reject: numba in any product runtime import path; wrapper-renames of the JIT decorators; accelerator claims without a study receipt
+- Owns: offline LLVM-JIT acceleration of numeric-study kernels (the `NumericIntent` LLVM-JIT row), ufunc/gufunc emission, and C-callback bridging
+- Accept: a study kernel compiled through `njit`, with the compiled signature, lowered IR (`inspect_*`), and speedup class captured as a study receipt
+- Reject: numba in any product runtime import path; wrapper-renames of the JIT decorators; accelerator claims without a study receipt; numba on the cp315 lane (no `llvmlite` wheel)

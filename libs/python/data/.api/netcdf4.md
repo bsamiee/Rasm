@@ -5,11 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `netCDF4`
-- package: `netCDF4`
-- import: `netCDF4`
+- package: `netcdf4` (import name `netCDF4`)
+- version: `1.7.4` (manifest floor `>=1.7.4`)
+- license: MIT
+- import: `import netCDF4`
+- abi: C extension over the Unidata netCDF-C + HDF5 native libraries; no abi3 wheel on cp315 — built from source via the Parametric_Forge netCDF toolchain (`__netcdf4libversion__`/`__hdf5libversion__` report the linked native versions)
 - owner: `data`
 - rail: field-dataset
-- capability: the `FieldDataset` CF reader engine — netCDF-4/HDF5 file I/O via C extension — hierarchical groups, CF-compliant time conversion, multi-file aggregation, compression filters, and chunking controls
+- capability: the `FieldDataset` CF reader engine — netCDF-4/HDF5 file I/O via C extension — hierarchical groups, CF-compliant time conversion, multi-file aggregation, MPI-parallel collective I/O, compression filters, and chunking controls
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -82,7 +85,7 @@
 
 | [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :-------------------------------------------------------------------------- | :------------- | :--------------------------- |
-|  [01]   | `Dataset.__init__(filename, mode='r', clobber=True, ...)`                   | open           | open/create file handle      |
+|  [01]   | `Dataset.__init__(filename, mode='r', clobber=True, format='NETCDF4', diskless=False, persist=False, keepweakref=False, memory=None, encoding=None, parallel=False, comm=None, info=None, auto_complex=False)` | open | open/create file handle (`diskless`/`persist`/`memory` for in-memory; `parallel`/`comm`/`info` for MPI; `auto_complex` reconstructs complex vars) |
 |  [02]   | `Dataset.close()`                                                           | lifecycle      | flush and close file         |
 |  [03]   | `Dataset.sync()`                                                            | lifecycle      | flush pending writes to disk |
 |  [04]   | `Dataset.filepath(encoding=None)`                                           | accessor       | resolve on-disk path         |
@@ -130,9 +133,16 @@
 |  [04]   | `Variable.get_var_chunk_cache()`                                        | accessor       | chunk cache settings               |
 |  [05]   | `Variable.set_var_chunk_cache(size=None, nelems=None, preemption=None)` | mutator        | configure chunk cache              |
 |  [06]   | `Variable.set_auto_mask(mask)`                                          | masking        | toggle auto-masking                |
-|  [07]   | `Variable.set_auto_maskandscale(maskandscale)`                          | masking+scale  | toggle mask and scale together     |
-|  [08]   | `Variable.endian()`                                                     | accessor       | endianness string                  |
-|  [09]   | `Variable.quantization()`                                               | accessor       | quantization settings dict         |
+|  [07]   | `Variable.set_auto_scale(scale)`                                        | scale          | toggle `scale_factor`/`add_offset` |
+|  [08]   | `Variable.set_auto_maskandscale(maskandscale)`                          | masking+scale  | toggle mask and scale together     |
+|  [09]   | `Variable.set_always_mask(always_mask)`                                 | masking        | force masked-array return          |
+|  [10]   | `Variable.set_collective(value)`                                        | parallel I/O   | per-variable collective vs independent MPI access |
+|  [11]   | `Variable.use_nc_get_vars(use_nc_get_vars)`                            | read tuning    | toggle strided `nc_get_vars` reads |
+|  [12]   | `Variable.get_dims()`                                                   | accessor       | tuple of `Dimension` objects       |
+|  [13]   | `Variable.setncattr_string(name, value)`                                | attributes     | force string attribute type        |
+|  [14]   | `Variable.renameAttribute(oldname, newname)`                            | rename         | rename variable attribute          |
+|  [15]   | `Variable.endian()`                                                     | accessor       | endianness string                  |
+|  [16]   | `Variable.quantization()`                                               | accessor       | quantization settings dict         |
 
 [ENTRYPOINT_SCOPE]: module-level time and utility functions
 - rail: field-dataset
@@ -146,30 +156,41 @@
 |  [05]   | `chartostring(b, encoding='utf-8')`                                                                                                | string util    | char array to string               |
 |  [06]   | `stringtochar(a, encoding='utf-8', n_strlen=None)`                                                                                 | string util    | string array to char array         |
 |  [07]   | `getlibversion()`                                                                                                                  | info           | netCDF-C library version string    |
-|  [08]   | `get_chunk_cache()`                                                                                                                | config         | global HDF5 chunk cache settings   |
-|  [09]   | `set_chunk_cache(size=None, nelems=None, preemption=None)`                                                                         | config         | configure global HDF5 chunk cache  |
-|  [10]   | `get_alignment()`                                                                                                                  | config         | HDF5 alignment parameters          |
-|  [11]   | `set_alignment(threshold, alignment)`                                                                                              | config         | set HDF5 alignment                 |
-|  [12]   | `rc_get(key)`                                                                                                                      | config         | get runtime configuration value    |
-|  [13]   | `rc_set(key, value)`                                                                                                               | config         | set runtime configuration value    |
+|  [08]   | `dtype_is_complex(dtype)`                                                                                                          | type query     | report whether a dtype string is complex (paired with `auto_complex`) |
+|  [09]   | `get_chunk_cache()`                                                                                                                | config         | global HDF5 chunk cache settings   |
+|  [10]   | `set_chunk_cache(size=None, nelems=None, preemption=None)`                                                                         | config         | configure global HDF5 chunk cache  |
+|  [11]   | `get_alignment()`                                                                                                                  | config         | HDF5 alignment parameters          |
+|  [12]   | `set_alignment(threshold, alignment)`                                                                                              | config         | set HDF5 alignment                 |
+|  [13]   | `rc_get(key)`                                                                                                                      | config         | get runtime configuration value    |
+|  [14]   | `rc_set(key, value)`                                                                                                               | config         | set runtime configuration value    |
+
+CF time (`date2num`/`num2date`/`date2index`) is provided by the `cftime` dependency and re-exported here; calendar vocabulary (`standard`, `gregorian`, `noleap`, `360_day`, `julian`, `proleptic_gregorian`) and `has_year_zero` semantics live in `cftime`. The field-dataset rail decodes time through these, never through hand-parsed CF unit strings.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NETCDF4_TOPOLOGY]:
 - `Dataset` and `Group` share the same method surface; `Group` is a child container obtained via `createGroup` or `groups[name]`
-- `MFDataset` aggregates multiple files along an unlimited dimension; read-only; shares Dataset property/method API
-- `default_fillvals` is a `dict` mapping dtype strings to fill values (`'f4'`, `'f8'`, `'i4'`, etc.)
-- `NC_DISKLESS` and `NC_PERSIST` flags available as module-level constants for in-memory datasets
-- compression: `zlib`, `szip` (`szip_coding`, `szip_pixels_per_block`), `blosc` (`blosc_shuffle`), `bzip2`, `zstd` — build support is read from module-level boolean flags `netCDF4.__has_blosc_support__`, `__has_bzip2_support__`, `__has_szip_support__`, `__has_zstandard_support__`, and `__has_quantization_support__`
+- `MFDataset` aggregates multiple files along an unlimited dimension; read-only; shares Dataset property/method API; `MFTime` decodes a heterogeneous-calendar/units time axis across the aggregated files
+- `default_fillvals` is a `dict` mapping dtype strings to fill values (`'f4'`, `'f8'`, `'i4'`, etc.); `is_native_little`/`is_native_big` report host byte order
+- `NC_DISKLESS` and `NC_PERSIST` flags available as module-level constants for in-memory datasets; combine with the `diskless`/`persist`/`memory` `Dataset.__init__` kwargs for in-RAM read/write and zero-copy `memoryview` egress on close
+- compression: `zlib`, `szip` (`szip_coding`, `szip_pixels_per_block`), `blosc` (`blosc_shuffle`), `bzip2`, `zstd` — and lossy `quantize` (`significant_digits`/`quantize_mode='BitGroom'|'GranularBitRound'`)
+- build/capability flags are module-level `BoolInt` booleans, read once at boundary scope to gate codec/parallel selection: `__has_blosc_support__`, `__has_bzip2_support__`, `__has_szip_support__`, `__has_zstandard_support__`, `__has_quantization_support__`, `__has_ncfilter__`, `__has_set_alignment__`, `__has_nc_rc_set__`, `__has_parallel_support__`, `__has_parallel4_support__`, `__has_pnetcdf_support__`, `__has_cdf5_format__`, `__has_nc_open_mem__`, `__has_nc_create_mem__`; `__netcdf4libversion__`/`__hdf5libversion__` report linked native versions
+- parallel I/O: `Dataset(..., parallel=True, comm=<mpi4py comm>, info=<mpi4py info>)` opens an MPI-collective handle (requires a parallel-enabled netCDF-C build, gated by `__has_parallel_support__`); per-variable access mode toggles via `Variable.set_collective(True|False)`
 
 [LOCAL_ADMISSION]:
-- Open `Dataset` as a context manager (`with netCDF4.Dataset(...) as ds:`) to guarantee `close()` on exit.
-- Set `auto_complex` on the Dataset to enable automatic complex variable reconstruction when stored as paired real/imag.
-- Time handling routes through `date2num`/`num2date` with explicit `calendar` and `units`; never hand-decode CF time strings.
-- Variable read returns a masked array by default; set `set_auto_mask(False)` only when downstream code handles fill values explicitly.
+- Open `Dataset` as a context manager (`with netCDF4.Dataset(...) as ds:`) to guarantee `close()` on exit; `close()` returns the in-memory buffer as a `memoryview` when `memory=` was supplied.
+- Set `auto_complex=True` on the Dataset to reconstruct complex variables stored as paired real/imag; `dtype_is_complex` classifies a dtype string.
+- Time handling routes through `date2num`/`num2date` (owned by `cftime`) with explicit `calendar` and `units`; never hand-decode CF time strings.
+- Variable read returns a masked array by default; `set_auto_mask(False)`/`set_auto_scale(False)`/`set_auto_maskandscale(False)` only when downstream handles fill values and `scale_factor`/`add_offset` explicitly.
+- Gate codec and parallel choices on the `__has_*` build flags before `createVariable(compression=...)` or `parallel=True`, since the source build links whichever native filters/MPI the Forge toolchain enabled.
+
+[INTEGRATION]:
+- xarray seam: `xarray.open_dataset(path, engine='netcdf4')` is the canonical field-dataset entry; this owner is reached directly only for low-level CF metadata, group/dimension/variable authoring, MPI-collective write, or in-memory `memory=`/`diskless=` round-trips that xarray does not expose. The decoded cube flows into the same lazy `xarray.Dataset` rail that `odc-stac` and `zarr`/`tensorstore` feed.
+- cftime stack: CF time decode delegates to `cftime`; the resolved numeric axis pairs with `pandas`/`numpy` datetime indices at the xarray boundary, never re-parsed locally.
+- in-memory rail: `memory=`/`diskless=` write paired with `close() -> memoryview` lets the field-dataset rail emit a netCDF byte payload straight to the `obstore` object-store rail (`put`) without a temp file, and read a fetched `Bytes` back via `Dataset('inmem', memory=<bytes>)`.
 
 [RAIL_LAW]:
 - Package: `netCDF4`
-- Owns: netCDF-4/HDF5 file I/O, dimension/variable creation, CF time conversion, multi-file aggregation
-- Accept: context-manager file open; `date2num`/`num2date` for CF time; `createVariable` with explicit compression and chunksizes
-- Reject: hand-rolling netCDF byte parsing; direct HDF5 manipulation when netCDF4 covers the operation
+- Owns: netCDF-4/HDF5 file I/O, dimension/variable creation, CF time conversion (via `cftime`), multi-file aggregation, MPI-parallel collective I/O, in-memory datasets, and compression/quantization filters
+- Accept: context-manager file open; `date2num`/`num2date` for CF time; `createVariable` with build-flag-gated compression and chunksizes; `memory=`/`diskless=` for object-store round-trips; `parallel=True` only when `__has_parallel_support__`
+- Reject: hand-rolling netCDF byte parsing; direct HDF5 manipulation when netCDF4 covers the operation; hand-decoding CF unit strings when `cftime` owns the calendar; a second engine path when xarray's `engine='netcdf4'` already routes here

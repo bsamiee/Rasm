@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_RESVG_PY]
 
-`resvg-py` supplies the SVG-to-PNG raster floor for the artifacts imaging rail: a single `svg_to_bytes` entrypoint that parses SVG markup or an `.svg`/`.svgz` file and renders it to PNG-encoded `bytes` through the embedded Rust `resvg 0.47.0` engine. The package owner composes `svg_to_bytes` into the figures and compose `ANNOTATE` path; it removes the Cairo/`cairosvg` and headless-browser rasterization stack because parse, font resolution, and PNG encoding are in-extension, and it never re-implements SVG path flattening, text shaping, or PNG encoding the resvg engine already owns.
+`resvg-py` supplies the SVG-to-PNG raster floor for the artifacts imaging rail: a single `svg_to_bytes` entrypoint that parses SVG markup or an `.svg`/`.svgz` file and renders it to PNG-encoded `bytes` through the embedded Rust `resvg 0.47.0` engine. The package owner composes `svg_to_bytes` into the figures and compose `ANNOTATE` path; it never re-implements SVG path flattening, text shaping, or PNG encoding the resvg engine already owns, and on the cp315-clean core it removes the Cairo/`cairosvg` system-library dependency because parse, font resolution, and PNG encoding are all in-extension.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,10 @@
 - import: `resvg_py`
 - owner: `artifacts`
 - rail: imaging
-- installed: `0.3.3` reflected via `assay api` on cp315
+- license: MIT (PyO3/maturin extension; the embedded Rust `resvg`/`usvg`/`tiny-skia` stack is MPL-2.0 + zlib, statically linked into the `.so`)
+- installed: `0.3.3` reflected via `python -c "import resvg_py"` on cp315; the abi3 maturin wheel (`resvg_py.cpython-315-darwin.so`) installs cp315-clean with no system cairo/pango/native build
 - entry points: library use is import-only; no console script
-- capability: in-process SVG-to-PNG rasterization over the embedded Rust `resvg 0.47.0` engine — string or file (`.svg`/`.svgz`) input, explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, system/explicit/directory font resolution with generic-family overrides, and per-axis `shape`/`text`/`image` rendering policy, returning PNG-encoded `bytes`
+- capability: in-process SVG-to-PNG rasterization over the embedded Rust `resvg 0.47.0` engine — string or file (`.svg`/`.svgz`) input, explicit `width`/`height`/`zoom`/`dpi` sizing, CSS `background`, `style_sheet` injection, system/explicit/directory font resolution with generic-family overrides, and per-axis `shape`/`text`/`image` rendering policy, returning PNG-encoded `bytes` (PNG magic `\x89PNG`; this engine emits raster PNG only — vector PDF output routes to `typst`/`weasyprint`/`reportlab`, not here)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -61,7 +62,8 @@ The reflected signature decomposes into source, sizing, parsing, font, and rende
 - font axis: `skip_system_fonts` plus `font_files`/`font_dirs` and the six `*_family` overrides own deterministic font resolution as rows; when `skip_system_fonts` is set, explicit font files/dirs supply the faces, never a parallel font-loader surface.
 - policy axis: `shape_rendering`/`text_rendering`/`image_rendering` are `Literal` rows on the render call; quality is a policy value per axis, never a parallel renderer type.
 - evidence: each render captures package version, embedded `resvg` engine version (`__resvg_version__`), output PNG byte length, and resolved pixel dimensions as an imaging receipt.
-- boundary: resvg-py owns SVG-to-PNG rasterization with no Cairo, headless-browser, or external-process dependency; the segno/document/visuals owners emit SVG and route it here for the PNG raster floor; downstream PNG post-processing routes to `pillow` only when explicitly required; live UI stays outside this package.
+- integration: this is the terminal raster sink of the SVG pipeline. The dense rail is `producer SVG -> svgelements geometry conditioning -> resvg_py.svg_to_bytes -> pillow post-process`, composed in one boundary: `segno.QRCode.save(out, kind='svg')` / `blackrenderer` COLRv1 glyph SVG / `vl_convert.vegalite_to_svg` / the figures `ANNOTATE` SVG all emit SVG strings; `svgelements` (sibling) parses and scale-to-fits/crops/bounds the markup before raster so `width`/`height`/`dpi` are computed not guessed; the resulting PNG `bytes` feed `PIL.Image.open(io.BytesIO(...))` for ICC/quantize/compositing or `pyvips` for fused downscale. The `font_files`/`font_dirs` axis stacks with `fonttools` subsetting and `uharfbuzz` shaping: subset and resolve the exact faces a producer emitted, pass them as `font_files` with `skip_system_fonts=True` for deterministic, host-font-independent renders.
+- boundary: resvg-py owns SVG-to-PNG rasterization with no Cairo, headless-browser, or external-process dependency; the segno/document/visuals owners emit SVG and route it here for the PNG raster floor; downstream PNG post-processing routes to `pillow` (or `pyvips`) only when explicitly required; vector-PDF output is a different sink (`typst`/`weasyprint`/`reportlab`), never this engine; live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `resvg-py`

@@ -6,7 +6,11 @@
 
 [PACKAGE_SURFACE]: `array-api-extra`
 - package: `array-api-extra`
+- version: `0.11.0`
+- license: MIT
 - module: `array_api_extra`
+- wheel: `py3-none-any` (pure Python, no native ABI)
+- marker: ungated (depends only on `array-api-compat`; rides cp315 core)
 - asset: runtime library
 - rail: array-api
 
@@ -55,8 +59,8 @@
 
 | [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                 |
 | :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `at(x, idx=UNDEF, /) -> None`                                                                                      | indexed update | immutable-style indexed mutation entry |
-|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None, xp=None)`                                | conditional    | two-branch element-wise dispatch       |
+|  [01]   | `at(x, idx=UNDEF, /) -> at` then `.set/.add/.subtract/.multiply/.divide/.power/.min/.max(y, /, copy=None, xp=None) -> Array` | indexed update | JAX-style functional indexed update builder |
+|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None, xp=None) -> Array`                       | conditional    | two-branch element-wise dispatch       |
 |  [03]   | `argpartition(a, kth, /, axis=-1, *, xp=None)`                                                                     | sort           | indirect partial sort                  |
 |  [04]   | `atleast_nd(x, /, *, ndim, xp=None)`                                                                               | shape          | broadcast to minimum ndim              |
 |  [05]   | `broadcast_shapes(*shapes, xp=None) -> tuple[int \| None, ...]`                                                    | shape          | broadcast shape computation            |
@@ -90,21 +94,31 @@
 |  [09]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, xp=None, ...)`                 | test helper    | ULP-based assert                       |
 |  [10]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True, ...)`      | test fixture   | wrap function for lazy backend testing |
 |  [11]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp) -> ContextManager` | test fixture   | patch lazy dispatch for tests          |
+|  [12]   | `testing.jax_autojit(func)`                                                            | test fixture   | auto-`jax.jit` wrapper for lazy assertions |
+|  [13]   | `testing.pickle_flatten(obj, leaf_types) / pickle_unflatten(leaves, aux)`              | test helper    | pickle round-trip flatten for lazy pytrees |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ARRAY_API_EXTRA_TOPOLOGY]:
-- all operations accept an optional `xp` keyword; omitting it triggers `array_namespace(*arrays)` resolution internally
-- `at(x, idx)` returns a builder; call `.add(val)`, `.set(val)`, etc. on it for immutable-style indexed ops
-- `lazy_apply` is the entry point for graph-execution backends (JAX jit, Dask); keeps compute deferred
+- all operations accept an optional `xp` keyword; omitting it triggers `array_namespace(*arrays)` resolution internally, so the dense rail resolves `xp` once at the boundary and threads it.
+- `at(x, idx)` returns an `at` builder; the terminal verbs are exactly `set`, `add`, `subtract`, `multiply`, `divide`, `power`, `min`, `max`, each `(y, /, copy=None, xp=None) -> Array`. There is no `.get`; this is the write-side index algebra only.
+- `copy=` is the load-bearing knob: `copy=None` (default) mutates in place for a writeable backend and copies for a read-only one (so JAX/Dask always copy, NumPy mutates); `copy=True` always copies; `copy=False` mutates and raises on a read-only buffer. Gate `copy=False` behind `array_api_compat.is_writeable_array(x)`.
+- `lazy_apply(func, *args, shape=, dtype=, as_numpy=)` is the deferred entry for graph-execution backends (JAX `jit`, Dask), declaring output `shape`/`dtype` so the wrapped `func` participates in tracing; `as_numpy=True` materializes to NumPy inside the wrapper for non-traceable bodies.
+- `default_dtype(xp, kind=...)` resolves the backend's canonical dtype for `'real floating'`/`'complex floating'`/`'integral'`/`'indexing'`; use it instead of a hardcoded `xp.float64` when allocating result buffers.
+
+[STACKING]:
+- `array-api-extra` sits directly on `array-api-compat`: the canonical compute kernel does `xp = array_namespace(*arrays)` then `array_api_extra.<op>(..., xp=xp)`, giving one backend-agnostic rail across NumPy/JAX/Torch/Dask without a per-backend branch.
+- The `at(...).set(..., copy=...)` builder is the polymorphic substitute for JAX `.at[idx].set()` AND NumPy in-place assignment in one surface, so a kernel that must run under both `jax` (graduation/sampler study) and NumPy (eager analysis) writes one indexed-update expression.
+- `lazy_apply` pairs with `array_api_compat.is_lazy_array`: the lazy guard decides whether to wrap in `lazy_apply` (traced backend) or call the op directly (eager), the same eager/lazy fork the `diffrax`/`equinox`/`optimistix` JAX rails depend on.
+- `apply_where(cond, args, f1, f2, fill_value=)` is the safe two-branch elementwise primitive replacing `xp.where(cond, f1(x), f2(x))` when `f1`/`f2` would error on the masked-out domain (e.g. `log` of non-positive); it only evaluates each branch on its live mask, which graph backends require.
 
 [LOCAL_ADMISSION]:
-- Pass `xp` explicitly when it is already resolved to avoid redundant dispatch.
-- `lazy_apply` is required when `func` uses control flow incompatible with graph tracing (JAX/Dask).
-- `testing.*` belongs in test scope only; do not import in production compute owners.
+- Pass `xp` explicitly once it is resolved to avoid redundant dispatch inside hot paths.
+- `lazy_apply` is required when `func` uses control flow incompatible with graph tracing (JAX/Dask); declare `shape`/`dtype` so tracing succeeds.
+- `testing.*` (including `lazy_xp_function`, `patch_lazy_xp_functions`, `jax_autojit`, `pickle_flatten`) belongs in test scope only; never import in production compute owners.
 
 [RAIL_LAW]:
 - Package: `array-api-extra`
-- Owns: Array API extension functions absent from the base standard
-- Accept: `xp`-parametric calls that stay backend-agnostic
-- Reject: hand-rolling any of these extension patterns against a single backend; importing `testing` outside test scope
+- Owns: Array API extension functions absent from the base standard plus the `at` indexed-update builder and lazy-dispatch wrapper
+- Accept: `xp`-parametric calls that stay backend-agnostic, `at(...).set(..., copy=...)` gated by `is_writeable_array`, `lazy_apply` gated by `is_lazy_array`
+- Reject: hand-rolling any of these extension patterns against a single backend; a vendor-specific `.at[]`/in-place assignment when the `at` builder spans both; importing `testing` outside test scope

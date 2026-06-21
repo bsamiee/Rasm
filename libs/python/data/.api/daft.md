@@ -11,7 +11,8 @@
 - rail: distributed dataframe
 - installed: `0.6.14` reflected via `import daft` on cp315 (Rust extension `daft.daft.abi3.so`)
 - entry points: console script `daft` (`daft.cli:main`); library use is import-only
-- capability: lazy logical-plan dataframes over partitioned out-of-core data; native and Ray runners; predicate/projection pushdown; typed numeric/temporal/nested/multimodal (`tensor`/`image`/`embedding`) dtypes; expression algebra with string/datetime/list/struct/image/url/embedding namespaces; window functions; scalar and class UDFs; Parquet/CSV/JSON/WARC/MCAP IO; Delta Lake/Iceberg/Hudi/Lance/Unity/Glue lakehouse readers and catalogs; SQL over registered frames; Arrow/pandas/Ray/Dask interop. Reflection note: 555 types across 30 namespaces, fidelity introspected
+- license: Apache-2.0
+- capability: lazy logical-plan dataframes over partitioned out-of-core data; native and Ray runners; predicate/projection pushdown; typed numeric/temporal/nested/multimodal (`tensor`/`image`/`embedding`) dtypes; expression algebra with string/datetime/list/struct/map/image/url/embedding/binary/float/json/partitioning namespaces; window functions; scalar and class UDFs; Parquet/CSV/JSON/WARC/MCAP IO; Delta Lake/Iceberg/Hudi/Lance/Unity/Glue lakehouse readers and catalogs; SQL over registered frames; Arrow/pandas/Ray/Dask/PyTorch interop and streaming row/batch/partition iterators. Reflection note: 555 types across 30 namespaces, fidelity introspected
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -121,8 +122,31 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [24]   | `DataFrame.write_parquet`   | `write_parquet(root_dir, compression='snappy', write_mode='append', partition_cols=None, io_config=None) -> DataFrame` | partitioned Parquet sink                  |
 |  [25]   | `DataFrame.write_deltalake` | `write_deltalake(table, partition_cols=None, mode='append', schema_mode=None, ..., io_config=None) -> DataFrame`       | Delta Lake table sink                     |
 |  [26]   | `DataFrame.write_iceberg`   | `write_iceberg(table, mode='append', io_config=None) -> DataFrame`                                                     | Iceberg table sink                        |
-|  [27]   | `DataFrame.explain`         | `explain(show_all=False, format='ascii', simple=False, file=None)`                                                     | print the logical/physical plan           |
-|  [28]   | `DataFrame.schema`          | `schema() -> Schema`                                                                                                   | resolved output schema                    |
+|  [27]   | `DataFrame.write_csv`       | `write_csv(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`                           | partitioned CSV sink                       |
+|  [28]   | `DataFrame.write_json`      | `write_json(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`                          | partitioned newline-JSON sink              |
+|  [29]   | `DataFrame.write_lance`     | `write_lance(uri, mode='create', io_config=None, **kwargs) -> DataFrame`                                               | Lance dataset sink                         |
+|  [30]   | `DataFrame.pivot`           | `pivot(group_by, pivot_col, value_col, agg_fn, names=None) -> DataFrame`                                               | long-to-wide pivot with aggregation        |
+|  [31]   | `DataFrame.transform`       | `transform(func, *args, **kwargs) -> DataFrame`                                                                       | apply a `DataFrame -> DataFrame` function  |
+|  [32]   | `DataFrame.summarize`       | `summarize() -> DataFrame`                                                                                            | per-column statistics frame                |
+|  [33]   | `DataFrame.describe`        | `describe() -> DataFrame`                                                                                             | schema as a frame                          |
+|  [34]   | `DataFrame.agg_list`        | `agg_list(*cols)` / `agg_set(*cols)` / `agg_concat(*cols) -> DataFrame`                                               | global list/set/concat aggregations        |
+|  [35]   | `DataFrame.explain`         | `explain(show_all=False, format='ascii', simple=False, file=None)`                                                     | print the logical/physical plan           |
+|  [36]   | `DataFrame.schema`          | `schema() -> Schema`                                                                                                   | resolved output schema                    |
+
+[ENTRYPOINT_SCOPE]: `DataFrame` streaming and framework egress
+- rail: distributed dataframe
+
+Streaming sinks pull execution incrementally so an out-of-core result never fully materializes in host memory; framework sinks hand the partitioned plan to Ray/Dask/PyTorch without an Arrow roundtrip the consumer must redo. `melt` aliases `unpivot`.
+
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                          | [CAPABILITY]                                |
+| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------ | :------------------------------------------ |
+|  [01]   | `DataFrame.iter_partitions`        | `iter_partitions(results_buffer_size='num_cpus') -> Iterator[MicroPartition \| ray.ObjectRef]` | stream executed partitions out-of-core      |
+|  [02]   | `DataFrame.to_arrow_iter`          | `to_arrow_iter(results_buffer_size='num_cpus') -> Iterator[pyarrow.RecordBatch]`      | stream Arrow record batches                 |
+|  [03]   | `DataFrame.to_pylist`              | `to_pylist() -> list[dict[str, Any]]`                                                 | execute and egress to row dicts             |
+|  [04]   | `DataFrame.to_ray_dataset`         | `to_ray_dataset() -> ray.data.Dataset`                                                | hand partitions to a Ray Dataset            |
+|  [05]   | `DataFrame.to_dask_dataframe`      | `to_dask_dataframe(meta=None) -> dask.dataframe.DataFrame`                             | egress to a Dask dataframe                  |
+|  [06]   | `DataFrame.to_torch_iter_dataset`  | `to_torch_iter_dataset() -> torch.utils.data.IterableDataset`                         | stream rows as a PyTorch IterableDataset    |
+|  [07]   | `DataFrame.to_torch_map_dataset`   | `to_torch_map_dataset() -> torch.utils.data.Dataset`                                  | map-style PyTorch Dataset                   |
 
 [ENTRYPOINT_SCOPE]: `Expression`, `DataType`, `Window`, and runner control
 - rail: distributed dataframe
@@ -139,6 +163,10 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [06]   | `Expression.if_else`       | `if_else(if_true, if_false) -> Expression`                                                                          | conditional select                    |
 |  [07]   | `Expression.apply`         | `apply(func, return_dtype) -> Expression`                                                                           | element-wise Python UDF               |
 |  [08]   | `Expression.over`          | `over(window) -> Expression`                                                                                        | apply window function over a `Window` |
+|  [09a]  | `Expression.fill_null`     | `fill_null(fill_value) -> Expression`                                                                              | null-imputation                       |
+|  [09b]  | `Expression.not_null`      | `not_null() -> Expression`                                                                                         | non-null predicate                    |
+|  [09c]  | `Expression.hash`          | `hash(seed=None) -> Expression`                                                                                   | stable column hash                    |
+|  [09d]  | `Expression.json.query`    | `json.query(jq_query) -> Expression`                                                                              | jq query over a JSON-string column    |
 |  [09]   | `DataType.list`            | `list(dtype) -> DataType`                                                                                           | variable-length list dtype            |
 |  [10]   | `DataType.struct`          | `struct(fields) -> DataType`                                                                                        | struct dtype from `{name: DataType}`  |
 |  [11]   | `DataType.tensor`          | `tensor(dtype, shape=None) -> DataType`                                                                             | N-D tensor dtype                      |
@@ -159,13 +187,20 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 [DATAFRAME_ELASTICITY]:
 - import: `import daft` at boundary scope only; module-level import is banned by the manifest import policy.
 - laziness axis: every `read_*`/`from_*` constructor and every transform returns a lazy `DataFrame` carrying a logical plan; execution happens only at a sink (`collect`, `show`, `count_rows`, `iter_rows`, `to_arrow`/`to_pydict`/`to_pandas`, `write_*`); intermediate `DataFrame` values never materialize the full set, so pushdown and partition-parallel evaluation own the cost.
-- expression axis: one `Expression` algebra owns column logic; `col`/`lit`/`coalesce`/`interval`/`list_`/`struct` mint nodes and `str`/`dt`/`list`/`struct`/`map`/`image`/`url`/`embedding`/`binary`/`float`/`partitioning` sub-namespaces carry typed methods, never a parallel per-domain column type; `select`/`where`/`with_columns`/`agg`/`sort`/`join` accept an `Expression` or a column-name `str` interchangeably.
+- expression axis: one `Expression` algebra owns column logic; `col`/`lit`/`coalesce`/`interval`/`list_`/`struct` mint nodes and `str`/`dt`/`list`/`struct`/`map`/`image`/`url`/`embedding`/`binary`/`float`/`json`/`partitioning` sub-namespaces carry typed methods (`json.query` runs a jq query over a JSON-string column), never a parallel per-domain column type; `select`/`where`/`with_columns`/`agg`/`sort`/`join` accept an `Expression` or a column-name `str` interchangeably.
 - dtype axis: `DataType` classmethods are the single dtype factory spanning numeric, temporal, `list`/`fixed_size_list`/`struct`/`map`, and multimodal `tensor`/`image`/`embedding`; `from_arrow_type` bridges pyarrow; schema is inferred per reader unless `schema`/`infer_schema=False` pins it.
 - ingest axis: `read_*` is the lazy scan rail keyed by format and lakehouse backend (Parquet/CSV/JSON/WARC/MCAP, Delta/Iceberg/Hudi/Lance), threading `io_config` for object-store credentials and `hive_partitioning`/`partition_col` for partition pruning; `from_*` ingests in-memory and framework objects (pydict/pylist/Arrow/pandas/Ray/Dask) zero-copy where the source allows; never a hand-rolled format parser.
 - runner axis: `set_runner_native`/`set_runner_ray` select the execution backend as a runner row, not a parallel frame type; the same `DataFrame` plan runs single-node or on a Ray cluster; `Session`/`Catalog`/`Identifier` resolve catalog-scoped tables and SQL, and `sql`/`sql_expr` address the same plan the builder addresses.
 - udf axis: `udf(return_dtype=...)` decorates a Python callable into a partition UDF with `num_cpus`/`num_gpus`/`memory_bytes`/`concurrency` resource rows; `Expression.apply` is the element-wise row; UDFs declare `return_dtype`, never an untyped Python escape hatch.
 - evidence: each plan captures the resolved output `Schema`, partition count, runner backend, scan source/format, pushdown predicates, and executed row count as a dataframe receipt.
-- boundary: daft owns distributed/streaming dataframe execution, partitioning, lakehouse readers, and multimodal dtypes; Arrow egress (`to_arrow`) feeds the columnar interop owner; pandas egress is an explicit boundary; SQL strings and the `DataFrame` builder address one engine; eager in-memory analytics route to the in-process SQL owner, and narrow-frame columnar work routes to the eager dataframe owner.
+- boundary: daft owns distributed/streaming dataframe execution, partitioning, lakehouse readers, and multimodal dtypes; `to_arrow`/`to_arrow_iter` feed the columnar interop owner (pyarrow/arro3-core); `to_ray_dataset`/`to_dask_dataframe`/`to_torch_*` hand the partitioned plan to the ML/distributed-compute consumer without an Arrow roundtrip; pandas egress is an explicit boundary.
+
+[STACKS_WITH]:
+- connectorx: daft's `read_sql(partition_col=, num_partitions=)` owns the lazy distributed SQL scan; `connectorx.read_sql` owns the eager in-process parallel pull — they are the distributed and in-process halves of one SQL-ingest concern, not duplicate readers.
+- pyiceberg / deltalake / pylance: daft `read_iceberg`/`read_deltalake`/`read_lance` and `write_iceberg`/`write_deltalake`/`write_lance` are the partition-pushdown lakehouse rail; the dedicated table-format owners own catalog/transaction lifecycle, daft owns the scan/write plan over them.
+- dataframely / pandera: the resolved `Schema` and a `to_arrow`/`to_pandas` egress feed a dataframe contract gate; route post-read validation to dataframely (Polars) or pandera, not a hand-rolled assertion pass inside a daft UDF.
+- polars / narwhals: narrow, fully-materializable frames egress to the eager Polars owner via `to_arrow`; narwhals provides the engine-agnostic dataframe surface when a consumer must stay backend-neutral. daft owns the out-of-core/distributed plan; do not re-express a daft plan as an eager Polars chain.
+- ibis-framework: ibis is the portable logical-plan/SQL-builder front end; daft is one execution backend with a native multimodal engine. Address one engine through the `DataFrame` builder or `sql(**bindings)`, never string-interpolated SQL.
 
 [RAIL_LAW]:
 - Package: `daft`

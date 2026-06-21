@@ -7,7 +7,8 @@
 [PACKAGE_SURFACE]: `pandas`
 - package: `pandas`
 - module: `pandas`
-- asset: C/Cython extension
+- license: BSD-3-Clause
+- asset: C/Cython extension (no abi3; per-version wheels — source-builds on the cp315 band, where `pandas-stubs` carries the typed surface)
 - rail: labeled tabular
 
 ## [02]-[PUBLIC_TYPES]
@@ -102,10 +103,11 @@
 - `read_*`/`to_*` cover CSV, Parquet, Feather, ORC, SQL, Excel, HTML, XML, JSON, HDF5, Iceberg, and Stata
 
 [LOCAL_ADMISSION]:
-- Prefer Arrow-backed columns (`ArrowDtype`, `read_parquet`/`to_parquet`) and `to_arrow`/`pyarrow` interop where columnar performance and zero-copy exchange matter; reach for polars on hot lazy paths.
+- Prefer Arrow-backed columns (`ArrowDtype`, `read_parquet`/`to_parquet`) and `to_arrow`/`pyarrow` interop where columnar performance and zero-copy exchange matter; reach for polars on hot lazy paths. The Arrow-backed frame hands off zero-copy through `pyarrow`/`narwhals` to `polars`, and `pandera.pandas`/`pointblank` validate the same in-memory frame without a re-materialization — pandas is the boundary frame, not the compute hot path.
 - Use vectorized methods, `assign`, `pipe`, and `agg`/`transform` over Python loops; pass `NamedAgg` for explicit aggregation output names.
 - Index by label with `loc`/`at` and by position with `iloc`/`iat`; never chain `[]` selection for assignment.
 - Reshape with `pivot_table`/`melt`/`stack`/`unstack` and combine with `merge`/`concat`/`merge_asof`; align labels deliberately to avoid silent `NaN` introduction.
+- Gate a `read_*` boundary frame through a `pandera.pandas` `DataFrameSchema`/`DataFrameModel` before downstream consumption rather than asserting dtypes by hand, and treat `to_iceberg`/`read_iceberg` (experimental) and `read_orc`/`to_orc` as the lakehouse interchange edge alongside `deltalake`/`pyiceberg`.
 
 [RAIL_LAW]:
 - Package: `pandas`

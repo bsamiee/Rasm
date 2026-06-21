@@ -6,8 +6,11 @@
 
 [PACKAGE_SURFACE]: `awkward`
 - package: `awkward`
+- version: `2.9.1` (native kernels via `awkward-cpp` `53`)
 - module: `awkward` (alias `ak`); submodules `ak.contents`, `ak.forms`, `ak.types`, `ak.behaviors`, `ak.numba`, `ak.jax`
-- asset: pure Python plus the `awkward-cpp` native kernels
+- asset: pure-Python `awkward` (`py3-none-any`) over the `awkward-cpp` native kernel extension; CUDA kernels load lazily through the `"cuda"` backend
+- license: `BSD-3-Clause`
+- marker: `requires-python >=3.10`; runtime dependencies `awkward-cpp`, `numpy`, `fsspec` (remote `from_parquet`/`from_json` paths), `packaging`; free-threaded (`3.13t`/`3.14t`) safe
 - owner: `data`
 - rail: irregular-arrays
 
@@ -36,21 +39,27 @@
 |  [07]   | `begin_record(name)` / `field(key)` / `end_record()` / `record(name)` | method          | open, key, close, or context a record     |
 |  [08]   | `begin_tuple(n)` / `index(i)` / `end_tuple()` / `tuple(n)`            | method          | open, slot, close, or context a tuple     |
 |  [09]   | `datetime(x)` / `timedelta(x)`                                        | method          | append a temporal scalar                  |
-|  [10]   | `type` / `typestr` / `to_list()` / `to_numpy()`                       | property/method | live build type and Python/NumPy export   |
+|  [10]   | `type` / `typestr` / `to_list()` / `tolist()` / `to_numpy()`          | property/method | live build type and Python/NumPy export   |
+|  [11]   | `behavior` / `attrs` / `numba_type` / `show(...)`                     | property/method | behavior mixin, metadata, Numba JIT type, preview |
 
 [PUBLIC_TYPE_SCOPE]: `ak.Array` members
 - rail: irregular-arrays
 
-| [INDEX] | [MEMBER]                      | [KIND]   | [ROLE]                                |
-| :-----: | :---------------------------- | :------- | :------------------------------------ |
-|  [01]   | `layout`                      | property | underlying `ak.contents` layout       |
-|  [02]   | `fields`                      | property | record field names                    |
-|  [03]   | `type`                        | property | high-level type descriptor            |
-|  [04]   | `ndim` / `nbytes`             | property | nesting depth and byte footprint      |
-|  [05]   | `mask`                        | property | option-aware boolean masking accessor |
-|  [06]   | `to_list()` / `tolist()`      | method   | convert to nested Python lists        |
-|  [07]   | `to_numpy(allow_missing)`     | method   | convert to a NumPy array              |
-|  [08]   | `show(limit_rows, type, ...)` | method   | formatted preview of contents         |
+| [INDEX] | [MEMBER]                              | [KIND]          | [ROLE]                                                       |
+| :-----: | :------------------------------------ | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `layout`                              | property        | underlying `ak.contents` layout                              |
+|  [02]   | `fields` / `is_tuple`                 | property        | record field names; whether the top record is unnamed        |
+|  [03]   | `type` / `typestr`                    | property        | high-level type descriptor and its string form               |
+|  [04]   | `ndim` / `nbytes`                     | property        | nesting depth and byte footprint                             |
+|  [05]   | `mask`                                | property        | option-aware boolean masking accessor (`array.mask[cond]`)   |
+|  [06]   | `behavior` / `attrs`                  | property        | behavior-mixin mapping and top-level metadata dict           |
+|  [07]   | `named_axis` / `positional_axis`      | property        | named-axis mapping and positional axis tuple                 |
+|  [08]   | `to_list()` / `tolist()`              | method          | convert to nested Python lists                               |
+|  [09]   | `to_numpy(allow_missing)`             | method          | convert to a NumPy array                                     |
+|  [10]   | `show(limit_rows, type, ...)`         | method          | formatted preview of contents                                |
+|  [11]   | `numba_type` / `cpp_type`             | property        | Numba and cppyy type handles for JIT/C++ kernels             |
+|  [12]   | `__getitem__` / `__setitem__` / `__getattr__` | dunder  | jagged slicing, field assignment, dotted field access        |
+|  [13]   | `__array_ufunc__` / `__array_function__`      | dunder  | NumPy ufunc and array-function dispatch over the layout      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -115,14 +124,22 @@
 - behaviors: custom methods and overloads attach via the `behavior` mapping keyed on record type name; `with_name` tags arrays so behaviors resolve
 - forms: `ak.forms` carries the form algebra for constructing typed arrays from buffers without materializing data, the basis of zero-copy interchange
 
+[INTEGRATION_RAILS]:
+- awkward <-> arro3/pyarrow: `ak.to_arrow(array, extensionarray=...)` emits a `pyarrow` array carrying awkward's type as Arrow extension metadata; that array's `__arrow_c_array__` feeds `arro3.core.Array.from_arrow` zero-copy, and `ak.from_arrow` re-imports any PyCapsule producer. `ak.to_arrow_table`/`ak.from_arrow_table` round-trip whole record arrays as Arrow tables.
+- awkward <-> numpy: `ak.Array.__array_ufunc__` makes NumPy ufuncs operate over the jagged layout in place (`np.sqrt(events.pt)`), so element math never flattens to Python; `ak.to_numpy`/`from_numpy` is the terminal regular-array escape only.
+- awkward <-> jax: `to_backend(array, "jax")` moves the layout onto a JAX-differentiable backend (registered via `ak.jax.register_and_check()`), so reductions and ufuncs become traceable for autodiff without leaving the awkward layout.
+- awkward <-> numba: `ak.Array.numba_type` and the `ak.numba` registration let `@numba.njit` kernels iterate the typed layout directly; reach for this over Python loops when a reduction has no axis-vectorized form.
+- awkward <-> pandas: `ak.to_dataframe(array, how=...)` explodes nested fields into a MultiIndex frame for tabular consumers; this is a terminal projection, not a storage form.
+
 [LOCAL_ADMISSION]:
 - Irregular event-data payloads enter as `ak.Array` with named fields and an explicit backend; the field names and type descriptor join the array-admission record.
 - Field access uses `fields` and named indexing, never positional-only access, so the record structure stays self-describing.
-- Arrow and Parquet interchange uses `from_arrow`/`to_arrow` and `from_parquet`/`to_parquet`; cloud paths pass `storage_options`.
-- Backend moves go through `to_backend`; do not re-materialize through NumPy when awkward owns the irregular layout.
+- Arrow and Parquet interchange uses `from_arrow`/`to_arrow` and `from_parquet`/`to_parquet`; cloud paths pass `storage_options` (resolved through `fsspec`).
+- Backend moves go through `to_backend`; do not re-materialize through NumPy when awkward owns the irregular layout. Element math rides `__array_ufunc__`, not a Python loop.
+- Custom domain methods attach through the `behavior` mapping keyed on record name and resolved by `with_name`; never subclass `ak.Array`.
 
 [RAIL_LAW]:
 - Package: `awkward`
-- Owns: variable-length nested arrays, option types, record and union arrays, and multi-backend columnar irregular data
+- Owns: variable-length nested arrays, option types, record and union arrays, behavior mixins, and multi-backend (`cpu`/`cuda`/`jax`) columnar irregular data
 - Accept: irregular event-data payloads wrapped in `ak.Array` with named fields and an explicit backend
-- Reject: hand-rolled ragged list structures, positional-only field access where `fields` applies, and NumPy arrays for irregular data awkward owns
+- Reject: hand-rolled ragged list structures, positional-only field access where `fields` applies, NumPy arrays for irregular data awkward owns, Python loops where `__array_ufunc__` or a Numba/JAX backend kernel applies, and `ak.Array` subclassing where the `behavior` mapping applies

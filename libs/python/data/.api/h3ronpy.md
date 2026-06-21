@@ -9,25 +9,28 @@
 - import: `h3ronpy`
 - owner: `data`
 - rail: GRID_DGGS
-- installed: `0.22.0` reflected via `python -c "import h3ronpy"` on cp315
+- version: `0.22.0` (locked); license `MIT`
+- asset: Rust extension (`h3ronpyrs`) wrapping the `h3o` H3 crate; ships `cp39-abi3` wheels (macOS x86_64/arm64, manylinux, win_amd64) so the stable-ABI binary is forward-compatible to cp315; runtime dep is `arro3-core` (numpy only for the raster bridge)
 - entry points: library use is import-only; no console script
-- capability: vectorized H3 cell operations over Arrow arrays — resolution change/compaction/uncompaction, grid-disk and grid-ring traversal with distances and aggregation, spherical area in km2/m2/rads2, cell/vertex/directed-edge parse-validate-stringify, local-IJ coordinate transforms, geometry-to-cells and cells-to-WKB conversion (`h3ronpy.vector`), raster-to-cells and cells-to-raster bridging (`h3ronpy.raster`), and a polars `.h3` expression/series namespace (`h3ronpy.polars`), all zero-copy over `arro3.core` Arrow buffers
+- capability: vectorized H3 cell operations over Arrow arrays — resolution change/compaction/uncompaction, grid-disk and grid-ring traversal with distances and aggregation, spherical area in km2/m2/rads2, cell/vertex/directed-edge parse-validate-stringify, local-IJ coordinate transforms, geometry-to-cells and cells-to-WKB conversion (`h3ronpy.vector`), raster-to-cells and cells-to-raster bridging (`h3ronpy.raster`), and a polars `.h3` expression/series namespace (`h3ronpy.polars`, registered on import when `polars` is present), all zero-copy over `arro3.core` Arrow buffers
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: containment vocabulary and namespace roots
 - rail: GRID_DGGS
 
-`ContainmentMode` is the Rust-backed enum selecting how a geometry covers cells during `geometry_to_cells`/`wkb_to_cells`. `H3Expr` and `H3SeriesShortcuts` register the `.h3` namespace on `polars.Expr` and `polars.Series`. Function returns carry `arro3.core.Array` for one column and `arro3.core.RecordBatch` for multi-column results (paired arrays, distances, local-IJ).
+`ContainmentMode` is the Rust-backed enum selecting how a geometry covers cells during `geometry_to_cells`/`wkb_to_cells`. `H3Expr` and `H3SeriesShortcuts` register the `.h3` namespace on `polars.Expr` and `polars.Series`. `h3ronpy` re-exports the `arro3.core` carrier types (`Array`, `ChunkedArray`, `RecordBatch`, `DataType`) so callers accept any `ArrowArrayExportable`/`ArrowStreamExportable` input and read the schema without importing `arro3.core` directly. Function returns carry `arro3.core.Array` for one column and `arro3.core.RecordBatch` for multi-column results (paired arrays, distances, local-IJ).
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                                                 |
-| :-----: | :------------------------- | :---------------- | :----------------------------------------------------- |
-|  [01]   | `ContainmentMode`          | enum              | geometry-to-cell coverage policy (4 members)           |
-|  [02]   | `polars.H3Expr`            | expression plugin | `.h3` namespace registered on `polars.Expr`            |
-|  [03]   | `polars.H3SeriesShortcuts` | series plugin     | `.h3` namespace registered on `polars.Series`          |
-|  [04]   | `raster.Transform`         | affine transform  | 6-coefficient raster geotransform `(a, b, c, d, e, f)` |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [RAIL]                                                       |
+| :-----: | :-------------------------------- | :---------------- | :---------------------------------------------------------- |
+|  [01]   | `ContainmentMode`                 | enum              | geometry-to-cell coverage policy (4 members)                |
+|  [02]   | `Array` / `ChunkedArray`          | arro3 carrier     | re-exported zero-copy cell-index column / chunked column    |
+|  [03]   | `RecordBatch` / `DataType`        | arro3 carrier     | re-exported multi-column result / Arrow type descriptor     |
+|  [04]   | `polars.H3Expr`                   | expression plugin | `.h3` namespace registered on `polars.Expr`                 |
+|  [05]   | `polars.H3SeriesShortcuts`        | series plugin     | `.h3` namespace registered on `polars.Series`               |
+|  [06]   | `raster.Transform`                | affine transform  | 6-coefficient raster geotransform `(a, b, c, d, e, f)`      |
 
-`ContainmentMode` members: `ContainsCentroid` (default), `ContainsBoundary`, `Covers`, `IntersectsBoundary`.
+`ContainmentMode` members: `ContainsCentroid` (default), `ContainsBoundary`, `Covers`, `IntersectsBoundary`. The cell-index columns are `arro3.core.Array` of `u64`; module-level constants `H3_CRS = 'EPSG:4326'` and `DEFAULT_CELL_COLUMN_NAME = 'cell'` fix the geometry CRS and the canonical cell-column name.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -96,6 +99,8 @@ The raster bridge moves between numpy arrays under an affine `transform` and cel
 |  [05]   | `raster.cells_to_wkb_polygons` | `cells_to_wkb_polygons(arr, radians: bool = False, link_cells: bool = False) -> Array`                                                                     | cell boundaries as WKB polygons                                        |
 |  [06]   | `polars.H3Expr`                | `pl.col(name).h3.<op>(...)`                                                                                                                                | `.h3` expression namespace on `polars.Expr`                            |
 |  [07]   | `polars.H3SeriesShortcuts`     | `series.h3.<op>(...)`                                                                                                                                      | `.h3` namespace on `polars.Series`                                     |
+
+The `.h3` namespace mirrors the cell-scalar operation family only — `change_resolution`, `change_resolution_list`, `compact`, `uncompact`, `grid_disk`, `cells_resolution`, `cells_area_km2`/`_m2`/`_rads2`, `cells_valid`, `cells_parse`, `cells_to_string`, and the `vertexes_*`/`directededges_*` validate/parse/stringify trio. The geometry bridge (`geometry_to_cells`/`wkb_to_cells`/`cells_to_coordinates`), the raster bridge, and the distance-bearing traversal (`grid_disk_distances`/`grid_ring_distances`/`grid_disk_aggregate_k`/`cells_to_localij`) are NOT on the `.h3` accessor; call those module functions on the underlying Arrow array (`series.to_arrow()`) and re-wrap, since polars passes the column through `h3ronpy` as an `arro3` array with no copy.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

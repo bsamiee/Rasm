@@ -1,26 +1,31 @@
 # [PY_RUNTIME_API_APSCHEDULER]
 
-`APScheduler` supplies in-process job scheduling via three scheduler classes (`BackgroundScheduler`, `AsyncIOScheduler`, `BlockingScheduler`), six trigger types (cron, interval, date, calendar-interval, and combining triggers), a `Job` object with per-job lifecycle controls, pluggable job stores and executors, and a listener event bus for scheduler and job lifecycle events.
+`APScheduler` (3.x line) supplies in-process job scheduling: three scheduler classes (`BackgroundScheduler`, `AsyncIOScheduler`, `BlockingScheduler`) over a shared `BaseScheduler` contract, six trigger types (cron, interval, date, calendar-interval, and `And`/`Or` combining triggers), a `Job` handle with per-job lifecycle controls, pluggable job stores (memory + persistent SQLAlchemy/Redis/MongoDB) and executors (thread/process/asyncio), a listener event bus with a full event-code bitmask, and job import/export serialization. It is the sole cron/interval/date owner; hand-rolled `threading.Timer`/`asyncio.call_later` loops and `aiocron` are purged.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `APScheduler`
 - package: `APScheduler`
-- module: `apscheduler`
-- asset: runtime library
+- import: `apscheduler`
+- owner: `runtime`
 - rail: scheduling
+- version: `3.11.2`
+- license: `MIT`
+- floor: `Requires-Python>=3.8`; wheel `py3-none-any` (pure-Python, no ABI pin); hard dep `tzlocal>=3.0` (local-timezone resolution); persistent stores and pool backends are extras (`sqlalchemy`/`redis`/`mongodb`); this is the 3.x line (`BaseScheduler`-rooted), not the rewritten 4.x `AsyncScheduler`/`SchedulerEvent`-task model
 - namespaces: `apscheduler.schedulers`, `apscheduler.triggers`, `apscheduler.jobstores`, `apscheduler.executors`, `apscheduler.events`, `apscheduler.job`
+- capability: in-process scheduled execution with cron/interval/date/calendar/combining triggers, `Job` lifecycle, pluggable persistent job stores and executors, listener event bus, job import/export
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scheduler family
 - rail: scheduling
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                         |
-| :-----: | :------------------------------------------ | :------------ | :----------------------------- |
-|  [01]   | `schedulers.background.BackgroundScheduler` | scheduler     | daemon thread, non-blocking    |
-|  [02]   | `schedulers.asyncio.AsyncIOScheduler`       | scheduler     | asyncio event loop integration |
-|  [03]   | `schedulers.blocking.BlockingScheduler`     | scheduler     | blocks calling thread          |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------ | :------------ | :---------------------------------------------- |
+|  [01]   | `schedulers.base.BaseScheduler`             | abstract base | shared scheduler contract (all entrypoints)     |
+|  [02]   | `schedulers.background.BackgroundScheduler` | scheduler     | daemon-thread, non-blocking                     |
+|  [03]   | `schedulers.asyncio.AsyncIOScheduler`       | scheduler     | asyncio event-loop integration                  |
+|  [04]   | `schedulers.blocking.BlockingScheduler`     | scheduler     | blocks the calling thread in `start()`          |
 
 [PUBLIC_TYPE_SCOPE]: trigger family
 - rail: scheduling
@@ -37,64 +42,69 @@
 [PUBLIC_TYPE_SCOPE]: store and executor family
 - rail: scheduling
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [RAIL]                        |
-| :-----: | :----------------------------------- | :------------ | :---------------------------- |
-|  [01]   | `jobstores.memory.MemoryJobStore`    | job store     | in-process volatile job store |
-|  [02]   | `jobstores.base.BaseJobStore`        | abstract base | job store contract            |
-|  [03]   | `executors.pool.ThreadPoolExecutor`  | executor      | thread pool job execution     |
-|  [04]   | `executors.pool.ProcessPoolExecutor` | executor      | process pool job execution    |
-|  [05]   | `executors.asyncio.AsyncIOExecutor`  | executor      | asyncio coroutine execution   |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------ | :------------ | :---------------------------------------------- |
+|  [01]   | `jobstores.base.BaseJobStore`         | abstract base | job store contract                              |
+|  [02]   | `jobstores.memory.MemoryJobStore`     | job store     | in-process volatile (default)                   |
+|  [03]   | `jobstores.sqlalchemy.SQLAlchemyJobStore` | job store | persistent SQL store (survives restart; needs the `sqlalchemy` extra, `sqlalchemy>=1.4`) |
+|  [04]   | `jobstores.redis.RedisJobStore` / `jobstores.mongodb.MongoDBJobStore` | job store | persistent Redis / MongoDB store (need `redis` / `mongodb` extras) |
+|  [05]   | `executors.base.BaseExecutor`         | abstract base | executor contract                               |
+|  [06]   | `executors.pool.ThreadPoolExecutor` / `executors.pool.BasePoolExecutor` | executor | thread-pool job execution (default for sync)    |
+|  [07]   | `executors.pool.ProcessPoolExecutor`  | executor      | process-pool job execution (CPU-bound)          |
+|  [08]   | `executors.asyncio.AsyncIOExecutor`   | executor      | coroutine execution on the asyncio loop         |
+|  [09]   | `executors.debug.DebugExecutor`       | executor      | synchronous in-line execution (tests/diagnostics) |
 
 [PUBLIC_TYPE_SCOPE]: job and event family
 - rail: scheduling
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                             |
-| :-----: | :-------------------------- | :------------ | :--------------------------------- |
-|  [01]   | `job.Job`                   | job object    | live job handle with lifecycle ops |
-|  [02]   | `events.SchedulerEvent`     | event         | scheduler lifecycle event          |
-|  [03]   | `events.JobEvent`           | event         | job added/removed/modified event   |
-|  [04]   | `events.JobExecutionEvent`  | event         | job executed/errored event         |
-|  [05]   | `events.JobSubmissionEvent` | event         | job submitted event                |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                          |
+| :-----: | :-------------------------- | :------------ | :---------------------------------------------- |
+|  [01]   | `job.Job`                   | job object    | live handle with lifecycle ops + properties     |
+|  [02]   | `events.SchedulerEvent(code, alias=None)` | event | scheduler lifecycle event (`code`/`alias`)      |
+|  [03]   | `events.JobEvent(code, job_id, jobstore)` | event | job added/removed/modified event                |
+|  [04]   | `events.JobSubmissionEvent(code, job_id, jobstore, scheduled_run_times)` | event | job submitted to executor (carries `scheduled_run_times`) |
+|  [05]   | `events.JobExecutionEvent(code, job_id, jobstore, scheduled_run_time, retval=None, exception=None, traceback=None)` | event | job executed/missed/errored (`retval`/`exception`/`traceback`) |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: job management
 - rail: scheduling
+- defined on `BaseScheduler` (PUBLIC_TYPES [01]); all three concrete schedulers inherit these.
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `add_job(func, trigger, args, kwargs, id, name, misfire_grace_time, coalesce, max_instances, next_run_time, jobstore, executor, replace_existing, **trigger_args)` | add job        | register callable as a job         |
-|  [02]   | `scheduled_job(trigger, args, kwargs, id, name, ...)`                                                                                                              | decorator      | decorate function as scheduled job |
-|  [03]   | `modify_job(job_id, jobstore, **changes)`                                                                                                                          | job modify     | change job attributes in place     |
-|  [04]   | `remove_job(job_id, jobstore)`                                                                                                                                     | job remove     | remove one job                     |
-|  [05]   | `remove_all_jobs(jobstore)`                                                                                                                                        | job remove     | remove all jobs in store           |
-|  [06]   | `get_job(job_id, jobstore) -> Job\|None`                                                                                                                           | job query      | retrieve one Job by id             |
-|  [07]   | `get_jobs(jobstore, pending) -> list[Job]`                                                                                                                         | job query      | list jobs in store                 |
+| [INDEX] | [SURFACE]                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
+|  [01]   | `add_job(func, trigger=None, args=None, kwargs=None, id=None, name=None, misfire_grace_time=<undefined>, coalesce=<undefined>, max_instances=<undefined>, next_run_time=<undefined>, jobstore='default', executor='default', replace_existing=False, **trigger_args)` | add job | register a callable as a job (returns `Job`) |
+|  [02]   | `scheduled_job(trigger, args=None, kwargs=None, id=None, name=None, misfire_grace_time=<undefined>, coalesce=<undefined>, max_instances=<undefined>, next_run_time=<undefined>, jobstore='default', executor='default', **trigger_args)` | decorator | decorate a function as a scheduled job (no `func`/`replace_existing`; the decorated callable is the job) |
+|  [03]   | `modify_job(job_id, jobstore=None, **changes)`                                                                                                       | job modify     | change job attributes in place     |
+|  [04]   | `reschedule_job(job_id, jobstore=None, trigger=None, **trigger_args)`                                                                                | job reschedule | swap a job's trigger               |
+|  [05]   | `remove_job(job_id, jobstore=None)` / `remove_all_jobs(jobstore=None)`                                                                               | job remove     | remove one / all jobs              |
+|  [06]   | `get_job(job_id, jobstore=None) -> Job\|None` / `get_jobs(jobstore=None, pending=None) -> list[Job]`                                                  | job query      | retrieve one / list jobs           |
+|  [07]   | `pause_job(job_id, jobstore=None)` / `resume_job(job_id, jobstore=None)`                                                                              | job lifecycle  | pause / resume one job             |
+|  [08]   | `print_jobs(jobstore=None, out=None)` / `export_jobs(outfile, jobstore=None)` / `import_jobs(infile, jobstore='default')`                              | job io         | render / serialize / restore jobs (`out=None` -> `sys.stdout`; export/import take the stream first) |
 
 [ENTRYPOINT_SCOPE]: scheduler lifecycle
 - rail: scheduling
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                                                                |
-| :-----: | :----------------------------- | :------------- | :-------------------------------------------------------------------- |
-|  [01]   | `start(paused=False)`          | lifecycle      | start scheduler                                                       |
-|  [02]   | `shutdown(wait=True)`          | lifecycle      | stop scheduler, optionally drain                                      |
-|  [03]   | `pause()`                      | lifecycle      | pause all job execution                                               |
-|  [04]   | `resume()`                     | lifecycle      | resume from paused state                                              |
-|  [05]   | `pause_job(job_id, jobstore)`  | lifecycle      | pause one job                                                         |
-|  [06]   | `resume_job(job_id, jobstore)` | lifecycle      | resume one job                                                        |
-|  [07]   | `state`                        | property       | current state: `STATE_STOPPED`=0, `STATE_RUNNING`=1, `STATE_PAUSED`=2 |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                                               |
+| :-----: | :------------------------------------- | :------------- | :------------------------------------------------------------------- |
+|  [01]   | `configure(gconfig={}, prefix='apscheduler.', **options)` | configure | apply jobstore/executor/job-defaults config before `start` (reads `gconfig` keys under `prefix`) |
+|  [02]   | `start(paused=False)`                  | lifecycle      | start scheduler (optionally paused)                                  |
+|  [03]   | `shutdown(wait=True)`                  | lifecycle      | stop scheduler, optionally drain running jobs                        |
+|  [04]   | `pause()` / `resume()`                 | lifecycle      | pause / resume all job processing                                    |
+|  [05]   | `wakeup()`                             | lifecycle      | force a wakeup to re-evaluate next run times                         |
+|  [06]   | `running` (property) / `state` (int attr) | property    | `running` is `state != STATE_STOPPED` (True even while paused); `state` is the public integer set against `STATE_STOPPED=0`/`STATE_RUNNING=1`/`STATE_PAUSED=2` (exported from `apscheduler.schedulers.base`) |
 
-[ENTRYPOINT_SCOPE]: infrastructure management
+[ENTRYPOINT_SCOPE]: infrastructure and listeners
 - rail: scheduling
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]  | [RAIL]                            |
-| :-----: | :--------------------------------------- | :-------------- | :-------------------------------- |
-|  [01]   | `add_jobstore(jobstore, alias, **opts)`  | store add       | register a job store              |
-|  [02]   | `remove_jobstore(alias, shutdown=True)`  | store remove    | deregister a job store            |
-|  [03]   | `add_executor(executor, alias, **opts)`  | executor add    | register an executor              |
-|  [04]   | `remove_executor(alias, shutdown=True)`  | executor remove | deregister an executor            |
-|  [05]   | `add_listener(callback, mask=EVENT_ALL)` | listener        | subscribe to scheduler/job events |
-|  [06]   | `remove_listener(callback)`              | listener        | unsubscribe a listener            |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [RAIL]                            |
+| :-----: | :------------------------------------------------- | :-------------- | :-------------------------------- |
+|  [01]   | `add_jobstore(jobstore, alias='default', **opts)`  | store add       | register a job store              |
+|  [02]   | `remove_jobstore(alias, shutdown=True)`            | store remove    | deregister a job store            |
+|  [03]   | `add_executor(executor, alias='default', **opts)`  | executor add    | register an executor              |
+|  [04]   | `remove_executor(alias, shutdown=True)`            | executor remove | deregister an executor            |
+|  [05]   | `add_listener(callback, mask=EVENT_ALL)` (`EVENT_ALL == 131071`) | listener | subscribe to scheduler/job events (callback receives one `SchedulerEvent` subclass) |
+|  [06]   | `remove_listener(callback)`                        | listener        | unsubscribe a listener            |
 
 [ENTRYPOINT_SCOPE]: trigger constructors
 - rail: scheduling
@@ -106,59 +116,56 @@
 |  [03]   | `IntervalTrigger(weeks, days, hours, minutes, seconds, start_date, end_date, timezone, jitter)`                     | interval       | fixed interval trigger          |
 |  [04]   | `DateTrigger(run_date, timezone)`                                                                                   | date trigger   | single one-time fire            |
 |  [05]   | `CalendarIntervalTrigger(years, months, weeks, days, hour, minute, second, start_date, end_date, timezone, jitter)` | calendar       | calendar-unit trigger           |
-|  [06]   | `AndTrigger(triggers, jitter)`                                                                                      | combining      | all-triggers-must-agree gate    |
-|  [07]   | `OrTrigger(triggers, jitter)`                                                                                       | combining      | first-trigger-fires gate        |
+|  [06]   | `AndTrigger(triggers, jitter)` / `OrTrigger(triggers, jitter)`                                                      | combining      | all-agree / first-fires gate    |
 
 [ENTRYPOINT_SCOPE]: Job object operations
 - rail: scheduling
+- defined on `job.Job` (PUBLIC_TYPES [01]).
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `job.modify(**changes)`                                  | job modify     | change attributes of running job |
-|  [02]   | `job.reschedule(trigger)`                                | job reschedule | swap trigger on running job      |
-|  [03]   | `job.pause()`                                            | lifecycle      | pause one job                    |
-|  [04]   | `job.resume()`                                           | lifecycle      | resume one paused job            |
-|  [05]   | `job.remove()`                                           | lifecycle      | remove job from scheduler        |
-|  [06]   | `job.id`, `job.name`, `job.func`, `job.trigger`          | properties     | job identity fields              |
-|  [07]   | `job.next_run_time`, `job.coalesce`, `job.max_instances` | properties     | scheduling parameters            |
+| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :------------------------------------------------------------------------------ | :------------- | :------------------------------- |
+|  [01]   | `job.modify(**changes)`                                                         | job modify     | change attributes of a live job  |
+|  [02]   | `job.reschedule(trigger, **trigger_args)`                                       | job reschedule | swap the trigger                 |
+|  [03]   | `job.pause()` / `job.resume()` / `job.remove()`                                 | lifecycle      | pause / resume / remove          |
+|  [04]   | `job.id`, `job.name`, `job.func`, `job.func_ref`, `job.trigger`, `job.executor` | properties     | identity + binding fields        |
+|  [05]   | `job.args`, `job.kwargs`, `job.next_run_time`, `job.coalesce`, `job.max_instances`, `job.misfire_grace_time`, `job.pending` | properties | scheduling parameters + pending flag |
 
-[ENTRYPOINT_SCOPE]: event codes
+[ENTRYPOINT_SCOPE]: event codes (`apscheduler.events`)
 - rail: scheduling
 
-| [INDEX] | [SURFACE]                  | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :------------------------- | :------------- | :------------------------------- |
-|  [01]   | `EVENT_SCHEDULER_STARTED`  | event code     | scheduler started                |
-|  [02]   | `EVENT_SCHEDULER_SHUTDOWN` | event code     | scheduler stopped                |
-|  [03]   | `EVENT_SCHEDULER_PAUSED`   | event code     | scheduler paused                 |
-|  [04]   | `EVENT_SCHEDULER_RESUMED`  | event code     | scheduler resumed                |
-|  [05]   | `EVENT_JOB_ADDED`          | event code     | job registered                   |
-|  [06]   | `EVENT_JOB_REMOVED`        | event code     | job removed                      |
-|  [07]   | `EVENT_JOB_EXECUTED`       | event code     | job ran successfully             |
-|  [08]   | `EVENT_JOB_ERROR`          | event code     | job raised exception             |
-|  [09]   | `EVENT_JOB_MISSED`         | event code     | job missed its fire time         |
-|  [10]   | `EVENT_JOB_SUBMITTED`      | event code     | job submitted to executor        |
-|  [11]   | `EVENT_JOB_MAX_INSTANCES`  | event code     | max concurrent instances reached |
-|  [12]   | `EVENT_ALL`                | event code     | bitmask for all events           |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `EVENT_SCHEDULER_START` / `EVENT_SCHEDULER_STARTED`      | event code     | scheduler started (both names exported)         |
+|  [02]   | `EVENT_SCHEDULER_SHUTDOWN` / `_PAUSED` / `_RESUMED`      | event code     | scheduler lifecycle transitions                 |
+|  [03]   | `EVENT_JOBSTORE_ADDED` / `EVENT_JOBSTORE_REMOVED`        | event code     | job store registration                          |
+|  [04]   | `EVENT_EXECUTOR_ADDED` / `EVENT_EXECUTOR_REMOVED`        | event code     | executor registration                           |
+|  [05]   | `EVENT_JOB_ADDED` / `_REMOVED` / `_MODIFIED`             | event code     | job registry changes                            |
+|  [06]   | `EVENT_ALL_JOBS_REMOVED`                                 | event code     | every job cleared                               |
+|  [07]   | `EVENT_JOB_SUBMITTED` / `_MAX_INSTANCES`                 | event code     | submitted to executor / concurrency cap hit     |
+|  [08]   | `EVENT_JOB_EXECUTED` / `_ERROR` / `_MISSED`              | event code     | ran / raised / missed its fire time             |
+|  [09]   | `EVENT_ALL`                                              | event code     | bitmask OR of every event (default listener mask) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SCHEDULER_TOPOLOGY]:
-- `BackgroundScheduler` runs in a daemon thread; `AsyncIOScheduler` integrates with an existing event loop; `BlockingScheduler` blocks `start()`
-- `add_job` returns a `Job` object; `scheduled_job` is the decorator alias with identical parameters
-- job store `'default'` and executor `'default'` are used when no alias is given
-- `MemoryJobStore` is the default; volatile across restarts; persistent stores require extra packages
-- `STATE_STOPPED=0`, `STATE_RUNNING=1`, `STATE_PAUSED=2` are integer constants on `apscheduler.schedulers.base`
-- `JobExecutionEvent.retval` carries the return value on success; `.exception` and `.traceback` carry failure detail
-- `misfire_grace_time` is `None` by default, meaning missed firings run immediately; set to seconds integer to gate
+- scheduler law: one scheduler instance owns all jobs. `BackgroundScheduler` runs in a daemon thread; `AsyncIOScheduler` integrates with the running event loop; `BlockingScheduler` blocks `start()`. Service code that must stay responsive uses `AsyncIOScheduler` under the anyio lane, never `BlockingScheduler`. `running` reflects `state != STATE_STOPPED`, so it is True even while the scheduler is paused; a paused-vs-active distinction reads `state` against `STATE_PAUSED`, not `running`.
+- construction law: `add_job` returns a `Job`; `scheduled_job` is the decorator with identical parameters. `misfire_grace_time`, `coalesce`, `max_instances`, and `next_run_time` default to the `<undefined>` sentinel (falling back to scheduler-level `job_defaults`), distinct from an explicit `None`. `jobstore` and `executor` are explicit keyword args, not part of `**trigger_args`.
+- store law: `MemoryJobStore` (alias `'default'`) is volatile across restarts; a persistent schedule registers `SQLAlchemyJobStore`/`RedisJobStore`/`MongoDBJobStore` before `start()`, which require their respective backend packages. Job-function references must be importable module-level callables for persistent stores to serialize them.
+- trigger law: `CronTrigger.from_crontab` is the intake for external crontab strings; field-by-field construction is for programmatic schedules. `jitter` (integer-second cap) randomizes fire time to prevent thundering-herd. `AndTrigger`/`OrTrigger` compose existing triggers rather than inventing a new trigger type.
+- listener law: `add_listener(callback, mask=...)` routes events by bitmask without polling; `EVENT_JOB_ERROR` reads `JobExecutionEvent.exception`/`.traceback` and `EVENT_JOB_EXECUTED` reads `.retval`. Failures surface through the event bus, not by inspecting return values inline.
+- configure law: jobstores, executors, and `job_defaults` are applied through `configure(...)` (or the constructor) before `start()`; mutating infrastructure after start uses the `add_*`/`remove_*` methods, never direct attribute assignment.
 
 [LOCAL_ADMISSION]:
-- one scheduler instance owns all jobs; job stores and executors are added before `start()`
-- `add_listener` with a specific event bitmask routes events without polling; `EVENT_ALL` is the default mask
-- `CronTrigger.from_crontab` is the intake path for external cron strings; field-by-field construction is for programmatic schedules
-- `jitter` on triggers adds randomized seconds delay to prevent thundering herd; it is an integer second cap
+- the scheduler is constructed once, infrastructure registered, then `start()` is called inside the host lifecycle; `shutdown(wait=True)` participates in the host drain choreography.
+- `export_jobs`/`import_jobs` are the migration seam for moving a schedule between stores; jobs are never re-created by re-running registration code against a populated store.
+- a job body returns a `Result`; the listener maps `EVENT_JOB_ERROR` to a receipt fault, so the executor's exception is captured, not swallowed.
+
+[STACK_LAW]:
+- `AsyncIOScheduler` + `AsyncIOExecutor` runs coroutine jobs on the same loop the anyio runtime owns; a job body may open a `stamina.retry_context` for its own transient failures, while the scheduler's `misfire_grace_time`/`coalesce` own missed-fire policy — the two are orthogonal.
+- `add_listener(..., EVENT_JOB_EXECUTED|EVENT_JOB_ERROR|EVENT_JOB_MISSED)` is the single seam where the OTel span / receipt fact for a run is emitted, reading `JobExecutionEvent` fields, not a wrapper around the job function.
 
 [RAIL_LAW]:
 - Package: `APScheduler`
-- Owns: in-process scheduled job execution with cron, interval, and date-based triggers
-- Accept: `BackgroundScheduler` or `AsyncIOScheduler` for non-blocking use; `add_job`/`scheduled_job` for job registration; `add_listener` for event observability
-- Reject: hand-rolled `threading.Timer` or `asyncio.call_later` loops for recurring schedules; `BlockingScheduler` in service code that must stay responsive
+- Owns: in-process scheduled execution with cron/interval/date/calendar/combining triggers, the `Job` lifecycle, pluggable persistent stores and executors, the listener event bus, and job import/export
+- Accept: `AsyncIOScheduler`/`BackgroundScheduler` for non-blocking use, `add_job`/`scheduled_job` registration, `CronTrigger.from_crontab` for external strings, `configure` before `start`, persistent jobstores for durable schedules, `add_listener` with an event bitmask for observability, `export_jobs`/`import_jobs` migration
+- Reject: hand-rolled `threading.Timer`/`asyncio.call_later` recurring loops, `aiocron`, `BlockingScheduler` in responsive service code, re-running registration against a populated persistent store, treating `<undefined>` defaults as `None`, inspecting job return values inline instead of via the event bus

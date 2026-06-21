@@ -9,7 +9,9 @@
 - import: `import rioxarray`
 - owner: `data`
 - rail: geospatial
-- installed: `0.22.0` reflected via `forge-scientific-env python -m tools.assay api query --key rioxarray --symbol rioxarray` on cp315 (30 types across 7 namespaces)
+- version: `0.22.0`
+- license: Apache-2.0 (vendors `LICENSE_xarray` and `LICENSE_datacube`)
+- asset: pure-Python; `py3-none-any` wheel (`Root-Is-Purelib: true`), no ABI floor of its own — `Requires-Python >=3.12`. The cp315 ABI floor is inherited from its `rasterio` dependency (the locked `rasterio==1.5.0` cp313 wheel does not load on the cp315 core), so `.rio` access is gated on the rasterio sync, not on rioxarray itself. Accessor and module signatures below are reflection-verified against the locked `0.22.0` wheel source (`rioxarray.py`/`raster_array.py`/`raster_dataset.py`/`_io.py`/`exceptions.py`); runtime deps `numpy`/`pyproj`/`xarray`/`packaging`/`rasterio`.
 - entry points: xarray backend `rasterio = rioxarray.xarray_plugin:RasterioBackend` (registers `engine="rasterio"` for `xarray.open_dataset`); no console script; library use is import-only, which registers the `.rio` accessor on `DataArray`/`Dataset`
 - capability: rasterio/GDAL raster read into georeferenced `DataArray`/`Dataset` with auto pixel-center coordinates; dask chunking, masking, and `mask_and_scale`; CRS/transform/nodata read and CF/Zarr-convention write; reprojection and grid-matching warping; geometry and bounding-box clipping; spatial padding, slicing, and window selection; nodata interpolation; multi-tile array/dataset merge; GeoTIFF/driver writeback
 
@@ -62,17 +64,21 @@ Both `.rio` accessors inherit CRS/transform metadata read-write, dimension bindi
 |  [01]   | `XRasterBase.crs`              | property -> `Optional[rasterio.crs.CRS]`                                                          | resolved coordinate reference system       |
 |  [02]   | `XRasterBase.set_crs`          | `set_crs(input_crs, inplace=True)`                                                                | set CRS without writing CF metadata        |
 |  [03]   | `XRasterBase.write_crs`        | `write_crs(input_crs=None, grid_mapping_name=None, convention=None, inplace=False)`               | write CRS as CF/Zarr grid-mapping metadata |
-|  [04]   | `XRasterBase.write_transform`  | `write_transform(transform=None, grid_mapping_name=None, convention=None, inplace=False)`         | persist the affine transform to metadata   |
-|  [05]   | `XRasterBase.transform`        | `transform(recalc=False) -> Affine`                                                               | affine geotransform                        |
-|  [06]   | `XRasterBase.estimate_utm_crs` | `estimate_utm_crs(datum_name='WGS 84') -> rasterio.crs.CRS`                                       | infer the local UTM CRS                    |
-|  [07]   | `XRasterBase.set_spatial_dims` | `set_spatial_dims(x_dim, y_dim, inplace=True)`                                                    | bind the x/y spatial dimension names       |
-|  [08]   | `XRasterBase.resolution`       | `resolution(recalc=False) -> tuple[float, float]`                                                 | pixel resolution                           |
-|  [09]   | `XRasterBase.bounds`           | `bounds(*, recalc=False) -> tuple[float, float, float, float]`                                    | spatial bounding box                       |
-|  [10]   | `XRasterBase.transform_bounds` | `transform_bounds(dst_crs, *, densify_pts=21, recalc=False) -> tuple[float, float, float, float]` | reproject the bounding box to another CRS  |
-|  [11]   | `XRasterBase.slice_xy`         | `slice_xy(minx, miny, maxx, maxy)`                                                                | spatial slice by coordinate box            |
-|  [12]   | `XRasterBase.isel_window`      | `isel_window(window, *, pad=False)`                                                               | select a rasterio `Window` region          |
-|  [13]   | `XRasterBase.write_gcps`       | `write_gcps(gcps, gcp_crs, *, grid_mapping_name=None, inplace=False)`                             | persist ground control points              |
-|  [14]   | `XRasterBase.shape`            | property -> `tuple[int, int]`                                                                     | `(height, width)` raster shape             |
+|  [04]   | `XRasterBase.grid_mapping` / `write_grid_mapping` | property -> `str`; `write_grid_mapping(grid_mapping_name='spatial_ref', inplace=False)` | grid-mapping variable name read/write   |
+|  [05]   | `XRasterBase.write_transform`  | `write_transform(transform=None, grid_mapping_name=None, convention=None, inplace=False)`         | persist the affine transform to metadata   |
+|  [06]   | `XRasterBase.write_coordinate_system` | `write_coordinate_system(inplace=False)`                                                   | write CF axis/coordinate-system attrs      |
+|  [07]   | `XRasterBase.transform`        | `transform(recalc=False) -> Affine`                                                               | affine geotransform                        |
+|  [08]   | `XRasterBase.estimate_utm_crs` | `estimate_utm_crs(datum_name='WGS 84') -> rasterio.crs.CRS`                                       | infer the local UTM CRS                    |
+|  [09]   | `XRasterBase.set_spatial_dims` | `set_spatial_dims(x_dim, y_dim, inplace=True)`                                                    | bind the x/y spatial dimension names       |
+|  [10]   | `XRasterBase.resolution`       | `resolution(recalc=False) -> tuple[float, float]`                                                 | pixel resolution                           |
+|  [11]   | `XRasterBase.bounds`           | `bounds(*, recalc=False) -> tuple[float, float, float, float]`                                    | spatial bounding box                       |
+|  [12]   | `XRasterBase.transform_bounds` | `transform_bounds(dst_crs, *, densify_pts=21, recalc=False) -> tuple[float, float, float, float]` | reproject the bounding box to another CRS  |
+|  [13]   | `XRasterBase.slice_xy`         | `slice_xy(minx, miny, maxx, maxy)`                                                                | spatial slice by coordinate box            |
+|  [14]   | `XRasterBase.isel_window`      | `isel_window(window, *, pad=False)`                                                               | select a rasterio `Window` region          |
+|  [15]   | `XRasterBase.write_gcps` / `get_gcps` | `write_gcps(gcps, gcp_crs, *, grid_mapping_name=None, inplace=False)`; `get_gcps()`        | persist / read ground control points       |
+|  [16]   | `XRasterBase.write_rpcs` / `get_rpcs` | `write_rpcs(rpcs, *, grid_mapping_name=None, inplace=False)`; `get_rpcs()`                 | persist / read `rasterio.rpc.RPC` coefficients |
+|  [17]   | `XRasterBase.set_attrs` / `update_attrs` / `set_encoding` / `update_encoding` | `(new_attrs|new_encoding, inplace=False)`                              | replace/merge CF attrs and encoding        |
+|  [18]   | `XRasterBase.shape` / `width` / `height` / `count` | properties -> `tuple[int,int]` / `int` / `int` / `int`                          | `(height, width)` shape and band count     |
 
 [ENTRYPOINT_SCOPE]: `RasterArray` / `RasterDataset` raster operations
 - rail: geospatial
@@ -81,8 +87,8 @@ The `.rio` accessor methods share signatures across `DataArray` (`RasterArray`) 
 
 | [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                                                                              | [CAPABILITY]                                    |
 | :-----: | :-------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `reproject`                       | `reproject(dst_crs, *, resolution=None, shape=None, transform=None, resampling=Resampling.nearest, nodata=None, **kwargs)`                                | warp to a target CRS/grid                       |
-|  [02]   | `reproject_match`                 | `reproject_match(match_data_array, *, resampling=Resampling.nearest, **reproject_kwargs)`                                                                 | reproject onto another object's grid            |
+|  [01]   | `reproject`                       | `reproject(dst_crs, *, resolution=None, shape=None, transform=None, resampling=Resampling.nearest, nodata=None, **kwargs)` (`resolution: float|tuple`, `resampling: Resampling|str`) | warp to a target CRS/grid             |
+|  [02]   | `reproject_match`                 | `reproject_match(match_data_array, *, resampling=Resampling.nearest, **reproject_kwargs)` (`match_data_array: DataArray|Dataset`)                          | reproject onto another object's grid            |
 |  [03]   | `clip`                            | `clip(geometries, crs=None, *, all_touched=False, drop=True, invert=False, from_disk=False)`                                                              | mask by GeoJSON-like geometries                 |
 |  [04]   | `clip_box`                        | `clip_box(minx, miny, maxx, maxy, *, auto_expand=False, auto_expand_limit=3, crs=None, allow_one_dimensional_raster=False)`                               | crop to a bounding box                          |
 |  [05]   | `pad_box`                         | `pad_box(minx, miny, maxx, maxy, *, constant_values=None)`                                                                                                | pad to a bounding box with constant fill        |
@@ -106,6 +112,13 @@ The `.rio` accessor methods share signatures across `DataArray` (`RasterArray`) 
 - merge axis: `merge_arrays`/`merge_datasets` mosaic tile sequences with `bounds`/`res`/`nodata`/`method` rows feeding the catalog coverage path, never a manual concat-and-align.
 - evidence: each read/write captures CRS, affine transform, resolution, bounds, shape, dtype, nodata, and driver as a geospatial receipt.
 - boundary: rioxarray owns the rasterio/GDAL-to-xarray raster boundary; vector geometry routes to `shapely`/`geopandas`, CRS algebra to `pyproj`, STAC discovery to `pystac`/`pystac-client`, and lower-level band IO to `rasterio` directly when no xarray labeling is needed; live UI stays outside this package.
+
+[STACK_LAW]:
+- `rasterio` -> `rioxarray`: `open_rasterio` wraps `rasterio.open`/`rasterio.vrt.WarpedVRT` (the `filename` argument accepts an open `DatasetReader`/`WarpedVRT` directly), labels bands as a georeferenced `DataArray`/`Dataset`, and shares the `rasterio.crs.CRS` object so CRS algebra is never duplicated; `resampling` rows are `rasterio.enums.Resampling`, and `to_rasterio_dataset` reopens the array as an in-memory rasterio dataset.
+- `pystac`/`pystac-client` -> `rioxarray`: a signed COG asset href from a `pystac.Item` (`MediaType.COG`) flows into `open_rasterio(..., chunks=...)`; the item projection-extension `transform`/`epsg` match the `.rio.transform()`/`.rio.crs` the accessor resolves.
+- `pystac` -> `odc-stac`/`stackstac` -> `rioxarray`: `odc.stac.load`/`stackstac.stack` assemble a multi-item cube and rioxarray's `.rio` accessor then owns per-band CRS/transform/nodata, `reproject_match` onto a reference grid, and `merge_arrays`/`merge_datasets` for the catalog-coverage mosaic — never a manual concat-and-align.
+- `rioxarray` -> `zarr`/`icechunk`/`virtualizarr`: `write_crs(convention=Convention.ZARR)` plus `to_raster` (GDAL drivers) or the xarray `to_zarr` path persist the georeferenced cube; `Convention` selects CF vs Zarr grid-mapping encoding so the same object round-trips to both GeoTIFF and Zarr.
+- `rioxarray` <-> `shapely`/`geopandas`/`pyproj`: `.rio.clip(geometries, crs=...)` consumes GeoJSON-like/`shapely` geometries (reprojected when `crs` differs), and `estimate_utm_crs`/`transform_bounds` defer the CRS algebra to the shared `pyproj`/PROJ owner.
 
 [RAIL_LAW]:
 - Package: `rioxarray`

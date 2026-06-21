@@ -6,7 +6,11 @@
 
 [PACKAGE_SURFACE]: `array-api-compat`
 - package: `array-api-compat`
+- version: `1.15.0`
+- license: MIT
 - module: `array_api_compat`
+- wheel: `py3-none-any` (pure Python, no native ABI)
+- marker: ungated (no interpreter floor; rides cp315 core beside `array-api-extra`)
 - asset: runtime library
 - rail: array-api
 
@@ -74,17 +78,24 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ARRAY_API_TOPOLOGY]:
-- namespace root: `array_api_compat`; backend wrappers at `array_api_compat.numpy`, `.cupy`, `.torch`, `.dask`
-- `common` submodule owns all guard and resolver implementations
-- `UniqueAllResult`, `UniqueCountsResult`, `UniqueInverseResult` live in `array_api_compat.numpy` as named tuples
+- namespace root: `array_api_compat`; backend wrappers at `array_api_compat.numpy`, `.cupy`, `.torch`, `.dask` re-export the backend namespace patched to Array API conformance (`xp.unique_all`, positional-only argument shapes, 2024.12 spec gaps backfilled).
+- `common` submodule owns every guard and resolver; the top-level names are the public re-export.
+- `UniqueAllResult`, `UniqueCountsResult`, `UniqueInverseResult` are NamedTuples on `array_api_compat.numpy` (fields `values`/`indices`/`inverse_indices`/`counts`, `values`/`counts`, `values`/`inverse_indices`); the spec-standard `xp.unique_all`/`unique_counts`/`unique_inverse` return them.
+- Predicate guards split by intent: `is_<backend>_array`/`is_<backend>_namespace` narrow with `TypeIs`/`TypeGuard` for backend-specific fallbacks; `is_lazy_array` and `is_writeable_array` narrow on execution model (graph-traced vs eager-mutable) rather than vendor.
+
+[STACKING]:
+- `array-api-compat` is the resolver tier; `array-api-extra` is the extension tier built on top. The single dense rail is `xp = array_namespace(*arrays)` -> `array_api_extra.<op>(..., xp=xp)` so a compute owner resolves the namespace once and threads `xp` into every standard and extension call, never re-resolving and never importing a vendor namespace.
+- `is_writeable_array(x)` gates the in-place vs copy branch of `array_api_extra.at(x, idx).set(v)`: a writeable NumPy buffer mutates, a read-only JAX array copies. The guard lets a kernel choose `copy=False` only when the buffer admits it.
+- `is_lazy_array(x)` (true for JAX-traced / Dask) routes the deferred path to `array_api_extra.lazy_apply`; the eager path runs the standard `xp` op directly. This is the same lazy/eager fork the `equinox`/`jax` rails consume downstream.
+- `device(x)` / `to_device(x, dev, stream=)` carry the device context the JAX and Torch sibling rails require; resolve device once at boundary, thread alongside `xp`.
 
 [LOCAL_ADMISSION]:
 - Compute owners call `xp = array_namespace(*arrays)` once at operation entry; all subsequent array ops use `xp.<op>`, never a hardcoded backend import.
-- Backend detection predicates route type-specific fallbacks; the common path stays backend-agnostic.
-- `use_compat=None` (default) injects the compat wrapper only when needed; pass `use_compat=False` to get the raw backend namespace.
+- `use_compat=None` (default) injects the compat wrapper only when the raw backend lags the spec; pass `use_compat=False` for the bare backend namespace, `use_compat=True` to force the wrapper.
+- `api_version` pins the spec revision a kernel targets when a backend exposes multiple; omit to accept the namespace default.
 
 [RAIL_LAW]:
 - Package: `array-api-compat`
-- Owns: Array API namespace resolution and backend predicate guards
-- Accept: `xp = array_namespace(*arrays)` at boundary scope; use `xp` for all array operations
-- Reject: hardcoded `import numpy as np` in generic compute kernels; re-implementing namespace detection locally
+- Owns: Array API namespace resolution, spec-conformance wrappers, and backend/execution-model predicate guards
+- Accept: `xp = array_namespace(*arrays)` at boundary scope, `xp` threaded into every standard and `array-api-extra` op, `is_writeable_array`/`is_lazy_array` gating the mutate/copy and eager/lazy forks
+- Reject: hardcoded `import numpy as np` in generic compute kernels; re-implementing namespace detection or unique-result tuples locally; re-resolving `xp` inside an inner loop instead of threading it

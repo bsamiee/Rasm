@@ -11,7 +11,8 @@
 - rail: contract
 - installed: `2.10.1` reflected via `python -c "import dataframely"` on cp315
 - entry points: no console script; library use is import-only (Polars-native, Rust `_native.abi3.so` validation core)
-- capability: declarative `Schema`/`Column` dataframe contracts with inline column rules and cross-column `@rule` predicates, `Collection` multi-member integrity with shared primary keys and `@filter` methods, eager/lazy `validate`/`is_valid`/`filter`/`cast`, `FailureInfo` failure introspection (invalid rows, per-rule and co-occurrence counts), schema/collection `serialize`/`deserialize`, parquet/delta read/scan/write with embedded-schema validation, deterministic random `sample` generation, and `to_polars_schema`/`to_sqlalchemy_columns`/`to_pyarrow_schema`/`to_pydantic_model` projection
+- license: BSD-3-Clause
+- capability: declarative `Schema`/`Column` dataframe contracts with inline column rules and cross-column `@rule` predicates, `Collection` multi-member integrity with shared primary keys and `@filter` methods, eager/lazy `validate`/`is_valid`/`filter`/`cast`, `FailureInfo` failure introspection (invalid rows, per-rule and co-occurrence counts), schema/collection `serialize`/`deserialize`, parquet/delta read/scan/write/sink with embedded-schema validation, `read_parquet_metadata_*` schema-only metadata reads, `dy.random` deterministic conformant `sample` generation, and `to_polars_schema`/`to_sqlalchemy_columns`/`to_pyarrow_schema`/`to_pydantic_model` projection
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -96,7 +97,7 @@ Every column is a `Column` subclass mapping to a Polars dtype; constructor rows 
 |  [02]   | `Collection.is_valid`                      | `is_valid(data, /, *, cast=False) -> bool`                                                           | boolean collection conformance                       |
 |  [03]   | `Collection.filter`                        | `filter(data, /, *, cast=False, eager=True) -> CollectionFilterResult[Self]`                         | split members into valid + per-member failures       |
 |  [04]   | `Collection.cast`                          | `cast(data, /) -> Self`                                                                              | cast every member to its schema (no invariant check) |
-|  [05]   | `Collection.join`                          | `join(primary_keys, how="semi", maintain_order="none") -> Self`                                      | filter all members by a shared-key frame             |
+|  [05]   | `Collection.join`                          | `join(primary_keys, how: Literal["semi","anti"]="semi", maintain_order: Literal["none","left"]="none") -> Self` | filter all members by a shared-key frame             |
 |  [06]   | `Collection.collect_all`                   | `collect_all() -> Self`                                                                              | collect all lazy members                             |
 |  [07]   | `Collection.sample`                        | `sample(num_rows=None, *, overrides=None, generator=None) -> Self`                                   | random collection-conformant members (testing)       |
 |  [08]   | `Collection.create_empty`                  | `create_empty() -> Self`                                                                             | empty collection-typed members                       |
@@ -105,6 +106,8 @@ Every column is a `Column` subclass mapping to a Polars dtype; constructor rows 
 |  [11]   | `Collection.read_parquet`                  | `read_parquet(directory, *, validation="warn", **kwargs) -> Self`                                    | read `<member>.parquet` files with schema check      |
 |  [12]   | `Collection.scan_parquet`                  | `scan_parquet(directory, *, validation="warn", **kwargs) -> Self`                                    | lazily scan member parquet files                     |
 |  [13]   | `Collection.write_parquet`                 | `write_parquet(directory, **kwargs) -> None`                                                         | write each member to `<member>.parquet`              |
+|  [13a]  | `Collection.sink_parquet`                  | `sink_parquet(directory, **kwargs) -> None`                                                          | streaming-sink each lazy member to parquet           |
+|  [13b]  | `Collection.read_delta` / `scan_delta` / `write_delta` | `read_delta(...) -> Self` / `scan_delta(...) -> Self` / `write_delta(...) -> None`       | per-member delta IO with embedded schema check       |
 |  [14]   | `Collection.member_schemas`                | `member_schemas() -> dict[str, type[Schema]]`                                                        | the member-name-to-schema map                        |
 |  [15]   | `Collection.common_primary_key`            | `common_primary_key() -> list[str]`                                                                  | primary key shared across members                    |
 |  [16]   | `require_relationship_one_to_one`          | `require_relationship_one_to_one(lhs, rhs, /, on, *, drop_duplicates=True) -> pl.LazyFrame`          | 1:1 referential-integrity filter expression          |
@@ -131,6 +134,9 @@ Every column is a `Column` subclass mapping to a Polars dtype; constructor rows 
 |  [11]   | `Config`                          | `Config(**options)` / `Config.set_max_sampling_iterations(n)` / `Config.set_max_failure_examples(n)` / `Config.restore_defaults()`      | sampling + failure-example caps (context manager)   |
 |  [12]   | `deserialize_schema`              | `deserialize_schema(data, strict=True) -> type[Schema] \| None`                                                                         | restore a serialized schema                         |
 |  [13]   | `deserialize_collection`          | `deserialize_collection(data, ...) -> type[Collection]`                                                                                 | restore a serialized collection                     |
+|  [14]   | `read_parquet_metadata_schema`    | `read_parquet_metadata_schema(source, **kwargs) -> type[Schema]`                                                                        | restore the embedded `Schema` from parquet metadata without reading rows |
+|  [15]   | `read_parquet_metadata_collection`| `read_parquet_metadata_collection(directory, **kwargs) -> type[Collection]`                                                             | restore the embedded `Collection` from member parquet metadata |
+|  [16]   | `dy.random`                       | module: `random.generator(seed=None)` / sampler entries consumed by `Schema.sample`/`Collection.sample`                                 | deterministic RNG source for conformant-row generation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -144,6 +150,14 @@ Every column is a `Column` subclass mapping to a Polars dtype; constructor rows 
 - projection axis: `to_polars_schema`/`to_sqlalchemy_columns`/`to_pyarrow_schema`/`to_pydantic_model` export the one contract to the consuming runtime; downstream code projects the schema, never re-declares the column types.
 - evidence: each gate captures schema name, primary key, rule names, valid/invalid row counts, per-rule and co-occurrence failure counts, and serializer kind as a contract receipt.
 - boundary: dataframely owns Polars-native dataframe contract declaration, rule evaluation, and cross-frame integrity over its Rust `_native` core; row-level grading and reporting route to the grading owner; raw columnar transforms stay in the Polars owner; persistence of validated frames routes through the storage owner.
+
+[STACKS_WITH]:
+- polars: dataframely IS the contract layer over polars — `Schema.validate`/`filter` consume a `pl.DataFrame`/`pl.LazyFrame` and `@rule`/`@filter` predicates return `pl.Expr`/`pl.LazyFrame`; the typed `DataFrame[S]`/`LazyFrame[S]` outputs are polars frames carrying a schema tag, so all transform logic stays in the polars owner and only the contract gate lives here.
+- pyarrow / arro3-core: `to_pyarrow_schema` projects the contract to a `pa.Schema` so a validated frame's schema is the wire schema for the columnar interop owner; an Arrow ingest (e.g. from `connectorx`/`daft.to_arrow`) is validated by reading into polars then through `Schema.validate`.
+- connectorx / daft: a partitioned database/lakehouse read egresses a `pl.DataFrame` that enters `Schema.validate` at the ingest boundary — the schema is the single contract for both the read source and the downstream consumer, never re-declared.
+- deltalake: `Schema.read_delta`/`scan_delta`/`write_delta` embed the serialized contract in the delta table so the contract round-trips with the data, never a side file; the deltalake owner owns the table transaction, dataframely owns the embedded-schema validation policy (`Validation`).
+- pandera / pointblank: pandera and pointblank are the cross-engine/grading validation siblings; route Polars-native declarative contracts and `Collection` cross-frame integrity to dataframely, pandas/multi-backend schema checks to pandera, and column-health reporting to pointblank — one validation concern, partitioned by engine ownership, never a parallel validator per column kind.
+- pydantic: `to_pydantic_model` projects the contract to a `BaseModel` so a row-shaped API/config boundary reuses the one schema definition instead of re-declaring the field types.
 
 [RAIL_LAW]:
 - Package: `dataframely`

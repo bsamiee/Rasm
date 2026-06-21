@@ -6,10 +6,13 @@
 
 [PACKAGE_SURFACE]: `adbc-driver-flightsql`
 - package: `adbc-driver-flightsql`
+- version: `1.11.0`
 - import: `adbc_driver_flightsql`
 - owner: `data`
 - rail: partition
-- installed: `1.11.0` reflected via `import adbc_driver_flightsql` on cp315
+- asset: pure-Python wrapper that bundles the prebuilt native `libadbc_driver_flightsql` per platform; wheels are `py3-none-{macosx,manylinux,win}` (one per OS/arch, no Python ABI floor — the Go-built driver carries the gRPC transport)
+- license: `Apache-2.0`
+- marker: `requires-python >=3.10`; runtime dependencies `adbc-driver-manager` (the shared driver-loading core) and `importlib-resources` (locates the bundled `.so`)
 - entry points: library use is import-only; `connect` returns an `AdbcDatabase`, `dbapi.connect` returns a DBAPI 2.0 `Connection`
 - capability: Flight SQL endpoint binding over gRPC, partitioned result retrieval via `execute_partitions`/`adbc_execute_partitions`, mTLS and TLS-override transport, arbitrary RPC header injection, per-call fetch/query/update timeouts, session-option get/set, OAuth 2.0 client-credentials and token-exchange (RFC 8693) authentication, Substrait plan version control, and DBAPI 2.0 cursor access yielding Arrow record batches
 
@@ -91,10 +94,14 @@ Connection options own session-option get/set and override database-scoped heade
 |  [04]   | `ConnectionOptions.OPTION_BOOL_SESSION_OPTION_PREFIX`        | `adbc.flight.sql.session.optionbool.`             | get/set a boolean session option (key prefix)      |
 |  [05]   | `ConnectionOptions.OPTION_STRING_LIST_SESSION_OPTION_PREFIX` | `adbc.flight.sql.session.optionstringlist.`       | get/set a string-list session option (key prefix)  |
 |  [06]   | `ConnectionOptions.RPC_CALL_HEADER_PREFIX`                   | `adbc.flight.sql.rpc.call_header.`                | connection-scoped header prefix (overrides db)     |
-|  [07]   | `StatementOptions.LAST_FLIGHT_INFO`                          | `adbc.flight.sql.statement.exec.last_flight_info` | latest `FlightInfo` (incremental execution)        |
-|  [08]   | `StatementOptions.QUEUE_SIZE`                                | `adbc.rpc.result_queue_size`                      | batches queued per partition (default 5)           |
-|  [09]   | `StatementOptions.RPC_CALL_HEADER_PREFIX`                    | `adbc.flight.sql.rpc.call_header.`                | statement-scoped header prefix (overrides db/conn) |
-|  [10]   | `StatementOptions.SUBSTRAIT_VERSION`                         | `adbc.flight.sql.substrait.version`               | Substrait version on the Flight SQL request        |
+|  [07]   | `ConnectionOptions.TIMEOUT_FETCH`/`TIMEOUT_QUERY`/`TIMEOUT_UPDATE` | `adbc.flight.sql.rpc.timeout_seconds.{fetch,query,update}` | connection-scoped timeout overrides (seconds) |
+|  [08]   | `StatementOptions.LAST_FLIGHT_INFO`                          | `adbc.flight.sql.statement.exec.last_flight_info` | latest `FlightInfo` (incremental execution)        |
+|  [09]   | `StatementOptions.QUEUE_SIZE`                                | `adbc.rpc.result_queue_size`                      | batches queued per partition (default 5)           |
+|  [10]   | `StatementOptions.RPC_CALL_HEADER_PREFIX`                    | `adbc.flight.sql.rpc.call_header.`                | statement-scoped header prefix (overrides db/conn) |
+|  [11]   | `StatementOptions.SUBSTRAIT_VERSION`                         | `adbc.flight.sql.substrait.version`               | Substrait version on the Flight SQL request        |
+|  [12]   | `StatementOptions.TIMEOUT_FETCH`                             | `adbc.flight.sql.rpc.timeout_seconds.fetch`       | statement-scoped DoGet fetch timeout (seconds)     |
+|  [13]   | `StatementOptions.TIMEOUT_QUERY`                             | `adbc.flight.sql.rpc.timeout_seconds.query`       | statement-scoped query timeout (seconds)           |
+|  [14]   | `StatementOptions.TIMEOUT_UPDATE`                            | `adbc.flight.sql.rpc.timeout_seconds.update`      | statement-scoped update timeout (seconds)          |
 
 [ENTRYPOINT_SCOPE]: OAuth value enums
 - rail: partition
@@ -118,7 +125,9 @@ Connection options own session-option get/set and override database-scoped heade
 - import: `import adbc_driver_flightsql` (and `adbc_driver_flightsql.dbapi`) at boundary scope only; module-level import is banned by the manifest import policy.
 - factory axis: one `connect` owns endpoint binding to the native `libadbc_driver_flightsql.so`; `dbapi.connect` is the DBAPI 2.0 row that adds `conn_kwargs`, never a parallel client class — the database object is shared and connections are derived from it.
 - option axis: `DatabaseOptions`/`ConnectionOptions`/`StatementOptions` enum values are the canonical `adbc.flight.sql.*` keys; settings flow as `db_kwargs`/`conn_kwargs`/statement-option dictionaries keyed by enum value, never as ad hoc string literals or a per-setting builder type; connection and statement scope override database scope for shared keys.
-- partition axis: `REMOTE_PARTITION_DEEPEN` runs `execute_partitions` to receive Flight RPC endpoints, then reads each partition as Arrow record batches; `StatementOptions.QUEUE_SIZE` tunes read-ahead and `StatementOptions.LAST_FLIGHT_INFO` inspects progress under incremental execution; partition handoff is the native driver's, never a hand-stitched gRPC loop.
+- partition axis: `REMOTE_PARTITION_DEEPEN` runs `Cursor.adbc_execute_partitions` (or low-level `AdbcStatement.execute_partitions`) to receive Flight RPC endpoint descriptors, then opens each with `adbc_read_partition` as an independent `RecordBatchReader`; `StatementOptions.QUEUE_SIZE` tunes per-partition read-ahead and `StatementOptions.LAST_FLIGHT_INFO` inspects progress under incremental execution; partition handoff is the native driver's, never a hand-stitched gRPC loop.
+- manager axis: the concrete driver delegates loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree), and Arrow result delivery to `adbc_driver_manager`; this catalog adds only the Flight SQL option vocabulary and OAuth axes — never a parallel DBAPI implementation. The typed error tree and `AdbcStatusCode` mapping are the manager's.
+- arrow egress axis: each partition `RecordBatchReader` exposes `__arrow_c_stream__`, so a Flight SQL result feeds `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` with zero copy; fan partitions across workers and collapse them with one terminal `read_all`/`fetch_arrow_table`.
 - transport axis: TLS, mTLS (`MTLS_CERT_CHAIN`/`MTLS_PRIVATE_KEY`), hostname override, root certs, message-size cap, cookie middleware, and per-call fetch/query/update timeouts are `DatabaseOptions` rows; arbitrary headers attach through the `RPC_CALL_HEADER_PREFIX` key prefix at the narrowest applicable scope.
 - auth axis: `OAUTH_FLOW` selects an `OAuthFlowType` value; client-credentials uses the client-id/secret/scope rows while token-exchange (RFC 8693) keys subject/actor/requested token URIs by `OAuthTokenType`; the `AUTHORIZATION_HEADER` row carries a static bearer when no flow is configured.
 - evidence: each connection captures the resolved URI, applied option keys, OAuth flow, partition count, per-partition batch count, and Arrow schema as a partition receipt.

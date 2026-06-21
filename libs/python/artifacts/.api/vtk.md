@@ -7,7 +7,10 @@
 [PACKAGE_SURFACE]: `vtk`
 - package: `vtk`
 - module: `vtk` (aggregates `vtkmodules.*`)
-- asset: C++ native runtime library with Python bindings
+- pin: `vtk>=9.6.2; python_version<'3.13'` — VTK ships cp38..cp314 wheels only; there is no CPython 3.15 wheel, so vtk is gated to the sub-3.13 interpreter band and is not present in the cp315 venv
+- license: `BSD-3-Clause`
+- asset: C++ native runtime library with Python bindings (large native ABI; gated wheel)
+- consumer: `pyvista` is the in-repo high-level consumer — vtk is the engine pyvista wraps for the artifacts visuals rail; design pages compose pyvista's pythonic API and drop to raw `vtk` only for pipeline stages pyvista does not expose
 - rail: visuals
 
 ## [02]-[PUBLIC_TYPES]
@@ -167,8 +170,14 @@
 - Import canonical classes from `vtk` (flat re-export) or from the specific `vtkmodules.<Module>` for narrower import surface.
 - Render headless with `SetOffScreenRendering(1)`; reserve `vtkRenderWindowInteractor.Start()` for interactive sessions.
 
+[INTEGRATION]:
+- pyvista composition: `pyvista.wrap(polydata)` adopts a `vtkPolyData`/`vtkImageData` into a `pyvista.DataSet` with NumPy-array attribute access; conversely a `pyvista.PolyData` exposes its underlying `vtkPolyData` for a filter pyvista does not wrap. Stay on the pyvista surface for plotting, scalar bars, and camera; drop to raw `vtk` only for the missing filter/mapper, then re-wrap.
+- artifact export: for the artifacts visuals rail run `vtkRenderWindow.SetOffScreenRendering(1)` (or pyvista `off_screen=True`) and capture the framebuffer to a PNG via `vtkWindowToImageFilter` -> `vtkPNGWriter`, feeding the artifacts image/download owner. Never spin a `vtkRenderWindowInteractor` event loop in a headless export path.
+- numpy seam: `vtkmodules.util.numpy_support.numpy_to_vtk`/`vtk_to_numpy` is the zero-copy bridge between a `numpy` mesh/scalar array and a `vtkDataArray`; build attribute arrays from canonical NumPy buffers through it rather than per-element `InsertNextValue` loops for large datasets.
+- band law: because vtk resolves only below cp313, a visuals design page that runs on the cp315 core must hand the render stage to the gated interpreter band (the same offload seam pyvista-dependent stages use); the cp315 page composes the contract, the sub-3.13 worker runs the pipeline.
+
 [RAIL_LAW]:
 - Package: `vtk`
-- Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack
-- Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray`
-- Reject: hand-rolled mesh-processing or rendering loops where a VTK filter/mapper exists; wrapper-renames of the pipeline contract
+- Owns: 3D scientific visualization, the demand-driven dataset pipeline, geometry sources/filters, file I/O, and the rendering/interaction stack — as the native engine under pyvista
+- Accept: pipeline wiring via `SetInputConnection`/`GetOutputPort`; datasets built through `vtkPoints`/`vtkCellArray`/`vtkDataArray` or the `numpy_support` zero-copy bridge; offscreen render-to-image for artifact export; raw-vtk drop-down for filters pyvista does not wrap
+- Reject: hand-rolled mesh-processing or rendering loops where a VTK filter/mapper exists; wrapper-renames of the pipeline contract; assuming a cp315 wheel exists; an interactor event loop in a headless export path

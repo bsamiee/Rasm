@@ -1,14 +1,19 @@
 # [PY_DATA_API_PYARROW]
 
-`pyarrow` is the Python binding to Apache Arrow's columnar memory format, owning typed `Array`/`ChunkedArray` columns, `RecordBatch`/`Table` tables, `Field`/`Schema` metadata, and the C data interface for zero-copy interchange. Top-level constructor functions (`array`, `table`, `record_batch`, `chunked_array`) and a dtype factory family (`int64`, `float64`, `timestamp`, `list_`, `struct`, `decimal128`, `dictionary`) build these values; the `compute` module supplies vectorized kernels, and the `parquet`, `csv`, `feather`, `ipc`, `dataset`, and `fs` submodules own format IO and filesystem access. `Table.group_by(...).aggregate(...)` runs grouped aggregation natively.
+`pyarrow` is the Python binding to Apache Arrow's columnar memory format, owning typed `Array`/`ChunkedArray` columns, `RecordBatch`/`Table` tables, `Field`/`Schema` metadata, and the PyCapsule C data/stream interface (`__arrow_c_array__`/`__arrow_c_stream__`/`__arrow_c_schema__`) for zero-copy interchange. Top-level constructor functions (`array`, `table`, `record_batch`, `chunked_array`) and a dtype factory family (`int64`, `float64`, `timestamp`, `list_`, `struct`, `decimal128`, `dictionary`) build these values; the `compute` module supplies vectorized kernels plus a user-UDF registry, `acero` exposes the streaming `Declaration` execution engine, `substrait` consumes cross-engine query plans, and the `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `dataset`, `flight`, and `fs` submodules own format IO, RPC, and filesystem access. `Table.group_by(...).aggregate(...)` runs grouped aggregation natively.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `pyarrow`
 - package: `pyarrow`
 - module: `pyarrow`
-- asset: C++ extension (Apache Arrow)
+- version: `23.0.1`
+- license: `Apache-2.0`
+- requires-python: `>=3.10`
+- manifest pin: `>=23.0.0,<24` (source-build via the Parametric_Forge Arrow C++ toolchain; the `<24` ceiling holds the C++ ABI to the toolchain-provided libarrow)
+- asset: C++ extension (Apache Arrow); native ABI tied to the linked libarrow/libparquet
 - rail: Arrow columnar memory
+- submodules: `compute`, `acero`, `substrait`, `dataset`, `parquet`, `csv`, `json`, `orc`, `feather`, `ipc`, `flight`, `fs`, `cuda`, `interchange`, `types`, `util`
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -48,6 +53,22 @@
 |  [11]   | `Decimal128Type` / `Decimal256Type`  | decimal       | fixed-precision decimal types |
 |  [12]   | `KeyValueMetadata`                   | metadata      | schema and field metadata map |
 
+[PUBLIC_TYPE_SCOPE]: execution-engine and dataset types
+- rail: Arrow columnar memory
+
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY]   | [ROLE]                                                       |
+| :-----: | :-------------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `acero.Declaration`                                       | exec plan       | composable streaming exec-node graph (`from_sequence`/`to_table`/`to_reader`) |
+|  [02]   | `acero.ScanNodeOptions` / `FilterNodeOptions` / `ProjectNodeOptions` | exec node | scan/filter/project node configs                             |
+|  [03]   | `acero.AggregateNodeOptions` / `HashJoinNodeOptions` / `AsofJoinNodeOptions` / `OrderByNodeOptions` | exec node | aggregate/join/order node configs |
+|  [04]   | `compute.Expression`                                      | predicate algebra | filter/project expression tree (`field()`/`scalar()`/`&`/`|`/`~`/comparisons) |
+|  [05]   | `dataset.Dataset` / `FileSystemDataset` / `UnionDataset`  | dataset         | multi-file lazy dataset with pushdown                        |
+|  [06]   | `dataset.Scanner`                                         | scanner         | configured scan (`columns`/`filter`/`batch_size`) -> `to_table`/`to_batches` |
+|  [07]   | `dataset.ParquetFileFormat` / `CsvFileFormat` / `JsonFileFormat` / `OrcFileFormat` / `IpcFileFormat` | file format | per-format scan/write options |
+|  [08]   | `dataset.HivePartitioning` / `DirectoryPartitioning` / `FilenamePartitioning` | partitioning | dataset partition layout schemes              |
+|  [09]   | `dataset.ParquetEncryptionConfig` / `ParquetDecryptionConfig` | encryption  | column-level Parquet modular encryption configs              |
+|  [10]   | `RecordBatchReader`                                       | stream          | C-stream-importable batch iterator (`from_stream`/`from_batches`/`read_all`/`__arrow_c_stream__`) |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and dtype factories
@@ -84,8 +105,9 @@
 |  [06]   | `join(other, keys, ...)` / `join_asof`          | join           | hash and as-of joins                 |
 |  [07]   | `append_column / add_column / set_column`       | mutation       | add or replace a column              |
 |  [08]   | `drop_columns / remove_column / rename_columns` | mutation       | drop and rename columns              |
+|  [06b]  | `join(right, keys, join_type='left outer', ..., filter_expression=None)` | join | hash join with optional residual `Expression` filter |
 |  [09]   | `cast(target_schema)` / `combine_chunks()`      | transform      | cast schema, coalesce chunks         |
-|  [10]   | `to_batches()` / `to_reader()`                  | stream         | iterate as batches or a reader       |
+|  [10]   | `to_batches()` / `to_reader()` / `__arrow_c_stream__()` | stream | iterate as batches/reader; export PyCapsule C-stream |
 |  [11]   | `to_pandas()` / `to_pydict()` / `to_pylist()`   | interop        | export to pandas, dicts, rows        |
 |  [12]   | `to_struct_array()` / `flatten()`               | reshape        | struct-array view and struct flatten |
 
@@ -105,7 +127,26 @@
 |  [09]   | `feather.read_table` / `feather.write_feather`      | Feather IO     | Arrow IPC file (Feather)              |
 |  [10]   | `ipc.open_stream` / `ipc.new_stream`                | IPC            | Arrow streaming IPC                   |
 |  [11]   | `dataset.dataset(source, format, partitioning)`     | dataset        | multi-file lazy dataset with pushdown |
-|  [12]   | `fs.LocalFileSystem / S3FileSystem / GcsFileSystem` | filesystem     | local and cloud object stores         |
+|  [12]   | `fs.LocalFileSystem / S3FileSystem / GcsFileSystem / AzureFileSystem / HadoopFileSystem` | filesystem | local and cloud object stores |
+
+[ENTRYPOINT_SCOPE]: streaming execution, dataset write, UDFs, and cross-engine plans
+- rail: Arrow columnar memory
+
+| [INDEX] | [SURFACE]                                                                                                | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `acero.Declaration("scan"/"filter"/"project"/"aggregate"/"hashjoin"/"asofjoin"/"order_by", options, inputs)` | exec plan  | build a streaming exec-node                              |
+|  [02]   | `acero.Declaration.from_sequence([decls])` -> `.to_table()` / `.to_reader()`                             | exec plan      | chain nodes; materialize to `Table`/`RecordBatchReader` |
+|  [03]   | `compute.field(name)` / `compute.scalar(v)` -> `Expression` (`&` `|` `~` `==` `<` `isin`)                | expression     | predicate algebra for dataset/acero pushdown            |
+|  [04]   | `compute.register_scalar_function(func, name, doc, in_types, out_type)`                                  | udf            | register a Python scalar kernel into the function registry |
+|  [05]   | `compute.register_aggregate_function / register_vector_function / register_tabular_function`             | udf            | register hash-aggregate/vector/tabular Python kernels   |
+|  [06]   | `compute.call_function(name, args)` / `list_functions()` / `get_function(name)`                          | kernel dispatch | invoke any registered kernel by name; introspect registry |
+|  [07]   | `dataset.write_dataset(data, base_dir, format=, partitioning=, existing_data_behavior=, max_rows_per_file=, file_visitor=, ...)` | dataset write | partitioned multi-file write with overwrite policy |
+|  [08]   | `dataset.Scanner.from_dataset(ds, columns=, filter=, batch_size=)` -> `to_table()` / `to_batches()`     | scanner        | configured scan with projection/filter pushdown          |
+|  [09]   | `parquet.write_table(table, where, compression='snappy', row_group_size=, sorting_columns=, encryption_properties=, write_page_index=, ...)` | Parquet IO | full-control Parquet write |
+|  [10]   | `parquet.encryption.CryptoFactory` / `KmsConnectionConfig` / `EncryptionConfiguration`                  | Parquet IO     | modular column-encryption key management                 |
+|  [11]   | `RecordBatchReader.from_stream(obj)` / `from_batches(schema, batches)`                                   | stream         | import any C-stream object; wrap an iterator of batches  |
+|  [12]   | `substrait.run_query(plan, table_provider=)` / `serialize_expressions` / `deserialize_expressions`      | cross-engine   | execute/round-trip a Substrait plan against Arrow tables |
+|  [13]   | `flight.connect(location)` / `FlightClient` / `FlightServerBase`                                         | RPC            | Arrow Flight client/server for columnar RPC transport    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -113,19 +154,26 @@
 - a `Table` is a list of `ChunkedArray` columns sharing one `Schema`; a `RecordBatch` is a single contiguous chunk
 - `Array`/`ChunkedArray` carry a `DataType`, a validity bitmap, and value buffers; nested types (`struct`, `list`, `map`) compose child arrays
 - dtype factory functions return `DataType` values; `field(name, type, nullable)` and `schema(fields)` build metadata; `KeyValueMetadata` attaches string metadata
-- `compute` kernels operate on `Array`/`ChunkedArray`/`Table` and return Arrow values; `compute.field`/`compute.scalar` build `Expression` predicates for `dataset` pushdown
+- `compute` kernels operate on `Array`/`ChunkedArray`/`Table` and return Arrow values; `compute.field`/`compute.scalar` build `Expression` predicates whose `&`/`|`/`~`/comparison operators compose for `dataset`/`acero`/`Table.join` pushdown
 - `Table.group_by(keys).aggregate([(col, func)])` returns a `Table`; aggregation functions follow the `compute` hash-aggregate names
-- `dataset.dataset(...)` scans many files lazily with projection and filter pushdown; `to_table()`/`to_batches()` materialize
-- the C data interface (`from_pandas`, `to_pandas`, `__arrow_c_array__`) enables zero-copy interchange with polars, pandas, DuckDB, and other Arrow consumers
+- `dataset.dataset(...)` scans many files lazily with projection and filter pushdown; `Scanner.from_dataset(filter=, columns=)` materializes via `to_table()`/`to_batches()`
+- `acero.Declaration` builds an explicit streaming exec-node graph (scan/filter/project/aggregate/join/order) that runs out-of-core and emits a `Table` or `RecordBatchReader`; it is the native alternative to chaining `Table` ops in memory
+- the PyCapsule C-stream interface (`__arrow_c_stream__`/`RecordBatchReader.from_stream`) and C-array interface (`__arrow_c_array__`) enable zero-copy interchange with polars, pandas, DuckDB, nanoarrow, and arro3
+
+[STACKING_LAW]:
+- `Table`/`RecordBatch`/`RecordBatchReader` are the wire between every data-rail package: `polars.from_arrow`/`scan_pyarrow_dataset` consume them, `pyiceberg` `to_arrow`/`to_arrow_batch_reader`/`add_files` produce and accept them, and `arro3-core`/`nanoarrow` bridge the same C-stream PyCapsules while pyarrow's cp3.15 wheel stabilizes.
+- `parquet.write_table(..., sorting_columns=, write_page_index=, encryption_properties=)` and `dataset.write_dataset(partitioning=HivePartitioning(...), existing_data_behavior=)` are the canonical columnar writers feeding the Iceberg `add_files` path; `parquet.encryption.CryptoFactory`+`KmsConnectionConfig` own column-level modular encryption — never a hand-rolled cipher pass.
+- Register Python domain kernels with `compute.register_scalar_function`/`register_aggregate_function` so they dispatch through the same `call_function` registry as native kernels and remain usable inside `acero`/`dataset` expressions.
+- `substrait.run_query`/`serialize_expressions` carry cross-engine plans; `flight.connect` carries columnar RPC. Prefer these over bespoke serialization when a plan or batch must cross a process/engine boundary.
 
 [LOCAL_ADMISSION]:
-- Treat `Table`/`RecordBatch` as the canonical zero-copy interchange shape between polars, pandas, Parquet, and DuckDB; build with `Table.from_pydict`/`from_arrays`/`from_pandas`.
+- Treat `Table`/`RecordBatch`/`RecordBatchReader` as the canonical zero-copy interchange shape between polars, pandas, Parquet, Iceberg, and DuckDB; build with `Table.from_pydict`/`from_arrays`/`from_pandas` or import a C-stream via `RecordBatchReader.from_stream`.
 - Compose dtypes from the factory functions and assemble `Schema` explicitly; avoid relying on inference where a schema contract is fixed.
-- Run vectorized reductions and selection through `compute` kernels and grouped reductions through `group_by(...).aggregate(...)`; do not iterate rows in Python.
-- Read and write columnar files through `parquet`/`feather`/`csv` and scan multi-file partitioned data through `dataset` with `compute.field` filter expressions for pushdown.
+- Run vectorized reductions and selection through `compute` kernels, grouped reductions through `group_by(...).aggregate(...)`, and multi-stage pipelines through `acero.Declaration`; do not iterate rows in Python.
+- Read and write columnar files through `parquet`/`feather`/`csv`/`orc` and scan multi-file partitioned data through `dataset`/`Scanner` with `compute.field` filter expressions for pushdown; write partitioned output with `dataset.write_dataset`.
 
 [RAIL_LAW]:
 - Package: `pyarrow`
-- Owns: Arrow columnar memory, schema metadata, vectorized compute kernels, and Parquet/IPC/CSV/dataset IO
-- Accept: Python sequences, NumPy arrays, pandas frames, Arrow C-interface objects, and columnar files
-- Reject: row-wise Python iteration over columns, hand-rolled Parquet/IPC parsing, schema inference where a fixed schema contract exists
+- Owns: Arrow columnar memory, schema metadata, vectorized compute kernels + Python-UDF registry, the Acero streaming execution engine, Substrait/Flight transport, and Parquet/IPC/CSV/JSON/ORC/dataset IO
+- Accept: Python sequences, NumPy arrays, pandas frames, Arrow C-interface/C-stream objects, columnar files, and registered Python kernels
+- Reject: row-wise Python iteration over columns, hand-rolled Parquet/IPC parsing or Parquet encryption, schema inference where a fixed schema contract exists, bespoke plan/batch serialization where Substrait/Flight/C-stream apply

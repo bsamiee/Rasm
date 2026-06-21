@@ -7,7 +7,10 @@
 [PACKAGE_SURFACE]: `grpcio`
 - package: `grpcio`
 - module: `grpc`
-- asset: runtime library
+- version: `1.81.1` (floor `>=1.81`)
+- license: `Apache-2.0`
+- asset: C-extension runtime library (`_cython/cygrpc` over the C-core; not pure-Python)
+- abi: per-interpreter binary wheel (`cp315`-tagged), `Requires-Python >=3.10`
 - rail: transport
 - namespaces: `grpc`, `grpc.aio`
 
@@ -78,12 +81,14 @@
 |  [03]   | `aio.ServicerContext`   | async         | async server-side call context   |
 |  [04]   | `aio.ClientInterceptor` | abstract      | async client interceptor base    |
 |  [05]   | `aio.ServerInterceptor` | abstract      | async server interceptor base    |
-|  [06]   | `aio.UnaryUnaryCall`    | call          | async unary-unary in-flight RPC  |
-|  [07]   | `aio.UnaryStreamCall`   | call          | async unary-stream in-flight RPC |
-|  [08]   | `aio.StreamUnaryCall`   | call          | async stream-unary in-flight RPC |
-|  [09]   | `aio.StreamStreamCall`  | call          | async bidi-stream in-flight RPC  |
-|  [10]   | `aio.AioRpcError`       | exception     | async RPC failure exception      |
-|  [11]   | `aio.Metadata`          | value         | gRPC metadata carrier for aio    |
+|  [06]   | `aio.UnaryUnaryClientInterceptor` / `aio.UnaryStreamClientInterceptor` | abstract | per-arity async client interceptor mixins |
+|  [07]   | `aio.StreamUnaryClientInterceptor` / `aio.StreamStreamClientInterceptor` | abstract | per-arity async client interceptor mixins |
+|  [08]   | `aio.UnaryUnaryCall`    | call          | async unary-unary in-flight RPC  |
+|  [09]   | `aio.UnaryStreamCall`   | call          | async unary-stream in-flight RPC |
+|  [10]   | `aio.StreamUnaryCall`   | call          | async stream-unary in-flight RPC |
+|  [11]   | `aio.StreamStreamCall`  | call          | async bidi-stream in-flight RPC  |
+|  [12]   | `aio.AioRpcError`       | exception     | async RPC failure exception (carries `code()`/`details()`) |
+|  [13]   | `aio.Metadata`          | value         | multi-dict gRPC metadata carrier for aio |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -98,9 +103,17 @@
 |  [04]   | `composite_channel_credentials(channel_credentials, *call_credentials)`      | credentials     | combine TLS + call auth     |
 |  [05]   | `access_token_call_credentials(access_token)`                                | credentials     | bearer token per-call auth  |
 |  [06]   | `metadata_call_credentials(metadata_plugin, name)`                           | credentials     | plugin-backed per-call auth |
-|  [07]   | `intercept_channel(channel, *interceptors)`                                  | channel wrap    | attach client interceptors  |
-|  [08]   | `aio.insecure_channel(target, options, ...)`                                 | async factory   | async plaintext channel     |
-|  [09]   | `aio.secure_channel(target, credentials, ...)`                               | async factory   | async TLS channel           |
+|  [07]   | `composite_call_credentials(*call_credentials)`                              | credentials     | merge multiple per-call creds |
+|  [08]   | `local_channel_credentials(local_connect_type)`                              | credentials     | UDS/loopback channel creds (`LocalConnectionType`) |
+|  [09]   | `compute_engine_channel_credentials(call_credentials)`                       | credentials     | GCE metadata-server channel creds |
+|  [10]   | `xds_channel_credentials(fallback_credentials)`                              | credentials     | xDS-driven channel creds with fallback |
+|  [11]   | `alts_channel_credentials(service_accounts)`                                 | credentials     | ALTS mutual-auth channel creds |
+|  [12]   | `intercept_channel(channel, *interceptors)`                                  | channel wrap    | attach client interceptors (compose left-to-right) |
+|  [13]   | `channel_ready_future(channel)`                                              | readiness       | `Future` resolving when channel reaches `READY` |
+|  [14]   | `protos(protobuf_path)` / `services(protobuf_path)` / `protos_and_services(...)` | runtime codegen | import generated message/stub modules without a build step |
+|  [15]   | `aio.insecure_channel(target, options, ...)`                                 | async factory   | async plaintext channel     |
+|  [16]   | `aio.secure_channel(target, credentials, ...)`                               | async factory   | async TLS channel           |
+|  [17]   | `aio.init_grpc_aio()` / `aio.shutdown_grpc_aio()`                            | async lifecycle | bind/release the aio C-core event loop |
 
 [ENTRYPOINT_SCOPE]: server factory
 - rail: transport
@@ -108,8 +121,11 @@
 | [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                       |
 | :-----: | :------------------------------------------------------------------------- | :------------- | :--------------------------- |
 |  [01]   | `server(thread_pool, handlers, interceptors, options, ...)`                | server factory | sync gRPC server             |
-|  [02]   | `ssl_server_credentials(key_chain_pairs, root_certs, require_client_auth)` | credentials    | mTLS server creds            |
+|  [02]   | `ssl_server_credentials(private_key_certificate_chain_pairs, root_certificates, require_client_auth)` | credentials | mTLS server creds            |
 |  [03]   | `insecure_server_credentials()`                                            | credentials    | plaintext server credentials |
+|  [10]   | `dynamic_ssl_server_credentials(initial_certificate_configuration, certificate_configuration_fetcher, require_client_authentication)` | credentials | hot-reloadable server TLS |
+|  [11]   | `local_server_credentials(local_connect_type)`                             | credentials    | UDS/loopback server creds    |
+|  [12]   | `xds_server_credentials(fallback_credentials)` / `alts_server_credentials(...)` | credentials | xDS / ALTS server creds      |
 |  [04]   | `unary_unary_rpc_method_handler(behavior, ...)`                            | handler        | create unary-unary handler   |
 |  [05]   | `unary_stream_rpc_method_handler(behavior, ...)`                           | handler        | create unary-stream handler  |
 |  [06]   | `stream_unary_rpc_method_handler(behavior, ...)`                           | handler        | create stream-unary handler  |
@@ -146,12 +162,22 @@
 - generated stubs accept a `Channel` (sync) or `aio.Channel` (async) and return `Future`/`Call` (sync) or coroutines/async iterators (async)
 - interceptors compose left-to-right with `intercept_channel`; server interceptors are passed at `server()` construction
 - deadlines: pass `timeout` (seconds) to individual call invocations; do not rely on channel-level options for per-call deadlines
-- `RpcError` carries `code()` and `details()` accessors; catch at service boundary and map to domain errors
+- `RpcError` (sync) and `aio.AioRpcError` (async) carry `code()`, `details()`, `trailing_metadata()`; catch at service boundary and map to domain errors
+- `ChannelConnectivity` transitions (`IDLE`->`CONNECTING`->`READY`->`TRANSIENT_FAILURE`->`SHUTDOWN`) are observable via `channel.subscribe(callback)` and `channel_ready_future` for readiness gating
+- `Compression.Gzip`/`Deflate` set per-channel or per-call payload compression; pass at `insecure_channel`/`secure_channel` or per-invocation
+- runtime codegen: `protos`/`services`/`protos_and_services` import `.proto`-derived modules at runtime, removing the `grpcio-tools` protoc build step where a generated module is not pinned ahead of time
+
+[STACKS_WITH]:
+- msgspec/protobuf wire: a gRPC RPC body is `bytes`; the servicer decodes it through the message owner (`protobuf` generated message or a `msgspec.Decoder(type=T)`), validates, and re-encodes the response via `Encoder.encode_into` into a reused buffer — the gRPC transport carries bytes only, never owns the message schema.
+- otel propagation: a client `UnaryUnaryClientInterceptor` calls `propagate.inject(metadata_dict)` to stamp the active `Context` into call metadata, and a `ServerInterceptor` calls `propagate.extract(invocation_metadata)` + `Tracer.start_as_current_span(kind=SpanKind.SERVER)` to continue the trace — `grpc.aio.Metadata` is the carrier, `opentelemetry-api` owns the W3C `traceparent` mapping.
+- stamina retries: transient `StatusCode.UNAVAILABLE`/`DEADLINE_EXCEEDED`/`RESOURCE_EXHAUSTED` from `RpcError.code()` are the retriable predicate fed to a `stamina.retry_context`; the channel is reused across attempts (never recreated), and the retry span nests under the client interceptor's otel span.
+- structured logging: `RpcError.code().name` + `details()` + `trailing_metadata()` are the bound fields a `structlog` boundary logger emits when mapping a gRPC failure to a domain error rail.
 
 [LOCAL_ADMISSION]:
-- One channel instance per server address; stubs are lightweight wrappers around a shared channel.
-- Use `grpc.aio` for async service code; `grpc` (sync) for sync or thread-pool wrappers.
-- mTLS: `ssl_channel_credentials(root_certificates=ca_pem, private_key=key_pem, certificate_chain=cert_pem)`.
+- One channel instance per server address; stubs are lightweight wrappers around a shared channel; never create per-request channels.
+- Use `grpc.aio` for async service code; `grpc` (sync) for sync or thread-pool wrappers; `aio.init_grpc_aio` binds the C-core to the running loop on first use.
+- mTLS: `ssl_channel_credentials(root_certificates=ca_pem, private_key=key_pem, certificate_chain=cert_pem)`; rotate server certs without downtime via `dynamic_ssl_server_credentials`.
+- Loopback/UDS: pair `local_channel_credentials(LocalConnectionType.UDS)` with `local_server_credentials` for in-host sidecar transport.
 
 [RAIL_LAW]:
 - Package: `grpcio`

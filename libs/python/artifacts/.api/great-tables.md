@@ -9,8 +9,11 @@
 - import: `great_tables`
 - owner: `artifacts`
 - rail: tables
-- asset: runtime library
-- surface: `0.22.0`
+- license: MIT
+- asset: runtime library; pure Python (`py3-none-any`), no ABI gate, cp315-clean (manifest unpinned, no `python_version` marker)
+- installed: `0.22.0` reflected via `assay api resolve great-tables`
+- entry points: none (library only)
+- capability: fluent publication-table construction over a Polars/Pandas/PyArrow/dict frame; locale-aware cell formatting; value substitution; cell-text transformation; structural layout (header/spanner/stub/footnote/source-note); cell styling and data-driven colouring; summary and grand-summary rows; theme identity; HTML/LaTeX/PNG/PDF export; standalone `vals.fmt_*` formatting outside a `GT` chain
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -65,8 +68,10 @@
 |  [04]   | `google_font`      | font import       | a Google Font reference for `opt_table_font(font=...)`                        |
 |  [05]   | `md` / `html`      | rich text markers | wrap a string as Markdown or raw HTML for labels, notes, and footnotes        |
 |  [06]   | `px` / `pct`       | dimension helpers | pixel and percent dimension values for widths and sizes                       |
-|  [07]   | `system_fonts`     | font stack        | a named system font stack for `opt_table_font(stack=...)`                     |
-|  [08]   | `vals`             | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain                          |
+|  [07]   | `system_fonts`     | font stack        | `system_fonts(name='system-ui') -> list[str]` — a named `FontStackName` stack for `opt_table_font(stack=...)` |
+|  [08]   | `vals`             | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain (the same number/currency/date/duration/bytes/roman/units family, no `GT`) |
+|  [09]   | `LETTERS` / `letters` | mark alphabets | uppercase/lowercase letter sequences for `opt_footnote_marks(marks=letters)` |
+|  [10]   | `random_id`        | id minter         | `random_id(n=10) -> str` — a random table id for `GT(id=...)` / `with_id`     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -159,25 +164,34 @@
 |  [17]   | `GT.opt_footnote_marks(marks)`                                                                      | footnote marks   | choose the footnote mark sequence (`numbers`, letters, symbols)    |
 |  [18]   | `GT.opt_css(css, add, allow_duplicates)`                                                            | raw CSS          | inject raw CSS at the table level                                  |
 |  [19]   | `GT.tab_options(**kwargs)`                                                                          | theme options    | the low-level per-keyword theme surface beneath the `opt_*` rows   |
-|  [20]   | `GT.as_raw_html(inline_css, make_page, all_important)`                                              | HTML emit        | render the table as an HTML string                                 |
-|  [21]   | `GT.as_latex(use_longtable, tbl_pos)`                                                               | LaTeX emit       | render the table as a LaTeX string                                 |
-|  [22]   | `GT.write_raw_html(filename, encoding, inline_css, …)`                                              | HTML file        | write the HTML rendering to a file                                 |
-|  [23]   | `GT.save(file, selector, scale, expand, web_driver, window_size, …)`                                | file export      | export to PNG/PDF/SVG via a headless Chrome driver                 |
-|  [24]   | `GT.show(target)`                                                                                   | interactive show | display in notebook or browser                                     |
-|  [25]   | `GT.pipe(func, *args, **kwargs)`                                                                    | pipe             | thread the `GT` through a `GT -> GT` function                      |
-|  [26]   | `GT.with_id(id)` / `GT.with_locale(locale)`                                                         | identity         | set the table id or locale after construction                      |
+|  [20]   | `GT.render(context: str) -> str`                                                                    | HTML render      | the core HTML renderer keyed by `context` (`'html'`); `as_raw_html` wraps it |
+|  [21]   | `GT.as_raw_html(inline_css=False, make_page=False, all_important=False) -> str`                      | HTML emit        | render the table as an HTML string; `inline_css` for email-safe markup |
+|  [22]   | `GT.as_latex(use_longtable=False, tbl_pos=None) -> str`                                              | LaTeX emit       | render the table as a LaTeX string                                 |
+|  [23]   | `GT.write_raw_html(filename, encoding='utf-8', inline_css=False, newline=None, make_page=False, all_important=False)` | HTML file        | write the HTML rendering to a file                                 |
+|  [24]   | `GT.save(file, selector='table', scale=1.0, expand=5, web_driver='chrome', window_size=(6000,6000), debug_port=None, encoding='utf-8')` | file export      | export to PNG/PDF/SVG via a headless `WebDrivers` (chrome/safari/firefox/edge) or a `webdriver.Remote` |
+|  [25]   | `GT.gtsave(file, selector='table', expand=5, zoom=2.0, delay=0.2, vwidth=992, vheight=744)`         | file export (legacy) | the older driver-export entry beside `save`; `zoom`/`delay`/`vwidth`/`vheight` control the headless viewport |
+|  [26]   | `GT.show(target='auto')`                                                                            | interactive show | display in notebook or browser (`'auto'`/`'notebook'`/`'browser'`) |
+|  [27]   | `GT.pipe(func, *args, **kwargs)`                                                                    | pipe             | thread the `GT` through a `GT -> GT` function                      |
+|  [28]   | `GT.from_data(data, rowname_col, groupname_col, auto_align, id, locale)`                            | builder (functional) | the function-style constructor mirroring `GT(...)` for pipeline-first authoring |
+|  [29]   | `GT.with_id(id)` / `GT.with_locale(locale)`                                                         | identity         | set the table id or locale after construction                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TABLES_TOPOLOGY]:
-- namespace: `great_tables`; `GT` is the single fluent builder; every method returns `GTSelf` (a copied `GT`) except the terminal emitters `as_raw_html`, `as_latex`, `write_raw_html`, and `save`
+- namespace: `great_tables`; `GT` is the single fluent builder constructed by `GT(data)` or the function-style `from_data(data)`; every transform method returns `GTSelf` (a copied `GT`) — the terminal emitters are `render` (the core HTML renderer keyed by `context`), `as_raw_html`/`as_latex` (string), `write_raw_html` (file), `save`/`gtsave` (image/PDF/SVG via WebDriver), and `show` (display); `save` returns `GTSelf` for chaining, the string/file emitters do not
 - location selectors: `loc.*` functions produce `Loc` objects passed to `tab_style` / `tab_footnote`; they do not mutate the table directly. Their argument shape is per-selector — `loc.body` / `loc.grand_summary` take `(columns, rows, mask)`, `loc.summary` takes `(groups, columns, rows)`, `loc.column_labels` takes `(columns)` only, `loc.stub` / `loc.row_group` / `loc.row_groups` / `loc.summary_stub` / `loc.grand_summary_stub` take `(rows)` only, `loc.spanner_labels` takes `(ids)`, and `loc.stubhead` / `loc.column_header` / `loc.header` / `loc.footer` / `loc.title` / `loc.subtitle` / `loc.source_notes` take no arguments
 - mask targeting: `loc.body(mask=<polars predicate>)` is mutually exclusive with `columns`/`rows`; a predicate-targeted location passes the `mask` alone
 - style objects: `style.text(…)` / `style.fill(color)` / `style.borders(sides, color, style, weight)` / `style.css(rule)` are value objects passed as the `style` argument to `tab_style`; `style.fill` and `style.text` accept a `ColumnExpr` (from `from_column`) for data-driven values
 - summary rows: `summary_rows` / `grand_summary_rows` take `fns` keyword-only as `dict[str, PlExpr]` (a polars expression naming its own target column) or `dict[str, Callable]`; `columns` is rejected (`NotImplementedError`) in 0.22.0, so each expression carries its own column
 - nanoplot: `fmt_nanoplot` requires list- or string-valued cells; `nanoplot_options()` produces the `options` dict for point radius, line/bar/area fill, reference line/area color, vertical guides, and the `y_val_fmt_fn` / `y_axis_fmt_fn` / `y_ref_line_fmt_fn` / `currency` value formatting
 - `vals` module: `great_tables.vals.fmt_*` apply the same format logic standalone outside a `GT` chain
-- export: `save` requires a Chrome or compatible WebDriver; `as_raw_html(inline_css=True)` and `as_latex` are the no-driver paths for portable HTML and LaTeX
+- export: `save`/`gtsave` require a Chrome/Safari/Firefox/Edge `WebDrivers` or a `webdriver.Remote`; `render(context='html')`, `as_raw_html(inline_css=True)`, and `as_latex` are the no-driver paths for portable HTML and LaTeX
+
+[STACKING]:
+- the polars `DataFrame.style` accessor returns a real `GT`, so a polars pipeline ends `.style` then chains `fmt_*`/`tab_*` directly — no DataFrame-to-table marshalling
+- `from_column(col, na_value, fn)` binds a `style.fill`/`style.text` colour or a format argument to a column's per-row values, so one `tab_style` is data-driven across rows without a Python loop; `data_color` is the higher-level value→colour scale with `autocolor_text` contrast
+- the rendered HTML stacks downstream: `as_raw_html(inline_css=True)` produces email/PDF-safe markup that `weasyprint` (`.api/weasyprint.md`) prints to PDF, that `jinja2` (`.api/jinja2.md`) embeds as a report fragment via `{{ table_html }}` under an autoescape-off marker, or that `pymupdf`/`pikepdf` stitches into a document; `as_latex` feeds a Typst/LaTeX rail; `save`/`gtsave` is the only browser-dependent path and is reserved for raster previews
+- `nanoplot_options()` returns the plain `dict[str, Any]` passed as `fmt_nanoplot(options=...)`, so the plot styling is data, not a parallel object; `define_units` parses a units string once for reuse across `fmt_units`/`cols_label`
 
 [LOCAL_ADMISSION]:
 - one `GT(data)` owns the entire table; column selection uses `SelectExpr` (column name strings, selectors, or `None` for all), row selection uses `RowSelectExpr`.

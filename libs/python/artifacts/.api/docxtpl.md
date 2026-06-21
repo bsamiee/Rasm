@@ -9,9 +9,11 @@
 - import: `docxtpl`
 - owner: `artifacts`
 - rail: document
-- installed: `0.20.2` reflected via `assay api` on cp315
+- license: LGPL-2.1 (runtime deps `python-docx`, `jinja2`; optional `docxcompose` for `Subdoc`)
+- asset: runtime library; pure Python (`py3-none-any`), no ABI gate, cp315-clean (manifest unpinned, no `python_version` marker)
+- installed: `0.20.2` reflected via `assay api resolve docxtpl`
 - entry points: library use is import-only; `python -m docxtpl <template> <json_context> <output>` runs the module CLI in `__main__`
-- capability: load a `.docx` as a jinja2 template, render a context dict into body/header/footer XML, inject styled inline rich text via `RichText`, styled paragraphs via `RichTextParagraph`, newline-preserving listings via `Listing`, and inline images via `InlineImage`, then save the rendered document or list its undeclared template variables
+- capability: load a `.docx` as a jinja2 template, render a context dict into body/header/footer XML, inject styled inline rich text via `RichText`, styled paragraphs via `RichTextParagraph`, newline-preserving listings via `Listing`, and inline images via `InlineImage`, compose full sub-documents via `new_subdoc`, swap embedded media/parts before render, reach the underlying `python-docx` `Document` via `.docx` for structural pre/post work, then save the rendered document or list its undeclared template variables
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -45,10 +47,11 @@
 |  [04]   | `DocxTemplate.get_undeclared_template_variables` | `get_undeclared_template_variables(jinja_env: Optional[Environment] = None, context: Optional[Dict[str, Any]] = None) -> Set[str]` | list jinja2 variables the template references       |
 |  [05]   | `DocxTemplate.new_subdoc`                        | `new_subdoc(docpath=None) -> Subdoc`                                                                                               | mint a sub-document carrier for the context         |
 |  [06]   | `DocxTemplate.build_url_id`                      | `build_url_id(url)`                                                                                                                | register a hyperlink and return its `url_id`        |
-|  [07]   | `DocxTemplate.replace_media`                     | `replace_media(src_file, dst_file)`                                                                                                | swap a media part by source file before render      |
-|  [08]   | `DocxTemplate.replace_embedded`                  | `replace_embedded(src_file, dst_file)`                                                                                             | swap an embedded part before render                 |
-|  [09]   | `DocxTemplate.replace_zipname`                   | `replace_zipname(zipname, dst_file)`                                                                                               | swap a zip-entry part by archive name before render |
-|  [10]   | `DocxTemplate.replace_pic`                       | `replace_pic(embedded_file, dst_file)`                                                                                             | swap a picture part before render                   |
+|  [07]   | `DocxTemplate.docx` / `get_docx`                 | `docx` attribute (the `python-docx` `Document`); `get_docx() -> Document` forces `init_docx()` then returns it                    | reach the underlying `python-docx` `Document` for structural pre/post work |
+|  [08]   | `DocxTemplate.replace_media`                     | `replace_media(src_file, dst_file)`                                                                                                | swap a media part by source file before render      |
+|  [09]   | `DocxTemplate.replace_embedded`                  | `replace_embedded(src_file, dst_file)`                                                                                             | swap an embedded part before render                 |
+|  [10]   | `DocxTemplate.replace_zipname`                   | `replace_zipname(zipname, dst_file)`                                                                                               | swap a zip-entry part by archive name before render |
+|  [11]   | `DocxTemplate.replace_pic`                       | `replace_pic(embedded_file, dst_file)`                                                                                             | swap a picture part before render                   |
 
 [ENTRYPOINT_SCOPE]: content carriers
 - rail: document
@@ -72,8 +75,15 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 - content axis: styled content is a carrier placed in the context, never a hand-built `python-docx` run. `RichText`/`R` own inline runs through `add` rows; `RichTextParagraph`/`RP` own styled paragraphs through `add`; `Listing` owns newline/page-break-preserving text; `InlineImage` owns inline images bound to the template via `tpl`. `R`/`RP` are aliases, not parallel types.
 - emit axis: `save` is the single serializer keyed by `filename` (path or stream); `get_undeclared_template_variables` is the inspection row that lists referenced variables before binding.
 - replacement axis: `replace_media`/`replace_embedded`/`replace_zipname`/`replace_pic` are pre-render part-swap rows keyed by part kind, never a parallel template type per media class.
+- structural axis: `DocxTemplate.docx` is the underlying `python-docx` `Document` (lazily built by `init_docx`/`get_docx`) — structural pre/post work (section/style/numbering edits the template cannot express) goes through this `python-docx` surface (`.api/python-docx.md`), never a hand-built OOXML string.
 - evidence: each render captures the resolved template path, the context key set, the undeclared-variable set, the carrier kinds injected, the output path, and the output byte length as a document receipt.
 - boundary: `docxtpl` owns DOCX templating and OOXML run/paragraph/image serialization over `python-docx`; `new_subdoc`/`Subdoc` full sub-document composition requires the optional `docxcompose` dependency; raster image preparation routes to `pillow` only when the descriptor needs it; the rendered `.docx` feeds the document owner directly; live UI stays outside this package.
+
+[STACKING]:
+- jinja2 seam: `render(context, jinja_env=...)` accepts a shared `jinja2.Environment` (`.api/jinja2.md`) — pass the same engine used for the HTML/PDF report body so custom filters, globals, and the autoescape/undefined policy are identical across the DOCX and HTML branches; `get_undeclared_template_variables(jinja_env=...)` runs the same engine's meta analysis to gate the context before binding.
+- python-docx seam: the template carries the styled layout; `DocxTemplate.docx` exposes the `python-docx` `Document` for the residual structural work, and the content carriers (`RichText`/`RichTextParagraph`/`Listing`/`InlineImage`) replace any hand-built `python-docx` run/paragraph stitching inside the context values.
+- image seam: `InlineImage(tpl, image_descriptor, width=Mm(...)/Pt(...), height=...)` takes a `python-docx` `Length`-typed `width`/`height`; the `image_descriptor` is a path or stream that `python-docx` (over `pillow`) decodes — a `pyvips`/`pillow`-prepared raster feeds the descriptor, never a re-encoded blob.
+- confidentiality seam: the saved `.docx` bytes route to `msoffcrypto-tool` (`.api/msoffcrypto-tool.md`) for ECMA-376 encryption when the document owner requires a protected deliverable.
 
 [RAIL_LAW]:
 - Package: `docxtpl`

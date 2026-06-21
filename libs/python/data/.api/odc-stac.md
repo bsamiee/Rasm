@@ -6,10 +6,12 @@
 
 [PACKAGE_SURFACE]: `odc-stac`
 - package: `odc-stac`
+- version: `0.5.2` reflected via `import odc.stac` (manifest unpinned — newest stable; requires-python `>=3.10`)
+- license: Apache-2.0
 - import: `odc.stac`
+- abi: pure Python; native work defers to `odc.geo` (GeoBox math) and `odc.loader` (rasterio/GDAL raster reads) — no ABI floor of its own
 - owner: `data`
 - rail: catalog-coverage
-- installed: `0.5.2` reflected via `import odc.stac` on cp315
 - entry points: none (import-only library; `odc-stac` declares no console scripts)
 - capability: STAC `Item` to `xarray.Dataset` conversion, lazy Dask cube construction, output GeoBox resolution (CRS/resolution/anchor/bbox/geopolygon), per-band metadata extraction and alias mapping, temporal/key grouping, resampling and dtype control, and GDAL/rasterio plus S3 session configuration for cloud reads
 
@@ -71,6 +73,7 @@ These configure the rasterio/GDAL environment and S3 credentials, applied locall
 - geobox axis: the output GeoBox resolves from exactly one extent row (`geobox`, `like`, `geopolygon`, `bbox`, `lon`/`lat`, `x`/`y`, `intersects`) combined with `crs`/`resolution`/`anchor`; `output_geobox` exposes that resolution for debugging but the canonical path is the `load` keyword set — never pre-compute a GeoBox to bypass `load`.
 - metadata axis: `parse_items` and `extract_collection_metadata` produce `ParsedItem`/`RasterCollectionMetadata` for inspection and custom config; the live coverage path passes raw `pystac.Item` objects to `load` and lets it parse internally, never staging the internal representation by hand.
 - session axis: `configure_rio` and `configure_s3_access` set GDAL/rasterio and S3 credentials once before materialization; cloud-read configuration is a session call, never per-source URI patching outside `patch_url`.
+- signing axis: `patch_url` is the per-asset href rewriter (`Callable[[str], str]`) applied to every parsed source before read — the canonical home for the `obstore` presigned/credential seam (e.g. `patch_url=PlanetaryComputerCredentialProvider(...).sign` or an `obstore.sign`-derived signer) so the lazy cube reads SAS/presigned cloud rasters; `with_properties` lifts named STAC item properties onto the cube as coordinates.
 - evidence: each load captures item count, resolved CRS, resolution, GeoBox shape, selected bands, groupby key, chunk plan, and dtype as a coverage receipt.
 - boundary: `odc-stac` owns STAC-item-to-`xarray` conversion and load orchestration; GeoBox geometry defers to `odc.geo`, raster reading defers to `odc.loader` (which re-exports `RasterBandMetadata`/`RasterLoadParams`/`RasterSource`), and STAC parsing consumes `pystac.Item`; tile/scene discovery stays in the STAC search owner upstream of this rail.
 

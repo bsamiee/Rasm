@@ -5,46 +5,56 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xlsxwriter`
-- package: `xlsxwriter`
+- package: `xlsxwriter` (PyPI distribution `XlsxWriter`)
 - import: `xlsxwriter`
 - owner: `artifacts`
 - rail: spreadsheet
-- installed: `3.2.9` reflected via assay api on cp315
-- entry points: console script `vba_extract.py` (VBA tooling); library use is import-only via the single top-level `Workbook` class
-- capability: constant-memory streaming XLSX authoring — `Workbook` opens a path or file-like stream, `add_worksheet`/`add_format` mint sheets and styles, `Worksheet.write*` emits cells row-major, and `close` packages worksheets, shared strings, styles, and metadata into a zip64-capable `.xlsx` with O(1) row memory under `constant_memory`
+- installed: `3.2.9` resolved in `uv.lock` (`py3-none-any` pure-Python wheel; no native ABI, interpreter-agnostic)
+- license: `BSD-2-Clause`
+- entry points: console script `vba_extract.py` (extracts a `vbaProject.bin` for `Workbook.add_vba_project`); library use is import-only via the single top-level `Workbook` class
+- capability: constant-memory streaming XLSX authoring — `Workbook` opens a path or file-like stream, `add_worksheet`/`add_format`/`add_chart`/`add_chartsheet` mint sheets, styles, and charts, `Worksheet.write*` plus the conditional-format/data-validation/autofilter/table/sparkline/image family emit content row-major, and `close` packages worksheets, shared strings, styles, charts, and metadata into a zip64-capable `.xlsx` with O(1) row memory under `constant_memory`
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: workbook root and minted objects
 - rail: spreadsheet
 
-`Workbook` is the sole top-level export and the only object constructed directly; `Worksheet` and `Format` are minted by `add_worksheet` and `add_format` and never instantiated by the consumer. The `exceptions` module roots every input/file failure under `XlsxWriterException`, with `DuplicateWorksheetName`/`InvalidWorksheetName` on the input rail and `FileCreateError`/`FileSizeError` on the file rail.
+`Workbook` is the sole top-level export and the only object constructed directly; `Worksheet`, `Chartsheet`, `Format`, and `Chart` are minted by `add_worksheet`/`add_chartsheet`/`add_format`/`add_chart` and never instantiated by the consumer. The `exceptions` module roots every input/file failure under `XlsxWriterException`, branching into `XlsxInputError` (data/name/range) and `XlsxFileError` (zip/image/theme).
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------------------------ | :------------ | :------------------------------------------------------ |
-|  [01]   | `xlsxwriter.Workbook`                       | writer root   | open/own the XLSX container and mint sheets and formats |
-|  [02]   | `xlsxwriter.worksheet.Worksheet`            | sheet writer  | row-major cell emission for one sheet                   |
-|  [03]   | `xlsxwriter.format.Format`                  | cell style    | reusable number/font/fill/border style object           |
-|  [04]   | `xlsxwriter.exceptions.XlsxWriterException` | error root    | base of every xlsxwriter failure                        |
-|  [05]   | `xlsxwriter.exceptions.XlsxInputError`      | error         | invalid-input branch (name/series/range)                |
-|  [06]   | `xlsxwriter.exceptions.XlsxFileError`       | error         | file/zip branch (create/size/image)                     |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                                       |
+| :-----: | :------------------------------------------ | :------------ | :----------------------------------------------------------- |
+|  [01]   | `xlsxwriter.Workbook`                       | writer root   | open/own the XLSX container and mint sheets, formats, charts |
+|  [02]   | `xlsxwriter.worksheet.Worksheet`            | sheet writer  | row-major cell emission plus tables/validation/charts        |
+|  [03]   | `xlsxwriter.chartsheet.Chartsheet`          | chart sheet   | a sheet holding a single full-page chart                     |
+|  [04]   | `xlsxwriter.format.Format`                  | cell style    | reusable number/font/fill/border/align style object          |
+|  [05]   | `xlsxwriter.chart.Chart`                    | chart builder | `add_chart`-minted chart; `add_series`/`set_*_axis`/`combine` |
+|  [06]   | `xlsxwriter.exceptions.XlsxWriterException` | error root    | base of every xlsxwriter failure                             |
+|  [07]   | `xlsxwriter.exceptions.XlsxInputError`      | error branch  | `DuplicateWorksheetName`/`InvalidWorksheetName`/`DuplicateTableName`/`OverlappingRange`/`EmptyChartSeries` |
+|  [08]   | `xlsxwriter.exceptions.XlsxFileError`       | error branch  | `FileCreateError`/`FileSizeError`/`UndefinedImageSize`/`UnsupportedImageFormat`/`ThemeFileError` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Workbook` lifecycle and minting
 - rail: spreadsheet
 
-The constructor `options` dict carries the streaming policy; `constant_memory=True` flushes each completed row to `tmpdir` and holds only the active row, and `in_memory=True` keeps the temp file in RAM when a disk path is unavailable. `add_worksheet`/`add_format` mint the objects consumed by the write path, and `close` is the single serialization trigger.
+The constructor `options` dict carries the streaming and coercion policy: `constant_memory=True` flushes each completed row to `tmpdir` and holds only the active row; `in_memory=True` keeps the temp file in RAM when a disk path is unavailable; `tmpdir` redirects the spill directory; `use_zip64=True` lifts the 4 GiB archive ceiling; `strings_to_numbers`/`strings_to_formulas`/`strings_to_urls` govern `write` auto-coercion; `default_date_format` sets the implicit datetime format; `remove_timezone` strips tz from datetimes; `nan_inf_to_errors` maps NaN/Inf to Excel error codes; `max_url_length` bounds hyperlink length; `date_1904` selects the Mac epoch. `add_worksheet`/`add_chartsheet`/`add_format`/`add_chart` mint the objects consumed by the write path, and `close` is the single serialization trigger.
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                                                                                          | [CAPABILITY]                                                                                                 |
 | :-----: | :------------------------ | :-------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
 |  [01]   | `Workbook.__init__`       | `Workbook(filename: str \| IO[AnyStr] \| os.PathLike \| None = None, options: Dict[str, Any] \| None = None) -> None` | open a workbook on a path or stream; `options` carries `constant_memory`, `in_memory`, `tmpdir`, `use_zip64` |
-|  [02]   | `Workbook.add_worksheet`  | `add_worksheet(name: str \| None = None, worksheet_class=None) -> Worksheet`                                          | mint a sheet (auto-named when `name` omitted)                                                                |
-|  [03]   | `Workbook.add_format`     | `add_format(properties=None) -> Format`                                                                               | mint a reusable cell-style object                                                                            |
-|  [04]   | `Workbook.define_name`    | `define_name(name: str, formula: str) -> Literal[0, -1]`                                                              | register a workbook-scoped defined name                                                                      |
-|  [05]   | `Workbook.set_properties` | `set_properties(properties) -> None`                                                                                  | set document core properties (title/author/etc.)                                                             |
-|  [06]   | `Workbook.worksheets`     | `worksheets() -> List[Worksheet]`                                                                                     | enumerate minted sheets                                                                                      |
-|  [07]   | `Workbook.close`          | `close() -> None`                                                                                                     | flush, package, and write the `.xlsx` container                                                              |
+|  [02]   | `Workbook.add_worksheet`  | `add_worksheet(name: str \| None = None, worksheet_class=None) -> Worksheet`                                          | mint a data sheet (auto-named when `name` omitted)                                                           |
+|  [03]   | `Workbook.add_chartsheet` | `add_chartsheet(name: str \| None = None, chartsheet_class=None) -> Chartsheet`                                       | mint a single-chart full-page sheet                                                                          |
+|  [04]   | `Workbook.add_format`     | `add_format(properties: Dict[str, Any] \| None = None) -> Format`                                                    | mint a reusable cell-style object                                                                            |
+|  [05]   | `Workbook.add_chart`      | `add_chart(options: Dict[str, Any]) -> Chart \| None`                                                                | mint a chart by `{'type','subtype'}`; insert via `Worksheet.insert_chart`                                    |
+|  [06]   | `Workbook.define_name`    | `define_name(name: str, formula: str) -> Literal[0, -1]`                                                             | register a workbook- or sheet-scoped defined name                                                            |
+|  [07]   | `Workbook.add_vba_project`| `add_vba_project(vba_project: str \| BinaryIO, is_stream: bool = False) -> Literal[0, -1]`                           | embed an extracted `vbaProject.bin` for a macro-enabled `.xlsm`                                              |
+|  [08]   | `Workbook.set_properties` | `set_properties(properties: Dict[str, Any]) -> None`                                                                 | set document core properties (title/author/subject/keywords/created)                                         |
+|  [09]   | `Workbook.set_custom_property` | `set_custom_property(name: str, value, property_type=None) -> Literal[0, -1]`                                   | add one typed custom document property                                                                       |
+|  [10]   | `Workbook.get_worksheet_by_name` | `get_worksheet_by_name(name: str) -> Worksheet \| None`                                                        | polymorphic lookup of a minted sheet by name                                                                 |
+|  [11]   | `Workbook.worksheets`     | `worksheets() -> List[Worksheet]`                                                                                    | enumerate minted sheets in tab order                                                                         |
+|  [12]   | `Workbook.set_calc_mode`  | `set_calc_mode(mode: str, calc_id=None) -> None`                                                                     | `auto`/`manual`/`auto_except_tables` recalc policy                                                           |
+|  [13]   | `Workbook.read_only_recommended` | `read_only_recommended() -> None`                                                                              | flag the file read-only-recommended on open                                                                  |
+|  [14]   | `Workbook.close`          | `close() -> None`                                                                                                    | flush, package, and write the `.xlsx`/`.xlsm` container                                                      |
 
 [ENTRYPOINT_SCOPE]: `Worksheet` row-major writes
 - rail: spreadsheet
@@ -62,14 +72,54 @@ Under `constant_memory` cells are written in strict row-major order; a row is se
 |  [07]   | `Worksheet.write_datetime` | `write_datetime(row: int, col: int, date: datetime, cell_format: Format \| None = None) -> Literal[0, -1]`                                                             | write a date/time cell (number-formatted)                                           |
 |  [08]   | `Worksheet.write_formula`  | `write_formula(row: int, col: int, formula: str, cell_format: Format \| None = None, value=0) -> Literal[0, -1, -2]`                                                   | write a formula with cached value                                                   |
 |  [09]   | `Worksheet.write_blank`    | `write_blank(row: int, col: int, blank: Any, cell_format: Format \| None = None)`                                                                                      | write a formatted empty cell                                                        |
-|  [10]   | `Worksheet.set_column`     | `set_column(first_col: int, last_col: int, width: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]` | set column width/default format/visibility                                          |
-|  [11]   | `Worksheet.set_row`        | `set_row(row: int, height: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                        | set row height/default format (call before writing the row under `constant_memory`) |
-|  [12]   | `Worksheet.freeze_panes`   | `freeze_panes(row: int, col: int, top_row: int \| None = None, left_col: int \| None = None, pane_type: int = 0) -> None`                                              | freeze header rows/columns                                                          |
+|  [10]   | `Worksheet.write_url`      | `write_url(row: int, col: int, url: str, cell_format: Format \| None = None, string: str \| None = None, tip: str \| None = None) -> Literal[0, -1, -2, -3]`            | write a hyperlink (external/internal/mailto)                                        |
+|  [11]   | `Worksheet.write_rich_string` | `write_rich_string(row: int, col: int, *args) -> Literal[0, -1, -2, -3]`                                                                                            | write a multi-format string (alternating `Format`/text segments)                   |
+|  [12]   | `Worksheet.write_array_formula` | `write_array_formula(first_row, first_col, last_row, last_col, formula: str, cell_format=None, value=0) -> Literal[0, -1]`                                          | write a CSE array formula over a range                                             |
+|  [13]   | `Worksheet.write_dynamic_array_formula` | `write_dynamic_array_formula(first_row, first_col, last_row, last_col, formula: str, cell_format=None, value=0) -> Literal[0, -1]`                          | write an Excel 365 spilling dynamic-array formula                                  |
+|  [14]   | `Worksheet.set_column`     | `set_column(first_col: int, last_col: int, width: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]` | set column width/default format/visibility                                          |
+|  [15]   | `Worksheet.set_row`        | `set_row(row: int, height: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                        | set row height/default format (call before writing the row under `constant_memory`) |
+|  [16]   | `Worksheet.freeze_panes`   | `freeze_panes(row: int, col: int, top_row: int \| None = None, left_col: int \| None = None, pane_type: int = 0) -> None`                                              | freeze header rows/columns                                                          |
+
+[ENTRYPOINT_SCOPE]: `Worksheet` structured-feature family
+- rail: spreadsheet
+
+These are the higher-level Excel features layered over cells. `add_table`, `add_sparkline`, `data_validation`, and `conditional_format` accept an `options` dict carrying the full feature parameters. Under `constant_memory` these remain available except `add_table`, which the streaming flush cannot back-patch.
+
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                              | [CAPABILITY]                                                          |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `Worksheet.conditional_format` | `conditional_format(first_row, first_col, last_row, last_col, options: Dict[str, Any]) -> Literal[0, -1, -2]` | cell/3-color-scale/data-bar/icon-set/formula conditional styling |
+|  [02]   | `Worksheet.data_validation`    | `data_validation(first_row, first_col, last_row, last_col, options: Dict[str, Any]) -> Literal[0, -1, -2]`    | dropdown lists, ranges, input/error messages                     |
+|  [03]   | `Worksheet.add_table`          | `add_table(first_row, first_col, last_row, last_col, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2, -3]` | banded structured table with header/totals (no `constant_memory`) |
+|  [04]   | `Worksheet.add_sparkline`      | `add_sparkline(row, col, options: Dict[str, Any]) -> Literal[0, -1, -2]`                                  | inline line/column/win-loss sparkline                                |
+|  [05]   | `Worksheet.autofilter`         | `autofilter(first_row, first_col, last_row, last_col) -> None`                                           | declare a filterable header range                                    |
+|  [06]   | `Worksheet.filter_column`      | `filter_column(col, criteria: str) -> None`                                                              | apply a filter expression to one autofilter column                   |
+|  [07]   | `Worksheet.merge_range`        | `merge_range(first_row, first_col, last_row, last_col, data, cell_format: Format \| None = None) -> Literal[0, -1, -2]` | merge a cell range with one formatted value             |
+|  [08]   | `Worksheet.insert_chart`       | `insert_chart(row, col, chart: Chart, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`         | embed an `add_chart` object at an anchor                             |
+|  [09]   | `Worksheet.insert_image`       | `insert_image(row, col, source: str \| BytesIO, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2]` | embed a PNG/JPEG/GIF/BMP from path or in-memory stream         |
+|  [10]   | `Worksheet.insert_textbox`     | `insert_textbox(row, col, text: str, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`          | place a floating text box                                            |
+|  [11]   | `Worksheet.write_comment`      | `write_comment(row, col, comment: str, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2]`    | attach a cell comment/note                                           |
+|  [12]   | `Worksheet.protect`            | `protect(password: str = "", options: Dict[str, Any] \| None = None) -> None`                            | sheet protection with feature allowances                             |
+
+[ENTRYPOINT_SCOPE]: `Chart` builder
+- rail: spreadsheet — `add_chart({'type': ..., 'subtype': ...})` mints the object; `insert_chart` anchors it
+
+`Chart` is minted by `Workbook.add_chart` with `type` in `column`/`bar`/`line`/`area`/`pie`/`doughnut`/`scatter`/`stock`/`radar`. Series reference worksheet ranges by `=Sheet1!$A$1:$A$10` strings; `combine` overlays a second chart type (column+line Pareto). A `Chartsheet` from `add_chartsheet` hosts a single full-page chart via its own `set_chart`.
+
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                | [CAPABILITY]                                              |
+| :-----: | :--------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `Chart.add_series`     | `add_series(options: Dict[str, Any]) -> None`                               | one data series (`values`/`categories`/`name`/`line`/`fill`) |
+|  [02]   | `Chart.set_x_axis`     | `set_x_axis(options: Dict[str, Any]) -> None`                               | x-axis name/range/number format/gridlines                |
+|  [03]   | `Chart.set_y_axis`     | `set_y_axis(options: Dict[str, Any]) -> None`                               | y-axis name/range/number format/gridlines                |
+|  [04]   | `Chart.set_title`      | `set_title(options: Dict[str, Any]) -> None`                                | chart title and font                                     |
+|  [05]   | `Chart.set_legend`     | `set_legend(options: Dict[str, Any]) -> None`                               | legend position/visibility/font                          |
+|  [06]   | `Chart.set_style`      | `set_style(style_id: int) -> None`                                          | apply one of the 48 built-in Excel chart styles          |
+|  [07]   | `Chart.set_size`       | `set_size(options: Dict[str, Any]) -> None`                                 | chart pixel dimensions and scaling                       |
+|  [08]   | `Chart.combine`        | `combine(chart: Chart) -> None`                                             | overlay a second chart type on a shared axis             |
 
 [ENTRYPOINT_SCOPE]: `Format` style minting
 - rail: spreadsheet
 
-`Format` is constructed by `add_format`; its `set_*` family (60 setters) configures number format, font, alignment, fill, and border. The style object is shared by reference across cells and sheets to keep the format table small.
+`Format` is constructed by `add_format`; its `set_*` family configures number format, font, alignment, fill, border, rotation, indent, and protection. Equivalent properties pass as the `add_format({...})` dict in one call. The style object is shared by reference across cells and sheets to keep the format table small.
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                         | [CAPABILITY]                      |
 | :-----: | :---------------------- | :----------------------------------------------------------------------------------- | :-------------------------------- |
@@ -86,13 +136,16 @@ Under `constant_memory` cells are written in strict row-major order; a row is se
 - memory axis: `constant_memory=True` is the streaming row of the `options` dict — it flushes each completed row to a `tmpdir` temp file and holds only the active row, giving O(1) row memory; `in_memory=True` keeps the temp data in RAM when no writable disk path exists; `use_zip64=True` lifts the 4 GiB archive ceiling. Streaming is a policy row, never a parallel writer type.
 - order axis: under `constant_memory` cells are written in strict row-major order and a row is sealed when a higher row is touched; `set_row` height/format is applied before the row's cells are written. Out-of-order writes to a sealed row are silently dropped — the row index is the load-bearing discriminant.
 - write axis: `Worksheet.write` is the single type-dispatching entry; it discriminates str/number/bool/datetime/url and routes to the typed writers. `write_row`/`write_column` are the bulk-sequence rows with one shared `cell_format`; typed `write_string`/`write_number`/`write_datetime` are forced-type rows, never a per-type sheet object.
-- style axis: `Format` is minted once by `add_format` and shared by reference across cells and sheets; its `set_*` setters are the style rows. The format object is a reused style table entry, never a per-cell style allocation.
-- lifecycle axis: `Workbook.close` is the single serialization trigger — it flushes pending rows, packages worksheets, shared strings, styles, and metadata into the zip container, and writes the `.xlsx`. The workbook is invalid after `close`; serialization happens exactly once.
-- evidence: each workbook captures target path/stream, sheet count, written row/column extents, `constant_memory`/`in_memory` mode, zip64 flag, and output byte length as a spreadsheet receipt.
+- style axis: `Format` is minted once by `add_format` and shared by reference across cells and sheets; its `set_*` setters (or the `add_format({...})` property dict) are the style rows. The format object is a reused style table entry, never a per-cell style allocation.
+- feature axis: structured Excel features (`conditional_format`, `data_validation`, `add_table`, `add_sparkline`, `autofilter`/`filter_column`, `merge_range`) and embedded objects (`insert_chart`, `insert_image`, `insert_textbox`, `write_comment`) are options-dict rows on `Worksheet`, never parallel sheet types. `constant_memory` permits all of these except `add_table`, whose streaming flush cannot back-patch the table XML — guard a table emission on the non-streaming path.
+- chart axis: `Workbook.add_chart({'type','subtype'})` mints a `Chart`; series bind worksheet ranges by A1 string, `combine` overlays a second type, and `Worksheet.insert_chart` (or `Chartsheet.set_chart`) anchors it. The chart references already-written cells, so it is emitted after the data rows it plots.
+- lifecycle axis: `Workbook.close` is the single serialization trigger — it flushes pending rows, packages worksheets, chartsheets, shared strings, styles, charts, and metadata into the zip container, and writes the `.xlsx`/`.xlsm`. The workbook is invalid after `close`; serialization happens exactly once.
+- integration: stream a `polars`/`pyarrow` frame through `write_row` under `constant_memory`, sharing one `add_format` number/date style across the column block; for in-memory delivery pass a `BytesIO` as `filename` so `close` writes the buffer the artifacts download owner returns, and stamp an `otel` span with sheet count, row/column extent, `constant_memory` flag, and output byte length. Conditional-format/data-validation options dicts are authored from the same canonical column schema that drives the writes, never hand-built twice.
+- evidence: each workbook captures target path/stream, sheet count, written row/column extents, `constant_memory`/`in_memory` mode, zip64 flag, chart/table count, and output byte length as a spreadsheet receipt.
 - boundary: xlsxwriter owns XLSX generation, OOXML packaging, and zip container assembly with no read capability; reading or editing existing `.xlsx` routes elsewhere; the streamed file feeds the artifacts download and export owners directly; live UI rendering stays outside this package.
 
 [RAIL_LAW]:
 - Package: `xlsxwriter`
-- Owns: constant-memory streaming XLSX authoring — `Workbook` container lifecycle, `Worksheet` row-major writes, `Format` style minting, and OOXML/zip64 packaging at `close`
-- Accept: write-only XLSX generation feeding the artifacts spreadsheet, download, and export owners, including large datasets under `constant_memory`
-- Reject: wrapper-renames of `Workbook`/`add_worksheet`/`write`; a hand-rolled OOXML or zip packager; an in-RAM row matrix where `constant_memory` already streams; a parallel writer type per cell value type; reading or editing an existing workbook this package never opens for input
+- Owns: constant-memory streaming XLSX/XLSM authoring — `Workbook` container lifecycle, `Worksheet` row-major writes plus structured features (conditional format, validation, tables, sparklines, autofilter, merge, comments), embedded charts/images/textboxes, `Format` style minting, and OOXML/zip64 packaging at `close`
+- Accept: write-only XLSX generation feeding the artifacts spreadsheet, download, and export owners, including large datasets under `constant_memory`, charts plotting written ranges, and macro embedding via `add_vba_project`
+- Reject: wrapper-renames of `Workbook`/`add_worksheet`/`write`; a hand-rolled OOXML or zip packager; an in-RAM row matrix where `constant_memory` already streams; a parallel writer type per cell value type or per feature; `add_table` under `constant_memory`; reading or editing an existing workbook this package never opens for input

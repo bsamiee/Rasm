@@ -30,12 +30,15 @@
 |  [09]   | `scipy.optimize.Bounds`              | constraint         | variable lower/upper bounds             |
 |  [10]   | `scipy.optimize.LinearConstraint`    | constraint         | `lb <= A x <= ub` linear constraint     |
 |  [11]   | `scipy.optimize.NonlinearConstraint` | constraint         | nonlinear `lb <= f(x) <= ub` constraint |
-|  [12]   | `scipy.interpolate.BSpline`          | spline carrier     | knot/coefficient B-spline value         |
-|  [13]   | `scipy.spatial.KDTree`               | neighbour search   | KD-tree; subclasses compiled `cKDTree`  |
-|  [14]   | `scipy.spatial.transform.Rotation`   | rotation carrier   | quaternion/matrix/Euler 3-D rotation    |
-|  [15]   | `scipy.stats.rv_continuous`          | distribution base  | continuous-distribution base class      |
-|  [16]   | `scipy.stats.rv_discrete`            | distribution base  | discrete-distribution base class        |
-|  [17]   | `scipy.stats.qmc.QMCEngine`          | sampler base       | low-discrepancy engine base class       |
+|  [12]   | `scipy.optimize.HessianUpdateStrategy` | hessian carrier  | `BFGS`/`SR1` quasi-Newton Hessian strategy |
+|  [13]   | `scipy.integrate.OdeSolver`          | ODE solver base    | `RK45`/`DOP853`/`Radau`/`BDF`/`LSODA` step-controllable base |
+|  [14]   | `scipy.interpolate.BSpline`          | spline carrier     | knot/coefficient B-spline value         |
+|  [15]   | `scipy.spatial.KDTree`               | neighbour search   | KD-tree; subclasses compiled `cKDTree`  |
+|  [16]   | `scipy.spatial.transform.Rotation`   | rotation carrier   | quaternion/matrix/Euler 3-D rotation    |
+|  [17]   | `scipy.stats.rv_continuous`          | distribution base  | continuous-distribution base class      |
+|  [18]   | `scipy.stats.rv_discrete`            | distribution base  | discrete-distribution base class        |
+|  [19]   | `scipy.stats.Covariance`             | covariance carrier | structured covariance for multivariate distributions |
+|  [20]   | `scipy.stats.qmc.QMCEngine`          | sampler base       | low-discrepancy engine base class       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -54,29 +57,28 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [06]   | `irfft(x, n, axis, norm)`     | real inverse DFT | real signal from half-spectrum         |
 |  [07]   | `dct(x, type, n, axis, norm)` | cosine transform | discrete cosine transform              |
 |  [08]   | `dst(x, type, n, axis, norm)` | sine transform   | discrete sine transform                |
-|  [09]   | `fftfreq(n, d)`               | frequency grid   | sample frequencies for `fft` output    |
-|  [10]   | `rfftfreq(n, d)`              | frequency grid   | sample frequencies for `rfft` output   |
-|  [11]   | `fftshift(x, axes)`           | grid shift       | zero-frequency-centred spectrum        |
+|  [09]   | `hfft(x, n, axis)` \| `ihfft(x, n, axis)` | Hermitian DFT | transform of a Hermitian-symmetric spectrum |
+|  [10]   | `dctn(x, type, axes)` \| `dstn(x, type, axes)` \| `fht(a, dln, mu)` \| `ifht(...)` | n-D / log transform | n-D cosine/sine transform, fast Hankel transform |
+|  [11]   | `fftfreq(n, d)` \| `rfftfreq(n, d)` \| `fftshift(x, axes)` \| `ifftshift(x, axes)` | frequency grid | sample frequencies and zero-frequency centring |
+|  [12]   | `next_fast_len(n, real)` \| `set_workers(workers)` / `get_workers()` | tuning | optimal padding length and worker-thread pool for the pocketfft backend |
 
 [ENTRYPOINT_SCOPE]: `scipy.linalg` dense factorization and solve
 - rail: solvers
 
 | [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]  | [RESULT]                        |
 | :-----: | :--------------------------------------- | :-------------- | :------------------------------ |
-|  [01]   | `solve(a, b, assume_a)`                  | dense solve     | solution of `a x = b`           |
-|  [02]   | `inv(a)`                                 | dense solve     | matrix inverse                  |
-|  [03]   | `det(a)`                                 | scalar          | determinant                     |
+|  [01]   | `solve(a, b, assume_a)`                  | dense solve     | solution of `a x = b` (`assume_a='pos'/'sym'/'her'/'gen'` dispatch) |
+|  [02]   | `solve_triangular(a, b, lower, trans)` \| `solve_banded(l_and_u, ab, b)` \| `solveh_banded(ab, b)` | structured solve | triangular / banded / Hermitian-banded back-substitution |
+|  [03]   | `inv(a)` \| `det(a)` \| `pinv(a, atol, rtol)` | dense solve | inverse, determinant, Moore-Penrose pseudoinverse |
 |  [04]   | `lu_factor(a)` \| `lu_solve(lu_piv, b)`  | factorization   | LU factor and back-substitution |
-|  [05]   | `cholesky(a, lower)`                     | factorization   | Cholesky factor                 |
-|  [06]   | `cho_factor(a)` \| `cho_solve(c_low, b)` | factorization   | Cholesky factor and solve       |
-|  [07]   | `qr(a, mode, pivoting)`                  | factorization   | QR factor                       |
-|  [08]   | `svd(a, full_matrices, compute_uv)`      | factorization   | singular value decomposition    |
-|  [09]   | `eig(a, b, left, right)`                 | eigensolver     | general eigenvalues/vectors     |
-|  [10]   | `eigh(a, b, eigvals_only)`               | eigensolver     | symmetric eigenvalues/vectors   |
-|  [11]   | `lstsq(a, b, lapack_driver)`             | least squares   | minimum-norm least-squares fit  |
-|  [12]   | `pinv(a, atol, rtol)`                    | dense solve     | Moore-Penrose pseudoinverse     |
-|  [13]   | `expm(A)`                                | matrix function | matrix exponential              |
-|  [14]   | `norm(a, ord, axis)`                     | scalar          | matrix or vector norm           |
+|  [05]   | `cholesky(a, lower)` \| `cho_factor(a)` \| `cho_solve(c_low, b)` \| `ldl(a)` | factorization | Cholesky / LDL^T factor and solve |
+|  [06]   | `qr(a, mode, pivoting)` \| `rq(a)` \| `polar(a)` \| `schur(a)` \| `cossin(x, p, q)` | factorization | QR / RQ / polar / Schur / CS decomposition |
+|  [07]   | `svd(a, full_matrices, compute_uv)` \| `null_space(A)` \| `orth(A)` | factorization | SVD and SVD-based null-space / orthonormal range |
+|  [08]   | `eig(a, b, left, right)` \| `eigh(a, b, eigvals_only, subset_by_index)` | eigensolver | general / symmetric (subset) eigenvalues+vectors |
+|  [09]   | `lstsq(a, b, lapack_driver)`             | least squares   | minimum-norm least-squares fit  |
+|  [10]   | `expm(A)` \| `logm(A)` \| `sqrtm(A)` \| `funm(A, func)` | matrix function | matrix exponential / log / sqrt / arbitrary analytic function |
+|  [11]   | `norm(a, ord, axis)` \| `block_diag(*arrs)` \| `toeplitz(c, r)` \| `circulant(c)` \| `khatri_rao(a, b)` | structured construct | matrix/vector norm and structured-matrix builders |
+|  [12]   | `solve_sylvester(a, b, q)` \| `solve_continuous_are(a, b, q, r)` \| `solve_discrete_lyapunov(a, q)` | control eqn | Sylvester / algebraic-Riccati / Lyapunov matrix-equation solve |
 
 [ENTRYPOINT_SCOPE]: `scipy.sparse` construction and `scipy.sparse.linalg` solve
 - rail: solvers
@@ -89,14 +91,14 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [04]   | `sparse.hstack(blocks)` \| `sparse.vstack(blocks)` | construct       | block-stacked sparse array    |
 |  [05]   | `sparse.random_array(shape, density)`              | construct       | random sparse array           |
 |  [06]   | `sparse.linalg.spsolve(A, b)`                      | direct solve    | sparse `A x = b` solution     |
-|  [07]   | `sparse.linalg.splu(A)`                            | factorization   | sparse LU factor object       |
-|  [08]   | `sparse.linalg.factorized(A)`                      | factorization   | reusable solve closure        |
-|  [09]   | `sparse.linalg.cg(A, b, rtol, M)`                  | iterative solve | conjugate-gradient solution   |
-|  [10]   | `sparse.linalg.gmres(A, b, restart)`               | iterative solve | GMRES solution                |
-|  [11]   | `sparse.linalg.bicgstab(A, b, rtol)`               | iterative solve | BiCGSTAB solution             |
-|  [12]   | `sparse.linalg.lsqr(A, b, atol, btol)`             | least squares   | sparse least-squares solution |
-|  [13]   | `sparse.linalg.eigsh(A, k, which, sigma)`          | eigensolver     | symmetric sparse eigenpairs   |
-|  [14]   | `sparse.linalg.svds(A, k, which)`                  | factorization   | sparse truncated SVD          |
+|  [07]   | `sparse.linalg.splu(A)` \| `spilu(A, drop_tol, fill_factor)` \| `factorized(A)` | factorization | sparse LU / incomplete-LU / reusable solve closure |
+|  [08]   | `sparse.linalg.cg(A, b, x0=None, *, rtol=1e-5, atol=0.0, maxiter=None, M=None, callback=None)` | iterative solve | symmetric-positive-definite conjugate gradient |
+|  [09]   | `sparse.linalg.gmres(A, b, x0=None, *, rtol=1e-5, atol=0.0, restart=None, maxiter=None, M=None, callback=None, callback_type=None)` | iterative solve | restarted GMRES; `callback_type='pr_norm'/'x'` selects residual vs iterate callback |
+|  [10]   | `sparse.linalg.bicgstab(A, b, x0=None, *, rtol, atol, maxiter, M, callback)` \| `minres(A, b, ..., shift)` \| `qmr` \| `tfqmr` | iterative solve | nonsymmetric/indefinite Krylov mirrors (same `rtol`/`atol`/`maxiter`/`M`/`callback` signature) |
+|  [11]   | `sparse.linalg.lgmres(A, b, ...)` \| `gcrotmk(A, b, ...)`         | iterative solve | augmented/recycling GMRES variants for slow-converging systems |
+|  [12]   | `sparse.linalg.lsqr(A, b, atol, btol)` \| `lsmr(A, b, atol, btol)` | least squares  | sparse least-squares (LSQR / LSMR) solution |
+|  [13]   | `sparse.linalg.eigsh(A, k, which, sigma)` \| `eigs(A, k, which, sigma)` \| `svds(A, k, which)` | eigensolver | symmetric / general sparse eigenpairs and truncated SVD (ARPACK) |
+|  [14]   | `sparse.linalg.aslinearoperator(A)` \| `LinearOperator(shape, matvec)` \| `expm_multiply(A, B)` \| `onenormest(A)` \| `matrix_power(A, p)` | operator algebra | matrix-free operator construction, action-only `exp(A)·B`, 1-norm estimate |
 
 [ENTRYPOINT_SCOPE]: `scipy.optimize` root-find and minimize
 - rail: solvers
@@ -114,44 +116,46 @@ The pocketfft-backed transform family; `rfft`/`irfft` halve storage for real inp
 |  [09]   | `fsolve(func, x0, fprime)`                            | root find       | hybrd vector root                  |
 |  [10]   | `linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)`          | linear program  | HiGHS LP solution                  |
 |  [11]   | `milp(c, integrality, bounds, constraints)`           | integer program | mixed-integer LP solution          |
-|  [12]   | `differential_evolution(func, bounds, strategy)`      | global optimize | stochastic global minimum          |
+|  [12]   | `differential_evolution(func, bounds)` \| `dual_annealing(func, bounds)` \| `shgo(func, bounds)` \| `basinhopping(func, x0)` \| `direct(func, bounds)` \| `brute(func, ranges)` | global optimize | stochastic / deterministic global minimum |
 |  [13]   | `nnls(A, b, maxiter)`                                 | least squares   | nonnegative least-squares solution |
-|  [14]   | `linear_sum_assignment(cost_matrix)`                  | assignment      | optimal row/column assignment      |
+|  [14]   | `linear_sum_assignment(cost_matrix)` \| `fixed_point(func, x0)` \| `approx_fprime(xk, f)` \| `check_grad(func, grad, x0)` | assignment / fixed point / gradient | optimal assignment, fixed-point iterate, finite-difference Jacobian and gradient check |
+|  [15]   | `BFGS()` \| `SR1()` (`HessianUpdateStrategy`)         | hessian strategy | quasi-Newton Hessian approximation passed to `minimize(hess=...)` |
 
 [ENTRYPOINT_SCOPE]: `scipy.integrate` and `scipy.interpolate`
 - rail: solvers
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RESULT]                           |
 | :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------- |
-|  [01]   | `integrate.quad(func, a, b, epsabs, epsrel)`                  | quadrature     | scalar integral plus error         |
-|  [02]   | `integrate.dblquad(func, a, b, gfun, hfun)`                   | quadrature     | double integral                    |
-|  [03]   | `integrate.nquad(func, ranges, opts)`                         | quadrature     | n-dimensional integral             |
-|  [04]   | `integrate.quad_vec(f, a, b, epsabs, workers)`                | quadrature     | vector-valued integral             |
-|  [05]   | `integrate.solve_ivp(fun, t_span, y0, method)`                | ODE integrator | initial-value ODE solution         |
-|  [06]   | `integrate.odeint(func, y0, t)`                               | ODE integrator | LSODA ODE solution                 |
-|  [07]   | `integrate.simpson(y, x, dx)`                                 | sampled rule   | Simpson-rule integral              |
-|  [08]   | `integrate.trapezoid(y, x, dx)`                               | sampled rule   | trapezoidal integral               |
-|  [09]   | `interpolate.interp1d(x, y, kind)`                            | interpolant    | callable 1-D interpolant           |
-|  [10]   | `interpolate.CubicSpline(x, y, bc_type)`                      | interpolant    | C2 cubic-spline interpolant        |
-|  [11]   | `interpolate.PchipInterpolator(x, y)`                         | interpolant    | shape-preserving cubic interpolant |
-|  [12]   | `interpolate.make_interp_spline(x, y, k)`                     | interpolant    | `BSpline` interpolant              |
-|  [13]   | `interpolate.griddata(points, values, xi)`                    | scattered      | unstructured-grid interpolation    |
-|  [14]   | `interpolate.RegularGridInterpolator(points, values, method)` | grid           | regular-grid interpolant           |
+|  [01]   | `integrate.quad(func, a, b, epsabs, epsrel)` \| `quad_vec(f, a, b, workers)` | quadrature | adaptive scalar / vector-valued integral plus error |
+|  [02]   | `integrate.dblquad(func, a, b, gfun, hfun)` \| `tplquad(...)` \| `nquad(func, ranges, opts)` | quadrature | double / triple / n-dimensional integral |
+|  [03]   | `integrate.qmc_quad(func, a, b, n_estimates, qrng)` \| `tanhsinh(f, a, b)` \| `nsum(f, a, b)` | quadrature | QMC integral, tanh-sinh singular-endpoint quadrature, infinite series sum |
+|  [04]   | `integrate.solve_ivp(fun, t_span, y0, method, dense_output, events, jac)` | ODE integrator | initial-value ODE; `method='RK45'/'DOP853'/'Radau'/'BDF'/'LSODA'` |
+|  [05]   | `integrate.RK45` \| `DOP853` \| `Radau` \| `BDF` \| `LSODA` (subclasses of `OdeSolver`) | ODE solver class | step-controllable OOP integrator for `solve_ivp(method=...)` |
+|  [06]   | `integrate.solve_bvp(fun, bc, x, y)`                          | BVP solver     | two-point boundary-value ODE solution |
+|  [07]   | `integrate.odeint(func, y0, t)`                               | ODE integrator | legacy LSODA ODE solution          |
+|  [08]   | `integrate.simpson(y, x, dx)` \| `trapezoid(y, x, dx)` \| `romb(y, dx)` | sampled rule | Simpson / trapezoidal / Romberg integral |
+|  [09]   | `integrate.cumulative_trapezoid(y, x)` \| `cumulative_simpson(y, x)`     | cumulative   | running antiderivative array       |
+|  [10]   | `interpolate.interp1d(x, y, kind)` \| `CubicSpline(x, y, bc_type)` \| `Akima1DInterpolator(x, y)` \| `PchipInterpolator(x, y)` | 1-D interpolant | callable / C2-spline / Akima / shape-preserving cubic |
+|  [11]   | `interpolate.make_interp_spline(x, y, k)` \| `make_smoothing_spline(x, y, lam)` \| `UnivariateSpline(x, y, s)` \| `splrep`/`splev` | spline fit | `BSpline` interpolant / smoothing spline / FITPACK B-spline |
+|  [12]   | `interpolate.RBFInterpolator(y, d, kernel)` \| `NearestNDInterpolator` \| `LinearNDInterpolator` \| `CloughTocher2DInterpolator` | scattered N-D | radial-basis / nearest / linear / C1 scattered interpolation |
+|  [13]   | `interpolate.griddata(points, values, xi, method)`            | scattered      | unstructured-grid interpolation (wraps the ND interpolators) |
+|  [14]   | `interpolate.RegularGridInterpolator(points, values, method)` \| `NdBSpline(t, c, k)` | grid | regular-grid interpolant / tensor-product N-D B-spline |
 
 [ENTRYPOINT_SCOPE]: `scipy.signal` filter design, spectral estimation, and resampling
 - rail: signal
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]    | [RESULT]                             |
 | :-----: | :-------------------------------------------- | :---------------- | :----------------------------------- |
-|  [01]   | `butter(N, Wn, btype, output='sos')`          | IIR design        | Butterworth SOS / b,a coefficients   |
-|  [02]   | `firwin(numtaps, cutoff, window, pass_zero)`  | FIR design        | windowed-FIR tap coefficients        |
-|  [03]   | `sosfiltfilt(sos, x, axis)`                   | zero-phase filter | forward-backward SOS-filtered signal |
-|  [04]   | `filtfilt(b, a, x, axis)`                     | zero-phase filter | forward-backward b,a-filtered signal |
-|  [05]   | `welch(x, fs, nperseg, noverlap)`             | spectral estimate | Welch PSD `(f, Pxx)`                 |
-|  [06]   | `spectrogram(x, fs, nperseg, noverlap)`       | spectral estimate | time-frequency `(f, t, Sxx)`         |
-|  [07]   | `resample_poly(x, up, down, axis)`            | resample          | polyphase rational resample          |
-|  [08]   | `find_peaks(x, height, distance, prominence)` | peak detect       | peak indices and properties          |
-|  [09]   | `hilbert(x, N, axis)`                         | analytic signal   | complex analytic signal (FFT-backed) |
+|  [01]   | `butter(N, Wn, btype, output='sos')` \| `cheby1` \| `cheby2` \| `ellip` \| `bessel` \| `iirfilter(N, Wn, ftype)` \| `iirnotch(w0, Q)` | IIR design | Butterworth/Chebyshev/elliptic/Bessel/notch SOS or b,a coefficients |
+|  [02]   | `firwin(numtaps, cutoff, window, pass_zero)` | FIR design        | windowed-FIR tap coefficients        |
+|  [03]   | `sosfiltfilt(sos, x, axis)` \| `filtfilt(b, a, x)` \| `sosfilt(sos, x)` \| `lfilter(b, a, x)` \| `savgol_filter(x, w, p)` | filter apply | zero-phase / causal / Savitzky-Golay filtering |
+|  [04]   | `welch(x, fs, nperseg, noverlap)` \| `csd(x, y, fs)` \| `coherence(x, y, fs)` \| `periodogram(x, fs)` | spectral estimate | PSD / cross-PSD / coherence / periodogram |
+|  [05]   | `ShortTimeFFT(win, hop, fs)` \| `stft(x, fs)` \| `istft(Zxx, fs)` \| `spectrogram(x, fs)` | time-frequency | STFT object / forward-inverse STFT / spectrogram `(f, t, Sxx)` |
+|  [06]   | `convolve(in1, in2, mode)` \| `correlate(in1, in2)` \| `fftconvolve(in1, in2)` \| `oaconvolve(in1, in2)` | convolution | direct / FFT / overlap-add convolution and correlation |
+|  [07]   | `resample_poly(x, up, down, axis)` \| `decimate(x, q)` \| `detrend(x, type)` | resample/condition | polyphase resample / decimation / detrend |
+|  [08]   | `find_peaks(x, height, distance, prominence)` \| `peak_widths(x, peaks)` \| `peak_prominences(x, peaks)` | peak detect | peak indices, widths, and prominences |
+|  [09]   | `hilbert(x, N, axis)` \| `hilbert2(x)`        | analytic signal   | complex analytic signal (FFT-backed; `scipy.fft.fft`/`ifft` composed) |
+|  [10]   | `windows.<name>(M)` (`hann`, `hamming`, `blackman`, `kaiser`, `tukey`, `dpss`) | window | tapering windows for FIR design and STFT |
 
 [ENTRYPOINT_SCOPE]: `scipy.stats` distributions and hypothesis tests
 - rail: statistics
@@ -162,11 +166,13 @@ Continuous (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `expon`, `uniform`,
 | :-----: | :----------------------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
 |  [01]   | `norm` / `lognorm` / `gamma` / `beta` / `t` / `chi2` / `expon` / `weibull_min` | continuous dist | frozen distribution with `pdf`/`cdf`/`ppf`/`rvs` |
 |  [02]   | `binom` / `poisson` / `geom` / `nbinom`                                        | discrete dist   | frozen distribution with `pmf`/`cdf`/`rvs`       |
-|  [03]   | `<dist>.fit(data)`                                                             | MLE fit         | maximum-likelihood shape/loc/scale tuple         |
-|  [04]   | `ks_2samp(data1, data2)`                                                       | hypothesis test | two-sample Kolmogorov-Smirnov result             |
-|  [05]   | `anderson(x, dist)`                                                            | hypothesis test | Anderson-Darling statistic + crit values         |
-|  [06]   | `shapiro(x)`                                                                   | hypothesis test | Shapiro-Wilk normality result                    |
-|  [07]   | `mannwhitneyu(x, y, alternative)`                                              | hypothesis test | Mann-Whitney U rank-sum result                   |
+|  [03]   | `<dist>.fit(data)` \| `fit(dist, data, bounds)` \| `make_distribution(dist)`    | MLE fit / array-API | MLE shape/loc/scale; bounded optimisation fit; modern array-API distribution object |
+|  [04]   | `ks_2samp(d1, d2)` \| `anderson(x, dist)` \| `shapiro(x)`                       | goodness-of-fit | Kolmogorov-Smirnov / Anderson-Darling / Shapiro-Wilk normality |
+|  [05]   | `ttest_ind(a, b)` \| `ttest_rel(a, b)` \| `f_oneway(*samples)` \| `wilcoxon(x, y)` \| `mannwhitneyu(x, y)` \| `kruskal(*samples)` | parametric / rank test | t / ANOVA / Wilcoxon / Mann-Whitney / Kruskal-Wallis, each returning `statistic`/`pvalue` |
+|  [06]   | `pearsonr(x, y)` \| `spearmanr(x, y)` \| `kendalltau(x, y)` \| `linregress(x, y)` | correlation | linear / rank correlation and OLS regression result |
+|  [07]   | `bootstrap(data, statistic)` \| `permutation_test(data, statistic)` \| `monte_carlo_test(sample, rvs, statistic)` | resampling inference | confidence-interval / exchangeability / parametric MC test (`rng` keyword) |
+|  [08]   | `gaussian_kde(dataset)` \| `multivariate_normal(mean, cov)` \| `ecdf(sample)` \| `Covariance.from_*(...)` | density / multivariate | KDE, multivariate-normal, empirical CDF, structured covariance carrier |
+|  [09]   | `wasserstein_distance(u, v)` \| `entropy(pk, qk)` \| `differential_entropy(x)` \| `false_discovery_control(ps)` | divergence / multiple-test | optimal-transport distance, (relative) entropy, Benjamini-Hochberg FDR control |
 
 [ENTRYPOINT_SCOPE]: `scipy.stats.qmc` quasi-Monte-Carlo sampling
 - rail: experiments
@@ -175,11 +181,13 @@ Continuous (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `expon`, `uniform`,
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [RESULT]                               |
 | :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------- |
-|  [01]   | `qmc.Sobol(d, scramble, rng)` -> `.random(n)`          | QMC engine       | scrambled Sobol low-discrepancy sample |
+|  [01]   | `qmc.Sobol(d, scramble, bits, rng, optimization)` -> `.random(n)` / `.random_base2(m)` | QMC engine | scrambled Sobol low-discrepancy sample |
 |  [02]   | `qmc.Halton(d, scramble, rng)` -> `.random(n)`         | QMC engine       | Halton low-discrepancy sample          |
-|  [03]   | `qmc.LatinHypercube(d, scramble, rng)` -> `.random(n)` | QMC engine       | Latin-hypercube stratified sample      |
-|  [04]   | `qmc.scale(sample, l_bounds, u_bounds)`                | affine map       | sample scaled to the bounds box        |
-|  [05]   | `qmc.discrepancy(sample, method)`                      | uniformity score | low-discrepancy quality metric         |
+|  [03]   | `qmc.LatinHypercube(d, scramble, strength, rng, optimization)` -> `.random(n)` | QMC engine | Latin-hypercube (orthogonal-array `strength=2`) stratified sample |
+|  [04]   | `qmc.PoissonDisk(d, radius, rng)` -> `.fill_space()`   | QMC engine       | blue-noise minimum-distance sample     |
+|  [05]   | `qmc.MultivariateNormalQMC(mean, cov)` \| `MultinomialQMC(pvals, n_trials)` | QMC engine | low-discrepancy multivariate-normal / multinomial draw |
+|  [06]   | `qmc.scale(sample, l_bounds, u_bounds)`                | affine map       | sample scaled to the bounds box        |
+|  [07]   | `qmc.discrepancy(sample, method)`                      | uniformity score | low-discrepancy quality metric (`'CD'`/`'WD'`/`'MD'`/`'L2-star'`) |
 
 [ENTRYPOINT_SCOPE]: `scipy.spatial` neighbour search, hull, and tessellation
 - rail: spatial
@@ -188,30 +196,31 @@ Continuous (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `expon`, `uniform`,
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]   | [RESULT]                                |
 | :-----: | :-------------------------------------------------------------- | :--------------- | :-------------------------------------- |
-|  [01]   | `KDTree(data)` \| `cKDTree(data)` -> `.query(x, k)`             | neighbour search | k-nearest indices and distances         |
-|  [02]   | `cKDTree.query_ball_point(x, r)`                                | radius search    | indices within radius `r`               |
-|  [03]   | `ConvexHull(points)` -> `.simplices`/`.volume`/`.area`          | hull             | facet simplices, hull volume and area   |
-|  [04]   | `Delaunay(points)` -> `.simplices`/`.points`/`.find_simplex(p)` | triangulation    | simplex table, points, point-location   |
-|  [05]   | `Voronoi(points)` -> `.vertices`/`.regions`/`.ridge_points`     | tessellation     | Voronoi vertices, regions, ridge graph  |
-|  [06]   | `distance.cdist(XA, XB, metric)`                                | distance matrix  | pairwise distance matrix                |
+|  [01]   | `KDTree(data)` \| `cKDTree(data)` -> `.query(x, k, workers)`    | neighbour search | k-nearest indices and distances (`KDTree` subclasses compiled `cKDTree`) |
+|  [02]   | `cKDTree.query_ball_point(x, r)` \| `query_pairs(r)` \| `query_ball_tree(other, r)` | radius search | indices within radius / self pairs / cross-tree pairs |
+|  [03]   | `ConvexHull(points)` -> `.simplices`/`.volume`/`.area` \| `HalfspaceIntersection(halfspaces, ip)` | hull | facet simplices, hull volume/area, halfspace intersection |
+|  [04]   | `Delaunay(points)` -> `.simplices`/`.find_simplex(p)`           | triangulation    | simplex table and barycentric point-location |
+|  [05]   | `Voronoi(points)` -> `.vertices`/`.regions`/`.ridge_points` \| `SphericalVoronoi(points, radius)` | tessellation | planar / spherical Voronoi vertices, regions, ridge graph |
+|  [06]   | `distance.cdist(XA, XB, metric)` \| `distance_matrix(x, y, p)`  | distance matrix  | pairwise / Minkowski distance matrix    |
 |  [07]   | `distance.pdist(X, metric)` \| `distance.squareform(Y)`         | distance vector  | condensed distance vector / matrix form |
-|  [08]   | `transform.Rotation.from_quat/from_matrix/from_euler(...)`      | rotation carrier | `Rotation` with `.apply`/`.as_matrix`   |
-|  [09]   | `procrustes(data1, data2)`                                      | alignment        | standardized arrays + disparity score   |
+|  [08]   | `transform.Rotation.from_quat/from_matrix/from_euler/from_rotvec(...)` -> `.apply`/`.as_matrix`/`.inv`/`.mean` | rotation carrier | 3-D rotation algebra with mean and inversion |
+|  [09]   | `transform.Slerp(times, rotations)` \| `RotationSpline(times, rotations)` \| `RigidTransform(...)` \| `Rotation.align_vectors(a, b)` | rotation interp / fit | spherical-linear / spline rotation interpolation, rigid transform, Kabsch alignment |
+|  [10]   | `procrustes(data1, data2)` \| `geometric_slerp(start, end, t)`  | alignment / interp | optimal similarity alignment + disparity, sphere-surface slerp |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SOLVER_TOPOLOGY]:
 - transform: `scipy.fft` owns the pocketfft DFT family (`fft`/`ifft`, `fftn`/`ifftn`, `rfft`/`irfft`), the trigonometric transforms (`dct`, `dst`), and the frequency-grid helpers (`fftfreq`, `fftshift`); the `analysis/transform.md#TRANSFORM` owner routes spectral cases here, and `scipy.signal.hilbert` composes `fft`/`ifft` to build the analytic signal.
-- dense linear: `scipy.linalg` owns factorizations (`lu_factor`, `cholesky`, `qr`, `svd`), direct solve (`solve`, `inv`, `lstsq`, `pinv`), eigensolvers (`eig`, `eigh`), and matrix functions (`expm`).
+- dense linear: `scipy.linalg` owns factorizations (`lu_factor`, `cholesky`, `ldl`, `qr`, `svd`, `polar`, `schur`), direct/structured solve (`solve`, `solve_triangular`, `solve_banded`, `lstsq`, `pinv`), eigensolvers (`eig`, `eigh` with `subset_by_index`), matrix functions (`expm`, `logm`, `sqrtm`, `funm`), and control matrix equations (`solve_sylvester`, `solve_continuous_are`, `solve_discrete_lyapunov`).
 - sparse storage: `scipy.sparse` owns the CSR/CSC/COO/DIA/BSR/LIL containers; construct from `diags_array`, `eye_array`, `kron`, or block stacks before solving.
-- sparse solve: `scipy.sparse.linalg` owns direct solve (`spsolve`, `splu`, `factorized`), Krylov iterative solvers (`cg`, `gmres`, `bicgstab`, `lsqr`), and sparse eigen/SVD (`eigsh`, `svds`) over a matrix or `LinearOperator`.
-- optimization: `scipy.optimize` owns minimization (`minimize`, `differential_evolution`), least squares (`least_squares`, `curve_fit`, `nnls`), root finding (`root`, `brentq`, `newton`, `fsolve`), and linear/integer programming (`linprog`, `milp`); constraints route through `Bounds`, `LinearConstraint`, and `NonlinearConstraint`; results carry an `OptimizeResult`.
-- integration: `scipy.integrate` owns adaptive quadrature (`quad`, `dblquad`, `nquad`, `quad_vec`), ODE integrators (`solve_ivp`, `odeint`), and sampled rules (`simpson`, `trapezoid`).
-- interpolation: `scipy.interpolate` owns 1-D interpolants (`interp1d`, `CubicSpline`, `PchipInterpolator`, `make_interp_spline`) and scattered/grid interpolation (`griddata`, `RegularGridInterpolator`).
-- signal: `scipy.signal` owns IIR/FIR design (`butter`, `firwin`), zero-phase filtering (`sosfiltfilt`, `filtfilt`), spectral estimation (`welch`, `spectrogram`), polyphase resampling (`resample_poly`), and peak detection (`find_peaks`); the `signal/dsp.md#DSP` owner routes the stationary cases here beside the `pywt` wavelet cases.
-- statistics: `scipy.stats` owns the continuous/discrete distribution objects (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `binom`, `poisson`, ...) with frozen `pdf`/`pmf`/`cdf`/`ppf`/`rvs`/`fit`, and the hypothesis tests (`ks_2samp`, `anderson`, `shapiro`, `mannwhitneyu`) returning `statistic`/`pvalue`; the `numerics/statistics.md#STATISTICS` owner routes distribution and test cases here.
+- sparse solve: `scipy.sparse.linalg` owns direct solve (`spsolve`, `splu`, `spilu`, `factorized`), the full Krylov family (`cg`/`gmres`/`bicgstab`/`minres`/`qmr`/`tfqmr`/`lgmres`/`gcrotmk`, all sharing the `x0`, `rtol`, `atol`, `maxiter`, `M`, `callback` signature; `gmres` adds `restart`/`callback_type`), least squares (`lsqr`, `lsmr`), sparse eigen/SVD (`eigsh`, `eigs`, `svds`), and matrix-free operator algebra (`LinearOperator`, `aslinearoperator`, `expm_multiply`, `onenormest`) — the matrix-free path feeds the FEM `solver_iter_krylov(M=...)` route in `.api/scikit-fem.md`.
+- optimization: `scipy.optimize` owns local minimization (`minimize` with a `BFGS`/`SR1` `HessianUpdateStrategy`), global search (`differential_evolution`, `dual_annealing`, `shgo`, `basinhopping`, `direct`), least squares (`least_squares`, `curve_fit`, `nnls`), root finding (`root`, `brentq`, `newton`, `fsolve`, `fixed_point`), and linear/integer programming (`linprog`, `milp`); constraints route through `Bounds`, `LinearConstraint`, `NonlinearConstraint`; gradients verify through `approx_fprime`/`check_grad`; results carry an `OptimizeResult`.
+- integration: `scipy.integrate` owns adaptive quadrature (`quad`, `dblquad`, `tplquad`, `nquad`, `quad_vec`, `tanhsinh`, `qmc_quad`, `nsum`), initial-value ODE (`solve_ivp` dispatching `RK45`/`DOP853`/`Radau`/`BDF`/`LSODA` `OdeSolver` classes, `odeint` legacy), boundary-value ODE (`solve_bvp`), and sampled/cumulative rules (`simpson`, `trapezoid`, `romb`, `cumulative_trapezoid`, `cumulative_simpson`); `qmc_quad` stacks a `scipy.stats.qmc` engine into the quadrature node set.
+- interpolation: `scipy.interpolate` owns 1-D interpolants (`interp1d`, `CubicSpline`, `Akima1DInterpolator`, `PchipInterpolator`, `make_interp_spline`, `UnivariateSpline`, `make_smoothing_spline`) and scattered/grid interpolation (`RBFInterpolator`, `NearestNDInterpolator`, `LinearNDInterpolator`, `CloughTocher2DInterpolator`, `griddata`, `RegularGridInterpolator`, `NdBSpline`).
+- signal: `scipy.signal` owns IIR/FIR design (`butter`, `cheby1`, `cheby2`, `ellip`, `bessel`, `iirfilter`, `firwin`), zero-phase/causal filtering (`sosfiltfilt`, `filtfilt`, `sosfilt`, `lfilter`, `savgol_filter`), spectral estimation (`welch`, `csd`, `coherence`, `periodogram`), the modern `ShortTimeFFT`/`stft`/`istft` time-frequency surface, convolution (`fftconvolve`, `oaconvolve`), resampling (`resample_poly`, `decimate`), and peak analysis (`find_peaks`, `peak_widths`, `peak_prominences`); the `signal/dsp.md#DSP` owner routes the stationary cases here beside the `pywt` wavelet cases.
+- statistics: `scipy.stats` owns the continuous/discrete distribution objects (`norm`, `lognorm`, `gamma`, `beta`, `t`, `chi2`, `binom`, `poisson`, ...) with frozen `pdf`/`pmf`/`cdf`/`ppf`/`rvs`/`fit` (plus the array-API `make_distribution` object and bounded `fit`), parametric/rank hypothesis tests (`ttest_ind`, `f_oneway`, `mannwhitneyu`, `kruskal`, `wilcoxon`), goodness-of-fit (`ks_2samp`, `anderson`, `shapiro`), correlations (`pearsonr`, `spearmanr`, `kendalltau`, `linregress`), resampling inference (`bootstrap`, `permutation_test`, `monte_carlo_test`, all taking `rng`), density/divergence (`gaussian_kde`, `ecdf`, `wasserstein_distance`, `entropy`, `false_discovery_control`); the `numerics/statistics.md#STATISTICS` owner routes distribution and test cases here.
 - quasi-Monte-Carlo: `scipy.stats.qmc` owns the low-discrepancy engines (`Sobol`, `Halton`, `LatinHypercube`) with `scale` to a bounds box and `discrepancy` scoring; the `experiments/study.md#STUDY` DOE sampler routes here.
-- spatial: `scipy.spatial` owns KD-tree neighbour/radius search (`KDTree`/`cKDTree.query`/`query_ball_point`), Qhull hull/tessellation (`ConvexHull`, `Delaunay`, `Voronoi`), pairwise/condensed distance (`distance.cdist`, `distance.pdist`/`squareform`), rotation algebra (`transform.Rotation`), and point-set alignment (`procrustes`); the `spatial/query.md#SPATIAL` owner routes every geometry query here.
+- spatial: `scipy.spatial` owns KD-tree neighbour/radius search (`KDTree`/`cKDTree.query`/`query_ball_point`/`query_pairs`, `workers`-parallel), Qhull hull/tessellation (`ConvexHull`, `Delaunay`, `Voronoi`, `SphericalVoronoi`, `HalfspaceIntersection`), pairwise/condensed distance (`distance.cdist`, `distance.pdist`/`squareform`, `distance_matrix`), rotation algebra and interpolation (`transform.Rotation` with `align_vectors`/`mean`, `Slerp`, `RotationSpline`, `RigidTransform`), and point-set alignment (`procrustes`, `geometric_slerp`); the `spatial/query.md#SPATIAL` owner routes every geometry query here.
 
 [LOCAL_ADMISSION]:
 - import: submodule imports at boundary scope only; module-level import is banned by the manifest import policy.

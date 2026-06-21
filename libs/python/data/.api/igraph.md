@@ -5,13 +5,15 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `igraph`
-- package: `igraph`
-- import: `import igraph`
+- package: `igraph` (`python-igraph` on PyPI)
+- version: `1.0.0`
+- license: GPL-2.0+ (libigraph C core is GPL; admitting `igraph` makes the build GPL — keep the dependency confined to the `data` graph rail, never linked into a host-distributed plugin)
+- module: `import igraph`
 - owner: `data`
 - rail: graph
-- installed: `1.0.0` reflected via `python -c "import igraph"` on cp315
+- asset: native C extension (`igraph._igraph`, libigraph C core) over a `GraphBase` base; `igraph.version()` is a callable (the `__version__` string is `1.0.0`)
 - entry points: console script `igraph` (interactive shell); library use is import-only
-- capability: undirected/directed/weighted graph containers backed by the libigraph C core; Leiden/Louvain/Infomap/fast-greedy/walktrap/edge-betweenness/label-propagation/leading-eigenvector/optimal-modularity/spinglass/voronoi/fluid community detection; `VertexClustering` flat partitions and `VertexDendrogram` hierarchical merges; modularity scoring; k-core decomposition; VI/NMI/RI/split-join partition comparison; edge-list/DataFrame/adjacency/famous-graph construction
+- capability: undirected/directed/weighted graph containers backed by the libigraph C core; Leiden/Louvain/Infomap/fast-greedy/walktrap/edge-betweenness/label-propagation/leading-eigenvector/optimal-modularity/spinglass/voronoi/fluid community detection; `VertexClustering` flat partitions and `VertexDendrogram` hierarchical merges; modularity scoring and `recalculate_modularity`; k-core/`coreness` decomposition; `connected_components`/`decompose` component split; PageRank/betweenness/closeness centrality and `distances` shortest-path matrix; VI/NMI/RI/split-join partition comparison; edge-list/DataFrame/adjacency/famous/random-model construction; `to_networkx`/`get_edge_dataframe`/`get_vertex_dataframe` round-trip to the pandas/networkx siblings
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -77,12 +79,14 @@
 |  [05]   | `VertexClustering.subgraphs`     | `subgraphs()`                                                       | induced subgraph per cluster                            |
 |  [06]   | `VertexClustering.giant`         | `giant()`                                                           | largest-cluster induced subgraph                        |
 |  [07]   | `VertexClustering.crossing`      | `crossing()`                                                        | per-edge cross-cluster boolean                          |
-|  [08]   | `VertexClustering.cluster_graph` | `cluster_graph(combine_vertices=None, combine_edges=None)`          | contracted cluster-level graph                          |
-|  [09]   | `VertexClustering.compare_to`    | `compare_to(other, *args, **kwds)`                                  | partition distance against another clustering           |
-|  [10]   | `VertexDendrogram.as_clustering` | `as_clustering(n=None)`                                             | cut merges to a flat `VertexClustering`                 |
-|  [11]   | `VertexDendrogram.optimal_count` | property                                                            | modularity-optimal cluster count                        |
-|  [12]   | `compare_communities`            | `compare_communities(comm1, comm2, method='vi', remove_none=False)` | VI/NMI/split-join/RI/ARI/Danon/meila partition distance |
-|  [13]   | `split_join_distance`            | `split_join_distance(comm1, comm2, remove_none=False)`              | directed split-join distance pair                       |
+|  [08]   | `VertexClustering.cluster_graph`         | `cluster_graph(combine_vertices=None, combine_edges=None)`          | contracted cluster-level graph                          |
+|  [09]   | `VertexClustering.compare_to`            | `compare_to(other, *args, **kwds)`                                  | partition distance against another clustering           |
+|  [10]   | `VertexClustering.recalculate_modularity`| `recalculate_modularity()`                                          | recompute modularity after membership edit              |
+|  [11]   | `VertexClustering.as_cover`              | `as_cover()`                                                        | view flat partition as a `VertexCover`                  |
+|  [12]   | `VertexDendrogram.as_clustering`         | `as_clustering(n=None)`                                             | cut merges to a flat `VertexClustering`                 |
+|  [13]   | `VertexDendrogram.optimal_count`         | property                                                            | modularity-optimal cluster count                        |
+|  [14]   | `compare_communities`                    | `compare_communities(comm1, comm2, method='vi', remove_none=False)` | VI/NMI/split-join/RI/ARI/Danon/meila partition distance |
+|  [15]   | `split_join_distance`                    | `split_join_distance(comm1, comm2, remove_none=False)`              | directed split-join distance pair                       |
 
 [ENTRYPOINT_SCOPE]: `Graph` construction
 - rail: graph
@@ -98,6 +102,27 @@
 |  [06]   | `Graph.Famous`             | `Famous(name)`                                                                                                      | load a named reference graph              |
 |  [07]   | `Graph.Erdos_Renyi`        | `Erdos_Renyi(n, p, m, directed=False, loops=False, edge_labeled=False)`                                             | G(n,p)/G(n,m) random graph                |
 |  [08]   | `Graph.Barabasi`           | `Barabasi(n, m, outpref=False, directed=False, power=1, zero_appeal=1, implementation='psumtree', start_from=None)` | scale-free preferential-attachment graph  |
+|  [09]   | `Graph.Biadjacency`        | `Biadjacency(matrix, ...)` / `Graph.Realize_Degree_Sequence(out, in_=None, ...)`                                    | bipartite / degree-sequence construction  |
+|  [10]   | `Graph.Read_GraphML`       | `Read_GraphML(f, index=0)` / `Read_Pickle(fname)` / `Read_Edgelist` / `Read_Ncol` / `Read_Pajek`                   | format-keyed readers `Read` dispatches    |
+
+[ENTRYPOINT_SCOPE]: component decomposition, centrality, and pandas/networkx seam
+- rail: graph
+- component split is the structural sibling of community detection; centrality vectors feed downstream ranking; the pandas/networkx round-trip is the construction/egress boundary
+
+`connected_components`/`decompose` partition by reachability (no modularity), returning a `VertexClustering`/list of `Graph`; `k_core`/`coreness` give the core decomposition. `pagerank`/`betweenness`/`closeness` and the `distances` matrix are the C-core centrality surface — never re-walked in Python. `DataFrame`/`get_edge_dataframe`/`get_vertex_dataframe` bridge the pandas sibling, `to_networkx` the networkx sibling.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                  | [RESULT / CAPABILITY]                              |
+| :-----: | :------------------------------ | :-------------------------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `Graph.connected_components`    | `connected_components(mode='strong')`                                                         | `VertexClustering` by reachability                 |
+|  [02]   | `Graph.decompose`               | `decompose(mode='strong', maxcompno=None, minelements=1)`                                     | list of induced component `Graph`s                 |
+|  [03]   | `Graph.k_core` / `coreness`     | `k_core(*args)` / `coreness(mode='all')`                                                       | k-core subgraph(s) / per-vertex coreness vector    |
+|  [04]   | `Graph.pagerank`                | `pagerank(vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack')` | per-vertex PageRank vector       |
+|  [05]   | `Graph.betweenness`             | `betweenness(vertices=None, directed=True, cutoff=None, weights=None, sources=None, targets=None)`                 | per-vertex betweenness vector    |
+|  [06]   | `Graph.closeness`               | `closeness(vertices=None, mode='all', cutoff=None, weights=None, normalized=True)`            | per-vertex closeness vector                        |
+|  [07]   | `Graph.distances`               | `distances(source=None, target=None, weights=None, mode='out', algorithm='auto')`             | shortest-path distance matrix                      |
+|  [08]   | `Graph.get_edge_dataframe`      | `get_edge_dataframe()` / `get_vertex_dataframe()`                                             | pandas edge/vertex frames (egress seam)            |
+|  [09]   | `Graph.to_networkx`             | `to_networkx(create_using=None, vertex_attr_hashable='_nx_name')`                              | networkx round-trip for the cp315 networkx sibling |
+|  [10]   | `Graph.induced_subgraph`        | `induced_subgraph(vertices, implementation='auto')` / `simplify(multiple=True, loops=True, combine_edges=None)` | community-subset subgraph / dedup    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -108,11 +133,14 @@
 - result axis: modularity-flat algorithms return a `VertexClustering`; hierarchical algorithms (`community_fastgreedy`/`community_walktrap`/`community_edge_betweenness`) return a `VertexDendrogram` cut to a `VertexClustering` via `as_clustering`; partition state is read off `membership`/`modularity`/`sizes`, never hand-recomputed.
 - scoring axis: `Graph.modularity` scores an external membership against the C-core; `community_optimal_modularity` is the exact-optimum row; resolution control is the `resolution` argument, never a forked algorithm.
 - comparison axis: `compare_communities` is the single partition-distance surface keyed by `method` (`vi`/`nmi`/`split-join`/`rand`/`adjusted_rand`/`danon`/`meila`); `split_join_distance` is the directed split-join row; partition agreement is a `method` row, never a re-implemented metric.
+- structural axis: `connected_components`/`decompose` partition by reachability (no modularity) and are the structural sibling of the `community_*` family — choose component split when the question is connectivity, not community; `k_core`/`coreness` are the core-decomposition rows.
+- centrality axis: `pagerank`/`betweenness`/`closeness`/`distances` are the C-core ranking surface; a centrality vector is read off the bound method, never re-walked in Python over the membership.
 - evidence: each detection captures algorithm name, cluster count, per-cluster sizes, membership vector, modularity score, and resolution as a graph receipt.
-- boundary: igraph owns the libigraph C-core detection and modularity; the `Graph` container is built from edge tuples or a pandas frame at the boundary and the membership vector feeds downstream owners; live drawing stays outside this package.
+- stack: the data rail builds a `Graph` from a pandas edge frame via `Graph.DataFrame(edges, directed=, vertices=, use_vids=)` (the pandas sibling owns the frame), runs `community_leiden`/`community_multilevel`, then either feeds the `membership` vector to a downstream owner or egresses via `get_vertex_dataframe`/`get_edge_dataframe` back to pandas or `to_networkx` to the cp315 networkx sibling. igraph is the C-core detection engine BENEATH the pandas/networkx frame layer, never a parallel container that re-owns frames or node-link JSON.
+- boundary: igraph owns the libigraph C-core detection, modularity, centrality, and component split; the `Graph` container is built from edge tuples or a pandas frame at the boundary and the membership/centrality vector feeds downstream owners; live drawing (`plot`/Cairo/Matplotlib drawers) stays outside this rail. The GPL C core is confined to the `data` graph rail and never linked into a host-distributed plugin.
 
 [RAIL_LAW]:
 - Package: `igraph`
-- Owns: C-core graph containers, the full `community_*` detection family (Leiden/Louvain/Infomap and the dendrogram algorithms), modularity scoring, k-core decomposition, `VertexClustering`/`VertexDendrogram` result carriers, and VI/NMI/RI/split-join partition comparison
-- Accept: `Graph.community_leiden`/`community_multilevel`/`community_infomap` for GRAPH_COMMUNITY, `VertexClustering.membership`/`modularity` as the receipt, `compare_communities` keyed by `method` for partition distance, `Graph.TupleList`/`DataFrame` at the construction boundary
-- Reject: wrapper-renames of `community_*`/`modularity`; a hand-rolled modularity-optimization or Leiden/Louvain loop the C core already owns; a parallel detector type per algorithm when the method row covers it; a re-implemented partition-distance metric where `compare_communities` carries the `method`; identity minting the runtime owns
+- Owns: C-core graph containers, the full `community_*` detection family (Leiden/Louvain/Infomap and the dendrogram algorithms), modularity scoring, `connected_components`/`decompose` component split, k-core/`coreness` decomposition, PageRank/betweenness/closeness centrality and the `distances` matrix, `VertexClustering`/`VertexDendrogram` result carriers, and VI/NMI/RI/split-join partition comparison
+- Accept: `Graph.community_leiden`/`community_multilevel`/`community_infomap` for GRAPH_COMMUNITY, `VertexClustering.membership`/`modularity` as the receipt, `compare_communities` keyed by `method` for partition distance, `Graph.DataFrame`/`TupleList` at the construction boundary, and `get_*_dataframe`/`to_networkx` at the pandas/networkx egress seam
+- Reject: wrapper-renames of `community_*`/`modularity`; a hand-rolled modularity-optimization or Leiden/Louvain loop the C core already owns; a parallel detector type per algorithm when the method row covers it; a re-implemented partition-distance metric where `compare_communities` carries the `method`; a Python re-walk of centrality/components the C core computes; identity minting the runtime owns; the GPL C core linked into a host-distributed plugin

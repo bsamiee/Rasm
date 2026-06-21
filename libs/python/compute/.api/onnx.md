@@ -9,8 +9,9 @@
 - import: `onnx`; submodules `onnx.checker`, `onnx.shape_inference`, `onnx.helper`, `onnx.numpy_helper`, `onnx.version_converter`, `onnx.compose`, `onnx.defs`
 - owner: `compute`
 - rail: model
-- installed: cp315 supported (manifest pin `onnx>=1.22.0`, no version marker; cp312-abi3 wheel runs on CPython 3.15)
-- capability: ONNX model IR — graph/tensor protobuf schema, model load/save with external-data handling, structural checking, static shape inference, opset version conversion, and array conversion
+- license: Apache-2.0
+- installed: cp315 supported (manifest pin `onnx>=1.22.0`, no version marker; resolved `1.22.0` cp312-abi3 universal wheel runs unmodified on CPython 3.15 — the one Bayesian/model-asset companion not gated below `'3.15'`)
+- capability: ONNX model IR — graph/tensor protobuf schema, model load/save with external-data handling, structural checking, static shape inference, opset version conversion, subgraph extraction, textual round-trip, and `TensorProto`↔`np.ndarray` conversion (including bf16/float8 dtypes)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -47,6 +48,11 @@
 |  [07]   | `UINT8`   |       2 | 8-bit unsigned int |
 |  [08]   | `BOOL`    |       9 | boolean            |
 |  [09]   | `STRING`  |       8 | UTF-8 string       |
+|  [10]   | `BFLOAT16` |     16 | bfloat16 (truncated float32) |
+|  [11]   | `FLOAT8E4M3FN` |  17 | 8-bit float (E4M3, finite) — quantized model assets |
+|  [12]   | `FLOAT8E5M2` |   19 | 8-bit float (E5M2)         |
+|  [13]   | `UINT4` / `INT4` | 21/22 | 4-bit packed int — sub-byte weight quantization |
+|  [14]   | `FLOAT4E2M1` | 23 | 4-bit float — newest sub-byte quantization type   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,10 +65,15 @@
 |  [02]   | `load_model_from_string(s, format='protobuf') -> ModelProto`                                                            | model load       | parses a model from in-memory bytes                  |
 |  [03]   | `save(proto, f, *, save_as_external_data=False, location, size_threshold=1024) -> None`                                 | model save       | writes a model, optionally externalizing tensors     |
 |  [04]   | `load_tensor(f, format=None)` / `save_tensor(proto, f, format=None)`                                                    | tensor io        | reads/writes a single `TensorProto`                  |
-|  [05]   | `checker.check_model(model, full_check=False, skip_opset_compatibility_check=False, check_custom_domain=False) -> None` | structural check | validates model structure, raising `ValidationError` |
-|  [06]   | `shape_inference.infer_shapes(model, check_type=False, strict_mode=False, data_prop=False) -> ModelProto`               | shape inference  | propagates static shapes through the graph           |
-|  [07]   | `shape_inference.infer_shapes_path(model_path, output_path)`                                                            | shape inference  | infers shapes for a path-based model                 |
-|  [08]   | `version_converter.convert_version(model, target_version) -> ModelProto`                                                | opset convert    | rewrites the model to a target opset version         |
+|  [05]   | `checker.check_model(model, full_check=False, skip_opset_compatibility_check=False, check_custom_domain=False) -> None` | structural check | validates model structure, raising `ValidationError`; `full_check=True` also runs shape inference |
+|  [06]   | `checker.check_graph(graph, ctx)` / `check_node(node, ctx)` / `check_tensor(tensor, ctx)`                               | structural check | per-element validation for incrementally built graphs |
+|  [07]   | `shape_inference.infer_shapes(model, check_type=False, strict_mode=False, data_prop=False) -> ModelProto`               | shape inference  | propagates static shapes through the graph; `data_prop=True` propagates constant data through shape ops |
+|  [08]   | `shape_inference.infer_shapes_path(model_path, output_path, *, check_type, strict_mode, data_prop)`                     | shape inference  | infers shapes for a path-based model (avoids the 2GB protobuf limit) |
+|  [09]   | `version_converter.convert_version(model, target_version) -> ModelProto`                                                | opset convert    | rewrites the model to a target opset version         |
+|  [10]   | `utils.extract_model(input_path, output_path, input_names, output_names, *, check_model=True)`                          | subgraph extract | slices a sub-model between named tensors             |
+|  [11]   | `parser.parse_model(text) -> ModelProto` / `parser.parse_graph(text)`                                                  | textual io       | round-trips the human-readable ONNX text format      |
+|  [12]   | `inliner.inline_local_functions(model, exclude=None) -> ModelProto`                                                    | function inline  | inlines `FunctionProto` callsites into the main graph |
+|  [13]   | `external_data_helper.{load_external_data_for_model,convert_model_to_external_data,write_external_data_tensors}`        | external data    | streams large initializers to side files (>2GB models) |
 
 [ENTRYPOINT_SCOPE]: construction and array conversion
 - rail: model
@@ -75,10 +86,13 @@
 |  [04]   | `helper.make_tensor(name, data_type, dims, vals, raw=False) -> TensorProto`                                  | tensor builder     | builds an initializer/constant tensor            |
 |  [05]   | `helper.make_tensor_value_info(name, elem_type, shape) -> ValueInfoProto`                                    | value-info builder | builds a typed graph input/output descriptor     |
 |  [06]   | `helper.make_attribute(key, value, attr_type=None) -> AttributeProto`                                        | attribute builder  | builds a typed node attribute                    |
-|  [07]   | `helper.printable_graph(graph, prefix='') -> str`                                                            | graph printer      | renders a human-readable graph dump              |
-|  [08]   | `numpy_helper.to_array(tensor, base_dir='')` / `from_array(array, name=None)`                                | array convert      | converts between `TensorProto` and `np.ndarray`  |
-|  [09]   | `compose.merge_models(m1, m2, io_map)` / `add_prefix(model, prefix)`                                         | model compose      | merges two models or namespaces a model          |
-|  [10]   | `defs.onnx_opset_version()` / `defs.get_all_schemas()`                                                       | opset registry     | reports the supported opset and operator schemas |
+|  [07]   | `helper.make_opsetid(domain, version)` / `helper.make_function(domain, fname, inputs, outputs, nodes, opset_imports, attributes) -> FunctionProto` | model builder | builds opset-id pairs and reusable local functions |
+|  [08]   | `helper.tensor_dtype_to_np_dtype(t)` / `np_dtype_to_tensor_dtype(d)` / `tensor_dtype_to_field(t)`            | dtype map          | bridges the `TensorProto` element-type enum to NumPy dtypes (replaces the deprecated `mapping.TENSOR_TYPE_MAP`) |
+|  [09]   | `helper.printable_graph(graph, prefix='') -> str`                                                            | graph printer      | renders a human-readable graph dump              |
+|  [10]   | `numpy_helper.to_array(tensor, base_dir='')` / `from_array(array, name=None)`                                | array convert      | converts between `TensorProto` and `np.ndarray`, including bf16/float8 via ml_dtypes |
+|  [11]   | `numpy_helper.{to_list,from_list,to_dict,from_dict,to_optional,bfloat16_to_float32,float8e4m3_to_float32}`   | array convert      | sequence/map/optional tensor bridges and sub-byte float decoders |
+|  [12]   | `compose.merge_models(m1, m2, io_map)` / `add_prefix(model, prefix)` / `expand_out_dim(model, dim_idx)`      | model compose      | merges two models, namespaces a model, or adds a batch dim |
+|  [13]   | `defs.onnx_opset_version()` / `defs.get_all_schemas()` / `defs.get_schema(op_type, max_version, domain)`     | opset registry     | reports the supported opset and operator schemas (`OpSchema`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -89,12 +103,17 @@
 - `make_model` is built bottom-up from `make_node`, `make_graph`, and `make_tensor_value_info`; `make_opsetid` plus the `opset_import` field pin the operator set.
 - `version_converter.convert_version` rewrites a model across opset versions; the installed opset is `defs.onnx_opset_version()`.
 
+[STACKING_TOPOLOGY]:
+- `skl2onnx` → onnx → `onnxruntime`: the export-validate-execute rail is `skl2onnx.to_onnx(fitted_estimator, X, target_opset=onnx.defs.onnx_opset_version())` → `ModelProto`, then `onnx.checker.check_model(model, full_check=True)` + `onnx.shape_inference.infer_shapes(model, strict_mode=True)`, then `onnxruntime.InferenceSession(model.SerializeToString()).run(...)`. onnx is the structural gate between the producer (`skl2onnx`) and the runtime (`onnxruntime`); the target opset chosen for `to_onnx` must not exceed `defs.onnx_opset_version()`.
+- onnx → `numpy`: `numpy_helper.to_array`/`from_array` is the only sanctioned bridge between an initializer `TensorProto` and an `np.ndarray`; `helper.tensor_dtype_to_np_dtype` maps the element-type enum so a validator can compare an initializer's declared dtype against the NumPy array a sample run feeds `onnxruntime`.
+- Quantized/LLM assets: the sub-byte enum members (`FLOAT8E4M3FN`, `INT4`, `FLOAT4E2M1`) are why the dtype table is exhaustive — a structural validator must recognize them to check a quantized graph rather than reject it as unknown.
+
 [STUDY_ROUTING]:
-- A model asset is loaded, structurally checked, and shape-inferred; the model-asset receipt captures the opset, the graph input/output signatures, and the check result.
-- ONNX validation is the offline structural half of the model-asset rail; runtime inference is the `onnxruntime` half, and product model execution stays in `Rasm.Compute`.
+- A model asset is loaded, structurally checked (`check_model(full_check=True)`), and shape-inferred (`infer_shapes(strict_mode=True)`); the model-asset receipt captures the opset (`defs.onnx_opset_version()`), the graph input/output signatures, and both error rails folded into one structural verdict.
+- ONNX validation is the offline structural half of the model-asset rail; runtime inference is the `onnxruntime` half, the producer is `skl2onnx`, and product model execution stays in `Rasm.Compute`.
 
 [RAIL_LAW]:
 - Package: `onnx`
-- Owns: offline ONNX model IR construction, load/save, structural checking, shape inference, and opset conversion for the model-asset rail
-- Accept: a model asset validated through `checker.check_model` with a captured opset and signature receipt
-- Reject: hand-parsed protobuf; wrapper-renames of the checker/inference calls; runtime inference claims onnxruntime owns
+- Owns: offline ONNX model IR construction, load/save, structural checking, shape inference, subgraph extraction, function inlining, opset conversion, and `TensorProto`↔NumPy conversion for the model-asset rail
+- Accept: a model asset validated through `checker.check_model(full_check=True)` + `shape_inference.infer_shapes(strict_mode=True)` with a captured opset and input/output signature receipt; producer output from `skl2onnx.to_onnx`
+- Reject: hand-parsed protobuf; hand-written `TensorProto`↔NumPy conversion that `numpy_helper` owns; wrapper-renames of the checker/inference calls; runtime inference claims `onnxruntime` owns

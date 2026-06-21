@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_LXML]
 
-`lxml` supplies the libxml2/libxslt-backed XML and HTML surface for the artifacts structured-documents rail through the `lxml.etree` module: parse/serialize functions, an element factory, a tunable parser, and the XPath/XSLT compilers that drive document building, query, transform, schema validation, and namespace cleanup against the native libxml2 core. The package owner composes `etree.parse`, `etree.Element`, `etree.XPath`, and `etree.XSLT` into the structured-documents owner; it never re-implements XML parsing the native core already owns.
+`lxml` supplies the libxml2/libxslt-backed XML and HTML surface for the artifacts structured-documents rail through `lxml.etree` (and the `lxml.html`/`lxml.objectify`/`lxml.builder` submodules): tree-building, tunable parsers, compiled XPath and XSLT with Python extension functions, XML Schema/RelaxNG/Schematron validation, C14N canonicalization, incremental/event parsing (`iterparse`/`iterwalk`/pull parsers), incremental serialization (`xmlfile`/`htmlfile`), and tree-mutation helpers (`indent`/`strip_*`/`cleanup_namespaces`) against the native libxml2 core. The package owner composes `etree.parse`, `etree.Element`/`SubElement`, `etree.XPath`, `etree.XSLT`, `etree.iterparse`, and `etree.xmlfile` into the structured-documents owner; it never re-implements XML parsing the native core already owns. lxml is consumed internally by the OOXML/ODF Office owners (`openpyxl`/`python-docx`/`python-pptx`/`odfpy`) for part parsing and is the XML/XSLT half of the rail where `ruamel.yaml` owns YAML and `tomlkit` owns TOML.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,9 +9,11 @@
 - import: `from lxml import etree`
 - owner: `artifacts`
 - rail: structured documents
-- installed: `6.1.1` reflected via `python -c "from lxml import etree"` on the gated `python_version<'3.15'` band (no CPython 3.15 wheel; dispatched onto the runtime subprocess lane, never the cp315 core)
+- installed: `6.1.1` (PyPI) — manifest-gated `python_version<'3.15'` (no CPython 3.15 wheel; dispatched onto the runtime subprocess lane, never the cp315 core)
+- license: BSD-3-Clause (Python bindings); bundled native libxml2 (MIT) and libxslt (MIT)
+- ABI: C-extension over libxml2 `2.14.6` and libxslt `1.1.43` (`etree.LIBXML_VERSION == (2,14,6)`, `etree.LIBXSLT_VERSION == (1,1,43)`, `etree.LXML_VERSION == (6,1,1,0)`); `etree.LIBXML_FEATURES`/`LIBXML_COMPILED_FEATURES` expose the compiled feature set
 - entry points: none (library only)
-- capability: libxml2/libxslt XML and HTML parse/serialize, element building, XPath, XSLT, XML Schema/RelaxNG/Schematron validation, namespace cleanup, incremental parsing
+- capability: libxml2/libxslt XML and HTML parse/serialize, element building, compiled XPath, XSLT with Python extension functions and access control, XML Schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, incremental event/pull parsing, incremental serialization, namespace cleanup, and tree-mutation helpers
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -20,24 +22,32 @@
 
 | [INDEX] | [SYMBOL]                                                 | [PACKAGE_ROLE]     | [CAPABILITY]                                            |
 | :-----: | :------------------------------------------------------- | :----------------- | :------------------------------------------------------ |
-|  [01]   | `etree._Element`                                         | element node       | tree node with children/attrib/text/tail access         |
-|  [02]   | `etree._ElementTree`                                     | document tree      | a rooted document with write/getroot                    |
-|  [03]   | `etree.XMLParser`                                        | XML parser         | tunable parser (recovery, schema, huge_tree, resolvers) |
-|  [04]   | `etree.HTMLParser`                                       | HTML parser        | lenient HTML parser                                     |
-|  [05]   | `etree.XPath`                                            | compiled query     | a reusable XPath expression                             |
-|  [06]   | `etree.XSLT`                                             | compiled transform | a reusable XSLT stylesheet                              |
-|  [07]   | `etree.XMLSchema` / `etree.RelaxNG` / `etree.Schematron` | validator          | schema validation engines                               |
-|  [08]   | `etree.QName`                                            | qualified name     | namespace-aware name value object                       |
+|  [01]   | `etree._Element`                                         | element node       | tree node with `xpath`/`find`/`findall`/`iterfind`/`iter`/`getparent`/`getroottree`/`append`/`insert`/`addnext`/`makeelement`/`nsmap`/`sourceline` |
+|  [02]   | `etree._ElementTree`                                     | document tree      | rooted document with `write`/`getroot`/`xpath`/`xslt`/`docinfo` |
+|  [03]   | `etree.XMLParser` / `etree.HTMLParser`                   | parser             | tunable parser (recover, huge_tree, resolve_entities, schema, target, resolvers) |
+|  [04]   | `etree.XMLPullParser` / `etree.HTMLPullParser`           | pull parser        | feed-driven event pull parser (`read_events`)           |
+|  [05]   | `etree.XPath` / `etree.ETXPath`                          | compiled query     | reusable XPath expression (`ETXPath` accepts ElementTree-style `{ns}` paths) |
+|  [06]   | `etree.XSLT`                                             | compiled transform | reusable XSLT stylesheet (`__call__`, `strparam`, `tostring`) |
+|  [07]   | `etree.XSLTExtension` / `etree.XSLTAccessControl`        | XSLT extension     | Python XSLT extension element + read/write/network access policy |
+|  [08]   | `etree.FunctionNamespace` / `etree.Extension`            | XPath extension    | register Python callables as XPath/XSLT functions       |
+|  [09]   | `etree.XMLSchema` / `etree.RelaxNG` / `etree.Schematron` / `etree.DTD` | validator | schema validation engines (`assertValid`/`validate`/`error_log`) |
+|  [10]   | `etree.Resolver` / `etree.PythonElementClassLookup` / `etree.ElementNamespaceClassLookup` | extensibility | custom URI resolver and element-class lookup hooks |
+|  [11]   | `etree.QName`                                            | qualified name     | namespace-aware name value object                       |
+|  [12]   | `etree.C14NWriterTarget` / `etree.TreeBuilder`           | serialize target   | C14N writer target / SAX-style tree builder target      |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]   | [CAPABILITY]                      |
-| :-----: | :---------------------- | :--------------- | :-------------------------------- |
-|  [01]   | `etree.XMLSyntaxError`  | parse fault      | malformed XML source              |
-|  [02]   | `etree.XPathEvalError`  | query fault      | XPath evaluation failed           |
-|  [03]   | `etree.XSLTApplyError`  | transform fault  | XSLT application failed           |
-|  [04]   | `etree.DocumentInvalid` | validation fault | document failed schema validation |
+`LxmlError` is the root; `LxmlSyntaxError` subclasses both `LxmlError` and the stdlib `SyntaxError`.
+
+| [INDEX] | [SYMBOL]                                                          | [PACKAGE_ROLE]   | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------------- | :--------------- | :-------------------------------- |
+|  [01]   | `etree.XMLSyntaxError`                                           | parse fault      | malformed XML source              |
+|  [02]   | `etree.XPathEvalError` / `etree.XPathSyntaxError`               | query fault      | XPath evaluation/compile failed   |
+|  [03]   | `etree.XSLTApplyError` / `etree.XSLTParseError`                 | transform fault  | XSLT application/parse failed     |
+|  [04]   | `etree.DocumentInvalid`                                         | validation fault | document failed schema validation |
+|  [05]   | `etree.SerialisationError` / `etree.C14NError`                  | serialize fault  | serialization/canonicalization failed |
+|  [06]   | `etree.LxmlError`                                              | fault root       | base of the lxml fault hierarchy  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,46 +56,74 @@
 
 Parser and serializer rows share source, parser, base-url, element, namespace, encoding, XML/HTML method, declaration, pretty-print, and comment policy.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                     | [CAPABILITY]                    |
-| :-----: | :------------------------- | :------------------------------- | :------------------------------ |
-|  [01]   | `etree.parse`              | source plus parser/base-url      | parse a file/stream into a tree |
-|  [02]   | `etree.fromstring`         | text plus parser/base-url        | parse a string into an element  |
-|  [03]   | `etree.XML`                | XML text plus parser/base-url    | parse an XML string literal     |
-|  [04]   | `etree.HTML`               | HTML text plus parser/base-url   | parse an HTML string            |
-|  [05]   | `etree.Element`            | tag plus attributes/namespaces   | construct an element            |
-|  [06]   | `etree.SubElement`         | parent plus child element policy | construct and append a child    |
-|  [07]   | `etree.tostring`           | tree plus serializer policy      | serialize a tree                |
-|  [08]   | `etree.XMLParser`          | parser construction policy       | tunable parser                  |
-|  [09]   | `etree.cleanup_namespaces` | tree plus namespace policy       | prune unused namespaces         |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                  | [CAPABILITY]                       |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `etree.parse`              | `parse(source, parser=None, *, base_url=None)`                               | parse a file/stream into a tree    |
+|  [02]   | `etree.fromstring` / `etree.XML` | `fromstring(text, parser=None, *, base_url=None)`                      | parse a string into an element     |
+|  [03]   | `etree.HTML`               | `HTML(text, parser=None, *, base_url=None)`                                  | parse an HTML string               |
+|  [04]   | `etree.Element` / `etree.SubElement` | tag plus attrib/nsmap (SubElement appends to a parent)             | construct an element / child       |
+|  [05]   | `etree.tostring`           | `tostring(element_or_tree, *, encoding=None, method='xml', xml_declaration=None, pretty_print=False, with_tail=True, standalone=None, doctype=None, exclusive=False, inclusive_ns_prefixes=None, with_comments=True)` | serialize a tree |
+|  [06]   | `etree.indent`             | `indent(tree, space='  ', *, level=0)`                                       | in-place pretty-print indentation  |
+|  [07]   | `etree.canonicalize`       | `canonicalize(xml_data=None, *, out=None, from_file=None, **options)`        | C14N canonical serialization       |
+|  [08]   | `etree.cleanup_namespaces` | `cleanup_namespaces(tree_or_element, top_nsmap=None, keep_ns_prefixes=None)` | prune unused namespaces            |
+|  [09]   | `etree.strip_tags` / `etree.strip_elements` / `etree.strip_attributes` | tree plus name policy                            | remove tags/elements/attributes in place |
+|  [10]   | `etree.XMLParser`          | parser construction policy (recover, huge_tree, resolve_entities, schema, target, no_network) | tunable parser |
+
+[ENTRYPOINT_SCOPE]: incremental parse and serialize
+- rail: structured documents
+
+`iterparse`/`iterwalk` drive bounded-memory event streaming over a source or an existing tree; `xmlfile`/`htmlfile` are context-manager incremental writers (`element`/`write`/`flush`) for large output without a full in-memory tree.
+
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                          | [CAPABILITY]                          |
+| :-----: | :------------------- | :------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `etree.iterparse`    | `iterparse(source, events=('end',), tag=None, *, huge_tree=, recover=, ...)` | streaming `(event, element)` parse, clear-as-you-go |
+|  [02]   | `etree.iterwalk`     | `iterwalk(element_or_tree, events=('end',), tag=None)`               | event walk over an existing tree      |
+|  [03]   | `etree.XMLPullParser`| `XMLPullParser(events=, *, tag=, ...)` + `feed`/`read_events`        | feed-driven pull parser               |
+|  [04]   | `etree.xmlfile` / `etree.htmlfile` | `xmlfile(output_file, encoding=, compression=, close=, buffered=)` | incremental serialization writer (CM) |
 
 [ENTRYPOINT_SCOPE]: query, transform, and validate
 - rail: structured documents
 
-Query rows share namespace, extension, regexp, smart-string, access-control, and schema-source policy.
+Query rows share namespace, extension-function, regexp, smart-string, access-control, and schema-source policy. `XPath`/`ETXPath` are compiled once and reused with bound variables; `XSLT.strparam` escapes a string XSLT parameter.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                | [CAPABILITY]                        |
-| :-----: | :---------------------- | :-------------------------- | :---------------------------------- |
-|  [01]   | `etree.XPath`           | path plus query policy      | compile a reusable XPath            |
-|  [02]   | `_Element.xpath`        | path plus one-shot policy   | evaluate XPath against a node       |
-|  [03]   | `etree.XSLT`            | stylesheet plus XSLT policy | compile a stylesheet                |
-|  [04]   | `etree.XMLSchema`       | tree or file schema source  | build a schema validator            |
-|  [05]   | `XMLSchema.assertValid` | tree validation input       | validate or raise `DocumentInvalid` |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                              | [CAPABILITY]                        |
+| :-----: | :--------------------------------- | :------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `etree.XPath`                      | `XPath(path, *, namespaces=, extensions=, regexp=, smart_strings=)` then `__call__(node, **vars)` | compile/evaluate a reusable XPath |
+|  [02]   | `_Element.xpath`                   | `node.xpath(path, namespaces=, extensions=, **vars)`     | one-shot XPath against a node       |
+|  [03]   | `etree.XSLT`                       | `XSLT(stylesheet, *, extensions=, access_control=)` then `__call__(tree, **params)` | compile/apply a stylesheet  |
+|  [04]   | `etree.FunctionNamespace`          | `FunctionNamespace(ns_uri)[name] = fn`                   | register a Python XPath/XSLT function |
+|  [05]   | `etree.XMLSchema` / `etree.RelaxNG` / `etree.Schematron` | schema tree/file source                | build a validator engine            |
+|  [06]   | `XMLSchema.assertValid` / `.validate` | tree validation input                                 | validate (raise `DocumentInvalid`) or boolean check + `error_log` |
+
+[ENTRYPOINT_SCOPE]: HTML and builder submodules
+- rail: structured documents
+
+`lxml.html` parses lenient HTML into `HtmlElement` trees (with `.text_content()`/`.cssselect()`/link rewriting); `lxml.builder.E`/`ElementMaker` is the functional element-construction factory; `lxml.objectify` exposes attribute-style tree access.
+
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                       | [CAPABILITY]                          |
+| :-----: | :--------------------------------- | :------------------------------------------------- | :------------------------------------ |
+|  [01]   | `lxml.html.fromstring` / `.document_fromstring` / `.fragment_fromstring` | HTML text plus parser policy | parse HTML to `HtmlElement` (doc vs fragment) |
+|  [02]   | `lxml.html.parse` / `.tostring`    | source/element plus serializer policy              | HTML parse/serialize                  |
+|  [03]   | `lxml.builder.E` / `lxml.builder.ElementMaker` | `E.tag(attrib_or_children...)` / `ElementMaker(namespace=, nsmap=, typemap=)` | functional element construction |
+|  [04]   | `lxml.objectify.fromstring` / `.parse` | XML source                                     | attribute-access objectified tree     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [XML_LIBXML2]:
 - import: `from lxml import etree` at boundary scope only; module-level import is banned by the manifest import policy.
-- parser axis: one `XMLParser` (or `HTMLParser`) carries every parse knob (recover/huge_tree/schema/resolvers); a parse modality is a parser row, never a parallel parse function family.
-- query axis: `etree.XPath` (compiled, reused) is the preferred query surface; `_Element.xpath` is the one-shot row.
-- transform axis: `etree.XSLT` compiled once and applied is the transform surface; results feed the document owner.
-- validation axis: `XMLSchema`/`RelaxNG`/`Schematron` are the validator row set; a validation failure raises `DocumentInvalid` on the structured-documents fault rail.
-- evidence: each parse/transform captures source size, parser flags, validation result, and output byte length as a structured-documents receipt.
-- boundary: lxml owns XML/HTML/XSLT; YAML routes to `ruamel.yaml`, TOML to `tomlkit`; the Office owners consume lxml internally for OOXML parts; live UI stays outside this package.
+- parser axis: one `XMLParser` (or `HTMLParser`) carries every parse knob (recover/huge_tree/resolve_entities/no_network/schema/target/resolvers); a parse modality is a parser row, never a parallel parse function family — and untrusted input sets `resolve_entities=False`/`no_network=True`/`huge_tree=False` on the parser, not at the call site.
+- streaming axis: `iterparse`/`iterwalk` (in, clear-as-you-go) and `xmlfile`/`htmlfile` (out, incremental) own the bounded-memory path for large documents; the pull parsers (`XMLPullParser`) own feed-driven event streaming — never a full-tree read where the document exceeds memory.
+- query axis: `etree.XPath`/`ETXPath` (compiled, reused, with bound variables and `FunctionNamespace` extensions) is the preferred query surface; `_Element.xpath` is the one-shot row; `_Element.cssselect` requires the separate `cssselect` package.
+- transform axis: `etree.XSLT` compiled once and applied is the transform surface, with Python `extensions`/`XSLTExtension`, `XSLTAccessControl`, and `strparam`-escaped parameters; results feed the document owner.
+- validation axis: `XMLSchema`/`RelaxNG`/`Schematron`/`DTD` are the validator row set; `validate` returns a boolean with `error_log`, `assertValid` raises `DocumentInvalid` on the structured-documents fault rail.
+- canonical axis: `canonicalize`/`C14NWriterTarget` own C14N output; pretty-print is `indent` + `tostring(pretty_print=True)`; namespace pruning is `cleanup_namespaces`; tree trimming is `strip_tags`/`strip_elements`/`strip_attributes` — never a hand-rolled serializer.
+- evidence: each parse/transform captures source size, parser flags, validation result, libxml2/libxslt ABI version, and output byte length as a structured-documents receipt.
+- boundary: lxml owns XML/HTML/XSLT/C14N/schema-validation; YAML routes to `ruamel.yaml`, TOML to `tomlkit`; the OOXML/ODF Office owners consume lxml internally for document parts; HTML sanitization/cleaning is NOT in lxml (the `lxml.html.clean` module was split into the separate `lxml_html_clean` / `cssselect` packages, neither admitted — do not cite a sanitize surface as lxml-owned); live UI stays outside this package.
 
 ## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `lxml`
-- Owns: XML/HTML parse/serialize, element building, XPath, XSLT, schema validation, namespace cleanup
+- Owns: XML/HTML parse/serialize, element building, compiled XPath with Python extensions, XSLT with extensions/access-control, XML Schema/RelaxNG/Schematron/DTD validation, C14N canonicalization, incremental event/pull parsing, incremental serialization, namespace cleanup, and tree-mutation helpers
 - Accept: native XML/HTML processing feeding the structured-documents and Office owners
-- Reject: wrapper-renames of `parse`/`tostring`/`xpath`; a stdlib `xml.etree` fallback where lxml is admitted; identity minting the runtime owns
+- Reject: wrapper-renames of `parse`/`tostring`/`xpath`; a stdlib `xml.etree` fallback where lxml is admitted; a full-tree read where `iterparse`/`xmlfile` bound memory; an HTML-clean/sanitize claim (split out to `lxml_html_clean`); identity minting the runtime owns

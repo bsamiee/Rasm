@@ -9,9 +9,12 @@
 - import: `coloraide`
 - owner: `artifacts`
 - rail: color
-- installed: `8.8.1` reflected via `assay api` on cp315
+- installed: `8.8.1` reflected via `import coloraide; coloraide.__version__` on cp313
+- license: `MIT`
+- wheel: `coloraide-8.8.1-py3-none-any.whl` — pure Python, no native dependency
+- marker: `python_requires >=3.10`; no NumPy or native acceleration — all math is pure Python
 - entry points: library use is import-only; no console script
-- capability: one `Color` object owning CSS/named/coordinate parsing, conversion across registered color spaces (sRGB/OKLCH/Lab/HCT and 100+ more), gamut mapping through six registered fit methods (`raytrace` default, `oklch-chroma`, `lch-chroma`, `minde-chroma`, `scale`, `scale-luminance`), CVD simulation via the `protan`/`deutan`/`tritan` filters plus W3C filter effects, eight delta-E distance metrics, WCAG21 contrast, interpolation/mixing/harmonies, and a plugin `register`/`deregister` surface; `coloraide.everything.ColorAll` preloads every registered plugin
+- capability: one `Color` object owning CSS/named/coordinate parsing, conversion across the 27 base-registered color spaces (sRGB/OKLCH/OKLab/Lab/LCH/Display-P3/Rec.2020/HSL/HWB and more), gamut mapping through six registered fit methods (`raytrace` default, `oklch-chroma`, `lch-chroma`, `minde-chroma`, `scale`, `scale-luminance`), CVD simulation via the `protan`/`deutan`/`tritan` filters plus eight W3C filter effects, eight base delta-E distance metrics, WCAG21 contrast, six interpolation methods (`linear`/`continuous`/`bspline`/`natural`/`monotone`/`css-linear`), CCT/blackbody and chromaticity transforms, interpolation/mixing/harmonies/averaging, masking/layering composition, and a plugin `register`/`deregister` surface; `coloraide.everything.ColorAll` preloads all 74 spaces plus the extended fit (`hct-chroma`), delta-E (`99o`/`cam02`/`cam16`/`hct`), and CAT (`cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`) plugins
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -74,7 +77,7 @@ Construction parses any `ColorInput` (CSS string, named color, `(space, coords)`
 [ENTRYPOINT_SCOPE]: distance, contrast, interpolation, plugins
 - rail: color
 
-`distance`/`delta_e` measure perceptual difference (delta-E methods `76` default, `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok`); `contrast` is WCAG21 by default; `interpolate`/`steps`/`mix` build gradients; `harmony`/`closest`/`average` derive palettes; `register`/`deregister` extend the engine plugin maps; `match` parses one color from a string.
+`distance`/`delta_e` measure perceptual difference (base delta-E methods `76` default, `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok`; `ColorAll` adds `99o`/`cam02`/`cam16`/`hct`); `contrast` is WCAG21 by default; `interpolate`/`steps`/`mix`/`discrete`/`weighted_mix` build gradients keyed by the interpolation `method` row (`linear` default, `continuous`, `bspline`, `natural`, `monotone`, `css-linear`); `harmony`/`closest`/`average` derive palettes; `register`/`deregister` extend the engine plugin maps; `match` parses one color from a string.
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                                                                                                                                                                   | [CAPABILITY]                                    |
 | :-----: | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
@@ -92,6 +95,35 @@ Construction parses any `ColorInput` (CSS string, named color, `(space, coords)`
 |  [12]   | `Color.deregister`  | `deregister(plugin, *, silent=False)` -> `None` (classmethod)                                                                                                                                                                                  | remove a registered plugin by name              |
 |  [13]   | `Color.match`       | `match(string, start=0, fullmatch=False)` -> `ColorMatch                                                                                                                                                                                       | None` (classmethod)                             | parse one color out of a string |
 |  [14]   | `Color.is_nan`      | `is_nan(name)` -> `bool`                                                                                                                                                                                                                       | test a channel for the powerless/NaN sentinel   |
+|  [15]   | `Color.discrete`    | `discrete(colors, *, space=None, out_space=None, steps=None, max_steps=1000, max_delta_e=0, delta_e=None, delta_e_args=None, domain=None, **interpolate_args)` -> `Interpolator[Self]` (classmethod)                                            | discrete (stepped, non-blended) interpolator    |
+|  [16]   | `Color.weighted_mix`| `weighted_mix(colors, weights=None, *, space=None, out_space=None, method=None, premultiplied=True, carryforward=False, powerless=False, hue='shorter', **kwargs)` -> `Self` (classmethod)                                                      | weighted blend of N colors                      |
+
+[ENTRYPOINT_SCOPE]: composition leg
+- rail: color
+
+`mask` zeroes/keeps channels for composition; `layer` blend-composites a stack of colors (W3C blend modes + Porter-Duff operators); `mutate`/`normalize`/`random` are the in-place mint/normalize rows; `to_dict` serializes the color to a structured mapping (round-trips through `Color(dict)`); `is_achromatic`/`within` are predicate rows.
+
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                       | [CAPABILITY]                                       |
+| :-----: | :----------------- | :---------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `Color.mask`       | `mask(channel, *, invert=False, in_place=False)` -> `Self`                                                        | keep/zero channels for layered composition         |
+|  [02]   | `Color.layer`      | `layer(colors, *, blend='normal', operator='source-over', space=None, out_space=None)` -> `Self` (classmethod)    | blend/Porter-Duff composite a color stack          |
+|  [03]   | `Color.to_dict`    | `to_dict(*, nans=True, precision=None, rounding=None)` -> `Mapping[str, Any]`                                     | structured mapping (round-trips via `Color(dict)`) |
+|  [04]   | `Color.normalize`  | `normalize(*, nans=True)` -> `Self`                                                                               | normalize powerless/undefined channels in place    |
+|  [05]   | `Color.is_achromatic` | `is_achromatic(**kwargs)` -> `bool`                                                                            | test whether the color is achromatic (gray)        |
+
+[ENTRYPOINT_SCOPE]: CCT, chromaticity, and spectral leg
+- rail: color
+
+`blackbody` mints a Planckian-locus color at a temperature; `cct` reads the correlated colour temperature and Duv of a color; `chromatic_adaptation` adapts XYZ between white points by CAT method; `from_wavelength`/`wavelength` map a single wavelength to/from a color; `xy`/`uv`/`chromaticity`/`split_chromaticity` read chromaticity coordinates; `white` reads the space white point.
+
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                                                  | [CAPABILITY]                                              |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------- |
+|  [01]   | `Color.blackbody`             | `blackbody(space, temp, duv=0.0, *, method=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False, **kwargs)` -> `Self` (classmethod) | Planckian-locus color at a temperature (CCT method row)   |
+|  [02]   | `Color.cct`                   | `cct(*, method=None, **kwargs)` -> `Vector`                                                                                                                   | correlated colour temperature and Duv of the color        |
+|  [03]   | `Color.chromatic_adaptation`  | `chromatic_adaptation(w1, w2, xyz, *, method=None)` -> `Vector` (classmethod)                                                                                 | adapt XYZ between white points by CAT method               |
+|  [04]   | `Color.from_wavelength`       | `from_wavelength(space, wavelength, *, white=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False)` -> `Self` (classmethod) | mint a color from a single spectral wavelength             |
+|  [05]   | `Color.xy` / `Color.uv`       | `xy(**kwargs)` / `uv(mode='1976', *, white=None)` -> `Vector`                                                                                                 | CIE 1931 `xy` / 1976 `u'v'` chromaticity of the color      |
+|  [06]   | `Color.white`                 | `white(cspace='xyz')` -> `Vector`                                                                                                                             | white point of the current space                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -100,13 +132,19 @@ Construction parses any `ColorInput` (CSS string, named color, `(space, coords)`
 - object axis: one `Color` owns parse, convert, fit, filter, distance, and interpolation; arity and modality live in method arguments (`space`, `method`, `name`, `**kwargs`), never a per-operation builder type; `new`/`clone`/`update` mint or rewrite without a parallel constructor family.
 - gamut-map axis: `fit` is the single gamut-mapping surface keyed by `method`; `raytrace`/`oklch-chroma`/`lch-chroma`/`minde-chroma`/`scale`/`scale-luminance` are method rows, never parallel mapping functions; `in_gamut` is the predicate row and `clip` is the hard-clip row; conversion-time fitting flows through `convert(space, fit=...)`.
 - CVD axis: `filter` is the single filter surface keyed by `name`; `protan`/`deutan`/`tritan` are the CVD rows and `brightness`/`contrast`/`saturate`/`hue-rotate`/`grayscale`/`sepia`/`invert`/`opacity` are the W3C rows; CVD simulation is a `name` row with `amount`, never a hand-rolled Daltonization transform.
-- distance axis: `delta_e` selects the perceptual metric row (`76` default, `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok`) and `distance` is the raw Euclidean row; `closest` folds `delta_e` over a candidate set.
-- plugin axis: `register`/`deregister` extend the engine maps (`CS_MAP`, `FIT_MAP`, `FILTER_MAP`, `DE_MAP`, `CAT_MAP`, `CONTRAST_MAP`, `INTERPOLATE_MAP`, `CCT_MAP`); new spaces, fit methods, and filters are registered plugins on the class, never local conversion kernels.
-- evidence: each color captures the resolved space, channel vector, alpha, in-gamut flag, applied fit method, applied filter name and amount, and delta-E metric as a color receipt.
-- boundary: coloraide owns color parsing, conversion, gamut mapping, CVD simulation, and distance with no native dependency; numeric coordinate vectors feed the figures and visuals owners directly; rasterization and plotting stay outside this package.
+- distance axis: `delta_e` selects the perceptual metric row (base `76` default, `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok`; `ColorAll` adds `99o`/`cam02`/`cam16`/`hct`) and `distance` is the raw Euclidean row; `closest` folds `delta_e` over a candidate set.
+- interpolation axis: `interpolate`/`steps`/`mix`/`discrete`/`weighted_mix` are rows over one interpolation surface keyed by `method` (`linear` default, `continuous`, `bspline`, `natural`, `monotone`, `css-linear`); `hue` strategy, `premultiplied` alpha, `domain`, `padding`, and `progress` easing (`stop`/`hint`/`cubic_bezier`/`ease*`) are arguments, never parallel gradient functions.
+- CCT axis: `blackbody` mints a Planckian-locus color and `cct` reads temperature+Duv keyed by `method` (base `ohno-2013`/`robertson-1968`); `chromatic_adaptation` adapts XYZ between white points keyed by CAT `method` (base `bradford`; `ColorAll` adds `cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`); CCT is a `method` row, never a hand-rolled Planckian fit.
+- plugin axis: `register`/`deregister` extend the engine maps (`CS_MAP`, `FIT_MAP`, `FILTER_MAP`, `DE_MAP`, `CAT_MAP`, `CONTRAST_MAP`, `INTERPOLATE_MAP`, `CCT_MAP`); the base `Color` registers 27 spaces, `everything.ColorAll` registers 74; new spaces, fit methods, and filters are registered plugins on the class, never local conversion kernels.
+- evidence: each color captures the resolved space, channel vector, alpha, in-gamut flag, applied fit method, applied filter name and amount, delta-E metric, and (when read) CCT/Duv as a color receipt.
+- boundary: coloraide owns color parsing, conversion, gamut mapping, CVD simulation, distance, CCT, and chromaticity with no native dependency; numeric coordinate vectors feed the figures and visuals owners directly; rasterization and plotting stay outside this package.
+
+[INTEGRATION_STACK]:
+- `coloraide` ↔ `colour-science`: `colour` owns spectral/colorimetric truth (SPD → XYZ, ICC-grade appearance models, named CIE RGB primaries, reference CCT estimation); `coloraide` owns per-color CSS/named parsing, gamut mapping, and CVD presentation. The seam is the numeric XYZ vector: a measured XYZ from `colour.sd_to_XYZ` enters `coloraide` as `Color('xyz-d65', coords)` for gamut-mapped CSS output; `coloraide` is never used for spectral integration and `colour` is never used for CSS string parsing.
+- `coloraide` → figures/imaging owner: the channel `Vector` (`coords`/`get`/`to_dict`) and serialized `to_string` feed the figures owner and the imaging codec directly as numeric data, never via a render call inside this package.
 
 [RAIL_LAW]:
 - Package: `coloraide`
-- Owns: CSS/named/coordinate color parsing, conversion across 100+ registered color spaces, gamut mapping through six fit methods, CVD and W3C filtering, delta-E distance, WCAG21 contrast, interpolation/mixing/harmonies, and a plugin registration surface
-- Accept: gamut-map and CVD color transforms feeding the figures/color, visuals, and document owners
-- Reject: wrapper-renames of `fit`/`filter`/`convert`; a hand-rolled gamut-mapping or Daltonization transform where a registered method/filter exists; a parallel color type per space; local sRGB/OKLCH/Lab conversion matrices the registered spaces own; identity minting the runtime owns
+- Owns: CSS/named/coordinate color parsing, conversion across 27 base (74 in `ColorAll`) registered color spaces, gamut mapping through six fit methods, CVD and W3C filtering, delta-E distance, WCAG21 contrast, six-method interpolation/mixing/harmonies/averaging, masking/layering composition, CCT/blackbody and chromaticity transforms, and a plugin registration surface
+- Accept: gamut-map and CVD color transforms feeding the figures/color, visuals, and document owners; XYZ vectors handed off from `colour-science` for CSS/gamut presentation
+- Reject: wrapper-renames of `fit`/`filter`/`convert`; a hand-rolled gamut-mapping, Daltonization, or Planckian-CCT transform where a registered method/filter exists; a parallel color type per space; local sRGB/OKLCH/Lab conversion matrices the registered spaces own; using `coloraide` for spectral sd→XYZ integration (that is `colour-science`'s domain); identity minting the runtime owns

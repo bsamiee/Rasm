@@ -20,11 +20,11 @@
 [PUBLIC_TYPE_SCOPE]: cloud, index, and result family
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                           |
-| :-----: | :------------------- | :------------------ | :----------------------------------------------------- |
-|  [01]   | `PointCloud`         | point cloud         | `points`/`normals`/`covs` arrays plus per-index access |
-|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search       |
-|  [03]   | `RegistrationResult` | registration result | transform, convergence, inliers, and Hessian/grad      |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                                                                  |
+| :-----: | :------------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `PointCloud`         | point cloud         | `points`/`normals` `Nx4` array views and `covs` `list[4x4]`; `point(i)`/`normal(i)`/`cov(i)` per-index; `size()`/`empty()` |
+|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search                                              |
+|  [03]   | `RegistrationResult` | registration result | `T_target_source`, `converged`, `iterations`, `num_inliers`, `error`, `H`/`b`                 |
 
 [PUBLIC_TYPE_SCOPE]: voxel map and factor family
 - rail: scan-processing
@@ -108,5 +108,5 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 - Reject: wrapper-renames of `align`/`preprocess_points`; a hand-rolled GICP linearization or parallel KdTree where small_gicp is admitted; an ICP/GICP/VGICP function family over the `registration_type` argument row; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `small-gicp 1.0.1` is a Forge-companion-lane package carrying marker `python_version<'3.15'`; it ships cp310-cp314 native wheels (no abi3, no cp315 load path), so it loads only on a cp313 companion interpreter with numpy while the `>=3.15` project venv carries no wheel. `assay api` on the project venv blocks before reflection on the `opentelemetry-proto` `protobuf>=5,<7` resolution ceiling, so members are authored from the cp313 companion-interpreter introspection ledger ([04]-sourced)
-- members: verified by introspection against the installed cp313 distribution; every documented class, accessor, and overloaded entrypoint resolves against the live pybind signatures — no phantom
+- floor: `small-gicp 1.0.1` dist-info declares `License: MIT` and `Requires-Python: >=3.7` (no package-declared upper bound); the `python_version<'3.15'` admission marker is a Rasm Forge-companion-lane policy, not a package ceiling. It ships cp310-cp314 native wheels (no abi3, no cp315 load path), so it loads only on a companion interpreter with numpy while the `>=3.15` project venv carries no wheel. `assay api` on the project venv blocks before reflection on the `opentelemetry-proto` `protobuf>=5,<7` resolution ceiling against the workspace `protobuf>=7.35` floor (not an interpreter or wheel fault)
+- members: reflected against the live `cp313-cp313-macosx_14_0_arm64` `small_gicp` extension (numpy 2.4.6 cp313); every documented class, accessor, and overloaded entrypoint resolves against the live pybind signatures, the `align` kwarg set (`init_T_target_source`/`registration_type`/`voxel_resolution=1.0`/`downsampling_resolution=0.25`/`max_correspondence_distance=1.0`/`num_threads=1`/`max_iterations=20`/`rotation_epsilon`/`translation_epsilon`), and `preprocess_points -> tuple[PointCloud, KdTree]` — no phantom

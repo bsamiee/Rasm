@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PINT]
 
-`pint` supplies the physical-unit registry, dimensional quantities, and unit conversion for the compute units rail. The package owner attaches a unit and dimensionality to every array-admission and study-result claim through a single shared `UnitRegistry`, converts with `Quantity.to`, and raises `DimensionalityError` on a dimension mismatch; it never re-implements unit arithmetic the package owns.
+`pint` supplies the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units rail. One shared `UnitRegistry` owns the vocabulary; every array-admission and study-result claim carries a `Quantity` (magnitude-plus-unit), converts with `Quantity.to`, and surfaces a `DimensionalityError` on a dimension mismatch. The magnitude is any NumPy-array-protocol object, so a `Quantity` wraps the same array the compute array rail folds — `pint` threads units through `numpy` ufuncs (via `__array_ufunc__`/`__array_function__`) rather than re-implementing array arithmetic, and feeds a captured dimensionality claim into the `arviz`/`pandera` study receipt. It never re-implements the unit arithmetic the package owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,105 +9,126 @@
 - import: `pint`
 - owner: `compute`
 - rail: units
-- capability: physical-quantity arithmetic — unit registry, dimensional analysis, conversion, measurement uncertainty, NumPy-array unit wrapping, and decorator-driven function signature checking
+- installed: license BSD-3-Clause; `Requires-Python >=3.11`; `pint` wheel is `py3-none-any` (pure Python, no compiled ABI), unmarked in the manifest (cp315-clean) — `assay api resolve pint` is `unsupported` only on the cp315 core where the compute companion band is uninstalled; surface confirmed against the pint 0.25.x module API
+- capability: physical-quantity arithmetic over a shared `UnitRegistry` — string parsing, dimensional analysis, base/root/compact reduction, cross-dimension `Context` transforms, `Measurement` error propagation, NumPy-array unit wrapping through the array protocol, and `wraps`/`check` decorator-driven signature unit enforcement
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: registry and quantity owners
+[PUBLIC_TYPE_SCOPE]: registry, quantity, and context owners
 - rail: units
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]    | [CAPABILITY]                             |
-| :-----: | :------------- | :--------------- | :--------------------------------------- |
-|  [01]   | `UnitRegistry` | registry root    | shared unit and dimension vocabulary     |
-|  [02]   | `Quantity`     | quantity carrier | magnitude-plus-unit value with NumPy ops |
-|  [03]   | `Unit`         | unit atom        | a single registered unit                 |
-|  [04]   | `Measurement`  | uncertain value  | magnitude with an error term             |
-|  [05]   | `Context`      | transform set    | named cross-dimension conversion rules   |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [CAPABILITY]                                                                |
+| :-----: | :-------------------- | :--------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `UnitRegistry`        | registry root    | shared unit and dimension vocabulary; the `Quantity`/`Unit`/`Measurement` factory and parser |
+|  [02]   | `ApplicationRegistry` | process registry | the proxy returned by `get_application_registry`; routes to the installed registry |
+|  [03]   | `LazyRegistry`        | deferred registry | default application registry that defers definition loading until first use |
+|  [04]   | `Quantity`            | quantity carrier | magnitude-plus-unit value; magnitude is any array-protocol object, NumPy ufuncs unit-thread |
+|  [05]   | `Unit`                | unit atom        | a single registered unit with prefix/symbol resolution                      |
+|  [06]   | `Measurement`         | uncertain value  | magnitude with a standard-error term; arithmetic propagates uncertainty     |
+|  [07]   | `Context`             | transform set    | named cross-dimension conversion rules (e.g. spectroscopy wavelength↔energy) |
+|  [08]   | `Group`               | unit grouping    | a named subset of the registry's units for selective compatibility queries  |
 
 [PUBLIC_TYPE_SCOPE]: error and warning rails
 - rail: units
 
-| [INDEX] | [SYMBOL]                       | [BASE]           | [FAULT]                              |
-| :-----: | :----------------------------- | :--------------- | :----------------------------------- |
-|  [01]   | `PintError`                    | `Exception`      | root of every pint failure           |
-|  [02]   | `UndefinedUnitError`           | `AttributeError` | unit name not in the registry        |
-|  [03]   | `DimensionalityError`          | `PintTypeError`  | incompatible-dimension conversion    |
-|  [04]   | `OffsetUnitCalculusError`      | `PintTypeError`  | invalid offset-unit (temperature) op |
-|  [05]   | `LogarithmicUnitCalculusError` | `PintTypeError`  | invalid logarithmic-unit op          |
-|  [06]   | `RedefinitionError`            | `ValueError`     | duplicate unit definition            |
-|  [07]   | `DefinitionSyntaxError`        | `ValueError`     | malformed definition string          |
-|  [08]   | `UnitStrippedWarning`          | `UserWarning`    | magnitude used with the unit dropped |
+| [INDEX] | [SYMBOL]                       | [BASE]           | [FAULT]                                          |
+| :-----: | :----------------------------- | :--------------- | :----------------------------------------------- |
+|  [01]   | `PintError`                    | `Exception`      | root of every pint failure                       |
+|  [02]   | `PintTypeError`                | `PintError`, `TypeError` | typed base for dimension/offset/log calculus faults |
+|  [03]   | `UndefinedUnitError`           | `PintError`, `AttributeError` | unit name not in the registry           |
+|  [04]   | `DimensionalityError`          | `PintTypeError`  | incompatible-dimension conversion or operation   |
+|  [05]   | `OffsetUnitCalculusError`      | `PintTypeError`  | invalid offset-unit (temperature) multiply/divide |
+|  [06]   | `LogarithmicUnitCalculusError` | `PintTypeError`  | invalid logarithmic-unit (dB/decade) operation   |
+|  [07]   | `DefinitionError`              | `PintError`, `ValueError` | base for malformed-definition faults    |
+|  [08]   | `DefinitionSyntaxError`        | `DefinitionError` | malformed definition string                     |
+|  [09]   | `RedefinitionError`            | `DefinitionError` | duplicate unit definition                       |
+|  [10]   | `UnitStrippedWarning`          | `UserWarning`    | magnitude consumed with the unit silently dropped |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registry construction and parsing
+[ENTRYPOINT_SCOPE]: registry construction, parsing, and definition
 - rail: units
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]    | [RESULT]                          |
-| :-----: | :---------------------------------------------------- | :---------------- | :-------------------------------- |
-|  [01]   | `UnitRegistry()`                                      | registry build    | a fresh unit registry             |
-|  [02]   | `UnitRegistry.__call__(input_string, case_sensitive)` | parse             | a `Quantity` from a string        |
-|  [03]   | `UnitRegistry.parse_expression(input_string)`         | parse             | a `Quantity` from a string        |
-|  [04]   | `UnitRegistry.parse_units(input_string, as_delta)`    | parse             | a `Unit` from a string            |
-|  [05]   | `UnitRegistry.Quantity(value, units)`                 | construct         | a magnitude-plus-unit value       |
-|  [06]   | `UnitRegistry.Unit(units)`                            | construct         | a unit atom                       |
-|  [07]   | `UnitRegistry.Measurement(value, error, units)`       | construct         | a value with uncertainty          |
-|  [08]   | `UnitRegistry.define(definition)`                     | mutate            | registers a new unit definition   |
-|  [09]   | `UnitRegistry.convert(value, src, dst, inplace)`      | convert           | scalar magnitude in `dst` units   |
-|  [10]   | `UnitRegistry.get_dimensionality(input_units)`        | introspect        | a `UnitsContainer` of dimensions  |
-|  [11]   | `UnitRegistry.wraps(ret, args, strict)`               | decorator factory | wraps a function with unit specs  |
-|  [12]   | `UnitRegistry.check(*args)`                           | decorator factory | asserts argument dimensionalities |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]    | [RESULT]                                          |
+| :-----: | :-------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
+|  [01]   | `UnitRegistry(filename=, force_ndarray=, force_ndarray_like=, autoconvert_offset_to_baseunit=, system=, auto_reduce_dimensions=, on_redefinition=)` | registry build | a configured unit registry |
+|  [02]   | `UnitRegistry.__call__(input_string, case_sensitive=, **values)` | parse            | a `Quantity` from a string                        |
+|  [03]   | `UnitRegistry.parse_expression(input_string, case_sensitive=, **values)` | parse    | a `Quantity` from a string (the `__call__` body)  |
+|  [04]   | `UnitRegistry.parse_units(input_string, as_delta=, case_sensitive=)` | parse       | a bare `Unit` from a string                       |
+|  [05]   | `UnitRegistry.parse_pattern(input_string, pattern, many=)`     | parse             | quantities extracted from a formatted-string pattern |
+|  [06]   | `UnitRegistry.Quantity(value, units=)`                         | construct         | a magnitude-plus-unit value bound to this registry |
+|  [07]   | `UnitRegistry.Unit(units)`                                     | construct         | a unit atom bound to this registry                |
+|  [08]   | `UnitRegistry.Measurement(value, error, units=)`              | construct         | a value with a standard-error term                |
+|  [09]   | `UnitRegistry.define(definition)`                              | mutate            | registers a new unit/prefix/dimension definition  |
+|  [10]   | `UnitRegistry.load_definitions(file)`                          | mutate            | loads a unit-definition file into the registry    |
+|  [11]   | `UnitRegistry.convert(value, src, dst, inplace=False)`         | convert           | scalar/array magnitude expressed in `dst` units   |
+|  [12]   | `UnitRegistry.get_base_units(input_units)`                     | introspect        | `(scale, UnitsContainer)` reduction to base units |
+|  [13]   | `UnitRegistry.get_dimensionality(input_units)`                 | introspect        | a `UnitsContainer` of base dimensions             |
+|  [14]   | `UnitRegistry.wraps(ret, args, strict=True)`                   | decorator factory | enforces argument/return units at a function boundary |
+|  [15]   | `UnitRegistry.check(*args)`                                    | decorator factory | asserts argument dimensionalities at a function boundary |
+|  [16]   | `UnitRegistry.context(*names, **kwargs)` / `enable_contexts` / `disable_contexts` / `add_context` | context | activates a `Context` for cross-dimension conversion |
 
-[ENTRYPOINT_SCOPE]: quantity conversion and projection
+[ENTRYPOINT_SCOPE]: quantity conversion, projection, and compatibility
 - rail: units
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]   | [RESULT]                            |
-| :-----: | :------------------------------------- | :--------------- | :---------------------------------- |
-|  [01]   | `Quantity.to(other, *contexts)`        | convert          | a new `Quantity` in target units    |
-|  [02]   | `Quantity.ito(other, *contexts)`       | convert in place | mutates to target units             |
-|  [03]   | `Quantity.to_base_units()`             | convert          | a `Quantity` in registry base units |
-|  [04]   | `Quantity.to_root_units()`             | convert          | a `Quantity` in root units          |
-|  [05]   | `Quantity.to_reduced_units()`          | convert          | a `Quantity` with reduced units     |
-|  [06]   | `Quantity.to_compact(unit)`            | convert          | a `Quantity` at a readable prefix   |
-|  [07]   | `Quantity.m_as(units)`                 | project          | bare magnitude in target units      |
-|  [08]   | `Quantity.magnitude` \| `Quantity.m`   | project          | the bare magnitude                  |
-|  [09]   | `Quantity.units` \| `Quantity.u`       | project          | the `Unit` of the quantity          |
-|  [10]   | `Quantity.dimensionality`              | introspect       | a `UnitsContainer` of dimensions    |
-|  [11]   | `Quantity.check(dimension)`            | predicate        | dimensionality match boolean        |
-|  [12]   | `Quantity.plus_minus(error, relative)` | construct        | a `Measurement` from the quantity   |
-|  [13]   | `Quantity.from_sequence(seq, units)`   | construct        | a `Quantity` array from a sequence  |
+| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]      | [RESULT]                                |
+| :-----: | :--------------------------------------------- | :------------------ | :-------------------------------------- |
+|  [01]   | `Quantity.to(other, *contexts, **ctx_kwargs)`  | convert             | a new `Quantity` in target units (context-aware) |
+|  [02]   | `Quantity.ito(other, *contexts, **ctx_kwargs)` | convert in place    | mutates magnitude/units to the target   |
+|  [03]   | `Quantity.to_base_units()` / `ito_base_units()` | convert            | a `Quantity` in registry base units     |
+|  [04]   | `Quantity.to_root_units()` / `ito_root_units()` | convert            | a `Quantity` in root units              |
+|  [05]   | `Quantity.to_reduced_units()`                  | convert             | a `Quantity` with repeated units cancelled |
+|  [06]   | `Quantity.to_compact(unit=None)`               | convert             | a `Quantity` at the most readable prefix |
+|  [07]   | `Quantity.m_as(units)`                          | project             | bare magnitude after converting to `units` |
+|  [08]   | `Quantity.magnitude` \| `Quantity.m`            | project             | the bare magnitude (array-protocol object) |
+|  [09]   | `Quantity.units` \| `Quantity.u`                | project             | the `Unit` of the quantity              |
+|  [10]   | `Quantity.dimensionality`                       | introspect          | a `UnitsContainer` of base dimensions   |
+|  [11]   | `Quantity.check(dimension)`                     | predicate           | dimensionality-match boolean            |
+|  [12]   | `Quantity.is_compatible_with(other, *contexts)` | predicate           | convertibility boolean (context-aware)  |
+|  [13]   | `Quantity.compatible_units(*contexts)`          | introspect          | the frozenset of convertible units      |
+|  [14]   | `Quantity.plus_minus(error, relative=False)`    | construct           | a `Measurement` from the quantity       |
+|  [15]   | `Quantity.from_sequence(seq, units=None)`       | construct           | a `Quantity` array from a sequence       |
+|  [16]   | `Quantity.to_tuple()` / `Quantity.from_tuple(t)` | (de)serialize      | a `(magnitude, units-tuple)` round-trip for wire/pickle |
 
-[ENTRYPOINT_SCOPE]: module-level application registry and formatting
+[ENTRYPOINT_SCOPE]: module-level application registry, formatting, and analysis
 - rail: units
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]  | [RESULT]                            |
-| :-----: | :----------------------------------- | :-------------- | :---------------------------------- |
-|  [01]   | `get_application_registry()`         | shared registry | the process-wide `UnitRegistry`     |
-|  [02]   | `set_application_registry(registry)` | shared registry | installs a process-wide registry    |
-|  [03]   | `register_unit_format(name)`         | formatting      | registers a custom format spec      |
-|  [04]   | `formatter(numerator, denominator)`  | formatting      | a formatted unit string             |
-|  [05]   | `pi_theorem(quantities, registry)`   | analysis        | dimensionless groups via Buckingham |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]   | [RESULT]                                |
+| :-----: | :---------------------------------------------- | :--------------- | :-------------------------------------- |
+|  [01]   | `get_application_registry()`                    | shared registry  | the process-wide `ApplicationRegistry` proxy |
+|  [02]   | `set_application_registry(registry)`            | shared registry  | installs a process-wide registry        |
+|  [03]   | `register_unit_format(name)`                    | formatting       | decorator registering a custom unit-format spec |
+|  [04]   | `formatter(...)`                                | formatting       | a formatted unit string (deprecated module fn; prefer `ureg.formatter`) |
+|  [05]   | `UnitRegistry.formatter.default_format`         | formatting       | the registry-owned default format spec  |
+|  [06]   | `UnitRegistry.setup_matplotlib(enable=True)`    | formatting       | registers the unit-aware matplotlib axis support |
+|  [07]   | `pi_theorem(quantities, registry=None)`         | analysis         | dimensionless Buckingham-π groups       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [UNIT_TOPOLOGY]:
-- registry: one shared `UnitRegistry` owns the vocabulary; conversion, dimensionality, and parsing all flow from that instance.
-- application registry: `get_application_registry`/`set_application_registry` share one registry across modules so `Quantity` instances stay compatible.
-- parsing: `UnitRegistry.__call__` and `parse_expression` build a `Quantity` from a string; `parse_units` builds a bare `Unit`.
-- conversion: `Quantity.to` returns a new value, `Quantity.ito` mutates in place; `to_base_units`/`to_root_units` normalize to registry base.
-- projection: `Quantity.magnitude`/`m` strips the unit; `m_as` strips after converting; a bare-magnitude operation on a unit-bearing array raises `UnitStrippedWarning`.
-- dimensionality: `Quantity.check` and `UnitRegistry.get_dimensionality` resolve dimensional compatibility before arithmetic.
-- decorators: `UnitRegistry.wraps` and `UnitRegistry.check` enforce argument and return units at function boundaries.
-- offset units: temperature and other offset units route through `OffsetUnitCalculusError`; logarithmic units route through `LogarithmicUnitCalculusError`.
+- registry: one shared `UnitRegistry` owns the vocabulary; parsing, dimensionality, base reduction, and `Quantity`/`Unit`/`Measurement` construction all flow from that instance, so quantities from one registry never interoperate with another.
+- application registry: `get_application_registry`/`set_application_registry` install a single `ApplicationRegistry` proxy across modules; the default `LazyRegistry` defers definition loading until first use.
+- parsing: `__call__`/`parse_expression` build a `Quantity` from a string, `parse_units` a bare `Unit`, and `parse_pattern` extracts quantities from a formatted record line.
+- conversion: `to` returns a new value, `ito` mutates in place; `to_base_units`/`to_root_units`/`to_reduced_units` normalize, `to_compact` picks a readable prefix; cross-dimension conversion requires a `Context` passed to `to`/`is_compatible_with` or activated via `context`/`enable_contexts`.
+- projection: `magnitude`/`m` strips the unit, `m_as` strips after converting; consuming the magnitude through a bare NumPy operation that drops the unit raises `UnitStrippedWarning`.
+- dimensionality: `check`, `is_compatible_with`, and `get_dimensionality` resolve compatibility before arithmetic; an incompatible operation raises `DimensionalityError`.
+- offset/log units: temperature and other offset units route `OffsetUnitCalculusError`; dB/decade logarithmic units route `LogarithmicUnitCalculusError`; both descend from `PintTypeError`.
+
+[INTEGRATION_LAW]:
+- array rail: a `Quantity` magnitude is any array-protocol object; constructing the registry with `force_ndarray_like=True` makes every magnitude a NumPy/array-API container, and `numpy` ufuncs/`__array_function__` thread units through the same array the compute array rail folds — never unwrap-to-magnitude, operate, re-wrap.
+- uncertainty rail: `Quantity.plus_minus`/`UnitRegistry.Measurement` produce a `Measurement` whose arithmetic propagates standard error; this is the unit-bearing mirror of the `uncertainties` rail, so error-bearing study magnitudes carry both unit and uncertainty in one carrier rather than two parallel objects.
+- study receipt: the captured `dimensionality` (a `UnitsContainer`) plus the base-unit `convert` factor are the unit claim attached to a `pandera`/`arviz` study result; a dimensionality mismatch is the boundary rail's reject signal.
+- boundary enforcement: `wraps`/`check` decorate the offline study function so argument and return units are asserted at the Python boundary; the magnitude crossing into a numerical kernel is always base-unit-normalized via `m_as`/`to_base_units` so the kernel sees raw arrays.
 
 [LOCAL_ADMISSION]:
-- One shared `UnitRegistry` (via `get_application_registry`) carries the unit vocabulary for the rail; per-claim registries are rejected because their `Quantity` types do not interoperate.
-- Each array-admission and study result carries a `Quantity` unit claim; a dimensionality mismatch surfaces a `DimensionalityError` on the boundary rail.
-- Unit conversion uses `Quantity.to`/`to_base_units`; hand-rolled conversion factors are rejected.
-- Unit claims are offline study evidence; product unit policy stays in C# owners after graduation.
+- one shared `UnitRegistry` (via `get_application_registry`) carries the rail's vocabulary; per-claim registries are rejected because their `Quantity` types do not interoperate.
+- each array-admission and study result carries a `Quantity` unit claim; a dimensionality mismatch surfaces a `DimensionalityError` at the boundary rail.
+- conversion uses `to`/`to_base_units`/`convert`; hand-rolled conversion factors and stringly-typed unit labels are rejected.
+- error-bearing magnitudes use `Measurement`/`plus_minus` rather than a parallel uncertainty record.
+- unit claims are offline study evidence; product unit policy stays in C# owners after graduation.
 
 [RAIL_LAW]:
 - Package: `pint`
-- Owns: physical-unit registry, dimensional quantities, unit conversion, and signature-level unit checking for the units rail
-- Accept: a unit-bearing `Quantity` built from the shared `UnitRegistry`, converted via `Quantity.to`, with a captured dimensionality claim
-- Reject: stringly-typed unit labels; hand-rolled conversion factors; per-claim registries; wrapper-renames of `Quantity` arithmetic
+- Owns: the physical-unit registry, dimensional quantities, measurement uncertainty, cross-dimension contexts, NumPy-array unit threading, and signature-level unit checking for the units rail
+- Accept: a unit-bearing `Quantity` (or `Measurement`) built from the shared `UnitRegistry`, converted via `to`/`to_base_units`, with a captured `dimensionality` claim, decorated boundaries via `wraps`/`check`
+- Reject: stringly-typed unit labels; hand-rolled conversion factors; per-claim registries; a parallel uncertainty object beside the unit; wrapper-renames of `Quantity` arithmetic

@@ -9,16 +9,19 @@
 - import: `c2pa`
 - owner: `artifacts`
 - rail: provenance
-- installed: `0.35.1` reflected via `assay api` on cp315
+- installed: `0.35.1` reflected via `import c2pa; c2pa.__version__` on cp313 (underlying `c2pa-rs` core `0.88.0` via `sdk_version()`)
+- license: `MIT OR Apache-2.0`
+- wheel: `c2pa_python-0.35.1-py3-none-<platform>.whl` — `py3` ABI tag but NOT pure-Python; each wheel bundles the native `libc2pa_c` core per platform (`macosx_10_9_universal2`/`macosx_10_9_x86_64`/`macosx_11_0_arm64`/`manylinux_2_28_aarch64`/`manylinux_2_28_x86_64`/`win_amd64`/`win_arm64`). No `musllinux` wheel; no abi3 — the bundled core is loaded via `ctypes`, so the platform tag is load-bearing
+- marker: `python_requires >=3.10`; runtime deps `cryptography`/`requests` (callback signing and remote manifest fetch)
 - entry points: console script `download-artifacts` (native-library fetch); library use is import-only
-- capability: C2PA manifest authoring from a JSON definition, embedded/sidecar manifest signing into JPEG/PNG/PDF/BMFF and other supported MIME types, manifest-store extraction and parsing (`json`/`detailed_json`/`crjson`), `validation_state` and `validation_results` reporting, callback- and `C2paSignerInfo`-backed signers across ES256/ES384/ES512/PS256/PS384/PS512/ED25519, and per-instance `Settings`/`Context` configuration
+- capability: C2PA manifest authoring from a JSON definition, embedded/sidecar manifest signing into JPEG/PNG/PDF/BMFF/fragmented-MP4 and other supported MIME types, ingredient attachment from stream/archive, builder archive serialize/rehydrate, manifest-store extraction and parsing (`json`/`detailed_json`/`crjson`), `validation_state` and `validation_results` reporting, callback- and `C2paSignerInfo`-backed signers across ES256/ES384/ES512/PS256/PS384/PS512/ED25519, and per-instance `Settings`/`Context` configuration
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: builder, reader, signer, and configuration roots
 - rail: provenance
 
-`Builder` is single-sign and closes after `sign`; `Reader` is a context manager closed after the `with` block; `Signer` is consumed when attached to a `Context`. `C2paError` is the base of all typed subclasses (e.g. `C2paError.ManifestNotFound`), so a single `except C2paError` rail traps the family. `C2paSigningAlg`, `C2paDigitalSourceType`, and `C2paBuilderIntent` are `IntEnum` vocabularies driving signing, source provenance, and manifest intent.
+`Builder`, `Reader`, `Signer`, `Settings`, and `Context` are all context managers with `close()`/`is_valid` lifecycle (the native handle is released on `close`); `Builder` is single-sign and closes after `sign`; `Reader` is closed after the `with` block; `Signer` is consumed when attached to a `Context`. `C2paError` is the base of the full typed subclass family — `Assertion`, `AssertionNotFound`, `Decoding`, `Encoding`, `FileNotFound`, `Io`, `Json`, `Manifest`, `ManifestNotFound`, `NotSupported`, `Other`, `RemoteManifest`, `ResourceNotFound`, `Signature`, `Verify` — so a single `except C2paError` rail traps the family and per-subclass arms discriminate codec/signature/verify/not-found faults. `C2paSigningAlg`, `C2paDigitalSourceType`, and `C2paBuilderIntent` are `IntEnum` vocabularies driving signing, source provenance, and manifest intent; `C2paDigitalSourceType` carries the full IPTC digital-source vocabulary (`DIGITAL_CAPTURE`, `TRAINED_ALGORITHMIC_MEDIA`, `COMPOSITE_SYNTHETIC`, `COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA`, `ALGORITHMICALLY_ENHANCED`, …) so AI-provenance intent is a source-type row, not a parallel manifest field.
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [RAIL]                                                        |
 | :-----: | :---------------------- | :--------------- | :------------------------------------------------------------ |
@@ -51,7 +54,10 @@
 |  [04]   | `Builder.sign`                     | `sign(signer_or_format: Union[Signer, str], format_or_source: Any = None, source_or_dest: Any = None, dest: Any = None) -> bytes` | sign source into dest, return manifest bytes (single use) |
 |  [05]   | `Builder.sign_file`                | `sign_file(source_path: Union[str, Path], dest_path: Union[str, Path], signer: Optional[Signer] = None) -> bytes`                 | sign a file path to an output path, return manifest bytes |
 |  [06]   | `Builder.set_intent`               | `set_intent(intent: C2paBuilderIntent, digital_source_type: C2paDigitalSourceType = C2paDigitalSourceType.EMPTY)`                 | set manifest intent and digital source type               |
-|  [07]   | `Builder.add_ingredient`           | `add_ingredient(ingredient_json: Union[str, dict], format: str, source: Any)`                                                     | attach a parent/component ingredient                      |
+|  [07]   | `Builder.add_ingredient`           | `add_ingredient(ingredient_json: Union[str, dict], format: str, source: Any)`                                                     | attach a parent/component ingredient from a stream/source |
+|  [07a]  | `Builder.add_ingredient_from_stream` | `add_ingredient_from_stream(ingredient_json, format, stream)`                                                                   | ingredient-attach row keyed to an open stream             |
+|  [07b]  | `Builder.add_ingredient_from_archive` | `add_ingredient_from_archive(ingredient_json, format, stream)`                                                                 | ingredient-attach row from a written ingredient archive   |
+|  [07c]  | `Builder.write_ingredient_archive` | `write_ingredient_archive(ingredient_id: str, stream: Any) -> None`                                                               | serialize an attached ingredient to a reusable archive    |
 |  [08]   | `Builder.add_resource`             | `add_resource(uri: str, stream: Any)`                                                                                             | attach a referenced resource by URI                       |
 |  [09]   | `Builder.add_action`               | `add_action(action_json: Union[str, dict]) -> None`                                                                               | append a c2pa.actions assertion                           |
 |  [10]   | `Builder.set_remote_url`           | `set_remote_url(remote_url: str)`                                                                                                 | set the remote manifest URL                               |
@@ -78,7 +84,8 @@
 |  [10]   | `Reader.is_embedded`              | `is_embedded() -> bool`                                                                                                                                                          | embedded vs remote manifest flag                  |
 |  [11]   | `Reader.get_remote_url`           | `get_remote_url() -> Optional[str]`                                                                                                                                              | remote manifest URL, or `None` when embedded      |
 |  [12]   | `Reader.resource_to_stream`       | `resource_to_stream(uri: str, stream: Any) -> int`                                                                                                                               | write a referenced resource to a stream           |
-|  [13]   | `Reader.get_supported_mime_types` | `get_supported_mime_types() -> list[str]`                                                                                                                                        | native list of readable MIME types                |
+|  [13]   | `Reader.with_fragment`            | `with_fragment(format: str, stream: Any, fragment_stream: Any) -> Reader`                                                                                                        | read a fragmented-BMFF (DASH/CMAF) init+fragment  |
+|  [14]   | `Reader.get_supported_mime_types` | `get_supported_mime_types() -> list[str]`                                                                                                                                        | native list of readable MIME types                |
 
 [ENTRYPOINT_SCOPE]: signer, settings, and module functions
 - rail: provenance
@@ -94,10 +101,13 @@
 |  [05]   | `Settings.from_json`   | `from_json(json_str: str) -> Settings`                                                                                        | settings from a JSON config string                        |
 |  [06]   | `Settings.from_dict`   | `from_dict(config: dict) -> Settings`                                                                                         | settings from a config dict                               |
 |  [07]   | `Settings.set`         | `set(path: str, value: str) -> Settings`                                                                                      | set a dot-notation config value                           |
+|  [07a]  | `Settings.update`      | `update(data: Union[str, dict]) -> Settings`                                                                                  | merge a config dict/JSON string into the settings object  |
 |  [08]   | `Context.from_json`    | `from_json(json_str: str, signer: Optional[Signer] = None) -> Context`                                                        | context from JSON config plus optional signer             |
-|  [09]   | `Context.builder`      | `builder() -> ContextBuilder`                                                                                                 | fluent context builder                                    |
+|  [08a]  | `Context.from_dict`    | `from_dict(config: dict, signer: Optional[Signer] = None) -> Context`                                                         | context from a config dict plus optional signer           |
+|  [08b]  | `Context.has_signer`   | `has_signer() -> bool`                                                                                                        | whether the context carries a bound signer                |
+|  [09]   | `Context.builder`      | `builder() -> ContextBuilder`                                                                                                 | fluent `with_settings`/`with_signer`/`build`              |
 |  [10]   | `load_settings`        | `load_settings(settings: Union[str, dict], format: str = "json") -> None`                                                     | deprecated thread-local settings load                     |
-|  [11]   | `sdk_version`          | `sdk_version() -> str`                                                                                                        | underlying `c2pa-rs` semantic version                     |
+|  [11]   | `sdk_version`          | `sdk_version() -> str`                                                                                                        | underlying `c2pa-rs` core semantic version (`0.88.0`)     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -110,6 +120,12 @@
 - signer axis: `Signer.from_info` consumes a `C2paSignerInfo` (`alg`/`sign_cert`/`private_key`/`ta_url`) and `Signer.from_callback` consumes an external callback plus `C2paSigningAlg`; the algorithm is an enum row across ES/PS/ED25519, never a per-algorithm signer type.
 - evidence: each operation captures SDK version (`sdk_version`), signing algorithm, embedded-vs-remote flag, manifest label, `validation_state`, and `validation_results` codes as a provenance receipt.
 - boundary: `c2pa-python` owns C2PA manifest authoring, signing, extraction, and validation through the native `libc2pa_c` core with Python stream bridging via `Stream`; asset bytes flow in and out as streams or paths supplied by the imaging/document owners; certificate and key material is supplied by the campaign signer configuration, never minted here; live UI stays outside this package.
+
+[INTEGRATION_STACK]:
+- `c2pa-python` vs `pyhanko` (PAdES): C2PA Content Credentials and PAdES PDF signatures are orthogonal provenance rails — C2PA owns cross-format (JPEG/PNG/PDF/BMFF) embedded-manifest provenance and `pyhanko` owns PDF-native PAdES/CMS signatures; they sign the same PDF on different axes and neither re-implements the other's signature container. The campaign provenance owner selects the rail per asset class, never wraps one in the other.
+- `Signer.from_callback` is the seam to the `cryptography`/HSM signer: the external callback returns the raw COSE signature bytes for a digest, so private-key material lives in the `cryptography` keyring or an HSM and `c2pa` never holds it; `C2paSigningAlg` and the PEM `certs` chain are the only crypto config crossing the seam.
+- asset stream seam: the in-memory asset buffer is the wire between the imaging/PDF owner and `c2pa` — `Builder.sign(signer, format, source_stream, dest_stream)` reads and writes `BytesIO`, so the imaging codec hands a decoded buffer and receives a signed buffer with no intermediate file; `sign_file` is the path convenience only when a file handle already exists.
+- AI-provenance seam: a generated asset sets `Builder.set_intent(C2paBuilderIntent.CREATE, C2paDigitalSourceType.TRAINED_ALGORITHMIC_MEDIA)` so the digital-source type is the table-driven AI-origin signal the verifier reads, never a free-text manifest field.
 
 [RAIL_LAW]:
 - Package: `c2pa-python`
