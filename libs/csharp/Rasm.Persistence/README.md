@@ -73,6 +73,11 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `Azure.Storage.Blobs`
 - `Google.Cloud.Storage.V1`
 
+[ENCRYPTION_KMS]:
+- `AWSSDK.KeyManagementService`
+- `Azure.Security.KeyVault.Keys`
+- `Google.Cloud.Kms.V1`
+
 [REDIS]:
 - `StackExchange.Redis`
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
@@ -83,6 +88,12 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - `Speckle.Sdk`
 - `Speckle.Objects`
+
+[STREAMING_EGRESS]:
+- `Confluent.Kafka`
+- `CloudNative.CloudEvents`
+- `CloudNative.CloudEvents.Kafka`
+- `CloudNative.CloudEvents.SystemTextJson`
 
 [WIRE_SERIALIZATION]:
 - `MessagePack`

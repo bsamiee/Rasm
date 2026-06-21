@@ -21,9 +21,9 @@
 - `deltalake.Metadata` — table metadata: id, name, description, partition columns, configuration, and created time.
 - `deltalake.Transaction` — application-level transaction descriptor with app id, version, and last-updated fields.
 - `deltalake.QueryBuilder` — DataFusion SQL runner; `register(table_name, delta_table)` then `execute(sql)` returning Arrow batches.
-- `deltalake.WriterProperties` — Parquet writer tuning: compression, dictionary, statistics, bloom-filter, and column properties.
-- `deltalake.ColumnProperties`, `deltalake.BloomFilterProperties` — per-column writer property carriers.
-- `deltalake.CommitProperties` — commit-time metadata: app transactions, custom metadata, and max commit retries.
+- `deltalake.WriterProperties(compression=, compression_level=, statistics_truncate_length=, default_column_properties=, column_properties=, data_page_size_limit=, max_row_group_size=, ...)` — Parquet writer tuning: compression, dictionary, statistics, bloom-filter, and column properties.
+- `deltalake.ColumnProperties(dictionary_enabled=, statistics_enabled=, bloom_filter_properties=, encoding=)`, `deltalake.BloomFilterProperties(set_bloom_filter_enabled, fpp=, ndv=)` — per-column writer property carriers.
+- `deltalake.CommitProperties(custom_metadata=, max_commit_retries=, app_transactions=)` — commit-time metadata: app transactions, custom metadata, and max commit retries.
 - `deltalake.PostCommitHookProperties` — post-commit hook control for checkpoint creation and cleanup.
 - `deltalake.TableFeatures` — reader/writer table feature flags for protocol upgrades.
 - `deltalake.VariantType` — Delta variant logical type.
@@ -38,7 +38,7 @@
 - time travel: `DeltaTable.load_as_version(version)`, `.load_cdf(starting_version=0, ending_version=None, ...)`, `.restore(target, *, ignore_missing_files=False, protocol_downgrade_allowed=False, ...) -> dict`, `.version() -> int`, `.update_incremental()`.
 - maintenance: `DeltaTable.optimize` (compact/z-order accessor), `.vacuum(retention_hours=None, dry_run=True, enforce_retention_duration=True, ...) -> list[str]`, `.create_checkpoint()`, `.cleanup_metadata()`, `.repair(dry_run=False, ...) -> dict`, `.generate(...)`.
 - inspect: `DeltaTable.schema() -> Schema`, `.metadata() -> Metadata`, `.protocol()`, `.history(limit=None) -> list[dict]`, `.file_uris(partition_filters=None) -> list[str]`, `.files(...)`, `.partitions(...)`, `.table_config()`, `.count() -> int`, `.transaction_version(app_id)`, `.deletion_vectors()`.
-- evolve and query: `DeltaTable.alter` (schema/property accessor), `QueryBuilder().register(name, table).execute(sql)`.
+- evolve and query: `DeltaTable.alter -> TableAlterer` (`add_columns(fields)`, `add_constraint`, `drop_constraint`, `add_feature`, `set_table_properties`), `QueryBuilder().register(name, table).execute(sql)`.
 
 [EXCEPTIONS]:
 - `deltalake.exceptions.DeltaError` — base native error; `DeltaProtocolError`, `TableNotFoundError`, `CommitFailedError`, `SchemaMismatchError` follow from invalid protocol, missing table, commit conflict, and schema drift.
@@ -49,6 +49,9 @@
 - Reads are lazy through `to_pyarrow_dataset`; column projection and partition/predicate filters push down before materialisation, while `to_pyarrow_table`/`to_pandas` materialise eagerly.
 - Time travel loads a prior version in place via `load_as_version(version)`; `restore` writes a new commit that reverts the table rather than mutating history.
 - Writer tuning flows through `WriterProperties` with nested `ColumnProperties`/`BloomFilterProperties`; commit metadata and retries flow through `CommitProperties`.
+- `delete`/`update`/`merge` return a metrics dict keyed `num_added_files`/`num_removed_files`/`num_updated_rows`/`num_copied_rows`/`num_deleted_rows`; `num_deleted_rows` is omitted from a predicate-less `delete`. `restore` returns the native restore metrics dict; the `num_removed_file`/`num_restored_file` key spellings originate in the Rust layer and are not surfaced in the Python docstring.
+- `TableAlterer.add_columns(fields)` is the only column-evolution member; the alterer exposes no column drop or rename, so a Delta schema rename or drop is unreachable and a portable `Evolve` binds only the `adds` clause on Delta.
+- `deltalake.schema.Field(name, type)` and `deltalake.schema.PrimitiveType(type_string)` accept a primitive type string directly (`Field("col", "integer")`), so a `(name, type-string)` column-add tuple constructs a `Field` with no separate type parser.
 - `QueryBuilder` runs DataFusion SQL over registered Delta tables and returns Arrow record batches; it is the SQL surface, distinct from the imperative `DeltaTable` builder.
 
 ## [03]-[LOCAL_ADMISSION]

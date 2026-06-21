@@ -31,6 +31,27 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `runtime/.planning/execution/lanes.md#LANES`, `anyio.to_interpreter.run_sync`, the `to_process.run_sync` fallback, `daemon.md#DAEMON`, `registration.md#REGISTRATION`, `repair.md#MESH`, `ingestion.md#OFFLOAD_LANE`, and `reconstruction.md#OFFLOAD_LANE`.
 - Tension: runtime owns `LanePolicy`; geometry only consumes it, and every fallback kernel must stay picklable for the process path.
 
+[MESH_CODEC_BOUNDARY]-[QUEUED]: record the scene-export versus mesh-file-codec boundary so a later pass never collapses the artifacts figures/scene USD/USDZ export into the geometry mesh-file codec.
+- Capability: a `[BOUNDARY]` seam on geometry/mesh recording that artifacts figures/scene owns visualization-scene export (camera, lights, PBR) while geometry owns the mesh-file codec, sharing no owner and admitting no collapse.
+- Shape: one `[BOUNDARY]` seam row in geometry `ARCHITECTURE.md` mirroring the artifacts figures/scene to `python:geometry/mesh` `[BOUNDARY]` edge.
+- Anchors: geometry `mesh.md`, artifacts `figures/scene#SCENE` `SCENE_USD_EXPORT`, `vtkUSDExporter`.
+- Ripple: `artifacts` `[SCENE_USD_EXPORT]` — scene export and mesh-file codec stay distinct owners; the seam records the boundary so neither side collapses the other.
+- Atomic: one `[BOUNDARY]` seam row.
+
+[SCAN_COPC_PARTIAL]-[QUEUED]: confirm pdal removal is partial — the data COPC arm rebinds to `laspy.copc` while geometry scan/ingestion keeps its full pdal filter-graph owner.
+- Capability: geometry/scan/ingestion confirms its pdal filter-graph owner (`filters.smrf`, `pmf`, `outlier`, `decimation`, `range`) is unchanged by the data COPC engine swap, still receiving a decoded `pyarrow.Table` (`laspy.copc`-decoded instead of pdal-decoded) and owning only the filter graph the data owner does not run; compressed COPC needs the `lazrs`/`laszip` companion `<3.15`, while cp315-core `laspy.copc` reads uncompressed only.
+- Shape: a confirmation that geometry retains pdal (manifest companion `<3.15`) and its scan/ingestion filter-graph catalogue; the data-to-geometry Arrow point-record bridge seam is unchanged in shape, only the data-side decode engine changes.
+- Anchors: `geometry/scan/ingestion.md` `ScanIngestion` pdal filter graph (`filters.smrf`/`pmf`/`outlier`/`decimation`/`range`), the data-to-geometry Arrow point-record bridge, the `python_version<'3.15'` companion band.
+- Ripple: `data` `[REMOTE_POINTCLOUD_LASPY]` — geometry keeps its full pdal filter-graph; data leaves pdal only for COPC decode, and the decoded `pyarrow.Table` bridge stays untouched.
+- Atomic: one filter-graph retention confirmation.
+
+[MESH_TOPOLOGY_SHAPE]-[QUEUED]: confirm the data spatial/mesh `MeshPayload` deepening meets the geometry mesh owner at cell-block topology through the existing mirrored seam.
+- Capability: geometry/mesh consumes the deepened `MeshPayload` cell-block topology (`rhino3dm`/`trimesh`/`meshio` file exchange) at the existing mirrored seam, where the data deepening adds type-keyed `cell_data`/`point_data` and a `.3dm` row.
+- Shape: a confirmation of the existing spatial/mesh to geometry/mesh `[SHAPE]` seam under the deepened `MeshPayload`.
+- Anchors: geometry/mesh owner, the data `MeshPayload` cell-block topology, the existing mirrored seam.
+- Ripple: `data` `[MESH_DATA_PRESERVE]` — the deepened `MeshPayload` cell-block topology crosses the existing `[SHAPE]` seam unchanged in shape.
+- Atomic: one seam confirmation.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

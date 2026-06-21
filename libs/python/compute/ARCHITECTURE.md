@@ -41,7 +41,7 @@ compute/
 ## [02]-[SEAMS]
 
 ```text seams
-*                   →  csharp:Rasm.Compute       # [GRADUATION]: HandoffAxis graduation evidence
+*                   ⇄  csharp:Rasm.Compute       # [GRADUATION]: HandoffAxis graduation evidence
 graduation/codegen  ←  csharp:Rasm.Compute       # [WIRE]: EvidenceBundle graduation-evidence wire
 solvers/receipt     →  csharp:Rasm.Compute       # [PROJECTION]: SolverReceipt convergence verdict
 graduation          ←  python:geometry/ifc       # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF

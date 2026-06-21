@@ -9,7 +9,7 @@ The one kind-discriminated artifact receipt family shared across every productio
 ## [02]-[RECEIPT]
 
 - Owner: `ArtifactReceipt` the one kind-discriminated receipt family satisfying the structural runtime `receipts.ReceiptContributor` Protocol through its `contribute` method, keyed by the runtime `content_identity.ContentKey`; the case facts project to an emitted-phase `Receipt.of` string fact map through `ContentKey.hex`. The three seam cases — `Introspection` (the `documents/lens#LENS` recover-TO half), `Egress` (the `documents/egress#FINISH` security-and-navigation close), and `Verdict` (the `typography/conformance#CONFORM` `ConformanceVerdict` audit) — land here once so the three downstream owners contribute a settled case rather than three conflicting same-file edits.
-- Cases: `ArtifactReceipt` cases `Document` (content key, byte count) · `Pdf` (content key, byte count, page count) · `Office` (content key, byte count) · `Report` (content key, byte count) · `Chart` (content key, format) · `Scene` (content key, target) · `Table` (content key, format) · `Preview` (content key, width, height) · `Bundle` (content key, byte count) · `Introspection` (content key, node count, text length, image count, search-hit count — the recovered-tree-shape facts the lens recovers TO `DocumentNode`) · `Egress` (content key, post-finish byte count, page count, encryption-R level, outline depth, overlay count — the security-and-navigation finishing facts) · `Verdict` (content key, the `ConformanceVerdict` value carrying PAdES validity / coverage level / modification-difference level / DSS-LTV completeness / archival-metadata presence) — each a frozen `case()` carrying the content key and the mode-specific facts; three-or-more per-bucket constructions collapse into this one stream.
+- Cases: `ArtifactReceipt` cases `Document` (content key, byte count) · `Pdf` (content key, byte count, page count) · `Office` (content key, byte count) · `Report` (content key, byte count) · `Chart` (content key, engine, spec dialect, render scale, resolved theme, output byte length — the host-free render facts the chart owner produces, the engine being the matched `ChartSpec.tag` not a parallel enum) · `Scene` (content key, target) · `Table` (content key, format) · `Preview` (content key, width, height) · `Bundle` (content key, algorithm, compression level, dictionary id, frame size, entry count, CRC-verified count, ratio — the typed compression-evidence facts the bundle owner's `BundleEvidence` produces, flattened to scalar fields so the receipt owner imports no producer module and no codec handle crosses the seam) · `Introspection` (content key, node count, text length, image count, search-hit count — the recovered-tree-shape facts the lens recovers TO `DocumentNode`) · `Egress` (content key, post-finish byte count, page count, encryption-R level, outline depth, overlay count — the security-and-navigation finishing facts) · `Verdict` (content key, the `ConformanceVerdict` value carrying PAdES validity / coverage level / modification-difference level / DSS-LTV completeness / archival-metadata presence) — each a frozen `case()` carrying the content key and the mode-specific facts; three-or-more per-bucket constructions collapse into this one stream. The producer-evidence cases carry flat scalar fields rather than a producer value object (`Egress`/`Introspection`/`Chart`/`Bundle` all flatten), so the only value object the receipt owner imports is the `conformance`-leaf `ConformanceVerdict`, which the `conformance` owner never reciprocally imports — the one acyclic value-object edge the union admits.
 - Entry: `contribute` folds the active case onto the runtime `Receipt.of` emitted-phase stream under the `artifacts` owner tag, the case tag as subject, and the case-specific facts as the string-valued fact map; the fold is one `match` over the union, never a per-case contributor. The same `contribute` fold is the one edge the runtime `execution/lanes` `(ContentKey, Work)` reuse-fabric elision threads its hit/miss distinction through and the runtime `observability/metrics` `MeterProvider` instrument set reads its measured-signal stream from — both consumers of the single fold, never a parallel cache or metric owner.
 - Packages: `expression` (`tagged_union`/`tag`/`case`), runtime (`content_identity.ContentKey`, `receipts.Receipt`/`ReceiptContributor`); the `Verdict` case carries a `typography/conformance#CONFORM` `ConformanceVerdict` value.
 - Growth: a new artifact kind is one `ArtifactReceipt` case plus one constructor plus one `_facts` arm; zero new surface. The reuse-fabric hit/miss distinction and the `MeterProvider` signal stream are consumers of the existing fold, never new cases.
@@ -33,11 +33,11 @@ class ArtifactReceipt:
     pdf: tuple[ContentKey, int, int] = case()
     office: tuple[ContentKey, int] = case()
     report: tuple[ContentKey, int] = case()
-    chart: tuple[ContentKey, str] = case()
+    chart: tuple[ContentKey, str, str, float, str, int] = case()
     scene: tuple[ContentKey, str] = case()
     table: tuple[ContentKey, str] = case()
     preview: tuple[ContentKey, int, int] = case()
-    bundle: tuple[ContentKey, int] = case()
+    bundle: tuple[ContentKey, str, int, int, int, int, int, float] = case()
     introspection: tuple[ContentKey, int, int, int, int] = case()
     egress: tuple[ContentKey, int, int, int, int, int] = case()
     verdict: tuple[ContentKey, ConformanceVerdict] = case()
@@ -59,8 +59,8 @@ class ArtifactReceipt:
         return ArtifactReceipt(report=(key, byte_count))
 
     @staticmethod
-    def Chart(key: ContentKey, fmt: str) -> "ArtifactReceipt":
-        return ArtifactReceipt(chart=(key, fmt))
+    def Chart(key: ContentKey, engine: str, dialect: str, scale: float, theme: str, byte_len: int) -> "ArtifactReceipt":
+        return ArtifactReceipt(chart=(key, engine, dialect, scale, theme, byte_len))
 
     @staticmethod
     def Scene(key: ContentKey, target: str) -> "ArtifactReceipt":
@@ -75,8 +75,8 @@ class ArtifactReceipt:
         return ArtifactReceipt(preview=(key, width, height))
 
     @staticmethod
-    def Bundle(key: ContentKey, byte_count: int) -> "ArtifactReceipt":
-        return ArtifactReceipt(bundle=(key, byte_count))
+    def Bundle(key: ContentKey, algo: str, level: int, dict_id: int, frame_size: int, entries: int, verified: int, ratio: float) -> "ArtifactReceipt":
+        return ArtifactReceipt(bundle=(key, algo, level, dict_id, frame_size, entries, verified, ratio))
 
     @staticmethod
     def Introspection(key: ContentKey, nodes: int, text_len: int, images: int, hits: int) -> "ArtifactReceipt":
@@ -104,16 +104,25 @@ def _facts(receipt: ArtifactReceipt) -> dict[str, str]:
             return {"key": key.hex, "bytes": str(byte_count)}
         case ArtifactReceipt(tag="report", report=(key, byte_count)):
             return {"key": key.hex, "bytes": str(byte_count)}
-        case ArtifactReceipt(tag="chart", chart=(key, fmt)):
-            return {"key": key.hex, "format": fmt}
+        case ArtifactReceipt(tag="chart", chart=(key, engine, dialect, scale, theme, byte_len)):
+            return {"key": key.hex, "engine": engine, "dialect": dialect, "scale": f"{scale:.6f}", "theme": theme, "bytes": str(byte_len)}
         case ArtifactReceipt(tag="scene", scene=(key, target)):
             return {"key": key.hex, "target": target}
         case ArtifactReceipt(tag="table", table=(key, fmt)):
             return {"key": key.hex, "format": fmt}
         case ArtifactReceipt(tag="preview", preview=(key, width, height)):
             return {"key": key.hex, "width": str(width), "height": str(height)}
-        case ArtifactReceipt(tag="bundle", bundle=(key, byte_count)):
-            return {"key": key.hex, "bytes": str(byte_count)}
+        case ArtifactReceipt(tag="bundle", bundle=(key, algo, level, dict_id, frame_size, entries, verified, ratio)):
+            return {
+                "key": key.hex,
+                "algo": algo,
+                "level": str(level),
+                "dict_id": str(dict_id),
+                "frame_size": str(frame_size),
+                "entries": str(entries),
+                "verified": str(verified),
+                "ratio": f"{ratio:.6f}",
+            }
         case ArtifactReceipt(tag="introspection", introspection=(key, nodes, text_len, images, hits)):
             return {"key": key.hex, "nodes": str(nodes), "text_len": str(text_len), "images": str(images), "hits": str(hits)}
         case ArtifactReceipt(tag="egress", egress=(key, byte_count, pages, encryption_r, outline_depth, overlays)):

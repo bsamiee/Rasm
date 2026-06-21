@@ -17,20 +17,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-[ENCODED_MARK_PREVIEW]-[BLOCKED]: widen the imaging code arm to the full encoded-mark family on `figures/preview.md`.
-- Capability: `figures/preview#PREVIEW` covers QR/Micro-QR and linear 1D encoded marks through one imaging operation family.
-- Shape: `PreviewOp.MARK` replaces `PreviewOp.QR` and carries a `Symbology` `StrEnum` over settled `segno` QR rows plus pending `python-barcode` linear rows, all contributing the existing `ArtifactReceipt.Preview` case.
-- Unlocks: machine-readable SVG preview output expands without a parallel code class, a Pillow-backed core leak, or phantom DataMatrix/PDF417 membership.
-- Anchors: `Preview`, `PreviewOp.MARK`, `Symbology`, `ArtifactReceipt.Preview`, `segno.make`/`make_micro`/`QRCode.save(kind="svg")`, `python-barcode` `get_barcode_class`, `SVGWriter`, and `PROVIDED_BARCODES`.
-- Tension: uv-sync plus `ApiPackage.reflect` must confirm the `python-barcode` registry and writer surface; DataMatrix/PDF417 stay routed to a separate future 2D-matrix owner.
-
-[PYTHON_BARCODE_CATALOGUE]-[BLOCKED]: author the `python-barcode` `.api` catalogue on capture.
-- Capability: the folder `.api/python-barcode.md` catalogue becomes the verified evidence source for the linear 1D barcode arm.
-- Shape: the catalogue keeps the canonical-source-authored surface as `AUTHORED-PENDING-VERIFICATION` until uv-sync resolves `python-barcode` and reflection confirms `get_barcode_class`, `get`, `PROVIDED_BARCODES`, `SVGWriter`, `ImageWriter`, and the per-symbology classes.
-- Unlocks: `figures/preview#PREVIEW` can settle the `_barcode` body and linear `Symbology` rows without adding a README admission row or guessing package members.
-- Anchors: `.api/python-barcode.md`, catalogue header `RESEARCH-capture-pending-on-uv-sync`, repo-root `pyproject.toml` admission, `ApiPackage.reflect`, and the existing README domain-package row.
-- Tension: the active venv still lacks the package, and the repo-root `pyproject.toml` comment still claims `linear/2D barcode symbologies`; the stale central-manifest comment is recorded for the orchestrator and stays outside this file.
-
 [CONTRIBUTE_ARTIFACTS_MEASURED_SIGNALS_RUNTIME]-[BLOCKED]: contribute the artifacts measured signals into the one runtime metric stream — trickle-down from branch `ONE_MEASURED_SIGNAL_STREAM`.
 - Capability: artifact production duration, byte-volume, and compression-ratio signals join the one runtime metric stream instead of local logging fields.
 - Shape: `receipt/receipt#RECEIPT` `ArtifactReceipt.contribute` feeds the runtime `observability/metrics` `MeterProvider` instrument set at composition, consuming the branch stream without minting an artifacts metric owner.
@@ -52,10 +38,95 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: branch `ONE_GRADUATION_RAIL_OUTWARD`, master `CROSS_PACKAGE_DRIFT_GUARD`, `compute/graduation#GRADUATION`, `HandoffAxis`, `ContentIdentity`, `ArtifactReceipt`, runtime `evidence/evidence`, `Structural.drift`, and `ARCHITECTURE.md` seams.
 - Tension: upstream graduation `HandoffAxis` and runtime drift-detector tasks must land before artifacts can confirm against the live query; artifacts already assert the invariant as a pre-keyed consumer.
 
+[EMIT_LOWERING_BODIES]-[QUEUED]-[F]: Transcribe the six asserted-but-unwritten emit lowering folds — _reportlab_author/_weasyprint_html/_docx_emit/_pptx_emit/_ruamel_emit/_tomlkit_emit are prose in [LOWERING_BODIES], the single largest fence-incomplete defect in the package; the xlsx fold (`_xlsx_emit`/`_xlsx_streamed`/`_xlsx_in_memory`) and the typst/docxtpl folds already carry real bodies and are out of scope.
+- Capability: Each BACKENDS arm written as a real DocumentNode-tree fold: reportlab Canvas/SimpleDocTemplate flowable build, weasyprint tree-to-HTML serialization, python-docx/pptx document-root folds and ruamel/tomlkit structured-text dumps — one RunNode->run / BlockNode->paragraph / TableNode->grid fold per format, not per node-kind helper.
+- Shape: Total match over DocumentNode variants per format; reportlab densest (flowable algebra), structured-text trivial.
+- Unlocks: A transcription-complete, zero-lookup emit page implementable verbatim.
+- Anchors: documents/emit#DOCUMENT BACKENDS, documents/model#NODE children/walk, .api/reportlab.md/weasyprint.md/python-docx.md/python-pptx.md/ruamel-yaml.md/tomlkit.md [03]
+
+[CHART_GRAMMAR_ALGEBRA]-[QUEUED]-[F+Q]: Delete the raw Vega-Lite dict case and own the grammar — ChartSpec.Vega(spec: dict[str,object]) forces the caller to hand-write Vega-Lite JSON, the exact shape altair.md[06] line 85 rejects (a hand-built Vega-Lite dict where the builder is admitted). This is an api-contradiction correctness fix, not under-realization.
+- Capability: ChartSpec.Vega carries a build algebra — mark: MarkKind row, encode: dict[Channel, Field], transform: tuple[Transform, ...], the catalogued-but-unreachable selection axis, and layer/hconcat/vconcat/facet composition operators — folding through altair.Chart/mark_*/encode/transform_*/to_dict() to the spec EXPORT consumes.
+- Shape: A MARKS/CHANNELS/TRANSFORMS/COMPOSITION row-catalogue reduce identical to table.md's FORMATTERS/STRUCTURE proven density model; the dict case is removed; only the Vega/altair and lets-plot cases gain the algebra (plotly removed, matplotlib stays opaque-figure).
+- Unlocks: Typed chart authoring with zero hand-written Vega-Lite; the compose-algebra idea's substrate.
+- Anchors: altair.Chart/mark_bar/mark_line/mark_point/encode/transform_filter/transform_aggregate/selection_point/layer/hconcat/facet/to_dict, .api/altair.md [03]-[ENTRYPOINTS] + [06] rejection line, figures/chart#CHART
+- Tension: Large, host-free-primary asymmetry — only benefits the Vega path; matplotlib stays opaque (operator open question 3 is a genuine design choice, retained as this tension). `ChartSpec.of(engine, palette)` landed the builder-folding path (an altair `Chart`/`LayerChart`/`ConcatChart`/`FacetChart` themes through `_theme_vega.to_dict()`), but the raw `Vega(spec: dict)` input case survives and no MARKS/CHANNELS/TRANSFORMS row-catalogue exists.
+
+[BUNDLE_ARCHIVE_INVERSE]-[QUEUED]-[F+Q]: Rename single-payload Bundle to a multi-entry archive owner with an inverse — payload: bytes models one artifact; a bundle is plural by definition, and the owner only packs (no unpack).
+- Capability: Bundle carries entries: tuple[tuple[str, bytes], ...], packs a multi-file py7zr/zip archive for SEVEN_Z and a concatenated framed stream for the stream codecs, emits a BundleManifest of (name, ContentKey, algo, size) rows, adds an unpack/test/list inverse; streaming via stream-zip/stream-unzip for bounded memory.
+- Shape: One owner, two verbs (pack/unpack), a manifest value object; CompressionAlgo rows gain ZIP_STREAM; one _pack arm discriminates (7z natively multi-entry, stream codecs tar-then-compress). Dictionary-trained zstd lives in ZSTD_DICTIONARY_CODEC exclusively, never here.
+- Unlocks: Multi-artifact content-addressed packs keyed by ContentIdentity; round-trip extraction and verification.
+- Anchors: py7zr.SevenZipFile.writeall/extractall/test/list, stream_zip (name, modified_at, mode, method, chunks), stream_unzip, ArtifactReceipt.Bundle, .api/stream-zip.md/stream-unzip.md
+- Tension: `Bundle.pack` multi-payload (`multi_compress_to_buffer`/7z multi-entry/`test`) landed, but no `unpack`/`list`/`BundleManifest` inverse, no `ZIP_STREAM` row, and no `stream-unzip` admission (`.api/stream-unzip.md` absent); the inverse half is the remaining fence.
+
+[RASTER_ENGINE_PYVIPS]-[QUEUED]-[F]: Admit pyvips as a high-throughput raster engine beside pillow — thumbnail_buffer fuses decode+downscale+ICC (3x faster, 5x less memory than ImageMagick), and smartcrop is content-aware crop pillow cannot express.
+- Capability: Image.thumbnail_buffer/smartcrop/resize/icc_transform/write_to_buffer streaming pipeline; the THUMBNAIL/CONVERT/MONTAGE hot path collapses onto one streaming owner.
+- Shape: The _gated_raster arms re-author against pyvips; pillow keeps ImageDraw/ImageFont/ImageOps/Image.Exif/AVIF; scikit-image keeps scientific transforms.
+- Unlocks: High-throughput raster; content-aware crop.
+- Anchors: pyvips Image.thumbnail_buffer/smartcrop/icc_transform, anyio.to_process.run_sync, ArtifactReceipt.Preview, .api/pyvips.md
+- Tension: Companion (no cp315 wheel) -> subprocess seam; libvips provided by the Forge scientific-tools.nix native vips (FORGE_NATIVES), never pyvips[binary]. pyvips icc_transform (gated raster ICC) vs color.md MANAGED is an intra-folder boundary recorded in the codemap so ICC is not double-owned. No pyvips arm or `.api/pyvips.md` lands yet; `_gated_raster` is still pillow/scikit-image-only.
+
+[TWO_D_MATRIX_ZXING]-[QUEUED]-[F]: Admit zxing-cpp as the 2D-matrix encoded-mark owner preview.md already names as a separate future owner — DataMatrix/PDF417/Aztec/MaxiCode encode + decode round-trip, dependency-free SVG.
+- Capability: create_barcode(text, format, ec_level).to_svg(add_quiet_zones) (dependency-free) + read_barcodes(img) returning text/format/position; writes QR/MicroQR/DataMatrix/Aztec/PDF417/Code128/EAN13.
+- Shape: Symbology gains DATA_MATRIX/PDF417/AZTEC/MAXICODE; _mark dispatches create_barcode().to_svg(); new PreviewOp.DECODE via read_barcodes; the SYMBOLOGY idea's realization.
+- Unlocks: 2D matrix codes (the dropped DataMatrix/PDF417) and round-trip decode-confidence receipt facts.
+- Anchors: zxingcpp.create_barcode/BarcodeFormat/Barcode.to_svg/read_barcodes, figures/preview#PREVIEW Symbology/PreviewOp.MARK, .api/zxing-cpp.md
+- Tension: Companion <3.15 -> subprocess seam; resolves the separate-2D-matrix-owner routing note. The preview page still explicitly DROPS DataMatrix/PDF417 and routes to a separate future owner; no `Symbology` 2D-matrix rows, no `PreviewOp.DECODE`, and no `.api/zxing-cpp.md` land yet.
+
+[DELTA_BUNDLE]-[QUEUED]-[F]: Add binary-delta compression via detools — incremental re-emit against a parent ContentKey mirrors the data DerivedSnapshot principle; detools is a strict superset of the candidate bsdiff4.
+- Capability: detools one owner over bsdiff/hdiffpatch/match-blocks x bz2/lz4/lzma/zstd/heatshrink/crle x sequential/hdiffpatch/in-place; CompressionAlgo.DELTA against a parent key.
+- Shape: A DELTA row keyed against the parent ContentKey.
+- Unlocks: Incremental re-emit; minimal-byte updates between artifact versions.
+- Anchors: detools, bundle/bundle#BUNDLE, ContentIdentity, .api/detools.md
+- Tension: detools last shipped 2023-03 with a C extension — execution provisions it (build attempt on cp315/cp314, else Forge native or gated band by probe), authors .api/detools.md, bands by result; replaces bsdiff4; stays QUEUED. `.api/detools.md` is authored but no `CompressionAlgo.DELTA` row or detools fence lands in `bundle.md` yet.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[BUNDLE_RECEIPT_EVIDENCE]-[COMPLETE]: the `receipt/receipt#RECEIPT` `Bundle` case widened to the flat `tuple[ContentKey, str, int, int, int, int, int, float]` (algo/level/dict-id/frame-size/entries/verified/ratio) and `bundle.md` `_emit` spreads `evidence.*` onto it; flattened to scalars not `tuple[ContentKey, BundleEvidence]` because `bundle.py` imports `ArtifactReceipt`, so a reciprocal `BundleEvidence` import would close a module cycle — the `Egress`/`Introspection` flat-scalar pattern, never the `verdict` value-object pattern (acyclic only because `conformance.py` imports no receipt).
+[CHART_RECEIPT_FACTS]-[COMPLETE]: the `receipt/receipt#RECEIPT` `Chart` case widened to `tuple[ContentKey, str, str, float, str, int]` (engine/dialect/scale/theme/byte-len, engine the matched `ChartSpec.tag`) and `chart.md` `_compute` threads `self.chart.tag`/`self.fmt.value`/`self.policy.scale`/`self.policy.theme`/`len(data)`; all flat scalars, no producer value object imported into the receipt owner.
+[ENCODED_MARK_PREVIEW]-[COMPLETE]: `PreviewOp.Mark` over the `Symbology` axis (segno QR/Micro-QR/sequence + python-barcode linear via `SYMBOLOGIES` table) landed on `figures/preview.md`; 2D-matrix routes to the still-open `TWO_D_MATRIX_ZXING` owner.
+[SCENE_FILTER_PIPELINE]-[COMPLETE]: the ten-case `FieldFilter` union (clip/slice/slice_orthogonal/threshold/contour/warp/glyph/streamlines/decimate/surface) plus `RenderSpec` add_volume/scalar-bar/axes/lighting and OBJ/HTML targets landed on `figures/scene.md`.
+[REPORT_BINDING_ALGEBRA]-[COMPLETE]: `Section`/`FigureRef`/`_compose_tree` splice `FigureNode`s into a `DocumentNode` tree with a `_toc` synthesis, nbconvert `from_notebook_node` lowering, and the `REFLOW` kind landed on `reports/report.md`.
+[COLOR_FULL_COLORIMETRY]-[COMPLETE]: `ColorOp` DIFFERENCE/TEMPERATURE/Export(`write_image`/`write_LUT`) plus chromatic adaptation landed on `figures/color.md` (TEMPERATURE/CCT spellings carry a marked `.api/colour-science.md` RESEARCH deepen).
+[COLOR_ENGINE_SPLIT]-[COMPLETE]: the two-engine `Colorimetry` dispatch — ColorAide `Gamut(fit)`/`Cvd(filter)` legs beside colour-science convert/delta_E/spectral/CAM/LUT — landed on `figures/color.md` over the present `.api/coloraide.md`.
+[COLOR_OP_COLLAPSE]-[COMPLETE]: the convert-gateway collapse landed — `ColorOp.Convert` absorbs spectral-to-display and CIECAM02/CAM16 as `ColorModel` source/target values through `colour.convert` on `figures/color.md`.
+[STRUCT_ELT_KIND]-[COMPLETE]: `StructureNode.tag_role: str` collapsed into the closed `StructEltKind` `StrEnum` plus the one `ForeignRole(str)` open arm with the `_STRUCT_CATEGORY` behavior table on `documents/model.md`.
+[DROP_PLOTLY_KALEIDO]-[COMPLETE]: the `ChartSpec.Plotly` case and `_plotly_via_chrome` arm are deleted from `figures/chart.md`; the stale `.api/plotly.md`/`.api/kaleido.md` catalogues and the `ARCHITECTURE.md` chart codemap prose are pruned.
+[LETSPLOT_ENGINE]-[COMPLETE]: the `ChartSpec.LetsPlot` case + `LP_RENDER` table + `_letsplot_to_bytes` in-process acceptor landed on `figures/chart.md`; the lets-plot member spellings carry a marked RESEARCH item until `.api/lets-plot.md` is authored.
+[CHART_INTERACTIVE_HTML]-[COMPLETE]: the `ExportFormat.HTML` row over `vegalite_to_html` plus the lets-plot `to_html` arm landed on `figures/chart.md`.
+[LENS_OCR_ARM]-[COMPLETE]: the `LensOp.OCR` row (ocrmypdf PDF/A + MuPDF per-page engines, `insert_image` lossless intake) landed on `documents/lens.md`.
+[LENS_TABLE_ARM]-[COMPLETE]: the `LensOp.TABLE` arm (pdfplumber core + native MuPDF `find_tables` engines into `TableNode` with the `spans` map) landed on `documents/lens.md`.
+[EMIT_PDFIUM_RENDER_BODY]-[COMPLETE]: the `_pypdfium2_raster` body (PdfPage.render -> RenderTarget bridge + `get_toc` outline harvest) landed on `documents/emit.md`.
+[EGRESS_ENCRYPT_CORE_ARM]-[COMPLETE]: `EgressStep.ENCRYPT` became the two-leg `_encrypt` (pypdf RC4/AES-128 core + pikepdf AES-256 worker) over the `_STRENGTHS` cross-product table on `documents/egress.md`.
+[EGRESS_CONTENT_STREAM]-[COMPLETE]: `EgressStep.REWRITE` folds the qpdf token stream through `ContentEdit.fold` over `parse_content_stream`/`make_stream` on `documents/egress.md` (Job.run kept as a marked RESEARCH alternate).
+[REDACTION_BURN]-[COMPLETE]: `EgressStep.REDACT` burns `AnnotKind.REDACTION` rects through `apply_redactions`/`bake`/`scrub`/`subset_fonts` under the `Label`/`Scrub` policy values on `documents/egress.md`.
+[OFFICE_INGEST]-[COMPLETE]: the `LensOp.ODS_READ` (settled odfpy core) and `LensOp.XLSX_READ` (python-calamine gated) recover-TO arms landed on `documents/lens.md`; the calamine leaf spellings carry a marked RESEARCH item until `.api/python-calamine.md` is authored.
+[OFFICE_CONFIDENTIALITY]-[COMPLETE]: `EgressStep.PROTECT` (msoffcrypto `is_encrypted`/`load_key`/`decrypt` over the format-discriminated credential axis) landed on `documents/egress.md`.
+[DOCX_TEMPLATE_BIND]-[COMPLETE]: `DocumentMode.DOCX_TEMPLATE` binds the `DocumentNode` tree into a Word template through docxtpl `RichText`/`InlineImage`/`new_subdoc` in one `walk`+`match` fold on `documents/emit.md`.
+[XML_TRANSFORM_VALIDATE]-[COMPLETE]: the `XML_TRANSFORM`/`XML_VALIDATE`/`XML_QUERY` gated lxml rows (XSLT, `XMLSchema`/`RelaxNG`/`Schematron` `assertValid`, `XPath`) landed on `documents/emit.md`.
+[XLSX_STREAMING_ROW]-[COMPLETE]: the `SpreadsheetPolicy` row (openpyxl in-memory vs xlsxwriter `constant_memory` streamed) plus the `CellValue` typed-cell algebra landed on `documents/emit.md`; xlsxwriter promoted to explicit.
+[FONT_EMBED_SUBSET_EGRESS]-[COMPLETE]: `DocumentMode.FONT_EMBED` registers the `conformance#CONFORM`-subsetted font through reportlab `TTFont`/`registerFont` and draws each `RunNode` on `documents/emit.md`.
+[ALT_TEXT_DERIVATION]-[COMPLETE]: `FigureNode.alt: AltText` plus the `AltStatus` corpus column and the `to_typst_source` `image(.., alt: ..)` emission landed on `documents/model.md`.
+[PYMUPDF_DEEPEN_CATALOGUE]-[COMPLETE]: `.api/pymupdf.md` now rows the native outline/embedded-file/redaction/widget/table/per-page-OCR/annotation/insert_image/reflow surface; lens EMBEDDED/OUTLINE arms call natives.
+[SVG_RASTER_FLOOR_RESVG]-[COMPLETE]: the `Annotate` arm rasterizes its own placed SVG through `resvg_py.svg_to_bytes` on the core before the pillow pass on `figures/compose.md`, over the present `.api/resvg-py.md`.
+[PREVIEW_SCIENTIFIC_FAMILY]-[COMPLETE]: the full scikit-image `Transform` family (restoration/exposure/segmentation/morphology/geometric/filter/measure/register) plus the SSIM/PSNR perceptual-quality score map landed on `figures/preview.md`.
+[AVIF_NATIVE_ROW]-[COMPLETE]: the native AVIF `ConvertFormat.AVIF` row over `Image.save(format="AVIF")` (Pillow 12.2.0 `AvifImagePlugin`) landed on `figures/preview.md`.
+[SEGNO_SEQUENCE_ROW]-[COMPLETE]: the `Symbology.QR_SEQUENCE` `make_sequence`/`QRCodeSequence` structured-append row landed on `figures/preview.md`.
+[COMPOSE_REGISTRATION_MARKS]-[COMPLETE]: the `FigureOp.Overlay` arm over the `MarkKind` registration/gutter/crop-guide primitives serialized through `_path` landed on `figures/compose.md`.
+[SCENE_USD_EXPORT]-[COMPLETE]: the `SceneTarget.USD`/`USDZ` export arms (`vtkUSDExporter` over `Plotter.render_window` + `UsdUtilsCreateNewUsdzPackage`) landed on `figures/scene.md`; the vtk/pyvista/usd member spellings carry marked `.api` RESEARCH deepens.
+[SCENE_TIMESERIES_FRAMES]-[COMPLETE]: the `SceneOp.Frames` orbit/turntable arm over `generate_orbital_path`/`set_position` yielding the rgb24 `tuple[NDArray[np.uint8], ...]` MEDIA seam landed on `figures/scene.md`.
+[CHART_COLOR_SEAM_FENCE]-[COMPLETE]: `ChartSpec.of(engine, palette)` threads the `figures/color#COLOR` palette through `_theme_vega`/`_letsplot_to_bytes`/`_matplotlib_savefig` on `figures/chart.md`.
+[COLRV1_RASTERIZE]-[COMPLETE]: `ConformStep.RASTERIZE` folds each COLRv1 glyph through blackrenderer `drawGlyph` over the `getSurfaceClass` backend on `typography/conformance.md`.
+[PADES_BLT_COMPLETION]-[COMPLETE]: the `SIGN` fence gained `subfilter=SigSeedSubFilter.PADES`, `embed_validation_info`, `validation_context`, `ExternalSigner`, and `update_archival_timestamp_chain` on `typography/conformance.md`.
+[VARFONT_PARTIAL_INSTANCE]-[COMPLETE]: the `AxisLimit` pin/(lower,upper)/drop instancing policy plus the real `SVGPathPen`/`getCommands` SHAPE outline landed on `typography/conformance.md`.
+[CODEC_PROFILE_AXIS]-[COMPLETE]: the per-codec `CodecProfile` union (ZstdKnobs/Lz4Knobs/BrotliKnobs/SevenZKnobs typed knob-structs) replaced the hardcoded literals on `bundle/bundle.md`.
+[ZSTD_DICTIONARY_CODEC]-[COMPLETE]: dictionary-trained zstd (`ZstdKnobs.dict_data`/`dict_mode` + `Bundle.trained` over `train_dictionary`) landed on `bundle/bundle.md`.
+[TABLE_SCIENTIFIC_DEEPEN]-[COMPLETE]: the great-tables `fmt_*`/`cols_merge_*`/`sub_*`/`text_*`/`fmt_nanoplot`/`opt_*` scientific surface landed as `TableOp` rows on `figures/table.md`.
+[REPORT_JINJA_AND_NOTEBOOK_POLICY]-[COMPLETE]: `report_env` StrictUndefined/`enable_async`, the `NotebookEngine` config value, the jupytext `ReportSource` axis, and the nbclient/nbconvert engine landed on `reports/report.md`.
+[VEGAFUSION_ARROW_SEAM]-[COMPLETE]: the `VegaTransform` `Extract` arm (`pre_transform_extract`/`to_arrow_ipc_bytes`/`get_column_usage`) threads Arrow-IPC frames through `inline_datasets` on `figures/chart.md`.
+[CORPUS_ROW_WIRE]-[COMPLETE]: the `to_corpus_row`/`CorpusRow`/`encode_corpus_row` flat-record producer the `python:data/tabular` corpus consumes landed on `documents/model.md`; Ripple `data` `[CORPUS_INGEST]` (mirror `[WIRE]` endpoint, data side open).
+[GREAT_TABLES_PROFILE_SHAPE]-[COMPLETE]: the `figures/table#TABLE` BYODF polars `DataFrame.style` seam renders any frame including the data `QualityProfile` `[SHAPE]` contribution; Ripple `data` `[PROFILE_POINTBLANK_GRADE]` (data side open).
+[EXCEL_CORPUS_FEED]-[COMPLETE]: the `LensOp.XLSX_READ` arm folds the fastexcel/calamine Excel frame into the `to_corpus_row` `[WIRE]` seam on `documents/lens.md`; Ripple `data` `[FASTEXCEL_DATASET]` (data side open).

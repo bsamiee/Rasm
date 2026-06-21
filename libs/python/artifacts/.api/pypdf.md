@@ -31,11 +31,14 @@
 [PUBLIC_TYPE_SCOPE]: enums and faults
 - rail: pdf
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                                           |
-| :-----: | :------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `ImageType`          | image enum     | image extraction output kind                           |
-|  [02]   | `PasswordType`       | auth enum      | decrypt result discriminant (owner/user/not-decrypted) |
-|  [03]   | `ObjectDeletionFlag` | cleanup flag   | object-removal selector for compaction                 |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]  | [CAPABILITY]                                           |
+| :-----: | :-------------------------------- | :-------------- | :----------------------------------------------------- |
+|  [01]   | `ImageType`                       | image enum      | image extraction output kind                           |
+|  [02]   | `PasswordType`                    | auth enum       | decrypt result discriminant (owner/user/not-decrypted) |
+|  [03]   | `ObjectDeletionFlag`              | cleanup flag    | object-removal selector for compaction                 |
+|  [04]   | `constants.UserAccessPermissions` | permission flag | `IntFlag` permission bitmask for `PdfWriter.encrypt`   |
+
+`UserAccessPermissions` members: `PRINT`, `MODIFY`, `EXTRACT`, `ADD_OR_MODIFY`, `FILL_FORM_FIELDS`, `EXTRACT_TEXT_AND_GRAPHICS`, `ASSEMBLE_DOC`, `PRINT_TO_REPRESENTATION` (the `IntFlag` composes by `|`).
 
 ## [03]-[ENTRYPOINTS]
 
@@ -57,21 +60,21 @@ Constructor rows carry stream/path input, password, strictness, cloning, and rec
 
 Assembly rows share source-document, page-range, metadata, encryption, stream-target, text-mode, and transform policy.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                  | [CAPABILITY]              |
-| :-----: | :------------------------------ | :---------------------------- | :------------------------ |
-|  [01]   | `PdfWriter.add_page`            | page plus excluded-key policy | append one page           |
-|  [02]   | `PdfWriter.append`              | source plus page range        | append source pages       |
-|  [03]   | `PdfWriter.add_blank_page`      | optional width/height         | append a blank page       |
-|  [04]   | `PdfWriter.encrypt`             | password plus permissions     | encrypt the output        |
-|  [05]   | `PdfWriter.add_metadata`        | info dictionary               | set document info         |
-|  [06]   | `PdfWriter.write`               | path or stream target         | serialize to a stream     |
-|  [07]   | `PageObject.extract_text`       | extraction mode plus visitors | extract page text         |
-|  [08]   | `PageObject.images`             | images property               | extract embedded images   |
-|  [09]   | `PageObject.add_transformation` | transform plus expand flag    | apply affine transform    |
-|  [10]   | `PageObject.merge_page`         | source page plus overlay      | overlay another page      |
-|  [11]   | `PageObject.rotate`             | clockwise angle               | rotate clockwise          |
-|  [12]   | `PageObject.scale`              | x/y scale factors             | scale the page            |
-|  [13]   | `Transformation`                | affine matrix seed            | compose affine transforms |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                            | [CAPABILITY]                                                                           |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `PdfWriter.add_page`            | page plus excluded-key policy                                                                           | append one page                                                                        |
+|  [02]   | `PdfWriter.append`              | source plus page range                                                                                  | append source pages                                                                    |
+|  [03]   | `PdfWriter.add_blank_page`      | optional width/height                                                                                   | append a blank page                                                                    |
+|  [04]   | `PdfWriter.encrypt`             | `encrypt(user_password, owner_password=None, use_128bit=True, *, algorithm=None, permissions_flag=...)` | encrypt the output (`algorithm` ∈ `RC4-40`/`RC4-128`/`AES-128`/`AES-256`/`AES-256-R5`) |
+|  [05]   | `PdfWriter.add_metadata`        | info dictionary                                                                                         | set document info                                                                      |
+|  [06]   | `PdfWriter.write`               | path or stream target                                                                                   | serialize to a stream                                                                  |
+|  [07]   | `PageObject.extract_text`       | extraction mode plus visitors                                                                           | extract page text                                                                      |
+|  [08]   | `PageObject.images`             | images property                                                                                         | extract embedded images                                                                |
+|  [09]   | `PageObject.add_transformation` | transform plus expand flag                                                                              | apply affine transform                                                                 |
+|  [10]   | `PageObject.merge_page`         | source page plus overlay                                                                                | overlay another page                                                                   |
+|  [11]   | `PageObject.rotate`             | clockwise angle                                                                                         | rotate clockwise                                                                       |
+|  [12]   | `PageObject.scale`              | x/y scale factors                                                                                       | scale the page                                                                         |
+|  [13]   | `Transformation`                | affine matrix seed                                                                                      | compose affine transforms                                                              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -79,6 +82,7 @@ Assembly rows share source-document, page-range, metadata, encryption, stream-ta
 - import: `import pypdf` at boundary scope only; module-level import is banned by the manifest import policy.
 - reader/writer split: `PdfReader` owns ingestion and `PdfWriter` owns emission; clone-then-edit (`clone_from`) and incremental write are the two write modalities, a row on the writer axis, never parallel writer types.
 - page axis: `PageObject` is the single page owner; transform/merge/rotate/scale compose `Transformation`, never a per-operation page subtype.
+- encryption axis: `PdfWriter.encrypt` is the single in-process encrypt surface; `algorithm` (`RC4-40`/`RC4-128`/`AES-128`/`AES-256`/`AES-256-R5`) selects strength and `permissions_flag` is a `UserAccessPermissions` `IntFlag` composed by `|`, never scattered boolean print/extract/modify knobs; R6/AES-256 (qpdf-native strength) routes to `pikepdf`.
 - extraction axis: `extract_text` with its `extraction_mode` row and `images` are the extraction surface; the result feeds the document owner, never a re-minted text model.
 - evidence: each operation captures source page count, output page count, encryption state (`PasswordType`), and output byte length as a pdf receipt.
 - boundary: pypdf owns pure-Python structural editing; rasterization and rendering route to `pymupdf`/`pypdfium2`; live UI stays outside this package.

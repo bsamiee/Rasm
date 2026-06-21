@@ -99,6 +99,19 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `PanAndZoom`
 - `Wacton.Unicolour`
 
+[LAYOUT]:
+- `Kiwi`
+
+[MEDIA]:
+- `HanumanInstitute.LibMpv`
+- `HanumanInstitute.LibMpv.Avalonia`
+
+[INPUT_FABRIC]:
+- `HidSharp`
+- `Silk.NET.Input`
+- `Silk.NET.SDL`
+- `Melanchall.DryWetMidi`
+
 [DOMAIN_RUNTIME]:
 - `UnitsNet`
 

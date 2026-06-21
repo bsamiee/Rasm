@@ -32,8 +32,8 @@ Rasm.Persistence/
 │   └── Retention.cs      # Classification enforcement, receipted retention sweep, reachability GC
 └── Sync/                 # Collaboration, annotation, and schedule sync rails
     ├── Collaboration.cs  # Op-log changefeed, HLC-stamped LWW merge, and three sync transports
-    ├── Annotation.cs     # Anchored-annotation algebra, BCF coordination, and CDE OAuth2 sync
-    └── Schedule.cs       # P6/MS-Project schedule interchange and 4D construction state
+    ├── Annotation.cs     # Anchored-annotation algebra, op-log changefeed, and CDE OAuth2 sync
+    └── Schedule.cs       # Durable P6/MS-Project schedule rows and sync
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<StoreFault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `ClockPolicy` owns elapsed and semantic time. Provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages. The `Version`, `Query/Federation`, and `Sync` rails plus the classification/cost catalog in `Store/Profiles` ride the existing op-log changefeed, content-addressed snapshots, and PostGIS lanes, and never admit a new engine.
@@ -63,8 +63,26 @@ Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: Aud
 Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: BimCommit content-addressed commit-DAG
 Sync                ←  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: OpLogWire ElementChange op-stream CRDT convergence
 Sync                ←  csharp:Rasm.Bim/Review             # [SHAPE]: BimCommit DAG common-ancestor merge substrate
+Sync/annotation     ⇄  csharp:Rasm.Bim/coordination       # [WIRE]: BCF/coordination domain
+Sync/schedule       ⇄  csharp:Rasm.Bim/schedule           # [WIRE]: P6/MS-Project + 4D construction domain
 Schema              ←  csharp:Rasm.Fabrication/Posting    # [WIRE]: CutProgram AST content-addressed durable-row projection
 Schema              ←  csharp:Rasm.Fabrication/Nesting    # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
+Version/recovery    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile DR-objective inputs
+Query/transaction   ←  csharp:Rasm.AppHost/Runtime        # [PORT]: drain 2PC in-doubt set
+Store/encryption    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: KMS-unwrap port
+Sync/egress         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: keyed OutboundHop egress
+Schema/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: identity store (TenantId RLS)
+Sync/orchestration  ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: workflow step-state
+Sync/outbox         ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: transactional outbox (same-tx)
+Sync/coordination   ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: CAS + fenced-lease store
+Sync/pipeline       ⇄  csharp:Rasm.Compute/Exchange       # [PORT]: parse-to-canonical-bytes (Extract)
+Store/quality       ←  csharp:Rasm.Compute                # [SHAPE]: geometry-derived anomaly rule source
+Store/quality       ←  csharp:Rasm.Bim/Model              # [SHAPE]: IFC validation rules into QualityRule rows
+Sync                ←  csharp:Rasm.AppUi/Editing          # [PROJECTION]: revertible op-log (ONE_REVERT_VOCABULARY)
+Query/federation    ←  python:data/tabular                # [CONTENT_KEY]: C#-seed ContentKey durable reuse ledger
+Query/federation    ⇄  python:data/tabular/query          # [WIRE]: Substrait binary plan + ibis-to_sql portable SQL
+Version/provenance  ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding XxHash128 seed
+Version/snapshots   ←  python:data/gridded/virtual        # [CONTENT_KEY]: icechunk as-of snapshot identity XxHash128 seed
 ```
 
 ## [03]-[SPINE]

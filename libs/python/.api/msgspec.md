@@ -53,24 +53,27 @@
 [PUBLIC_TYPE_SCOPE]: struct introspection
 - rail: serialization
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [RAIL]                           |
-| :-----: | :--------------------- | :------------- | :------------------------------- |
-|  [01]   | `structs.FieldInfo`    | field metadata | name, encode_name, type, default |
-|  [02]   | `structs.StructConfig` | config record  | struct class configuration       |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [RAIL]                                                  |
+| :-----: | :------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `structs.FieldInfo`        | field metadata | name, encode_name, type, default                        |
+|  [02]   | `structs.StructConfig`     | config record  | struct class configuration                              |
+|  [03]   | `Struct.__struct_config__` | config handle  | per-class `StructConfig` (`tag`, `tag_field`, `frozen`) |
+|  [04]   | `Struct.__struct_fields__` | name tuple     | declared field names in declaration order               |
 
 [PUBLIC_TYPE_SCOPE]: inspect type nodes (selection)
 - rail: serialization
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                        |
-| :-----: | :------------------- | :------------ | :---------------------------- |
-|  [01]   | `inspect.StructType` | type node     | struct type descriptor        |
-|  [02]   | `inspect.Field`      | field node    | struct field descriptor       |
-|  [03]   | `inspect.Metadata`   | meta node     | annotated metadata descriptor |
-|  [04]   | `inspect.UnionType`  | type node     | union type descriptor         |
-|  [05]   | `inspect.ListType`   | type node     | list type descriptor          |
-|  [06]   | `inspect.DictType`   | type node     | dict type descriptor          |
-|  [07]   | `inspect.EnumType`   | type node     | enum type descriptor          |
-|  [08]   | `inspect.CustomType` | type node     | custom enc/dec hook type      |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [RAIL]                          |
+| :-----: | :------------------- | :------------- | :------------------------------ |
+|  [00]   | `inspect.Type`       | type node base | abstract base of all type nodes |
+|  [01]   | `inspect.StructType` | type node      | struct type descriptor          |
+|  [02]   | `inspect.Field`      | field node     | struct field descriptor         |
+|  [03]   | `inspect.Metadata`   | meta node      | annotated metadata descriptor   |
+|  [04]   | `inspect.UnionType`  | type node      | union type descriptor           |
+|  [05]   | `inspect.ListType`   | type node      | list type descriptor            |
+|  [06]   | `inspect.DictType`   | type node      | dict type descriptor            |
+|  [07]   | `inspect.EnumType`   | type node      | enum type descriptor            |
+|  [08]   | `inspect.CustomType` | type node      | custom enc/dec hook type        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -131,6 +134,9 @@
 - `UnsetType` (singleton `NODEFAULT`) marks fields as having no default; absent in encoded output when `omit_defaults=True`
 - `json.Encoder`/`json.Decoder` instances are reusable; prefer them over per-call `encode`/`decode` in hot paths
 - `defstruct` creates a `Struct` subclass at runtime; field names and types are provided as a sequence of tuples
+- `Struct.__struct_config__` exposes the per-class `structs.StructConfig`; `.tag` recovers the tagged-union discriminant value and `.tag_field` its key, read directly off an instance with no `match`
+- `Struct.__struct_fields__` is the declaration-order tuple of field names; `structs.fields(type)` returns the richer `FieldInfo` tuple carrying name, encode_name, type, and default
+- `inspect.Type` is the abstract base of every `inspect.*Type` node; `type_info`/`multi_type_info` return trees of these nodes typed at the base
 
 [LOCAL_ADMISSION]:
 - Define wire models as `Struct` subclasses; use `Annotated[T, Meta(...)]` for validated constraints on fields.

@@ -65,4 +65,8 @@ Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION
 Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam BSP visibility solver
 Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
 Render            ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SurfaceShade at path tracer
+Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
+Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
+Editing/forms     →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: revertible op-log (ONE_REVERT_VOCABULARY)
+Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 ```

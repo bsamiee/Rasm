@@ -42,23 +42,29 @@
 [ENTRYPOINT_SCOPE]: version and mutation operations
 - rail: lance-format
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                    |
-| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------ |
-|  [01]   | `LanceDataset.versions()`                                           | history        | list all dataset versions |
-|  [02]   | `LanceDataset.delete(predicate)`                                    | mutation       | delete rows by predicate  |
-|  [03]   | `LanceDataset.merge_insert(on) -> MergeInsertBuilder`               | upsert         | conditional merge-insert  |
-|  [04]   | `LanceDataset.create_index(column, index_type, *, metric, replace)` | index          | build ANN or scalar index |
-|  [05]   | `lance.batch_udf(func, ...)`                                        | transform      | apply UDF to batches      |
+| [INDEX] | [SURFACE]                                                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------- |
+|  [01]   | `LanceDataset.version -> int`                                                                                                                                                   | snapshot       | scalar current checked-out version |
+|  [02]   | `LanceDataset.versions()`                                                                                                                                                       | history        | list all dataset versions          |
+|  [03]   | `LanceDataset.delete(predicate)`                                                                                                                                                | mutation       | delete rows by predicate           |
+|  [04]   | `LanceDataset.merge_insert(on) -> MergeInsertBuilder`                                                                                                                           | upsert         | conditional merge-insert           |
+|  [05]   | `LanceDataset.create_index(column, index_type, *, metric, replace)`                                                                                                             | index          | build ANN or scalar index          |
+|  [06]   | `lance.batch_udf(func, ...)`                                                                                                                                                    | transform      | apply UDF to batches               |
+|  [07]   | `LanceDataset.optimize -> DatasetOptimizer`                                                                                                                                     | maintenance    | compaction and index-rebuild owner |
+|  [08]   | `DatasetOptimizer.compact_files(*, target_rows_per_fragment, max_rows_per_group, max_bytes_per_file, materialize_deletions, num_threads, batch_size, ...) -> CompactionMetrics` | maintenance    | compact small fragments            |
+|  [09]   | `DatasetOptimizer.optimize_indices(**kwargs)`                                                                                                                                   | maintenance    | rebuild ANN/scalar indices         |
+|  [10]   | `LanceDataset.cleanup_old_versions(older_than=None, retain_versions=None, *, delete_unverified=False, error_if_tagged_old_versions=True) -> CleanupStats`                       | maintenance    | prune old versions                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [LANCE_TOPOLOGY]:
-- versioning: each write appends a new version; `lance.dataset(uri, version=N)` opens a specific snapshot; `asof` resolves the latest version before a timestamp; `LanceDataset.versions()` lists the full version history, and the scalar current-version integer the `lakehouse/table.md` `_lance_receipt` reads (`lance.dataset(uri).version`) is RESEARCH-pending — the catalogue lists only the plural `versions()`, so the scalar `LanceDataset.version` property stays unconfirmed until `assay api` reflection against the live `pylance` abi3 distribution captures it. The lakehouse `[LANCE_VERSION]` arm flips from RESEARCH to settled with zero design change once reflection confirms the scalar accessor.
+- versioning: each write appends a new version; `lance.dataset(uri, version=N)` opens a specific snapshot; `asof` resolves the latest version before a timestamp; `LanceDataset.version` is a reflection-verified scalar `int` `@property` returning the currently checked-out version (`lance.dataset(uri).version`), the value the `lakehouse/table.md` `_lance_receipt` reads, while `LanceDataset.versions()` lists the full version history. The lakehouse `[LANCE_VERSION]` arm is settled: the scalar accessor and the plural history rail are distinct confirmed members.
 - Arrow native: all I/O passes Arrow `RecordBatch` or `Table`; `to_table` materializes; `to_batches` streams
 - mode: `write_dataset` `mode` values are `"create"`, `"overwrite"`, `"append"`, and `"merge_insert"`
 - index: `create_index` supports `index_type` values `"IVF_PQ"`, `"IVF_HNSW_PQ"`, and `"BTREE"`; `metric` values include `"L2"`, `"cosine"`, `"dot"`
 - blob columns: `lance.Blob`, `BlobArray`, and `blob_field` own large-object storage with separate physical files
 - merge-insert: `MergeInsertBuilder` chains `.when_matched_update_all()`, `.when_not_matched_insert_all()`, and `.execute(data)` calls
+- maintenance: `LanceDataset.optimize` is a `DatasetOptimizer` accessor; `compact_files(target_rows_per_fragment=)` merges small fragments and returns `CompactionMetrics` (`fragments_added`/`fragments_removed`/`files_added`/`files_removed: int`), `optimize_indices()` rebuilds indices; `LanceDataset.cleanup_old_versions(older_than: timedelta, retain_versions: int)` prunes versions and returns `CleanupStats` (`old_versions`/`bytes_removed`/`data_files_removed: int`) — `older_than` is a `datetime.timedelta`, not an absolute timestamp
 
 [RAIL_LAW]:
 - Package: `pylance`

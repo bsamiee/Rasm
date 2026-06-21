@@ -10,18 +10,21 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 data/
 ├── tabular/              # Columnar, relational, and lakehouse interchange plane + its object-store egress leg
 │   ├── columnar.py       # Dataset-ref owner, engine scan plans, typed egress, query receipt
-│   ├── lakehouse.py      # Lakehouse owner over LakeOp lifecycle and Delta table-format binding
-│   ├── query.py          # Query engine over QuerySpec frontends materializing to uniform Arrow
-│   ├── contract.py       # Pandera data-quality gate and structural narwhals frame admission
+│   ├── lakehouse.py      # Lakehouse owner over LakeOp lifecycle and Delta/Iceberg/Lance table-format binding
+│   ├── query.py          # Query engine over QuerySpec frontends materializing to uniform Arrow, with Substrait/SQL plan portability and column-level lineage
+│   ├── contract.py       # Dataframely tabular gate and pandera xarray/statistical gate folded on one SchemaClaim
 │   ├── interop.py        # Backend-agnostic frame owner and Arrow PyCapsule zero-copy carrier
+│   ├── profile.py        # QualityProfile owner over pointblank Thresholds, graded data-quality plane emitting a frame the artifacts renderer renders
 │   └── egress.py         # Object-store egress owner over one StoreOp axis keyed by ContentIdentity
 ├── spatial/              # Vector + raster geo, STAC catalog discovery, mesh-file exchange
 │   ├── geospatial.py     # Vector and raster geo claims, VectorOp/RasterOp in-frame operation axes, and egress-format spatial export
 │   ├── catalog.py        # StacCatalog owner over pystac-client search, stac-geoparquet item table, asset-href egress fold
 │   └── mesh.py           # Mesh-file exchange owner over backend axis and point-cloud row
-├── gridded/              # Chunked N-D tensor store + CF labelled-field store
-│   ├── tensor.py         # Chunked N-D tensor store owner over backend, codec, and region axes
-│   └── field.py          # FieldDataset owner over netcdf4/HDF5/Zarr CF engines, CF-aware selection, grouped/resampled reductions
+├── gridded/              # Chunked N-D dense/virtual/ragged tensor stores + CF labelled-field store
+│   ├── store.py          # Dense chunked N-D tensor store owner over 2-row TensorBackend (zarr write+cubed plan+tensorstore async read) and codec/region axes
+│   ├── virtual.py        # Virtual-reference cube owner over virtualizarr manifest parsers and icechunk set_virtual_ref native virtual-chunk addressing
+│   ├── ragged.py         # Ragged N-D store owner over awkward, with from_arrow/to_arrow zero-copy bridge to the interop Arrow carrier
+│   └── field.py          # FieldDataset owner over netcdf4/HDF5/Zarr CF engines, flox grouped/resampled reductions, virtualizarr/h5py virtual leg
 └── graph/                # Rustworkx graph payloads with networkx compat, typed result receipts
     └── graph.py          # Graph-payload owner, algorithm axis, typed result receipt
 ```
@@ -29,15 +32,22 @@ data/
 ## [02]-[SEAMS]
 
 ```text seams
-tabular/columnar  →  csharp:Rasm.Compute/Runtime   # [SHAPE]: DOE dataset / labelled-array study input
-spatial/mesh      →  python:runtime/observability  # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
-tabular/egress    →  python:runtime/observability  # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
-tabular/*         ←  python:runtime                # [PORT]: TransportResource remote connection
-tabular           ←  python:artifacts/documents    # [WIRE]: to_corpus_row flat record
-tabular           ←  python:artifacts/figures      # [WIRE]: color palette arrays / appearance correlates
-tabular/columnar  ←  python:runtime/transport      # [TRANSPORT]: ResourceRef path resolution through fsspec
-*                 →  python:runtime                # [RECEIPT]: Receipt contribution
-spatial/mesh      ←  python:geometry/scan          # [SHAPE]: Arrow point-record columnar bridge x/y/z
-spatial/mesh      →  python:geometry/mesh          # [SHAPE]: MeshPayload cell-block topology
-tabular           →  python:compute/experiments    # [SHAPE]: DOE dataset / labelled-array study input
+tabular/columnar    →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset / labelled-array study input
+spatial/mesh        →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
+tabular/egress      →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
+tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
+tabular             ←   python:artifacts/documents                # [WIRE]: to_corpus_row flat record
+tabular             ←   python:artifacts/figures                  # [WIRE]: color palette arrays / appearance correlates
+tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT]: ResourceRef path resolution through fsspec
+*                   →   python:runtime                            # [RECEIPT]: Receipt contribution
+spatial/mesh        ←   python:geometry/scan                      # [SHAPE]: Arrow point-record columnar bridge x/y/z
+spatial/mesh        →   python:geometry/mesh                      # [SHAPE]: MeshPayload cell-block topology
+tabular             →   python:compute/experiments                # [SHAPE]: DOE dataset / labelled-array study input
+tabular/*           →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: C#-seed ContentKey stamped on outputs, federated as durable reuse ledger
+tabular/query       ⇄   csharp:Rasm.Persistence/Query/federation  # [WIRE]: Substrait binary plan + ibis-to_sql portable SQL plan interchange
+tabular/query       →   python:runtime/observability              # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage contribution
+tabular/profile     →   python:artifacts/figures                  # [SHAPE]: QualityProfile frame rendered by the great-tables tier
+gridded/virtual     →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: icechunk as-of snapshot identity reproduced from the XxHash128 seed
+spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: native GeoArrow buffers sharing the GLB wire layout
+spatial/mesh        →   python:geometry/scan/ingestion            # [SHAPE]: data COPC arm decode leaving the pdal filter-graph owner unchanged
 ```

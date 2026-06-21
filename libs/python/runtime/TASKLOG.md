@@ -24,6 +24,26 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `csharp:Rasm.Persistence/Version/commits#CRDT_WIRE`, `CrdtWire.Encode`, `MessagePackCompression.Lz4BlockArray`, `CRDT_OPLOG_WIRE_AMENDMENT`, `transport/serve#CRDT_DECODE` `[CRDT_DECODE_LZ4]`, `msgspec.msgpack.Decoder(CrdtArm)`, and `lz4`.
 - Tension: blocked on both a cp315/abi3 `lz4` wheel and the producer publication decision: expose a `MessagePackCompression.None` companion lane or publish the shared MessagePack-csharp `Lz4BlockArray` ext-envelope spec.
 
+[ARTIFACT_PIPELINE_KEYED_CONSUMER]-[QUEUED]: confirm the session lane is the elision substrate the artifacts pipeline produces Keyed `(ContentKey, Work)` pairs for.
+- Capability: a confirmation that the artifacts `ARTIFACT_PIPELINE` feeds the `runtime/execution/lanes` `Keyed[T]` port and the `StagePlan` `graphlib` DAG, never a second cache, store, scheduler, or DAG; durable federation stays C# Persistence.
+- Shape: a `[RECEIPT]` seam on `runtime/execution` mirroring the `artifacts pipeline/plan <- python:runtime/execution [RECEIPT]` edge; no new runtime surface, since the `Keyed[T]` port and `graphlib` DAG already exist and the pipeline folds the existing `LanePolicy.cached` session port (`Map[ContentKey, T]` in-memory, never durable).
+- Anchors: `runtime/execution/lanes.md` `LanePolicy.cached` / `Keyed[T]` / `StagePlan.execute`, `artifacts pipeline/plan#PIPELINE`.
+- Ripple: `artifacts` `[ARTIFACT_PIPELINE]` — the session lane is the elision substrate the pipeline produces Keyed `(ContentKey, Work)` pairs for; the pipeline owns no durable store.
+- Atomic: confirm the Keyed session port consumption, no new owner.
+
+[DATA_LINEAGE_RECEIPT]-[QUEUED]: contribute the data query owner's column-level `lineage_edges` as a Receipt projection.
+- Capability: `runtime/observability` accepts the data `QueryReceipt.lineage_edges` contribution through the existing `ReceiptContributor`; the durable provenance ledger stays C# Persistence.
+- Shape: a `ReceiptContributor` row accepting the `lineage_edges` fact from `python:data/tabular/query`, mirroring the `tabular/query -> runtime/observability [RECEIPT]` edge; no durable Python store.
+- Anchors: `runtime/observability` `ReceiptContributor`, the data `QueryReceipt.lineage_edges` field.
+- Ripple: `data` `[QUERY_PLAN_PROVENANCE]` — contribute `lineage_edges` through `ReceiptContributor`; no durable store.
+- Atomic: one `ReceiptContributor` row accepting the lineage fact.
+
+[DATA_TRANSPORT_DSN]-[QUEUED]: resolve every data-side remote DSN through the one runtime `TransportResource` owner.
+- Capability: `runtime/roots` `TransportResource` resolves the DSN, credential, and runner-address for the data `REMOTE_PARTITION_DEEPEN` (flightsql `grpc+tls`), `DAFT_ELASTICITY` (Ray runner), `DUCKDB_ICEBERG_PROMOTE` (DuckDB iceberg `SECRET`/`ENDPOINT`), and `LAKEHOUSE_DUCKLAKE_FORMAT` (ducklake catalog DSN) arms, and `runtime/transport` `ResourceRef` resolves the `TENSORSTORE_ADMIT` cloud kvstore path; no data card mints a second credential owner.
+- Shape: `TransportResource` / `ResourceRef` rows consuming the `python:data/tabular/query` + `tabular/lakehouse` + `gridded/store` transport edges, mirroring the four `[TRANSPORT]`/`[PORT]` edges on both endpoints through `fsspec` path resolution.
+- Anchors: `runtime/roots` `TransportResource`, `runtime/transport` `ResourceRef`/`fsspec` path resolution, the data query/lakehouse/store DSN arms.
+- Ripple: `data` `[REMOTE_PARTITION_DEEPEN]` (and `[DAFT_ELASTICITY]`, `[DUCKDB_ICEBERG_PROMOTE]`, `[LAKEHOUSE_DUCKLAKE_FORMAT]`, `[TENSORSTORE_ADMIT]`) — resolve every remote DSN through the one `TransportResource` owner.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

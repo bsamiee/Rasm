@@ -107,7 +107,7 @@ class _ProvisionExtension(msgspec.Struct, frozen=True, gc=False, rename="camel")
     external_access: str = ""
     restart_class: str = ""
     service_profile: str = ""
-    image_tag: str = ""
+    image_tag: str | None = None
     load_policy: str = ""
     surface: str = ""
     database: str = ""

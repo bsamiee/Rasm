@@ -17,7 +17,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[DATA_STUDY_INPUT]-[QUEUED]: compute/experiments + numerics consume the `data` tabular/gridded/spatial study inputs, mirroring the four study seams on both endpoints.
+- Capability: compute/experiments reads the Hypothesis-checked DOE frame from `data/tabular/contract`, the `cubed.Array` plan plus `tensorstore` store from `data/gridded/store`, the Lance vector index over embedding columns from `data/tabular/multimodal`, and the numerics array seam aligns the `xrspatial` numba/scipy <3.15 band from `data/spatial/geospatial`.
+- Shape: compute/experiments DOE study-input owner plus a compute numerics array seam, with `[SHAPE]`/`[PORT]` seam rows consuming `python:data/tabular/contract`, `python:data/gridded/store`, `python:data/tabular/multimodal`, and `python:data/spatial/geospatial`.
+- Anchors: compute/experiments DOE study input, the compute numerics array seam, the `cubed.Array` plan, the Lance vector index, and the numba/scipy <3.15 band.
+- Considerations: each of the four edges mirrors its `data`-side counterpart with the matching glyph; the cubed/tensorstore plan stays lazy across the seam, and the scipy <3.15 pin tracks the `xrspatial` numba band rather than a compute-local constraint.
+- Ripple: `python:data` `[CONTRACT_GATE_FOLD]` — the Hypothesis-checked DOE frame is the primary study-input seam; the same task also mirrors `[CUBED_LINALG_DEEPEN]` (cubed plan), `[MULTIMODAL]` (Lance vector index), and `[GEOSPATIAL_TERRAIN_GATED]` (numba/scipy band).
 
 ## [02]-[CLOSED]
 

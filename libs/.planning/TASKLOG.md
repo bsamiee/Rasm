@@ -120,6 +120,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: every branch and folder task that finalizes a shared owner, plus `CONTENT_IDENTITY_PARITY`, `CAUSAL_TENANT_IDENTITY_WIRE`, `CRDT_OPLOG_WIRE_AMENDMENT`, `CAPABILITY_SDK_CODEGEN`, `ONE_AGENT_TOOL_PROJECTION`, `ONE_DISTRIBUTED_TRACE`, and `ONE_HEALTH_DEGRADATION_WIRE`.
 - Tension: blocked until all branch and folder producer/consumer tasks land.
 
+[NATIVE_FLOOR_AUDIT]-[QUEUED]: cross-libs core records the per-folder native-floor growth against the one manifest band law and the Forge extension catalog.
+- Capability: the cross-libs core audits the grown native floor — the `data` corpus admits `flox` on the companion `python_version<'3.15'` band and the `substrait` DuckDB community extension as the portable-plan row, the `artifacts` corpus admits the Forge `libvips`/`leptonica`/`tesseract`/`ghostscript` system natives backing `pyvips`/`ocrmypdf` with `libheif` the pending HEIF native gating the `pi-heif` boundary opener — and confirms `pdal` stays the `geometry`-folder point-cloud filter-graph owner rather than a data admission, so `planning-targets.md` records the floor without re-minting any per-folder manifest.
+- Shape: an audit row in `planning-targets.md` records the per-folder native-floor growth and the Forge DuckDB-extensions substrait catalog row, keeping centralization absolute as the one Python manifest carries every version and `zstandard` stays the always-available tooling-band dependency of the `tools.assay` rail rather than a data-corpus admission.
+- Anchors: `libs/.planning/planning-targets.md`, the one Python manifest band law, the Forge DuckDB-extensions catalog substrait row, `scientific-tools.nix`, and the `pdal`-stays-geometry boundary.
+- Ripple: `data` `[SUBSTRAIT_PORTABILITY]` and `[FLOX_ADMIT]` — the data folder already admits `flox` and the duckdb-substrait extension; this core audit row mirrors those landed admissions plus the `artifacts` Forge native-floor paragraph so the cross-libs floor matches the per-folder band law.
+- Atomic: one `planning-targets.md` audit row recording the per-folder native-floor growth and the substrait extension row.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

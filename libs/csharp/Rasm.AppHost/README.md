@@ -78,6 +78,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `Polly.Core`
 - `Polly.Extensions`
 - `Polly.RateLimiting`
+- `Microsoft.Extensions.ServiceDiscovery`
 
 [PORTS_TRANSPORT]:
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
@@ -91,6 +92,13 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `ModelContextProtocol`
 - `ModelContextProtocol.Core`
 - `ModelContextProtocol.AspNetCore`
+
+[IDENTITY_AUTHZ]:
+- `OpenIddict.Client`
+- `Microsoft.AspNetCore.Authorization`
+
+[FEATURE_FLAGS]:
+- `OpenFeature`
 
 [SANDBOX_LIVE_WIRE]:
 - `Wasmtime`

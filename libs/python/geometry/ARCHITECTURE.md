@@ -31,8 +31,10 @@ geometry/
 ```text seams
 *              →  csharp:Rasm.Compute          # [GRADUATION]: HandoffAxis geometry case IDS/clash/BCF
 mesh           ⇄  csharp:Rasm.Bim/Exchange     # [TESSELLATION]: GLB tessellation rail / TessellationRequest
+mesh/daemon    ⇄  csharp:Rasm.Compute/Runtime  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
 mesh/daemon    ⇄  csharp:Rasm.Compute/Runtime  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 mesh/daemon    →  csharp:Rasm.Compute/Runtime  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
+mesh/daemon    →  csharp:Rasm.Compute/Runtime  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell decoded by Codecs
 ifc            ←  csharp:Rasm.Bim/Exchange     # [PROJECTION]: BimWire model vocabulary IFC ingest
 mesh/daemon    →  csharp:Rasm.AppUi/Render     # [SHAPE]: SharpGLTF GLB import per-element tessellation
 mesh/daemon    ←  csharp:Rasm.Bim/Model        # [SHAPE]: IFC GLB tessellation reference for deviation
@@ -44,6 +46,8 @@ ifc/analysis   →  python:compute/graduation    # [GRADUATION]: geometry Handof
 mesh/daemon    ⇄  python:runtime/transport     # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 scan           →  python:data/spatial          # [SHAPE]: Arrow point-record columnar bridge x/y/z
 mesh           ←  python:data/spatial          # [SHAPE]: MeshPayload cell-block topology
+mesh           ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-scene export vs mesh-file codec, no shared owner
+scan/ingestion ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
 ```
 
 ## [03]-[INTERPRETER_FLOOR]

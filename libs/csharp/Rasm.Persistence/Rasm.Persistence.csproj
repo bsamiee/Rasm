@@ -9,8 +9,15 @@
     </ItemGroup>
 
     <ItemGroup Label="Store Lanes">
+        <PackageReference Include="AWSSDK.KeyManagementService" />
+        <PackageReference Include="Azure.Security.KeyVault.Keys" />
+        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="CloudNative.CloudEvents.Kafka" />
+        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
+        <PackageReference Include="Confluent.Kafka" />
         <PackageReference Include="DuckDB.NET.Data.Full" />
         <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="Google.Cloud.Kms.V1" />
         <PackageReference Include="linq2db.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" ExcludeAssets="all" />

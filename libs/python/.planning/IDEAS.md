@@ -62,7 +62,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: CF-conventioned labelled field cubes as a data owner.
 - Shape: `data/gridded` owns one `FieldDataset` over `xarray` that reads and writes `netcdf4`/HDF5/Zarr CF-metadata field cubes, exposes coordinate selection, label-indexed slicing, grouped/resampled reductions, and unit/coordinate-reference metadata, and materializes through content-keyed `pyarrow`/Zarr egress.
 - Unlocks: first-class environmental, simulation, scientific, sensor-grid, and geophysical field interchange for offline AEC companion work.
-- Anchors: `xarray`, `netcdf4`, `h5py`, `pyarrow`, Zarr, `gridded/tensor`, runtime `ContentIdentity`, and the present `data/.api/xarray.md`, `data/.api/netcdf4.md`, and `data/.api/h5py.md` catalogues.
+- Anchors: `xarray`, `netcdf4`, `h5py`, `pyarrow`, Zarr, `gridded/store`, runtime `ContentIdentity`, and the present `data/.api/xarray.md`, `data/.api/netcdf4.md`, and `data/.api/h5py.md` catalogues.
 - Tension: the CF-labelled field owner is distinct from the dense chunk-grid owner; labels, coordinates, and CF metadata do not become a second tensor store.
 
 ## [02]-[CLOSED]

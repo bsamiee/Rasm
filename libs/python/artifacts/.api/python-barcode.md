@@ -9,7 +9,7 @@
 - owner: `artifacts`
 - rail: imaging
 - asset: pure-Python runtime library (`py3-none-any` wheel; SVG path needs no dependency, the PNG path needs Pillow)
-- installed: present in the lockfile but not yet synced into the active venv — RESEARCH-capture-pending-on-uv-sync; the member surface below is authored from the canonical source (`github.com/WhyNotHugo/python-barcode`) and official documentation, and reflection-verifies on uv sync (the package is pure-Python and imports on the cp315 core)
+- installed: `0.16.1` reflected via assay api on cp315
 - entry points: console script `python-barcode` (CLI: `create`/`list`); library use is import-only
 - capability: linear (1D) barcode generation for the Code39/Code128/EAN/UPC/ITF/Codabar/ISBN/ISSN/PZN/GS1-128 symbologies, name-keyed symbology resolution, dependency-free SVG serialization, and Pillow-backed raster (PNG) serialization with configurable module geometry, quiet zone, and human-readable text
 
@@ -18,40 +18,43 @@
 [PUBLIC_TYPE_SCOPE]: barcode base and writer roots
 - rail: imaging
 
-`Barcode.default_writer` is `SVGWriter`; the `ImageWriter` is defined only when Pillow is importable. Concrete symbology classes (`Code128`, `Code39`, `EAN13`, `EAN8`, `EAN14`, `JAN`, `UPCA`, `ITF`, `Codabar`, `ISBN10`, `ISBN13`, `ISSN`, `PZN`, `Gs1_128`) subclass `Barcode` and are resolved by name through the registry rather than imported individually.
+`Barcode.default_writer` is `SVGWriter`; `ImageWriter` is exported only when Pillow is importable. The package re-exports the concrete symbology classes at top level (`Code128`, `Code39`, `EAN13`, `EAN13_GUARD`, `EAN8`, `EAN8_GUARD`, `EAN14`, `JAN`, `UPCA`, `ITF`, `CODABAR`, `ISBN10`, `ISBN13`, `ISSN`, `PZN`, `Gs1_128`); each subclasses `barcode.base.Barcode` and is resolved by name through the registry rather than imported individually. `SVGWriter` builds via `create_svg_object` (`xml.dom.minidom`); `BaseWriter.__init__(initialize, paint_module, paint_text, finish)` takes the four render callbacks the concrete writers bind.
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                                              |
-| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------------ |
-|  [01]   | `barcode.base.Barcode`       | symbology base | abstract 1D barcode; class attribute `name`, `default_writer = SVGWriter` |
-|  [02]   | `barcode.writer.BaseWriter`  | writer base    | abstract renderer; owns the module-geometry/quiet-zone/text option set    |
-|  [03]   | `barcode.writer.SVGWriter`   | SVG writer     | default, dependency-free SVG (`xml.dom.minidom`)                          |
-|  [04]   | `barcode.writer.ImageWriter` | raster writer  | Pillow-backed PNG/raster; present only when Pillow imports                |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                   |
+| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `barcode.base.Barcode`       | symbology base | abstract 1D barcode; class attributes `name`, `digits`, `default_writer = SVGWriter`, `default_writer_options` |
+|  [02]   | `barcode.writer.BaseWriter`  | writer base    | abstract renderer; `__init__(initialize, paint_module, paint_text, finish)` binds the four render callbacks    |
+|  [03]   | `barcode.writer.SVGWriter`   | SVG writer     | default, dependency-free SVG (`xml.dom.minidom`); `SVGWriter()` zero-arg construction                          |
+|  [04]   | `barcode.writer.ImageWriter` | raster writer  | Pillow-backed PNG/raster; `ImageWriter(format='PNG', mode='RGB', dpi=300)`; exported only when Pillow imports  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: symbology registry and factory
 - rail: imaging
 
-`PROVIDED_BARCODES` is the sorted list of accepted name keys (`code128`, `code39`, `ean13`/`ean`, `ean8`, `ean14`/`gtin`, `jan`, `upc`/`upca`, `itf`, `codabar`/`nw-7`, `isbn13`/`isbn`/`gs1`, `isbn10`, `issn`, `pzn`, `gs1_128`, plus the `ean13-guard`/`ean8-guard` variants). `get`/`generate` resolve a name to a class and build the symbology in one call.
+`PROVIDED_BARCODES` is the sorted `list[str]` of accepted name keys: `codabar`, `code128`, `code39`, `ean`, `ean13`, `ean13-guard`, `ean14`, `ean8`, `ean8-guard`, `gs1`, `gs1_128`, `gtin`, `isbn`, `isbn10`, `isbn13`, `issn`, `itf`, `jan`, `nw-7`, `pzn`, `upc`, `upca`. `get` resolves a name to a class and, when `code` is supplied, builds the symbology in one call; `generate` builds and writes in one call. `get_barcode` is the same object as `get`; `get_barcode_class` is the same object as `get_class`.
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                        | [CAPABILITY]                                           |
-| :-----: | :------------------ | :-------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `get`               | `get(name, code=None, writer=None, options=None)` -> `Barcode` or class                             | resolve and build (or resolve the class)               |
-|  [02]   | `generate`          | `generate(name, code, writer=None, output=None, writer_options=None, text=None)` -> `str` or `None` | build and write in one call                            |
-|  [03]   | `get_barcode_class` | `get_barcode_class(name)` -> `type[Barcode]`                                                        | resolve name to symbology class (alias of `get_class`) |
-|  [04]   | `PROVIDED_BARCODES` | sorted `list[str]`                                                                                  | accepted symbology name keys                           |
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                    | [CAPABILITY]                                                 |
+| :-----: | :------------------ | :---------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `get`               | `get(name, code=None, writer=None, options=None) -> Barcode \| type[Barcode]`                   | resolve the class, or build the symbology when `code` is set |
+|  [02]   | `generate`          | `generate(name, code, writer=None, output=None, writer_options=None, text=None) -> str \| None` | build and write in one call (returns filename or `None`)     |
+|  [03]   | `get_barcode_class` | `get_barcode_class(name) -> type[Barcode]`                                                      | resolve name to symbology class (same object as `get_class`) |
+|  [04]   | `PROVIDED_BARCODES` | sorted `list[str]`                                                                              | accepted symbology name keys                                 |
 
 [ENTRYPOINT_SCOPE]: `Barcode` render and serialize
 - rail: imaging
 
-`writer_options` flows the renderer geometry; human-readable text is suppressed by passing `text=""`, not a boolean flag. `save` appends the writer's extension; `write` streams to an open binary file; `render` returns the in-memory rendering.
+`Barcode.__init__(code, writer=None, **options)` builds a symbology; `render` flows the renderer geometry through `writer_options`. Human-readable text is set by the `text` argument and the `write_text`/`text` writer options. `save` appends the writer's extension and returns the full filename; `write` streams to an open binary file; `render` returns the in-memory rendering. `build` returns the single-element 1s/0s encoding list, `get_fullcode` returns the human-readable code, and `to_ascii` renders the encoding as `X`/space characters.
 
-| [INDEX] | [SURFACE]        | [CALL_SHAPE]                                       | [CAPABILITY]                              |
-| :-----: | :--------------- | :------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `Barcode.save`   | `save(filename, options=None, text=None)` -> `str` | serialize to a file (extension by writer) |
-|  [02]   | `Barcode.write`  | `write(fp, options=None, text=None)`               | serialize to an open binary stream        |
-|  [03]   | `Barcode.render` | `render(writer_options=None, text=None)`           | in-memory rendering (SVG string / image)  |
-|  [04]   | `Barcode.name`   | class attribute                                    | symbology name                            |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                     | [CAPABILITY]                              |
+| :-----: | :--------------------- | :----------------------------------------------- | :---------------------------------------- |
+|  [01]   | `Barcode.save`         | `save(filename, options=None, text=None) -> str` | serialize to a file (extension by writer) |
+|  [02]   | `Barcode.write`        | `write(fp, options=None, text=None) -> None`     | serialize to an open binary stream        |
+|  [03]   | `Barcode.render`       | `render(writer_options=None, text=None)`         | in-memory rendering (SVG string / image)  |
+|  [04]   | `Barcode.build`        | `build() -> list[str]`                           | single-element 1s/0s encoding list        |
+|  [05]   | `Barcode.get_fullcode` | `get_fullcode()`                                 | full human-readable code string           |
+|  [06]   | `Barcode.to_ascii`     | `to_ascii() -> str`                              | encoding rendered as `X`/space ASCII      |
+|  [07]   | `Barcode.name`         | class attribute                                  | symbology name                            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -59,7 +62,7 @@
 - import: `import barcode` at boundary scope only; module-level import is banned by the manifest import policy. The dist name is `python-barcode`; the import name is `barcode`.
 - registry axis: one name-keyed registry owns symbology selection — `get`/`generate`/`get_barcode_class` resolve a `PROVIDED_BARCODES` key to the concrete class; never import and branch over the individual symbology classes, and never hardcode a name not in `PROVIDED_BARCODES`.
 - writer axis: `SVGWriter` (default, dependency-free) and `ImageWriter` (Pillow PNG) are the two render rows on the same `Barcode`; the output format is the `writer` row, never a parallel barcode type per format — `generate(..., writer=ImageWriter())` selects raster, the default emits SVG.
-- option axis: `writer_options` carries `module_width`/`module_height`/`quiet_zone`/`font_size`/`text_distance`/`background`/`foreground`/`center_text` (with `dpi`/`format`/`mode` on `ImageWriter` only) as one option dict; human-readable text is suppressed by `text=""`, not a `write_text` flag.
+- option axis: `writer_options` carries `module_width`/`module_height`/`quiet_zone`/`font_size`/`text_distance`/`text_line_distance`/`background`/`foreground`/`center_text`/`guard_height_factor`/`margin_top`/`margin_bottom` as one option dict, plus `compress`/`with_doctype` on `SVGWriter` and `format`/`mode`/`dpi` (`'PNG'`/`'RGB'`/`300`) on `ImageWriter`; human-readable text is controlled by the `text` argument and the `write_text`/`text` options (`save` renders text only when `text` is truthy).
 - dimensionality axis: this package is strictly 1D/linear — Code39/Code128/EAN/UPC/ITF/Codabar/ISBN/ISSN/PZN/GS1-128 only. It owns no 2D matrix or stacked symbology; QR/Micro-QR route to `segno`, and any DataMatrix/PDF417 requirement is a separate owner, never a python-barcode call.
 - evidence: each symbol captures symbology name, code value, writer kind, module geometry, and output byte length as an imaging receipt.
 - boundary: python-barcode owns linear-barcode generation and SVG/PNG serialization; segno owns the QR/Micro-QR arm beside it; the SVG output feeds the document and figure owners directly; the PNG path routes through Pillow; live UI stays outside this package.

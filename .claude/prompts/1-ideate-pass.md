@@ -1,12 +1,14 @@
 # [IMPLEMENT_WORKFLOW]
 
+[CRITICAL]: ENSURE AGENTS ARE AWARE OF `libs/python/artifacts` + `libs/python/data` that have already had a similar pass for ideas/tasks, so that we are aware of cross-cutting seams and expected functionality, either to avoid trampling, or ideally to leverage/integrate, and assume it will exist if useful to add ideas/tasks for `<TARGET>`
+
 Neither you nor sub-agents can claim a package is "deep" it's not about having a tidy or full signature, it's about being comprehensive in each dimension the folder should have, and including the existing ones. Simple question, could this folder be used to create a world-class, bleeding-edge, advanced, and powerful app for all things it's folder domain name would entail? No? Then not well done. ANY NEW FILE OR FOLDER SUGGESTIONS SHOULD BE 1 SEMANTIC WORD, NOT x-and-y.md ONE word. IMPORTANT: All tasks/ideas we make, we need to understand the ripple they have across our planning folders outside of `<TARGET>`, all tasklog/ideas files have a `Ripple:` field that must be used for any cards we make outside of `<TARGETS>` to link back to what we make.
 
-`<TARGET>` = `libs/python/artifacts` + `libs/python/data`
+`<TARGET>` = `libs/python/compute` + `libs/python/geometry` + `libs/python/runtime`
 
 NEVER ALLOW TASKS/IDEAS TO BE PLANNED/MADE FOR "TESTING" OR WORK TO DO IN TEST DIRECTORIES, OR META TASKS LIKE UNBLOCKING ANOTHER TASK, WE JUST DO THAT MANUALLY ONCE WE LEAVE PLAN MODE WITH THE INFORMATON/INVESTIGATION WE GAINED DURING PLANNING.
 
-[NOTE]: Use 3-4 sonnet agents initially per `<TARGET>` to establish context/mapping/grounding, they only help understand exisitng scope truthfully, to ensure  no fake "depth" is perceived, because the targets are not deep. 
+[NOTE]: Use 3-4 sonnet agents initially per `<TARGET>` to establish context/mapping/grounding, they only help understand exisitng scope truthfully, to ensure  no fake "depth" is perceived, because the targets are not deep.
 - Then, once all initial grounding/questions is done, have a workfklow that uses 2-3 opus agents per `<TARGET>` each followed by a synthesize phase to harmonize findings, dedupe, through-out totally wrong tasks/ideas, and improve/refine good ones.
 - Then, we can collect all the synthesized reports per `<TARGET>`, we will then run 2-3 critique agents on the final/collected "initial" plan/findings, they make their edits/suggestions. THESE ARE ADVERSARIL CRITICS, they look at all quality considerations, scope, implications, lack of scope, or underutilized external libs, or adding new libs/etc as needed, and validating any new lib suggestions from the synthesized findings.
 - Then, we use 2-3 redteam agents, these are ULTRA-HARSH, they attack the plan from every angle possible (each), multi-faceted, directional, they consider all implications, they consider the impact of ideas for  example, to ensure it's not heading in the wrong direction, they do counterfactuals, to identify possibilities of alternatives, or adjusting to a different angle, or extending/expanding scope properly for deeper foresight, parameterization, long-term/long-tail considerations, quality of content, quality of output from the idea/task that is being suggested (the structure/instructions), etc...

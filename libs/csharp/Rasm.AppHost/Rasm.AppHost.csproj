@@ -8,6 +8,7 @@
         <PackageReference Include="Cronos" />
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+        <PackageReference Include="Microsoft.AspNetCore.Authorization" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
@@ -26,8 +27,11 @@
         <PackageReference Include="Microsoft.Extensions.ObjectPool" />
         <PackageReference Include="Microsoft.Extensions.Options" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+        <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
         <PackageReference Include="Microsoft.Extensions.Telemetry" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+        <PackageReference Include="OpenFeature" />
+        <PackageReference Include="OpenIddict.Client" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" />

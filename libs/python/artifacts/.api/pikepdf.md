@@ -64,16 +64,21 @@ Open/save rows carry path/stream input, password, recovery, linearization, and e
 [ENTRYPOINT_SCOPE]: page assembly and content editing
 - rail: pdf
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]              | [CAPABILITY]                       |
-| :-----: | :------------------------------- | :------------------------ | :--------------------------------- |
-|  [01]   | `Pdf.pages`                      | list-like page collection | index/insert/delete/reorder pages  |
-|  [02]   | `Page.add_overlay`               | source page plus rect     | overlay another page atop this one |
-|  [03]   | `Page.add_underlay`              | source page plus rect     | place a page beneath this one      |
-|  [04]   | `Page.as_form_xobject`           | optional handle policy    | convert a page to a form XObject   |
-|  [05]   | `Page.contents_coalesce`         | no-arg coalesce           | merge content streams into one     |
-|  [06]   | `pikepdf.parse_content_stream`   | page or object            | tokenize page content instructions |
-|  [07]   | `pikepdf.unparse_content_stream` | instruction list          | re-encode content instructions     |
-|  [08]   | `Job.run`                        | qpdf job-JSON spec        | execute a declarative qpdf job     |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                     | [CAPABILITY]                           |
+| :-----: | :------------------------------- | :--------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `Pdf.pages`                      | list-like page collection                                        | index/insert/delete/reorder pages      |
+|  [02]   | `Page.add_overlay`               | `add_overlay(other, rect=None, *, push_stack=True, shrink=True)` | overlay another page atop this one     |
+|  [03]   | `Page.add_underlay`              | `add_underlay(other, rect=None)`                                 | place a page beneath this one          |
+|  [04]   | `Page.as_form_xobject`           | `as_form_xobject(handle_transformations=True) -> Object`         | convert a page to a form XObject       |
+|  [05]   | `Page.contents_coalesce`         | no-arg coalesce                                                  | merge content streams into one         |
+|  [06]   | `Page.obj`                       | `/Page` dictionary `Object` (`obj[Name.Contents]` writable)      | the page's raw object-model dictionary |
+|  [07]   | `pikepdf.parse_content_stream`   | page or object                                                   | tokenize page content instructions     |
+|  [08]   | `pikepdf.unparse_content_stream` | instruction list `-> bytes`                                      | re-encode content instructions         |
+|  [09]   | `Pdf.make_stream`                | `make_stream(data: bytes, d=None) -> Stream`                     | mint an indirect content `Stream`      |
+|  [10]   | `Pdf.attachments`                | `attachments[name] = AttachedFileSpec(...)` mapping              | embedded-file mapping in the catalog   |
+|  [11]   | `AttachedFileSpec`               | `AttachedFileSpec(pdf, data, *, filename, description='')`       | embedded file specification value      |
+|  [12]   | `Pdf.copy_foreign`               | `copy_foreign(obj) -> Object`                                    | import an object from another `Pdf`    |
+|  [13]   | `Job.run`                        | qpdf job-JSON spec                                               | execute a declarative qpdf job         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -83,7 +88,8 @@ Open/save rows carry path/stream input, password, recovery, linearization, and e
 - save axis: `Pdf.save` is the single emission surface; `linearize=True` produces a web-optimized fast-web-view PDF, `encryption=Encryption(...)` rides the save call, never a parallel linearizer or encryptor.
 - encryption axis: `Encryption(owner=..., user=..., R=6, aes=True, allow=Permissions(...))` is one policy object; permission flags are `Permissions` rows, never parallel boolean knobs scattered across the save signature.
 - page axis: `Pdf.pages` is a mutable list-like collection for insert/delete/reorder; `add_overlay`/`add_underlay`/`as_form_xobject` compose page content, never a parallel page builder.
-- object axis: `Object`/`Dictionary`/`Array`/`Name`/`Stream` mirror the qpdf object model; content-stream editing uses `parse_content_stream`/`unparse_content_stream`, never a hand-rolled tokenizer.
+- object axis: `Object`/`Dictionary`/`Array`/`Name`/`Stream` mirror the qpdf object model; content-stream editing uses `parse_content_stream` to tokenize, folds the operand/operator token pairs, then writes the re-encoded `unparse_content_stream` bytes back through `Pdf.make_stream` into `page.obj[Name.Contents]`, never a hand-rolled tokenizer; operand-level edits (resource `Name` rename, operator drop) ride the same token fold.
+- attachment axis: `Pdf.attachments` is a name-keyed mapping; `attachments[name] = AttachedFileSpec(pdf, data, filename=name, description=...)` binds an embedded file into the catalog, never a manual `/EmbeddedFiles` name-tree edit.
 - evidence: each pdf op captures page count, linearization flag, encryption R level, object count, and output byte length as a pdf receipt.
 - boundary: pikepdf owns structure repair, linearization, and encryption; native render/extract routes to `pymupdf`; pure-Python merge/split routes to `pypdf`; vector content authoring routes to `reportlab`/`weasyprint`.
 

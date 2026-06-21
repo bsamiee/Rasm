@@ -31,6 +31,7 @@ dependencies = [
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
     "keyring",                    # runtime: OS keychain credential boundary; never probe unattended
+    "zstandard>=0.23.0",          # tooling: zstd compression for the tools.assay logging/cache rail; root-tool dependency, always available
 ]
 
 [dependency-groups]
@@ -139,6 +140,25 @@ scientific = [
     "cadquery-ocp; python_version<'3.15'",         # geometry: OpenCASCADE STEP/AP242 kernel; requires_python <3.15, companion-side
     "kiss-matcher; python_version<'3.13'",         # geometry: global point-cloud registration; cp38-cp312 wheels only
     "bcf-client; python_version<'3.15'",           # geometry: BCF 3.0 coordination XML (imports bcfxml/bcfapi); lxml-dependent, companion-side
+    "dataframely",                                 # data: polars-native declarative column rules with FailureInfo partition reporting
+    "pointblank",                                  # data: graded data-quality observability tier above pass/fail gates
+    "sqlglot",                                     # data: pure-Python SQL parser/transpiler/optimizer and lineage gate; centralizes the ibis transitive
+    "daft",                                        # data: distributed/streaming out-of-core engine with cp315-clean lakehouse reads
+    "fastexcel",                                   # data: calamine Rust Arrow Excel reader closing the spreadsheet DatasetKind gap
+    "flox; python_version<'3.15'",                 # data: vectorized/parallel grouped reductions xarray defers to; scipy-gated, companion until scipy ships cp315
+    "igraph",                                      # data: C-core Leiden/Louvain/Infomap community detection rustworkx lacks
+    "rioxarray",                                   # data: rasterio accessor bridging ndarray to CF DataArray and COG raster write
+    "odc-stac",                                    # data: lazy dask cube from discovered STAC items via odc.stac.load
+    "planetary-computer",                          # data: STAC URL signing for Client.open modifier and odc.stac patch_url
+    "datafusion",                                  # data: system-builder federation/streaming engine with Substrait plan interchange
+    "polars-st",                                   # data: spatial-typed polars frames for the DGGS/spatial-frame plane
+    "h3ronpy",                                     # data: Arrow-native H3 cell ops on polars frames for the DGGS surface
+    "adbc-driver-flightsql",                       # data: Arrow Flight SQL distributed remote driver with grpc+tls and OAuth2
+    "xarray-spatial; python_version<'3.15'",       # data: raster terrain analytics (slope/aspect/hillshade/viewshed); numba runtime gate, lazy import on companion
+    "tensorstore; python_version<'3.15'",          # data: high-throughput async zarr-v3 reader over the same on-disk format zarr writes
+    "geoarrow-rust-compute; python_version<'3.15'",# data: GeoRust on GeoArrow memory replacing the GEOARROW byte-roundtrip
+    "lazrs; python_version<'3.15'",                # data: compressed-COPC LAZ backend for laspy.copc
+    "laszip; python_version<'3.15'",               # data: alternate compressed-COPC LAZ backend for laspy.copc
 ]
 artifacts = [
     "altair",
@@ -146,7 +166,6 @@ artifacts = [
     "colour-science>=0.4.6",                       # artifacts: color science for CIE, spectral, and appearance models; pure Python
     "fonttools>=4.63.0",                           # artifacts: font subsetting, instancing, and shaping metadata; pure Python
     "jinja2>=3.1.6",                               # artifacts: report templating between visual and document outputs
-    "kaleido",
     "lxml; python_version<'3.15'",                 # artifacts: XML processing; no CPython 3.15 wheel
     "lz4; python_version<'3.15'",                  # artifacts: compression; no CPython 3.15 wheel
     "matplotlib; python_version<'3.15'",           # artifacts: plotting; contourpy/kiwisolver lack CPython 3.15 wheels
@@ -155,7 +174,6 @@ artifacts = [
     "papermill>=2.7.0",                            # artifacts: parameterized notebook runs; pure Python
     "pikepdf",
     "pillow; python_version<'3.15'",               # artifacts: image IO; no CPython 3.15 wheel
-    "plotly",
     "py7zr",
     "pyhanko>=0.35.1",                             # artifacts: PDF digital signing and PAdES; pure Python
     "pymupdf",
@@ -178,7 +196,27 @@ artifacts = [
     "uharfbuzz",                                   # artifacts: HarfBuzz text-shaping bindings
     "typst",                                       # artifacts: Typst PDF typesetting; cp38-abi3 wheel (installs on 3.15)
     "vegafusion; python_version<'3.15'",           # artifacts: server-side Vega transform/pre-transform export; Rust, gated
-    "zstandard",                                   # artifacts: zstd compression (moved from core; runtime uses stdlib compression.zstd)
+    "ocrmypdf",                                    # artifacts: OCR-to-PDF/A with sidecar text; needs Forge native tesseract+ghostscript+leptonica (libheif for pi-heif HEIF input)
+    "pdfplumber",                                  # artifacts: ruled-table extraction over pdfminer.six, complements pymupdf bulk text
+    "docxtpl",                                     # artifacts: template-driven .docx authoring over python-docx + jinja2
+    "msoffcrypto-tool",                            # artifacts: ECMA-376 Office decrypt/encrypt confidentiality counterpart to PDF
+    "odfpy",                                       # artifacts: ODF write for OpenDocument text/spreadsheet/presentation trees
+    "xlsxwriter",                                  # artifacts: streaming write-only xlsx at near-constant memory; promoted transitive->explicit
+    "nbconvert",                                   # artifacts: host-free executed-notebook to HTML/Markdown report export
+    "jupytext",                                    # artifacts: round-trip notebooks to/from py:percent/md:myst text source
+    "coloraide",                                   # artifacts: oklch gamut mapping and CVD filters disjoint from colour-science
+    "blackrenderer",                               # artifacts: COLRv1 color-glyph SVG rasterization over fonttools + HarfBuzz
+    "c2pa-python",                                 # artifacts: cross-format C2PA content credentials distinct from PAdES
+    "stream-zip",                                  # artifacts: bounded-memory streaming zip with ZIP64/AES-256
+    "detools",                                     # artifacts: binary-delta engine (bsdiff/hdiffpatch superset) replacing bsdiff4
+    "resvg-py",                                    # artifacts: in-process SVG->PNG/PDF rasterization with no system cairo
+    "av",                                          # artifacts: PyAV video/audio/mux encode; bundles FFmpeg (abi3 cp311, cp315-clean)
+    "pyvips",                                      # artifacts: fused decode+downscale+ICC and smartcrop; needs Forge native libvips
+    "lets-plot; python_version<'3.15'",            # artifacts: host-free grammar-of-graphics self-render to svg/png/pdf bytes
+    "python-calamine; python_version<'3.15'",      # artifacts: fast Rust xlsx/xlsb/xls/ods reader closing the spreadsheet/ODF read inverse
+    "usd-core; python_version<'3.15'",             # artifacts: USD/USDZ scene packaging beside the vtk USD exporter
+    "zxing-cpp; python_version<'3.15'",            # artifacts: 2D matrix codes (DataMatrix/PDF417/Aztec/MaxiCode) read/write
+    "stream-unzip; python_version<'3.15'",         # artifacts: streaming decompress inverse for stream-zip
 ]
 
 # --- [UV] ------------------------------------------------------------------

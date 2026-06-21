@@ -1,77 +1,332 @@
 # [PY_ARTIFACTS_SCENE]
 
-The 3D scientific-visualization owner. `Scene3d` renders pyvista datasets on the VTK engine — `UnstructuredGrid`/`PolyData`, scalar fields, slices, isosurfaces — to a host-free offscreen image and exports glTF/VRML scene files. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU. The owner rides the gated `python_version<'3.13'` native VTK floor: no cp315 VTK wheel, so the cp315-core process imports neither package and the whole render crosses the runtime subprocess lane onto the sub-3.13 companion-floor worker — floor-gated planned capability, not a blocked spike. Every render returns a `RuntimeRail[ContentKey]`.
+The 3D scientific-visualization owner. `Scene3d` renders pyvista datasets on the VTK engine — `UnstructuredGrid`/`PolyData`/`MultiBlock`, scalar fields, the clip/slice/slice-orthogonal/threshold/contour/warp/glyph/streamlines/decimate filter family, volume rendering, scalar-bar/axes overlays, light-kit shading, and a `CameraPose` viewpoint — to a host-free offscreen image, exports glTF/VRML/OBJ/HTML/USD/USDZ scene files, and emits the orbit/turntable rgb24 frame sequence the cross-folder MEDIA encoder consumes. `SceneOp` is ONE closed-payload `expression.tagged_union` over the render-target and frame-sequence modalities, each case carrying its typed payload, dispatched by one total `match` returning `RuntimeRail[ContentKey]`; `SceneTarget` is the closed file-target `StrEnum` keyed inside the export payload, never a parallel per-export owner. `RenderSpec` is the one frozen render-policy value — window size, scalar field, colormap, scalar clim, opacity, volume flag, background, transparency, scalar-bar/axes/lighting flags, the `CameraPose` viewpoint, and the `FieldFilter` pre-render filter chain — folded into every arm through its bound `staged`/`added`/`viewed` projections, never loose constructor fields the implementer re-derives per call. `FieldFilter` is the one closed-payload `tagged_union` over the catalogued pyvista filter family — `Clip`/`Slice`/`SliceOrthogonal`/`Threshold`/`Contour`/`Warp`/`Glyph`/`Streamlines`/`Decimate`/`Surface` — each case carrying its typed geometry/range/factor payload and folding to a new `DataSet` through one total `apply` `match`, so a slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a parallel filtered-mesh type. The render path is offscreen software GL (osmesa/EGL) so a scene rasterizes with zero display, browser, or GPU. The owner rides the gated `python_version<'3.13'` native VTK floor: no cp315 VTK wheel, so the cp315-core process imports neither `pyvista` nor `vtk` and the whole render crosses the runtime subprocess lane onto the sub-3.13 companion-floor worker — floor-gated planned capability, not a blocked spike. `usd-core` rides the wider `python_version<'3.15'` band, so its `pxr` package resolves on the same sub-3.13 vtk worker. Every render returns a `RuntimeRail[ContentKey]`; the frame-sequence arm returns the `tuple[NDArray[np.uint8], ...]` keyed rgb24 raster payload `media/encode#MEDIA` ingests directly through `VideoFrame.from_ndarray`, never a lossy PNG-bytes intermediary. This page closes the `USD_USDZ_SCENE_EXPORT`, `SCENE_TIMESERIES_FRAMES`, and `SCENE_FILTER_PIPELINE` ideas.
 
 ## [01]-[INDEX]
 
-- [01]-[SCENE]: pyvista/VTK offscreen 3D render and glTF/VRML scene export.
+- [01]-[SCENE]: the one `Scene3d` owner over the closed-payload `SceneOp` family — `Image`/`Export`/`Frames` folding into one `RuntimeRail[ContentKey]`, the `SceneTarget` file-target vocabulary keyed inside the `Export` payload, the `RenderSpec` render-policy value with its bound `staged`/`added`/`viewed` projections folded into every arm, the ten-case `FieldFilter` closed-payload filter family folded by `RenderSpec.staged` before render, the `CameraPose` viewpoint value folded by `RenderSpec.viewed`, the behavior-bearing `OrbitPath` `factor`-column vocabulary keyed inside the `Frames` payload, the `tuple[NDArray[np.uint8], ...]` rgb24 frame seam to `media/encode#MEDIA`; `pyvista` `Plotter(off_screen=True)`/`add_mesh`/`add_volume`/`screenshot`/`export_gltf`/`export_vrml`/`export_obj`/`export_html`/`extract_surface`/`clip`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`glyph`/`streamlines`/`MultiBlock` settled against the folder `.api`, the `screenshot(return_img=True)` array raster, `DataSet.decimate`, `Plotter(lighting=)`/`Plotter.show_axes`/`Plotter.camera`/`Plotter.set_background`, the `vtkUSDExporter` over `Plotter.render_window`, `pxr.UsdUtils.UsdUtilsCreateNewUsdzPackage`, and `Plotter.generate_orbital_path`/`path.points`/`Plotter.set_position` carried as [03]-[RESEARCH] catalogue-deepen seams.
 
 ## [02]-[SCENE]
 
-- Owner: `Scene3d` the one 3D-scene owner over pyvista on the VTK engine; `SceneTarget` the closed `StrEnum` of render and export targets; the offscreen plotter is the one render capsule.
-- Cases: `SceneTarget` rows `PNG` (offscreen `Plotter.screenshot`) · `GLTF` (`Plotter.export_gltf`, PolyData only — `UnstructuredGrid` surface-extracted via `extract_surface` first) · `VRML` (`Plotter.export_vrml`) — matched by `match`/`case`.
-- Entry: `Scene3d.render` is `async` over the runtime `async_boundary`, dispatching the whole render onto the sub-3.13 companion-floor worker (the cp315-core process imports neither `pyvista` nor `vtk`), keyed by the content key; the worker surface-extracts the grid to PolyData when the target is glTF (the VTK glTF exporter handles only PolyData), configures an offscreen `pyvista.Plotter(off_screen=True)`, adds the mesh with its active scalar field and colormap, and folds the target through one temp-file sink the worker reads back as bytes — PNG via `screenshot(path)`, glTF/VRML via `export_gltf`/`export_vrml`.
-- Auto: dataset construction folds the array payload into a `pyvista.UnstructuredGrid`/`PolyData`; scalar coloring binds the active scalar name and the colormap from `figures/color#COLOR`; the glTF target surface-extracts an `UnstructuredGrid` because the VTK glTF exporter handles only PolyData.
-- Receipt: each render contributes `receipt/receipt#RECEIPT` `ArtifactReceipt.Scene` keyed by the content key.
-- Packages: `pyvista` (`UnstructuredGrid`/`PolyData`/`Plotter`/`extract_surface`/`export_gltf`/`export_vrml`), `vtk` (the native render engine) gated `python_version<'3.13'`; runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary`, `anyio.to_process.run_sync` (the runtime subprocess lane)).
-- Growth: a new scene export is one `SceneTarget` row; a new field-visualization mode is one acceptor arm; zero new surface.
-- Boundary: no interactive viewer, no UI window, no display server; the dataset arrays arrive from data/compute outputs as inputs and own no mesh-file interchange (that stays at `data`); the offscreen software-GL render is the host-free path. `pyvista`/`vtk` ride the gated `python_version<'3.13'` band and never resolve in the cp315-core process, so the entire render runs through the runtime subprocess lane (`anyio.to_process.run_sync`) onto the sub-3.13 companion-floor worker that imports them at module scope — neither a module-top nor a lazy gated import lands on the core page.
+- Owner: `Scene3d` the one 3D-scene owner discriminating modality over the closed `SceneOp` family; `SceneOp` an `expression.tagged_union` whose every case carries its own typed payload, never a shared erased `params` bag nor a per-modality `Scene3d` subclass; `SceneTarget` the closed `StrEnum` of file-export targets keyed inside the `Export` payload — `PNG`/`GLTF`/`VRML`/`OBJ`/`HTML`/`USD`/`USDZ` — carrying the file extension and the exporter arm, never a parallel export owner; `RenderSpec` the one frozen render-policy value (window size, scalar field, colormap, scalar clim, opacity, volume flag, background, transparency, the `scalar_bar`/`axes` overlay flags, the `lighting` kit flag, the `CameraPose` viewpoint value, and the `FieldFilter` pre-render filter chain) carrying its own `staged` filter-fold, `added` mesh-add, and `viewed` camera/overlay projections so a new render knob is one `RenderSpec` field bound into an existing projection, never a constructor-parameter tail nor a re-derived add-mesh/camera call; `CameraPose` the closed `NamedTuple` viewpoint value (`position`/`focal_point`/`view_up`/`azimuth`/`elevation`/`zoom`) the `viewed` projection folds onto `Plotter.camera`, so a static viewpoint and the orbit trajectory share one camera-policy value, never loose camera kwargs; `FieldFilter` the closed-payload `tagged_union` over the catalogued pyvista filter family — `Clip`/`Slice`/`SliceOrthogonal`/`Threshold`/`Contour`/`Warp`/`Glyph`/`Streamlines`/`Decimate`/`Surface` — each case carrying its typed geometry/range/factor payload and folding to a new `DataSet` through one total `apply` `match`, so a slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple, never a per-filter mesh wrapper nor an erased filter-name bag; `OrbitPath` the closed orbit-trajectory `Enum` carrying its `factor` float column (`AZIMUTH`/`WIDE`/`TIGHT`) so the trajectory radius is a member-bound value the `generate_orbital_path(factor=)` float argument reads directly, never a `StrEnum` whose string value is mis-passed as a float factor; `RuntimeRail[ContentKey]` the one carrier every arm returns, the cross-folder MEDIA `tuple[NDArray[np.uint8], ...]` rgb24 frame payload keyed through `ContentIdentity.of` so the producer hands MEDIA the raw `screenshot(return_img=True)` raster array `VideoFrame.from_ndarray(array, format="rgb24")` ingests directly, never a lossy PNG-bytes round-trip re-decoded before video encode; the offscreen `Plotter(off_screen=True)` is the one render capsule per modality, never retained across arms.
+- Cases: `SceneOp` cases — `Image(grid, spec)` (offscreen `Plotter.screenshot(path, window_size=)` PNG raster to a temp-file sink, the `RenderSpec.window` window size carried onto the catalogued `screenshot` keyword, the `RenderSpec.staged` filter chain applied before the `RenderSpec.added` scalar-field/colormap/clim/opacity/volume/scalar-bar mesh-add and the `RenderSpec.viewed` background/axes/camera fold) · `Export(grid, target, spec)` (one file-target axis whose `SceneTarget` row keys the exporter arm — `GLTF` surface-extracts to `PolyData` through the `FieldFilter.Surface` filter chain because the VTK glTF exporter handles only `PolyData`, `VRML`/`OBJ`/`HTML` serialize the scene through `export_vrml`/`export_obj`/`export_html`, `USD` writes the rendered scene through the `vtkUSDExporter` over `Plotter.render_window`, `USDZ` packages the written `.usdc` through `pxr.UsdUtils.UsdUtilsCreateNewUsdzPackage` — never a parallel per-format export surface, the format discriminated by the typed `SceneTarget` value crossing the seam as its `.value` and re-admitted once at the worker dispatch) · `Frames(grid, orbit, steps, spec)` (one orbit/turntable frame-sequence axis whose `OrbitPath.factor` float radius keys the `Plotter.generate_orbital_path(n_points=, factor=)` trajectory whose `path.points` viewpoints the per-step loop walks, placing the camera through `Plotter.set_position` and emitting one offscreen `screenshot(return_img=True)` rgb24 raster array per camera step folded into the `tuple[NDArray[np.uint8], ...]` sequence `media/encode#MEDIA` ingests through `VideoFrame.from_ndarray` with zero file round-trip — never a parallel rotating-scene producer, the rotating-scene and chart-over-time frame sources sharing this one arm) — matched by one total `match`/`case`, the `Image`/`Export`/`Frames` modality recovered from the `SceneOp` discriminant, never a name suffix.
+- Entry: `Scene3d.render` is `async` over the runtime `async_boundary`, dispatching the whole render onto the sub-3.13 companion-floor worker (the cp315-core process imports neither `pyvista` nor `vtk` nor `pxr`), keyed by the content key the `_emit` arm derives through `ContentIdentity.of`; the worker configures one offscreen `pyvista.Plotter(off_screen=True)` through `_plotter`, which applies the `RenderSpec.staged` filter chain to the dataset, binds it through `RenderSpec.added`, then folds the camera/overlay state through `RenderSpec.viewed`, and reads the modality through a split sink — `_png` (temp-file PNG file artifact) for the `Image`/`Export`-`PNG` raster, `_shoot` (`screenshot(return_img=True)` rgb24 array, no file) for the `Frames` sequence — so `Image` via `_png`/`screenshot(path, window_size=)`, `Export` via the `SceneTarget`-keyed `export_gltf`/`export_vrml`/`export_obj`/`export_html`/`vtkUSDExporter`/`UsdUtilsCreateNewUsdzPackage` arm, `Frames` via the `generate_orbital_path` viewpoint-walk per-step `set_position`/`_shoot` loop folded into the `tuple[NDArray[np.uint8], ...]` sequence. The `Image`/`Export` arms key one `ContentKey` over the single payload; the `Frames` arm keys one Merkle-parent `ContentKey` over the per-frame children through the `tuple[ContentKey, ...]` modality of `ContentIdentity.of` (each child keyed over the frame array's `tobytes()` content under the `_FRAME_FORMAT` `"rgb24"` tag, never a `"png"` tag for a payload that carries no PNG), so the frame sequence is one content-addressed unit MEDIA re-admits by reference and ingests array-by-array.
+- Auto: dataset construction folds the array payload into a `pyvista.UnstructuredGrid`/`PolyData`/`MultiBlock` on the worker; `RenderSpec.staged` folds the `FieldFilter` tuple over the dataset through `functools.reduce`, each case's `apply` `match` routing to the catalogued `clip`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`glyph`/`streamlines`/`decimate`/`extract_surface` filter and returning a new `DataSet`; `RenderSpec.added` binds the `scalars` active scalar name, the `colormap` from `figures/color#COLOR`, the `clim` scalar window, and the `opacity` through one filtered `add_mesh`/`add_volume` kwarg dict that drops `None` values, with the `volume` flag selecting `add_volume`, the `scalar_bar` flag driving `show_scalar_bar=`, and the `lighting` flag driving the add-mesh `lighting=` and the `Plotter(lighting=)` kit; `RenderSpec.viewed` folds the `background` onto `set_background`, the `axes` flag onto `show_axes`, and the `CameraPose` `position`/`focal_point`/`view_up`/`azimuth`/`elevation`/`zoom` onto `Plotter.camera`; the `RenderSpec.window`/`RenderSpec.transparent` fold onto the catalogued `screenshot(window_size=, transparent_background=)` keywords at the `_png`/`_shoot` sink; the `GLTF` export surface-extracts through the `FieldFilter.Surface` `extract_surface` filter because the VTK glTF exporter handles only `PolyData`; the `USDZ` export writes a `USD` `.usdc` through the `vtkUSDExporter` then packages it through `UsdUtilsCreateNewUsdzPackage`, the AR/Apple deliverable; the `Frames` arm derives the camera trajectory through `generate_orbital_path` keyed by the `OrbitPath.factor` float radius, walks the trajectory `path.points` placing the camera through `set_position` per step, and reads each step's offscreen `_shoot` raster array into the sequence.
+- Receipt: each `Image`/`Export` render contributes `receipt/receipt#RECEIPT` `ArtifactReceipt.Scene(key, target)` keyed by the content key, the `SceneTarget` value (or `"png"`) carried as the target string; the `Frames` arm hands the keyed `tuple[NDArray[np.uint8], ...]` to `media/encode#MEDIA`, which contributes its own `ArtifactReceipt` media case, so the scene owner mints no media receipt.
+- Packages: `pyvista` (`UnstructuredGrid`/`PolyData`/`MultiBlock`/`Plotter`/`Plotter.add_mesh`/`Plotter.add_volume`/`Plotter.screenshot`/`Plotter.export_gltf`/`Plotter.export_vrml`/`Plotter.export_obj`/`Plotter.export_html`/`DataSet.extract_surface`/`DataSet.clip`/`DataSet.slice`/`DataSet.slice_orthogonal`/`DataSet.threshold`/`DataSet.contour`/`DataSet.warp_by_scalar`/`DataSet.glyph`/`DataSet.streamlines` settled against the folder `.api`; `screenshot(return_img=True)`/`DataSet.decimate`/`Plotter(lighting=)`/`Plotter.show_axes`/`Plotter.camera`/`Plotter.set_background`/`Plotter.render_window`/`Plotter.generate_orbital_path`/`path.points`/`Plotter.set_position` [03]-[RESEARCH]), `vtk` (the native render engine; `vtkmodules.vtkIOUSD.vtkUSDExporter` over `SetRenderWindow`/`SetFileName`/`Write` [03]-[RESEARCH]) gated `python_version<'3.13'`; `usd-core` (`pxr.UsdUtils.UsdUtilsCreateNewUsdzPackage` [03]-[RESEARCH]) gated `python_version<'3.15'`, resolving on the sub-3.13 vtk worker; `numpy` (the `NDArray[np.uint8]` rgb24 frame-array backing the `_shoot`/`_render_frames` worker returns and MEDIA's `VideoFrame.from_ndarray` ingests, imported only on the gated-band worker, the owner page crossing the seam as `tuple[bytes-keyed ContentKey]` and never importing numpy); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `anyio.to_process.run_sync` (the runtime subprocess lane)).
+- Growth: a new scene file-export is one `SceneTarget` row plus one exporter arm folding into the `Export` `match`; a new render knob is one `RenderSpec` field bound into the existing `staged`/`added`/`viewed` projection; a new overlay (legend, bounding box, orientation widget) is one `RenderSpec` flag plus one `added`/`viewed` line; a new field-visualization filter (contour-banded, glyph-oriented, tube) is one `FieldFilter` case plus one `apply` `match` arm over the catalogued dataset-filter family, dispatched by the same `RenderSpec.staged` reduce — never a parallel filtered-mesh type; a new camera modality is one `CameraPose` field the `viewed` projection reads; a new orbit trajectory is one `OrbitPath` member carrying its own `factor` float column; a new frame-visualization mode is one `Frames`-arm acceptor; zero new surface — the modality space stays three cases (`Image`/`Export`/`Frames`) on one owner, every addition a row, field, case, or arm.
+- Boundary: no interactive viewer, no UI window, no display server; the dataset arrays arrive from data/compute outputs as inputs and own no mesh-file interchange (that stays at `geometry`, the `geometry/mesh/repair#MESH_CODEC_BOUNDARY` seam recording that scene = visualization-scene export and geometry mesh = mesh-file codec, no shared owner). USD exports the rendered scene (camera/lights/PBR surfaces), distinct from the geometry mesh-file codec — the seam keeps a future pass from collapsing them into one mesh-export owner. The offscreen software-GL render is the host-free path; `pyvista`/`vtk` ride the gated `python_version<'3.13'` band and `usd-core` the `python_version<'3.15'` band, none resolving in the cp315-core process, so the entire render runs through the runtime subprocess lane (`anyio.to_process.run_sync`) onto the sub-3.13 companion-floor worker that imports them at module scope — neither a module-top nor a lazy gated import lands on the core page. The `Frames` arm is the one frame source feeding `media/encode#MEDIA`, so MEDIA is no longer a phantom sink: the `tuple[NDArray[np.uint8], ...]` rgb24 raster sequence crosses the intra-folder counterpart seam keyed by `ContentIdentity.of`, and MEDIA encodes it cp315-core in-process over PyAV through `VideoFrame.from_ndarray(array, format="rgb24")` with no intervening PNG encode/decode. The prior flat `SceneTarget` `StrEnum` plus plain `Scene3d(Struct, grid, scalars, colormap, target)`, the three repeated `TemporaryDirectory`-then-`read_bytes` sinks, the lossy `Frames` PNG-bytes round-trip that re-decoded every frame before MEDIA's `from_ndarray` re-encoded it, the `_plotter` thin wrapper hand-forwarding three add-mesh kwargs with no filter, volume, view, or camera axis, the dead `RenderSpec.camera` field consumed nowhere, the `SceneTarget`-from-string round-trip re-deriving a discriminant the union already carried, the six-case filter family that ignored the catalogued `slice_orthogonal`/`glyph`/`streamlines`/`decimate` filters and forfeited the scalar-bar/axes/lighting/camera overlay axis VTK exposes, and the flat `OrbitPath` `StrEnum` whose string value was mis-passed to the float `generate_orbital_path(factor=)` argument are the deleted forms — the modality, file-target, render-policy, filter, camera, and orbit-path axes are now one closed `SceneOp` family plus the ten-case `FieldFilter` filter union, the `CameraPose` viewpoint value, the `OrbitPath` `factor`-column vocabulary, and the `RenderSpec` policy value carrying its own `staged`/`added`/`viewed` projections folded through one `_png`/`_shoot` sink split (file for the PNG artifact, array for the MEDIA frame stream), never four parallel constructor fields, three duplicated sinks, a lossy double-encode, and a filter-thin overlay-blind single export modality.
 
 ```python signature
-from enum import StrEnum
-from typing import assert_never
+from enum import Enum, StrEnum
+from functools import reduce
+from typing import Literal, NamedTuple, assert_never
 
 from anyio import to_process
+from expression import case, tag, tagged_union
 from msgspec import Struct
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+
+type Vec3 = tuple[float, float, float]
+type Plane = tuple[Vec3, Vec3]
+type ScalarRange = tuple[float, float]
+type FieldFilterTag = Literal[
+    "clip", "slice", "slice_orthogonal", "threshold", "contour", "warp", "glyph", "streamlines", "decimate", "surface"
+]
+type SceneOpTag = Literal["image", "export", "frames"]
+
+_FRAME_FORMAT = "rgb24"
 
 
 class SceneTarget(StrEnum):
     PNG = "png"
     GLTF = "gltf"
     VRML = "vrml"
+    OBJ = "obj"
+    HTML = "html"
+    USD = "usdc"
+    USDZ = "usdz"
+
+
+class OrbitPath(Enum):
+    AZIMUTH = 1.0
+    WIDE = 2.0
+    TIGHT = 0.5
+
+    def __init__(self, factor: float) -> None:
+        self.factor = factor
+
+
+class CameraPose(NamedTuple):
+    position: Vec3 | None = None
+    focal_point: Vec3 | None = None
+    view_up: Vec3 | None = None
+    azimuth: float = 0.0
+    elevation: float = 0.0
+    zoom: float = 1.0
+
+
+@tagged_union(frozen=True)
+class FieldFilter:
+    tag: FieldFilterTag = tag()
+    clip: Plane = case()
+    slice: Plane = case()
+    slice_orthogonal: Vec3 = case()
+    threshold: ScalarRange = case()
+    contour: tuple[float, ...] = case()
+    warp: float = case()
+    glyph: float = case()
+    streamlines: Vec3 = case()
+    decimate: float = case()
+    surface: bool = case()
+
+    @staticmethod
+    def Clip(normal: Vec3, origin: Vec3) -> "FieldFilter":
+        return FieldFilter(clip=(normal, origin))
+
+    @staticmethod
+    def Slice(normal: Vec3, origin: Vec3) -> "FieldFilter":
+        return FieldFilter(slice=(normal, origin))
+
+    @staticmethod
+    def SliceOrthogonal(center: Vec3) -> "FieldFilter":
+        return FieldFilter(slice_orthogonal=center)
+
+    @staticmethod
+    def Threshold(lo: float, hi: float) -> "FieldFilter":
+        return FieldFilter(threshold=(lo, hi))
+
+    @staticmethod
+    def Contour(*isovalues: float) -> "FieldFilter":
+        return FieldFilter(contour=isovalues)
+
+    @staticmethod
+    def Warp(factor: float) -> "FieldFilter":
+        return FieldFilter(warp=factor)
+
+    @staticmethod
+    def Glyph(factor: float) -> "FieldFilter":
+        return FieldFilter(glyph=factor)
+
+    @staticmethod
+    def Streamlines(source_center: Vec3) -> "FieldFilter":
+        return FieldFilter(streamlines=source_center)
+
+    @staticmethod
+    def Decimate(reduction: float) -> "FieldFilter":
+        return FieldFilter(decimate=reduction)
+
+    @staticmethod
+    def Surface() -> "FieldFilter":
+        return FieldFilter(surface=True)
+
+    def apply(self, grid: object, scalars: str) -> object:
+        match self:
+            case FieldFilter(tag="clip", clip=(normal, origin)):
+                return grid.clip(normal=normal, origin=origin)
+            case FieldFilter(tag="slice", slice=(normal, origin)):
+                return grid.slice(normal=normal, origin=origin)
+            case FieldFilter(tag="slice_orthogonal", slice_orthogonal=(x, y, z)):
+                return grid.slice_orthogonal(x=x, y=y, z=z)
+            case FieldFilter(tag="threshold", threshold=value_range):
+                return grid.threshold(value=value_range, scalars=scalars)
+            case FieldFilter(tag="contour", contour=isovalues):
+                return grid.contour(isosurfaces=list(isovalues), scalars=scalars)
+            case FieldFilter(tag="warp", warp=factor):
+                return grid.warp_by_scalar(scalars=scalars, factor=factor)
+            case FieldFilter(tag="glyph", glyph=factor):
+                return grid.glyph(scale=scalars, factor=factor)
+            case FieldFilter(tag="streamlines", streamlines=source_center):
+                return grid.streamlines(vectors=scalars, source_center=source_center)
+            case FieldFilter(tag="decimate", decimate=reduction):
+                return grid.decimate(target_reduction=reduction)
+            case FieldFilter(tag="surface", surface=_):
+                return grid.extract_surface()
+            case _:
+                assert_never(self)
+
+
+class RenderSpec(Struct, frozen=True):
+    scalars: str
+    colormap: str
+    window: tuple[int, int] = (1024, 768)
+    background: str = "white"
+    clim: ScalarRange | None = None
+    opacity: float | None = None
+    volume: bool = False
+    filters: tuple[FieldFilter, ...] = ()
+    transparent: bool = False
+    scalar_bar: bool = False
+    axes: bool = False
+    lighting: bool = True
+    camera: CameraPose = CameraPose()
+
+    def staged(self, grid: object) -> object:
+        return reduce(lambda field, flt: flt.apply(field, self.scalars), self.filters, grid)
+
+    def added(self, plotter: object, mesh: object) -> None:
+        keys = {"scalars": self.scalars, "cmap": self.colormap, "clim": self.clim, "opacity": self.opacity}
+        bound = {key: value for key, value in keys.items() if value is not None}
+        (plotter.add_volume if self.volume else plotter.add_mesh)(
+            mesh, show_scalar_bar=self.scalar_bar, lighting=self.lighting, **bound
+        )
+
+    def viewed(self, plotter: object) -> None:
+        plotter.set_background(self.background)
+        if self.axes:
+            plotter.show_axes()
+        camera, pose = plotter.camera, self.camera
+        (camera.position, camera.focal_point, camera.up) = (
+            pose.position or camera.position,
+            pose.focal_point or camera.focal_point,
+            pose.view_up or camera.up,
+        )
+        (camera.azimuth, camera.elevation) = (camera.azimuth + pose.azimuth, camera.elevation + pose.elevation)
+        camera.zoom(pose.zoom)
+
+
+@tagged_union(frozen=True)
+class SceneOp:
+    tag: SceneOpTag = tag()
+    image: tuple[object, RenderSpec] = case()
+    export: tuple[object, SceneTarget, RenderSpec] = case()
+    frames: tuple[object, OrbitPath, int, RenderSpec] = case()
+
+    @staticmethod
+    def Image(grid: object, spec: RenderSpec) -> "SceneOp":
+        return SceneOp(image=(grid, spec))
+
+    @staticmethod
+    def Export(grid: object, target: SceneTarget, spec: RenderSpec) -> "SceneOp":
+        return SceneOp(export=(grid, target, spec))
+
+    @staticmethod
+    def Frames(grid: object, orbit: OrbitPath, steps: int, spec: RenderSpec) -> "SceneOp":
+        return SceneOp(frames=(grid, orbit, steps, spec))
 
 
 class Scene3d(Struct, frozen=True):
-    grid: object
-    scalars: str
-    colormap: str
-    target: SceneTarget
+    op: SceneOp
 
     async def render(self) -> RuntimeRail[ContentKey]:
-        return await async_boundary(f"scene.{self.target}", self._emit)
+        return await async_boundary(f"scene.{self.op.tag}", self._emit)
 
     async def _emit(self) -> ContentKey:
-        data = await to_process.run_sync(_render_scene, self.target.value, self.grid, self.scalars, self.colormap)
-        return ContentIdentity.of(f"scene-{self.target}", data)
+        match self.op:
+            case SceneOp(tag="image", image=(grid, spec)):
+                data = await to_process.run_sync(_render_image, grid, spec)
+                return ContentIdentity.of(SceneTarget.PNG.value, data)
+            case SceneOp(tag="export", export=(grid, target, spec)):
+                data = await to_process.run_sync(_render_export, grid, target.value, spec)
+                return ContentIdentity.of(target.value, data)
+            case SceneOp(tag="frames", frames=(grid, orbit, steps, spec)):
+                sequence = await to_process.run_sync(_render_frames, grid, orbit.factor, steps, spec)
+                return ContentIdentity.of(
+                    _FRAME_FORMAT,
+                    tuple(ContentIdentity.of(_FRAME_FORMAT, frame.tobytes()) for frame in sequence),
+                )
+            case _:
+                assert_never(self.op)
+```
+
+```python signature
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import assert_never
+
+import numpy as np
+import pyvista as pv
+from msgspec.structs import replace
+from numpy.typing import NDArray
+
+from rasm.figures.scene import FieldFilter, RenderSpec, SceneTarget
 
 
-def _render_scene(target: str, grid: object, scalars: str, colormap: str) -> bytes:
-    from pathlib import Path
-    from tempfile import TemporaryDirectory
+def _plotter(grid: object, spec: RenderSpec) -> "pv.Plotter":
+    plotter = pv.Plotter(off_screen=True, lighting="light_kit" if spec.lighting else "none")
+    spec.added(plotter, spec.staged(grid))
+    spec.viewed(plotter)
+    return plotter
 
-    import pyvista as pv
 
+def _shoot(plotter: "pv.Plotter", spec: RenderSpec) -> NDArray[np.uint8]:
+    return plotter.screenshot(
+        filename=None, return_img=True, window_size=list(spec.window), transparent_background=spec.transparent
+    )
+
+
+def _png(plotter: "pv.Plotter", out: Path, spec: RenderSpec) -> bytes:
+    plotter.screenshot(str(out), window_size=list(spec.window), transparent_background=spec.transparent)
+    return out.read_bytes()
+
+
+def _render_image(grid: object, spec: RenderSpec) -> bytes:
+    with TemporaryDirectory() as work:
+        return _png(_plotter(grid, spec), Path(work) / f"scene.{SceneTarget.PNG.value}", spec)
+
+
+def _render_export(grid: object, target: str, spec: RenderSpec) -> bytes:
     kind = SceneTarget(target)
-    mesh = grid.extract_surface() if kind is SceneTarget.GLTF else grid
-    plotter = pv.Plotter(off_screen=True)
-    plotter.add_mesh(mesh, scalars=scalars, cmap=colormap)
+    surfaced = replace(spec, filters=(*spec.filters, FieldFilter.Surface())) if kind is SceneTarget.GLTF else spec
+    plotter = _plotter(grid, surfaced)
     with TemporaryDirectory() as work:
         out = Path(work) / f"scene.{target}"
         match kind:
-            case SceneTarget.PNG:
-                plotter.screenshot(str(out), transparent_background=False)
             case SceneTarget.GLTF:
                 plotter.export_gltf(str(out))
             case SceneTarget.VRML:
                 plotter.export_vrml(str(out))
+            case SceneTarget.OBJ:
+                plotter.export_obj(str(out))
+            case SceneTarget.HTML:
+                plotter.export_html(str(out))
+            case SceneTarget.USD:
+                _export_usd(plotter.render_window, str(out))
+            case SceneTarget.USDZ:
+                usdc = out.with_suffix(".usdc")
+                _export_usd(plotter.render_window, str(usdc))
+                _package_usdz(str(usdc), str(out))
+            case SceneTarget.PNG:
+                return _png(plotter, out, spec)
             case _:
-                assert_never(target)
+                assert_never(kind)
         return out.read_bytes()
+
+
+def _render_frames(grid: object, factor: float, steps: int, spec: RenderSpec) -> tuple[NDArray[np.uint8], ...]:
+    plotter = _plotter(grid, spec)
+    path = plotter.generate_orbital_path(n_points=steps, factor=factor)
+
+    def _capture(viewpoint: object) -> NDArray[np.uint8]:
+        plotter.set_position(viewpoint)
+        return _shoot(plotter, spec)
+
+    return tuple(_capture(viewpoint) for viewpoint in path.points)
+
+
+def _export_usd(render_window: object, path: str) -> None:
+    from vtkmodules.vtkIOUSD import vtkUSDExporter
+
+    exporter = vtkUSDExporter()
+    exporter.SetRenderWindow(render_window)
+    exporter.SetFileName(path)
+    exporter.Write()
+
+
+def _package_usdz(source: str, sink: str) -> None:
+    from pxr.UsdUtils import UsdUtilsCreateNewUsdzPackage
+
+    UsdUtilsCreateNewUsdzPackage(source, sink)
 ```
 
 ## [03]-[RESEARCH]
 
-No open items. `_render_scene` runs on the `python_version<'3.13'` companion floor through `anyio.to_process.run_sync`, importing `pyvista` at boundary scope inside the gated-band worker, never on the cp315-core owner. The `DataSet.extract_surface`, `Plotter(off_screen=True)`, `Plotter.add_mesh(scalars, cmap)`, `Plotter.screenshot`, `Plotter.export_gltf`, and `Plotter.export_vrml` spellings verify against the folder `.api` catalogue for `pyvista`; the osmesa/EGL offscreen software-GL backend is selected by the worker environment before `Plotter` construction. The VTK glTF exporter handles only PolyData, so the glTF target surface-extracts the grid first; `screenshot(path)` writes encoded PNG and `export_gltf`/`export_vrml` serialize the scene to one temp-file sink the worker reads back as bytes (`screenshot` returns a NumPy array, never PNG bytes, when handed no path, so the PNG arm writes to the same sink as the export arms rather than returning the in-memory array).
+- [USD_EXPORT] [RESEARCH]: the VTK USD exporter `vtkmodules.vtkIOUSD.vtkUSDExporter` over `SetRenderWindow(window)`/`SetFileName(path)`/`Write()` is NOT in the folder `.api` catalogue for `vtk` — the `vtk.md` `[02]-[PUBLIC_TYPES]` I/O table lists `vtkSTLReader`/`vtkSTLWriter`/`vtkPLYReader`/`vtkPLYWriter`/`vtkOBJReader`/`vtkXMLPolyDataReader`/`vtkXMLPolyDataWriter` under `vtkmodules.vtkIOGeometry`/`vtkIOPLY`/`vtkIOXML` but carries no `vtkIOUSD` module nor any exporter class (the catalogued render-export surface is reader/writer pairs, not the renderer-scene exporter family). VTK 9.6 shipped the real `vtkUSDExporter` writing surface geometry, color-mapped surfaces, lights, camera, and PBR from a `vtkRenderWindow`; the `_export_usd` body and the `Export` `USD`/`USDZ` arm stay a marked RESEARCH catalogue-deepen seam until a `vtkmodules.vtkIOUSD` reflection pass lands on the gated `python_version<'3.13'` band. Close-condition: `.api` catalogue carries `vtkUSDExporter` with `SetRenderWindow`/`SetFileName`/`Write`. License `LicenseRef-TOST-1.0` recorded in the catalogue at admission.
+- [RENDER_WINDOW] [RESEARCH]: the `Plotter.render_window` property feeding the `vtkUSDExporter.SetRenderWindow` argument is NOT in the folder `.api` catalogue for `pyvista` — the `pyvista.md` `[03]-[ENTRYPOINTS]` tables catalogue `Plotter(off_screen=...)`, `Plotter.add_mesh`, `Plotter.screenshot`, `Plotter.show`, `Plotter.export_gltf`, `Plotter.export_vrml`, and the filter family, but no `render_window` accessor exposing the underlying `vtkRenderWindow` the USD exporter requires. The `_export_usd(plotter.render_window, ...)` access stays a marked RESEARCH catalogue-deepen seam until a `Plotter.render_window` reflection pass lands; the `Export` `USD`/`USDZ` arm consumes it. Close-condition: `.api` catalogue carries `Plotter.render_window`.
+- [USDZ_PACKAGE] [RESEARCH]: the USD packaging function `pxr.UsdUtils.UsdUtilsCreateNewUsdzPackage(source, sink)` zipping a `.usdc` into the `.usdz` AR/Apple deliverable is NOT in any folder `.api` catalogue — `usd-core.md` does not exist in the artifacts `.api` folder, so no `pxr` spelling is verified. The `usd-core` package is registered in the artifacts README `[2]-[DOMAIN_PACKAGES]` `[Scene3d]` card and declared `usd-core; python_version<'3.15'` in the one Python manifest, resolving on the sub-3.13 vtk worker, but the `pxr.UsdUtils` import surface stays a marked RESEARCH catalogue-deepen seam until a `usd-core` `.api` reflection pass authors the catalogue. The `_package_usdz` body and the `Export` `USDZ` arm consume it. Close-condition: a `usd-core.md` `.api` catalogue carries `pxr.UsdUtils.UsdUtilsCreateNewUsdzPackage`.
+- [ORBIT_FRAMES] [RESEARCH]: the orbit/turntable frame generator `Plotter.generate_orbital_path(n_points=, factor=)` deriving the camera trajectory, the trajectory `path.points` viewpoint array the per-step loop walks, and `Plotter.set_position(viewpoint)` placing the camera at each step are NOT in the folder `.api` catalogue for `pyvista` — the `pyvista.md` `[03]-[ENTRYPOINTS]` tables carry no orbit, orbital-path, camera-path, or camera-position member, only the render/filter/export family. The `_render_frames` body and the `Frames` case stay a marked RESEARCH catalogue-deepen seam until a `Plotter.generate_orbital_path`/`path.points`/`Plotter.set_position` reflection pass lands on the gated `python_version<'3.13'` band; the `OrbitPath` `Enum` carrying its `factor` float column (`AZIMUTH=1.0`/`WIDE=2.0`/`TIGHT=0.5`) is the settled orbit-radius vocabulary the `_emit` arm reads as `orbit.factor` and hands to the float `generate_orbital_path(factor=)` argument (the `factor` is the orbit-radius multiplier, a float, never an enum string value), and the per-step `_shoot` `screenshot(return_img=True)` rgb24 array writer and the `tuple[NDArray[np.uint8], ...]` array sequence the `media/encode#MEDIA` PyAV encoder consumes are the settled producer shape (`av.md` `[03]-[ENTRYPOINTS]` `VideoFrame.from_ndarray(array, format="rgb24")` admits the rgb24 array directly with no decode, `stream.encode`/`OutputContainer.mux` muxing it cp315-core in-process) — the prior `tuple[bytes, ...]` PNG-bytes producer was a lossy encode/decode round-trip the array seam deletes. Close-condition: `.api` catalogue carries `Plotter.generate_orbital_path` with the `n_points`/`factor` axes, the `path.points` viewpoint array, and `Plotter.set_position`.
+- [SCENE_VIEW] [RESEARCH]: the view/overlay/camera projection `RenderSpec.viewed` folds — `Plotter(lighting="light_kit"|"none")` constructor kit, `Plotter.show_axes()` orientation-axes overlay, the `add_mesh(show_scalar_bar=, lighting=)` overlay/shading kwargs, `Plotter.camera` and its `position`/`focal_point`/`up`/`azimuth`/`elevation`/`zoom` accessors, and the `DataSet.decimate(target_reduction=)` filter — are NOT enumerated in the folder `.api` catalogue for `pyvista`: the `pyvista.md` `[02]-[PUBLIC_TYPES]`/`[03]-[ENTRYPOINTS]` tables carry `add_mesh(mesh, scalars=, cmap=, ...)`, the `MultiBlock` container, the `clip`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`glyph`/`streamlines`/`extract_surface` filters, and the export family, but no scalar-bar, axes, camera, lighting, or decimate member, while `vtk.md` `[02]-[PUBLIC_TYPES]` carries the underlying `vtkScalarBarActor`/`vtkAxesActor`/`vtkLight`/`vtkCamera`/`vtkDecimatePro` classes the pyvista wrappers drive. The `RenderSpec.viewed`/`RenderSpec.added` overlay-and-camera body, the `CameraPose` fold, the `FieldFilter.Glyph`/`FieldFilter.Streamlines`/`FieldFilter.Decimate` arms (the `glyph(scale=, factor=)`/`streamlines(vectors=, source_center=)`/`decimate(target_reduction=)` kwarg spellings), and the `slice_orthogonal(x=, y=, z=)` kwarg spelling stay a marked RESEARCH catalogue-deepen seam until a `Plotter.camera`/`show_axes`/`add_scalar_bar`/`Plotter(lighting=)`/`DataSet.decimate`/`DataSet.glyph`/`DataSet.streamlines` reflection pass lands on the gated `python_version<'3.13'` band; the `CameraPose` `NamedTuple` (`position`/`focal_point`/`view_up`/`azimuth`/`elevation`/`zoom`) is the settled camera-policy vocabulary the `viewed` projection reads, the static-viewpoint and orbit-trajectory camera concerns sharing this one value. Close-condition: `.api` catalogue carries `Plotter.camera`, `Plotter.show_axes`, the `add_mesh(show_scalar_bar=, lighting=)` kwargs, the `Plotter(lighting=)` constructor axis, `DataSet.decimate(target_reduction=)`, and the `glyph`/`streamlines`/`slice_orthogonal` kwarg signatures.
+- [PYVISTA_RENDER]: the `pyvista.Plotter(off_screen=True)` construction, the `Plotter.add_mesh(scalars=, cmap=, clim=, opacity=)` and `Plotter.add_volume` mesh-add rows, the `Plotter.screenshot(filename, window_size=)` raster row, `Plotter.export_gltf`/`export_vrml`/`export_obj`/`export_html`, the `MultiBlock` named-dataset container, and the `DataSet.extract_surface`/`clip`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp_by_scalar`/`glyph`/`streamlines` filter family verify against the folder `.api` catalogue for `pyvista` (`0.48.4` on `vtk` `9.6.2`, the gated `python_version<'3.13'` sub-3.13 companion floor); the `pyvista.md` `[03]-[ENTRYPOINTS]` filter rows carry `clip` (plane normal/origin), `slice` (normal/origin, with `slice_orthogonal` named on the same row), `threshold` (scalar range), `contour` (isovalue list plus scalars), `warp_by_scalar` (scalar plus factor), and `extract_surface` (no-arg), the `[02]-[PUBLIC_TYPES]` mesh table carries `MultiBlock` (named dataset collection) and the `[04]-[IMPLEMENTATION_LAW]` filter axis names `glyph`/`streamlines`, and the render axis catalogues the `add_mesh(scalars=, cmap=, clim=)` kwargs and the `add_volume` volume row, so the `FieldFilter.apply` `clip`/`slice`/`slice_orthogonal`/`threshold`/`contour`/`warp`/`surface` arms, the `MultiBlock` dataset construction, and the `RenderSpec.added` `add_mesh`/`add_volume` projection are settled fence code; the `glyph`/`streamlines` filters are catalogued by name but the `glyph(scale=, factor=)`/`streamlines(vectors=, source_center=)` kwarg spellings are not enumerated, so those two `apply` arms stay `[SCENE_VIEW]`-tracked RESEARCH; the `StructuredGrid`/`RectilinearGrid`/`ImageData` mesh rows are catalogued capacity the dataset growth axis absorbs. The `UnstructuredGrid`/`PolyData` mesh family, the `screenshot(path, window_size=)` PNG raster row (the `Image`/`Export`-`PNG` arms write to a temp-file sink through `_png`), and the scene serializers are settled pyvista fence code; the osmesa/EGL offscreen software-GL backend is selected by the worker environment before `Plotter` construction. The `screenshot(return_img=True)` array-raster keyword (within the catalogued `screenshot(filename=None, window_size=None, ...)` variadic tail but not enumerated, returning the rgb24 NumPy array the `Frames` arm and `_shoot` read), the `screenshot(transparent_background=)` keyword (same variadic tail), `Plotter.set_background`, `Plotter.render_window`, `Plotter.generate_orbital_path`, `path.points`, and `Plotter.set_position`, plus the `[SCENE_VIEW]`-tracked `Plotter.camera`/`show_axes`/`Plotter(lighting=)`/`add_mesh(show_scalar_bar=, lighting=)`/`DataSet.decimate` members, are the [03]-[RESEARCH] catalogue-deepen seams; every other spelling is settled fence code.
+- [SCENE_SEAM]: the `_render_image`/`_render_export`/`_render_frames`/`_export_usd`/`_package_usdz` bodies are module-level functions dispatched by qualified name across the `anyio.to_process.run_sync` subprocess seam the runtime `reliability/faults#FAULT` owner has already settled (`to_process.run_sync` cannot target a bound method or closure), so they stay out of the `Scene3d` owner deliberately, not as stray helpers; they import `pyvista`/`vtkmodules.vtkIOUSD`/`pxr.UsdUtils` at boundary scope inside the gated-band worker, never on the cp315-core owner. The subprocess seam is settled fence code by inheritance from its owner; the `ContentIdentity.of` whole-payload and `tuple[ContentKey, ...]` Merkle-parent modalities the `Image`/`Export` and `Frames` arms key through verify against the runtime `evidence/identity#IDENTITY` owner.

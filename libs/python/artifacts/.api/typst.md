@@ -54,6 +54,19 @@ The `Compiler` constructor carries `input`, `root`, `font_paths`, `ignore_system
 |  [03]   | `Compiler.eval`                  | `eval(expression, format=None, pretty=False, root=None)`                                                                              | evaluate an expression                |
 |  [04]   | `Compiler.query`                 | `query(selector, field=None, one=False, format=None, root=None)`                                                                      | query elements by selector            |
 
+[MARKUP_ELEMENT_SCOPE]: tagged-PDF accessibility elements (`0.15.0` markup vocabulary the lowering emits)
+- rail: documents
+
+The compiled Typst source the owner emits drives these built-in markup functions; the lowering authors the `alt` text equivalent so the `format="pdf"` render with a PDF/UA `pdf_standards` row writes the marked-content structure element. Typst guidance pins `alt` to the inner `image` when the figure body is an image with its own description; the figure-level `alt` is reserved for figures whose body is custom content, never doubled with an image `alt`.
+
+| [INDEX] | [MARKUP]    | [CALL_SHAPE]                                                                                                     | [CAPABILITY]                                      |
+| :-----: | :---------- | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `image`     | `image(source: str\|bytes\|path, format=auto, width=auto, height=auto, alt: none\|str = none, fit="cover", ...)` | embed graphic with screen-reader `alt` equivalent |
+|  [02]   | `figure`    | `figure(body: content, alt: none\|str = none, caption: none\|content = none, kind=auto, supplement=auto, ...)`   | numbered figure block carrying caption + role     |
+|  [03]   | `heading`   | `heading(body: content, level: int = 1, ...)`                                                                    | outline node lowering the `H1`-`H6` structure     |
+|  [04]   | `table`     | `table(columns, ..., ..children: content)`                                                                       | row-major cell grid lowering the table structure  |
+|  [05]   | `pdf.embed` | `pdf.embed(path\|bytes, relationship=auto, mime-type=none, description=none)`                                    | associated-file embed for tagged-PDF attachments  |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DOCUMENT_PDF_TYPST]:
@@ -62,6 +75,7 @@ The `Compiler` constructor carries `input`, `root`, `font_paths`, `ignore_system
 - compiler axis: `Compiler` is the reusable world; the owner holds one `Compiler` to amortize `font_paths`/`sys_inputs` across batched renders, never a fresh compiler per document.
 - standard axis: `pdf_standards` selects the archival PDF/A target; archival conformance is a render row, never a parallel signer path — PAdES signing routes to `pyhanko`.
 - query axis: `query`/`eval` answer the document-introspection question over `selector`/`field`; structured extraction is a row, never a re-parsed AST.
+- markup axis: the lowering authors `image(.., alt=..)` for embedded graphics and `figure(.., caption: ..)` for numbered blocks; the `alt` equivalent rides the inner `image`, never doubled onto the enclosing `figure`, so a PDF/UA `pdf_standards` render writes one marked-content structure element per figure. Interpolated `alt`/source strings are Typst-string-escaped (`\` and `"`) before emission; raw interpolation of an `alt` carrying a quote yields invalid markup.
 - evidence: each render captures source identity, output format, page/byte count, PDF standard, and collected warnings as a document receipt.
 - boundary: typst owns Typst markup typesetting; reportlab/weasyprint own their own document models; raster post-processing routes to `pillow`; PAdES signing routes to `pyhanko`; live UI stays outside this package.
 

@@ -45,6 +45,10 @@ evidence                 ←  python:geometry/mesh               # [CONTENT_KEY]
 evidence/identity        →  python:data/tabular                # [CONTENT_KEY]: ContentIdentity content-key
 observability            ←  python:artifacts/receipt           # [RECEIPT]: ArtifactReceipt receipt-facts contribution
 transport/serve          ⇄  python:compute/numerics            # [WIRE]: ContentIdentity array backend dispatch
+execution                →  python:artifacts/pipeline          # [RECEIPT]: Keyed session-lane elision (ContentKey, Work)
+observability            ←  python:data/tabular                # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage
+transport/roots          →  python:data/tabular                # [PORT]: TransportResource remote connection
+transport                →  python:data/tabular                # [TRANSPORT]: ResourceRef path resolution through fsspec
 ```
 
 ## [03]-[BOUNDARIES]

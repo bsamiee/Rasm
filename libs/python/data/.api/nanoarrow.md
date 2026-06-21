@@ -98,23 +98,23 @@
 [ENTRYPOINT_SCOPE]: Array and ArrayStream operations
 - rail: arrow-memory
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------ | :------------- | :-------------------------------- |
-|  [01]   | `Array.buffer(i)`                                 | buffer access  | access buffer by index            |
-|  [02]   | `Array.child(i)` / `Array.iter_children()`        | child access   | access nested array child         |
-|  [03]   | `Array.iter_py()`                                 | Python export  | iterate as Python scalars         |
-|  [04]   | `Array.iter_scalar()`                             | scalar export  | iterate as `Scalar` objects       |
-|  [05]   | `Array.iter_tuples()`                             | tuple export   | iterate struct array as tuples    |
-|  [06]   | `Array.to_pylist()`                               | Python export  | collect to Python list            |
-|  [07]   | `Array.to_pysequence(handle_nulls)`               | Python export  | collect with null policy          |
-|  [08]   | `Array.to_columns_pysequence(handle_nulls)`       | Python export  | struct array to column sequences  |
-|  [09]   | `Array.serialize(dst)`                            | serialization  | IPC-serialize to bytes or stream  |
-|  [10]   | `ArrayStream.to_pylist()`                         | Python export  | collect stream to Python list     |
-|  [11]   | `ArrayStream.to_columns_pysequence(handle_nulls)` | Python export  | stream to column sequences        |
-|  [12]   | `nulls_as_sentinel(sentinel)`                     | null policy    | replace nulls with sentinel value |
-|  [13]   | `nulls_forbid()`                                  | null policy    | raise on null encounter           |
-|  [14]   | `nulls_separate()`                                | null policy    | emit `(mask, values)` tuple       |
-|  [15]   | `c_version()`                                     | version query  | nanoarrow C library version       |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------------------------ | :------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `Array.buffer(i)`                                 | buffer access  | access buffer by index                                                        |
+|  [02]   | `Array.child(i)` / `Array.iter_children()`        | child access   | access nested array child                                                     |
+|  [03]   | `Array.iter_py()`                                 | Python export  | iterate as Python scalars                                                     |
+|  [04]   | `Array.iter_scalar()`                             | scalar export  | iterate as `Scalar` objects                                                   |
+|  [05]   | `Array.iter_tuples()`                             | tuple export   | iterate struct array as tuples                                                |
+|  [06]   | `Array.to_pylist()`                               | Python export  | collect to Python list                                                        |
+|  [07]   | `Array.to_pysequence(handle_nulls)`               | Python export  | collect with null policy                                                      |
+|  [08]   | `Array.to_columns_pysequence(handle_nulls)`       | Python export  | struct array to column sequences                                              |
+|  [09]   | `Array.serialize(dst=None) -> bytes \| None`      | serialization  | IPC-serialize; no-`dst` returns `bytes`, with `dst` writes and returns `None` |
+|  [10]   | `ArrayStream.to_pylist()`                         | Python export  | collect stream to Python list                                                 |
+|  [11]   | `ArrayStream.to_columns_pysequence(handle_nulls)` | Python export  | stream to column sequences                                                    |
+|  [12]   | `nulls_as_sentinel(sentinel)`                     | null policy    | replace nulls with sentinel value                                             |
+|  [13]   | `nulls_forbid()`                                  | null policy    | raise on null encounter                                                       |
+|  [14]   | `nulls_separate()`                                | null policy    | emit `(mask, values)` tuple                                                   |
+|  [15]   | `c_version()`                                     | version query  | nanoarrow C library version                                                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

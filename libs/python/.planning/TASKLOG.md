@@ -77,8 +77,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: data owns CF-conventioned labelled field cubes as a first-class gridded data owner.
 - Shape: seed `data/gridded` in data `ARCHITECTURE.md`, `IDEAS.md`, and `data/.planning/gridded/field.md` around one `FieldDataset` over `xarray`, `netcdf4`, HDF5/Zarr, CF-aware coordinates, label slicing, group/resample reductions, units, CRS metadata, and content-keyed `pyarrow`/Zarr egress.
 - Unlocks: environmental, CFD, sensor-grid, and geophysical field interchange becomes a branch-owned data capability rather than an incidental compute study input.
-- Anchors: `data/.api/xarray.md`, `data/.api/netcdf4.md`, `data/.api/h5py.md`, `gridded/tensor.md`, runtime `ContentIdentity`, runtime `TransportResource`, and the `python_version<'3.15'` native-dependency band.
-- Tension: the owner is distinct from dense chunk-grid tensor storage, and gated `xarray`/`netcdf4` arms dispatch through the runtime subprocess seam.
+- Anchors: `data/.api/xarray.md`, `data/.api/netcdf4.md`, `data/.api/h5py.md`, `gridded/store.md`, runtime `ContentIdentity`, runtime `TransportResource`, and the `python_version<'3.15'` native-dependency band.
+- Tension: the owner is distinct from dense chunk-grid tensor storage, the banned-module-level `xarray` arm binds function-local under `# noqa: PLC0415`, and `netcdf4`/`h5py` import module-top as ungated Forge source-builds rather than crossing a subprocess seam.
 
 [PYE57_SCAN_INGESTION]-[QUEUED]: route the admitted `pye57` E57 reader into scan ingestion.
 - Capability: the admitted `pye57` E57 reader becomes an ingestion arm for structured terrestrial-laser-scan data.

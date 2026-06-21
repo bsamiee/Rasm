@@ -41,23 +41,32 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Agent/Capability.cs         →  typescript:interchange/codec         # [CONTENT_KEY]: CapabilityDescriptor command-shape
-Runtime/Ports.cs            →  typescript:interchange/codec         # [CONTENT_KEY]: HLC two-half bigint round-trip parity
-Runtime/Ports.cs            ⇄  python:runtime/execution             # [PORT]: CausalFrame Hlc two-half + Tenant
-*                           →  typescript:services                  # [WIRE]: CredentialPemWire redacted carrier
-*                           →  typescript:interchange               # [WIRE]: support-capture verb
-Agent/Capability.cs         ⇄  python:runtime/transport             # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
-Observability/Health.cs     →  typescript:projection/evidence       # [WIRE]: DegradationLevel / CommandAvailabilityWire
-Observability/Telemetry.cs  ←  python:runtime/observability         # [WIRE]: W3C trace-context inbound extraction
-Observability/Telemetry.cs  →  typescript:ui/render                 # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
-Runtime/Config.cs           →  python:runtime/execution             # [WIRE]: CredentialPem
-Runtime/Ports.cs            ⇄  python:runtime/transport             # [WIRE]: HLC two-half stamp + Tenant partition
-Runtime/Ports.cs            →  typescript:projection/evidence       # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
-Wire/Livewire.cs            →  typescript:ui/render                 # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
-Observability/Telemetry.cs  →  typescript:platform/observability    # [TRANSPORT]: OtelExport OTLP egress
-Runtime                     ←  csharp:Rasm/Geometry/Drawing         # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
-Runtime                     →  csharp:Rasm.AppUi/Editing/notebook   # [PORT]: DeterminismContext / CapabilityPin environment identity
-Runtime                     →  csharp:Rasm.Persistence/Query/cache  # [PORT]: TenantId RLS + cache L2 partition
+Agent/Capability.cs         →  typescript:interchange/codec               # [CONTENT_KEY]: CapabilityDescriptor command-shape
+Runtime/Ports.cs            →  typescript:interchange/codec               # [CONTENT_KEY]: HLC two-half bigint round-trip parity
+Runtime/Ports.cs            ⇄  python:runtime/execution                   # [PORT]: CausalFrame Hlc two-half + Tenant
+*                           →  typescript:services                        # [WIRE]: CredentialPemWire redacted carrier
+*                           →  typescript:interchange                     # [WIRE]: support-capture verb
+Agent/Capability.cs         ⇄  python:runtime/transport                   # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
+Observability/Health.cs     →  typescript:projection/evidence             # [WIRE]: DegradationLevel / CommandAvailabilityWire
+Observability/Telemetry.cs  ←  python:runtime/observability               # [WIRE]: W3C trace-context inbound extraction
+Observability/Telemetry.cs  →  typescript:ui/render                       # [WIRE]: BenchmarkClaimWire / HostFingerprintWire identity gate
+Runtime/Config.cs           →  python:runtime/execution                   # [WIRE]: CredentialPem
+Runtime/Ports.cs            ⇄  python:runtime/transport                   # [WIRE]: HLC two-half stamp + Tenant partition
+Runtime/Ports.cs            →  typescript:projection/evidence             # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
+Wire/Livewire.cs            →  typescript:ui/render                       # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
+Observability/Telemetry.cs  →  typescript:platform/observability          # [TRANSPORT]: OtelExport OTLP egress
+Runtime                     ←  csharp:Rasm/Geometry/Drawing               # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
+Runtime                     →  csharp:Rasm.AppUi/Editing/notebook         # [PORT]: DeterminismContext / CapabilityPin environment identity
+Runtime                     →  csharp:Rasm.Persistence/Query/cache        # [PORT]: TenantId RLS + cache L2 partition
+Runtime                     →  csharp:Rasm.Persistence/Version/recovery   # [PORT]: ResolvedProfile DR-objective inputs
+Runtime                     →  csharp:Rasm.Persistence/Query/transaction  # [PORT]: drain 2PC in-doubt set
+Runtime                     →  csharp:Rasm.Persistence/Store/encryption   # [PORT]: KMS-unwrap port
+Runtime                     →  csharp:Rasm.Persistence/Sync/egress        # [PORT]: keyed OutboundHop egress
+Agent/identity              ⇄  csharp:Rasm.Persistence                    # [PORT]: identity store (TenantId RLS)
+Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state
+Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox (same-tx)
+Wire/coordination           ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease store
+Runtime                     →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 ```
 
 ## [03]-[SPINE]

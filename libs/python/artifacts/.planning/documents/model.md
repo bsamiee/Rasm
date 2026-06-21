@@ -4,19 +4,20 @@ The semantic document algebra: the single interior representation the `documents
 
 ## [01]-[INDEX]
 
-- [01]-[NODE]: `DocumentNode` — the recursive nine-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries; the content-keyed `children`/`walk`/`node_digest`/`to_corpus_row`/`to_typst_source`/`encode`/`decode` tree algebra.
+- [01]-[NODE]: `DocumentNode` — the recursive nine-variant `msgspec` tagged-union tree + the `NodeMeta` closed tag every node carries + the `StructRole` closed PDF/UA structure-type family (`StandardRole(StructEltKind)` over the standard vocabulary with its `_STRUCT_CATEGORY` `StructCategory`/`heading_level` behavior table, `ForeignRole(str)` the one open arm) + the `CorpusRow` typed columnar projection carrying the `AltStatus` alt-presence column; the content-keyed `children`/`walk`/`node_digest`/`role_of`/`role_category`/`role_contract`/`alt_of`/`to_corpus_row`/`encode_corpus_row`/`to_typst_source`/`encode`/`decode` tree algebra.
 - [02]-[DELTA]: `DocumentDelta` — the four-variant edit algebra (inserted/deleted/moved/reparametrized) keyed by `ContentKey`; `diff`/`merge` defined once over the tree as one total fold.
 
 ## [02]-[NODE]
 
 - Owner: `DocumentNode` the one recursive interior tree — nine `msgspec.Struct` variants (`PageNode`/`SectionNode`/`BlockNode`/`RunNode`/`TableNode`/`FigureNode`/`FieldNode`/`AnnotationNode`/`StructureNode`) under one `tag`-discriminated `Union`, every variant carrying a `NodeMeta` value object (the closed-family tag: content key, semantic role, page index, optional bounds). The tree is the algebra emission lowers FROM and extraction recovers TO.
-- Cases: `PageNode` (page-rooted child sequence + media box) · `SectionNode` (heading-level outline node + child sequence) · `BlockNode` (paragraph/list/quote block with a `BlockKind` row + inline runs) · `RunNode` (styled text run: text, font key, size, weight, RTL flag — the leaf shaped by `folder:../typography/conformance#CONFORM` SHAPE) · `TableNode` (row-major cell grid of child node sequences + span map) · `FigureNode` (embedded-graphic node: content key of the placed asset + caption runs, the unit `folder:../figures/compose#COMPOSE` produces) · `FieldNode` (interactive form field: name, `FieldKind` row, value) · `AnnotationNode` (markup/redaction/link annotation with an `AnnotKind` row + target rect) · `StructureNode` (PDF/UA structure-element node: the tagged-PDF role + child sequence carrying the accessibility tree). Each a frozen `Struct` variant, never a per-kind class hierarchy.
+- Cases: `PageNode` (page-rooted child sequence + media box) · `SectionNode` (heading-level outline node + child sequence) · `BlockNode` (paragraph/list/quote/heading block with a `BlockKind` row, a `1`-`6` heading `level`, and inline runs) · `RunNode` (styled text run: text, font key, size, weight, RTL flag — the leaf shaped by `folder:../typography/conformance#CONFORM` SHAPE) · `TableNode` (row-major cell grid of child node sequences + span map) · `FigureNode` (embedded-graphic node: content key of the placed asset + caption runs + the `alt` text equivalent the `folder:../accessibility/tagged#ACCESS` AUDIT verifies, the unit `folder:../figures/compose#COMPOSE` produces) · `FieldNode` (interactive form field: name, `FieldKind` row, value) · `AnnotationNode` (markup/redaction/link annotation with an `AnnotKind` row + target rect) · `StructureNode` (PDF/UA structure-element node: the closed `StructRole` tagged-PDF role + child sequence carrying the accessibility tree). Each a frozen `Struct` variant, never a per-kind class hierarchy.
+- Role: `StructRole` the one closed PDF/UA structure-type family — `StandardRole(StructEltKind)` over the `StructEltKind` `StrEnum` of the bounded standard-structure vocabulary (`Document`/`Part`/`Sect`/`H1`-`H6`/`P`/`L`/`LI`/`Table`/`TR`/`TD`/`Figure`/`Caption`/`Link`/`Note`), and `ForeignRole(role: str)` the one open extension arm carrying a `Meta`-constrained non-empty custom role string. `StructureNode.tag_role: str` is the deleted stringly-typed escape hatch; the closed `StrEnum` row-set plus the single `ForeignRole` arm is the totality the `folder:../accessibility/tagged#ACCESS` AUDIT closes over, every standard role a `StructEltKind` key (never a sibling struct) and every foreign role one `Meta`-validated arm. The vocabulary is not bare: `_STRUCT_CATEGORY` is the one frozen behavior table keyed by `StructEltKind` — the smart-enum row carrying each standard role's `StructCategory` (`GROUPING`/`HEADING`/`BLOCK`/`INLINE`/`LIST`/`TABLE`/`ILLUSTRATION`) and its `heading_level` (`1`-`6` on `H1`-`H6`, `0` elsewhere), the one primary correspondence the AUDIT's structural-nesting and heading-monotonicity checks fold over rather than re-enumerating the nineteen roles per check, so the category and level a role carries derive from one table row and never a parallel `match`.
 - Entry: `DocumentNode` is a `type` alias over the nine-variant `Union`; construction is direct variant instantiation, decode is `_DOCUMENT_DECODER.decode` (a reusable `msgspec.json.Decoder` typed on the union, the tag round-tripping under `tag_field="kind"`), and re-encode is `_DOCUMENT_ENCODER.encode` (a reusable `msgspec.json.Encoder`). `node_digest` folds a node's identity over its content + children into one `ContentKey` so the tree is content-addressed; `walk` yields every node in document order for the lens fold and the corpus projection.
-- Auto: `children` is one total `match` projecting each variant to its interior child sequence (leaves return `()`); `node_digest` keys a leaf over its serialized bytes and an interior node over the Merkle fold of its children's keys through `ContentIdentity.of(tuple_of_child_keys)`, so an identical sub-tree keys identically and a re-parametrized node re-keys; `walk` is a pre-order generator over `children`; `to_corpus_row` projects a node to the flat `(key, kind, role, page, text)` row the runtime columnar lane ingests; `to_typst_source` is the one Typst-markup lowering folding the tree to the source string the `documents/emit#DOCUMENT` typst rows compile, defined once here so the three Typst modes share one lowering rather than three string templates.
+- Auto: `children` is one total `match` projecting each variant to its interior child sequence (leaves return `()`); `node_digest` keys a leaf over its serialized bytes and an interior node over the Merkle fold of its children's keys through `ContentIdentity.of(tuple_of_child_keys)`, so an identical sub-tree keys identically and a re-parametrized node re-keys; `walk` is a pre-order generator over `children`; `to_corpus_row` projects a node to the `CorpusRow` frozen `Struct` the runtime columnar lane ingests as a typed value — its `kind` the `NodeKind` admitted through `NodeKind(node.__struct_config__.tag)` (the variant tag `msgspec` already minted, never a parallel kind `match`), its `page` the `int` preserved (never stringified), and its `alt`/`alt_status` the `(AltText, AltStatus)` pair `alt_of` derives in one `FigureNode` discrimination (`PRESENT` with the authored `alt` on a `FigureNode` whose `alt` is non-empty, `ABSENT` with `""` on an un-authored figure, `NA` with `""` on every non-figure node), so the FigureNode check fires once per row rather than once for the `alt` value and again for the status, and the accessibility audit queries alt-text presence as one `kind == FIGURE and alt_status == ABSENT` column predicate over the corpus rather than re-deriving emptiness per row, and `encode_corpus_row` lowers the row to bytes through the shared `_CORPUS_ENCODER` so the queryable corpus is one content-keyed serialized value, never a hand-built `dict[str, str]` that erases the column types; `role_of` is the one polymorphic role projection discriminating on input shape — a `StructRole` lowers to its `StructEltKind` value or `ForeignRole` string, a `StructureNode` lowers through its `role` field, and every non-structure `DocumentNode` lowers to `NodeMeta.role` — so the corpus `role` column, the AUDIT role read, and the standard-vs-foreign discriminant resolve through one entrypoint, never a `corpus_role`/`role_of` pair where one calls the other; `role_category` projects a `StructRole` to its `StructCategory`/`heading_level` pair through the `_STRUCT_CATEGORY` table, a `ForeignRole` resolving to the named `_FOREIGN_CATEGORY` open-default row rather than a bare inline literal, so the AUDIT's nesting and heading-level checks read one table lookup and the open default traces to one constant; `role_contract` is the one polymorphic role-contract projection discriminating on a `RoleView` axis — `SCHEMA` returns the `json.schema_components` `(components, defs)` role-coverage contract, `INSPECT` the `inspect.multi_type_info` one-element node-tree tuple wrapping the `inspect.UnionType`, and `CONTRACT` the `structs.fields(FigureNode)` `FieldInfo` set the AUDIT reads to confirm the `alt` field's name, type, and default — so the three audit views resolve through one entrypoint keyed by the view value, never a `role_schema`/`role_inspect` sibling pair; `to_typst_source` is the one Typst-markup lowering folding the tree to the source string the `documents/emit#DOCUMENT` typst rows compile through the shared `_runs` markup-join and the `_heading` level-clamped (`1`-`6`) heading emitter both the `BlockKind.HEADING` block and the `SectionNode` outline arm fold through (so a block heading carries its own `H1`-`H6` level rather than capping at level one), escaping every interpolated `RunNode.text`, heading, and caption run through the markup-context `_typst(..., TypstScope.MARKUP)` and the `FigureNode` `asset_key`/`alt` through the string-context `_typst(..., TypstScope.STRING)` so the marked-content figure structure element carries the text equivalent and a run carrying `]`/`#`/`*` never breaks the `caption: [..]` or `#strong[..]` markup, defined once here so the two Typst escaping contexts share one `str.maketrans` algebra rather than per-arm string templates. The `_image` emitter owns the inner `image(source, alt: ..)` per the `.api/typst.md` `[MARKUP_ELEMENT_SCOPE]` law and the `none | str` `alt` type — a `FigureNode` whose `alt` is authored writes `alt: "<escaped>"`, an un-authored figure writes `alt: none` rather than an empty-string equivalent (the `AltStatus.ABSENT` fact the corpus already distinguishes, never collapsed to `alt: ""` that asserts a meaningless image), so the absent and authored cases stay distinct through to the PDF/UA render; the enclosing `#figure(.., caption: [..])` carries the caption and reserves its own `alt: none | str` slot for custom-content figures whose body is not an image, so an image figure writes one marked-content structure element with no doubled alt, and the future `documents/emit#DOCUMENT TYPST_QUERY` pass reads the `image` selector back through `typst.query` to verify every figure carries the equivalent.
 - Receipt: the recovered tree contributes the `folder:../receipt/receipt#RECEIPT` introspection case (content key, node count, text length, image count, hit count) at the lens boundary; `model.md` owns the tree type and its digest, never the receipt fold — authoring stays at `documents/emit`, recovery at `documents/lens`.
-- Packages: `msgspec` (`Struct(frozen=True, tag=True, tag_field=...)` variant tree, `Union` alias, `json.Encoder`/`json.Decoder` typed round-trip, `convert` boundary coercion, `structs.replace` copy-with); runtime (`content_identity.ContentIdentity`/`ContentKey` for the node digest, consumed never re-minted).
-- Growth: a new document concept is one `DocumentNode` variant (a frozen `Struct` carrying its payload + `NodeMeta`) plus one `children`/`node_digest` arm; the decoder, the diff fold, and every backend pick it up by the total `match`. A new structured value on an existing node is one field; zero new surface.
-- Boundary: the opaque `dict[str, object]` payload `documents/emit` formerly dispatched over is the deleted form — every backend now lowers from this tree. No durable store, no PDF parser (extraction is `documents/lens`'s pymupdf/pypdf/lxml surface), no UI, no second tree type per backend. The tree is the canonical interior representation; the wire projection into the columnar corpus is `to_corpus_row`, never a parallel serialized model. A flat `class DocumentNode` with a stringly-typed `kind: str` field and an `if kind == "page"` cascade is the rejected shape; the closed tag and the total `match` are the totality proof.
+- Packages: `msgspec` (`Struct(frozen=True, tag=..., tag_field=...)` variant tree, the `CorpusRow` `Struct` the typed corpus projection, `Union` alias, `json.Encoder`/`json.Decoder` typed round-trip over both the node tree and the corpus row, `convert` boundary coercion, `structs.replace` copy-with, `structs.fields(FigureNode)` returning the `structs.FieldInfo` set the `role_contract(RoleView.CONTRACT)` view projects so the AUDIT confirms the `alt` field's name, `AltText` annotation, and `""` default off the live struct rather than re-declaring it, `__struct_config__.tag` the `structs.StructConfig` runtime view of the variant tag the corpus `kind` column admits through `NodeKind(...)` with no kind `match`, `Meta` `Annotated`-constraint admission on the `ForeignRole.role`, `FigureNode.alt`, and `CorpusRow.alt` text fields, `json.schema_components((StructRole,), ref_template=...)` projecting the closed family plus its `#/components/{name}` `$defs` map to the JSON-schema role-coverage contract and `inspect.multi_type_info((StructRole,))` projecting the same union alias to the structured `inspect.UnionType`/`inspect.StructType`/`inspect.EnumType` node tree — the three views the accessibility AUDIT reads through the one `role_contract` dispatch, the schema map for a wire contract a multi-type spec embeds, the `inspect` node tree for the in-process totality walk over the `EnumType.cls` `StructEltKind` members that proves every standard role is covered, and the `FieldInfo` set for the `alt`-field contract; `inspect.Type` the node base the projection tuple is typed over); runtime (`content_identity.ContentIdentity`/`ContentKey` for the node digest, consumed never re-minted).
+- Growth: a new document concept is one `DocumentNode` variant (a frozen `Struct` carrying its payload + `NodeMeta`) plus one `children`/`node_digest` arm; the decoder, the diff fold, and every backend pick it up by the total `match`. A new structured value on an existing node is one field. A new standard PDF/UA role is one `StructEltKind` member plus one `_STRUCT_CATEGORY` row, never a sibling struct; a foreign role rides the one `ForeignRole` arm and the `_STRUCT_CATEGORY` open default; a new structural category for the AUDIT is one `StructCategory` member and a re-keyed table column; zero new surface.
+- Boundary: the opaque `dict[str, object]` payload `documents/emit` formerly dispatched over is the deleted form — every backend now lowers from this tree. No durable store, no PDF parser (extraction is `documents/lens`'s pymupdf/pypdf/lxml surface), no UI, no second tree type per backend. The tree is the canonical interior representation; the wire projection into the columnar corpus is the typed `CorpusRow` `Struct` (`to_corpus_row`/`encode_corpus_row`), never a stringly-typed `dict[str, str]` that erases the `kind`/`page` column types and never a parallel serialized model. A flat `class DocumentNode` with a stringly-typed `kind: str` field and an `if kind == "page"` cascade is the rejected shape; the closed tag and the total `match` are the totality proof. `StructureNode.tag_role: str` is the deleted stringly-typed role; the closed `StructEltKind` vocabulary plus the one `ForeignRole(str)` arm is the audited replacement, and a per-role struct hierarchy beside the `StrEnum` is the rejected re-fragmentation. `FigureNode.alt` is the alt-text-presence fact the accessibility AUDIT verifies, owned here as one `AltText`-constrained field projected to the `CorpusRow.alt_status` `AltStatus` column the audit reads as one predicate, never a phantom the audit checks against nothing and never a parallel alt-tracking surface; a second alt-text field on a non-figure node, a free-`str` alt escaping the `AltText` length bound, and a per-context alt re-derivation outside the one `to_typst_source` `image(.., alt: ..)` emission are the rejected re-fragmentations.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,10 +25,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from enum import StrEnum
-from typing import Final, assert_never
+from typing import Annotated, Final, assert_never
 
 import msgspec
-from msgspec import Struct
+from msgspec import Meta, Struct, inspect as msgspec_inspect
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 
@@ -71,6 +72,60 @@ class AnnotKind(StrEnum):
     STAMP = "stamp"
 
 
+class StructEltKind(StrEnum):
+    DOCUMENT = "Document"
+    PART = "Part"
+    SECT = "Sect"
+    H1 = "H1"
+    H2 = "H2"
+    H3 = "H3"
+    H4 = "H4"
+    H5 = "H5"
+    H6 = "H6"
+    P = "P"
+    L = "L"
+    LI = "LI"
+    TABLE = "Table"
+    TR = "TR"
+    TD = "TD"
+    FIGURE = "Figure"
+    CAPTION = "Caption"
+    LINK = "Link"
+    NOTE = "Note"
+
+
+class StructCategory(StrEnum):
+    GROUPING = "grouping"
+    HEADING = "heading"
+    BLOCK = "block"
+    INLINE = "inline"
+    LIST = "list"
+    TABLE = "table"
+    ILLUSTRATION = "illustration"
+
+
+class AltStatus(StrEnum):
+    PRESENT = "present"
+    ABSENT = "absent"
+    NA = "na"
+
+
+class TypstScope(StrEnum):
+    STRING = "string"
+    MARKUP = "markup"
+
+
+class RoleView(StrEnum):
+    SCHEMA = "schema"
+    INSPECT = "inspect"
+    CONTRACT = "contract"
+
+
+# --- [BOUNDARIES] -----------------------------------------------------------------------
+
+type ForeignRoleStr = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z][\w.\-]*\Z")]
+type AltText = Annotated[str, Meta(max_length=2048)]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -79,6 +134,17 @@ class NodeMeta(Struct, frozen=True):
     role: str
     page: int
     bounds: tuple[float, float, float, float] | None = None
+
+
+class StandardRole(Struct, frozen=True, tag="standard", tag_field="role_kind"):
+    elt: StructEltKind
+
+
+class ForeignRole(Struct, frozen=True, tag="foreign", tag_field="role_kind"):
+    role: ForeignRoleStr
+
+
+type StructRole = StandardRole | ForeignRole
 
 
 class PageNode(Struct, frozen=True, tag=NodeKind.PAGE.value, tag_field="kind"):
@@ -97,6 +163,7 @@ class SectionNode(Struct, frozen=True, tag=NodeKind.SECTION.value, tag_field="ki
 class BlockNode(Struct, frozen=True, tag=NodeKind.BLOCK.value, tag_field="kind"):
     meta: NodeMeta
     block: BlockKind
+    level: int = 1
     runs: tuple[RunNode, ...] = ()
     children: tuple[DocumentNode, ...] = ()
 
@@ -119,6 +186,7 @@ class TableNode(Struct, frozen=True, tag=NodeKind.TABLE.value, tag_field="kind")
 class FigureNode(Struct, frozen=True, tag=NodeKind.FIGURE.value, tag_field="kind"):
     meta: NodeMeta
     asset_key: ContentKey
+    alt: AltText = ""
     caption: tuple[RunNode, ...] = ()
 
 
@@ -138,16 +206,69 @@ class AnnotationNode(Struct, frozen=True, tag=NodeKind.ANNOTATION.value, tag_fie
 
 class StructureNode(Struct, frozen=True, tag=NodeKind.STRUCTURE.value, tag_field="kind"):
     meta: NodeMeta
-    tag_role: str
+    role: StructRole
     children: tuple[DocumentNode, ...] = ()
 
 
 type DocumentNode = PageNode | SectionNode | BlockNode | RunNode | TableNode | FigureNode | FieldNode | AnnotationNode | StructureNode
 
+
+class CorpusRow(Struct, frozen=True):
+    key: str
+    kind: NodeKind
+    role: str
+    page: int
+    text: str
+    alt: AltText = ""
+    alt_status: AltStatus = AltStatus.NA
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _DOCUMENT_ENCODER: Final = msgspec.json.Encoder()
 _DOCUMENT_DECODER: Final = msgspec.json.Decoder(DocumentNode)
+_CORPUS_ENCODER: Final = msgspec.json.Encoder()
+_TYPST_ESCAPE: Final[dict[TypstScope, dict[int, str]]] = {
+    TypstScope.STRING: str.maketrans({"\\": "\\\\", '"': '\\"'}),
+    TypstScope.MARKUP: str.maketrans({c: f"\\{c}" for c in "\\[]#*_@$<>`"}),
+}
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_STRUCT_CATEGORY: Final[dict[StructEltKind, tuple[StructCategory, int]]] = {
+    StructEltKind.DOCUMENT: (StructCategory.GROUPING, 0),
+    StructEltKind.PART: (StructCategory.GROUPING, 0),
+    StructEltKind.SECT: (StructCategory.GROUPING, 0),
+    StructEltKind.H1: (StructCategory.HEADING, 1),
+    StructEltKind.H2: (StructCategory.HEADING, 2),
+    StructEltKind.H3: (StructCategory.HEADING, 3),
+    StructEltKind.H4: (StructCategory.HEADING, 4),
+    StructEltKind.H5: (StructCategory.HEADING, 5),
+    StructEltKind.H6: (StructCategory.HEADING, 6),
+    StructEltKind.P: (StructCategory.BLOCK, 0),
+    StructEltKind.L: (StructCategory.LIST, 0),
+    StructEltKind.LI: (StructCategory.LIST, 0),
+    StructEltKind.TABLE: (StructCategory.TABLE, 0),
+    StructEltKind.TR: (StructCategory.TABLE, 0),
+    StructEltKind.TD: (StructCategory.TABLE, 0),
+    StructEltKind.FIGURE: (StructCategory.ILLUSTRATION, 0),
+    StructEltKind.CAPTION: (StructCategory.BLOCK, 0),
+    StructEltKind.LINK: (StructCategory.INLINE, 0),
+    StructEltKind.NOTE: (StructCategory.BLOCK, 0),
+}
+_FOREIGN_CATEGORY: Final[tuple[StructCategory, int]] = (StructCategory.ILLUSTRATION, 0)
+
+type RoleContract = (
+    tuple[tuple[dict[str, object], ...], dict[str, dict[str, object]]]
+    | tuple[msgspec_inspect.Type, ...]
+    | tuple[msgspec.structs.FieldInfo, ...]
+)
+
+_ROLE_CONTRACT: Final[dict[RoleView, RoleContract]] = {
+    RoleView.SCHEMA: msgspec.json.schema_components((StructRole,), ref_template="#/components/{name}"),
+    RoleView.INSPECT: msgspec_inspect.multi_type_info((StructRole,)),
+    RoleView.CONTRACT: msgspec.structs.fields(FigureNode),
+}
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -183,21 +304,67 @@ def node_digest(node: DocumentNode) -> ContentKey:
     return ContentIdentity.of(node.meta.key.fmt, tuple(node_digest(child) for child in kids))
 
 
-def to_corpus_row(node: DocumentNode) -> dict[str, str]:
-    text = "".join(run.text for run in walk(node) if isinstance(run, RunNode))
-    return {"key": node.meta.key.hex, "kind": _kind_of(node).value, "role": node.meta.role, "page": str(node.meta.page), "text": text}
+def role_of(value: StructRole | DocumentNode) -> str:
+    match value:
+        case StandardRole(elt=elt):
+            return elt.value
+        case ForeignRole(role=name):
+            return name
+        case StructureNode(role=role):
+            return role_of(role)
+        case _:
+            return value.meta.role
+
+
+def role_category(role: StructRole) -> tuple[StructCategory, int]:
+    match role:
+        case StandardRole(elt=elt):
+            return _STRUCT_CATEGORY[elt]
+        case ForeignRole():
+            return _FOREIGN_CATEGORY
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def role_contract(view: RoleView) -> RoleContract:
+    return _ROLE_CONTRACT[view]
+
+
+def alt_of(node: DocumentNode) -> tuple[AltText, AltStatus]:
+    match node:
+        case FigureNode(alt=alt):
+            return alt, (AltStatus.PRESENT if alt else AltStatus.ABSENT)
+        case _:
+            return "", AltStatus.NA
+
+
+def to_corpus_row(node: DocumentNode) -> CorpusRow:
+    alt, status = alt_of(node)
+    return CorpusRow(
+        key=node.meta.key.hex,
+        kind=NodeKind(node.__struct_config__.tag),
+        role=role_of(node),
+        page=node.meta.page,
+        text="".join(run.text for run in walk(node) if isinstance(run, RunNode)),
+        alt=alt,
+        alt_status=status,
+    )
+
+
+def encode_corpus_row(node: DocumentNode) -> bytes:
+    return _CORPUS_ENCODER.encode(to_corpus_row(node))
 
 
 def to_typst_source(node: DocumentNode) -> str:
     match node:
         case RunNode(text=text, weight=weight):
-            return f"#strong[{text}]" if weight >= 700 else text
-        case BlockNode(block=BlockKind.HEADING, runs=runs):
-            return "= " + "".join(run.text for run in runs) + "\n"
+            return f"#strong[{_typst(text, TypstScope.MARKUP)}]" if weight >= 700 else _typst(text, TypstScope.MARKUP)
+        case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
+            return _heading(level, runs)
         case BlockNode(runs=runs, children=kids):
-            return "".join(run.text for run in runs) + "".join(to_typst_source(child) for child in kids) + "\n"
+            return _runs(runs) + "".join(to_typst_source(child) for child in kids) + "\n"
         case SectionNode(level=level, heading=head, children=kids):
-            return f"{'=' * level} " + "".join(run.text for run in head) + "\n" + "".join(to_typst_source(child) for child in kids)
+            return _heading(level, head) + "".join(to_typst_source(child) for child in kids)
         case PageNode(children=kids):
             return "".join(to_typst_source(child) for child in kids) + "#pagebreak()\n"
         case StructureNode(children=kids):
@@ -205,8 +372,8 @@ def to_typst_source(node: DocumentNode) -> str:
         case TableNode(rows=rows):
             cells = ", ".join("[" + to_typst_source(cell) + "]" for row in rows for cell in row)
             return f"#table(columns: {len(rows[0]) if rows else 0}, {cells})\n"
-        case FigureNode(asset_key=asset_key, caption=caption):
-            return f'#figure(image("{asset_key.hex}"), caption: [' + "".join(run.text for run in caption) + "])\n"
+        case FigureNode(asset_key=asset_key, alt=alt, caption=caption):
+            return f"#figure({_image(asset_key, alt)}, caption: [{_runs(caption)}])\n"
         case FieldNode() | AnnotationNode():
             return ""
         case _ as unreachable:
@@ -221,28 +388,22 @@ def encode(node: DocumentNode) -> bytes:
     return _DOCUMENT_ENCODER.encode(node)
 
 
-def _kind_of(node: DocumentNode) -> NodeKind:
-    match node:
-        case PageNode():
-            return NodeKind.PAGE
-        case SectionNode():
-            return NodeKind.SECTION
-        case BlockNode():
-            return NodeKind.BLOCK
-        case RunNode():
-            return NodeKind.RUN
-        case TableNode():
-            return NodeKind.TABLE
-        case FigureNode():
-            return NodeKind.FIGURE
-        case FieldNode():
-            return NodeKind.FIELD
-        case AnnotationNode():
-            return NodeKind.ANNOTATION
-        case StructureNode():
-            return NodeKind.STRUCTURE
-        case _ as unreachable:
-            assert_never(unreachable)
+def _typst(value: str, scope: TypstScope) -> str:
+    return value.translate(_TYPST_ESCAPE[scope])
+
+
+def _runs(runs: tuple[RunNode, ...]) -> str:
+    return "".join(_typst(run.text, TypstScope.MARKUP) for run in runs)
+
+
+def _heading(level: int, runs: tuple[RunNode, ...]) -> str:
+    return f"{'=' * min(max(level, 1), 6)} {_runs(runs)}\n"
+
+
+def _image(asset_key: ContentKey, alt: AltText) -> str:
+    source = _typst(asset_key.hex, TypstScope.STRING)
+    equiv = f'"{_typst(alt, TypstScope.STRING)}"' if alt else "none"
+    return f'image("{source}", alt: {equiv})'
 ```
 
 ## [03]-[DELTA]
@@ -442,4 +603,6 @@ def _find(tree: DocumentNode, key: ContentKey) -> DocumentNode:
 
 - [OCR_DEFERRED]: a scanned page with no embedded text recovers no `RunNode` leaf — `documents/lens` reads zero glyphs, so the tree has empty text runs. OCR (ocrmypdf driving Tesseract, a native binary) is the one path that would synthesize `RunNode` text from a rasterized page. It carries a native binary outside the cp315-core wheel set and the `python_version<'3.15'` band, so it is a deferred-admission concern, never a phantom fence member: the tree models the recovered structure faithfully (empty runs on a scanned page), and OCR enrichment lands as a future `documents/lens` arm over an admitted OCR owner. `model.md` owns no OCR surface; the tree type is complete without it.
 - [DIGEST_VS_IDENTITY]: `node_digest` is the Merkle CONTENT fold — a leaf keys over its serialized bytes and an interior node folds its child digests through `ContentIdentity.of(tuple_of_child_keys)` (the `folder:../../../runtime/evidence/identity#CONTENT_IDENTITY` little-endian child serialization), so any descendant edit re-keys every ancestor digest. That re-keying is exactly why the diff does NOT key by `node_digest`: an instable parent reference would spuriously `Moved` every sibling of an inserted node and break `merge`. The diff keys instead by the STABLE `NodeMeta.key` minted once per node at authoring/recovery time, so an edit at one node never perturbs its ancestors' diff keys. `node_digest` serves the cache-hit-by-reference and corpus-residency identity (a content-identical sub-tree keys identically for reuse elision); the diff/merge/move detection serves structural identity through `NodeMeta.key`. Two distinct keyings, never conflated.
+- [STRUCT_ROLE_TOTALITY]: the PDF/UA structure-type vocabulary is closed except at one extension point, so `StructRole` is a two-arm tagged `Union` under `tag_field="role_kind"` — `StandardRole` wrapping the `StructEltKind` `StrEnum` of the nineteen standard-structure roles (`Document`/`Part`/`Sect`/`H1`-`H6`/`P`/`L`/`LI`/`Table`/`TR`/`TD`/`Figure`/`Caption`/`Link`/`Note`), and `ForeignRole` carrying the one `ForeignRoleStr` escape. A standard role is a `StructEltKind` member (a `StrEnum` row, never a sibling struct), so a new standard role is one enum line plus one `_STRUCT_CATEGORY` row and `role_of`'s `StandardRole` arm plus `role_category`'s table lookup absorb it; a foreign role is the single `ForeignRole` arm `match` reaches, categorized as the named `_FOREIGN_CATEGORY` open-default row rather than a bare inline literal. The `StructEltKind` value strings are the literal PDF/UA standard-structure-type names, the one literal source on the page that traces to the external standard vocabulary rather than an axis; `ForeignRoleStr` constrains the foreign role to a non-empty `[A-Za-z][\w.\-]*` identifier through `Meta(min_length, max_length, pattern)`, validated on decode and on the `Reparametrized` re-coerce through `msgspec.convert`. The PDF/UA vocabulary is not bare: `_STRUCT_CATEGORY` is the one frozen behavior table keyed by `StructEltKind` carrying each role's `StructCategory` (`GROUPING` for `Document`/`Part`/`Sect`, `HEADING` for `H1`-`H6`, `LIST` for `L`/`LI`, `TABLE` for `Table`/`TR`/`TD`, `INLINE` for `Link`, `BLOCK` for `P`/`Caption`/`Note`, `ILLUSTRATION` for `Figure`) and its `heading_level` (`1`-`6` on the heading rows, `0` elsewhere), the one primary correspondence `role_category` projects so the AUDIT folds structural-nesting legality and heading-level monotonicity over one table lookup rather than nineteen per-role arms — the smart-enum behavior-row collapse the bare `StrEnum` vocabulary alone defeats. The closed family and the `FigureNode` alt field carry three audit views behind the one `role_contract(view)` dispatch keyed by `RoleView`, never a `role_schema`/`role_inspect` sibling pair: `RoleView.SCHEMA` returns `msgspec.json.schema_components((StructRole,), ref_template="#/components/{name}")` — the `(components, defs)` JSON-schema role-coverage contract a multi-type audit specification embeds, the first element the per-type schema tuple whose lone entry carries the `anyOf` ref pair plus the `role_kind` discriminator mapping, the second the `$defs` map binding `StandardRole`/`StructEltKind`/`ForeignRole` to their `#/components/{name}` definitions, so the standard `StandardRole` (its `elt` an `enum` over the nineteen `StructEltKind` rows) and foreign `ForeignRole` (its `role` a `pattern`-constrained string) surface as referenced definitions without re-deriving; `RoleView.INSPECT` returns `msgspec.inspect.multi_type_info((StructRole,))` — the one-element `tuple[inspect.Type, ...]` wrapping the `inspect.UnionType` whose `.types` holds the two `inspect.StructType` arms (the `StandardRole` arm's `elt` field an `inspect.EnumType` whose `.cls` is the `StructEltKind` enum carrying every row) the in-process AUDIT totality walk reads to prove the closed family covers the full vocabulary; `RoleView.CONTRACT` returns `msgspec.structs.fields(FigureNode)` — the `FieldInfo` set the AUDIT reads to confirm the `alt` field name, `AltText` annotation, and `""` default off the live struct. The deleted `StructureNode.tag_role: str` had no such audit target, and the bare `json.schema` whole-blob form carried no extractable component map. The nested `role_kind` discriminant is independent of the outer `kind` discriminant: `StructureNode` decodes its `kind="structure"` tag first, then `role` decodes its own `role_kind` tag, two tag fields on two `Union` levels that never collide because they name distinct fields. The `kind` tag the corpus `kind` column reads is recovered from `node.__struct_config__.tag` (the `msgspec.structs.StructConfig` runtime view of the variant's tag), never a parallel `match` re-enumerating the nine variants to recover a literal the tag already carries.
+- [ALT_TEXT_PRESENCE]: `FigureNode.alt: AltText` is the alt-text-presence fact the `accessibility/tagged#ACCESS` AUDIT verifies and the `figures/compose#COMPOSE` unit authors, `AltText` an `Annotated[str, Meta(max_length=2048)]` admitting the empty string as the default (an un-authored figure carries `alt=""`, the audit's failing case) while bounding the upper length on decode. `to_corpus_row` projects the `CorpusRow.alt: AltText` and `CorpusRow.alt_status: AltStatus` columns from the one `alt_of` `(AltText, AltStatus)` pair (`PRESENT` with the authored alt on a figure, `ABSENT` with `""` on `alt=""`, `NA` with `""` on every non-figure node) so the `FigureNode` discriminant fires once per row, and the audit reads alt-text presence as the single `kind == FIGURE and alt_status == ABSENT` column predicate over the content-keyed corpus rather than re-walking the tree or re-deriving emptiness per row, and `to_typst_source` folds the `FigureNode` through the `_image` emitter that owns the `alt: none | str` decision — a non-empty `alt` writes the string-context-escaped `image(source, alt: "<escaped>")`, an empty `alt` writes `image(source, alt: none)` (the Typst `image` markup `alt: none | str` default the folder `.api/typst.md` `[MARKUP_ELEMENT_SCOPE]` catalogues), so the absent case stays `none` rather than collapsing to an empty-string equivalent that asserts a meaningless image, the Typst compiler emits the text equivalent into the marked-content figure structure element of the PDF/UA render, and the future `documents/emit#DOCUMENT TYPST_QUERY` pass reads the compiled `image` selector back through `typst.query` to confirm the equivalent landed. The `alt` equivalent rides the inner `image`, never doubled onto the enclosing `figure(.., alt: ..)` — Typst reads both when the figure body is an image with its own `alt`, so the figure-level `alt` stays reserved for custom-content figures. The `_typst(value, scope)` escaper is one `TypstScope`-keyed `str.maketrans` algebra: the `STRING` context escapes `\` and `"` for the `alt`/`asset_key` quoted-string arguments, and the `MARKUP` context escapes the Typst content-mode active set `\[]#*_@$<>` and backtick for every interpolated `RunNode.text`, heading, and caption run, so an `alt` carrying a quote or a run carrying `]`/`#` produces valid markup rather than a broken literal or a mis-parsed `caption: [..]`/`#strong[..]` block — the `.api/typst.md` `[04] markup axis` escaping law applied to both the string and the content interpolation contexts, not only the `alt` string. The field's presence is independently provable: `role_contract(RoleView.CONTRACT)` returns `msgspec.structs.fields(FigureNode)`, so the AUDIT reads the `alt` `FieldInfo` — its `name`, its `AltText` `encode_name`/`type`, and its `""` default — off the live struct rather than re-declaring the field set, the `CONTRACT` view a third row on the same `RoleView` axis the schema and inspect views ride. The field rides the `Reparametrized` own-field overlay with every other `FigureNode` own field, so a re-authored alt re-keys the figure's `node_digest` and emits one `Reparametrized` edit; no parallel alt-tracking surface exists.
 - [MSGSPEC_RECURSIVE_UNION]: the nine `DocumentNode` variants form a recursive `Union` via the `from __future__ import annotations` forward reference on the `children`/`heading`/`runs`/`caption`/`rows` fields that recurse into `DocumentNode`; `msgspec.json.Decoder(DocumentNode)` resolves the forward reference at decoder construction and discriminates on the `tag_field="kind"` tag (the `NodeKind` value), so the tree round-trips without a custom `dec_hook` and the decoded struct exposes the `kind` only as the encoded field, never a runtime `.kind`/`.tag` attribute. The `DocumentDelta` patch decodes as `tuple[DocumentDelta, ...]` under `tag_field="edit"`. The `Reparametrized` field map carries `msgspec.Raw` opaque values over the OWN fields only (every field except the structural `children`), and `_apply_fields` overlays them onto `msgspec.to_builtins(node)` then re-coerces through `msgspec.convert(merged, type(node))` so the changed own-fields re-validate against the concrete leaf variant's field types in one pass — no per-field annotation lookup (`__future__` annotations are strings, so a field-type decode would mis-resolve), no eager whole-tree re-validation, and a node's structural children are untouched by an own-content overlay.

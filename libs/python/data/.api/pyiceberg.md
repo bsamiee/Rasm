@@ -16,20 +16,23 @@
 [PUBLIC_TYPE_SCOPE]: catalog, table, and scan owners
 - rail: iceberg
 
-| [INDEX] | [SYMBOL]                             | [ROLE]              | [ENTRY]                                                            |
-| :-----: | :----------------------------------- | :------------------ | :----------------------------------------------------------------- |
-|  [01]   | `pyiceberg.catalog.Catalog`          | abstract catalog    | `load_catalog(name, **props)`                                      |
-|  [02]   | `pyiceberg.catalog.MetastoreCatalog` | metastore catalog   | same surface as `Catalog`                                          |
-|  [03]   | `pyiceberg.catalog.CatalogType`      | catalog enum        | `REST`, `HIVE`, `SQL`, `GLUE`, `DYNAMODB`, `BIGQUERY`, `IN_MEMORY` |
-|  [04]   | `pyiceberg.table.Table`              | live managed table  | scan, write, snapshot, transaction entry                           |
-|  [05]   | `pyiceberg.table.StaticTable`        | read-only table     | `StaticTable.from_metadata(path, io_props)`                        |
-|  [06]   | `pyiceberg.table.Transaction`        | multi-op write unit | `table.transaction()`                                              |
-|  [07]   | `pyiceberg.table.TableScan`          | base scan           | Arrow/Pandas/Polars egress                                         |
-|  [08]   | `pyiceberg.table.DataScan`           | data-file scan      | DuckDB/Ray/batch-reader egress                                     |
-|  [09]   | `pyiceberg.table.InspectTable`       | metadata inspection | `table.inspect`                                                    |
-|  [10]   | `pyiceberg.table.ManageSnapshots`    | snapshot lifecycle  | `table.manage_snapshots()`                                         |
-|  [11]   | `pyiceberg.schema.Schema`            | Iceberg schema      | holds `NestedField` columns, `as_arrow()`                          |
-|  [12]   | `pyiceberg.schema.NestedField`       | column descriptor   | field id, name, type, required, doc                                |
+| [INDEX] | [SYMBOL]                                          | [ROLE]               | [ENTRY]                                                               |
+| :-----: | :------------------------------------------------ | :------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `pyiceberg.catalog.Catalog`                       | abstract catalog     | `load_catalog(name, **props)`                                         |
+|  [02]   | `pyiceberg.catalog.MetastoreCatalog`              | metastore catalog    | same surface as `Catalog`                                             |
+|  [03]   | `pyiceberg.catalog.CatalogType`                   | catalog enum         | `REST`, `HIVE`, `SQL`, `GLUE`, `DYNAMODB`, `BIGQUERY`, `IN_MEMORY`    |
+|  [04]   | `pyiceberg.table.Table`                           | live managed table   | scan, write, snapshot, transaction entry                              |
+|  [05]   | `pyiceberg.table.StaticTable`                     | read-only table      | `StaticTable.from_metadata(path, io_props)`                           |
+|  [06]   | `pyiceberg.table.Transaction`                     | multi-op write unit  | `table.transaction()`                                                 |
+|  [07]   | `pyiceberg.table.TableScan`                       | base scan            | Arrow/Pandas/Polars egress                                            |
+|  [08]   | `pyiceberg.table.DataScan`                        | data-file scan       | DuckDB/Ray/batch-reader egress                                        |
+|  [09]   | `pyiceberg.table.InspectTable`                    | metadata inspection  | `table.inspect`                                                       |
+|  [10]   | `pyiceberg.table.ManageSnapshots`                 | snapshot lifecycle   | `table.manage_snapshots()`                                            |
+|  [11]   | `pyiceberg.schema.Schema`                         | Iceberg schema       | holds `NestedField` columns, `as_arrow()`                             |
+|  [12]   | `pyiceberg.schema.NestedField`                    | column descriptor    | field id, name, type, required, doc                                   |
+|  [13]   | `pyiceberg.table.maintenance.MaintenanceTable`    | maintenance owner    | `table.maintenance`; `expire_snapshots()` builder                     |
+|  [14]   | `pyiceberg.table.update.snapshot.ExpireSnapshots` | expire builder       | autocommit `Transaction` context; `older_than`/`by_id`/`commit`       |
+|  [15]   | `pyiceberg.table.update.schema.UpdateSchema`      | schema-mutation unit | `add_column`/`delete_column`/`rename_column`/`update_column`/`commit` |
 
 [PUBLIC_TYPE_SCOPE]: schema types, transforms, and expressions
 - rail: iceberg
@@ -80,34 +83,38 @@
 - rail: iceberg
 - `Table.scan(...)` returns `DataScan`; scan construction is lazy until a materialiser runs
 
-| [INDEX] | [SURFACE]                                                                                                        | [FAMILY]   | [RETURNS]                    |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :--------- | :--------------------------- |
-|  [01]   | `Table.scan(row_filter=AlwaysTrue(), selected_fields=('*',), case_sensitive=True, snapshot_id=None, limit=None)` | scan       | `DataScan`                   |
-|  [02]   | `TableScan.filter(expr)`, `TableScan.select(*field_names)`, `TableScan.use_ref(name)`                            | scan chain | scan                         |
-|  [03]   | `TableScan.to_arrow()`                                                                                           | egress     | `pa.Table`                   |
-|  [04]   | `TableScan.to_pandas(**kwargs)`                                                                                  | egress     | `pd.DataFrame`               |
-|  [05]   | `TableScan.to_polars()`                                                                                          | egress     | `pl.DataFrame`               |
-|  [06]   | `DataScan.to_arrow_batch_reader()`                                                                               | egress     | `pa.RecordBatchReader`       |
-|  [07]   | `DataScan.to_duckdb(table_name, connection=None)`                                                                | egress     | `DuckDBPyConnection`         |
-|  [08]   | `DataScan.to_ray()`                                                                                              | egress     | `ray.data.Dataset`           |
-|  [09]   | `TableScan.count()`, `TableScan.plan_files()`                                                                    | scan       | `int` or `ScanTask` iterable |
+| [INDEX] | [SURFACE]                                                                                                                                   | [FAMILY]   | [RETURNS]                    |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------ | :--------- | :--------------------------- |
+|  [01]   | `Table.scan(row_filter: str \| BooleanExpression = ALWAYS_TRUE, selected_fields=('*',), case_sensitive=True, snapshot_id=None, limit=None)` | scan       | `DataScan`                   |
+|  [02]   | `TableScan.filter(expr)`, `TableScan.select(*field_names)`, `TableScan.use_ref(name)`                                                       | scan chain | scan                         |
+|  [03]   | `TableScan.to_arrow()`                                                                                                                      | egress     | `pa.Table`                   |
+|  [04]   | `TableScan.to_pandas(**kwargs)`                                                                                                             | egress     | `pd.DataFrame`               |
+|  [05]   | `TableScan.to_polars()`                                                                                                                     | egress     | `pl.DataFrame`               |
+|  [06]   | `DataScan.to_arrow_batch_reader()`                                                                                                          | egress     | `pa.RecordBatchReader`       |
+|  [07]   | `DataScan.to_duckdb(table_name, connection=None)`                                                                                           | egress     | `DuckDBPyConnection`         |
+|  [08]   | `DataScan.to_ray()`                                                                                                                         | egress     | `ray.data.Dataset`           |
+|  [09]   | `TableScan.count()`, `TableScan.plan_files()`                                                                                               | scan       | `int` or `ScanTask` iterable |
+|  [10]   | `pyiceberg.expressions.parser.parse(expr)`; `scan(row_filter=)` parses a `str` filter internally                                            | scan       | `BooleanExpression`          |
 
 [ENTRYPOINT_SCOPE]: write, evolution, and inspection
 - rail: iceberg
 - direct `Table.append`/`overwrite`/`delete` are single-operation shorthands over `Transaction`
 
-| [INDEX] | [SURFACE]                                                                                                                               | [FAMILY]   | [RETURNS]                        |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :--------- | :------------------------------- |
-|  [01]   | `Transaction.append(df, snapshot_properties={}, branch='main')`                                                                         | write      | `None`                           |
-|  [02]   | `Transaction.overwrite(df, overwrite_filter=AlwaysTrue(), ...)`                                                                         | write      | `None`                           |
-|  [03]   | `Transaction.delete(delete_filter, snapshot_properties={}, ...)`                                                                        | write      | `None`                           |
-|  [04]   | `Transaction.upsert(df, join_cols=None, when_matched_update_all=True, ...)`                                                             | write      | `UpsertResult`                   |
-|  [05]   | `Transaction.add_files(file_paths, check_duplicate_files=True, branch='main')`                                                          | write      | `None`                           |
-|  [06]   | `Transaction.commit_transaction()`                                                                                                      | write      | `Table`                          |
-|  [07]   | `Transaction.update_schema(allow_incompatible_changes=False, case_sensitive=True)`                                                      | evolution  | `UpdateSchema`                   |
-|  [08]   | `Transaction.update_spec()`, `Transaction.update_snapshot(branch='main')`                                                               | evolution  | `UpdateSpec` or `UpdateSnapshot` |
-|  [09]   | `ManageSnapshots.rollback_to_snapshot(snapshot_id)`, `.create_branch(name, snapshot_id)`, `.create_tag(name, snapshot_id)`, `.commit()` | snapshot   | branch/tag/commit                |
-|  [10]   | `InspectTable.snapshots()`, `.manifests()`, `.files()`, `.entries()`, `.partitions()`, `.history()`                                     | inspection | metadata table                   |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                          | [FAMILY]    | [RETURNS]                            |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------- | :----------------------------------- |
+|  [01]   | `Transaction.append(df, snapshot_properties={}, branch='main')`                                                                                                                                                                                                    | write       | `None`                               |
+|  [02]   | `Transaction.overwrite(df, overwrite_filter=AlwaysTrue(), ...)`                                                                                                                                                                                                    | write       | `None`                               |
+|  [03]   | `Transaction.delete(delete_filter, snapshot_properties={}, ...)`                                                                                                                                                                                                   | write       | `None`                               |
+|  [04]   | `Transaction.upsert(df, join_cols=None, when_matched_update_all=True, ...)`                                                                                                                                                                                        | write       | `UpsertResult`                       |
+|  [05]   | `Transaction.add_files(file_paths, check_duplicate_files=True, branch='main')`                                                                                                                                                                                     | write       | `None`                               |
+|  [06]   | `Transaction.commit_transaction()`                                                                                                                                                                                                                                 | write       | `Table`                              |
+|  [07]   | `Transaction.update_schema(allow_incompatible_changes=False, case_sensitive=True)`                                                                                                                                                                                 | evolution   | `UpdateSchema`                       |
+|  [08]   | `Transaction.update_spec()`, `Transaction.update_snapshot(branch='main')`                                                                                                                                                                                          | evolution   | `UpdateSpec` or `UpdateSnapshot`     |
+|  [09]   | `ManageSnapshots.rollback_to_snapshot(snapshot_id)`, `.create_branch(name, snapshot_id)`, `.create_tag(name, snapshot_id)`, `.commit()`                                                                                                                            | snapshot    | branch/tag/commit                    |
+|  [10]   | `InspectTable.snapshots()`, `.manifests()`, `.files()`, `.entries()`, `.partitions()`, `.history()`                                                                                                                                                                | inspection  | metadata table                       |
+|  [11]   | `Table.update_schema(...)` (autocommit) yields `UpdateSchema`; `.add_column(path, field_type, doc=None, required=False, default_value=None)`, `.delete_column(path)`, `.rename_column(path_from, new_name)`, `.update_column(...)` chain and commit on `with`-exit | evolution   | `UpdateSchema`                       |
+|  [12]   | `Table.maintenance -> MaintenanceTable`, `MaintenanceTable.expire_snapshots() -> ExpireSnapshots`                                                                                                                                                                  | maintenance | `MaintenanceTable`/`ExpireSnapshots` |
+|  [13]   | `ExpireSnapshots.older_than(dt)`, `.by_id(snapshot_id)`, `.by_ids(snapshot_ids)`, `.commit()`                                                                                                                                                                      | maintenance | `ExpireSnapshots`/commit             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -121,6 +128,12 @@
 - Schema types use the `pyiceberg.types.*` primitives; Arrow schemas convert via `Schema.as_arrow()` and are accepted by `create_table` and `create_table_transaction`.
 - `DataScan.to_duckdb` registers the result as a named relation in the supplied or new `DuckDBPyConnection` and returns that connection.
 - `StaticTable.from_metadata` builds a read-only `Table` from a metadata path without a live catalog.
+- `Transaction.update_schema()` yields an `UpdateSchema` builder whose `add_column`/`delete_column`/`rename_column`/`update_column` mutators chain and apply on the builder's `__exit__`/`commit`; `delete_column(path)` is the portable column-drop member and `rename_column(path_from, new_name)` the portable rename.
+- `add_column(path, field_type, ...)` takes an `IcebergType`; `pyiceberg.types.IcebergType` is a Pydantic model whose wrap validator parses a primitive type string, so `IcebergType.model_validate("string")` yields `StringType()` — the settled string-to-type bridge for a `(name, type-string)` column-add tuple.
+
+[MAINTENANCE_BRIDGE]:
+- `Table.maintenance` returns a `MaintenanceTable`; `expire_snapshots()` opens an autocommitting `Transaction` and returns an `ExpireSnapshots` builder whose `older_than(dt)`/`by_id(snapshot_id)`/`by_ids(snapshot_ids)` clauses chain and apply on `commit()` (or the builder's `__exit__`).
+- `expire_snapshots` is the only maintenance op the Python `pyiceberg` API exposes: data-file compaction (`rewrite_data_files`) and orphan-file removal (`remove_orphan_files`) have no public Python entry — `ObjectStoreLocationProvider` only references orphan removal in a layout comment, not as an API.
 
 ## [05]-[LOCAL_ADMISSION]
 

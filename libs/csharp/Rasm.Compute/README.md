@@ -48,10 +48,14 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `MathNet.Numerics.Providers.MKL`
 - `MathNet.Numerics.Providers.OpenBLAS`
 - `CSparse`
+- `Silk.NET.WebGPU`
 
 [SYMBOLIC]:
 - `MathNet.Symbolics`
 - `FParsec`
+
+[OPTIMIZATION]:
+- `Google.OrTools`
 
 [ML_RUNTIME]:
 - `Microsoft.ML.OnnxRuntime`

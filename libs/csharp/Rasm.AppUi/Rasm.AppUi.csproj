@@ -79,6 +79,24 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
+    <!-- Constraint-layout solver (Kiwi) and the Avalonia-12 media surface (libmpv via the OpenGL render
+         path). The libmpv native (>= 0.40.0) is provisioned at the app-host distribution layer, never
+         bundled by these managed packages. -->
+    <ItemGroup Label="Layout And Media">
+        <PackageReference Include="Kiwi" />
+        <PackageReference Include="HanumanInstitute.LibMpv" />
+        <PackageReference Include="HanumanInstitute.LibMpv.Avalonia" />
+    </ItemGroup>
+
+    <!-- Alternative-input device fabric (Shell/input): SpaceMouse (HID), gamepad + haptic (Silk.NET SDL2),
+         and MIDI (Melanchall.DryWetMidi). -->
+    <ItemGroup Label="Input Fabric">
+        <PackageReference Include="HidSharp" />
+        <PackageReference Include="Silk.NET.Input" />
+        <PackageReference Include="Silk.NET.SDL" />
+        <PackageReference Include="Melanchall.DryWetMidi" />
+    </ItemGroup>
+
     <!-- Color/spectral, time, units, and hashing vocabulary the product-UI owners consume as
          settled domain types; the Thinktecture/LanguageExt cores arrive by global injection. -->
     <ItemGroup Label="Domain Runtime">

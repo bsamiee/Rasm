@@ -53,32 +53,42 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ## [02]-[SEAMS]
 
 ```text seams
-Runtime           ⇄  python:geometry/mesh                 # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
-Runtime/channels  →  typescript:interchange/codec         # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
-Runtime/channels  →  typescript:interchange/contract      # [WIRE]: FileDescriptorSet ContractDrift verdict
-Runtime/channels  →  typescript:platform/transport        # [WIRE]: ArtifactFrameWire reassembly
-Runtime/channels  →  typescript:ui/render                 # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
-Runtime/channels  ⇄  python:runtime/transport             # [WIRE]: PROTO_VOCABULARY service contracts
-Runtime/channels  ⇄  python:geometry/mesh                 # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
-Runtime/progress  →  typescript:projection/evidence       # [WIRE]: ProgressMarkWire
-Runtime           ←  python:geometry/mesh                 # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
-Runtime/codecs    ⇄  python:runtime/transport             # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
-Runtime/progress  →  typescript:interchange/codec         # [PROJECTION]: ProgressStore stream proto
-Runtime           ←  python:geometry                      # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
-Runtime           →  csharp:Rasm.AppUi/Render             # [PROJECTION]: ResidencyManifest.Mint web geometry residency
-Solver            ←  csharp:Rasm.Bim/Model                # [CONTENT_KEY]: AnalysisModel (GeometryKey, PropertyKey) content-key
-Runtime           ←  csharp:Rasm.Bim/Semantics            # [PROJECTION]: IFC/glTF semantic metadata layer
-Runtime/channels  →  csharp:Rasm.Bim/Semantics            # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse, LocalShape degrade
-Runtime/codecs    ←  csharp:Rasm.Bim/Model                # [CONTENT_KEY]: (GeometryKey, *Key) XxHash128.HashToUInt128 pair joining InterchangeIdentity
-Runtime/codecs    ←  csharp:Rasm.Bim/Exchange             # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
-Runtime/codecs    ←  csharp:Rasm.Bim/Review               # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
-Symbolic          →  csharp:Rasm.Fabrication/Process      # [WIRE]: UnitsNet quantity canonicalization to SI scalar
-Symbolic          →  csharp:Rasm.Materials/Appearance     # [PORT]: QuantityFamily illuminance
-Symbolic          →  csharp:Rasm.Materials/Appearance     # [PORT]: ONNX spectral-reconstruction conductor curve
-algorithms        →  csharp:Rasm.Materials/Appearance     # [PORT]: QR/LM least-squares BRDF fit over GGX/Smith
-Runtime           ⇄  csharp:Rasm.Persistence/Query/lanes  # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
-Runtime           ⇄  python:compute/graduation            # [GRADUATION]: HandoffAxis graduation evidence
-Runtime           ←  python:data/tabular                  # [SHAPE]: DOE dataset / labelled-array study input
+Runtime           ⇄  python:geometry/mesh                  # [CONTENT_KEY]: ContentIdentity XxHash128 + deflection/tolerance seed parity
+Runtime/channels  →  typescript:interchange/codec          # [WIRE]: ReceiptEnvelopeWire / FaultDetailWire / proto vocabulary
+Runtime/channels  →  typescript:interchange/contract       # [WIRE]: FileDescriptorSet ContractDrift verdict
+Runtime/channels  →  typescript:platform/transport         # [WIRE]: ArtifactFrameWire reassembly
+Runtime/channels  →  typescript:ui/render                  # [WIRE]: GeometryPayload proto descriptor / MeshTensor view
+Runtime/channels  ⇄  python:runtime/transport              # [WIRE]: PROTO_VOCABULARY service contracts
+Runtime/channels  ⇄  python:geometry/mesh                  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
+Runtime/progress  →  typescript:projection/evidence        # [WIRE]: ProgressMarkWire
+Runtime           ←  python:geometry/mesh                  # [TRANSPORT]: ServerHost ComputeService/ArtifactSync GLB + semantic header
+Runtime/codecs    ←  python:geometry/mesh                  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell
+Runtime/progress  →  typescript:interchange/codec          # [PROJECTION]: ProgressStore stream proto
+Runtime           ←  python:geometry                       # [GRADUATION]: HandoffAxis geometry case: topology-graph / lifecycle / registration
+Runtime           →  csharp:Rasm.AppUi/Render              # [PROJECTION]: ResidencyManifest.Mint web geometry residency
+Solver            ←  csharp:Rasm.Bim/Model                 # [CONTENT_KEY]: AnalysisModel (GeometryKey, PropertyKey) content-key
+Runtime           ←  csharp:Rasm.Bim/Semantics             # [PROJECTION]: IFC/glTF semantic metadata layer
+Runtime/channels  →  csharp:Rasm.Bim/Semantics             # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse, LocalShape degrade
+Runtime/codecs    ←  csharp:Rasm.Bim/Model                 # [CONTENT_KEY]: (GeometryKey, *Key) XxHash128.HashToUInt128 pair joining InterchangeIdentity
+Runtime/codecs    ←  csharp:Rasm.Bim/Exchange              # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
+Runtime/codecs    ←  csharp:Rasm.Bim/Review                # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
+Symbolic          →  csharp:Rasm.Fabrication/Process       # [WIRE]: UnitsNet quantity canonicalization to SI scalar
+Symbolic          →  csharp:Rasm.Materials/Appearance      # [PORT]: QuantityFamily illuminance
+Symbolic          →  csharp:Rasm.Materials/Appearance      # [PORT]: ONNX spectral-reconstruction conductor curve
+algorithms        →  csharp:Rasm.Materials/Appearance      # [PORT]: QR/LM least-squares BRDF fit over GGX/Smith
+Runtime           ⇄  csharp:Rasm.Persistence/Query/lanes   # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
+Runtime           ⇄  csharp:Rasm.Persistence/Version/commits # [GRADUATION]: HandoffAxis graduation evidence
+Runtime           →  csharp:Rasm.Persistence               # [CONTENT_KEY]: content-keyed blob
+Runtime           ←  csharp:Rasm.Persistence/Sync          # [PROJECTION]: content-key delta via FastCDC
+Tensor/device     ⇄  csharp:Rasm.AppUi/Render              # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
+Runtime/admission ←  csharp:Rasm.AppHost                   # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
+Exchange          ⇄  csharp:Rasm.Persistence/Sync/pipeline # [PORT]: parse-to-canonical-bytes (Extract)
+Compute           →  csharp:Rasm.Persistence/Store/quality # [SHAPE]: geometry-derived anomaly rule source
+Runtime           ⇄  python:compute/graduation             # [GRADUATION]: HandoffAxis graduation evidence
+Runtime           →  python:compute/graduation             # [WIRE]: EvidenceBundle graduation-evidence wire
+Runtime           ←  python:compute/solvers                # [PROJECTION]: SolverReceipt convergence verdict
+Runtime           ←  python:data/tabular                   # [SHAPE]: DOE dataset / labelled-array study input
+Runtime           ←  python:data/spatial/geospatial        # [SHAPE]: GeoArrow buffers share GLB tessellation wire layout
 ```
 
 ## [03]-[SPINE]
