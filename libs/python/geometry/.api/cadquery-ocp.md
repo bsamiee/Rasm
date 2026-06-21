@@ -144,6 +144,18 @@
 |  [06]   | `BRepGProp`                | property tool  | `VolumeProperties_s`/`SurfaceProperties_s` |
 |  [07]   | `GProp_GProps`             | property accum | mass, centroid, and moments accumulator    |
 
+[PUBLIC_TYPE_SCOPE]: supporting types — `OCP.XCAFApp` / `OCP.TDF` / `OCP.TCollection` / `OCP.Message` / `OCP.TColStd`
+- rail: cad-kernel exchange and document scaffolding
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [CAPABILITY]                                                                                  |
+| :-----: | :------------------------------------ | :--------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `XCAFApp_Application`                 | OCAF application | static `GetApplication_s() -> XCAFApp_Application`, instance `InitDocument(CDM_Document)` scaffolds the XCAF document |
+|  [02]   | `TDF_LabelSequence`                   | label sequence   | one-based `Value(i) -> TDF_Label` / `Length() -> int`; the `GetFreeShapes` out-parameter carrier |
+|  [03]   | `TCollection_ExtendedString`          | UTF-16 string    | the REQUIRED `TDocStd_Document` ctor storage-format arg (`AsciiString` and bare `str` both raise) |
+|  [04]   | `TCollection_AsciiString`             | ASCII string     | the `RWGltf_CafWriter` file-path arg (a bare `str` also marshals)                             |
+|  [05]   | `Message_ProgressRange`               | progress range   | the writer/mesh progress argument                                                             |
+|  [06]   | `TColStd_IndexedDataMapOfStringString`| string map       | the `RWGltf_CafWriter.Perform` `fileInfo` glTF-metadata map (empty map = no metadata)         |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: STEP exchange (shape-only)
@@ -165,7 +177,7 @@
 [ENTRYPOINT_SCOPE]: STEP XCAF exchange (assembly, color, name)
 - rail: cad-kernel data exchange
 
-`STEPCAFControl_Reader` populates a `TDocStd_Document`; the label tree is read through `XCAFDoc_DocumentTool` static accessors. Mode toggles select which metadata transfers.
+`STEPCAFControl_Reader` populates a `TDocStd_Document`; the label tree is read through `XCAFDoc_DocumentTool` static accessors. Mode toggles select which metadata transfers. The document itself is constructed with a `TCollection_ExtendedString` storage format — `TDocStd_Document(TCollection_ExtendedString("MDTV-XCAF"))` — and scaffolded by `XCAFApp_Application.GetApplication_s().InitDocument(doc)` before any transfer (an `AsciiString` or bare `str` ctor arg raises `TypeError`).
 
 | [INDEX] | [SURFACE]                                                                               | [ENTRY_FAMILY] | [CAPABILITY]                      |
 | :-----: | :-------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
@@ -173,10 +185,11 @@
 |  [02]   | `STEPCAFControl_Reader.SetColorMode(bool)` / `SetNameMode(bool)` / `SetLayerMode(bool)` / `SetGDTMode(bool)` / `SetMatMode(bool)` / `SetViewMode(bool)` / `SetPropsMode(bool)` | config | select transferred metadata channels |
 |  [03]   | `STEPCAFControl_Reader.Transfer(doc) -> bool`                                           | transfer       | populate the XCAF document        |
 |  [04]   | `STEPCAFControl_Reader.Perform(path, doc) -> bool`                                      | transfer       | read plus transfer in one call    |
-|  [05]   | `XCAFDoc_DocumentTool.ShapeTool_s(label) -> XCAFDoc_ShapeTool`                          | accessor       | assembly/instance label tree      |
-|  [06]   | `XCAFDoc_DocumentTool.ColorTool_s(label) -> XCAFDoc_ColorTool`                          | accessor       | per-shape color labels            |
-|  [07]   | `STEPCAFControl_Writer.Transfer(doc, mode) -> bool`                                     | writer         | stage XCAF document for write     |
-|  [08]   | `STEPCAFControl_Writer.Write(path) -> IFSelect_ReturnStatus`                            | writer         | write STEP with assembly metadata |
+|  [05]   | `XCAFApp_Application.GetApplication_s().InitDocument(doc)`                               | document init  | scaffold the OCAF document before transfer |
+|  [06]   | `XCAFDoc_DocumentTool.ShapeTool_s(label) -> XCAFDoc_ShapeTool`                          | accessor       | assembly/instance label tree      |
+|  [07]   | `XCAFDoc_DocumentTool.ColorTool_s(label) -> XCAFDoc_ColorTool`                          | accessor       | per-shape color labels            |
+|  [08]   | `STEPCAFControl_Writer.Transfer(doc, mode) -> bool`                                     | writer         | stage XCAF document for write     |
+|  [09]   | `STEPCAFControl_Writer.Write(path) -> IFSelect_ReturnStatus`                            | writer         | write STEP with assembly metadata |
 
 [ENTRYPOINT_SCOPE]: shape construction and Boolean modeling
 - rail: cad-kernel modeling
@@ -214,16 +227,16 @@ The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2
 [ENTRYPOINT_SCOPE]: traversal, triangulation, and properties
 - rail: cad-kernel topology and tessellation
 
-`TopExp_Explorer` is the polymorphic sub-shape iterator; `BRepMesh_IncrementalMesh` mutates a shape's triangulation in place before mesh export or glTF write.
+`TopExp_Explorer` is the polymorphic sub-shape iterator; `BRepMesh_IncrementalMesh` mutates a shape's triangulation in place before mesh export or glTF write. The mesher's load-bearing overload is the 5-arg `(shape, linDeflection, isRelative=False, angDeflection=0.5, isInParallel=False)`; the 2-arg `(shape, deflection)` is positional sugar over the same overload. `RWGltf_CafWriter.Perform` has NO `(doc, progress)` 2-arg overload — the minimal call is the 3-arg `Perform(doc, fileInfo, progress)` where `fileInfo` is a `TColStd_IndexedDataMapOfStringString` (an empty map returns `True`).
 
 | [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CAPABILITY]                       |
 | :-----: | :---------------------------------------------------------------------------- | :------------- | :--------------------------------- |
 |  [01]   | `TopExp_Explorer(shape, TopAbs_ShapeEnum)` + `.More()`/`.Current()`/`.Next()` | explorer       | iterate sub-shapes by kind         |
 |  [02]   | `TopExp.MapShapes_s(shape, type, map)`                                        | map builder    | index all sub-shapes of a type     |
 |  [03]   | `TopoDS.Edge_s(shape) -> TopoDS_Edge`                                         | downcast       | safe static downcast to edge       |
-|  [04]   | `BRepMesh_IncrementalMesh(shape, deflection)`                                 | mesher         | build the shape triangulation      |
+|  [04]   | `BRepMesh_IncrementalMesh(shape, deflection, isRelative=False, angle=0.5, parallel=False)` | mesher | build the shape triangulation (5-arg overload; 2-arg is sugar) |
 |  [05]   | `StlAPI_Writer().Write(shape, path)`                                          | export         | write triangulated shape to STL    |
-|  [06]   | `RWGltf_CafWriter(path, binary).Perform(doc, progress)`                       | export         | write XCAF document to glTF/GLB    |
+|  [06]   | `RWGltf_CafWriter(path, binary).Perform(doc, fileInfo, progress)`             | export         | write XCAF document to glTF/GLB (`fileInfo` an empty `TColStd_IndexedDataMapOfStringString` for none; no 2-arg overload) |
 |  [07]   | `BRepGProp.VolumeProperties_s(shape, gprops)`                                 | property       | accumulate mass, centroid, moments |
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -236,9 +249,9 @@ The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2
 - Boolean/offset detail: `BRepAlgoAPI_*` are n-ary BOPAlgo operators — the binary `(S1, S2)` ctor is sugar over `SetArguments`/`SetTools` taking `TopTools_ListOfShape`; `BRepOffsetAPI_MakeThickSolid` has a no-arg ctor and is driven by `MakeThickSolidByJoin(S, ClosingFaces: TopTools_ListOfShape, Offset, Tol, Mode=BRepOffset_Skin, ...)` or `MakeThickSolidBySimple(S, Offset)`, never a 4-positional-arg ctor; pass an empty `TopTools_ListOfShape` (or empty Python list, which pybind11 marshals) for a uniform offset shell. Fillet/chamfer (`BRepFilletAPI_MakeFillet`/`MakeChamfer`) add edges via `Add(...)` before `Build()`.
 
 [STEP_BRIDGE]:
-- assembly path: the `STEPCAFControl_Reader` plus `TDocStd_Document` plus `XCAFDoc_DocumentTool` triad is the load-bearing STEP entry; it preserves the assembly instance tree, per-shape colors, names, layers, GD&T, materials, and validation props that the shape-only `STEPControl_Reader` discards, and the `SetColorMode`/`SetNameMode`/`SetLayerMode`/`SetGDTMode`/`SetMatMode`/`SetViewMode`/`SetPropsMode` toggles select which metadata channels transfer. The label tree is read through static `XCAFDoc_DocumentTool.ShapeTool_s(label)`/`ColorTool_s(label)`; `XCAFDoc_ShapeTool.GetFreeShapes`/`GetShapes`/`GetShape_s`/`GetReferredShape_s`/`GetLocation_s` walk the assembly instances and locations.
+- assembly path: the `STEPCAFControl_Reader` plus `TDocStd_Document` plus `XCAFDoc_DocumentTool` triad is the load-bearing STEP entry; it preserves the assembly instance tree, per-shape colors, names, layers, GD&T, materials, and validation props that the shape-only `STEPControl_Reader` discards, and the `SetColorMode`/`SetNameMode`/`SetLayerMode`/`SetGDTMode`/`SetMatMode`/`SetViewMode`/`SetPropsMode` toggles select which metadata channels transfer. Construct the document as `TDocStd_Document(TCollection_ExtendedString("MDTV-XCAF"))` then scaffold it with `XCAFApp_Application.GetApplication_s().InitDocument(doc)` before `Transfer` — the `ExtendedString` storage-format arg is required (`AsciiString` and bare `str` raise `TypeError`). The label tree is read through static `XCAFDoc_DocumentTool.ShapeTool_s(label)`/`ColorTool_s(label)`; `XCAFDoc_ShapeTool.GetFreeShapes(TDF_LabelSequence)`/`GetShapes`/`GetShape_s`/`GetReferredShape_s`/`GetLocation_s` walk the assembly instances and locations, the `TDF_LabelSequence` filled as an out-parameter and read one-based via `Value(i)`/`Length()`.
 - exchange status: STEP/IGES read and write return `IFSelect_ReturnStatus` (`IFSelect_RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`); check the status equals `IFSelect_RetDone` before consuming `OneShape()` or `Shape(n)`, and read the pre-transfer root count from `NbRootsForTransfer()`.
-- tessellation: `BRepMesh_IncrementalMesh(shape, deflection)` mutates the shape's stored triangulation in place; `RWGltf_CafWriter` and `StlAPI_Writer` consume that triangulation, so meshing precedes glTF/STL export.
+- tessellation: `BRepMesh_IncrementalMesh(shape, deflection, isRelative=False, angle=0.5, parallel=False)` mutates the shape's stored triangulation in place; `RWGltf_CafWriter` and `StlAPI_Writer` consume that triangulation, so meshing precedes glTF/STL export. The minimal glTF write is `RWGltf_CafWriter(path, binary).Perform(doc, fileInfo, progress)` with `fileInfo` an empty `TColStd_IndexedDataMapOfStringString` (the 3-arg overload; there is no 2-arg `Perform(doc, progress)`).
 - evidence: `BRepGProp.VolumeProperties_s`/`SurfaceProperties_s` populate a `GProp_GProps` accumulator exposing `Mass`/`CentreOfMass`/`MatrixOfInertia` as the geometric receipt for a transferred solid.
 
 ## [05]-[LOCAL_ADMISSION]
@@ -251,4 +264,4 @@ The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2
 
 [CAPTURE_GAP]:
 - floor: `cadquery-ocp 7.9.3.1.1` requires `<3.15,>=3.10` and ships binary wheels cp310-cp314 only (no abi3, no cp315) under the Apache-2.0 wheel classifier; it is a `python_version<'3.15'` gated companion package whose ~148 MB `OCP.so` hard-links the exact-pinned `vtk==9.6.2` (plus the `cadquery-ocp-proxy==7.9.3.1.1` data side) — `import OCP` raises `ImportError` if the VTK Python-wrapping libraries are absent. Reflection ran by importing the cp313 wheel in an ephemeral `cadquery-ocp+vtk` environment; the cp315 project venv carries no wheel and `assay api resolve cadquery-ocp` resolves no source.
-- members: verified by live import against the installed cp313 pybind11 bindings; the `OCP.*` submodule set, the seven STEPCAF mode toggles, the n-ary Boolean `SetArguments`/`SetTools`/`SetFuzzyValue`/`SectionEdges` surface, the no-arg `MakeThickSolid` + `MakeThickSolidByJoin(S, TopTools_ListOfShape, Offset, Tol, ...)` signature, the fillet/chamfer `Add`/`Build`/`Shape` makers, the `IFSelect_ReturnStatus` members (`RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`), the `XCAFDoc_ShapeTool.GetFreeShapes`/`GetShape_s` walk, and the `GProp_GProps.Mass`/`CentreOfMass`/`MatrixOfInertia` accessors all resolve against the live bindings — no phantom.
+- members: verified by live import against the installed cp313 pybind11 bindings; the `OCP.*` submodule set, the seven STEPCAF mode toggles, the n-ary Boolean `SetArguments`/`SetTools`/`SetFuzzyValue`/`SectionEdges` surface, the no-arg `MakeThickSolid` + `MakeThickSolidByJoin(S, TopTools_ListOfShape, Offset, Tol, ...)` signature, the fillet/chamfer `Add`/`Build`/`Shape` makers, the `IFSelect_ReturnStatus` members (`RetVoid`/`RetDone`/`RetError`/`RetFail`/`RetStop`), the `XCAFDoc_ShapeTool.GetFreeShapes(TDF_LabelSequence)`/`GetShape_s` walk, the `XCAFApp_Application.GetApplication_s()` static plus instance `InitDocument(CDM_Document)` document-init pair, the `TDF_LabelSequence.Value(i)`/`Length()` one-based accessors, the `TCollection_ExtendedString`-only `TDocStd_Document` ctor (`AsciiString`/`str` raise) split from the `TCollection_AsciiString`-or-`str` `RWGltf_CafWriter` path arg, `Message_ProgressRange`, the 5-arg `BRepMesh_IncrementalMesh(shape, deflection, isRelative, angle, parallel)` overload, the 3-arg `RWGltf_CafWriter.Perform(doc, TColStd_IndexedDataMapOfStringString, progress) -> bool` minimal write (the empty-map call returns `True`; there is NO 2-arg `Perform(doc, progress)` overload), and the `GProp_GProps.Mass`/`CentreOfMass`/`MatrixOfInertia` accessors all resolve against the live bindings — no phantom.

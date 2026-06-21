@@ -65,9 +65,7 @@ type Residual = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v i
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _TRACER: Final[trace.Tracer] = trace.get_tracer("compute.model")
-
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # model facts carry no secret field
-
 _PARITY_TOL: Final[float] = 1e-4  # converter float32-vs-float64 numeric drift tolerance
 
 # the ordered parity probe rank: each row pairs a sklearn mixin verb with the ONNX output index

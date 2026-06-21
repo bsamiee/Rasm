@@ -32,7 +32,7 @@ import numpy as np
 import stamina
 from beartype import beartype
 from beartype.vale import Is
-from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Some, case, identity, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
@@ -272,7 +272,7 @@ class IfcStructural:
                 span.set_attributes({"tier": tier.name, "subject": STRUCTURAL_SUBJECT})
             return (
                 boundary(f"structural.{tier.name.lower()}", lambda: IfcStructural._dispatch(model, tier, spec))
-                .bind(lambda nested: nested)
+                .bind(identity)
                 .map(IfcStructural._emit)
                 .map(lambda receipt: IfcStructural._ok(span, receipt))
             )

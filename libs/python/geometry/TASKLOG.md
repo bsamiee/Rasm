@@ -19,10 +19,10 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [IFC_BYTES_CONSTRUCTOR]-[BLOCKED]: add the IFC-bytes non-manifold topology constructor.
 - Capability: `TopologyAlgebra` admits IFC bytes into the existing non-manifold `TopologyOp.CONSTRUCT` case without minting a second topology owner.
-- Shape: `ifcopenshell.open` over `guess_format` produces the in-memory IFC model; the arm then resolves through `Topology.ByIFCFile(file)`, the `IFC` facade's model-object entry, or `Topology.ByOCCTShape(shape)` in that priority order.
+- Shape: `ifcopenshell.file.from_string` opens the SPF bytes in memory; `Topology.ByIFCFile(file)` ingests the model object and returns a per-product topology `list[Any]` folded via `Cluster.ByTopologies` into one non-manifold handle the `_CONSTRUCT` table lifts as the locked `SourceKind.IFC` row.
 - Unlocks: IFC-derived cell, aperture, adjacency, and dual-graph analysis reaches the geometry graduation rail while the C# BIM space-graph remains the in-process semantic owner.
-- Anchors: `graph/nonmanifold.md#3-IFC_BYTES_CONSTRUCTOR`, `.api/topologicpy.md`, `Topology.ByIFCFile`, `Topology.ByIFCPath`, `Topology.ByOCCTShape`, the `IFC` facade, `ifcopenshell.open`, and the `<'3.15'` companion-band admission.
-- Tension: `Topology.ByIFCFile(file)` still needs companion-interpreter reflection to prove whether `file` accepts an `ifcopenshell.file` object or only a path string; the temp-file detour stays forbidden, and `topologicpy` remains manifest-absent until the companion row lands.
+- Anchors: `graph/nonmanifold.md#3-IFC_BYTES_CONSTRUCTOR`, `.api/topologicpy.md`, `Topology.ByIFCFile`, `Topology.ByIFCPath`, `Cluster.ByTopologies`, `ifcopenshell.file.from_string`, and the `<'3.15'` companion-band admission.
+- Tension: the constructor arity is source-confirmed — `Topology.ByIFCFile` takes the `ifcopenshell.file` object (docstring `file : ifcopenshell.file`), `Topology.ByIFCPath` takes the path string — so the `_CONSTRUCT` row is signature-locked; the temp-file detour stays forbidden. The card stays BLOCKED ONLY on the orthogonal dual gate: `topologicpy` is manifest-absent under `AGPL-3.0-or-later` plus `requires-python<'3.15'` until the opt-in AGPL-accepting companion row lands (cross-ref `[GEO_TOPOLOGICPY_LICENSE_REPLACE]` / `nonmanifold#4-DUAL_GATE_EXCLUSION`).
 
 [GEOMETRY_CPU_OFFLOAD]-[QUEUED]: hand geometry CPU kernels to the settled runtime offload lane.
 - Capability: heavy geometry kernels run through the settled runtime `LanePolicy.offload` per-subinterpreter lane instead of a geometry-local concurrency surface.

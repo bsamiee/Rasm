@@ -32,16 +32,31 @@
 [PUBLIC_TYPE_SCOPE]: registration types (`open3d.pipelines.registration`)
 - rail: scan
 
-| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]      | [CAPABILITY]                          |
-| :-----: | :------------------------------------------ | :------------------ | :------------------------------------ |
-|  [01]   | `RegistrationResult`                        | registration result | transformation/fitness/inlier-rmse    |
-|  [02]   | `ICPConvergenceCriteria`                    | convergence policy  | ICP iteration and tolerance limits    |
-|  [03]   | `TransformationEstimationPointToPoint`      | estimator           | rigid point-to-point estimation       |
-|  [04]   | `TransformationEstimationPointToPlane`      | estimator           | point-to-plane estimation             |
-|  [05]   | `TransformationEstimationForGeneralizedICP` | estimator           | plane-to-plane generalized ICP        |
-|  [06]   | `Feature`                                   | feature descriptor  | FPFH descriptor for global matching   |
-|  [07]   | `PoseGraph`                                 | pose graph          | multiway registration node/edge graph |
-|  [08]   | `RobustKernel`                              | robust loss         | Huber/Tukey/Cauchy/GM/L1/L2 weighting |
+| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]      | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------ | :------------------ | :-------------------------------------------- |
+|  [01]   | `RegistrationResult`                        | registration result | `transformation`/`fitness`/`inlier_rmse`/`correspondence_set` |
+|  [02]   | `ICPConvergenceCriteria`                    | convergence policy  | ICP iteration and tolerance limits            |
+|  [03]   | `TransformationEstimationPointToPoint`      | estimator           | rigid point-to-point estimation               |
+|  [04]   | `TransformationEstimationPointToPlane`      | estimator           | point-to-plane estimation                     |
+|  [05]   | `TransformationEstimationForGeneralizedICP` | estimator           | plane-to-plane generalized ICP                |
+|  [06]   | `Feature`                                   | feature descriptor  | FPFH descriptor for global matching           |
+|  [07]   | `PoseGraph`                                 | pose graph          | appendable `.nodes`/`.edges` multiway graph   |
+|  [08]   | `PoseGraphNode`                             | pose-graph node     | `PoseGraphNode(pose)` ctor exposing r/w `.pose` 4x4 |
+|  [09]   | `PoseGraphEdge`                             | pose-graph edge     | `PoseGraphEdge(source_node_id, target_node_id, transformation, information, uncertain, confidence)` ctor |
+|  [10]   | `GlobalOptimizationLevenbergMarquardt`      | optimization method | LM multiway solver (paired `GlobalOptimizationGaussNewton`) |
+|  [11]   | `GlobalOptimizationConvergenceCriteria`     | convergence policy  | multiway iteration/tolerance limits           |
+|  [12]   | `GlobalOptimizationOption`                  | optimization option | `(max_correspondence_distance, edge_prune_threshold, preference_loop_closure, reference_node)` slots |
+|  [13]   | `RobustKernel`                              | robust loss         | Huber/Tukey/Cauchy/GM/L1/L2 weighting         |
+
+[PUBLIC_TYPE_SCOPE]: tensor roots (`open3d.t.geometry`, `open3d.t.pipelines.registration`)
+- rail: scan
+
+The tensor backend mirrors the legacy types over a device-resident `core.Tensor` buffer; `t.geometry.PointCloud` carries a `.point` `TensorMap` keyed by attribute (`positions`/`colors`/`normals`), and `to_legacy()` projects back to a `geometry.PointCloud` for the multiway/FGR arms the tensor API does not own.
+
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]       | [CAPABILITY]                                              |
+| :-----: | :------------------------------------------------ | :------------------- | :------------------------------------------------------- |
+|  [01]   | `t.geometry.PointCloud`                           | tensor point cloud   | `.point` `TensorMap` attributes plus `to_legacy()` bridge |
+|  [02]   | `t.pipelines.registration.RegistrationResult`     | tensor reg result    | `.transformation` `core.Tensor` plus `.fitness`/`.inlier_rmse` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -101,6 +116,21 @@ The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `Reg
 |  [05]   | `t.pipelines.registration.robust_kernel.RobustKernel(method, scaling)`                                                           | `RobustKernelMethod` plus scale | Tukey/Huber/Cauchy/GM/L1/L2 weighting |
 |  [06]   | `t.pipelines.registration.robust_kernel.RobustKernelMethod.TukeyLoss`                                                            | enum member                     | Tukey biweight loss kernel            |
 
+[ENTRYPOINT_SCOPE]: array-bridge accessors
+- rail: scan
+
+The exact buffer/length/projection chains the registration, reconstruction, and deviation arms call to cross the open3d boundary into numpy. Legacy `geometry` buffer properties are `numpy.asarray`-able zero-copy views; `RegistrationResult.correspondence_set` is a `utility.Vector2iVector` that answers `len`; the tensor `to_legacy()`/`.point.positions.numpy()`/`.transformation.numpy()` chain bridges the device-resident `t.geometry` backend back to host numpy.
+
+| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]            | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------------- | :---------------------- | :------------------------------------------------- |
+|  [01]   | `geometry.PointCloud.points`                                    | `np.asarray(cloud.points)` | Nx3 float64 position buffer (also `len`-able)    |
+|  [02]   | `geometry.TriangleMesh.vertices`                                | `np.asarray(mesh.vertices)` | Nx3 float64 vertex buffer (also `len`-able)      |
+|  [03]   | `geometry.TriangleMesh.triangles`                               | `np.asarray(mesh.triangles)` | Mx3 int32 face-index buffer (also `len`-able)    |
+|  [04]   | `RegistrationResult.correspondence_set`                         | `len(result.correspondence_set)` | `Vector2iVector` inlier-pair count           |
+|  [05]   | `t.geometry.PointCloud.to_legacy`                               | `cloud.to_legacy()`     | tensor->legacy `geometry.PointCloud` projection    |
+|  [06]   | `t.geometry.PointCloud.point.positions.numpy`                   | `cloud.point.positions.numpy()` | `TensorMap` positions -> host Nx3 array     |
+|  [07]   | `t.pipelines.registration.RegistrationResult.transformation.numpy` | `result.transformation.numpy()` | tensor 4x4 transform -> host array       |
+
 [ENTRYPOINT_SCOPE]: input and output (`open3d.io`)
 - rail: scan
 
@@ -119,7 +149,7 @@ The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `Reg
 [SCAN_PROCESSING]:
 - import: `import open3d` at boundary scope only; module-level import is banned by the manifest import policy.
 - cloud axis: one `PointCloud` owns points/colors/normals/covariances; downsampling is a method row (`voxel_down_sample`, `uniform_down_sample`, `farthest_point_down_sample`), never parallel cloud subclasses. `KDTreeSearchParamHybrid`/`KNN`/`Radius` parameterize normal estimation and feature search.
-- registration axis: legacy `registration_icp` dispatches on its `TransformationEstimation*` argument (point-to-point, point-to-plane, generalized, colored), the estimation method an argument row, never a separate ICP function family; the tensor `t.pipelines.registration` backend mirrors this with `icp`/`multi_scale_icp` over a `t.geometry.PointCloud`, the `TransformationEstimationPointToPlane`/`TransformationEstimationForColoredICP` estimators each taking a `robust_kernel.RobustKernel(RobustKernelMethod.TukeyLoss, scale)` for outlier downweighting and `multi_scale_icp` carrying the coarse-to-fine voxel/iteration/correspondence schedule. Both backends return `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`; the scan owner composes the tensor backend for the multi-scale and colored arms and the legacy `pipelines.registration` `PoseGraph`/`global_optimization` for the multiway pose-graph.
+- registration axis: legacy `registration_icp` dispatches on its `TransformationEstimation*` argument (point-to-point, point-to-plane, generalized, colored), the estimation method an argument row, never a separate ICP function family; the tensor `t.pipelines.registration` backend mirrors this with `icp`/`multi_scale_icp` over a `t.geometry.PointCloud`, the `TransformationEstimationPointToPlane`/`TransformationEstimationForColoredICP` estimators each taking a `robust_kernel.RobustKernel(RobustKernelMethod.TukeyLoss, scale)` for outlier downweighting and `multi_scale_icp` carrying the coarse-to-fine voxel/iteration/correspondence schedule. Both backends return `RegistrationResult.transformation`/`.fitness`/`.inlier_rmse`; the scan owner composes the tensor backend for the multi-scale and colored arms and the legacy `pipelines.registration` multiway pose-graph: it appends a `PoseGraphNode(pose)` per cloud and a `PoseGraphEdge(source_node_id, target_node_id, transformation, uncertain=...)` per pairwise solution into a `PoseGraph`, then calls `global_optimization(graph, GlobalOptimizationLevenbergMarquardt(), GlobalOptimizationConvergenceCriteria(), GlobalOptimizationOption(...))` which returns `None` and mutates the graph in place so each optimized node's `.pose` carries the absolute transform. The `GlobalOptimizationOption` positional order is `(max_correspondence_distance, edge_prune_threshold, preference_loop_closure, reference_node)` — `edge_prune_threshold` sits between `max_correspondence_distance` and `preference_loop_closure`, so the loop-closure gain MUST keyword-bind `preference_loop_closure` or it lands in `edge_prune_threshold` and disables loop closure.
 - reconstruction axis: `TriangleMesh.create_from_point_cloud_poisson`/`ball_pivoting`/`alpha_shape` are the reconstruction rows; the algorithm choice is a static constructor, not a runtime mode flag.
 - pipeline: `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `compute_fpfh_feature` -> `registration_ransac_based_on_feature_matching` -> `registration_icp` refinement -> `create_from_point_cloud_poisson`.
 - evidence: each registration captures fitness, inlier rmse, correspondence count, and transformation; each reconstruction captures input point count and output vertex/triangle count as a scan receipt. The `open3d.t` tensor API mirrors this surface for batched GPU work.
@@ -136,4 +166,4 @@ The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `Reg
 
 [CAPTURE_GAP]:
 - floor: `open3d 0.19.0` ships cp38-cp312 wheels only (no cp313/cp314/cp315, no abi3), so it is a `python_version<'3.13'` companion-only package today; the compiled `cpu/pybind.cpython-3XX` core caps at cp312, and neither cp313, cp314, nor the cp315 project venv admits a wheel. The design's `<'3.15'` admission band and `>=3.13` FGR-fallback selection are forward-looking against a future open3d cp313+ wheel; until that wheel lands, the manifest marker is `; python_version<'3.13'` and the FGR arm only resolves on the cp38-cp312 lane. The project-venv `assay api resolve` returns `unsupported` (no source on the current environment)
-- members: open3d's surface lives in the C++ pybind extension (no `.pyi` stubs); the module tree (`geometry`/`io`/`pipelines`/`utility`/`t`) is confirmed against `open3d/__init__.py` (`from open3d.cuda.pybind import core, camera, data, geometry, io, pipelines, utility, t`) in the cached cp312 distribution, and every documented `geometry`/`pipelines.registration`/`t.pipelines.registration`/`io` symbol is a known open3d 0.19 member, confirmed on a live cp312 companion-lane introspection pass, never invented beyond the stated surface
+- members: open3d's surface lives in the C++ pybind extension (no `.pyi` stubs); the module tree (`geometry`/`io`/`pipelines`/`utility`/`t`) is confirmed against `open3d/__init__.py` (`from open3d.cuda.pybind import core, camera, data, geometry, io, pipelines, utility, t`) in the cached cp312 distribution, and every documented `geometry`/`pipelines.registration`/`t.pipelines.registration`/`io` symbol is a known open3d 0.19 member, confirmed on a live cp312 companion-lane introspection pass, never invented beyond the stated surface. The multiway pose-graph surface (`PoseGraphNode`/`PoseGraphEdge`/`PoseGraphNode.pose`), the `GlobalOptimizationLevenbergMarquardt`/`GlobalOptimizationConvergenceCriteria`/`GlobalOptimizationOption` triple, `RegistrationResult.correspondence_set`, the tensor `t.geometry.PointCloud.to_legacy`/`.point.positions.numpy()` and `t.pipelines.registration.RegistrationResult.transformation.numpy()` accessors, and the legacy `geometry.TriangleMesh.vertices`/`.triangles` and `geometry.PointCloud.points` numpy buffers are now explicit rows in sections 02 and 03 — previously enumerated only implicitly under the `PoseGraph`/`global_optimization`/`RegistrationResult` rows the registration, reconstruction, and deviation pages cite. Each was confirmed on the same live cp312 introspection pass (`GlobalOptimizationOption` exposes the four slots with `edge_prune_threshold` interleaved between the two gains; `global_optimization` returns `None` and mutates in place), never invented beyond the stated surface

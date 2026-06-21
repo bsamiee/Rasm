@@ -103,13 +103,13 @@ class IngestReceipt(Struct, frozen=True, gc=False):
     decimation: float = 1.0
 
     @staticmethod
-    def of(source: ScanSource, applied: tuple[IngestStage, ...], input_points: int, output_points: int) -> "IngestReceipt":
+    def of(source: ScanSource, applied: tuple[IngestStage, ...], input_points: int, output_points: int) -> IngestReceipt:
         ratio = output_points / input_points if input_points else 1.0
         return IngestReceipt(source.tag, applied, int(input_points), int(output_points), ratio)
 
     @staticmethod
     @receipted(_REDACTION)
-    def _emit(receipt: "IngestReceipt") -> "IngestReceipt":
+    def _emit(receipt: IngestReceipt) -> IngestReceipt:
         return receipt  # the @receipted aspect harvests `contribute` and emits on exit; egress is the decorator rail
 
     @property
@@ -142,7 +142,7 @@ class ScanIngestion(Struct, frozen=True):
     policy: IngestPolicy = IngestPolicy()
     lane: LanePolicy | None = None
 
-    def ingest(self, source: ScanSource) -> "RuntimeRail[tuple[o3d.t.geometry.PointCloud, IngestReceipt]]":
+    def ingest(self, source: ScanSource) -> RuntimeRail[tuple["o3d.t.geometry.PointCloud", IngestReceipt]]:
         # span-then-fence (the reconstruction/deviation discipline): the `geometry.ingest` span widens
         # with the bounded `source` tag behind `is_recording()`, then `boundary` runs the kernel eagerly
         # inside the live `with` so a decode/filter raise records on the open span through the faults
@@ -164,13 +164,13 @@ class ScanIngestion(Struct, frozen=True):
                     pass
             return rail
 
-    def _emit(self, payload: "tuple[o3d.t.geometry.PointCloud, IngestReceipt]") -> "tuple[o3d.t.geometry.PointCloud, IngestReceipt]":
+    def _emit(self, payload: tuple["o3d.t.geometry.PointCloud", IngestReceipt]) -> tuple["o3d.t.geometry.PointCloud", IngestReceipt]:
         # the `@receipted` aspect on `IngestReceipt._emit` harvests `contribute` and emits on exit; the
         # tensor cloud rides through unobserved, the receipt slot the only contributor the aspect streams.
         cloud, receipt = payload
         return cloud, IngestReceipt._emit(receipt)
 
-    def _dispatch(self, source: ScanSource) -> "tuple[o3d.t.geometry.PointCloud, IngestReceipt]":
+    def _dispatch(self, source: ScanSource) -> tuple["o3d.t.geometry.PointCloud", IngestReceipt]:
         match source:
             case ScanSource(tag="arrow_las", arrow_las=table):
                 points = self._structured(
@@ -186,7 +186,7 @@ class ScanIngestion(Struct, frozen=True):
         return cloud, IngestReceipt.of(source, self.policy.stages, points.shape[0], cleaned.shape[0])
 
     @beartype(conf=FAULT_CONF)
-    def _structured(self, x: "np.ndarray", y: "np.ndarray", z: "np.ndarray") -> "np.ndarray":
+    def _structured(self, x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
         # the contract fence the `CLASSIFY` `api` row folds: a non-`ndarray` Arrow/E57 column (a
         # `None`/object column) raises the canonical `BeartypeCallHintViolation` the `boundary` thunk
         # lifts onto the `api` rail at the seam; a length-mismatched but well-typed column still rails
@@ -195,7 +195,7 @@ class ScanIngestion(Struct, frozen=True):
         out["X"], out["Y"], out["Z"] = x, y, z
         return out
 
-    def _read_e57(self, path: str) -> "np.ndarray":
+    def _read_e57(self, path: str) -> np.ndarray:
         import pye57  # noqa: PLC0415
 
         # read_scan(transform=True) is the conditioned intake: coordinate-system auto-detect,
@@ -211,7 +211,7 @@ class ScanIngestion(Struct, frozen=True):
         # over an empty sequence raises, so the emptiness is the `Option` fold, not a falsy-Block guard.
         return blocks.try_head().map(lambda _: np.concatenate(blocks)).default_value(np.empty(0, dtype=_DTYPE))
 
-    def _filter_graph(self, points: "np.ndarray") -> "tuple[o3d.t.geometry.PointCloud, np.ndarray]":
+    def _filter_graph(self, points: np.ndarray) -> tuple["o3d.t.geometry.PointCloud", np.ndarray]:
         import open3d as o3d  # noqa: PLC0415
 
         # an empty `stages` policy lifts the raw array straight through (`_stages` gates emptiness via
@@ -223,7 +223,7 @@ class ScanIngestion(Struct, frozen=True):
         cloud.point.positions = o3d.core.Tensor(positions)
         return cloud, cleaned
 
-    def _stages(self) -> "Option[Block[pdal.Filter]]":
+    def _stages(self) -> Option[Block["pdal.Filter"]]:
         import pdal  # noqa: PLC0415  the import side-effect binds the injected Filter.<name> factories before any _STAGE row call
 
         # the injected `Filter` class threads into each module-level `_STAGE`/`_FILTER` closure, so the
@@ -231,7 +231,7 @@ class ScanIngestion(Struct, frozen=True):
         built = Block.of_seq(_STAGE[stage](pdal.Filter, self.policy) for stage in self.policy.stages)
         return built.try_head().map(lambda _: built)
 
-    def _execute(self, stages: "Block[pdal.Filter]", points: "np.ndarray") -> "np.ndarray":
+    def _execute(self, stages: Block["pdal.Filter"], points: np.ndarray) -> np.ndarray:
         # the array enters once at the head stage's `.pipeline(points)` wrap (never a redundant `Reader`
         # re-read), the tail folds over the `|` pipe through the `expression` `Block` carrier the rail
         # already speaks, and the single output array of the linear filter chain reads off `arrays[0]`.
@@ -248,7 +248,7 @@ class ScanIngestion(Struct, frozen=True):
 # The injected `Filter` CLASS is threaded as the first row argument from `_stages` (the one place the
 # function-local `import pdal` runs), so these module-level closures never resolve a `pdal` global that
 # the boundary-scope import policy leaves unbound — a free `pdal.Filter.smrf` here is the NameError form.
-_FILTER: Final[Map[IngestFilter, Callable[["type[pdal.Filter]", IngestPolicy], "pdal.Filter"]]] = Map.of_seq([
+_FILTER: Final[Map[IngestFilter, Callable[[type["pdal.Filter"], IngestPolicy], "pdal.Filter"]]] = Map.of_seq([
     (IngestFilter.SMRF, lambda flt, p: flt.smrf(window=p.ground_window, cell=p.ground_cell, slope=p.ground_slope)),
     (IngestFilter.PMF, lambda flt, p: flt.pmf(max_window_size=p.ground_window, cell_size=p.ground_cell, slope=p.ground_slope)),
     (IngestFilter.OUTLIER, lambda flt, p: flt.outlier(method="statistical", mean_k=p.outlier_mean_k, multiplier=p.outlier_multiplier)),
@@ -261,7 +261,7 @@ _FILTER: Final[Map[IngestFilter, Callable[["type[pdal.Filter]", IngestPolicy], "
 # read the policy filter override and dispatch through `_FILTER`, the fixed rows bind their `_FILTER`
 # row directly (same `(flt, p)` arity) — building a stage's `pdal.Filter` is one row read, never an
 # `_filter_type` match plus a parallel `_options` match over the same axis.
-_STAGE: Final[Map[IngestStage, Callable[["type[pdal.Filter]", IngestPolicy], "pdal.Filter"]]] = Map.of_seq([
+_STAGE: Final[Map[IngestStage, Callable[[type["pdal.Filter"], IngestPolicy], "pdal.Filter"]]] = Map.of_seq([
     (IngestStage.GROUND_CLASSIFY, lambda flt, p: _FILTER[p.ground_filter](flt, p)),
     (IngestStage.OUTLIER_REMOVE, _FILTER[IngestFilter.OUTLIER]),
     (IngestStage.DECIMATE, lambda flt, p: _FILTER[p.decimate_filter](flt, p)),

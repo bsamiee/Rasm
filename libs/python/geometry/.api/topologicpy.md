@@ -79,7 +79,7 @@ Each facade is a stateless static-method namespace; `By*` constructors return a 
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [CAPABILITY]                          |
 | :-----: | :----------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `Topology.ByIFCFile(file)`           | construct      | IFC geometry to non-manifold topology |
+|  [01]   | `Topology.ByIFCFile(file: ifcopenshell.file)` | construct | in-memory `ifcopenshell.file` object to non-manifold topology `list[Any]` |
 |  [02]   | `Topology.ByBREPString(string)`      | construct      | OpenCASCADE BREP intake               |
 |  [03]   | `Topology.ByOBJPath(path)`           | construct      | Wavefront OBJ intake                  |
 |  [04]   | `Topology.ByGeometry(vertices, ...)` | construct      | raw vertex/edge/face array intake     |
@@ -89,6 +89,7 @@ Each facade is a stateless static-method namespace; `By*` constructors return a 
 |  [08]   | `Topology.ExportToBREP(topology)`    | export         | BREP string/file output               |
 |  [09]   | `Topology.ExportToOBJ(topology)`     | export         | OBJ output                            |
 |  [10]   | `Topology.ExportToJSON(topology)`    | export         | JSON topology output                  |
+|  [11]   | `Topology.ByIFCPath(path)`           | construct      | IFC file-path intake to non-manifold topology `list[Any]` |
 
 [ENTRYPOINT_SCOPE]: Topology analysis and boolean (`Topology`)
 - rail: geometry-algebra
@@ -125,11 +126,18 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 |  [06]   | `Cell.ByThickenedFace(face, ...)`     | construct      | solid by thickening a face            |
 |  [07]   | `CellComplex.ByCells(cells)`          | construct      | assembly from cells                   |
 |  [08]   | `CellComplex.ByFaces(faces)`          | construct      | assembly from internal/external faces |
-|  [09]   | `Graph.ByTopology(topology)`          | construct      | graph from topology adjacency         |
-|  [10]   | `Graph.ShortestPath(graph, a, b)`     | analysis       | shortest path between vertices        |
-|  [11]   | `Graph.BetweennessCentrality(graph)`  | analysis       | vertex betweenness centrality         |
-|  [12]   | `Dictionary.ByKeysValues(keys, vals)` | construct      | attribute dictionary                  |
-|  [13]   | `Dictionary.ValueAtKey(dict, key)`    | accessor       | read an attribute value               |
+|  [09]   | `Cluster.ByTopologies(*topologies)`   | construct      | non-manifold `Cluster` from a topology list |
+|  [10]   | `Graph.ByTopology(topology)`          | construct      | graph from topology adjacency         |
+|  [11]   | `Graph.ShortestPath(graph, a, b)`     | analysis       | geodesic `Wire` between two vertices   |
+|  [12]   | `Graph.BetweennessCentrality(graph)`  | analysis       | per-vertex betweenness score list      |
+|  [13]   | `Graph.ClosenessCentrality(graph)`    | analysis       | per-vertex closeness score list        |
+|  [14]   | `Graph.DegreeCentrality(graph)`       | analysis       | per-vertex degree score list           |
+|  [15]   | `Graph.ConnectedComponents(graph)`    | analysis       | island sub-graphs, vertex-count sorted |
+|  [16]   | `Graph.MinimumSpanningTree(graph)`    | analysis       | minimum spanning tree `Graph`          |
+|  [17]   | `Graph.Edges(graph)`                  | accessor       | constituent edge handles               |
+|  [18]   | `Graph.JSONData(graph)`               | export         | node-link `dict` for JSON encode       |
+|  [19]   | `Dictionary.ByKeysValues(keys, vals)` | construct      | attribute dictionary                  |
+|  [20]   | `Dictionary.ValueAtKey(dict, key)`    | accessor       | read an attribute value               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -139,7 +147,8 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 - ownership axis: `Topology` is the central polymorphic owner discriminating on the runtime handle kind; `HighestType`/`Type`/`TypeAsString` report the kind, and accessors (`Cells`, `Faces`, `Vertices`) plus boolean ops (`Union`, `Difference`, `Intersect`, `Slice`) work across every topology kind without a per-kind function family.
 - construction axis: each sub-topology facade exposes a `By*` constructor family building from the next-lower topology (`Vertex` -> `Edge` -> `Wire` -> `Face` -> `Shell` -> `Cell` -> `CellComplex`); shape primitives (`Wire.Rectangle`, `Cell.Box`, `Cell.Sphere`) are static factories on the owning facade.
 - attribute axis: `Dictionary.ByKeysValues` builds attribute carriers attached via `Topology.AddDictionary`; `Graph.ByTopology` lifts adjacency into a `Graph` whose 179 methods own centrality, shortest path, connectivity, and partition analytics.
-- IFC-gated rail: `Topology.ByIFCFile`/`Topology.ByIFCPath` and the `IFC` facade ingest IFC geometry into non-manifold `CellComplex`/`Cell` topology, gated against the C# `IfcSemanticModel` seam so the Python topology side never owns IFC semantic identity.
+- graph analytics axis: the centrality verbs `BetweennessCentrality`/`ClosenessCentrality`/`DegreeCentrality` each return a per-vertex score `list` ordered to the graph vertices (NOT values mutated in place), so a leaderboard fold ranks the list directly. `Connectivity` is an ALIAS for `DegreeCentrality` (space-syntax connectivity score), never a component count — the island count is `len(Graph.ConnectedComponents(graph))`, whose return is the list of component sub-graphs sorted by vertex count. `MinimumSpanningTree` returns the MST `Graph`; `Tree` is a vertex-rooted BFS/DFS traversal tree, a different structure. `ShortestPath` returns a `topologic_core.Wire`, so its hop length reads through the polymorphic `Topology.Vertices` accessor (documented over `Topology`, `Graph`, OR `TGraph`), which is the one vertex accessor across both the graph-node count and the path-wire count — there is no separate gated `Graph.Vertices` the analytics rail needs. `JSONData` returns the node-link `dict` the JSON codec encodes; `JSONString` returns the pre-serialized string.
+- IFC-gated rail: `Topology.ByIFCFile(file: ifcopenshell.file)` ingests an in-memory `ifcopenshell.file` object and returns a per-product topology `list[Any]` (folded to one non-manifold handle via `Cluster.ByTopologies` at the consumer), while `Topology.ByIFCPath(path)` ingests a path string and the `IFC` facade ingests IFC geometry; all are gated against the C# `IfcSemanticModel` seam so the Python topology side never owns IFC semantic identity. The live return is a per-product topology list, not a single `CellComplex`.
 - boundary: topologicpy owns non-manifold topology and graph analytics; watertight mesh CSG routes to `manifold3d`, triangle-mesh exchange to `trimesh`, OpenNURBS exchange to `rhino3dm`, and IFC semantic identity to the C# `IfcSemanticModel`.
 
 ## [05]-[LOCAL_ADMISSION]
@@ -153,4 +162,4 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 
 [CAPTURE_GAP]:
 - floor: `topologicpy` is an undeclared, LICENSE-GATED candidate riding the `topologic-core` native floor (declared `topologic-core>=7.0.1`; cp313 introspection ran against `8.0.4`). The wheel is pure-Python `py3-none-any`, but the package declares `Requires-Python: >=3.8,<3.15`, so it carries a hard cp315 ceiling: the cp315 project venv cannot resolve it on requires-python grounds, and opt-in installs land on a cp313/cp314 companion interpreter. Two gates apply — the `AGPL-3.0-or-later` network-copyleft license and the `<3.15` requires-python ceiling
-- members: every documented facade, integration module, and `Topology`/`Graph` entrypoint resolves against the `0.9.50` source (`Topology.By*`/`Export*`/accessors/boolean, the `Vertex`->`CellComplex` `By*` constructor chain, `Graph.ByTopology`/`ShortestPath`/`BetweennessCentrality`, `Dictionary.ByKeysValues`/`ValueAtKey`); the `IFC`/`Honeybee`/`Speckle`/`EnergyModel`/`Neo4j`/`Kuzu`/`Ontology`/`GraphRAG`/`Polyskel` modules are present as source files. Static-method counts are AST-confirmed against `0.9.50` — no phantom
+- members: every documented facade, integration module, and `Topology`/`Graph` entrypoint resolves against the `0.9.50` source (`Topology.By*`/`Export*`/accessors/boolean, the `Vertex`->`CellComplex` `By*` constructor chain, the graph analytics surface `Graph.ByTopology`/`ShortestPath`/`BetweennessCentrality`/`ClosenessCentrality`/`DegreeCentrality`/`Connectivity`/`ConnectedComponents`/`MinimumSpanningTree`/`Tree`/`Edges`/`JSONData`/`JSONString` and the polymorphic `Topology.Vertices` graph-or-topology accessor, `Dictionary.ByKeysValues`/`ValueAtKey`); the `IFC`/`Honeybee`/`Speckle`/`EnergyModel`/`Neo4j`/`Kuzu`/`Ontology`/`GraphRAG`/`Polyskel` modules are present as source files. Static-method counts are AST-confirmed against `0.9.50`, and every graph member's exact `def` and documented return shape is line-confirmed in the `0.9.50` `Graph.py` source — no phantom

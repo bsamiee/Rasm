@@ -96,7 +96,7 @@ class DeviationBand(Struct, frozen=True, gc=False):
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
-    def fold(signed: SignedField, working_tolerance: float) -> "DeviationBand":
+    def fold(signed: SignedField, working_tolerance: float) -> DeviationBand:
         # the `SignedField` `Is[isfinite]` refinement fires here under the shared `FAULT_CONF`, so a
         # non-finite proximity sample rails through the `CLASSIFY` `api` row before it reaches the
         # `signed.min`/`max` extrema or the mask sums — the band the verdict reads is always finite.
@@ -118,7 +118,7 @@ class DeviationBand(Struct, frozen=True, gc=False):
         )
 
     @staticmethod
-    def identity() -> "DeviationBand":
+    def identity() -> DeviationBand:
         return DeviationBand(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0.0)
 
     def verdict(self, tolerance: float, fraction: float) -> bool:
@@ -149,7 +149,7 @@ class Segment(Struct, frozen=True, gc=False):
         return len(self.members)
 
     @staticmethod
-    def classify(model: "np.ndarray", members: "np.ndarray", verticality: tuple[float, float]) -> "Segment":
+    def classify(model: np.ndarray, members: np.ndarray, verticality: tuple[float, float]) -> Segment:
         up_axis, flat_axis = verticality
         normal = np.asarray(model[:3], dtype=np.float64)
         unit = normal / max(float(np.linalg.norm(normal)), 1e-12)
@@ -157,7 +157,7 @@ class Segment(Struct, frozen=True, gc=False):
         kind = PrimitiveClass.SLAB if vert >= up_axis else PrimitiveClass.WALL if vert <= flat_axis else PrimitiveClass.GENERIC
         return Segment(tuple(float(c) for c in model), tuple(float(c) for c in unit), tuple(int(i) for i in members), kind)
 
-    def attributed(self, signed: "np.ndarray", working_tolerance: float) -> "Segment":
+    def attributed(self, signed: np.ndarray, working_tolerance: float) -> Segment:
         # fold the per-segment signed sub-band over this segment's original-cloud members so the
         # `ATTRIBUTED` overlay groups deviation by primitive; the index survives the `_segment` peel.
         return replace(self, band=DeviationBand.fold(signed[list(self.members)], working_tolerance))
@@ -195,14 +195,14 @@ class DeviationResult(Struct, frozen=True):
     def of(
         stage: DeviationStage, element: str, band: DeviationBand, policy: DeviationPolicy,
         *, segments: tuple[Segment, ...] = (), triangle_ids: tuple[int, ...] = (),
-    ) -> "DeviationResult":
+    ) -> DeviationResult:
         # SEGMENT carries no measured deviation, so it never asserts a compliant verdict and never graduates.
         compliant = stage is not DeviationStage.SEGMENT and band.verdict(policy.tolerance, policy.fraction)
         return DeviationResult(stage, element, band, segments, triangle_ids, compliant)
 
     @staticmethod
     @receipted(_REDACTION)
-    def _emit(result: "DeviationResult") -> "DeviationResult":
+    def _emit(result: DeviationResult) -> DeviationResult:
         return result  # the @receipted aspect harvests `contribute` and emits on exit; egress is the decorator rail
 
     @property
@@ -234,7 +234,7 @@ class ScanDeviation(Struct, frozen=True):
     policy: DeviationPolicy = DeviationPolicy()
     lane: LanePolicy | None = None
 
-    def evaluate(self, cloud: "o3d.geometry.PointCloud", reference_glb: bytes, element: str, stage: DeviationStage) -> "RuntimeRail[DeviationResult]":
+    def evaluate(self, cloud: "o3d.geometry.PointCloud", reference_glb: bytes, element: str, stage: DeviationStage) -> RuntimeRail[DeviationResult]:
         # span-then-fence (the identity `derived`/compute `graduates` discipline): the
         # `content.deviation` span widens with the bounded `element`/`stage` scalars behind
         # `is_recording()`, then `boundary` runs the kernel eagerly inside the live `with` so a
@@ -278,7 +278,7 @@ class ScanDeviation(Struct, frozen=True):
             case unreachable:
                 assert_never(unreachable)
 
-    def _query(self, reference_glb: bytes, cloud: "o3d.geometry.PointCloud") -> tuple["trimesh.proximity.ProximityQuery", "np.ndarray"]:
+    def _query(self, reference_glb: bytes, cloud: "o3d.geometry.PointCloud") -> tuple["trimesh.proximity.ProximityQuery", np.ndarray]:
         import trimesh  # noqa: PLC0415
 
         mesh = trimesh.load_mesh(io.BytesIO(reference_glb), file_type="glb")
@@ -296,9 +296,9 @@ class ScanDeviation(Struct, frozen=True):
         # reads — emitting one classified `Segment` per dominant plane until the `max_planes` budget or the
         # `ransac_n` floor terminates the generator with `Nothing`, never a `break`-guarded `list.append`.
         verticality = self.policy.verticality
-        type State = tuple[o3d.geometry.PointCloud, np.ndarray, int]
+        type State = tuple["o3d.geometry.PointCloud", np.ndarray, int]
 
-        def peel(state: State) -> "Option[tuple[Segment, State]]":
+        def peel(state: State) -> Option[tuple[Segment, State]]:
             remainder, surviving, depth = state
             if depth >= self.policy.max_planes or len(remainder.points) < self.policy.ransac_n:
                 return Nothing
