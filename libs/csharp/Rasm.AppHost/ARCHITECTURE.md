@@ -53,6 +53,7 @@ Observability/Telemetry.cs  →  typescript:ui/render                       # [W
 Runtime/Config.cs           →  python:runtime/execution                   # [WIRE]: CredentialPem
 Runtime/Ports.cs            ⇄  python:runtime/transport                   # [WIRE]: HLC two-half stamp + Tenant partition
 Runtime/Ports.cs            →  typescript:projection/evidence             # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
+Runtime/Ports.cs            →  python:runtime/clock + typescript:projection/convergence # [WIRE]: HLC two-half + tenant [gated: hash-wasm / xxhash cp315]
 Wire/Livewire.cs            →  typescript:ui/render                       # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
 Observability/Telemetry.cs  →  typescript:platform/observability          # [TRANSPORT]: OtelExport OTLP egress
 Runtime                     ←  csharp:Rasm/Geometry/Drawing               # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant
@@ -62,6 +63,7 @@ Runtime                     →  csharp:Rasm.Persistence/Version/recovery   # [P
 Runtime                     →  csharp:Rasm.Persistence/Query/transaction  # [PORT]: drain 2PC in-doubt set
 Runtime                     →  csharp:Rasm.Persistence/Store/encryption   # [PORT]: KMS-unwrap port
 Runtime                     →  csharp:Rasm.Persistence/Sync/egress        # [PORT]: keyed OutboundHop egress
+Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                    # [PORT]: HLC two-half + TenantContext causal frame
 Agent/identity              ⇄  csharp:Rasm.Persistence                    # [PORT]: identity store (TenantId RLS)
 Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state
 Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox (same-tx)

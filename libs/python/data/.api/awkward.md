@@ -84,7 +84,8 @@
 | :-----: | :------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
 |  [01]   | `to_numpy(array, *, allow_missing)`                                                    | export         | awkward to NumPy array                   |
 |  [02]   | `to_list(array)`                                                                       | export         | awkward to Python list                   |
-|  [03]   | `to_arrow(array, *, list_to32, extensionarray, count_nulls, ...)`                      | export         | awkward to Arrow array                   |
+|  [03]   | `to_arrow(array, *, list_to32, extensionarray, count_nulls, ...)`                      | export         | awkward to Arrow `pyarrow.Array` (`__arrow_c_array__` only) |
+|  [03b]  | `to_arrow_table(array, *, list_to32, extensionarray, count_nulls, ...)`                | export         | awkward to Arrow `pyarrow.Table` (native `__arrow_c_stream__`, fieldless folds to struct-top) |
 |  [04]   | `to_parquet(array, destination, *, compression, row_group_size, parquet_version, ...)` | export         | awkward to Parquet file                  |
 |  [05]   | `to_json(array, file, *, line_delimited, nan_string, num_indent_spaces, ...)`          | export         | awkward to JSON                          |
 |  [06]   | `to_dataframe(array, *, how, levelname, anonymous)`                                    | export         | awkward to pandas frame                  |

@@ -210,6 +210,7 @@ Execution methods exist both on `Expr`/`Table` (delegating to the bound backend)
 |  [13]   | `BaseBackend.insert(name, obj, ...)` / `.raw_sql(query)` | DML/escape   | append rows / execute raw SQL on the connection |
 |  [14]   | `BaseBackend.con`                                      | native handle  | the backend's native driver connection (the DuckDB backend's `con` IS a `DuckDBPyConnection`, the handle a `duckdb-substrait` round-trip drives `install_extension`/`get_substrait` off) |
 |  [15]   | `ibis.duckdb.connect(database=':memory:', *, ...)`     | default backend | the no-required-arg DuckDB backend accessor (`ibis.duckdb.connect()` opens an in-memory DuckDB backend); each `ibis.<backend>` submodule exposes its own `connect()` |
+|  [16]   | `BaseBackend.disconnect()`                             | connection     | close the connection to the backend (`-> None`); the release counterpart to `connect`/`duckdb.connect`, the handle a `try`/`finally` resource bracket releases on every exit, also closing the native `BaseBackend.con` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

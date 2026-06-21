@@ -48,6 +48,7 @@ Version/commits     ⇄  python:runtime/transport           # [WIRE]: CrdtOpWire
 Version/snapshots   →  typescript:interchange/codec       # [WIRE]: SnapshotHeaderWire
 Version/commits     →  typescript:interchange/refinement  # [SHAPE]: JsonPointer RFC6901 Guid brand
 *                   ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed blob
+Query/cache         ⇄  csharp:Rasm.Compute/Runtime/codecs # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
 Query/cache         →  csharp:Rasm.Bim/Model              # [CONTENT_KEY]: ArtifactIndexRow IfcSemantic content-addressed model graph
 Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity
 Version/commits     ⇄  csharp:Rasm.Compute/Runtime        # [GRADUATION]: HandoffAxis graduation evidence
@@ -67,6 +68,7 @@ Sync/annotation     ⇄  csharp:Rasm.Bim/coordination       # [WIRE]: BCF/coordi
 Sync/schedule       ⇄  csharp:Rasm.Bim/schedule           # [WIRE]: P6/MS-Project + 4D construction domain
 Schema              ←  csharp:Rasm.Fabrication/Posting    # [WIRE]: CutProgram AST content-addressed durable-row projection
 Schema              ←  csharp:Rasm.Fabrication/Nesting    # [WIRE]: Placement / Remnant XxHash128 content-keyed durable row
+Sync/collaboration  ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: HLC two-half + TenantContext causal frame
 Version/recovery    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: ResolvedProfile DR-objective inputs
 Query/transaction   ←  csharp:Rasm.AppHost/Runtime        # [PORT]: drain 2PC in-doubt set
 Store/encryption    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: KMS-unwrap port

@@ -22,10 +22,14 @@ The cloud-native STAC discovery owner: one `StacCatalog` over `pystac-client` th
 - Boundary: composes the runtime `ResourceRef`/`TransportResource` for the API credentials, never a second credential owner; the discovery owner folds INTO the `tabular/egress`/`gridded/virtual`/`tabular/columnar`/`spatial/geospatial`/`odc-stac` owners and never re-mints a STAC API paging loop, a CQL2 compiler, a SAS token fetch, a conformance negotiator `pystac-client`/`planetary-computer` already owns, or a retry/backoff loop the runtime `RetryClass.HTTP` rail owns; no live UI, no durable catalog store; a hand-opened `boundary`/`async_boundary` fence around the network search re-spelling the retry/span/terminal-lift triplet the runtime `guarded` envelope fuses once, a synchronous `guard(RetryClass.HTTP)(...)` drive of the awaitable bound caller, a blocking `pystac_client` call left on the event loop where `anyio.to_thread.run_sync` offloads it, a hand-rolled retry loop or manual `sleep` backoff around the transient `429`/`5xx` HTTP fault where `guarded(RetryClass.HTTP, ...)` honours the server-directed `Retry-After`, a raw `RuntimeRail[ContentKey]` stuffed into the `content_key: ContentKey` field where `_shape` folds the railed `ContentIdentity.of` through `.bind`/`.map`, a four-positional `Receipt.of(phase, owner, subject, facts)` against the two-argument `(owner, evidence)` form, a `str()`-pre-formatted numeric receipt fact where the receipts `Encoder(enc_hook=repr)` serializes the native scalar, a `search_by_<axis>` method family, a `cap`-keyword ternary fork where the `SurfaceRow` carries the keyword name, a blind `**params` splat onto `collection_search` where the `SurfaceRow.accepts` set filters the cross-surface keyword the method signature rejects, a `signing.sign(search) if surface is ITEM else ...` materialization branch where the `SurfaceRow.materialize` policy routes, a `planetary_computer.sign(CollectionSearch)`/`CollectionSearch.matched()` call where the surface carries no such member, a `routes_collection_search` boolean fork where the `Surface` discriminant routes, a positional `_SCHEME[scheme][0]` integer-index read where the named `SchemeRow` field resolves in one hop, three parallel `SignScheme` `match` statements where one `SchemeRow` carries the callables, a materialize-then-re-sign two-pass where the one `sign(ItemSearch)` dispatch fuses, a hand-rolled `next`-link page loop, the deprecated `get_all_items`, a hand-stitched SAS query-string concatenation, a bare forwarded `modifier` callable where `Signing` owns the strategy, a parallel result-versus-receipt struct pair, a signed-vs-unsigned client pair, an `AssetFold` iterating a `COLLECTION`-surface discovery as an asset source where the typed `surface` terminal rejects it, and a parallel API-vs-file client where `Client` extends `pystac.Catalog` are the deleted forms.
 
 ```python signature
+from builtins import frozendict
 from collections.abc import Callable
 from enum import StrEnum
+from functools import cache, reduce
+from types import ModuleType
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
+import anyio
 from expression import case, tag, tagged_union
 from msgspec import Struct, field
 
@@ -37,7 +41,7 @@ from rasm.runtime.resilience import RetryClass, guarded
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from pystac import ItemCollection
+    from pystac import Collection, ItemCollection
     from pystac_client import ItemSearch
 
 type Bound = tuple[float, float, float, float]
@@ -48,12 +52,18 @@ type SearchParams = dict[str, object]
 type Headers = dict[str, str]
 type Modifier = Callable[[object], object]
 type OpenKwargs = dict[str, object]
-# first slot: the `ITEM` row's signed `ItemCollection`, or the `COLLECTION` row's
-# materialized `list[Collection]` (carried as `object`, the `StacDiscovery.collection` shape).
-type Materialized = tuple["ItemCollection | object", tuple[str, ...], int, int, str | None, str | None]
+# first slot: the `ITEM` row's signed `ItemCollection`, or the `COLLECTION` row's `list[Collection]`.
+type Materialized = tuple["ItemCollection | list[Collection]", tuple[str, ...], int, int, str | None, str | None]
 
 
-def _pc(): import planetary_computer; return planetary_computer  # noqa: E704, PLC0415
+# the boundary-scoped `planetary_computer` handle, paid once per process and read by every
+# `SchemeRow` callable — the `@cache` lazy-module idiom the `gridded/store#STORE` `_ts_context`
+# singleton rides, never a per-call re-import behind an `# noqa: E704` compound one-liner.
+@cache
+def _pc() -> ModuleType:
+    import planetary_computer  # noqa: PLC0415
+
+    return planetary_computer
 
 
 class SchemeRow(Struct, frozen=True):
@@ -71,7 +81,7 @@ class SignScheme(StrEnum):
         return _SCHEME[self]
 
 
-_SCHEME: Final[dict[SignScheme, SchemeRow]] = {
+_SCHEME: Final[frozendict[SignScheme, SchemeRow]] = frozendict({
     SignScheme.NONE: SchemeRow(
         open_kwargs=lambda headers, timeout: {"headers": headers, "timeout": timeout},
         sign=lambda search: search.item_collection(),
@@ -82,7 +92,7 @@ _SCHEME: Final[dict[SignScheme, SchemeRow]] = {
         sign=lambda search: _pc().sign(search),
         patch_url=lambda: _pc().sign,
     ),
-}
+})
 
 
 class Signing(Struct, frozen=True):
@@ -132,7 +142,8 @@ def _materialize_items(search: object, signing: Signing) -> Materialized:
     item_ids = tuple(item.id for item in collection)
     href_count = sum(len(item.assets) for item in collection)
     expiry = min((e for item in collection if (e := item.properties.get("msft:expiry"))), default=None)
-    return collection, item_ids, (search.matched() or len(item_ids)), href_count, expiry, search.url_with_parameters()
+    matched = reported if (reported := search.matched()) is not None else len(item_ids)
+    return collection, item_ids, matched, href_count, expiry, search.url_with_parameters()
 
 
 def _materialize_collections(search: object, _: Signing) -> Materialized:
@@ -155,7 +166,7 @@ class Surface(StrEnum):
 
 _SHARED: Final[frozenset[str]] = frozenset({"bbox", "datetime", "query", "filter", "filter_lang", "sortby", "fields"})
 
-_SURFACE: Final[dict[Surface, SurfaceRow]] = {
+_SURFACE: Final[frozendict[Surface, SurfaceRow]] = frozendict({
     Surface.ITEM: SurfaceRow(
         method="search",
         cap="max_items",
@@ -168,7 +179,7 @@ _SURFACE: Final[dict[Surface, SurfaceRow]] = {
         accepts=_SHARED | {"q"},
         materialize=_materialize_collections,
     ),
-}
+})
 
 
 @tagged_union(frozen=True)
@@ -247,7 +258,7 @@ class StacQuery:
 class StacDiscovery(Struct, frozen=True):
     endpoint: str
     surface: Surface
-    collection: "ItemCollection | object"
+    collection: "ItemCollection | list[Collection]"
     item_ids: tuple[str, ...]
     matched: int
     href_count: int
@@ -275,10 +286,6 @@ class StacCatalog(Struct, frozen=True):
         return cls(endpoint=endpoint, signing=signing or Signing.none())
 
     async def discover(self, *queries: StacQuery, max_items: int | None = None, limit: int | None = None) -> "RuntimeRail[StacDiscovery]":
-        from functools import reduce  # noqa: PLC0415
-
-        import anyio  # noqa: PLC0415
-
         params = reduce(lambda acc, q: acc | q.params(), queries, {})
         surface = Surface.of_queries(queries)
         row = surface.row
@@ -453,14 +460,14 @@ def stac_table_rehydrate(table: "pa.Table") -> "RuntimeRail[tuple[object, ...]]"
 - Entry: the awaitable `AssetFold.over` admits one `FoldTarget`, returning a `RuntimeRail[StacDiscovery]` that folds the target over the signed `collection`; the head guard returns `Error(BoundaryFault(boundary=("stac.assets", ...)))` when `self.discovery.surface is Surface.COLLECTION` so a collection-discovery terminal never reaches the asset arms, then `_raster_hrefs` materializes the gated `sources` tuple once and the three arms read it. The `Egress` arm folds the `windows.get(href)` walrus-gated windowed assets into a `Block` of `egress.run(StoreOp.GetRange(href, start, end), path=href)` rails and threads them through `traversed(rails, by=Disposition.ABORT)`, binding the resolved-receipt `Block` into `_rekey` so the fold aborts on the first byte-window fault and never swallows a failed range read; the egress owner short-circuits an unchanged content-key to a by-reference no-op, so a re-discovery never re-reads. The `Cube` arm builds one `ManifestWrite.accessor(FieldVirtual(sources=sources, target=ref, concat_dim=concat_dim))` and binds `VirtualReference(sources=sources, ref=ref).apply(VersionOp.aggregate((manifest, {}, None)))`, narrowing the returned `VirtualOutcome` to the `VirtualReceipt` through one `isinstance` arm and reading the real `VirtualReceipt.chunk_refs` manifest count rather than a bare `len(sources)`, the non-`VirtualReceipt` arm a typed reject the `aggregate` case never reaches. The `Coverage` arm rides `await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._coverage(...), subject="stac.assets.coverage")` then `.bind(lambda rail: rail)` self-flattens, where `_coverage` reads the `sample.ext.proj`/`sample.ext.eo`/`asset.ext.raster` accessors of a sample item into one `RasterGeoClaim` (`spatial/geospatial.md#GEO`) and the matching `stac_cfg`, then calls `odc.stac.load(items, stac_cfg=cfg, patch_url=signing.patch_url(), groupby=groupby, resampling=resampling, chunks=chunks)` so the cube load reads its CRS/bands/nodata from the catalogue rather than a hand-fed config and the blocking COG metadata read offloads onto the worker thread and retries the transient HTTP set under the runtime backoff rather than a hand-rolled loop or a sync drive of the awaitable bound caller. Every arm closes through one `_rekey(tag, payload, folded)` folding the railed `ContentIdentity.of(f"stac.assets.{tag}", payload)` through `.map` into a `StacDiscovery` with every field of the source discovery preserved (`item_ids`, `matched`, `expiry`, the resolved `url`) plus the real folded count — the `Egress` payload the joined source hrefs and the folded count the summed `EgressReceipt.byte_length`, the `Cube` payload the `concat_dim`-prefixed source join and the count the manifest `chunk_refs`, the `Coverage` payload the claim CRS plus the loaded cube's `sizes` shape and the count the `band_count` — so a coverage of a discovery is byte-distinct from its egress and a single new asset flips the key, the raw-rail-into-`content_key` stuff, the no-op re-key, and the swallowed inner rail the deleted forms.
 - Auto: the byte window is the COG/GeoTIFF archival range the `windows` map carries (the GeoTIFF IFD header/overview/tile byte offsets), passed straight to `GetRange` so the read is one HTTP range request, never a full-object materialization; the virtual cube reuses the `gridded/field#VIRTUAL` `FieldVirtual` owner's mandatory `ObjectStoreRegistry` URL-to-`obstore` backend map internal to its aggregation, so the STAC asset URLs register through the same `from_url` transport the egress owner speaks — one transport across discovery, egress, and cube; the extension accessors resolve the typed `pystac.extensions` schema rather than the raw `properties` map, so a missing extension is a typed absence not a `KeyError`; the `RasterGeoClaim` carries the `proj:epsg` CRS, the `raster:bands` nodata, and the `eo:bands` band count, the `ClaimBundle` carries the `eo:cloud_cover` scene fraction beside the claim (a coverage knob the sibling-owned `RasterGeoClaim` shape carries no slot for), the `stac_cfg` carries the per-asset nodata into `odc.stac.load`, and the `Signing.patch_url()` rides `patch_url=` so the COG reads are SAS-signed by the same `planetary_computer.sign` that signed the discovery result; the `odc.stac.load` call rides the `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)` envelope so the transient HTTP fault on the blocking cube-metadata read retries under the runtime backoff off the event loop and the terminal raise lifts through the faults owner's `async_boundary` exactly once, the same `HTTP` row the discovery search rides so the two network legs share one retry policy; the loaded `xarray.Dataset` cube's `sizes` shape, the `ClaimBundle` CRS, and the `eo:cloud_cover` fraction fold into the `Coverage` content key so a cloudy and a clear scene of the same bbox key byte-distinct and the cube identity is carried forward, never discarded.
 - Receipt: the asset fold re-mints the one `StacDiscovery` declared in `[2]-[CATALOG]` keyed by the fold-target `ContentIdentity` over its arm-specific payload plus the folded count, contributing an emitted-phase `Receipt.of` through `ReceiptContributor`; no new receipt rail.
-- Packages: `pystac` (`Item.assets`/`Asset.href`/`Asset.media_type`/`MediaType.COG`/`MediaType.GEOTIFF`, the canonical `obj.ext.<short>` accessor `item.ext.proj`/`item.ext.eo`/`asset.ext.raster`, `pystac.md` L97/L101-103), `odc-stac` (`odc.stac.load(items, *, stac_cfg=, patch_url=, groupby=, resampling=, chunks=, bands=)`, `odc-stac.md` L41), `tabular/egress` (`ObjectEgress.run` returning `RuntimeRail[EgressReceipt]` whose `byte_length` the egress fold sums, `StoreOp.GetRange`, `tabular/egress.md#EGRESS` L12), `gridded/virtual` (`VirtualReference(sources, ref).apply(VersionOp.aggregate(...))` returning `RuntimeRail[VirtualOutcome]` whose `VirtualReceipt.chunk_refs` the cube fold reads after the `isinstance` narrowing, `ManifestWrite.accessor`/`VersionOp.aggregate`/`VirtualReceipt`, `gridded/virtual.md#VIRTUAL`), `gridded/field` (`FieldVirtual` the composed manifest cube the `ManifestWrite.accessor` lowers, `gridded/field#VIRTUAL`), `spatial/geospatial` (`RasterGeoClaim`/`Resampling`, `spatial/geospatial.md#GEO`), `spatial/catalog` (`Surface` the discovery-method discriminant the terminal guard reads), `expression` (`Block.empty`/`Block.singleton`/`append` the rail-block construction, `Error` the terminal-reject rail leaf), `anyio` (`to_thread.run_sync` offloading the blocking `odc.stac.load` COG read off the event loop under the `guarded` envelope), runtime (`ContentIdentity`/`RuntimeRail`/`BoundaryFault`/`boundary`/`traversed`/`Disposition` the `ABORT` short-circuit row the egress fold selects/`RetryClass`/`guarded` the fused `HTTP` retry-span-plus-`async_boundary` envelope the `_coverage` COG read rides/`ReceiptContributor`).
+- Packages: `pystac` (`Item.assets`/`Asset.href`/`Asset.media_type`/`MediaType.COG`/`MediaType.GEOTIFF`, the canonical `obj.ext.<short>` accessor `item.ext.proj`/`item.ext.eo`/`asset.ext.raster`, `pystac.md` L97/L101-103), `odc-stac` (`odc.stac.load(items, *, stac_cfg=, patch_url=, groupby=, resampling=, chunks=, bands=)`, `odc-stac.md` L41), `tabular/egress` (`ObjectEgress.run` returning `RuntimeRail[EgressReceipt]` whose `byte_length` the egress fold sums, `StoreOp.GetRange`, `tabular/egress.md#EGRESS` L12), `gridded/virtual` (`VirtualReference(sources, ref).apply(VersionOp.aggregate(...))` returning `RuntimeRail[VirtualOutcome]` whose `VirtualReceipt.chunk_refs` the cube fold reads after the `isinstance` narrowing, `ManifestWrite.accessor`/`VersionOp.aggregate`/`VirtualReceipt`, `gridded/virtual.md#VIRTUAL`), `gridded/field` (`FieldVirtual` the composed manifest cube the `ManifestWrite.accessor` lowers, `gridded/field#VIRTUAL`), `spatial/geospatial` (`RasterGeoClaim`/`Resampling`, `spatial/geospatial.md#GEO`), `spatial/catalog` (`Surface` the discovery-method discriminant the terminal guard reads), `expression` (`Block.of_seq` the rail-block construction over the windowed-href comprehension, `Error` the terminal-reject rail leaf), `anyio` (`to_thread.run_sync` offloading the blocking `odc.stac.load` COG read off the event loop under the `guarded` envelope), runtime (`ContentIdentity`/`RuntimeRail`/`BoundaryFault` the terminal-reject leaf/`traversed`/`Disposition` the `ABORT` short-circuit row the egress fold selects/`RetryClass`/`guarded` the fused `HTTP` retry-span-plus-`async_boundary` envelope the `_coverage` COG read rides/`ReceiptContributor`).
 - Growth: a new archival format is one more `MediaType` member in the `_raster_hrefs` gate routed to the `Egress` `GetRange`; a new cube source format is the existing `gridded/field#VIRTUAL` `VirtualParser` case upstream with zero change here; a new coverage knob is one field on the `Coverage` row; a new extension read is one more typed accessor row in `_claim`; a per-collection cube is one `concat_dim` on the `Cube` row; zero new surface.
 - Boundary: reads the settled `tabular/egress` `GetRange`, `gridded/virtual` `VirtualReference.apply`, `gridded/field` `FieldVirtual`, `spatial/geospatial` `RasterGeoClaim`, and `odc-stac` `load` fences and never re-mints any — no second object-store transport, no second virtual-cube builder, no second COG loader, no second raster claim, no full-object read where a byte window applies, no durable asset store; a per-asset egress class family, a phantom `VirtualReference.aggregate(sources, ref, ...)` classmethod where the instance `VirtualReference(sources, ref).apply(VersionOp.aggregate(...))` is the surface, a re-derived virtual cube or kerchunk manifest where `FieldVirtual` owns it, a hand-rolled COG reader where `odc.stac.load` owns it, a synchronous `guard(RetryClass.HTTP)(...)` drive of the awaitable bound caller or a hand-rolled retry loop / manual `sleep` backoff around the `odc.stac.load` COG read where `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)` owns the transient-HTTP retry off the event loop, a blocking `odc.stac.load` left on the event loop where `anyio.to_thread.run_sync` offloads it, a raw `properties` dictionary probe where the typed `obj.ext.<short>` accessor applies, the legacy `XExtension.ext(obj)` classmethod where the `obj.ext.proj`/`obj.ext.eo`/`asset.ext.raster` accessor is canonical, a raw-MIME `frozenset` where `MediaType.COG`/`GEOTIFF` resolves, an imperative `for`/`if` asset loop where the rail-block fold threads, a swallowed `ObjectEgress.run`/`VirtualReference.apply` inner rail whose fault the fold never binds, a `VirtualOutcome` consumed without the `VirtualReceipt` narrowing where the union must be discriminated before `.chunk_refs`, a `len(sources)`/`len(reads)` fold count where the real `EgressReceipt.byte_length` sum and `VirtualReceipt.chunk_refs` manifest count are the evidence, a raw `RuntimeRail[ContentKey]` stuffed into `content_key: ContentKey` where `_rekey` folds the railed `ContentIdentity.of` through `.map`, a `_rekey` dropping `expiry`/`matched`/`url`, a no-op re-key that discards the fold outcome, and a hand-fed `stac_cfg` where the extension read derives it are the deleted forms.
 
 ```python signature
-from functools import reduce
 from typing import TYPE_CHECKING, Literal, assert_never
 
+import anyio
 from expression import Error, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct
@@ -471,7 +478,7 @@ from rasm.data.gridded.virtual import ManifestWrite, VirtualReceipt, VirtualRefe
 from rasm.data.spatial.geospatial import RasterGeoClaim, Resampling
 from rasm.data.tabular.egress import ObjectEgress, StoreOp
 from rasm.runtime.content_identity import ContentIdentity
-from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef
 
@@ -531,13 +538,11 @@ class AssetFold(Struct, frozen=True):
         match target:
             case FoldTarget(tag="egress", egress=(egress, windows)):
                 windowed = tuple((href, w) for href in sources if (w := windows.get(href)) is not None)
-                rails = reduce(
-                    lambda acc, hw: acc.append(Block.singleton(egress.run(StoreOp.GetRange(hw[0], hw[1][0], hw[1][1]), path=hw[0]))),
-                    windowed,
-                    Block.empty(),
+                rails = Block.of_seq(
+                    egress.run(StoreOp.GetRange(href, start, end), path=href) for href, (start, end) in windowed
                 )
                 return traversed(rails, by=Disposition.ABORT).bind(
-                    lambda receipts: self._rekey("egress", "\n".join(h for h, _ in windowed).encode(), sum(r.byte_length for r in receipts))
+                    lambda receipts: self._rekey("egress", "\n".join(href for href, _ in windowed).encode(), sum(r.byte_length for r in receipts))
                 )
             case FoldTarget(tag="cube", cube=(ref, concat_dim)):
                 manifest = ManifestWrite.accessor(FieldVirtual(sources=sources, target=ref, concat_dim=concat_dim))
@@ -547,8 +552,6 @@ class AssetFold(Struct, frozen=True):
                     else Error(BoundaryFault(boundary=("stac.assets.cube", "VersionOp.aggregate yielded no VirtualReceipt")))
                 )
             case FoldTarget(tag="coverage", coverage=(groupby, resampling, chunks)):
-                import anyio  # noqa: PLC0415
-
                 return (await guarded(RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._coverage(groupby, resampling, chunks), subject="stac.assets.coverage")).bind(lambda rail: rail)
             case unreachable:
                 assert_never(unreachable)
@@ -578,7 +581,7 @@ class AssetFold(Struct, frozen=True):
         )
 
     @staticmethod
-    def _claim(sample: object, resampling: Resampling, collection: str = "default") -> ClaimBundle:
+    def _claim(sample: object, resampling: Resampling) -> ClaimBundle:
         projection = sample.ext.proj
         eo = sample.ext.eo
         assets = tuple(sample.assets.values())
@@ -591,7 +594,7 @@ class AssetFold(Struct, frozen=True):
             nodata=float(nodata),
             transform=tuple(projection.transform or ()),
         )
-        stac_cfg: StacCfg = {collection: {"assets": {asset.title or asset.href: {"nodata": float(nodata)} for asset in assets}}}
+        stac_cfg: StacCfg = {"*": {"assets": {asset.title or asset.href: {"nodata": float(nodata)} for asset in assets}}}
         return ClaimBundle(claim=claim, stac_cfg=stac_cfg, cloud_cover=eo.cloud_cover)
 ```
 
@@ -601,4 +604,4 @@ class AssetFold(Struct, frozen=True):
 - [STAC_SIGN_DISPATCH]: `Signing.sign(search)` runs `planetary_computer.sign` over the lazy `pystac_client.ItemSearch` handle itself (the catalogued `singledispatch` registers `ItemSearch`, returning a fresh signed `ItemCollection` in one materialization, `planetary-computer.md` L44/L64), so the discovery result carries signed hrefs the `[4]-[ASSETS]` fold reads with neither a second sign pass nor a materialize-then-sign two-pass — the `NONE` row's `search.item_collection()` is the matching unsigned materialization (`pystac-client.md` L52), so both scheme rows return one `ItemCollection`; the one `SignScheme.row` projects the `SchemeRow` carrying the named `open_kwargs`/`sign`/`patch_url` callables so `Signing.open_kwargs` threads `modifier=planetary_computer.sign_inplace` (`sign_inplace(obj: Any) -> Any`, `planetary-computer.md` L40) plus `headers=`/`timeout=`, `Signing.sign` dispatches `planetary_computer.sign(ItemSearch)`, and `Signing.patch_url` returns `planetary_computer.sign` for `odc.stac.load(patch_url=)` — all three projections catalogue-settled and collapsed onto one frozen `SchemeRow` read by name rather than three parallel `match` statements; the `SignScheme` `StrEnum` row carries the strategy so `Signing` admits onto the frozen `StacCatalog` with no callable field. The idempotence over already-signed (`st`/`se`/`sp` present) and non-Azure hrefs is the catalogued selectivity (`planetary-computer.md` L66), so a re-sign of the discovery result is a no-op. The `msft:expiry` token horizon `StacDiscovery.expiry` reads off `Item.properties["msft:expiry"]` (the catalogued ISO-8601 expiry the SAS signing writes onto each signed item, `planetary-computer.md` L70) — the property key confirms against the synced `planetary-computer`/`pystac` distributions before the `min(...)` horizon read treats it as settled, the `sign(ItemSearch)` dispatch and `sign_inplace` modifier already settled.
 - [STAC_EXTENSION_PROPERTIES]: the `AssetFold._claim` fence reads the extension properties through the one canonical `obj.ext.<short>` accessor the object type statically scopes (`item.ext.proj.epsg`/`.transform`, `item.ext.eo.bands`/`.cloud_cover`, `asset.ext.raster.bands` with each band's `.nodata`) — the catalogue (`pystac.md` L97 the accessor law, L101-103 the per-extension `proj`->`epsg`/`transform`, `eo`->`bands`/`cloud_cover`, `raster`->`bands`/nodata capability rows) confirms the accessor and the EPSG/bands/nodata/cloud-cover capability, so the `.epsg`, `.transform`, `.cloud_cover`, `.bands`, and per-band `.nodata` attribute names confirm against the synced `pystac.extensions` distribution before the `RasterGeoClaim` CRS/band/nodata read and the `ClaimBundle.cloud_cover` scene-fraction read treat them as settled, the `obj.ext.<short>` accessor itself already settled as the canonical surface that supersedes the legacy `XExtension.ext(obj)` classmethod.
 - [STAC_CONFORMANCE_SURFACES]: the CQL2-JSON `filter_lang="cql2-json"` value, the legacy `query`-extension predicate the `Cql2Query` arm spreads, the `sortby`/`fields` ordering and projection the `Order` arm spreads, and the `eo:cloud_cover`/`proj:epsg` property predicates are STAC API conformance-class surfaces the server evaluates, confirmed against the target endpoint's advertised conformance before the `Cql2Filter`/`Cql2Query`/`Order` arms treat the predicate, ordering, or projection as accepted; the `intersects` GeoJSON-geometry `dict[str, object]` payload stays shapely-free at the boundary, the `Client.search(intersects=)` keyword admitting the raw GeoJSON mapping directly (`pystac-client.md` L40).
-- [STAC_COLLECTION_SURFACE]: the `COLLECTION` `SurfaceRow.materialize` policy (`_materialize_collections`) routes the free-text union to `Client.collection_search` returning `CollectionSearch` (`pystac-client.md` L43) and materializes its collections through the catalogued `CollectionSearch.collection_list() -> list[Collection]` member (`pystac-client.md` L69) without signing — `planetary_computer.sign` registers no `CollectionSearch` overload (the catalogued `singledispatch` covers `str`/`Asset`/`Item`/`ItemCollection`/`Collection`/`ItemSearch`/`Mapping` only, `planetary-computer.md` L39/L64), so the `COLLECTION` leg correctly omits the sign, which is the settled architectural decision; `CollectionSearch` carries its own `matched()`/`collections()`/`pages()` paging mirror (`pystac-client.md` L70), so the leg's zero-href, no-expiry shape is a deliberate `StacDiscovery` projection (a STAC `Collection` carries no `.assets`/`msft:expiry`), not a missing member. The `SurfaceRow.accepts` set names exactly the `collection_search` signature keywords (`bbox`/`datetime`/`query`/`filter`/`filter_lang`/`sortby`/`fields`/`q`, `pystac-client.md` L43), so a `FreeText` union that also folds an `Ids`/`Intersects`/`Collection` row contributes those keys to `params` but the row filter drops them before `collection_search`, the `_SHARED` ∪ `{q}` admission the one boundary that keeps the union total across the surface flip rather than a runtime `TypeError` on an unexpected keyword; the `ITEM` row's `_SHARED` ∪ `{ids, collections, intersects}` set is the `search` signature (`pystac-client.md` L40). The `collection_list`/`collection_search` surface and the `CollectionSearch` return are catalogue-settled (`pystac-client.md` L43/L69/L70), so `_materialize_collections` is fully settled against the synced distribution. The `COLLECTION` carrier is a collection set, not an `ItemCollection`, so the `StacDiscovery.collection` field is typed `ItemCollection | object` and the outcome carries a `surface: Surface` discriminant — `item_ids` reads each collection's `.id`, `href_count` is zero because a STAC `Collection` carries no `.assets`, and `expiry` is `None` because collection metadata carries no `msft:expiry` — and the discovery-of-collections terminal is structural rather than prose: `AssetFold.over` returns `Error(BoundaryFault(boundary=("stac.assets", ...)))` on a `Surface.COLLECTION` discovery, so the resolved collection ids re-enter an item `search` before `[4]-[ASSETS]` runs, the collection surface never an item-asset source.
+- [STAC_COLLECTION_SURFACE]: the `COLLECTION` `SurfaceRow.materialize` policy (`_materialize_collections`) routes the free-text union to `Client.collection_search` returning `CollectionSearch` (`pystac-client.md` L43) and materializes its collections through the catalogued `CollectionSearch.collection_list() -> list[Collection]` member (`pystac-client.md` L69) without signing — `planetary_computer.sign` registers no `CollectionSearch` overload (the catalogued `singledispatch` covers `str`/`Asset`/`Item`/`ItemCollection`/`Collection`/`ItemSearch`/`Mapping` only, `planetary-computer.md` L39/L64), so the `COLLECTION` leg correctly omits the sign, which is the settled architectural decision; `CollectionSearch` carries its own `matched()`/`collections()`/`pages()` paging mirror (`pystac-client.md` L70), so the leg's zero-href, no-expiry shape is a deliberate `StacDiscovery` projection (a STAC `Collection` carries no `.assets`/`msft:expiry`), not a missing member. The `SurfaceRow.accepts` set names exactly the `collection_search` signature keywords (`bbox`/`datetime`/`query`/`filter`/`filter_lang`/`sortby`/`fields`/`q`, `pystac-client.md` L43), so a `FreeText` union that also folds an `Ids`/`Intersects`/`Collection` row contributes those keys to `params` but the row filter drops them before `collection_search`, the `_SHARED` ∪ `{q}` admission the one boundary that keeps the union total across the surface flip rather than a runtime `TypeError` on an unexpected keyword; the `ITEM` row's `_SHARED` ∪ `{ids, collections, intersects}` set is the `search` signature (`pystac-client.md` L40). The `collection_list`/`collection_search` surface and the `CollectionSearch` return are catalogue-settled (`pystac-client.md` L43/L69/L70), so `_materialize_collections` is fully settled against the synced distribution. The `COLLECTION` carrier is a `list[Collection]`, not an `ItemCollection`, so the `StacDiscovery.collection` field is the precise closed union `ItemCollection | list[Collection]` rather than an `object`-erased slot, and the outcome carries a `surface: Surface` discriminant — `item_ids` reads each collection's `.id`, `href_count` is zero because a STAC `Collection` carries no `.assets`, and `expiry` is `None` because collection metadata carries no `msft:expiry` — and the discovery-of-collections terminal is structural rather than prose: `AssetFold.over` returns `Error(BoundaryFault(boundary=("stac.assets", ...)))` on a `Surface.COLLECTION` discovery, so the resolved collection ids re-enter an item `search` before `[4]-[ASSETS]` runs, the collection surface never an item-asset source.

@@ -51,14 +51,3 @@ The campaign treats the three branches as first-class peers, additive never subt
 ## [06]-[PLAN_MODE_DISCIPLINE]
 
 Plan mode is left only when the plan is exhaustive. Before exit, every gate, fence, page, sub-domain, admission, catalogue, manifest edit, and refinement the campaign will touch is identified in decision-complete detail — no residual research deferred to an execution turn, no entry-gate assumption left unresolved, no finding, idea, gap, or suggestion truncated or tossed. Each finding lands at its right tier and target; a finding without a home is a defect, not a discard. Every addition — fence, card, page, admission, refinement — is critiqued and red-teamed as it lands, and the whole plan and corpus are critiqued and red-teamed as one body before the plan finalizes; a single un-adversaried author is never the final word. A red-team or verify stage applies its fixes rather than only reporting them: it verifies before flipping any status — a spike or gap is marked finalized only against a cited `.api` line or harness output — fixes true positives in place, refines false positives rather than deleting the finding, and never marks work done without evidence. The plan carries the full scope a 4+ page blueprint demands; a thin plan is an un-exhausted one.
-
-## [07]-[THE_LOOP]
-
-The campaign cycles IDEATE -> IMPLEMENT -> REFINE and deepens every turn. An idea closes only when its tasks exist and are realized in fences; a closed idea proven un-realized re-opens. Nothing plateaus: a finished owner is the floor for the next idea, never the ceiling, and a turn whose ideation only re-confirms existing capability has failed its most important job.
-
-IDEATE, IMPLEMENT, REFINE, are all seperate prompts / isolated, not done within the SAME workflow, the PROMTPS are:
-- `.claude/prompts/1-ideate-pass.md`
-- `.claude/prompts/2-refine-pass.md`
-- `.claude/prompts/3-implement-pass.md`
-
-A SESSIONS IS ONLY EVER ONE OF THESE, NEVER MIXED, USER WILL PROVIDE INITIAL PROMPT TO START SESSION.

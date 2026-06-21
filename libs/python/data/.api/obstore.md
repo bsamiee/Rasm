@@ -27,6 +27,8 @@
 |  [04]   | `obstore.store.HTTPStore`   | store backend  | generic HTTP object store                 |
 |  [05]   | `obstore.store.LocalStore`  | store backend  | local filesystem with optional prefix     |
 |  [06]   | `obstore.store.MemoryStore` | store backend  | fully in-memory store for testing         |
+|  [07]   | `obstore.store.ObjectStore` | store handle    | the canonical store-handle type — runtime `UnionType` alias `S3Store \| GCSStore \| AzureStore \| HTTPStore \| LocalStore \| MemoryStore`, reflection-importable (absent from `store.__all__`), the type `from_url(...) -> ObjectStore` returns; annotate every store handle with this |
+|  [08]   | `obstore.store.ObjectStoreMethods` | mixin base | concrete mixin base class (a real `type`, NOT a `Protocol`, NOT `runtime_checkable`, absent from `store.__all__`) carrying the shared store surface every store in the `ObjectStore` union subclasses — the structural superset that also admits a custom store, not the idiomatic handle annotation |
 
 [PUBLIC_TYPE_SCOPE]: result and metadata types
 - rail: object-store
@@ -115,7 +117,7 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OBJECT_STORE_TOPOLOGY]:
-- dual form: every operation is both a free function `obs.op(store, ...)` and a bound method `store.op(...)` via `ObjectStoreMethods`; `obstore.store.ObjectStoreMethods` is the mixin, not a user base class (do not subclass to build a custom store)
+- dual form: every operation is both a free function `obs.op(store, ...)` and a bound method `store.op(...)` via `ObjectStoreMethods`; `obstore.store.ObjectStoreMethods` is the concrete mixin base (a real `type`, NOT a `Protocol`), not a user base class (do not subclass to build a custom store), and `obstore.store.ObjectStore` is the canonical store-handle type to annotate with — the runtime `UnionType` alias `from_url(...) -> ObjectStore` returns, every member of which subclasses the mixin
 - zero-copy: `Bytes` implements the Python buffer protocol (`memoryview`, slicing, `+`); call `.to_bytes()`/`bytes()` only when a Python-owned copy is required
 - multipart: `put` auto-uses multipart upload when file length exceeds `chunk_size` (default `5 MiB`), with `max_concurrency` (default `12`) concurrent parts; disable via `use_multipart=False`
 - conditional ops: `GetOptions` carries `if_match`/`if_none_match`/`if_modified_since`/`if_unmodified_since`/`range`/`version`/`head`; `PutMode` carries `"create"`/`"overwrite"`/`UpdateVersion` for compare-and-swap; failures surface as `PreconditionError`/`NotModifiedError`/`AlreadyExistsError`

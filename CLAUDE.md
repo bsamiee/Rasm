@@ -5,6 +5,7 @@ Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the st
 ## [01]-[WORKSPACE_LAW]
 
 [IMPORTANT]:
+- [ALWAYS] Use `.claude/skills/workflow-creator` when creating a workflow.
 - [ALWAYS] Treat monorepo code as polymorphic, agnostic, and universal by default.
 - [ALWAYS] Place every C# package on the canonical strata (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP), depending strictly upward; build a host-neutral owner only where a non-Rhino runtime consumes the contract ("universal" is never host-free C#), and keep geometry/mesh/IFC to one owner per runtime meeting at the wire. The package roster and full hierarchy law are `libs/.planning/architecture.md`.
 - [ALWAYS] Identify canonical object shapes, field names, semantics, and receipts that scale across packages, tools, apps, plugins, sidecars, services, and web consumers.
