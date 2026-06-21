@@ -23,6 +23,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: `compute`, `data`, `geometry`, and `artifacts` inherit execution elision by keying their expensive outputs without minting package-local cache owners.
 - Anchors: runtime `identity`, runtime `concurrency`, `xxhash`, `expression`, `msgspec`, and the C# content-identity wire seed.
 - Tension: settings drift must miss correctly, and durable federation remains C#-owned across the wire rather than promoted into this session cache.
+- Ripple: runtime `[CONTENT_REUSE_FEDERATION_WIRE]` — the runtime card carries the over-the-wire federation tier of this fold; this branch task owns the session-local lane-admission fold and durable federation stays C# Persistence.
 
 [GEOMETRY_KERNEL_OFFLOAD_LANE]-[QUEUED]: add the CPU-offload lane variant.
 - Capability: runtime owns one CPU-bound offload lane for caller-supplied `geometry` registration/tessellation kernels and `compute` solver kernels.

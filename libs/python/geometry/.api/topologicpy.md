@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_TOPOLOGICPY]
 
-`topologicpy` supplies the non-manifold topology modeling surface for the geometry-algebra rail: stateless static-method facades over `topologic_core` C++ handles for the `Vertex` through `CellComplex` topology hierarchy, the central polymorphic `Topology` owner, a `Graph` analysis facade, `Dictionary` attribute carriers, `Vector`/`Matrix`/`Color` algebra, and BIM integration facades (`IFC`, `Honeybee`, `Speckle`). The package owner composes `Topology.ByIFCFile`, the `Cell`/`CellComplex` constructors, and `Graph.ByTopology` into the topology owner gated against the C# `IfcSemanticModel` seam; it never re-implements the non-manifold boolean kernel or graph analytics `topologic_core` and `networkx` already own.
+`topologicpy` supplies the non-manifold topology modeling surface for the geometry-algebra rail: stateless static-method facades over `topologic_core` C++ handles for the `Vertex` through `CellComplex` topology hierarchy, the central polymorphic `Topology` owner, a `Graph` analysis facade, `Dictionary` attribute carriers, `Vector`/`Matrix`/`Color` algebra, and BIM integration facades (`IFC`, `Honeybee`, `Speckle`). The package owner composes `Topology.ByIFCFile`, the `Cell`/`CellComplex` constructors, and `Graph.ByTopology` into the topology owner gated against the C# `IfcSemanticModel` seam; it never re-implements the non-manifold boolean kernel or graph analytics `topologic_core` and `networkx` already own. It is a LICENSE-GATED row: `topologicpy` is `AGPL-3.0-or-later` (network copyleft) — any network-exposed deployment that links it triggers AGPL source-disclosure obligations, so it MUST be excluded from the default server build and admitted opt-in on the Forge lane only; the spine graph/non-manifold path stays AGPL-free. Replacement of the AGPL dependency is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]` (reference only).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,8 +8,11 @@
 - package: `topologicpy`
 - import: `import topologicpy`
 - owner: `geometry`
-- rail: geometry-algebra
-- installed: `0.9.43` with `topologic-core==8.0.4` reflected via per-class import on cp313
+- rail: geometry-algebra (LICENSE-GATED, opt-in / Forge-lane only)
+- license: `AGPL-3.0-or-later` (own) — NETWORK COPYLEFT; pure-Python distribution riding the `topologic-core` native floor, but the AGPL source-disclosure trigger fires for any network-accessible service that links it. The package MUST be excluded from the default server build and is admitted opt-in on the Forge lane only; replacement is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]`. The upstream PyPI `License ::` classifier is mislabeled `GPLv3`, but the bundled `LICENSE` text and `__init__.py` header are AGPLv3 "or any later version" — treat the binding license as AGPL network-copyleft
+- installed: `0.9.50` authored from ledger ([04]-sourced). Members below remain the cp313 per-class introspection of `topologicpy` over `topologic-core` (`>=7.0.1` declared floor; introspection ran against `8.0.4`); the static-method counts and facade roster carry forward unchanged at `0.9.50`
+- requires-python: `>=3.8,<3.15` (declared in package metadata) — a hard upper bound. The wheel is `py3-none-any`, but the `Requires-Python: <3.15` ceiling makes the cp315 project venv refuse the install at resolution time regardless of ABI tag; opt-in installs land on a companion cp313/cp314 interpreter, not cp315
+- build exclusion: the default server build excludes `topologicpy`; opt-in installs gate behind the Forge lane and assume the AGPL obligation. Two gates apply — the `AGPL-3.0-or-later` network-copyleft license AND the `<3.15` requires-python ceiling (no cp315 admission until the upstream bound lifts)
 - entry points: none (library only)
 - capability: non-manifold vertex/edge/wire/face/shell/cell/cell-complex topology, polymorphic `Topology` analysis and boolean ops, graph construction and centrality/shortest-path analytics, dictionary attribute attachment, vector/matrix/color algebra, and IFC/Honeybee/Speckle BIM integration
 
@@ -143,10 +146,11 @@ Per-class `By*` constructors build the named handle from lower topology; `Graph`
 
 [RAIL_LAW]:
 - Package: `topologicpy`
+- License gate: `AGPL-3.0-or-later` network copyleft (PyPI classifier mislabeled `GPLv3`; bundled license text is AGPLv3-or-later) — admitted opt-in on the Forge lane only and EXCLUDED from the default server build; any network-exposed deployment linking it inherits the AGPL source-disclosure obligation. Replacement of the AGPL dependency is mandated by card `geometry [GEO_TOPOLOGICPY_LICENSE_REPLACE]` (reference only)
 - Owns: non-manifold cell/aperture topology modeling, polymorphic `Topology` analysis and boolean ops, graph construction and analytics, dictionary attributes, and vector/matrix/color algebra gated against the C# `IfcSemanticModel`
-- Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner
-- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel where topologicpy is admitted; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting IFC semantic identity the C# owner holds
+- Accept: non-manifold topology and graph analysis feeding the geometry-algebra owner on the opt-in Forge lane, under the AGPL obligation
+- Reject: wrapper-renames of `Topology.ByX`/`Graph.ByTopology`; a hand-rolled non-manifold boolean or graph-centrality kernel where topologicpy is admitted; a per-kind accessor/boolean family over the polymorphic `Topology` row; minting IFC semantic identity the C# owner holds; linking `topologicpy` into the default server build or any network-exposed deployment outside the opt-in Forge lane
 
 [CAPTURE_GAP]:
-- floor: `topologicpy` is an undeclared candidate riding the `topologic-core` native floor; `0.9.43` plus `topologic-core==8.0.4` reflect on a cp313 companion interpreter, while the `>=3.15` project venv carries no wheel and the project-venv `assay api query` resolves no source there
-- members: verified by introspection against the installed cp313 distribution; every documented facade, integration module, and `Topology`/`Graph` static-method count resolves against the live class surfaces — no phantom
+- floor: `topologicpy` is an undeclared, LICENSE-GATED candidate riding the `topologic-core` native floor (declared `topologic-core>=7.0.1`; cp313 introspection ran against `8.0.4`). The wheel is pure-Python `py3-none-any`, but the package declares `Requires-Python: >=3.8,<3.15`, so it carries a hard cp315 ceiling: the cp315 project venv cannot resolve it on requires-python grounds, and opt-in installs land on a cp313/cp314 companion interpreter. Two gates apply — the `AGPL-3.0-or-later` network-copyleft license and the `<3.15` requires-python ceiling
+- members: every documented facade, integration module, and `Topology`/`Graph` static-method count was introspected against the live cp313 class surfaces and carries forward at `0.9.50` ([04]-sourced) — no phantom

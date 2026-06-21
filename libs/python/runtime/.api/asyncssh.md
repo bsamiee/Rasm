@@ -67,19 +67,21 @@
 [ENTRYPOINT_SCOPE]: session operations
 - rail: transport
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :-------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `connect`                                     | connect        | establish a client connection      |
-|  [02]   | `listen`                                      | serve          | start an SSH server                |
-|  [03]   | `SSHClientConnection.run`                     | exec           | run a remote command to completion |
-|  [04]   | `SSHClientConnection.create_process`          | exec           | spawn a streamed remote process    |
-|  [05]   | `SSHClientConnection.start_sftp_client`       | sftp           | open an SFTP session               |
-|  [06]   | `SSHClientConnection.forward_local_port`      | forward        | local→remote port forward          |
-|  [07]   | `SSHClientConnection.forward_remote_port`     | forward        | remote→local port forward          |
-|  [08]   | `SFTPClient.get` / `.put`                     | transfer       | download/upload files              |
-|  [09]   | `SFTPClient.glob` / `.listdir`                | traverse       | remote enumeration                 |
-|  [10]   | `import_private_key` / `generate_private_key` | key            | load/create a key                  |
-|  [11]   | `read_known_hosts`                            | verify         | load known-hosts database          |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `connect`                                     | connect        | establish a client connection          |
+|  [02]   | `listen`                                      | serve          | start an SSH server                    |
+|  [03]   | `SSHClientConnection.run`                     | exec           | run a remote command to completion     |
+|  [04]   | `SSHClientConnection.create_process`          | exec           | spawn a streamed remote process        |
+|  [05]   | `SSHClientConnection.start_sftp_client`       | sftp           | open an SFTP session                   |
+|  [06]   | `SSHClientConnection.forward_local_port`      | forward        | local→remote port forward              |
+|  [07]   | `SSHClientConnection.forward_remote_port`     | forward        | remote→local port forward              |
+|  [08]   | `SFTPClient.get` / `.put`                     | transfer       | download/upload files                  |
+|  [09]   | `SFTPClient.glob` / `.listdir`                | traverse       | remote enumeration                     |
+|  [10]   | `import_private_key` / `generate_private_key` | key            | load/create a key                      |
+|  [11]   | `read_known_hosts`                            | verify         | load known-hosts database              |
+|  [12]   | `SFTPClient.open(path, pflags_or_mode, ...)`  | sftp open      | open a remote file as `SFTPClientFile` |
+|  [13]   | `SFTPClientFile.read(size, offset)`           | sftp read      | read bytes from an open SFTP file      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -52,7 +52,7 @@
 | [INDEX] | [SURFACE]                                   | [CALL_SHAPE]             | [CAPABILITY]                        |
 | :-----: | :------------------------------------------ | :----------------------- | :---------------------------------- |
 |  [01]   | `trimesh.load(file_obj, file_type=None)`    | path/bytes plus type     | polymorphic mesh/scene/path read    |
-|  [02]   | `trimesh.load_mesh(file_obj)`               | path plus type           | force a `Trimesh` result            |
+|  [02]   | `trimesh.load_mesh(file_obj, file_type=None)` | path plus type         | force a `Trimesh` result            |
 |  [03]   | `trimesh.load_scene(file_obj)`              | path plus type           | force a `Scene` result              |
 |  [04]   | `trimesh.available_formats()`               | none                     | enumerate supported extensions      |
 |  [05]   | `mesh.export(file_obj, file_type)`          | path plus type           | write mesh to any registered format |
@@ -95,7 +95,7 @@ Registration rows return a transform plus cost; proximity rows return distances/
 |  [02]   | `registration.icp(a, b)`                    | point sets plus init | iterative closest point              |
 |  [03]   | `registration.procrustes(a, b)`             | point sets           | rigid Procrustes fit                 |
 |  [04]   | `registration.nricp_amberg(source, target)` | source plus target   | non-rigid Amberg deformation         |
-|  [05]   | `proximity.closest_point(mesh, points)`     | mesh plus points     | closest surface points and distances |
+|  [05]   | `proximity.closest_point(mesh, points)`     | mesh plus points     | closest surface points, distances, and triangle ids (3-tuple) |
 |  [06]   | `proximity.signed_distance(mesh, points)`   | mesh plus points     | signed distance field samples        |
 |  [07]   | `sample.sample_surface(mesh, count)`        | mesh plus count      | area-weighted surface samples        |
 |  [08]   | `sample.sample_surface_even(mesh, count)`   | mesh plus count      | blue-noise even surface samples      |

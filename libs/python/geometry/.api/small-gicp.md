@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_SMALL_GICP]
 
-`small_gicp` supplies the parallel fine point-cloud registration speed-path for the scan-processing rail: a `PointCloud` carrier with points/normals/covariances, a parallel `KdTree`, Gaussian and incremental voxel maps, per-correspondence factors, and the polymorphic `align` entrypoint that drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform. The package owner composes `read_ply`/numpy intake, `preprocess_points`, and `align` into the scan owner; it never re-implements the multi-threaded nearest-neighbor search, the GICP linearization, or the voxel-grid downsampler.
+`small_gicp` supplies the parallel fine point-cloud registration speed-path for the scan-processing rail: a `PointCloud` carrier with points/normals/covariances, a parallel `KdTree`, Gaussian and incremental voxel maps, per-correspondence factors, and the polymorphic `align` entrypoint that drives ICP, point-to-plane ICP, GICP, and VGICP to a `RegistrationResult` 4x4 transform. The package owner composes `read_ply`/numpy intake, `preprocess_points`, and `align` into the scan owner; it never re-implements the multi-threaded nearest-neighbor search, the GICP linearization, or the voxel-grid downsampler. It is a Forge-companion-lane GATED ENRICHMENT row inside the geometry mesh/spatial registration rail — it accelerates fine GICP/VGICP refinement the cp315-clean spine (`trimesh` plus `manifold3d`, with `trimesh.registration` ICP) cannot reach at the multi-threaded scan scale; the spine never depends on it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,8 +8,10 @@
 - package: `small-gicp`
 - import: `import small_gicp`
 - owner: `geometry`
-- rail: scan-processing
-- installed: `1.0.1` reflected via `python -c "import small_gicp"` on cp313
+- rail: scan-processing / fine-registration-enrichment
+- license: `MIT` (own)
+- floor: `small-gicp 1.0.1` ships cp310-cp314 native wheels (no abi3, no cp315 load path), so it carries marker `python_version<'3.15'` and is admitted only on the Forge companion lane, never the manifest spine. It is a GATED ENRICHMENT row by rail policy — NEVER the spine ([04]-sourced; `assay api` resolution blocked by the `opentelemetry-proto` `protobuf>=5,<7` ceiling against the workspace `protobuf>=7.35` floor on the cp315 venv, not an interpreter or wheel fault — members authored from the cp313 companion-interpreter introspection ledger)
+- spine boundary: the cp315-clean spine is `trimesh` plus `manifold3d` (mesh-mesh ICP via `trimesh.registration`); `small_gicp` adds parallel multi-threaded GICP/VGICP fine registration beyond the spine ICP as a gated enrichment, never a spine dependency
 - entry points: none (library only)
 - capability: multi-threaded GICP/VGICP/ICP/point-to-plane registration, voxel-grid downsampling, parallel KdTree KNN and batch search, normal and covariance estimation, Gaussian and incremental LRU voxel maps, and linearized normal-equation factors for chaining
 
@@ -46,7 +48,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 [ENTRYPOINT_SCOPE]: registration (`small_gicp.align`)
 - rail: scan-processing
 
-`align` is overloaded on the target shape and returns a `RegistrationResult`; `registration_type` is one of `ICP`, `PLANE_ICP`, `GICP`, `VGICP`. The raw-array overload additionally carries `voxel_resolution=1.0` and `downsampling_resolution=0.25` (it preprocesses internally). All overloads share `init_T_target_source=eye(4)`, `max_correspondence_distance=1.0`, `num_threads=1`, `max_iterations=20`, `rotation_epsilon`, `translation_epsilon`, and `verbose`.
+`align` is overloaded on the target shape and returns a `RegistrationResult`. The raw-array overload carries `registration_type` over the full `ICP`/`PLANE_ICP`/`GICP`/`VGICP` set (building the internal Gaussian voxel map when `VGICP`) plus `voxel_resolution=1.0` and `downsampling_resolution=0.25` (it preprocesses internally). The prepared-`PointCloud` overload carries `registration_type` over `ICP`/`PLANE_ICP`/`GICP` only; the `GaussianVoxelMap` overload is VGICP-only and carries no `registration_type`. All overloads share `init_T_target_source=eye(4)`, `max_correspondence_distance=1.0`, `num_threads=1`, `max_iterations=20`, `rotation_epsilon`, `translation_epsilon`, and `verbose`.
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                      |
 | :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------ |
@@ -106,5 +108,5 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 - Reject: wrapper-renames of `align`/`preprocess_points`; a hand-rolled GICP linearization or parallel KdTree where small_gicp is admitted; an ICP/GICP/VGICP function family over the `registration_type` argument row; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `small-gicp` is an undeclared candidate package; `1.0.1` ships cp310-cp314 wheels (no abi3, no cp315 load path), so reflection runs on a cp313 companion interpreter with numpy while the `>=3.15` project venv carries no wheel and the project-venv `assay api query` resolves no source there
+- floor: `small-gicp 1.0.1` is a Forge-companion-lane package carrying marker `python_version<'3.15'`; it ships cp310-cp314 native wheels (no abi3, no cp315 load path), so it loads only on a cp313 companion interpreter with numpy while the `>=3.15` project venv carries no wheel. `assay api` on the project venv blocks before reflection on the `opentelemetry-proto` `protobuf>=5,<7` resolution ceiling, so members are authored from the cp313 companion-interpreter introspection ledger ([04]-sourced)
 - members: verified by introspection against the installed cp313 distribution; every documented class, accessor, and overloaded entrypoint resolves against the live pybind signatures — no phantom

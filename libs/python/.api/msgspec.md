@@ -53,12 +53,12 @@
 [PUBLIC_TYPE_SCOPE]: struct introspection
 - rail: serialization
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [RAIL]                                                  |
-| :-----: | :------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `structs.FieldInfo`        | field metadata | name, encode_name, type, default                        |
-|  [02]   | `structs.StructConfig`     | config record  | struct class configuration                              |
-|  [03]   | `Struct.__struct_config__` | config handle  | per-class `StructConfig` (`tag`, `tag_field`, `frozen`) |
-|  [04]   | `Struct.__struct_fields__` | name tuple     | declared field names in declaration order               |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [RAIL]                                                        |
+| :-----: | :------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `structs.FieldInfo`        | field metadata | name, encode_name, type, default                              |
+|  [02]   | `structs.StructConfig`     | config record  | struct class configuration                                    |
+|  [03]   | `Struct.__struct_config__` | config handle  | per-class `StructConfig` (`tag`, `tag_field`, `frozen`, `gc`) |
+|  [04]   | `Struct.__struct_fields__` | name tuple     | declared field names in declaration order                     |
 
 [PUBLIC_TYPE_SCOPE]: inspect type nodes (selection)
 - rail: serialization
@@ -130,6 +130,7 @@
 [MSGSPEC_TOPOLOGY]:
 - namespaces: `msgspec` (core), `msgspec.json`, `msgspec.msgpack`, `msgspec.toml`, `msgspec.yaml`, `msgspec.structs`, `msgspec.inspect`
 - `Struct` is a C-extension class; field types are resolved at class creation time, not at decode time
+- `Struct` subclass keywords configure the record: `frozen`, `tag`/`tag_field` (tagged-union discriminant), `array_like`, `omit_defaults`, `rename`, `forbid_unknown_fields`, and `gc` — `gc=False` opts a leaf struct holding only non-container fields out of the cyclic garbage collector's tracked set, removing per-instance GC overhead on high-allocation paths; each keyword surfaces on the per-class `structs.StructConfig`
 - `Meta` carries constraint metadata used inside `Annotated[T, Meta(...)]` and validated during decode
 - `UnsetType` (singleton `NODEFAULT`) marks fields as having no default; absent in encoded output when `omit_defaults=True`
 - `json.Encoder`/`json.Decoder` instances are reusable; prefer them over per-call `encode`/`decode` in hot paths

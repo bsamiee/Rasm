@@ -21,11 +21,13 @@
 - [15]-[ARRAY](.planning/numerics/array.md)
 - [16]-[INTERVAL](.planning/numerics/interval.md)
 - [17]-[QUANTITY](.planning/numerics/quantity.md)
-- [18]-[SIGNAL](.planning/analysis/signal.md)
-- [19]-[SYMBOLIC](.planning/analysis/symbolic.md)
-- [20]-[SPATIAL](.planning/analysis/spatial.md)
-- [21]-[HANDOFF](.planning/graduation/handoff.md)
-- [22]-[CODEGEN](.planning/graduation/codegen.md)
+- [18]-[STATISTICS](.planning/numerics/statistics.md)
+- [19]-[SIGNAL](.planning/analysis/signal.md)
+- [20]-[TRANSFORM](.planning/analysis/transform.md)
+- [21]-[SYMBOLIC](.planning/analysis/symbolic.md)
+- [22]-[SPATIAL](.planning/analysis/spatial.md)
+- [23]-[HANDOFF](.planning/graduation/handoff.md)
+- [24]-[CODEGEN](.planning/graduation/codegen.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -45,6 +47,9 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `optimistix`
 - `diffrax`
 - `equinox`
+- `findiff` (gated `python_version<'3.15'` — finite-difference differential operators; requires scipy/numpy)
+- `interpax` (gated `python_version<'3.15'` — JAX interpolation)
+- `quadax` (gated `python_version<'3.15'` — JAX adaptive quadrature)
 
 [INVERSE_DESIGN]:
 - `optimistix`

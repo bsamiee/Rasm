@@ -112,6 +112,16 @@
 |  [03]   | `PeriodicExportingMetricReader(exporter, export_interval_millis)`          | construction   | push reader on timer            |
 |  [04]   | `View(instrument_type, instrument_name, aggregation, attribute_keys, ...)` | construction   | instrument filter and routing   |
 
+[ENTRYPOINT_SCOPE]: LoggerProvider construction and lifecycle
+- rail: observability
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `LoggerProvider(resource, ...)`                          | construction   | SDK logger provider with resource      |
+|  [02]   | `LoggerProvider.add_log_record_processor(processor)`     | config         | attach a log-record processor          |
+|  [03]   | `LoggerProvider.shutdown()`                              | lifecycle      | flush and shut down all log processors |
+|  [04]   | `BatchLogRecordProcessor(exporter, max_queue_size, ...)` | construction   | batching log-record processor          |
+
 [ENTRYPOINT_SCOPE]: Resource construction
 - rail: observability
 

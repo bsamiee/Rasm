@@ -45,6 +45,17 @@
 |  [05]   | `pid_exists(pid)`                      | query          | true if pid is alive                |
 |  [06]   | `wait_procs(procs, timeout, callback)` | wait           | wait for multiple processes to exit |
 
+[ENTRYPOINT_SCOPE]: process metrics
+- rail: observability
+- defined on `Process` (PUBLIC_TYPES [01]); read off a `Process(pid)` handle, raising `NoSuchProcess`/`ZombieProcess`/`AccessDenied` on a dead/inaccessible target.
+
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :-------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `Process.memory_info()`           | metric         | RSS/VMS namedtuple (`rss`, `vms`, ...) for the process  |
+|  [02]   | `Process.cpu_percent(interval)`   | metric         | process CPU utilization float (`interval=None` polling) |
+|  [03]   | `Process.memory_percent(memtype)` | metric         | process memory as a percent of system total             |
+|  [04]   | `Process.status()`                | metric         | process status string                                   |
+
 [ENTRYPOINT_SCOPE]: CPU metrics
 - rail: observability
 

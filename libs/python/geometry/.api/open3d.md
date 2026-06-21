@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_OPEN3D]
 
-`open3d` supplies the point-cloud and 3D-scan processing surface for the geometry scan rail: a `geometry.PointCloud` and `geometry.TriangleMesh`, the `io` read/write functions, and the `pipelines.registration` module that drives downsampling, normal estimation, plane segmentation, ICP and feature-based registration, pose-graph optimization, and Poisson/ball-pivoting surface reconstruction. The package owner composes `io.read_point_cloud`, `PointCloud.voxel_down_sample`, and `registration.registration_icp` into the scan owner; it never re-implements ICP, FPFH features, or Poisson reconstruction open3d already owns.
+`open3d` supplies the point-cloud and 3D-scan processing surface for the geometry scan rail: a `geometry.PointCloud` and `geometry.TriangleMesh`, the `io` read/write functions, and the `pipelines.registration` module that drives downsampling, normal estimation, plane segmentation, ICP and feature-based registration, pose-graph optimization, and Poisson/ball-pivoting surface reconstruction. The package owner composes `io.read_point_cloud`, `PointCloud.voxel_down_sample`, and `registration.registration_icp` into the scan owner; it never re-implements ICP, FPFH features, or Poisson reconstruction open3d already owns. Its `registration.registration_fgr_based_on_feature_matching` Fast Global Registration path is the global-registration fallback the scan owner selects when `kiss-matcher` (the `>=3.13` initialization-free primary) carries no wheel on a given interpreter; both return a rigid transform that seeds the fine `small-gicp` refinement.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,8 +8,8 @@
 - package: `open3d`
 - import: `import open3d`
 - owner: `geometry`
-- rail: scan
-- installed: `0.19.0` reflected via `python -c "import open3d"` on cp312
+- rail: scan / global-registration-fallback
+- installed: `0.19.0` authored from ledger ([04]-sourced; `assay api` resolution blocked by the workspace `opentelemetry-proto` `protobuf>=5,<7` ceiling against the `protobuf>=7.35` floor on the non-current environment, not an open3d wheel or interpreter fault); license MIT; wheels cp38-cp312 only (no cp313/cp314/cp315, no abi3) => companion-only, marker `; python_version<'3.13'`
 - entry points: none (library only)
 - capability: point-cloud and mesh IO, voxel/uniform/random/farthest downsampling, normal and covariance estimation, statistical and radius outlier removal, plane and DBSCAN segmentation, point-to-point/plane/colored/generalized ICP, RANSAC and fast global registration, FPFH features, multiway pose-graph optimization, and Poisson/ball-pivoting/alpha-shape reconstruction
 
@@ -123,6 +123,7 @@ The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `Reg
 - reconstruction axis: `TriangleMesh.create_from_point_cloud_poisson`/`ball_pivoting`/`alpha_shape` are the reconstruction rows; the algorithm choice is a static constructor, not a runtime mode flag.
 - pipeline: `io.read_point_cloud` -> `voxel_down_sample` -> `estimate_normals` -> `compute_fpfh_feature` -> `registration_ransac_based_on_feature_matching` -> `registration_icp` refinement -> `create_from_point_cloud_poisson`.
 - evidence: each registration captures fitness, inlier rmse, correspondence count, and transformation; each reconstruction captures input point count and output vertex/triangle count as a scan receipt. The `open3d.t` tensor API mirrors this surface for batched GPU work.
+- fallback law: `registration_fgr_based_on_feature_matching` over `compute_fpfh_feature` descriptors is the Fast Global Registration global-registration arm the scan owner selects only when `kiss-matcher` carries no wheel for the active interpreter; on `>=3.13` interpreters `kiss-matcher` is the initialization-free primary and open3d does not load. Both arms yield a rigid transform seeding the `small-gicp` fine refinement, so the fallback is a per-interpreter selector row, not a parallel registration owner.
 - boundary: open3d owns point-cloud registration and reconstruction; triangular mesh exchange routes to `trimesh`/`meshio`, LAS/LAZ scan IO to `laspy`, E57 to `pye57`; live visualization stays outside the headless boundary.
 
 ## [05]-[LOCAL_ADMISSION]
@@ -131,8 +132,8 @@ The tensor backend operates on `t.geometry.PointCloud` and returns a tensor `Reg
 - Package: `open3d`
 - Owns: point-cloud/mesh IO, downsampling, normal estimation, outlier removal, segmentation, ICP and global registration, pose-graph optimization, and surface reconstruction
 - Accept: 3D-scan processing and registration feeding the scan and geometry owners
-- Reject: wrapper-renames of `registration_icp`/`read_point_cloud`; a hand-rolled ICP, FPFH, or Poisson kernel where open3d is admitted; an ICP function family over the `TransformationEstimation*` argument row; identity minting the runtime owns
+- Reject: wrapper-renames of `registration_icp`/`read_point_cloud`; a hand-rolled ICP, FPFH, or Poisson kernel where open3d is admitted; an ICP function family over the `TransformationEstimation*` argument row; selecting the open3d FGR arm on a `>=3.13` interpreter where `kiss-matcher` carries a wheel; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: companion interpreter cp312; the compiled core caps at cp312, so neither cp313 nor the `>=3.15` project venv admits a wheel, and the project-venv `assay api query` resolves no source there
-- members: verified by introspection against the installed cp312 distribution; every documented type, method, and entrypoint resolves — no phantom
+- floor: `open3d 0.19.0` ships cp38-cp312 wheels only (no cp313/cp314/cp315, no abi3), so it is a `python_version<'3.13'` companion-only package; the compiled core caps at cp312, neither cp313 nor the `>=3.15` project venv admits a wheel, and the project-venv `assay api query` resolves no source there
+- members: authored from ledger ([04]-sourced); the `assay api` reflection pass blocked on the workspace `opentelemetry-proto` `protobuf>=5,<7` ceiling resolving the non-current environment, not an open3d wheel or interpreter fault, so no live introspection ran; every documented `geometry`/`pipelines.registration`/`t.pipelines.registration`/`io` symbol is a ledger-stated member, never invented beyond the stated surface

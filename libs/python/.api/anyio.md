@@ -54,17 +54,18 @@
 [PUBLIC_TYPE_SCOPE]: error types
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                            |
-| :-----: | :-------------------- | :------------- | :-------------------------------- |
-|  [01]   | `EndOfStream`         | stream error   | stream exhausted                  |
-|  [02]   | `ClosedResourceError` | resource error | operation on closed resource      |
-|  [03]   | `BrokenResourceError` | resource error | unrecoverable stream/socket break |
-|  [04]   | `BusyResourceError`   | resource error | concurrent operation in progress  |
-|  [05]   | `WouldBlock`          | sync error     | operation would block in sync ctx |
-|  [06]   | `DelimiterNotFound`   | read error     | delimiter absent within max bytes |
-|  [07]   | `IncompleteRead`      | read error     | EOF before expected byte count    |
-|  [08]   | `NoEventLoopError`    | thread error   | no running event loop for token   |
-|  [09]   | `ConnectionFailed`    | net error      | connection could not be opened    |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                         |
+| :-----: | :------------------------ | :------------- | :--------------------------------------------- |
+|  [01]   | `EndOfStream`             | stream error   | stream exhausted                               |
+|  [02]   | `ClosedResourceError`     | resource error | operation on closed resource                   |
+|  [03]   | `BrokenResourceError`     | resource error | unrecoverable stream/socket break              |
+|  [04]   | `BusyResourceError`       | resource error | concurrent operation in progress               |
+|  [05]   | `WouldBlock`              | sync error     | operation would block in sync ctx              |
+|  [06]   | `DelimiterNotFound`       | read error     | delimiter absent within max bytes              |
+|  [07]   | `IncompleteRead`          | read error     | EOF before expected byte count                 |
+|  [08]   | `NoEventLoopError`        | thread error   | no running event loop for token                |
+|  [09]   | `ConnectionFailed`        | net error      | connection could not be opened                 |
+|  [10]   | `BrokenWorkerInterpreter` | worker error   | subinterpreter worker raised or died (PEP 734) |
 
 [PUBLIC_TYPE_SCOPE]: ABC contracts
 - rail: concurrency
@@ -127,13 +128,15 @@
 [ENTRYPOINT_SCOPE]: thread interop
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]  | [RAIL]                              |
-| :-----: | :------------------------------------------------------ | :-------------- | :---------------------------------- |
-|  [01]   | `to_thread.run_sync(func, *args, limiter, cancellable)` | thread dispatch | run sync callable in worker thread  |
-|  [02]   | `to_thread.current_default_thread_limiter()`            | limiter query   | global default thread limiter       |
-|  [03]   | `from_thread.run(func, *args, ...)`                     | bridge call     | call async fn from worker thread    |
-|  [04]   | `from_thread.run_sync(func, *args, ...)`                | bridge call     | call sync fn from event loop thread |
-|  [05]   | `from_thread.start_blocking_portal(backend, ...)`       | portal factory  | blocking portal context manager     |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]   | [RAIL]                                        |
+| :-----: | :------------------------------------------------------- | :--------------- | :-------------------------------------------- |
+|  [01]   | `to_thread.run_sync(func, *args, limiter, cancellable)`  | thread dispatch  | run sync callable in worker thread            |
+|  [02]   | `to_thread.current_default_thread_limiter()`             | limiter query    | global default thread limiter                 |
+|  [03]   | `from_thread.run(func, *args, ...)`                      | bridge call      | call async fn from worker thread              |
+|  [04]   | `from_thread.run_sync(func, *args, ...)`                 | bridge call      | call sync fn from event loop thread           |
+|  [05]   | `from_thread.start_blocking_portal(backend, ...)`        | portal factory   | blocking portal context manager               |
+|  [06]   | `to_interpreter.run_sync(func, *args, limiter=None)`     | interp dispatch  | run sync callable in a PEP-734 subinterpreter |
+|  [07]   | `to_process.run_sync(func, *args, cancellable, limiter)` | process dispatch | run sync callable in a worker subprocess      |
 
 [ENTRYPOINT_SCOPE]: low-level checkpoints
 - rail: concurrency
@@ -154,6 +157,8 @@
 - `CancelScope` is the cancellation primitive; `fail_after`/`move_on_after` return one as a context manager
 - `create_memory_object_stream` returns `(MemoryObjectSendStream, MemoryObjectReceiveStream)` as a paired tuple
 - `to_thread.run_sync` dispatches to a `CapacityLimiter`-bounded thread pool; default limiter has 40 slots
+- `to_interpreter.run_sync(func, *args, limiter=None)` dispatches a sync callable into a PEP-734 subinterpreter (each carrying its own GIL on a runnable `concurrent.interpreters`), bounded by an optional `CapacityLimiter`, with no pickle round-trip on the worker hop; a worker raise or death surfaces as `BrokenWorkerInterpreter`
+- `to_process.run_sync` dispatches into a worker subprocess for true process isolation; arguments and results cross by pickle
 
 [LOCAL_ADMISSION]:
 - Use `create_task_group` for concurrent task launch; never use `asyncio.gather` or `asyncio.create_task` directly.

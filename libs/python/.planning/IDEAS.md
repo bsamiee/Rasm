@@ -22,6 +22,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: by-reference reuse across companion sessions and package boundaries, with determinism and cache hits derived from the key instead of re-declared by each owner.
 - Anchors: runtime `identity`, `execution/lanes`, `DrainReceipt`, `expression` `frozendict`/`Result`, `msgspec`, and the branch rule that the four consumers compose runtime-owned shapes.
 - Tension: the cache is session-local and bounded; durable federation remains the C# persistence owner consumed at the wire.
+- Ripple: runtime `[CONTENT_REUSE_FEDERATION_WIRE]` — the runtime card federates this in-session reuse fold across sessions over the wire codec; this branch card owns the session-local `(ContentKey, Work[T])` fold and durable federation stays C# Persistence.
 
 [GEOMETRY_KERNEL_OFFLOAD_LANE]-[QUEUED]: CPU-bound kernels run through one runtime offload lane.
 - Capability: one runtime-owned CPU offload lane for geometry and numerical kernels.

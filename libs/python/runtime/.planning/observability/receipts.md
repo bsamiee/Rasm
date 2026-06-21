@@ -11,10 +11,10 @@ Local evidence production. `Receipt` is the one tagged-union evidence family (ad
 - Owner: `Receipt` — the one evidence union with slot/kind metadata; `ReceiptContributor` the Protocol port the sibling typed receipts implement; `Redaction` the field-classification policy; `Signals` the static surface owning the `structlog` processor chain, the `psutil` process telemetry facts, and the inbound trace-context extract-and-continue, the trace context riding the processor chain rather than a cached tracer.
 - Cases: the three lifecycle phases share one `fact` case carrying `(Phase, owner, subject, facts)` — `admitted`/`planned`/`emitted` are a `Phase` literal value the case routes, not three identical-payload sibling cases; `rejected` carries `(owner, subject, BoundaryFault)` and `drained` carries `(owner, DrainReceipt)` because their payloads differ; correlation flows through `merge_contextvars`, never a per-case field.
 - Entry: `Receipt.of(phase, owner, subject, facts)` is the one phase-keyed factory; `ReceiptContributor.contribute` is the one method a sibling implements to feed its typed receipt into the stream; `Signals.emit` dispatches the three cases by `match` and never probes the union by `getattr`, redacting each fact map through `Redaction.apply` then writing the structlog event under the active span's `trace_id`/`span_id` from the `trace_context` processor; `Signals.continue_inbound(carrier)` runs `propagate.extract(carrier)` over the `dict[str, str]` carrier (resolved through `propagate.get_global_textmap`, the composite `observability/telemetry#TELEMETRY` installs) and returns the extracted `Context`, and `Signals.attach(context)` is the context-manager that activates it so the next measured span seeds from the C# parent.
-- Auto: the `structlog` processor chain binds `merge_contextvars` (carrying the `Correlation`/`RuntimeContext` bound context), a custom `trace_context` processor reading `opentelemetry.trace.get_current_span()` to inject `trace_id`/`span_id` into every event, and a JSON renderer; span creation belongs to the measured operation, not to receipt emission, so `emit` writes the event under whatever span is active; OTLP log egress rides the `observability/telemetry#TELEMETRY`-installed `LoggerProvider`/`OTLPLogExporter` (the `structlog`-to-OTel bridge, since `structlog` mints no native OTLP log export) — this owner wires no private `LogRecordProcessor`/`OTLPLogExporter`; `continue_inbound` resolves the parent through the installed composite propagator, so before the install the extract reads the default no-op propagator and the C# parent is dropped (the mechanical reason the extract sequences after the install); `Redaction.apply` classifies each fact so a classified field never reaches a log line; `psutil.Process` rss attaches to a drained receipt; the logger is fetched per emit through `structlog.get_logger`, never cached as a module constant.
-- Packages: `expression` (`tagged_union`/`case`/`tag`), `msgspec`, `structlog` (`get_logger`/`configure`/`contextvars.merge_contextvars`/`processors`), `opentelemetry-api` (`trace.get_current_span`, `propagate.extract` ENTRYPOINTS [6], `propagate.get_global_textmap` ENTRYPOINTS [8], `Context` PUBLIC_TYPES [5], `context.attach`/`context.detach` ENTRYPOINTS [2]/[3], `TextMapPropagator` PUBLIC_TYPES [7], `DefaultGetter` PUBLIC_TYPES [8]), `psutil` (`Process.memory_info`). The SDK `LoggerProvider`/`OTLPLogExporter` are consumed by `observability/telemetry#TELEMETRY`, never imported here.
+- Auto: the `structlog` processor chain binds `merge_contextvars` (carrying the `Correlation`/`RuntimeContext` bound context), a custom `trace_context` processor reading `opentelemetry.trace.get_current_span()` to inject `trace_id`/`span_id` into every event, and a JSON renderer; span creation belongs to the measured operation, not to receipt emission, so `emit` writes the event under whatever span is active; OTLP log egress rides the `observability/telemetry#TELEMETRY`-installed `LoggerProvider`/`OTLPLogExporter` (the `structlog`-to-OTel bridge, since `structlog` mints no native OTLP log export) — this owner wires no private `LogRecordProcessor`/`OTLPLogExporter`; `continue_inbound` resolves the parent through the installed composite propagator, so before the install the extract reads the default no-op propagator and the C# parent is dropped (the mechanical reason the extract sequences after the install); `Redaction.apply` classifies each fact so a classified field never reaches a log line; the drained emit projects the `DrainReceipt` through `msgspec.structs.asdict` indexed by the imported `execution/lanes#LANE`-owned `DRAIN_COLUMNS` so the log line carries exactly the five outcome columns of the shared `DrainOutcome` taxonomy (the typed `faults` `Block` being the structural carry on the receipt, not a count column) — the same `accepted`/`completed`/`cancelled`/`rejected`/`hit` columns the sibling `observability/metrics#METRIC` `lane.drained` `ObservableCounter` keys by its `outcome` attribute through the identical `asdict`-by-`DRAIN_COLUMNS` projection, cache-`hit` a first-class outcome dimension on both signals rather than a receipt-only fact — the receipt is the per-drain point fact and the counter the streamed gauge over the latest fold, both reading the one taxonomy the `DrainReceipt` owner declares, so the log line and the `outcome`-keyed counter can never disagree on the column set and a new `DrainOutcome` member reaches both signals by one field add on the shared owner; `psutil.Process().memory_info().rss` attaches to that drained receipt as the same RSS fact the metrics `process.memory.rss` `ObservableGauge` streams (one `psutil` source, the receipt a point fact, the gauge the stream); the logger is fetched per emit through `structlog.get_logger`, never cached as a module constant.
+- Packages: `expression` (`tagged_union`/`case`/`tag`), `msgspec` (`Struct`, `structs.asdict`), `structlog` (`get_logger`/`configure`/`contextvars.merge_contextvars`/`processors`), `opentelemetry-api` (`trace.get_current_span`, `trace.format_trace_id` ENTRYPOINTS [07], `trace.format_span_id` ENTRYPOINTS [08], `propagate.extract` ENTRYPOINTS [6], `propagate.get_global_textmap` ENTRYPOINTS [8], `Context` PUBLIC_TYPES [5], `context.attach`/`context.detach` ENTRYPOINTS [2]/[3], `TextMapPropagator` PUBLIC_TYPES [7], `DefaultGetter` PUBLIC_TYPES [8]), `psutil` (`Process.memory_info`). The SDK `LoggerProvider`/`OTLPLogExporter` are consumed by `observability/telemetry#TELEMETRY`, never imported here.
 - Growth: a new lifecycle phase is one `Phase` literal absorbed by the existing `fact` case; a distinct-payload evidence kind is one `Receipt` case with its own match arm; a new classified field is one `Redaction` row; a new processor is one entry in the `structlog` chain; zero new surface.
-- Boundary: no AppHost envelope, health status, support-bundle capture, exporter ownership, provider install, or C# receipt minting; the suite classification taxonomy stays AppHost-owned; a per-package parallel receipt rail, a stdlib `logging` call outside the structlog bridge, a second tracer minted for the inbound extract, and a fresh-root span where the C# parent is on the inbound carrier are the deleted forms.
+- Boundary: no AppHost envelope, health status, support-bundle capture, exporter ownership, provider install, or C# receipt minting; the suite classification taxonomy stays AppHost-owned; the `propagate.extract`+`context.attach` token-pair `continue_inbound`/`attach` runs is the same aligned `Context` stitch the sibling `execution/lanes#LANE` `traced_kernel` shim runs on the subinterpreter-offload hop, but the two are distinct seams over distinct hops (receipts owns the inbound gRPC W3C extract per the ARCHITECTURE `[WIRE]` seam, lanes owns the intra-process PEP 734 offload stitch), aligned pattern not merged owner; a per-package parallel receipt rail, a stdlib `logging` call outside the structlog bridge, a second tracer minted for the inbound extract, and a fresh-root span where the C# parent is on the inbound carrier are the deleted forms.
 
 ```python signature
 from collections.abc import Iterator
@@ -25,11 +25,12 @@ import psutil
 import structlog
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from msgspec.structs import asdict
 from opentelemetry import context, propagate, trace
 from opentelemetry.context import Context
 
 from rasm.runtime.faults import BoundaryFault
-from rasm.runtime.lanes import DrainReceipt
+from rasm.runtime.lanes import DRAIN_COLUMNS, DrainReceipt
 
 
 type Phase = Literal["admitted", "planned", "emitted"]
@@ -63,8 +64,8 @@ def trace_context(_: object, __: str, event: dict[str, object]) -> dict[str, obj
     span = trace.get_current_span()
     ctx = span.get_span_context()
     if ctx.is_valid:
-        event["trace_id"] = format(ctx.trace_id, "032x")
-        event["span_id"] = format(ctx.span_id, "016x")
+        event["trace_id"] = trace.format_trace_id(ctx.trace_id)
+        event["span_id"] = trace.format_span_id(ctx.span_id)
     return event
 
 
@@ -100,7 +101,9 @@ class Signals:
         match receipt:
             case Receipt(tag="drained", drained=(owner, drain)):
                 rss = psutil.Process().memory_info().rss
-                log.info("drained", **redaction.apply({"owner": owner, "completed": str(drain.completed), "rss": str(rss)}))
+                columns = asdict(drain)
+                counts = {column: str(columns[column]) for column in DRAIN_COLUMNS}
+                log.info("drained", **redaction.apply({"owner": owner, "rss": str(rss), **counts}))
             case Receipt(tag="rejected", rejected=(owner, subject, fault)):
                 log.warning("rejected", **redaction.apply({"owner": owner, "subject": subject, "fault": fault.tag}))
             case Receipt(tag="fact", fact=(phase, owner, subject, fields)):

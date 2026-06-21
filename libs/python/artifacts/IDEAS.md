@@ -29,6 +29,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: expensive PDFs, notebooks, publication tables, bundles, and offscreen scenes become content-keyed elision targets and observable render outputs that `ARTIFACT_PIPELINE` composes into sub-graph elision with no new artifacts surface.
 - Anchors: `ContentIdentity.of(...)`, `ArtifactReceipt`, `receipt/receipt#RECEIPT`, runtime `execution/lanes` `Keyed[T] = (ContentKey, Work[T])`, branch `CONTENT_ADDRESSED_REUSE_FABRIC`, branch `ONE_MEASURED_SIGNAL_STREAM`, and runtime `observability/metrics`.
 - Tension: runtime session-lane admission elision and the `MeterProvider` instrument set must land before artifacts can consume them; durable content-addressed identity stays the C# `Rasm.Persistence` owner and is never minted here.
+- Ripple: branch `ONE_MEASURED_SIGNAL_STREAM` — the measurement edge consumes the one runtime metric stream whose realization is the in-pass `runtime/observability/metrics.md` `MeterProvider` rewrite, never a separate runtime card; artifacts contribute through `ArtifactReceipt.contribute` and mint no metric owner.
 
 [OUTWARD_FIGURE_HANDOFF_AND_DRIFT]-[QUEUED]: figures leave through one handoff axis and one drift guard.
 - Capability: outward artifact figures share the Python graduation rail and structural drift detector rather than creating an artifacts-specific handoff or canonical-name guard.
@@ -64,6 +65,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: sub-graph elision across the whole production chain consumed from the runtime lane port, raising `CONTENT_KEYED_REUSE_AND_SIGNAL` from per-producer keying to whole-chain elision.
 - Anchors: every `_emit` already returns `ContentIdentity.of(...)`, `receipt/receipt#RECEIPT` `contribute`, runtime `execution/lanes` `Keyed[T] = (ContentKey, Work[T])`, and `StagePlan.execute` `graphlib` DAG.
 - Tension: the runtime lane cache is session-local in-memory and a durable lane cache is a deleted form, so durable identity federation stays the C# `Rasm.Persistence` owner; `ArtifactPlan` produces `Keyed` pairs and owns no cache, no store, no scheduler, and no DAG re-mint.
+- Ripple: `runtime` `[ARTIFACT_PIPELINE_KEYED_CONSUMER]` — the runtime session lane is the elision substrate this pipeline produces `Keyed (ContentKey, Work)` pairs for; the consumer confirms the `LanePolicy.cached` / `Keyed[T]` port and `StagePlan` `graphlib` DAG already exist and mints no second cache, store, scheduler, or DAG.
 
 [INGEST]-[QUEUED]: the recover-to inverse for the non-PDF formats — the corpus thesis that emission and extraction are inverses over one `DocumentNode` algebra is PDF-only, while spreadsheet, `.docx`, ODF, and structured-text have no inverse owner anywhere.
 - Capability: spreadsheet over `python-calamine`, `.docx` over `python-docx` read accessors, ODF over `python-calamine`/odfpy, and structured-text over `ruamel-yaml`/`tomlkit`/`lxml` all lower into `DocumentNode`/`to_corpus_row`, making every admitted format a true inverse.

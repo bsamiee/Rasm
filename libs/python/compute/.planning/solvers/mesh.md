@@ -10,10 +10,10 @@ The one simulation mesh-and-field interchange and weak-form assembly owner besid
 ## [02]-[MESH_FIELD]
 
 - Owner: `MeshField` — the mesh-and-field interchange carrying the `points` node coordinates, the `cells` per-block connectivity keyed by `ElementKind`, the per-node `node_fields` and per-cell `cell_fields` array maps, and the content key over the canonical mesh-and-field buffer. `assemble(form)` lowers a `WeakForm` to the sparse `(stiffness, load)` pair through the scikit-fem `Basis`/`asm` fold over the element the `ElementKind` selects; the pair is the artifact the FEM solve and the field problem consume. The owner holds assembly and interchange only — never the solve, never a parallel mesh container beside the meshio `Mesh`.
-- Element axis: `ElementKind` is the shared element/basis axis the quadrature FEM route discriminates (`solvers/quadrature.md#QUADRATURE`), so a `MeshField` assembled for `ElementKind.TRI_P1` lowers to the same `Basis(mesh, ElementTriP1())` the quadrature route reads; `WeakForm` carries the bilinear and linear integrand thunks and the boundary-facet Dirichlet condition, identical to the quadrature `FemForm` so the two never diverge on the weak-form shape.
+- Element axis: `ElementKind` and the `_ELEMENT_CTOR` skfem-constructor table both live on the quadrature owner (`solvers/quadrature.md#QUADRATURE`) and are imported here, never redeclared — so a `MeshField` assembled for `ElementKind.TRI_P1` resolves the same `getattr(skfem, _ELEMENT_CTOR[ElementKind.TRI_P1])()` constructor the quadrature solve reads, and a new element is one shared row both routes pick up; `FemForm` carries the bilinear and linear integrand thunks and the boundary-facet Dirichlet condition, so the assemble and the solve never diverge on the element family or the weak-form shape.
 - Entry: `MeshField.assemble` enters one `boundary("mesh.assemble", ...)` returning `RuntimeRail[AssembledSystem]`; it builds the `skfem.Basis` over the element, runs `skfem.asm(form.bilinear, basis)` for the stiffness and `skfem.asm(form.linear, basis)` for the load, and folds them into `AssembledSystem` carrying the sparse stiffness, the load vector, the Dirichlet dof indices from `basis.get_dofs`, and the dof count. The FEM solve route reads `AssembledSystem` and condenses-and-solves; the differential route reads the stiffness as a stationary field operator.
 - Receipt: `AssembledSystem.contribute` emits one `Receipt.of("emitted", ...)` row carrying the element kind, the dof count, and the content key; a discretized field assembled once feeds the stiffness solve, the transient integration, and the study spine, each reading the same pair.
-- Packages: `skfem` (`Basis`, `asm`, `ElementLineP1`, `ElementLineP2`, `ElementTriP1`, `ElementTriP2`, `ElementTetP1`, `ElementTetP2`, `ElementQuad1`, `ElementHex1`, `BilinearForm`, `LinearForm`, `MeshLine1`, `MeshTri1`, `MeshTet1`, `MeshQuad1`, `MeshHex1`), `meshio` (`Mesh`, `CellBlock`, `read`, `write`), `numpy` (`asarray`, `ascontiguousarray`, `concatenate`), `solvers/quadrature.md#QUADRATURE` (`ElementKind`, `FemForm` — the shared element and weak-form axes the solve consumes), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
+- Packages: `skfem` (`Basis`, `asm`, the `ElementLineP1`/`ElementLineP2`/`ElementTriP1`/`ElementTriP2`/`ElementTetP1`/`ElementTetP2`/`ElementQuad1`/`ElementHex1` constructors resolved by name through the imported `_ELEMENT_CTOR` table, `BilinearForm`, `LinearForm`, `MeshLine1`, `MeshTri1`, `MeshTet1`, `MeshQuad1`, `MeshHex1`), `meshio` (`Mesh`, `CellBlock`, `read`, `write`), `numpy` (`asarray`, `ascontiguousarray`, `concatenate`), `solvers/quadrature.md#QUADRATURE` (`ElementKind`, `FemForm`, `_ELEMENT_CTOR` — the shared element enum, weak-form axis, and the single element-constructor table the solve and the assemble both read), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`).
 - Growth: a new element is one `ElementKind` row shared with the quadrature route; a new field array is one entry in `node_fields` or `cell_fields`; a new assembled artifact is one field on `AssembledSystem`; zero new surface, never a parallel mesh container beside the meshio `Mesh` and never a solve on this owner.
 - Boundary: assembly and interchange only — the mesh topology, the per-node/per-cell field arrays, the weak-form lowering, and the meshio file round-trip are in-scope; the solve stays on `solvers/quadrature.md#QUADRATURE` and the transient integration on `solvers/differential.md#DIFFERENTIAL`, so the FEM page consumes `MeshField` rather than the reverse. `meshio` is pure-Python and cp315-clean, so the interchange runs unconditionally; `scikit-fem` carries no cp315 wheel, so the `assemble` fold is authored against the documented `skfem` API on the gated band. A solve on this owner, a hand-rolled assembly loop where `BilinearForm`/`LinearForm`/`asm` own the concern, and a parallel per-format mesh container beside the meshio `Mesh` are the deleted forms; the mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
 
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from msgspec import Struct
 
-from rasm.compute.solvers.quadrature import ElementKind, FemForm
+from rasm.compute.solvers.quadrature import _ELEMENT_CTOR, ElementKind, FemForm
 from rasm.runtime.content_identity import ContentIdentity, ContentKey, IdentityPolicy
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
@@ -81,18 +81,6 @@ class MeshField(Struct, frozen=True):
             *(np.ascontiguousarray(v).tobytes() for v in self.cell_fields.values()),
         )
         return ContentIdentity.of("mesh-field", b"\x00".join(buffers), IdentityPolicy())
-
-
-_ELEMENT_CTOR = {
-    ElementKind.P1: "ElementLineP1",
-    ElementKind.P2: "ElementLineP2",
-    ElementKind.TRI_P1: "ElementTriP1",
-    ElementKind.TRI_P2: "ElementTriP2",
-    ElementKind.TET_P1: "ElementTetP1",
-    ElementKind.TET_P2: "ElementTetP2",
-    ElementKind.QUAD_P1: "ElementQuad1",
-    ElementKind.HEX_P1: "ElementHex1",
-}
 
 
 _MESH_CTOR = {

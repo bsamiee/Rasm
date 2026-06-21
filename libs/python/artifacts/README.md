@@ -29,22 +29,22 @@ Every domain rendering library this folder uses, planned or implemented. Version
 
 [Documents]:
 - `reportlab`
-- `weasyprint` (`HTML.write_pdf`, `Document.make_bookmark_tree` outline)
-- `typst` (`PDF_TYPST` mode with PDF/A via `pdf_standards`, the reusable `Compiler` world, `query`/`eval` introspection, `sys_inputs` data binding)
+- `weasyprint` - `HTML.write_pdf`, `Document.make_bookmark_tree` outline
+- `typst` - `PDF_TYPST` mode with PDF/A via `pdf_standards`, the reusable `Compiler` world, `query`/`eval` introspection, `sys_inputs` data binding
 - `pymupdf`
 - `pypdfium2`
-- `pypdf` (assembly plus `PdfWriter.encrypt`/outline/`Transformation`/`merge_page` egress finishing)
-- `pikepdf` (repair/linearize plus `Encryption`/`Permissions`/`Outline`/`add_overlay`/`add_underlay`/`as_form_xobject`/`AttachedFileSpec` egress finishing)
+- `pypdf` - assembly plus `PdfWriter.encrypt`/outline/`Transformation`/`merge_page` egress finishing
+- `pikepdf` - repair/linearize plus `Encryption`/`Permissions`/`Outline`/`add_overlay`/`add_underlay`/`as_form_xobject`/`AttachedFileSpec` egress finishing
 - `python-docx`
 - `python-pptx`
 - `openpyxl`
-- `xlsxwriter` (write-only XLSX emit with charts/formats/conditional formatting)
-- `python-calamine` (fast read-only XLSX/XLS/ODS ingest into the corpus lane)
-- `odfpy` (OpenDocument ODT/ODS/ODP read/write)
-- `docxtpl` (jinja2 DOCX template render over python-docx)
-- `msoffcrypto-tool` (encrypted Office document decrypt at the ingest boundary)
-- `pdfplumber` (page text/table/word geometry extraction over pdfminer)
-- `ocrmypdf` (OCR text layer over a scanned PDF on the tesseract/ghostscript Forge native floor)
+- `xlsxwriter` - Write-only XLSX emit with charts/formats/conditional formatting
+- `python-calamine` - Fast read-only XLSX/XLS/ODS ingest into the corpus lane
+- `odfpy` - OpenDocument ODT/ODS/ODP read/write
+- `docxtpl` - jinja2 DOCX template render over python-docx
+- `msoffcrypto-tool` - Encrypted Office document decrypt at the ingest boundary
+- `pdfplumber` - Page text/table/word geometry extraction over pdfminer
+- `ocrmypdf` - OCR text layer over a scanned PDF on the tesseract/ghostscript Forge native floor
 - `lxml`
 - `ruamel-yaml`
 - `tomlkit`
@@ -53,56 +53,56 @@ Every domain rendering library this folder uses, planned or implemented. Version
 - `jinja2`
 - `papermill`
 - `nbclient`
-- `nbconvert` (notebook export to HTML/PDF/script over the executed notebook tree)
-- `jupytext` (notebook/text round-trip for diffable report sources)
+- `nbconvert` - Notebook export to HTML/PDF/script over the executed notebook tree
+- `jupytext` - Notebook/text round-trip for diffable report sources
 
 [Charts]:
 - `altair`
 - `matplotlib`
-- `lets-plot` (second host-free chart engine beside the `vl-convert` Vega export path)
-- `vl-convert-python` (primary host-free static chart export)
-- `vegafusion` (chart `EXPORT` transform pre-pass)
+- `lets-plot` - Second host-free chart engine beside the `vl-convert` Vega export path
+- `vl-convert-python` - Primary host-free static chart export
+- `vegafusion` - Chart `EXPORT` transform pre-pass
 
 [Scene3d]:
 - `pyvista`
 - `vtk`
-- `usd-core` (USD/USDA/USDC scene authoring and stage composition for 3D scene export)
+- `usd-core` - USD/USDA/USDC scene authoring and stage composition for 3D scene export
 
 [Tables]:
-- `great-tables` (pure-Python, cp315-clean)
+- `great-tables` - Pure-Python, cp315-clean
 
 [Imaging]:
-- `pillow` (raster I/O/transform/`ImageCms` ICC profiles, plus `ImageDraw`/`ImageFont`/`ImageOps`/`ImageFilter`/`Image.Exif` figure annotation and metadata)
+- `pillow` - Raster I/O/transform/`ImageCms` ICC profiles, plus `ImageDraw`/`ImageFont`/`ImageOps`/`ImageFilter`/`Image.Exif` figure annotation and metadata
 - `scikit-image`
-- `segno` (QR/Micro-QR, dependency-free serializers, replaces qrcode)
-- `python-barcode` (linear 1D symbologies only — Code128/EAN/UPC/ITF/Code39/Codabar — beside the segno QR arm)
-- `zxing-cpp` (2D-matrix symbology owner — DataMatrix/PDF417/Aztec encode and decode — beside the python-barcode linear arm)
-- `pyvips` (fast libvips raster pipeline — resize/thumbnail/format-convert/composite — on the libvips Forge native floor)
-- `resvg-py` (resvg SVG-to-raster render with accurate font/filter support)
-- `svgelements` (pure-Python SVG geometry/transform/parse — `SVG.parse`/`Path`/`Matrix`/`bbox` — owning the `figures/compose` SVG scale-to-fit/n-up/crop/bounds composition over the SVG the chart/QR/nanoplot owners emit, cp315-clean)
+- `segno` - QR/Micro-QR, dependency-free serializers, replaces qrcode
+- `python-barcode` - Linear 1D symbologies only — Code128/EAN/UPC/ITF/Code39/Codabar — beside the segno QR arm
+- `zxing-cpp` - 2D-matrix symbology owner — DataMatrix/PDF417/Aztec encode and decode — beside the python-barcode linear arm
+- `pyvips` - Fast libvips raster pipeline — resize/thumbnail/format-convert/composite — on the libvips Forge native floor
+- `resvg-py` - Resvg SVG-to-raster render with accurate font/filter support
+- `svgelements` - Pure-Python SVG geometry/transform/parse — `SVG.parse`/`Path`/`Matrix`/`bbox` — owning the `figures/compose` SVG scale-to-fit/n-up/crop/bounds composition over the SVG the chart/QR/nanoplot owners emit, cp315-clean
 - `python-magic`
 
 [Color]:
 - `colour-science`
-- `coloraide` (CSS-space color parse/interpolate/gamut-map for web-facing palette egress)
+- `coloraide` - CSS-space color parse/interpolate/gamut-map for web-facing palette egress
 
 [Typography]:
 - `fonttools`
 - `pyhanko`
-- `uharfbuzz` (OpenType text shaping — the `Blob`/`Face`/`Font`/`Buffer`/`shape`/`GlyphInfo`/`GlyphPosition` pipeline, COLRv1 `PaintFuncs`, `Font.set_variations`, and the `draw_glyph_with_pen` fontTools outline bridge)
-- `blackrenderer` (COLRv1 color-glyph raster/SVG rendering over the uharfbuzz/fontTools paint chain)
+- `uharfbuzz` - OpenType text shaping — the `Blob`/`Face`/`Font`/`Buffer`/`shape`/`GlyphInfo`/`GlyphPosition` pipeline, COLRv1 `PaintFuncs`, `Font.set_variations`, and the `draw_glyph_with_pen` fontTools outline bridge
+- `blackrenderer` - COLRv1 color-glyph raster/SVG rendering over the uharfbuzz/fontTools paint chain
 
 [Provenance]:
-- `c2pa-python` (C2PA content-credential manifest sign/verify keyed by the content key, feeding `provenance/credential`)
+- `c2pa-python` - C2PA content-credential manifest sign/verify keyed by the content key, feeding `provenance/credential`
 
 [Compression]:
 - `zstandard`
 - `lz4`
 - `brotli`
 - `py7zr`
-- `stream-zip` (streaming ZIP archive emit without buffering the whole archive)
-- `stream-unzip` (streaming ZIP archive ingest without buffering the whole archive)
-- `detools` (binary-diff/patch generation for incremental artifact delta bundles)
+- `stream-zip` - Streaming ZIP archive emit without buffering the whole archive
+- `stream-unzip` - Streaming ZIP archive ingest without buffering the whole archive
+- `detools` - Binary-diff/patch generation for incremental artifact delta bundles
 
 [Media]:
 - `av` (PyAV container/codec read/write for `media/encode` duration/codec receipts on the FFmpeg floor)

@@ -1,19 +1,19 @@
 # [PY_COMPUTE_SIGNAL]
 
-The one classical signal-analysis owner spanning stationary spectral estimation and multiresolution wavelet analysis on a single `Signal`. `SignalOp` discriminates IIR/FIR filter design, Welch spectral estimation, and polyphase resampling over `scipy.signal` beside the wavelet case family — multilevel discrete decomposition, the continuous-wavelet scalogram, and the wavelet-packet tree — over `pywt`, so a transient, a localized discontinuity, or a non-stationary mode the Welch estimate averages away becomes first-class signal evidence on the same owner. Each op carries the sample rate; the filter path designs second-order sections and applies zero-phase forward-backward filtering, the spectral path runs Welch's method and reads the peak band, the resample path runs polyphase rational resampling, the wavelet `Decompose` path runs the multilevel DWT and folds the per-level energy distribution under the perfect-reconstruction invariant, the `Scalogram` path runs the CWT and reads the dominant scale through `scale2frequency`, and the `Packet` path walks the full wavelet-packet basis. `scipy.signal` is Array-API-aware in scipy 1.17, so the stationary ops admit any backend array from `numerics/array.md#PAYLOAD`; `pywt` is C-over-numpy and rides the same companion band beside the scipy path. The dominant-band and the wavelet-level energy evidence the study spine reads flow through one `SignalReceipt`. No learned or neural filters enter this owner.
+The one classical signal-analysis owner spanning stationary spectral estimation and multiresolution wavelet analysis on a single `Signal`. `SignalOp` discriminates IIR/FIR filter design, Welch spectral estimation, and polyphase resampling over `scipy.signal` beside the wavelet case family — multilevel discrete decomposition, the continuous-wavelet scalogram, and the wavelet-packet tree — over `pywt`, so a transient, a localized discontinuity, or a non-stationary mode the Welch estimate averages away becomes first-class signal evidence on the same owner. Each op carries the sample rate; the filter path designs second-order sections and applies zero-phase forward-backward filtering, the spectral path runs Welch's method and reads the peak band, the resample path runs polyphase rational resampling, the wavelet `Decompose` path runs the multilevel DWT and folds the per-level energy distribution under the perfect-reconstruction invariant, optionally shrinking the detail coefficients through `pywt.threshold` under the VisuShrink universal-threshold rule (a `ThresholdMode` row, never a separate denoiser surface), the `Scalogram` path runs the CWT and reads the dominant scale through `scale2frequency`, and the `Packet` path walks the full wavelet-packet basis. `scipy.signal` is Array-API-aware in scipy 1.17, so the stationary ops admit any backend array from `numerics/array.md#PAYLOAD`; `pywt` is C-over-numpy and rides the same companion band beside the scipy path. The dominant-band and the wavelet-level energy evidence the study spine reads flow through one `SignalReceipt`. No learned or neural filters enter this owner.
 
 ## [01]-[INDEX]
 
-- [01]-[DSP]: IIR/FIR filter design, Welch spectral estimation, polyphase resampling, and the `pywt` wavelet decompose/scalogram/packet multiresolution fold on one `Signal` owner.
+- [01]-[DSP]: IIR/FIR filter design, Welch spectral estimation, polyphase resampling, and the `pywt` wavelet decompose/threshold-denoise/scalogram/packet multiresolution fold on one `Signal` owner.
 
 ## [02]-[DSP]
 
-- Owner: `Signal` — the ONE signal-analysis owner; `SignalOp` discriminates the stationary rows `Filter(kind, cutoff, order)` (`scipy.signal.butter` -> `sosfiltfilt` zero-phase IIR; `FilterKind` selects lowpass/highpass/bandpass), `Spectral(nperseg)` (`scipy.signal.welch` power-spectral-density estimate), and `Resample(target_rate)` (`scipy.signal.resample_poly` polyphase rational resample), beside the multiresolution wavelet rows `Decompose(wavelet, level)` (`pywt.wavedec` multilevel DWT, `pywt.waverec` inverse, `pywt.dwt_max_level` cap), `Scalogram(wavelet, scales)` (`pywt.cwt` continuous transform, `pywt.scale2frequency` scale-frequency map), and `Packet(wavelet, maxlevel)` (`pywt.WaveletPacket` full-basis tree), all as rows on the same owner, never a per-transform method family and never a second signal surface.
-- Entry: `Signal.apply` returns `RuntimeRail[SignalReceipt]`; the filter path designs the SOS cascade and applies `sosfiltfilt`, the spectral path runs Welch and reads the peak band, the resample path runs polyphase resampling, the `Decompose` path runs `wavedec` to the level cap and folds the squared-coefficient energy per level plus the `waverec`-reconstruction residual, the `Scalogram` path runs `cwt` and reads the maximum-energy scale mapped to a dominant frequency, and the `Packet` path walks the natural-order leaf nodes folding per-node energy. The stationary ops normalize the cutoff against the Nyquist frequency and read the dominant band from a Welch estimate; the wavelet ops report the dominant frequency from the dominant scale and leave `band_power` to the existing Welch fold where it applies, the wavelet energy carried in the new receipt fields.
+- Owner: `Signal` — the ONE signal-analysis owner; `SignalOp` discriminates the stationary rows `Filter(kind, cutoff, order)` (`scipy.signal.butter` -> `sosfiltfilt` zero-phase IIR; `FilterKind` selects lowpass/highpass/bandpass), `Spectral(nperseg)` (`scipy.signal.welch` power-spectral-density estimate), and `Resample(target_rate)` (`scipy.signal.resample_poly` polyphase rational resample), beside the multiresolution wavelet rows `Decompose(wavelet, level, denoise)` (`pywt.wavedec` multilevel DWT, `pywt.waverec` inverse, `pywt.dwt_max_level` cap, optional `pywt.threshold` coefficient shrink keyed by `ThresholdMode`), `Scalogram(wavelet, scales)` (`pywt.cwt` continuous transform, `pywt.scale2frequency` scale-frequency map), and `Packet(wavelet, maxlevel)` (`pywt.WaveletPacket` full-basis tree), all as rows on the same owner, never a per-transform method family and never a second signal surface.
+- Entry: `Signal.apply` returns `RuntimeRail[SignalReceipt]`; the filter path designs the SOS cascade and applies `sosfiltfilt`, the spectral path runs Welch and reads the peak band, the resample path runs polyphase resampling, the `Decompose` path runs `wavedec` to the level cap and folds the squared-coefficient energy per level, optionally shrinking the detail coefficients through `pywt.threshold` (the VisuShrink universal threshold `sigma * sqrt(2 log n)` over the MAD noise estimate `median(|cD_finest|) / 0.6745` from the finest detail band, applied to every detail level under the selected `ThresholdMode` while the approximation band passes through) before the `waverec`-reconstruction residual measures the denoised-against-original deviation, the `Scalogram` path runs `cwt` and reads the maximum-energy scale mapped to a dominant frequency, and the `Packet` path walks the natural-order leaf nodes folding per-node energy. The stationary ops normalize the cutoff against the Nyquist frequency and read the dominant band from a Welch estimate; the wavelet ops report the dominant frequency from the dominant scale and leave `band_power` to the existing Welch fold where it applies, the wavelet energy carried in the new receipt fields.
 - Receipt: `SignalReceipt.contribute` emits one `Receipt.of("emitted", ...)` row; the dominant frequency and band power are the stationary spectral evidence and the `level_energy` distribution, `dominant_scale`, and `reconstruction_residual` are the multiresolution evidence a study run records through `experiments/study.md#STUDY`.
-- Packages: `scipy` (`signal.butter`, `signal.sosfiltfilt`, `signal.welch`, `signal.resample_poly`), `pywt` (`wavedec`, `waverec`, `dwt_max_level`, `cwt`, `scale2frequency`, `WaveletPacket`, `threshold`), `numpy` (`asarray`, `argmax`, `trapezoid`, `sum`, `linalg.norm`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor`).
-- Growth: a new transform is one `SignalOp` case; a new filter family is one `FilterKind` row; a new wavelet transform is one `Wavelet`-family case; zero new surface.
-- Boundary: classical signal analysis only — IIR/FIR design, spectral estimation, resampling, and the discrete/continuous/packet wavelet transforms are in-scope; no learned filters and no neural denoising. Both `scipy` and `pywt` carry the companion `python_version<'3.15'` band (neither ships a cp315 wheel), so every body is authored against the documented API on the gated band; scipy 1.17 makes `scipy.signal` Array-API-aware so the stationary ops admit any backend array from the payload admission, while the wavelet ops resolve `pywt`'s numpy-array contract. Perfect reconstruction `waverec(wavedec(x)) ≈ x` (`pywt`'s documented exact inverse) is the wavelet verification invariant; the `Decompose` path folds the reconstruction residual as the evidence of it.
+- Packages: `scipy` (`signal.butter`, `signal.sosfiltfilt`, `signal.welch`, `signal.resample_poly`), `pywt` (`wavedec`, `waverec`, `dwt_max_level`, `cwt`, `scale2frequency`, `WaveletPacket`, `threshold`), `numpy` (`asarray`, `argmax`, `trapezoid`, `sum`, `median`, `abs`, `sqrt`, `log`, `linalg.norm`), runtime (`RuntimeRail`, `boundary`, `Receipt`/`ReceiptContributor`).
+- Growth: a new transform is one `SignalOp` case; a new filter family is one `FilterKind` row; a new wavelet transform is one `Wavelet`-family case; a new coefficient-shrink rule is one `ThresholdMode` row on the existing `Decompose` denoise fold, never a parallel denoiser surface; zero new surface.
+- Boundary: classical signal analysis only — IIR/FIR design, spectral estimation, resampling, the discrete/continuous/packet wavelet transforms, and the `pywt.threshold` coefficient-shrink denoise (a coefficient row between `wavedec` and `waverec`, never a separate denoiser type) are in-scope; no learned filters and no neural denoising. Both `scipy` and `pywt` carry the companion `python_version<'3.15'` band (neither ships a cp315 wheel), so every body is authored against the documented API on the gated band; scipy 1.17 makes `scipy.signal` Array-API-aware so the stationary ops admit any backend array from the payload admission, while the wavelet ops resolve `pywt`'s numpy-array contract. Perfect reconstruction `waverec(wavedec(x)) ≈ x` (`pywt`'s documented exact inverse) is the wavelet verification invariant; the `Decompose` path folds the reconstruction residual as the evidence of it.
 
 ```python signature
 from enum import StrEnum
@@ -31,6 +31,15 @@ class FilterKind(StrEnum):
     LOWPASS = "lowpass"
     HIGHPASS = "highpass"
     BANDPASS = "bandpass"
+
+
+class ThresholdMode(StrEnum):
+    NONE = "none"
+    SOFT = "soft"
+    HARD = "hard"
+    GARROTE = "garrote"
+    GREATER = "greater"
+    LESS = "less"
 
 
 class SignalReceipt(Struct, frozen=True):
@@ -59,7 +68,7 @@ class SignalOp:
     filter: tuple[FilterKind, tuple[float, ...], int] = case()
     spectral: int = case()
     resample: float = case()
-    decompose: tuple[str, int] = case()
+    decompose: tuple[str, int, ThresholdMode] = case()
     scalogram: tuple[str, tuple[float, ...]] = case()
     packet: tuple[str, int] = case()
 
@@ -76,8 +85,8 @@ class SignalOp:
         return SignalOp(resample=target_rate)
 
     @staticmethod
-    def Decompose(wavelet: str = "db4", level: int = 0) -> "SignalOp":
-        return SignalOp(decompose=(wavelet, level))
+    def Decompose(wavelet: str = "db4", level: int = 0, denoise: ThresholdMode = ThresholdMode.NONE) -> "SignalOp":
+        return SignalOp(decompose=(wavelet, level, denoise))
 
     @staticmethod
     def Scalogram(wavelet: str = "morl", scales: tuple[float, ...] = ()) -> "SignalOp":
@@ -110,13 +119,19 @@ def _apply(samples: np.ndarray, fs: float, op: SignalOp) -> SignalReceipt:
             out = sig.resample_poly(samples, int(target), int(fs))
             f, pxx = sig.welch(out, fs=target)
             return SignalReceipt("resample", float(f[int(np.argmax(pxx))]), float(np.trapezoid(pxx, f)), out.size)
-        case SignalOp(tag="decompose", decompose=(wavelet, level)):
+        case SignalOp(tag="decompose", decompose=(wavelet, level, denoise)):
             import pywt
 
             depth = level or pywt.dwt_max_level(samples.size, pywt.Wavelet(wavelet).dec_len)
             coeffs = pywt.wavedec(samples, wavelet, level=depth)
             energy = tuple(float(np.sum(np.asarray(c) ** 2)) for c in coeffs)
-            rebuilt = pywt.waverec(coeffs, wavelet)[: samples.size]
+            if denoise is ThresholdMode.NONE:
+                rebuilt = pywt.waverec(coeffs, wavelet)[: samples.size]
+            else:
+                sigma = float(np.median(np.abs(np.asarray(coeffs[-1]))) / 0.6745)
+                value = sigma * float(np.sqrt(2.0 * np.log(samples.size)))
+                shrunk = [coeffs[0], *(pywt.threshold(np.asarray(c), value, mode=denoise.value) for c in coeffs[1:])]
+                rebuilt = pywt.waverec(shrunk, wavelet)[: samples.size]
             residual = float(np.linalg.norm(rebuilt - samples) / (np.linalg.norm(samples) + 1e-30))
             f, pxx = sig.welch(samples, fs=fs)
             dominant = float(f[int(np.argmax(pxx))])
@@ -151,4 +166,5 @@ def _apply(samples: np.ndarray, fs: float, op: SignalOp) -> SignalReceipt:
 ## [03]-[RESEARCH]
 
 - [SCIPY_SIGNAL]: the `scipy.signal.butter`/`sosfiltfilt`/`welch`/`resample_poly` spellings carry the `python_version<'3.15'` marker and verify against the `scipy.signal` `[ENTRYPOINT_SCOPE]` table in `compute/.api/scipy.md` under a uv-sync reflection pass once the scipy wheel resolves. scipy 1.17 makes `scipy.signal` Array-API-aware, so the op admits any backend array resolved through `numerics/array.md#PAYLOAD`.
-- [PYWT_WAVELET]: `pywt` (dist `pywavelets`) rides the companion `python_version<'3.15'` band beside the scipy path (C-over-numpy, no cp315 wheel); the `wavedec`/`waverec`/`dwt_max_level`/`cwt`/`scale2frequency`/`WaveletPacket`/`Wavelet.dec_len` spellings verify against `compute/.api/pywavelets.md` (documentation-authored, RESEARCH-capture-pending) under a uv-sync reflection pass once the `pywavelets` wheel resolves into the companion interpreter band. Perfect reconstruction `waverec(wavedec(x)) ≈ x` is the verification invariant the `Decompose` reconstruction-residual fold records.
+- [PYWT_WAVELET]: `pywt` (dist `pywavelets`) rides the companion `python_version<'3.15'` band beside the scipy path (C-over-numpy, no cp315 wheel); the `wavedec`/`waverec`/`dwt_max_level`/`cwt`/`scale2frequency`/`WaveletPacket`/`Wavelet.dec_len`/`threshold` spellings verify against `compute/.api/pywavelets.md` (documentation-authored, RESEARCH-capture-pending) under a uv-sync reflection pass once the `pywavelets` wheel resolves into the companion interpreter band. Perfect reconstruction `waverec(wavedec(x)) ≈ x` is the verification invariant the un-denoised `Decompose` reconstruction-residual fold records; under a `ThresholdMode` other than `NONE` the same residual measures the denoise deviation instead.
+- [PYWT_THRESHOLD]: `threshold(data, value, mode='soft', substitute=0)` is the one documented coefficient-shrink surface (`compute/.api/pywavelets.md` row [04], modes `soft`/`hard`/`garrote`/`greater`/`less` mirrored one-for-one by `ThresholdMode`); the VisuShrink denoise applies it to each detail level with `value = sigma * sqrt(2 log n)`, where `sigma = median(|cD_finest|) / 0.6745` is the robust MAD noise estimate from the finest detail band, and the approximation band `coeffs[0]` passes through unthresholded. The shrink is a row on the existing `Decompose` case, never a parallel denoiser op, matching the `[04]-[IMPLEMENTATION_LAW]` denoising-axis rule that thresholding lives between `wavedec` and `waverec`.

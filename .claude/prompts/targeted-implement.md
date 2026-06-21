@@ -1,6 +1,6 @@
 # [IMPLEMENT_WORKFLOW]
 
-`<TARGET>` = ...
+`<TARGET>` = `libs/csharp/Rasm.AppHost` + `libs/csharp/Rasm.Compute` + `libs/csharp/Rasm.AppUi` + `libs/csharp/Rasm.Persistence`
 
 All the ideas/tasks already exist for `<TAREGET>` our goal is to identify the exact code changes to achieve the tasks/ideas with a 11/10 standard of world class advanced/bleeding-edge code, full leverage of external libs available, and existing code fence content, doing exhaustive investigation of all design docs + research and crafting based on the task/idea direction/instructions to guide all plan creation.
 
@@ -8,9 +8,9 @@ All the ideas/tasks already exist for `<TAREGET>` our goal is to identify the ex
 
 [BRIEF] You must be an orchestrator, not a writer, unless the task is focused, and small, otherwise, delegate all tasks. We are in plan mode, and MUST maximize it exhaustively, we cannot and will not leave plan mode until it is extensively researched, investigated, and detailed; all the actions that will be done once we leave plan mode must be predetermined with great detail in plan mode. Ensure the plan is high signal, nothing is left to ambiguity and is declarative and instructional, not explanatory prose, nor giving you lee-way for re-inventening approach after already established in plan, treat plan as law and truth, focused, and structured properly, no vagueness or ambiguity in it, providing enough detail to immediatly jump into workflows once we leave plan mode. Prior to presenting the plan to user, review the entire "finalized" plan line by line, and identify the appropriate series of workflows that will be needed, plan them NOW to have agents also review/critique it compared to plan, to ensure we have well made phase structure, without any gaps, each phase is high impact/value, and is sequenced properly, and we leverage parallel work within a workflow, as well as parallel workflows where we can. Never commit, do not worry about commiting, focus on implementing all the work, user will commit themselves at the end.
 
-ASK THE USER AS MANY QUESTIONS AS POSSIBLE, EARLY DURING PLAN MODE, DURING PLAN MODE, MIDDLE OF PLAN MODE, AND WELL BEFORE FINAL PRESENTATION TO ENSURE PLAN IS DONE WITHOUT MISUNDERSTANDING. THE PLAN MUST BE EXTREMELY DETAILED, 
+ASK THE USER AS MANY QUESTIONS AS POSSIBLE, EARLY DURING PLAN MODE, DURING PLAN MODE, MIDDLE OF PLAN MODE, AND WELL BEFORE FINAL PRESENTATION TO ENSURE PLAN IS DONE WITHOUT MISUNDERSTANDING. THE PLAN MUST BE EXTREMELY DETAILED,
 
-[READ]: 
+[READ]:
 - Session Target(s): `<TARGET>`
 - Planning Projects: `libs/.planning/planning-targets.md`
 - Mandated Approach: `libs/.planning/campaign-method.md`
@@ -42,14 +42,14 @@ Note: `docs/stacks/<lang>/` for the tier's language is the governing code doctri
 
 [SCOPE]:
 - 1-3 open items in `IDEAS.md` per `<TARGET>`
-- ALL possible open items `TASKLOG.MD` per `<TARGET>`. Most tasks are well defined/scoped, and should be able to be rolled in, implement tasks first, then execute the idea(s) per `<TARGET>`, ensure adherance and re-reading of plan for all workflow agents during this time + reading the root files in `docs/stacks/csharp`. NOTE: some cards will have an indicator if a task is `Atomic` which means it is a very small/minor task, so it should not be a factor in weighing scope/scale of work negatively. 
+- ALL possible open items `TASKLOG.MD` per `<TARGET>`. Most tasks are well defined/scoped, and should be able to be rolled in, implement tasks first, then execute the idea(s) per `<TARGET>`, ensure adherance and re-reading of plan for all workflow agents during this time + reading the root files in `docs/stacks/csharp`. NOTE: some cards will have an indicator if a task is `Atomic` which means it is a very small/minor task, so it should not be a factor in weighing scope/scale of work negatively.
 - Identify how to RESOLVE all `[BLOCKED]` tasks in our `<TARGETS>`, if it is based on proping, we have our rhino-mcp skill, tools/assay/ + tools/rhino-bridge/ + rhino WIP on local machine + Forge provisoning tool. There is no reason to allow something in `<TARGETS>` remain `[BLOCKED]` if we can probe/resolve it now, which we will/must. The only legitimant blockers are ones that require work to be done in `<TARGETS>` first, or elsewhere that isn't in scope; IF the blocker is in our scope, then we MUST also implement the `[BLOCKED]` task(s) since it will be unlocked, does that make sense?
 
 Identify all open items in both file types, and understand the topology of lib-wide: `libs/.planning`, language-wide: `libs/csharp/.planning`, `libs/python/.planning`, and `libs/typescript/.planning`, and folder-specific as per `libs/.planning/planning-targets.md`.
 
 `<TARGET>` has an `IDEAS.md` + `TASKLOG.MD` within it's broader folder, so for example: `libs/csharp/Rasm.Apphost/IDEAS.md`, `libs/csharp/Rasm.Apphost/TASKLOG.md`
 
-Ideas are meant to be larger conceptual functionalities, and based on topology, the splash-radius/touch-points needed. Tasks are concrete/targeted items of work. Both ideas and tasks vary in scope/scale, from small, medium, and large. They are meant to be outlines of work, not the full detail, and it is REQUIRED that while in PLAN mode (which we are), we identify all tasks, ideas, and all the high-quality work we need to do to properly implement them. 
+Ideas are meant to be larger conceptual functionalities, and based on topology, the splash-radius/touch-points needed. Tasks are concrete/targeted items of work. Both ideas and tasks vary in scope/scale, from small, medium, and large. They are meant to be outlines of work, not the full detail, and it is REQUIRED that while in PLAN mode (which we are), we identify all tasks, ideas, and all the high-quality work we need to do to properly implement them.
 
 Idea ambition increases as topology level increases, with lib-wide being the largest, and as such, demands the most care when attempting to tackle. Which leads to EXCEPTIONS.
 

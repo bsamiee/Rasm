@@ -11,10 +11,12 @@
 - [05]-[RESILIENCE](.planning/reliability/resilience.md)
 - [06]-[ROOTS](.planning/transport/roots.md)
 - [07]-[SERVE](.planning/transport/serve.md)
-- [08]-[ADMISSION](.planning/execution/admission.md)
-- [09]-[LANES](.planning/execution/lanes.md)
-- [10]-[IDENTITY](.planning/evidence/identity.md)
-- [11]-[EVIDENCE](.planning/evidence/evidence.md)
+- [08]-[WIRE](.planning/transport/wire.md)
+- [09]-[ADMISSION](.planning/execution/admission.md)
+- [10]-[LANES](.planning/execution/lanes.md)
+- [11]-[IDENTITY](.planning/evidence/identity.md)
+- [12]-[EVIDENCE](.planning/evidence/evidence.md)
+- [13]-[CLOCK](.planning/clock/clock.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -74,6 +76,6 @@ Branch-wide substrate packages this folder consumes; the canonical registry and 
 - `xxhash`
 
 [WIRE_CODEGEN]:
-- `grpcio`
-- `grpcio-tools`
-- `protobuf`
+- `protobuf` - cp315-clean core — the C#-minted wire runtime
+- `grpcio` - Core `grpc.aio` server leg; resolves on cp315, already transitive via google-cloud-storage
+- `grpcio-tools` - Gated `python_version<'3.15'` — `protoc` codegen companion only

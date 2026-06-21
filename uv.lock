@@ -164,15 +164,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470, upload-time = "2020-05-11T07:59:51.037Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566, upload-time = "2020-05-11T07:59:49.499Z" },
-]
-
-[[package]]
 name = "apscheduler"
 version = "3.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -376,15 +367,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/b2/51899539b6ceeeb420d40ed3cd4b7a40519404f9baf3d4ac99dc413a834b/babel-2.18.0.tar.gz", hash = "sha256:b80b99a14bd085fcacfa15c9165f651fbb3406e66cc603abf11c5750937c992d", size = 9959554, upload-time = "2026-02-01T12:30:56.078Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/77/f5/21d2de20e8b8b0408f0681956ca2c69f1320a3848ac50e6e7f39c6159675/babel-2.18.0-py3-none-any.whl", hash = "sha256:e2b422b277c2b9a9630c1d7903c2a00d0830c409c59ac8cae9081c92f1aeba35", size = 10196845, upload-time = "2026-02-01T12:30:53.445Z" },
-]
-
-[[package]]
-name = "backoff"
-version = "2.2.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001, upload-time = "2022-10-05T19:19:32.061Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148, upload-time = "2022-10-05T19:19:30.546Z" },
 ]
 
 [[package]]
@@ -1326,30 +1308,6 @@ wheels = [
 [package.optional-dependencies]
 grpc = [
     { name = "grpcio" },
-]
-
-[[package]]
-name = "gql"
-version = "3.5.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "backoff" },
-    { name = "graphql-core" },
-    { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/34/ed/44ffd30b06b3afc8274ee2f38c3c1b61fe4740bf03d92083e43d2c17ac77/gql-3.5.3.tar.gz", hash = "sha256:393b8c049d58e0d2f5461b9d738a2b5f904186a40395500b4a84dd092d56e42b", size = 180504, upload-time = "2025-05-20T12:34:08.954Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/50/2f4e99b216821ac921dbebf91c644ba95818f5d07857acadee17220221f3/gql-3.5.3-py2.py3-none-any.whl", hash = "sha256:e1fcbde2893fcafdd28114ece87ff47f1cc339a31db271fc4e1d528f5a1d4fbc", size = 74348, upload-time = "2025-05-20T12:34:07.687Z" },
-]
-
-[package.optional-dependencies]
-requests = [
-    { name = "requests" },
-    { name = "requests-toolbelt" },
-]
-websockets = [
-    { name = "websockets" },
 ]
 
 [[package]]
@@ -3705,18 +3663,6 @@ wheels = [
 ]
 
 [[package]]
-name = "requests-toolbelt"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6", size = 206888, upload-time = "2023-05-01T04:11:33.229Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/51/d4db610ef29373b879047326cbf6fa98b6c1969d6f6dc423279de2b1be2c/requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06", size = 54481, upload-time = "2023-05-01T04:11:28.427Z" },
-]
-
-[[package]]
 name = "responses"
 version = "0.26.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4003,25 +3949,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/47/2c/0a5f6f8ee0d5589e48c7640213ed5175d52cf540a06725b628cc1a45d6ce/soupsieve-2.8.4.tar.gz", hash = "sha256:e121fd02e975c695e4e9e8774a5ee35d74714b59307868dcc5319ad2d9e3328e", size = 121110, upload-time = "2026-05-24T13:55:57.154Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/f5/0c41cb68dcae6b7de4fac4188a3a9589e21fb31df21ea3a2e888db95e6c9/soupsieve-2.8.4-py3-none-any.whl", hash = "sha256:e7e6b0769c8f51ed59acab6e994b00621096cfb1c640a7509295987388fbaf65", size = 37304, upload-time = "2026-05-24T13:55:55.406Z" },
-]
-
-[[package]]
-name = "specklepy"
-version = "3.2.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "appdirs" },
-    { name = "attrs" },
-    { name = "deprecated" },
-    { name = "gql", extra = ["requests", "websockets"] },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "ujson" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/56/fc/6cf381cddfe66cd06aef457bafdbe9bcd9fcffbec7a90da7a3205a51ed1b/specklepy-3.2.8.tar.gz", hash = "sha256:6df01e1fff62f41a5fab93f19d0d6d95f2f64aacca8e9a3896d6d0df422fa340", size = 103255, upload-time = "2026-05-27T17:58:09.287Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/16/cb/ea459b865542b5092a0baa68eda4241aec2a6d102b065282091b37e1d686/specklepy-3.2.8-py3-none-any.whl", hash = "sha256:bd77ee425c5b20455832161251d13343fb8302172bc8194e22f2c73a26df47b2", size = 157410, upload-time = "2026-05-27T17:58:10.774Z" },
 ]
 
 [[package]]
@@ -4595,15 +4522,6 @@ wheels = [
 ]
 
 [[package]]
-name = "websockets"
-version = "11.0.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d8/3b/2ed38e52eed4cf277f9df5f0463a99199a04d9e29c9e227cfafa57bd3993/websockets-11.0.3.tar.gz", hash = "sha256:88fc51d9a26b10fc331be344f1781224a375b78488fc343620184e95a4b27016", size = 104235, upload-time = "2023-05-07T14:25:20.083Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/96/9d5749106ff57629b54360664ae7eb9afd8302fad1680ead385383e33746/websockets-11.0.3-py3-none-any.whl", hash = "sha256:6681ba9e7f8f3b19440921e99efbb40fc89f26cd71bf539e45d8c8a25c976dc6", size = 118056, upload-time = "2023-05-07T14:25:18.508Z" },
-]
-
-[[package]]
 name = "werkzeug"
 version = "3.1.8"
 source = { registry = "https://pypi.org/simple" }
@@ -4640,6 +4558,7 @@ dependencies = [
     { name = "expression" },
     { name = "fsspec" },
     { name = "gcsfs" },
+    { name = "grpcio" },
     { name = "httpx" },
     { name = "keyring" },
     { name = "msgspec" },
@@ -4648,11 +4567,11 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-grpc" },
     { name = "opentelemetry-sdk" },
+    { name = "protobuf" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "s3fs" },
-    { name = "specklepy" },
     { name = "stamina" },
     { name = "structlog" },
     { name = "tree-sitter" },
@@ -4803,8 +4722,10 @@ requires-dist = [
     { name = "beartype", git = "https://github.com/beartype/beartype.git?rev=f370a0b1733413681e7a72bf36fbe839e60b3c85" },
     { name = "cyclopts", specifier = ">=4.18.0" },
     { name = "expression", specifier = ">=5.6.0" },
+    { name = "findiff", marker = "python_full_version < '3.15'", specifier = ">=0.13.1" },
     { name = "fsspec", specifier = ">=2026.6.0" },
     { name = "gcsfs", specifier = ">=2026.6.0" },
+    { name = "grpcio", specifier = ">=1.81" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "keyring" },
     { name = "msgspec", specifier = ">=0.21.1" },
@@ -4813,11 +4734,11 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.41.1" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.62b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.41.1" },
+    { name = "protobuf", specifier = ">=6.33,<7.0" },
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pydantic-settings", specifier = ">=2.14.1" },
     { name = "s3fs", specifier = ">=2026.6.0" },
-    { name = "specklepy", specifier = ">=3.2.8" },
     { name = "stamina", specifier = ">=26.1.0" },
     { name = "structlog", specifier = ">=26.1.0" },
     { name = "tree-sitter", specifier = ">=0.25.2" },
@@ -4939,11 +4860,13 @@ scientific = [
     { name = "flox", marker = "python_full_version < '3.15'" },
     { name = "geoarrow-rust-compute", marker = "python_full_version < '3.15'" },
     { name = "geopandas" },
+    { name = "grpcio-tools", marker = "python_full_version < '3.15'" },
     { name = "h3ronpy" },
     { name = "h5py", specifier = ">=3.16.0" },
     { name = "ibis-framework", specifier = ">=12.0.0" },
     { name = "icechunk", marker = "python_full_version < '3.15'", specifier = ">=2.0.6" },
     { name = "igraph" },
+    { name = "interpax", marker = "python_full_version < '3.15'", specifier = ">=0.3.14" },
     { name = "jax", marker = "python_full_version < '3.15'", specifier = ">=0.10.1" },
     { name = "kiss-matcher", marker = "python_full_version < '3.13'" },
     { name = "lark" },
@@ -4987,6 +4910,7 @@ scientific = [
     { name = "pystac-client" },
     { name = "python-flint", marker = "python_full_version < '3.15'", specifier = ">=0.8.0" },
     { name = "pywavelets", marker = "python_full_version < '3.15'", specifier = ">=1.9.0" },
+    { name = "quadax", marker = "python_full_version < '3.15'", specifier = ">=0.2.13" },
     { name = "rasterio", specifier = ">=1.5.0" },
     { name = "rhino3dm", specifier = ">=8.17.0" },
     { name = "rioxarray" },
@@ -4997,6 +4921,7 @@ scientific = [
     { name = "scikit-learn", marker = "python_full_version < '3.15'", specifier = ">=1.9.0" },
     { name = "scipy", marker = "python_full_version < '3.15'", specifier = ">=1.17.1" },
     { name = "scipy-stubs" },
+    { name = "sectionproperties", marker = "python_full_version < '3.15'", specifier = ">=3.10" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "skl2onnx", marker = "python_full_version < '3.15'" },
     { name = "sparse", marker = "python_full_version < '3.15'", specifier = ">=0.18.0" },

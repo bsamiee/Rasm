@@ -17,20 +17,21 @@
 [PUBLIC_TYPE_SCOPE]: protobuf message types
 - rail: model
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]     | [CAPABILITY]                                                         |
-| :-----: | :------------------------ | :----------------- | :------------------------------------------------------------------- |
-|  [01]   | `onnx.ModelProto`         | model message      | root with `ir_version`, `opset_import`, `graph`, `metadata_props`    |
-|  [02]   | `onnx.GraphProto`         | graph message      | `node`, `input`, `output`, `initializer`, `value_info`               |
-|  [03]   | `onnx.NodeProto`          | node message       | one operator instance with `op_type`, `input`, `output`, `attribute` |
-|  [04]   | `onnx.TensorProto`        | tensor message     | initializer/constant tensor; carries the dtype enum                  |
-|  [05]   | `onnx.AttributeProto`     | attribute message  | typed node attribute (int, float, tensor, graph, ...)                |
-|  [06]   | `onnx.ValueInfoProto`     | value-info message | named input/output with `TypeProto` and shape                        |
-|  [07]   | `onnx.TypeProto`          | type message       | element type and tensor/sequence/map/optional shape                  |
-|  [08]   | `onnx.TensorShapeProto`   | shape message      | dimension list with sized or symbolic dims                           |
-|  [09]   | `onnx.OperatorSetIdProto` | opset id message   | domain plus opset version pair                                       |
-|  [10]   | `onnx.FunctionProto`      | function message   | reusable local function definition                                   |
-|  [11]   | `onnx.SparseTensorProto`  | sparse tensor      | COO-encoded sparse initializer                                       |
-|  [12]   | `checker.ValidationError` | validation error   | raised by `check_model` on a malformed graph                         |
+| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]     | [CAPABILITY]                                                         |
+| :-----: | :------------------------------- | :----------------- | :------------------------------------------------------------------- |
+|  [01]   | `onnx.ModelProto`                | model message      | root with `ir_version`, `opset_import`, `graph`, `metadata_props`    |
+|  [02]   | `onnx.GraphProto`                | graph message      | `node`, `input`, `output`, `initializer`, `value_info`               |
+|  [03]   | `onnx.NodeProto`                 | node message       | one operator instance with `op_type`, `input`, `output`, `attribute` |
+|  [04]   | `onnx.TensorProto`               | tensor message     | initializer/constant tensor; carries the dtype enum                  |
+|  [05]   | `onnx.AttributeProto`            | attribute message  | typed node attribute (int, float, tensor, graph, ...)                |
+|  [06]   | `onnx.ValueInfoProto`            | value-info message | named input/output with `TypeProto` and shape                        |
+|  [07]   | `onnx.TypeProto`                 | type message       | element type and tensor/sequence/map/optional shape                  |
+|  [08]   | `onnx.TensorShapeProto`          | shape message      | dimension list with sized or symbolic dims                           |
+|  [09]   | `onnx.OperatorSetIdProto`        | opset id message   | domain plus opset version pair                                       |
+|  [10]   | `onnx.FunctionProto`             | function message   | reusable local function definition                                   |
+|  [11]   | `onnx.SparseTensorProto`         | sparse tensor      | COO-encoded sparse initializer                                       |
+|  [12]   | `checker.ValidationError`        | validation error   | raised by `check_model` on a malformed graph                         |
+|  [13]   | `shape_inference.InferenceError` | inference error    | raised by `infer_shapes(strict_mode=True)` on an unpropagated shape  |
 
 [PUBLIC_TYPE_SCOPE]: TensorProto element-type enum (`onnx.TensorProto.<NAME>`)
 - rail: model
@@ -83,7 +84,7 @@
 
 [VALIDATION_TOPOLOGY]:
 - A model asset loads as `ModelProto` through `load`; `checker.check_model(model, full_check=True)` raises `ValidationError` on a malformed graph, mismatched opset, or unbound value.
-- `shape_inference.infer_shapes` returns a new `ModelProto` with inferred `value_info`; `strict_mode=True` raises on inference failures rather than leaving shapes unset.
+- `shape_inference.infer_shapes` returns a new `ModelProto` with inferred `value_info`; `strict_mode=True` raises `shape_inference.InferenceError` on inference failures rather than leaving shapes unset, so a structural validator catches both `checker.ValidationError` and `shape_inference.InferenceError` to fold an unpropagated shape into a failed structural verdict.
 - The dtype enum on `TensorProto` (`FLOAT=1`, `INT64=7`, ...) names initializer element types; `numpy_helper` bridges those tensors to NumPy arrays.
 - `make_model` is built bottom-up from `make_node`, `make_graph`, and `make_tensor_value_info`; `make_opsetid` plus the `opset_import` field pin the operator set.
 - `version_converter.convert_version` rewrites a model across opset versions; the installed opset is `defs.onnx_opset_version()`.

@@ -41,6 +41,16 @@
 |  [03]   | `effect.seq`    | builder instance | seq computation block    |
 |  [04]   | `effect.try_`   | builder instance | try computation block    |
 
+[PUBLIC_TYPE_SCOPE]: persistent collections
+- rail: functional-core
+- namespace `expression.collections`; immutable persistent structures with structural-sharing updates
+
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]        | [RAIL]                          |
+| :-----: | :----------- | :------------------- | :------------------------------ |
+|  [01]   | `Block`      | persistent list      | immutable ordered sequence      |
+|  [02]   | `Map`        | persistent map       | immutable ordered key→value map |
+|  [03]   | `FrozenList` | persistent list base | immutable list alias            |
+
 [PUBLIC_TYPE_SCOPE]: mailbox / actor
 - rail: functional-core
 
@@ -91,6 +101,23 @@
 |  [06]   | `result.of_option(value, error)`   | conversion     | lift option to result      |
 |  [07]   | `result.or_else(result, other)`    | fallback       | substitute on error        |
 |  [08]   | `result.swap(result)`              | inversion      | flip ok and error branches |
+
+[ENTRYPOINT_SCOPE]: persistent collection operations
+- rail: functional-core
+- `Map` and `Block` from `expression.collections`; every update returns a new structure, the original unchanged.
+
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :---------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `Map.of_seq(pairs)`                 | constructor    | build a `Map` from `(key, value)` pairs     |
+|  [02]   | `Map.add(key, value)`               | insert         | new `Map` with the pair added/overwritten   |
+|  [03]   | `key in map` (`Map.__contains__`)   | membership     | true if the key is present                  |
+|  [04]   | `map[key]` (`Map.__getitem__`)      | lookup         | value at key (raises on absent)             |
+|  [05]   | `Map.map(projection)`               | functor map    | new `Map` with values projected by `(k, v)` |
+|  [06]   | `Block.empty()` / `Block.singleton` | constructor    | empty / one-element persistent list         |
+|  [07]   | `Block.append(other)`               | concat         | new `Block` with elements appended          |
+|  [08]   | `Block.fold(folder, state)`         | fold           | left fold to an accumulated value           |
+|  [09]   | `Block.choose(chooser)`             | filter-map     | new `Block` of the present chooser results  |
+|  [10]   | `Block.reduce(reducer)`             | reduce         | reduce a non-empty `Block` to one value     |
 
 [ENTRYPOINT_SCOPE]: tail recursion and misc
 - rail: functional-core

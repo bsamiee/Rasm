@@ -16,14 +16,20 @@ geometry/
 ├── ifc/                      # IFC property/quantity/relationship analysis + buildingSMART validation + 5D/4D lifecycle
 │   ├── analysis.py           # IfcAnalysis: Pset, IDS, clash, space-program, BCF over IfcOpenShell ecosystem
 │   ├── costing.py            # IfcLifecycle: ifc5d 5D quantity take-off + cost rollup, ifc4d scheduling, ifcpatch recipes, ifcdiff revision diff
-│   └── selector.py           # IfcSelector: lark-validated selector/filter-query grammar admitting a structured query before filter_elements
-├── mesh/                     # IfcOpenShell GLB tessellation daemon ( load-bearing cross-boundary owner), CAD-STEP hop, and robust mesh algebra
+│   ├── selector.py           # IfcSelector: lark-validated selector/filter-query grammar admitting a structured query before filter_elements
+│   ├── authoring.py          # IfcAuthoring: ifcopenshell spatial/element/geometry transactions, GUID + ownership-history rail (companion, ifcopenshell)
+│   └── structural.py         # IfcStructural: Section integrals (A/I/centroid/torsion) over IfcProfileDef, sectionproperties enrichment row, companion layer
+├── mesh/                     # IfcOpenShell GLB tessellation daemon (X-boundary owner), CAD-STEP hop, mesh algebra, B-rep evaluation, spatial query, etc...
 │   ├── daemon.py             # TessellationDaemon: source bytes + tolerance → per-element GLB + semantic header, CAD arms route to cad.py
 │   ├── cad.py                # StepBridge: STEP/IGES B-rep bytes + tolerance → GLB over OCCT XCAF, companion the C# StepIso10303 codec calls
-│   └── repair.py             # MeshOp: watertight repair, winding/normal fix, manifold3d boolean, mesh-file codec
-└── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas
+│   ├── repair.py             # MeshOp: watertight repair, winding/normal fix, manifold3d boolean; in-memory Trimesh in/out, mesh-file IO deferred to data MeshPayload
+│   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation, manifold3d solid algebra (companion band, both gated <3.15), mesh-brep subject
+│   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree spatial query over in-memory triangulation (intended cp315 core)
+│   └── quality.py            # MeshQuality: trimesh + numpy aspect-ratio/skewness/manifold-edge/genus mesh-quality metric receipts (intended cp315 core)
+└── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas, network analytics over networkx
     ├── nonmanifold.py        # TopologyAlgebra: CellComplex/Cell/Aperture construction, decomposition, adjacency, dual-graph
-    └── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra
+    ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra (compas gated)
+    └── features.py           # GraphFeatures: networkx centrality/community/shortest-path/connectivity analytics over the network-graph projection (intended cp315 core)
 ```
 
 ## [02]-[SEAMS]
@@ -42,14 +48,21 @@ ifc            →  csharp:Rasm.Bim/Review       # [BOUNDARY]: IDS validation ev
 mesh/cad       →  python:runtime/evidence      # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes
 mesh/daemon    →  python:runtime/evidence      # [CONTENT_KEY]: ContentIdentity.of keyed GLB bytes with policy seed
 graph/algebra  ⇄  python:compute/graduation    # [GRADUATION]: HandoffAxis geometry case
+graph/features ⇄  python:compute/graduation    # [GRADUATION]: HandoffAxis geometry network-graph subject
 ifc/analysis   →  python:compute/graduation    # [GRADUATION]: geometry HandoffAxis case IDS/clash/BCF
+ifc/structural →  python:compute/graduation    # [GRADUATION]: geometry HandoffAxis numerical-primitive subject section integrals
 mesh/daemon    ⇄  python:runtime/transport     # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
 scan           →  python:data/spatial          # [SHAPE]: Arrow point-record columnar bridge x/y/z
 mesh           ←  python:data/spatial          # [SHAPE]: MeshPayload cell-block topology
-mesh           ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-scene export vs mesh-file codec, no shared owner
+mesh/repair    →  python:data/spatial          # [CODEC_SHED]: repair/brep/spatial/quality return in-memory Trimesh; mesh-file decode/encode + GLB preview,
+mesh           ⇄  python:artifacts/figures     # [BOUNDARY]: visualization-scene/USD/GLTF/OBJ export is artifacts figures/scene, mesh-file codec is data
 scan/ingestion ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
 ```
 
 ## [03]-[INTERPRETER_FLOOR]
 
 Every sub-domain rides the companion interpreter floor the branch manifest owns — the sanctioned divergence from the Python core floor, forced by the compiled geometry/IFC cores and isolating the copyleft IFC wheel at the process boundary. The folder consumes this floor as settled and never re-decides it; it surfaces here only because the whole map sits below it.
+
+The intended cp315 core (lands when wheels ship): `numpy`, `trimesh`, `rhino3dm`, `laspy`, `networkx` — the `mesh/spatial`, `mesh/quality`, and `graph/features` owners and the mesh/spatial spine (`trimesh` + `numpy`) ride this core directly. The `python_version<'3.15'` companion band (cp312 floor) carries the gated enrichment rows: `manifold3d`/`cadquery-ocp` (the `mesh/brep` and `mesh/repair` boolean band), `compas`/`compas_dr`/`compas_tna` (the `graph/algebra` band), `open3d` (cp312-max), `small-gicp`/`kiss-matcher`, `pye57`, and `sectionproperties` (the `ifc/structural` enrichment row only, never the section-integral spine — that is `numpy`). `ifcopenshell` is a companion-band IFC wheel (py313, no cp315), the source of the `ifc/authoring` and `ifc/structural` companion layers.
+
+[TOPOLOGICPY_EXCLUSION]: `topologicpy` (the `graph/nonmanifold` runtime) is EXCLUDED from the default server build under a DUAL gate: it is `AGPL-3.0-or-later` network-copyleft — §13 extends source disclosure to network-interacting clients of a hosted deployment, so linking it into the shipped server places the whole deployment under AGPL — AND it dual-gates `requires-python<'3.15'` with no cp315 wheel. It is admitted only as an opt-in dependency on the explicit AGPL-accepting Forge companion lane (`forge-companion-env`), isolated at the process boundary like the copyleft IFC wheel; `graph/nonmanifold` is therefore dark in the default build, fully authored but never imported there.

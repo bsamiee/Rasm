@@ -4,6 +4,9 @@ version = "0.1.0"
 requires-python = ">=3.15"
 dependencies = [
     "anyio>=4.14.0",
+    "protobuf>=6.33,<7.0",       # runtime transport wire codec; capped <7.0 by opentelemetry-proto (no OTel release admits protobuf 7.x yet); lift the cap when it does. cp310-abi3+py3-none-any => cp315-clean
+    "grpcio>=1.81",              # runtime: gRPC transport (server/serve ServerHost); resolves on cp315, already transitive core via google-cloud-storage
+    "findiff>=0.13.1; python_version<'3.15'", # compute finite-difference floor for solvers/sensitivity; gated by transitive scipy CPython 3.15 wheel lag
     "beartype>=0.22.2",
     "cyclopts>=4.18.0",
     "msgspec>=0.21.1",
@@ -26,7 +29,6 @@ dependencies = [
     "apscheduler>=3.11.2",        # runtime: cron, interval, and date triggers (sole cron owner; aiocron purged)
     "universal-pathlib>=0.3.10",  # data: UPath storage_options/protocol resolution for the fsspec artifact store
     "asyncssh>=2.23.1",
-    "specklepy>=3.2.8",           # AEC transport: Speckle stream send/receive, not durable storage
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
@@ -117,9 +119,12 @@ scientific = [
     "diffrax; python_version<'3.15'",              # compute: JAX differential-equation solvers; gated by jaxlib CPython 3.15 floor
     "equinox; python_version<'3.15'",              # compute: JAX PyTree modules; gated by jaxlib CPython 3.15 floor
     "lineax; python_version<'3.15'",               # compute: JAX linear solvers; gated by jaxlib CPython 3.15 floor
+    "interpax>=0.3.14; python_version<'3.15'",     # compute: JAX interpolation/splines; gated by jaxlib CPython 3.15 floor
+    "quadax>=0.2.13; python_version<'3.15'",       # compute: JAX adaptive quadrature; gated by jaxlib CPython 3.15 floor
     "optax; python_version<'3.15'",                # compute: first-order JAX optimizers threaded through optimistix.OptaxMinimiser; gated by jaxlib CPython 3.15 floor
     "cvxpy>=1.9.1; python_version<'3.15'",         # compute: disciplined convex optimization; cp311-cp314 wheels only, no CPython 3.15 wheel
     "manifold3d; python_version<'3.15'",           # geometry: robust mesh booleans; C++ pybind lacks CPython 3.15 wheel
+    "sectionproperties>=3.10; python_version<'3.15'", # geometry: cross-section property solver; pure-py (py3-none-any), own metadata >=3.11 unbounded; gated by transitive cytriangle (LGPLv3 native ext) cp314 wheel ceiling
     "nutpie; python_version<'3.15'",               # compute: Rust NUTS sampler for PyMC; gated by PyMC CPython 3.15 floor
     "pyiceberg; python_version<'3.15'",            # data: Apache Iceberg tables; gated by Arrow/data CPython 3.15 floor
     "skl2onnx; python_version<'3.15'",             # compute: sklearn-to-ONNX converter; gated by scikit-learn CPython 3.15 floor
@@ -135,6 +140,7 @@ scientific = [
     "uncertainties",
     "xarray",
     "xxhash>=3.7.0",                               # runtime: content identity hashes matching C# System.IO.Hashing; cp38-cp314 per-version wheels, NO abi3/cp315 (companion <3.15)
+    "grpcio-tools; python_version<'3.15'",         # runtime: gRPC protoc codegen companion (dev/build only); protoc bundle lacks cp315 wheel
     "zarr>=3.2.1",                                 # data: chunked n-D arrays; pure Python
     "blackjax; python_version<'3.15'",             # compute: JAX NUTS/HMC samplers; gated by jaxlib CPython 3.15 floor
     "cadquery-ocp; python_version<'3.15'",         # geometry: OpenCASCADE STEP/AP242 kernel; requires_python <3.15, companion-side

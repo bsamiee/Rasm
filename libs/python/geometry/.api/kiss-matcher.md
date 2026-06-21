@@ -9,7 +9,7 @@
 - import: `import kiss_matcher`
 - owner: `geometry`
 - rail: scan-processing / global-registration
-- installed: `1.0.2` reflected via `import kiss_matcher` on cp312
+- installed: `1.0.2` authored from ledger ([04]-sourced; `assay api` resolution blocked by the workspace-wide solve — the `opentelemetry-proto` `protobuf>=5,<7` ceiling fails the environment resolution, not an interpreter or wheel fault — members introspected against the cp312 companion distribution with numpy); license `MIT`; wheels `cp38-cp312` only (no cp313/cp314/cp315, no abi3) => `python_version<'3.13'` gated companion band
 - entry points: none (library only)
 - capability: initialization-free global rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN-based outlier pruning, graduated-non-convexity and Quatro pose solving, and per-stage timing plus inlier receipts
 
@@ -50,9 +50,9 @@ Construct with `KISSMatcherConfig(voxel_size=0.3, use_voxel_sampling=True, use_q
 
 | [INDEX] | [FIELD]       | [PROPERTY_KIND] | [CAPABILITY]                             |
 | :-----: | :------------ | :-------------- | :--------------------------------------- |
-|  [01]   | `rotation`    | read            | 3x3 rotation matrix                      |
-|  [02]   | `translation` | read            | 3-vector translation                     |
-|  [03]   | `valid`       | read            | convergence/validity flag for the result |
+|  [01]   | `rotation`    | read/write      | 3x3 rotation matrix                      |
+|  [02]   | `translation` | read/write      | 3-vector translation                     |
+|  [03]   | `valid`       | read/write      | convergence/validity flag for the result |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -108,6 +108,7 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 - solver axis: `use_quatro` switches the GNC solver to Quatro for degenerate or planar scenes; `thr_linearity`, `robin_noise_bound`, and `solver_noise_bound` (with their `_gain` scalings) tune the ROBIN pruning and GNC convergence.
 - evidence: each run captures `get_num_final_inliers`, `get_num_rotation_inliers`, the initial/final correspondence pairs, and the per-stage timings (`extraction`/`matching`/`rejection`/`solver`/`processing`) as the registration receipt feeding handoff and the fine-refinement decision.
 - boundary: `kiss_matcher` owns coarse initialization-free global registration; the resulting `RegistrationSolution` transform seeds fine `small_gicp` GICP/VGICP refinement, surface reconstruction and FPFH-free coarse alignment route to `open3d`, and general PLY/scan IO routes to `open3d`/`laspy` rather than this estimator.
+- fallback: on a `python_version>='3.13'` interpreter where no `kiss-matcher` wheel resolves, the `GLOBAL` registration arm falls back to the `open3d` Fast Global Registration path (`registration.registration_fgr_based_on_feature_matching` over `compute_fpfh_feature` keypoints) to mint the coarse pose that seeds `small_gicp`; the fallback is the deferred USAGE card `[KISS_MATCHER_FALLBACK_FGR]` (geometry, [BLOCKED], reference only), not authored here.
 
 ## [05]-[LOCAL_ADMISSION]
 
@@ -118,5 +119,5 @@ These accessors expose the intermediate keypoint clouds, the correspondence inde
 - Reject: wrapper-renames of `estimate`/`match`/`solve`; a hand-rolled FPFH keypoint extractor, graph-theoretic outlier rejector, or GNC solver where `kiss_matcher` is admitted; an ICP/fine-refinement role that belongs to `small_gicp`; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `kiss-matcher 1.0.2` ships cp38-cp312 wheels only (no cp313/cp314/cp315, no abi3), so it is a `python_version<'3.13'` gated companion package; reflection runs on a cp312 companion interpreter with numpy while the cp315 project venv carries no wheel
+- floor: `kiss-matcher 1.0.2` ships cp38/cp39/cp310/cp311/cp312 wheels only (manylinux_2_28_x86_64 and macosx_14_0_arm64; no cp313/cp314/cp315, no abi3), so it is a `python_version<'3.13'` gated companion package; the PyPI `Programming Language :: Python :: 3.13` classifier is advertised but ships no cp313 wheel, so the marker, not the classifier, is authoritative. Reflection runs on a cp312 companion interpreter with numpy while the cp315 project venv carries no wheel. The `>='3.13'` band carries no `kiss_matcher` wheel, so the `GLOBAL` registration mode degrades to the `open3d` Fast Global Registration fallback tracked by the deferred `[KISS_MATCHER_FALLBACK_FGR]` card (geometry, [BLOCKED], reference only)
 - members: verified by introspection against the installed cp312 distribution; the `KISSMatcher`/`KISSMatcherConfig`/`RegistrationSolution` classes, the overloaded `estimate`/`match`/`prune_and_solve`/`solve` signatures, the config gain constructor, and the stage/receipt accessors resolve against the live pybind11 signatures — no phantom
