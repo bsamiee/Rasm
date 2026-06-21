@@ -21,30 +21,30 @@
 - rail: transport
 - auto-installed onto `sys.meta_path` at first `grpc_tools.protoc` import unless `GRPC_PYTHON_DISABLE_DYNAMIC_STUBS` is set; back the `grpc.protos()`/`grpc.services()` runtime helpers.
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]            | [RAIL]                                            |
-| :-----: | :------------ | :----------------------- | :------------------------------------------------ |
-|  [01]   | `ProtoFinder` | `MetaPathFinder`         | `sys.meta_path` hook resolving `_pb2`/`_pb2_grpc` module names to `.proto` files |
-|  [02]   | `ProtoLoader` | `importlib.abc.Loader`   | compiles a `.proto` to module code at import time, caches topologically-ordered deps |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]          | [RAIL]                                                                               |
+| :-----: | :------------ | :--------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `ProtoFinder` | `MetaPathFinder`       | `sys.meta_path` hook resolving `_pb2`/`_pb2_grpc` module names to `.proto` files     |
+|  [02]   | `ProtoLoader` | `importlib.abc.Loader` | compiles a `.proto` to module code at import time, caches topologically-ordered deps |
 
 [PUBLIC_TYPE_SCOPE]: setuptools integration (`grpc_tools.command`)
 - rail: transport
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]       | [RAIL]                                            |
-| :-----: | :-------------------- | :------------------ | :------------------------------------------------ |
-|  [01]   | `BuildPackageProtos`  | `setuptools.Command`| `setup.py`/`pyproject` build command (`--strict-mode`) |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]        | [RAIL]                                                 |
+| :-----: | :------------------- | :------------------- | :----------------------------------------------------- |
+|  [01]   | `BuildPackageProtos` | `setuptools.Command` | `setup.py`/`pyproject` build command (`--strict-mode`) |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: code generation
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                            |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
-|  [01]   | `protoc.main(command_arguments) -> int`                                   | codegen        | run `protoc` in-process; arg list UTF-8 encoded then handed to native `run_main`; returns 0 on success |
-|  [02]   | `protoc.entrypoint() -> None`                                             | console script | the `grpc_tools.protoc` CLI shim; prepends the bundled `_proto` include automatically |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                                                          |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `protoc.main(command_arguments) -> int`                                   | codegen        | run `protoc` in-process; arg list UTF-8 encoded then handed to native `run_main`; returns 0 on success                                          |
+|  [02]   | `protoc.entrypoint() -> None`                                             | console script | the `grpc_tools.protoc` CLI shim; prepends the bundled `_proto` include automatically                                                           |
 |  [03]   | `command.build_package_protos(package_root, strict_mode=False)`           | build          | walk `package_root`, compile every `.proto` with `--python_out`/`--pyi_out`/`--grpc_python_out`; warn (or raise under `strict_mode`) on failure |
-|  [04]   | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | meta-path finder for `_pb2`/`_pb2_grpc` suffixed module names |
-|  [05]   | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | proto-module loader; `exec_module` compiles + caches generated code |
+|  [04]   | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | meta-path finder for `_pb2`/`_pb2_grpc` suffixed module names                                                                                   |
+|  [05]   | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | proto-module loader; `exec_module` compiles + caches generated code                                                                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

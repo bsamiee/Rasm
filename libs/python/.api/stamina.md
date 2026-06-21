@@ -24,49 +24,49 @@
 - rail: resilience
 - `RetryingCaller`/`AsyncRetryingCaller` subclass `BaseRetryingCaller` (which freezes the policy keyword set into a `**`-passable dict); the two `Bound*` callers are NOT subclasses — each wraps a parent caller plus a frozen `on` target. Sync/async is the runtime axis, bound/unbound is the exception-binding axis. `.on(exc_or_hook)` returns the matching `Bound*` caller (a separate class, not a `functools.partial`, so the `(callable, *args, **kw)` signature stays precisely typed). Both bound and unbound callers are reusable: each `__call__` opens a fresh `retry_context` internally.
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                                          |
-| :-----: | :------------------------- | :------------ | :------------------------------------------------------------- |
-|  [01]   | `RetryingCaller`           | caller        | reusable sync caller; `__call__(on, fn, /, *a, **kw) -> T`     |
-|  [02]   | `AsyncRetryingCaller`      | caller        | reusable async caller; `__call__(on, afn, /, *a, **kw) -> T`   |
-|  [03]   | `BoundRetryingCaller`      | caller        | sync caller pre-bound to an `on` target via `RetryingCaller.on`|
-|  [04]   | `BoundAsyncRetryingCaller` | caller        | async caller pre-bound via `AsyncRetryingCaller.on`            |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [RAIL]                                                              |
+| :-----: | :------------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `RetryingCaller`           | caller        | reusable sync caller; `__call__(on, fn, /, *a, **kw) -> T`          |
+|  [02]   | `AsyncRetryingCaller`      | caller        | reusable async caller; `__call__(on, afn, /, *a, **kw) -> T`        |
+|  [03]   | `BoundRetryingCaller`      | caller        | sync caller pre-bound to an `on` target via `RetryingCaller.on`     |
+|  [04]   | `BoundAsyncRetryingCaller` | caller        | async caller pre-bound via `AsyncRetryingCaller.on`                 |
 |  [05]   | `Attempt`                  | attempt       | per-iteration context yielded by `retry_context`; `num`/`next_wait` |
 
 [PUBLIC_TYPE_SCOPE]: retry-target discriminator
 - rail: resilience
 - The `on=` parameter is a discriminated union, not just an exception type: a single error class, a tuple of classes, OR a backoff hook. The hook receives the raised `Exception` and returns `bool | float | timedelta` — `True`/`False` decides whether to retry, a `float`/`timedelta` both decides yes AND overrides the computed exponential backoff for that attempt (the `Retry-After`-header pattern). A custom backoff bypasses the `wait_*` machinery entirely.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [DEFINITION]                                                       |
-| :-----: | :------------------ | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `ExcOrBackoffHook`  | type alias    | `type[Exception] \| tuple[type[Exception], ...] \| BackoffHook`    |
-|  [02]   | `BackoffHook`       | type alias    | `Callable[[Exception], bool \| float \| timedelta]`                |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [DEFINITION]                                                    |
+| :-----: | :----------------- | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `ExcOrBackoffHook` | type alias    | `type[Exception] \| tuple[type[Exception], ...] \| BackoffHook` |
+|  [02]   | `BackoffHook`      | type alias    | `Callable[[Exception], bool \| float \| timedelta]`             |
 
 [PUBLIC_TYPE_SCOPE]: instrumentation family (`stamina.instrumentation`)
 - rail: resilience
 - `RetryHook` is a `Protocol`: a callable `(details: RetryDetails) -> None | AbstractContextManager[None]`. Returning a context manager makes the hook span the scheduled wait — entered when the retry is scheduled, exited right before the retry runs (the OTel-span-around-the-wait pattern). `RetryHookFactory` wraps a `Callable[[], RetryHook]` so hook construction is deferred to the first scheduled retry; the three shipped emitters are `RetryHookFactory` instances, not classes.
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]  | [RAIL]                                                          |
-| :-----: | :-------------------------------------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `instrumentation.RetryHook`             | `Protocol`     | `(RetryDetails) -> None \| AbstractContextManager[None]`        |
-|  [02]   | `instrumentation.RetryHookFactory`      | frozen dataclass | wraps `hook_factory: Callable[[], RetryHook]` for lazy build  |
-|  [03]   | `instrumentation.RetryDetails`          | frozen dataclass | per-retry payload passed to every hook                        |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]      | [RAIL]                                                            |
+| :-----: | :-------------------------------------- | :----------------- | :---------------------------------------------------------------- |
+|  [01]   | `instrumentation.RetryHook`             | `Protocol`         | `(RetryDetails) -> None \| AbstractContextManager[None]`          |
+|  [02]   | `instrumentation.RetryHookFactory`      | frozen dataclass   | wraps `hook_factory: Callable[[], RetryHook]` for lazy build      |
+|  [03]   | `instrumentation.RetryDetails`          | frozen dataclass   | per-retry payload passed to every hook                            |
 |  [04]   | `instrumentation.StructlogOnRetryHook`  | `RetryHookFactory` | structlog `stamina` logger warning emitter (default if installed) |
-|  [05]   | `instrumentation.LoggingOnRetryHook`    | `RetryHookFactory` | stdlib-`logging` retry emitter                                |
-|  [06]   | `instrumentation.PrometheusOnRetryHook` | `RetryHookFactory` | Prometheus `stamina_retries_total` counter increment          |
+|  [05]   | `instrumentation.LoggingOnRetryHook`    | `RetryHookFactory` | stdlib-`logging` retry emitter                                    |
+|  [06]   | `instrumentation.PrometheusOnRetryHook` | `RetryHookFactory` | Prometheus `stamina_retries_total` counter increment              |
 
 [PUBLIC_TYPE_SCOPE]: `RetryDetails` fields
 - rail: resilience
 - The single fact carrier every hook reads; map these straight onto a receipt/span without re-deriving.
 
-| [INDEX] | [FIELD]         | [TYPE]                  | [MEANING]                                              |
-| :-----: | :-------------- | :---------------------- | :---------------------------------------------------- |
-|  [01]   | `name`          | `str`                   | qualified name of the retried callable                |
-|  [02]   | `args`          | `tuple[object, ...]`    | positional args passed to the callable                |
-|  [03]   | `kwargs`        | `dict[str, object]`     | keyword args passed to the callable                   |
-|  [04]   | `retry_num`     | `int`                   | retry attempt number; starts at 1 after first failure |
-|  [05]   | `wait_for`      | `float`                 | seconds stamina will wait before the next attempt     |
-|  [06]   | `waited_so_far` | `float`                 | cumulative seconds waited across prior attempts        |
-|  [07]   | `caused_by`     | `Exception`             | the exception that triggered this retry               |
+| [INDEX] | [FIELD]         | [TYPE]               | [MEANING]                                             |
+| :-----: | :-------------- | :------------------- | :---------------------------------------------------- |
+|  [01]   | `name`          | `str`                | qualified name of the retried callable                |
+|  [02]   | `args`          | `tuple[object, ...]` | positional args passed to the callable                |
+|  [03]   | `kwargs`        | `dict[str, object]`  | keyword args passed to the callable                   |
+|  [04]   | `retry_num`     | `int`                | retry attempt number; starts at 1 after first failure |
+|  [05]   | `wait_for`      | `float`              | seconds stamina will wait before the next attempt     |
+|  [06]   | `waited_so_far` | `float`              | cumulative seconds waited across prior attempts       |
+|  [07]   | `caused_by`     | `Exception`          | the exception that triggered this retry               |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -74,26 +74,26 @@
 - rail: resilience
 - `retry` and `retry_context` share one keyword schema: `on` (required), `attempts=10`, `timeout=45.0`, `wait_initial=0.1`, `wait_max=5.0`, `wait_jitter=1.0`, `wait_exp_base=2`. `timeout`/`wait_*` accept `float | timedelta`. Backoff for attempt `n` is `min(wait_max, wait_initial * wait_exp_base**(n-1) + uniform(0, wait_jitter))`. `attempts=None` and `timeout=None` lift the respective stop condition (at least one must bound the loop). `retry` auto-detects sync/async/generator/async-generator wrapped callables; `retry_context` yields `Attempt` and is consumed by both `for`/`with` and `async for`/`with`.
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]  | [RAIL]                                              |
-| :-----: | :--------------------------------------------------------- | :-------------- | :------------------------------------------------- |
-|  [01]   | `retry(*, on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)` | decorator | wrap sync/async/(async)gen callable on `on`        |
-|  [02]   | `retry_context(on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)` | iterator | retry inline block; yields `Attempt` per iteration |
-|  [03]   | `RetryingCaller(attempts=..., timeout=..., wait_*=...)`     | caller build    | construct reusable sync caller (policy frozen)     |
-|  [04]   | `AsyncRetryingCaller(attempts=..., timeout=..., wait_*=...)`| caller build    | construct reusable async caller                    |
-|  [05]   | `RetryingCaller.on(on)` / `AsyncRetryingCaller.on(on)`     | binding         | bind the `on` target -> `Bound*` caller            |
-|  [06]   | `Attempt.num` / `Attempt.next_wait`                        | introspection   | current attempt number; jitter-less next-wait lower bound |
-|  [07]   | `is_active` / `set_active(bool)`                           | toggle          | enable/disable retrying process-globally           |
-|  [08]   | `is_testing` / `set_testing(bool, *, attempts=1)`         | toggle          | deterministic test mode (collapse backoff, cap attempts) |
+| [INDEX] | [SURFACE]                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                                    |
+| :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `retry(*, on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)`      | decorator      | wrap sync/async/(async)gen callable on `on`               |
+|  [02]   | `retry_context(on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)` | iterator       | retry inline block; yields `Attempt` per iteration        |
+|  [03]   | `RetryingCaller(attempts=..., timeout=..., wait_*=...)`                                                          | caller build   | construct reusable sync caller (policy frozen)            |
+|  [04]   | `AsyncRetryingCaller(attempts=..., timeout=..., wait_*=...)`                                                     | caller build   | construct reusable async caller                           |
+|  [05]   | `RetryingCaller.on(on)` / `AsyncRetryingCaller.on(on)`                                                           | binding        | bind the `on` target -> `Bound*` caller                   |
+|  [06]   | `Attempt.num` / `Attempt.next_wait`                                                                              | introspection  | current attempt number; jitter-less next-wait lower bound |
+|  [07]   | `is_active` / `set_active(bool)`                                                                                 | toggle         | enable/disable retrying process-globally                  |
+|  [08]   | `is_testing` / `set_testing(bool, *, attempts=1)`                                                                | toggle         | deterministic test mode (collapse backoff, cap attempts)  |
 
 [ENTRYPOINT_SCOPE]: instrumentation operations (`stamina.instrumentation`)
 - rail: resilience
 - Hooks are set once, process-globally. `set_on_retry_hooks(None)` restores the lazy default set; `set_on_retry_hooks(())` (empty iterable) deactivates instrumentation entirely. The default set is computed by availability: `PrometheusOnRetryHook` is added when `prometheus_client` imports (additive), and `StructlogOnRetryHook` XOR `LoggingOnRetryHook` is added (structlog if importable, else the stdlib-logging fallback) — the two logging emitters are mutually exclusive, never both. Pass `RetryHook` callables and/or `RetryHookFactory` instances; factories construct on the first scheduled retry. `get_on_retry_hooks()` returns the finalized `tuple[RetryHook, ...]` with any factories already executed.
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]  | [RAIL]                                            |
-| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------ |
-|  [01]   | `instrumentation.set_on_retry_hooks(hooks)`     | instrumentation | register hooks/factories (`None` restores default)|
-|  [02]   | `instrumentation.get_on_retry_hooks()`          | instrumentation | read active `tuple[RetryHook, ...]`               |
-|  [03]   | `instrumentation.get_prometheus_counter()`      | instrumentation | the `Counter \| None` backing `PrometheusOnRetryHook` |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]  | [RAIL]                                                |
+| :-----: | :------------------------------------------ | :-------------- | :---------------------------------------------------- |
+|  [01]   | `instrumentation.set_on_retry_hooks(hooks)` | instrumentation | register hooks/factories (`None` restores default)    |
+|  [02]   | `instrumentation.get_on_retry_hooks()`      | instrumentation | read active `tuple[RetryHook, ...]`                   |
+|  [03]   | `instrumentation.get_prometheus_counter()`  | instrumentation | the `Counter \| None` backing `PrometheusOnRetryHook` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

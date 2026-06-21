@@ -10,11 +10,8 @@ export const meta = {
 }
 
 // The unit of work. Pass a real list as the Workflow `args`, or hardcode one.
-// `args` is passed through unchanged — an array stays an array; parse only a string.
-const input = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return args } })()
-  : args
-const items = Array.isArray(input) && input.length ? input : ['TODO item one', 'TODO item two']
+// `args` arrives as structured data — an array stays an array, read it directly.
+const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TODO item two']
 
 // Structured output — the subagent is forced to return an object matching this.
 const ITEM_SCHEMA = {
@@ -28,12 +25,15 @@ const ITEM_SCHEMA = {
 
 // PHASE 1 — one fresh-context subagent per item, all at once. parallel() is a
 // barrier: it waits for every thunk. Note the shape — () => agent(...), a thunk.
+// Pin each agent to the phase via the option (concurrent calls would otherwise
+// race on the global phase()). effort: 'low' suits a mechanical per-item pass;
+// drop it for a judgement-heavy worker (effort guidance: references/api-reference.md).
 phase('Work')
 log(`Processing ${items.length} item(s)...`)
 const results = await parallel(
   items.map((item, i) => () =>
     agent(`TODO: instruction for one item. Item:\n\n${item}`,
-          { label: `item-${i + 1}`, schema: ITEM_SCHEMA }))
+          { label: `item-${i + 1}`, phase: 'Work', schema: ITEM_SCHEMA, effort: 'low' }))
 )
 
 // parallel()/pipeline() leave null in skipped/failed slots — always filter.

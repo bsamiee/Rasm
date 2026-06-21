@@ -110,7 +110,7 @@ The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`
 |  [03]   | `SubSaveAt`                | save spec      | per-subsolve save specification within `SaveAt` |
 |  [04]   | `ODETerm`                  | ODE term       | wraps a vector field callable `f(t, y, args)`  |
 |  [05]   | `Event`                    | event spec     | root-find continuous event(s) with optional `root_finder` |
-|  [06]   | `RESULTS`                  | result enum    | `successful`, `max_steps_reached`, `dt_min_reached`, `event_occurred`, `max_steps_rejected`, `internal_error` |
+|  [06]   | `RESULTS`                  | result enum (`equinox.Enumeration`) | members `successful`, `max_steps_reached`, `dt_min_reached`, `event_occurred`, `max_steps_rejected`, `internal_error`; the same `equinox.Enumeration` base `optimistix`/`lineax` `RESULTS` ride, so `RESULTS.promote(item)` (inheritance-widening, `ValueError` on a same-class member) and `RESULTS.where(pred, a, b)` (branchless `jnp.where` select) are inherited base members, and a member is an `EnumerationItem` exposing only `_value` (int code) and `_enumeration` (no `.name`); a batched `filter_vmap` sweep aggregates the worst-case verdict by `jnp.max` over `solution.result._value` plus the `_name_to_item` name inversion, never `promote` |
 |  [07]   | `DenseInterpolation`       | interpolation  | dense output interpolation                     |
 |  [08]   | `CubicInterpolation`       | interpolation  | cubic Hermite interpolation (CDE control path) |
 |  [09]   | `LinearInterpolation`      | interpolation  | piecewise-linear interpolation (CDE control)   |

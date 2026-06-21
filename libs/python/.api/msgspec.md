@@ -19,15 +19,15 @@
 [PUBLIC_TYPE_SCOPE]: core record type
 - rail: serialization
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]    | [RAIL]                                                            |
-| :-----: | :------------ | :--------------- | :---------------------------------------------------------------- |
-|  [01]   | `Struct`      | base class       | typed serializable record; subclass kwargs drive wire behaviour   |
-|  [02]   | `StructMeta`  | metaclass        | struct class construction; resolves field types at class creation |
-|  [03]   | `Raw`         | bytes wrapper    | deferred/opaque encoded value; defers sub-tree decode             |
-|  [04]   | `UnsetType`   | sentinel type    | type of singleton `UNSET`; absent-field marker on optional fields |
-|  [05]   | `Meta`        | constraint class | `Annotated[T, Meta(...)]` field constraint + schema metadata      |
-|  [06]   | `UNSET`       | sentinel value   | the `UnsetType` singleton; field value meaning "client omitted"   |
-|  [07]   | `NODEFAULT`   | sentinel value   | distinct singleton meaning "field has no default" (not `UNSET`)   |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]    | [RAIL]                                                            |
+| :-----: | :----------- | :--------------- | :---------------------------------------------------------------- |
+|  [01]   | `Struct`     | base class       | typed serializable record; subclass kwargs drive wire behaviour   |
+|  [02]   | `StructMeta` | metaclass        | struct class construction; resolves field types at class creation |
+|  [03]   | `Raw`        | bytes wrapper    | deferred/opaque encoded value; defers sub-tree decode             |
+|  [04]   | `UnsetType`  | sentinel type    | type of singleton `UNSET`; absent-field marker on optional fields |
+|  [05]   | `Meta`       | constraint class | `Annotated[T, Meta(...)]` field constraint + schema metadata      |
+|  [06]   | `UNSET`      | sentinel value   | the `UnsetType` singleton; field value meaning "client omitted"   |
+|  [07]   | `NODEFAULT`  | sentinel value   | distinct singleton meaning "field has no default" (not `UNSET`)   |
 
 [PUBLIC_TYPE_SCOPE]: error types
 - rail: serialization
@@ -42,7 +42,7 @@
 [PUBLIC_TYPE_SCOPE]: JSON codec
 - rail: serialization
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]  | [RAIL]                                                          |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]  | [RAIL]                                                         |
 | :-----: | :------------- | :------------- | :------------------------------------------------------------- |
 |  [01]   | `json.Encoder` | stateful codec | reusable JSON encoder; `encode_into` writes into a `bytearray` |
 |  [02]   | `json.Decoder` | stateful codec | reusable typed JSON decoder; `decode_lines` for NDJSON streams |
@@ -69,54 +69,54 @@
 [PUBLIC_TYPE_SCOPE]: inspect type nodes (selection)
 - rail: serialization
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [RAIL]                          |
-| :-----: | :------------------- | :------------- | :------------------------------ |
-|  [00]   | `inspect.Type`       | type node base | abstract base of all type nodes |
-|  [01]   | `inspect.StructType` | type node      | struct type descriptor          |
-|  [02]   | `inspect.Field`      | field node     | struct field descriptor         |
-|  [03]   | `inspect.Metadata`   | meta node      | annotated metadata descriptor   |
-|  [04]   | `inspect.UnionType`  | type node      | union descriptor; `tagged`/`tag_field` discriminant metadata |
-|  [05]   | `inspect.ListType`   | type node      | list type descriptor            |
-|  [06]   | `inspect.DictType`   | type node      | dict type descriptor            |
-|  [07]   | `inspect.EnumType`   | type node      | enum type descriptor            |
-|  [08]   | `inspect.CustomType` | type node      | custom enc/dec hook type        |
-|  [09]   | `inspect.TypedDictType` | type node   | `TypedDict` schema descriptor   |
-|  [10]   | `inspect.NamedTupleType`| type node   | `NamedTuple` schema descriptor  |
-|  [11]   | `inspect.DateTimeType`  | type node   | datetime descriptor with `tz` constraint flag |
-|  [12]   | `inspect.RawType`    | type node      | `Raw` deferred-payload descriptor |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [RAIL]                                                       |
+| :-----: | :----------------------- | :------------- | :----------------------------------------------------------- |
+|  [00]   | `inspect.Type`           | type node base | abstract base of all type nodes                              |
+|  [01]   | `inspect.StructType`     | type node      | struct type descriptor                                       |
+|  [02]   | `inspect.Field`          | field node     | struct field descriptor                                      |
+|  [03]   | `inspect.Metadata`       | meta node      | annotated metadata descriptor                                |
+|  [04]   | `inspect.UnionType`      | type node      | union descriptor; `tagged`/`tag_field` discriminant metadata |
+|  [05]   | `inspect.ListType`       | type node      | list type descriptor                                         |
+|  [06]   | `inspect.DictType`       | type node      | dict type descriptor                                         |
+|  [07]   | `inspect.EnumType`       | type node      | enum type descriptor                                         |
+|  [08]   | `inspect.CustomType`     | type node      | custom enc/dec hook type                                     |
+|  [09]   | `inspect.TypedDictType`  | type node      | `TypedDict` schema descriptor                                |
+|  [10]   | `inspect.NamedTupleType` | type node      | `NamedTuple` schema descriptor                               |
+|  [11]   | `inspect.DateTimeType`   | type node      | datetime descriptor with `tz` constraint flag                |
+|  [12]   | `inspect.RawType`        | type node      | `Raw` deferred-payload descriptor                            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: top-level encode/decode/convert
 - rail: serialization
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `msgspec.json.encode(obj, *, enc_hook, order)`           | encode         | object to JSON bytes              |
-|  [02]   | `msgspec.json.decode(buf, *, type, strict, dec_hook)`    | decode         | JSON bytes to typed object        |
-|  [03]   | `msgspec.msgpack.encode(obj, *, enc_hook)`               | encode         | object to msgpack bytes           |
-|  [04]   | `msgspec.msgpack.decode(buf, *, type, strict, dec_hook)` | decode         | msgpack bytes to typed object     |
-|  [05]   | `msgspec.convert(obj, type, *, strict, from_attributes, dec_hook, builtin_types, str_keys)` | conversion | duck-typed object coercion with validation |
-|  [06]   | `msgspec.to_builtins(obj, *, str_keys, builtin_types, enc_hook, order)` | projection | struct to plain Python builtins (round-trips through `convert`) |
-|  [07]   | `msgspec.field(*, default, default_factory, name)`       | field factory  | struct field with metadata        |
-|  [08]   | `msgspec.defstruct(name, fields, *, bases, module, namespace, tag, tag_field, rename, omit_defaults, forbid_unknown_fields, frozen, eq, order, kw_only, repr_omit_defaults, array_like, gc, weakref, dict, cache_hash)` | dynamic ctor | create Struct subclass at runtime with full config |
-|  [09]   | `msgspec.Meta(*, gt, ge, lt, le, multiple_of, pattern, min_length, max_length, tz, title, description, examples, extra_json_schema, extra)` | constraint ctor | `Annotated` constraint; numeric and non-numeric constraint families are mutually exclusive |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                               | [ENTRY_FAMILY]  | [RAIL]                                                                                     |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `msgspec.json.encode(obj, *, enc_hook, order)`                                                                                                                                                                          | encode          | object to JSON bytes                                                                       |
+|  [02]   | `msgspec.json.decode(buf, *, type, strict, dec_hook)`                                                                                                                                                                   | decode          | JSON bytes to typed object                                                                 |
+|  [03]   | `msgspec.msgpack.encode(obj, *, enc_hook)`                                                                                                                                                                              | encode          | object to msgpack bytes                                                                    |
+|  [04]   | `msgspec.msgpack.decode(buf, *, type, strict, dec_hook)`                                                                                                                                                                | decode          | msgpack bytes to typed object                                                              |
+|  [05]   | `msgspec.convert(obj, type, *, strict, from_attributes, dec_hook, builtin_types, str_keys)`                                                                                                                             | conversion      | duck-typed object coercion with validation                                                 |
+|  [06]   | `msgspec.to_builtins(obj, *, str_keys, builtin_types, enc_hook, order)`                                                                                                                                                 | projection      | struct to plain Python builtins (round-trips through `convert`)                            |
+|  [07]   | `msgspec.field(*, default, default_factory, name)`                                                                                                                                                                      | field factory   | struct field with metadata                                                                 |
+|  [08]   | `msgspec.defstruct(name, fields, *, bases, module, namespace, tag, tag_field, rename, omit_defaults, forbid_unknown_fields, frozen, eq, order, kw_only, repr_omit_defaults, array_like, gc, weakref, dict, cache_hash)` | dynamic ctor    | create Struct subclass at runtime with full config                                         |
+|  [09]   | `msgspec.Meta(*, gt, ge, lt, le, multiple_of, pattern, min_length, max_length, tz, title, description, examples, extra_json_schema, extra)`                                                                             | constraint ctor | `Annotated` constraint; numeric and non-numeric constraint families are mutually exclusive |
 
 [ENTRYPOINT_SCOPE]: stateful codecs
 - rail: serialization
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `json.Encoder(*, enc_hook, decimal_format, uuid_format, order)` | codec          | reusable encoder instance       |
-|  [02]   | `json.Decoder(type, *, strict, dec_hook, float_hook)`           | codec          | reusable typed decoder instance |
-|  [03]   | `json.Encoder.encode_into(obj, buffer, offset)`                 | zero-alloc     | encode into a caller `bytearray`, no intermediate alloc |
-|  [04]   | `json.Decoder.decode_lines(buf)`                                | streaming      | decode newline-delimited JSON to `list[type]` |
-|  [05]   | `json.format(buf, *, indent)`                                   | formatter      | pretty-print JSON bytes         |
-|  [06]   | `json.schema(type, *, schema_hook, ref_template)`               | schema gen     | JSON Schema dict for a type     |
-|  [07]   | `json.schema_components(types, *, schema_hook, ref_template)`   | schema gen     | component schemas + `$defs`     |
-|  [08]   | `msgpack.Encoder(*, enc_hook, decimal_format, uuid_format, order)` | codec       | reusable msgpack encoder        |
-|  [09]   | `msgpack.Decoder(type, *, strict, dec_hook, ext_hook)`          | codec          | reusable typed msgpack decoder; `ext_hook` decodes `Ext` payloads |
-|  [10]   | `msgpack.Encoder.encode_into(obj, buffer, offset)`              | zero-alloc     | encode msgpack into a caller `bytearray` |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                            |
+| :-----: | :----------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `json.Encoder(*, enc_hook, decimal_format, uuid_format, order)`    | codec          | reusable encoder instance                                         |
+|  [02]   | `json.Decoder(type, *, strict, dec_hook, float_hook)`              | codec          | reusable typed decoder instance                                   |
+|  [03]   | `json.Encoder.encode_into(obj, buffer, offset)`                    | zero-alloc     | encode into a caller `bytearray`, no intermediate alloc           |
+|  [04]   | `json.Decoder.decode_lines(buf)`                                   | streaming      | decode newline-delimited JSON to `list[type]`                     |
+|  [05]   | `json.format(buf, *, indent)`                                      | formatter      | pretty-print JSON bytes                                           |
+|  [06]   | `json.schema(type, *, schema_hook, ref_template)`                  | schema gen     | JSON Schema dict for a type                                       |
+|  [07]   | `json.schema_components(types, *, schema_hook, ref_template)`      | schema gen     | component schemas + `$defs`                                       |
+|  [08]   | `msgpack.Encoder(*, enc_hook, decimal_format, uuid_format, order)` | codec          | reusable msgpack encoder                                          |
+|  [09]   | `msgpack.Decoder(type, *, strict, dec_hook, ext_hook)`             | codec          | reusable typed msgpack decoder; `ext_hook` decodes `Ext` payloads |
+|  [10]   | `msgpack.Encoder.encode_into(obj, buffer, offset)`                 | zero-alloc     | encode msgpack into a caller `bytearray`                          |
 
 [ENTRYPOINT_SCOPE]: struct utilities
 - rail: serialization

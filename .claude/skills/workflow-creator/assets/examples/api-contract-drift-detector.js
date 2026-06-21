@@ -1,93 +1,97 @@
 /**
- * api-contract-drift-detector — check every endpoint against its OpenAPI spec.
+ * api-contract-drift-detector — find where a shared wire type has drifted between
+ * the C# producer and its host-free consumers, then open one consolidated PR.
  *
- * Reads the spec, then fans out one checker per endpoint: each agent calls the
- * live endpoint and compares the real response shape against what the spec
- * promises. parallel() is a deliberate barrier here — we need every result in
- * hand before deciding whether to open a single consolidated PR.
+ * The three branches couple only at the wire: C# is the producer, libs/python/data
+ * and libs/typescript/interchange are the host-free consumers. A wire type is in
+ * sync only when all three agree on its field set, names, optionality, and codes.
+ * This fans out one checker per shared wire type — each agent reads the C# producer
+ * shape and both consumer mirrors and reports any divergence. The parallel() call
+ * is a genuine barrier: the consolidated drift PR has to touch every divergence at
+ * once, so it needs the full set of results before it can run — a barrier is correct.
  *
  * Workflow({ name: 'api-contract-drift-detector',
- *            args: { specFile: 'openapi.yaml', baseUrl: 'http://localhost:3000' } })
+ *            args: { types: ['MeshPayload', 'IfcEntityRef', 'UnitSystem'] } })
  */
 
 export const meta = {
   name: 'api-contract-drift-detector',
-  description: 'Check each API endpoint against its OpenAPI spec and open a draft PR for any drift',
+  description: 'Check each shared wire type across the C# producer and its Python/TypeScript consumers and open a draft PR for any drift',
+  whenToUse: 'Auditing wire-contract parity across the tri-language platform before a release',
   phases: [
-    { title: 'List endpoints' },
-    { title: 'Check', detail: 'one agent per endpoint', model: 'haiku' },
+    { title: 'List wire types' },
+    { title: 'Check', detail: 'one agent per wire type', model: 'haiku' },
     { title: 'Open PR' },
   ],
 }
 
-const ENDPOINTS = {
+const TYPES = {
   type: 'object',
-  required: ['endpoints'],
+  required: ['types'],
   properties: {
-    endpoints: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['method', 'path'],
-        properties: {
-          method: { type: 'string' },
-          path: { type: 'string' },
-        },
-      },
-    },
+    types: { type: 'array', items: { type: 'string' } },
   },
 }
 
 const DRIFT = {
   type: 'object',
-  required: ['hasDrift'],
+  required: ['type', 'hasDrift'],
   properties: {
+    type: { type: 'string' },
     hasDrift: { type: 'boolean' },
     summary: { type: 'string' },
-    specFix: { type: 'string' },
+    producerRef: { type: 'string' },
+    consumerRefs: { type: 'array', items: { type: 'string' } },
+    fix: { type: 'string' },
   },
 }
 
-// `args` is passed through from the Workflow tool unchanged — usually an object,
-// a string only if a string was passed. Parse only when it is a string.
-const opts = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return {} } })()
-  : (args ?? {})
+// `args` arrives as structured data. An object with a `types` list overrides the
+// discovery step; nothing passed lets the kernel enumerate the shared wire types.
+const seedTypes = Array.isArray(args?.types) ? args.types : null
 
-const specFile = opts.specFile ?? 'openapi.yaml'
-const baseUrl  = opts.baseUrl  ?? 'http://localhost:3000'
+phase('List wire types')
+const { types } = seedTypes
+  ? { types: seedTypes }
+  : await agent(
+      'List every wire type that crosses the platform boundary — the contracts the ' +
+      'C# producer emits and that BOTH libs/python/data and libs/typescript/interchange ' +
+      'decode. Return each type name.',
+      { label: 'list-wire-types', phase: 'List wire types', schema: TYPES },
+    )
+log(`${types.length} shared wire type(s) to check`)
 
-phase('List endpoints')
-const { endpoints } = await agent(
-  `Read the OpenAPI spec at ${specFile} and list every endpoint it documents.`,
-  { label: 'list-endpoints', schema: ENDPOINTS },
-)
-log(`${endpoints.length} endpoint(s) to check`)
-
-// Fan out — one checker per endpoint, all at once. Barrier on purpose:
-// the PR stage needs the full set of results before it can run.
-const checks = await parallel(endpoints.map(ep => () =>
+// Fan out — one checker per wire type, all at once. Barrier on purpose: the PR
+// stage edits every divergence together, so it needs the full set of results.
+const checks = await parallel(types.map(wt => () =>
   agent(
-    `Call ${ep.method} ${baseUrl}${ep.path} and compare the live response shape against ` +
-    `what ${specFile} documents for it. Report whether the spec has drifted, and if so, ` +
-    `give a corrected spec snippet.`,
-    { label: `check:${ep.method} ${ep.path}`, phase: 'Check', model: 'haiku', schema: DRIFT },
-  ).then(d => ({ ...ep, ...d })),
+    `Check the wire type "${wt}" for drift across the three branches. Read the C# producer ` +
+    `shape, then libs/python/data and libs/typescript/interchange where the consumers decode ` +
+    `it. Report whether field names, optionality, enum codes, or ordering have diverged from ` +
+    `the producer, cite the file:symbol on each side, and if drift exists give a corrected ` +
+    `consumer-side snippet.`,
+    { label: `check:${wt}`, phase: 'Check', model: 'haiku', schema: DRIFT },
+  ),
 ))
 
 const drifted = checks.filter(Boolean).filter(c => c.hasDrift)
-log(`${drifted.length} of ${endpoints.length} endpoint(s) drifted`)
+log(`${drifted.length} of ${types.length} wire type(s) drifted`)
 
 if (drifted.length === 0) {
-  return { checked: endpoints.length, drifted: 0, message: 'Spec is in sync' }
+  return { checked: types.length, drifted: 0, message: 'Wire contracts are in sync across all three branches' }
 }
 
 phase('Open PR')
 await agent(
-  `Open a draft pull request that updates ${specFile} to fix these drifted endpoints, ` +
-  `applying each corrected snippet:\n\n` +
-  drifted.map(d => `### ${d.method} ${d.path}\n${d.summary}\n\n${d.specFix ?? ''}`).join('\n\n'),
+  `Open ONE draft pull request that realigns every drifted wire type to its C# producer ` +
+  `shape — the producer is the reference, only the consumer mirrors change. For each type ` +
+  `below, apply the corrected snippet on the cited consumer side and keep the C# producer ` +
+  `untouched. Title the PR for the wire-contract drift it closes:\n\n` +
+  drifted.map(d =>
+    `### ${d.type}\n${d.summary}\nProducer (reference): ${d.producerRef}\n` +
+    `Consumers: ${(d.consumerRefs ?? []).join(', ')}\n${d.fix ?? ''}`,
+  ).join('\n\n'),
   { label: 'open-pr', phase: 'Open PR' },
 )
 
-return { checked: endpoints.length, drifted: drifted.length, endpoints: drifted }
+return { checked: types.length, drifted: drifted.length, types: drifted }

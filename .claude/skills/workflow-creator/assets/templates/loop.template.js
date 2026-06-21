@@ -28,11 +28,19 @@ const collected = []
 //     The `budget.total &&` guard is REQUIRED: with no target set,
 //     budget.remaining() is Infinity and the loop runs to the 1000-agent cap.
 //
+// (c) Convergence — stop when the work runs dry or a check passes, always with
+//     a hard round cap as a backstop. Two shapes, both needing the MAX_ROUNDS guard:
+//        let dry = 0
+//        while (dry < 2 && round < MAX_ROUNDS) { ...; if (empty) dry++; else dry = 0 }
+//        do { round++; ...; if (passed) break } while (round < MAX_ROUNDS)
+//
+// effort: 'low' suits a mechanical collect/discovery round; raise it if each
+// round demands real reasoning (effort guidance: references/api-reference.md).
 while (budget.total && budget.remaining() > 50_000 && collected.length < 200) {
   const r = await agent(
     'TODO: instruction. Do not repeat anything already found below.\n\n'
     + JSON.stringify(collected),
-    { schema: RESULT_SCHEMA })
+    { schema: RESULT_SCHEMA, effort: 'low' })
 
   collected.push(...(r?.items ?? []))
   log(`${collected.length} collected · ${Math.round(budget.remaining() / 1000)}k tokens left`)

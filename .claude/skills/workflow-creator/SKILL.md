@@ -23,22 +23,25 @@ Claude Code's `Workflow` tool.
 
 A workflow fans work out to fresh-context subagents under **deterministic
 JavaScript** control flow: the loops, the conditionals, the fan-out are plain
-code, and only the leaf `agent()` calls spend model tokens. The Workflow tool is
-new and undocumented, so this skill carries the format, the judgment calls, and a
-tested authoring procedure. Use it to write a new workflow, convert a multi-step
-job into one, or fix a broken script.
+code, and only the leaf `agent()` calls spend model tokens. This skill owns the
+file format, the judgment calls, and the authoring procedure. Use it to write a
+new workflow, convert a multi-step job into one, or fix a broken script.
 
-The deep material lives in two reference files — read them when the step says so:
+The deep material lives in two reference files, read in this order:
 
-- `references/api-reference.md` — the complete manual: every global, every option,
-  every cap and constant, what happens at each limit.
-- `references/patterns.md` — copy-paste orchestration patterns (fan-out, pipeline,
-  loop-until-budget, adversarial verify, judge panel, nested workflow).
+- `references/api-reference.md` — read **first**, the correctness source: the
+  complete manual (every global, every option, every cap and constant, what
+  happens at each limit) and the deep owner of the `pipeline` vs `parallel`
+  decision.
+- `references/patterns.md` — read **second**, the composed-topology catalog
+  (fan-out, pipeline, routing, orchestrator-workers, evaluator-optimizer,
+  adversarial verify, judge panel, nested workflow). Copy the topology that fits
+  Step 2's answers.
 
-Starter files are in `assets/templates/`. Six complete, runnable example
-workflows are in `assets/examples/` — `assets/examples/README.md` maps each one
-to a topology and to the model / structured-output techniques it shows. A linter
-is in `scripts/`.
+Starter files are in `assets/templates/` — three control-flow skeletons (fan-out,
+pipeline, loop). Eight complete, runnable example workflows are in
+`assets/examples/` — `assets/examples/README.md` maps each one to a topology and
+to the model / structured-output techniques it shows. A linter is in `scripts/`.
 
 ---
 
@@ -84,14 +87,15 @@ Before writing a line of code, answer these. The answers pick the topology for y
 4. **Does any later step need *all* the earlier results at once** — to dedup,
    merge, count, or early-exit on a zero total? If yes, you need a **barrier**.
    If no, you do not — and you should prefer `pipeline`.
-4b. **Does any unit DEFER work it cannot do alone** (cross-item, cross-file,
-   "report and move on")? If yes, a fan-out is not enough — add a terminal
-   **reconcile** stage that consumes the collected deferrals, or they reach the
-   conversation and nothing acts on them. Structure each deferral as DATA whose
-   resource slot is a LIST (`{files: string[], claim}`) so a deferral spanning two
-   files names BOTH — that is what lets you cluster deferrals by shared resource in
-   plain JS, then fix-and-verify each cluster (pattern #10). A single-resource slot
-   can only group same-resource items and silently cannot express a cross-item seam.
+   - **The deferral case.** If a unit DEFERS work it cannot do alone (cross-item,
+     cross-file, "report and move on"), a fan-out is not enough — add a terminal
+     **reconcile** stage that consumes the collected deferrals, or they reach the
+     conversation and nothing acts on them. Structure each deferral as DATA whose
+     resource slot is a LIST (`{files: string[], claim}`) so a deferral spanning
+     two files names BOTH — that is what lets you cluster deferrals by shared
+     resource in plain JS, then fix-and-verify each cluster (pattern #13). A
+     single-resource slot can only group same-resource items and silently cannot
+     express a cross-item seam.
 5. **Does a step need structured data back** (not free text)? Then that
    `agent()` call needs a `schema`.
 
@@ -158,32 +162,28 @@ Everything after `meta` is the body. It runs inside an `async` function, so you
 | `log(msg)` | Emit a narrator line above the progress tree. |
 | `console` | A standard-looking `console` — its output is routed into the workflow log. |
 | `budget` | `{ total, spent(), remaining() }` — token target for budget-aware loops. |
-| `args` | Whatever was passed as the Workflow tool's `args` input — but the runtime **serializes it to a string** before the script sees it (so a JSON object/array arrives as JSON *text*, not a live value). `undefined` if nothing was passed. Normalize it before reading fields (see below). |
+| `args` | Whatever was passed as the Workflow tool's `args` input, exposed as **structured data** — an object/array/string you read directly (`args.minUsers`, `args.map(...)`). `undefined` if nothing was passed. Default the omitted case (see below). |
 | `workflow(name, args?)` | Run another workflow inline. One level of nesting only. |
 
 The body's `return` value becomes the tool result handed back to Claude.
 
-> **Normalize `args` before reading fields.** Empirically (probed 2026-05-29), the
-> runtime **serializes `args` to a string** before the script runs — even when you
-> pass a JSON object or array via the tool's `args` field, the script's `args` is
-> the JSON *text*, so `args.minUsers` / `args.map(...)` do **not** work directly.
-> `Workflow({ args: { minUsers: 5 } })` gives the script the **string**
-> `'{"minUsers":5}'`; nothing passed gives `undefined`. The one normalizer below
-> covers every case — it parses a JSON string and is still correct if a future
-> runtime ever passes a live object through:
+> **`args` arrives as structured data — read it directly.** Whatever the caller
+> passed is exposed live: an object stays an object, an array stays an array, a
+> string stays a string. Call array and object methods on it without parsing —
+> `args.minUsers`, `args.map(...)`, `args.filter(...)` all work. When nothing is
+> passed, `args` is `undefined`. So the only handling a script needs is a default
+> for the omitted case and, when the same workflow is sometimes driven by a free-text
+> request and sometimes by a config object, a shape check:
 >
 > ```js
-> // A JSON string parses to an object/array; plain text and `undefined`
-> // fall through unchanged; a live object (future-proofing) passes straight through.
-> const input = typeof args === 'string'
->   ? (() => { try { return JSON.parse(args) } catch { return args } })()
->   : args
-> const threshold = input?.minUsers ?? 20
+> const threshold = args?.minUsers ?? 20            // object input, with a default
+> const items = Array.isArray(args) ? args : []     // array input
+> const task = typeof args === 'string' ? args : 'the change described in TASK.md'
 > ```
 >
-> Keep the `typeof === 'string'` guard rather than calling `JSON.parse(args)`
-> unconditionally: a bare-text arg (`"build a todo app"`) isn't valid JSON, and the
-> guard also protects you if the runtime's serialization behavior changes.
+> Never `JSON.parse(args)` — it is already a live value, not JSON text. The
+> `?? default` is what keeps the file runnable on a no-args run. `references/api-reference.md`
+> §4 maps each caller input to the exact `args` value it produces.
 
 ### Setting a model, and getting structured data back — the two `agent()` opts you tune most
 
@@ -201,11 +201,12 @@ to `'haiku'`; leave judgement-heavy work on the inherited model. Two cautions:
   entry (honest dialog) and every `agent()` call in it (actual effect).
 
 **Reasoning effort — `agent(prompt, { effort })`.** Sets the reasoning-effort tier
-for that call — `'low'` | `'high'` | `'xhigh'` | `'max'` (mirrors `/effort`). Match
-it to the stage's role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial
-judgment; `'low'` for mechanical discovery/classification leaf work. It is
-independent of `model` (tier the *reasoning*, not the model) and is **not** part of
-the resume cache key, so changing `effort` alone never re-runs a cached call.
+for that call — `'low'` | `'medium'` | `'high'` | `'xhigh'` | `'max'` (mirrors
+`/effort`); omit it to inherit the session tier. Match it to the stage's role:
+`'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for
+mechanical discovery/classification leaf work. It is independent of `model` (tier
+the *reasoning*, not the model) and is **not** part of the resume cache key, so
+changing `effort` alone never re-runs a cached call.
 
 **Structured output — `agent(prompt, { schema })`.** Without `schema` you get the
 agent's final text as a **string**. Pass a JSON Schema and the agent is *forced*
@@ -244,8 +245,16 @@ Fix every error it reports before invoking the workflow.
 Run a named workflow with `Workflow({ name: 'review-changes' })`, or a file with
 `Workflow({ scriptPath: '…' })`. It runs in the **background** — the call returns
 a run ID immediately and a `<task-notification>` arrives on completion. Watch it
-live with the `/workflows` command, where you can also skip or retry a single
-agent mid-run.
+live with the `/workflows` command, where you can also pause/resume the run and
+stop, restart, or read a single agent mid-run.
+
+A user reaches a workflow from their side in three ways: a saved or bundled command
+(`/deep-research …`, or any workflow saved to `.claude/workflows/`); the `ultracode`
+keyword in a prompt (or asking "use a workflow" in plain words), which makes Claude
+write a one-off workflow for that task; or `/effort ultracode`, which lets Claude
+plan a workflow for every substantive task in the session. Saving a good run is
+`s` in `/workflows`, which writes the script to `.claude/workflows/` (project) or
+`~/.claude/workflows/` (personal) as a reusable `/<name>` command.
 
 To iterate: **edit the saved file**, then re-invoke with
 `Workflow({ scriptPath, resumeFromRunId })`. Every `agent()` call before your
@@ -280,6 +289,11 @@ These are the mistakes that actually break workflows:
   the 1000-agent lifetime cap and throws.
 - **`isolation: 'worktree'` is expensive** (~200–500 ms + disk per agent). Use it
   only when parallel agents mutate files and would otherwise collide.
+- **Grant permissions before a long parallel run.** Subagents run in `acceptEdits`
+  mode and inherit the session tool allowlist; a non-allowlisted shell, web, or MCP
+  call can still surface a mid-run permission prompt and stall the run.
+- **The body is JavaScript only.** TypeScript syntax — type annotations,
+  interfaces, `as` casts — is a parse error.
 
 ---
 
@@ -293,7 +307,7 @@ verify as soon as *its* review is done — no waiting for the slowest dimension.
 export const meta = {
   name: 'review-branch',
   description: 'Review the branch across dimensions, adversarially verify each finding',
-  phases: [{ title: 'Review' }, { title: 'Verify' }],
+  phases: [{ title: 'Review' }, { title: 'Verify', model: 'haiku' }],
 }
 
 const FINDINGS = { type: 'object', required: ['findings'], properties: {
@@ -313,7 +327,7 @@ const results = await pipeline(
   d => agent(d.prompt, { label: `review:${d.key}`, phase: 'Review', schema: FINDINGS }),
   review => parallel((review?.findings ?? []).map(f => () =>
     agent(`Adversarially verify this finding. Try to refute it. Finding: ${f.title} (${f.file})`,
-          { label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT })
+          { label: `verify:${f.file}`, phase: 'Verify', model: 'haiku', effort: 'high', schema: VERDICT })
       .then(v => ({ ...f, verdict: v }))
   ))
 )
@@ -324,7 +338,10 @@ return { confirmedCount: confirmed.length, confirmed }
 
 Trace it: dimension `bugs` can be verifying its findings while `perf` is still
 being reviewed. No wasted wall-clock. Each agent reasons from a clean context.
-The orchestrator JavaScript spends zero model tokens.
+The orchestrator JavaScript spends zero model tokens. The verify stage tiers both
+axes independently — `model: 'haiku'` (the per-finding refute is cheap, high-volume
+leaf work) with `effort: 'high'` (it must still reason hard to break a plausible
+finding) — and mirrors the `model` on its `phase` entry so the dialog stays honest.
 
 ---
 
@@ -332,5 +349,5 @@ The orchestrator JavaScript spends zero model tokens.
 
 If the request is "explain how workflows work" rather than "build me one", walk
 them through `references/api-reference.md` — it is written to be read top to
-bottom as the missing manual. Then offer to scaffold their first workflow from a
-template so they have something runnable to poke at.
+bottom as the complete reference. Then offer to scaffold their first workflow from
+a template so they have something runnable to poke at.

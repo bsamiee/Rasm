@@ -63,85 +63,95 @@
 [PUBLIC_TYPE_SCOPE]: submodule classes
 - rail: compute
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [RAIL]                       |
-| :-----: | :-------------------- | :--------------- | :--------------------------- |
-|  [01]   | `linalg.LinAlgError`  | linear alg error | singular/non-converging ops  |
-|  [02]   | `random.Generator`    | RNG generator    | stateful PRNG surface        |
-|  [03]   | `random.BitGenerator` | bit source       | PRNG state engine base       |
-|  [04]   | `random.PCG64`/`PCG64DXSM` | bit source  | PCG-64 engines; `PCG64` backs `default_rng`, `PCG64DXSM` is the cheap-multiplier variant |
-|  [05]   | `random.MT19937`      | bit source       | Mersenne-Twister engine      |
-|  [06]   | `random.Philox`/`SFC64` | bit source     | counter-based / fast bit generators |
-|  [07]   | `random.SeedSequence` | seed spawner     | reproducible seed derivation; `spawn(n)` for parallel streams |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]    | [RAIL]                                                                                   |
+| :-----: | :------------------------- | :--------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `linalg.LinAlgError`       | linear alg error | singular/non-converging ops                                                              |
+|  [02]   | `random.Generator`         | RNG generator    | stateful PRNG surface                                                                    |
+|  [03]   | `random.BitGenerator`      | bit source       | PRNG state engine base                                                                   |
+|  [04]   | `random.PCG64`/`PCG64DXSM` | bit source       | PCG-64 engines; `PCG64` backs `default_rng`, `PCG64DXSM` is the cheap-multiplier variant |
+|  [05]   | `random.MT19937`           | bit source       | Mersenne-Twister engine                                                                  |
+|  [06]   | `random.Philox`/`SFC64`    | bit source       | counter-based / fast bit generators                                                      |
+|  [07]   | `random.SeedSequence`      | seed spawner     | reproducible seed derivation; `spawn(n)` for parallel streams                            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
 - rail: compute
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :--------------------------- | :------------- | :---------------------------- |
-|  [01]   | `zeros(shape, dtype)`        | creation       | zero-filled array             |
-|  [02]   | `ones(shape, dtype)`         | creation       | one-filled array              |
-|  [03]   | `empty(shape, dtype)`        | creation       | uninitialized array           |
-|  [04]   | `full(shape, fill_value)`    | creation       | constant-filled array         |
-|  [05]   | `arange(start, stop, step)`  | range creation | evenly spaced integers/floats |
-|  [06]   | `linspace(start, stop, num)` | range creation | evenly spaced floats          |
-|  [07]   | `logspace(start, stop, num)` | range creation | log-spaced floats             |
-|  [08]   | `eye(N, M, k)`               | creation       | identity / shifted diagonal   |
-|  [09]   | `meshgrid(*xi)`              | creation       | coordinate grid from 1-D axes |
-|  [10]   | `asarray(a, dtype, *, copy)`| conversion     | array-like to `ndarray`, no copy when already conforming |
-|  [11]   | `ascontiguousarray(a)`      | conversion     | force C-contiguous layout for kernel/FFI hand-off |
-|  [12]   | `frombuffer(buffer, dtype)` | zero-copy      | wrap a bytes buffer as an `ndarray` view (no copy) |
-|  [13]   | `load(file)`                 | I/O            | load `.npy`/`.npz` from path  |
-|  [14]   | `save(file, arr)` / `savez(file, *arrays)` | I/O | write `.npy` / `.npz` archive |
-|  [15]   | `loadtxt(fname)`             | I/O            | load text-file array          |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `zeros(shape, dtype)`                      | creation       | zero-filled array                                        |
+|  [02]   | `ones(shape, dtype)`                       | creation       | one-filled array                                         |
+|  [03]   | `empty(shape, dtype)`                      | creation       | uninitialized array                                      |
+|  [04]   | `full(shape, fill_value)`                  | creation       | constant-filled array                                    |
+|  [05]   | `arange(start, stop, step)`                | range creation | evenly spaced integers/floats                            |
+|  [06]   | `linspace(start, stop, num)`               | range creation | evenly spaced floats                                     |
+|  [07]   | `logspace(start, stop, num)`               | range creation | log-spaced floats                                        |
+|  [08]   | `eye(N, M, k)`                             | creation       | identity / shifted diagonal                              |
+|  [09]   | `meshgrid(*xi)`                            | creation       | coordinate grid from 1-D axes                            |
+|  [10]   | `asarray(a, dtype, *, copy)`               | conversion     | array-like to `ndarray`, no copy when already conforming |
+|  [11]   | `ascontiguousarray(a)`                     | conversion     | force C-contiguous layout for kernel/FFI hand-off        |
+|  [12]   | `frombuffer(buffer, dtype)`                | zero-copy      | wrap a bytes buffer as an `ndarray` view (no copy)       |
+|  [13]   | `load(file)`                               | I/O            | load `.npy`/`.npz` from path                             |
+|  [14]   | `save(file, arr)` / `savez(file, *arrays)` | I/O            | write `.npy` / `.npz` archive                            |
+|  [15]   | `loadtxt(fname)`                           | I/O            | load text-file array                                     |
 
 [ENTRYPOINT_SCOPE]: shape and manipulation
 - rail: compute
 
-| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :-------------------------- | :------------- | :------------------------------ |
-|  [01]   | `reshape(a, newshape)`      | shape          | change array shape              |
-|  [02]   | `ravel(a)`                  | shape          | 1-D contiguous view             |
-|  [03]   | `transpose(a, axes)`        | shape          | permute axes                    |
-|  [04]   | `swapaxes(a, ax1, ax2)`     | shape          | swap two axes                   |
-|  [05]   | `moveaxis(a, source, dest)` | shape          | move axis to new position       |
-|  [06]   | `expand_dims(a, axis)`      | shape          | insert a new axis               |
-|  [07]   | `squeeze(a, axis)`          | shape          | remove size-1 axes              |
-|  [08]   | `concatenate(arrays, axis)` | join           | join arrays along existing axis |
-|  [09]   | `stack(arrays, axis)`       | join           | stack arrays along new axis     |
-|  [10]   | `hstack`/`vstack`/`dstack`  | join           | horizontal/vertical/depth join  |
-|  [11]   | `split(a, indices, axis)`   | split          | split into sub-arrays           |
-|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)` | broadcast | explicit broadcast view(s) without copy |
-|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)` | window view | strided rolling-window view (no copy) |
-|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)` | strided view | raw stride view (unsafe; bounds not checked) |
-|  [15]   | `pad(array, pad_width, mode)` | pad          | bordered/edge-padded copy        |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `reshape(a, newshape)`                                         | shape          | change array shape                           |
+|  [02]   | `ravel(a)`                                                     | shape          | 1-D contiguous view                          |
+|  [03]   | `transpose(a, axes)`                                           | shape          | permute axes                                 |
+|  [04]   | `swapaxes(a, ax1, ax2)`                                        | shape          | swap two axes                                |
+|  [05]   | `moveaxis(a, source, dest)`                                    | shape          | move axis to new position                    |
+|  [06]   | `expand_dims(a, axis)`                                         | shape          | insert a new axis                            |
+|  [07]   | `squeeze(a, axis)`                                             | shape          | remove size-1 axes                           |
+|  [08]   | `concatenate(arrays, axis)`                                    | join           | join arrays along existing axis              |
+|  [09]   | `stack(arrays, axis)`                                          | join           | stack arrays along new axis                  |
+|  [10]   | `hstack`/`vstack`/`dstack`                                     | join           | horizontal/vertical/depth join               |
+|  [11]   | `split(a, indices, axis)`                                      | split          | split into sub-arrays                        |
+|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)`         | broadcast      | explicit broadcast view(s) without copy      |
+|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)` | window view    | strided rolling-window view (no copy)        |
+|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`              | strided view   | raw stride view (unsafe; bounds not checked) |
+|  [15]   | `pad(array, pad_width, mode)`                                  | pad            | bordered/edge-padded copy                    |
 
 [ENTRYPOINT_SCOPE]: math and reduction
 - rail: compute
 
-| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :---------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`     | reduction      | aggregation along axes            |
-|  [02]   | `mean`/`std`/`var`                  | statistics     | mean, std dev, variance           |
-|  [03]   | `min`/`max`/`argmin`/`argmax`       | reduction      | extrema and their indices         |
-|  [04]   | `dot(a, b)`                         | linear alg     | vector/matrix dot product         |
-|  [05]   | `matmul(x1, x2)`                    | linear alg     | matrix multiplication (`@`)       |
-|  [06]   | `inner`/`outer`/`tensordot`         | linear alg     | inner, outer, tensor contractions |
-|  [07]   | `einsum(subscripts, *operands, optimize)` | linear alg | Einstein-summation contraction, the general reduction/contraction owner |
-|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)` | extraction | extract diagonal / sum of diagonal |
-|  [09]   | `where(cond, x, y)`                 | selection      | conditional element selection (1-arg form returns indices) |
-|  [10]   | `nonzero(a)` / `flatnonzero(a)`     | selection      | indices of nonzero elements       |
-|  [11]   | `clip(a, a_min, a_max)`             | elementwise    | bound values to interval          |
-|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)` | predicate ufunc | element-wise finiteness / NaN / inf mask |
-|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)` | predicate | tolerant equality (scalar / element-wise) |
-|  [14]   | `nan_to_num(x, nan, posinf, neginf)`| sanitize       | replace non-finite values with finite substitutes |
-|  [15]   | `sort(a, axis)`/`argsort`           | sort           | sort or return sort indices       |
-|  [16]   | `unique(ar, return_counts, return_index)` | set ops  | unique elements with optional counts/indices |
-|  [17]   | `exp`/`log`/`sqrt`/`power`          | ufunc          | exponential/logarithm/power       |
-|  [18]   | `sin`/`cos`/`tan`/`arctan2`         | ufunc          | trigonometric operations          |
-|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil` | ufunc          | absolute, rounding operations     |
-|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`| nan-aware      | reductions skipping non-finite entries |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]  | [RAIL]                                                                  |
+| :-----: | :----------------------------------------------- | :-------------- | :---------------------------------------------------------------------- |
+|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                  | reduction       | aggregation along axes                                                  |
+|  [02]   | `mean`/`std`/`var`                               | statistics      | mean, std dev, variance                                                 |
+|  [03]   | `min`/`max`/`argmin`/`argmax`                    | reduction       | extrema and their indices                                               |
+|  [04]   | `dot(a, b)`                                      | linear alg      | vector/matrix dot product                                               |
+|  [05]   | `matmul(x1, x2)`                                 | linear alg      | matrix multiplication (`@`)                                             |
+|  [06]   | `inner`/`outer`/`tensordot`                      | linear alg      | inner, outer, tensor contractions                                       |
+|  [07]   | `einsum(subscripts, *operands, optimize)`        | linear alg      | Einstein-summation contraction, the general reduction/contraction owner |
+|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)` | extraction      | extract diagonal / sum of diagonal                                      |
+|  [09]   | `where(cond, x, y)`                              | selection       | conditional element selection (1-arg form returns indices)              |
+|  [10]   | `nonzero(a)` / `flatnonzero(a)`                  | selection       | indices of nonzero elements                                             |
+|  [11]   | `clip(a, a_min, a_max)`                          | elementwise     | bound values to interval                                                |
+|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`          | predicate ufunc | element-wise finiteness / NaN / inf mask                                |
+|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`    | predicate       | tolerant equality (scalar / element-wise)                               |
+|  [14]   | `nan_to_num(x, nan, posinf, neginf)`             | sanitize        | replace non-finite values with finite substitutes                       |
+|  [15]   | `sort(a, axis)`/`argsort`                        | sort            | sort or return sort indices                                             |
+|  [16]   | `unique(ar, return_counts, return_index)`        | set ops         | unique elements with optional counts/indices                            |
+|  [17]   | `exp`/`log`/`sqrt`/`power`                       | ufunc           | exponential/logarithm/power                                             |
+|  [18]   | `sin`/`cos`/`tan`/`arctan2`                      | ufunc           | trigonometric operations                                                |
+|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`              | ufunc           | absolute, rounding operations                                           |
+|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`             | nan-aware       | reductions skipping non-finite entries                                  |
+|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`     | complex ufunc   | phase angle and complex conjugate (analytic-signal phase estimator)     |
+
+[ENTRYPOINT_SCOPE]: top-level constants
+- rail: compute
+
+| [INDEX] | [SYMBOL]    | [VALUE]            | [RAIL]                                      |
+| :-----: | :---------- | :----------------- | :------------------------------------------ |
+|  [01]   | `pi`        | `3.14159...`       | circle constant for phase/frequency scaling |
+|  [02]   | `e`         | `2.71828...`       | natural-log base for geometric spacing      |
+|  [03]   | `inf`/`nan` | IEEE 754 sentinels | infinity and not-a-number literals          |
 
 [ENTRYPOINT_SCOPE]: linalg submodule
 - rail: compute
@@ -213,6 +223,6 @@
 
 [RAIL_LAW]:
 - Package: `numpy`
-- Owns: N-d array construction, dtype algebra, ufunc dispatch (incl. `reduce`/`accumulate`/`at`), `einsum` contraction, linalg, fft, finiteness predicates, and random sampling
+- Owns: N-d array construction, dtype algebra, ufunc dispatch (incl. `reduce`/`accumulate`/`at`, the complex-math `angle`/`conj`/`conjugate`), the top-level math constants (`pi`/`e`/`inf`/`nan`), `einsum` contraction, linalg, fft, finiteness predicates, and random sampling
 - Accept: `ndarray`-first APIs, explicit `dtype`, `asarray`/`frombuffer` zero-copy intake, `einsum`/ufunc-method fused reductions, `random.default_rng`/`SeedSequence` seeding, `isfinite` finiteness gates, batched `linalg`/`fft`/`random` usage
 - Reject: hand-rolled numerical loops replaceable by ufuncs or `einsum`, indexed Python accumulation replaceable by `ufunc.at`, module-level `numpy.random` functions, `numpy.matrix` for new code, comparing floats for finiteness without `isfinite`

@@ -3,16 +3,13 @@
 // Replace the TODOs, rename the file to <your-name>.js, drop it in .claude/workflows/.
 
 export const meta = {
-  name: 'TODO-pipeline',
-  description: 'TODO: one line — what this produces',
-  phases: [{ title: 'Stage1' }, { title: 'Stage2' }],
+  name: 'TODO-pipeline',                              // required — the workflow's name
+  description: 'TODO: one line — what this produces', // required — shown in the permission dialog
+  phases: [{ title: 'Stage1' }, { title: 'Stage2' }], // optional — progress groups (see the phase option below)
 }
 
-// `args` is passed through unchanged — an array stays an array; parse only a string.
-const input = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return args } })()
-  : args
-const items = Array.isArray(input) && input.length ? input : ['TODO item one', 'TODO item two']
+// `args` arrives as structured data — an array stays an array, read it directly.
+const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TODO item two']
 
 const STAGE1_SCHEMA = {
   type: 'object',
@@ -23,13 +20,16 @@ const STAGE1_SCHEMA = {
 // pipeline(items, stage1, stage2, ...) — each stage callback gets
 // (prevResult, originalItem, index). There is NO barrier between stages:
 // item A can be in Stage2 while item B is still in Stage1.
+// effort: 'low' fits a mechanical classify/extract first stage; let the later
+// stage inherit the session tier for the heavier reasoning over its result
+// (effort guidance: references/api-reference.md).
 const out = await pipeline(
   items,
 
   // Stage 1 — runs once per item.
   (item, _orig, i) =>
     agent(`TODO: first-stage instruction. Item:\n\n${item}`,
-          { label: `s1:${i + 1}`, phase: 'Stage1', schema: STAGE1_SCHEMA }),
+          { label: `s1:${i + 1}`, phase: 'Stage1', schema: STAGE1_SCHEMA, effort: 'low' }),
 
   // Stage 2 — receives Stage 1's result for the same item.
   (prev, item, i) =>

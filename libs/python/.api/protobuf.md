@@ -28,31 +28,31 @@
 [PUBLIC_TYPE_SCOPE]: descriptor and registry family
 - rail: transport
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                  |
-| :-----: | :-------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Descriptor`          | message schema | schema for a single message type        |
-|  [02]   | `FieldDescriptor`     | field schema   | field type, label, number, and options  |
-|  [03]   | `EnumDescriptor`      | enum schema    | enum type schema                        |
-|  [04]   | `EnumValueDescriptor` | enum value     | enum value name-number pair             |
-|  [05]   | `FileDescriptor`      | file schema    | single `.proto` file schema             |
-|  [06]   | `ServiceDescriptor`   | service schema | RPC service schema                      |
-|  [07]   | `MethodDescriptor`    | method schema  | single RPC method schema                |
-|  [08]   | `OneofDescriptor`     | oneof schema   | oneof field group schema                |
-|  [09]   | `DescriptorPool`      | registry       | schema registry for cross-file lookups  |
-|  [10]   | `SymbolDatabase`      | registry       | type-name -> message-class resolver     |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                 |
+| :-----: | :-------------------- | :------------- | :------------------------------------- |
+|  [01]   | `Descriptor`          | message schema | schema for a single message type       |
+|  [02]   | `FieldDescriptor`     | field schema   | field type, label, number, and options |
+|  [03]   | `EnumDescriptor`      | enum schema    | enum type schema                       |
+|  [04]   | `EnumValueDescriptor` | enum value     | enum value name-number pair            |
+|  [05]   | `FileDescriptor`      | file schema    | single `.proto` file schema            |
+|  [06]   | `ServiceDescriptor`   | service schema | RPC service schema                     |
+|  [07]   | `MethodDescriptor`    | method schema  | single RPC method schema               |
+|  [08]   | `OneofDescriptor`     | oneof schema   | oneof field group schema               |
+|  [09]   | `DescriptorPool`      | registry       | schema registry for cross-file lookups |
+|  [10]   | `SymbolDatabase`      | registry       | type-name -> message-class resolver    |
 
 [PUBLIC_TYPE_SCOPE]: backend selection and well-known types
 - rail: transport
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [RAIL]                                        |
-| :-----: | :--------------------------------------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `internal.api_implementation.Type()`           | function      | active backend: `'upb'` / `'cpp'` / `'python'`|
-|  [02]   | `any_pb2.Any`                                  | well-known    | type-URL-tagged embedded message              |
-|  [03]   | `timestamp_pb2.Timestamp`                      | well-known    | seconds+nanos UTC instant                     |
-|  [04]   | `duration_pb2.Duration`                        | well-known    | signed seconds+nanos span                     |
-|  [05]   | `struct_pb2.Struct` / `Value` / `ListValue`    | well-known    | dynamic JSON-like object                      |
-|  [06]   | `field_mask_pb2.FieldMask`                     | well-known    | set of field paths for partial updates        |
-|  [07]   | `wrappers_pb2.*Value` / `empty_pb2.Empty`      | well-known    | nullable scalar wrappers / empty message      |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                         |
+| :-----: | :------------------------------------------ | :------------ | :--------------------------------------------- |
+|  [01]   | `internal.api_implementation.Type()`        | function      | active backend: `'upb'` / `'cpp'` / `'python'` |
+|  [02]   | `any_pb2.Any`                               | well-known    | type-URL-tagged embedded message               |
+|  [03]   | `timestamp_pb2.Timestamp`                   | well-known    | seconds+nanos UTC instant                      |
+|  [04]   | `duration_pb2.Duration`                     | well-known    | signed seconds+nanos span                      |
+|  [05]   | `struct_pb2.Struct` / `Value` / `ListValue` | well-known    | dynamic JSON-like object                       |
+|  [06]   | `field_mask_pb2.FieldMask`                  | well-known    | set of field paths for partial updates         |
+|  [07]   | `wrappers_pb2.*Value` / `empty_pb2.Empty`   | well-known    | nullable scalar wrappers / empty message       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -60,82 +60,82 @@
 - rail: transport
 - defined on `google.protobuf.message.Message`; backed by the native `_message` extension under the `upb`/`cpp` backends.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :--------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `Message.SerializeToString(deterministic=None)` | serialize      | binary wire encoding to `bytes`          |
-|  [02]   | `Message.ParseFromString(data)`          | deserialize    | clear + decode binary wire bytes in place |
-|  [03]   | `Message.MergeFromString(data)`          | deserialize    | merge binary wire bytes in place         |
-|  [04]   | `Message.SerializePartialToString()`     | serialize      | encode even if required fields missing   |
-|  [05]   | `Message.CopyFrom(other_msg)`            | mutation       | replace all fields from another message  |
-|  [06]   | `Message.MergeFrom(other_msg)`           | mutation       | merge fields from another message        |
-|  [07]   | `Message.Clear()`                        | mutation       | reset all fields to defaults             |
-|  [08]   | `Message.ClearField(field_name)`         | mutation       | reset one field to default               |
-|  [09]   | `Message.SetInParent()`                  | mutation       | mark a sub-message present (empty)       |
-|  [10]   | `Message.HasField(field_name)`           | query          | test singular/message/oneof presence     |
-|  [11]   | `Message.WhichOneof(oneof_name)`         | query          | name of populated oneof member or None   |
-|  [12]   | `Message.ListFields()`                   | query          | list set `(FieldDescriptor, value)` pairs |
-|  [13]   | `Message.ByteSize()`                     | query          | encoded size in bytes (caches)           |
-|  [14]   | `Message.IsInitialized()`                | query          | all required fields populated            |
-|  [15]   | `Message.UnknownFields()`                | query          | preserved unknown-field set              |
-|  [16]   | `Message.DiscardUnknownFields()`         | mutation       | drop preserved unknown fields            |
-|  [17]   | `Message.FromString(data)` (classmethod) | construction   | decode and return new message            |
-|  [18]   | `Message.DESCRIPTOR`                      | metadata       | the message's `Descriptor`               |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :---------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `Message.SerializeToString(deterministic=None)` | serialize      | binary wire encoding to `bytes`           |
+|  [02]   | `Message.ParseFromString(data)`                 | deserialize    | clear + decode binary wire bytes in place |
+|  [03]   | `Message.MergeFromString(data)`                 | deserialize    | merge binary wire bytes in place          |
+|  [04]   | `Message.SerializePartialToString()`            | serialize      | encode even if required fields missing    |
+|  [05]   | `Message.CopyFrom(other_msg)`                   | mutation       | replace all fields from another message   |
+|  [06]   | `Message.MergeFrom(other_msg)`                  | mutation       | merge fields from another message         |
+|  [07]   | `Message.Clear()`                               | mutation       | reset all fields to defaults              |
+|  [08]   | `Message.ClearField(field_name)`                | mutation       | reset one field to default                |
+|  [09]   | `Message.SetInParent()`                         | mutation       | mark a sub-message present (empty)        |
+|  [10]   | `Message.HasField(field_name)`                  | query          | test singular/message/oneof presence      |
+|  [11]   | `Message.WhichOneof(oneof_name)`                | query          | name of populated oneof member or None    |
+|  [12]   | `Message.ListFields()`                          | query          | list set `(FieldDescriptor, value)` pairs |
+|  [13]   | `Message.ByteSize()`                            | query          | encoded size in bytes (caches)            |
+|  [14]   | `Message.IsInitialized()`                       | query          | all required fields populated             |
+|  [15]   | `Message.UnknownFields()`                       | query          | preserved unknown-field set               |
+|  [16]   | `Message.DiscardUnknownFields()`                | mutation       | drop preserved unknown fields             |
+|  [17]   | `Message.FromString(data)` (classmethod)        | construction   | decode and return new message             |
+|  [18]   | `Message.DESCRIPTOR`                            | metadata       | the message's `Descriptor`                |
 
 [ENTRYPOINT_SCOPE]: functional encode/decode (proto module)
 - rail: transport
 - `from google.protobuf import proto`; the functional, non-mutating mirror of the instance methods.
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :-------------------------------------------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `proto.serialize(message, deterministic=None) -> bytes`        | serialize      | encode message to `bytes`                  |
-|  [02]   | `proto.parse(message_class, payload) -> message`               | deserialize    | decode bytes to a NEW message instance     |
-|  [03]   | `proto.serialize_length_prefixed(message, output: io.BytesIO)` | streaming      | write varint-length-prefixed frame         |
-|  [04]   | `proto.parse_length_prefixed(message_class, input: io.BytesIO)`| streaming      | read one varint-length-prefixed frame      |
-|  [05]   | `proto.byte_size(message) -> int`                              | query          | encoded size without serializing           |
-|  [06]   | `proto.clear_message(message)`                                 | mutation       | reset all fields                           |
-|  [07]   | `proto.clear_field(message, field_name)`                       | mutation       | reset one field                            |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `proto.serialize(message, deterministic=None) -> bytes`         | serialize      | encode message to `bytes`              |
+|  [02]   | `proto.parse(message_class, payload) -> message`                | deserialize    | decode bytes to a NEW message instance |
+|  [03]   | `proto.serialize_length_prefixed(message, output: io.BytesIO)`  | streaming      | write varint-length-prefixed frame     |
+|  [04]   | `proto.parse_length_prefixed(message_class, input: io.BytesIO)` | streaming      | read one varint-length-prefixed frame  |
+|  [05]   | `proto.byte_size(message) -> int`                               | query          | encoded size without serializing       |
+|  [06]   | `proto.clear_message(message)`                                  | mutation       | reset all fields                       |
+|  [07]   | `proto.clear_field(message, field_name)`                        | mutation       | reset one field                        |
 
 [ENTRYPOINT_SCOPE]: JSON and text format
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------------------------------- |
-|  [01]   | `json_format.MessageToJson(message, preserving_proto_field_name=False, ...)`    | serialize      | encode to JSON string                    |
+| [INDEX] | [SURFACE]                                                                                                                | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `json_format.MessageToJson(message, preserving_proto_field_name=False, ...)`                                             | serialize      | encode to JSON string                    |
 |  [02]   | `json_format.MessageToDict(message, always_print_fields_with_no_presence=False, preserving_proto_field_name=False, ...)` | serialize      | encode to dict                           |
-|  [03]   | `json_format.Parse(text, message, ignore_unknown_fields=False, ...)`            | deserialize    | decode JSON string into existing message |
-|  [04]   | `json_format.ParseDict(js_dict, message, ignore_unknown_fields=False, ...)`     | deserialize    | decode dict into existing message        |
-|  [05]   | `text_format.MessageToString(message, as_one_line=False, ...)`                  | serialize      | encode to proto text format string       |
-|  [06]   | `text_format.MessageToBytes(message, ...)`                                      | serialize      | encode to proto text format bytes        |
-|  [07]   | `text_format.Parse(text, message, allow_unknown_field=False, ...)`              | deserialize    | decode text format into existing message |
-|  [08]   | `text_format.Merge(text, message, ...)`                                         | deserialize    | merge text format into existing message  |
+|  [03]   | `json_format.Parse(text, message, ignore_unknown_fields=False, ...)`                                                     | deserialize    | decode JSON string into existing message |
+|  [04]   | `json_format.ParseDict(js_dict, message, ignore_unknown_fields=False, ...)`                                              | deserialize    | decode dict into existing message        |
+|  [05]   | `text_format.MessageToString(message, as_one_line=False, ...)`                                                           | serialize      | encode to proto text format string       |
+|  [06]   | `text_format.MessageToBytes(message, ...)`                                                                               | serialize      | encode to proto text format bytes        |
+|  [07]   | `text_format.Parse(text, message, allow_unknown_field=False, ...)`                                                       | deserialize    | decode text format into existing message |
+|  [08]   | `text_format.Merge(text, message, ...)`                                                                                  | deserialize    | merge text format into existing message  |
 
 [ENTRYPOINT_SCOPE]: registries and dynamic message classes
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                  | registry       | process-wide default pool                    |
-|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`| lookup         | resolve a registered message schema          |
-|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`   | lookup         | resolve a registered `.proto` file           |
-|  [04]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor` | registry   | register a `FileDescriptorProto` at runtime  |
-|  [05]   | `symbol_database.Default() -> SymbolDatabase`                  | registry       | default symbol resolver                      |
-|  [06]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`         | lookup         | resolve a generated class by full name       |
-|  [07]   | `message_factory.GetMessageClass(descriptor) -> type[Message]` | factory        | message class for a runtime `Descriptor`     |
-|  [08]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`| factory        | all message classes across given files       |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `descriptor_pool.Default() -> DescriptorPool`                       | registry       | process-wide default pool                   |
+|  [02]   | `DescriptorPool.FindMessageTypeByName(full_name) -> Descriptor`     | lookup         | resolve a registered message schema         |
+|  [03]   | `DescriptorPool.FindFileByName(file_name) -> FileDescriptor`        | lookup         | resolve a registered `.proto` file          |
+|  [04]   | `DescriptorPool.AddSerializedFile(serialized_pb) -> FileDescriptor` | registry       | register a `FileDescriptorProto` at runtime |
+|  [05]   | `symbol_database.Default() -> SymbolDatabase`                       | registry       | default symbol resolver                     |
+|  [06]   | `SymbolDatabase.GetSymbol(full_name) -> type[Message]`              | lookup         | resolve a generated class by full name      |
+|  [07]   | `message_factory.GetMessageClass(descriptor) -> type[Message]`      | factory        | message class for a runtime `Descriptor`    |
+|  [08]   | `message_factory.GetMessageClassesForFiles(files, pool) -> dict`    | factory        | all message classes across given files      |
 
 [ENTRYPOINT_SCOPE]: well-known type operations
 - rail: transport
 - methods on the `_pb2` well-known message instances (mixed in from `internal.well_known_types`).
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `Any.Pack(msg, type_url_prefix=...)` / `Any.Unpack(msg) -> bool`| any            | embed / extract a typed message              |
-|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`         | any            | type discrimination on the URL               |
-|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo=None)` / `FromDatetime(dt)` | timestamp      | now / `datetime` round-trip                  |
-|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromNanoseconds(n)` | timestamp      | RFC3339 / nanos round-trip                   |
-|  [05]   | `Duration.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromTimedelta(td)` | duration       | span round-trip                              |
-|  [06]   | `Struct.update(dict)` / `Struct.keys()` / `Struct.items()` / `Struct[k] = v` | struct         | dynamic JSON-like object access              |
-|  [07]   | `FieldMask.FromJsonString(v)` / `ToJsonString()` / `MergeMessage(src, dst)` | field mask     | partial-update path set                      |
+| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :------------------------------------------------------------------------------------------ | :------------- | :------------------------------ |
+|  [01]   | `Any.Pack(msg, type_url_prefix=...)` / `Any.Unpack(msg) -> bool`                            | any            | embed / extract a typed message |
+|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`                                      | any            | type discrimination on the URL  |
+|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo=None)` / `FromDatetime(dt)`               | timestamp      | now / `datetime` round-trip     |
+|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromNanoseconds(n)` | timestamp      | RFC3339 / nanos round-trip      |
+|  [05]   | `Duration.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromTimedelta(td)`   | duration       | span round-trip                 |
+|  [06]   | `Struct.update(dict)` / `Struct.keys()` / `Struct.items()` / `Struct[k] = v`                | struct         | dynamic JSON-like object access |
+|  [07]   | `FieldMask.FromJsonString(v)` / `ToJsonString()` / `MergeMessage(src, dst)`                 | field mask     | partial-update path set         |
 
 [ENTRYPOINT_SCOPE]: FieldDescriptor constants
 - rail: transport

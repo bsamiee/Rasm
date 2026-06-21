@@ -1,19 +1,101 @@
 # Workflow Patterns
 
-Copy-paste orchestration shapes. Each says when to use it, then gives runnable
-code. Match the pattern to the Step 2 answers in `SKILL.md`: known list vs
-unknown count, one pass vs staged, barrier needed or not.
+Copy-paste orchestration shapes. Each says when to use it, the primitive it rests
+on, and the failure mode it guards — then gives runnable code. Match the pattern to
+the Step 2 answers in `SKILL.md`: known list vs unknown count, one pass vs staged,
+barrier needed or not.
 
 JSON Schemas are shown abbreviated as `SCHEMA`; define real ones — see the bottom
 of this file.
 
+## Contents
+
+- [The canonical map](#the-canonical-map)
+- [1. Prompt chaining — fixed ordered stages](#1-prompt-chaining--fixed-ordered-stages)
+- [2. Parallelization (sectioning) — fan-out then synthesize](#2-parallelization-sectioning--fan-out-then-synthesize)
+- [3. Parallelization (sectioning) — pipeline: review then verify (the default multi-stage shape)](#3-parallelization-sectioning--pipeline-review-then-verify-the-default-multi-stage-shape)
+- [4. Sectioning with a barrier — dedup before the next stage](#4-sectioning-with-a-barrier--dedup-before-the-next-stage)
+- [5. Routing — discriminate, then dispatch one specialist](#5-routing--discriminate-then-dispatch-one-specialist)
+- [6. Orchestrator–workers — a planner emits the worklist](#6-orchestratorworkers--a-planner-emits-the-worklist)
+- [7. Evaluator–optimizer — generate, grade, iterate to a bar](#7-evaluatoroptimizer--generate-grade-iterate-to-a-bar)
+- [8. Voting — adversarial verification (skeptic panel)](#8-voting--adversarial-verification-skeptic-panel)
+- [9. Voting + synthesis — judge panel (N attempts, score, combine)](#9-voting--synthesis--judge-panel-n-attempts-score-combine)
+- [10. Loop until a target count](#10-loop-until-a-target-count)
+- [11. Loop until the budget runs low](#11-loop-until-the-budget-runs-low)
+- [12. Loop until dry (unknown-size discovery)](#12-loop-until-dry-unknown-size-discovery)
+- [13. Fan-out then reconcile deferrals](#13-fan-out-then-reconcile-deferrals)
+- [14. Steady worker pool for a large list of long chains](#14-steady-worker-pool-for-a-large-list-of-long-chains)
+- [15. Nested workflow](#15-nested-workflow)
+- [Defining schemas](#defining-schemas)
+
+## The canonical map
+
+The whole space is built from five primitives: `pipeline` (streaming stages, no
+barrier), `parallel` (a barrier — waits for every thunk), a plain-JS loop, a bounded
+worker pool, and the `agent()` leaf itself. The five canonical agent topologies are
+each a concrete arrangement of those primitives — parallelization splits into its
+sectioning and voting variants, so it occupies two rows below. Every shape in this
+file is one of these topologies or a hardened specialization:
+
+| Canonical topology | Primitive(s) | When it fits | Failure mode it guards |
+|---|---|---|---|
+| **Prompt chaining** | `pipeline` (or a sequential `agent()` chain) | The task decomposes into fixed ordered subtasks, each consuming the last's output | A single overloaded call loses accuracy; each stage gets one clean job and context |
+| **Parallelization — sectioning** | `parallel` barrier, or `pipeline` fan-out | Independent subtasks (per-file, per-dimension, per-question) run at once, then combine | Sequential wall-clock, and one call's divided focus diluting every aspect |
+| **Parallelization — voting** | `parallel` barrier over N identical-input thunks | One judgement is high-stakes; you want agreement, not a lone verdict | A single confident-but-wrong answer surviving unchallenged |
+| **Routing** | plain-JS discriminant → one `agent()` of many | Inputs fall into distinct classes each handled best by a different specialist | One generic prompt that is mediocre at every class; cross-class interference |
+| **Orchestrator–workers** | planner `agent()` → `parallel`/`pipeline` over its output | The subtask list is *not known up front* — a planner must decompose first | Hardcoding a worklist the problem does not actually have |
+| **Evaluator–optimizer** | plain-JS loop: generate `agent()` → evaluate `agent()` | There are clear pass criteria and one draft is rarely enough | Shipping a first pass; or a single agent grading its own work |
+
+Two decision rules sit on top of this map. **Sectioning defaults to `pipeline`, not
+`parallel`** — reach for the `parallel` barrier only when a stage needs the *entire*
+previous result set at once (Step 3 in `SKILL.md`). **The evaluator is always a
+separate `agent()` from the generator** — one agent grading its own output is the
+self-correction anti-pattern and finds nothing.
+
 ---
 
-## 1. Fan-out then synthesize
+## 1. Prompt chaining — fixed ordered stages
 
-**When:** a known list of independent questions/items, one pass each, and you
-need one combined answer at the end. The synthesis genuinely needs every result,
-so the barrier (`parallel`) is correct here.
+**Canonical:** prompt chaining. **Primitive:** `pipeline`. **Guards:** the accuracy
+loss of one overloaded call by giving each subtask its own clean-context agent.
+
+**When:** the work splits into a *fixed* sequence where each stage consumes the
+previous stage's output — outline → draft → tighten, extract → normalize → validate.
+One known list of items, each flowing the whole chain.
+
+```js
+export const meta = {
+  name: 'spec-to-draft',
+  description: 'Turn each spec section into an outline, then a draft, then a tightened pass',
+  phases: [{ title: 'Outline' }, { title: 'Draft' }, { title: 'Tighten' }],
+}
+
+const sections = ['geometry kernel', 'mesh pipeline', 'IFC export']
+
+const out = await pipeline(
+  sections,
+  s          => agent(`Outline the doc section for: ${s}. Return headings only.`,
+                      { label: `outline:${s}`, phase: 'Outline', schema: OUTLINE_SCHEMA }),
+  (outline, s) => agent(`Draft "${s}" from this outline:\n${JSON.stringify(outline)}`,
+                        { label: `draft:${s}`, phase: 'Draft' }),
+  (draft, s)   => agent(`Tighten this "${s}" draft — cut redundancy, keep every claim:\n${draft}`,
+                        { label: `tighten:${s}`, phase: 'Tighten' }),
+)
+
+return { sections: out.filter(Boolean) }
+```
+
+A gate variant adds a JS check between stages — if an outline fails a cheap
+structural test, the item can be dropped (`return null`) before paying for the draft.
+
+---
+
+## 2. Parallelization (sectioning) — fan-out then synthesize
+
+**Canonical:** parallelization, sectioning variant. **Primitive:** `parallel`
+barrier. **Guards:** sequential wall-clock, and the quality dilution of asking one
+call to cover every angle. The synthesis genuinely needs every result, so the
+barrier is correct here.
 
 ```js
 export const meta = {
@@ -22,17 +104,14 @@ export const meta = {
   phases: [{ title: 'Research' }, { title: 'Synthesize' }],
 }
 
-// The runtime serializes `args` to a string (a JSON array arrives as text), so parse it.
-const input = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return args } })()
-  : args
-const questions = Array.isArray(input) && input.length ? input : ['demo question']
+// `args` arrives as structured data — an array stays an array. Default the no-args run.
+const questions = Array.isArray(args) && args.length ? args : ['demo question']
 
 phase('Research')
 const findings = await parallel(
   questions.map((q, i) => () =>
     agent(`Research and report verified facts:\n\n${q}`,
-          { label: `q${i + 1}`, schema: RESEARCH_SCHEMA }))
+          { label: `q${i + 1}`, phase: 'Research', schema: RESEARCH_SCHEMA }))
 )
 const clean = findings
   .map((f, i) => (f ? { question: questions[i], ...f } : null))
@@ -48,11 +127,13 @@ return { questionCount: clean.length, report }
 
 ---
 
-## 2. Pipeline: review then verify (the default multi-stage shape)
+## 3. Parallelization (sectioning) — pipeline: review then verify (the default multi-stage shape)
 
-**When:** items flow through ordered stages and each item should advance the
-moment *it* is ready — no waiting for the slowest sibling. This is the default;
-prefer it over two `parallel()` calls with a barrier between them.
+**Canonical:** prompt chaining ⋈ sectioning — staged work where each item also fans
+out within a stage. **Primitive:** `pipeline` (with a nested `parallel` inside one
+stage). **Guards:** the wasted idle time a barrier inflicts; each item should advance
+the moment *it* is ready, no waiting for the slowest sibling. This is the default
+multi-stage shape; prefer it over two `parallel()` calls with a barrier between them.
 
 ```js
 export const meta = {
@@ -82,11 +163,12 @@ Dimension `bugs` verifies its findings while `perf` is still being reviewed.
 
 ---
 
-## 3. Barrier when you must dedup first
+## 4. Sectioning with a barrier — dedup before the next stage
 
-**When:** the next stage needs the *entire* previous result set in hand — to
-dedup, merge, or early-exit on a count. This is the legitimate use of `parallel`
-as a barrier.
+**Canonical:** parallelization, sectioning. **Primitive:** `parallel` as a true
+barrier. **Guards:** double work and wasted spend — the next stage needs the *entire*
+previous result set in hand to dedup, merge, or early-exit on a count. This is the
+legitimate use of `parallel` over a `pipeline`.
 
 ```js
 const all = await parallel(
@@ -104,46 +186,124 @@ return { confirmed: verified.filter(Boolean).filter(v => v.isReal) }
 
 ---
 
-## 4. Loop until a target count
+## 5. Routing — discriminate, then dispatch one specialist
 
-**When:** discovery with a fixed goal — "find 10 bugs". A plain counter is fine.
+**Canonical:** routing. **Primitive:** a plain-JS discriminant choosing one `agent()`
+from a table. **Guards:** the mediocrity of a single generic prompt forced to cover
+every input class, and cross-class interference where tuning for one case hurts
+another. The classifier may itself be an `agent()` when the class is not a simple key.
 
 ```js
-const bugs = []
-while (bugs.length < 10) {
-  const r = await agent('Find bugs not already listed below.\n\n'
-    + JSON.stringify(bugs.map(b => b.title)), { schema: BUGS_SCHEMA })
-  bugs.push(...r.bugs)
-  log(`${bugs.length}/10 found`)
+export const meta = {
+  name: 'route-fix',
+  description: 'Classify each changed file by language, route it to the matching specialist',
+  phases: [{ title: 'Classify' }, { title: 'Fix' }],
 }
-return { bugs: bugs.slice(0, 10) }
+
+// One row per class: the discriminant value, the specialist prompt, and its model.
+const ROUTES = {
+  cs:  { prompt: f => `Refactor ${f} to LanguageExt ROP; collapse parallel types into a [Union].`, model: 'inherit' },
+  ts:  { prompt: f => `Refactor ${f} to Effect-TS; replace throws with typed error channels.`,      model: 'inherit' },
+  py:  { prompt: f => `Refactor ${f} to expression style; replace mutable accumulation with folds.`, model: 'inherit' },
+  sql: { prompt: f => `Rewrite ${f} set-algebraically; push filters into the query.`,                model: 'haiku'   },
+}
+const classify = f => f.endsWith('.cs') ? 'cs' : f.endsWith('.ts') ? 'ts'
+                    : f.endsWith('.py') ? 'py' : f.endsWith('.sql') ? 'sql' : null
+
+phase('Fix')
+const fixed = await parallel(changedFiles.map(f => () => {
+  const route = ROUTES[classify(f)]
+  return route ? agent(route.prompt(f), { label: `fix:${f}`, model: route.model }) : null
+}))
+
+return { fixed: fixed.filter(Boolean) }
+```
+
+The dispatch table is the pattern: adding a class is one row, never a new branch
+threaded through the body. An unroutable input returns `null` and falls out at the
+`.filter(Boolean)` rather than hitting a wrong specialist. The full worked file is
+`assets/examples/route-and-refactor.js`.
+
+---
+
+## 6. Orchestrator–workers — a planner emits the worklist
+
+**Canonical:** orchestrator–workers. **Primitive:** a planner `agent()` whose
+structured output becomes the items a `parallel`/`pipeline` fans out over. **Guards:**
+hardcoding a fixed worklist when the subtasks *cannot be known up front* — the set of
+files to touch for a migration, the modules a feature spans, the questions a topic
+raises. The orchestrator decides the breakdown at runtime; the workers execute it.
+
+```js
+export const meta = {
+  name: 'migrate',
+  description: 'Plan a migration into per-unit tasks, then run each unit, then integrate',
+  phases: [{ title: 'Plan' }, { title: 'Work' }, { title: 'Integrate' }],
+}
+
+phase('Plan')
+const plan = await agent(
+  `Decompose this migration into independent units. One task per file or module that `
+  + `can be changed on its own.\n\n${task}`,
+  { label: 'orchestrator', schema: PLAN_SCHEMA })   // → { tasks: [{ id, file, instruction }] }
+
+phase('Work')
+const done = (await parallel((plan?.tasks ?? []).map(t => () =>
+  agent(`${t.instruction}\n\nFile: ${t.file}`, { label: `work:${t.id}`, schema: WORK_SCHEMA })
+    .then(r => ({ ...t, ...r })))
+)).filter(Boolean)
+
+phase('Integrate')
+const integrated = await agent(
+  'Integrate these independently-completed units; resolve any seam between them.\n\n'
+  + JSON.stringify(done))
+return { integrated, unitCount: done.length }
+```
+
+The planner returns DATA (a typed task list via `schema`), not prose — the JS fans
+out over it. The integrator is the orchestrator's other half: workers cannot see each
+other's context, so a terminal stage owns whatever spans them.
+
+---
+
+## 7. Evaluator–optimizer — generate, grade, iterate to a bar
+
+**Canonical:** evaluator–optimizer. **Primitive:** a plain-JS loop wrapping a
+generate `agent()` and a *separate* evaluate `agent()`. **Guards:** shipping a weak
+first pass, and the self-correction anti-pattern — the evaluator MUST be a different
+agent than the generator, or it rubber-stamps its own work. The pass verdict drives
+the loop; a hard round cap stops it from looping forever on an unsatisfiable bar.
+
+```js
+const MAX_ROUNDS = 4
+let draft = null
+let feedback = ''
+
+for (let round = 1; round <= MAX_ROUNDS; round++) {
+  draft = await agent(
+    `Implement the task. Address this feedback from the last attempt:\n${feedback || '(first attempt)'}`
+    + `\n\nTask: ${task}`,
+    { label: `attempt:${round}` })
+
+  const review = await agent(                          // SEPARATE agent — never self-grade
+    `Evaluate this attempt against the acceptance criteria. Be strict.\n\n${draft}`,
+    { label: `evaluate:${round}`, schema: REVIEW_SCHEMA })   // → { passed, feedback }
+
+  log(`round ${round}: ${review?.passed ? 'PASS' : 'revise'}`)
+  if (review?.passed) return { draft, rounds: round }
+  feedback = review?.feedback ?? ''
+}
+return { draft, rounds: MAX_ROUNDS, note: 'hit round cap without passing' }
 ```
 
 ---
 
-## 5. Loop until the budget runs low
+## 8. Voting — adversarial verification (skeptic panel)
 
-**When:** you want depth to scale to the user's token target. The
-`budget.total &&` guard is essential — without a target, `remaining()` is
-`Infinity` and the loop runs to the 1000-agent cap.
-
-```js
-const issues = []
-while (budget.total && budget.remaining() > 50_000) {
-  const r = await agent('Find one more issue in this codebase.', { schema: ISSUE_SCHEMA })
-  issues.push(...r.issues)
-  log(`${issues.length} found · ${Math.round(budget.remaining() / 1000)}k tokens left`)
-}
-return { issues }
-```
-
----
-
-## 6. Adversarial verification (skeptic vote)
-
-**When:** a finding will be acted on and a plausible-but-wrong one is costly.
-Spawn N independent skeptics, each told to *refute*; keep the finding only on a
-majority. Stops confident hallucinations from surviving.
+**Canonical:** parallelization, voting variant. **Primitive:** `parallel` over N
+identical-input thunks. **Guards:** a single confident hallucination surviving — a
+plausible-but-wrong finding that one verifier would wave through. Spawn N independent
+skeptics, each told to *refute*; keep the finding only on a majority.
 
 ```js
 async function survives(claim) {
@@ -162,19 +322,19 @@ return { real }
 
 ---
 
-## 7. Judge panel (N attempts, score, synthesize)
+## 9. Voting + synthesis — judge panel (N attempts, score, combine)
 
-**When:** the solution space is wide and one-attempt-iterated is weak. Generate
-independent attempts from different angles, score them with parallel judges,
-synthesize from the winner while grafting the runners-up's best ideas.
+**Canonical:** parallelization (voting) feeding sectioning. **Primitive:** `parallel`
+to draft, `parallel` to score, one `agent()` to synthesize. **Guards:** the weakness
+of one-attempt-then-iterate when the solution space is wide — independent attempts
+from different angles, scored by parallel judges, then synthesized from the winner
+while grafting the runners-up's best ideas.
 
 ```js
 const ANGLES = ['MVP-first', 'risk-first', 'user-first', 'cost-first']
 
-// The runtime serializes `args` to a string; parse it (the guard keeps plain text intact).
-const idea = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return args } })()
-  : args
+// `args` is structured data — a free-text task arrives as a string. Default the no-args run.
+const idea = typeof args === 'string' && args.trim() ? args : 'the plan described in TASK.md'
 
 phase('Draft')
 const drafts = await parallel(ANGLES.map(a => () =>
@@ -197,11 +357,52 @@ return { final }
 
 ---
 
-## 8. Loop until dry (unknown-size discovery)
+## 10. Loop until a target count
 
-**When:** you do not know how much there is to find. Keep spawning finders until
-K consecutive rounds turn up nothing new. Catches the long tail a fixed counter
-misses.
+**Canonical:** orchestrator–workers with an unknown count — the loop *is* the
+orchestrator. **Primitive:** a plain-JS `while` with a counter. **Guards:** stopping
+short on discovery work with a fixed goal ("find 10 bugs") — and running forever, via
+the explicit count cap.
+
+```js
+const bugs = []
+while (bugs.length < 10) {
+  const r = await agent('Find bugs not already listed below.\n\n'
+    + JSON.stringify(bugs.map(b => b.title)), { schema: BUGS_SCHEMA })
+  bugs.push(...r.bugs)
+  log(`${bugs.length}/10 found`)
+}
+return { bugs: bugs.slice(0, 10) }
+```
+
+---
+
+## 11. Loop until the budget runs low
+
+**Canonical:** orchestrator–workers scaled to a token target. **Primitive:** a
+`while` guarded on `budget`. **Guards:** over- or under-spending — depth scales to the
+user's token target. The `budget.total &&` guard is essential: without a target,
+`remaining()` is `Infinity` and the loop runs to the 1000-agent cap.
+
+```js
+const issues = []
+while (budget.total && budget.remaining() > 50_000) {
+  const r = await agent('Find one more issue in this codebase.', { schema: ISSUE_SCHEMA })
+  issues.push(...r.issues)
+  log(`${issues.length} found · ${Math.round(budget.remaining() / 1000)}k tokens left`)
+}
+return { issues }
+```
+
+---
+
+## 12. Loop until dry (unknown-size discovery)
+
+**Canonical:** orchestrator–workers, count unknown and unbounded. **Primitive:** a
+`while` with a dry-streak counter and a hard cap. **Guards:** both halves of the
+unknown-size trap — a fixed counter stops short of the long tail, and an open loop
+never terminates. Keep spawning finders until K consecutive rounds turn up nothing
+new.
 
 ```js
 const seen = new Set()
@@ -221,31 +422,15 @@ return { found }
 
 ---
 
-## 9. Nested workflow
+## 13. Fan-out then reconcile deferrals
 
-**When:** a big workflow has a self-contained sub-job that is itself a workflow.
-`workflow()` runs it inline and returns its result. Nesting is one level deep —
-a workflow called this way cannot itself call `workflow()`.
-
-```js
-phase('Gather')
-const research = await workflow('research-fanout', ['question one', 'question two'])
-
-phase('Write')
-const article = await agent('Write an article from this research:\n'
-  + JSON.stringify(research))
-return { article }
-```
-
----
-
-## 10. Fan-out then reconcile deferrals
-
-**When:** a fan-out where each worker fixes what it can alone but DEFERS work that
-spans items it does not own — a cross-file seam, a type two siblings must share, a
-dangling cross-reference. A plain fan-out collects those deferrals and drops them:
-the exact class of fix that needs an owner is surfaced and abandoned. The remedy is
-a terminal reconcile stage that consumes them.
+**Canonical:** sectioning with a terminal orchestrator stage. **Primitive:**
+`parallel` to fan out, a pure-JS barrier to cluster, `pipeline` to fix-and-verify each
+cluster. **Guards:** the silent loss of cross-item work — each worker fixes what it
+can alone but DEFERS work that spans items it does not own (a cross-file seam, a type
+two siblings must share, a dangling reference). A plain fan-out collects those
+deferrals and drops them: the exact class of fix that needs an owner is surfaced and
+abandoned. The remedy is a terminal reconcile stage that consumes them.
 
 The deferral must be DATA whose resource slot is a LIST, so a deferral spanning two
 files names BOTH — that is the only thing that lets you cluster by shared resource.
@@ -265,7 +450,7 @@ const uniq = [...new Map(all.map(r => [r.files.join(',') + '|' + r.claim, r])).v
 const clusters = unionFindBySharedFile(uniq)   // residuals sharing any file land in one cluster
 
 let hard = []
-if (clusters.length) {                          // count-barrier early-exit (pattern #3)
+if (clusters.length) {                          // count-barrier early-exit (pattern #4)
   const out = await pipeline(                    // each disjoint cluster verifies the moment ITS fix lands
     clusters,
     cl       => agent('Fix these cross-file deferrals in place; read every listed file.\n' + JSON.stringify(cl), { schema: FIXED }),
@@ -280,18 +465,19 @@ fixers run concurrently with no collision — `isolation:'worktree'` is unnecess
 The verifier is a SEPARATE agent (a single self-reviewing fixer is the
 self-correction anti-pattern) handed the claims as a checklist, and the
 one-verdict-per-claim schema is what proves completeness — a dropped claim cannot
-validate. Distinct from #1 (synthesize into one report) and #6 (skeptic vote on one
+validate. Distinct from #2 (synthesize into one report) and #8 (skeptic vote on one
 claim): this is cluster-by-shared-resource, then fix-and-verify each cluster. The
 full worked file is `assets/examples/rebuild-and-reconcile.js`.
 
 ---
 
-## 11. Steady worker pool for a large list of long chains
+## 14. Steady worker pool for a large list of long chains
 
-**When:** the list is large (hundreds) and each item is a long multi-stage chain.
-`parallel(thunks)` enqueues all N at once and leans on the limiter to dequeue ~cap;
-a steady worker pool holds a true steady state of ≤cap long chains, which is what
-you want when each chain runs for minutes.
+**Canonical:** sectioning at scale. **Primitive:** a bounded worker pool over plain
+`Promise.all`. **Guards:** the queue-flooding of `parallel(thunks)` when the list is
+large (hundreds) and each item is a long multi-stage chain. `parallel` enqueues all N
+at once and leans on the limiter to dequeue ~cap; a steady pool holds a true steady
+state of ≤cap long chains, which is what you want when each chain runs for minutes.
 
 ```js
 const pool = async (items, cap, worker) => {
@@ -305,7 +491,30 @@ const done = (await pool(pages, 14, p => processPage(p))).filter(Boolean)
 ```
 
 `parallel()` is still correct for a small fixed fan-out that needs a barrier; reach
-for the pool only for the large-corpus case `parallel()` does not serve as well.
+for the pool only for the large-corpus case `parallel()` does not serve as well. When
+the pool's per-item outputs are themselves a corpus too large to combine in one prompt,
+reduce tree-wise — fold the outputs in batches with `agent()`, then fold those partial
+reduces again, until one result remains — rather than concatenating every output into a
+single synthesis call that would itself overflow context.
+
+---
+
+## 15. Nested workflow
+
+**Canonical:** composition — a topology as a worker inside a larger one. **Primitive:**
+`workflow()`. **Guards:** re-inlining a self-contained sub-job by hand. `workflow()`
+runs a saved workflow inline and returns its result. Nesting is one level deep — a
+workflow called this way cannot itself call `workflow()`.
+
+```js
+phase('Gather')
+const research = await workflow('research-fanout', ['question one', 'question two'])
+
+phase('Write')
+const article = await agent('Write an article from this research:\n'
+  + JSON.stringify(research))
+return { article }
+```
 
 ---
 

@@ -37,33 +37,33 @@
 - rail: observability
 - shared constructor shape with all three exporters except metric temporality/aggregation; positional order: `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`, then keyword-only `meter_provider`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------- |
+| [INDEX] | [SURFACE]                                                                                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
 |  [01]   | `OTLPSpanExporter(endpoint=None, certificate_file=None, client_key_file=None, client_certificate_file=None, headers=None, timeout=None, compression=None, session=None, *, meter_provider=None)` | construction   | span exporter with full TLS/header/env config |
-|  [02]   | `OTLPSpanExporter.export(spans: Sequence[ReadableSpan]) -> SpanExportResult`                                                                                   | export         | encode + POST batch with retry loop          |
-|  [03]   | `OTLPSpanExporter.force_flush(timeout_millis=30000) -> bool`                                                                                                   | flush          | no-op true (HTTP path holds no queue)        |
-|  [04]   | `OTLPSpanExporter.shutdown()`                                                                                                                                  | lifecycle      | set shutdown flag, abort in-flight backoff   |
+|  [02]   | `OTLPSpanExporter.export(spans: Sequence[ReadableSpan]) -> SpanExportResult`                                                                                                                     | export         | encode + POST batch with retry loop           |
+|  [03]   | `OTLPSpanExporter.force_flush(timeout_millis=30000) -> bool`                                                                                                                                     | flush          | no-op true (HTTP path holds no queue)         |
+|  [04]   | `OTLPSpanExporter.shutdown()`                                                                                                                                                                    | lifecycle      | set shutdown flag, abort in-flight backoff    |
 
 [ENTRYPOINT_SCOPE]: OTLPMetricExporter
 - rail: observability
 - adds temporality/aggregation maps via `OTLPMetricExporterMixin`; `export` signature mirrors the SDK `MetricExporter` contract.
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------ |
 |  [01]   | `OTLPMetricExporter(endpoint=None, certificate_file=None, client_key_file=None, client_certificate_file=None, headers=None, timeout=None, compression=None, session=None, preferred_temporality=None, preferred_aggregation=None)` | construction   | metric exporter with temporality/aggregation preference |
-|  [02]   | `OTLPMetricExporter.export(metrics_data: MetricsData, timeout_millis=10_000, **kwargs) -> MetricExportResult`                                                       | export         | encode + POST `MetricsData` with retry          |
-|  [03]   | `OTLPMetricExporter.force_flush(timeout_millis=10_000) -> bool`                                                                                                     | flush          | no-op true                                      |
-|  [04]   | `OTLPMetricExporter.shutdown(timeout_millis=30_000, **kwargs) -> None`                                                                                              | lifecycle      | release session, abort backoff                  |
+|  [02]   | `OTLPMetricExporter.export(metrics_data: MetricsData, timeout_millis=10_000, **kwargs) -> MetricExportResult`                                                                                                                      | export         | encode + POST `MetricsData` with retry                  |
+|  [03]   | `OTLPMetricExporter.force_flush(timeout_millis=10_000) -> bool`                                                                                                                                                                    | flush          | no-op true                                              |
+|  [04]   | `OTLPMetricExporter.shutdown(timeout_millis=30_000, **kwargs) -> None`                                                                                                                                                             | lifecycle      | release session, abort backoff                          |
 
 [ENTRYPOINT_SCOPE]: OTLPLogExporter
 - rail: observability
 
-| [INDEX] | [SURFACE]                                                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------- |
-|  [01]   | `OTLPLogExporter(endpoint=None, certificate_file=None, client_key_file=None, client_certificate_file=None, headers=None, timeout=None, compression=None, session=None, *, meter_provider=None)` | construction   | log-record exporter with full config         |
-|  [02]   | `OTLPLogExporter.export(batch: Sequence[LogData]) -> LogExportResult`                                                                                          | export         | encode + POST `LogData` batch with retry     |
-|  [03]   | `OTLPLogExporter.force_flush(timeout_millis=10_000) -> bool`                                                                                                   | flush          | no-op true                                   |
-|  [04]   | `OTLPLogExporter.shutdown()`                                                                                                                                   | lifecycle      | set shutdown flag, abort backoff             |
+| [INDEX] | [SURFACE]                                                                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `OTLPLogExporter(endpoint=None, certificate_file=None, client_key_file=None, client_certificate_file=None, headers=None, timeout=None, compression=None, session=None, *, meter_provider=None)` | construction   | log-record exporter with full config     |
+|  [02]   | `OTLPLogExporter.export(batch: Sequence[LogData]) -> LogExportResult`                                                                                                                           | export         | encode + POST `LogData` batch with retry |
+|  [03]   | `OTLPLogExporter.force_flush(timeout_millis=10_000) -> bool`                                                                                                                                    | flush          | no-op true                               |
+|  [04]   | `OTLPLogExporter.shutdown()`                                                                                                                                                                    | lifecycle      | set shutdown flag, abort backoff         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

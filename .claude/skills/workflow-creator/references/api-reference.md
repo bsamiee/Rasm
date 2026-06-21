@@ -1,21 +1,32 @@
 # The Workflow Tool — Complete Reference
 
-The missing manual for Claude Code's `Workflow` tool. Read this top to bottom the
+The complete reference for Claude Code's `Workflow` tool. Read this top to bottom the
 first time; after that, jump to the section you need.
 
 ## Contents
 
-1. [What a workflow is](#1-what-a-workflow-is)
-2. [The Workflow tool's input](#3-the-workflow-tools-input)
-4. [File anatomy](#4-file-anatomy)
-5. [The script API](#5-the-script-api) · [`args` — normalizing input](#args--normalizing-input)
-6. [`agent()` in full](#6-agent-in-full) · [Setting the model](#setting-the-model) · [Structured output with `schema`](#structured-output-with-schema) · [Custom agent types](#custom-agent-types)
-7. [`pipeline()` vs `parallel()`](#7-pipeline-vs-parallel)
-8. [`budget` and token-aware loops](#8-budget-and-token-aware-loops)
-9. [`workflow()` — nesting](#9-workflow--nesting)
-10. [Caps, limits, and what happens at each](#10-caps-limits-and-what-happens-at-each)
-11. [The determinism sandbox](#11-the-determinism-sandbox)
-12. [Execution, the journal, and resume](#12-execution-the-journal-and-resume)
+- [The Workflow Tool — Complete Reference](#the-workflow-tool--complete-reference)
+  - [Contents](#contents)
+  - [1. What a workflow is](#1-what-a-workflow-is)
+  - [2. The Workflow tool's input](#2-the-workflow-tools-input)
+  - [3. File anatomy](#3-file-anatomy)
+    - [Part 1 — `meta` (mandatory, first statement, pure literal)](#part-1--meta-mandatory-first-statement-pure-literal)
+    - [Part 2 — the body](#part-2--the-body)
+  - [4. The script API](#4-the-script-api)
+    - [`args` — reading input](#args--reading-input)
+  - [5. `agent()` in full](#5-agent-in-full)
+    - [Setting the model](#setting-the-model)
+    - [Structured output with `schema`](#structured-output-with-schema)
+    - [Custom agent types](#custom-agent-types)
+  - [6. `pipeline()` vs `parallel()`](#6-pipeline-vs-parallel)
+    - [`pipeline(items, stage1, stage2, …)`](#pipelineitems-stage1-stage2-)
+    - [`parallel(thunks)`](#parallelthunks)
+    - [The rule](#the-rule)
+  - [7. `budget` and token-aware loops](#7-budget-and-token-aware-loops)
+  - [8. `workflow()` — nesting](#8-workflow--nesting)
+  - [9. Caps, limits, and what happens at each](#9-caps-limits-and-what-happens-at-each)
+  - [10. The determinism sandbox](#10-the-determinism-sandbox)
+  - [11. Execution, the journal, and resume](#11-execution-the-journal-and-resume)
 
 ---
 
@@ -59,7 +70,7 @@ one of `script`, `name`, or `scriptPath`.
 | `script` | string | A self-contained workflow script. Must begin with `export const meta = {…}`. |
 | `name` | string | Name of a predefined workflow — built-in, or a file in `.claude/workflows/`. |
 | `scriptPath` | string | Path to a workflow file on disk. **Takes precedence over `script` and `name`.** |
-| `args` | any | Optional input exposed to the script as the global `args`. The tool's input schema types this field as `unknown`, but the runtime **serializes it to a string** before the script runs — a JSON object/array arrives as JSON *text*, a plain string stays a string. See the `args` global below. |
+| `args` | any | Optional input exposed to the script as the global `args`, **as structured data** — an object/array/string the script reads directly. `undefined` if omitted. See the `args` global below. |
 | `resumeFromRunId` | string | A prior run ID (`wf_…`) to resume from. Same session only. |
 
 **The persist-and-edit loop.** Every invocation writes the script to a file in
@@ -69,7 +80,7 @@ never re-send the full script text after the first run.
 
 ---
 
-## 4. File anatomy
+## 3. File anatomy
 
 Two parts, in this order. The parser is strict about both.
 
@@ -113,11 +124,11 @@ can `await` at the top level. The orchestration globals are injected — you imp
 nothing. The body's `return` value becomes the tool result.
 
 Standard JS built-ins (`JSON`, `Math`, `Array`, `Map`, `Set`, …) are available.
-See [section 11](#11-the-determinism-sandbox) for what is removed.
+See [section 10](#10-the-determinism-sandbox) for what is removed.
 
 ---
 
-## 5. The script API
+## 4. The script API
 
 | Global | Signature | Purpose |
 |---|---|---|
@@ -129,54 +140,42 @@ See [section 11](#11-the-determinism-sandbox) for what is removed.
 | `console` | `console.log(…)`, `.error(…)`, … | A console whose output is routed straight into the workflow log. |
 | `setTimeout` / `clearTimeout` | the standard timer pair | Injected, and abort-aware — pending timers are cleared if the workflow is aborted. There is **no** `sleep`; do not busy-wait. Rarely needed in practice. |
 | `budget` | `{ total, spent(), remaining() }` | The turn's token target. |
-| `args` | any | Whatever was passed as the tool's `args` input, but **serialized to a string** by the runtime (`undefined` if none). A JSON object/array arrives as JSON *text*; a plain string stays a string. Normalize before use — see below. |
+| `args` | any | Whatever was passed as the tool's `args` input, exposed as **structured data** (`undefined` if none). An object stays an object, an array stays an array, a string stays a string — read it directly. See below. |
 | `workflow` | `workflow(nameOrRef, args?) → Promise<any>` | Run another workflow inline. |
 
-> **Undocumented but real.** `console`, `setTimeout`/`clearTimeout`, and the
-> `stallMs` option in section 6 exist and work in the runtime but are absent from
-> the Workflow tool's own input-schema description — confirmed in the binary. Use
-> them; just know they are not officially documented.
+> **`console`, `setTimeout`/`clearTimeout`, and the `stallMs` option** (section 5)
+> are injected globals/options and work in the runtime.
 
-### `args` — normalizing input
+### `args` — reading input
 
-The Workflow tool's input schema types `args` as `unknown`, but **empirically the
-runtime serializes it to a string before the script runs** (probed 2026-05-29 with
-zero-agent inspection workflows). This contradicts the tool's own inline
-description, which implies objects pass through live — they do not, in the version
-tested. What was actually observed for each input:
+`args` is exposed to the script as **structured data**, exactly as the caller
+supplied it. There is no serialization step to undo:
 
-- `Workflow({ args: { minUsers: 5 } })` → the script's `args` is the **string**
-  `'{"minUsers":5}'`. `typeof args === 'string'`, and `args.minUsers` is
-  `undefined`. You must `JSON.parse` to read fields.
-- `Workflow({ args: ["a","b","c"] })` → the script's `args` is the **string**
-  `'["a","b","c"]'`. `Array.isArray(args)` is `false` and `args.map` is undefined
-  until you parse it.
-- `Workflow({ args: "build a todo app" })` → a plain **string**, unchanged.
+- `Workflow({ args: { minUsers: 5 } })` → `args` is the object `{ minUsers: 5 }`;
+  `args.minUsers` is `5`.
+- `Workflow({ args: ['Rasm.Bim', 'Rasm.Compute'] })` → `args` is the array;
+  `Array.isArray(args)` is `true` and `args.map(...)` works.
+- `Workflow({ args: 'collapse the duplicate mesh codecs' })` → `args` is that
+  string.
 - Nothing passed → `args` is `undefined`.
 
-So a script that takes input should **normalize once at the top** — parse when it
-is a string, and keep the guard so a bare-text arg or a future live-object runtime
-still behaves:
+So the only handling a script needs is a default for the omitted case, plus a shape
+check when one workflow accepts both a config object and a free-text task:
 
 ```js
-// A JSON string parses to an object/array; plain text and `undefined` fall
-// through unchanged; a live object (future-proofing) passes straight through.
-const input = typeof args === 'string'
-  ? (() => { try { return JSON.parse(args) } catch { return args } })()
-  : args
-const threshold = input?.minUsers ?? 20
+const threshold = args?.minUsers ?? 20            // object input
+const scope = Array.isArray(args) ? args : []     // array input
+const task = typeof args === 'string' ? args : 'the change described in TASK.md'
 ```
 
-Keep the `typeof === 'string'` guard rather than `JSON.parse(args)`
-unconditionally: a bare-text arg isn't valid JSON (so an unconditional parse
-throws), and the guard future-proofs the script if the runtime ever stops
-stringifying. **Verification recipe:** a one-line workflow `return { t: typeof args,
-v: args }` with `agent_count: 0` round-trips in milliseconds and tells you exactly
-what your runtime delivers.
+Never `JSON.parse(args)` — it is already a live value, not JSON text, and parsing
+an object throws. A workflow saved as a `/<name>` command receives input the way
+the user phrases the invocation, parsed into structured data before the script
+runs; the `?? default` is what keeps the file runnable with no args at all.
 
 ---
 
-## 6. `agent()` in full
+## 5. `agent()` in full
 
 ```js
 const text = await agent('Summarize the README.')                 // → string
@@ -198,10 +197,10 @@ the agent from `/workflows`, `agent()` returns `null` — which is why you
 | `phase` | string | Assign this agent to a named progress group. Use inside `pipeline`/`parallel` stages so concurrent calls land in the right group instead of racing on the global `phase()`. Not part of the cache key. |
 | `schema` | object | A JSON Schema. Forces structured output — `agent()` returns the validated object. See **Structured output** below. |
 | `model` | string | Per-agent model. `'haiku'`, `'sonnet'`, `'opus'`, `'inherit'`, or a full model ID. Omit to inherit the session model. See **Setting the model** below. |
-| `effort` | string | Reasoning-effort tier for this call — `'low'`/`'high'`/`'xhigh'`/`'max'` (mirrors `/effort`). Independent of `model` — it tiers the *reasoning*, not the model. Match it to the stage role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for mechanical discovery/classification leaf work. NOT part of the resume cache key. |
-| `isolation` | `'worktree'` | Run the agent in a fresh git worktree. Expensive (~200–500 ms + disk each). Use **only** when parallel agents mutate files and would otherwise collide; the worktree is auto-removed if unchanged. `'worktree'` is the only accepted value — `'remote'` exists in the binary but is disabled in this build. |
+| `effort` | string | Reasoning-effort tier for this call — `'low'`/`'medium'`/`'high'`/`'xhigh'`/`'max'` (mirrors `/effort`). Independent of `model` — it tiers the *reasoning*, not the model. Match it to the stage role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for mechanical discovery/classification leaf work; omit it to inherit the session tier. NOT part of the resume cache key. |
+| `isolation` | `'worktree'` | Run the agent in a fresh git worktree. Expensive (~200–500 ms + disk each). Use **only** when parallel agents mutate files and would otherwise collide; the worktree is auto-removed if unchanged. `'worktree'` is the only accepted value; any other value is rejected. |
 | `agentType` | string | Run as a registered subagent type instead of the default workflow subagent. See **Custom agent types** below. |
-| `stallMs` | number | Override this agent's stall timeout (default **180000 ms / 3 min**). Raise it for a legitimately slow agent so it is not aborted as "stalled". Real but undocumented. |
+| `stallMs` | number | Override this agent's stall timeout (default **180000 ms / 3 min**). Raise it for a legitimately slow agent so it is not aborted as "stalled". |
 
 `schema`, `model`, `isolation`, and `agentType` are the four options baked into
 the resume cache key — change any of them and that `agent()` call re-runs.
@@ -232,7 +231,7 @@ verification or fan-out stage is the usual `'haiku'` candidate.
 
 Two things that are **not** how you set a model:
 
-- `meta.phases[].model` — display-only (see section 4). It does not set anything.
+- `meta.phases[].model` — display-only (see section 3). It does not set anything.
 - The `CLAUDE_CODE_SUBAGENT_MODEL` env var — if set, it overrides *every*
   per-call `model` for the whole session. It is a user/CI knob, not something a
   script controls; just know a workflow's `model` opts are silently ignored when
@@ -244,7 +243,7 @@ By default `agent()` returns the subagent's final text as a **string**. Pass a
 `schema` (a plain JSON Schema object) and you instead get a **validated object**
 back — ready for the next line of JavaScript, no `JSON.parse`.
 
-How it works in the binary: the runtime compiles your schema with **AJV**,
+The mechanism: the runtime compiles your schema with **AJV**,
 synthesises a hidden `StructuredOutput` tool whose input *is* that schema, and
 tells the subagent it must call that tool exactly once. The call is
 AJV-validated; on a mismatch the agent is handed the validation error and tries
@@ -291,7 +290,7 @@ for JSON in prose.
 
 ---
 
-## 7. `pipeline()` vs `parallel()`
+## 6. `pipeline()` vs `parallel()`
 
 ### `pipeline(items, stage1, stage2, …)`
 
@@ -341,7 +340,7 @@ wastes the idle time of every fast item while it waits for the slowest.
 
 ---
 
-## 8. `budget` and token-aware loops
+## 7. `budget` and token-aware loops
 
 `budget` reflects a token target the user can set with a `"+500k"`-style
 directive in their message.
@@ -366,7 +365,7 @@ while (budget.total && budget.remaining() > 50_000) {
 
 ---
 
-## 9. `workflow()` — nesting
+## 8. `workflow()` — nesting
 
 `workflow(nameOrRef, args?)` runs another workflow inline as a sub-step and
 returns whatever it returns. Pass a name for a saved workflow, or
@@ -380,12 +379,12 @@ error — catch it if you want to degrade gracefully.
 
 ---
 
-## 10. Caps, limits, and what happens at each
+## 9. Caps, limits, and what happens at each
 
 | Limit | Value | Behaviour when hit |
 |---|---|---|
 | Lifetime `agent()` calls per run | **1000** | Throws `WorkflowAgentCapError`. A runaway-loop backstop, set far above any real workflow — add a counter or budget guard to your loops. |
-| Concurrent agents | **min(16, max(2, cores − 2))** | Not an error — excess `agent()` calls **queue** and run as slots free. You can pass 100 items to `parallel()`; ~10 run at once on a typical machine, all 100 finish. The `max(2, …)` floor guarantees at least 2 even on a tiny machine. |
+| Concurrent agents | **up to 16** (fewer on machines with few CPU cores) | Not an error — excess `agent()` calls **queue** and run as slots free. You can pass 100 items to `parallel()`; up to 16 run at once, all 100 finish. The cap scales down with core count, so a small machine runs fewer. |
 | Script size | **524288 bytes (512 KB)** | The script is rejected before parsing. |
 | Token budget | user-set | Throws `WorkflowBudgetExceededError` once `spent()` reaches `total`. In-flight agents finish and their results are kept; no *new* agents start. |
 | Per-agent stall | **180000 ms** (3 min); per-agent override via `stallMs` | An agent with no progress for this long is aborted and retried — up to **5×** — then abandoned (its `agent()` call resolves, so the workflow continues). |
@@ -397,9 +396,9 @@ whole workflow forever.
 
 ---
 
-## 11. The determinism sandbox
+## 10. The determinism sandbox
 
-The script runs in a hardened sandbox — not a normal Node process. Two
+The script runs in a hardened sandbox — not a normal Node process. The
 consequences:
 
 **Non-reproducible calls are banned.** These would make a resume produce
@@ -416,12 +415,21 @@ no `require`, `fs`, `process`, network. Standard JS built-ins are available. Any
 file or shell work belongs **inside an `agent()`**: the subagent has the normal
 Read/Write/Bash tools; the orchestrator does not.
 
+**The body is JavaScript only.** TypeScript syntax — type annotations,
+`interface`, `as` casts — is a parse error. Write plain JS.
+
+**Subagents run in `acceptEdits` mode and inherit the session tool allowlist.**
+File edits inside an agent are auto-approved, but a shell, web, or MCP call that
+is *not* on the session allowlist can still raise a permission prompt mid-run —
+which stalls a long parallel run until it is answered. Grant those permissions
+before launching one.
+
 This is not a restriction to fight — it is the contract that makes resume work.
 The orchestrator's job is pure control flow over `agent()` calls.
 
 ---
 
-## 12. Execution, the journal, and resume
+## 11. Execution, the journal, and resume
 
 A workflow does **not** block the conversation:
 

@@ -6,6 +6,10 @@
  * a cheap Haiku agent that tries to refute it. pipeline() means a finding
  * verifies as soon as ITS review is done — no waiting for the slowest reviewer.
  *
+ * Two axes, set independently: the verify stage drops to model: 'haiku' (cheap
+ * per-finding fan-out) but keeps effort: 'high' so the adversarial refute still
+ * reasons hard — effort tiers the reasoning, not the model.
+ *
  * Run before opening a PR:  Workflow({ name: 'review-branch' })
  */
 
@@ -64,7 +68,7 @@ const results = await pipeline(
       agent(
         `Adversarially verify this finding. Try hard to refute it; if you cannot, it is real.\n` +
         `Finding: ${f.title}\nFile: ${f.file}\nSeverity: ${f.severity}`,
-        { label: `verify:${d.key}:${f.file}`, phase: 'Verify', model: 'haiku', schema: VERDICT },
+        { label: `verify:${d.key}:${f.file}`, phase: 'Verify', model: 'haiku', effort: 'high', schema: VERDICT },
       ).then(v => ({ ...f, dimension: d.key, verdict: v })),
     ),
   ),

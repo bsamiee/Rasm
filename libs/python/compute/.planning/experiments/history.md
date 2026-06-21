@@ -6,23 +6,23 @@ The experiment-run persistence, resume, and comparison rail on the study spine, 
 
 ## [01]-[INDEX]
 
-- [01]-[RUN_HISTORY]: content-key-keyed run persistence over a `Map[ContentKey, np.ndarray]` response cache, full-design-recompute partial-row resume over a bounded `ResumePlan` vocabulary composing the `StudyMethod` folds and `StudyReceipt.graded`, cohort comparison with the input-and-output-parameterized `CrossStat`-keyed cross-run agreement fold, and the one shared traced/fault-fenced/`@receipted` `_traced` rail both entrypoints weave on one `RunHistory` owner.
+- [01]-[RUN_HISTORY]: content-key-keyed run persistence over a `Map[ContentKey, np.ndarray]` response cache, full-design-recompute partial-row resume over a bounded `ResumePlan` vocabulary composing the `StudyMethod` folds and `StudyReceipt.graded`, cohort comparison with the input-and-output-parameterized `CrossStat`-owned cross-run agreement fold (the statistic family owning its `_rank`/`_correlation`/`_tau` kernels and `_KERNELS` table), and the one shared traced/fault-fenced/`@receipted` `_traced` rail both entrypoints weave on one `RunHistory` owner.
 
 ## [02]-[RUN_HISTORY]
 
 - Owner: `RunHistory` — the experiment-run persistence, resume, and comparison rail on the study spine; it carries the prior `StudyReceipt` cohort paired with the cached response vectors and re-runs only the incomplete grid cells. This is the multi-run owner standing beside the single-run `experiments/study.md#STUDY`, not folded into it: the study receipt is the per-grid evidence, `RunHistory` is the cohort that keys, resumes, and compares those receipts. No parallel experiment tracker stands beside it.
 - Cases: `ResumePlan` discriminates the three resume outcomes against the prior run on the design key — `Complete(prior)` short-circuits a finished run, `Partial(prior, done, cached)` evaluates only `design[done:]`, `np.concatenate`s the freshly-evaluated tail onto the cached response prefix, and recomputes the sensitivity indices over the whole reconstituted response vector, `Fresh()` runs the whole grid once. The plan is read by `ResumePlan.of(prior, cached, total)`: `done` is the cached vector's ROW count `len(prefix)` against the design height `total`, never the scalar element count `StudyReceipt.response_width` records, while `design[done:]`/`prefix[:done]` address rows; the prior receipt's `design_cells` field is itself the prior run's row count, so the cached vector length and that field measure one axis. Its total `match` over the `(StudyReceipt | None, np.ndarray | None)` pair folds to the case rather than nested `if`s, so a new resume policy is one plan case and one `match` arm, never a new entrypoint.
-- Entry: `RunHistory.resume` returns `RuntimeRail[StudyReceipt]` through the one `_traced` weave; it draws the design once through the union-owned `study.method.design(study.axes, seed)`, rails the design key through the railed `ContentIdentity.of` and `bind`s it into `_traced`, reads the `ResumePlan`, evaluates only the remaining design rows through the study owner's `Objective.rows` serial stack, reconstitutes the full response vector, and recomputes the receipt through the `StudyReceipt.graded` builder over a `Measured(responses, 0.0, Nothing)` so the resumed indices are statistically identical to an unbroken run. `RunHistory.compare` returns `RuntimeRail[ComparisonReceipt]` through the same `_traced("compare", ...)` weave: it `Block.map`s any cohort of keyed runs to one `RunProjection` value object each in a single pass through `_compare`, resolves the cohort `Option`-natively through `Block.partition` over `Map.try_find` so the missing keys are named in one `KeyError` the fence folds to a typed fault rather than escaping unclassified, and folds the shared-axis sensitivity vectors to one symmetric cross-run agreement table per selected `CrossStat` over the `np.argsort` rank transform. `_traced` is the one shared rail — the `content.history.{op}` span over the `boundary` fence over the `@beartype(conf=FAULT_CONF)`-guarded thunk, the `@receipted(_REDACTION)` `_emit` aspect harvesting the contributor stream on exit, the `Ok` arm setting `Status(StatusCode.OK)` and the `Error` arm leaving the cause the fence's `_convert` already recorded — exactly the `experiments/model.md#ASSET` multi-entry `_traced` form, not thin indirection since two entrypoints feed it. The single-pair join is the two-key cohort; the statistic family is the `stats` parameter, defaulting to the rank-correlation row.
-- Receipt: a resumed run emits the recomputed `StudyReceipt` from `experiments/study.md#STUDY` through the `_traced` `@receipted` aspect, so the resumed receipt's own `contribute` stream lands on the receipt sink rather than being silently dropped; the receipt carries the design `ContentKey` so a later resume keys distinctly when the data or method changes, never colliding to a stale cache hit. `compare` emits a `ComparisonReceipt` carrying the per-run `(design_cells, response_width)` pair, the shared-axis index table, and the per-`CrossStat` cross-run agreement matrix, contributing through the canonical two-argument `Receipt.of(owner, evidence)` factory over the `("emitted", subject, facts)` triple on the same `Receipt` sink as the study receipt — the row/width counts ride as native `int` and the agreement scores as native `float` on the `EventDict` `dict[str, object]` fact map the `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `str()` coerce or an `f"{rows}x{width}"` pre-format, not a parallel reporting surface. Both `StudyReceipt` and `ComparisonReceipt` satisfy the `ReceiptContributor` port, so the one bound-`E` `_emit` aspect harvests either egress.
-- Packages: `numpy` (`concatenate`, `argsort`, `mean`, `std`, `abs`, `asarray`, the `subtract.outer`/`sign` rank-difference pair contracted to the Kendall-tau scalar through `einsum("ij,ij->", su, sv)` — the general-contraction owner the `numpy.md` `RAIL_LAW` mandates over a materialized product-matrix `sum`), `expression` (`tagged_union`/`tag`/`case`, `Ok`/`Error`/`Nothing` the `_traced` rail match, `Block.of_seq`/`Block.map`/`Block.mapi`/`Block.skip`/`Block.choose`/`Block.collect`/`Block.reduce`/`Block.partition`, `Map.of_seq`/`Map.try_find` with the `Option.to_optional`/`Option.map`/`Option.is_some` lowers and the `Block.partition`-over-`try_find` cohort-resolution fold, the `Block.choose`-over-`Option.map` resolved-side projection), `experiments/study.md#STUDY` (`Study`, `StudyReceipt` with its `design_cells`/`response_width`/`indices`/`content_key` fields, `Measured`, `Objective` with its `rows` serial stack, the union-owned `StudyMethod.design`/`discrepancy`/`indices` folds reached through `study.method`, and the `StudyReceipt.graded(study, design, measured, key)` builder), `beartype` (`@beartype(conf=FAULT_CONF)` fencing the `_traced` thunk so a recompute/lookup contract violation folds onto the rail through the `CLASSIFY` `api` row), `opentelemetry-api` (`trace.get_tracer`/`start_as_current_span`/`Span.set_attribute`/`is_recording`/`set_status`/`Status`/`StatusCode` the one `content.history.{op}` span over the `history.{op}` `boundary` subject), runtime (`FAULT_CONF`/`RuntimeRail`/`boundary`, the railed `ContentIdentity.of` with `Result.bind`/`ContentKey`/`IdentityPolicy`, `Receipt`/`Redaction`/`ReceiptContributor`/`receipted` the `@receipted(_REDACTION)` egress aspect over the bound-`E` contributor).
-- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one field on `RunProjection`; a new cross-run statistic is one `CrossStat` member plus one `_CROSS_STAT` kernel row over the shared-axis rank/index vectors, reaching the agreement table and the receipt by that single add; a new entrypoint shares the one `_traced` weave by passing its `ReceiptContributor`-returning thunk; zero new emit surface.
-- Boundary: no job framework, scheduler, or production run store; offline run history only. A parallel experiment-tracker owner, a resume that re-runs completed cells, a partial resume that computes SALib indices over a tail slice, a `responses: tuple[np.ndarray, ...]` positionally `zip(..., strict=False)`-paired against `runs` where the `Map[ContentKey, np.ndarray]` cache keys each response by its design `ContentKey` (the positional pair mis-aligns a non-prefix response subset and `strict=False` silently truncates it), a resume keyed off the scalar `response_width` element count rather than the cached vector's row count, a `RunProjection` reading the phantom `cells_completed`/`cells_total` fields the study owner renamed to `design_cells`/`response_width` (an `AttributeError` against the live `StudyReceipt` shape), a resume that re-declares the study owner's design/index/discrepancy algebra rather than composing the `StudyMethod` folds and `graded`, an 8-positional `StudyReceipt.graded` against the `(study, design, measured, key)` four-argument builder, a hand-rolled per-row `np.stack` evaluator beside the study owner's `Objective.rows` serial stack, an import of a deleted `_design`/`_indices`/`_discrepancy` free function the `StudyMethod` union now owns, an absorption of the cohort into the single-run study receipt, a bare-`ContentKey` use of the railed `ContentIdentity.of`, a 4-positional-argument `Receipt.of` against the canonical `(owner, evidence)` factory, a `contribute` returning a single `Receipt` against the `Iterable[Receipt]` port, a `from __future__ import annotations` against the branch's PEP 695 convention, a hand-written per-statistic agreement method where the `CrossStat` table owns the family, a `batch = lambda grid:`/`vector = lambda run:` statement binding where a nested `def` carries the closure, a `gc=False` `RunProjection` opting a `dict`-carrying struct out of GC tracking against the container-free-leaf-only `gc=False` rule, a bare untraced `boundary(...)` lambda on `resume`/`compare` left un-spanned and un-`@receipted` where the sibling `study.run`/`model.validate` owners weave the `content.history.{op}` span and the `@receipted(_REDACTION)` egress aspect (so the `ComparisonReceipt`/`StudyReceipt` `contribute` stream silently never emits), a `history.{op}` span name dropping the `content.` prefix the sibling `experiments/model.md#ASSET`/`experiments/inference.md#INFERENCE` compute spans carry, a parallel per-entrypoint emit body where the one bound-`E` `_traced`/`_emit` rail harvests either contributor, an unfenced `_traced` thunk where `@beartype(conf=FAULT_CONF)` raises the canonical violation the `api` row catches, a `content.history.{op}` span left `UNSET` on a fault arm or re-annotated ERROR the fence's `_convert` already owns, a single-caller `_absent` raise wrapped in a `default_with(lambda: _absent(key))` thin indirection where the in-fence `Block.partition` over `Map.try_find` names every missing key in one raise the fence classifies, a `compare` escaping a raw `KeyError` past the owner rather than railing through the fence, a `def batch(grid):` nested forwarder where `objective.rows(...)` is the one-call study-owned serial stack each arm calls directly, and a `list`/`set`/`dict`-comprehension accumulator in `_agreement` against the `Block`/`Map` carrier discipline are the deleted forms. The persistence/cohort spine — the `ResumePlan` vocabulary, the cached-response concatenation, and the `compare`/`_agreement` `CrossStat` rank-agreement fold — is pure cp315-core numpy over the `expression` `Block`/`Map` carriers; the `resume` recompute inherits the study owner's `python_version<'3.15'` gating exactly where `StudyMethod.design`/`indices` route through the scipy `qmc` engine family and the SALib analyzers, and lands on the cp315 numpy factorial/polynomial floors otherwise. This owner takes no gated dependency of its own, and the `beartype`/`opentelemetry-api`/`expression`/`msgspec` weave is cp315-native.
+- Entry: `RunHistory.resume` returns `RuntimeRail[StudyReceipt]` through the one `_traced` weave; it draws the design once through the union-owned `study.method.design(study.axes, seed)`, rails the design key through the railed `ContentIdentity.of` and `bind`s it into `_traced`, reads the `ResumePlan`, evaluates only the remaining design rows through the study owner's `Objective.rows` serial stack, reconstitutes the full response vector, and recomputes the receipt through the `StudyReceipt.graded` builder over a `Measured(responses, 0.0, Nothing)` so the resumed indices are statistically identical to an unbroken run. `RunHistory.compare` returns `RuntimeRail[ComparisonReceipt]` through the same `_traced("compare", ...)` weave: it `Block.map`s any cohort of keyed runs to one `RunProjection` value object each in a single pass through `_compare`, resolves the cohort `Option`-natively through `Block.partition` over `Map.try_find` so the missing keys are named in one `KeyError` the fence folds to a typed fault rather than escaping unclassified, and folds the shared-axis sensitivity vectors to one symmetric cross-run agreement table per selected `CrossStat` over the `np.argsort` rank transform. `_traced` is the one shared rail — the `content.history.{op}` span over the `boundary` fence over the `@beartype(conf=FAULT_CONF)`-guarded thunk, the `@receipted(_REDACTION)` `_emit` aspect harvesting the contributor stream on exit, the `Ok` arm batching the receipt's bounded `span_facts` through `span.set_attributes` behind the `is_recording()` gate and setting `Status(StatusCode.OK)` while the `Error` arm leaves the cause the fence's `_convert` already recorded — exactly the `experiments/model.md#ASSET` multi-entry `_traced` form, not thin indirection since two entrypoints feed it. The single-pair join is the two-key cohort; the statistic family is the `stats` parameter, defaulting to the rank-correlation row.
+- Receipt: a resumed run emits the recomputed `StudyReceipt` from `experiments/study.md#STUDY` through the `_traced` `@receipted` aspect, so the resumed receipt's own `contribute` stream lands on the receipt sink rather than being silently dropped; the receipt carries the design `ContentKey` so a later resume keys distinctly when the data or method changes, never colliding to a stale cache hit. `compare` emits a `ComparisonReceipt` carrying the per-run `(design_cells, response_width)` pair, the per-run `width_ratio` arity normalization, the shared-axis index table, and the per-`CrossStat` cross-run agreement matrix, contributing through the canonical two-argument `Receipt.of(owner, evidence)` factory over the `("emitted", subject, facts)` triple on the same `Receipt` sink as the study receipt — the row/width counts ride as native `int` and the ratios and agreement scores as native `float` on the `EventDict` `dict[str, object]` fact map the `Encoder(enc_hook=repr, order="deterministic")` renderer serializes without a `str()` coerce or an `f"{rows}x{width}"` pre-format, not a parallel reporting surface. Both `StudyReceipt` and `ComparisonReceipt` satisfy the `Traceable` port (`contribute` plus the bounded `span_facts` projection), so the one bound-`E` `_emit` aspect harvests either egress and `_traced` writes the receipt's `span_facts` scalars onto the `Ok` span behind the `is_recording()` gate exactly as `study.run` does, never leaving the resume/compare span bare.
+- Packages: `numpy` (`concatenate`, `argsort`, `mean`, `std`, `abs`, `asarray`, the `subtract.outer`/`sign` rank-difference pair contracted to the Kendall-tau scalar through `einsum("ij,ij->", su, sv)` — the general-contraction owner the `numpy.md` `RAIL_LAW` mandates over a materialized product-matrix `sum`), `expression` (`tagged_union`/`tag`/`case`, `Ok`/`Error`/`Nothing` the `_traced` rail match, `Block.of_seq`/`Block.map`/`Block.mapi`/`Block.skip`/`Block.choose`/`Block.collect`/`Block.reduce`/`Block.partition`, `Map.of_seq`/`Map.try_find` with the `Option.to_optional`/`Option.map`/`Option.is_some` lowers and the `Block.partition`-over-`try_find` cohort-resolution fold, the `Block.choose`-over-`Option.map` resolved-side projection), `experiments/study.md#STUDY` (`Study`, `StudyReceipt` with its `design_cells`/`response_width`/`indices`/`content_key` fields, `Measured`, `Objective` with its `rows` serial stack, the union-owned `StudyMethod.design`/`discrepancy`/`indices` folds reached through `study.method`, and the `StudyReceipt.graded(study, design, measured, key)` builder), `beartype` (`@beartype(conf=FAULT_CONF)` fencing the `_traced` thunk so a recompute/lookup contract violation folds onto the rail through the `CLASSIFY` `api` row), `opentelemetry-api` (`trace.get_tracer`/`start_as_current_span`/`Span.set_attribute`/`Span.set_attributes`/`is_recording`/`set_status`/`Status`/`StatusCode` the one `content.history.{op}` span over the `history.{op}` `boundary` subject, the `Ok` arm batching `span_facts` through `set_attributes`), runtime (`FAULT_CONF`/`RuntimeRail`/`boundary`, the railed `ContentIdentity.of` with `Result.bind`/`ContentKey`/`IdentityPolicy`, `Receipt`/`Redaction`/`ReceiptContributor`/`receipted` the `@receipted(_REDACTION)` egress aspect over the bound-`E` `Traceable` extension of the `ReceiptContributor` port).
+- Growth: a new resume outcome is one `ResumePlan` case and its `match` arm; a new comparison projection is one field on `RunProjection`; a new cross-run statistic is one `CrossStat` member plus one `CrossStat._KERNELS` kernel row over the shared-axis rank/index vectors, reaching `CrossStat.agreement` and the receipt by that single add; a new entrypoint shares the one `_traced` weave by passing its `Traceable`-returning thunk (a receipt with `contribute` plus a bounded `span_facts` projection); zero new emit surface.
+- Boundary: no job framework, scheduler, or production run store; offline run history only. A parallel experiment-tracker owner, a resume that re-runs completed cells, a partial resume that computes SALib indices over a tail slice, a `responses: tuple[np.ndarray, ...]` positionally `zip(..., strict=False)`-paired against `runs` where the `Map[ContentKey, np.ndarray]` cache keys each response by its design `ContentKey` (the positional pair mis-aligns a non-prefix response subset and `strict=False` silently truncates it), a resume keyed off the scalar `response_width` element count rather than the cached vector's row count, a `RunProjection` reading the phantom `cells_completed`/`cells_total` fields the study owner renamed to `design_cells`/`response_width` (an `AttributeError` against the live `StudyReceipt` shape), a resume that re-declares the study owner's design/index/discrepancy algebra rather than composing the `StudyMethod` folds and `graded`, an 8-positional `StudyReceipt.graded` against the `(study, design, measured, key)` four-argument builder, a hand-rolled per-row `np.stack` evaluator beside the study owner's `Objective.rows` serial stack, an import of a deleted `_design`/`_indices`/`_discrepancy` free function the `StudyMethod` union now owns, an absorption of the cohort into the single-run study receipt, a bare-`ContentKey` use of the railed `ContentIdentity.of`, a 4-positional-argument `Receipt.of` against the canonical `(owner, evidence)` factory, a `contribute` returning a single `Receipt` against the `Iterable[Receipt]` port, a `from __future__ import annotations` against the branch's PEP 695 convention, a per-statistic agreement method (one `_spearman`/`_footrule`/`_tau`/`_pearson` body apiece) where the one `CrossStat._KERNELS` data table and the shared `CrossStat.agreement` fold own the family, a detached module-level `_rank`/`_correlation`/`_tau`/`_CROSS_STAT`/`_agreement` cluster the `CrossStat` enum reaches back down into rather than the static-method-and-table ownership `StudyMethod` holds, a `batch = lambda grid:`/`vector = lambda run:` statement binding where a nested `def` carries the closure, a `gc=False` `RunProjection` opting a `dict`-carrying struct out of GC tracking against the container-free-leaf-only `gc=False` rule, a bare untraced `boundary(...)` lambda on `resume`/`compare` left un-spanned and un-`@receipted` where the sibling `study.run`/`model.validate` owners weave the `content.history.{op}` span and the `@receipted(_REDACTION)` egress aspect (so the `ComparisonReceipt`/`StudyReceipt` `contribute` stream silently never emits), a `history.{op}` span name dropping the `content.` prefix the sibling `experiments/model.md#ASSET`/`experiments/inference.md#INFERENCE` compute spans carry, a parallel per-entrypoint emit body where the one bound-`E` `_traced`/`_emit` rail harvests either contributor, an unfenced `_traced` thunk where `@beartype(conf=FAULT_CONF)` raises the canonical violation the `api` row catches, a `content.history.{op}` span left `UNSET` on a fault arm or re-annotated ERROR the fence's `_convert` already owns, an `Ok` span left bare of the receipt's bounded `span_facts` scalars where the sibling `study.run` batches them on success, an un-gated `set_attributes` on the `Ok` arm where the sibling owners gate the write behind `is_recording()` so a no-op span builds no attribute map, a raw per-pair agreement matrix or full per-run index ledger dumped onto the span where only the bounded `runs`/`shared_axes`/`stats` `span_facts` scalars are admissible and the ledger rides the receipt facts, a single-caller `_absent` raise wrapped in a `default_with(lambda: _absent(key))` thin indirection where the in-fence `Block.partition` over `Map.try_find` names every missing key in one raise the fence classifies, a `compare` escaping a raw `KeyError` past the owner rather than railing through the fence, a `def batch(grid):` nested forwarder where `objective.rows(...)` is the one-call study-owned serial stack each arm calls directly, and a `list`/`set`/`dict`-comprehension accumulator in `CrossStat.agreement` against the `Block`/`Map` carrier discipline are the deleted forms. The persistence/cohort spine — the `ResumePlan` vocabulary, the cached-response concatenation, and the `compare`/`CrossStat.agreement` rank-agreement fold — is pure cp315-core numpy over the `expression` `Block`/`Map` carriers; the `resume` recompute inherits the study owner's `python_version<'3.15'` gating exactly where `StudyMethod.design`/`indices` route through the scipy `qmc` engine family and the SALib analyzers, and lands on the cp315 numpy factorial/polynomial floors otherwise. This owner takes no gated dependency of its own, and the `beartype`/`opentelemetry-api`/`expression`/`msgspec` weave is cp315-native.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from enum import StrEnum
-from typing import Final, Literal, assert_never
+from typing import Final, Literal, Protocol, assert_never, runtime_checkable
 
 import numpy as np
 from beartype import beartype
@@ -44,15 +44,83 @@ from rasm.runtime.receipts import Receipt, Redaction, ReceiptContributor, receip
 type CrossKernel = Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], float]
 
 
+# the `_traced` egress bound: a receipt both streams its `contribute` facts to the sink AND projects
+# the bounded `str | int | float` scalars the `Ok` arm writes onto the active span behind the
+# `is_recording()` gate, exactly the `StudyReceipt.span_facts` contract `experiments/study.md#STUDY`
+# folds on `Ok`. `StudyReceipt` already satisfies it (it carries both members), and `ComparisonReceipt`
+# does too, so the one bound `E` carries either egress and the resume/compare spans are not bare.
+@runtime_checkable
+class Traceable(ReceiptContributor, Protocol):
+    @property
+    def span_facts(self) -> dict[str, str | int | float]: ...
+
+
 class CrossStat(StrEnum):
     RANK_CORRELATION = "rank_correlation"      # Spearman rho: Pearson over the no-ties argsort ranks
     RANK_DISTANCE = "rank_distance"            # Spearman footrule: 1 - normalized L1 rank displacement
     KENDALL_TAU = "kendall_tau"                # concordant-minus-discordant pair fraction over the ranks
     LINEAR_CORRELATION = "linear_correlation"  # Pearson over the raw shared-axis index magnitudes
 
+    # the statistic family OWNS its kernels exactly as `experiments/study.md#STUDY`'s `StudyMethod`
+    # owns `_qmc`/`_salib`/`_axis_r2`: the rank transform, the two closed-form kernels, and the
+    # `_KERNELS` dispatch table are static members of this owner, never module-level free functions
+    # the enum reaches back down into. `score` reads `_KERNELS[self]` over the raw-and-rank pair.
     def score(self, u_idx: np.ndarray, v_idx: np.ndarray) -> float:
-        u_rank, v_rank = _rank(u_idx), _rank(v_idx)
-        return _CROSS_STAT[self](u_idx, v_idx, u_rank, v_rank)
+        u_rank, v_rank = CrossStat._rank(u_idx), CrossStat._rank(v_idx)
+        return CrossStat._KERNELS[self](u_idx, v_idx, u_rank, v_rank)
+
+    # the upper-triangular cohort fold is the statistic's own concern, not a single-caller free
+    # function: every shared-axis run pair scores through `self.score` and lands in one agreement map.
+    def agreement(self, rows: "Block[RunProjection]") -> dict[str, float]:
+        shared = sorted(rows.map(lambda r: frozenset(r.indices)).reduce(frozenset.intersection)) if rows else []
+        if len(shared) < 2:
+            return {}
+
+        def vector(run: "RunProjection") -> np.ndarray:
+            return np.asarray([run.indices[axis] for axis in shared], dtype=float)
+
+        pairs = rows.mapi(
+            lambda i, a: rows.skip(i + 1).map(lambda b: (f"{a.name}~{b.name}", self.score(vector(a), vector(b))))
+        ).collect(lambda p: p)
+        return dict(pairs)
+
+    @staticmethod
+    def _rank(values: np.ndarray) -> np.ndarray:
+        # double-argsort ordinal rank transform: no-ties ranks for the shared-axis index vector.
+        return np.argsort(np.argsort(values))
+
+    @staticmethod
+    def _correlation(u: np.ndarray, v: np.ndarray) -> float:
+        # Pearson over `u`/`v`; the population-std ddof cancels in the ratio. A zero-variance operand
+        # (constant index column) folds to perfect agreement `1.0` rather than a `0/0` NaN.
+        du, dv = u - u.mean(), v - v.mean()
+        denom = float(du.std() * dv.std())
+        return float((du * dv).mean() / denom) if denom else 1.0
+
+    @staticmethod
+    def _tau(u_rank: np.ndarray, v_rank: np.ndarray) -> float:
+        # concordant-minus-discordant over all unordered pairs as the sign-product contraction of the
+        # rank outer-differences. `einsum("ij,ij->", su, sv)` contracts the two sign matrices to the
+        # scalar whole-matrix sum without materializing their product (the `numpy.md` `RAIL_LAW`
+        # general-contraction owner); symmetric with a zero diagonal under no-ties ranks, so the
+        # contraction `/ 2` is the upper-triangular pair sum with no explicit `triu` extract.
+        su = np.sign(np.subtract.outer(u_rank, u_rank))
+        sv = np.sign(np.subtract.outer(v_rank, v_rank))
+        n = len(u_rank)
+        return float(np.einsum("ij,ij->", su, sv)) / 2.0 / max(n * (n - 1) // 2, 1)
+
+    # the four statistics collapse to one dispatch table reading the raw `(u, v)` pair AND the ordinal
+    # `(ur, vr)` ranks: the rank-correlation/footrule/tau rows fold over the ranks, the linear row over
+    # the raw magnitudes, so a new statistic is one enum member plus one row, never a per-stat method.
+    _KERNELS: "Map[CrossStat, CrossKernel]"
+
+
+CrossStat._KERNELS = Map.of_seq([
+    (CrossStat.RANK_CORRELATION, lambda _u, _v, ur, vr: CrossStat._correlation(ur, vr)),
+    (CrossStat.RANK_DISTANCE, lambda _u, _v, ur, vr: 1.0 - float(np.abs(ur - vr).sum()) / max(len(ur) ** 2 // 2, 1)),
+    (CrossStat.KENDALL_TAU, lambda _u, _v, ur, vr: CrossStat._tau(ur, vr)),
+    (CrossStat.LINEAR_CORRELATION, lambda u, v, _ur, _vr: CrossStat._correlation(u, v)),
+])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -119,17 +187,27 @@ class RunProjection(Struct, frozen=True):
 class ComparisonReceipt(Struct, frozen=True):
     names: tuple[str, ...]
     cells: dict[str, tuple[int, int]]  # name -> (design_cells, response_width)
+    ratios: dict[str, float]           # name -> RunProjection.width_ratio, the per-cell arity normalization
     indices: dict[str, dict[str, float]]
     agreement: dict[str, dict[str, float]]  # stat -> {pair -> score}, the per-CrossStat matrix
 
-    def contribute(self) -> tuple[Receipt, ...]:
+    @property
+    def span_facts(self) -> dict[str, str | int | float]:
+        # the bounded-scalar source the `content.history.compare` span reads on `Ok` — exactly the
+        # `str | int | float` set `Span.set_attributes` admits, mirroring `StudyReceipt.span_facts`; the
+        # full per-pair agreement matrix and per-run index ledger ride the receipt facts only.
+        shared = sorted(frozenset.intersection(*(frozenset(idx) for idx in self.indices.values()))) if self.indices else []
+        return {"runs": len(self.names), "shared_axes": len(shared), "stats": len(self.agreement)}
+
+    def contribute(self) -> Iterable[Receipt]:
         # the `ReceiptContributor` port yields an `Iterable[Receipt]`; one `emitted` receipt streams the
-        # cohort row/width counts as native ints and the per-`CrossStat` pairwise agreement scores as
-        # native floats the `EventDict` `dict[str, object]` carries without a `str()`/`repr` coerce — no
-        # `f"{rows}x{width}"` pre-format where the `enc_hook=repr` renderer keeps the int/float types.
+        # cohort row/width/arity-ratio counts as native ints and floats and the per-`CrossStat` pairwise
+        # agreement scores as native floats the `EventDict` `dict[str, object]` carries without a `str()`/
+        # `repr` coerce — no `f"{rows}x{width}"` pre-format where the `enc_hook=repr` renderer keeps types.
         facts: dict[str, object] = {
             **{f"rows[{k}]": rows for k, (rows, _) in self.cells.items()},
             **{f"width[{k}]": width for k, (_, width) in self.cells.items()},
+            **{f"ratio[{k}]": ratio for k, ratio in self.ratios.items()},
             **{f"agree[{stat}:{pair}]": score for stat, m in self.agreement.items() for pair, score in m.items()},
         }
         return (Receipt.of("compute.history", ("emitted", ",".join(self.names), facts)),)
@@ -137,57 +215,10 @@ class ComparisonReceipt(Struct, frozen=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_TRACER: Final = trace.get_tracer("compute.history")
-
+_TRACER: Final[trace.Tracer] = trace.get_tracer("compute.history")
 _REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # run-history facts carry no secret field
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _rank(values: np.ndarray) -> np.ndarray:
-    # double-argsort ordinal rank transform: no-ties ranks for the shared-axis index vector.
-    return np.argsort(np.argsort(values))
-
-
-def _correlation(u: np.ndarray, v: np.ndarray) -> float:
-    du, dv = u - u.mean(), v - v.mean()
-    denom = float(du.std() * dv.std())
-    return float((du * dv).mean() / denom) if denom else 1.0
-
-
-def _tau(u_rank: np.ndarray, v_rank: np.ndarray) -> float:
-    # concordant-minus-discordant over all unordered pairs as the sign-product contraction of the rank
-    # outer-differences. `einsum("ij,ij->", su, sv)` contracts the two sign matrices to the scalar
-    # whole-matrix sum without materializing their product; symmetric with a zero diagonal under no-ties
-    # ranks, so the contraction `/ 2` is the upper-triangular pair sum with no explicit `triu` extract.
-    su = np.sign(np.subtract.outer(u_rank, u_rank))
-    sv = np.sign(np.subtract.outer(v_rank, v_rank))
-    n = len(u_rank)
-    return float(np.einsum("ij,ij->", su, sv)) / 2.0 / max(n * (n - 1) // 2, 1)
-
-
-_CROSS_STAT: Final[Map[CrossStat, CrossKernel]] = Map.of_seq([
-    (CrossStat.RANK_CORRELATION, lambda _u, _v, ur, vr: _correlation(ur, vr)),
-    (CrossStat.RANK_DISTANCE, lambda _u, _v, ur, vr: 1.0 - float(np.abs(ur - vr).sum()) / max(len(ur) ** 2 // 2, 1)),
-    (CrossStat.KENDALL_TAU, lambda _u, _v, ur, vr: _tau(ur, vr)),
-    (CrossStat.LINEAR_CORRELATION, lambda u, v, _ur, _vr: _correlation(u, v)),
-])
-
-
-def _agreement(rows: Block[RunProjection], stat: CrossStat) -> dict[str, float]:
-    # shared-axis intersection by `Block.reduce`, vectorized per run, then the upper-triangular run
-    # pairs folded through `mapi`/`skip`/`collect` so no `list`/`set` accumulator escapes the carriers.
-    shared = sorted(rows.map(lambda r: frozenset(r.indices)).reduce(frozenset.intersection)) if rows else []
-    if len(shared) < 2:
-        return {}
-
-    def vector(run: RunProjection) -> np.ndarray:
-        return np.asarray([run.indices[axis] for axis in shared], dtype=float)
-
-    pairs = rows.mapi(
-        lambda i, a: rows.skip(i + 1).map(lambda b: (f"{a.name}~{b.name}", stat.score(vector(a), vector(b))))
-    ).collect(lambda p: p)
-    return dict(pairs)
 
 
 @beartype(conf=FAULT_CONF)
@@ -208,8 +239,9 @@ def _compare(
     return ComparisonReceipt(
         names=tuple(row.name for row in rows),
         cells={row.name: (row.design_cells, row.response_width) for row in rows},
+        ratios={row.name: row.width_ratio for row in rows},
         indices={row.name: row.indices for row in rows},
-        agreement={stat.value: _agreement(rows, stat) for stat in stats},
+        agreement={stat.value: stat.agreement(rows) for stat in stats},
     )
 
 
@@ -270,23 +302,25 @@ class RunHistory(Struct, frozen=True):
         # family is the `stats` parameter, parameterizing the comparison on input shape AND output table.
         return self._traced("compare", lambda: _compare(self._by_key, keys, stats))
 
-    def _traced[E: ReceiptContributor](self, op: str, thunk: Callable[[], E]) -> RuntimeRail[E]:
+    def _traced[E: Traceable](self, op: str, thunk: Callable[[], E]) -> RuntimeRail[E]:
         # one woven rail both entrypoints share — exactly the `experiments/model.md#ASSET` multi-entry
         # `_traced` form, not thin indirection: the `boundary` fence wraps the thunk inside one
         # `content.history.{op}` span (the `content.` prefix the sibling compute spans carry), and the
         # thunk calls a `@beartype(conf=FAULT_CONF)`-guarded body (`_resume`/`_compare`, decorated exactly
         # as the sibling `study._execute`/`model._load_and_run`), so a recompute/lookup contract violation
         # folds through the `CLASSIFY` `api` row and a missing-cohort `KeyError` through the `boundary` row
-        # rather than escaping; the `Ok` arm sets a total `Status` and `@receipted` harvests the resumed
-        # `StudyReceipt.contribute`/`ComparisonReceipt.contribute` stream on exit, while the `Error` arm
+        # rather than escaping; the `Ok` arm batches the receipt's bounded `span_facts` behind the
+        # `is_recording()` gate and sets a total `Status` exactly as `study.run` does, while the `Error` arm
         # needs no body because the fence's `_convert` already recorded the cause and set `StatusCode.ERROR`
-        # on the active span. Both receipts satisfy `ReceiptContributor`, so the one bound `E` carries either.
+        # on the active span. Both receipts satisfy `Traceable`, so the one bound `E` carries either egress.
         with _TRACER.start_as_current_span(f"content.history.{op}") as span:
             if span.is_recording():
                 span.set_attribute("history.op", op)
             rail = boundary(f"history.{op}", lambda: RunHistory._emit(thunk()))
             match rail:
-                case Ok(_):
+                case Ok(evidence):
+                    if span.is_recording():
+                        span.set_attributes(evidence.span_facts)
                     span.set_status(Status(StatusCode.OK))
                 case Error(_):
                     pass
@@ -294,16 +328,16 @@ class RunHistory(Struct, frozen=True):
 
     @staticmethod
     @receipted(_REDACTION)
-    def _emit[E: ReceiptContributor](evidence: E) -> E:
+    def _emit[E: Traceable](evidence: E) -> E:
         return evidence
 ```
 
 `ResumePlan.of` matches the prior receipt against its cached prefix into one of three outcomes — keying `done` on `len(prefix)` against the design height `total`, never the scalar `response_width` element count — and `_resume` folds each outcome through a total `match` closed by `assert_never`. The `partial` arm evaluates only `design[done:]` through the study owner's `Objective.rows` serial stack, `np.concatenate`s the tail onto the cached prefix, and recomputes the indices over the whole reconstituted vector (never the tail slice, where a SALib variance-, moment-, or derivative-based index is undefined); both recompute arms land on `_recompute`, which composes `StudyReceipt.graded(study, design, Measured(responses, 0.0, Nothing), key)` so `graded` re-derives the indices and discrepancy through the `StudyMethod` union folds and this owner re-declares no design algebra, `elapsed=0.0`/`speedup=Nothing` because a resume inherits no fresh timing.
 
-`_agreement` intersects the runs' sensitivity-axis names through a `Block.reduce(frozenset.intersection)` fold, `_rank`-transforms each run's shared-axis index vector through the double-`np.argsort` idiom, and folds the upper-triangular run pairs through `mapi`/`skip`/`collect` to each pair's score through the `_CROSS_STAT` kernel table: `RANK_CORRELATION` (default), `RANK_DISTANCE` over the L1 displacement, `KENDALL_TAU` over the `np.subtract.outer`/`np.sign` pair contracted by `np.einsum("ij,ij->", su, sv)`, and `LINEAR_CORRELATION` over the raw magnitudes — all cp315-core numpy with no gated dependency. `ComparisonReceipt.contribute` and the resumed `StudyReceipt` both stream through the canonical two-argument `Receipt.of` factory the `_emit` aspect harvests, the native `float` scores riding the `EventDict` `dict[str, object]` without a `str()`/`repr` coerce.
+`CrossStat.agreement` intersects the runs' sensitivity-axis names through a `Block.reduce(frozenset.intersection)` fold, `CrossStat._rank`-transforms each run's shared-axis index vector through the double-`np.argsort` idiom, and folds the upper-triangular run pairs through `mapi`/`skip`/`collect` to each pair's `self.score` through the owner-internal `CrossStat._KERNELS` kernel table: `RANK_CORRELATION` (default), `RANK_DISTANCE` over the L1 displacement, `KENDALL_TAU` over the `np.subtract.outer`/`np.sign` pair contracted by `np.einsum("ij,ij->", su, sv)`, and `LINEAR_CORRELATION` over the raw magnitudes — the statistic family owning its kernels exactly as `StudyMethod` owns `_qmc`/`_salib`, all cp315-core numpy with no gated dependency. `ComparisonReceipt.contribute` and the resumed `StudyReceipt` both stream through the canonical two-argument `Receipt.of` factory the `_emit` aspect harvests, the native `float` scores riding the `EventDict` `dict[str, object]` without a `str()`/`repr` coerce.
 
 ## [03]-[RESEARCH]
 
 - [RESUME_DESIGN_SLICE]: the partial-resume slice assumes `study.method.design(axes, seed)` is row-stable across runs at a fixed seed, so `design[done:]` addresses exactly the rows the prior run left unevaluated and the cached `prefix[:done]` addresses exactly the rows it completed. The resume index `done` is `len(prefix)` — the cached response vector's row count — capped at the design height, never the scalar `StudyReceipt.response_width` field, which `graded` records as `int(measured.responses.size // rows)`, the per-cell output arity rather than a row index; the prior receipt's `design_cells` field is itself `int(design.shape[0])`, the prior run's row count, so it and the cached vector length measure one axis and a resume could read either. The `ContentKey`-keyed cache tightens this: `cache.try_find(key)` hits only when the stored prefix was produced under the SAME design bytes the current `key` folds, so a `Partial` prefix is provably a prefix of the identical design rather than a positionally-zipped vector from a different run. This row-stability holds for the numpy factorial floor and the scipy `qmc` rows (seeded `LatinHypercube`/`Sobol`/`Halton` under the SPEC-007 `rng` keyword), and the SALib structured designs (seeded). The reconstituted `np.concatenate([prefix, tail])` is therefore the same response vector a single unbroken run produces, and `_recompute` runs `StudyMethod.indices` once over the full design — the only statistically valid recompute, since SALib's Saltelli/Morris/FAST estimators read the whole structured design. `resume` draws `study.method.design(study.axes, seed)` once and threads it into both the railed `ContentIdentity.of` key derivation and `_resume`, never re-drawing a QMC/SALib design twice on one resume. The tail is evaluated through the study owner's `Objective.rows` `np.stack` serial fold rather than a re-declared per-row evaluator, so the resume reuses the one batch-or-serial discipline `MeasurementMode.evaluate` holds. `RunHistory.responses` is the `Map[ContentKey, np.ndarray]` cache keyed by each prior run's design `ContentKey` at construction (the `_by_key` discipline), so `_resume` reads it by the same key it looks the prior receipt up by rather than a positional `zip` against `runs` that mis-pairs a non-prefix response subset or truncates under `strict=False`; a run absent from the cache cannot resume partially and falls to `Fresh`. The `StudyMethod.design`/`discrepancy`/`indices` union folds, the `StudyReceipt.graded(study, design, measured, key)` builder, and the `StudyReceipt` `method`/`mode`/`design_cells`/`response_width`/`indices`/`discrepancy`/`elapsed`/`speedup`/`content_key` fields are owned by `experiments/study.md#STUDY` and composed here, never re-declared — `_recompute` wrapping the responses in a `Measured(responses, 0.0, Nothing)` and calling `graded` rather than constructing `StudyReceipt` positionally, so the resumed receipt carries the full nine-field shape with `discrepancy` and `speedup` re-derived through the union rather than a positional constructor that mismatches the struct.
-- [RANK_AGREEMENT]: the cross-run agreement is parameterized over a `CrossStat` family rather than one hardcoded Spearman read, each member one `_CROSS_STAT` kernel row over the shared-axis index vectors and their `_rank` double-`np.argsort` ordinal-rank transforms. `RANK_CORRELATION` is the Spearman coefficient as the normalized covariance of the rank vectors (`(du*dv).mean()/(du.std()*dv.std())`), `RANK_DISTANCE` the Spearman-footrule complement `1 - sum(|u_rank - v_rank|) / floor(n^2/2)` over the maximum L1 rank displacement, `KENDALL_TAU` the concordant-minus-discordant pair fraction `einsum("ij,ij->", sign(Δu_rank), sign(Δv_rank)) / 2 / (n*(n-1)/2)` contracting the two `np.subtract.outer` sign matrices to the whole-matrix scalar sum without materializing their product — symmetric with a zero diagonal under no-ties ranks, so the contraction `/ 2` is the upper-triangular pair sum without an explicit `triu` extract — and `LINEAR_CORRELATION` the Pearson coefficient over the raw shared-axis index magnitudes; a degenerate zero-variance vector folds the correlation kernels to perfect agreement `1.0`. No `scipy.stats.spearmanr`/`rankdata`/`kendalltau` dependency is taken — those carry the `python_version<'3.15'` gate (confirmed `scipy.md` `[03]` correlation row), and the closed forms over `argsort`/`mean`/`std`/`abs`/`subtract.outer`/`sign`/`einsum` (all `numpy.md`-catalogued, cp315-clean, `einsum` the `RAIL_LAW` general-contraction owner) are exact for the no-ties ordinal ranks the transform yields, so the agreement family runs on the cp315 core where the gated scipy correlations cannot. Fewer than two shared axes yields an empty agreement map per statistic rather than a singleton self-correlation, and `compare` selects the family through the `stats: frozenset[CrossStat]` parameter so the output table is `{stat -> {pair -> score}}`, parameterizing the comparison on output shape as the key cohort parameterizes it on input.
-- [CONTENT_KEY_PROJECTION]: `RunProjection.of` reads the `ContentKey.hex` render (`{value:032x}:{fmt}`, the `project("hex")`-delegating property owned by `runtime/evidence/identity.md#IDENTITY`) for the comparison row key, slicing its leading characters for a compact axis label and folding the receipt's `design_cells`/`response_width` row-and-arity counts and `indices` into one frozen value object so the cohort projects in one `Block.map` pass rather than parallel per-field dict comprehensions over the raw receipts. The projection reads the canonical `StudyReceipt.design_cells`/`response_width` fields the study owner declares — never the phantom `cells_completed`/`cells_total` an older receipt shape carried, which would raise `AttributeError` against the live struct — and `RunProjection.width_ratio` derives the per-cell arity normalization on demand rather than persisting a stale completion fraction over a `cells_completed > cells_total` contradiction the renamed receipt cannot express. `RunProjection` carries the `indices` container field, so it stays GC-tracked exactly as `StudyReceipt` does and never takes the `gc=False` opt-out the container-free `ParamAxis`/`SalibRoute`/`Measured` leaves carry. `ContentIdentity.of`/`ContentKey`/`IdentityPolicy` are composed exactly as `experiments/study.md#STUDY` keys its design, never re-declared; `ContentIdentity.of` returns `RuntimeRail[ContentKey]` and takes the `CANONICAL_POLICY` default, so the explicit `IdentityPolicy()` argument here keys identically to the study owner's design key at a fixed format and policy, and `resume` `bind`s the railed key into `_traced` rather than treating `of` as a bare-`ContentKey` call.
+- [RANK_AGREEMENT]: the cross-run agreement is parameterized over a `CrossStat` family rather than one hardcoded Spearman read, each member one owner-internal `CrossStat._KERNELS` kernel row over the shared-axis index vectors and their `CrossStat._rank` double-`np.argsort` ordinal-rank transforms, the statistic family owning its kernels and dispatch table as static members exactly as `StudyMethod` owns `_qmc`/`_salib`/`_axis_r2` rather than a detached free-function cluster. `RANK_CORRELATION` is the Spearman coefficient as the normalized covariance of the rank vectors (`(du*dv).mean()/(du.std()*dv.std())`), `RANK_DISTANCE` the Spearman-footrule complement `1 - sum(|u_rank - v_rank|) / floor(n^2/2)` over the maximum L1 rank displacement, `KENDALL_TAU` the concordant-minus-discordant pair fraction `einsum("ij,ij->", sign(Δu_rank), sign(Δv_rank)) / 2 / (n*(n-1)/2)` contracting the two `np.subtract.outer` sign matrices to the whole-matrix scalar sum without materializing their product — symmetric with a zero diagonal under no-ties ranks, so the contraction `/ 2` is the upper-triangular pair sum without an explicit `triu` extract — and `LINEAR_CORRELATION` the Pearson coefficient over the raw shared-axis index magnitudes; a degenerate zero-variance vector folds the correlation kernels to perfect agreement `1.0`. No `scipy.stats.spearmanr`/`rankdata`/`kendalltau` dependency is taken — those carry the `python_version<'3.15'` gate (confirmed `scipy.md` `[03]` correlation row), and the closed forms over `argsort`/`mean`/`std`/`abs`/`subtract.outer`/`sign`/`einsum` (all `numpy.md`-catalogued, cp315-clean, `einsum` the `RAIL_LAW` general-contraction owner) are exact for the no-ties ordinal ranks the transform yields, so the agreement family runs on the cp315 core where the gated scipy correlations cannot. Fewer than two shared axes yields an empty agreement map per statistic rather than a singleton self-correlation, and `compare` selects the family through the `stats: frozenset[CrossStat]` parameter so the output table is `{stat -> {pair -> score}}`, parameterizing the comparison on output shape as the key cohort parameterizes it on input.
+- [CONTENT_KEY_PROJECTION]: `RunProjection.of` reads the `ContentKey.hex` render (`{value:032x}:{fmt}`, the `project("hex")`-delegating property owned by `runtime/evidence/identity.md#IDENTITY`) for the comparison row key, slicing its leading characters for a compact axis label and folding the receipt's `design_cells`/`response_width` row-and-arity counts and `indices` into one frozen value object so the cohort projects in one `Block.map` pass rather than parallel per-field dict comprehensions over the raw receipts. The projection reads the canonical `StudyReceipt.design_cells`/`response_width` fields the study owner declares — never the phantom `cells_completed`/`cells_total` an older receipt shape carried, which would raise `AttributeError` against the live struct — and `RunProjection.width_ratio` derives the per-cell arity normalization the `_compare` projection folds into the `ComparisonReceipt.ratios` map and the receipt facts, rather than persisting a stale completion fraction over a `cells_completed > cells_total` contradiction the renamed receipt cannot express. `RunProjection` carries the `indices` container field, so it stays GC-tracked exactly as `StudyReceipt` does and never takes the `gc=False` opt-out the container-free `ParamAxis`/`SalibRoute`/`Measured` leaves carry. `ContentIdentity.of`/`ContentKey`/`IdentityPolicy` are composed exactly as `experiments/study.md#STUDY` keys its design, never re-declared; `ContentIdentity.of` returns `RuntimeRail[ContentKey]` and takes the `CANONICAL_POLICY` default, so the explicit `IdentityPolicy()` argument here keys identically to the study owner's design key at a fixed format and policy, and `resume` `bind`s the railed key into `_traced` rather than treating `of` as a bare-`ContentKey` call.

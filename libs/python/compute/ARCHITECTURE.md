@@ -16,9 +16,9 @@ compute/
 │   ├── differential.py        # DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
 │   ├── sensitivity.py         # Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
 │   └── mesh.py                # MeshField — mesh topology, per-node/per-cell fields, skfem assemble fold, meshio interchange
-├── optimization/              # Three sibling owners discriminated by problem structure — differentiable design, constrained/discrete programs, certified convex programs
+├── optimization/              # By problem structure — differentiable design, constrained/discrete programs, certified convex programs
 │   ├── design.py              # DesignProblem — Optimistix minimise/least-squares over an Equinox-parameterized objective reading implicit-adjoint gradient
-│   ├── program.py             # ProgramIntent — linear/integer/global/constrained/assignment math programs over scipy.optimize folding one OptimizeResult receipt
+│   ├── program.py             # ProgramIntent — linear/integer/global/constrained/assignment programs over scipy.optimize folding one OptimizeResult receipt
 │   └── convex.py              # ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding dual-certificate proof of optimality
 ├── experiments/               # Design-of-experiments study, content-keyed run history, Bayesian inference, classical ML model assets
 │   ├── study.py               # Study — DOE sampling, SALib sensitivity, surrogate fitting, benchmark discriminant
@@ -31,8 +31,8 @@ compute/
 │   ├── quantity.py            # UncertainQuantity — correlated first-order uncertainty through pint unit algebra
 │   └── statistics.py          # Statistics — in-memory scipy.stats hypothesis tests + MLE distribution fit folding one StatReport
 ├── analysis/                  # Classical-math producers: digital signal processing, computer-algebra derivation, computational geometry
-│   ├── signal.py              # Signal — IIR/FIR filter design, Welch spectral estimation, polyphase resampling, and pywt wavelet/scalogram/packet multiresolution fold
-│   ├── transform.py           # Transform — scipy.fft DFT/real-DFT/cosine-sine transforms and the scipy.signal.hilbert analytic-signal envelope on one frequency-domain owner
+│   ├── signal.py              # IIR/FIR filter design, Welch spectral estimation, polyphase resampling, pywt wavelet/scalogram/packet multiresolution fold
+│   ├── transform.py           # scipy.fft DFT/real-DFT/cosine-sine transforms + scipy.signal.hilbert analytic-signal envelope on one frequency-domain owner
 │   ├── symbolic.py            # SymbolicDerivation — sympy lambdify/codegen producing numpy/C handoff artifact
 │   └── spatial.py             # SpatialQuery — KD-tree neighbour/radius, hull, Delaunay, Voronoi, alpha-shape boundary fold
 └── graduation/                # Python-only graduation rail and C# stub codegen

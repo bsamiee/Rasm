@@ -2,11 +2,11 @@
 
 The one classical computer-algebra owner. A derivation is a `Block[SymbolicOp]` left-folded over an `ExprForm` to one typed `SymbolicReceipt`: every non-terminal op rewrites the carried expression (calculus transform, rewrite pass, substitution, assumption refinement) and the terminal op produces the artifact (solution set, matrix-invariant spectrum, number-theoretic structure, certified-or-heuristic numeric reconstruction, vectorized/compiled callable, generated source module), so a `Refine -> simplify -> diff -> Lower(numpy)` derivation is one fold, never a `pre`/`terminal` split. The terminal artifact is one discriminated `Outcome` the `SymbolicReceipt` carries whole — the same evidence-on-the-receipt collapse `analysis/signal.md#DSP` holds over `SignalEvidence`, `analysis/transform.md#TRANSFORM` over `TransformEvidence`, and `analysis/spatial.md#SPATIAL` over `SpatialEvidence` — and the input is parameterized as tightly as the output: `ExprForm` discriminates a `str` spelling, a `MatrixForm`, or a constructed `Expr` through one `derive` entry.
 
-This is the cp315-clean solver route. `sympy` is pure-Python and imports on the cp315 beta, so calculus, rewrite, solve, matrix algebra, assumption logic, number theory, heuristic numeric evaluation, and the source-printer family run as live core; `python-flint`'s `fmpz_poly`/`fmpq_mat`/`arb` exact kernels and the certified-ball `Evaluate` precision row gate on the `python_version<'3.15'` companion band, `Lower(jax)` reads `jax` at usage on the jaxlib floor, and `Lower(native)`'s `autowrap`/`ufuncify` rows gate on a host C/Fortran toolchain. The derivation keys its `SymbolicReceipt` through the runtime `ContentIdentity` over a canonical `SymbolicPayload`, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference. No learned or generative symbolic search enters this owner; a `source` derivation graduates outward on the symbolic `HandoffAxis` case once stable and reproducible.
+This is the cp315-clean solver route. `sympy` is pure-Python and imports on the cp315 beta, so calculus, rewrite, solve, matrix algebra, assumption logic, number theory, heuristic numeric evaluation, and the source-printer family run as live core; `python-flint`'s `fmpq_poly`/`fmpq_mat`/`fmpz`/`arb` exact kernels and the certified-ball `Evaluate` precision row gate on the `python_version<'3.15'` companion band, `Lower(jax)` reads `jax` at usage on the jaxlib floor, and `Lower(native)`'s `autowrap`/`ufuncify` rows gate on a host C/Fortran toolchain. The derivation keys its `SymbolicReceipt` through the runtime `ContentIdentity` over a canonical `SymbolicPayload`, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference. No learned or generative symbolic search enters this owner; a `source` derivation graduates outward on the symbolic `HandoffAxis` case once stable and reproducible.
 
 ## [01]-[INDEX]
 
-- [01]-[OP]: `SymbolicOp` discriminated union over every symbolic op kind — calculus / rewrite / substitute / refine / solve / linalg / number-theory / evaluate / lower(numpy|jax|ufunc|native) / codegen — each folded by total `match` against an op dispatch table, the calculus/rewrite/substitute/refine rows expression-to-expression staging and the solve/linalg/number-theory/evaluate/lower/codegen rows expression-to-artifact; the polynomial solve/linalg routes carry a `GroundDomain` axis selecting the `sympy` symbolic kernel or the `python-flint` exact-arithmetic accelerator, the `Evaluate` row a `Precision` axis selecting the heuristic `mpmath` decimal or the certified `arb`-ball reconstruction.
+- [01]-[OP]: `SymbolicOp` discriminated union over every symbolic op kind — calculus / rewrite / substitute / refine / solve / linalg / number-theory / evaluate / lower(numpy|jax|ufunc|native) / codegen — each folded by total `match` against an op dispatch table, the calculus/rewrite/substitute/refine rows expression-to-expression staging and the solve/linalg/number-theory/evaluate/lower/codegen rows expression-to-artifact; the solve/linalg/number-theory routes carry a `GroundDomain` axis selecting the `sympy` symbolic kernel or the `python-flint` exact-arithmetic accelerator, the `Evaluate` row a `Precision` axis selecting the heuristic `mpmath` decimal or the certified `arb`-ball reconstruction.
 - [02]-[DERIVATION]: one `sympy` `SymbolicDerivation` owner left-folding a `SymbolicOp` pipeline over an `ExprForm` to the typed `SymbolicReceipt`, the terminal `Outcome` case carrying the artifact the receipt spreads — solution set, matrix-invariant spectrum, number-theoretic structure, numeric reconstruction with certified error bound, vectorized/differentiable/compiled callable, or generated source — under a shared `cse` lowering, one assumption-carrying `SymbolSpec` vocabulary, and one `ContentIdentity`-keyed `content_key`.
 
 ## [02]-[OP]
@@ -19,9 +19,9 @@ This is the cp315-clean solver route. `sympy` is pure-Python and imports on the 
 |  [02]   | `Rewrite`      | staging  | `RewritePass`                        | `simplify` / `factor` / `expand` / `collect` / `cancel` / `trigsimp` / `radsimp` / `ratsimp` / `apart` / `together` / `powsimp` / `logcombine` / `nsimplify` |
 |  [03]   | `Substitute`   | staging  | `(SubstituteMode, Map[str, str])`    | `Expr.subs` simultaneous map / `Expr.replace` over a `Wild` pattern / `Expr.rewrite` into a functional basis |
 |  [04]   | `Refine`       | staging  | `AssumptionPredicate`                | `refine(expr, Q.<pred>(sym))` simplification under the `SymbolSpec` assumption context |
-|  [05]   | `Solve`        | terminal | `(SolveRoute, SolveDomain, GroundDomain)` | `solve` / `solveset(domain=)` / `linsolve` / `nonlinsolve` / `nsolve` / `dsolve` / `pdsolve` / `roots`, plus `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant`, the polynomial routes lowering to `fmpz_poly`/`fmpq_poly` on the `FLINT` ground domain |
-|  [06]   | `LinAlg`       | terminal | `(MatrixRoute, GroundDomain)`        | `Matrix.eigenvals` / `eigenvects` / `det` / `charpoly` / `minpoly` / `rref` / `nullspace` / `rank` / `inv` / `pinv` / `LUdecomposition` / `QRdecomposition` / `cholesky` / `diagonalize` / `jordan_form` / `singular_values` over a `MatrixSymbol`, the exact routes lowering to `fmpz_mat`/`fmpq_mat` on the `FLINT` ground domain |
-|  [07]   | `NumberTheory` | terminal | `NumberRoute`                        | `factorint` / `primerange` / `isprime` / `gcd` / `lcm`, the integer-domain structure beside the `FLINT` `fmpz.factor`/`is_prime` accelerator |
+|  [05]   | `Solve`        | terminal | `(SolveRoute, SolveDomain, GroundDomain)` | `solve` / `solveset(domain=)` / `linsolve` / `nonlinsolve` / `nsolve` / `dsolve` / `pdsolve` / `roots`, plus `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant`, the polynomial routes lowering to `fmpq_poly` on the `FLINT` ground domain |
+|  [06]   | `LinAlg`       | terminal | `(MatrixRoute, GroundDomain)`        | `Matrix.eigenvals` / `eigenvects` / `det` / `charpoly` / `minpoly` / `rref` / `nullspace` / `rank` / `inv` / `pinv` / `LUdecomposition` / `QRdecomposition` / `cholesky` / `diagonalize` / `jordan_form` / `singular_values` over a dense `Matrix`, the `_FLINT_MATRIX_ROUTES` subset lowering to `fmpq_mat` on the `FLINT` ground domain |
+|  [07]   | `NumberTheory` | terminal | `(NumberRoute, GroundDomain)`        | `factorint` / `primerange` / `isprime` / `gcd` / `lcm`, the integer-domain structure with the `FLINT` `fmpz.factor`/`is_prime`/`divisor_sigma`/`euler_phi` accelerator on the single-integer routes selected by the same `GroundDomain` axis `Solve`/`LinAlg` carry |
 |  [08]   | `Evaluate`     | terminal | `(int, Precision)` digits+precision  | `N(expr, digits)` heuristic exact-to-decimal through the `mpmath` context, or `flint.good` certified `arb`-ball reconstruction carrying `rad()`, falling to `Poly(expr, primary).all_coeffs()` lead-coefficient magnitude on a still-symbolic polynomial |
 |  [09]   | `Lower`        | terminal | `LowerBackend`                       | `lambdify(modules=numpy\|jax, cse=True)` vectorized/differentiable callable, `ufuncify` broadcasting ufunc, `autowrap` compiled native callable |
 |  [10]   | `Codegen`      | terminal | `(CodeTarget, str)` target+name      | `utilities.codegen.codegen` named module or the per-target printer `ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, one printer surface keyed by `CodeTarget` |
@@ -29,14 +29,14 @@ This is the cp315-clean solver route. `sympy` is pure-Python and imports on the 
 - Calculus rows force the unevaluated `Derivative`/`Integral`/`Sum` node through `.doit()` and trim the `series` asymptotic `Order` term through `.removeO()` in the same row, never a second method.
 - Substitution rows discriminate `SubstituteMode` over `subs`/`replace`/`rewrite`: `subs` threads a simultaneous structural map, `replace` matches a `Wild` pattern, `rewrite` retargets a functional basis (`exp`, `Piecewise`). The map keys/values are symbol/expression spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine` consumes the assumptions the `SymbolSpec` already declares: `refine(expr, Q.positive(sym))` rather than re-deriving assumptions post hoc, satisfying the assumption-as-input law. `ask(Q.<pred>(sym))` gates the refinement when the predicate is decidable.
-- `Solve` yields a closed-form, set-valued (`solveset` over a `SolveDomain` of `Reals`/`Complexes`/`Integers`/`Naturals`), numeric-root, polynomial-root-multiset, exact-factorization, or resultant result rather than a callable. The polynomial routes read `Poly.real_roots`/`nroots`/`factor_list`/`discriminant` for isolated roots, factor structure, root count, and discriminant evidence, and on the `FLINT` `GroundDomain` lower the carried `Poly` to an `fmpz_poly`/`fmpq_poly` whose `factor`/`roots`/`resultant`/`complex_roots` own the fast exact ground-domain arithmetic; the `solution` evidence carries `(route, cardinality, metric)` where `metric` is the discriminant magnitude, the resultant magnitude, or the `nsolve` residual per route, never a dead `0.0`.
-- `LinAlg` builds a `MatrixSymbol`-backed dense `Matrix` from the carried expression rows and extracts the exact spectrum, eigenvectors, determinant, characteristic or minimal polynomial, reduced row-echelon form, null-space basis, rank, inverse, pseudo-inverse, or canonical decomposition (`LU`/`QR`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values`) — the matrix-algebra `[ENTRYPOINT_SCOPE]` surface the owner owns rather than deferring to a numeric kernel before graduation; the `FLINT` `GroundDomain` lowers the matrix to an `fmpz_mat`/`fmpq_mat` whose `det`/`rank`/`charpoly`/`minpoly`/`inv`/`hnf`/`snf`/`lll` own the exact lattice and linear algebra.
-- `NumberTheory` is the integer-domain terminal: `factorint` returns the prime-factor multiset, `primerange`/`isprime` the prime structure, `gcd`/`lcm` the polynomial/integer divisor algebra, beside the `FLINT` `fmpz.factor`/`is_prime` accelerator on the companion band; the `arithmetic` evidence carries `(route, cardinality, magnitude)` so a factorization names its distinct-prime count and largest-prime magnitude rather than smuggling the result through the `solution` slots.
+- `Solve` yields a closed-form, set-valued (`solveset` over a `SolveDomain` of `Reals`/`Complexes`/`Integers`/`Naturals`), numeric-root, polynomial-root-multiset, exact-factorization, or resultant result rather than a callable. The polynomial routes read `Poly.real_roots`/`nroots`/`factor_list`/`discriminant` for isolated roots, factor structure, root count, and discriminant evidence, and on the `FLINT` `GroundDomain` lower the carried `Poly` to an `fmpq_poly` (over `_as_fmpq` exact coefficients, so a rational-coefficient poly lowers without an `int(c)` coerce) whose `factor`/`complex_roots`/`resultant`/`derivative` own the fast exact ground-domain arithmetic; the `solution` evidence carries `(route, cardinality, metric)` where `metric` is the discriminant magnitude, the resultant magnitude, or the `nsolve` residual per route, never a dead `0.0`.
+- `LinAlg` builds a dense `Matrix` from the carried expression rows and extracts the exact spectrum, eigenvectors, determinant, characteristic or minimal polynomial, reduced row-echelon form, null-space basis, rank, inverse, pseudo-inverse, or canonical decomposition (`LU`/`QR`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values`) — the matrix-algebra `[ENTRYPOINT_SCOPE]` surface the owner owns rather than deferring to a numeric kernel before graduation. The `FLINT` `GroundDomain` lowers the matrix to an `fmpq_mat` (exact `_as_fmpq` cells) for the `_FLINT_MATRIX_ROUTES` subset `fmpq_mat` owns an exact kernel for — `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace` — while eigenvalues/singular-values/QR/cholesky/diagonalize/jordan/pinv have no exact rational analogue and stay on the symbolic kernel regardless of ground rather than calling a phantom `fmpq_mat` method.
+- `NumberTheory` is the integer-domain terminal: `factorint` returns the prime-factor multiset, `primerange`/`isprime` the prime structure, `gcd`/`lcm` the divisor algebra. GCD/LCM are binary over the divisor lattice, but the fold carries one `Expr`, so the unary reinterpretation is route- and operand-shaped: a **polynomial** reads `gcd(p, p')` — the squarefree-content kernel — while a **leaf integer** has no derivative and reads its genuine divisor-lattice structure rather than the vacuous `gcd(n, n) == n` tautology. The `GroundDomain.FLINT` axis lowers the single-integer routes (`FACTORINT`/`ISPRIME`/`GCD`/`LCM` on an integer `expr`) to an `fmpz` whose GMP-backed `factor`/`is_prime`/`divisor_sigma`/`euler_phi` own the fast exact kernel — GCD reading the divisor-lattice bottom (`divisor_sigma(0)` count, `divisor_sigma(1)` sum), LCM the lattice top (`euler_phi` totient) — the same row-level accelerator selection `Solve`/`LinAlg` carry rather than a parallel FLINT number surface; `PRIMERANGE` (a range generator, not an `fmpz` query) and a still-symbolic divisor stay on the `SYMPY` ground domain by construction, the SYMPY leaf integer falling to its `factorint` divisor structure where FLINT's totient is unavailable. The `arithmetic` evidence carries `(route, cardinality, magnitude)` so a factorization names its distinct-prime count and largest-prime magnitude rather than smuggling the result through the `solution` slots, and no route returns a tautological self-divisor.
 - `Evaluate` carries a `Precision` axis: `HEURISTIC` lifts `N(expr, digits)` through the bundled `mpmath` context (no error bound), `CERTIFIED` re-evaluates the closed form through a `python-flint` `arb`/`acb` ball under `flint.good` to the requested `dps`, reading `mid()` as the value and `rad()` as the certified error bound the heuristic path lacks; both fall to `Poly(expr, primary).all_coeffs()[0]` lead-coefficient magnitude on a still-symbolic polynomial, both into one `numeric` carrying `(digits, magnitude, radius)`.
 - `Lower` is the callable lowering discriminated by `LowerBackend` over `numpy`/`jax`/`ufunc`/`native`: `lambdify(free, expr, modules=..., cse=True)` for the vectorized `numpy` study closure (unconditional on cp315) and the differentiable `jax` callable the `solvers/sensitivity.md#SENSITIVITY` adjoint family consumes through `jax.grad`/`jax.vjp`; `ufuncify(free, expr)` for a broadcasting numpy ufunc and `autowrap(expr)` for a compiled native extension when the hot path warrants it. The `jax` value reads `jax` and gates on the jaxlib floor; the `native` value gates on a host C/Fortran toolchain; `numpy`/`ufunc` stay cp315-clean. The terminal materializes the callable as the witness that lowering compiles and records `(backend, arity)` as the `callable_` evidence; the live callable is not stored on the frozen serializable `SymbolicReceipt` (a callable is not `msgspec`-encodable). The `sensitivity` consumer retrieves the live `fn` through the lowering seam keyed by the derivation's `content_key`, never off the receipt struct.
 - `Codegen` is the one source-emission surface keyed by `CodeTarget` over `c`/`cxx`/`fortran`/`rust`/`julia`/`octave`: a `_CODE_PRINTER` dispatch row selects `ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, and `utilities.codegen.codegen(language=...)` wraps a named, header-stripped module where the target supports it. A new code target is one `CodeTarget` value plus one `_CODE_PRINTER` row, never a parallel emitter — the catalog's single-polymorphic-codegen law.
 
-`SymbolicOp.apply(sym, expr, free)` is a total `match` over the union tag returning `Outcome`, a `tagged_union` of `staged` (the rewritten `Expr` for calculus/rewrite/substitute/refine), `solution`, `spectrum`, `arithmetic`, `numeric`, `callable_`, or `source`, each minted through a named `Outcome` static factory so construction reads `Outcome.Solution(route, n, metric)` rather than a raw keyword. The match closes with `assert_never`; adding a case without a match arm is a type error, not a runtime fallthrough. The fold requires every staging op to yield `staged` (enforced by `_stage`) and the terminal op to yield a non-`staged` `Outcome` (enforced inside the `derive` boundary); a pipeline ending on a staging row is a boundary fault, not a silent identity.
+`SymbolicOp.apply(sym, expr, free)` is a total `match` over the union tag returning `Outcome`, a `tagged_union` of `staged` (the rewritten `Expr` for calculus/rewrite/substitute/refine), `solution`, `spectrum`, `arithmetic`, `numeric`, `callable_`, or `source`, each minted through a named `Outcome` static factory so construction reads `Outcome.Solution(route, n, metric)` rather than a raw keyword. The match closes with `assert_never`; adding a case without a match arm is a type error, not a runtime fallthrough. The free-symbol read is lazy through `_primary(free, tag)`: the symbol-needing arms (calculus, `collect`, refine, solve, still-symbolic evaluate) resolve the primary unknown and fault an empty `SymbolSpec` as a `BoundaryFault` naming the op, while the symbol-free `NumberTheory` and numeric-`Evaluate` arms run on an empty spec rather than dying on an eager `free[0]`. The fold requires every staging op to yield `staged` (enforced by `_stage`) and the terminal op to yield a non-`staged` `Outcome` (enforced inside the `derive` boundary); a pipeline ending on a staging row is a boundary fault, not a silent identity.
 
 ## [03]-[DERIVATION]
 
@@ -46,9 +46,9 @@ This is the cp315-clean solver route. `sympy` is pure-Python and imports on the 
 - `ExprForm` is the polymorphic input carrier: a `str` source spelling `sympify`s directly, a `MatrixForm` (a row-major `tuple[tuple[str, ...], ...]` of cell spellings) builds the `Matrix` the `LinAlg` terminal extracts from, and an already-constructed `Expr` passes through. One `derive` entry discriminates the input shape rather than `derive`/`derive_matrix`/`derive_expr` siblings — input polymorphism mirroring the `Outcome` output polymorphism.
 - Identity: `SymbolicPayload` is the canonical `msgspec.Struct(frozen=True, gc=False)` the `canonical` `IdentitySource` modality folds through the one cached deterministic encoder — the `repr` of the `form` (a `str` spelling, the `MatrixForm` tuple, or `srepr(expr)` for a constructed `Expr`), the sorted `(name, predicate)` assumption pairs, and the ordered op-tag-and-case-data tuple — so the runtime content owner mints the key rather than a hand-rolled `msgspec.json.encode` plus `b"\x00".join` reinvention of the canonical encode. Two derivations with the same expression but a different assumption context, op pipeline, or terminal route key distinctly.
 - Receipt: `SymbolicReceipt` is one `Struct(frozen=True)` of `(op, symbols, content_key, outcome)`, where `outcome` is the terminal `Outcome` case and owns the `facts()` total projection — collapsing what would be a multi-field default-zero result bag into one discriminated carrier the way `analysis/signal.md#DSP` collapses `Spectral`/`Multiresolution`/`Scale`/`Packet` and `analysis/spatial.md#SPATIAL` collapses `Proximity`/`Complex`/`Boundary`. `contribute` yields the `Iterable[Receipt]` the `ReceiptContributor` port declares — one `Receipt.of("compute.symbolic", ("emitted", op_tag, facts))` row over the `(Phase, subject, facts)` `Evidence` triple, never the four-positional `Receipt.of("emitted", owner, subject, facts)` the factory rejects — whose `facts` spreads the `op`/`symbols`/`content_key.project("hex")` render plus only the slots the matched `Outcome` carries (`route`/`cardinality`/`metric` for `solution`, `route`/`dimension`/`invariant` for `spectrum`, `route`/`cardinality`/`magnitude` for `arithmetic`, `digits`/`magnitude`/`radius` for `numeric`, `backend`/`arity` for `callable_`, `target`/`name`/`byte_count` for `source`). `derive` is the `RuntimeRail[SymbolicReceipt]` boundary owner; the resolved `SymbolicReceipt` is the contributor the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect on the `Ok` arm, never an inline emit, the same convention `analysis/signal.md#DSP` and `analysis/spatial.md#SPATIAL` hold. A `source` derivation graduates outward through `graduation/handoff.md#GRADUATION` on the `HandoffAxis(symbolic=...)` case once stable and reproducible.
-- Growth: a new calculus transform is one `CalculusKind` row plus one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route is one `SolveRoute` row on the existing `Solve` case; a new matrix extraction is one `MatrixRoute` row; a new number-theoretic query is one `NumberRoute` row; an exact-arithmetic accelerator is the existing `GroundDomain.FLINT` value on the polynomial route; a new lowering backend is one `LowerBackend` row on the `_lower` match; a new code target is one `CodeTarget` row plus one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case plus its `facts()` arm and one terminal `apply` arm; zero new owner surface, never a parallel entrypoint or emitter.
-- Packages: `sympy` (`symbols`, `sympify`, `srepr`, `Symbol`, `Wild`, `Matrix`, `MatrixSymbol`, `Q`, `refine`, `ask`, `Expr.evalf`, `Expr.subs`, `Expr.replace`, `Expr.rewrite`, `Poly.all_coeffs`/`real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant`/`LC`, `Matrix.inv`/`pinv`/`jordan_form`/`cholesky`/`eigenvects`/`minimal_polynomial`, `factorint`/`primerange`/`isprime`/`gcd`/`lcm`, `lambdify`, `cse`, `utilities.codegen.codegen`, `utilities.autowrap.autowrap`/`ufuncify`, `printing.c.ccode`, `printing.cxx.cxxcode`, `printing.fortran.fcode`, `printing.rust.rust_code`, `printing.julia.julia_code`, `printing.octave.octave_code`, `diff`, `integrate`, `limit`, `series`, `summation`, `solve`, `solveset`, `linsolve`, `nonlinsolve`, `nsolve`, `dsolve`, `pdsolve`, `roots`, `Reals`/`Complexes`/`Integers`/`Naturals`, `simplify`, `factor`, `expand`, `collect`, `cancel`, `trigsimp`, `radsimp`, `ratsimp`, `apart`, `together`, `powsimp`, `logcombine`, `nsimplify`), `python-flint` (`fmpz`/`fmpq`, `fmpz_poly`/`fmpq_poly` `factor`/`roots`/`resultant`/`complex_roots`, `fmpz_mat`/`fmpq_mat` `det`/`rank`/`charpoly`/`minpoly`/`inv`/`hnf`/`snf`/`lll`, `arb`/`acb`, `flint.good` the adaptive certified-precision driver, `flint.ctx.dps` the precision context — the exact-arithmetic and certified-ball accelerator on the `python_version<'3.15'` companion band), `mpmath` (the bundled `N`/`evalf` heuristic precision context), `jax` (`grad`/`vjp`, consumed by `solvers/sensitivity.md#SENSITIVITY` over the `jax` `Lower` callable), `numpy` (the `numpy`/`ufunc` lowering target module), `expression` (`Block` folding the pipeline, `Map` carrying the substitution and dispatch tables, `tagged_union`/`tag`/`case`), `msgspec` (`Struct(frozen=True)` the `SymbolicReceipt`/`SymbolSpec`, `Struct(frozen=True, gc=False)` the `SymbolicPayload`), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`, the `@receipted` study-spine emit aspect).
-- Boundary: classical CAS only — calculus, rewriting, substitution, assumption refinement, solving, symbolic linear algebra, integer number theory, exact-to-numeric evaluation (heuristic and certified), numpy/jax/ufunc/native lowering, and multi-language source emission are in-scope; no learned or generative symbolic search, no numeric kernels `scipy`/`numpy` own at runtime, no production algebra a C# owner owns after graduation. `sympy` is pure-Python and imports on cp315, so every row except the `FLINT` `GroundDomain` accelerator, the `CERTIFIED` `Precision` row, the `Lower(JAX)`, and the `Lower(NATIVE)` backends is live core, reflected rather than deploy-gated; the `FLINT` and `CERTIFIED` rows read `python-flint` on the `python_version<'3.15'` companion band, the `jax` row reads `jax` at usage on the jaxlib floor, and the `native` row gates on a host C/Fortran toolchain. `sympy` owns the symbolic algebra, `python-flint` owns the fast exact ground-domain arithmetic and the certified ball, and the two meet only through the shared `SolveRoute`/`MatrixRoute`/`Precision` vocabulary keyed by `GroundDomain`, never a parallel solver surface. The deleted forms are a fat default-zero `SymbolicReceipt`, a receipt with no `content_key` where the sibling owners key by `ContentIdentity`, a `solution` slot carrying a dead `discriminant=0.0` where the `metric` slot reads a real per-route fact, a bare-`Receipt` `contribute` against the `Iterable[Receipt]` port, a four-positional `Receipt.of`, a parallel `factorint`/`gcd` entrypoint where the `NumberTheory` case folds them, a hand-rolled exact-factorization or lattice reduction where the `FLINT` ground domain owns it, a `Outcome(solution=...)` raw-keyword construction where the named factory reads, a bare-`ContentKey` assignment off the railed `ContentIdentity.of`, and per-artifact factories.
+- Growth: a new calculus transform is one `CalculusKind` row plus one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route is one `SolveRoute` row on the existing `Solve` case; a new matrix extraction is one `MatrixRoute` row; a new number-theoretic query is one `NumberRoute` row; an exact-arithmetic accelerator is the existing `GroundDomain.FLINT` value on the `Solve`/`LinAlg`/`NumberTheory` route it accelerates; a new lowering backend is one `LowerBackend` row on the `_lower` match; a new code target is one `CodeTarget` row plus one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case plus its `facts()` arm and one terminal `apply` arm; zero new owner surface, never a parallel entrypoint or emitter.
+- Packages: `sympy` (`symbols`, `sympify`, `srepr`, `Symbol`, `Wild`, `Matrix`, `Rational`, `Q`, `refine`, `ask`, `Expr.evalf`, `Expr.subs`, `Expr.replace`, `Expr.rewrite`, `Poly.all_coeffs`/`real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant`/`LC`, `Matrix.inv`/`pinv`/`norm`/`singular_values`/`jordan_form`/`cholesky`/`eigenvects`/`minimal_polynomial`, `factorint`/`primerange`/`isprime`/`gcd`/`lcm`, `lambdify`, `cse`, `utilities.codegen.codegen`, `utilities.autowrap.autowrap`/`ufuncify`, `printing.c.ccode`, `printing.cxx.cxxcode`, `printing.fortran.fcode`, `printing.rust.rust_code`, `printing.julia.julia_code`, `printing.octave.octave_code`, `diff`, `integrate`, `limit`, `series`, `summation`, `solve`, `solveset`, `linsolve`, `nonlinsolve`, `nsolve`, `dsolve`, `pdsolve`, `roots`, `Reals`/`Complexes`/`Integers`/`Naturals`, `simplify`, `factor`, `expand`, `collect`, `cancel`, `trigsimp`, `radsimp`, `ratsimp`, `apart`, `together`, `powsimp`, `logcombine`, `nsimplify`), `python-flint` (`fmpz`/`fmpq`, `fmpz` `factor`/`is_prime`/`divisor_sigma`/`euler_phi` the integer-domain number-theory accelerator, `fmpq_poly` `factor`/`complex_roots`/`resultant`/`derivative` the exact polynomial kernel, `fmpq_mat` `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace` the exact linear-algebra kernel over the `_FLINT_MATRIX_ROUTES` subset, `arb`/`acb`, `flint.good` the adaptive certified-precision driver, `flint.ctx.workdps` the block-scoped precision context — the exact-arithmetic and certified-ball accelerator on the `python_version<'3.15'` companion band), `mpmath` (the bundled `N`/`evalf` heuristic precision context), `jax` (`grad`/`vjp`, consumed by `solvers/sensitivity.md#SENSITIVITY` over the `jax` `Lower` callable), `numpy` (the `numpy`/`ufunc` lowering target module), `expression` (`Block` folding the pipeline, `Map` carrying the substitution and dispatch tables, `tagged_union`/`tag`/`case`), `msgspec` (`Struct(frozen=True)` the `SymbolicReceipt`/`SymbolSpec`, `Struct(frozen=True, gc=False)` the `SymbolicPayload`), runtime (`RuntimeRail`, `boundary`, `ContentIdentity`/`ContentKey`/`IdentityPolicy`, `Receipt`/`ReceiptContributor`, the `@receipted` study-spine emit aspect).
+- Boundary: classical CAS only — calculus, rewriting, substitution, assumption refinement, solving, symbolic linear algebra, integer number theory, exact-to-numeric evaluation (heuristic and certified), numpy/jax/ufunc/native lowering, and multi-language source emission are in-scope; no learned or generative symbolic search, no numeric kernels `scipy`/`numpy` own at runtime, no production algebra a C# owner owns after graduation. `sympy` is pure-Python and imports on cp315, so every row except the `FLINT` `GroundDomain` accelerator, the `CERTIFIED` `Precision` row, the `Lower(JAX)`, and the `Lower(NATIVE)` backends is live core, reflected rather than deploy-gated; the `FLINT` and `CERTIFIED` rows read `python-flint` on the `python_version<'3.15'` companion band, the `jax` row reads `jax` at usage on the jaxlib floor, and the `native` row gates on a host C/Fortran toolchain. `sympy` owns the symbolic algebra, `python-flint` owns the fast exact ground-domain arithmetic and the certified ball, and the two meet only through the shared `SolveRoute`/`MatrixRoute`/`Precision` vocabulary keyed by `GroundDomain`, never a parallel solver surface. The deleted forms are a fat default-zero `SymbolicReceipt`, a receipt with no `content_key` where the sibling owners key by `ContentIdentity`, a `solution`/`spectrum` slot carrying a dead `discriminant=0.0`/`pinv=0.0` where the `metric`/`invariant` slot reads a real per-route fact (the discriminant/resultant/residual, the pseudo-inverse Frobenius `norm`), a vacuous `z.gcd(z) == n` self-divisor where the leaf integer reads its real `divisor_sigma`/`euler_phi` divisor-lattice structure, a phantom `getattr(fm, route.value)` calling a `fmpq_mat` method an eigen/singular/QR/cholesky/decomposition route does not own where `_FLINT_MATRIX_ROUTES` gates the FLINT lowering to the exact-over-ℚ subset, an `fmpz_poly([int(c) ...])` lowering that `TypeError`s on a rational coefficient where `fmpq_poly` over `_as_fmpq` admits any exact coefficient, an eager `_primary` at the `_solve` head faulting a valid symbol-free `solve`/`dsolve` where the symbol-needing arms resolve it lazily, a bare-`Receipt` `contribute` against the `Iterable[Receipt]` port, a four-positional `Receipt.of`, a parallel `factorint`/`gcd` entrypoint where the `NumberTheory` case folds them, a hand-rolled exact factorization or root isolation where the `FLINT` ground domain owns it, a `Outcome(solution=...)` raw-keyword construction where the named factory reads, a bare-`ContentKey` assignment off the railed `ContentIdentity.of`, and per-artifact factories.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -158,8 +158,8 @@ class NumberRoute(StrEnum):
 
 
 # the exact-arithmetic axis: SYMPY runs the pure-Python `Poly`/`Matrix` kernel, FLINT lowers
-# the carried polynomial/matrix to an `fmpz_poly`/`fmpq_mat` whose C-level factor/roots/det/
-# charpoly/HNF own the fast exact ground domain — one row on the polynomial solve/linalg case,
+# the carried polynomial/matrix to an `fmpq_poly`/`fmpq_mat` whose C-level factor/roots/det/
+# charpoly own the fast exact ground domain — one row on the polynomial solve/linalg case,
 # never a parallel FLINT solver surface. FLINT gates on the `python_version<'3.15'` band.
 class GroundDomain(StrEnum):
     SYMPY = "sympy"
@@ -298,9 +298,8 @@ class Outcome:
             case Outcome(tag="source", source=(target, name, source)):
                 return {"target": target.value, "name": name, "byte_count": len(source)}
             case Outcome(tag="staged"):
-                # Unreachable: `derive` faults a staging terminal at the boundary before any
-                # receipt mints, so a `staged` `Outcome` never reaches `facts()`. The arm keeps
-                # the match total without a domain raise the rail already owns one layer up.
+                # `derive` faults a staging terminal before any receipt mints, so this arm only
+                # keeps the match total — the rail owns the real rejection one layer up.
                 return {}
             case _ as unreachable:
                 assert_never(unreachable)
@@ -330,7 +329,7 @@ class SymbolicOp:
     refine: AssumptionPredicate = case()
     solve: tuple[SolveRoute, SolveDomain, GroundDomain] = case()
     linalg: tuple[MatrixRoute, GroundDomain] = case()
-    number: NumberRoute = case()
+    number: tuple[NumberRoute, GroundDomain] = case()
     evaluate: tuple[int, Precision] = case()
     lower: LowerBackend = case()
     codegen: tuple[CodeTarget, str] = case()
@@ -360,8 +359,8 @@ class SymbolicOp:
         return SymbolicOp(linalg=(route, ground))
 
     @staticmethod
-    def Number(route: NumberRoute = NumberRoute.FACTORINT) -> "SymbolicOp":
-        return SymbolicOp(number=route)
+    def Number(route: NumberRoute = NumberRoute.FACTORINT, ground: GroundDomain = GroundDomain.SYMPY) -> "SymbolicOp":
+        return SymbolicOp(number=(route, ground))
 
     @staticmethod
     def Evaluate(digits: int = 15, precision: Precision = Precision.HEURISTIC) -> "SymbolicOp":
@@ -386,42 +385,57 @@ class SymbolicOp:
                 return f"{mode.value}/{sorted(mapping.items())}"
             case SymbolicOp(tag="solve", solve=(route, domain, ground)):
                 return f"{route.value}/{domain.value}/{ground.value}"
-            case SymbolicOp(tag="linalg", linalg=(route, ground)):
+            case (
+                SymbolicOp(tag="linalg", linalg=(route, ground))
+                | SymbolicOp(tag="number", number=(route, ground))
+            ):
                 return f"{route.value}/{ground.value}"
             case SymbolicOp(tag="evaluate", evaluate=(digits, precision)):
                 return f"{digits}/{precision.value}"
             case SymbolicOp(tag="codegen", codegen=(target, name)):
                 return f"{target.value}/{name}"
-            case _:
-                # the single-field cases (rewrite/refine/number/lower) carry one enum value.
-                return str(getattr(self, self.tag))
+            case (
+                SymbolicOp(tag="rewrite", rewrite=value)
+                | SymbolicOp(tag="refine", refine=value)
+                | SymbolicOp(tag="lower", lower=value)
+            ):
+                # the single-field staging/terminal cases each carry one `StrEnum`; an or-pattern
+                # binds the lone payload so the canonical spelling reads its `.value` rather than a
+                # `str(getattr(self, self.tag))` reflection that escapes the exhaustive match.
+                return value.value
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def apply(self, sym: object, expr: "Expr", free: tuple["Expr", ...]) -> Outcome:
-        primary, local = free[0], {s.name: s for s in free}
+        # `primary`/`local` resolve lazily inside the arms that read a free symbol: a
+        # `NumberTheory`/`Evaluate`-on-numeric derivation declares no symbols, so an eager
+        # `free[0]` would `IndexError` before its symbol-free arm runs. `_primary` faults a
+        # genuinely symbol-needing op on an empty `SymbolSpec` as the rail's `BoundaryFault`.
         match self:
             case SymbolicOp(tag="calculus", calculus=(kind, order)):
-                return Outcome.Staged(_CALCULUS[kind](sym, expr, primary, order))
+                return Outcome.Staged(_CALCULUS[kind](sym, expr, _primary(free, self.tag), order))
             case SymbolicOp(tag="rewrite", rewrite=pass_):
-                args = (expr, primary) if pass_ is RewritePass.COLLECT else (expr,)
+                args = (expr, _primary(free, self.tag)) if pass_ is RewritePass.COLLECT else (expr,)
                 return Outcome.Staged(getattr(sym, pass_.value)(*args))
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.SUBS, mapping)):
+                local = {s.name: s for s in free}
                 return Outcome.Staged(expr.subs({sym.sympify(k, locals=local): sym.sympify(v, locals=local) for k, v in mapping.items()}))
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.REPLACE, mapping)):
                 [(pattern, target)] = mapping.items()
-                return Outcome.Staged(expr.replace(sym.Wild(pattern), sym.sympify(target, locals=local)))
+                return Outcome.Staged(expr.replace(sym.Wild(pattern), sym.sympify(target, locals={s.name: s for s in free})))
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.REWRITE, mapping)):
                 [(_, basis)] = mapping.items()
                 return Outcome.Staged(expr.rewrite(getattr(sym, basis)))
             case SymbolicOp(tag="refine", refine=predicate):
-                return Outcome.Staged(sym.refine(expr, getattr(sym.Q, predicate.value)(primary)))
+                return Outcome.Staged(sym.refine(expr, getattr(sym.Q, predicate.value)(_primary(free, self.tag))))
             case SymbolicOp(tag="solve", solve=(route, domain, ground)):
                 return _solve(sym, expr, free, route, domain, ground)
             case SymbolicOp(tag="linalg", linalg=(route, ground)):
                 return _linalg(sym, expr, route, ground)
-            case SymbolicOp(tag="number", number=route):
-                return _number(sym, expr, route)
+            case SymbolicOp(tag="number", number=(route, ground)):
+                return _number(sym, expr, route, ground)
             case SymbolicOp(tag="evaluate", evaluate=(digits, precision)):
-                return _evaluate(sym, expr, primary, digits, precision)
+                return _evaluate(sym, expr, free, digits, precision)
             case SymbolicOp(tag="lower", lower=backend):
                 # Materialize the callable as the witness that lowering compiles; the receipt
                 # carries `(backend, arity)` evidence, the live `fn` rides the cross-file
@@ -446,6 +460,13 @@ _CALCULUS: Final[Map[CalculusKind, Callable[[object, "Expr", "Expr", int], "Expr
     (CalculusKind.SUMMATION, lambda s, e, x, n: s.summation(e, (x, 0, n)).doit()),
 ])
 
+# The `MatrixRoute` subset `fmpq_mat` owns an exact-over-ℚ kernel for; the eigen/singular/QR/
+# cholesky/diagonalize/jordan/pinv/LU routes have no exact rational analogue and stay on the
+# symbolic kernel, so a `GroundDomain.FLINT` request outside this set never calls a phantom method.
+_FLINT_MATRIX_ROUTES: Final[frozenset[MatrixRoute]] = frozenset(
+    {MatrixRoute.DETERMINANT, MatrixRoute.RANK, MatrixRoute.CHARPOLY, MatrixRoute.MINPOLY, MatrixRoute.INVERSE, MatrixRoute.RREF, MatrixRoute.NULLSPACE}
+)
+
 # Source-printer dispatch keyed by target: one polymorphic codegen surface selecting the
 # per-language printer, never a parallel emitter per language.
 _CODE_PRINTER: Final[Map[CodeTarget, Callable[[object, "Expr"], str]]] = Map.of_seq([
@@ -466,36 +487,39 @@ def _solve(sym: object, expr: "Expr", free: tuple["Expr", ...], route: SolveRout
     # to a singleton system rather than passing as a bare expression the set solvers reject.
     # The polynomial routes carry a `metric` — the discriminant/resultant magnitude or the
     # `nsolve` residual — rather than a dead `0.0`, and on `GroundDomain.FLINT` lower to a
-    # `fmpz_poly`/`fmpq_poly` whose C-level `factor`/`roots`/`resultant` own the exact arithmetic.
-    primary = free[0]
+    # `fmpq_poly` whose C-level `factor`/`complex_roots`/`resultant` own the exact arithmetic.
+    # `primary` resolves lazily inside the arms that read it: `solve`/`linsolve`/`nonlinsolve` pass
+    # `*free` and run on an empty spec, `dsolve`/`pdsolve` carry their `Function` unknown in `expr`
+    # and read no plain `Symbol`, so an eager `_primary` here would fault a valid symbol-free solve.
     match route:
         case SolveRoute.SOLVE:
             return Outcome.Solution(route, _cardinality(sym.solve(expr, *free)))
         case SolveRoute.SOLVESET:
-            return Outcome.Solution(route, _cardinality(sym.solveset(expr, primary, domain=getattr(sym, domain.value))))
+            return Outcome.Solution(route, _cardinality(sym.solveset(expr, _primary(free, route.value), domain=getattr(sym, domain.value))))
         case SolveRoute.LINSOLVE | SolveRoute.NONLINSOLVE:
             return Outcome.Solution(route, _cardinality(getattr(sym, route.value)((expr,), *free)))
         case SolveRoute.NSOLVE:
             # one numeric root of the scalar equation in the primary unknown; the `metric` is the
             # substituted residual `|f(root)|` at the found root, the convergence witness `solve`
             # routes lack, keyed by the assumption-carrying `primary` Symbol object, never its name.
+            primary = _primary(free, route.value)
             root = sym.nsolve(expr, primary, 0.0)
             return Outcome.Solution(route, 1, abs(float(sym.N(expr.subs(primary, root)))))
         case SolveRoute.DSOLVE | SolveRoute.PDSOLVE:
             return Outcome.Solution(route, _cardinality(getattr(sym, route.value)(expr)))
         case SolveRoute.ROOTS:
-            return Outcome.Solution(route, len(sym.roots(sym.Poly(expr, primary))))
+            return Outcome.Solution(route, len(sym.roots(sym.Poly(expr, _primary(free, route.value)))))
         case _:
-            return _poly_route(sym, expr, primary, route, ground)
+            return _poly_route(sym, expr, _primary(free, route.value), route, ground)
 
 
 def _poly_route(sym: object, expr: "Expr", primary: "Expr", route: SolveRoute, ground: GroundDomain) -> Outcome:
     # the polynomial sub-routes share one body keyed on `(route, ground)`: SYMPY reads
-    # `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`, FLINT lowers the integer-domain
-    # `Poly` to an `fmpz_poly` whose `roots`/`complex_roots`/`factor` own the fast exact kernel.
+    # `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`, FLINT lowers the `Poly` to an
+    # `fmpq_poly` whose `complex_roots`/`factor`/`resultant` own the fast exact kernel.
     poly = sym.Poly(expr, primary)
     if ground is GroundDomain.FLINT:
-        return _flint_poly(poly, route)
+        return _flint_poly(sym, poly, route)
     match route:
         case SolveRoute.REAL_ROOTS:
             return Outcome.Solution(route, len(poly.real_roots()), abs(float(poly.discriminant())))
@@ -508,29 +532,40 @@ def _poly_route(sym: object, expr: "Expr", primary: "Expr", route: SolveRoute, g
             return Outcome.Solution(route, poly.degree(), abs(float(sym.resultant(poly.as_expr(), poly.diff(primary).as_expr(), primary))))
 
 
-def _flint_poly(poly: object, route: SolveRoute) -> Outcome:
-    from flint import fmpz_poly
+def _flint_poly(sym: object, poly: object, route: SolveRoute) -> Outcome:
+    from flint import fmpq_poly
 
-    # the sympy integer `Poly` lowers to an `fmpz_poly` over its ascending coefficient vector;
-    # the FLINT C kernel owns factorization, real/complex root isolation, and the resultant.
-    fp = fmpz_poly([int(c) for c in reversed(poly.all_coeffs())])
+    # the sympy `Poly` lowers to an `fmpq_poly` over its ascending coefficient vector — `fmpq_poly`
+    # (not `fmpz_poly`) so a rational-coefficient poly lowers exactly through `_as_fmpq` rather than
+    # an `int(c)` coerce that `TypeError`s on a non-integer coefficient; the FLINT C kernel owns
+    # factorization, real/complex root isolation, and the resultant. The `metric` is `|res(p, p')|`
+    # — the discriminant up to the lead-coefficient/sign normalization — so the root/factor routes
+    # carry the same squarefree-evidence fact the SYMPY ground domain reads off `Poly.discriminant`,
+    # never the dead `0.0` the receipt contract forbids. A symbolic-coefficient poly faults at
+    # `_as_fmpq` inside the `boundary` fence, the FLINT exact ground being integer/rational only.
+    fp = fmpq_poly([_as_fmpq(sym, c) for c in reversed(poly.all_coeffs())])
+    disc = abs(float(fp.resultant(fp.derivative())))
     match route:
         case SolveRoute.REAL_ROOTS:
             roots = fp.complex_roots()
-            return Outcome.Solution(route, sum(1 for r, _ in roots if abs(complex(r).imag) < 1e-12), 0.0)
+            return Outcome.Solution(route, sum(1 for r, _ in roots if abs(complex(r).imag) < 1e-12), disc)
         case SolveRoute.NROOTS:
-            return Outcome.Solution(route, len(fp.complex_roots()), 0.0)
+            return Outcome.Solution(route, len(fp.complex_roots()), disc)
         case SolveRoute.FACTOR_LIST:
             _, factors = fp.factor()
-            return Outcome.Solution(route, len(factors), 0.0)
+            return Outcome.Solution(route, len(factors), disc)
         case _:  # RESULTANT against the formal derivative through the FLINT exact kernel
-            return Outcome.Solution(route, fp.degree(), abs(float(fp.resultant(fp.derivative()))))
+            return Outcome.Solution(route, fp.degree(), disc)
 
 
 def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain) -> Outcome:
+    # FLINT's `fmpq_mat` owns the exact-over-ℚ routes only; eigen/singular/QR/cholesky/diagonalize/
+    # jordan/pinv/LU have no exact rational analogue (`fmpq_mat` exposes no such method), so they
+    # stay on the sympy symbolic kernel regardless of the requested ground rather than calling a
+    # phantom `getattr(fm, route.value)` — the symbolic kernel is their correct owner.
     matrix = expr if hasattr(expr, "rref") else sym.Matrix(expr)
-    if ground is GroundDomain.FLINT:
-        return _flint_matrix(matrix, route)
+    if ground is GroundDomain.FLINT and route in _FLINT_MATRIX_ROUTES:
+        return _flint_matrix(sym, matrix, route)
     dimension = matrix.shape[0]
     match route:
         case MatrixRoute.DETERMINANT:
@@ -542,29 +577,35 @@ def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain)
             radius = max((abs(complex(sym.N(v))) for v in spectral), default=0.0)
             return Outcome.Spectrum(route, len(spectral), radius)
         case MatrixRoute.SINGULAR:
+            # the largest singular value (the spectral 2-norm) read order-independently through
+            # `max`, never `values[0]` resting on the descending-order contract of one method.
             values = matrix.singular_values()
-            return Outcome.Spectrum(route, len(values), abs(float(sym.N(values[0]))) if values else 0.0)
+            return Outcome.Spectrum(route, len(values), max((abs(float(sym.N(v))) for v in values), default=0.0))
         case MatrixRoute.CHARPOLY | MatrixRoute.MINPOLY:
             poly = matrix.charpoly() if route is MatrixRoute.CHARPOLY else matrix.minimal_polynomial()
             return Outcome.Spectrum(route, poly.degree())
         case MatrixRoute.NULLSPACE:
             return Outcome.Spectrum(route, len(matrix.nullspace()))
         case MatrixRoute.INVERSE | MatrixRoute.PINV:
+            # INVERSE carries the determinant magnitude (the volume scale it inverts); PINV has no
+            # determinant, so it reads the Frobenius `norm()` of the pseudo-inverse as its real
+            # magnitude rather than a dead `0.0` the receipt contract forbids.
             inverse = matrix.inv() if route is MatrixRoute.INVERSE else matrix.pinv()
-            return Outcome.Spectrum(route, inverse.shape[0], abs(float(matrix.det())) if route is MatrixRoute.INVERSE else 0.0)
+            magnitude = abs(float(matrix.det())) if route is MatrixRoute.INVERSE else abs(float(sym.N(inverse.norm())))
+            return Outcome.Spectrum(route, inverse.shape[0], magnitude)
         case _:  # LU/QR/cholesky/diagonalize/jordan_form — the decomposition leading dimension
             extracted = getattr(matrix, route.value)()
             head = extracted[0] if isinstance(extracted, tuple) else extracted
             return Outcome.Spectrum(route, head.shape[0])
 
 
-def _flint_matrix(matrix: object, route: MatrixRoute) -> Outcome:
+def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> Outcome:
     from flint import fmpq_mat
 
     # the sympy `Matrix` lowers to an exact `fmpq_mat`; the FLINT C kernel owns the exact
-    # determinant, rank, characteristic/minimal polynomial, inverse, and the HNF/SNF/LLL
-    # lattice routes, the spectrum read off the certified exact arithmetic.
-    fm = fmpq_mat([[_as_fmpq(matrix[i, j]) for j in range(matrix.shape[1])] for i in range(matrix.shape[0])])
+    # determinant, rank, characteristic/minimal polynomial, inverse, RREF, and null space, the
+    # spectrum read off the certified exact arithmetic over the `_FLINT_MATRIX_ROUTES` subset.
+    fm = fmpq_mat([[_as_fmpq(sym, matrix[i, j]) for j in range(matrix.shape[1])] for i in range(matrix.shape[0])])
     dimension = fm.nrows()
     match route:
         case MatrixRoute.DETERMINANT:
@@ -575,15 +616,22 @@ def _flint_matrix(matrix: object, route: MatrixRoute) -> Outcome:
             return Outcome.Spectrum(route, (fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()).degree())
         case MatrixRoute.INVERSE:
             return Outcome.Spectrum(route, fm.inv().nrows(), abs(float(fm.det())))
-        case _:  # RREF/NULLSPACE and the lattice routes fold to the leading dimension
+        case _:  # RREF/NULLSPACE — the only remaining `_FLINT_MATRIX_ROUTES` members `fmpq_mat`
+            # owns; `rref` returns `(matrix, pivots)` and `nullspace` `(matrix, rank)`, so the head
+            # is the matrix whose `nrows()` is the leading dimension.
             extracted = getattr(fm, route.value)()
             head = extracted[0] if isinstance(extracted, tuple) else extracted
             return Outcome.Spectrum(route, head.nrows())
 
 
-def _number(sym: object, expr: "Expr", route: NumberRoute) -> Outcome:
-    # the integer-domain terminal: a factorization names its distinct-prime count and
-    # largest-prime magnitude, a prime test/range its cardinality, a gcd/lcm its scalar value.
+def _number(sym: object, expr: "Expr", route: NumberRoute, ground: GroundDomain) -> Outcome:
+    # the integer-domain terminal: a factorization names its distinct-prime count and largest-
+    # prime magnitude, a prime test/range its cardinality, a gcd/lcm its scalar value. On
+    # `GroundDomain.FLINT` the single-integer routes lower to `fmpz` whose C-level `factor`/
+    # `is_prime`/`gcd`/`lcm` own the fast exact kernel; `PRIMERANGE` (a range generator, not an
+    # `fmpz` query) and a still-symbolic GCD/LCM stay on the sympy ground domain by construction.
+    if ground is GroundDomain.FLINT and route is not NumberRoute.PRIMERANGE and expr.is_integer:
+        return _flint_number(int(expr), route)
     match route:
         case NumberRoute.FACTORINT:
             factors = sym.factorint(expr)
@@ -593,25 +641,52 @@ def _number(sym: object, expr: "Expr", route: NumberRoute) -> Outcome:
             return Outcome.Arithmetic(route, len(primes), float(primes[-1]) if primes else 0.0)
         case NumberRoute.ISPRIME:
             return Outcome.Arithmetic(route, int(bool(sym.isprime(expr))), float(expr))
-        case _:  # GCD/LCM of the carried expression against its formal derivative — the
-            # squarefree-part divisor algebra over the single folded `Expr`, never an
-            # `expr.args` unpack that degenerates to `expr` on a leaf integer. The `cardinality`
-            # is the divisor's polynomial degree (scalar divisor -> 1), the `magnitude` its
-            # constant value when the divisor is a number, the lead coefficient otherwise.
+        case _:  # GCD/LCM of the polynomial against its formal derivative — the squarefree-part
+            # divisor algebra over the single folded `Expr`. The `cardinality` is the divisor's
+            # polynomial degree, the `magnitude` its constant value when the divisor is a number,
+            # the lead coefficient otherwise. A leaf integer carries no free symbol, so `gcd(n, n')`
+            # would degenerate to `gcd(n, n) == n`; the integer falls to its `factorint` divisor
+            # structure (distinct-prime count, largest prime) — the FLINT ground owns the totient.
             free = tuple(expr.free_symbols)
-            value = getattr(sym, route.value)(expr, sym.diff(expr, free[0]) if free else expr)
+            if not free:
+                factors = sym.factorint(expr)
+                return Outcome.Arithmetic(route, len(factors), float(max(factors, default=0)))
+            value = getattr(sym, route.value)(expr, sym.diff(expr, free[0]))
             if value.is_number:
                 return Outcome.Arithmetic(route, 1, abs(float(sym.N(value))))
             poly = sym.Poly(value, *free)
             return Outcome.Arithmetic(route, poly.degree(), abs(float(sym.N(poly.LC()))))
 
 
-def _evaluate(sym: object, expr: "Expr", primary: "Expr", digits: int, precision: Precision) -> Outcome:
+def _flint_number(n: int, route: NumberRoute) -> Outcome:
+    from flint import fmpz
+
+    # the carried integer lowers to an `fmpz` whose GMP-backed `factor`/`is_prime`/`divisor_sigma`/
+    # `euler_phi` own the fast exact ground domain. A leaf integer has no derivative, so the GCD/LCM
+    # divisor-lattice meet/join is read as its genuine unary structure rather than the vacuous
+    # `z.gcd(z) == n` tautology: GCD reads the divisor-lattice bottom through `divisor_sigma(0)` (the
+    # divisor count as `cardinality`, `divisor_sigma(1)` as the divisor-sum `magnitude`), LCM reads
+    # the lattice top through `euler_phi` (the totient — the count of lattice-coprime residues).
+    z = fmpz(n)
+    match route:
+        case NumberRoute.FACTORINT:
+            factors = z.factor()
+            return Outcome.Arithmetic(route, len(factors), float(max((int(p) for p, _ in factors), default=0)))
+        case NumberRoute.ISPRIME:
+            return Outcome.Arithmetic(route, int(bool(z.is_prime())), float(n))
+        case NumberRoute.GCD:
+            return Outcome.Arithmetic(route, int(z.divisor_sigma(0)), abs(float(z.divisor_sigma(1))))
+        case _:  # LCM — the divisor-lattice join read as the Euler totient over the leaf integer
+            return Outcome.Arithmetic(route, int(z.euler_phi()), float(n))
+
+
+def _evaluate(sym: object, expr: "Expr", free: tuple["Expr", ...], digits: int, precision: Precision) -> Outcome:
     # A numeric `expr` evaluates directly; a still-symbolic polynomial falls to its leading-
-    # coefficient magnitude at the same precision. HEURISTIC reads the `mpmath` `N` decimal with
-    # no bound; CERTIFIED re-evaluates through a `python-flint` `arb` ball under `flint.good`,
-    # reading `mid()` as the value and `rad()` as the certified error the heuristic path lacks.
-    scalar = expr if expr.is_number else sym.Poly(expr, primary).all_coeffs()[0]
+    # coefficient magnitude at the same precision (resolving the primary unknown only on that
+    # branch, so a closed numeric form evaluates without a declared symbol). HEURISTIC reads the
+    # `mpmath` `N` decimal with no bound; CERTIFIED re-evaluates through a `python-flint` `arb`
+    # ball under `flint.good`, reading `mid()` as the value and `rad()` as the certified error.
+    scalar = expr if expr.is_number else sym.Poly(expr, _primary(free, "evaluate")).all_coeffs()[0]
     if precision is Precision.HEURISTIC:
         return Outcome.Numeric(digits, abs(float(sym.N(scalar, digits))))
     return _certified(scalar, digits)
@@ -625,9 +700,11 @@ def _certified(scalar: "Expr", digits: int) -> Outcome:
     # digits; the thunk re-renders the exact closed form to the live working precision through
     # sympy's own `mpmath`-backed `evalf` (so `sqrt(2)` lowers to a decimal `arb` parses, never
     # the unparseable `str(sqrt(2))` spelling) and lifts that decimal to a midpoint ball. The
-    # certified `(mid, rad)` is the bound the heuristic `mpmath` `N` value lacks.
-    flint.ctx.dps = digits
-    ball = flint.good(lambda: arb(str(scalar.evalf(flint.ctx.dps + 2))))
+    # certified `(mid, rad)` is the bound the heuristic `mpmath` `N` value lacks. `workdps` is the
+    # block-scoped precision context the `flint.good` accuracy target reads, restoring the prior
+    # session `ctx.dps` on exit rather than the leaking `ctx.dps = digits` global mutation.
+    with flint.ctx.workdps(digits):
+        ball = flint.good(lambda: arb(str(scalar.evalf(flint.ctx.dps + 2))))
     return Outcome.Numeric(digits, abs(float(ball.mid())), float(ball.rad()))
 
 
@@ -658,16 +735,28 @@ def _emit(sym: object, expr: "Expr", target: CodeTarget, name: str) -> str:
     return source
 
 
+def _primary(free: tuple["Expr", ...], tag: str) -> "Expr":
+    # the symbol-needing arms read the primary unknown through this guard so an empty
+    # `SymbolSpec` faults as a `BoundaryFault` with the offending op tag, never a bare
+    # `IndexError` from a `free[0]` the symbol-free `NumberTheory`/numeric-`Evaluate` arms skip.
+    if not free:
+        raise ValueError(f"symbolic op {tag} needs a declared free symbol; SymbolSpec.names is empty")
+    return free[0]
+
+
 def _cardinality(solution: object) -> int:
     return len(tuple(solution)) if hasattr(solution, "__len__") else 1
 
 
-def _as_fmpq(cell: object) -> object:
+def _as_fmpq(sym: object, cell: object) -> object:
     from flint import fmpq
 
-    # an exact sympy `Rational`/`Integer` cell lowers to an `fmpq` over its numerator/denominator
-    # so the FLINT matrix carries exact rationals rather than a lossy float coerce.
-    return fmpq(int(cell.p), int(cell.q)) if hasattr(cell, "q") else fmpq(int(cell))
+    # an exact sympy `Rational`/`Integer` cell lowers to an `fmpq` over its `.p`/`.q` numerator/
+    # denominator; a `Float` or other numeric node coerces through `sym.Rational` to an exact
+    # rational first so the FLINT exact ground carries no lossy float and no `int(cell)` that
+    # `TypeError`s on a non-integer. A symbolic cell has no rational form and faults in the fence.
+    rational = cell if hasattr(cell, "q") else sym.Rational(cell)
+    return fmpq(int(rational.p), int(rational.q))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -743,11 +832,11 @@ def _stage(op: SymbolicOp, sym: object, expr: "Expr", free: tuple["Expr", ...]) 
 ## [04]-[RESEARCH]
 
 - [SYMPY_CORE]: `sympy` is pure-Python and cp315-clean; the `symbols`/`sympify`/`srepr`/`Symbol`/`Wild`/`lambdify`/`cse`/`refine`/`ask`/`Q` spellings, the calculus surface (`diff`/`integrate`/`limit`/`series`/`summation`), the rewrite surface (`simplify`/`factor`/`expand`/`collect`/`cancel`/`trigsimp`/`radsimp`/`ratsimp`/`apart`/`together`/`powsimp`/`logcombine`/`nsimplify`), the substitution surface (`Expr.subs`/`replace`/`rewrite`), the number-theory surface (`factorint`/`primerange`/`isprime`/`gcd`/`lcm`), and the `Expr.evalf`/`Poly.all_coeffs` members verify against the `compute/.api/sympy.md` `[ENTRYPOINT_SCOPE]` tables. The calculus rows force unevaluated `Derivative`/`Integral`/`Sum` nodes through `.doit()` and trim the `series` asymptotic `Order` term through `.removeO()`, both confirmed against the calculus-node table; `_CALCULUS` is the dispatch table folding the five node constructions into one row map. Every row except the `FLINT` `GroundDomain` accelerator, the `CERTIFIED` `Precision` row, and the `Lower(JAX)`/`Lower(NATIVE)` backends is live core on the cp315 beta.
-- [GROUND_DOMAIN]: the `GroundDomain` axis is the `sympy`↔`python-flint` exact-arithmetic seam the `compute/.api/sympy.md` `[INTEGRATION_STACK]` and `compute/.api/python-flint.md` `[ARITHMETIC_STACKING]` `sympy ↔ flint` rows mandate — `sympy` owns the symbolic algebra, `python-flint` owns the fast exact ground-domain arithmetic, and the two meet only through the shared `SolveRoute`/`MatrixRoute` vocabulary. `GroundDomain.FLINT` lowers the carried integer `Poly` to an `fmpz_poly` over its ascending coefficient vector (the `Poly.all_coeffs` reversal) whose `factor`/`complex_roots`/`resultant`/`derivative` own the C-level factorization, root isolation, and resultant (`compute/.api/python-flint.md` `fmpz_poly`/`fmpq_poly` ENTRYPOINTS [01]-[03]), and the `Matrix` to an exact `fmpq_mat` (each cell an `fmpq` over its numerator/denominator) whose `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace`/`hnf`/`snf`/`lll` own the exact linear-algebra and lattice routes (matrix ENTRYPOINTS [01]-[04]); `GroundDomain.SYMPY` keeps the pure-Python `Poly`/`Matrix` kernel. `python-flint` is the `python_version<'3.15'` companion band (LGPL Cython/C extension, no cp315 wheel), so the FLINT routes are authored against the documented API on the gated band while the sympy routes stay cp315-clean — one axis row, never a parallel FLINT solver surface.
+- [GROUND_DOMAIN]: the `GroundDomain` axis is the `sympy`↔`python-flint` exact-arithmetic seam the `compute/.api/sympy.md` `[INTEGRATION_STACK]` and `compute/.api/python-flint.md` `[ARITHMETIC_STACKING]` `sympy ↔ flint` rows mandate — `sympy` owns the symbolic algebra, `python-flint` owns the fast exact ground-domain arithmetic, and the two meet only through the shared `SolveRoute`/`MatrixRoute` vocabulary. `GroundDomain.FLINT` lowers the carried `Poly` to an `fmpq_poly` over its ascending coefficient vector (the `Poly.all_coeffs` reversal through `_as_fmpq`, so a rational-coefficient poly lowers exactly rather than through an `int(c)` coerce that `TypeError`s on a non-integer) whose `factor`/`complex_roots`/`resultant`/`derivative` own the C-level factorization, root isolation, and resultant (`compute/.api/python-flint.md` `fmpz_poly`/`fmpq_poly` ENTRYPOINTS [01]-[04]), and the `Matrix` to an exact `fmpq_mat` (each cell an `fmpq` over its numerator/denominator) for the `_FLINT_MATRIX_ROUTES` subset whose `det`/`rank`/`charpoly`/`minpoly`/`inv`/`rref`/`nullspace` own the exact linear-algebra routes (matrix ENTRYPOINTS [01]-[03]); the eigen/singular/QR/cholesky/diagonalize/jordan/pinv routes have no exact rational analogue (`fmpq_mat` exposes no such method) and stay on the sympy kernel regardless of ground rather than calling a phantom `getattr(fm, route.value)`. The `fmpq_mat` `hnf`/`snf`/`lll` lattice surface (matrix ENTRYPOINT [04]) and the `fmpz_mpoly_vec` Gröbner kernel are catalogued capability this owner's `MatrixRoute`/`SolveRoute` vocabulary does not yet expose, reachable as a future route row rather than a present claim. `GroundDomain.SYMPY` keeps the pure-Python `Poly`/`Matrix` kernel. `python-flint` is the `python_version<'3.15'` companion band (LGPL Cython/C extension, no cp315 wheel), so the FLINT routes are authored against the documented API on the gated band while the sympy routes stay cp315-clean — one axis row, never a parallel FLINT solver surface.
 - [SOLVE_DOMAIN]: the `Solve` route carries a `SolveDomain` (`Reals`/`Complexes`/`Integers`/`Naturals`) so `solveset(expr, primary, domain=...)` returns the set-valued solution over the declared domain rather than the unbounded `Complexes` default; `_solve` is a total `match` over the twelve-member `SolveRoute` closed by `assert_never`, dispatching each route to its catalogued call shape rather than a `getattr(sym, route.value)(expr, *free)` catch-all: `solve(f, *symbols)` and `solveset(f, symbol, domain=)` take the scalar equation against the free symbols, `linsolve`/`nonlinsolve` take a one-equation *system* so the carried `expr` lifts to the singleton `(expr,)` the set solvers require (catalog rows [01]-[04]), `dsolve`/`pdsolve` take the differential equation (rows [06]-[07]), and the polynomial routes (`REAL_ROOTS`/`NROOTS`/`FACTOR_LIST`/`RESULTANT`) read `Poly.real_roots`/`nroots`/`factor_list`/`discriminant`/`resultant` (rows [05]-[06] of the numeric-evaluation table) for isolated roots, root count, factor structure, and the squarefree resultant against the formal derivative. The `solution` `metric` slot carries a real per-route fact — the discriminant magnitude for the root/factor routes, the resultant magnitude for `RESULTANT`, the substituted-residual magnitude for `nsolve` — replacing the prior dead `discriminant=0.0` the `solution` slot carried on every non-polynomial route.
-- [MATRIX_ALGEBRA]: the `LinAlg` terminal owns the matrix `[ENTRYPOINT_SCOPE]` surface — `Matrix.eigenvals`/`eigenvects`/`det`/`charpoly`/`minimal_polynomial`/`rref`/`nullspace`/`rank`/`inv`/`pinv`/`LUdecomposition`/`QRdecomposition`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values` over a `MatrixSymbol`-backed dense `Matrix` (catalog matrix rows [03]-[10]) — extracting the exact spectral radius (max `abs(N(eigenvalue))`), determinant magnitude, characteristic/minimal-polynomial degree, leading singular value, null-space dimension, inverse/pseudo-inverse dimension, or decomposition leading dimension into one `Outcome.spectrum`. The `eigenvects` route reads the `(value, multiplicity, basis)` triples folding the value→multiplicity map the eigenvalue radius reads; `minpoly` reads `Matrix.minimal_polynomial`. The `MatrixForm` cell spellings `sympify` against the live `SymbolSpec` so a symbolic matrix carries the same free variables the calculus and solve rows do, and the `FLINT` ground domain lowers the cells to exact `fmpq` entries so the exact spectrum reads off certified arithmetic rather than a float coerce.
-- [NUMBER_THEORY]: the `NumberTheory` terminal owns the integer-domain `[ENTRYPOINT_SCOPE]` surface (`compute/.api/sympy.md` assumption/number-theory rows [05]-[06]) — `factorint(n)` the prime-factor multiset, `primerange(a, b)` the prime generator, `isprime(n)` the primality test, and `gcd`/`lcm` the polynomial/integer divisor algebra — folding each into one `Outcome.arithmetic` carrying `(route, cardinality, magnitude)` so a factorization names its distinct-prime count and largest-prime magnitude rather than overloading the `solution` slots, the `python-flint` `fmpz.factor`/`is_prime`/`gcd`/`lcm` (`compute/.api/python-flint.md` `fmpz` ENTRYPOINTS [02]-[04]) the exact accelerator beside it on the companion band reached through the same vocabulary when the integer is hot.
-- [NUMERIC_BRIDGE]: the `Evaluate` row carries a `Precision` axis spanning the heuristic and certified bridges. `HEURISTIC` is the `.api` `[GRADUATION_PATH]` numeric bridge through the bundled `mpmath` context — `N(expr, digits)` lifts a numeric expression to a fixed-precision decimal, and on a still-symbolic polynomial `Poly(expr, primary).all_coeffs()[0]` reads the leading coefficient whose magnitude evaluates at the same precision — with `radius=0.0` because `mpmath` carries no error bound. `CERTIFIED` is the `compute/.api/python-flint.md` `[ARITHMETIC_STACKING]` `mpmath ↔ flint` promotion: the exact scalar re-evaluates through a `python-flint` `arb` ball under the adaptive `flint.good(func)` driver (`compute/.api/python-flint.md` certified-evaluation ENTRYPOINTS [01]) that re-runs the thunk at rising working precision until the ball is accurate to the `flint.ctx.dps` target the row sets; the thunk lowers the exact closed form to a parseable decimal through sympy's own `Expr.evalf(ctx.dps + 2)` before `arb(str(...))` (so `sqrt(2)` lifts as a decimal midpoint rather than the unparseable `str(sqrt(2))` symbol spelling), reading `mid()` as the value and `rad()` as the certified error bound the heuristic path lacks — so the precision claim and the certified bound enter the same `SymbolicReceipt` the codegen and lower rows feed, rather than a separate evaluation surface. `cse=True` precedes every `lambdify` lowering to dedupe shared subexpressions as the `.api` law requires.
+- [MATRIX_ALGEBRA]: the `LinAlg` terminal owns the matrix `[ENTRYPOINT_SCOPE]` surface — `Matrix.eigenvals`/`eigenvects`/`det`/`charpoly`/`minimal_polynomial`/`rref`/`nullspace`/`rank`/`inv`/`pinv`/`norm`/`LUdecomposition`/`QRdecomposition`/`cholesky`/`diagonalize`/`jordan_form`/`singular_values` over a dense concrete `Matrix` built from the carried `MatrixForm` rows (catalog matrix rows [03]-[10]) — extracting the exact spectral radius (max `abs(N(eigenvalue))`), determinant magnitude, characteristic/minimal-polynomial degree, largest singular value (read order-independently through `max`, never `values[0]` resting on the descending-order contract), null-space dimension, inverse determinant or pseudo-inverse Frobenius `norm()` (never a dead `0.0`), or decomposition leading dimension into one `Outcome.spectrum`. The `eigenvects` route reads the `(value, multiplicity, basis)` triples folding the value→multiplicity map the eigenvalue radius reads; `minpoly` reads `Matrix.minimal_polynomial`. The `MatrixForm` cell spellings `sympify` against the live `SymbolSpec` so a symbolic matrix carries the same free variables the calculus and solve rows do, and the `FLINT` ground domain lowers the cells to exact `fmpq` entries (a `Float` coerced through `sym.Rational` first) for the `_FLINT_MATRIX_ROUTES` subset so the exact spectrum reads off certified arithmetic rather than a float coerce, the eigen/singular/decomposition routes staying symbolic since `fmpq_mat` carries no exact analogue.
+- [NUMBER_THEORY]: the `NumberTheory` terminal owns the integer-domain `[ENTRYPOINT_SCOPE]` surface (`compute/.api/sympy.md` assumption/number-theory rows [05]-[06]) — `factorint(n)` the prime-factor multiset, `primerange(a, b)` the prime generator, `isprime(n)` the primality test, and `gcd`/`lcm` the divisor algebra — folding each into one `Outcome.arithmetic` carrying `(route, cardinality, magnitude)` so a factorization names its distinct-prime count and largest-prime magnitude rather than overloading the `solution` slots. GCD/LCM are binary over the divisor lattice but the fold carries one `Expr`; the unary reinterpretation is operand-shaped to avoid the vacuous `gcd(n, n) == n` self-divisor the page's dead-fact law forbids — a polynomial reads the `gcd(p, p')` squarefree content while a leaf integer reads its real divisor-lattice structure. The `GroundDomain` axis the case carries (`(NumberRoute, GroundDomain)`, the same row the `Solve`/`LinAlg` cases carry) selects the accelerator: `GroundDomain.FLINT` lowers an integer `expr` on the `FACTORINT`/`ISPRIME`/`GCD`/`LCM` routes to an `fmpz` whose `factor`/`is_prime` (`compute/.api/python-flint.md` `fmpz` ENTRYPOINTS [02]-[03]) plus the unary `divisor_sigma(k)`/`euler_phi` number-theory structure (ENTRYPOINT [07]) own the GMP-backed exact kernel on the `python_version<'3.15'` companion band — GCD reading `divisor_sigma(0)`/`divisor_sigma(1)` (divisor count and sum) and LCM the `euler_phi` totient as the divisor-lattice meet/join — while `PRIMERANGE` (a range generator with no `fmpz` single-integer query) and a still-symbolic divisor stay on `GroundDomain.SYMPY` by construction, the SYMPY leaf integer falling to its `factorint` divisor structure since sympy's catalogued number-theory surface carries no totient — one axis row reached through the same vocabulary, never a parallel FLINT number surface and never a tautological self-gcd.
+- [NUMERIC_BRIDGE]: the `Evaluate` row carries a `Precision` axis spanning the heuristic and certified bridges. `HEURISTIC` is the `.api` `[GRADUATION_PATH]` numeric bridge through the bundled `mpmath` context — `N(expr, digits)` lifts a numeric expression to a fixed-precision decimal, and on a still-symbolic polynomial `Poly(expr, primary).all_coeffs()[0]` reads the leading coefficient whose magnitude evaluates at the same precision — with `radius=0.0` because `mpmath` carries no error bound. `CERTIFIED` is the `compute/.api/python-flint.md` `[ARITHMETIC_STACKING]` `mpmath ↔ flint` promotion: the exact scalar re-evaluates through a `python-flint` `arb` ball under the adaptive `flint.good(func)` driver (`compute/.api/python-flint.md` certified-evaluation ENTRYPOINTS [01]) that re-runs the thunk at rising working precision until the ball is accurate to the `flint.ctx.dps` target the block-scoped `flint.ctx.workdps(digits)` context manager sets and restores on exit (never the leaking `ctx.dps = digits` global mutation); the thunk lowers the exact closed form to a parseable decimal through sympy's own `Expr.evalf(ctx.dps + 2)` before `arb(str(...))` (so `sqrt(2)` lifts as a decimal midpoint rather than the unparseable `str(sqrt(2))` symbol spelling), reading `mid()` as the value and `rad()` as the certified error bound the heuristic path lacks — so the precision claim and the certified bound enter the same `SymbolicReceipt` the codegen and lower rows feed, rather than a separate evaluation surface. `cse=True` precedes every `lambdify` lowering to dedupe shared subexpressions as the `.api` law requires.
 - [LOWER_BACKEND]: `LowerBackend` collapses the lowering family into one terminal — `lambdify(free, expr, modules="numpy"|"jax", cse=True)` for the vectorized/differentiable callable (catalog row [03][12]), `utilities.autowrap.ufuncify(free, expr)` for the broadcasting numpy ufunc (row [11]), and `utilities.autowrap.autowrap(expr, args=free)` for the compiled native extension (row [10]). The `Lower(LowerBackend.JAX)` value bridges this owner and the JAX autodiff family in `solvers/sensitivity.md#SENSITIVITY`, where `jax.grad`/`jax.vjp` consume the callable; the live callable is materialized as the lowering witness but not stored on the frozen `SymbolicReceipt` (a callable is not `msgspec`-encodable), so the consumer retrieves the live `fn` through the lowering seam keyed by the derivation's `content_key`. The `jax` value gates on the jaxlib `python_version<'3.15'` floor and the `native` value on a host C/Fortran toolchain, while `numpy`/`ufunc` stay cp315-clean because only the `jax` value passes `modules="jax"` and a `numpy`/`ufunc` lowering never imports `jax`.
 - [CODEGEN_PRINTER]: `Codegen` is the single polymorphic source-emission surface the `[GRADUATION_PATH]` law mandates — `_CODE_PRINTER` keys the per-target printer (`ccode`/`cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`, catalog rows [07][08]) by `CodeTarget`, and `utilities.codegen.codegen(language=...)` (row [09]) wraps a named, header-stripped module where the target supports it, falling to the printer for a bare expression render. A new code target is one `CodeTarget` value plus one `_CODE_PRINTER` row, never a parallel emitter. `cse` precedes codegen to dedupe shared subexpressions, and the emitted source becomes the `Rasm.Compute` C# numeric-owner graduation candidate the symbolic `HandoffAxis` reads.
 - [CONTENT_IDENTITY]: `SymbolicDerivation.derive` keys the derivation through the railed `ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops), IdentityPolicy())` from `runtime/evidence/identity#IDENTITY` and `bind`s the resolved `content_key` into the `boundary` fence — the `ContentIdentity.of(fmt, source, policy, *, view="value") -> RuntimeRail[ContentKey]` contract and the admit-then-bind weave `numerics/array.md#PAYLOAD` holds and the sibling `experiments/inference.md#BAYESIAN`/`experiments/model.md#ASSET` thread, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference. `SymbolicPayload` is the canonical `msgspec.Struct(frozen=True, gc=False)` the `canonical` `IdentitySource` modality folds through the one cached deterministic encoder (the form repr, the sorted assumption pairs, the ordered op signature), so the runtime content owner mints the key rather than a hand-rolled `msgspec.json.encode` plus `b"\x00".join` reinvention. `SymbolicReceipt` carries the resolved `content_key` and renders it through `ContentKey.project("hex")` (the `{value:032x}:{fmt}` form the C# `InterchangeIdentity.Key` contract reads) on every `contribute` row beside the `op`/`symbols` facts — the prior receipt carrying no content identity is the deleted form. A bare-`ContentKey` assignment off the railed `ContentIdentity.of` is the deleted form the in-fence `bind` replaces.

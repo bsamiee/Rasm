@@ -5,6 +5,10 @@
 //   node validate-workflow.mjs <path-to-workflow.js>
 //
 // Exit 0 = clean (warnings allowed). Exit 1 = errors found, or bad usage.
+//
+// Comments and string/template contents are neutralized BEFORE any matching, so
+// Date.now()/Math.random()/new Date() written inside a prompt or comment are
+// intentionally allowed — only real calls in code throw.
 
 import { readFileSync } from 'node:fs'
 
@@ -50,10 +54,13 @@ function strip(code) {
       }
       out += '  '; i += 2
     } else if (c === '"' || c === "'" || c === '`') { // string / template
+      // Fill interiors with a non-whitespace, non-word, non-paren placeholder so a
+      // non-empty argument (e.g. `new Date('2026-01-01')`) does NOT collapse into
+      // empty parens and trip the argless-Date check, while still hiding any token.
       const q = c; out += ' '; i++
       while (i < n && code[i] !== q) {
-        if (code[i] === '\\') { out += '  '; i += 2; continue }
-        out += code[i] === '\n' ? '\n' : ' '; i++
+        if (code[i] === '\\') { out += '~~'; i += 2; continue }
+        out += code[i] === '\n' ? '\n' : '~'; i++
       }
       out += ' '; i++
     } else {
@@ -108,7 +115,7 @@ if (!metaMatch) {
 const banned = [
   [/\bDate\s*\.\s*now\b/g, 'Date.now()'],
   [/\bMath\s*\.\s*random\b/g, 'Math.random()'],
-  [/\bnew\s+Date\s*\(\s*\)/g, 'new Date()  (argless)'],
+  [/\b(?:new\s+)?Date\s*\(\s*\)/g, 'argless Date()/new Date()  (new Date(value) is fine)'],
 ]
 for (const [re, label] of banned) {
   let m

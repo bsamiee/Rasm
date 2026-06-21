@@ -5,7 +5,7 @@
  * review again — up to 3 rounds. The loop lives in JavaScript, so unlike a
  * hand-orchestrated chat it physically cannot forget to re-review.
  *
- * Workflow({ name: 'implement-and-review', args: 'add rate limiting to the API' })
+ * Workflow({ name: 'implement-and-review', args: 'collapse the duplicate mesh codecs in libs/csharp/Rasm into one [Union]' })
  */
 
 export const meta = {
@@ -28,13 +28,9 @@ const REVIEW = {
   },
 }
 
-// `args` is whatever the caller passed. This workflow expects a plain-text task
-// string; a JSON-encoded string is unwrapped, anything else falls back to a default.
-const task = (() => {
-  if (typeof args !== 'string' || !args.trim()) return 'the feature described in TASK.md'
-  try { const v = JSON.parse(args); return typeof v === 'string' ? v : args }
-  catch { return args }
-})()
+// `args` arrives as structured data. This workflow expects a plain-text task
+// string; anything else falls back to the default.
+const task = typeof args === 'string' && args.trim() ? args : 'collapse the duplicate mesh codecs in libs/csharp/Rasm into one [Union]'
 const MAX_ROUNDS = 3 // hard cap — every loop in a workflow needs one.
 
 phase('Implement')
@@ -46,6 +42,8 @@ let round = 0
 do {
   round++
 
+  // The reviewer is a fresh-context agent — it never saw the implementer's
+  // reasoning, so it grades the diff on its merits instead of rubber-stamping.
   phase('Review')
   review = await agent(
     `Review the current uncommitted changes for: ${task}. List concrete, specific issues.`,

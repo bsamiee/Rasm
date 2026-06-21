@@ -1,19 +1,26 @@
 export const meta = {
   name: 'rebuild-and-reconcile',
-  description: 'Fan out one edit-in-place worker per file, then reconcile the cross-file fixes each worker had to defer: cluster deferrals by shared file, fix each cluster, adversarially verify per claim.',
-  whenToUse: 'A refactor where each file is fixed independently but some fixes span files (a shared type, a seam two files must agree on)',
+  description: 'Tighten the libs/typescript/interchange wire-decode files in place, then reconcile the fixes that span the shared wire contract: cluster deferrals by shared file, fix each cluster once, adversarially verify per claim.',
+  whenToUse: 'A refactor where each file is fixed independently but some fixes span files (a shared decoded shape, a seam two files must agree on)',
   phases: [{ title: 'Edit' }, { title: 'Reconcile' }],
 }
 
-// args = JSON array of file paths. The defaults keep the example runnable as-is.
-const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
-const FILES = Array.isArray(input) && input.length ? input : ['src/a.ts', 'src/b.ts', 'src/c.ts']
+// args = array of file paths, arriving as structured data. Defaults keep it runnable —
+// the interchange decode files that all read one C# wire and must stay mutually consistent.
+const FILES = Array.isArray(args) && args.length ? args : [
+  'libs/typescript/interchange/codec/codec.ts',
+  'libs/typescript/interchange/codec/frame.ts',
+  'libs/typescript/interchange/codec/parity.ts',
+  'libs/typescript/interchange/ingress/fault.ts',
+  'libs/typescript/interchange/contract/descriptor.ts',
+]
 
 const EDIT = { type: 'object', additionalProperties: false, required: ['file', 'verdict'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['edited', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } } } }
 const FIXED = { type: 'object', additionalProperties: false, required: ['files', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
-const VERIFY = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'resolved'], properties: { claim: { type: 'string' }, resolved: { type: 'boolean' }, evidence: { type: 'string' } } } } } }
+const VERIFY = { type: 'object', additionalProperties: false, required: ['claims'], properties: { claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'resolved'], properties: { claim: { type: 'string' }, resolved: { type: 'boolean' }, evidence: { type: 'string' } } } } } }
 
-// Steady worker pool — better than parallel(thunks) for many long chains (pattern #11).
+// Steady worker pool — holds a true steady state of <=cap long chains; preferred over
+// parallel(thunks) once the file list grows to hundreds of long multi-stage edits (pattern #14).
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let i = 0
@@ -25,7 +32,7 @@ const pool = async (items, cap, worker) => {
 // --- Edit: one worker per file; fix what it can alone, DEFER cross-file work as DATA (a file LIST). ---
 phase('Edit')
 const done = (await pool(FILES, 8, (f) => agent(
-  'Refactor ' + f + ' in place. Fix everything you can within this ONE file. Anything that also requires editing OTHER files (a shared type, a seam two files must agree on) you MUST NOT touch here — instead report it in residual as {files: [every file the fix touches], claim}.',
+  'Tighten the wire-decode module ' + f + ' in place against coding-ts. Fix everything you can within this ONE file. Anything that also requires editing OTHER files (a shared decoded shape, a codec/frame/fault seam two files must agree on) you MUST NOT touch here — instead report it in residual as {files: [every file the fix touches], claim}.',
   { label: 'edit:' + f, phase: 'Edit', schema: EDIT }))).filter(Boolean)
 
 // --- Reconcile: BARRIER (dedup + cluster by shared file via union-find), then PIPELINE fix -> verify. ---

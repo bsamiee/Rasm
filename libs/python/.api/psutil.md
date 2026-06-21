@@ -27,104 +27,104 @@
 [PUBLIC_TYPE_SCOPE]: exception types
 - rail: observability
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [RAIL]                            |
-| :-----: | :--------------- | :------------- | :-------------------------------- |
-|  [01]   | `Error`          | base exception | root of all psutil exceptions     |
-|  [02]   | `NoSuchProcess`  | process error  | pid no longer exists              |
-|  [03]   | `ZombieProcess`  | process error  | process is a zombie (subclass)    |
-|  [04]   | `AccessDenied`   | access error   | insufficient privileges           |
-|  [05]   | `TimeoutExpired` | timeout error  | `wait`/`wait_procs` deadline hit  |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [RAIL]                           |
+| :-----: | :--------------- | :------------- | :------------------------------- |
+|  [01]   | `Error`          | base exception | root of all psutil exceptions    |
+|  [02]   | `NoSuchProcess`  | process error  | pid no longer exists             |
+|  [03]   | `ZombieProcess`  | process error  | process is a zombie (subclass)   |
+|  [04]   | `AccessDenied`   | access error   | insufficient privileges          |
+|  [05]   | `TimeoutExpired` | timeout error  | `wait`/`wait_procs` deadline hit |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process iteration and lookup
 - rail: observability
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :---------------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Process(pid=None)`                             | constructor    | attach to pid (defaults to `os.getpid()`)|
-|  [02]   | `Popen(*args, **kwargs)`                        | constructor    | launch subprocess with `Process` API    |
-|  [03]   | `process_iter(attrs=None, ad_value=None)`       | iterator       | iterate live processes, pre-fetch `attrs`|
-|  [04]   | `pids() -> list[int]`                           | query          | all live PIDs                           |
-|  [05]   | `pid_exists(pid) -> bool`                       | query          | true if pid is alive                    |
-|  [06]   | `wait_procs(procs, timeout=None, callback=None)`| wait           | wait for multiple processes to exit     |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :----------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `Process(pid=None)`                              | constructor    | attach to pid (defaults to `os.getpid()`) |
+|  [02]   | `Popen(*args, **kwargs)`                         | constructor    | launch subprocess with `Process` API      |
+|  [03]   | `process_iter(attrs=None, ad_value=None)`        | iterator       | iterate live processes, pre-fetch `attrs` |
+|  [04]   | `pids() -> list[int]`                            | query          | all live PIDs                             |
+|  [05]   | `pid_exists(pid) -> bool`                        | query          | true if pid is alive                      |
+|  [06]   | `wait_procs(procs, timeout=None, callback=None)` | wait           | wait for multiple processes to exit       |
 
 [ENTRYPOINT_SCOPE]: Process batched-read and identity
 - rail: observability
 - read off a `Process(pid)` handle; raise `NoSuchProcess`/`ZombieProcess`/`AccessDenied` on a dead/inaccessible target. Wrap a cluster of reads in `oneshot()` to collapse syscalls.
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :----------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `Process.oneshot()`                              | context manager | batch internal syscalls; cache info per block |
-|  [02]   | `Process.as_dict(attrs=None, ad_value=None)`     | bulk read      | dict of named attributes (skips inaccessible) |
-|  [03]   | `Process.pid` / `name()` / `exe()` / `cmdline()` | identity       | pid, executable name/path, argv               |
-|  [04]   | `Process.ppid()` / `parent()` / `parents()`      | lineage        | parent pid / `Process` / ancestor chain       |
-|  [05]   | `Process.children(recursive=False)`              | lineage        | child `Process` list                          |
-|  [06]   | `Process.create_time()` / `username()` / `cwd()` / `status()` | identity       | start epoch, owner, cwd, status string        |
-|  [07]   | `Process.is_running() -> bool`                   | liveness       | true if still alive (pid not reused)           |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]  | [RAIL]                                        |
+| :-----: | :------------------------------------------------------------ | :-------------- | :-------------------------------------------- |
+|  [01]   | `Process.oneshot()`                                           | context manager | batch internal syscalls; cache info per block |
+|  [02]   | `Process.as_dict(attrs=None, ad_value=None)`                  | bulk read       | dict of named attributes (skips inaccessible) |
+|  [03]   | `Process.pid` / `name()` / `exe()` / `cmdline()`              | identity        | pid, executable name/path, argv               |
+|  [04]   | `Process.ppid()` / `parent()` / `parents()`                   | lineage         | parent pid / `Process` / ancestor chain       |
+|  [05]   | `Process.children(recursive=False)`                           | lineage         | child `Process` list                          |
+|  [06]   | `Process.create_time()` / `username()` / `cwd()` / `status()` | identity        | start epoch, owner, cwd, status string        |
+|  [07]   | `Process.is_running() -> bool`                                | liveness        | true if still alive (pid not reused)          |
 
 [ENTRYPOINT_SCOPE]: Process resource metrics
 - rail: observability
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `Process.memory_info() -> pmem`        | metric         | RSS/VMS named tuple (fields platform-dependent)         |
-|  [02]   | `Process.memory_full_info() -> pfullmem`| metric        | adds `uss` (and `pss`/`swap` on Linux)                  |
-|  [03]   | `Process.memory_percent(memtype="rss")`| metric         | memory as percent of system total                       |
-|  [04]   | `Process.cpu_percent(interval=None)`   | metric         | CPU utilization float (`None` = since-last-call delta)  |
-|  [05]   | `Process.cpu_times() -> pcputimes`     | metric         | user/system/children CPU seconds                        |
-|  [06]   | `Process.num_threads()`                | metric         | live thread count                                       |
-|  [07]   | `Process.num_ctx_switches() -> pctxsw` | metric         | voluntary/involuntary context switches                  |
-|  [08]   | `Process.num_fds()` (POSIX)            | metric         | open file-descriptor count                              |
-|  [09]   | `Process.io_counters() -> pio` (gated) | metric         | read/write counts + bytes                               |
-|  [10]   | `Process.open_files() -> list[popenfile]` | metric      | open regular files                                      |
-|  [11]   | `Process.net_connections(kind='inet')` | metric         | open sockets for this process                           |
-|  [12]   | `Process.threads() -> list[pthread]` (gated) | metric    | per-thread CPU times                                    |
-|  [13]   | `Process.environ()` (gated)            | metric         | process environment dict                                |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                 |
+| :-----: | :------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `Process.memory_info() -> pmem`              | metric         | RSS/VMS named tuple (fields platform-dependent)        |
+|  [02]   | `Process.memory_full_info() -> pfullmem`     | metric         | adds `uss` (and `pss`/`swap` on Linux)                 |
+|  [03]   | `Process.memory_percent(memtype="rss")`      | metric         | memory as percent of system total                      |
+|  [04]   | `Process.cpu_percent(interval=None)`         | metric         | CPU utilization float (`None` = since-last-call delta) |
+|  [05]   | `Process.cpu_times() -> pcputimes`           | metric         | user/system/children CPU seconds                       |
+|  [06]   | `Process.num_threads()`                      | metric         | live thread count                                      |
+|  [07]   | `Process.num_ctx_switches() -> pctxsw`       | metric         | voluntary/involuntary context switches                 |
+|  [08]   | `Process.num_fds()` (POSIX)                  | metric         | open file-descriptor count                             |
+|  [09]   | `Process.io_counters() -> pio` (gated)       | metric         | read/write counts + bytes                              |
+|  [10]   | `Process.open_files() -> list[popenfile]`    | metric         | open regular files                                     |
+|  [11]   | `Process.net_connections(kind='inet')`       | metric         | open sockets for this process                          |
+|  [12]   | `Process.threads() -> list[pthread]` (gated) | metric         | per-thread CPU times                                   |
+|  [13]   | `Process.environ()` (gated)                  | metric         | process environment dict                               |
 
 [ENTRYPOINT_SCOPE]: Process control and scheduling
 - rail: observability
 
-| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :---------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Process.nice(value=None)`                | scheduling     | get/set process priority                |
-|  [02]   | `Process.cpu_affinity(cpus=None)` (gated) | scheduling     | get/set CPU affinity mask               |
-|  [03]   | `Process.cpu_num()` (gated)               | scheduling     | CPU the process last ran on             |
-|  [04]   | `Process.ionice(ioclass=None, value=None)` (gated) | scheduling | get/set I/O priority                    |
-|  [05]   | `Process.rlimit(resource, limits=None)` (gated) | scheduling | get/set resource limits                 |
-|  [06]   | `Process.send_signal(sig)` / `suspend()` / `resume()` | lifecycle | signal / SIGSTOP / SIGCONT              |
-|  [07]   | `Process.terminate()` / `kill()`          | lifecycle      | SIGTERM / SIGKILL                       |
-|  [08]   | `Process.wait(timeout=None)`              | lifecycle      | block until exit; return exit code      |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :---------------------------------------------------- | :------------- | :--------------------------------- |
+|  [01]   | `Process.nice(value=None)`                            | scheduling     | get/set process priority           |
+|  [02]   | `Process.cpu_affinity(cpus=None)` (gated)             | scheduling     | get/set CPU affinity mask          |
+|  [03]   | `Process.cpu_num()` (gated)                           | scheduling     | CPU the process last ran on        |
+|  [04]   | `Process.ionice(ioclass=None, value=None)` (gated)    | scheduling     | get/set I/O priority               |
+|  [05]   | `Process.rlimit(resource, limits=None)` (gated)       | scheduling     | get/set resource limits            |
+|  [06]   | `Process.send_signal(sig)` / `suspend()` / `resume()` | lifecycle      | signal / SIGSTOP / SIGCONT         |
+|  [07]   | `Process.terminate()` / `kill()`                      | lifecycle      | SIGTERM / SIGKILL                  |
+|  [08]   | `Process.wait(timeout=None)`                          | lifecycle      | block until exit; return exit code |
 
 [ENTRYPOINT_SCOPE]: CPU metrics
 - rail: observability
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :---------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `cpu_percent(interval=None, percpu=False)`      | metric         | system CPU utilization float          |
-|  [02]   | `cpu_times(percpu=False) -> scputimes`          | metric         | system CPU time fields                |
-|  [03]   | `cpu_times_percent(interval=None, percpu=False)`| metric         | CPU time percentages                  |
-|  [04]   | `cpu_count(logical=True)`                       | metric         | logical or physical CPU count         |
-|  [05]   | `cpu_stats() -> scpustats`                      | metric         | ctx-switches/interrupts/soft-interrupts |
-|  [06]   | `cpu_freq(percpu=False) -> scpufreq` (gated)    | metric         | current/min/max MHz (not on macOS)    |
-|  [07]   | `getloadavg() -> (f, f, f)` (gated)             | metric         | 1/5/15-min load average               |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :----------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `cpu_percent(interval=None, percpu=False)`       | metric         | system CPU utilization float            |
+|  [02]   | `cpu_times(percpu=False) -> scputimes`           | metric         | system CPU time fields                  |
+|  [03]   | `cpu_times_percent(interval=None, percpu=False)` | metric         | CPU time percentages                    |
+|  [04]   | `cpu_count(logical=True)`                        | metric         | logical or physical CPU count           |
+|  [05]   | `cpu_stats() -> scpustats`                       | metric         | ctx-switches/interrupts/soft-interrupts |
+|  [06]   | `cpu_freq(percpu=False) -> scpufreq` (gated)     | metric         | current/min/max MHz (not on macOS)      |
+|  [07]   | `getloadavg() -> (f, f, f)` (gated)              | metric         | 1/5/15-min load average                 |
 
 [ENTRYPOINT_SCOPE]: memory, disk, network, and system metrics
 - rail: observability
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :---------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `virtual_memory() -> svmem`                     | metric         | system memory named tuple             |
-|  [02]   | `swap_memory() -> sswap`                         | metric         | swap memory named tuple               |
-|  [03]   | `disk_usage(path) -> sdiskusage`                | metric         | total/used/free/percent for a path    |
-|  [04]   | `disk_partitions(all=False)`                    | metric         | mounted partitions                    |
-|  [05]   | `disk_io_counters(perdisk=False, nowrap=True)`  | metric         | disk I/O counters (`sdiskio`)         |
-|  [06]   | `net_io_counters(pernic=False, nowrap=True)`    | metric         | network I/O counters (`snetio`)       |
-|  [07]   | `net_connections(kind='inet')`                  | metric         | system-wide open sockets              |
-|  [08]   | `net_if_addrs()` / `net_if_stats()`             | metric         | interface addresses / link stats      |
-|  [09]   | `boot_time()` / `users()`                       | metric         | boot epoch / logged-in users          |
-|  [10]   | `sensors_battery() -> sbattery` (gated)         | metric         | battery percent/secsleft/plugged (not on macOS) |
-|  [11]   | `sensors_temperatures(fahrenheit=False)` / `sensors_fans()` (gated) | metric | hardware sensors (Linux-mostly)       |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `virtual_memory() -> svmem`                                         | metric         | system memory named tuple                       |
+|  [02]   | `swap_memory() -> sswap`                                            | metric         | swap memory named tuple                         |
+|  [03]   | `disk_usage(path) -> sdiskusage`                                    | metric         | total/used/free/percent for a path              |
+|  [04]   | `disk_partitions(all=False)`                                        | metric         | mounted partitions                              |
+|  [05]   | `disk_io_counters(perdisk=False, nowrap=True)`                      | metric         | disk I/O counters (`sdiskio`)                   |
+|  [06]   | `net_io_counters(pernic=False, nowrap=True)`                        | metric         | network I/O counters (`snetio`)                 |
+|  [07]   | `net_connections(kind='inet')`                                      | metric         | system-wide open sockets                        |
+|  [08]   | `net_if_addrs()` / `net_if_stats()`                                 | metric         | interface addresses / link stats                |
+|  [09]   | `boot_time()` / `users()`                                           | metric         | boot epoch / logged-in users                    |
+|  [10]   | `sensors_battery() -> sbattery` (gated)                             | metric         | battery percent/secsleft/plugged (not on macOS) |
+|  [11]   | `sensors_temperatures(fahrenheit=False)` / `sensors_fans()` (gated) | metric         | hardware sensors (Linux-mostly)                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
