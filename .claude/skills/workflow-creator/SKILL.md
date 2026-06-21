@@ -42,17 +42,12 @@ is in `scripts/`.
 
 ---
 
-## Step 0 — Confirm the Workflow tool is available
-
-The Workflow tool is **enabled by default** in current Claude Code (verified on
-v2.1.185: `CLAUDE_CODE_WORKFLOWS` unset, workflows run regardless). Earlier builds
-gated it behind a `CLAUDE_CODE_WORKFLOWS=1` opt-in — historical, no longer needed.
-You can always *write* a workflow file; if one will not *run*, confirm the Claude
-Code version is current rather than exporting the old variable.
+## Step 0 — Where workflows live
 
 Workflow files live in `.claude/workflows/<name>.js` (project-local) or
 `~/.claude/workflows/<name>.js` (global). The filename is not the workflow name —
-the `name` inside the `meta` block is.
+the `name` inside the `meta` block is. The tool is enabled by default — write the
+file and it runs.
 
 ---
 
@@ -235,7 +230,7 @@ from a file in `assets/templates/`, or adapt a full worked example from
 Catch the parser's hard rules before you waste a run. Use the bundled linter:
 
 ```bash
-node ~/.claude/skills/workflow-creator/scripts/validate-workflow.mjs <path-to-file.js>
+node .claude/skills/workflow-creator/scripts/validate-workflow.mjs <path-to-file.js>
 ```
 
 It flags: missing or non-first `meta`, a non-literal `meta`, a missing

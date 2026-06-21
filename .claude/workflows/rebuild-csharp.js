@@ -11,11 +11,15 @@ const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
+const STAGGER_MS = 1500
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async () => { while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  const run = async (slot) => {
+    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
+    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
+  }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
   return out
 }
 const CAP = 14
@@ -66,9 +70,10 @@ const processPage = async (w, tag) => {
   const logs = {}
   for (const st of STAGES) {
     const r = await agent(st.build(w.page), { label: st.key + ':' + folderOf(w.page) + ':' + subOf(w.page), phase: tag + folderOf(w.page), schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: 300000 })
-    if (r) logs[st.key] = r
+    if (r === null) break
+    logs[st.key] = r
   }
-  return { page: w.page, logs }
+  return { page: w.page, logs, ok: Object.keys(logs).length === STAGES.length }
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -109,4 +114,4 @@ const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const hard_residual = claimsAll.filter((c) => c.status === 'open').map((c) => c.claim)
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
-return { root: ROOT, scope: SCOPE || 'ALL', complete: done.length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
+return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }

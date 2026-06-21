@@ -14,11 +14,15 @@ const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: [
 const CARDLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['authored', 'refined', 'hardened', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
+const STAGGER_MS = 1500
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async () => { while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  const run = async (slot) => {
+    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
+    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
+  }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
   return out
 }
 const CAP = 10
@@ -44,10 +48,12 @@ const redteamPrompt = (folder) => [LAW, '', 'TASK: ADVERSARIAL RED-TEAM + FIX IN
 // --- [OPERATIONS] ------------------------------------------------------------------------
 const ideateFolder = async (folder) => {
   const survey = await agent(surveyPrompt(folder), { label: 'survey:' + nameOf(folder), phase: 'Survey', schema: SURVEY_SCHEMA, effort: 'high' })
-  await agent(ideatePrompt(folder, JSON.stringify(survey || {})), { label: 'ideate:' + nameOf(folder), phase: 'Ideate', schema: CARDLOG_SCHEMA, effort: 'max' })
+  if (survey === null) return { folder, logs: {}, ok: false }
+  if ((await agent(ideatePrompt(folder, JSON.stringify(survey)), { label: 'ideate:' + nameOf(folder), phase: 'Ideate', schema: CARDLOG_SCHEMA, effort: 'max' })) === null) return { folder, logs: {}, ok: false }
   const crit = await agent(critiquePrompt(folder), { label: 'crit:' + nameOf(folder), phase: 'Critique', schema: CARDLOG_SCHEMA, effort: 'xhigh' })
+  if (crit === null) return { folder, logs: {}, ok: false }
   const rt = await agent(redteamPrompt(folder), { label: 'redteam:' + nameOf(folder), phase: 'Redteam', schema: CARDLOG_SCHEMA, effort: 'max' })
-  return { folder, logs: { crit, redteam: rt } }
+  return { folder, logs: { crit, redteam: rt }, ok: rt !== null }
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------

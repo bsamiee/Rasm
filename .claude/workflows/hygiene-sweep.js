@@ -13,11 +13,15 @@ const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'applied', 'verdict', 'summary'], properties: { file: { type: 'string' }, applied: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean', 'fail'] }, residual_high: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
+const STAGGER_MS = 1500
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async () => { while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  const run = async (slot) => {
+    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
+    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
+  }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
   return out
 }
 const CAP = 10
