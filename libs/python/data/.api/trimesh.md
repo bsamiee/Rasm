@@ -9,7 +9,7 @@
 - import: `import trimesh`
 - owner: `data`
 - rail: aec
-- installed: `4.12.2` reflected via `python -c "import trimesh"` on cp313
+- installed: `4.12.2` resolved by `assay api resolve trimesh` on the `>=3.15` project venv (`.venv/lib/python3.15/site-packages/trimesh-4.12.2.dist-info`); unmarked pure-Python (`py3-none-any`), so the mesh/IO/topology/visual surface reflects on the main cp315 band
 - entry points: none (library only)
 - capability: mesh load/export, mass properties, watertightness and manifold checks, repair, boolean union/difference/intersection, surface and volume sampling, Laplacian/Taubin/Humphrey smoothing, ICP and non-rigid registration, primitive and parametric construction, voxelization, ray and proximity queries
 
@@ -26,7 +26,7 @@
 |  [04]   | `parent.Geometry`     | geometry base   | shared bounds/transform/export contract (`Trimesh` return discriminant) |
 |  [05]   | `path.Path3D`         | path geometry   | 3D entity/vertex curve network from `load_path`/`section`  |
 |  [06]   | `primitives.Box`      | primitive solid | `Box`/`Sphere`/`Cylinder`/`Capsule`/`Extrusion`/`Primitive` primitives |
-|  [07]   | `visual.ColorVisuals` | visual layer    | per-vertex/face color and `TextureVisuals` material        |
+|  [07]   | `visual.ColorVisuals` / `visual.TextureVisuals` | visual layer | `Trimesh.visual` union: `ColorVisuals.vertex_colors`/`face_colors` are `(N,4)` `uint8` RGBA properties (defaults synthesized when undefined); `TextureVisuals` carries UV/material and exposes neither, gated behind `visual.kind in {'vertex','face','texture',None}` |
 |  [08]   | `voxel.VoxelGrid`     | voxel volume    | sparse occupancy grid from `Trimesh.voxelized`             |
 
 [PUBLIC_TYPE_SCOPE]: `Trimesh` topology and mass accessors
@@ -134,5 +134,5 @@ Method rows operate on a `Trimesh`; boolean rows accept a second mesh or a seque
 - Reject: wrapper-renames of `load`/`export`; a hand-rolled boolean, smoothing, or mass-property kernel where trimesh is admitted; raw vertex-array mutation that bypasses `update_vertices`; a hand-rolled face KD-tree where `proximity.closest_point`/`signed_distance` apply; a `blender`-engine assumption where `manifold` is the in-process default; identity minting the runtime owns
 
 [CAPTURE_GAP]:
-- floor: `trimesh==4.12.2` ships pure-Python wheels with a hard `numpy` dependency only (`shapely` is optional, gating `extrude_polygon`/`triangulate_polygon`); the `assay api resolve` index carries no `trimesh` source, so members are reflected by importing the locked `4.12.2` against `numpy` on the cp315 companion interpreter
-- members: every documented type, method, accessor, entrypoint, and submodule resolves by reflection; `engines_available` reflects `{None, 'blender'}` (manifold is the always-present default and is not listed), `proximity.closest_point` reflects the `(closest, distance, triangle_id)` 3-tuple, and `simplify_quadric_decimation` reflects `percent`/`face_count`/`aggression` — no phantom
+- floor: `trimesh==4.12.2` is MIT, unmarked pure-Python (`py3-none-any`, hard `numpy` dependency only), and `assay api resolve trimesh` finds the distribution on the `>=3.15` project venv — so the mesh/IO/topology/visual surface this `data` rail consumes reflects directly on the main cp315 band, no companion interpreter. The optional compiled backends the manifest pins `<'3.15'` (`manifold3d` boolean CSG, `rtree` libspatialindex) gate only the boolean/R-tree paths, which this file-exchange owner never drives; `shapely` is optional, gating `extrude_polygon`/`triangulate_polygon` alone
+- members: every documented type, method, accessor, entrypoint, and submodule resolves by reflection against the locked cp315 distribution; `ColorVisuals.vertex_colors` and `ColorVisuals.face_colors` reflect as `(len(vertices), 4)` / `(len(faces), 4)` `uint8` RGBA `property` accessors that synthesize defaults when no color is defined, `ColorVisuals.kind` reports `'vertex'`/`'face'`/`None`, and `TextureVisuals` exposes neither `vertex_colors` nor `face_colors` (`hasattr` is `False`) with `kind == 'texture'`; `engines_available` reflects `{None, 'blender'}` (manifold is the always-present default and is not listed), `proximity.closest_point` reflects the `(closest, distance, triangle_id)` 3-tuple, and `simplify_quadric_decimation` reflects `percent`/`face_count`/`aggression` — no phantom

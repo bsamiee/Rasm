@@ -1,21 +1,21 @@
 # [PY_DATA_GEOSPATIAL]
 
-The three-axis geospatial surface, spatial egress, the columnar spatial-query engine, and the discrete-global-grid plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` CRS prelude and exposes one `VectorOp` tagged-union in-frame vector-algebra axis (`apply`); `RasterGeoClaim` carries coverage/band/resampling/nodata/transform/CRS over rasterio and exposes one `RasterOp` tagged-union coverage axis (`apply`) spanning the in-memory window/mosaic/mask/geometry-mask/sieve/vectorize/rasterize/reproject ops and the streaming/remote/VRT/in-memory/sample/COG-write rows; `StacGeoClaim` folds one `StacIngest` axis over `stac_geoparquet.arrow` for the STAC-NDJSON-to-Arrow source, the Delta sink composing the `tabular/lakehouse` owner, and the table-to-item-dict rehydration. Vector and raster are two value objects with two distinct operation axes because band/resampling/window semantics differ from vector CRS/axis-order; the operation knobs (`how`/`predicate`/`aggfunc`/`max_distance`/`method`/`crop`/`merge_alg`/`resampling`/`tile_shape`/`vsi_scheme`/`profile`) are case payload rows, never a `sjoin`/`overlay`/`do_merge`/`clip_raster`/`stream_tiles`/`read_remote`/`write_cog` method family. `EgressFormat` is one `StrEnum` carrying its own `write` — GeoJSON/GeoParquet/FlatGeobuf/GeoArrow, the OGR driver IS the enum value, GeoParquet rides geopandas `to_parquet` and GeoArrow rides `to_parquet(geometry_encoding="geoarrow")` — not a tagged union over redundant payloads or a per-format writer family. `SpatialQuery` is one tagged-union axis over the DuckDB engine whose every case projects through one `QueryPlan` fold carrying SQL, bound parameters, the extension requirement, and the predicate count in a single traversal — DuckDB 1.5 promotes the `GEOMETRY` type and the core `ST_` predicates to the built-in engine, so the `spatial` extension is core-loadable (one `LOAD spatial` for `ST_Transform`/`ST_Read` GDAL access, no `INSTALL`) and only `h3` rides the community channel; the bbox-cached `SPATIAL_JOIN` operator is the automatic join prefilter, and the spatial engine owns the extension-load and `ST_GeomFromWKB` geometry-view prelude the generic `query` engine lacks, sharing the `QueryReceipt` law rather than routing through `QueryEngine.Sql`. `GridSystem` is one discrete-global-grid owner over an H3/S2 axis whose cell indexing/measurement/traversal/hierarchy fold as vectorized polars expressions over h3ronpy Arrow cell ops and polars-st spatial frames, one `CellKind` axis collapsing the parallel cell/vertex/edge parse-validate-stringify families and the `raster` bridge lifting numpy coverage into cells, composing the DuckDB `h3` SQL path for the engine leg. Every bundle keys by exactly one runtime `ContentIdentity`, folding the shared `tabular/columnar.md#SCAN` `QueryReceipt`.
+The three-axis geospatial surface, spatial egress, the columnar spatial-query engine, and the discrete-global-grid plane. `VectorGeoClaim` carries CRS/units/axis-order/geometry-family/precision over geopandas/shapely/pyogrio with pyproj backing the axis-order-aware `reproject` CRS prelude and exposes one `VectorOp` tagged-union in-frame vector-algebra axis (`apply`); `RasterGeoClaim` carries coverage/band/resampling/nodata/transform/CRS over rasterio and exposes one `RasterOp` tagged-union coverage axis (`apply`) spanning the in-memory window/mosaic/mask/geometry-mask/sieve/vectorize/rasterize/reproject ops and the streaming/remote/VRT/in-memory/sample/COG-write rows; `StacGeoClaim` folds one `StacIngest` axis (`ToArrow`/`ToDelta`/`Rehydrate`) by composing the canonical `spatial/catalog#TABLE` `stac_table`/`stac_table_direct`/`stac_table_rehydrate` STAC-interchange owner — the geospatial-tier claim re-binds no `stac_geoparquet.arrow` surface, wrapping the catalog owner's railed result in its own `QueryReceipt`/span/`apply_remote` retry rail. Vector and raster are two value objects with two distinct operation axes because band/resampling/window semantics differ from vector CRS/axis-order; the operation knobs (`how`/`predicate`/`aggfunc`/`max_distance`/`method`/`crop`/`merge_alg`/`resampling`/`tile_shape`/`vsi_scheme`/`profile`) are case payload rows, never a `sjoin`/`overlay`/`do_merge`/`clip_raster`/`stream_tiles`/`read_remote`/`write_cog` method family. `EgressFormat` is one `StrEnum` carrying its own `write` — GeoJSON/GeoParquet/FlatGeobuf/GeoArrow, the OGR driver IS the enum value, GeoParquet rides geopandas `to_parquet` and GeoArrow rides `to_parquet(geometry_encoding="geoarrow")` — not a tagged union over redundant payloads or a per-format writer family. `SpatialQuery` is one tagged-union axis over the DuckDB engine whose every case projects through one `QueryPlan` fold carrying SQL, bound parameters, the extension requirement, and the predicate count in a single traversal — in DuckDB 1.5.4 every `ST_` function lives in the `spatial` extension, so `spatial` is the unconditional `install_extension("spatial", repository=None)`-then-`load_extension` geometry-view prelude the engine loads before any `ST_GeomFromWKB`/`ST_Intersects`/`ST_Transform` resolves, and `h3` rides the community repository on top of it; the bbox-cached `SPATIAL_JOIN` operator is the automatic join prefilter, and the spatial engine owns the extension-load and `ST_GeomFromWKB` geometry-view prelude the generic `query` engine lacks, threading the railed `QueryReceipt` law rather than routing through `QueryEngine.Sql`. `GridSystem` is one discrete-global-grid owner over an H3/S2 axis whose cell indexing/measurement/traversal/hierarchy fold as vectorized polars expressions over h3ronpy Arrow cell ops and polars-st spatial frames, one `CellKind` axis collapsing the parallel cell/vertex/edge parse-validate-stringify families and the `raster` bridge lifting numpy coverage into cells, composing the DuckDB `h3` SQL path for the engine leg. Every owner wraps its `boundary` fence in one `_TRACER.start_as_current_span` so each op is an OTel span, and every network-bearing read (`RasterOp.RemoteRead`, the remote-NDJSON `StacIngest` rows) carries an awaitable `apply_remote` leg that drives the blocking provider call through `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)` so a transient remote fault retries on the one `stamina` `HTTP` policy row — the retry/span/lift triplet delegated to the runtime resilience owner, never a hand-rolled loop. Every bundle keys by exactly one runtime `ContentIdentity`, folding the shared `tabular/columnar.md#SCAN` `QueryReceipt`.
 
 ## [01]-[INDEX]
 
-- [01]-[GEO]: vector and raster geospatial claims, the in-frame `VectorOp`/`RasterOp` operation axes spanning the in-memory and streaming/remote/VRT/in-memory/sample/sieve/geometry-mask/COG-write rows, the `StacIngest` STAC-NDJSON Arrow/Delta interchange axis, spatial egress, the GeoArrow encoding.
-- [02]-[SPATIAL]: the DuckDB join/transform/H3 columnar query engine over the DuckDB 1.5 core `GEOMETRY` type, the core-loadable `spatial` extension, the community `h3` extension, the one `QueryPlan` projection folding SQL/extensions/predicate-count, and the bbox-cached `SPATIAL_JOIN` prefilter.
+- [01]-[GEO]: vector and raster geospatial claims, the in-frame `VectorOp`/`RasterOp` operation axes spanning the in-memory and streaming/remote/VRT/in-memory/sample/sieve/geometry-mask/COG-write rows, the `StacIngest` STAC-NDJSON Arrow/Delta interchange axis composing the `spatial/catalog#TABLE` `stac_table` owner, spatial egress, the GeoArrow encoding.
+- [02]-[SPATIAL]: the DuckDB join/transform/H3 columnar query engine over the `spatial`-extension `GEOMETRY` type, the core-repository `spatial` extension loaded as the unconditional geometry-view prelude, the community-repository `h3` extension, the one `QueryPlan` projection folding SQL/parameters/extensions/predicate-count, and the bbox-cached `SPATIAL_JOIN` prefilter.
 - [03]-[GRID]: the `GridSystem` discrete-global-grid owner over the H3/S2 axis as vectorized polars-native cell ops on h3ronpy + polars-st, the `CellKind` cell/vertex/edge collapse and the bidirectional `raster` numpy↔cell bridge, composing the DuckDB `h3` SQL path.
 
 ## [02]-[GEO]
 
 - Owner: `VectorGeoClaim` — CRS/units/axis-order/geometry-family/precision/transform-provenance over geopandas/shapely/pyogrio, with one `VectorOp` tagged-union axis folded by `apply(op, frame)`; `RasterGeoClaim` — coverage/band/resampling/nodata/transform/CRS over rasterio, with one `RasterOp` tagged-union axis folded by `apply(op, source)`; `EgressFormat` the GeoJSON/GeoParquet/flat-vector export as one `StrEnum` whose member value is the OGR driver and whose `write` selects `to_parquet` for GeoParquet and `to_file(driver=value)` otherwise, not a per-format writer family.
-- Cases: `VectorOp` rows `Join(predicate, other, how, max_distance)` (geopandas `sjoin`/`sjoin_nearest`, index-accelerated by `GeoDataFrame.sindex`) · `Overlay(other, how)` (`overlay` intersection/union/difference/symmetric-difference/identity set algebra) · `Dissolve(by, aggfunc)` (`dissolve` spatial group-aggregate) · `Clip(mask, keep_geom_type)` (`clip` mask) · `Construct(kind, param)` (the `ConstructKind` constructive family folded through the one frozen `_CONSTRUCT` behavior table — each row a `(geometry, param)` callable carrying its own positional/keyword/property call shape, never a six-arm `match`) · `Predicate(name, other)` (the vectorized `JoinPredicate` binary-predicate filter). `RasterOp` is one coverage axis spanning the in-memory and streaming/remote rows: `Window(bounds, boundless)` (`windows.from_bounds` + `DatasetReader.read(window=, boundless=, fill_value=)` bounded read) · `Stream(bidx, tile_shape, resampling)` (`DatasetReader.block_windows(bidx)` tile-aligned generator folding each block straight into one pre-allocated destination slice through `read(window=, out=, resampling=)`, so peak memory is the decimated destination plus one block and no per-tile list ever forms, the `tile_shape` an optional global decimation driving the per-axis `factor` the destination and its `Affine.scale` transform share — the one measured streaming-IO kernel where the `for` over `block_windows` is the platform-forced boundary exemption) · `Sample(coordinates, indexes)` (`DatasetReader.sample(xy, indexes=)` pixel point-query over a coordinate iterable, the timeseries/extraction fast-path) · `Mosaic(sources, method, resampling, bounds, res)` (`merge.merge` with the optional target `bounds`/`res` window the mosaic snaps to) · `Mask(shapes, crop, all_touched, invert)` (`mask.mask`) · `GeometryMask(shapes, out_shape, all_touched, invert)` (`features.geometry_mask` the boolean coverage mask that never reads a band, the lightweight sibling of `mask.mask`) · `Sieve(size, connectivity)` (`features.sieve` minimum-region speckle removal on the first band) · `Vectorize(connectivity, band)` (`features.shapes` raster-to-vector over `read_masks(band)` so nodata never vectorizes) · `Rasterize(shapes, out_shape, merge_alg, all_touched)` (`features.rasterize` vector-to-raster) · `Reproject(target_crs, resampling)` (`warp.calculate_default_transform` + `warp.reproject` eager) · `Vrt(target_crs, resampling, width, height)` (`vrt.WarpedVRT` GDAL-native streamed reproject — a lazy warped view read tile-by-tile, not a second transport) · `RemoteRead(href, vsi_scheme, bounds, overview)` (`Env` GDAL context + a `/vsicurl/`-prefixed VSI path on `rasterio.open` so a remote COG reads its intersecting window over one HTTP range request, the `overview` decimation factor driving `read(out_shape=)` so a coarse pyramid level streams over a tiny range rather than the full resolution, the COG overview fast-path the `out_shape` read the page names binds) · `MemorySource(payload, op)` (`io.MemoryFile` lifts STAC-asset bytes into a dataset and re-folds the inner `RasterOp` without a temp file) · `WriteCog(path, array, transform, crs, profile)` (`profiles.default_gtiff_profile` + `rasterio.open(mode="w")` + `DatasetWriter.write` cloud-optimized GeoTIFF egress). `StacIngest` is one STAC-NDJSON interchange axis over `stac_geoparquet.arrow`: `ToArrow(path, schema, limit)` (`parse_stac_ndjson_to_arrow` the NDJSON-to-`RecordBatchReader` source), `ToDelta(input_path, table_uri, schema_version)` (`parse_stac_ndjson_to_delta_lake` the Delta sink composing the `tabular/lakehouse` owner), `Rehydrate(table)` (`stac_table_to_items` yielding plain item dicts), keyed by one `ContentIdentity`. `EgressFormat` rows `GEOJSON`/`GEOPARQUET`/`GEOARROW`/`FLATGEOBUF`. A new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case; a new STAC interchange row is one `StacIngest` case; a new constructive op is one `ConstructKind` row; a new spatial predicate is one `JoinPredicate` row; a new resampling mode is one `rasterio.enums.Resampling` row; a new VSI scheme is one `VsiScheme` row; a new egress format is one `EgressFormat` member.
-- Entry: `VectorGeoClaim.apply(op, frame)` folds one `VectorOp` over the live `GeoDataFrame` through the closed `match`/`assert_never` `_vector` kernel, normalizing every binary-operand and source frame through the one `VectorGeoClaim.reproject` pyproj prelude (the no-op short-circuit when the operand already shares the target CRS, `Transformer.from_crs(always_xy=)` honoring `axis_order`, `to_crs` when the transform has an inverse else `set_crs` for a metadata-only label) so `Join`/`Overlay`/`Clip`/`Predicate` operands share one CRS, returning a `RuntimeRail[GeoDataFrame]`; `RasterGeoClaim.apply(op, source)` folds one `RasterOp` over the rasterio source through the `_raster` kernel returning a `RuntimeRail[CoverageResult]` (the `(count, rows, cols)` NumPy egress paired with its affine transform), the self-opening rows (`RemoteRead`/`MemorySource`/`Mosaic`) entering their own dataset inside one `ExitStack` so the GDAL handle closes on the boundary exit, the `Stream` row folding each `block_windows` tile straight into one pre-allocated destination slice through `read(out=)` so no full-resolution copy ever forms; `StacGeoClaim.apply(op)` folds one `StacIngest` over the `stac_geoparquet.arrow` interchange through the `_stac` kernel returning a `RuntimeRail[StacResult]` (the `RecordBatchReader`-backed `pyarrow.Table`, the Delta `table_uri`, or the rehydrated item-dict tuple), the `ToDelta` row composing the `tabular/lakehouse` Delta owner rather than a hand-rolled parquet writer, the `Rehydrate` row pairing `stac_table_to_items` with the downstream `pystac.Item.from_dict` model rebuild; `EgressFormat.write` emits the bundle keyed by one `ContentIdentity.of`; the raster and STAC paths fold the shared `columnar` `QueryReceipt` into `CoverageResult`/`StacResult`, keyed by `ContentIdentity`.
-- Packages: `geopandas` (`sjoin`/`sjoin_nearest`/`overlay`/`clip`/`dissolve`/the predicate accessors/`buffer`/`simplify`/`convex_hull`/`concave_hull`/`voronoi_polygons`/`delaunay_triangles`/`sindex`/`to_crs`/`set_crs`/`to_parquet(geometry_encoding=)`/`union_all`), `shapely` (`set_precision` vectorized over the geometry array, `make_valid` constructive backing), `pyogrio` (`write_dataframe(driver=, use_arrow=)` the OGR-driver vector write the GeoJSON/FlatGeobuf egress binds directly, not the geopandas `to_file` indirection), `pyproj` (`CRS.from_user_input`/`Transformer.from_crs(always_xy=)`/`Transformer.has_inverse` the axis-order-aware CRS prelude `reproject` owns), `rasterio` (`open`/`Env`/`Affine`/`Affine.scale`/`io.MemoryFile`/`windows.from_bounds`/`DatasetReader.read(window=, out=, out_shape=, boundless=, resampling=)`/`DatasetReader.read_masks`/`DatasetReader.block_windows`/`DatasetReader.window_transform`/`DatasetReader.sample`/`io.DatasetWriter.write`/`merge.merge(bounds=, res=)`/`mask.mask`/`features.shapes`/`features.geometry_mask`/`features.sieve`/`features.rasterize`/`warp.reproject`/`warp.calculate_default_transform`/`enums.Resampling`/`enums.MergeAlg`/`vrt.WarpedVRT`/`profiles.default_gtiff_profile`), `stac-geoparquet` (`arrow.parse_stac_ndjson_to_arrow`/`arrow.parse_stac_ndjson_to_delta_lake`/`arrow.stac_table_to_items` the STAC-NDJSON interchange), `numpy` (`full`/`asarray` the raster `(count, rows, cols)` array egress and the streaming destination), `pyarrow` (`table`/`nulls`/`Table.from_pylist` the receipt-table shape the `QueryReceipt.of` fold reads), `duckdb` (the `[03]-[SPATIAL]` engine), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`/`QueryReceipt`).
-- Growth: a new vector operation is one `VectorOp` case (the next geopandas op, `segmentize`/`offset_curve`, lands as one `ConstructKind` enum row plus its `_CONSTRUCT` behavior row); a new raster operation is one `RasterOp` case (streaming, remote, in-memory, sample, sieve, geometry-mask, and COG-write rows all land on the one axis); a new STAC interchange row is one `StacIngest` case; a new constructive op is one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate is one `JoinPredicate` row; a new resampling mode is one `rasterio.enums.Resampling` row; a new VSI scheme is one `VsiScheme` row; a new egress format is one `EgressFormat` member (GeoArrow lands as `GEOARROW`); the DuckDB join/transform/H3 engine is the `[03]-[SPATIAL]` `SpatialQuery` axis; the H3/S2 grid plane is the `[04]-[GRID]` `GridSystem` axis; zero new surface.
-- Boundary: no host mutation, no durable store; a single `GeoClaim` folding band/resampling and CRS/axis-order into one under-collapsed shape, a `sjoin`/`overlay`/`dissolve`/`do_merge`/`clip_raster`/`rasterize_features`/`stream_tiles`/`read_remote`/`open_memory`/`write_cog`/`read_stac_ndjson` method family, a Python STRtree/`isinstance` spatial-join loop where `GeoDataFrame.sindex` accelerates, a full-raster read where a `Window`/`Stream`/`Vrt` suffices, a band read where `features.geometry_mask` answers coverage without one, a temp-file round-trip where `io.MemoryFile` lifts asset bytes in place, a hand-rolled parquet writer where `parse_stac_ndjson_to_delta_lake` versions the schema and writes the Delta sink, a re-minted STAC item where `pystac.Item.from_dict` rehydrates the `stac_table_to_items` dict, a second byte-window transport beside the `tabular/egress` `obstore` rail (`WarpedVRT` is GDAL-native streamed reproject, never a competing transport), a six-arm constructive `match` where the frozen `_CONSTRUCT` behavior table folds the per-kind call shape, a tagged union whose case payload only restates its tag, and a per-format writer family are the deleted forms. The content key derives from the egress bytes through exactly one canonical `ContentIdentity.of`. geopandas/shapely/rasterio/stac-geoparquet ride the Forge scientific source-build band, so every operation body binds the provider function-local under `# noqa: PLC0415`, never a subprocess seam.
+- Cases: `VectorOp` rows `Join(predicate, other, how, max_distance)` (geopandas `sjoin`/`sjoin_nearest`, index-accelerated by `GeoDataFrame.sindex`) · `Overlay(other, how)` (`overlay` intersection/union/difference/symmetric-difference/identity set algebra) · `Dissolve(by, aggfunc)` (`dissolve` spatial group-aggregate) · `Clip(mask, keep_geom_type)` (`clip` mask) · `Construct(kind, param)` (the `ConstructKind` constructive family folded through the one frozen `_CONSTRUCT` behavior table — each row a `(geometry, param)` callable carrying its own positional/keyword/property call shape, never a six-arm `match`) · `Predicate(name, other)` (the vectorized `JoinPredicate` binary-predicate filter). `RasterOp` is one coverage axis spanning the in-memory and streaming/remote rows: `Window(bounds, boundless)` (`windows.from_bounds` + `DatasetReader.read(window=, boundless=, fill_value=)` bounded read) · `Stream(bidx, tile_shape, resampling)` (`DatasetReader.block_windows(bidx)` tile-aligned generator folding each block straight into one pre-allocated destination slice through `read(window=, out=, resampling=)`, so peak memory is the decimated destination plus one block and no per-tile list ever forms, the `tile_shape` an optional global decimation driving the per-axis `factor` the destination and its `Affine.scale` transform share — the one measured streaming-IO kernel where the `for` over `block_windows` is the platform-forced boundary exemption) · `Sample(coordinates, indexes)` (`DatasetReader.sample(xy, indexes=)` pixel point-query over a coordinate iterable, the timeseries/extraction fast-path) · `Mosaic(sources, method, resampling, bounds, res)` (`merge.merge` with the optional target `bounds`/`res` window the mosaic snaps to) · `Mask(shapes, crop, all_touched, invert)` (`mask.mask`) · `GeometryMask(shapes, out_shape, all_touched, invert)` (`features.geometry_mask` the boolean coverage mask that never reads a band, the lightweight sibling of `mask.mask`) · `Sieve(size, connectivity)` (`features.sieve` minimum-region speckle removal on the first band) · `Vectorize(connectivity, band)` (`features.shapes` raster-to-vector over `read_masks(band)` so nodata never vectorizes) · `Rasterize(shapes, out_shape, merge_alg, all_touched)` (`features.rasterize` vector-to-raster) · `Reproject(target_crs, resampling)` (`warp.calculate_default_transform` + `warp.reproject` eager) · `Vrt(target_crs, resampling, width, height)` (`vrt.WarpedVRT` GDAL-native streamed reproject — a lazy warped view read tile-by-tile, not a second transport) · `RemoteRead(href, vsi_scheme, bounds, overview)` (`Env` GDAL context + a `/vsicurl/`-prefixed VSI path on `rasterio.open` so a remote COG reads its intersecting window over one HTTP range request, the `overview` decimation factor driving `read(out_shape=)` so a coarse pyramid level streams over a tiny range rather than the full resolution, the COG overview fast-path the `out_shape` read the page names binds) · `MemorySource(payload, op)` (`io.MemoryFile` lifts STAC-asset bytes into a dataset and re-folds the inner `RasterOp` without a temp file) · `WriteCog(path, array, transform, crs, profile)` (the typed `CogProfile` projecting its `compress`/`blocksize`/`overviews`/`overview_resampling`/`num_threads`/`predictor` GDAL creation knobs through `CogProfile.creation` + `rasterio.open(mode="w")` + `DatasetWriter.write` cloud-optimized GeoTIFF egress, the `"COG"` driver and the typed creation row replacing a `default_gtiff_profile()`-seeded mutable `dict.update` accumulation). `StacIngest` is one STAC-NDJSON interchange axis composing the canonical `spatial/catalog#TABLE` `stac_table` owner: `ToArrow(path, limit)` (`stac_table(TableSource.Ndjson(...))` the NDJSON-to-`RecordBatchReader` source), `ToDelta(input_path, table_uri)` (`stac_table_direct(TableSource.Ndjson(...), TableSink.DeltaLake(...))` the one-call Delta sink), `Rehydrate(table)` (`stac_table_rehydrate` yielding rebuilt `pystac.Item` objects), each a railed catalog call this claim wraps in the shared `QueryReceipt` keyed by one `ContentIdentity`. `EgressFormat` rows `GEOJSON`/`GEOPARQUET`/`GEOARROW`/`FLATGEOBUF`. A new vector operation is one `VectorOp` case; a new raster operation is one `RasterOp` case; a new STAC interchange row is one `StacIngest` case; a new constructive op is one `ConstructKind` row; a new spatial predicate is one `JoinPredicate` row; a new resampling mode is one `Resampling` literal arm mapped to `rasterio.enums.Resampling` at the edge; a new VSI scheme is one `VsiScheme` row; a new egress format is one `EgressFormat` member.
+- Entry: every owner opens one `_TRACER.start_as_current_span` keyed by `f"geo.<axis>.<tag>"` around its `boundary` fence so each op is an OTel span the runtime `boundary` `_convert` records the terminal raise on, never a per-op `try`/`except` and never an unspanned fold. `VectorGeoClaim.apply(op, frame)` folds one `VectorOp` over the live `GeoDataFrame` through the closed `match`/`assert_never` `_vector` kernel, normalizing every binary-operand and source frame through the one `VectorGeoClaim.reproject` pyproj prelude (the no-op short-circuit when the operand already shares the target CRS, `Transformer.from_crs(always_xy=)` honoring `axis_order`, `to_crs` when the transform has an inverse else `set_crs` for a metadata-only label) so `Join`/`Overlay`/`Clip`/`Predicate` operands share one CRS, returning a `RuntimeRail[GeoDataFrame]`; `RasterGeoClaim.apply(op, source)` folds one `RasterOp` over the rasterio source through the `_raster` kernel into a pure `_Coverage` (the `(count, rows, cols)` NumPy egress, its affine transform, and the eagerly-captured dataset name) then `.bind`s the railed `_result`, the self-opening rows (`RemoteRead`/`MemorySource`/`Mosaic`/`WriteCog`) entering their own dataset inside one `ExitStack` and threading their opened handle (`written`/`opened[0]`/`remote`) into `_cover` so the receipt names the real dataset and the GDAL handle closes on the boundary exit before the railed receipt derives, the `Stream` row folding each `block_windows` tile straight into one pre-allocated destination slice through `read(out=)` so no full-resolution copy ever forms; `RasterGeoClaim.apply_remote(op, source=None)` is the awaitable leg the network-bearing rows (`RemoteRead` over `/vsicurl/`, a remote-href `Mosaic`/`MemorySource`) route through, wrapping the blocking `_remote_read` body in `anyio.to_thread.run_sync` under `guarded(RetryClass.HTTP, ...)` so a transient connection/timeout read retries on the one `stamina` `HTTP` policy row — `_remote_read` re-raises a `/vsicurl/` GDAL `rasterio.errors.RasterioIOError` (rooted at `RasterioError`, not a `ConnectionError`/`TimeoutError` subclass) as `ConnectionError` at the geospatial boundary so the runtime `reliability/resilience#RESILIENCE` `HTTP` `target` (the generic `_retry_after(TimeoutError, ConnectionError)` set with the `Retry-After` backoff hook) retries the dropped range read without the resilience owner growing a `rasterio` provider-introspection target — and `guarded` surfaces the budget-exhausted cause as one `RuntimeRail` error before the same `.bind(_result)` railed-receipt projection runs — the same retry/span/lift triplet the `transport/roots#RESOURCE` fetch legs delegate to `guarded`, never a hand-opened retry loop; `StacGeoClaim.apply(op)` folds one `StacIngest` by composing the canonical `spatial/catalog#TABLE` `stac_table`/`stac_table_direct`/`stac_table_rehydrate` owner — `_stac` returns the catalog owner's `RuntimeRail[StacPayload]` (the `ToArrow` `stac_table(TableSource.Ndjson(...))` `RecordBatchReader.read_all()` table, the `ToDelta` `stac_table_direct(..., TableSink.DeltaLake(...))` `table_uri`, or the `stac_table_rehydrate` rebuilt-`pystac.Item` tuple) then `.bind`s the railed `_result`, with `StacGeoClaim.apply_remote(op)` the awaitable leg the remote-NDJSON `ToArrow`/`ToDelta` reads route through under the same `guarded(RetryClass.HTTP, ...)` envelope, the catalog owner the single binding of the `stac_geoparquet.arrow` surface this claim never re-binds; `EgressFormat.write` runs the side-effecting OGR/GeoParquet write under one `boundary` then `.bind`s the railed `ContentIdentity.of` over the written bytes; the raster, STAC, and grid paths thread the shared `columnar` `QueryReceipt.railed` into `CoverageResult`/`StacResult`/`GridResult`, each keyed by the `ContentIdentity` the railed receipt derives from the result Arrow bytes.
+- Packages: `geopandas` (`sjoin`/`sjoin_nearest`/`overlay`/`clip`/`dissolve`/the predicate accessors/`buffer`/`simplify`/`convex_hull`/`concave_hull`/`voronoi_polygons`/`delaunay_triangles`/`sindex`/`to_crs`/`set_crs`/`to_parquet(geometry_encoding=)`/`union_all`), `shapely` (`set_precision` vectorized over the geometry array, `make_valid` constructive backing), `pyogrio` (`write_dataframe(driver=, use_arrow=)` the OGR-driver vector write the GeoJSON/FlatGeobuf egress binds directly, not the geopandas `to_file` indirection), `pyproj` (`CRS.from_user_input`/`Transformer.from_crs(always_xy=)`/`Transformer.has_inverse` the axis-order-aware CRS prelude `reproject` owns), `rasterio` (`open`/`Env`/`Affine`/`Affine.scale`/`io.MemoryFile`/`windows.from_bounds`/`DatasetReader.read(window=, out=, out_shape=, boundless=, resampling=)`/`DatasetReader.read_masks`/`DatasetReader.block_windows`/`DatasetReader.window_transform`/`DatasetReader.sample`/`io.DatasetWriter.write`/`merge.merge(bounds=, res=)`/`mask.mask`/`features.shapes`/`features.geometry_mask`/`features.sieve`/`features.rasterize`/`warp.reproject`/`warp.calculate_default_transform`/`enums.Resampling`/`enums.MergeAlg`/`vrt.WarpedVRT`/`open(mode="w", driver="COG", ...)` the typed-`CogProfile`-projected COG creation profile), `spatial/catalog#TABLE` (`stac_table`/`stac_table_direct`/`stac_table_rehydrate`/`TableSource`/`TableSink` the canonical STAC-NDJSON interchange owner the `StacIngest` axis composes rather than re-binding `stac_geoparquet.arrow`), `numpy` (`full`/`asarray` the raster `(count, rows, cols)` array egress and the streaming destination), `pyarrow` (`table`/`nulls`/`Table.from_pylist` the receipt-table shape the `QueryReceipt.of` fold reads, `pystac.Item.to_dict` lowering the rehydrated items), `duckdb` (the `[03]-[SPATIAL]` engine), `anyio` (`to_thread.run_sync` lifting the blocking GDAL/NDJSON remote read into the awaitable `guarded` leg), `opentelemetry-api` (`trace.get_tracer`/`Tracer.start_as_current_span` the per-op geo span), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`/`async_boundary`/`QueryReceipt`, `RetryClass.HTTP`/`guarded` the remote-read retry envelope).
+- Growth: a new vector operation is one `VectorOp` case (the next geopandas op, `segmentize`/`offset_curve`, lands as one `ConstructKind` enum row plus its `_CONSTRUCT` behavior row); a new raster operation is one `RasterOp` case (streaming, remote, in-memory, sample, sieve, geometry-mask, and COG-write rows all land on the one axis); a new STAC interchange row is one `StacIngest` case; a new constructive op is one `ConstructKind` row plus its `_CONSTRUCT` behavior row; a new binary predicate is one `JoinPredicate` row; a new resampling mode is one `Resampling` literal arm mapped to `rasterio.enums.Resampling` at the edge; a new VSI scheme is one `VsiScheme` row; a new egress format is one `EgressFormat` member (GeoArrow lands as `GEOARROW`); the DuckDB join/transform/H3 engine is the `[03]-[SPATIAL]` `SpatialQuery` axis; the H3/S2 grid plane is the `[04]-[GRID]` `GridSystem` axis; zero new surface.
+- Boundary: no host mutation, no durable store; a single `GeoClaim` folding band/resampling and CRS/axis-order into one under-collapsed shape, a `sjoin`/`overlay`/`dissolve`/`do_merge`/`clip_raster`/`rasterize_features`/`stream_tiles`/`read_remote`/`open_memory`/`write_cog`/`read_stac_ndjson` method family, a Python STRtree/`isinstance` spatial-join loop where `GeoDataFrame.sindex` accelerates, a full-raster read where a `Window`/`Stream`/`Vrt` suffices, a band read where `features.geometry_mask` answers coverage without one, a temp-file round-trip where `io.MemoryFile` lifts asset bytes in place, a second `stac_geoparquet.arrow` binding where the `spatial/catalog#TABLE` `stac_table`/`stac_table_direct`/`stac_table_rehydrate` owner is the one STAC-interchange surface this claim composes, a hand-rolled parquet writer where the catalog `stac_table_direct` Delta sink writes it, a re-minted STAC item where the catalog `stac_table_rehydrate` rebuilds it, a second byte-window transport beside the `tabular/egress` `obstore` rail (`WarpedVRT` is GDAL-native streamed reproject, never a competing transport), a six-arm constructive `match` where the frozen `_CONSTRUCT` behavior table folds the per-kind call shape, a tagged union whose case payload only restates its tag, a per-format writer family, an unspanned remote-href read or a hand-opened `for attempt in range(n): sleep(...)` retry loop where the `_TRACER` span and the `guarded(RetryClass.HTTP, anyio.to_thread.run_sync, ...)` envelope own observability and transient-retry, and a second `RetryConfig`-style sleep path duplicating the one `stamina` `HTTP` policy row are the deleted forms. The content key derives from the egress bytes through exactly one canonical `ContentIdentity.of`. geopandas/shapely/rasterio ride the Forge scientific source-build band, so every operation body binds the provider function-local under `# noqa: PLC0415`, never a subprocess seam; the STAC-interchange providers are bound only inside the `spatial/catalog#TABLE` owner this claim composes.
 
 ```python signature
 from enum import StrEnum
@@ -24,25 +24,34 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.resilience import RetryClass, guarded
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     import numpy as np
     import pyarrow as pa
-    from geopandas import GeoDataFrame
+    from geopandas import GeoDataFrame, GeoSeries
     from rasterio import DatasetReader
+
+_TRACER: Final = trace.get_tracer(__name__)
 
 
 type SetOp = Literal["intersection", "union", "difference", "symmetric_difference", "identity"]
 type JoinHow = Literal["inner", "left", "right"]
+type Resampling = Literal["nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode", "gauss", "max", "min", "med", "q1", "q3", "sum", "rms"]
+type OverviewResampling = Literal["nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode", "gauss", "rms"]
+type MergeMethod = Literal["first", "last", "min", "max", "sum", "count"]
+type Compression = Literal["deflate", "zstd", "lzw", "webp", "lerc", "lerc_deflate", "lerc_zstd", "jpeg", "none"]
 type Bounds = tuple[float, float, float, float]
 type TileShape = tuple[int, int] | None
-type RasterProfile = dict[str, object]
+# the `spatial/catalog#TABLE` schema-inference literal the composed `stac_table` owner keys.
+type SchemaInference = Literal["FullFile", "FirstBatch"]
 
 _DEGREE_GRID: Final[float] = 1.0 / 111_320.0
 
@@ -84,7 +93,7 @@ class ConstructKind(StrEnum):
     DELAUNAY_TRIANGLES = "delaunay_triangles"
 
 
-_CONSTRUCT: Final[dict[ConstructKind, "Callable[[object, float], object]"]] = {
+_CONSTRUCT: Final[dict[ConstructKind, "Callable[[GeoSeries, float], GeoSeries]"]] = {
     ConstructKind.BUFFER: lambda g, p: g.buffer(p),
     ConstructKind.SIMPLIFY: lambda g, p: g.simplify(p),
     ConstructKind.CONVEX_HULL: lambda g, _p: g.convex_hull,
@@ -101,7 +110,7 @@ class EgressFormat(StrEnum):
     FLATGEOBUF = "FlatGeobuf"
 
     def write(self, frame: GeoDataFrame, path: str) -> RuntimeRail[ContentKey]:
-        def emit() -> ContentKey:
+        def emit() -> bytes:
             import pyogrio  # noqa: PLC0415
 
             match self:
@@ -111,9 +120,10 @@ class EgressFormat(StrEnum):
                     frame.to_parquet(path, geometry_encoding="geoarrow")
                 case _:
                     pyogrio.write_dataframe(frame, path, driver=self.value, use_arrow=True)
-            return ContentIdentity.of(self.value, Path(path).read_bytes())
+            return Path(path).read_bytes()
 
-        return boundary(f"geo.egress.{self.value}", emit)
+        with _TRACER.start_as_current_span(f"geo.egress.{self.value}"):
+            return boundary(f"geo.egress.{self.value}", emit).bind(lambda payload: ContentIdentity.of(self.value, payload))
 
 
 @tagged_union(frozen=True)
@@ -158,26 +168,26 @@ class RasterOp:
         "vectorize", "rasterize", "reproject", "vrt", "remote_read", "memory_source", "write_cog",
     ] = tag()
     window: tuple[Bounds, bool] = case()
-    stream: tuple[int, TileShape, str] = case()
+    stream: tuple[int, TileShape, Resampling] = case()
     sample: tuple[tuple[tuple[float, float], ...], tuple[int, ...] | None] = case()
-    mosaic: tuple[tuple[str, ...], str, str, Bounds | None, tuple[float, float] | None] = case()
+    mosaic: tuple[tuple[str, ...], MergeMethod, Resampling, Bounds | None, tuple[float, float] | None] = case()
     mask: tuple[tuple[object, ...], bool, bool, bool] = case()
     geometry_mask: tuple[tuple[object, ...], tuple[int, int], bool, bool] = case()
     sieve: tuple[int, int] = case()
     vectorize: tuple[int, int] = case()
-    rasterize: tuple[tuple[object, ...], tuple[int, int], str, bool] = case()
-    reproject: tuple[str, str] = case()
-    vrt: tuple[str, str, int | None, int | None] = case()
+    rasterize: tuple[tuple[object, ...], tuple[int, int], Literal["replace", "add"], bool] = case()
+    reproject: tuple[str, Resampling] = case()
+    vrt: tuple[str, Resampling, int | None, int | None] = case()
     remote_read: tuple[str, VsiScheme, Bounds | None, int] = case()
     memory_source: tuple[bytes, "RasterOp"] = case()
-    write_cog: tuple[str, "np.ndarray", tuple[float, ...], str, RasterProfile | None] = case()
+    write_cog: tuple[str, "np.ndarray", tuple[float, ...], str, CogProfile] = case()
 
     @staticmethod
     def Window(bounds: Bounds, boundless: bool = False) -> "RasterOp":
         return RasterOp(window=(bounds, boundless))
 
     @staticmethod
-    def Stream(bidx: int = 1, tile_shape: TileShape = None, resampling: str = "nearest") -> "RasterOp":
+    def Stream(bidx: int = 1, tile_shape: TileShape = None, resampling: Resampling = "nearest") -> "RasterOp":
         return RasterOp(stream=(bidx, tile_shape, resampling))
 
     @staticmethod
@@ -187,8 +197,8 @@ class RasterOp:
     @staticmethod
     def Mosaic(
         sources: tuple[str, ...],
-        method: str = "first",
-        resampling: str = "nearest",
+        method: MergeMethod = "first",
+        resampling: Resampling = "nearest",
         bounds: Bounds | None = None,
         res: tuple[float, float] | None = None,
     ) -> "RasterOp":
@@ -213,15 +223,15 @@ class RasterOp:
         return RasterOp(vectorize=(connectivity, band))
 
     @staticmethod
-    def Rasterize(shapes: tuple[object, ...], out_shape: tuple[int, int], merge_alg: str = "replace", all_touched: bool = False) -> "RasterOp":
+    def Rasterize(shapes: tuple[object, ...], out_shape: tuple[int, int], merge_alg: Literal["replace", "add"] = "replace", all_touched: bool = False) -> "RasterOp":
         return RasterOp(rasterize=(shapes, out_shape, merge_alg, all_touched))
 
     @staticmethod
-    def Reproject(target_crs: str, resampling: str = "nearest") -> "RasterOp":
+    def Reproject(target_crs: str, resampling: Resampling = "nearest") -> "RasterOp":
         return RasterOp(reproject=(target_crs, resampling))
 
     @staticmethod
-    def Vrt(target_crs: str, resampling: str = "nearest", width: int | None = None, height: int | None = None) -> "RasterOp":
+    def Vrt(target_crs: str, resampling: Resampling = "nearest", width: int | None = None, height: int | None = None) -> "RasterOp":
         return RasterOp(vrt=(target_crs, resampling, width, height))
 
     @staticmethod
@@ -234,15 +244,39 @@ class RasterOp:
 
     @staticmethod
     def WriteCog(
-        path: str, array: "np.ndarray", transform: tuple[float, ...], crs: str, profile: RasterProfile | None = None
+        path: str, array: "np.ndarray", transform: tuple[float, ...], crs: str, profile: CogProfile = CogProfile()
     ) -> "RasterOp":
         return RasterOp(write_cog=(path, array, transform, crs, profile))
+
+
+class _Coverage(Struct, frozen=True):
+    array: "np.ndarray"
+    transform: tuple[float, ...]
+    op_tag: str
+    source: str
 
 
 class CoverageResult(Struct, frozen=True):
     array: "np.ndarray"
     transform: tuple[float, ...]
     receipt: QueryReceipt
+
+
+class CogProfile(Struct, frozen=True):
+    compress: Compression = "deflate"
+    blocksize: int = 512
+    overviews: Literal["auto", "ignore", "force_use_existing"] = "auto"
+    overview_resampling: OverviewResampling = "nearest"
+    num_threads: Literal["all_cpus"] | int = "all_cpus"
+    predictor: Literal["none", "standard", "floating_point"] = "none"
+
+    def creation(self, array: "np.ndarray", crs: str, nodata: float) -> dict[str, object]:
+        return {
+            "driver": "COG", "dtype": str(array.dtype), "crs": crs, "nodata": nodata,
+            "count": int(array.shape[0]), "height": int(array.shape[-2]), "width": int(array.shape[-1]),
+            "compress": self.compress, "blocksize": self.blocksize, "overviews": self.overviews,
+            "overview_resampling": self.overview_resampling, "num_threads": self.num_threads, "predictor": self.predictor,
+        }
 
 
 class VectorGeoClaim(Struct, frozen=True):
@@ -253,7 +287,8 @@ class VectorGeoClaim(Struct, frozen=True):
     precision: int
 
     def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
-        return boundary(f"geo.vector.{op.tag}", lambda: self._vector(op, frame))
+        with _TRACER.start_as_current_span(f"geo.vector.{op.tag}"):
+            return boundary(f"geo.vector.{op.tag}", lambda: self._vector(op, frame))
 
     def reproject(self, frame: "GeoDataFrame") -> "GeoDataFrame":
         import pyproj  # noqa: PLC0415
@@ -295,36 +330,60 @@ class VectorGeoClaim(Struct, frozen=True):
                 assert_never(unreachable)
 
     @staticmethod
-    def _construct(geometry: object, kind: ConstructKind, param: float) -> object:
+    def _construct(geometry: "GeoSeries", kind: ConstructKind, param: float) -> "GeoSeries":
         return _CONSTRUCT[kind](geometry, param)
 
 
 class RasterGeoClaim(Struct, frozen=True):
     crs: str
     band_count: int
-    resampling: str
+    resampling: Resampling
     nodata: float
     transform: tuple[float, ...]
 
     def apply(self, op: RasterOp, source: "DatasetReader") -> "RuntimeRail[CoverageResult]":
-        return boundary(f"geo.raster.{op.tag}", lambda: self._raster(op, source))
+        with _TRACER.start_as_current_span(f"geo.raster.{op.tag}"):
+            return boundary(f"geo.raster.{op.tag}", lambda: self._raster(op, source)).bind(self._result)
 
-    def _raster(self, op: RasterOp, source: "DatasetReader") -> CoverageResult:
+    async def apply_remote(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeRail[CoverageResult]":
+        import anyio  # noqa: PLC0415
+
+        with _TRACER.start_as_current_span(f"geo.raster.{op.tag}"):
+            acquired = await guarded(
+                RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._remote_read(op, source), subject=f"geo.raster.{op.tag}"
+            )
+            return acquired.bind(self._result)
+
+    def _remote_read(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
+        # the boundary remap: a `/vsicurl/` GDAL transient surfaces as `rasterio.errors.RasterioIOError`
+        # (rooted at `RasterioError`, NOT a `ConnectionError`/`TimeoutError` subclass), so the runtime
+        # `RetryClass.HTTP` `_retry_after(TimeoutError, ConnectionError)` target would not retry it. The
+        # remote leg re-raises it as `ConnectionError` here so the existing generic HTTP policy retries
+        # the dropped range read — the geospatial boundary maps its provider transient onto a stdlib
+        # transient rather than the resilience owner growing a `rasterio` provider-introspection target.
+        from rasterio.errors import RasterioIOError  # noqa: PLC0415
+
+        try:
+            return self._raster(op, source)
+        except RasterioIOError as cause:
+            raise ConnectionError(str(cause)) from cause
+
+    def _raster(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
         from contextlib import ExitStack  # noqa: PLC0415
 
         import numpy as np  # noqa: PLC0415
         import rasterio  # noqa: PLC0415
         from rasterio import features, mask, merge, warp, windows  # noqa: PLC0415
-        from rasterio.enums import MergeAlg, Resampling  # noqa: PLC0415
+        from rasterio.enums import MergeAlg  # noqa: PLC0415
+        from rasterio.enums import Resampling as RioResampling  # noqa: PLC0415
         from rasterio.io import MemoryFile  # noqa: PLC0415
-        from rasterio.profiles import default_gtiff_profile  # noqa: PLC0415
         from rasterio.vrt import WarpedVRT  # noqa: PLC0415
 
         match op:
             case RasterOp(tag="window", window=(bounds, boundless)):
                 window = windows.from_bounds(*bounds, transform=source.transform)
                 array = source.read(window=window, boundless=boundless, fill_value=self.nodata)
-                return self._result(np.asarray(array), source.window_transform(window), op.tag, source)
+                return self._cover(np.asarray(array), source.window_transform(window), op.tag, source)
             case RasterOp(tag="stream", stream=(bidx, tile_shape, resampling)):
                 row_factor, col_factor = (source.height // tile_shape[0], source.width // tile_shape[1]) if tile_shape else (1, 1)
                 destination = np.full(
@@ -337,19 +396,19 @@ class RasterGeoClaim(Struct, frozen=True):
                         bidx,
                         window=block,
                         out=destination[row0 : row0 + rows, col0 : col0 + cols],
-                        resampling=Resampling[resampling],
+                        resampling=RioResampling[resampling],
                         fill_value=self.nodata,
                         boundless=True,
                     )
-                return self._result(destination, tuple(source.transform * rasterio.Affine.scale(col_factor, row_factor))[:6], op.tag, source)
+                return self._cover(destination, tuple(source.transform * rasterio.Affine.scale(col_factor, row_factor))[:6], op.tag, source)
             case RasterOp(tag="sample", sample=(coordinates, indexes)):
                 picked = np.asarray(list(source.sample(list(coordinates), indexes=list(indexes) if indexes else None)))
-                return self._result(picked, self.transform, op.tag, source)
+                return self._cover(picked, self.transform, op.tag, source)
             case RasterOp(tag="vrt", vrt=(target_crs, resampling, width, height)):
                 with WarpedVRT(
-                    source, crs=target_crs, resampling=Resampling[resampling], width=width, height=height, nodata=self.nodata
+                    source, crs=target_crs, resampling=RioResampling[resampling], width=width, height=height, nodata=self.nodata
                 ) as warped:
-                    return self._result(np.asarray(warped.read()), tuple(warped.transform)[:6], op.tag, source)
+                    return self._cover(np.asarray(warped.read()), tuple(warped.transform)[:6], op.tag, source)
             case RasterOp(tag="remote_read", remote_read=(href, vsi_scheme, bounds, overview)):
                 with ExitStack() as stack:
                     stack.enter_context(rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"))
@@ -363,56 +422,51 @@ class RasterGeoClaim(Struct, frozen=True):
                     array = remote.read(window=window, out_shape=out_shape, boundless=window is not None, fill_value=self.nodata)
                     base = remote.window_transform(window) if window is not None else remote.transform
                     transform = tuple(base * rasterio.Affine.scale(overview, overview))[:6] if overview > 1 else tuple(base)[:6]
-                    return self._result(np.asarray(array), transform, op.tag, remote)
+                    return self._cover(np.asarray(array), transform, op.tag, remote)
             case RasterOp(tag="memory_source", memory_source=(payload, inner)):
                 with ExitStack() as stack:
                     memfile = stack.enter_context(MemoryFile(payload))
                     opened = stack.enter_context(memfile.open())
                     return self._raster(inner, opened)
             case RasterOp(tag="write_cog", write_cog=(path, array, transform, crs, profile)):
-                base = default_gtiff_profile()
-                base.update(
-                    {"driver": "COG", "count": int(array.shape[0]), "height": int(array.shape[-2]), "width": int(array.shape[-1])},
-                )
-                base.update({"dtype": str(array.dtype), "crs": crs, "transform": rasterio.Affine(*transform), "nodata": self.nodata})
-                base.update(profile or {})
+                creation = profile.creation(array, crs, self.nodata) | {"transform": rasterio.Affine(*transform)}
                 with ExitStack() as stack:
-                    written = stack.enter_context(rasterio.open(path, mode="w", **base))
+                    written = stack.enter_context(rasterio.open(path, mode="w", **creation))
                     written.write(array)
-                return self._result(np.asarray(array), transform, op.tag, source)
+                    return self._cover(np.asarray(array), transform, op.tag, written)
             case RasterOp(tag="mosaic", mosaic=(sources, method, resampling, bounds, res)):
                 with ExitStack() as stack:
                     opened = [stack.enter_context(rasterio.open(path)) for path in sources]
                     mosaic, out_transform = merge.merge(
-                        opened, bounds=bounds, res=res, method=method, resampling=Resampling[resampling], nodata=self.nodata
+                        opened, bounds=bounds, res=res, method=method, resampling=RioResampling[resampling], nodata=self.nodata
                     )
-                return self._result(np.asarray(mosaic), tuple(out_transform)[:6], op.tag, source)
+                    return self._cover(np.asarray(mosaic), tuple(out_transform)[:6], op.tag, opened[0])
             case RasterOp(tag="mask", mask=(shapes, crop, all_touched, invert)):
                 out_image, out_transform = mask.mask(
                     source, list(shapes), crop=crop, all_touched=all_touched, invert=invert, nodata=self.nodata, filled=True
                 )
-                return self._result(np.asarray(out_image), tuple(out_transform)[:6], op.tag, source)
+                return self._cover(np.asarray(out_image), tuple(out_transform)[:6], op.tag, source)
             case RasterOp(tag="geometry_mask", geometry_mask=(shapes, out_shape, all_touched, invert)):
                 covered = features.geometry_mask(
                     list(shapes), out_shape=out_shape, transform=source.transform, all_touched=all_touched, invert=invert
                 )
-                return self._result(np.asarray(covered), tuple(source.transform)[:6], op.tag, source)
+                return self._cover(np.asarray(covered), tuple(source.transform)[:6], op.tag, source)
             case RasterOp(tag="sieve", sieve=(size, connectivity)):
                 band = source.read(1)
                 sieved = features.sieve(band, size=size, connectivity=connectivity)
-                return self._result(np.asarray(sieved), tuple(source.transform)[:6], op.tag, source)
+                return self._cover(np.asarray(sieved), tuple(source.transform)[:6], op.tag, source)
             case RasterOp(tag="vectorize", vectorize=(connectivity, band)):
                 values = source.read(band)
                 valid = source.read_masks(band)
                 shapes = np.asarray(
                     list(features.shapes(values, mask=valid, connectivity=connectivity, transform=source.transform)), dtype=object
                 )
-                return self._result(shapes, self.transform, op.tag, source)
+                return self._cover(shapes, self.transform, op.tag, source)
             case RasterOp(tag="rasterize", rasterize=(shapes, out_shape, merge_alg, all_touched)):
                 array = features.rasterize(
                     list(shapes), out_shape=out_shape, transform=source.transform, merge_alg=MergeAlg[merge_alg], all_touched=all_touched
                 )
-                return self._result(np.asarray(array), self.transform, op.tag, source)
+                return self._cover(np.asarray(array), self.transform, op.tag, source)
             case RasterOp(tag="reproject", reproject=(target_crs, resampling)):
                 dst_transform, width, height = warp.calculate_default_transform(source.crs, target_crs, source.width, source.height, *source.bounds)
                 destination = np.empty((source.count, height, width), dtype=source.dtypes[0])
@@ -423,35 +477,42 @@ class RasterGeoClaim(Struct, frozen=True):
                     src_crs=source.crs,
                     dst_transform=dst_transform,
                     dst_crs=target_crs,
-                    resampling=Resampling[resampling],
+                    resampling=RioResampling[resampling],
                     dst_nodata=self.nodata,
                 )
-                return self._result(destination, tuple(dst_transform)[:6], op.tag, source)
+                return self._cover(destination, tuple(dst_transform)[:6], op.tag, source)
             case unreachable:
                 assert_never(unreachable)
 
-    def _result(self, array: "np.ndarray", transform: tuple[float, ...], op_tag: str, source: "DatasetReader") -> CoverageResult:
+    @staticmethod
+    def _cover(array: "np.ndarray", transform: tuple[float, ...], op_tag: str, source: "DatasetReader") -> "_Coverage":
+        return _Coverage(array=array, transform=transform, op_tag=op_tag, source=source.name)
+
+    def _result(self, cover: "_Coverage") -> "RuntimeRail[CoverageResult]":
         import pyarrow as pa  # noqa: PLC0415
 
+        array = cover.array
         bands, rows = (array.shape[0], int(array.size // array.shape[0])) if array.ndim == 3 else (1, array.size)
         table = pa.table({f"band_{i}": pa.nulls(rows) for i in range(bands)})
-        return CoverageResult(array=array, transform=transform, receipt=QueryReceipt.of("rasterio", f"{source.name}:{op_tag}", table))
+        return QueryReceipt.railed("rasterio", f"{cover.source}:{cover.op_tag}", table).map(
+            lambda receipt: CoverageResult(array=array, transform=cover.transform, receipt=receipt)
+        )
 
 
 @tagged_union(frozen=True)
 class StacIngest:
     tag: Literal["to_arrow", "to_delta", "rehydrate"] = tag()
-    to_arrow: tuple[str, "pa.Schema | None", int | None] = case()
-    to_delta: tuple[str, str, str | None] = case()
+    to_arrow: tuple[str, SchemaInference, int | None] = case()
+    to_delta: tuple[str, str] = case()
     rehydrate: "pa.Table" = case()
 
     @staticmethod
-    def ToArrow(path: str, schema: "pa.Schema | None" = None, limit: int | None = None) -> "StacIngest":
+    def ToArrow(path: str, schema: SchemaInference = "FullFile", limit: int | None = None) -> "StacIngest":
         return StacIngest(to_arrow=(path, schema, limit))
 
     @staticmethod
-    def ToDelta(input_path: str, table_uri: str, schema_version: str | None = None) -> "StacIngest":
-        return StacIngest(to_delta=(input_path, table_uri, schema_version))
+    def ToDelta(input_path: str, table_uri: str) -> "StacIngest":
+        return StacIngest(to_delta=(input_path, table_uri))
 
     @staticmethod
     def Rehydrate(table: "pa.Table") -> "StacIngest":
@@ -463,7 +524,7 @@ class StacPayload:
     tag: Literal["arrow", "delta", "items"] = tag()
     arrow: "pa.Table" = case()
     delta: str = case()
-    items: tuple[dict[str, object], ...] = case()
+    items: tuple[object, ...] = case()
 
 
 class StacResult(Struct, frozen=True):
@@ -472,31 +533,41 @@ class StacResult(Struct, frozen=True):
 
 
 class StacGeoClaim(Struct, frozen=True):
-    chunk_size: int = 65_536
-
     def apply(self, op: StacIngest) -> "RuntimeRail[StacResult]":
-        return boundary(f"geo.stac.{op.tag}", lambda: self._stac(op))
+        with _TRACER.start_as_current_span(f"geo.stac.{op.tag}"):
+            return self._stac(op).bind(lambda payload: self._result(payload, op.tag))
 
-    def _stac(self, op: StacIngest) -> StacResult:
-        from stac_geoparquet.arrow import (  # noqa: PLC0415
-            parse_stac_ndjson_to_arrow,
-            parse_stac_ndjson_to_delta_lake,
-            stac_table_to_items,
-        )
+    async def apply_remote(self, op: StacIngest) -> "RuntimeRail[StacResult]":
+        import anyio  # noqa: PLC0415
+
+        with _TRACER.start_as_current_span(f"geo.stac.{op.tag}"):
+            acquired = await guarded(
+                RetryClass.HTTP, anyio.to_thread.run_sync, lambda: self._stac(op), subject=f"geo.stac.{op.tag}"
+            )
+            return acquired.bind(lambda rail: rail).bind(lambda payload: self._result(payload, op.tag))
+
+    def _stac(self, op: StacIngest) -> "RuntimeRail[StacPayload]":
+        # the STAC-NDJSON interchange is the `spatial/catalog#TABLE` `stac_table` owner — this
+        # geospatial-tier claim composes that one bounded owner rather than re-binding the
+        # `stac_geoparquet.arrow` surface a second time, then wraps the railed result in its own
+        # `QueryReceipt`/span/`apply_remote` retry rail at `_result`.
+        from rasm.data.catalog import TableSink, TableSource, stac_table, stac_table_direct, stac_table_rehydrate  # noqa: PLC0415
 
         match op:
             case StacIngest(tag="to_arrow", to_arrow=(path, schema, limit)):
-                reader = parse_stac_ndjson_to_arrow(path, chunk_size=self.chunk_size, schema=schema, limit=limit)
-                return self._result(StacPayload(arrow=reader.read_all()), op.tag)
-            case StacIngest(tag="to_delta", to_delta=(input_path, table_uri, _schema_version)):
-                parse_stac_ndjson_to_delta_lake(input_path, table_uri)
-                return self._result(StacPayload(delta=table_uri), op.tag)
+                return stac_table(TableSource.Ndjson(path, limit), schema=schema).map(
+                    lambda reader: StacPayload(arrow=reader.read_all())
+                )
+            case StacIngest(tag="to_delta", to_delta=(input_path, table_uri)):
+                return stac_table_direct(TableSource.Ndjson(input_path), TableSink.DeltaLake(table_uri)).map(
+                    lambda _key: StacPayload(delta=table_uri)
+                )
             case StacIngest(tag="rehydrate", rehydrate=table):
-                return self._result(StacPayload(items=tuple(stac_table_to_items(table))), op.tag)
+                return stac_table_rehydrate(table).map(lambda items: StacPayload(items=items))
             case unreachable:
                 assert_never(unreachable)
 
-    def _result(self, payload: StacPayload, op_tag: str) -> StacResult:
+    def _result(self, payload: StacPayload, op_tag: str) -> "RuntimeRail[StacResult]":
         import pyarrow as pa  # noqa: PLC0415
 
         match payload:
@@ -505,52 +576,55 @@ class StacGeoClaim(Struct, frozen=True):
             case StacPayload(tag="delta", delta=uri):
                 table = pa.table({"table_uri": [uri]})
             case StacPayload(tag="items", items=items):
-                table = pa.Table.from_pylist(list(items))
+                # `stac_table_rehydrate` returns rebuilt `pystac.Item` objects; lower each to its
+                # dict for the Arrow receipt table the `QueryReceipt` keys.
+                table = pa.Table.from_pylist([item.to_dict() for item in items])
             case unreachable:
                 assert_never(unreachable)
-        return StacResult(payload=payload, receipt=QueryReceipt.of("stac_geoparquet", op_tag, table))
+        return QueryReceipt.railed("stac_geoparquet", op_tag, table).map(
+            lambda receipt: StacResult(payload=payload, receipt=receipt)
+        )
 ```
 
 ## [03]-[SPATIAL]
 
-- Owner: `SpatialQuery` — one tagged-union spatial-query axis over the DuckDB engine; `SpatialEngine` the request-scoped connection that conditionally loads only the extensions a query demands and registers the input Arrow frames. DuckDB 1.5 promotes the `GEOMETRY` type and the core `ST_` predicate family (`ST_Intersects`/`ST_Contains`/`ST_Within`/`ST_GeomFromWKB`/`ST_X`/`ST_Y`) to the built-in engine, so the core spatial path needs no extension; `spatial` is core-loadable through one `LOAD spatial` (no `INSTALL`, no community channel) for the GDAL-backed `ST_Read`/`ST_Transform` reader-and-reprojection leg and the `ST_DWithin` distance predicate, and only `h3` stays a community-channel `INSTALL h3 FROM community; LOAD h3`. `SpatialQuery` cases `Join(predicate, left, right, distance)` (an `ST_` binary-predicate join — `ST_Intersects`/`ST_Contains`/`ST_Within`/`ST_DWithin` — the bbox-cached `SPATIAL_JOIN` operator the optimizer inserts as the automatic prefilter, `PointInPolygon` the named `ST_Contains` containment constructor) · `Transform(geometry, source_crs, target_crs)` (the GDAL-backed `ST_Transform(geom, src, dst)` in-engine reprojection, the `spatial`-only leg the WKB inputs reach without a pyproj round-trip) · `H3Bin(geometry, resolution)` (`h3_latlng_to_cell` binning into one H3 index column), matched by `match`/`case` closed by `assert_never`. Every case projects through one `QueryPlan` — the `(sql, extensions, predicate_count)` record one closed `match` folds — so the SQL string, the extension requirement, and the receipt's predicate count derive from one traversal, never three parallel folds over the same family: the core predicates carry `()`, `ST_DWithin`/`ST_Transform`/the GDAL readers carry `(SpatialExtension.SPATIAL,)`, and `H3Bin` carries `(SpatialExtension.H3,)`, so the engine loads the deduplicated union of the run's requirements exactly once, never the unconditional four-statement install of a stale 1.4 prelude. The spatial axis emits plain `pyarrow.Table` keyed by one `ContentIdentity`, never a parallel index owner.
-- Entry: `SpatialEngine.of` admits the named Arrow inputs; `SpatialEngine.run` opens one request-scoped `duckdb.connect()` inside a `closing` context so the GDAL/DuckDB handle releases on the boundary exit, and folds the `QueryPlan.extensions` requirement through `SpatialExtension.load` — `SPATIAL` runs `con.load_extension("spatial")` alone (core-loadable, no install) and `H3` runs `con.install_extension("h3", repository="community"); con.load_extension("h3")` — registers each named Arrow input through `con.register` and projects it into a `ST_GeomFromWKB` view, binds the parametrized plan SQL through `con.execute(sql, parameters)` so the distance/resolution literal never interpolates into the string, and folds one `SpatialQuery` to a `RuntimeRail[SpatialResult]` carrying the `execute(...).fetch_arrow_table()` egress; the spatial engine is the distinct owner of the GDAL/`h3` extension-load and the `ST_GeomFromWKB` geometry-view admission lifecycle the `tabular/query#QUERY` `QueryEngine.Sql` path carries neither, sharing only the `QueryReceipt`/`ContentIdentity` law with the `query`/`columnar` owners — never a second generic SQL surface duplicating `QueryEngine`'s relational dispatch, the geometry-view prelude the one thing it adds; the join is accelerated by the DuckDB optimizer's bbox-cached `SPATIAL_JOIN` operator, never an STRtree/sjoin Python loop and never a hand-built R-tree.
-- Auto: the geometry crosses as WKB (`GeoDataFrame.to_wkb`/`GeoExpr.st.to_wkb`) so the columnar input stays pyarrow-native at the wire and the engine decodes once with the core `ST_GeomFromWKB`; CRS normalization rides either `VectorGeoClaim.reproject` (the pyproj `to_crs` on the host frame) or the `Transform` case's in-engine `ST_Transform` for an already-columnar input, so the join operands share one CRS without a second transport; the extension load is the deduplicated union over each plan's `extensions`, so a pure-core `ST_Intersects` join loads nothing, a `ST_DWithin`/`ST_Transform` run loads only `spatial`, and only an `H3Bin` run reaches the community channel; the H3 resolution and the join distance are bound parameters on the plan, never string-spliced literals.
-- Receipt: a spatial run contributes the shared `columnar` `QueryReceipt` keyed by `ContentIdentity` over the result bytes, the `predicate_count` read from the one `QueryPlan`; no new receipt rail.
-- Packages: `duckdb` (`connect`/`install_extension`/`load_extension`/`execute`/`register`/`fetch_arrow_table`, the core `GEOMETRY` type, the core-loadable `spatial` extension, the community `h3` extension), `geopandas` (`GeoDataFrame.to_wkb`/`to_arrow`), `polars-st` (`GeoExpr.st.to_wkb` the in-frame WKB input), `pyproj` (the host-frame CRS engine), `pyarrow` (`Table`/`nulls`/`table`/`Table.from_pylist`), runtime (`RuntimeRail`/`ContentIdentity`).
-- Growth: a new spatial predicate is one `SpatialPredicate` literal carrying its own `QueryPlan.extensions` row (a core predicate adds `()`, a GDAL-backed one adds `(SpatialExtension.SPATIAL,)`); a new spatial intent is one `SpatialQuery` case projected by the one `QueryPlan` fold; a new loadable extension is one `SpatialExtension` member plus its `load` row; the H3 hierarchy (`h3_cell_to_parent`, `h3_grid_disk`) composes on the existing `H3Bin` SQL and shares the `[04]-[GRID]` `GridSystem` cell ops; zero new surface and never a per-operation `st_join_*` family.
-- Boundary: no GIS host coupling, no lonboard/GeoArrow visualization (that is `artifacts`), no durable store; an unconditional four-statement extension install where the per-plan `extensions` loads only what the run needs, an `INSTALL spatial` where 1.5 makes `spatial` core-loadable, three parallel `match` folds over the closed family where one `QueryPlan` projection carries SQL/extensions/predicate-count, a string-interpolated distance or resolution literal where `con.execute(sql, parameters)` binds it, an STRtree/`sjoin` Python join, a hand-rolled R-tree where the bbox-cached `SPATIAL_JOIN` operator is the automatic prefilter, a parallel H3 index owner, and a second DuckDB SQL surface duplicating the `query` engine are the deleted forms.
+- Owner: `SpatialQuery` — one tagged-union spatial-query axis over the DuckDB engine; `SpatialEngine` the request-scoped connection that loads the `spatial` geometry-view prelude plus each query's supplemental extensions and registers the input Arrow frames. In DuckDB 1.5.4 every `ST_` function — the `ST_GeomFromWKB`/`ST_X`/`ST_Y` geometry-view prelude and the `ST_Intersects`/`ST_Contains`/`ST_Within`/`ST_DWithin`/`ST_Transform` predicate-and-reprojection family alike — lives in the `spatial` extension, so `spatial` is the unconditional prelude every engine run loads before it can build a `GEOMETRY` view; the only axis between extensions is the repository: `spatial` rides the default core repository (`install_extension("spatial", repository=None)` then `load_extension`, no `FROM community`) and `h3` rides the community repository (`install_extension("h3", repository="community")` then `load_extension`). `SpatialQuery` cases `Join(predicate, left, right, distance)` (an `ST_` binary-predicate join — `ST_Intersects`/`ST_Contains`/`ST_Within`/`ST_DWithin` — the bbox-cached `SPATIAL_JOIN` operator the optimizer inserts as the automatic prefilter, `PointInPolygon` the named `ST_Contains` containment constructor) · `Transform(geometry, source_crs, target_crs)` (the GDAL-backed `ST_Transform(geom, src, dst)` in-engine reprojection the WKB inputs reach without a pyproj round-trip) · `H3Bin(geometry, resolution)` (`h3_latlng_to_cell` binning into one H3 index column over `ST_Y`/`ST_X` centroids), matched by `match`/`case` closed by `assert_never`. Every case projects through one `QueryPlan` — the `(sql, parameters, extensions, predicate_count)` record one closed `match` folds — so the SQL string, the extension requirement, and the receipt's predicate count derive from one traversal, never three parallel folds over the same family: `Join`/`Transform` carry `(SpatialExtension.SPATIAL,)`, `H3Bin` carries `(SpatialExtension.SPATIAL, SpatialExtension.H3)`, and the engine prepends the `spatial` prelude and loads the deduplicated union of the run's requirements exactly once through `dict.fromkeys`, never a per-call reinstall. The spatial axis emits plain `pyarrow.Table` keyed by one `ContentIdentity`, never a parallel index owner.
+- Entry: `SpatialEngine.of` admits the named Arrow inputs; `SpatialEngine.run` computes the pure `QueryPlan` once, opens one `_TRACER.start_as_current_span(f"geo.spatial.{tag}")` around its `boundary` fence so the engine run is an OTel span, and binds the railed `QueryReceipt` through `.bind`/`.map` so the result table and its content key derive in one rail. The fenced `_dispatch` opens one request-scoped `duckdb.connect()` inside a `closing` context so the DuckDB handle releases on the boundary exit, prepends the `spatial` prelude to `plan.extensions` and runs each `SpatialExtension.load` (`install_extension(value, repository=repository)` then `load_extension(value)`) over the `dict.fromkeys` deduplicated union, registers each named Arrow input through `con.register` and projects it into a `ST_GeomFromWKB` geometry view, then binds the parametrized plan SQL through `con.execute(sql, parameters)` so the distance/resolution literal never interpolates into the string and returns the `fetch_arrow_table()` egress; the spatial engine is the distinct owner of the `spatial`/`h3` extension-load and the `ST_GeomFromWKB` geometry-view admission lifecycle the `tabular/query#QUERY` `QueryEngine.Sql` path carries neither, sharing only the `QueryReceipt`/`ContentIdentity` law with the `query`/`columnar` owners — never a second generic SQL surface duplicating `QueryEngine`'s relational dispatch, the geometry-view prelude the one thing it adds; the join is accelerated by the DuckDB optimizer's bbox-cached `SPATIAL_JOIN` operator, never an STRtree/sjoin Python loop and never a hand-built R-tree.
+- Auto: the geometry crosses as WKB (`GeoDataFrame.to_wkb`/`GeoExpr.st.to_wkb`) so the columnar input stays pyarrow-native at the wire and the engine decodes once with the `spatial`-extension `ST_GeomFromWKB`; CRS normalization rides either `VectorGeoClaim.reproject` (the pyproj `to_crs` on the host frame) or the `Transform` case's in-engine `ST_Transform` for an already-columnar input, so the join operands share one CRS without a second transport; the extension load is the `spatial` prelude unioned with each plan's supplemental `extensions` and deduplicated, so a `Join`/`Transform` run loads only the core-repository `spatial` and an `H3Bin` run adds the community-repository `h3` on top of it; the H3 resolution and the join distance are bound parameters on the plan, never string-spliced literals.
+- Receipt: a spatial run threads the shared `columnar` `QueryReceipt.railed` keyed by `ContentIdentity` over the result Arrow bytes, the `predicate_count` carried from the one `QueryPlan`; no new receipt rail.
+- Packages: `duckdb` (`connect`/`install_extension(repository=)`/`load_extension`/`execute`/`register`/`fetch_arrow_table`, the `spatial`-extension `GEOMETRY` type, the core-repository `spatial` extension, the community-repository `h3` extension), `geopandas` (`GeoDataFrame.to_wkb`/`to_arrow`), `polars-st` (`GeoExpr.st.to_wkb` the in-frame WKB input), `pyproj` (the host-frame CRS engine), `pyarrow` (`Table` the egress carrier), `opentelemetry-api` (`trace.get_tracer`/`Tracer.start_as_current_span` the per-run engine span), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`/`QueryReceipt`).
+- Growth: a new spatial predicate is one `SpatialPredicate` literal that the `Join` plan threads under the shared `spatial` extension; a new spatial intent is one `SpatialQuery` case projected by the one `QueryPlan` fold; a new loadable extension is one `SpatialExtension` member plus its `repository` row; the H3 hierarchy (`h3_cell_to_parent`, `h3_grid_disk`) composes on the existing `H3Bin` SQL and shares the `[04]-[GRID]` `GridSystem` cell ops; zero new surface and never a per-operation `st_join_*` family.
+- Boundary: no GIS host coupling, no lonboard/GeoArrow visualization (that is `artifacts`), no durable store; a `load_extension("spatial")` without the preceding `install_extension` (the locked 1.5.4 distribution raises `IOException: Extension not found` for an uninstalled `spatial`), an `INSTALL h3` from the core repository where `h3` rides the community repository, three parallel `match` folds over the closed family where one `QueryPlan` projection carries SQL/parameters/extensions/predicate-count, a string-interpolated distance or resolution literal where `con.execute(sql, parameters)` binds it, an STRtree/`sjoin` Python join, a hand-rolled R-tree where the bbox-cached `SPATIAL_JOIN` operator is the automatic prefilter, a parallel H3 index owner, a `QueryReceipt.of` without a derived `ContentKey` where `QueryReceipt.railed` derives the key from the result bytes, and a second DuckDB SQL surface duplicating the `query` engine are the deleted forms.
 
 ```python signature
 from enum import StrEnum
-from typing import Literal, assert_never
+from typing import Final, Literal, assert_never
 
 import duckdb
 import pyarrow as pa
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 
-type SpatialPredicate = Literal["ST_Intersects", "ST_Contains", "ST_Within", "ST_DWithin"]
+_TRACER: Final = trace.get_tracer(__name__)
 
-_CORE_PREDICATES: frozenset[SpatialPredicate] = frozenset({"ST_Intersects", "ST_Contains", "ST_Within"})
+type SpatialPredicate = Literal["ST_Intersects", "ST_Contains", "ST_Within", "ST_DWithin"]
 
 
 class SpatialExtension(StrEnum):
     SPATIAL = "spatial"
     H3 = "h3"
 
+    @property
+    def repository(self) -> str | None:
+        return None if self is SpatialExtension.SPATIAL else "community"
+
     def load(self, con: "duckdb.DuckDBPyConnection") -> None:
-        match self:
-            case SpatialExtension.SPATIAL:
-                con.load_extension("spatial")
-            case SpatialExtension.H3:
-                con.install_extension("h3", repository="community")
-                con.load_extension("h3")
-            case unreachable:
-                assert_never(unreachable)
+        con.install_extension(self.value, repository=self.repository)
+        con.load_extension(self.value)
 
 
 class QueryPlan(Struct, frozen=True):
@@ -586,12 +660,11 @@ class SpatialQuery:
     def plan(self) -> QueryPlan:
         match self:
             case SpatialQuery(tag="join", join=(predicate, left, right, distance)):
-                core = predicate in _CORE_PREDICATES
                 on = f"{predicate}(l.geom, r.geom, ?)" if predicate == "ST_DWithin" else f"{predicate}(l.geom, r.geom)"
                 return QueryPlan(
                     sql=f"SELECT l.*, r.* FROM {left} l JOIN {right} r ON {on}",
                     parameters=() if distance is None else (distance,),
-                    extensions=() if core else (SpatialExtension.SPATIAL,),
+                    extensions=(SpatialExtension.SPATIAL,),
                     predicate_count=1,
                 )
             case SpatialQuery(tag="transform", transform=(geometry, source_crs, target_crs)):
@@ -605,7 +678,7 @@ class SpatialQuery:
                 return QueryPlan(
                     sql=f"SELECT *, h3_latlng_to_cell(ST_Y(geom), ST_X(geom), ?) AS h3 FROM {geometry}",
                     parameters=(resolution,),
-                    extensions=(SpatialExtension.H3,),
+                    extensions=(SpatialExtension.SPATIAL, SpatialExtension.H3),
                     predicate_count=0,
                 )
             case unreachable:
@@ -625,33 +698,34 @@ class SpatialEngine(Struct, frozen=True):
         return cls(inputs=inputs)
 
     def run(self, query: SpatialQuery) -> "RuntimeRail[SpatialResult]":
-        return boundary(f"geo.spatial.{query.tag}", lambda: self._dispatch(query))
+        plan = query.plan()
+        with _TRACER.start_as_current_span(f"geo.spatial.{query.tag}"):
+            return boundary(f"geo.spatial.{query.tag}", lambda: self._dispatch(plan)).bind(
+                lambda table: QueryReceipt.railed(
+                    "duckdb_spatial", query.tag, table, predicate_count=plan.predicate_count
+                ).map(lambda receipt: SpatialResult(table=table, receipt=receipt))
+            )
 
-    def _dispatch(self, query: SpatialQuery) -> SpatialResult:
+    def _dispatch(self, plan: QueryPlan) -> pa.Table:
         from contextlib import closing  # noqa: PLC0415
 
-        plan = query.plan()
         with closing(duckdb.connect()) as con:
-            for extension in dict.fromkeys(plan.extensions):
+            for extension in dict.fromkeys((SpatialExtension.SPATIAL, *plan.extensions)):
                 extension.load(con)
             for name, table in self.inputs.items():
                 con.register(f"{name}_raw", table)
                 con.execute(f"CREATE VIEW {name} AS SELECT * EXCLUDE wkb, ST_GeomFromWKB(wkb) AS geom FROM {name}_raw")
-            result = con.execute(plan.sql, list(plan.parameters)).fetch_arrow_table()
-        return SpatialResult(
-            table=result,
-            receipt=QueryReceipt.of("duckdb_spatial", query.tag, result, predicate_count=plan.predicate_count),
-        )
+            return con.execute(plan.sql, list(plan.parameters)).fetch_arrow_table()
 ```
 
 ## [04]-[GRID]
 
 - Owner: `GridSystem` — one discrete-global-grid owner over a `GridScheme` H3/S2 axis carrying the default cell column and the source CRS, exposing one `GridOp` tagged-union cell-algebra axis folded by `apply(op, frame)`. The H3 leg binds h3ronpy's whole-array Arrow cell surface (resolution change, grid-disk/ring traversal with distances and k-aggregation, spherical area, compact/uncompact, geometry/coordinate/WKB↔cell bridging, local-IJ transforms, parse-validate-stringify) over a polars frame whose geometry column is the polars-st WKB-encoded `GeoExpr`, so every cell operation is a vectorized polars expression over `arro3.core` Arrow buffers, never a per-row Python loop over scalar cells and never a pandas detour. The S2 leg defers — h3ronpy is H3-only and sedonadb ships no cp315 wheel — so `GridScheme.S2` is a typed deferral the boundary rail traps. The DuckDB `h3` SQL path (`[03]-[SPATIAL]` `H3Bin`) is the engine leg for an already-columnar in-DB frame; the polars-native path is the in-frame leg, one owner over both legs and never a parallel H3 column owner.
 - Cases: `GridOp` is one cell-algebra axis. `Index(resolution, source)` covers the lat/lng-or-geometry-to-cells entry — a `CellSource` row (`Coordinates(lat_col, lng_col)` through `coordinates_to_cells`, `Wkb(geometry_col, containment)` through `wkb_to_cells` discriminating coverage by `ContainmentMode`, `Geometry(geometry_col, containment)` through `geometry_to_cells`) lifting a frame column into the `cell` column · `Resolution(target, shape)` changes each cell's resolution through `change_resolution` (`shape="single"`), the per-cell children list through `change_resolution_list` (`shape="list"`), or the source/target pairing through `change_resolution_paired` (`shape="paired"`) · `Disk(k, mode, aggregation)` the k-ring neighborhood through `grid_disk` (`mode="cells"`), `grid_disk_distances` (`mode="distances"`), or `grid_disk_aggregate_k` (`mode="aggregate"`, `aggregation` ∈ `min`/`max`) · `Ring(k_min, k_max)` the annulus through `grid_ring_distances` · `Measure(metric)` the one per-cell scalar entry over the `Metric` row — `cells_area_km2`/`cells_area_m2`/`cells_area_rads2` reached through `Metric.of_area(unit)` projecting an `AreaUnit` into the matching area row, and `cells_resolution` through `Metric.RESOLUTION` — one measure axis with no parallel `Area` sibling · `Bounds()` the per-cell bounding-box columns through `cells_bounds_arrays` · `Compact(direction, target)` compaction through `compact` (`direction="compact"`) and expansion through `uncompact` (`direction="uncompact"`, `target` the resolution) · `Boundary(form, kind, radians)` the cell/vertex/edge-to-geometry WKB egress through the one frozen `_BOUNDARY_WKB` `(form, kind)` table — `cells_to_wkb_polygons`/`cells_to_wkb_points` (`cell`), `vertexes_to_wkb_points` (`vertex`), `directededges_to_wkb_linestrings` (`edge`) reached by one `getattr(vector, ...)` — and the `centroid` form routing to the `cells_to_coordinates` RecordBatch independent of kind, an unsupported `(form, kind)` pair raising the typed boundary fault rather than a mis-applied `assert_never` · `LocalIj(anchor, direction)` the local-IJ transform through `cells_to_localij`/`localij_to_cells` · `Validate(mode, kind)` the parse/validate/stringify over the one `CellKind` axis — `{kind}_valid`/`{kind}_parse`/`{kind}_to_string` collapsing the three parallel `cells_*`/`vertexes_*`/`directededges_*` families into one `CellKind`-keyed dispatch · `Raster(direction, values, transform, size)` the one bidirectional numpy↔cell bridge — `direction="to_cells"` lifts a coverage through `raster.raster_to_dataframe` with `raster.nearest_h3_resolution` deriving the resolution when omitted, `direction="to_raster"` (`GridOp.Rasterize`) burns the cell/value frame back to a numpy array plus its affine through `raster.rasterize_cells`, one bridge axis never a parallel `cells_to_raster` surface · `Hierarchy(direction, target)` the parent walk through `change_resolution` to the coarser `target` (`direction="parent"`) and the child expansion through `change_resolution_list` to the finer `target` (`direction="children"`), the in-frame h3ronpy hierarchy leg the in-DB `engine_bin` `h3_cell_to_parent` SQL mirrors. A new cell operation is one `GridOp` case; a new index kind (cell/vertex/edge) is one `CellKind` row; a new scalar metric is one `Metric`/`AreaUnit` row; a new coverage policy is one `ContainmentMode` row; a new grid scheme is one `GridScheme` member.
-- Entry: `GridSystem.apply(op, frame)` folds one `GridOp` over a `polars.DataFrame` through the closed `match`/`assert_never` `_grid` kernel returning a `RuntimeRail[pl.DataFrame]`, dispatching the H3 leg to the h3ronpy array op over the named column (the polars `.h3` namespace where the op is a single-column expression, the `h3ronpy` Arrow function where the result is a multi-column `RecordBatch` paired back onto the frame) and raising the S2 deferral on the S2 scheme; `GridSystem.engine_bin(table, geometry_view, resolution)` composes the `[03]-[SPATIAL]` `SpatialEngine.run(SpatialQuery.H3Bin(...))` SQL leg for an already-columnar in-DB frame, the same `h3` extension the `[03]-[SPATIAL]` engine loads, so the in-frame and in-DB legs share one binning law. The fold keys each result by `ContentIdentity` over the `cell` column bytes and contributes the shared `columnar` `QueryReceipt`.
+- Entry: `GridSystem.apply(op, frame)` opens one `_TRACER.start_as_current_span(f"geo.grid.{scheme}.{tag}")` around its `boundary` fence then folds one `GridOp` over a `polars.DataFrame` through the closed `match`/`assert_never` `_grid` kernel returning a `RuntimeRail[GridResult]`, dispatching the H3 leg to the h3ronpy array op over the named column (the polars `.h3` namespace where the op is a single-column expression, the `h3ronpy` Arrow function where the result is a multi-column `RecordBatch` paired back onto the frame) and raising the S2 deferral on the S2 scheme; `GridSystem.engine_bin(table, geometry_view, resolution)` composes the `[03]-[SPATIAL]` `SpatialEngine.run(SpatialQuery.H3Bin(...))` SQL leg for an already-columnar in-DB frame, the same `h3` extension the `[03]-[SPATIAL]` engine loads, so the in-frame and in-DB legs share one binning law. The fold keys each result by `ContentIdentity` over the `cell` column bytes and contributes the shared `columnar` `QueryReceipt`.
 - Auto: cells/vertexes/edges stay `u64` indexes flowing zero-copy through the Arrow/polars pipeline, so a 10⁷-cell binning is one vectorized h3ronpy call, never a Python loop; the geometry-to-cells leg reads the polars-st WKB `GeoExpr` column directly (`geom.st.to_wkb()` decoded once by `wkb_to_cells`), so the DGGS index shares the one WKB geometry encoding the `[02]-[GEO]` vector claims and the `[03]-[SPATIAL]` engine speak; the `CellKind` axis routes the index-kind prefix once (`cell`/`vertex`/`edge` selecting `{kind}_valid`/`{kind}_parse`/`{kind}_to_string` and the matching WKB egress), so the three parallel h3ronpy families never grow a parallel `GridOp` row each; the `ContainmentMode` discriminates coverage (`ContainsCentroid`/`ContainsBoundary`/`Covers`/`IntersectsBoundary`) as an enum row, never a boolean-flag tangle; `set_failing_to_invalid` keeps array length stable on parse failure so an invalid cell is a null data row, never a raised exception in the array pipeline; the geometry CRS is fixed to `EPSG:4326` (the h3ronpy `H3_CRS`) and the default cell column is `cell` (the h3ronpy `DEFAULT_CELL_COLUMN_NAME`), both runtime-owned constants the page never re-mints.
-- Receipt: a grid run folds the shared `tabular/columnar` `QueryReceipt.of(engine, op.tag, frame.to_arrow())` over the result frame, the `engine` carrying the `h3ronpy.<scheme>` route, the `source` the `op.tag`, and the row/column counts the cell-frame shape, keyed by the `QueryReceipt`-owned `ContentIdentity`; the `GridResult` pairs the frame with that receipt, no new receipt rail.
-- Packages: `h3ronpy` (`change_resolution`/`change_resolution_list`/`change_resolution_paired`/`compact`/`uncompact`/`grid_disk`/`grid_disk_distances`/`grid_disk_aggregate_k`/`grid_ring_distances`/`cells_resolution`/`cells_area_km2`/`cells_area_m2`/`cells_area_rads2`/`cells_valid`/`cells_parse`/`cells_to_string`/`vertexes_valid`/`vertexes_parse`/`vertexes_to_string`/`directededges_valid`/`directededges_parse`/`directededges_to_string`/`cells_to_localij`/`localij_to_cells`/`version`, `vector.coordinates_to_cells`/`vector.wkb_to_cells`/`vector.geometry_to_cells`/`vector.cells_to_coordinates`/`vector.cells_to_wkb_points`/`vector.cells_to_wkb_polygons`/`vector.vertexes_to_wkb_points`/`vector.directededges_to_wkb_linestrings`/`vector.cells_bounds_arrays`, `raster.raster_to_dataframe`/`raster.nearest_h3_resolution`/`raster.rasterize_cells`, the `ContainmentMode` enum, the `polars.H3Expr`/`polars.H3SeriesShortcuts` `.h3` namespace; every `arro3.core.Array`/`RecordBatch` return crosses into polars through `pl.from_arrow` over the Arrow PyCapsule interface, never a positional `pl.Series(name, array)` intake), `polars-st` (`geom`/`from_wkb`/`GeoExpr.st.to_wkb`/`GeoExpr.st.centroid`/`GeoDataFrame` the WKB geometry frame the geometry-to-cells leg reads and the centroid-prep the coordinate index reads), `polars` (`DataFrame`/`Expr`/`Series` the carrier), `duckdb` (the `[03]-[SPATIAL]` `h3` SQL engine leg), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`).
+- Receipt: a grid run threads the shared `tabular/columnar` `QueryReceipt.railed(engine, op.tag, frame.to_arrow())` over the result frame, the `engine` carrying the `h3ronpy.<scheme>` route, the `source` the `op.tag`, and the row/column counts the cell-frame shape, keyed by the `ContentIdentity` `QueryReceipt.railed` derives from the Arrow bytes; the `GridResult` pairs the frame with that receipt, no new receipt rail.
+- Packages: `h3ronpy` (`change_resolution`/`change_resolution_list`/`change_resolution_paired`/`compact`/`uncompact`/`grid_disk`/`grid_disk_distances`/`grid_disk_aggregate_k`/`grid_ring_distances`/`cells_resolution`/`cells_area_km2`/`cells_area_m2`/`cells_area_rads2`/`cells_valid`/`cells_parse`/`cells_to_string`/`vertexes_valid`/`vertexes_parse`/`vertexes_to_string`/`directededges_valid`/`directededges_parse`/`directededges_to_string`/`cells_to_localij`/`localij_to_cells`/`version`, `vector.coordinates_to_cells`/`vector.wkb_to_cells`/`vector.geometry_to_cells`/`vector.cells_to_coordinates`/`vector.cells_to_wkb_points`/`vector.cells_to_wkb_polygons`/`vector.vertexes_to_wkb_points`/`vector.directededges_to_wkb_linestrings`/`vector.cells_bounds_arrays`, `raster.raster_to_dataframe`/`raster.nearest_h3_resolution`/`raster.rasterize_cells`, the `ContainmentMode` enum, the `polars.H3Expr`/`polars.H3SeriesShortcuts` `.h3` namespace; every `arro3.core.Array`/`RecordBatch` return crosses into polars through `pl.from_arrow` over the Arrow PyCapsule interface, never a positional `pl.Series(name, array)` intake), `polars-st` (`geom`/`from_wkb`/`GeoExpr.st.to_wkb`/`GeoExpr.st.centroid`/`GeoDataFrame` the WKB geometry frame the geometry-to-cells leg reads and the centroid-prep the coordinate index reads), `polars` (`DataFrame`/`Expr`/`Series` the carrier), `duckdb` (the `[03]-[SPATIAL]` `h3` SQL engine leg), `opentelemetry-api` (`trace.get_tracer`/`Tracer.start_as_current_span` the per-op grid span), runtime (`RuntimeRail`/`ContentIdentity`/`boundary`).
 - Growth: a new cell operation is one `GridOp` case; a new index kind is one `CellKind` row (cell/vertex/edge share the `{kind}_valid`/`{kind}_parse`/`{kind}_to_string` dispatch); a new scalar metric is one `Metric`/`AreaUnit` row; a new coverage policy is one `ContainmentMode` row; a new resolution-change shape is one `ResolutionShape` row; a new raster bridge direction is one `RasterDirection` row on the existing `raster` case; the S2/sedonadb engine lands as a `GridScheme.S2` leg once a cp315 wheel exists, the union case already declared; zero new surface.
 - Boundary: no host coupling, no durable cell store, no lonboard/GeoArrow visualization (that is `artifacts`); a per-row scalar cell loop where the h3ronpy array functions vectorize, a pandas detour when the polars `.h3` namespace owns the column, a hand-rolled H3 cell-index codec or grid-traversal kernel where the Rust `h3o` backend owns it, a parallel per-resolution, per-mode, per-index-kind, or per-raster-direction function family where the `GridOp` case, `CellKind` row, and `RasterDirection` row discriminate, a positional `pl.Series(name, arro3_array)` intake where `pl.from_arrow` is the catalogued Arrow-PyCapsule crossing, a second WKB geometry encoding where the polars-st `GeoExpr` already carries it, a parallel H3 column owner beside the `[03]-[SPATIAL]` engine, and identity/CRS minting the runtime owns are the deleted forms. h3ronpy/polars-st ride the Forge scientific source-build band, so every operation body binds the provider function-local under `# noqa: PLC0415`, never a subprocess seam.
 
@@ -661,6 +735,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from opentelemetry import trace
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
@@ -669,6 +744,8 @@ if TYPE_CHECKING:
     import numpy as np
     import polars as pl
     import pyarrow as pa
+
+_TRACER: Final = trace.get_tracer(__name__)
 
 
 type ResolutionShape = Literal["single", "list", "paired"]
@@ -836,10 +913,15 @@ class GridSystem(Struct, frozen=True):
     crs: str = H3_CRS
 
     def apply(self, op: GridOp, frame: "pl.DataFrame") -> "RuntimeRail[GridResult]":
-        return boundary(f"geo.grid.{self.scheme.value}.{op.tag}", lambda: self._result(op, self._grid(op, frame)))
+        with _TRACER.start_as_current_span(f"geo.grid.{self.scheme.value}.{op.tag}"):
+            return boundary(f"geo.grid.{self.scheme.value}.{op.tag}", lambda: self._grid(op, frame)).bind(
+                lambda result: self._result(op, result)
+            )
 
-    def _result(self, op: GridOp, frame: "pl.DataFrame") -> GridResult:
-        return GridResult(frame=frame, receipt=QueryReceipt.of(f"h3ronpy.{self.scheme.value}", op.tag, frame.to_arrow()))
+    def _result(self, op: GridOp, frame: "pl.DataFrame") -> "RuntimeRail[GridResult]":
+        return QueryReceipt.railed(f"h3ronpy.{self.scheme.value}", op.tag, frame.to_arrow()).map(
+            lambda receipt: GridResult(frame=frame, receipt=receipt)
+        )
 
     def engine_bin(self, table: "pa.Table", geometry_view: str, resolution: int) -> "RuntimeRail[SpatialResult]":
         return SpatialEngine.of({geometry_view: table}).run(SpatialQuery.H3Bin(geometry_view, resolution))
@@ -965,7 +1047,7 @@ class GridSystem(Struct, frozen=True):
 ## [05]-[RESEARCH]
 
 - [GEOARROW_ENCODING]: the `geopandas` `GeoDataFrame.to_parquet(geometry_encoding=)`/`to_arrow(geometry_encoding=)`/`to_wkb()` surface the `EgressFormat.GEOARROW` and the spatial-input WKB bridge transcribe is catalogue-confirmed against the folder `geopandas` `.api`; the catalogue lists `geometry_encoding='WKB'` as the default, so the `"geoarrow"` value confirms as the GeoParquet 1.1 native-encoding member against the live distribution before the GeoArrow row treats it as the settled smaller-egress encoding.
-- [DUCKDB_SPATIAL_H3]: the `duckdb` `connect`/`install_extension`/`load_extension`/`register`/`execute`/`sql`/`fetch_arrow_table` Python surface is catalogue-confirmed against the folder `duckdb` `.api` — `execute(query, parameters)` returns the connection and `fetch_arrow_table()`/`arrow()` is the enumerated Arrow egress, so the parametrized `con.execute(plan.sql, list(plan.parameters)).fetch_arrow_table()` path binds the distance/resolution literal as a bound parameter, never string interpolation. DuckDB 1.5 promotes the `GEOMETRY` type and the core `ST_` predicate family (`ST_GeomFromWKB`, `ST_Intersects`/`ST_Contains`/`ST_Within`, `ST_X`/`ST_Y`) to the built-in engine, so the `QueryPlan.extensions` requirement is empty for a pure-core `ST_Intersects`/`ST_Contains`/`ST_Within` join, the `spatial` extension is core-loadable through one `LOAD spatial` with no `INSTALL` and no community channel for `ST_DWithin`/`ST_Transform`/`ST_Read`, and only `h3` rides `install_extension("h3", repository="community")`. The automatic join prefilter is the optimizer's bbox-cached `SPATIAL_JOIN` operator, not an R-tree the extension builds. The `h3` community-extension `h3_latlng_to_cell`/`h3_cell_to_parent` spellings, the `ST_Transform(geom, source, target)` three-argument GDAL signature, and the `LOAD spatial`-without-install behavior confirm against the loaded DuckDB 1.5.4 extension catalogs before the spatial SQL treats them as settled.
-- [RASTERIO_STREAM_VRT]: the `rasterio` streaming/remote/cleanup surface the `RasterOp` `Stream`/`Sample`/`Vrt`/`RemoteRead`/`MemorySource`/`WriteCog`/`Mosaic`/`GeometryMask`/`Sieve`/`Vectorize` rows bind is catalogue-confirmed against the folder `rasterio` `.api` — `DatasetReader.block_windows(bidx)` (the tile-aligned generator), `DatasetReader.read(window=, out_shape=, boundless=, fill_value=, resampling=)`, `DatasetReader.read_masks(...)`, `DatasetReader.sample(xy, indexes=)`, `DatasetReader.window_transform(window)`, `windows.from_bounds`, `merge.merge(datasets, bounds=, res=, method=, resampling=, nodata=)`, `features.shapes(source, mask=, connectivity=, transform=)`, `features.geometry_mask(geometries, out_shape, transform, ...)`, `features.sieve(source, size, connectivity, ...)`, `vrt.WarpedVRT`, `Env`, `io.MemoryFile`, `io.DatasetWriter.write`, and `profiles.default_gtiff_profile` are all enumerated entrypoints. The `WarpedVRT(source, crs=, resampling=, width=, height=, nodata=)` constructor keyword spelling, the `features.geometry_mask`/`features.sieve` positional shapes, and the `default_gtiff_profile()` callable-versus-dict form confirm against the synced rasterio distribution; the `"COG"` driver creation profile and the `GDAL_DISABLE_READDIR_ON_OPEN` `Env` config key are GDAL-surface values the rasterio Python catalogue does not enumerate, confirmed against the loaded GDAL driver catalog before the `WriteCog`/`RemoteRead` rows treat them as settled. `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` rail.
-- [STAC_NDJSON_INTERCHANGE]: the `stac-geoparquet` `arrow.parse_stac_ndjson_to_arrow(path, *, chunk_size=, schema=, limit=)` (NDJSON-to-`RecordBatchReader`, `schema` an explicit `pa.Schema` or `None` inference, never the `"FullFile"`/`"FirstBatch"` string literal the items-variant `parse_stac_items_to_arrow` takes), `arrow.parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, ...)` (the Delta sink, optional dependency), and `arrow.stac_table_to_items(table)` (the item-dict generator) entrypoints the `StacIngest` `ToArrow`/`ToDelta`/`Rehydrate` rows bind are authored against the canonical `stac-utils/stac-geoparquet` `0.8.0` source; the package is `py3-none-any` and the folder `.api` marks it capture-pending-on-uv-sync, so the `parse_stac_ndjson_to_delta_lake` `chunk_size`/`schema_version` keyword spelling stays a RESEARCH item — the `_schema_version` payload is carried but unbound until the synced distribution confirms the kwarg names, and the `RecordBatchReader.read_all()` materialization and `RecordBatchReader.nbytes`/`num_rows` carrier members confirm against the synced `pyarrow` before the STAC rows treat them as settled. `parse_stac_ndjson_to_delta_lake` composes the `tabular/lakehouse` Delta owner, never a hand-rolled parquet writer, and `stac_table_to_items` pairs with `pystac.Item.from_dict` downstream, never a re-minted item.
+- [DUCKDB_SPATIAL_H3]: the `duckdb` `connect`/`install_extension(repository=)`/`load_extension`/`register`/`execute`/`sql`/`fetch_arrow_table` Python surface is catalogue-confirmed against the folder `duckdb` `.api` — `execute(query, parameters)` returns the connection and `fetch_arrow_table()`/`arrow()` is the enumerated Arrow egress, so the parametrized `con.execute(plan.sql, list(plan.parameters)).fetch_arrow_table()` path binds the distance/resolution literal as a bound parameter, never string interpolation. Verified against the locked DuckDB 1.5.4 distribution (`osx_arm64`): every `ST_` function lives in the `spatial` extension — a bare `SELECT ST_Point(1,2)` on a fresh connection raises `CatalogException: Scalar Function with name "st_point" is not in the catalog, but it exists in the spatial extension`, and `LOAD spatial` against an uninstalled extension raises `IOException: Extension "…/spatial.duckdb_extension" not found`. So `spatial` is NOT statically bundled and NOT core-callable: the engine runs `install_extension("spatial", repository=None)` (the core repository, confirmed by a successful bare `INSTALL spatial`) then `load_extension("spatial")` as the unconditional geometry-view prelude, and `ST_GeomFromWKB`/`ST_X`/`ST_Y` (the view prelude) and `ST_Intersects`/`ST_Contains`/`ST_Within`/`ST_DWithin`/`ST_Transform` (the predicate-and-reprojection family) all resolve once `spatial` is loaded (`SELECT ST_AsText(ST_GeomFromWKB(ST_AsWKB(ST_Point(1,2))))` returns `POINT (1 2)`, `ST_Intersects`/`ST_Transform` succeed). The only inter-extension axis is the repository: `spatial` is core (`repository=None`), `h3` is community (`install_extension("h3", repository="community")`). The automatic join prefilter is the optimizer's bbox-cached `SPATIAL_JOIN` operator, not an R-tree the extension builds. The `h3` community-extension `h3_latlng_to_cell`/`h3_cell_to_parent` spellings and the `ST_Transform(geom, source, target)` three-argument GDAL signature are settled against the loaded `spatial` catalog; the published `h3.duckdb_extension` build tracks the DuckDB version per platform, so an `install_extension("h3", repository="community")` against a not-yet-published `v1.5.4` build surfaces a transient `HTTPException` the `boundary` rail traps, never a settled fence.
+- [RASTERIO_STREAM_VRT]: the `rasterio` streaming/remote/cleanup surface the `RasterOp` `Stream`/`Sample`/`Vrt`/`RemoteRead`/`MemorySource`/`WriteCog`/`Mosaic`/`GeometryMask`/`Sieve`/`Vectorize` rows bind is catalogue-confirmed against the folder `rasterio` `.api` — `DatasetReader.block_windows(bidx)` (the tile-aligned generator), `DatasetReader.read(window=, out_shape=, boundless=, fill_value=, resampling=)`, `DatasetReader.read_masks(...)`, `DatasetReader.sample(xy, indexes=)`, `DatasetReader.window_transform(window)`, `windows.from_bounds`, `merge.merge(datasets, bounds=, res=, method=, resampling=, nodata=)`, `features.shapes(source, mask=, connectivity=, transform=)`, `features.geometry_mask(geometries, out_shape, transform, ...)`, `features.sieve(source, size, connectivity, ...)`, `vrt.WarpedVRT`, `Env`, `io.MemoryFile`, and `io.DatasetWriter.write` are all enumerated entrypoints. The `WarpedVRT(source, crs=, resampling=, width=, height=, nodata=)` constructor keyword spelling, and the `features.geometry_mask`/`features.sieve` positional shapes confirm against the synced rasterio distribution; the `"COG"` driver and its `compress`/`blocksize`/`overviews`/`overview_resampling`/`predictor`/`num_threads` creation keys the typed `CogProfile.creation` projects, and the `GDAL_DISABLE_READDIR_ON_OPEN` `Env` config key are GDAL-surface values the rasterio Python catalogue does not enumerate, confirmed against the loaded GDAL driver catalog before the `WriteCog`/`RemoteRead` rows treat them as settled. `WarpedVRT` is GDAL-native streamed reproject, never a second byte-window transport beside the `tabular/egress` `obstore` rail.
+- [STAC_NDJSON_INTERCHANGE]: SETTLED — the STAC-NDJSON interchange is the canonical `spatial/catalog#TABLE` `stac_table` owner, and the `StacIngest` `ToArrow`/`ToDelta`/`Rehydrate` rows compose `stac_table(TableSource.Ndjson(...))`, `stac_table_direct(TableSource.Ndjson(...), TableSink.DeltaLake(...))`, and `stac_table_rehydrate(table)` rather than re-binding the `stac_geoparquet.arrow` surface (WORKSPACE_LAW: one owner per bounded concept). The catalog owner's RESEARCH (`spatial/catalog.md` `[03]-[TABLE]`) settles the `parse_stac_ndjson_to_arrow`/`parse_stac_ndjson_to_delta_lake`/`stac_table_to_items` spellings, the `chunk_size=DEFAULT_JSON_CHUNK_SIZE` default, and the `"FullFile"`/`"FirstBatch"` `SchemaInference` literal; `ToDelta` carries no `schema_version` because the catalog `stac_table_direct` Delta arm binds `parse_stac_ndjson_to_delta_lake(path, table_or_uri)` with no schema-version keyword, and the optional-`deltalake`-extra `ModuleNotFoundError` is the catalog owner's `boundary` rail to trap. `stac_table_rehydrate` returns rebuilt `pystac.Item` objects this claim lowers through `Item.to_dict` for the `QueryReceipt` Arrow table. The geospatial-tier wrapper (the `StacResult`/`QueryReceipt`/span/`apply_remote` retry rail over the railed catalog call) is settled fence code.
 - [H3RONPY_DGGS]: the `h3ronpy` cell-array surface the `[04]-[GRID]` `GridOp` fold binds is catalogue-confirmed against the folder `h3ronpy` `.api` — `change_resolution`/`change_resolution_list`/`change_resolution_paired`, `compact`/`uncompact`, `grid_disk`/`grid_disk_distances`/`grid_disk_aggregate_k`/`grid_ring_distances`, `cells_resolution`/`cells_area_km2`/`cells_area_m2`/`cells_area_rads2`, the three parallel parse-validate-stringify families `cells_valid`/`cells_parse`/`cells_to_string`, `vertexes_valid`/`vertexes_parse`/`vertexes_to_string`, and `directededges_valid`/`directededges_parse`/`directededges_to_string` the `CellKind`-keyed `getattr(h3ronpy, f"{kind.value}_{op}")` dispatch resolves, `cells_to_localij`/`localij_to_cells`, the `vector.coordinates_to_cells`/`vector.wkb_to_cells`/`vector.geometry_to_cells`/`vector.cells_to_coordinates`/`vector.cells_to_wkb_points`/`vector.cells_to_wkb_polygons`/`vector.vertexes_to_wkb_points`/`vector.directededges_to_wkb_linestrings`/`vector.cells_bounds_arrays` geometry bridge, the bidirectional `raster.raster_to_dataframe(in_raster, transform, h3_resolution, nodata_value=, compact=)`/`raster.rasterize_cells(cells, values, size, nodata_value=)`/`raster.nearest_h3_resolution(shape, transform)` numpy bridge, the `ContainmentMode` enum (`ContainsCentroid`/`ContainsBoundary`/`Covers`/`IntersectsBoundary`), and the `H3_CRS`/`DEFAULT_CELL_COLUMN_NAME` constants are all enumerated `0.22.0` members reflected on cp315; the `CellKind` enum values (`cells`/`vertexes`/`directededges`) match the catalogued function prefixes exactly, so the `getattr` dispatch resolves a real member for every `CellKind` row. Every h3ronpy return is an `arro3.core.Array`/`RecordBatch` (`h3ronpy.md` L37, L21) crossing the Arrow PyCapsule interface (`__arrow_c_array__`/`__arrow_c_stream__`, `arro3-core.md` L3), so the in-frame attach is `pl.Series(name, pl.from_arrow(array))` and the whole-frame projection is `pl.from_arrow(record_batch)` — the catalogue-confirmed `polars` Arrow-C intake (`polars.md` L61 `from_arrow`/L62 `from_dataframe`), never a positional `pl.Series(name, arro3_array)` construction the `polars` catalogue does not enumerate. The `polars-st` `geom`/`from_wkb`/`GeoExpr.st.to_wkb`/`GeoExpr.st.centroid` WKB-geometry surface the geometry-to-cells leg reads is catalogue-confirmed against the folder `polars-st` `.api` (`0.7.0`, cp315). h3ronpy pins `h3<4`, so the `h3` version the DuckDB community `h3` SQL extension links confirms compatible with the h3ronpy `h3o` Rust backend before the in-frame and in-DB legs treat one cell-index `u64` encoding as shared. `GridScheme.S2` is a declared but deferred leg — h3ronpy is H3-only and `sedonadb` ships no cp315 wheel — so the S2 row raises `grid.s2.deferred` until an S2-capable cp315 grid backend lands, never a contradicting settled fence.

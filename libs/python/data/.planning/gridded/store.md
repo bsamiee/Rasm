@@ -9,27 +9,30 @@ The dense chunked N-D array store over one `TensorBackend` engine axis. `TensorS
 
 ## [02]-[STORE]
 
-- Owner: `TensorStore` — one frozen dense chunked N-D store carrying the `TensorBackend` engine row, the source `ResourceRef`, the shape, the `TensorChunking` grid, the dtype, and the `TensorCodec` pipeline; `TensorBackend` the `StrEnum` two-engine axis whose member value is the engine tag and whose `create`/`write`/`read` delegate selects the driver (`ZARR` the pure-Python sync `zarr` v3 store over `zarr.storage.LocalStore`, `TENSORSTORE` the async `tensorstore` engine over a `KvStore` backend reading the identical Zarr v3 chunk grid). `TensorChunking` carries the chunk grid plus optional shard tuple; `TensorCodec` the Zarr v3 `(filters, serializer, compressors)` three-slot pipeline; `TensorRegion` the orthogonal slice the region write addresses. The backend is recovered from the store URL scheme through `TensorBackend.for_ref`, never a parallel store class per engine.
-- Cases: `TensorBackend` members `ZARR` (the chunk-grid plus codec-pipeline dense store over a `zarr.storage.LocalStore`, the cp315-clean module-top engine; the `Indexing` axis routes `set_orthogonal_selection`/`get_orthogonal_selection` versus `set_coordinate_selection`/`get_coordinate_selection` through the `_ZARR_WRITE`/`_ZARR_READ` row, never a second selection method family) · `TENSORSTORE` (the `tensorstore.open` async store opening the same Zarr v3 chunk grid and codec metadata through a JSON `Spec` under the module-level reused `_ts_context`, the `KvStore` backend selected by a native `kvstore` JSON row — `file`/`s3`/`gcs`/`memory`/`ocdbt` — the `await store.oindex[selection].write(data).commit` durable-visibility gate, `await store.oindex[selection].read()` read, and `store.vindex` the vectorized read-selection the `Indexing` axis selects; the `<3.15` companion-band native dist function-local imported). Both members write and read one Zarr v3 chunk grid through one `Indexing` selection axis; the engine row selects the driver, never a second array shape, and the async arms lift through one `async_boundary` driven once at the sync edge by `anyio.run`, never a per-arm `_ts_run` portal re-minting the fault conversion the `runtime/faults#FAULT` owner holds.
+- Owner: `TensorStore` — one frozen dense chunked N-D store carrying the `TensorBackend` engine row, the source `ResourceRef`, the shape, the `TensorChunking` grid, the dtype, and the `TensorCodec` pipeline; `TensorBackend` the `StrEnum` two-engine axis whose member value is the engine tag and whose `create`/`write`/`read` delegate selects the driver (`ZARR` the pure-Python sync `zarr` v3 store over `zarr.storage.LocalStore`, `TENSORSTORE` the async `tensorstore` engine over a `KvStore` backend reading the identical Zarr v3 chunk grid). `TensorChunking` carries the chunk grid plus optional shard tuple; `TensorCodec` the Zarr v3 codec product pairing the orthogonal `filters` array-to-array pre-pipeline with a `Serializer` discriminated union over the `compress`/`sharding`/`raw` array-to-bytes-plus-compressor slot, so the per-instance `filters` axis never conflates with the serializer-shape discriminant; `TensorRegion` the orthogonal slice the region write addresses. The backend is recovered from the store URL scheme through `TensorBackend.for_ref`, never a parallel store class per engine.
+- Cases: `TensorBackend` members `ZARR` (the chunk-grid plus codec-pipeline dense store over a `zarr.storage.LocalStore`, the cp315-clean module-top engine; the `Indexing` axis routes `set_orthogonal_selection`/`get_orthogonal_selection` versus `set_coordinate_selection`/`get_coordinate_selection` through the `_ZARR_WRITE`/`_ZARR_READ` row, never a second selection method family) · `TENSORSTORE` (the `tensorstore.open` async store opening the same Zarr v3 chunk grid and codec metadata through a JSON `Spec` under the `@functools.cache`-memoized `_ts_context`, the `KvStore` backend selected by a native `kvstore` JSON row — `file`/`s3`/`gcs`/`memory`/`ocdbt` — the `await store.oindex[selection].write(data).commit` durable-visibility gate, `await store.oindex[selection].read()` read, and `store.vindex` the vectorized read-selection the `Indexing` axis selects; the `<3.15` companion-band native dist function-local imported). Both members write and read one Zarr v3 chunk grid through one `Indexing` selection axis; the engine row selects the driver, never a second array shape, and the async arms lift through one `async_boundary` driven once at the sync edge by `anyio.run`, never a per-arm `_ts_run` portal re-minting the fault conversion the `runtime/faults#FAULT` owner holds.
 - Entry: `TensorStore.create` opens a store rooted at a `ResourceRef` with a `TensorChunking` grid and `TensorCodec` pipeline, lifting the engine's awaitable `create` delegate through `async_boundary` driven by `anyio.run` and folding the recovered shape/chunks/dtype into the frozen owner returned in a `RuntimeRail`; `TensorStore.write_region` absorbs arity over `*writes: tuple[TensorRegion, np.ndarray]` — a singular write routes the engine `write` delegate, a plural write routes `write_many` (`tensorstore` one `Transaction(atomic=True)` staged commit, `zarr` sequential region writes) so the atomic-versus-sequential disposition is the input count, never a flag — and folds one `TensorReceipt` keyed by `ContentIdentity` over the written `data.nbytes`; `TensorStore.read_region` reads a `TensorRegion` through the engine's selection delegate routed by the region `Indexing` axis (`zarr` `get_orthogonal_selection`/`get_coordinate_selection`, `tensorstore` `await store.oindex[selection].read()`/`store.vindex`) into a NumPy array. One `create`/`write_region`/`read_region` entrypoint family owns all modalities by the `TensorBackend` member the `ResourceRef` scheme recovers and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal.
-- Auto: the `zarr` v3 pipeline splits into three role-typed slots — `filters=` takes an `ArrayArrayCodec` tuple (`Delta`/`FixedScaleOffset`/`ScaleOffset`/`Quantize`/`BitRound`/`PackBits`/`TransposeCodec`, the climate byte-reduction pre-pipeline applied before serialization), `serializer=` takes one `ArrayBytesCodec` (`BytesCodec`/`ShardingCodec`), `compressors=` takes a `BytesBytesCodec` tuple (`BloscCodec`/`ZstdCodec`/`GzipCodec`/`LZ4`/`LZMA`/`BZ2`/`Zlib`); `TensorCodec.pipeline` returns the `(filters, serializer, compressors)` triple fed straight into `create_array`, and conflating the slots fails the per-slot codec type check. The seven compressors collapse onto one `compress` case dispatched through the `_COMPRESSOR` data table — each row carrying its `zc` constructor, its zarr3 codec name, and its keyword order — rather than seven near-identical switch arms, so a new compressor is one row not a parallel arm; the seven filters collapse identically onto the `_FILTER` table feeding both `codec()` and `json()` from one `_args` projection, so the `ScaleOffset`/`PackBits` capability `zarr.codecs` re-exports is captured as two rows, never dropped. The `ShardingCodec` arm folds the inner byte/compressor codecs into one serializer slot, so a sharded store is one `TensorCodec.sharding` case carrying the shard chunk shape, never a parallel shard flag. The `tensorstore` arm projects the same pipeline into the JSON `metadata.codecs` chain (`transpose`/`bytes`/`sharding_indexed`/`blosc`/`zstd`/`gzip`/`lz4`/`lzma`/`bz2`/`zlib`), so one `TensorCodec` value drives both engines. The receipt byte footprint is the written-region `data.nbytes` for both engines — the canonical NumPy byte count, engine-symmetric — never a per-engine `Array.nbytes_stored()`/`store.nbytes_valid` accessor the folder `.api` catalogue does not enumerate, and the receipt codec name reads `TensorCodec.name` (the compressor name on a `compress` value, else the tag) so the `blosc`-versus-`zstd` evidence survives the case collapse. The `tensorstore` async arms are awaitable engine delegates lifted through the one `runtime/faults#FAULT` `async_boundary` rail and driven once at the synchronous entrypoint edge by `anyio.run`, so a single fault conversion owns every arm and no `_ts_run` portal re-implements the rail the faults owner holds; the shared `ts.Context` is the module-level `_ts_context` singleton reused across every open per the `tensorstore` `.api` context axis, never re-minted per store. The cloud `kvstore` is a native `tensorstore` JSON spec built by the `_KVSTORE_DRIVER` scheme row (`s3`/`gcs`/`azure` plus the local `file` driver), never an `obstore` store object smuggled into the JSON `kvstore` slot the driver cannot consume. `zarr`/`cubed` are cp315-clean and import module-top; `tensorstore` is the `<3.15` companion-band native dist whose `open`/`Spec`/`KvStore`/`Context`/`Transaction` arm binds function-local under `# noqa: PLC0415`; the content key derives from the written region bytes through exactly one canonical `ContentIdentity.of`, never a re-mint per write.
-- Packages: `zarr` (`create_array(store=, shape=, dtype=, chunks=, shards=, filters=, serializer=, compressors=)`/`open_array`/`storage.LocalStore`/`Array.{set_orthogonal_selection,get_orthogonal_selection,set_coordinate_selection,get_coordinate_selection,oindex,vindex}`/`codecs.{BytesCodec,ShardingCodec,TransposeCodec,BloscCodec,ZstdCodec,GzipCodec,Delta,FixedScaleOffset,ScaleOffset,Quantize,BitRound,PackBits}`/`consolidate_metadata`), `tensorstore` (`open({"driver":"zarr3","kvstore":...,"metadata":{"codecs":[...]}}, create=, delete_existing=, context=, transaction=)`/`TensorStore.{read,write,oindex,vindex,resize,spec,chunk_layout,codec,kvstore}`/`Spec`/`KvStore`/`Context`/`Transaction.commit_async`/`Future`/`WriteFutures.commit` — the async engine row, function-local), `anyio` (`run` driving the `async_boundary` awaitable at the synchronous entrypoint edge), runtime (`ResourceRef`/`ContentIdentity`/`ContentKey`/`RuntimeRail`/`async_boundary`/`Receipt`/`ReceiptContributor`). The cloud `kvstore` URL resolution is the `pkg/transport/roots#TRANSPORT` `obstore` counterpart the runtime pass authors; this owner emits the native `tensorstore` `kvstore` JSON spec, not an `obstore` store object.
-- Growth: a new filter is one `_FILTER` table row plus one `TensorFilter` case carrying its `zarr.codecs` constructor; a new compressor is one `_COMPRESSOR` table row under the existing `compress` case, never a parallel arm; a new chunk strategy is one `TensorChunking` field; a new read/write selection mode is one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row the `tensorstore` `oindex`/`vindex` views already answer; a new store engine (`n5`, an object-store-backed Zarr) is one `TensorBackend` member plus one `create`/`write`/`write_many`/`read` delegate row; a new `KvStore` cloud backend is one `_KVSTORE_DRIVER` scheme row; a stored-domain resize is one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; the bounded-memory plan is the `[2]-[PLAN]` `cubed` row on this same owner; the versioned-store dimension is the `gridded/virtual` owner and the ragged dimension the `gridded/ragged` owner, never a backend tag here.
-- Boundary: no compute-package numeric trio (NumPy/SciPy/labelled-array compute is `compute`), no production tensor session, no durable product store; `data` emits a portable content-addressed chunked store, not a runtime compute graph. A parallel `ZarrStore`/`CubedStore`/`TensorStoreStore` family per engine, an `open_zarr`/`open_tensorstore` reader family where one `TensorBackend` delegate dispatches, a `_ts_run` sync portal re-minting the `async_boundary` fault rail per arm, a blocking `Future.result()` inside the async rail where `anyio.run` drives the `async_boundary`, an `obstore` store object passed into the JSON `kvstore` slot where the native `kvstore` JSON spec is the contract, a re-minted `ts.Context()` per open where the module-level singleton is reused, an `oindex`-only read dropping the catalogued `vindex` selection, an `xarray` re-derivation of the dense store, a hand-rolled chunk codec / sharding / cache layer `tensorstore` owns, a hand-rolled filter pre-pipeline `zarr.codecs` re-exports, a numcodecs admission where `zarr.codecs` already re-exports the filter family, and a `virtual`/`icechunk`/`awkward` backend tag smuggled onto `TensorBackend` are the deleted forms.
+- Auto: the `zarr` v3 pipeline splits into three role-typed slots — `filters=` takes an `ArrayArrayCodec` tuple (`TransposeCodec`/`ScaleOffset` off `zarr.codecs` plus `Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`PackBits` off `numcodecs.zarr3`, the climate byte-reduction pre-pipeline applied before serialization), `serializer=` takes one `ArrayBytesCodec` (`BytesCodec`/`ShardingCodec`), `compressors=` takes a `BytesBytesCodec` tuple (`BloscCodec`/`ZstdCodec`/`GzipCodec` off `zarr.codecs` plus `LZ4`/`LZMA`/`BZ2`/`Zlib` off `numcodecs.zarr3`); `TensorCodec.pipeline` returns the `(filters, serializer, compressors)` triple fed straight into `create_array`, and conflating the slots fails the per-slot codec type check. The seven compressors collapse onto one `compress` case dispatched through the `_COMPRESSOR` data table — each row carrying its constructor (`zc.*` for the three `zarr.codecs` compressors, `nc.*` for the four `numcodecs.zarr3` ones), its zarr-v3 registry codec name, and its keyword order — rather than seven near-identical switch arms, so a new compressor is one row not a parallel arm; the seven filters collapse identically onto the `_FILTER` table feeding both `codec()` and `json()` from one `_args` projection, with the `numcodecs.zarr3` codecs resolved through the `zarr` `config['codecs']` registry exactly as the `zarr` `.api` mandates, never as phantom `zarr.codecs` names, so the `ScaleOffset`/`PackBits` capability is captured as two rows, never dropped. The `ShardingCodec` arm folds the inner byte/compressor codecs into one serializer slot, so a sharded store is one `Serializer.sharding` case carrying the shard chunk shape, never a parallel shard flag. The `tensorstore` arm projects the same pipeline into the JSON `metadata.codecs` chain whose `transpose`/`bytes`/`sharding_indexed`/`blosc`/`zstd`/`gzip`/`crc32c` names the catalogued `zarr3` driver answers, so one `TensorCodec` value drives the `zarr` engine fully and the `tensorstore` engine over that catalogued name set, the `numcodecs.zarr3` filter and `lz4`/`lzma`/`bz2`/`zlib` compressor rows staying `zarr`-engine-only per the `[04]-[RESEARCH]` `[TENSORSTORE_KVSTORE]` gate. The receipt byte footprint is the written-region `data.nbytes` for both engines — the canonical NumPy byte count, engine-symmetric — never a per-engine `Array.nbytes_stored()`/`store.nbytes_valid` accessor the folder `.api` catalogue does not enumerate, and the receipt codec name reads `TensorCodec.name` (the compressor name on a `compress` value, else the tag) so the `blosc`-versus-`zstd` evidence survives the case collapse. The `tensorstore` async arms are awaitable engine delegates lifted through the one `runtime/faults#FAULT` `async_boundary` rail and driven once at the synchronous entrypoint edge by `anyio.run`, so a single fault conversion owns every arm and no `_ts_run` portal re-implements the rail the faults owner holds; the shared `ts.Context` is the `@functools.cache`-memoized `_ts_context` process singleton reused across every open per the `tensorstore` `.api` context axis, never a `global`-mutated sentinel and never re-minted per store. The cloud `kvstore` is a native `tensorstore` JSON spec built by the `_KVSTORE_DRIVER` scheme row (`s3`/`gcs`/`azure` plus the local `file` driver), never an `obstore` store object smuggled into the JSON `kvstore` slot the driver cannot consume. `zarr`/`numcodecs`/`cubed` are cp315-clean and import module-top (`numcodecs.zarr3` resolving the filter/extra-compressor v3 wrappers through the `zarr` `config['codecs']` registry); `tensorstore` is the `<3.15` companion-band native dist whose `open`/`Spec`/`KvStore`/`Context`/`Transaction` arm binds function-local under `# noqa: PLC0415`; the content key derives from the written region bytes through exactly one canonical `ContentIdentity.of`, never a re-mint per write.
+- Packages: `zarr` (`create_array(store=, shape=, dtype=, chunks=, shards=, filters=, serializer=, compressors=)`/`open_array`/`storage.LocalStore`/`Array.{set_orthogonal_selection,get_orthogonal_selection,set_coordinate_selection,get_coordinate_selection,oindex,vindex}`/`codecs.{BytesCodec,ShardingCodec,TransposeCodec,ScaleOffset,BloscCodec,ZstdCodec,GzipCodec,Crc32cCodec}`/`consolidate_metadata` — the `zarr.codecs.__all__` serializer/transform/compressor set), `numcodecs` (`zarr3.{Delta,FixedScaleOffset,Quantize,BitRound,PackBits,LZ4,LZMA,BZ2,Zlib}` — the filter and extra-compressor v3 wrappers the `zarr` `config['codecs']` registry resolves for the names `zarr.codecs` does not carry, admitted only where `zarr.codecs` lacks the equivalent, `zarr>=3.1.3`, cp315-clean module-top), `tensorstore` (`open({"driver":"zarr3","kvstore":...,"metadata":{"codecs":[...]}}, create=, delete_existing=, context=, transaction=)`/`TensorStore.{read,write,oindex,vindex,resize,spec,chunk_layout,codec,kvstore}`/`Spec`/`KvStore`/`Context`/`Transaction.commit_async`/`Future`/`WriteFutures.commit` — the async engine row, function-local), `anyio` (`run` driving the `async_boundary` awaitable at the synchronous entrypoint edge), `beartype` (`@beartype(conf=FAULT_CONF)` the public domain-admission contract on the `create` factory so a caller `ResourceRef`/`TensorChunking`/`TensorCodec` argument that violates the in-process annotation raises the canonical `BeartypeCallHintViolation` root the `reliability/faults#FAULT` `CLASSIFY` `api` row folds onto the rail at the caller's enclosing fence, the shared `FAULT_CONF` the sibling `interop`/`egress`/`ragged` admission seams bind; the receipt classmethods `_receipt`/`TensorReceipt` over the owner's own produced values carry no decorator), runtime (`ResourceRef`/`ContentIdentity`/`ContentKey`/`RuntimeRail`/`async_boundary`/`FAULT_CONF` the shared beartype violation-redirect config/`Receipt`, the `TensorReceipt`/`PlanReceipt` `contribute` streams satisfying the `ReceiptContributor` Protocol structurally). The cloud `kvstore` URL resolution is the `pkg/transport/roots#TRANSPORT` `obstore` counterpart the runtime pass authors; this owner emits the native `tensorstore` `kvstore` JSON spec, not an `obstore` store object.
+- Growth: a new filter is one `_FILTER` table row plus one `TensorFilter` case carrying its `zarr.codecs` or `numcodecs.zarr3` constructor and its registry codec name; a new compressor is one `_COMPRESSOR` table row under the existing `compress` case, never a parallel arm; a new chunk strategy is one `TensorChunking` field; a new read/write selection mode is one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row the `tensorstore` `oindex`/`vindex` views already answer; a new store engine (`n5`, an object-store-backed Zarr) is one `TensorBackend` member plus one `create`/`write`/`write_many`/`read` delegate row; a new `KvStore` cloud backend is one `_KVSTORE_DRIVER` scheme row; a stored-domain resize is one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; the bounded-memory plan is the `[2]-[PLAN]` `cubed` row on this same owner; the versioned-store dimension is the `gridded/virtual` owner and the ragged dimension the `gridded/ragged` owner, never a backend tag here.
+- Boundary: no compute-package numeric trio (NumPy/SciPy/labelled-array compute is `compute`), no production tensor session, no durable product store; `data` emits a portable content-addressed chunked store, not a runtime compute graph. A parallel `ZarrStore`/`CubedStore`/`TensorStoreStore` family per engine, an `open_zarr`/`open_tensorstore` reader family where one `TensorBackend` delegate dispatches, a `_ts_run` sync portal re-minting the `async_boundary` fault rail per arm, a blocking `Future.result()` inside the async rail where `anyio.run` drives the `async_boundary`, an `obstore` store object passed into the JSON `kvstore` slot where the native `kvstore` JSON spec is the contract, a re-minted `ts.Context()` per open where the `@functools.cache`-memoized `_ts_context` singleton is reused, a `global`-mutated `Any | None` context sentinel where `functools.cache` owns the memoization, an `oindex`-only read dropping the catalogued `vindex` selection, an `xarray` re-derivation of the dense store, a hand-rolled chunk codec / sharding / cache layer `tensorstore` owns, a hand-rolled filter pre-pipeline `zarr.codecs`/`numcodecs.zarr3` already provide, a phantom `zarr.codecs.Delta`/`Quantize`/`LZ4`/`LZMA`/`BZ2`/`Zlib` reference where those names live in `numcodecs.zarr3`, a `numcodecs.zarr3` admission for a name `zarr.codecs` already carries (`BytesCodec`/`ShardingCodec`/`TransposeCodec`/`ScaleOffset`/`BloscCodec`/`ZstdCodec`/`GzipCodec`/`Crc32cCodec`), a `virtual`/`icechunk`/`awkward` backend tag smuggled onto `TensorBackend`, and an undecorated `create` admitting a caller `ResourceRef`/`TensorChunking`/`TensorCodec` argument without the `@beartype(conf=FAULT_CONF)` public-seam contract the sibling `interop`/`egress`/`ragged` admission factories share are the deleted forms.
 
 ```python signature
-from collections.abc import Awaitable, Callable
+import functools
+from collections.abc import Awaitable, Callable, Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal, assert_never
 
 import anyio
 import zarr
+from beartype import beartype
 from expression import case, tag, tagged_union
 from msgspec import Struct
+from numcodecs import zarr3 as nc
 from zarr import codecs as zc
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
@@ -58,48 +61,44 @@ _COMPRESSOR: "dict[Compressor, tuple[Callable[..., BytesBytesCodec], str, tuple[
     "blosc": (lambda cname, clevel: zc.BloscCodec(cname=cname, clevel=clevel), "blosc", ("cname", "clevel")),
     "zstd": (lambda level: zc.ZstdCodec(level=level), "zstd", ("level",)),
     "gzip": (lambda level: zc.GzipCodec(level=level), "gzip", ("level",)),
-    "lz4": (lambda level: zc.LZ4(level=level), "lz4", ("level",)),
-    "lzma": (lambda preset: zc.LZMA(preset=preset), "lzma", ("preset",)),
-    "bz2": (lambda level: zc.BZ2(level=level), "bz2", ("level",)),
-    "zlib": (lambda level: zc.Zlib(level=level), "zlib", ("level",)),
+    "lz4": (lambda level: nc.LZ4(level=level), "numcodecs.lz4", ("level",)),
+    "lzma": (lambda preset: nc.LZMA(preset=preset), "numcodecs.lzma", ("preset",)),
+    "bz2": (lambda level: nc.BZ2(level=level), "numcodecs.bz2", ("level",)),
+    "zlib": (lambda level: nc.Zlib(level=level), "numcodecs.zlib", ("level",)),
 }
 
 
 @tagged_union(frozen=True)
-class TensorCodec:
+class Serializer:
     tag: Literal["compress", "sharding", "raw"] = tag()
     compress: "tuple[Compressor, tuple[Any, ...]]" = case()
     sharding: ChunkGrid = case()
     raw: None = case()
 
-    filters: "tuple[TensorFilter, ...]" = ()
-
-    def pipeline(self) -> Pipeline:
-        pre = tuple(f.codec() for f in self.filters)
+    def slot(self, pre: "tuple[ArrayArrayCodec, ...]") -> Pipeline:
         match self:
-            case TensorCodec(tag="compress"):
+            case Serializer(tag="compress"):
                 name, args = self.compress
                 build, _, _ = _COMPRESSOR[name]
                 return (pre, zc.BytesCodec(), (build(*args),))
-            case TensorCodec(tag="sharding"):
+            case Serializer(tag="sharding"):
                 inner = zc.ShardingCodec(chunk_shape=self.sharding, codecs=(*pre, zc.BytesCodec(), zc.ZstdCodec()))
                 return ((), inner, ())
-            case TensorCodec(tag="raw"):
+            case Serializer(tag="raw"):
                 return (pre, zc.BytesCodec(), ())
             case unreachable:
                 assert_never(unreachable)
 
-    def metadata(self) -> list[JsonSpec]:
-        pre = [f.json() for f in self.filters]
+    def slot_json(self, pre: list[JsonSpec]) -> list[JsonSpec]:
         match self:
-            case TensorCodec(tag="compress"):
+            case Serializer(tag="compress"):
                 name, args = self.compress
                 _, codec_name, keys = _COMPRESSOR[name]
                 return [*pre, {"name": "bytes"}, {"name": codec_name, "configuration": dict(zip(keys, args, strict=True))}]
-            case TensorCodec(tag="sharding"):
+            case Serializer(tag="sharding"):
                 inner = [*pre, {"name": "bytes"}, {"name": "zstd"}]
                 return [{"name": "sharding_indexed", "configuration": {"chunk_shape": list(self.sharding), "codecs": inner}}]
-            case TensorCodec(tag="raw"):
+            case Serializer(tag="raw"):
                 return [*pre, {"name": "bytes"}]
             case unreachable:
                 assert_never(unreachable)
@@ -109,46 +108,61 @@ class TensorCodec:
         return self.compress[0] if self.tag == "compress" else self.tag
 
 
-type Filter = Literal["delta", "fixed_scale_offset", "scale_offset", "quantize", "bitround", "packbits", "transpose"]
+class TensorCodec(Struct, frozen=True):
+    serializer: Serializer = Serializer(raw=None)
+    filters: "tuple[TensorFilter, ...]" = ()
+
+    def pipeline(self) -> Pipeline:
+        return self.serializer.slot(tuple(f.codec() for f in self.filters))
+
+    def metadata(self) -> list[JsonSpec]:
+        return self.serializer.slot_json([f.json() for f in self.filters])
+
+    @property
+    def name(self) -> str:
+        return self.serializer.name
+
+
+type Filter = Literal["transpose", "scale_offset", "delta", "fixed_scale_offset", "quantize", "bitround", "packbits"]
 
 _FILTER: "dict[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str, ...]]]" = {
-    "delta": (lambda dtype: zc.Delta(dtype=dtype), "delta", ("dtype",)),
-    "fixed_scale_offset": (lambda scale, offset, dtype: zc.FixedScaleOffset(scale=scale, offset=offset, dtype=dtype), "fixedscaleoffset", ("scale", "offset", "dtype")),
-    "scale_offset": (lambda offset, dtype: zc.ScaleOffset(offset=offset, dtype=dtype), "scaleoffset", ("offset", "dtype")),
-    "quantize": (lambda digits, dtype: zc.Quantize(digits=digits, dtype=dtype), "quantize", ("digits", "dtype")),
-    "bitround": (lambda keepbits: zc.BitRound(keepbits=keepbits), "bitround", ("keepbits",)),
-    "packbits": (lambda: zc.PackBits(), "packbits", ()),
     "transpose": (lambda order: zc.TransposeCodec(order=order), "transpose", ("order",)),
+    "scale_offset": (lambda scale, offset, dtype: zc.ScaleOffset(scale=scale, offset=offset, dtype=dtype), "scaleoffset", ("scale", "offset", "dtype")),
+    "delta": (lambda dtype: nc.Delta(dtype=dtype), "numcodecs.delta", ("dtype",)),
+    "fixed_scale_offset": (lambda scale, offset, dtype: nc.FixedScaleOffset(scale=scale, offset=offset, dtype=dtype), "numcodecs.fixedscaleoffset", ("scale", "offset", "dtype")),
+    "quantize": (lambda digits, dtype: nc.Quantize(digits=digits, dtype=dtype), "numcodecs.quantize", ("digits", "dtype")),
+    "bitround": (lambda keepbits: nc.BitRound(keepbits=keepbits), "numcodecs.bitround", ("keepbits",)),
+    "packbits": (lambda: nc.PackBits(), "numcodecs.packbits", ()),
 }
 
 
 @tagged_union(frozen=True)
 class TensorFilter:
     tag: Filter = tag()
+    transpose: ChunkGrid = case()
+    scale_offset: tuple[float, float, DType] = case()
     delta: DType = case()
     fixed_scale_offset: tuple[float, float, DType] = case()
-    scale_offset: tuple[float, DType] = case()
     quantize: tuple[int, DType] = case()
     bitround: int = case()
     packbits: None = case()
-    transpose: ChunkGrid = case()
 
     def _args(self) -> tuple[Any, ...]:
         match self:
+            case TensorFilter(tag="transpose"):
+                return (list(self.transpose),)
+            case TensorFilter(tag="scale_offset"):
+                return self.scale_offset
             case TensorFilter(tag="delta"):
                 return (self.delta,)
             case TensorFilter(tag="fixed_scale_offset"):
                 return self.fixed_scale_offset
-            case TensorFilter(tag="scale_offset"):
-                return self.scale_offset
             case TensorFilter(tag="quantize"):
                 return self.quantize
             case TensorFilter(tag="bitround"):
                 return (self.bitround,)
             case TensorFilter(tag="packbits"):
                 return ()
-            case TensorFilter(tag="transpose"):
-                return (list(self.transpose),)
             case unreachable:
                 assert_never(unreachable)
 
@@ -207,17 +221,21 @@ class TensorReceipt(Struct, frozen=True):
     bytes_stored: int
     content_key: ContentKey
 
-    def contribute(self) -> Receipt:
-        return Receipt.of(
-            "emitted",
-            "tensor",
-            self.backend.value,
-            {
-                "shape": "x".join(map(str, self.shape)),
-                "codec": self.codec,
-                "filters": ",".join(self.filters),
-                "stored": str(self.bytes_stored),
-            },
+    def contribute(self) -> Iterable[Receipt]:
+        return (
+            Receipt.of(
+                "tensor",
+                (
+                    "emitted",
+                    self.backend.value,
+                    {
+                        "shape": "x".join(map(str, self.shape)),
+                        "codec": self.codec,
+                        "filters": ",".join(self.filters),
+                        "stored": self.bytes_stored,
+                    },
+                ),
+            ),
         )
 
 
@@ -230,8 +248,9 @@ class TensorStore(Struct, frozen=True):
     codec: TensorCodec
 
     @classmethod
+    @beartype(conf=FAULT_CONF)
     def create(
-        cls, ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec = TensorCodec(raw=None)
+        cls, ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec = TensorCodec()
     ) -> "RuntimeRail[TensorStore]":
         backend = TensorBackend.for_ref(ref)
 
@@ -244,15 +263,16 @@ class TensorStore(Struct, frozen=True):
     def write_region(self, *writes: "tuple[TensorRegion, np.ndarray]") -> "RuntimeRail[TensorReceipt]":
         region, last = writes[-1]
 
-        async def _write() -> TensorReceipt:
-            stored = (
+        async def _write() -> int:
+            return (
                 await self.backend.write(self.ref, region, last)
                 if len(writes) == 1
                 else await self.backend.write_many(self.ref, writes)
             )
-            return _receipt(self, region, stored, last)
 
-        return anyio.run(async_boundary, "tensor.write_region", _write)
+        return anyio.run(async_boundary, "tensor.write_region", _write).bind(
+            lambda stored: ContentIdentity.of("tensor", last.tobytes()).map(lambda key: _receipt(self, stored, key))
+        )
 
     def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
         return anyio.run(async_boundary, "tensor.read_region", lambda: self.backend.read(self.ref, region))
@@ -316,16 +336,11 @@ def _ts_spec(ref: ResourceRef, *, codec: TensorCodec | None = None, shape: Shape
     return {"driver": "zarr3", "kvstore": _ts_kvstore(ref), **({"metadata": metadata} if metadata else {})}
 
 
-_TS_CONTEXT: "Any | None" = None
-
-
+@functools.cache
 def _ts_context() -> "Any":
     import tensorstore as ts  # noqa: PLC0415
 
-    global _TS_CONTEXT  # noqa: PLW0603
-    if _TS_CONTEXT is None:
-        _TS_CONTEXT = ts.Context()
-    return _TS_CONTEXT
+    return ts.Context()
 
 
 async def _ts_open(spec: JsonSpec, *, create: bool) -> "Any":
@@ -382,7 +397,7 @@ _READ: "dict[TensorBackend, Callable[[ResourceRef, TensorRegion], Awaitable[np.n
 }
 
 
-def _receipt(store: TensorStore, region: TensorRegion, bytes_stored: int, data: "np.ndarray") -> TensorReceipt:
+def _receipt(store: TensorStore, bytes_stored: int, key: ContentKey) -> TensorReceipt:
     return TensorReceipt(
         backend=store.backend,
         shape=store.shape,
@@ -391,7 +406,7 @@ def _receipt(store: TensorStore, region: TensorRegion, bytes_stored: int, data: 
         codec=store.codec.name,
         filters=tuple(f.tag for f in store.codec.filters),
         bytes_stored=bytes_stored,
-        content_key=ContentIdentity.of("tensor", data.tobytes()),
+        content_key=key,
     )
 ```
 
@@ -409,31 +424,32 @@ flowchart LR
 
 ## [03]-[PLAN]
 
-- Owner: the bounded-memory `cubed` plan over the same `TensorStore` — `TensorStore.plan` lifts the dense Zarr store into a `cubed.Array` under a `Spec(allowed_mem=...)` for blockwise reductions, out-of-core linear algebra, and per-chunk maps that never exceed the per-task memory budget, and `PlanOp` is the one closed named-operation family folded over the lazy graph. The plan is the out-of-core dimension of the store, not a fifth backend tag — one owner carries the dense store and its bounded-memory plan, never a parallel `CubedStore` class.
-- Cases: `PlanOp` collapses every named lazy-graph operation onto one `@tagged_union` `apply` fold — `reduce` (the Array API reduction resolved off `cubed.Array.__array_namespace__()` over an `axis`/`keepdims` pair — the catalogue-settled `nanmean` plus the `Reduction`-literal `sum`/`mean`/`nansum`/`std`/`var`/`prod`/`max`/`min` members the Array API standard mandates, the bounded-memory aggregation), `linalg` (the `cubed.array_api.linalg` out-of-core `matmul`/`svd`/`qr`/`svdvals`/`tensordot`/`outer`/`vecdot`/`matrix_transpose` over an optional operand, the headline TSQR/SVD bounded-memory capability returning a tuple of factors the multi-output materialization persists whole), `blockwise` (one `cubed.map_blocks` per-chunk callable carrying its `dtype`/`drop_axis`/`new_axis`), `gufunc` (one `cubed.apply_gufunc` generalized ufunc carrying its `signature`/`output_dtypes`/`vectorize`/`allow_rechunk`), and `rechunk` (one `cubed.rechunk` boundary realignment carrying its `chunks`/`min_mem`/`allow_irregular`, the chunk-boundary realignment that recomputes no values) — the operation dimension a case the `apply` fold dispatches by `match`/`case` closed with `assert_never`, never a `sum_plan`/`svd_plan`/`map_blocks_plan`/`rechunk_plan` sibling family.
-- Entry: `TensorStore.plan` opens the store as a `cubed.Array` through `cubed.from_zarr(store, spec=cubed.Spec(allowed_mem=, reserved_mem=, executor_name=))`, returning the lazy array in a `RuntimeRail` with the executor declared on the `Spec` at the one graph boundary and the `reserved_mem` headroom calibrated per executor by `cubed.measure_reserved_mem` when omitted rather than a hardcoded literal; `PlanOp.apply` folds the named operation over the lazy graph, never a per-operation method; `TensorStore.materialize` runs `cubed.store` over every output array of the operation (one array for a reduction, the full factor tuple for a `svd`/`qr` so no factor is dropped) against a target `ResourceRef` under a `MemoryProbe` `Callback` whose `on_operation_start`/`on_task_end` accumulate the operation count, task count, and `TaskEndEvent` peak, reading the budget and executor name off the lazy array's own `array.spec` rather than re-passing them, folding one `PlanReceipt` carrying the `allowed_mem` budget plus the observed peak and arity, and the materialized result re-enters through `[2]-[STORE]` `TensorStore.create`/`write_region` as a fresh content-keyed `TensorReceipt`. The operation is one named-operation lookup over `PlanOp`, so a `sum_plan`/`mean_plan`/`svd_plan` family collapses to one closed dispatch.
+- Owner: the bounded-memory `cubed` plan over the same `TensorStore` module — `plan` lifts the dense Zarr store into a `cubed.Array` under a `Spec(allowed_mem=...)` for blockwise reductions, out-of-core linear algebra, and per-chunk maps that never exceed the per-task memory budget, and `PlanOp` is the one closed named-operation family folded over the lazy graph. The plan is the out-of-core dimension of the store, not a fifth backend tag — one owner module carries the dense store and its bounded-memory plan, never a parallel `CubedStore` class.
+- Cases: `PlanOp` collapses every named lazy-graph operation onto one `@tagged_union` `apply` fold — `reduce` (the Array API reduction resolved off `cubed.Array.__array_namespace__()` over an `axis`/`keepdims` pair — the catalogue-settled `nanmean` plus the `Reduction`-literal `sum`/`mean`/`nansum`/`std`/`var`/`prod`/`max`/`min` members the Array API standard mandates, the bounded-memory aggregation), `linalg` (the `cubed.array_api.linalg` out-of-core `matmul`/`svd`/`qr`/`svdvals`/`tensordot`/`outer`/`vecdot`/`matrix_transpose` over an optional operand, the headline TSQR/SVD bounded-memory capability returning a tuple of factors the multi-output materialization persists whole), `blockwise` (one `cubed.map_blocks` per-chunk callable carrying its `dtype`/`drop_axis`/`new_axis`), `gufunc` (one `cubed.apply_gufunc` generalized ufunc carrying its `signature`/`output_dtypes`/`vectorize`/`allow_rechunk`), and `rechunk` (one `cubed.rechunk` boundary realignment carrying its `chunks`/`min_mem` per the catalogued `rechunk(x, chunks, *, min_mem)` arity, the chunk-boundary realignment that recomputes no values) — the operation dimension a case the `apply` fold dispatches by `match`/`case` closed with `assert_never`, never a `sum_plan`/`svd_plan`/`map_blocks_plan`/`rechunk_plan` sibling family.
+- Entry: `plan` opens the store as a `cubed.Array` through `cubed.from_zarr(str(store.ref.path), spec=cubed.Spec(allowed_mem=, reserved_mem=, executor_name=))`, returning the lazy array in a `RuntimeRail` with the executor declared on the `Spec` at the one graph boundary and the `reserved_mem` headroom calibrated per executor by `cubed.measure_reserved_mem` when omitted rather than a hardcoded literal; `PlanOp.apply` folds the named operation over the lazy graph, never a per-operation method; `materialize` runs `cubed.store` over every output array of the operation (one array for a reduction, the full factor tuple for a `svd`/`qr` so no factor is dropped) against a target `ResourceRef` under a `MemoryProbe` `Callback` whose `on_operation_start`/`on_task_end` accumulate the operation count, task count, and `TaskEndEvent` peak, reading the budget and executor name off the lazy array's own `array.spec` rather than re-passing them, folding one `PlanReceipt` carrying the `allowed_mem`/`reserved_mem` budget plus the observed peak and arity, and the materialized result re-enters through `[2]-[STORE]` `TensorStore.create`/`write_region` as a fresh content-keyed `TensorReceipt`. The operation is one named-operation lookup over `PlanOp`, so a `sum_plan`/`mean_plan`/`svd_plan` family collapses to one closed dispatch.
 - Auto: the memory budget (`allowed_mem`, `reserved_mem`) and executor are the chunked-compute receipt fact, declared on the `Spec` once at the graph boundary and read back off `array.spec` — the executor binds at `from_zarr` time on the `Spec(executor_name=)` field, never re-passed as a `to_zarr(executor_name=)` keyword the catalogued `to_zarr(executor=)` signature does not carry; the lazy graph runs only when `compute()`/`to_zarr()` triggers the executor, never an eager full-materialization; the `local` executor is the default synchronous backend, and a distributed executor (`dask`/`lithops`/`modal`/`coiled`/`beam`/`ray`/`spark`) selects through the one `Spec(executor_name=)` field, never a hand-rolled chunk iteration loop; `cubed.Array` implements the Python Array API standard, so the `reduce` arm resolves its member off the array's own `__array_namespace__()` (the standard-mandated namespace, total over the `Reduction` literal by construction rather than a hand-listed module-attribute dict that silently omits a member or binds an un-catalogued spelling), and the `linalg` arm binds the `cubed.array_api.linalg` members directly; the peak memory the `Callback`/`TaskEndEvent` already measures is read off `on_task_end` into the typed `PlanReceipt`, and the operation and task counts ride the same `Callback` lifecycle (`on_operation_start`/`on_task_end`) rather than a second observer, never re-derived from process facts; the `reserved_mem` headroom is calibrated once per executor through `cubed.measure_reserved_mem` when the caller omits it, never a hand-tuned literal that misreads a distributed executor's overhead; a tuple-returning factorization persists every factor through `cubed.store` rather than dropping all but the first array; `cubed` is cp315-clean and imports module-top.
 - Receipt: the plan emits no receipt while lazy — it builds a graph; the `cubed.store` materialization folds one `PlanReceipt` carrying the `allowed_mem`/`reserved_mem` budget, the `PlanOp` tag, the executor name, the summed `npartitions` chunk count over every output, the output `arity`, the `on_operation_start`-counted operation count, the `TaskEndEvent`-counted task count, and the `TaskEndEvent`-measured peak memory as typed chunked-compute evidence, and the materialized store re-enters through `[2]-[STORE]` `TensorStore.create`/`write_region` folding the one `TensorReceipt`, never a parallel plan rail and never a generic reported-value receipt where the budget-versus-peak evidence belongs.
-- Packages: `cubed` (`from_zarr`/`to_zarr`/`store`/`Spec(allowed_mem=, reserved_mem=, executor_name=)`/`measure_reserved_mem`/`compute`/`nanmean`/`map_blocks`/`apply_gufunc`/`rechunk`/`Callback`/`TaskEndEvent`/`npartitions`/`Array.__array_namespace__`/`array_api.linalg.{matmul,svd,qr,svdvals,tensordot,outer,vecdot,matrix_transpose}`), `zarr` (the backing store the plan reads and writes), runtime (`RuntimeRail`/`boundary`/`Receipt`/`ReceiptContributor`).
+- Packages: `cubed` (`from_zarr`/`to_zarr`/`store`/`Spec(allowed_mem=, reserved_mem=, executor_name=)`/`measure_reserved_mem`/`compute`/`nanmean`/`map_blocks`/`apply_gufunc`/`rechunk`/`Callback`/`TaskEndEvent`/`npartitions`/`Array.__array_namespace__`/`array_api.linalg.{matmul,svd,qr,svdvals,tensordot,outer,vecdot,matrix_transpose}`), `zarr` (the backing store the plan reads and writes), `beartype` (`@beartype(conf=FAULT_CONF)` the public domain-admission contract on the `plan` entrypoint so a caller `TensorStore`/budget argument that violates the in-process annotation raises the canonical `BeartypeCallHintViolation` root the `reliability/faults#FAULT` `CLASSIFY` `api` row folds onto the rail, the shared `FAULT_CONF` the sibling data admission seams bind; `materialize` folds over the `cubed.Array` graph the owner already produced and carries no decorator), runtime (`RuntimeRail`/`boundary`/`FAULT_CONF` the shared beartype violation-redirect config/`Receipt`, the `PlanReceipt` `contribute` stream satisfying the `ReceiptContributor` Protocol structurally).
 - Growth: a new bounded-memory reduction is one `Reduction` literal member the Array API namespace already answers; a new out-of-core factorization is one `cubed.array_api.linalg` member on the `linalg` arm; a new blockwise transform is one `PlanOp.blockwise` callable; a new chunk-boundary realignment is one `PlanOp.rechunk` row; a new executor is one `Spec(executor_name=)` value; a new measured fact is one field off the `Callback` lifecycle (`on_operation_start`/`on_operation_end`/`on_task_end`); zero new surface and never a `cubed` backend tag on `TensorBackend`.
-- Boundary: cubed execution is offline study evidence; production substrate selection stays in the C# `csharp:Rasm.Compute` owner; `data` emits a bounded-memory plan plus its typed peak-memory receipt, not a runtime compute graph. A `CubedStore` parallel class, an eager full-materialization where the lazy graph applies, a hand-rolled chunked execution loop / TSQR / blockwise map cubed owns, a per-operation `*_plan` method family where `PlanOp` dispatches, an in-memory NumPy linalg for an out-of-core payload, and a generic ledger over the typed `PlanReceipt` are the deleted forms.
+- Boundary: cubed execution is offline study evidence; production substrate selection stays in the C# `csharp:Rasm.Compute` owner; `data` emits a bounded-memory plan plus its typed peak-memory receipt, not a runtime compute graph. A `CubedStore` parallel class, an eager full-materialization where the lazy graph applies, a hand-rolled chunked execution loop / TSQR / blockwise map cubed owns, a per-operation `*_plan` method family where `PlanOp` dispatches, an in-memory NumPy linalg for an out-of-core payload, a generic ledger over the typed `PlanReceipt`, and an undecorated `plan` entrypoint admitting a caller `TensorStore`/budget argument without the `@beartype(conf=FAULT_CONF)` public-seam contract the sibling data admission entrypoints share are the deleted forms.
 
 ```python signature
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Literal, assert_never
 
 import cubed
+from beartype import beartype
 from cubed.array_api import linalg as cla
 from expression import case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.faults import RuntimeRail, boundary
+from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     import numpy as np
 
-    from rasm.data.gridded.store import ChunkGrid, DType, ResourceRef, TensorStore
+    from rasm.runtime.roots import ResourceRef
 
 
 type Reduction = Literal["nanmean", "sum", "mean", "nansum", "std", "var", "prod", "max", "min"]
@@ -458,7 +474,7 @@ class PlanOp:
     linalg: "tuple[Factorization, cubed.Array | int | tuple[int, ...] | None]" = case()
     blockwise: "tuple[Callable[..., np.ndarray], DType, int | None, int | None]" = case()
     gufunc: "tuple[Callable[..., np.ndarray], str, tuple[DType, ...], bool, bool]" = case()
-    rechunk: "tuple[ChunkGrid, str | None, bool]" = case()
+    rechunk: "tuple[ChunkGrid, str | None]" = case()
 
     def apply(self, plan: "cubed.Array") -> "cubed.Array | tuple[cubed.Array, ...]":
         match self:
@@ -477,16 +493,18 @@ class PlanOp:
                     func, signature, plan, output_dtypes=output_dtypes, vectorize=vectorize, allow_rechunk=allow_rechunk
                 )
             case PlanOp(tag="rechunk"):
-                chunks, min_mem, allow_irregular = self.rechunk
-                return cubed.rechunk(plan, chunks, min_mem=min_mem, allow_irregular=allow_irregular)
+                chunks, min_mem = self.rechunk
+                return cubed.rechunk(plan, chunks, min_mem=min_mem)
             case unreachable:
                 assert_never(unreachable)
 
 
 class MemoryProbe(cubed.Callback):
-    peak_mem: int = 0
-    tasks: int = 0
-    operations: int = 0
+    def __init__(self) -> None:
+        super().__init__()
+        self.peak_mem = 0
+        self.tasks = 0
+        self.operations = 0
 
     def on_operation_start(self, event: "cubed.OperationStartEvent") -> None:
         self.operations += 1
@@ -508,23 +526,29 @@ class PlanReceipt(Struct, frozen=True):
     peak_mem: int
     target: str
 
-    def contribute(self) -> Receipt:
-        return Receipt.of(
-            "planned",
-            "tensor",
-            self.op,
-            {
-                "executor": self.executor,
-                "allowed_mem": str(self.allowed_mem),
-                "peak_mem": str(self.peak_mem),
-                "npartitions": str(self.npartitions),
-                "arity": str(self.arity),
-                "operations": str(self.operations),
-                "tasks": str(self.tasks),
-            },
+    def contribute(self) -> Iterable[Receipt]:
+        return (
+            Receipt.of(
+                "tensor",
+                (
+                    "planned",
+                    self.op,
+                    {
+                        "executor": self.executor,
+                        "allowed_mem": self.allowed_mem,
+                        "reserved_mem": self.reserved_mem,
+                        "peak_mem": self.peak_mem,
+                        "npartitions": self.npartitions,
+                        "arity": self.arity,
+                        "operations": self.operations,
+                        "tasks": self.tasks,
+                    },
+                ),
+            ),
         )
 
 
+@beartype(conf=FAULT_CONF)
 def plan(
     store: "TensorStore", *, allowed_mem: str = "2GB", reserved_mem: str | None = None, executor_name: str = "local"
 ) -> "RuntimeRail[cubed.Array]":
@@ -572,10 +596,10 @@ flowchart LR
 
 ## [04]-[RESEARCH]
 
-- [ZARR_PIPELINE]: the `zarr` v3 `create_array(store=, shape=, dtype=, chunks=, shards=, filters=, serializer=, compressors=)` slot arity, the `codecs.{BytesCodec,ShardingCodec,TransposeCodec,BloscCodec,ZstdCodec,GzipCodec}` constructor names, and the `Array.set_orthogonal_selection`/`Array.get_orthogonal_selection`/`storage.LocalStore`/`open_array` surface are catalogue-confirmed against the folder `zarr` `.api` (`create_array` L65, `open_array` L91, `storage.LocalStore` L31, write/read selection L111/117, `BytesCodec`/`TransposeCodec`/`ShardingCodec` L45-47, compressor codecs L48-50). The `ArrayArrayCodec`/`ArrayBytesCodec`/`BytesBytesCodec` ABC split the `pipeline()` triple annotates is the codec-role hierarchy the slots type against. The receipt byte footprint reads the written-region `data.nbytes` rather than an `Array.nbytes_stored()` accessor — `nbytes_stored` is NOT enumerated in the folder `zarr` `.api`, so the compressed-on-disk byte count is a RESEARCH enrichment that confirms against the live v3 distribution before any receipt field reads it, never settled fence code. `consolidate_metadata` (L98) merges metadata after a bulk remote write before opening consolidated.
-- [ZARR_FILTERS]: the `zarr.codecs` filter family `Delta`/`FixedScaleOffset`/`ScaleOffset`/`Quantize`/`BitRound`/`PackBits` (the `TensorFilter.delta`/`fixed_scale_offset`/`scale_offset`/`quantize`/`bitround`/`packbits` cases) and `TransposeCodec` (the `transpose` case) are catalogue-named as re-exported `zarr.codecs` filter codecs against the folder `zarr` `.api` (filter codecs L52-54 `Delta`/`FixedScaleOffset`/`ScaleOffset`/`Quantize`/`BitRound`/`PackBits`, `TransposeCodec` L46), so the filter pre-pipeline needs no `numcodecs` admission; the seven compressors `BloscCodec`/`ZstdCodec`/`GzipCodec`/`LZ4`/`LZMA`/`BZ2`/`Zlib` ride the `_COMPRESSOR` table under the one `compress` case, the first three catalogue-confirmed (L48-50) and the `LZ4`/`LZMA`/`BZ2`/`Zlib` catalogue-named (L51) as `zarr.codecs` re-exports whose v3 constructor keyword arity (`LZ4(level=)`, `LZMA(preset=)`, `BZ2(level=)`, `Zlib(level=)`) confirms against the live `zarr` v3 distribution before those four rows settle — RESEARCH item. The Zarr v3 filter-slot ordering — array-to-array filters before the array-to-bytes serializer, expressed as `filters=` ahead of `serializer=` on `create_array` and as the `transpose`/`fixedscaleoffset`/`scaleoffset`/`quantize`/`bitround`/`packbits`/`delta` entries ahead of the `bytes` entry in the `metadata.codecs` chain — and each filter constructor's exact keyword arity (`Delta(dtype=)`, `FixedScaleOffset(scale=, offset=, dtype=)`, `ScaleOffset(offset=, dtype=)`, `Quantize(digits=, dtype=)`, `BitRound(keepbits=)`, `PackBits()`, `TransposeCodec(order=)`) plus each filter's zarr3 `metadata.codecs` `name` string confirm against the live `zarr` v3 distribution before the cases settle — RESEARCH item.
-- [CUBED_PLAN]: the `cubed` `from_zarr`/`to_zarr`/`store`/`Spec(allowed_mem=, reserved_mem=, executor_name=)`/`measure_reserved_mem`/`compute`/`nanmean`/`map_blocks`/`apply_gufunc`/`rechunk`/`npartitions` bounded-plan surface is catalogue-confirmed against the folder `cubed` `.api` (`from_zarr` L49, `to_zarr` L65, `store` L64, `measure_reserved_mem` L67, `compute` L63, `Spec` L22/L95, `nanmean` L74, `map_blocks` L68, `apply_gufunc` L69, `rechunk` L70, `npartitions` property L37); the `rechunk(x, chunks, *, min_mem, allow_irregular)` keyword arity (L70) is the `PlanOp.rechunk` row's signature and the `measure_reserved_mem(executor, work_dir, ...)` calibration (L67) the per-executor `reserved_mem` headroom the `plan` entry reads when the caller omits it. `Spec.executor_name` is the executor field (L95-96) the `plan` `Spec` carries, distinct from the catalogued `to_zarr(executor=)` keyword (L65) — `to_zarr` carries no `executor_name`, so the executor binds once on the `Spec` at `from_zarr` and `materialize` reads it back off `array.spec`. `cubed` is cp315-clean and imports module-top, the `local` executor the default and the distributed executors (`dask`/`lithops`/`modal`/`coiled`/`beam`/`ray`/`spark`) selected through `Spec.executor_name`. The `reduce` arm's non-`nanmean` members (`sum`/`mean`/`nansum`/`std`/`var`/`prod`/`max`/`min`) are NOT enumerated in the catalogue — they are Python Array API standard reductions the catalogue confirms `cubed.Array` implements (L97), resolved off `cubed.Array.__array_namespace__()` rather than a `cubed.<name>` module attribute, and each member spelling plus the `axis`/`keepdims` signature confirms against the live `cubed` distribution before the `reduce` literal settles — RESEARCH item. The `cubed.store(sources, targets, ...)` (L64) multi-array persist over auto-created Zarr path targets the multi-factor `materialize` writes, and the `array.spec.{allowed_mem,reserved_mem,executor_name}` accessor spellings the `materialize` receipt reads, confirm against the live `cubed` distribution before the multi-output `store` target shape and the budget read settle — RESEARCH item.
+- [ZARR_PIPELINE]: the `zarr` v3 `create_array(store=, shape=, dtype=, chunks=, shards=, filters=, serializer=, compressors=)` slot arity (`.api` L88), the `codecs.{BytesCodec,ShardingCodec,TransposeCodec,ScaleOffset,BloscCodec,ZstdCodec,GzipCodec,Crc32cCodec}` constructor names (the full `zarr.codecs.__all__` serializer/transform/compressor/checksum set, L54/L57-67), and the `Array.set_orthogonal_selection`/`get_orthogonal_selection`/`set_coordinate_selection`/`get_coordinate_selection`/`oindex`/`vindex`/`storage.LocalStore`/`open_array` surface (selection family L131-132, `oindex`/`vindex` L128-129, `LocalStore` L39, `open_array` L106) are catalogue-confirmed against the folder `zarr` `.api`. The `ArrayArrayCodec`/`ArrayBytesCodec`/`BytesBytesCodec` ABC split the `pipeline()` triple annotates is the `zarr.abc.codec` codec-role hierarchy the three slots type against (L157). The receipt byte footprint reads the written-region `data.nbytes` rather than the catalogued `Array.nbytes_stored()` accessor (L136) — `nbytes_stored()` IS enumerated but returns a coroutine-or-sync compressed-on-disk count whose exact return shape and engine asymmetry confirm against the live v3 distribution before any receipt field reads it; `data.nbytes` is the engine-symmetric canonical NumPy count the receipt settles on. `consolidate_metadata` (L113) merges metadata after a bulk remote write before opening consolidated.
+- [ZARR_FILTERS]: the filter family splits by owning module against the folder `zarr` `.api` — `TransposeCodec` (the `transpose` case, L61) and `ScaleOffset` (the `scale_offset` case, L62) are the real `zarr.codecs.__all__` array-to-array transforms, while `Delta`/`FixedScaleOffset`/`Quantize`/`BitRound`/`PackBits` (the `TensorFilter.delta`/`fixed_scale_offset`/`quantize`/`bitround`/`packbits` cases) are NOT `zarr.codecs` members and resolve from `numcodecs.zarr3` (L54 names them explicitly as living in `numcodecs.zarr3`, NOT `zarr.codecs`; L69-77 catalogue the `numcodecs.zarr3` wrappers; L185 rejects them as phantom `zarr.codecs` names), so the `_FILTER` table binds `zc.TransposeCodec`/`zc.ScaleOffset` and `nc.Delta`/`nc.FixedScaleOffset`/`nc.Quantize`/`nc.BitRound`/`nc.PackBits`, the `numcodecs.zarr3` codecs resolved through the `zarr` `config['codecs']` registry (`zarr>=3.1.3`, L72), admitted only where `zarr.codecs` lacks the equivalent. The seven compressors `BloscCodec`/`ZstdCodec`/`GzipCodec`/`LZ4`/`LZMA`/`BZ2`/`Zlib` ride the `_COMPRESSOR` table under the one `compress` case, the first three the real `zarr.codecs` compressors (L64-66) and `LZ4`/`LZMA`/`BZ2`/`Zlib` the `numcodecs.zarr3` alternate compressors (L54, L76) bound `nc.*`. The Zarr v3 filter-slot ordering — array-to-array transforms before the array-to-bytes serializer, expressed as `filters=` ahead of `serializer=` on `create_array` and as the transform entries ahead of the `bytes` entry in the `metadata.codecs` chain — and each constructor's exact keyword arity (`TransposeCodec(order=)`, `zc.ScaleOffset(scale=, offset=, dtype=, astype=)` L62, `nc.Delta(dtype=)`, `nc.FixedScaleOffset(scale=, offset=, dtype=)`, `nc.Quantize(digits=, dtype=)`, `nc.BitRound(keepbits=)`, `nc.PackBits()`) plus each codec's zarr-v3 registry `name` string (the `numcodecs.<id>` form the registry assigns the wrapped codecs) confirm against the live `zarr` v3 / `numcodecs` distribution before the cases settle — RESEARCH item. `numcodecs.zarr3` is upstream-deprecated (L72) yet remains the only v3 home for the filter family until `zarr.codecs` absorbs it.
+- [CUBED_PLAN]: the `cubed` `from_zarr`/`to_zarr`/`store`/`Spec(allowed_mem=, reserved_mem=, executor_name=)`/`measure_reserved_mem`/`compute`/`nanmean`/`map_blocks`/`apply_gufunc`/`rechunk`/`npartitions` bounded-plan surface is catalogue-confirmed against the folder `cubed` `.api` (`from_zarr` L49, `to_zarr` L65, `store` L64, `measure_reserved_mem` L67, `compute` L63, `Spec` L22/L95, `nanmean` L74, `map_blocks` L68, `apply_gufunc` L69, `rechunk` L70, `npartitions` property L37); the `rechunk(x, chunks, *, min_mem)` keyword arity (L84) is the `PlanOp.rechunk` row's signature — the catalogue enumerates only `min_mem`, so a phantom `allow_irregular` keyword the `zarr3` driver never answers is the deleted form — and the `measure_reserved_mem(executor, work_dir, ...)` calibration (L67) the per-executor `reserved_mem` headroom the `plan` entry reads when the caller omits it. `Spec.executor_name` is the executor field (L95-96) the `plan` `Spec` carries, distinct from the catalogued `to_zarr(executor=)` keyword (L65) — `to_zarr` carries no `executor_name`, so the executor binds once on the `Spec` at `from_zarr` and `materialize` reads it back off `array.spec`. `cubed` is cp315-clean and imports module-top, the `local` executor the default and the distributed executors (`dask`/`lithops`/`modal`/`coiled`/`beam`/`ray`/`spark`) selected through `Spec.executor_name`. The `reduce` arm's non-`nanmean` members (`sum`/`mean`/`nansum`/`std`/`var`/`prod`/`max`/`min`) are NOT enumerated in the catalogue — they are Python Array API standard reductions the catalogue confirms `cubed.Array` implements (L97), resolved off `cubed.Array.__array_namespace__()` rather than a `cubed.<name>` module attribute, and each member spelling plus the `axis`/`keepdims` signature confirms against the live `cubed` distribution before the `reduce` literal settles — RESEARCH item. The `cubed.store(sources, targets, ...)` (L64) multi-array persist over auto-created Zarr path targets the multi-factor `materialize` writes, and the `array.spec.{allowed_mem,reserved_mem,executor_name}` accessor spellings the `materialize` receipt reads, confirm against the live `cubed` distribution before the multi-output `store` target shape and the budget read settle — RESEARCH item.
 - [CUBED_LINALG]: the `cubed.array_api.linalg` out-of-core `matmul`/`svd`/`qr`/`svdvals`/`tensordot`/`outer`/`vecdot`/`matrix_transpose` family is catalogue-confirmed against the folder `cubed` `.api` (linalg family L80-89, namespace `cubed.array_api.linalg` L93), and the `Callback`/`TaskEndEvent` event observer with its `on_task_end` peak-memory channel is catalogue-named (`Callback` L24, `TaskEndEvent` L25, the `on_task_end` `TaskEndEvent` carrying peak measured memory L99, the `Callback` lifecycle `on_operation_start`/`on_operation_end`/`on_task_end` L99); the exact `TaskEndEvent` peak-memory accessor field name (`peak_measured_mem_end` versus a sibling), the `on_operation_start` `OperationStartEvent` payload type the operation count reads, and the `qr`/`svd` tuple-arity return whose every factor the `cubed.store` multi-output persist writes confirm against the live `cubed` distribution before the `MemoryProbe` operation channel and the `linalg` tuple-handling settle — RESEARCH item. The receipt stays algorithm-specific (`allowed_mem`/`reserved_mem`/`npartitions`/`arity`/`operations`/`tasks`/`peak_mem`), never a generic reported value; production substrate selection stays in the `csharp:Rasm.Compute` owner.
-- [TENSORSTORE_ENGINE]: the `TENSORSTORE` `TensorBackend` member opens the identical Zarr v3 chunk grid through `tensorstore.open({"driver": "zarr3", "kvstore": ..., "metadata": {"codecs": [...]}}, create=, delete_existing=, context=)` and is catalogue-named against the folder `tensorstore` `.api` — `open` the single async entrypoint returning `Future[TensorStore]` (L55), `TensorStore.read`/`write` the async I/O rail (L72-73), `TensorStore.oindex`/`vindex` the orthogonal and vectorized read-selection views the `Indexing` axis selects (L80-81), `KvStore` the byte-keyed backend selected by `kvstore` over `file`/`gcs`/`s3`/`memory`/`ocdbt` (L31, IMPLEMENTATION_LAW storage axis), `CodecSpec` the zarr3 codec chain (`transpose`/`bytes`/`sharding_indexed`/`gzip`/`blosc`/`zstd`/`crc32c`, L28 + codec axis), `Context` the shared-resource pool the module-level `_ts_context` reuses across opens (L33, IMPLEMENTATION_LAW context axis), `WriteFutures.copy`/`commit` the source-release / durable-visibility gates (L111-112). The catalogue records `tensorstore` as `0.1.84` docs-derived with live reflection pending env provisioning, and `tensorstore` is NOT abi3 — `0.1.84` ceilings at cp314 with no cp315 wheel — so the `TENSORSTORE` arm rides the `python_version<'3.15'` companion band, function-local imported under `# noqa: PLC0415`, never a module-top import on this page; `tensorstore` provisions through `pyproject` plus `uv sync` and probes through `uv run python -m tools.assay api` before the open/read/write member spellings settle from docs-derived to live-reflected — the JSON `Spec` codec-chain `metadata.codecs` projection, the `await store.oindex[selection].write(data).commit` region-write-plus-commit shape, the `store.vindex[selection].write`/`.read` vectorized-selection write-and-read shape, and the `create=`/`delete_existing=`/`context=` `open` keyword arity stay RESEARCH items until the live reflection lands; the written-region byte count is the catalogue-clean `data.nbytes`, never a `store.nbytes_valid` accessor the `.api` catalogue does not enumerate.
+- [TENSORSTORE_ENGINE]: the `TENSORSTORE` `TensorBackend` member opens the identical Zarr v3 chunk grid through `tensorstore.open({"driver": "zarr3", "kvstore": ..., "metadata": {"codecs": [...]}}, create=, delete_existing=, context=)` and is catalogue-named against the folder `tensorstore` `.api` — `open` the single async entrypoint returning `Future[TensorStore]` (L55), `TensorStore.read`/`write` the async I/O rail (L72-73), `TensorStore.oindex`/`vindex` the orthogonal and vectorized read-selection views the `Indexing` axis selects (L80-81), `KvStore` the byte-keyed backend selected by `kvstore` over `file`/`gcs`/`s3`/`memory`/`ocdbt` (L31, IMPLEMENTATION_LAW storage axis), `CodecSpec` the zarr3 codec chain (`transpose`/`bytes`/`sharding_indexed`/`gzip`/`blosc`/`zstd`/`crc32c`, L28 + codec axis), `Context` the shared-resource pool the `@functools.cache`-memoized `_ts_context` reuses across opens (L33, IMPLEMENTATION_LAW context axis), `WriteFutures.copy`/`commit` the source-release / durable-visibility gates (L111-112). The catalogue records `tensorstore` as `0.1.84` docs-derived with live reflection pending env provisioning, and `tensorstore` is NOT abi3 — `0.1.84` ceilings at cp314 with no cp315 wheel — so the `TENSORSTORE` arm rides the `python_version<'3.15'` companion band, function-local imported under `# noqa: PLC0415`, never a module-top import on this page; `tensorstore` provisions through `pyproject` plus `uv sync` and probes through `uv run python -m tools.assay api` before the open/read/write member spellings settle from docs-derived to live-reflected — the JSON `Spec` codec-chain `metadata.codecs` projection, the `await store.oindex[selection].write(data).commit` region-write-plus-commit shape, the `store.vindex[selection].write`/`.read` vectorized-selection write-and-read shape, and the `create=`/`delete_existing=`/`context=` `open` keyword arity stay RESEARCH items until the live reflection lands; the written-region byte count is the catalogue-clean `data.nbytes`, never a `store.nbytes_valid` accessor the `.api` catalogue does not enumerate.
 - [TENSORSTORE_TRANSACTION]: the atomic multi-region write binds `ts.Transaction(atomic=True)` through the catalogued `open(..., transaction=txn)` path (IMPLEMENTATION_LAW transaction axis) and gates on `Transaction.commit_async()` (L117); the `Transaction(atomic=True)` constructor keyword, whether a per-region `await store.oindex[sel].write(data).commit` under a bound transaction stages without committing until the outer `commit_async`, and the `atomic`/`repeatable_read` flag spelling the IMPLEMENTATION_LAW transaction axis names confirm against the live `tensorstore` distribution before `_ts_write_atomic` settles — RESEARCH item. The `zarr` `_zarr_write_many` arm is sequential region writes with no atomic guarantee, the documented capability asymmetry the `write_many` delegate row carries.
-- [TENSORSTORE_KVSTORE]: the native `kvstore` JSON spec `{"driver": "s3"|"gcs"|"azure"|"file", "path": ...}` the `_KVSTORE_DRIVER` row builds is the catalogued backend-selection shape (IMPLEMENTATION_LAW storage axis); the exact `kvstore` JSON driver names (`s3`/`gcs`/`azure` versus a sibling) and the cloud-credential and bucket/path key arity for each driver confirm against the live `tensorstore` distribution before the cloud rows settle — RESEARCH item. The `pkg/transport/roots#TRANSPORT` `obstore` `from_url` resolution is the URL-parsing counterpart the runtime pass authors; this owner never passes an `obstore` store object into the JSON `kvstore` slot. The `zarr3` `metadata.codecs` chain admits only the catalogued `transpose`/`bytes`/`sharding_indexed`/`gzip`/`blosc`/`zstd`/`crc32c` codec names (codec axis L127), so the `lz4`/`lzma`/`bz2`/`zlib` `_COMPRESSOR` rows are `zarr`-engine-only until the live `tensorstore` zarr3 driver confirms the numcodecs-bytes codec names on the `metadata.codecs` chain — a `TENSORSTORE`-engine store selecting one of those four compressors is a RESEARCH-gated path, not a settled both-engine value. The Zarr v3 on-disk format (chunk grid plus `(filters, serializer, compressors)` pipeline) is the shared contract both engines read, never a second array shape.
+- [TENSORSTORE_KVSTORE]: the native `kvstore` JSON spec `{"driver": "s3"|"gcs"|"azure"|"file", "path": ...}` the `_KVSTORE_DRIVER` row builds is the catalogued backend-selection shape (IMPLEMENTATION_LAW storage axis); the exact `kvstore` JSON driver names (`s3`/`gcs`/`azure` versus a sibling) and the cloud-credential and bucket/path key arity for each driver confirm against the live `tensorstore` distribution before the cloud rows settle — RESEARCH item. The `pkg/transport/roots#TRANSPORT` `obstore` `from_url` resolution is the URL-parsing counterpart the runtime pass authors; this owner never passes an `obstore` store object into the JSON `kvstore` slot. The transient-fault retry locus for the cloud `kvstore` I/O is the `tensorstore` engine's own native `ts.Context` retry over the `s3`/`gcs`/`azure` kvstore driver (the engine owns its retry/concurrency/micro-cache exactly as the `obstore` Rust-core `RetryConfig` is the inner layer the `transport/roots#RESOURCE`/`tabular/egress#EGRESS` `RetryClass.OBJECT_STORE` stamina row wraps), so this data-side owner mints no second `stamina` retry envelope around `_ts_open`/`_ts_write`/`_ts_read` — its `async_boundary` lift owns fault conversion and the OTel span only, and the cloud-store retry stays the engine's native `Context` config, never a hand-rolled loop and never a duplicate resilience surface the store page is forbidden to own. The `zarr3` `metadata.codecs` chain admits only the catalogued `transpose`/`bytes`/`sharding_indexed`/`gzip`/`blosc`/`zstd`/`crc32c` codec names (codec axis L137), so every `numcodecs.<id>`-named row — the four `lz4`/`lzma`/`bz2`/`zlib` `_COMPRESSOR` rows and the five `delta`/`fixed_scale_offset`/`quantize`/`bitround`/`packbits` `_FILTER` rows whose `metadata()` projection emits the `numcodecs.<id>` registry name — is `zarr`-engine-only until the live `tensorstore` zarr3 driver confirms the numcodecs-codec names on its `metadata.codecs` chain; a `TENSORSTORE`-engine store selecting one of those nine codecs — or the native-`zarr.codecs` `scale_offset` filter whose `scaleoffset` name the catalogued `zarr3` chain also omits — is a RESEARCH-gated path, not a settled both-engine value, while the `transpose` filter, the `blosc`/`zstd`/`gzip` compressors, and the `bytes`/`sharding_indexed`/`crc32c` serializer-and-checksum names drive both engines. The Zarr v3 on-disk format (chunk grid plus `(filters, serializer, compressors)` pipeline) is the shared contract both engines read, never a second array shape.

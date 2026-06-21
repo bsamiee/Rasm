@@ -64,6 +64,11 @@
 |  [12]   | `Graph.community_fluid_communities`   | `community_fluid_communities(no_of_communities)`                                                                                                                                | `VertexClustering` |
 |  [13]   | `Graph.modularity`                    | `modularity(membership, weights=None, resolution=1, directed=True)`                                                                                                             | `float`            |
 |  [14]   | `Graph.k_core`                        | `k_core(*args)`                                                                                                                                                                 | `Graph` or list    |
+|  [15]   | `Graph.vcount` / `Graph.ecount`       | `vcount() -> int`; `ecount() -> int`                                                                                                                                           | vertex / edge count |
+|  [16]   | `Graph.is_directed` / `Graph.has_multiple` | `is_directed() -> bool`; `has_multiple() -> bool`                                                                                                                          | directedness / parallel-edge predicates |
+|  [17]   | `Graph.TupleList`                     | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False) -> Graph` (classmethod)                                                              | build a `Graph` from an `(u, v)` edge-tuple iterable |
+|  [18]   | `Graph.to_networkx` / `Graph.get_edge_dataframe` | `to_networkx(create_using=None) -> networkx.Graph`; `get_edge_dataframe() -> pandas.DataFrame`                                                                       | round-trip to the networkx / pandas siblings |
+|  [19]   | `Graph.write_graphml`                 | `write_graphml(f) -> None`                                                                                                                                                      | write the graph as GraphML to a path/file |
 
 [ENTRYPOINT_SCOPE]: clustering result inspection
 - rail: graph

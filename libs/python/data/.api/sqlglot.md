@@ -77,6 +77,7 @@
 |  [07]   | `optimizer.scope.build_scope` | `build_scope(expression) -> Scope | None`; `traverse_scope(expression) -> list[Scope]`; `find_all_in_scope(scope, expression_types)` | resolve and walk name scopes (source resolution, alias maps) |
 |  [08]   | `lineage.lineage`         | `lineage(column, sql, schema=None, sources=None, dialect=None, trim_selects=True, on_node=None, **kwargs) -> Node`                  | column-level lineage tree from a target column to its sources |
 |  [09]   | `diff`                    | `diff(source, target, matchings=None, delta_only=False, **kwargs) -> list[Edit]`                                                   | AST edit set (`Insert`/`Remove`/`Move`/`Update`/`Keep`) between two trees |
+|  [10]   | `Select.selects`          | `selects -> list[Expr]` (property)                                                                                                 | the projection list of a `Select` tree; each entry exposes `alias_or_name`, the qualified output-column names the lineage fold iterates |
 
 [OPTIMIZER_RULES]: `optimizer.optimize.RULES` is the ordered 14-rule pipeline run by `optimize`: `qualify` -> `pushdown_projections` -> `normalize` -> `unnest_subqueries` -> `pushdown_predicates` -> `optimize_joins` -> `eliminate_subqueries` -> `merge_subqueries` -> `eliminate_joins` -> `eliminate_ctes` -> `quote_identifiers` -> `annotate_types` -> `canonicalize` -> `simplify`. Each rule is dispatched by introspected parameter name; pass a sliced `rules=` tuple to run a subset.
 

@@ -81,6 +81,7 @@ scientific = [
     "narwhals>=2.22.1",                            # data: dataframe-agnostic API; pure Python
     "netcdf4>=1.7.4",                              # compute: CFD and field IO; source-build via Parametric_Forge netCDF toolchain
     "networkx",
+    "numcodecs>=0.16",                             # data: zarr v3 filter/extra-compressor codec registry (numcodecs.zarr3); upstream-deprecation-flagged, revisit if zarr.codecs absorbs the filter family
     "numba>=0.65.1; python_version<'3.15'",        # compute: LLVM JIT accelerator; numba/llvmlite lacks CPython 3.15 wheel
     "numpy>=2.0",                                  # compute: array substrate; 2.x ships CPython 3.15 wheels
     "numpyro>=0.21.0; python_version<'3.15'",      # compute: JAX NUTS sampler; gated by jaxlib CPython 3.15 floor

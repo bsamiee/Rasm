@@ -36,6 +36,7 @@ tabular/columnar    →   csharp:Rasm.Compute/Runtime               # [SHAPE]: D
 spatial/mesh        →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
 tabular/egress      →   python:runtime/observability              # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
 tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
+tabular/columnar    ←   graph/graph                               # [WIRE]: GraphResult.frame node-index-keyed pa.Table left-joined by `node`
 tabular             ←   python:artifacts/documents                # [WIRE]: to_corpus_row flat record
 tabular             ←   python:artifacts/figures                  # [WIRE]: color palette arrays / appearance correlates
 tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT]: ResourceRef path resolution through fsspec

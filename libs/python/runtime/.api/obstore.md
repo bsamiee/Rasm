@@ -119,7 +119,7 @@
 
 [ENTRYPOINT_SCOPE]: store construction
 - rail: object-storage
-- `from_url` is overloaded per scheme; the bare module-level `store.from_url` dispatches to the matching class.
+- `from_url` is overloaded per scheme; the bare module-level `store.from_url` dispatches to the matching class. `parse_scheme` is the top-level `obstore.parse_scheme` (not `obstore.store.parse_scheme`) and returns the bare backend-scheme `Literal`, never a `(scheme, path)` tuple.
 
 | [INDEX] | [SURFACE]                                                                                                                                  | [ENTRY_FAMILY] | [RAIL]                        |
 | :-----: | :----------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
@@ -128,7 +128,7 @@
 |  [03]   | `store.GCSStore.from_url(...)` / `store.AzureStore.from_url(...)`                                                                           | class factory  | per-provider URL construction |
 |  [04]   | `store.HTTPStore.from_url(url, *, client_options, retry_config)`                                                                            | class factory  | HTTP store from base URL      |
 |  [05]   | `store.LocalStore(prefix=None, *, automatic_cleanup=False, mkdir=False)` / `store.LocalStore.from_url(url, *, automatic_cleanup=False, mkdir=False)` | class factory | local store; `prefix` scopes all paths to a directory root, `.prefix` reads it back |
-|  [06]   | `parse_scheme(url) -> tuple[ObjectStoreScheme, str]`                                                                                        | utility        | top-level scheme/path parser  |
+|  [06]   | `obstore.parse_scheme(url) -> Literal["s3", "gcs", "http", "local", "memory", "azure"]`                                                     | utility        | top-level backend-scheme classifier |
 
 [ENTRYPOINT_SCOPE]: pluggable credential providers and fsspec adapter
 - rail: object-storage

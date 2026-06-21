@@ -91,6 +91,8 @@
 |  [13]   | `decimal128/decimal256(precision, scale)`        | dtype factory  | decimal dtypes                     |
 |  [14]   | `concat_tables / concat_arrays / concat_batches` | combine        | concatenate Arrow values           |
 |  [15]   | `unify_schemas(schemas)` / `infer_type(values)`  | metadata       | merge schemas, infer a dtype       |
+|  [16]   | `FixedSizeListArray.from_arrays(values, list_size=None, type=None, mask=None)` / `ListArray.from_arrays(offsets, values, type=None, pool=None, mask=None)` | construct | build a fixed-length/variable list column from a flat value buffer (the multi-dim column builder) |
+|  [17]   | `Schema.empty_table()` / `Schema.names` / `Schema.types` | metadata | zero-row `Table` matching the schema; the ordered field-name `list[str]` and `list[DataType]` |
 
 [ENTRYPOINT_SCOPE]: Table and RecordBatch operations
 - rail: Arrow columnar memory
@@ -108,6 +110,8 @@
 |  [06b]  | `join(right, keys, join_type='left outer', ..., filter_expression=None)` | join | hash join with optional residual `Expression` filter |
 |  [09]   | `cast(target_schema)` / `combine_chunks()`      | transform      | cast schema, coalesce chunks         |
 |  [10]   | `to_batches()` / `to_reader()` / `__arrow_c_stream__()` | stream | iterate as batches/reader; export PyCapsule C-stream |
+|  [10b]  | `RecordBatch.serialize(memory_pool=None)` -> `Buffer` | serialize | write one contiguous batch to a `Buffer` as a schema-less encapsulated IPC message (the canonical whole-batch content-key byte source over `Table.combine_chunks().to_batches()`); reconstruct via a separately-carried `Schema` |
+|  [10c]  | `Buffer.size` / `bytes(buffer)`                 | memory         | byte length and zero-copy `bytes` view of a `Buffer` (the IPC-serialized batch span the content key reads) |
 |  [11]   | `to_pandas()` / `to_pydict()` / `to_pylist()`   | interop        | export to pandas, dicts, rows        |
 |  [12]   | `to_struct_array()` / `flatten()`               | reshape        | struct-array view and struct flatten |
 
@@ -159,6 +163,7 @@
 - `dataset.dataset(...)` scans many files lazily with projection and filter pushdown; `Scanner.from_dataset(filter=, columns=)` materializes via `to_table()`/`to_batches()`
 - `acero.Declaration` builds an explicit streaming exec-node graph (scan/filter/project/aggregate/join/order) that runs out-of-core and emits a `Table` or `RecordBatchReader`; it is the native alternative to chaining `Table` ops in memory
 - the PyCapsule C-stream interface (`__arrow_c_stream__`/`RecordBatchReader.from_stream`) and C-array interface (`__arrow_c_array__`) enable zero-copy interchange with polars, pandas, DuckDB, nanoarrow, and arro3
+- `RecordBatch.serialize(memory_pool=None)` writes one contiguous batch to a `Buffer` as a schema-less encapsulated IPC message; `Table.combine_chunks().to_batches()[0].serialize()` is the canonical whole-table byte source for a content key (an empty table keys off `b""`), and `Buffer.size`/`bytes(buffer)` read its span — distinct from the full-stream `nanoarrow.ArrayStream(...).read_all().serialize()` IPC path that carries a `Schema`
 
 [STACKING_LAW]:
 - `Table`/`RecordBatch`/`RecordBatchReader` are the wire between every data-rail package: `polars.from_arrow`/`scan_pyarrow_dataset` consume them, `pyiceberg` `to_arrow`/`to_arrow_batch_reader`/`add_files` produce and accept them, and `arro3-core`/`nanoarrow` bridge the same C-stream PyCapsules while pyarrow's cp3.15 wheel stabilizes.

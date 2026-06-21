@@ -54,6 +54,8 @@
 - User strings (`SetUserString`/`GetUserStrings`) attach arbitrary key/value metadata to geometry and persist through 3dm round-trips; the document `Strings` table holds document-scoped pairs.
 - The `Intersection` static kernel and the `Curve`/`Surface` `Is*`/`TryGet*` predicate families (with explicit `tolerance`) own geometric classification and intersection — never re-derive line/plane/sphere intersection or curve-shape detection by hand.
 - `DracoCompression` compresses `Mesh` and other geometry to a compact byte/base64 form; use it for mesh transport rather than re-encoding vertex arrays manually.
+- `File3dm.Settings -> File3dmSettings` carries the document unit system: `File3dmSettings.ModelUnitSystem`/`PageUnitSystem` are `UnitSystem` enum members (default `Millimeters`; `UnitSystem` enumerates `Meters`/`Millimeters`/`Centimeters`/`Feet`/`Inches`/...), and `File3dmSettings.ModelAbsoluteTolerance` the model tolerance — read `f.Settings.ModelUnitSystem.name` for the declared unit rather than assuming a hardcoded unit.
+- `Mesh` element shapes are plain tuples/structs, not wrapper objects: `Mesh.Faces[i]` is a 4-int tuple (a triangle repeats the third index, so `face[3] != face[2]` is the quad probe), a `MeshVertexColorList` element is a plain `(R, G, B, A)` int tuple (NOT a `Color` object with `.R`/`.G`/`.B`/`.A`), and a `MeshNormalList` element is a `Vector3f` with `.X`/`.Y`/`.Z` float accessors.
 
 ## [03]-[LOCAL_ADMISSION]
 

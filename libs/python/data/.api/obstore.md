@@ -62,7 +62,7 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 |  [03]   | `get_range(store, path, *, start, end, length) -> Bytes`                     | sync range        | retrieve byte range            |
 |  [04]   | `get_range_async(store, path, *, start, end, length) -> Bytes`               | async range       | retrieve byte range async      |
 |  [05]   | `get_ranges(store, path, *, starts, ends, lengths, coalesce) -> list[Bytes]` | sync multi-range  | retrieve multiple ranges       |
-|  [06]   | `get_ranges_async(store, path, *, starts, ends, coalesce) -> list[Bytes]`    | async multi-range | retrieve multiple ranges async |
+|  [06]   | `get_ranges_async(store, path, *, starts, ends, lengths, coalesce) -> list[Bytes]` | async multi-range | retrieve multiple ranges async |
 |  [07]   | `head(store, path) -> ObjectMeta`                                            | sync head         | fetch object metadata          |
 |  [08]   | `head_async(store, path) -> ObjectMeta`                                      | async head        | fetch object metadata async    |
 
@@ -72,7 +72,7 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 | [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY] | [RAIL]                 |
 | :-----: | :----------------------------------------------------------------------------------------------------------- | :------------- | :--------------------- |
 |  [01]   | `put(store, path, file, *, attributes, tags, mode, use_multipart, chunk_size, max_concurrency) -> PutResult` | sync put       | write object           |
-|  [02]   | `put_async(store, path, file, *, mode, use_multipart, chunk_size, max_concurrency) -> PutResult`             | async put      | write object async     |
+|  [02]   | `put_async(store, path, file, *, attributes, tags, mode, use_multipart, chunk_size, max_concurrency) -> PutResult` | async put      | write object async     |
 |  [03]   | `delete(store, path)`                                                                                        | sync delete    | delete object          |
 |  [04]   | `delete_async(store, path)`                                                                                  | async delete   | delete object async    |
 |  [05]   | `copy(store, from_, to)`                                                                                     | sync copy      | server-side copy       |
@@ -102,7 +102,7 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 |  [02]   | `sign_async(store, method, paths, expires_in) -> str | Sequence[str]`                      | async presign    | presigned URL(s) async                            |
 |  [03]   | `parse_scheme(url) -> Literal["s3","gcs","http","local","memory","azure"]`                 | scheme dispatch  | classify a URL to its backend without constructing a store |
 
-`sign` accepts only the `SignCapableStore` union (`S3Store | GCSStore | AzureStore`); `method` is an `HTTP_METHOD` literal (`GET`/`PUT`/`POST`/`DELETE`/`HEAD`); `expires_in` is a `datetime.timedelta`. The str-vs-sequence `paths` overload discriminates single-URL from batch return.
+`parse_scheme` is the top-level `obstore.parse_scheme` (there is no `obstore.store.parse_scheme`); it returns the bare backend-scheme `Literal`, never a `(scheme, path)` tuple. `sign` accepts only the `SignCapableStore` union (`S3Store | GCSStore | AzureStore`); `method` is the `obstore._sign.HTTP_METHOD` literal (`GET`/`PUT`/`POST`/`HEAD`/`PATCH`/`TRACE`/`DELETE`/`OPTIONS`/`CONNECT`); `expires_in` is a `datetime.timedelta`. The str-vs-sequence `paths` overload discriminates single-URL from batch return.
 
 [ENTRYPOINT_SCOPE]: store construction
 - rail: object-store
@@ -143,12 +143,17 @@ Every operation has two equivalent forms backed by the same Rust call: a module-
 
 [EXCEPTIONS]:
 - `obstore.exceptions.BaseError` — root of all obstore exceptions
+- `obstore.exceptions.NotFoundError` — object not found at path
 - `obstore.exceptions.AlreadyExistsError` — object already exists at path
 - `obstore.exceptions.PreconditionError` — conditional put/get precondition failed
 - `obstore.exceptions.NotModifiedError` — ETag match returned not-modified
 - `obstore.exceptions.PermissionDeniedError` — credentials lack required permission
 - `obstore.exceptions.UnauthenticatedError` — credentials not valid
+- `obstore.exceptions.NotSupportedError` — operation not supported by backend (e.g. `sign` on a non-signing store)
+- `obstore.exceptions.InvalidPathError` — malformed object path
 - `obstore.exceptions.UnknownConfigurationKeyError` — invalid config key for the store
+- `obstore.exceptions.GenericError` — unclassified backend error
+- `obstore.exceptions.JoinError` — async task join failure
 
 [RAIL_LAW]:
 - Package: `obstore`
