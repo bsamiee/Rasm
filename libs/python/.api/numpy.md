@@ -84,6 +84,8 @@
 |  [02]   | `ones(shape, dtype)`                       | creation       | one-filled array                                         |
 |  [03]   | `empty(shape, dtype)`                      | creation       | uninitialized array                                      |
 |  [04]   | `full(shape, fill_value)`                  | creation       | constant-filled array                                    |
+|  [04a]  | `zeros_like(a)`/`ones_like(a)`/`empty_like(a)`/`full_like(a, v)` | creation       | shape/dtype-matched fill of an existing array (the `out=` seed for a branchless ufunc, e.g. `divide(d, n, out=zeros_like(d), where=...)`) |
+|  [04b]  | `fromiter(iterable, dtype, count)`         | creation       | build a 1-D array from an iterable in one pass (no intermediate list), the per-row candidate gather |
 |  [05]   | `arange(start, stop, step)`                | range creation | evenly spaced integers/floats                            |
 |  [06]   | `linspace(start, stop, num)`               | range creation | evenly spaced floats                                     |
 |  [07]   | `logspace(start, stop, num)`               | range creation | log-spaced floats                                        |
@@ -136,9 +138,9 @@
 |  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`          | predicate ufunc | element-wise finiteness / NaN / inf mask                                |
 |  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`    | predicate       | tolerant equality (scalar / element-wise)                               |
 |  [14]   | `nan_to_num(x, nan, posinf, neginf)`             | sanitize        | replace non-finite values with finite substitutes                       |
-|  [15]   | `sort(a, axis)`/`argsort`                        | sort            | sort or return sort indices                                             |
+|  [15]   | `sort(a, axis)`/`argsort`/`lexsort(keys)`        | sort            | sort, sort indices, or stable multi-key lexicographic sort indices (last key primary) |
 |  [16]   | `unique(ar, return_counts, return_index)`        | set ops         | unique elements with optional counts/indices                            |
-|  [17]   | `exp`/`log`/`sqrt`/`power`                       | ufunc           | exponential/logarithm/power                                             |
+|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`              | ufunc           | exponential/logarithm/power; `divide(x1, x2, out=, where=)` branchless safe division over the masked `out` buffer |
 |  [18]   | `sin`/`cos`/`tan`/`arctan2`                      | ufunc           | trigonometric operations                                                |
 |  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`              | ufunc           | absolute, rounding operations                                           |
 |  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`             | nan-aware       | reductions skipping non-finite entries                                  |

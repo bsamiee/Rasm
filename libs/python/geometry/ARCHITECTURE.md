@@ -22,9 +22,9 @@ geometry/
 ├── mesh/                     # IfcOpenShell GLB tessellation daemon (X-boundary owner), CAD-STEP hop, mesh algebra, B-rep evaluation, spatial query, etc...
 │   ├── daemon.py             # TessellationDaemon: source bytes + tolerance → per-element GLB + semantic header, CAD arms route to cad.py
 │   ├── cad.py                # StepBridge: STEP/IGES B-rep bytes + tolerance → GLB over OCCT XCAF, companion the C# StepIso10303 codec calls
-│   ├── repair.py             # MeshOp: watertight repair, winding/normal fix, manifold3d boolean; in-memory Trimesh in/out, mesh-file IO deferred to data MeshPayload
+│   ├── repair.py             # MeshRepairOp: watertight repair, winding/normal fix, manifold3d boolean; in-memory Trimesh in/out, mesh-file IO deferred to data MeshPayload
 │   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation, manifold3d solid algebra (companion band, both gated <3.15), mesh-brep subject
-│   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree spatial query over in-memory triangulation (intended cp315 core)
+│   ├── spatial.py            # MeshSpatial: trimesh + numpy proximity/ray/contains/AABB-tree + clearance spatial query over in-memory triangulation (cp315-core spine; FCL CollisionManager clearance + gated manifold3d.min_gap exact enrichment companion-band, offloaded by find_spec)
 │   └── quality.py            # MeshQuality: trimesh + numpy aspect-ratio/skewness/manifold-edge/genus mesh-quality metric receipts (intended cp315 core)
 └── graph/                    # Non-manifold topology over topologicpy and AEC computational geometry over compas, network analytics over networkx
     ├── nonmanifold.py        # TopologyAlgebra: CellComplex/Cell/Aperture construction, decomposition, adjacency, dual-graph

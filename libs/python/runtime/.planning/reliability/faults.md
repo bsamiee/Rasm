@@ -67,9 +67,16 @@ class BoundaryFault:
         # `choose` keeps the first row whose family matches, `try_head` reads it as an
         # `Option`, and `default_with` supplies the `boundary` catch-all — totality is the
         # `Option` fold, never a falsy-`None` `or` resting on `tagged_union` truthiness nor a
-        # generator `next(...)` that raises `StopIteration` when a tail row is dropped.
+        # generator `next(...)` that raises `StopIteration` when a tail row is dropped. The
+        # catch-all `detail` is `str(cause) or type(cause).__name__` so an UNCLASSIFIED domain
+        # exception carrying a discriminating message (a `mesh/cad#BRIDGE` `BridgeFault` whose
+        # `of` mints `step-bridge.<stage>: ReadFile failed (...)`) preserves that message into the
+        # `detail` slot the `facts()` egress and the receipts `rejected` projection carry, falling
+        # back to the class name only for a bare message-less raise; the CLASSIFY rows keep
+        # `type(cause).__name__` where the exception TYPE is the discriminant (a `DecodeError`
+        # class name, a `BeartypeCallHintViolation`), since their message is noise, not a tag.
         matched = CLASSIFY.choose(lambda row: Some(row[1](subject, cause)) if isinstance(cause, row[0]) else Nothing)
-        return matched.try_head().default_with(lambda: BoundaryFault(boundary=(subject, type(cause).__name__)))
+        return matched.try_head().default_with(lambda: BoundaryFault(boundary=(subject, str(cause) or type(cause).__name__)))
 
     @staticmethod
     def combine(left: "BoundaryFault", right: "BoundaryFault") -> "BoundaryFault":
