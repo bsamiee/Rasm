@@ -138,6 +138,29 @@ for (const [re, label] of [
   }
 }
 
+// --- 5b. effort / model values outside the allowed set -----------------------
+// `effort:`/`model:` are matched in the stripped `code` (so prompt/comment mentions
+// never trip this), and the literal VALUE is read from raw `src` at the same offset.
+const ALLOWED = {
+  effort: new Set(['low', 'medium', 'high', 'xhigh', 'max']),
+  model: new Set(['haiku', 'sonnet', 'opus', 'fable', 'inherit']),
+}
+for (const key of ['effort', 'model']) {
+  const re = new RegExp(`\\b${key}\\s*:`, 'g')
+  let m
+  while ((m = re.exec(code))) {
+    const lit = src.slice(m.index + m[0].length).match(/^\s*(['"])([^'"]*)\1/)
+    if (!lit) continue                                   // a number, variable, or non-literal — not statically checkable
+    const val = lit[2]
+    if (key === 'model' && val.includes('-')) continue   // a full model id (e.g. claude-opus-4-8), not a short alias
+    if (!ALLOWED[key].has(val)) {
+      warnings.push(`${key} value '${val}' at line ${lineOf(m.index)} is not in `
+        + `{${[...ALLOWED[key]].join(', ')}}${key === 'model' ? ' (or a full model id)' : ''} `
+        + '— the agent would fail at runtime')
+    }
+  }
+}
+
 // --- 6. parallel() should get thunks, not bare promises ----------------------
 {
   const re = /\bparallel\s*\(\s*\[/g

@@ -26,6 +26,7 @@ of this file.
 - [13. Fan-out then reconcile deferrals](#13-fan-out-then-reconcile-deferrals)
 - [14. Steady worker pool for a large list of long chains](#14-steady-worker-pool-for-a-large-list-of-long-chains)
 - [15. Nested workflow](#15-nested-workflow)
+- [16. Dry-run and simulate before you spend tokens](#16-dry-run-and-simulate-before-you-spend-tokens)
 - [Defining schemas](#defining-schemas)
 
 ## The canonical map
@@ -497,6 +498,14 @@ reduce tree-wise — fold the outputs in batches with `agent()`, then fold those
 reduces again, until one result remains — rather than concatenating every output into a
 single synthesis call that would itself overflow context.
 
+The **work unit is the dominant lever on total agent count**, and it is a design
+choice, not a given. A fixed `N`-stage cycle (e.g. author → critique → redteam) run
+per *coarse* unit such as a directory costs `N × directories`; the same cycle run per
+*fine* unit such as a file costs `N × files` — often an order of magnitude more. Pick
+the unit by the coherence boundary the work genuinely needs (does a stage have to see
+the whole directory at once, or only one file?), and push cross-unit reconciliation
+into a later fold (pattern 13) rather than shrinking the unit to chase completeness.
+
 ---
 
 ## 15. Nested workflow
@@ -514,6 +523,91 @@ phase('Write')
 const article = await agent('Write an article from this research:\n'
   + JSON.stringify(research))
 return { article }
+```
+
+**Call the child once with the whole work-set, not once per item in a loop.** Each
+`workflow()` invocation has its own internal state — caches, `seen`-sets, and any
+closure or dedup the child performs. A `for (const item of items) await
+workflow('child', item)` re-runs the child's shared discovery once per item, and when
+the child's reachability can overlap (item A's traversal reaches item B's territory) it
+both redoes the overlapping work and **mis-classifies** an item that is primary in one
+call yet secondary in another. Make the child accept its scope as a single value *or*
+an array, and pass the full set in one call: `await workflow('child', items)`. The
+child's dedup, closure, and classification guarantees hold only *within* one
+invocation. Thread cross-cutting run flags (a dry-run toggle, a model override) into
+the child's `args` too, so the whole tree honours them.
+
+---
+
+## 16. Dry-run and simulate before you spend tokens
+
+**Canonical:** verification. **Primitive:** mocked globals, plus two `args` knobs.
+**Guards:** discovering a topology's agent count, sequencing, or a control-flow bug by
+paying for a full real run. A workflow has no built-in dry-run: every `agent()` spawns
+a real subagent, and any write-phase agent mutates the repo. Two cheap techniques
+verify a topology first.
+
+**Simulate the orchestration for zero tokens.** The control flow — agents per phase,
+phase order, loop iterations, fan-out shape — is deterministic given the agent
+*outputs*. Run the real script under mocked globals: replace `agent`, `parallel`,
+`pipeline`, `workflow`, `phase`, and `log` with stubs that count calls and return
+schema-shaped canned data, strip the `export` from `meta`, and evaluate the body inside
+an async wrapper. Building that wrapper with `new Function(…)` already parses the body, so
+a syntax error — an unbalanced paren, a stray TypeScript annotation — throws at
+construction, before any mock runs; the simulation therefore doubles as the parse-check the
+rule-scanning linter cannot perform. Discriminate the canned shape on `opts.label` or `opts.phase` so each
+stage gets a plausible result. When a stage embeds its input in the prompt (a planner
+handed a work-item), slice that input back out at the same delimiter the real prompt
+uses and `JSON.parse` it, so the mock reflects the real, filtered input instead of a
+constant — the example keys on a literal `INPUT:\n` marker; match yours to the prompt.
+This surfaces undefined variables, mis-classification, redundant sub-workflow calls,
+and runaway counts before one token is spent.
+
+This harness is an ordinary Node script (`node sim.mjs`), not a workflow body — it reads
+the workflow file from disk, which the sandbox forbids, and supplies `path` and
+`testArgs` itself.
+
+```js
+import { readFileSync } from 'node:fs'
+const path = process.argv[2], testArgs = { /* the args the run would receive */ }
+
+const counts = {}
+const mockAgent = async (prompt, opts) => {
+  counts[opts.phase] = (counts[opts.phase] || 0) + 1
+  if ((opts.label || '').startsWith('plan:')) return JSON.parse(prompt.slice(prompt.indexOf('INPUT:\n') + 7))
+  return { /* a value matching opts.schema */ }
+}
+const noop = () => {}, immediate = (fn) => { fn(); return 0 }
+const src = readFileSync(path, 'utf8').replace(/^export const meta/, 'const meta')
+const run = new Function('args', 'agent', 'parallel', 'pipeline', 'workflow', 'phase', 'log', 'setTimeout',
+  `return (async () => { ${src} })()`)
+const result = await run(testArgs, mockAgent, async (t) => Promise.all(t.map((f) => f())),
+  async (xs, ...st) => Promise.all(xs.map(async (x) => { let v = x; for (const s of st) v = await s(v, x); return v })),
+  async () => ({}), noop, noop, immediate)
+console.log(counts, result)   // agents per phase + the final return — for zero tokens
+```
+
+Drive every loop in the simulation down **both** paths — a converging input and a
+permanently-stuck one — to confirm the loop's hard stop and fixpoint break fire and
+surface the residual, not just the happy path.
+
+**Real dry-runs: a `cheap` model override and a `stop` checkpoint.** To exercise real
+agent behaviour at a fraction of the cost, read two default-off knobs from `args`.
+`cheap` routes every agent through a wrapper that forces a small model and low effort —
+wrap each call site as `agent(p, ax({ … }))` so one flag rewrites them all — and gates
+side-effecting phases (live tools, installs, writes) off under `cheap` unless
+re-enabled. `stop` early-returns the computed decomposition at a named phase boundary;
+stop *before* the first write or install phase for a read-only inspection of the
+parallelizable work-set, and thread `cheap` into each nested `workflow()` as the
+cross-cutting run flag pattern 15 describes. For a full cheap pass that does write,
+commit a clean base first and revert with the VCS afterward.
+
+```js
+const CHEAP = !!args?.cheap, STOP = String(args?.stop || '')
+const ax = (o) => CHEAP ? { ...o, model: 'haiku', effort: 'low' } : o
+// … run the read-only planning phases, then before any write/install phase:
+if (STOP === 'plan') return { stage: 'plan', units: workUnits }
+const plans = await pool(items, CAP, (it) => agent(planPrompt(it), ax({ label: 'plan:' + it.id, schema: PLAN })))  // pool: pattern 14
 ```
 
 ---

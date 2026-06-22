@@ -228,15 +228,33 @@ from a file in `assets/templates/`, or adapt a full worked example from
 
 ## Step 5 — Validate before running
 
-Catch the parser's hard rules before you waste a run. Use the bundled linter:
+Two in-skill checks catch every error class before you waste a real run. Reach for
+both; reach for an external parser for neither.
+
+Run the bundled linter for the parser's hard rules:
 
 ```bash
 node .claude/skills/workflow-creator/scripts/validate-workflow.mjs <path-to-file.js>
 ```
 
-It flags: missing or non-first `meta`, a non-literal `meta`, a missing
-`name`/`description`, banned non-deterministic calls, and an oversized script.
-Fix every error it reports before invoking the workflow.
+It flags a missing or non-first `meta`, a non-literal `meta` (including a stray
+backtick in it), a missing `name`/`description`, banned non-deterministic calls, an
+effort or model value outside the allowed set, and an oversized script. Fix every
+error before invoking the workflow. The linter checks rules, not full syntax — it
+will not catch an unbalanced paren.
+
+For a real syntax and control-flow check, simulate the workflow (patterns reference
+§16): building the body with `new Function(…)` parses it and throws on any syntax
+error the linter's rule scan misses, and running that function under mocked
+`agent`/`parallel`/`pipeline` globals exercises every branch and loop — surfacing
+undefined variables, mis-sequencing, and runaway agent counts for zero tokens. The
+simulation is the in-skill alternative to an external parse-check.
+
+Do not rely on raw `node --check`: a workflow body has a top-level `return` and a
+top-level `export const meta`, and no module mode accepts both — `--check` as ES
+module rejects the `return` (`Illegal return statement`), and as CommonJS rejects the
+`export` (`Unexpected token 'export'`), so it fails a valid file either way. The linter
+plus the simulation are the dependable checks.
 
 ---
 
@@ -294,6 +312,22 @@ These are the mistakes that actually break workflows:
   call can still surface a mid-run permission prompt and stall the run.
 - **The body is JavaScript only.** TypeScript syntax — type annotations,
   interfaces, `as` casts — is a parse error.
+- **No backticks anywhere in `meta`.** The linter reads any backtick inside the
+  `meta` literal — even one inside a quoted string — as a template literal and
+  rejects the file. Write identifiers in `name`/`description`/`phases` as plain text.
+- **Call a nested `workflow()` once with the whole work-set, not per item in a
+  loop.** Per-item calls don't share the child's cache or closure, so overlapping
+  discovery is redone per item and an item primary in one call is mis-classified as
+  secondary in another. Pass the full set in one call (patterns reference §15).
+- **Key orchestration maps by a compound `owner|id`, not a bare id, when the id is
+  not globally unique.** If the same logical id recurs under different owners (a
+  mirrored/counterpart record reusing a slug across groups), a bare-id map silently
+  merges across owners and corrupts the data; a composed key such as `owner + '|' + id`
+  keeps them distinct.
+- **Mark derived state on the branch that actually contributes, not before the
+  guard.** `set.add(x)` placed *above* an `if (!keep) continue` over-reports `x` as a
+  contributor even when it is skipped; move the `add` inside the keeping branch so the
+  set mirrors what was really used.
 
 ---
 

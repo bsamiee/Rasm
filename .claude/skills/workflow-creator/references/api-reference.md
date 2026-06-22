@@ -89,7 +89,11 @@ Two parts, in this order. The parser is strict about both.
 The very first statement must be `export const meta = {…}`, and the object must
 be a **pure literal**: no variables, no function calls, no spreads, no template
 interpolation. The parser walks the syntax tree and rejects anything else.
-Reserved keys (`__proto__`, `constructor`, `prototype`) are also rejected.
+Reserved keys (`__proto__`, `constructor`, `prototype`) are also rejected. A
+**backtick anywhere in the literal is rejected** — the linter reads any backtick as
+a template literal, even one inside a single-quoted string — so keep `name`,
+`description`, and `phases` free of code-fenced spans and write identifiers as plain
+text.
 
 ```js
 export const meta = {
