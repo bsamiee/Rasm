@@ -541,74 +541,57 @@ the child's `args` too, so the whole tree honours them.
 
 ## 16. Dry-run and simulate before you spend tokens
 
-**Canonical:** verification. **Primitive:** mocked globals, plus two `args` knobs.
-**Guards:** discovering a topology's agent count, sequencing, or a control-flow bug by
-paying for a full real run. A workflow has no built-in dry-run: every `agent()` spawns
-a real subagent, and any write-phase agent mutates the repo. Two cheap techniques
-verify a topology first.
+**Canonical:** verification. **Primitive:** the packaged simulator, plus an args-scoped
+real run. **Guards:** discovering a syntax error, a control-flow bug, a non-deterministic
+body, or a runaway agent count by paying for a full real run. A workflow has no built-in
+dry-run; two checks catch every failure class first.
 
-**Simulate the orchestration for zero tokens.** The control flow — agents per phase,
-phase order, loop iterations, fan-out shape — is deterministic given the agent
-*outputs*. Run the real script under mocked globals: replace `agent`, `parallel`,
-`pipeline`, `workflow`, `phase`, and `log` with stubs that count calls and return
-schema-shaped canned data, strip the `export` from `meta`, and evaluate the body inside
-an async wrapper. Building that wrapper with `new Function(…)` already parses the body, so
-a syntax error — an unbalanced paren, a stray TypeScript annotation — throws at
-construction, before any mock runs; the simulation therefore doubles as the parse-check the
-rule-scanning linter cannot perform. Discriminate the canned shape on `opts.label` or `opts.phase` so each
-stage gets a plausible result. When a stage embeds its input in the prompt (a planner
-handed a work-item), slice that input back out at the same delimiter the real prompt
-uses and `JSON.parse` it, so the mock reflects the real, filtered input instead of a
-constant — the example keys on a literal `INPUT:\n` marker; match yours to the prompt.
-This surfaces undefined variables, mis-classification, redundant sub-workflow calls,
-and runaway counts before one token is spent.
+**Simulate the unmodified file for zero tokens.** `scripts/dry-run.mjs` re-hosts the
+file verbatim inside the same `new Function`-wrapped, injected-globals async sandbox the
+runtime uses, with `agent()` returning schema-shaped fixtures instead of spawning. It
+runs the real control flow, recurses into nested `workflow()`, runs twice to prove
+determinism, and reports per-phase agent counts, the phase sequence, nested workflows,
+and cap pressure — for zero tokens, never touching the file.
 
-This harness is an ordinary Node script (`node sim.mjs`), not a workflow body — it reads
-the workflow file from disk, which the sandbox forbids, and supplies `path` and
-`testArgs` itself.
-
-```js
-import { readFileSync } from 'node:fs'
-const path = process.argv[2], testArgs = { /* the args the run would receive */ }
-
-const counts = {}
-const mockAgent = async (prompt, opts) => {
-  counts[opts.phase] = (counts[opts.phase] || 0) + 1
-  if ((opts.label || '').startsWith('plan:')) return JSON.parse(prompt.slice(prompt.indexOf('INPUT:\n') + 7))
-  return { /* a value matching opts.schema */ }
-}
-const noop = () => {}, immediate = (fn) => { fn(); return 0 }
-const src = readFileSync(path, 'utf8').replace(/^export const meta/, 'const meta')
-const run = new Function('args', 'agent', 'parallel', 'pipeline', 'workflow', 'phase', 'log', 'setTimeout',
-  `return (async () => { ${src} })()`)
-const result = await run(testArgs, mockAgent, async (t) => Promise.all(t.map((f) => f())),
-  async (xs, ...st) => Promise.all(xs.map(async (x) => { let v = x; for (const s of st) v = await s(v, x); return v })),
-  async () => ({}), noop, noop, immediate)
-console.log(counts, result)   // agents per phase + the final return — for zero tokens
+```bash
+node .claude/skills/workflow-creator/scripts/dry-run.mjs <workflow.js> [--args '<json>'] [--fixtures '<json>']
 ```
 
-Drive every loop in the simulation down **both** paths — a converging input and a
-permanently-stuck one — to confirm the loop's hard stop and fixpoint break fire and
-surface the residual, not just the happy path.
+It is the parse-check too: constructing the body with `new Function(…)` throws on a
+syntax error the rule-scanning linter cannot catch (an unbalanced paren), and it
+reproduces the determinism bans — a reachable `Math.random()` / `Date.now()` / argless
+`new Date()` throws here as in production.
 
-**Real dry-runs: a `cheap` model override and a `stop` checkpoint.** To exercise real
-agent behaviour at a fraction of the cost, read two default-off knobs from `args`.
-`cheap` routes every agent through a wrapper that forces a small model and low effort —
-wrap each call site as `agent(p, ax({ … }))` so one flag rewrites them all — and gates
-side-effecting phases (live tools, installs, writes) off under `cheap` unless
-re-enabled. `stop` early-returns the computed decomposition at a named phase boundary;
-stop *before* the first write or install phase for a read-only inspection of the
-parallelizable work-set, and thread `cheap` into each nested `workflow()` as the
-cross-cutting run flag pattern 15 describes. For a full cheap pass that does write,
-commit a clean base first and revert with the VCS afterward.
+Read the report for these signals:
+- `parseOk` / `ran` — the body parses and completes without a runtime throw.
+- `deterministic` — both runs produced an identical trace; `false` is a hidden
+  non-deterministic escape, which breaks resume.
+- `perPhase` + `totalAgents` — does each phase spawn what you expect? A phase at 10× your
+  mental model is a fan-out bug; a phase MISSING from the sequence means a truthiness
+  guard (`if (!x)`) dropped the minimal fixture — supply real shapes via `--fixtures`.
+- `maxConcurrentObserved` against 16, and the 1000-agent cap — past 16 the runtime
+  queues the excess (a warning only), but past the 1000-agent lifetime cap it throws,
+  so a cap warning there is a real bug.
 
-```js
-const CHEAP = !!args?.cheap, STOP = String(args?.stop || '')
-const ax = (o) => CHEAP ? { ...o, model: 'haiku', effort: 'low' } : o
-// … run the read-only planning phases, then before any write/install phase:
-if (STOP === 'plan') return { stage: 'plan', units: workUnits }
-const plans = await pool(items, CAP, (it) => agent(planPrompt(it), ax({ label: 'plan:' + it.id, schema: PLAN })))  // pool: pattern 14
-```
+Fixtures are MINIMAL by design (non-empty strings, one-element arrays), so the counts are
+REPRESENTATIVE, not exact production — drive domain branches and true counts with
+`--fixtures` keyed by agent label. Exercise every loop down BOTH a converging and a
+permanently-stuck input, so the hard stop and the fixpoint break both fire, not just the
+happy path.
+
+**A green simulation validates the machine, not the meaning.** It is blind to prompt
+quality, to whether a schema's `required` set matches what the model can produce, and to
+whether an effort tier is right. Close that gap with a **narrow real run**: execute the
+UNMODIFIED file on one tiny scope, `Workflow({ scriptPath, args: '<one small unit>' })`,
+scoped by `args` and never by rewriting calls — `dry-run.mjs --mode real --scope <path>`
+prints that exact invocation plus the projected count and a revert guard, and spawns
+nothing; you authorize the spend. A narrow real run is the only thing that surfaces
+structured-output conformance, a permission-prompt stall, host-singleton serialization,
+and stall-timeout adequacy, and it legitimately seeds the resume cache for the full run.
+For a cheaper real run, set `CLAUDE_CODE_SUBAGENT_MODEL` in the environment — it overrides
+every per-call `model` for the session, so it needs no source edit. Forcing the model from
+inside the script is a dead end: `model` is a resume-cache-key field, so a rewritten
+cheap run re-runs live and seeds nothing.
 
 ---
 

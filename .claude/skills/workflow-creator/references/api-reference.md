@@ -157,7 +157,7 @@ supplied it. There is no serialization step to undo:
 
 - `Workflow({ args: { minUsers: 5 } })` → `args` is the object `{ minUsers: 5 }`;
   `args.minUsers` is `5`.
-- `Workflow({ args: ['Rasm.Bim', 'Rasm.Compute'] })` → `args` is the array;
+- `Workflow({ args: ['alpha', 'beta'] })` → `args` is the array;
   `Array.isArray(args)` is `true` and `args.map(...)` works.
 - `Workflow({ args: 'collapse the duplicate mesh codecs' })` → `args` is that
   string.
@@ -200,7 +200,7 @@ the agent from `/workflows`, `agent()` returns `null` — which is why you
 | `label` | string | Display name for this agent in `/workflows`. Defaults to the first 60 chars of the prompt. Not part of the resume cache key — relabelling never invalidates a cached call. |
 | `phase` | string | Assign this agent to a named progress group. Use inside `pipeline`/`parallel` stages so concurrent calls land in the right group instead of racing on the global `phase()`. Not part of the cache key. |
 | `schema` | object | A JSON Schema. Forces structured output — `agent()` returns the validated object. See **Structured output** below. |
-| `model` | string | Per-agent model. `'haiku'`, `'sonnet'`, `'opus'`, `'inherit'`, or a full model ID. Omit to inherit the session model. See **Setting the model** below. |
+| `model` | string | Per-agent model. `'haiku'`, `'sonnet'`, `'opus'`, `'fable'`, `'inherit'`, or a full model ID. Omit to inherit the session model. See **Setting the model** below. |
 | `effort` | string | Reasoning-effort tier for this call — `'low'`/`'medium'`/`'high'`/`'xhigh'`/`'max'` (mirrors `/effort`). Independent of `model` — it tiers the *reasoning*, not the model. Match it to the stage role: `'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for mechanical discovery/classification leaf work; omit it to inherit the session tier. NOT part of the resume cache key. |
 | `isolation` | `'worktree'` | Run the agent in a fresh git worktree. Expensive (~200–500 ms + disk each). Use **only** when parallel agents mutate files and would otherwise collide; the worktree is auto-removed if unchanged. `'worktree'` is the only accepted value; any other value is rejected. |
 | `agentType` | string | Run as a registered subagent type instead of the default workflow subagent. See **Custom agent types** below. |
@@ -220,6 +220,7 @@ Claude Code's normal alias resolver:
 | `'haiku'` | the current default Haiku |
 | `'sonnet'` | the current default Sonnet |
 | `'opus'` | the current default Opus |
+| `'fable'` | the current default Fable |
 | `'inherit'` | the session's main-loop model (same as omitting `model`) |
 | a full model ID (e.g. `'claude-haiku-4-5'`) | passed through unchanged |
 | *omitted* | the session's main-loop model |

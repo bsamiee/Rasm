@@ -1,8 +1,8 @@
 # Example workflows
 
-Eight complete, runnable workflow scripts. Each is a real, lint-clean file — find
-the closest match to what you are building, read it, then adapt it. All eight pass
-`scripts/validate-workflow.mjs`.
+Complete, runnable workflow scripts. Each is a real, lint-clean file that passes
+`scripts/validate-workflow.mjs` — find the closest match to what you are building,
+read it, then adapt it.
 
 | File | Topology | Demonstrates |
 |---|---|---|
@@ -17,13 +17,11 @@ the closest match to what you are building, read it, then adapt it. All eight pa
 
 ## What to copy from them
 
-**Setting a model.** `review-branch.js`, `api-contract-drift-detector.js`, and
-`geometry-parity-audit.js` push a whole cheap, mechanical fan-out to `model: 'haiku'`
-and mirror it on the matching `meta.phases[]` entry — that entry is only a *label*
-for the permission dialog, while the `model` on the `agent()` call is what actually
-runs, so set both or the dialog lies. `route-and-refactor.js` tiers per *row* instead
-of per phase: only the mechanical SQL `ROUTES` row carries `model: 'haiku'` (the
-judgement-heavy rows omit `model` and inherit the session model), so its one
+**Setting a model** (the rule lives in `../../references/api-reference.md` §5).
+`review-branch.js`, `api-contract-drift-detector.js`, and `geometry-parity-audit.js`
+push a whole cheap, mechanical fan-out to `model: 'haiku'` and mirror it on the
+matching `meta.phases[]` entry. `route-and-refactor.js` tiers per *row* instead of
+per phase: only the mechanical SQL `ROUTES` row carries `model: 'haiku'`, so its one
 `agent()` call reads `model: route.model` and its phase entry has no `model` —
 a phase that mixes models cannot carry one label.
 
@@ -42,7 +40,7 @@ result defines a JSON Schema `const` and passes it as `schema` — so `agent()`
 returns a parsed object and the next line is plain JavaScript (`review.passed`,
 `issues.filter(...)`). Schemas are kept small and `required`-tight.
 
-**Reading `args`.** `args` arrives as structured data — read it directly.
+**Reading `args`** (the rule lives in `../../references/api-reference.md` §4).
 `planning-card-triage.js` reads object fields with a literal default
 (`args?.minPriority ?? 'high'`); `api-contract-drift-detector.js` and
 `geometry-parity-audit.js` take an optional array field that *overrides* a discovery

@@ -38,10 +38,11 @@ The deep material lives in two reference files, read in this order:
   adversarial verify, judge panel, nested workflow). Copy the topology that fits
   Step 2's answers.
 
-Starter files are in `assets/templates/` — three control-flow skeletons (fan-out,
-pipeline, loop). Eight complete, runnable example workflows are in
-`assets/examples/` — `assets/examples/README.md` maps each one to a topology and
-to the model / structured-output techniques it shows. A linter is in `scripts/`.
+Starter files are in `assets/templates/` — control-flow skeletons (fan-out,
+pipeline, loop). Complete, runnable example workflows are in `assets/examples/` —
+`assets/examples/README.md` maps each one to a topology and to the model /
+structured-output techniques it shows. A linter and a dry-run simulator are in
+`scripts/`.
 
 ---
 
@@ -167,56 +168,29 @@ Everything after `meta` is the body. It runs inside an `async` function, so you
 
 The body's `return` value becomes the tool result handed back to Claude.
 
-> **`args` arrives as structured data — read it directly.** Whatever the caller
-> passed is exposed live: an object stays an object, an array stays an array, a
-> string stays a string. Call array and object methods on it without parsing —
-> `args.minUsers`, `args.map(...)`, `args.filter(...)` all work. When nothing is
-> passed, `args` is `undefined`. So the only handling a script needs is a default
-> for the omitted case and, when the same workflow is sometimes driven by a free-text
-> request and sometimes by a config object, a shape check:
->
-> ```js
-> const threshold = args?.minUsers ?? 20            // object input, with a default
-> const items = Array.isArray(args) ? args : []     // array input
-> const task = typeof args === 'string' ? args : 'the change described in TASK.md'
-> ```
->
-> Never `JSON.parse(args)` — it is already a live value, not JSON text. The
-> `?? default` is what keeps the file runnable on a no-args run. `references/api-reference.md`
-> §4 maps each caller input to the exact `args` value it produces.
+> **`args` arrives as structured data — read it directly, never `JSON.parse` it,
+> and default the no-args run.** An object stays an object, an array stays an
+> array, a string stays a string; `undefined` when nothing was passed.
+> `references/api-reference.md` §4 is the full map from each caller input to the
+> exact `args` value, with the shape-check idioms.
 
-### Setting a model, and getting structured data back — the two `agent()` opts you tune most
+### The three `agent()` opts you tune most — `model`, `effort`, `schema`
 
-**Model — `agent(prompt, { model })`.** Each agent call runs on its own model.
-Accepts `'haiku'`, `'sonnet'`, `'opus'`, `'inherit'`, or a full model ID; omit it
-and the agent inherits the session's model. Drop **cheap, high-volume,
-mechanical** leaf work (per-item summaries, refute-this checks, classification)
-to `'haiku'`; leave judgement-heavy work on the inherited model. Two cautions:
+Three independent axes set per `agent()` call; `references/api-reference.md` §5 is
+the full table of each, with the alias resolver, the validation rules, and the
+resume-cache-key membership.
 
-- **There is no validation.** A typo (`'hauku'`) is not rejected — it is passed
-  through and the agent fails later. Spell the alias exactly.
-- **`model` on a `meta.phases[]` entry does nothing at runtime** — it is a label
-  for the permission dialog only. The model is set *solely* by the `model` opt on
-  the `agent()` call. For a Haiku phase, set `model` in *both* places: the phase
-  entry (honest dialog) and every `agent()` call in it (actual effect).
-
-**Reasoning effort — `agent(prompt, { effort })`.** Sets the reasoning-effort tier
-for that call — `'low'` | `'medium'` | `'high'` | `'xhigh'` | `'max'` (mirrors
-`/effort`); omit it to inherit the session tier. Match it to the stage's role:
-`'max'`/`'xhigh'` for synthesis, authoring, and adversarial judgment; `'low'` for
-mechanical discovery/classification leaf work. It is independent of `model` (tier
-the *reasoning*, not the model) and is **not** part of the resume cache key, so
-changing `effort` alone never re-runs a cached call.
-
-**Structured output — `agent(prompt, { schema })`.** Without `schema` you get the
-agent's final text as a **string**. Pass a JSON Schema and the agent is *forced*
-to return a **validated object** matching it — the runtime builds a hidden
-`StructuredOutput` tool from the schema, AJV-validates the result, and makes the
-agent retry on a mismatch. `agent()` returns the parsed object directly — no
-`JSON.parse`. Use `schema` for any result a later line of JavaScript reads a
-field off of; keep schemas small and `required`-tight. To pass data *between*
-stages, stringify it into the next prompt (`JSON.stringify`) — the orchestrator
-shares no memory with the subagent, only the prompt text.
+- **`model`** picks the model for that call (`'haiku'`/`'sonnet'`/`'opus'`/`'fable'`/`'inherit'`
+  or a full ID). Drop cheap, high-volume, mechanical leaf work to `'haiku'`; leave
+  judgement-heavy work on the inherited model. The matching `meta.phases[].model`
+  is a **dialog label only** — set both for a Haiku phase or the dialog lies.
+- **`effort`** tiers the reasoning (`'low'`…`'max'`), independent of `model`:
+  `'max'`/`'xhigh'` for synthesis and adversarial judgment, `'low'` for mechanical
+  leaf work. A cheap model can still reason hard.
+- **`schema`** (a JSON Schema) forces a **validated object** back instead of a
+  string — pass it for any result a later line reads a field off of, keep it small
+  and `required`-tight. To hand data between stages, `JSON.stringify` it into the
+  next prompt; the orchestrator shares no memory with the subagent.
 
 For full signatures, every option, and every cap, **read
 `references/api-reference.md` now.** For ready-made orchestration shapes, **read
@@ -226,35 +200,46 @@ from a file in `assets/templates/`, or adapt a full worked example from
 
 ---
 
-## Step 5 — Validate before running
+## Step 5 — Validate and dry-run before running
 
-Two in-skill checks catch every error class before you waste a real run. Reach for
-both; reach for an external parser for neither.
+Two bundled checks gate every workflow before it spends a token. Run both; reach for an
+external parser for neither.
 
-Run the bundled linter for the parser's hard rules:
+First the linter — the parser's hard rules:
 
 ```bash
-node .claude/skills/workflow-creator/scripts/validate-workflow.mjs <path-to-file.js>
+node .claude/skills/workflow-creator/scripts/validate-workflow.mjs <file.js>
 ```
 
-It flags a missing or non-first `meta`, a non-literal `meta` (including a stray
-backtick in it), a missing `name`/`description`, banned non-deterministic calls, an
-effort or model value outside the allowed set, and an oversized script. Fix every
-error before invoking the workflow. The linter checks rules, not full syntax — it
-will not catch an unbalanced paren.
+A missing or non-first `meta`, a non-literal `meta` (a stray backtick included), a
+missing `name`/`description`, a banned non-deterministic call, and an oversized script
+are ERRORS — exit 1, fix every one. An `effort`/`model` value outside the allowed set,
+a host API, and a bare-promise `parallel([agent(...)])` are WARNINGS — exit 0, but each
+is a real runtime bug, so clear them too. The linter checks rules, not syntax — it will
+not catch an unbalanced paren.
 
-For a real syntax and control-flow check, simulate the workflow (patterns reference
-§16): building the body with `new Function(…)` parses it and throws on any syntax
-error the linter's rule scan misses, and running that function under mocked
-`agent`/`parallel`/`pipeline` globals exercises every branch and loop — surfacing
-undefined variables, mis-sequencing, and runaway agent counts for zero tokens. The
-simulation is the in-skill alternative to an external parse-check.
+Then dry-run it — the syntax, control-flow, and determinism check, for zero tokens:
 
-Do not rely on raw `node --check`: a workflow body has a top-level `return` and a
-top-level `export const meta`, and no module mode accepts both — `--check` as ES
-module rejects the `return` (`Illegal return statement`), and as CommonJS rejects the
-`export` (`Unexpected token 'export'`), so it fails a valid file either way. The linter
-plus the simulation are the dependable checks.
+```bash
+node .claude/skills/workflow-creator/scripts/dry-run.mjs <file.js> [--args '<json>'] [--fixtures '<json>']
+```
+
+It re-hosts the unmodified file under mocked globals, runs the real control flow with
+`agent()` returning fixtures, and runs twice to prove determinism. Read the report
+(patterns reference §16 has the full signal list):
+- `parseOk=true ran=true deterministic=true` is the gate; anything else is a bug and exits non-zero.
+- `perPhase` / `totalAgents` — a phase spawning far more than you expect is a fan-out bug; a phase MISSING from the sequence means an `if (!x)` guard dropped the minimal fixture, so feed real shapes with `--fixtures` keyed by agent label.
+- `maxConcurrentObserved` and cap warnings — past 16 concurrent the runtime queues the excess (a warning, not a refusal), but past the 1000-agent lifetime total the runtime throws, so treat that warning as a real bug.
+
+Counts are REPRESENTATIVE, not exact production — fixtures are minimal by design. A green
+dry-run validates the machine, not the meaning: it cannot judge prompt quality, a
+schema's `required` set, or the effort tier. For that, do a NARROW real run on one tiny
+scope (§16) — `dry-run.mjs --mode real --scope <path>` prints the exact `Workflow(…)`
+invocation for you to authorize and spawns nothing.
+
+Do not rely on raw `node --check`: a workflow body's top-level `return` and
+`export const meta` parse under no single module mode, so it rejects a valid file either
+way. The linter and the dry-run are the dependable checks.
 
 ---
 
@@ -296,6 +281,11 @@ These are the mistakes that actually break workflows:
 - **`parallel()` takes thunks, not promises.** It must be
   `[() => agent(...), () => agent(...)]`, never `[agent(...), agent(...)]`. Bare
   calls start immediately and defeat the concurrency limiter.
+- **A `pipeline()` stage callback gets `(prevResult, originalItem, index)`.** A
+  stage that takes only `prevResult` cannot label or scope by the source item — it
+  loses the `originalItem`/`index` it needs to name `verify:${file}` or branch on
+  position, and silently mislabels or mis-scopes. Take all three params in any
+  stage past the first: ``(review, file, i) => agent(…, { label: `verify:${i}` })``.
 - **Always `.filter(Boolean)`.** `parallel()` and `pipeline()` put `null` in the
   slot of any item that threw, was skipped, or was dropped by the budget. The
   result arrays have holes by design.
@@ -331,57 +321,10 @@ These are the mistakes that actually break workflows:
 
 ---
 
-## Worked example — review a branch, verify each finding
+## Worked example
 
-The shape: fan out one reviewer per dimension; the moment a dimension's review
-returns, fan out a verifier per finding. `pipeline`, because a finding should
-verify as soon as *its* review is done — no waiting for the slowest dimension.
-
-```js
-export const meta = {
-  name: 'review-branch',
-  description: 'Review the branch across dimensions, adversarially verify each finding',
-  phases: [{ title: 'Review' }, { title: 'Verify', model: 'haiku' }],
-}
-
-const FINDINGS = { type: 'object', required: ['findings'], properties: {
-  findings: { type: 'array', items: { type: 'object', required: ['title', 'file'],
-    properties: { title: { type: 'string' }, file: { type: 'string' } } } } } }
-const VERDICT = { type: 'object', required: ['isReal'], properties: {
-  isReal: { type: 'boolean' }, reason: { type: 'string' } } }
-
-const DIMENSIONS = [
-  { key: 'bugs', prompt: 'Find logic bugs in the changed files on this branch.' },
-  { key: 'perf', prompt: 'Find performance regressions in the changed files.' },
-  { key: 'tests', prompt: 'Find missing or weak test coverage in the changes.' },
-]
-
-const results = await pipeline(
-  DIMENSIONS,
-  d => agent(d.prompt, { label: `review:${d.key}`, phase: 'Review', schema: FINDINGS }),
-  review => parallel((review?.findings ?? []).map(f => () =>
-    agent(`Adversarially verify this finding. Try to refute it. Finding: ${f.title} (${f.file})`,
-          { label: `verify:${f.file}`, phase: 'Verify', model: 'haiku', effort: 'high', schema: VERDICT })
-      .then(v => ({ ...f, verdict: v }))
-  ))
-)
-
-const confirmed = results.flat().filter(Boolean).filter(f => f.verdict?.isReal)
-return { confirmedCount: confirmed.length, confirmed }
-```
-
-Trace it: dimension `bugs` can be verifying its findings while `perf` is still
-being reviewed. No wasted wall-clock. Each agent reasons from a clean context.
-The orchestrator JavaScript spends zero model tokens. The verify stage tiers both
-axes independently — `model: 'haiku'` (the per-finding refute is cheap, high-volume
-leaf work) with `effort: 'high'` (it must still reason hard to break a plausible
-finding) — and mirrors the `model` on its `phase` entry so the dialog stays honest.
-
----
-
-## When the user wants to learn, not just get a file
-
-If the request is "explain how workflows work" rather than "build me one", walk
-them through `references/api-reference.md` — it is written to be read top to
-bottom as the complete reference. Then offer to scaffold their first workflow from
-a template so they have something runnable to poke at.
+For a complete runnable workflow — fan out one reviewer per dimension, then verify
+each finding the moment its review lands — read `assets/examples/review-branch.js`.
+It is the canonical `pipeline` + nested `parallel` shape, with structured `schema`
+on every stage and an independently-tiered `model: 'haiku'` / `effort: 'high'`
+verify stage. `references/patterns.md` §3 is the same shape stripped to its core.

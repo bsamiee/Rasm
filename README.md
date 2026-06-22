@@ -15,17 +15,17 @@ Rasm is one tri-language AEC platform organized into strict strata: the C# branc
 
 ## [02]-[TOPOLOGY]
 
-| [INDEX] | [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                    |
-| :-----: | :------------------------ | :------------------------ | :---------------------------------------------------------------------------------------- |
-|  [01]   | `apps/grasshopper/Radyab` | GH2 product boundary      | Thin plugin shell over shared GH2 and geometry libraries.                                 |
-|  [02]   | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                        |
-|  [03]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                          |
-|  [04]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                       |
-|  [05]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.             |
-|  [06]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.                 |
-|  [07]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                                  |
-|  [08]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                        |
-|  [09]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, and source-backed reference material. |
+| [INDEX] | [SURFACE]                 | [OWNER]                   | [ROLE]                                                                                |
+| :-----: | :------------------------ | :------------------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `apps/grasshopper/Radyab` | Test/throw-away app       | Thin test app, not binding to any patterns                                            |
+|  [02]   | `libs/csharp`             | C# library suite          | Geometry, host, runtime, UI, compute, and persistence foundations.                    |
+|  [03]   | `tests/csharp`            | Managed C# proof surface  | Contract, law, and scenario-adjacent tests for shared libraries.                      |
+|  [04]   | `tests/python`            | Python tool proof surface | Assay and repo-tool behavior tests.                                                   |
+|  [05]   | `tools/assay`             | Typed operator            | Static, test, bridge, package, code, docs, provision, and API evidence rails.         |
+|  [06]   | `tools/rhino-bridge`      | Live Rhino owner          | Host lifecycle, scenario execution, cargo, spool, protocol, and evidence.             |
+|  [07]   | `tools/cs-analyzer`       | C# architecture pressure  | Local Roslyn diagnostics for repeated source-shape laws.                              |
+|  [08]   | `tools/yak`               | Package metadata          | Tracked Yak manifests and icons for package roots.                                    |
+|  [09]   | `docs`                    | Durable doctrine          | Agent-facing standards, host notes, stack doctrine, source-backed reference material. |
 
 ## [03]-[LIBRARY_OWNERS]
 
