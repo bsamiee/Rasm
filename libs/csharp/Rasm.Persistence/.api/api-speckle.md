@@ -6,8 +6,9 @@
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
+- version: `3.21.1`
 - assembly: `Speckle.Sdk`
-- companion: `Speckle.Sdk.Dependencies` (transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
+- companion: `Speckle.Sdk.Dependencies` (`3.21.1`; transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
 - transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (carries native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
 - namespace: `Speckle.Sdk`, `Speckle.Sdk.Api`, `Speckle.Sdk.Models`, `Speckle.Sdk.Transports`, `Speckle.Sdk.Serialisation`, `Speckle.Sdk.Credentials`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
@@ -16,8 +17,9 @@
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
+- version: `3.21.1`
 - assembly: `Speckle.Objects`
-- companion: `Speckle.Sdk` (3.21.1; supplies the `Base`/`ISpeckleObject` base graph)
+- companion: `Speckle.Sdk` (`3.21.1`; supplies the `Base`/`ISpeckleObject` base graph)
 - namespace: `Speckle.Objects`, `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects.Primitive`, `Speckle.Objects.Other`, `Speckle.Objects.Annotation`
 - target frameworks: `net10.0`, `net8.0`, `netstandard2.0`
 - asset: runtime library
@@ -123,7 +125,9 @@ The Speckle 3.21 model replaces the v2 `Objects.BuiltElements` typed roster (`Wa
 |  [08]   | `SerializeNew`     | `string SerializeNew(Base value)`                                                                                                                                                                                                                                | object-to-JSON over the System.Text.Json pipeline  |
 |  [09]   | `DeserializeAsync` | `Task<Base> DeserializeAsync(string value, CancellationToken cancellationToken = default)`                                                                                                                                                                       | JSON-to-`Base`                                     |
 
-`IOperations` is resolved from DI (`Operations(ILogger<Operations>, ISdkActivityFactory, ISdkMetricsFactory, ISerializeProcessFactory, IDeserializeProcessFactory) : IOperations`); the `Operations` type carries no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance members only. That rail uses the transport-bound `Send`/`Receive` overloads (entries `[1]`-`[3]`, `[5]`); `Send2`/`Receive2` are the URL-bound pipeline overloads that bypass the transport stack. The `Send` tuple's `rootObjId` (first element) is the content hash of the sent graph and maps directly to the Persistence `UInt128 ContentKey`; `convertedReferences` carries the detached-child `ObjectReference` map. `Receive` returns the root `Base` for the requested `objectId`.
+`IOperations` is resolved from DI (`Operations(ILogger<Operations>, ISdkActivityFactory, ISdkMetricsFactory, ISerializeProcessFactory, IDeserializeProcessFactory) : IOperations`); the `Operations` type carries no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance members only. That rail uses the transport-bound `Send`/`Receive` overloads (entries `[1]`-`[3]`, `[5]`); `Send2`/`Receive2` are the URL-bound serialisation-V2 pipeline overloads that bypass the explicit transport stack. The `Send` tuple's `rootObjId` (first element) is the content hash of the sent graph and maps directly to the Persistence `UInt128 ContentKey`; `convertedReferences` carries the detached-child `ObjectReference` map. `Receive` returns the root `Base` for the requested `objectId`.
+
+V2 pipeline tuning (`Send2`/`Receive2`): `SerializeProcessOptions(bool SkipCacheRead = false, bool SkipCacheWrite = false, bool SkipServer = false, bool SkipFindTotalObjects = false)` plus settable `MaxHttpSendBatchSize`/`MaxCacheBatchSize`/`MaxParallelism` knobs gate the send pipeline's cache and HTTP batching; `DeserializeProcessOptions(bool SkipCache = false, bool ThrowOnMissingReferences = true, bool SkipInvalidConverts = false, int? MaxParallelism = null, bool SkipServer = false)` gates the receive pipeline. `Send2` returns `SerializeProcessResults(string RootId, IReadOnlyDictionary<Id, ObjectReference> ConvertedReferences)` — the result dictionary keys on the Speckle `Id` value type (NOT `string`), where `RootId` is the same content hash as the transport-bound `Send` tuple's `rootObjId`.
 
 [SPECKLE_TRANSPORT]: transport and serializer construction
 - rail: sync
@@ -167,6 +171,7 @@ The Speckle 3.21 model replaces the v2 `Objects.BuiltElements` typed roster (`Wa
 
 [PACKAGE_SCOPE]:
 - Package pages carry external package API facts; the `SyncTransport.SpeckleLikeDiff` case, the `SyncPump.Offer` dispatch, and the `ContentKey` mapping are owned at `Sync/collaboration`.
-- The `rootObjId`-to-`ContentKey` projection is owned at `Sync/collaboration`; this catalogue records only that the `Send` tuple's first element is the content hash.
+- The `rootObjId`-to-`ContentKey` projection is owned at `Sync/collaboration`; this catalogue records only that the `Send` tuple's first element (and `SerializeProcessResults.RootId`) is the content hash.
+- Codec lane separation: Speckle owns its OWN `Base`-graph serialiser (`SpeckleObjectSerializer`/V2 pipeline, MD5/SHA content hashing) — it does NOT route through the `api-thinktecture-serialization`/`api-messagepack` snapshot codecs, which own the in-process `[ValueObject]`/`[SmartEnum]` snapshot lane. The two are parallel sync/codec rails that meet only at the `SyncTransport` case algebra: a Rasm domain owner is projected to a Speckle `Base`/`DataObject` (or `displayValue` geometry) at the `Sync/collaboration` boundary, then Speckle's own serialiser hashes and stores it. No double-encoding.
 - `ServerInfo`/`UserInfo` credential acquisition and the `Account` token lifecycle are connection input handed over by app roots, not a Persistence fence member.
 - `Speckle.Sdk` runs OUTSIDE-RHINO; `Speckle.Sdk.Dependencies` repacks the SDK's Polly + channel + serialisation-V2 closure into one assembly, and the in-Rhino assembly composes only the canonical `SyncTransport.SpeckleLikeDiff` case and never references the Speckle assemblies.

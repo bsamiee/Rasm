@@ -6,9 +6,12 @@
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
 - package: `geometry3Sharp`
+- version: `1.0.324`
 - assembly: `geometry3Sharp`
 - namespace: `g3`
-- asset: netstandard2.0, net45 (pure-managed, zero dependencies, IL-only AnyCPU)
+- asset: netstandard2.0, net45 — `net10.0` consumer binds `lib/netstandard2.0`; pure-managed IL-only AnyCPU, ALC-safe
+- asset: both TFM dependency groups are empty (zero package dependencies)
+- license: gradientspace Boost-style permissive (`licenseUrl` form, no SPDX expression; `requireLicenseAcceptance=false`)
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
@@ -74,8 +77,10 @@
 |  [05]   | `SupportsFormat(string sExtension)`                                      | capability     | `true` when a registered handler claims the ext  |
 |  [06]   | `AddFormatHandler(MeshFormatReader)`                                     | registration   | adds a handler; throws on duplicate extension    |
 |  [07]   | `StandardMeshReader.ReadMesh(Stream, string sExtension)`                 | static read    | returns first `DMesh3` or `null` on non-`Ok`     |
-|  [08]   | `StandardMeshReader.ReadFile(Stream, string, ReadOptions, IMeshBuilder)` | static read    | reads into a caller-supplied builder             |
-|  [09]   | `warningEvent` (`ParsingMessagesHandler`)                                | diagnostics    | per-parse warning callback                       |
+|  [08]   | `StandardMeshReader.ReadMesh(string sFilename)`                          | static read    | path-overload of [07]; first `DMesh3` or `null`  |
+|  [09]   | `StandardMeshReader.ReadFile(Stream, string, ReadOptions, IMeshBuilder)` | static read    | reads into a caller-supplied builder             |
+|  [10]   | `StandardMeshReader.ReadFile(string, ReadOptions, IMeshBuilder)`         | static read    | path-overload reading into a supplied builder    |
+|  [11]   | `warningEvent` (`ParsingMessagesHandler`)                               | diagnostics    | per-parse warning callback                       |
 
 [ENTRYPOINT_SCOPE]: `MeshFormatReader` — per-format handler
 - rail: geometry
@@ -121,10 +126,16 @@
 [GEOMETRY3SHARP_TOPOLOGY]:
 - namespace: `g3`; the import-relevant surface is the `StandardMeshReader` facade, the `MeshFormatReader` handler family, the `DMesh3` carrier, and the `IMeshBuilder`/`DMesh3Builder` accumulator
 - `StandardMeshReader` registers `OBJFormatReader`, `STLFormatReader`, `OFFFormatReader`, and `BinaryG3FormatReader` by default; format selection is by case-insensitive bare extension through `SupportedExtensions`
-- `STLFormatReader` reads both binary and ASCII STL; `OBJFormatReader` reads OBJ with optional MTL material parse gated on `ReadOptions.ReadMaterials`
-- `DMesh3` is a refcounted-pool mesh: `VertexCount`/`TriangleCount` are live counts and the index space is sparse, so projection iterates `VertexIndices()`/`TriangleIndices()` rather than a dense `0..Count` loop
-- the carrier is double-precision: `GetVertex` returns `Vector3d`, `GetVertexNormal` returns `Vector3f`, `GetTriangle` returns `Index3i`
-- there is no PLY reader and no 3MF reader in this package; the `MeshText` codec PLY/3MF rows stay codec-pending
+- `STLFormatReader` reads both binary and ASCII STL; `OBJFormatReader` reads OBJ with optional MTL material parse gated on `ReadOptions.ReadMaterials` (the MTL parse materializes `OBJMaterial : GenericMaterial` rows into `DMesh3Builder.Materials`)
+- `DMesh3` is a refcounted-pool mesh: `VertexCount`/`TriangleCount` are live counts and the index space is sparse, so projection iterates `VertexIndices()`/`TriangleIndices()` rather than a dense `0..Count` loop; `HasVertexNormals` is `normals != null` on the live carrier (the `IMesh` view returns a constant `false`)
+- the carrier is double-precision: `GetVertex` returns `Vector3d`, `GetVertexf` the `Vector3f` position, `GetVertexNormal` returns `Vector3f`, `GetTriangle` returns `Index3i`, `GetTriNormal` returns `Vector3d`
+- the package ALSO ships a writer family (`StandardMeshWriter : IDisposable`, `IMeshWriter`, `OBJWriter`/`STLWriter`/`OFFWriter`/`SVGWriter`), but export is OUT of this rail's scope: the canonical mesh-export owner is the Compute glTF `EXPORT_RAIL` (`SharpGLTF` + `Openize.Drako`/meshopt), so this catalog admits only the decode leg
+- there is no PLY reader and no 3MF reader in this package; the `MeshText` codec PLY/3MF rows stay codec-pending (no pure-managed RID-safe NuGet reader admits)
+
+[INTEGRATION_STACK]:
+- `geometry3Sharp` grounds the managed OBJ/STL/OFF leg of the `MeshText` `InterchangeCodec` at `Exchange/format#FORMAT_AXIS`; it is the import counterpart to the Compute glTF `EXPORT_RAIL`. The dispatch is one codec row keyed by bare extension: `StandardMeshReader.Read(stream, ext, ReadOptions.Defaults)` decodes into a `DMesh3Builder`, then the boundary projects `DMesh3` into the canonical triangle-soup (positions/normals/UVs + index buffer).
+- The projected canonical buffer is the SAME shape `Openize.Drako` (`PointAttribute.Wrap`) and `Alimer.Bindings.MeshOptimizer` (`ReadOnlySpan<TVertex>`) consume — so an imported mesh round-trips to a compressed glTF export with no second projection.
+- A Compute import rail wraps the decode in the project `Fin`/`Eff` rail: `IOReadResult.code != IOCode.Ok` becomes a typed import failure, and the `warningEvent`/`ParsingMessagesHandler` callbacks fold into the same telemetry span as warning rows (the reader signals via `IOReadResult` + the warning event, never a `Fin`).
 
 [LOCAL_ADMISSION]:
 - Stream read: construct `StandardMeshReader` (default handlers), set `MeshBuilder` to a `DMesh3Builder`, call `Read(stream, extension, ReadOptions.Defaults)`, and check `IOReadResult.code == IOCode.Ok`.

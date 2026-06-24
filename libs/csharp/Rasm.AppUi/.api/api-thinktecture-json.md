@@ -5,12 +5,13 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json`
-- assembly: `Thinktecture.Runtime.Extensions.Json`
-- namespace: `Thinktecture`
-- namespace: `Thinktecture.Text.Json.Serialization`
-- namespace: `Thinktecture.Internal`
-- asset: runtime library
+- package: `Thinktecture.Runtime.Extensions.Json` `10.3.0`
+- assembly: `Thinktecture.Runtime.Extensions.Json` (bound asset `lib/net9.0/...` — the package ships `net8.0`+`net9.0` only; `net9.0` is the TFM-precedence pick for the `net10.0` consumer, so no net10-specific surface exists)
+- license: MIT
+- namespace: `Thinktecture` (public `Utf8JsonReaderExtensions`)
+- namespace: `Thinktecture.Text.Json.Serialization` (the converters, the typed factories, and the `IUtf8JsonFactory`/`ObjectFactoryAdapter` seam)
+- namespace: `Thinktecture.Internal` (infrastructure: `Utf8JsonReaderHelper`, `JsonSerializerOptionsExtensions`, the per-numeric-type key converters)
+- depends: `Thinktecture.Runtime.Extensions` (the source-generator core that emits the `[ValueObject]`/`[SmartEnum]`/`[Union]` owners + `IObjectFactory`/`IValidationError` contracts these converters bind)
 - rail: serialization
 
 ## [02]-[PUBLIC_TYPES]
@@ -37,13 +38,24 @@
 [PUBLIC_TYPE_SCOPE]: reader writer and metadata seam family
 - rail: serialization
 
-| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]        | [CAPABILITY]                              |
-| :-----: | :------------------------------------------ | :-------------------- | :---------------------------------------- |
-|  [01]   | `Utf8JsonReaderExtensions`                  | reader/writer surface | number-handling-aware numeric codec       |
-|  [02]   | `IUtf8JsonFactory<T, TValidationError>`     | factory contract      | UTF-8 span validation seam                |
-|  [03]   | `ObjectFactoryAdapter<T, TValidationError>` | adapter value         | bridges `IObjectFactory` to UTF-8 factory |
-|  [04]   | `Utf8JsonReaderHelper`                      | validation projection | UTF-8 span parse plus `Validate` dispatch |
-|  [05]   | `JsonSerializerOptionsExtensions`           | options projection    | custom member converter resolution        |
+| [INDEX] | [SYMBOL]                                    | [NAMESPACE]                           | [CAPABILITY]                              |
+| :-----: | :------------------------------------------ | :------------------------------------ | :---------------------------------------- |
+|  [01]   | `Utf8JsonReaderExtensions`                  | `Thinktecture`                        | number-handling-aware numeric read/write extensions |
+|  [02]   | `IUtf8JsonFactory<T, TValidationError>`     | `Thinktecture.Text.Json.Serialization`| custom UTF-8 span validation factory seam |
+|  [03]   | `ObjectFactoryAdapter<T, TValidationError>` | `Thinktecture.Text.Json.Serialization`| struct adapter bridging `IObjectFactory` to the UTF-8 factory |
+|  [04]   | `Utf8JsonReaderHelper`                      | `Thinktecture.Internal`               | `ValidateFromUtf8` span parse + static `Validate` dispatch |
+|  [05]   | `JsonSerializerOptionsExtensions`           | `Thinktecture.Internal`               | `GetCustomMemberConverter` key-type converter resolution |
+
+[PUBLIC_TYPE_SCOPE]: per-numeric-type key converter family (`Thinktecture.Internal`) — the singleton codecs numeric-keyed owners resolve through
+- rail: serialization
+
+| [INDEX] | [SYMBOL]                                              | [PACKAGE_ROLE] | [CAPABILITY]                                            |
+| :-----: | :---------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `ByteKeyConverter` / `SByteKeyConverter`              | key converter  | byte/sbyte dictionary-key codec honoring `JsonNumberHandling` |
+|  [02]   | `ShortKeyConverter` / `UShortKeyConverter`            | key converter  | 16-bit key codec                                       |
+|  [03]   | `IntKeyConverter` / `UIntKeyConverter`                | key converter  | 32-bit key codec                                       |
+|  [04]   | `LongKeyConverter` / `ULongKeyConverter`              | key converter  | 64-bit key codec                                       |
+|  [05]   | `SingleKeyConverter` / `DoubleKeyConverter` / `DecimalKeyConverter` | key converter | floating/decimal key codec                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -72,7 +84,24 @@
 |  [07]   | `WriteNumberWithNumberHandling`                   | writer, numeric value, `JsonNumberHandling`    | string-encoded numeric writes           |
 |  [08]   | `GetCustomMemberConverter`                        | options plus member `Type`                     | key-type converter resolution           |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [04]-[INTEGRATION_STACKING]
+
+[GENERATOR_HANDSHAKE]: the JSON rail is the serialization half of the Thinktecture core generator — it never sees a hand-written owner.
+- `Thinktecture.Runtime.Extensions` (the core, globally injected per `Directory.Packages.props`) source-generates each `[ValueObject<T>]`/`[SmartEnum<TKey>]`/`[ComplexValueObject]`/`[Union]` with the `IObjectFactory<T, TKey, TValidationError>`, `IConvertible<TKey>`, and `IValidationError<TValidationError>` contracts; this package's `MetadataLookup.FindMetadataForConversion` discovers exactly those, and `ThinktectureJsonConverterFactory.CreateConverter` selects the span/string/keyed converter from that metadata. AppUi owners get System.Text.Json support for free by being generated owners — no per-type converter.
+- The generated `[JsonConverter(typeof(ThinktectureJsonConverterFactory<…>))]` attribute on each owner is what wires the typed factory; the non-generic `ThinktectureJsonConverterFactory` (options-level) is the fallback for owners reached without attribute wiring. Both routes terminate in the same converters.
+
+[VALIDATION_RAIL]: deserialization is a validating boundary, not a blind bind — it stacks with the LanguageExt/Validation error model.
+- `ThinktectureJsonConverter.Read` decodes the key then calls the owner's static `Validate`, which returns the generated `IValidationError` (the domain's typed validation error). A non-null error surfaces as `JsonException` at the serializer edge — the same typed-error discipline the C# rails use, so a malformed wire payload is a typed failure, not an exception thrown from inside domain logic.
+- `ThinktectureSpanParsableJsonConverter` + `Utf8JsonReaderHelper.ValidateFromUtf8` do this zero-allocation over the UTF-8 span for span-parsable owners (the default for non-`string` keys), so hot deserialization paths (live-data, notebook, table streams) avoid the intermediate `string`.
+
+[WIRE_BOUNDARY]: this is the System.Text.Json edge of the AppUi<->AppHost<->Persistence contract.
+- AppHost ports and Persistence query results cross as canonical generated owners; the AppUi boundary registers `ThinktectureJsonConverterFactory` on the `JsonSerializerOptions` once (or relies on the per-owner attribute) so every owner round-trips identically across the wire. Internal code never pre-converts keys or post-validates values — `[LOCAL_ADMISSION]` below is the law.
+- `Dock.Serializer.SystemTextJson` (the layout-persistence serializer, `api-dock-serializer.md`) and any STJ surface in the shell share the SAME `JsonSerializerOptions`; admitting this factory once covers dock-layout payloads that embed generated owners.
+
+[FORMAT_SIBLING]: JSON is one of two Thinktecture serialization rails — MessagePack is the binary mirror.
+- `Thinktecture.Runtime.Extensions.MessagePack` (admitted in the substrate) gives the identical generated owners a `MessagePack` formatter; the JSON converters here and the MessagePack formatters are parallel rails over one metadata source, so a generated owner serializes losslessly to human-readable JSON (config, evidence, debug) AND compact MessagePack (hot transport) without a second model. Choose the rail by transport, never duplicate the owner.
+
+## [05]-[IMPLEMENTATION_LAW]
 
 [CONVERTER_TOPOLOGY]:
 - namespaces: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`

@@ -6,9 +6,11 @@
 
 [PACKAGE_SURFACE]: `UnitsNet`
 - package: `UnitsNet`
+- version: `5.75.0` (centrally pinned)
+- license: `MIT`
 - assembly: `UnitsNet`
 - namespace: `UnitsNet`
-- asset: pure-managed AnyCPU IL (no native asset, no RID burden)
+- asset: pure-managed AnyCPU IL (no native asset, no RID burden, ALC-safe); multi-targeted `net9.0`/`net8.0`/`netstandard2.0` with localized satellite resource assemblies — the `net10.0` consumer binds the highest compatible `lib/net9.0/UnitsNet.dll` (no `net10.0`-specific asset)
 - rail: fabrication
 
 ## [02]-[PUBLIC_TYPES]

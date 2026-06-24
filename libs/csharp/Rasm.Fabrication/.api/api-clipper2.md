@@ -6,9 +6,11 @@
 
 [PACKAGE_SURFACE]: `Clipper2`
 - package: `Clipper2`
+- version: `2.0.0` (centrally pinned)
+- license: `BSL-1.0` (Boost-1.0)
 - assembly: `Clipper2Lib`
 - namespace: `Clipper2Lib`
-- asset: runtime library
+- asset: pure-managed AnyCPU IL, single-target `netstandard2.0` (no native asset, no RID burden, ALC-safe); the `net10.0` consumer binds the lone `lib/netstandard2.0/Clipper2Lib.dll`
 - rail: fabrication
 
 ## [02]-[PUBLIC_TYPES]
@@ -53,8 +55,9 @@
 |  [02]   | `Clipper64`     | stateful engine | int64 subject/clip workflow            |
 |  [03]   | `ClipperD`      | stateful engine | double subject/clip workflow           |
 |  [04]   | `ClipperOffset` | offset engine   | polygon and open-path inflation        |
-|  [05]   | `ClipperBase`   | abstract base   | shared scan-line engine state          |
+|  [05]   | `ClipperBase`   | abstract base   | shared input API (`AddSubject`/`AddOpenSubject`/`AddClip`/`Clear`/`GetBounds`) and `PreserveCollinear`/`ReverseSolution` flags both engines inherit |
 |  [06]   | `Minkowski`     | static facade   | precision-bearing Minkowski sum/diff   |
+|  [07]   | `ReuseableDataContainer64` | int64 reuse cache | precomputed subject/clip vertex+local-minima structure shared across many `Clipper64.Execute` clips |
 
 [PUBLIC_TYPE_SCOPE]: poly-tree result carriers
 - rail: fabrication
@@ -174,11 +177,12 @@
 |  [01]   | `AddSubject(Paths64)`                                       | input          | closed subject paths         |
 |  [02]   | `AddOpenSubject(Paths64)`                                   | input          | open subject paths           |
 |  [03]   | `AddClip(Paths64)`                                          | input          | clip paths                   |
-|  [04]   | `Execute(ClipType, FillRule, Paths64 closed)`               | operation      | closed-only int64 result     |
-|  [05]   | `Execute(ClipType, FillRule, Paths64 closed, Paths64 open)` | operation      | closed + open int64 result   |
-|  [06]   | `Execute(ClipType, FillRule, PolyTree64)`                   | operation      | tree-structured int64 result |
-|  [07]   | `Execute(ClipType, FillRule, PolyTree64, Paths64 open)`     | operation      | tree + open int64 result     |
-|  [08]   | `PreserveCollinear` / `ReverseSolution`                     | property       | engine behavior flags        |
+|  [04]   | `AddReuseableData(ReuseableDataContainer64)`                | input          | inject a precomputed subject/clip structure (reuse across many clips) |
+|  [05]   | `Execute(ClipType, FillRule, Paths64 closed)`               | operation      | closed-only int64 result     |
+|  [06]   | `Execute(ClipType, FillRule, Paths64 closed, Paths64 open)` | operation      | closed + open int64 result   |
+|  [07]   | `Execute(ClipType, FillRule, PolyTree64)`                   | operation      | tree-structured int64 result |
+|  [08]   | `Execute(ClipType, FillRule, PolyTree64, Paths64 open)`     | operation      | tree + open int64 result     |
+|  [09]   | `PreserveCollinear` / `ReverseSolution`                     | property       | engine behavior flags (inherited from `ClipperBase`) |
 
 [ENTRYPOINT_SCOPE]: stateful clipping — `ClipperD` engine
 - rail: fabrication
@@ -193,6 +197,16 @@
 |  [06]   | `Execute(ClipType, FillRule, PathsD closed, PathsD open)` | operation      | closed + open double result   |
 |  [07]   | `Execute(ClipType, FillRule, PolyTreeD)`                  | operation      | tree-structured double result |
 |  [08]   | `Execute(ClipType, FillRule, PolyTreeD, PathsD open)`     | operation      | tree + open double result     |
+
+[ENTRYPOINT_SCOPE]: reusable subject/clip precompute — `ReuseableDataContainer64`
+- rail: fabrication
+
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `ReuseableDataContainer64()`                           | constructor    | empty reusable input container (int64 rail only — no `ReuseableDataContainerD`) |
+|  [02]   | `AddPaths(Paths64, PathType pt, bool isOpen)`          | input          | precompute the vertex/local-minima structure for a subject or clip path set ONCE |
+|  [03]   | `Clear()`                                              | reset          | discard the precomputed structure                              |
+|  [04]   | `Clipper64.AddReuseableData(container)`                | consume        | feed the precomputed structure into a fresh `Clipper64` so a recurring subject/clip skips re-tessellation per `Execute` |
 
 [ENTRYPOINT_SCOPE]: offset engine — `ClipperOffset`
 - rail: fabrication
@@ -228,6 +242,7 @@
 - `ClipperOffset.Execute` writes directly into the caller-supplied `Paths64` or `PolyTree64`; clear or allocate a fresh container before each call
 - `PolyTree64` / `PolyTreeD` carry outer/hole nesting; flatten to `Paths64`/`PathsD` via `Clipper.PolyTreeToPaths64` / `Clipper.PolyTreeToPathsD` when nesting structure is not required
 - `DeltaCallback64` receives the current path, path normals, current vertex index, and previous vertex index; return the signed offset delta for that vertex
+- `ReuseableDataContainer64` is the advanced subject/clip reuse rail: precompute one recurring path-set's vertex/local-minima structure ONCE via `AddPaths(paths, PathType, isOpen)`, then `Clipper64.AddReuseableData(container)` into a fresh engine per clip instead of re-`AddSubject`/`AddClip`-ing — the int64 rail only (no `ClipperD` mirror), so a double-precision consumer scales to `Paths64` at `Precision.Digits` first. This STACKS into the `Nesting/nfp#NESTING` sweep where one orbiting part is clipped against many candidate positions on a `Stock`: build the reusable container for the static part-set once, fold the per-position `Clipper64.Execute` over it under the `Fin` rail, sharing the tessellation across the whole placement scan — the per-pair `NoFitPolygon.PairKey` memo and this engine-level reuse compose (the memo dedupes identical Minkowski geometry across pairs, the container dedupes the scanbeam build across positions of one pair)
 - The `Clipper.MinkowskiSum`/`MinkowskiDiff` `PathD` overloads fix `decimalPlaces` at the package default `2`; route NFP construction through the deeper `Minkowski.Sum`/`Diff(PathD, PathD, isClosed, decimalPlaces)` facade to scale at the owner's `Precision.Digits`, never the shorthand that drops the precision knob
 - `Clipper.Triangulate` and `TriangulateResult` are public surface but stay OUT of `PolygonAlgebra`: the `2.0.0` triangulation module the author flags as buggy, with open infinite-loop defects in the internal `Delaunay` kernel; route fabrication triangulation through the kernel triangulation owner instead
 

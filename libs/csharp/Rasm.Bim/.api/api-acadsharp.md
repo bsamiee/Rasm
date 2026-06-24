@@ -32,7 +32,7 @@
 |  [06]   | `CadReaderConfiguration`  | base config        | `Failsafe`/`KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` degrade knobs      |
 |  [07]   | `DwgReaderConfiguration`  | DWG config         | adds `CrcCheck`, `ReadSummaryInfo` (default true)                                   |
 |  [08]   | `DxfReaderConfiguration`  | DXF config         | adds `ClearCache` (default true), `CreateDefaults`                                  |
-|  [09]   | `NotificationEventHandler`| delegate           | the boundary subscribes for `NotificationEventArgs` (message + `NotificationType`)  |
+|  [09]   | `NotificationEventHandler`| delegate           | the boundary subscribes for `NotificationEventArgs` (`Message` + `NotificationType` + `Exception` — the recovered defect detail under `Failsafe`) |
 |  [10]   | `NotificationType`        | enum               | `NotImplemented`/`None`/`NotSupported`/`Warning`/`Error` severity                   |
 |  [11]   | `ProgressEventHandler`    | delegate           | `ProgressEventArgs` read-progress stream (optional)                                 |
 
@@ -57,7 +57,7 @@
 |  [04]   | `PolyfaceMesh`      | legacy polyface    | `Polyline<VertexFaceMesh>` — `Vertices` `SeqendCollection<VertexFaceMesh>`, `Faces` `CadObjectCollection<VertexFaceRecord>` |
 |  [05]   | `VertexFaceMesh`    | polyface vertex    | a `Vertex` carrying the `Location` `XYZ` of one polyface corner                |
 |  [06]   | `VertexFaceRecord`  | polyface face      | 1-based signed `Index1`..`Index4` (`short`; negative = hidden edge, 0 = unused) |
-|  [07]   | `PolygonMesh`       | M×N surface mesh   | `Polyline<PolygonMeshVertex>` row/column surface mesh (`SmoothSurfaceType`)    |
+|  [07]   | `PolygonMesh`       | M×N surface mesh   | `Polyline<PolygonMeshVertex>` row/column surface mesh — `MVertexCount`×`NVertexCount` grid, `M`/`NSmoothSurfaceDensity` |
 |  [08]   | `Insert`            | block reference    | placed/arrayed nested-block reference — flattened via `Explode`/`GetTransform` |
 
 [PUBLIC_TYPE_SCOPE]: entity base and CSMath value/transform algebra
@@ -65,7 +65,7 @@
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                                                  |
 | :-----: | :---------------- | :-------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Entity`          | entity base     | every entity: `Layer`/`Color`/`LineWeight`/`Transparency` + `ApplyTransform(Transform)` + `GetBoundingBox()` |
+|  [01]   | `Entity`          | entity base     | every entity: `Layer`/`Color`/`LineWeight`/`Transparency`/`Material`/`IsInvisible` + `ApplyTransform(Transform)` + `ApplyTranslation`/`ApplyRotation(axis,θ)`/`ApplyScaling(scale[,origin])` (package-owned bakes) + `GetBoundingBox()` |
 |  [02]   | `XYZ`             | 3D vector       | `X`/`Y`/`Z` doubles, indexer, `AxisX`/`AxisY`/`AxisZ`/`Zero`, `+`/`-`/`*`/`/` ops, `Cross`/`FindNormal`/`GetAngle` |
 |  [03]   | `XY`              | 2D point        | `X`/`Y` doubles; explicit cast to/from `XYZ`                                   |
 |  [04]   | `Transform`       | TRS transform   | `Matrix` (`Matrix4`), `Translation`/`Scale`/`EulerRotation`, `ApplyTransform(XYZ)`, `TryDecompose` |
@@ -87,6 +87,7 @@
 |  [06]   | `DwgReader.Read(Stream stream, DwgReaderConfiguration, NotificationEventHandler = null)` | static read  | read a DWG stream under a tuned config (stream+config overload)    |
 |  [07]   | `DwgReader.Read(string filename, NotificationEventHandler = null)`                  | static read      | read a DWG file by path into a `CadDocument`                       |
 |  [08]   | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()`                    | partial read     | summary/preview/header without a full entity parse (instance)      |
+|  [09]   | `DxfReader.ReadEntities()` / `ReadTables()`                                          | partial read     | section-scoped DXF read — `List<Entity>` ENTITIES-only or TABLES-only, skipping the header/objects parse (instance) |
 
 [ENTRYPOINT_SCOPE]: document traversal — `CadDocument` → mesh-bearing entities
 - rail: geometry
@@ -119,10 +120,11 @@
 
 [FORMAT_DISPATCH]:
 - Format selection is `CadReaderFactory.GetFileFormat`/`CreateReader` (extension→`CadFileFormat`→`ICadReader`) for the filename path, and the format-specific `DxfReader.Read`/`DwgReader.Read` for the stream path routed by the `Dwg`/`Dxf` `InterchangeFormat` extension set. The DXF ascii-vs-binary split is `DxfReader.IsBinary(stream)` (and the reader auto-detects it internally), and the DWG version is read from the file header — the Bim arm does NOT hand-sniff the `AC10xx` / `0\nSECTION` / `AutoCAD Binary DXF` byte sentinels the package already owns.
-- The DWG read floor is `AC1012` (R13): `DwgReader` throws `CadNotSupportedException` for `AC1009` (R11/R12) and earlier, and supports `AC1012`/`AC1014`/`AC1015`/`AC1018`/`AC1021`/`AC1024`/`AC1027`/`AC1032`.
+- The DWG read floor is `AC1012` (R13): `DwgFileHeader.CreateFileHeader` throws `CadNotSupportedException(version)` for `AC1009` (R11/R12) and earlier, and supports `AC1012`/`AC1014`/`AC1015`/`AC1018`/`AC1021`/`AC1024`/`AC1027`/`AC1032`. DWG `SummaryInfo` is itself gated at `AC1018` (`ReadSummaryInfo` short-circuits below it).
+- A mesh-only ingress that needs neither header nor non-graphical objects reads the DXF ENTITIES section alone through the instance `DxfReader.ReadEntities()` (`List<Entity>`) rather than the full `Read()` — the section-scoped read skips the header/objects/classes parse, then the same mesh-family discrimination folds the entity list onto the soup. The DWG path has no section-scoped entity read (`DwgReader` partial reads are header/preview/summary only), so DWG always takes the full `Read()`.
 
 [BOUNDARY_AND_NOTIFICATION]:
-- The reader is configured at the boundary: `CadReaderConfiguration.Failsafe` (default true) keeps recoverable section/entity errors as `OnNotification` events rather than throws; `KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` (default false) drop proxy/unknown objects the soup never reads; `DwgReaderConfiguration.ReadSummaryInfo` is set false when only geometry is needed; `DxfReaderConfiguration.ClearCache`/`CreateDefaults` tune DXF section reuse. The `BimIo.Boundary` subscribes `ICadReader.OnNotification` and folds the `NotificationType` (`Warning`/`Error`/`NotSupported`) stream into its degradation log without aborting the read.
+- The reader is configured at the boundary: `CadReaderConfiguration.Failsafe` (default true) keeps recoverable section/entity errors as `OnNotification` events rather than throws; `KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` (default false) drop proxy/unknown objects the soup never reads; `DwgReaderConfiguration.ReadSummaryInfo` is set false when only geometry is needed; `DxfReaderConfiguration.ClearCache`/`CreateDefaults` tune DXF section reuse. The `BimIo.Boundary` subscribes `ICadReader.OnNotification` and folds the `NotificationEventArgs` stream — `NotificationType` severity (`Warning`/`Error`/`NotSupported`/`NotImplemented`), `Message`, and the optional carried `Exception` (the recovered defect's detail under `Failsafe`) — into its degradation log without aborting the read; the `OnProgress` (`ProgressEventArgs`) stream is optional read-progress, not folded.
 - The `DxfReader.Read`/`DwgReader.Read` facade (and `CadReaderFactory.CreateReader().Read()`) THROWS on a malformed/unreadable file (`CadNotSupportedException`, DXF/DWG parse exceptions) — the Bim arm wraps the call in the `BimIo.Boundary` funnel and lowers the caught exception to `BimFault.ModelRejected` ONCE at admission (the reader exception never escapes the boundary); under `Failsafe` a non-fatal defect arrives as an `OnNotification` event, not a throw.
 
 [RAIL_LAW]:

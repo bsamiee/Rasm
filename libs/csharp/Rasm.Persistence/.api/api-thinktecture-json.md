@@ -9,10 +9,14 @@ deserialization, and number-handling-aware key codecs.
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
 - package: `Thinktecture.Runtime.Extensions.Json`
+- version: `10.3.0`
+- license: file LICENSE.md (Pawel Gerr)
 - assembly: `Thinktecture.Runtime.Extensions.Json`
-- namespace: `Thinktecture`
-- namespace: `Thinktecture.Text.Json.Serialization`
-- namespace: `Thinktecture.Internal`
+- core package: `Thinktecture.Runtime.Extensions` (`10.3.0`; owns the source generator that emits the `IObjectFactory<T,TKey,TValidationError>`/`IConvertible<TKey>`/`IValidationError<T>` metadata these converters bind, plus `[JsonConverter]` attribute emission on generated owners)
+- namespace: `Thinktecture` (`Utf8JsonReaderExtensions`)
+- namespace: `Thinktecture.Text.Json.Serialization` (the converter/factory family)
+- namespace: `Thinktecture.Internal` (`Utf8JsonReaderHelper`, `IUtf8JsonFactory<T,TVE>`, `ObjectFactoryAdapter<T,TVE>`, `JsonSerializerOptionsExtensions`, the singleton numeric key converters)
+- target framework: ships `net8.0`/`net9.0` only — NO `net10.0` asset; on the `net10.0` workspace the build binds the `net9.0` asset (forward-compatible on net10). Pin this to the core-package version; the codec floor advances when a `net10.0` asset ships.
 - asset: runtime library
 - rail: serialization
 
@@ -88,6 +92,11 @@ Factory constructors optionally receive `skipObjectsWithJsonConverterAttribute` 
 - key codec: numeric keys resolve through internal singleton key converters honoring `JsonNumberHandling` via `Utf8JsonReaderExtensions`
 - span policy: string-keyed smart enums opt out via `DisableSpanBasedJsonConversion`; the factory callback opts out per type
 - nullable structs: the metadata factory declines `Nullable<T>` and defers to the framework's nullable wrapper
+
+[STACKING]:
+- cross-codec sibling: this catalogue documents the DEEP JSON-specific advanced surface (span-parsable UTF-8 read, `JsonNumberHandling`-aware numeric key codecs, property-name codecs, the `IUtf8JsonFactory`/`ObjectFactoryAdapter` validation seam). The cross-codec admission contract — registering `ThinktectureJsonConverterFactory` on `JsonSerializerOptions.Converters` ALONGSIDE the MessagePack `ThinktectureMessageFormatterResolver` and the EF `UseThinktectureValueConverters` so ONE generated owner crosses every codec — is owned by `api-thinktecture-serialization`. Bind the factory once per `JsonSerializerOptions`; do not re-declare per owner.
+- snapshot/store rails: the JSON converter is the `Snapshot/codec` wire-format projection of the same `[ValueObject]`/`[SmartEnum]`/`[Union]` owner that the store providers persist — a domain owner is hashed/diffed as its generated key, and the JSON codec is the read/write side of that key at the System.Text.Json boundary (Speckle's own `Base` serialiser is a parallel lane, not this one — see `api-speckle`).
+- validation rail: the static `Validate` dispatch returns an `IValidationError<TValidationError>` that the converter surfaces as `JsonException`; upstream the same `Validate` feeds the `Fin`/`Validation` (LanguageExt) domain rail, so a boundary decode failure and a domain construction failure share one validation vocabulary rather than two error models.
 
 [LOCAL_ADMISSION]:
 - Generated owners carry a `[JsonConverter]` factory attribute; the metadata factory skips attributed owners by default.

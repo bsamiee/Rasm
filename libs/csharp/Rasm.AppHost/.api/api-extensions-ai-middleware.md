@@ -48,9 +48,11 @@
 |  [04]   | `LoggingChatClientBuilderExtensions`                    | extension methods | `UseLogging`                       |
 |  [05]   | `ConfigureOptionsChatClientBuilderExtensions`           | extension methods | `ConfigureOptions`                 |
 |  [06]   | `ChatClientBuilderChatClientExtensions`                 | extension methods | `AsBuilder`                        |
-|  [07]   | `DistributedCachingEmbeddingGeneratorBuilderExtensions` | extension methods | `UseDistributedCache` (embeddings) |
-|  [08]   | `OpenTelemetryEmbeddingGeneratorBuilderExtensions`      | extension methods | `UseOpenTelemetry` (embeddings)    |
-|  [09]   | `EmbeddingGeneratorBuilderEmbeddingGeneratorExtensions` | extension methods | `AsBuilder` (embeddings)           |
+|  [07]   | `ChatClientStructuredOutputExtensions`                  | extension methods | typed `GetResponseAsync<T>` → `ChatResponse<T>` |
+|  [08]   | `ChatResponse<T>`                                       | typed response    | strongly-typed structured-output response carrier |
+|  [09]   | `DistributedCachingEmbeddingGeneratorBuilderExtensions` | extension methods | `UseDistributedCache` (embeddings) |
+|  [10]   | `OpenTelemetryEmbeddingGeneratorBuilderExtensions`      | extension methods | `UseOpenTelemetry` (embeddings)    |
+|  [11]   | `EmbeddingGeneratorBuilderEmbeddingGeneratorExtensions` | extension methods | `AsBuilder` (embeddings)           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -70,9 +72,11 @@
 |  [06]   | `ChatClientBuilder.UseOpenTelemetry(ILoggerFactory?, string?, Action<OpenTelemetryChatClient>?)`   | extension    | `ChatClientBuilder`                 |
 |  [07]   | `ChatClientBuilder.UseLogging(ILoggerFactory?, Action<LoggingChatClient>?)`                        | extension    | `ChatClientBuilder`                 |
 |  [08]   | `ChatClientBuilder.ConfigureOptions(Action<ChatOptions>)`                                          | extension    | `ChatClientBuilder`                 |
-|  [09]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [10]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [11]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [09]   | `IChatClient.GetResponseAsync<T>(IEnumerable<ChatMessage> \| string \| ChatMessage, JsonSerializerOptions?, ChatOptions?, bool? useJsonSchemaResponseFormat = null, CancellationToken)` | extension | `Task<ChatResponse<T>>` — typed structured-output round-trip (NO streaming twin) |
+|  [10]   | `ChatResponse<T>.Result` / `ChatResponse<T>.TryGetResult(out T?)`                                  | typed read   | bound `T` deserialized from the response text against the generated JSON schema |
+|  [11]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [12]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [13]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
 
 [ENTRYPOINT_SCOPE]: decorator-tuning properties
 - rail: capability-agent
@@ -98,6 +102,7 @@
 - instrumentation: `UseOpenTelemetry` emits the OTel GenAI `gen_ai.*` conventions; the source name argument names the `ActivitySource`/`Meter` the observability composition root registers.
 - function invocation: `FunctionInvokingChatClient` runs the tool-call loop over `ChatOptions.Tools`, invoking each `AIFunction`; the governance fold supplies the brokered `CommandAIFunction` instances so every tool call routes through the command algebra.
 - custom middleware: a response-mutating governance arm subclasses the public `DelegatingChatClient` base (`virtual` `GetResponseAsync`/`GetStreamingResponseAsync`/`GetService` over the `protected InnerClient`) woven through `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)`; the `internal sealed AnonymousDelegatingChatClient` behind the `Use(sharedFunc)` overload exposes only a pre/post `Func<…,Task>` with no `ChatResponse` handle, so a middleware that rewrites the response or redacts content is the subclass, never the `sharedFunc` overload.
+- structured output: `ChatClientStructuredOutputExtensions.GetResponseAsync<T>` derives the response-format JSON schema from `AIJsonUtilities.CreateJsonSchema(typeof(T))` (set `useJsonSchemaResponseFormat: true` to force `ChatResponseFormat.ForJsonSchema` over a textual prompt), calls the inner `IChatClient`, and wraps the result in `ChatResponse<T>` — `.Result` deserializes the bound `T` (throwing on a parse miss) and `TryGetResult(out T?)` is the non-throwing read. This is the ONLY typed-output surface; there is no `GetStreamingResponseAsync<T>`, so a typed streaming round-trip is the rejected form. The schema flows from the same `AIJsonUtilities` owner the tool-arguments path uses, so structured output and `AIFunction` arguments share one schema generator (`api-extensions-ai.md`).
 
 [IMPLEMENTATION_LAW]: AppHost usage
 - rail: capability-agent

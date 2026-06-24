@@ -1,39 +1,46 @@
 # [RASM_API_MATHNET_PROVIDERS]
 
-`MathNet.Numerics` supplies dense and sparse linear algebra, the RID-keyed
-native-provider selection façade over MKL and OpenBLAS, the CSR sparse storage
-surface with its CSC/COO/indexed ingestion conversions, and the matrix
-factorization family; `CSparse` supplies direct sparse Cholesky, LU, and QR
-factorizations beside the MathNet iterative solvers for the numeric lane.
+`MathNet.Numerics` supplies dense linear algebra over `Matrix<double>`/`Vector<double>`,
+the full factorization family (`LU`/`QR`/`Cholesky`/`Svd`/`Evd`/`GramSchmidt`) with the
+analytical surface (`Solve`/`Inverse`/`PseudoInverse`/`Rank`/`Kernel`/`Range`/
+`Determinant`/`ConditionNumber`), the RID-keyed native-provider selection façade over
+MKL/CUDA/OpenBLAS with a managed-path parallelism governor, the CSR sparse storage
+surface with CSC/COO/indexed ingestion, and the MathNet iterative solvers with a
+composable stop-criteria `Iterator` and preconditioner seam; `CSparse` (`api-csparse`)
+supplies the direct sparse factorizations beside them. The MKL adapter is tunable
+(`MklConsistency`/`MklPrecision`/`MklAccuracy`) for deterministic reproducibility.
+ABI: MathNet `lib/net8.0` is the highest TFM in 6.0.0-beta2 — the net10 consumer binds
+net8.0; MIT. MKL/OpenBLAS native assets are x64-only (no osx-arm64).
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
-- package: `MathNet.Numerics`
+- package: `MathNet.Numerics` (6.0.0-beta2; license MIT)
 - assembly: `MathNet.Numerics`
-- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `MathNet.Numerics.LinearAlgebra.Double`, `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Factorization`, `MathNet.Numerics.Providers.LinearAlgebra`
+- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`
 - asset: runtime library (managed; native providers ride sibling asset packages)
+- floor: net8.0 (no net10/net9 lib in 6.0.0-beta2; the net10 consumer binds `lib/net8.0`)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
-- package: `MathNet.Numerics.Providers.MKL`
+- package: `MathNet.Numerics.Providers.MKL` (6.0.0-beta2)
 - assembly: `MathNet.Numerics.Providers.MKL`
-- namespace: `MathNet.Numerics.Providers.MKL.LinearAlgebra`
-- asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `MathNet.Numerics.MKL.Linux-x64`; no osx-arm64 asset)
+- namespace: `MathNet.Numerics.Providers.MKL`, `.Providers.MKL.LinearAlgebra`
+- asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`; no osx-arm64 asset)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
-- package: `MathNet.Numerics.Providers.OpenBLAS`
+- package: `MathNet.Numerics.Providers.OpenBLAS` (6.0.0-beta2)
 - assembly: `MathNet.Numerics.Providers.OpenBLAS`
 - namespace: `MathNet.Numerics.Providers.OpenBLAS.LinearAlgebra`
 - asset: managed provider adapter (native binaries ship in platform OpenBLAS asset packages; no osx-arm64 asset)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse`
+- package: `CSparse` (full direct-sparse surface in `api-csparse`)
 - assembly: `CSparse`
-- namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
-- asset: runtime library (pure managed direct sparse solvers)
+- namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
+- asset: runtime library (pure managed direct sparse solvers; LGPL-2.1-only)
 - rail: numeric
 
 ## [02]-[PUBLIC_TYPES]
@@ -41,140 +48,150 @@ factorizations beside the MathNet iterative solvers for the numeric lane.
 [PUBLIC_TYPE_SCOPE]: provider selection
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                         |
-| :-----: | :----------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `Control`                      | static façade  | selects + probes the active provider |
-|  [02]   | `LinearAlgebraControl`         | static façade  | provider-level direct selection API  |
-|  [03]   | `ILinearAlgebraProvider`       | provider seam  | the active provider handle           |
-|  [04]   | `MklLinearAlgebraControl`      | provider type  | MKL native adapter control           |
-|  [05]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS native adapter control      |
+`Control` is the top-level façade (selection + parallelism governor + diagnostics); `LinearAlgebraControl` is the provider-level twin; the per-provider control types carry the tuning entrypoints. `IProviderCreator<ILinearAlgebraProvider>` is the factory seam.
+
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                                            |
+| :-----: | :----------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `Control`                      | static façade  | provider selection + managed-path parallelism + `Describe` |
+|  [02]   | `LinearAlgebraControl`         | static façade  | provider-level selection; `Provider`/`TryUse`/`HintPath` |
+|  [03]   | `ILinearAlgebraProvider`       | provider seam  | the active provider handle                             |
+|  [04]   | `MklLinearAlgebraControl`      | provider type  | MKL adapter; `CreateNativeMKL`/`UseNativeMKL` tuning    |
+|  [05]   | `OpenBlasLinearAlgebraControl` | provider type  | OpenBLAS adapter; `CreateNativeOpenBLAS`/`UseNativeOpenBLAS` |
+|  [06]   | `MklConsistency` / `MklPrecision` / `MklAccuracy` | tuning enum | determinism / precision / accuracy levers for MKL  |
 
 [PUBLIC_TYPE_SCOPE]: dense algebra
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                   |
-| :-----: | :--------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `Matrix<T>`                        | dense matrix   | dense matrix value carrier     |
-|  [02]   | `Vector<T>`                        | dense vector   | dense vector value carrier     |
-|  [03]   | `Matrix<double>` (`Double.Matrix`) | dense matrix   | the numeric-lane dense carrier |
-|  [04]   | `LU<T>`                            | factorization  | LU decomposition + solve       |
-|  [05]   | `QR<T>`                            | factorization  | QR decomposition + solve       |
-|  [06]   | `Cholesky<T>`                      | factorization  | Cholesky decomposition + solve |
-|  [07]   | `Svd<T>`                           | factorization  | singular value decomposition   |
-|  [08]   | `Evd<T>`                           | factorization  | eigenvalue decomposition       |
-|  [09]   | `DenseColumnMajorMatrixStorage<T>` | dense storage  | column-major dense backing     |
-|  [10]   | `DenseVectorStorage<T>`            | dense storage  | dense vector backing           |
+| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                            |
+| :-----: | :--------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `Matrix<T>`                        | dense matrix   | dense carrier; algebra, factorization, analysis |
+|  [02]   | `Vector<T>`                        | dense vector   | dense vector value carrier              |
+|  [03]   | `Matrix<double>` (`Double.Matrix`) | dense matrix   | the numeric-lane dense carrier          |
+|  [04]   | `MatrixBuilder<T>` (`Matrix<T>.Build`) | factory     | dense + sparse matrix factories         |
+|  [05]   | `LU<T>` / `QR<T>` / `Cholesky<T>`  | factorization  | LU / QR / Cholesky decomposition + solve|
+|  [06]   | `Svd<T>` / `Evd<T>` / `GramSchmidt<T>` | factorization | SVD / eigen / Gram-Schmidt decomposition |
+|  [07]   | `DenseColumnMajorMatrixStorage<T>` | dense storage  | column-major dense backing              |
+|  [08]   | `DenseVectorStorage<T>`            | dense storage  | dense vector backing                    |
 
 [PUBLIC_TYPE_SCOPE]: sparse algebra
 - rail: numeric
 
 | [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE] | [CAPABILITY]                          |
 | :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `SparseCompressedRowMatrixStorage<T>`                        | sparse storage | CSR matrix backing (only native form) |
+|  [01]   | `SparseCompressedRowMatrixStorage<T>`                        | sparse storage | CSR matrix backing (only native MathNet sparse form) |
 |  [02]   | `SparseVectorStorage<T>`                                     | sparse storage | COO-style sparse vector backing       |
-|  [03]   | `CSparse.Storage.CompressedColumnStorage<T>`                 | csc storage    | CSparse CSC matrix backing            |
+|  [03]   | `CSparse.Storage.CompressedColumnStorage<T>`                 | csc storage    | CSparse CSC backing (`api-csparse`)   |
 |  [04]   | `CSparse.Double.SparseMatrix`                                | sparse matrix  | CSparse double CSC matrix             |
-|  [05]   | `CSparse.Double.Factorization.SparseCholesky`                | factorization  | direct sparse Cholesky                |
-|  [06]   | `CSparse.Double.Factorization.SparseLU`                      | factorization  | direct sparse LU                      |
-|  [07]   | `CSparse.Double.Factorization.SparseQR`                      | factorization  | direct sparse QR                      |
-|  [08]   | `CSparse.ColumnOrdering`                                     | ordering enum  | fill-reducing ordering selector       |
-|  [09]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>` | solver seam    | iterative-solve seam                  |
+|  [05]   | `CSparse.Double.Factorization.SparseCholesky/SparseLU/SparseQR` | factorization | direct sparse Cholesky/LU/QR (`api-csparse`) |
+|  [06]   | `CSparse.ColumnOrdering`                                     | ordering enum  | fill-reducing ordering selector       |
 
 [PUBLIC_TYPE_SCOPE]: iterative solvers
 - rail: numeric
 
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE] | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab`    | solver         | biconjugate gradient stabilized |
-|  [02]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.GpBiCg`      | solver         | generalized product BiCG        |
-|  [03]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR`       | solver         | transpose-free QMR              |
-|  [04]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver         | multiple-Lanczos BiCGStab       |
-|  [05]   | `MathNet.Numerics.LinearAlgebra.Solvers.Iterator<T>`        | control        | iteration stop criteria         |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE] | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------------ |
+|  [01]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab`    | solver         | biconjugate gradient stabilized       |
+|  [02]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.GpBiCg`      | solver         | generalized product BiCG              |
+|  [03]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.TFQMR`       | solver         | transpose-free QMR                    |
+|  [04]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver         | multiple-Lanczos BiCGStab             |
+|  [05]   | `MathNet.Numerics.LinearAlgebra.Solvers.IIterativeSolver<T>`| solver seam    | `Solve(matrix, input, result, Iterator, IPreconditioner)` |
+|  [06]   | `Iterator<T>` / `IIterationStopCriterion<T>`                | control        | composable stop-criteria + cancellation |
+|  [07]   | `IPreconditioner<T>`                                        | precondition   | left preconditioner seam              |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: provider selection
+[ENTRYPOINT_SCOPE]: provider selection + governor
 - rail: numeric
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]    | [CAPABILITY]                              |
-| :-----: | :----------------------------------- | :-------------- | :---------------------------------------- |
-|  [01]   | `Control.UseManaged`                 | static `void`   | selects the pure-managed provider         |
-|  [02]   | `Control.UseNativeMKL`               | static `void`   | selects MKL; throws on load failure       |
-|  [03]   | `Control.TryUseNativeMKL`            | static `bool`   | selects MKL; `false` on load failure      |
-|  [04]   | `Control.UseNativeOpenBLAS`          | static `void`   | selects OpenBLAS; throws on load failure  |
-|  [05]   | `Control.TryUseNativeOpenBLAS`       | static `bool`   | selects OpenBLAS; `false` on load failure |
-|  [06]   | `Control.UseBestProviders`           | static `void`   | tries MKL→CUDA→OpenBLAS→managed           |
-|  [07]   | `Control.NativeProviderPath`         | static `string` | sets native hint path on all controls     |
-|  [08]   | `LinearAlgebraControl.Provider`      | static prop     | gets/sets the active provider handle      |
-|  [09]   | `LinearAlgebraControl.TryUse`        | static `bool`   | activates a provided handle, no-throw     |
-|  [10]   | `LinearAlgebraControl.FreeResources` | static `void`   | releases native provider resources        |
+`Try*` variants return `false` instead of throwing on a missing native asset; `Use*` throw. `MaxDegreeOfParallelism`/`UseSingleThread`/`UseMultiThreading` govern the managed BLAS path (the only lever on osx-arm64 where native is unavailable). `Describe()` is the provider diagnostic string for the receipt.
 
-[ENTRYPOINT_SCOPE]: dense factorization
+| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]    | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `Control.UseManaged()`                             | static `void`   | selects the pure-managed provider         |
+|  [02]   | `Control.TryUseNativeMKL()` / `TryUseNativeOpenBLAS()` | static `bool` | selects native; `false` on load failure   |
+|  [03]   | `Control.TryUseNativeCUDA()` / `TryUseNative()`    | static `bool`   | selects CUDA / best-available native       |
+|  [04]   | `Control.UseBestProviders()` / `ConfigureAuto()`   | static `void`   | MKL → CUDA → OpenBLAS → managed probe       |
+|  [05]   | `Control.MaxDegreeOfParallelism`                   | static `int`    | managed-path parallel degree (get/set)     |
+|  [06]   | `Control.UseSingleThread()` / `UseMultiThreading()`| static `void`   | force serial / parallel managed BLAS       |
+|  [07]   | `Control.NativeProviderPath` / `LinearAlgebraControl.HintPath` | static `string` | native binary search hint            |
+|  [08]   | `Control.Describe()`                               | static `string` | active-provider diagnostic for the receipt |
+|  [09]   | `Control.FreeResources()` / `LinearAlgebraControl.FreeResources()` | static `void` | release native provider resources    |
+|  [10]   | `LinearAlgebraControl.Provider`                    | static prop     | gets/sets the active provider handle       |
+|  [11]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static `bool`| activates a provided handle, no-throw      |
+|  [12]   | `MklLinearAlgebraControl.UseNativeMKL(MklConsistency, MklPrecision, MklAccuracy)` | static `void` | select MKL with determinism/precision tuning |
+|  [13]   | `MklLinearAlgebraControl.CreateNativeMKL(...)` / `OpenBlasLinearAlgebraControl.CreateNativeOpenBLAS()` | static handle | mint a tuned provider handle for `TryUse`/`Provider` |
+
+[ENTRYPOINT_SCOPE]: dense factorization + analysis
 - rail: numeric
 
-Dense builders and tile methods keep exact overload shape outside the table; `Solve` admits both matrix and vector right-hand sides through `ISolver<T>`.
+Factorization builders carry parameters (`QR(QRMethod = Thin)`, `Svd(bool computeVectors = true)`, `Evd(Symmetricity)`); `Matrix<T>.Solve` auto-selects a factorization. The analytical surface (`Rank`/`Kernel`/`Range`/`Inverse`/`PseudoInverse`/`Determinant`/`ConditionNumber`) composes the same factorizations. `Solve` admits both matrix and vector right-hand sides.
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]       | [CAPABILITY]                       |
-| :-----: | :---------------------------------------------- | :----------------- | :--------------------------------- |
-|  [01]   | `Matrix<T>.Multiply`                            | matrix call        | provider-routed dense GEMM         |
-|  [02]   | `Matrix<T>.LU`                                  | matrix call        | builds `LU<T>`                     |
-|  [03]   | `Matrix<T>.QR`                                  | matrix call        | builds `QR<T>`                     |
-|  [04]   | `Matrix<T>.Cholesky`                            | matrix call        | builds `Cholesky<T>`               |
-|  [05]   | `Matrix<T>.Svd`                                 | matrix call        | builds `Svd<T>`                    |
-|  [06]   | `Matrix<T>.Evd`                                 | matrix call        | builds `Evd<T>`                    |
-|  [07]   | `LU<T>.Solve`                                   | factorization call | solves right-hand sides            |
-|  [08]   | `Cholesky<T>.Solve`                             | factorization call | solves SPD systems                 |
-|  [09]   | `QR<T>.Solve` / `Svd<T>.Solve` / `Evd<T>.Solve` | factorization call | solves through `ISolver<T>`        |
-|  [10]   | `Matrix<double>.Build.DenseOfArray`             | factory call       | builds dense matrix from array     |
-|  [11]   | `Matrix<double>.Build.Dense`                    | factory call       | builds dense matrix by shape/value |
-|  [12]   | `Matrix<T>.SubMatrix`                           | matrix call        | extracts a tile                    |
-|  [13]   | `Matrix<T>.SetSubMatrix`                        | matrix call        | writes a tile in place             |
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]       | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------- | :----------------- | :------------------------------------ |
+|  [01]   | `Matrix<T>.Multiply(Matrix<T>)` / `Multiply(Vector<T>)` | matrix call  | provider-routed dense GEMM / GEMV     |
+|  [02]   | `Matrix<T>.TransposeThisAndMultiply(...)` / `TransposeAndMultiply(...)` | matrix call | fused `AᵀB` / `ABᵀ`, no transpose materialized |
+|  [03]   | `Matrix<T>.LU()` / `QR(QRMethod = Thin)` / `Cholesky()` | matrix call  | builds `LU<T>` / `QR<T>` / `Cholesky<T>` |
+|  [04]   | `Matrix<T>.Svd(bool computeVectors = true)` / `Evd(Symmetricity)` / `GramSchmidt()` | matrix call | builds `Svd<T>` / `Evd<T>` / `GramSchmidt<T>` |
+|  [05]   | `LU<T>.Solve` / `Cholesky<T>.Solve` / `QR<T>.Solve` / `Svd<T>.Solve` | factorization call | solves right-hand sides through `ISolver<T>` |
+|  [06]   | `Matrix<T>.Solve(Vector<T>)` / `Solve(Matrix<T>)` | matrix call      | auto-selected factorization solve     |
+|  [07]   | `Matrix<T>.Inverse()` / `PseudoInverse()`        | matrix call       | inverse / Moore-Penrose pseudoinverse |
+|  [08]   | `Matrix<T>.Rank()` / `Kernel()` / `Range()`      | matrix call       | numeric rank / null-space / column-space basis |
+|  [09]   | `Matrix<T>.Determinant()` / `ConditionNumber()`  | matrix call       | determinant / 2-norm condition number |
+|  [10]   | `Matrix<double>.Build.DenseOfArray(...)` / `Dense(rows, cols, value)` | factory call | dense matrix from array / by shape  |
+|  [11]   | `Matrix<double>.Build.SparseOfIndexed(...)` / `Sparse(...)` | factory call | sparse (CSR) matrix from indexed data |
+|  [12]   | `Matrix<T>.SubMatrix(...)` / `SetSubMatrix(...)` | matrix call        | extracts / writes a tile in place     |
 
-[ENTRYPOINT_SCOPE]: sparse ingestion + solve
+[ENTRYPOINT_SCOPE]: sparse ingestion + iterative solve
 - rail: numeric
 
-Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC storage from indexed entries.
+MathNet sparse imports normalize to CSR via the `Of*` family; the direct sparse path consumes CSparse CSC (`api-csparse`). The iterative `Solve` seam carries an `Iterator<T>` (composed `IIterationStopCriterion<T>`) and an `IPreconditioner<T>`.
 
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]       | [CAPABILITY]                    |
-| :-----: | :------------------------------------------------------------------- | :----------------- | :------------------------------ |
-|  [01]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseRowFormat`    | static factory     | direct CSR import               |
-|  [02]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseColumnFormat` | static factory     | CSC import to CSR               |
-|  [03]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat`             | static factory     | COO import to CSR               |
-|  [04]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable`            | static factory     | indexed import to CSR           |
-|  [05]   | `CSparse.Storage.CompressedColumnStorage<T>.OfIndexed`               | static factory     | CSparse CSC import              |
-|  [06]   | `SparseCholesky.Create`                                              | static factory     | factors a CSparse CSC matrix    |
-|  [07]   | `SparseLU.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
-|  [08]   | `SparseQR.Create`                                                    | static factory     | factors a CSparse CSC matrix    |
-|  [09]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
-|  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]   | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseRowFormat(...)` | static factory | direct CSR import               |
+|  [02]   | `SparseCompressedRowMatrixStorage<T>.OfCompressedSparseColumnFormat(...)` | static factory | CSC import to CSR               |
+|  [03]   | `SparseCompressedRowMatrixStorage<T>.OfCoordinateFormat(...)`       | static factory | COO import to CSR               |
+|  [04]   | `SparseCompressedRowMatrixStorage<T>.OfIndexedEnumerable(...)`      | static factory | indexed enumerable import to CSR|
+|  [05]   | `IIterativeSolver<double>.Solve(matrix, input, result, Iterator, IPreconditioner)` | solver call | iterative solve with stop criteria + preconditioner |
+|  [06]   | `new Iterator<double>(params IIterationStopCriterion<double>[])`    | constructor    | compose residual/iteration/divergence stop criteria |
+|  [07]   | `Iterator<double>.DetermineStatus(...)` / `Cancel()` / `Reset()`    | instance       | drive / cancel the iteration; `IterationStatus` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PROVIDER_SELECTION]:
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.Providers.LinearAlgebra`
-- façade: `Control` (top-level), `LinearAlgebraControl` (provider-level)
-- selection: `UseManaged`, `TryUseNativeMKL`, `TryUseNativeOpenBLAS` — the `Try*` variants return `false` instead of throwing on missing native assets
-- RID reality: MKL native assets are x64-only (`MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`); no `MathNet.Numerics.MKL.OSX` or `OpenBLAS.OSX` package exists; osx-arm64 falls back to `UseManaged`
+- façade: `Control` (selection + parallelism + diagnostics), `LinearAlgebraControl` (provider-level), `MklLinearAlgebraControl`/`OpenBlasLinearAlgebraControl` (per-provider tuning)
+- selection: `UseManaged`, `Try*Native*` (`false` instead of throwing on a missing native asset), `UseBestProviders`/`ConfigureAuto` (MKL → CUDA → OpenBLAS → managed); the canonical pattern is `TryUse*` so a missing asset degrades, never throws
+- managed governor: on osx-arm64 (no native asset) `Control.MaxDegreeOfParallelism`/`UseMultiThreading`/`UseSingleThread` are the only performance levers — managed multithreading governs every dense product when no native provider loads
+- MKL tuning: `MklConsistency` {Auto, Compatible, SSE2, SSE4_2, AVX, AVX2} fixes the code path for bitwise cross-run determinism; `MklPrecision` {Single, Double} and `MklAccuracy` {Low, High} trade speed for accuracy — `UseNativeMKL(consistency, precision, accuracy)` is the deterministic-reproducibility entry a benchmark/receipt lane needs
+- RID reality: MKL/OpenBLAS native assets are x64-only (`MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`); no `.OSX` asset exists; osx-arm64 falls back to `UseManaged`
 
 [DENSE_ALGEBRA]:
 - namespace: `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Factorization`
-- carrier: `Matrix<double>` / `Vector<double>` — the numeric-lane composes these directly, never a package-local matrix wrapper
-- factorizations: `LU`, `QR`, `Cholesky`, `Svd`, `Evd` build from `Matrix<T>` instance methods and solve through their `Solve` members
-- GEMM: `Matrix<T>.Multiply` routes through the active `ILinearAlgebraProvider`, so provider selection governs every dense product
+- carrier: `Matrix<double>`/`Vector<double>` — the numeric lane composes these directly, never a package-local matrix wrapper; `Matrix<double>.Build` (`MatrixBuilder<T>`) is the dense+sparse factory owner
+- factorizations: `LU`/`QR`/`Cholesky`/`Svd`/`Evd`/`GramSchmidt` build from `Matrix<T>` instance methods and solve through their `Solve` members; `Matrix<T>.Solve` auto-selects a factorization for a one-shot solve
+- analysis: `Rank`/`Kernel`/`Range`/`Inverse`/`PseudoInverse`/`Determinant`/`ConditionNumber` are first-class — a witness DOF analysis reads `Matrix<double>.Rank()` and the `Svd` `U`-tail rather than re-deriving rank
+- GEMM: `Matrix<T>.Multiply` and the fused `TransposeThisAndMultiply`/`TransposeAndMultiply` route through the active `ILinearAlgebraProvider`, so provider selection governs every dense product
 
 [SPARSE_SOLVE]:
-- namespace: `MathNet.Numerics.LinearAlgebra.Storage`, `CSparse.Double.Factorization`
-- storage: `SparseCompressedRowMatrixStorage<T>` is the only native MathNet sparse matrix form (CSR); CSC/COO/DOK are ingestion conversions via the `Of*` factories, never separate storage types
-- direct solvers: `CSparse.Double.Factorization.SparseCholesky`/`SparseLU`/`SparseQR` factor a CSparse `CompressedColumnStorage<double>` (CSC) and solve in place
-- iterative solvers: `BiCgStab`/`GpBiCg`/`TFQMR`/`MlkBiCgStab` over MathNet sparse matrices with an `Iterator<T>` stop-criteria control
+- namespace: `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Double.Solvers`, `CSparse.Double.Factorization`
+- storage: `SparseCompressedRowMatrixStorage<T>` is the only native MathNet sparse matrix form (CSR); CSC/COO/indexed are ingestion conversions via the `Of*` factories, never separate storage types
+- direct solvers: the direct sparse path is CSparse — `SparseCholesky`/`SparseLU`/`SparseQR` over a CSC `CompressedColumnStorage<double>` with `Refactorize` amortization (`api-csparse`); MathNet owns the iterative path
+- iterative solvers: `BiCgStab`/`GpBiCg`/`TFQMR`/`MlkBiCgStab` over MathNet sparse matrices; the `Solve(matrix, input, result, Iterator, IPreconditioner)` seam composes stop criteria via `IIterationStopCriterion<T>` and an `IPreconditioner<T>` — the iterator carries cancellation and `IterationStatus`
+
+[STACK]:
+- The dense solve stacks under a LanguageExt `Fin` rail emitting a typed receipt (`Geometry/Processing/solver`): `Try.lift(() => spd.Cholesky().Solve(rhs)).Run()` maps a singular/indefinite factorization to a typed `GeometryFault.SingularSystem` over `Fin<Vector<double>>`, never a thrown exception — the factorization is the BLAS-class numeric, the `Try.lift`/`Fin` is the rail, the `SolveReceipt` (residual norm, iteration count, terminal damping, `DofAnalysis`) is the typed evidence
+- The witness DOF refinement stacks the analytical surface: `Matrix<double>.Rank()` plus `Svd` `U`-tail projection distinguishes redundant-consistent from over-constrained — the analysis members are composed, never a hand-rolled rank reduction
+- `Control` selection happens ONCE at composition (the numeric lane's provider selector), then every `Matrix<double>.Multiply`/factorization in the process routes the chosen provider; `Control.Describe()` flows into the benchmark/solve receipt as the provider-rank fact, so a run records which BLAS it executed on
+- The direct (`CSparse`) and iterative (`MathNet`) sparse strategies and the dense (`MathNet`) lane meet at the `SolveReceipt` boundary — density and reusability are the discriminants (dense small SPD, CSC direct with `Refactorize` for repeated solves, iterative for systems too large to factor), all folding the same typed receipt under the same `Fin` rail
 
 [LOCAL_ADMISSION]:
-- The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site `Control.UseNativeMKL()` is the named defect.
-- Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default.
-- The sparse format axis is an ingestion discriminant over CSR-backed storage, not four storage types.
+- The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site `Control.UseNativeMKL()` is the named defect
+- Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default — `Control.Describe()` and the MKL tuning levers are the receipt's provider facts
+- The MathNet sparse format axis is an ingestion discriminant over CSR-backed storage, not four storage types; the CSC direct path is CSparse (`api-csparse`)
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (+ `.Providers.MKL`, `.Providers.OpenBLAS`), `CSparse`
-- Owns: dense + sparse BLAS-class algebra, native-provider selection, matrix factorization
-- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/DOK sparse ingestion, direct + iterative solve
-- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches
+- Owns: dense BLAS-class algebra + analysis, native-provider selection + managed parallelism governor, the full factorization family, CSR ingestion, MathNet iterative solvers
+- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/indexed sparse ingestion, direct (CSparse) + iterative (MathNet) solve, MKL determinism/precision tuning
+- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches, a hand-rolled rank/inverse/pseudoinverse beside the `Matrix<T>` analytical surface

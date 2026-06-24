@@ -1,16 +1,25 @@
 # [RASM_PERSISTENCE_API_NPGSQL_EF_NODATIME]
 
-`Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` plugs NodaTime values into the
-EF Core PostgreSQL provider, supplying type mappings, query translators,
-aggregate translation, and SQL function projections.
+`Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` plugs NodaTime values into the EF Core PostgreSQL
+provider, supplying `timestamptz`/`date`/`time`/`timetz`/`interval`/range/multirange type mappings,
+method and member query translators, aggregate translation, an evaluatable-expression filter that
+keeps NodaTime calls in SQL, and the `DbFunctions` SQL function projections (`Sum`/`Average` over
+durations, `Distance`, `RangeAgg`, `RangeIntersectAgg`). It stacks onto `api-npgsql-ef`: the single
+`UseNodaTime()` call registers the plugin alongside `UseNetTopologySuite()` (`api-nts-ef`) and the
+Pgvector resolver (`api-pgvector-ef`) on one `NpgsqlDbContextOptionsBuilder`, and the NodaTime CLR
+types it maps are the same ones `api-nodatime` and `api-nodatime-stj` carry through the receipt and
+wire seams — so a persisted `Instant`/`Period`/`Interval` round-trips one canonical clock vocabulary
+from C# domain to `timestamptz` and back.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- namespace: `Microsoft.EntityFrameworkCore`
-- provider package: `Npgsql.EntityFrameworkCore.PostgreSQL`
+- version: `10.0.2`
+- license: `PostgreSQL`
+- assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` (`lib/net10.0`, the consumer-bound TFM)
+- namespace: `Microsoft.EntityFrameworkCore` (public extensions); plugin internals under `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime.*.Internal`
+- provider package: `Npgsql.EntityFrameworkCore.PostgreSQL` (`api-npgsql-ef`); ADO codecs via transitive `Npgsql.NodaTime`
 - asset: runtime library
 - rail: store-provider
 
@@ -79,12 +88,15 @@ aggregate translation, and SQL function projections.
 [ENTRYPOINT_SCOPE]: SQL function projections
 - rail: temporal-values
 
+All projections are `public static` extensions on `DbFunctions` (the `this DbFunctions _` receiver),
+usable only inside an EF query tree; `Sum`/`Average` return nullable (`Period?`/`Duration?`).
+
 | [INDEX] | [SURFACE]                                        | [CALL_SHAPE]            | [CAPABILITY]                                                        |
 | :-----: | :----------------------------------------------- | :---------------------- | :------------------------------------------------------------------ |
-|  [01]   | `Sum(IEnumerable<Period>)`                       | `DbFunctions` extension | sums `Period` values                                                |
-|  [02]   | `Sum(IEnumerable<Duration>)`                     | `DbFunctions` extension | sums `Duration` values                                              |
-|  [03]   | `Average(IEnumerable<Period>)`                   | `DbFunctions` extension | averages `Period` values                                            |
-|  [04]   | `Average(IEnumerable<Duration>)`                 | `DbFunctions` extension | averages `Duration` values                                          |
+|  [01]   | `Period? Sum(IEnumerable<Period>)`               | `DbFunctions` extension | sums `Period` values                                                |
+|  [02]   | `Duration? Sum(IEnumerable<Duration>)`           | `DbFunctions` extension | sums `Duration` values                                              |
+|  [03]   | `Period? Average(IEnumerable<Period>)`           | `DbFunctions` extension | averages `Period` values                                            |
+|  [04]   | `Duration? Average(IEnumerable<Duration>)`       | `DbFunctions` extension | averages `Duration` values                                          |
 |  [05]   | `Distance(Instant, Instant)`                     | `DbFunctions` extension | integer distance between instants                                   |
 |  [06]   | `Distance(ZonedDateTime, ZonedDateTime)`         | `DbFunctions` extension | integer distance between zoned datetimes                            |
 |  [07]   | `Distance(LocalDateTime, LocalDateTime)`         | `DbFunctions` extension | integer distance between local datetimes                            |
@@ -100,17 +112,22 @@ aggregate translation, and SQL function projections.
 
 [STORE_PROFILE]:
 - profile: the NodaTime plugin is temporal mapping policy for the PostgreSQL store profile
-- admission root: `UseNodaTime` on `NpgsqlDbContextOptionsBuilder` — single method, no overloads
+- admission root: `UseNodaTime(this NpgsqlDbContextOptionsBuilder)` — single method, no overloads
 - mapping root: `timestamptz`, `date`, `time`, `timetz`, `interval`, range, and multirange mappings
-- query root: NodaTime method, member, and aggregate translation
+- query root: NodaTime method, member, and aggregate translation; the evaluatable-expression filter keeps NodaTime calls in SQL rather than client-evaluating them
+
+[INTEGRATION_STACK]:
+- `UseNodaTime()` chains onto the `api-npgsql-ef` `UseNpgsql(...)` options alongside `UseNetTopologySuite()` (`api-nts-ef`) and the Pgvector resolver (`api-pgvector-ef`) — three plugins on one `NpgsqlDbContextOptionsBuilder`, each contributing a `TypeMappingSourcePlugin` and translator plugins through the EF service graph; `AddEntityFrameworkNpgsqlNodaTime(this IServiceCollection)` is the explicit-DI mirror when the provider is registered manually
+- the mapped CLR types are the `api-nodatime` vocabulary; `api-nodatime-stj` (`ConfigureForNodaTime`/`WithIsoIntervalConverter`) carries the same `Instant`/`Interval`/`Period` across the System.Text.Json wire, so a value persisted to `timestamptz` and a value serialized into a snapshot frame share one clock model and never diverge
+- the `DbFunctions` SQL projections are the query-side surface the design composes: `Distance`/`Sum`/`Average` over durations feed retention/window aggregates, and `RangeAgg`/`RangeIntersectAgg` over `Interval`/`DateInterval` build the validity-window set algebra the temporal/time-travel queries read — these stay inside EF query trees and never client-evaluate
+- the `LegacyTimestampInstantMapping` (`Instant` → bare `timestamp`) exists for legacy columns only; the profile binds `Instant` → `timestamptz` through `TimestampTzInstantMapping`, so a wall-clock-without-zone column is the deleted shape
 
 [LOCAL_ADMISSION]:
-- NodaTime mapping enters only through the PostgreSQL store-profile declaration.
-- Persisted time semantics use NodaTime types per the temporal-values rail.
-- Range and multirange mappings are profile metadata, not public service families.
-- SQL function projections are query facts and stay inside profile queries.
-- `Distance` overloads return `int` (not `TimeSpan`) for all NodaTime types — this differs from the BCL `DbFunctions` extension which returns `TimeSpan` for `DateTime`.
-- All four `RangeIntersectAgg` overloads are decompile-verified: scalar `Interval`/`DateInterval` and multirange `Interval[]`/`DateInterval[]` inputs.
+- NodaTime mapping enters only through the PostgreSQL store-profile declaration; persisted time semantics use NodaTime types per the temporal-values rail
+- range and multirange mappings are profile metadata, not public service families; the translator/scaffolding/options plugin types are internal EF service registrations, not a consumer surface
+- SQL function projections are query facts and stay inside profile queries
+- `Distance` overloads return `int` for all four NodaTime types (`Instant`/`ZonedDateTime`/`LocalDateTime`/`LocalDate`) — the PostgreSQL `<->` operator difference, never a `TimeSpan` or `Duration`; a consumer that expects a duration-typed distance from a NodaTime store contract is the named defect
+- all four `RangeIntersectAgg` overloads are decompile-verified: scalar `Interval`/`DateInterval` (returns the scalar) and multirange `Interval[]`/`DateInterval[]` (returns the array)
 
 [RAIL_LAW]:
 - Package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`

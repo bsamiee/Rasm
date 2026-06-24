@@ -223,7 +223,7 @@ for the Compute geometry interchange rail.
 |  [02]   | `IfcSystem`                          | geometry | functional system grouping under `IfcGroup`; `ServicesBuildings`                            |
 |  [03]   | `IfcBuildingSystem`                  | geometry | building-system grouping; `PredefinedType` (`IfcBuildingSystemTypeEnum`)                    |
 |  [04]   | `IfcDistributionSystem`              | geometry | MEP distribution system; `PredefinedType` (`IfcDistributionSystemEnum`), member element set |
-|  [05]   | `IfcZone`                            | geometry | functional zone aggregating spaces across storeys; `PredefinedType`                         |
+|  [05]   | `IfcZone`                            | geometry | functional zone aggregating spaces across storeys; `LongName` + ctor `(IfcSpatialElement, string, List<IfcSpace>)` — carries NO `PredefinedType` in 25.7.30 (see enum row `IfcZone`) |
 |  [06]   | `IfcSpatialZone`                     | geometry | fire/thermal/construction/occupancy zone; `PredefinedType` (`IfcSpatialZoneTypeEnum`)       |
 |  [07]   | `IfcRelReferencedInSpatialStructure` | geometry | references an element into a spatial structure it is not contained in; many-to-many overlay |
 |  [08]   | `IfcRelServicesBuildings`            | geometry | binds a system to the spatial structures it serves                                          |
@@ -459,8 +459,8 @@ for the Compute geometry interchange rail.
 |  [05]   | `DatabaseIfc.ModelView`                      | property     | active model view                                |
 |  [06]   | `DatabaseIfc.Tolerance`                      | property     | geometric tolerance                              |
 |  [07]   | `DatabaseIfc.ToleranceAngleRadians`          | property     | angular tolerance in radians                     |
-|  [08]   | `DatabaseIfc.ScaleSI`                        | property     | SI length scale                                  |
-|  [09]   | `DatabaseIfc.ScaleAngle`                     | scale call   | active angle scale factor                        |
+|  [08]   | `DatabaseIfc.ScaleAngle()`                   | method       | active angle scale factor (arity 0)              |
+|  [09]   | `IfcUnitAssignment.ScaleSI(IfcUnitEnum)` / `(IfcDerivedUnitEnum)` | method | unit→SI scale factor; lives on the context's `IfcUnitAssignment`, NOT on `DatabaseIfc` |
 |  [10]   | `DatabaseIfc.this[int stepId]`               | indexer      | entity by STEP record id                         |
 |  [11]   | `DatabaseIfc.this[string globalID]`          | indexer      | entity by IFC GlobalId                           |
 |  [12]   | `DatabaseIfc` enumeration                    | enumeration  | iterates all entities                            |
@@ -567,7 +567,7 @@ for the Compute geometry interchange rail.
 - format-explicit read: `ReadJSONFile`/`ReadJSON` for IFC-JSON, `ReadXMLFile`/`ReadXMLDoc` for IFC-XML
 - write root: `DatabaseIfc.WriteFile` emits STEP physical file; `DatabaseIfc.ToString(FormatIfcSerialization)` selects `STEP`, `XML`, or `JSON`
 - schema is database-level state: set via `DatabaseIfc(ReleaseVersion)` / `DatabaseIfc(ModelView)` and read via `Release` / `ModelView`
-- STEP physical-file header metadata is exposed via `STEPFileInformation` on `DatabaseSTEP<T>.OriginatingFileInformation`; fields: `FileDescriptionViewDefinition`, `FileName`, `TimeStamp`, `Author`, `Organization`, `OriginatingSystem`, `Authorization`
+- STEP physical-file header metadata is exposed via `STEPFileInformation` on `DatabaseSTEP<T>.OriginatingFileInformation`; fields: `FileDescriptionViewDefinition`/`FileDescriptionExchangeRequirements`/`FileDescriptions` (`List<string>`), `FileImplementationLevel` (`string`), `FileName` (`string`), `TimeStamp` (`DateTime`), `Author`/`Organization` (`List<string>`), `PreProcessorVersion`, `OriginatingSystem`, `Authorization` (`string`)
 
 [AP242_STEP_READ]:
 - The package reads all STEP physical file (`.ifc`, `.stp`) versions through `new DatabaseIfc(filePath)` without schema pre-selection; schema is auto-resolved from the file header

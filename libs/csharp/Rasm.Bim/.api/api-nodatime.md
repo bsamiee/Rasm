@@ -1,19 +1,29 @@
 # [RASM_BIM_API_NODATIME]
 
 `NodaTime` supplies semantic instants, local calendar values, offsets, zones, periods,
-durations, intervals, clocks, resolvers, and text patterns for AppHost receipts,
-health snapshots, support windows, and persisted clock facts.
+durations, intervals, clocks, resolvers, text patterns, and the `TimeProvider`/BCL
+interop bridge for AppHost receipts, health snapshots, support windows, and persisted
+clock facts. It stacks under the Bim time rail as the calendar-truth owner: the
+`NodaTime.Serialization.SystemTextJson` and `NodaTime.Serialization.Protobuf` adapter
+packages (catalogued separately, both pinned in the Interchange manifest) bridge these
+value types to the STJ and protobuf wire seams, so a receipt timestamp authored as an
+`Instant` round-trips through the wire codec without a hand-rolled converter.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime`
 - package: `NodaTime`
+- version: `3.3.2`
+- license: Apache-2.0
 - assembly: `NodaTime`
 - namespace: `NodaTime`
 - namespace: `NodaTime.Text`
 - namespace: `NodaTime.TimeZones`
-- namespace: `NodaTime.HighPerformance`
-- asset: runtime library
+- namespace: `NodaTime.Extensions`
+- namespace: `NodaTime.Calendars`
+- namespace: `NodaTime.Xml`
+- asset: net8.0, netstandard2.0; the net10.0 consumer binds the `lib/net8.0` asset (no net9/net10 asset ships, so the bound surface is the net8.0 one)
+- asset: IL-only AnyCPU managed assembly; bundled IANA TZDB resource; no native binaries
 - rail: time
 
 ## [02]-[PUBLIC_TYPES]
@@ -61,48 +71,78 @@ health snapshots, support windows, and persisted clock facts.
 |  [14]   | `AmbiguousTimeException` | mapping exception | duplicate local time     |
 |  [15]   | `SkippedTimeException`   | mapping exception | skipped local time       |
 
-[PUBLIC_TYPE_SCOPE]: text interop and high-performance family
+[PUBLIC_TYPE_SCOPE]: text pattern family (`NodaTime.Text`)
 - rail: time
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                    |
-| :-----: | :------------------------- | :---------------- | :------------------------ |
-|  [01]   | `IPattern<T>`              | pattern contract  | parse/format abstraction  |
-|  [02]   | `ParseResult<T>`           | parse result      | parse success/failure     |
-|  [03]   | `InstantPattern`           | instant pattern   | persisted instant text    |
-|  [04]   | `LocalDatePattern`         | date pattern      | calendar text             |
-|  [05]   | `LocalDateTimePattern`     | timestamp pattern | local timestamp text      |
-|  [06]   | `OffsetDateTimePattern`    | offset pattern    | offset timestamp text     |
-|  [07]   | `ZonedDateTimePattern`     | zone pattern      | zoned timestamp text      |
-|  [08]   | `DurationPattern`          | duration pattern  | elapsed span text         |
-|  [09]   | `PeriodPattern`            | period pattern    | calendar span text        |
-|  [10]   | `TypeConverterSettings`    | converter policy  | type-converter admission  |
-|  [11]   | `XmlSerializationSettings` | XML policy        | XML projection admission  |
-|  [12]   | `Instant64`                | compact instant   | high-performance instant  |
-|  [13]   | `Duration64`               | compact duration  | high-performance duration |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [RAIL]                   |
+| :-----: | :---------------------- | :---------------- | :----------------------- |
+|  [01]   | `IPattern<T>`           | pattern contract  | parse/format abstraction |
+|  [02]   | `ParseResult<T>`        | parse result      | parse success/failure    |
+|  [03]   | `InstantPattern`        | instant pattern   | persisted instant text   |
+|  [04]   | `LocalDatePattern`      | date pattern      | calendar text            |
+|  [05]   | `LocalTimePattern`      | time pattern      | local time text          |
+|  [06]   | `LocalDateTimePattern`  | timestamp pattern | local timestamp text     |
+|  [07]   | `OffsetPattern`         | offset pattern    | UTC-offset text          |
+|  [08]   | `OffsetDateTimePattern` | offset pattern    | offset timestamp text    |
+|  [09]   | `ZonedDateTimePattern`  | zone pattern      | zoned timestamp text     |
+|  [10]   | `DurationPattern`       | duration pattern  | elapsed span text        |
+|  [11]   | `PeriodPattern`         | period pattern    | calendar span text       |
+|  [12]   | `YearMonthPattern`      | month pattern     | calendar-month text      |
+|  [13]   | `AnnualDatePattern`     | recurring pattern | annual-date text         |
+|  [14]   | `CompositePatternBuilder` | pattern composer | format-dispatched multi-pattern (non-generic builder; `Add(IPattern<T>, predicate)` per branch) |
+|  [15]   | `InvalidPatternException` | pattern failure | malformed pattern reject |
+|  [16]   | `TypeConverterSettings` | converter policy  | type-converter admission |
+
+[PUBLIC_TYPE_SCOPE]: BCL/`TimeProvider` interop family (`NodaTime.Extensions`, `NodaTime.Xml`)
+- rail: time
+- note: the BCL bridge is the named seam to the elapsed-timing owner — `TimeProviderExtensions.ToClock`/`GetCurrentInstant` is how a `System.TimeProvider` (the `LOCAL_ADMISSION` elapsed-timing owner) projects into a NodaTime `IClock` without a parallel clock type, so the same injected `TimeProvider` drives both the delay axis and the calendar-truth axis.
+
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]      | [RAIL]                       |
+| :-----: | :-------------------------- | :----------------- | :--------------------------- |
+|  [01]   | `TimeProviderExtensions`    | `TimeProvider` bridge | `TimeProvider` -> `IClock`/`ZonedClock` |
+|  [02]   | `ClockExtensions`           | clock bridge       | `IClock` -> `ZonedClock` (`InZone`/`InUtc`) |
+|  [03]   | `DateTimeOffsetExtensions`  | BCL bridge         | `DateTimeOffset` -> `Instant`/`OffsetDateTime`/`ZonedDateTime` |
+|  [04]   | `DateTimeZoneProviderExtensions` | provider bridge | provider default-zone resolution |
+|  [05]   | `XmlSerializationSettings`  | XML policy         | XML projection admission     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instant local and span operations
 - rail: time
 
-| [INDEX] | [SURFACE]                        | [ENTRY_FAMILY]     | [RAIL]                      |
-| :-----: | :------------------------------- | :----------------- | :-------------------------- |
-|  [01]   | `IClock.GetCurrentInstant`       | clock read         | current instant             |
-|  [02]   | `SystemClock.Instance`           | clock singleton    | real clock                  |
-|  [03]   | `Instant.FromUnixTime*`          | epoch conversion   | external timestamp intake   |
-|  [04]   | `Instant.ToUnixTime*`            | epoch conversion   | external timestamp output   |
-|  [05]   | `Instant.InUtc`                  | zone projection    | UTC timestamp projection    |
-|  [06]   | `Instant.InZone`                 | zone projection    | zoned timestamp projection  |
-|  [07]   | `Instant.WithOffset`             | offset projection  | offset timestamp projection |
-|  [08]   | `LocalDate.AtStartOfDayInZone`   | zone mapping       | date boundary projection    |
-|  [09]   | `LocalDateTime.InZoneStrictly`   | strict mapping     | rejects ambiguous input     |
-|  [10]   | `LocalDateTime.InZoneLeniently`  | lenient mapping    | resolves ambiguous input    |
-|  [11]   | `LocalDateTime.InZone(resolver)` | resolver mapping   | explicit mapping policy     |
-|  [12]   | `Duration.From*`                 | duration factory   | elapsed span construction   |
-|  [13]   | `Period.From*`                   | period factory     | calendar span construction  |
-|  [14]   | `Period.Between`                 | period calculation | calendar span difference    |
-|  [15]   | `PeriodBuilder.Build`            | period builder     | mutable span finalization   |
-|  [16]   | `Interval.Contains`              | interval predicate | receipt-window membership   |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]     | [RAIL]                      |
+| :-----: | :--------------------------------- | :----------------- | :-------------------------- |
+|  [01]   | `IClock.GetCurrentInstant`         | clock read         | current instant             |
+|  [02]   | `SystemClock.Instance`             | clock singleton    | real clock                  |
+|  [03]   | `Instant.FromUnixTimeSeconds`/`FromUnixTimeMilliseconds`/`FromUnixTimeTicks` | epoch conversion | external timestamp intake |
+|  [04]   | `Instant.ToUnixTimeSeconds`/`ToUnixTimeMilliseconds`/`ToUnixTimeTicks` | epoch conversion | external timestamp output |
+|  [05]   | `Instant.ToUnixTimeSecondsAndNanoseconds` | epoch conversion | `(seconds, nanoseconds)` tuple intake/output |
+|  [06]   | `Instant.FromUtc`                  | calendar intake    | UTC y/m/d/h/m[/s] construction |
+|  [07]   | `Instant.FromDateTimeUtc`/`FromDateTimeOffset` | BCL intake | `DateTime`/`DateTimeOffset` -> `Instant` |
+|  [08]   | `Instant.InUtc`                    | zone projection    | UTC timestamp projection    |
+|  [09]   | `Instant.InZone`                   | zone projection    | zoned timestamp projection  |
+|  [10]   | `Instant.WithOffset`               | offset projection  | offset timestamp projection |
+|  [11]   | `LocalDate.AtStartOfDayInZone`     | zone mapping       | date boundary projection    |
+|  [12]   | `LocalDateTime.InZoneStrictly`     | strict mapping     | rejects ambiguous input     |
+|  [13]   | `LocalDateTime.InZoneLeniently`    | lenient mapping    | resolves ambiguous input    |
+|  [14]   | `LocalDateTime.InZone(resolver)`   | resolver mapping   | explicit mapping policy     |
+|  [15]   | `Duration.From*`                   | duration factory   | elapsed span construction   |
+|  [16]   | `Period.From*`                     | period factory     | calendar span construction  |
+|  [17]   | `Period.Between`                   | period calculation | calendar span difference    |
+|  [18]   | `PeriodBuilder.Build`              | period builder     | mutable span finalization   |
+|  [19]   | `Interval.Contains`                | interval predicate | receipt-window membership   |
+|  [20]   | `Interval.Start`/`End`/`Duration`  | interval projection | receipt-window bounds + elapsed span |
+
+[ENTRYPOINT_SCOPE]: `TimeProvider`/BCL interop entrypoints
+- rail: time
+
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]     | [RAIL]                       |
+| :-----: | :----------------------------------------------- | :----------------- | :--------------------------- |
+|  [01]   | `TimeProviderExtensions.ToClock(this TimeProvider)` | `TimeProvider` bridge | injected `TimeProvider` -> NodaTime `IClock` |
+|  [02]   | `TimeProviderExtensions.GetCurrentInstant(this TimeProvider)` | `TimeProvider` read | `TimeProvider` now-instant without an `IClock` |
+|  [03]   | `TimeProviderExtensions.ToZonedClock(this TimeProvider[, CalendarSystem])` | `TimeProvider` bridge | injected `TimeProvider` -> `ZonedClock` |
+|  [04]   | `ClockExtensions.InZone`/`InUtc`/`InTzdbSystemDefaultZone` | clock bridge | `IClock` -> `ZonedClock` |
+|  [05]   | `DateTimeOffsetExtensions.ToInstant`/`ToOffsetDateTime`/`ToZonedDateTime` | BCL bridge | `DateTimeOffset` boundary intake |
 
 [ENTRYPOINT_SCOPE]: zone calendar and resolver operations
 - rail: time
@@ -154,16 +194,22 @@ health snapshots, support windows, and persisted clock facts.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TIME_TOPOLOGY]:
-- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.HighPerformance`
+- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Extensions`, `NodaTime.Calendars`, `NodaTime.Xml`
 - instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime`
 - local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`
 - calendar types: `CalendarSystem`, `YearMonth`, `IsoDayOfWeek`, calendar eras
 - duration types: `Duration`, `Period`, `PeriodBuilder`, `DateInterval`, `Interval`
 - zone providers: `DateTimeZoneProviders.Tzdb`, `DateTimeZoneProviders.Bcl`
 - zone mapping: strict, lenient, explicit resolver, ambiguous mapping, skipped mapping
-- text patterns: `InstantPattern`, local-date patterns, zoned-date-time patterns
-- interop surfaces: BCL conversion extensions, XML settings, type converter settings
-- compact surfaces: `Instant64`, `Duration64`
+- text patterns: `InstantPattern`, local-date patterns, zoned-date-time patterns, `NodaTime.Text.CompositePatternBuilder` for format-dispatched multi-pattern parse
+- interop surfaces: `NodaTime.Extensions` BCL/`TimeProvider` bridges (`ToClock`, `GetCurrentInstant`, `ToInstant`), `NodaTime.Xml` settings, `NodaTime.Text.TypeConverterSettings`
+- wire adapters (separate packages, both manifest-pinned): `NodaTime.Serialization.SystemTextJson` (STJ converter registration) and `NodaTime.Serialization.Protobuf` (protobuf `Timestamp`/`Duration` mapping) — the value types here are authored canonical and serialized through these adapters, never a hand-rolled JSON/proto converter
+
+[INTEGRATION_STACK]:
+- clock seam: a single injected `System.TimeProvider` is the one elapsed-timing root; `TimeProviderExtensions.ToClock` projects it into a NodaTime `IClock` so receipt timestamps (`Instant`) and delay/timeout work share one fake-able clock under test — no parallel `SystemClock` direct read in domain code, no second injected clock type.
+- wire seam: an `Instant`/`ZonedDateTime`/`Duration` authored canonical serializes through `NodaTime.Serialization.SystemTextJson` (registered once on the STJ options the Bim wire codec owns) and `NodaTime.Serialization.Protobuf` (the protobuf `Timestamp`/`Duration` field mapping), so the same receipt fact crosses the JSON and protobuf boundaries with identity-preserving round-trip rather than a per-boundary converter.
+- hash seam: a persisted clock fact that participates in a snapshot fingerprint formats through an invariant `InstantPattern.ExtendedIso`/`PeriodPattern.Roundtrip` BEFORE the `System.IO.Hashing` `XxHash3.Append` so the identity hash is stable across cultures and machines — a culture-ambient `ToString()` would make the fingerprint non-deterministic.
+- text seam: `CompositePatternBuilder` owns multi-format intake (e.g. an external feed mixing RFC-3339 and extended-ISO) as one format-dispatched parser, not a try/catch ladder over sibling `IPattern<T>` instances.
 
 [LOCAL_ADMISSION]:
 - Receipts store semantic instants, not local wall-clock values.

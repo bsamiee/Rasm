@@ -48,6 +48,7 @@
     <ItemGroup Label="Analytical Egress And Chunking">
         <PackageReference Include="Apache.Arrow" />
         <PackageReference Include="Apache.Arrow.Adbc" />
+        <PackageReference Include="Apache.Arrow.Compression" />
         <PackageReference Include="Apache.Arrow.Flight" />
         <PackageReference Include="FastCDC.Net" />
     </ItemGroup>

@@ -10,13 +10,16 @@ namespace and registered through the `SharpGLTF.Core` extension factory.
 
 [PACKAGE_SURFACE]: `SharpGLTF.Ext.3DTiles`
 - package: `SharpGLTF.Ext.3DTiles`
+- version: `1.0.6`
+- license: MIT
 - assembly: `SharpGLTF.Ext.3DTiles`
-- namespace: `SharpGLTF.Schema2.Tiles3D`
-- namespace: `SharpGLTF.Schema2`
-- namespace: `SharpGLTF.Memory`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
-- dependency: `SharpGLTF.Core` >= 1.0.6
-- dependency: `OneOf` >= 3.0.271
+- namespace: `SharpGLTF.Schema2.Tiles3D` (extension types, schema model, storage builders, feature-ID family)
+- namespace: `SharpGLTF.Schema2` (`Tiles3DExtensions` registration/binding statics; `ComponentCount` static size queries)
+- namespace: `SharpGLTF.Memory` (`BinaryTable` static binary encoder)
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- asset: IL-only AnyCPU managed assembly; no native binaries
+- dependency: `SharpGLTF.Core` >= 1.0.6 (the extension factory + `ModelRoot`/`MeshPrimitive`/`Node` it attaches to)
+- dependency: `OneOf` >= 3.0.271 (transitive; surfaced only on the `FeatureIDBuilder` ctor)
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
@@ -40,14 +43,15 @@ namespace and registered through the `SharpGLTF.Core` extension factory.
 - namespace: `SharpGLTF.Schema2.Tiles3D`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                    | [RAIL]   | [CAPABILITY]                                                         |
-| :-----: | :-------------------------- | :------- | :------------------------------------------------------------------- |
-|  [01]   | `PropertyTable`             | geometry | per-feature value store; `ClassName`, `Count`, property accessors    |
-|  [02]   | `PropertyTableProperty`     | geometry | one table column; `SetValues<T>` / `SetArrayValues<T>` binary encode |
-|  [03]   | `PropertyTexture`           | geometry | texture-channel value store; `CreateProperty` binds texture channels |
-|  [04]   | `PropertyTextureProperty`   | geometry | one texture-backed property; `Channels`, `Texture`                   |
-|  [05]   | `PropertyAttribute`         | geometry | vertex-attribute value store; `CreateProperty` binds an attribute    |
-|  [06]   | `PropertyAttributeProperty` | geometry | one attribute-backed property; `Attribute` accessor name             |
+| [INDEX] | [SYMBOL]                          | [RAIL]   | [CAPABILITY]                                                         |
+| :-----: | :-------------------------------- | :------- | :------------------------------------------------------------------- |
+|  [01]   | `PropertyTable`                   | geometry | per-feature value store; `ClassName`, `Count`, property accessors    |
+|  [02]   | `PropertyTableProperty`           | geometry | one table column; `SetValues<T>` / `SetArrayValues<T>` binary encode |
+|  [03]   | `PropertyTexture`                 | geometry | texture-channel value store; `CreateProperty` binds texture channels |
+|  [04]   | `PropertyTextureProperty`         | geometry | one texture-backed property; `Channels`, `Texture`                   |
+|  [05]   | `PropertyAttribute`               | geometry | vertex-attribute value store; `CreateProperty` binds an attribute    |
+|  [06]   | `PropertyAttributeProperty`       | geometry | one attribute-backed property; `Attribute` accessor name             |
+|  [07]   | `ExtStructuralMetadataMeshPrimitive` | geometry | per-`MeshPrimitive` `EXT_structural_metadata` carrier; `PropertyCount`/`AttributeCount`, `Add`/`GetTexture`, `Add`/`GetAttribute` — the primitive-level store `AddPropertyTexture`/`AddPropertyAttribute` write into |
 
 [PUBLIC_TYPE_SCOPE]: Tiles3D — mesh and instance feature IDs
 - package: `SharpGLTF.Ext.3DTiles`
@@ -75,8 +79,8 @@ namespace and registered through the `SharpGLTF.Core` extension factory.
 |  [02]   | `DataType`        | geometry | component type: `INT8`–`UINT64`, `FLOAT32`, `FLOAT64`                                 |
 |  [03]   | `IntegerType`     | geometry | integer component type: `INT8`–`UINT64`                                               |
 |  [04]   | `ArrayOffsetType` | geometry | array offset width: `UINT8`, `UINT16`, `UINT32`, `UINT64`                             |
-|  [05]   | `BinaryTable`     | geometry | static binary encode for property storage; bytes, string/array offsets                |
-|  [06]   | `ComponentCount`  | geometry | static size queries: `ByteSizeForComponentType`, `ElementCountForType`                |
+|  [05]   | `BinaryTable`     | geometry | (`SharpGLTF.Memory`) static binary encode for property storage; bytes, string/array offsets |
+|  [06]   | `ComponentCount`  | geometry | (`SharpGLTF.Schema2`) static size queries: `ByteSizeForComponentType`, `ElementCountForType` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -146,7 +150,7 @@ namespace and registered through the `SharpGLTF.Core` extension factory.
 |  [07]   | `MeshExtMeshFeatures.CreateFeatureID`     | `(IMeshFeatureIDInfo)` or `()`                                                                                                       | adds a mesh feature-ID set                    |
 |  [08]   | `MeshExtInstanceFeatures.CreateFeatureID` | `(IMeshFeatureIDInfo)` or `()`                                                                                                       | adds an instance feature-ID set               |
 |  [09]   | `MeshExtMeshFeatureID.UseTexture`         | `()`                                                                                                                                 | creates the feature-ID texture binding        |
-|  [10]   | `ExtraProperties.GetExtension<T>`         | `()` on `MeshPrimitive`, `Node`, or `ModelRoot`                                                                                      | reads a Tiles3D extension after import        |
+|  [10]   | `ExtraProperties.GetExtension<T>`         | `() where T : JsonSerializable` on `MeshPrimitive`, `Node`, or `ModelRoot`                                                            | reads a Tiles3D extension after import (`MeshExtMeshFeatures`/`ExtStructuralMetadataMeshPrimitive` on a primitive, `MeshExtInstanceFeatures` on a node, `EXTStructuralMetadataRoot` on the model) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -6,10 +6,12 @@
 
 [PACKAGE_SURFACE]: `Kiwi`
 - package: `Kiwi`
+- version: `3.0.0`
 - assembly: `Kiwi`
 - namespace: `Nanoray.Kiwi`
-- asset: runtime library (pure managed)
+- asset: runtime library (pure managed, zero native dependency)
 - license: Apache-2.0
+- build-floor: ships `lib/net5.0` + `lib/net6.0`; the `net10.0` consumer binds `lib/net6.0` (highest TFM ≤ consumer), which is the surface documented here
 - rail: layout
 
 ## [02]-[PUBLIC_TYPES]
@@ -101,22 +103,24 @@
 [ENTRYPOINT_SCOPE]: expression assembly
 - rail: layout
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]   | [RAIL]                               |
-| :-----: | :-------------------------------------------------------------- | :--------------- | :----------------------------------- |
-|  [01]   | `new Variable(string? name)`                                    | constructor      | unknown over default `VariableStore` |
-|  [02]   | `Variable.Value` / `Name` / `Store`                             | property         | read solved value, label, storage    |
-|  [03]   | `new Term(Variable, double Coefficient = 1.0)`                  | record ctor      | single weighted variable             |
-|  [04]   | `new Expression(IReadOnlyCollection<Term>, double constant)`    | constructor      | terms plus constant linear form      |
-|  [05]   | `Variable`/`Term`/`Expression` `+ - * /` operators              | operator algebra | fluent linear-form construction      |
-|  [06]   | `Expression.Value` / `Terms` / `Constant` / `IsConstant`        | property         | expression inspection                |
-|  [07]   | `Strength.Required` / `Strong` / `Medium` / `Weak` / `Disabled` | static field     | named priority constants             |
-|  [08]   | `Strength.Create(a, b, c, w)` / `Clip(value)`                   | static method    | lexicographic strength assembly      |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]      | [RAIL]                                            |
+| :-----: | :------------------------------------------------------------------------ | :------------------ | :------------------------------------------------ |
+|  [01]   | `new Variable(string? name)` / `new Variable(IVariableStore, string?)`     | constructor         | unknown over default or injected `VariableStore`  |
+|  [02]   | `Variable.Value` (get/set) / `Name` (get/set) / `Store` (get)             | property            | read/write solved value, label, storage           |
+|  [03]   | `new Term(Variable, double Coefficient = 1.0)` / `Term.Value`             | record ctor + prop  | single weighted variable, `Variable.Value × Coef` |
+|  [04]   | `new Expression(IReadOnlyCollection<Term>, double constant = 0.0)`         | constructor         | terms plus constant linear form                   |
+|  [05]   | `new Expression(Term, double)` / `new Expression(double)`                  | constructor         | single-term and constant-only forms               |
+|  [06]   | `implicit operator Expression(Variable / Term / double)`                   | implicit conversion | bare `Variable`/`Term`/scalar flows as expression  |
+|  [07]   | `Variable`/`Term`/`Expression` `+ - * /` and unary `-` operators           | operator algebra    | fluent linear-form construction across all carriers |
+|  [08]   | `Expression.Value` / `Terms` (`IReadOnlyList<Term>`) / `Constant` / `IsConstant` | property      | expression inspection                             |
+|  [09]   | `Strength.Required` / `Strong` / `Medium` / `Weak` / `Disabled`           | static field        | named priority constants                          |
+|  [10]   | `Strength.Create(a, b, c, w = 1.0)` / `Clip(value)`                       | static method       | lexicographic strength assembly, `[Disabled,Required]` clamp |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KIWI_TOPOLOGY]:
-- Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double` and `Variable + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so a layout expression composes through C# operators rather than builder calls.
-- `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)`; `Expression` is a `readonly struct` holding an `ImmutableArray<Term>` plus a `double Constant`, with `Value` summing `Term.Value` (each `Variable.Value * Coefficient`) and the constant.
+- Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so a layout expression composes through C# operators rather than builder calls. `Variable`, `Term`, and `double` each carry an `implicit operator Expression`, so a bare `Variable` or scalar passes directly into `Constraint.Equal`/`LessEqual`/`GreaterEqual`/`Make` and `AddEditVariable` without an explicit wrap.
+- `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)` whose `Value` is `Variable.Value * Coefficient`; `Expression` is a `readonly struct` whose public `Terms` is `IReadOnlyList<Term>` (backed by an internal `ImmutableArray<Term>`) plus a `double Constant`, with `Value` summing each `Term.Value` and the constant, and `IsConstant` true when no terms remain.
 - `Constraint` binds a reduced `Expression` to a `RelationalOperator` at a clipped `double` strength; the constraint normalizes both sides into `expression <op> 0`, so `Equal`/`LessEqual`/`GreaterEqual`/`Make` all subtract `rhs` from `lhs` before constructing.
 - `Constraint` identity is handle-based: `Equals`, `==`, and `GetHashCode` compare the internal shared `ConstraintData` instance, not structural expression/operator/strength equality, so two separately constructed but value-equivalent constraints are not equal and the clone constructor without a new strength shares the same data handle.
 - `Strength` is a lexicographic packing of strong/medium/weak components scaled by `1e6`/`1e3`/`1`: `Required = Create(1000, 1000, 1000)`, `Strong = Create(1, 0, 0)`, `Medium = Create(0, 1, 0)`, `Weak = Create(0, 0, 1)`, `Disabled = 0.0`; `Clip` bounds any strength to `[Disabled, Required]`.
@@ -128,6 +132,11 @@
 - Fixed structural rules use `Strength.Required`; competing preferences use `Strong`/`Medium`/`Weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
 - Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions.
+
+[STACKING]:
+- Live drive from the data rail: a `DynamicData` change-set of layout deltas (drag/resize edits flowing through `SourceCache.Edit`) projects through `Transform` into per-edit `(Variable, double)` pairs, and the subscription calls `Solver.TrySuggestValue` per delta then `Solver.Solve` once per frame — the constraint solve is the sink of the live-data rail, never a parallel mutation path. The same `Connect().Bind(...)` that feeds the visual collection and the `Solve()` pass share one observable so a single edit re-flows both.
+- Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
+- Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
 
 [RAIL_LAW]:
 - Package: `Kiwi`

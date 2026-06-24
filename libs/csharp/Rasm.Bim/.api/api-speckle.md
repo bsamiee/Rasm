@@ -7,17 +7,20 @@
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
 - version: `3.21.1`
+- license: Apache-2.0
 - assembly: `Speckle.Sdk`
 - namespace: `Speckle.Sdk.Models`, `Speckle.Sdk.Models.Extensions`, `Speckle.Sdk.Models.GraphTraversal`, `Speckle.Sdk.Common`
-- asset: net10.0, net8.0, netstandard2.0
+- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
+- asset: IL-only managed assembly; ILRepacks its closure (GraphQL.Client, STJ) — the host-neutral exchange assembly consumes it, never the in-Rhino plugin ALC
 - rail: interchange
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
 - version: `3.21.1`
+- license: Apache-2.0
 - assembly: `Speckle.Objects`
 - namespace: `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects`
-- asset: net10.0, net8.0, netstandard2.0
+- asset: net10.0, net8.0, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
 - rail: interchange
 
 ## [02]-[PUBLIC_TYPES]
@@ -47,7 +50,7 @@
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                                                                   |
 | :-----: | :--------------- | :------------ | :----------------------------------------------------------------------- |
-|  [01]   | `DataObject`     | data class    | base host object; `name`, `displayValue` `List<Base>`, `properties` dict |
+|  [01]   | `DataObject`     | data class    | base host object; `IDataObject`/`IProperties`/`IDisplayValue<IReadOnlyList<Base>>`; `name`, `displayValue` `List<Base>`, `properties` dict |
 |  [02]   | `RevitObject`    | data subtype  | adds `type`/`family`/`category`/`level`/`location`/`elements`            |
 |  [03]   | `TeklaObject`    | data subtype  | adds `type`/`elements`                                                   |
 |  [04]   | `ArchicadObject` | data subtype  | Archicad host element; `DataObject` parameter dictionary                 |

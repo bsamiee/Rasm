@@ -11,29 +11,31 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 [PACKAGE_SURFACE]: `ProjNET`
 - package: `ProjNET`
 - version: `2.1.0`
+- license: MIT (NetTopologySuite ecosystem)
 - assembly: `ProjNet`
+- namespace: `ProjNet` (top-level — owns `CoordinateSystemServices`)
 - namespace: `ProjNet.CoordinateSystems`
 - namespace: `ProjNet.CoordinateSystems.Transformations`
 - namespace: `ProjNet.CoordinateSystems.Projections`
 - namespace: `ProjNet.IO.CoordinateSystems`
-- asset: net6.0, net8.0, netstandard2.0; IL-only AnyCPU managed assembly, no native binaries
-- asset: NetTopologySuite-ecosystem peer (MIT); thread-safe `CoordinateSystemServices` cache
+- asset: netstandard2.0, netstandard2.1 ONLY; the net10.0 consumer binds the `lib/netstandard2.1` asset. No net6.0/net8.0 asset ships — the bound surface is the netstandard2.1 build, whose `MathTransform` carries the `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads (the netstandard2.0 build has the same managed surface)
+- asset: IL-only AnyCPU managed assembly; thread-safe `CoordinateSystemServices` cache; no P/Invoke, no native PROJ
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system services and factories
 - package: `ProjNET`
-- namespace: `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`
+- namespace: `ProjNet` (services), `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`
 - rail: geometry
 
 | [INDEX] | [SYMBOL]                          | [RAIL]   | [CAPABILITY]                                                                                              |
 | :-----: | :-------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CoordinateSystemServices`        | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`                |
+|  [01]   | `ProjNet.CoordinateSystemServices` | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`, `GetSRID`. Top-level `ProjNet` namespace, NOT `ProjNet.CoordinateSystems`. Ctors: `()` (bundled `SRID.csv`), `(IEnumerable<KeyValuePair<int,string>> definitions)` (custom SRID->WKT source), `(CoordinateSystemFactory, CoordinateTransformationFactory[, IEnumerable<KeyValuePair<int,string>>])` |
 |  [02]   | `CoordinateSystemFactory`         | geometry | builds CS objects; `CreateFromWkt`, `CreateGeographicCoordinateSystem`, `CreateProjectedCoordinateSystem` |
 |  [03]   | `CoordinateTransformationFactory` | geometry | builds transformations; `CreateFromCoordinateSystems(source, target)`                                     |
-|  [04]   | `ICoordinateTransformation`       | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`                          |
-|  [05]   | `MathTransform`                   | geometry | numeric transform pipeline; `Transform`, `Inverse`, `DimSource`, `DimTarget`                              |
+|  [04]   | `ICoordinateTransformation`       | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`, `AreaOfUse`, `Authority`/`AuthorityCode` |
+|  [05]   | `MathTransform`                   | geometry | numeric transform pipeline; abstract `Transform(ref x,ref y,ref z)` + per-coord, array, list, and `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads; `Inverse`/`Invert`, `Derivative`, `GetDomainFlags`, `DimSource`/`DimTarget` |
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system models and units
 - package: `ProjNET`
@@ -83,25 +85,37 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                    | [CAPABILITY]                                    |
 | :-----: | :---------------------------------------- | :---------------------------------------------- | :---------------------------------------------- |
 |  [01]   | `MathTransform.Transform`                 | `(double x, double y)` → `(double x, double y)` | transforms one 2D coordinate                    |
-|  [02]   | `MathTransform.Transform`                 | `(ref double x, ref double y, ref double z)`    | transforms one 3D coordinate in place           |
-|  [03]   | `MathTransform.Transform`                 | `(double[] point)` → `double[]`                 | transforms a single ordinate array              |
-|  [04]   | `MathTransform.TransformList`             | `(IList<double[]>)` → `IList<double[]>`         | transforms a batch of coordinates               |
-|  [05]   | `MathTransform.Inverse`                   | `()` → `MathTransform`                          | the reverse transform (target → source)         |
-|  [06]   | `MathTransform.DimSource`/`DimTarget`     | property                                        | source/target ordinate dimensionality           |
-|  [07]   | `ICoordinateTransformation.MathTransform` | property                                        | the numeric transform of a built transformation |
+|  [02]   | `MathTransform.Transform`                 | `(double x, double y, double z)` → `(double, double, double)` | transforms one 3D coordinate, returns tuple |
+|  [03]   | `MathTransform.Transform`                 | `(ref double x, ref double y, ref double z)`    | abstract core; transforms one 3D coordinate in place |
+|  [04]   | `MathTransform.Transform`                 | `(double[] point)` → `double[]`                 | transforms a single ordinate array              |
+|  [05]   | `MathTransform.Transform`                 | `(Span<XYZ> xyzs)`                              | strongly-typed `double`-XYZ batch in place; `XYZ` is `double`-backed (24 B), so this aliases a `double` triple buffer, NOT a `float` glTF buffer |
+|  [06]   | `MathTransform.Transform`                 | `(Span<XY> xys, Span<double> zs = default, int strideZ = 0)` | `double`-XY batch + optional Z column; `XY` is `double`-backed (16 B) |
+|  [07]   | `MathTransform.Transform`                 | `(Span<double> xs, Span<double> ys, int strideX=1, int strideY=1)` | strided `double` XY pair batch (Z assumed 0); the 2-column twin of `[08]` |
+|  [08]   | `MathTransform.Transform`                 | `(Span<double> xs, Span<double> ys, Span<double> zs, int strideX=1, int strideY=1, int strideZ=1)` | strided `double` struct-of-arrays batch over three reinterpreted ordinate columns of one `double` vertex span |
+|  [09]   | `MathTransform.TransformList`             | `(IList<double[]>)` → `IList<double[]>`         | array-of-arrays batch (allocating)              |
+|  [10]   | `MathTransform.Inverse` / `Invert`        | `()` → `MathTransform` / in-place               | the reverse transform (target → source)         |
+|  [11]   | `MathTransform.Derivative`                | `(double[] point)` → `double[,]`                | Jacobian at a point (gradient/error propagation) |
+|  [12]   | `MathTransform.DimSource`/`DimTarget`     | property                                        | source/target ordinate dimensionality           |
+|  [13]   | `ICoordinateTransformation.MathTransform` | property                                        | the numeric transform of a built transformation |
+|  [14]   | `ICoordinateTransformation.AreaOfUse`     | property                                        | EPSG area-of-validity string for the built transform |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_BOUNDARY]:
-- ships a single managed `ProjNet.dll`; no P/Invoke, no native PROJ dependency, no `runtimes/` assets
+- ships a single managed `ProjNet.dll` (netstandard2.0/2.1 only); no P/Invoke, no native PROJ dependency, no `runtimes/` assets; the net10.0 consumer binds the netstandard2.1 asset
 - transformation is pure double-precision numeric; no geometry kernel, no topology
-- the bundled `SRID.csv` EPSG table is the default SRID source; a custom CS source overrides it through the `CoordinateSystemServices` constructor
+- the bundled `SRID.csv` EPSG table is the default SRID source; a custom SRID->WKT source overrides it through the `CoordinateSystemServices(IEnumerable<KeyValuePair<int,string>> definitions)` constructor
 
 [CRS_TRANSFORM]:
 - transformation root: `CoordinateSystemServices.CreateTransformation(sourceSrid, targetSrid)` yields an `ICoordinateTransformation` whose `.MathTransform` transforms ordinates
 - datum bridge: a `HorizontalDatum.Wgs84Parameters` Bursa-Wolf 7-parameter set drives the datum-to-datum shift the `CoordinateTransformationFactory` concatenates between two `ProjectedCoordinateSystem` instances with distinct datums
 - projection axis: each `ProjectedCoordinateSystem` carries its `Projection` (Transverse Mercator, Lambert, etc.) and `ProjectionParameter` list resolved from the EPSG/WKT definition
 - inverse: `MathTransform.Inverse()` returns the reverse pipeline so a round-trip (forward then inverse) recovers the source ordinate within numeric tolerance
+- batch rail (integration): EVERY `MathTransform` batch overload is double-precision — the `Span<double>` strided overloads and the `XY`/`XYZ`-typed overloads all operate on `double` ordinates (`XY` is 16 B, `XYZ` is 24 B, both `double`-backed; there is NO `Span<float>`/`float[]` overload). The `Semantics/georeference#GEODETIC_TRANSFORM` `Reproject` leg holds an interleaved `Span<float>` vertex span, so the dense composition is NOT a raw `MemoryMarshal.Cast<float,double>` reinterpret (that misreads the bytes); it is a single batch call over a `double` staging buffer: widen the three `float` ordinate columns into a pooled `Span<double>` (or `double[]`), invoke `MathTransform.Transform(Span<double> xs, Span<double> ys, Span<double> zs, strideX, strideY, strideZ)` once over the staged struct-of-arrays columns, then narrow back to the `float` vertices. That single staged batch call replaces the per-vertex `Transform(ref x, ref y, ref z)` loop the design page currently runs — the per-vertex `ref` loop is the readable but un-batched fallback that already does the same widen/narrow per ordinate inline. A buffer that is natively `double` `(x,y,z)` triples maps directly to `Transform(Span<XYZ>)` with no staging; natively-`double` interleaved columns map to the strided `Span<double>` overload with no staging.
+
+[NUMERIC_DERIVATIVE]:
+- `MathTransform.Derivative(double[] point)` returns the Jacobian `double[,]` at a point, so a reprojection-error or scale-distortion estimate at a federation origin composes off the package rather than a finite-difference probe.
+- `GetDomainFlags`/`GetCodomainConvexHull` report whether a coordinate set lies inside the transform's valid domain — the guard a multi-CRS federation reads before trusting a reprojected ordinate near a projection boundary.
 
 [LOCAL_ADMISSION]:
 - CRS resolution enters through `CoordinateSystemServices.GetCoordinateSystem(srid)` or `CoordinateSystemFactory.CreateFromWkt`.

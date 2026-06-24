@@ -7,11 +7,13 @@ for measured Compute execution.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Numerics.Tensors`
-- package: `System.Numerics.Tensors`
+- package: `System.Numerics.Tensors` (`10.0.9`)
 - assembly: `System.Numerics.Tensors`
+- license: MIT
 - namespaces: `System.Numerics.Tensors`, `System.Buffers`, `System.Runtime.InteropServices`
-- asset: runtime library
+- asset: runtime library (net10.0)
 - rail: tensor
+- roster: `TensorPrimitives` is the static vectorized-op kernel; `Tensor`/`Tensor<T>` the shaped owner; `TensorSpan<T>`/`ReadOnlyTensorSpan<T>` the strided views; `TensorShape`/`TensorFlags`/`TensorOperation` are the internal shape/flag/op-descriptor support types
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -117,9 +119,15 @@ for measured Compute execution.
 |  [10]   | `Tanh`             | transcendental call | computes hyperbolic op     |
 |  [11]   | `Sqrt`             | transcendental call | computes square root       |
 |  [12]   | `Cbrt`             | transcendental call | computes cube root         |
-|  [13]   | `DegreesToRadians` | transcendental call | converts angle units       |
+|  [13]   | `DegreesToRadians` | transcendental call | converts angle units; `RadiansToDegrees` mirrors it |
 |  [14]   | `Pow`              | transcendental call | computes power op          |
 |  [15]   | `Atan2`            | transcendental call | computes arctangent op     |
+|  [16]   | `Acos` / `Asin` / `Atan` | transcendental call | inverse-trig family; `*Pi` (`AcosPi`/`AsinPi`/`AtanPi`/`Atan2Pi`) divide-by-π variants |
+|  [17]   | `Acosh` / `Asinh` / `Atanh` | transcendental call | inverse-hyperbolic family             |
+|  [18]   | `Cosh` / `Sinh`    | transcendental call | hyperbolic family (paired with `Tanh`) |
+|  [19]   | `Exp2` / `Exp10` / `ExpM1` | transcendental call | base-2/base-10/`exp(x)-1` exponentials |
+|  [20]   | `Log2` / `Log10` / `LogP1` | logarithm call      | base-2/base-10/`log(1+x)` logarithms  |
+|  [21]   | `BitIncrement` / `BitDecrement` | primitive call | next/previous representable float       |
 
 [ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
 - rail: tensor
@@ -222,8 +230,13 @@ for measured Compute execution.
 - Shape, rank, stride, slicing, and conversion rules are explicit execution policy.
 - Model and vector rails can consume tensor spans without redefining tensor ownership.
 
+[INTEGRATION_STACKING]:
+- `TensorPrimitives` is the kernel substrate for `Tensor/dispatch#KERNEL_DISPATCH`: every span row binds the `TensorPrimitives` member matching its Pascal-cased `TensorOpFamily` key into a `FrozenDictionary<TensorOpFamily, …Kernel<T>>` delegate table, and the `Activations<T>` author-folds (`ReLU`/`Gelu`/`SiLU`/`LogSoftMax`) compose `TensorPrimitives.Clamp`/`Sigmoid`/`Multiply`/`MultiplyAdd`/`Tanh`/`Max`/`Exp`/`Sum`/`Subtract` — never a per-element loop and never a fabricated `TensorPrimitives.Relu` phantom.
+- The matrix family (`MatMul`, `Conv1D`/`2D`/`3D`) holds NO `TensorPrimitives` member: `Tensor/dispatch#KERNEL_DISPATCH` `Map` resolves these through the `Tensor/factor#KERNEL_LOWERING` GEMM/im2col-GEMM lowering or, under the device residency gate, the `Tensor/dispatch#DEVICE_KERNELS` WGSL `Silk.NET.WebGPU` `ComputePipeline` — a tensor span feeds a WGPU storage `Buffer` and a `Tensor<T>.GetPinnableReference`/`TensorMarshal.GetReference` root admits to an ORT device value through `Tensor/residency#ORT_BRIDGE` `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>(Tensor<T>)`, so the same `Tensor<T>` crosses the CPU `TensorPrimitives`, the WebGPU compute (`api-silk-webgpu.md`), and the ONNX device boundary with no parallel tensor type. `OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>` and the sibling C-data residency members (`CreateTensorValueWithData`/`CreateAllocatedTensorValue`/`BindOutputToDevice`) are owned by `api-onnxruntime.md` — a forward cross-catalog dependency this note tracks.
+- `Tensor.FillGaussianNormalDistribution`/`FillUniformDistribution` are the equivalence-sampler fillers `Tensor/dispatch#EQUIVALENCE_INTEROP` `EquivalenceLaw.Prove` calls (a hand-rolled sample-RNG loop is the deleted form); `Tensor.FilteredUpdate(in TensorSpan<T>, in ReadOnlyTensorSpan<bool>, in ReadOnlyTensorSpan<T>)` is the predicate-masked-write the `Mask`/`MaskedWrite` row binds (the unconditional `SetSlice` region overwrite that ignores the mask is the deleted form); `Tensor<T>.ToDenseTensor` densifies a permuted/sliced backing once before the `Pool` flat-window walk over a `GetDimensionSpan` cursor.
+
 [RAIL_LAW]:
-- Package: `System.Numerics.Tensors`
+- Package: `System.Numerics.Tensors` (`10.0.9`, MIT)
 - Owns: tensors, tensor spans, numeric primitives
-- Accept: measured tensor execution
-- Reject: bespoke tensor wrappers
+- Accept: measured tensor execution; `TensorPrimitives` delegate-table binding into the dispatch kernel surface; `Tensor<T>` as the one carrier crossing CPU/WebGPU/ONNX boundaries via `TensorMarshal.GetReference`/`GetPinnableReference`
+- Reject: bespoke tensor wrappers; a `DeviceTensor`/`GpuTensor` parallel type (device-ness is the `Tensor/residency#ORT_BRIDGE` residency discriminant); a single-call `TensorPrimitives.Normalize` row (it has no such member — compose `Norm` then `Divide`)

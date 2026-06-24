@@ -1,17 +1,26 @@
 # [RASM_PERSISTENCE_API_MESSAGEPACK]
 
 `MessagePack` supplies compact binary snapshot codecs, readers, writers,
-formatters, resolvers, security policy, compression hooks, extension headers,
-and annotation contracts.
+formatters, resolvers, security policy, LZ4 compression hooks, extension headers,
+and annotation contracts. The codec, the `ref`-struct reader/writer, the typeless
+type-allow security gate, the resolver-composition tree, and the LZ4 block/array
+native framing are all first-class — a snapshot rail composes a profile resolver, an
+`UntrustedData` security policy, and `Lz4BlockArray` compression into one
+`MessagePackSerializerOptions`, then feeds the serialized bytes to `XxHash128` for the
+content key.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
 - package: `MessagePack`
+- version: `3.1.7`
+- license: MIT
 - assembly: `MessagePack`
-- namespace: `MessagePack`
+- namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
+- bound asset: `lib/net9.0` (consumer-bound; package multi-targets net472/netstandard2.0/netstandard2.1/net8.0/net9.0 — there is NO net10.0 asset, so the net10.0 consumer binds the net9.0 surface)
 - asset: runtime library
 - rail: snapshot-codec
+- contract analyzer: `MessagePackAnalyzer` 3.1.7 (`api-messagepack-analyzer`) enforces `[Key]`/`[MessagePackObject]` contract completeness at build
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -35,7 +44,8 @@ and annotation contracts.
 `MessagePackSerializer.Typeless` static class: `DefaultOptions` (readable/settable, defaults to `TypelessContractlessStandardResolver.Options`), `Serialize` overloads (`ref MessagePackWriter`, `IBufferWriter<byte>`, `byte[]`, `Stream`), `SerializeAsync(Stream, ...)`, `Deserialize` overloads (`ref MessagePackReader`, `ReadOnlySequence<byte>`, `Stream`, `Memory<byte>`, `ReadOnlyMemory<byte>`), `DeserializeAsync(Stream, ...)`.
 
 `MessagePackCompression` enum cases: `None`, `Lz4Block` (ext type 99, single-block), `Lz4BlockArray` (ext type 98, chunked).
-`MessagePackSecurity` presets: `TrustedData` (no hash-collision resistance, unlimited depth), `UntrustedData` (hash-collision resistant). With* mutators: `WithMaximumObjectGraphDepth`, `WithMaximumDecompressedSize`, `WithHashCollisionResistant`.
+`MessagePackSecurity` defaults (both presets): `MaximumObjectGraphDepth = 500`, `MaximumDecompressedSize = int.MaxValue`. Presets differ only on `HashCollisionResistant`: `TrustedData` (`false` — sip-hash collision resistance off), `UntrustedData` (`true` — collision-resistant dictionary/set hashing). The depth cap is 500 on BOTH presets, not unlimited; tighten it per profile with `WithMaximumObjectGraphDepth`. With* mutators (each returns a new `MessagePackSecurity`): `WithMaximumObjectGraphDepth(int)`, `WithMaximumDecompressedSize(int)`, `WithHashCollisionResistant(bool)`. `public int GetHashCode(object)` is the collision-resistant hash the untrusted-data dictionaries key on; the per-type comparer factory `GetHashCollisionResistantEqualityComparer<T>()` is `protected virtual` (subclass override seam, not a public accessor).
+Typeless type-allow gate (on `MessagePackSerializerOptions`, overridable): `virtual Type? LoadType(string typeName)` resolves a typeless type header, and `virtual void ThrowIfDeserializingTypeIsDisallowed(Type)` (via protected `ThrowIfDeserializingTypeIsDisallowedCore`) is the deserialization-type allowlist seam — subclass the options to whitelist the snapshot's own types so a typeless payload cannot instantiate an arbitrary CLR type. `protected virtual MessagePackSerializerOptions Clone()` is the copy seam the `With*` mutators ride.
 
 [RESOLVER_TYPES]: resolver and formatter surfaces
 - rail: snapshot-codec
@@ -121,9 +131,12 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 |  [16]   | `MessagePackCompression.Lz4Block`        | compression row | single-block LZ4 framing (ext99)            |
 |  [17]   | `MessagePackStreamReader.ReadAsync`      | segment read    | next length-delimited frame                 |
 |  [18]   | `MessagePackStreamReader.ReadArrayAsync` | enumerable read | streamed array elements                     |
+|  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile |
+|  [20]   | `MessagePackSerializerOptions.LoadType`  | typeless gate   | resolve a typeless type header (override seam) |
+|  [21]   | `ThrowIfDeserializingTypeIsDisallowed`   | typeless gate   | type-allowlist override for untrusted typeless |
 
 `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>`; null signals end of stream.
-`MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`), `SequencePool`.
+`MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`, depth cap 500), `SequencePool` (default `SequencePool.Shared`).
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -133,6 +146,12 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 - policy root: `MessagePackSerializerOptions`
 - resolver root: formatter resolvers and generated resolvers
 - contract root: object, key, union, ignore, formatter, and constructor attributes
+
+[INTEGRATION_LAW]:
+- One `MessagePackSerializerOptions` stacks the three policy axes into a single profile value: `.WithResolver(CompositeResolver.Create(...))` composes the profile's source-generated formatters over a contract resolver; `.WithSecurity(MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(n))` bounds an untrusted-snapshot read; `.WithCompression(MessagePackCompression.Lz4BlockArray)` enables the chunked LZ4 native frame. The profile carries this one options value, never a per-call assembly of flags.
+- Content identity stacks downstream of the codec: `MessagePackSerializer.Serialize<T>(value, options)` produces the snapshot bytes, and `XxHash128.HashToUInt128` over those bytes (`api-hashing`) is the `Schema/identity#IDENTITY_LADDER` `ContentKey` — the codec owns the bytes, the hasher keys them, and `LZ4` compression is applied before hashing so the content key is over the stored (compressed) representation.
+- Untrusted-snapshot ingestion (a snapshot received from a peer over `Sync/egress`) reads under `UntrustedData` (collision-resistant hashing) plus a bounded `MaximumDecompressedSize` so a compression-bomb LZ4 frame faults instead of exhausting memory; a typeless snapshot additionally overrides `LoadType`/`ThrowIfDeserializingTypeIsDisallowed` to a profile-local type allowlist so the type header cannot instantiate an arbitrary CLR type.
+- `MessagePackStreamReader.ReadArrayAsync` is the framed-ingest seam for a length-delimited multi-snapshot stream (`api-objectstore` blob bodies), yielding one `ReadOnlySequence<byte>` per element under the same `SequencePool` as the codec.
 
 [LOCAL_ADMISSION]:
 - MessagePack is a codec inside snapshot profiles, not public Persistence vocabulary.

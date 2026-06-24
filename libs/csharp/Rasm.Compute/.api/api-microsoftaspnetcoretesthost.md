@@ -2,9 +2,15 @@
 
 `Microsoft.AspNetCore.TestHost` supplies an in-memory ASP.NET Core server whose
 `CreateHandler` mints an `HttpMessageHandler` over the request pipeline with no
-socket, the handler source the `RemoteTransport.InProcess` row injects to dial a
-`GrpcChannel` against the suite gRPC services without a live remote — the
-test-only seam that proves cross-process hand-off in-process.
+socket, the handler source the `RemoteTransport.InProcess` row injects into
+`GrpcChannelOptions.HttpHandler` (verified present on the admitted `Grpc.Net.Client`
+2.80.0) to dial a `GrpcChannel.ForAddress` against the suite gRPC services without a
+live remote — the test-only seam that proves cross-process hand-off in-process.
+Version `10.0.9` is MIT, rides the `Microsoft.Extensions` 10.0.x servicing line, and
+ships `lib/net10.0` (the consumer TFM is exact, no fallback). The handler stacks with
+the `NodaTime.Serialization.Protobuf` temporal conversions
+(`.api/api-nodatime-protobuf.md`) so a `Timestamp`/`Duration` round-trip is exercised
+over the in-memory pipeline.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -12,7 +18,7 @@ test-only seam that proves cross-process hand-off in-process.
 - package: `Microsoft.AspNetCore.TestHost`
 - assembly: `Microsoft.AspNetCore.TestHost`
 - namespace: `Microsoft.AspNetCore.TestHost`
-- asset: runtime library (test-only)
+- asset: runtime library (test-only; MIT; `lib/net10.0`)
 - rail: in-process-transport
 
 ## [02]-[PUBLIC_TYPES]
@@ -62,6 +68,7 @@ test-only seam that proves cross-process hand-off in-process.
 |  [01]   | `TestServer.BaseAddress`              | option property | sets the request base `Uri`           |
 |  [02]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`   |
 |  [03]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection` |
+|  [04]   | `TestServer.Host`                     | accessor        | reads the backing `IWebHost` (throws if constructed over an `IServiceProvider`, not an `IWebHostBuilder`) |
 |  [04]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access       |
 |  [05]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context   |
 |  [06]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`           |

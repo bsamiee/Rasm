@@ -111,6 +111,9 @@
 |  [15]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message)`                                                                |
 |  [16]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message, CancellationToken cancellationToken)`                           |
 |  [17]   | `IServerStreamWriter<T>`                      | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                               |
+|  [18]   | `WriteOptions.ctor`                           | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`                |
+|  [19]   | `WriteFlags`                                  | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                                |
+|  [20]   | `AsyncStreamReaderExtensions.MoveNext`        | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` — manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync` |
 |  [18]   | `Metadata.ctor`                               | `Metadata()`                                                                                |
 |  [19]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                        |
 |  [20]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                   |
@@ -134,18 +137,23 @@
 - contract: `ICompressionProvider` pairs an `EncodingName` with a compression and decompression stream factory
 - gzip: `GzipCompressionProvider` reports `"gzip"`; deflate: `DeflateCompressionProvider` reports `"deflate"`
 - the encoding name flows into the `grpc-encoding` and `grpc-accept-encoding` request and response headers
-- compression providers register on channel and server options, not on the call site
+- compression providers register on `GrpcChannelOptions.CompressionProviders` (client) and `GrpcServiceOptions.CompressionProviders` (server, transitive `Grpc.AspNetCore.Server`), not on the call site
 
 [SERVER_CALL_SURFACE]:
 - namespace: `Grpc.Core`
-- `ServerCallContext` exposes inbound `RequestHeaders`, outbound `ResponseTrailers`, the call `Status`, `WriteOptions`, `AuthContext`, `UserState`, and the call `CancellationToken`
+- `ServerCallContext` exposes inbound `RequestHeaders`, outbound `ResponseTrailers`, the call `Status`, `WriteOptions`, `AuthContext`, `UserState`, and the call `CancellationToken`; `CreatePropagationToken(ContextPropagationOptions?)` mints the token a downstream client call binds via `CallOptions.WithPropagationToken` to inherit the deadline.
 - `WriteResponseHeadersAsync(Metadata)` flushes leading response headers before the first message
-- `IServerStreamWriter<T>.WriteAsync` emits server-streaming messages; `WriteOptions` controls per-write buffering and flush behavior
-- `Metadata` is an `IList<Metadata.Entry>`; binary headers carry the `-bin` suffix and store raw `ValueBytes`
+- `IServerStreamWriter<T>.WriteAsync` emits server-streaming messages; `WriteOptions(WriteFlags)` controls per-write behavior — `WriteFlags.BufferHint` (1) defers the network flush to coalesce writes, `WriteFlags.NoCompress` (2) sends the message uncompressed regardless of the channel encoding
+- `Metadata` is an `IList<Metadata.Entry>`; binary headers carry the `-bin` suffix (`Metadata.BinaryHeaderSuffix`) and store raw `ValueBytes`; `Metadata.Empty` is the shared read-only empty instance
+
+[STACK_INTEGRATION]:
+- Symmetric fault rail: the server edge packs the typed `FaultDetail` into `google.rpc.Status` details and writes it to `ServerCallContext.ResponseTrailers`/`Status`; the `Grpc.Net.Client` client edge unpacks an `RpcException.Trailers` back onto the same typed `WireFault` union — one fault vocabulary, both directions, no parallel error DTO.
+- Shared compression axis: the same `ICompressionProvider` rows (`gzip`/`deflate`) register on BOTH the client `GrpcChannelOptions.CompressionProviders` and the server `GrpcServiceOptions.CompressionProviders` (`IList<ICompressionProvider> { get; }`, owned by the transitive `Grpc.AspNetCore.Server` — see `api-grpc-aspnetcore.md`), and the `EncodingName` flows through `grpc-encoding`/`grpc-accept-encoding` so a per-call `grpc-internal-encoding-request` selection negotiates against the peer's advertised set; `GrpcServiceOptions.ResponseCompressionAlgorithm` sets the server's default response encoding.
+- Server-streaming bridge: `IServerStreamWriter<T>.WriteAsync` on the server pairs with `IAsyncStreamReader<T>.ReadAllAsync` (the `Grpc.Net.Common` extension) on the client, so one streaming contract carries the same `IMessage<T>` payloads end to end; `WriteOptions.BufferHint` coalesces server writes that the client drains as one `IAsyncEnumerable<T>`.
 
 [LOCAL_ADMISSION]:
 - The AppHost `ControlService` consumes `ServerCallContext`, `IServerStreamWriter<T>`, and `Metadata` directly as the server-side call surface.
-- Compression provider registration is remote-wire policy and stays explicit at channel and server composition.
+- Compression provider registration is remote-wire policy and stays explicit at channel (`GrpcChannelOptions.CompressionProviders`) and server (`GrpcServiceOptions.CompressionProviders`) composition.
 - Metadata keys are header vocabulary; binary metadata uses the `-bin` suffix contract, never an ad hoc encoding.
 - `ConnectivityState` is read-only channel evidence, not a client-driven state machine.
 

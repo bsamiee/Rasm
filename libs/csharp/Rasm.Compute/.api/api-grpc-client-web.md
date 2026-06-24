@@ -19,10 +19,12 @@ paths.
 [PUBLIC_TYPE_SCOPE]: transport translation contracts
 - rail: remote-client
 
-| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]  | [CAPABILITY]                |
-| :-----: | :--------------- | :-------------- | :-------------------------- |
-|  [01]   | `GrpcWebHandler` | message handler | translates gRPC to gRPC-Web |
-|  [02]   | `GrpcWebMode`    | mode selector   | selects wire content type   |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]                  | [CAPABILITY]                |
+| :-----: | :--------------- | :------------------------------ | :-------------------------- |
+|  [01]   | `GrpcWebHandler` | `DelegatingHandler` subclass    | translates gRPC to gRPC-Web |
+|  [02]   | `GrpcWebMode`    | mode selector                   | selects wire content type   |
+
+`GrpcWebHandler` is a `DelegatingHandler`: it MUST wrap an inner `HttpMessageHandler` (the channel transport), so the gRPC-Web translation composes *on top of* a `SocketsHttpHandler` rather than replacing it — this is the stacking seam with `Grpc.Net.Client`'s `GrpcChannelOptions.HttpHandler`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -88,6 +90,12 @@ paths.
 - gRPC-Web transport carries unary and server-streaming calls
 - client-streaming and duplex calls stay on the HTTP/2 `Grpc.Net.Client` channel rail
 - HTTP version policy lives on `GrpcChannelOptions`; the handler `HttpVersion` override is obsolete
+
+[STACK_INTEGRATION]:
+- Single rail: the gRPC-Web row composes one handler chain — `GrpcWebHandler(GrpcWebMode.GrpcWeb, inner)` wrapping the BCL `SocketsHttpHandler` whose keepalive/pooling members (`KeepAlivePingDelay`, `EnableMultipleHttp2Connections`, `PooledConnectionIdleTimeout`) are threaded from the same `Grpc.Net.Client` channel-policy owner — and the chain enters `Grpc.Net.Client` via `GrpcChannelOptions.HttpHandler`. The handler never owns transport tuning; it only rewrites the wire frame.
+- `GrpcWebMode.GrpcWeb` (binary) is the admitted browser/HTTP-1.1 row; `GrpcWebText` (base64) is the google-client-only spelling the binary mode supersedes on the .NET client.
+- HTTP-version posture lives on `GrpcChannelOptions.HttpVersion`/`HttpVersionPolicy` (BCL `System.Net.Http`), never on the obsolete handler `HttpVersion` override.
+- The translated calls still classify their `RpcException` through the one `Grpc.Core.Api` status fold the HTTP/2 rail uses — gRPC-Web changes the frame, not the typed-fault rail.
 
 [LOCAL_ADMISSION]:
 - The handler enters the channel through `GrpcChannelOptions.HttpHandler` only.

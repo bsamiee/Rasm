@@ -1,18 +1,15 @@
 # [RASM_APPUI_API_SILK_OPENXR]
 
-`Silk.NET.OpenXR` is the managed OpenXR binding generated against the canonical `openxr.h` headers: `XR` is the static API entry exposing the global `CreateInstance`, an `Instance` enumerates a `SystemId`, a `Session` is created against a graphics-binding chain (the same `Device`/`Queue` the `Wgpu` `GpuBackend` family already owns, or a Vulkan/Metal/D3D12 binding), a `Swapchain` allocates the per-eye image array the stereo render targets bind, the frame loop runs `WaitFrame`/`BeginFrame`/`EndFrame` against a `CompositionLayerProjection`, and `xrLocateViews`/`xrLocateSpace` resolve the head and controller poses each frame. `Silk.NET.OpenXR.Extensions.KHR`/`EXT`/`FB` carry the vendor extension surface (`KHR_vulkan_enable2`, `KHR_composition_layer_depth`, `EXT_hand_tracking`, `FB_passthrough`) the immersive-review session negotiates at instance create. The binding shares the `Silk.NET.Core`/`Silk.NET.Maths` runtime the `Silk.NET.WebGPU` family already restores, so the `Wgpu` device the desktop viewport renders with is the same device the XR swapchain presents from — one GPU lifetime across the flat and immersive surfaces.
+`Silk.NET.OpenXR` is the managed OpenXR binding generated against the canonical `openxr.h` headers: `XR.GetApi()` returns the function-table root exposing the global `CreateInstance`, an `Instance` resolves a `SystemId`, a `Session` is created against a graphics-binding `next` chain (the same `Device`/`Queue` the `Wgpu` `GpuBackend` family already owns, or a Vulkan/Metal/D3D12 binding), a `Swapchain` allocates the per-eye image array the stereo render targets bind, the frame loop runs `WaitFrame`/`BeginFrame`/`EndFrame` against a `CompositionLayerProjection`, and `LocateViews`/`LocateSpace` resolve the head and controller poses each frame. Every entrypoint is an `unsafe Result Xxx(...)` instance method on the `XR` object taking raw pointers, mirrored by `ref readonly`/`ref` managed overloads. `Silk.NET.OpenXR.Extensions.KHR`/`EXT` carry the cross-vendor extension command-sets (`KhrVulkanEnable2`, `KhrVisibilityMask`, `ExtHandTracking`) the immersive-review session loads through the typed `XR.TryGetInstanceExtension<T>` rail at instance create; the Meta `FB_*` passthrough/anchor surface lives in the sibling `api-silk-openxr-fb.md`. The binding shares the `Silk.NET.Core`/`Silk.NET.Maths` runtime the `Silk.NET.WebGPU` family already restores, so the `Wgpu` device the desktop viewport renders with is the same device the XR swapchain presents from — one GPU lifetime across the flat and immersive surfaces.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR`
-- package: `Silk.NET.OpenXR`
-- package: `Silk.NET.OpenXR.Extensions.KHR`
-- package: `Silk.NET.OpenXR.Extensions.EXT`
-- assembly: `Silk.NET.OpenXR`
-- namespace: `Silk.NET.OpenXR`
-- namespace: `Silk.NET.OpenXR.Extensions.KHR`
-- namespace: `Silk.NET.OpenXR.Extensions.EXT`
-- asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime
+- package: `Silk.NET.OpenXR` (2.23.0, MIT) + `Silk.NET.OpenXR.Extensions.KHR` (2.23.0, MIT) + `Silk.NET.OpenXR.Extensions.EXT` (2.23.0, MIT) — the `FB` extension package is admitted separately and catalogued in `api-silk-openxr-fb.md`
+- assembly: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
+- namespace: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
+- asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime; `lib/net5.0` binds the `net10.0` consumer (highest available; the package also ships `netstandard2.1`/`netstandard2.0`/`netcoreapp3.1`)
+- depends: `Silk.NET.Core`, `Silk.NET.Maths` — shared with the `Silk.NET.WebGPU` family; extension classes are `NativeExtension<XR>` each carrying a `const string ExtensionName`
 - rail: viewport
 
 ## [02]-[PUBLIC_TYPES]
@@ -72,7 +69,8 @@
 |  [03]   | `GetSystem(Instance, SystemGetInfo*, SystemId*)`                 | `XR`           | resolve HMD            |
 |  [04]   | `EnumerateViewConfigurationViews(Instance, SystemId, type, ...)` | `XR`           | per-eye dimensions     |
 |  [05]   | `CreateSession(Instance, SessionCreateInfo*, Session*)`          | `XR`           | graphics-bound session |
-|  [06]   | `EnumerateInstanceExtensionProperties(layer, ...)`               | `XR`           | extension query        |
+|  [06]   | `EnumerateInstanceExtensionProperties(layer, ...)` / `IsInstanceExtensionPresent(layer, name)` | `XR` | available-extension query (`IsExtensionPresent` is `[Obsolete error]`) |
+|  [07]   | `TryGetInstanceExtension<T>(string? layer, Instance, out T ext) where T : NativeExtension<XR>` | `XR` | typed extension-table load (`KhrVulkanEnable2`/`ExtHandTracking`) |
 
 [ENTRYPOINT_SCOPE]: swapchain, space, and frame loop
 - rail: viewport
@@ -107,8 +105,9 @@
 [OPENXR_TOPOLOGY]:
 - `XR.GetApi()` returns the function-table root; every native call is an instance method on that `XR` object taking raw pointers to create-info structs — Silk.NET binds the C `openxr.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object, exactly as the `Silk.NET.WebGPU` family does.
 - The lifecycle is `Instance` (extensions enabled at create) -> `SystemId` (the resolved HMD) -> `Session` (created against the graphics-binding `next` chain) -> `Swapchain`s + reference `Space`s; the session runs the `WaitFrame`/`BeginFrame`/`LocateViews`/render-per-eye/`EndFrame` loop driven by the runtime-predicted display time, never a wall clock.
-- The graphics binding is the seam to the `Wgpu` `GpuBackend` device: an OpenXR session created with the Vulkan binding (`KHR_vulkan_enable2`, `GraphicsBindingVulkanKHR`) shares the same physical device, queue family, and queue index the wgpu instance negotiated, so the meshlet/path-trace/splat passes render into the OpenXR swapchain images with the one device — a second GPU device for the immersive path is the cross-adapter copy penalty the shared binding avoids.
-- `EndFrame` submits one `CompositionLayerProjection` per frame carrying two `CompositionLayerProjectionView` sub-images (left/right eye), each referencing a swapchain sub-image rectangle and the per-eye `Posef`+`Fovf` from `LocateViews`; `EnvironmentBlendMode` selects opaque VR, additive AR, or `FB_passthrough` mixed-reality compositing.
+- Extension negotiation is two-phase: name the wanted `ExtensionName` constants in `InstanceCreateInfo.EnabledExtensionNames` at create, then resolve each command-set after create through `xr.TryGetInstanceExtension<KhrVulkanEnable2>(null, instance, out var ext)` — the returned `NativeExtension<XR>` carries the `xrCreateVulkanDeviceKHR`/`xrCreateVulkanInstanceKHR`-class entrypoints. `IsInstanceExtensionPresent(layer, name)` gates availability before enabling; `IsExtensionPresent` is `[Obsolete error]`. The real cross-vendor command extensions in this binding are `KhrVulkanEnable`/`KhrVulkanEnable2`/`KhrVisibilityMask`/`KhrD3D11Enable`/`KhrD3D12Enable`/`KhrMetalEnable`/`KhrOpenglEnable`/`KhrLoaderInit` and `ExtHandTracking`/`ExtDebugUtils`/`ExtPlaneDetection`; depth-layer compositing is the struct `CompositionLayerDepthInfoKHR` chained onto a projection view, not a wrapped extension class.
+- The graphics binding is the seam to the `Wgpu` `GpuBackend` device: an OpenXR session created with the Vulkan binding (`KhrVulkanEnable2`, `GraphicsBindingVulkanKHR`) shares the same physical device, queue family, and queue index the wgpu instance negotiated, so the meshlet/path-trace/splat passes render into the OpenXR swapchain images with the one device — a second GPU device for the immersive path is the cross-adapter copy penalty the shared binding avoids.
+- `EndFrame` submits one `CompositionLayerProjection` per frame carrying two `CompositionLayerProjectionView` sub-images (left/right eye), each referencing a swapchain sub-image rectangle and the per-eye `Posef`+`Fovf` from `LocateViews`; `EnvironmentBlendMode` selects opaque VR or additive AR, and the Meta passthrough mixed-reality layer (`FBPassthrough`, `api-silk-openxr-fb.md`) composites under the rendered scene on the same `Session`/`Swapchain`.
 - Input is the action-set model: an `ActionSet` holds `Action`s bound to interaction-profile paths (`/user/hand/left/input/select/click`, `/user/hand/right/input/aim/pose`), `SyncActions` polls them per frame, and `GetActionStatePose`+`LocateSpace` resolves the controller pose the navigation and measurement tools read — a raw HID controller read is the rejected form because OpenXR owns the device abstraction.
 
 [LOCAL_ADMISSION]:

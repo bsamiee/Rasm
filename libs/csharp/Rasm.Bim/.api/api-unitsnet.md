@@ -3,18 +3,28 @@
 `UnitsNet` supplies dimensioned scalar quantities, their SI-base coercion, and the
 abbreviation parser the BIM `PropertySet`/`QuantitySet` rail uses to collapse the IFC
 `KindOf` axis (`IfcLengthMeasure`/`IfcAreaMeasure`/`IfcVolumeMeasure`/`IfcMassMeasure`/
-`IfcTimeMeasure`) into one canonical, unit-checked quantity value. Each quantity is a
-`readonly struct` implementing generic-math operators, so `QuantitySet` coercion stays an
-expression over typed values rather than a free `double`.
+`IfcTimeMeasure`) into one canonical, unit-checked quantity value. Each typed quantity is a
+`readonly struct` implementing `IArithmeticQuantity<TSelf, TUnit, double>`, `IValueQuantity<double>`,
+and the full generic-math operator set (`IAdditionOperators`/`ISubtractionOperators`/
+`IMultiplyOperators<TSelf, double, TSelf>`/`IDivisionOperators<TSelf, double, TSelf>`/
+`IComparisonOperators`/`IEqualityOperators`/`IParsable<TSelf>`), so `QuantitySet` coercion
+stays an expression over typed values rather than a free `double`. Cross-dimensional operators
+close the algebra (`Length * Length → Area`, `Length * Area → Volume`, `Length / Length → double`),
+so a base-quantity derivation never hand-multiplies raw scalars. The `Bim/semantics/properties#PROPERTY_SETS`
+`MeasureValue` value-carrier wraps exactly this surface: a `[Union]`/`[ValueObject]` collapse of the
+`KindOf` axis onto the typed-struct family that persists the SI-base scalar.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `UnitsNet`
 - package: `UnitsNet`
+- version: `5.75.0`
+- license: MIT-0
 - assembly: `UnitsNet`
 - namespace: `UnitsNet`
 - namespace: `UnitsNet.Units`
-- asset: runtime library
+- asset: net8.0, net9.0, netstandard2.0; the net10.0 consumer binds the `lib/net9.0` asset (no net10.0 asset ships, so the bound public surface is the net9.0 one — the typed-quantity generic-math interfaces are identical across all three TFMs)
+- asset: IL-only AnyCPU managed assembly; satellite `*.resources.dll` localization assemblies (fr-CA/nb-NO/ru-RU/zh-CN); no native binaries; ALC-safe inside the in-Rhino plugin assembly
 - rail: quantity
 
 ## [02]-[PUBLIC_TYPES]
@@ -97,27 +107,32 @@ expression over typed values rather than a free `double`.
 |  [08]   | `Quantity.Infos`                               | metadata roster     | registered-quantity inventory |
 |  [09]   | `Quantity.ByName`                              | metadata lookup     | name-to-`QuantityInfo` map    |
 |  [10]   | `Length.Parse` / `Length.TryParse`             | typed parse         | typed quantity-string parse   |
-|  [11]   | `UnitParser.Parse<TUnit>`                      | unit parse          | abbreviation-to-unit resolve  |
-|  [12]   | `UnitParser.TryParse<TUnit>`                   | unit try-parse      | non-throwing unit resolve     |
-|  [13]   | `UnitConverter.Default`                        | converter singleton | shared conversion registry    |
-|  [14]   | `UnitConverter.GetConversionFunction`          | conversion lookup   | unit-pair conversion delegate |
-|  [15]   | `IQuantity.As(Enum)`                           | erased projection   | erased value read in unit     |
-|  [16]   | `IQuantity.ToUnit(Enum)`                       | erased coercion     | erased re-based quantity      |
+|  [11]   | `UnitParser.Default`                           | parser singleton    | shared abbreviation parser (`= UnitsNetSetup.Default.UnitParser`) |
+|  [12]   | `UnitParser.Parse<TUnit>`                      | unit parse          | abbreviation-to-unit resolve  |
+|  [13]   | `UnitParser.TryParse<TUnit>`                   | unit try-parse      | non-throwing unit resolve     |
+|  [14]   | `UnitConverter.Default`                        | converter singleton | shared conversion registry    |
+|  [15]   | `UnitConverter.GetConversionFunction`          | conversion lookup   | unit-pair conversion delegate |
+|  [16]   | `IQuantity.As(Enum)`                           | erased projection   | erased value read in unit     |
+|  [17]   | `IQuantity.ToUnit(Enum)`                       | erased coercion     | erased re-based quantity      |
 
 [ENTRYPOINT_SCOPE]: typed aggregation and arithmetic
 - rail: quantity
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]     | [RAIL]                     |
 | :-----: | :---------------------------------- | :----------------- | :------------------------- |
-|  [01]   | `UnitMath.Sum<TQuantity>(Enum)`     | typed aggregation  | unit-checked quantity sum  |
-|  [02]   | `UnitMath.Min<TQuantity>(Enum)`     | typed aggregation  | unit-checked quantity min  |
-|  [03]   | `UnitMath.Max<TQuantity>(Enum)`     | typed aggregation  | unit-checked quantity max  |
-|  [04]   | `UnitMath.Average<TQuantity>(Enum)` | typed aggregation  | unit-checked quantity mean |
-|  [05]   | `UnitMath.Abs<TQuantity>`           | typed transform    | absolute quantity value    |
-|  [06]   | `operator +` / `operator -`         | additive operators | same-quantity arithmetic   |
-|  [07]   | `operator *` / `operator /`         | scaling operators  | scalar-quantity scaling    |
-|  [08]   | `IComparisonOperators<T,T,bool>`    | comparison surface | quantity ordering          |
-|  [09]   | `Length.Zero`                       | additive identity  | empty-quantity anchor      |
+|  [01]   | `UnitMath.Sum<TQuantity>(this IEnumerable<TQuantity>, Enum)`               | typed aggregation  | unit-checked quantity sum at the SI unit |
+|  [02]   | `UnitMath.Sum<TSource,TQuantity>(this IEnumerable<TSource>, Func<…>, Enum)` | projected aggregation | sum over a carrier-selector, no pre-projection |
+|  [03]   | `UnitMath.Min<TQuantity>(this IEnumerable<TQuantity>, Enum)`               | typed aggregation  | unit-checked quantity min  |
+|  [04]   | `UnitMath.Max<TQuantity>(this IEnumerable<TQuantity>, Enum)`               | typed aggregation  | unit-checked quantity max  |
+|  [05]   | `UnitMath.Average<TQuantity>(this IEnumerable<TQuantity>, Enum)`           | typed aggregation  | unit-checked quantity mean |
+|  [06]   | `UnitMath.Min/Max<TQuantity>(TQuantity, TQuantity)`                        | pairwise transform | binary `IComparable` quantity min/max |
+|  [07]   | `UnitMath.Abs<TQuantity>(this TQuantity)`                                  | typed transform    | absolute quantity value    |
+|  [08]   | `operator +` / `operator -`         | additive operators | same-quantity arithmetic   |
+|  [09]   | `operator *` / `operator /` (scalar) | scaling operators  | `TSelf * double → TSelf`, `TSelf / double → TSelf` |
+|  [10]   | `Length * Length → Area`, `Length * Area → Volume` | dimensional product | cross-quantity algebra (no raw-scalar multiply) |
+|  [11]   | `Length / Length → double`          | dimensional ratio  | dimensionless ratio of like quantities |
+|  [12]   | `IComparisonOperators<T,T,bool>` / `IEqualityOperators<T,T,bool>`          | comparison surface | quantity ordering and equality |
+|  [13]   | `Length.Zero`                       | additive identity  | `IAdditiveIdentity` empty-quantity anchor |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -139,8 +154,14 @@ expression over typed values rather than a free `double`.
 - Quantity equality and ordering use the struct's `IEqualityOperators`/`IComparisonOperators`; aggregation over an element set uses `UnitMath.Sum`/`Min`/`Max`/`Average` with the explicit SI base unit, never a manual `double` fold.
 - The dynamic `Quantity`/`IQuantity` seam is the boundary-only erased path for unit-keyed IFC ingest; internal `QuantitySet` code holds the strongly-typed `Length`/`Area`/`Volume`/`Mass`/`Duration` value.
 
+[STACKING]:
+- with `GeometryGymIFC_Core` (`.api/api-geometrygym-ifc`): the IFC ingest rail surfaces a `KindOf` axis as a raw `(double measure, string unit)` pair off `IfcPhysicalSimpleQuantity.MeasureValue`/`.Unit` and `IfcPropertySingleValue.NominalValue`; `UnitParser.Default.TryParse<TUnit>(unit)` resolves the abbreviation and `Quantity.From(measure, parsedUnit)` constructs the typed quantity — one rail from foreign string to typed struct, no stringly-keyed unit switch.
+- with `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-json`): the `PROPERTY_SETS` `MeasureValue` value-carrier and the `QuantityKind`/`PropertyValue.Measure` `[Union]` arm own the discriminant; the UnitsNet typed struct is the payload the union case carries, and the persisted scalar is always `ToUnit(UnitSystem.SI)`-coerced before it enters the carrier — the `[Union]`/`[ValueObject]` owns shape, UnitsNet owns dimension.
+- with `LanguageExt.Core`: an unparseable `IfcSIUnit`/`IfcConversionBasedUnit` abbreviation degrades through `UnitParser.Default.TryParse` to a dimensionless `QuantityKind.Count` (ingest-tolerant) or lowers onto `BimFault.CapabilityMiss`/`Fin<T>` at a hard boundary — never a thrown `UnitNotFoundException`; same-kind element-set reduction is `UnitMath.Sum(carriers, SiUnit)` lifted from the persisted SI scalar through `Length.FromMeters`/`Area.FromSquareMeters`/… , never a `Seq.Fold` over raw `double`.
+- with the kernel `Rasm` geometry: `QuantitySet.Derive` reads `GeometryHandle.Volume`/`.Area`/`.Length` (already SI-base from the kernel) and wraps each through the matching `From*` factory so the takeoff is a typed quantity, and the cross-dimensional operators close a derivation (e.g. a sectional `Area * Length → Volume`) without leaving the dimensioned algebra.
+
 [RAIL_LAW]:
 - Package: `UnitsNet`
 - Owns: dimensioned scalar quantities and SI-base unit coercion
 - Accept: `QuantitySet` quantities carry a typed value and unit, persisted SI-base
-- Reject: bare `double` quantity fields, ad-hoc unit-conversion arithmetic, exception-driven unit parse
+- Reject: bare `double` quantity fields, ad-hoc unit-conversion arithmetic, exception-driven unit parse, a stringly-keyed `KindOf` unit switch, a manual `double` aggregation fold

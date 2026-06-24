@@ -15,28 +15,37 @@ MathNet iterative solvers for the numeric lane.
 
 [PACKAGE_SURFACE]: `MathNet.Numerics`
 - package: `MathNet.Numerics`
+- version: `6.0.0-beta2`
 - assembly: `MathNet.Numerics`
+- license: MIT/X11
+- bound asset: `lib/net8.0/MathNet.Numerics.dll` (ships `net48`/`net6.0`/`net8.0`/`netstandard2.0`; no `net10.0` asset, so consumer `net10.0` binds `net8.0`)
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `MathNet.Numerics.LinearAlgebra.Double`, `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Factorization`, `MathNet.Numerics.Providers.LinearAlgebra`, `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`
 - asset: runtime library (managed; native providers ride sibling asset packages)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
 - package: `MathNet.Numerics.Providers.MKL`
+- version: `6.0.0-beta2`
 - assembly: `MathNet.Numerics.Providers.MKL`
+- license: MIT/X11 (managed adapter; the native MKL binary carries the Intel Simplified Software License)
 - namespace: `MathNet.Numerics.Providers.MKL.LinearAlgebra`
 - asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `MathNet.Numerics.MKL.Linux-x64`; no osx-arm64 asset)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
 - package: `MathNet.Numerics.Providers.OpenBLAS`
+- version: `6.0.0-beta2`
 - assembly: `MathNet.Numerics.Providers.OpenBLAS`
+- license: MIT/X11 (managed adapter; the native OpenBLAS binary carries the BSD-3-Clause license)
 - namespace: `MathNet.Numerics.Providers.OpenBLAS.LinearAlgebra`
 - asset: managed provider adapter (native binaries ship in platform OpenBLAS asset packages; no osx-arm64 asset)
 - rail: numeric
 
 [PACKAGE_SURFACE]: `CSparse`
 - package: `CSparse`
+- version: `4.4.0`
 - assembly: `CSparse`
+- license: LGPL-2.1-or-later
 - namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
 - asset: runtime library (pure managed direct sparse solvers)
 - rail: numeric
@@ -113,18 +122,21 @@ The `IntegralTransforms.Fourier` static surface owns the in-place DFT over `Comp
 [ENTRYPOINT_SCOPE]: provider selection
 - rail: numeric
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]    | [CAPABILITY]                              |
-| :-----: | :----------------------------------- | :-------------- | :---------------------------------------- |
-|  [01]   | `Control.UseManaged`                 | static `void`   | selects the pure-managed provider         |
-|  [02]   | `Control.UseNativeMKL`               | static `void`   | selects MKL; throws on load failure       |
-|  [03]   | `Control.TryUseNativeMKL`            | static `bool`   | selects MKL; `false` on load failure      |
-|  [04]   | `Control.UseNativeOpenBLAS`          | static `void`   | selects OpenBLAS; throws on load failure  |
-|  [05]   | `Control.TryUseNativeOpenBLAS`       | static `bool`   | selects OpenBLAS; `false` on load failure |
-|  [06]   | `Control.UseBestProviders`           | static `void`   | tries MKL→CUDA→OpenBLAS→managed           |
-|  [07]   | `Control.NativeProviderPath`         | static `string` | sets native hint path on all controls     |
-|  [08]   | `LinearAlgebraControl.Provider`      | static prop     | gets/sets the active provider handle      |
-|  [09]   | `LinearAlgebraControl.TryUse`        | static `bool`   | activates a provided handle, no-throw     |
-|  [10]   | `LinearAlgebraControl.FreeResources` | static `void`   | releases native provider resources        |
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]    | [CAPABILITY]                                              |
+| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------------- |
+|  [01]   | `Control.UseManaged`                            | static `void`   | selects the pure-managed provider                        |
+|  [02]   | `Control.UseNativeMKL` / `TryUseNativeMKL`      | static `void`/`bool` | selects MKL; `Try*` returns `false` on load failure |
+|  [03]   | `Control.UseNativeOpenBLAS` / `TryUseNativeOpenBLAS` | static `void`/`bool` | selects OpenBLAS; `Try*` returns `false` on load failure |
+|  [04]   | `Control.UseNativeCUDA` / `TryUseNativeCUDA`    | static `void`/`bool` | selects CUDA (no `osx-arm64`/`linux`/`win` asset admitted) |
+|  [05]   | `Control.TryUseNative`                          | static `bool`   | tries the best available native; `false` if none load    |
+|  [06]   | `Control.UseBestProviders`                      | static `void`   | tries MKL→CUDA→OpenBLAS→managed                           |
+|  [07]   | `Control.NativeProviderPath`                    | static `string` | hint path for native binaries; setter cascades `InitializeVerify` on every provider control |
+|  [08]   | `Control.UseSingleThread` / `UseMultiThreading` | static `void`   | forces serial vs parallel managed evaluation             |
+|  [09]   | `Control.Describe`                              | static `string` | one-line active-provider/threading diagnostic for a receipt |
+|  [10]   | `LinearAlgebraControl.Provider`                 | static prop     | gets/sets the active `ILinearAlgebraProvider` handle     |
+|  [11]   | `LinearAlgebraControl.TryUse(ILinearAlgebraProvider)` | static `bool` | activates a provided handle, no-throw                    |
+|  [12]   | `LinearAlgebraControl.HintPath`                 | static `string` | the LA-provider-specific native hint path                |
+|  [13]   | `LinearAlgebraControl.FreeResources`            | static `void`   | releases native provider resources                       |
 
 [ENTRYPOINT_SCOPE]: dense factorization
 - rail: numeric
@@ -168,7 +180,7 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 [ENTRYPOINT_SCOPE]: discrete Fourier transform + window
 - rail: numeric
 
-`Fourier` transforms in place over `Complex[]`/`Complex32[]` (the signal lane marshals the real `Tensor<float>` into `Complex[]` once); `FourierOptions.Default` is symmetric `1/√n` scaling, `NoScaling` is the FFT-then-IFFT round-trip, `AsymmetricScaling`/`Matlab` matches MATLAB. `Window` factories return a `double[]` taper of the requested width; symmetric forms suit filter design, `*Periodic` forms suit FFT framing, and `Blackman`/`Dirichlet` ship one form only.
+`Fourier` transforms in place over `Complex[]`/`Complex32[]` (the signal lane marshals the real `Tensor<float>` into `Complex[]` once); `FourierOptions.Default` is symmetric `1/√n` scaling, `NoScaling` is the FFT-then-IFFT round-trip, `AsymmetricScaling`/`Matlab` matches MATLAB. `Window` factories return a `double[]` taper of the requested width; only `Hann`/`Hamming`/`Cosine`/`Lanczos` carry a `*Periodic` twin (symmetric for filter design, periodic for FFT framing) — every other taper, `Bartlett` and `BartlettHann` included, ships one form only.
 
 | [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]      | [CAPABILITY]                                      |
 | :-----: | :--------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
@@ -176,13 +188,14 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 |  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                                 | static `void`     | in-place inverse DFT, scaling-governed            |
 |  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                         | static `void`     | real-packed forward (half-spectrum `rfft`)        |
 |  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                         | static `void`     | real-packed inverse                               |
-|  [05]   | `Fourier.Forward2D` / `ForwardMultiDim`                                      | static `void`     | 2-D / N-D forward transform                       |
+|  [05]   | `Fourier.Forward2D` / `Inverse2D` / `ForwardMultiDim` / `InverseMultiDim`    | static `void`     | 2-D / N-D forward + inverse transform             |
 |  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                      | static `double[]` | the FFT-bin frequency axis                        |
 |  [07]   | `Window.Hann` / `HannPeriodic`                                               | static `double[]` | Hann symmetric / FFT-periodic taper               |
 |  [08]   | `Window.Hamming` / `HammingPeriodic`                                         | static `double[]` | Hamming symmetric / FFT-periodic taper            |
-|  [09]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                     | static `double[]` | Blackman family taper (no periodic split)         |
-|  [10]   | `Window.Dirichlet`                                                           | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
-|  [11]   | `Window.Bartlett` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | static `double[]` | the remaining taper family                        |
+|  [09]   | `Window.Cosine` / `CosinePeriodic` ; `Window.Lanczos` / `LanczosPeriodic`    | static `double[]` | Cosine / Lanczos symmetric + FFT-periodic taper   |
+|  [10]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                     | static `double[]` | Blackman family taper (no periodic split)         |
+|  [11]   | `Window.Dirichlet`                                                           | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
+|  [12]   | `Window.Bartlett` / `BartlettHann` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | static `double[]` | the remaining single-form taper family            |
 
 [ENTRYPOINT_SCOPE]: probability distributions + descriptive statistics
 - rail: numeric
@@ -235,7 +248,7 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 - namespace: `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics`
 - transform: `Fourier.Forward`/`Inverse` mutate a `Complex[]` in place; the signal lane marshals the real `Tensor<float>` into `Complex[]` once through the dispatch-lane Complex kernels and applies one consistent `FourierOptions` scaling — `Default` symmetric `1/√n` for a magnitude spectrum, `NoScaling` for an FFT-then-IFFT round-trip — never re-implementing the radix-2/Bluestein kernel
 - real packing: `ForwardReal`/`InverseReal` carry the half-spectrum `rfft`; `Forward2D`/`ForwardMultiDim` carry the image/volume transforms; `FrequencyScale(length, sampleRate)` is the FFT-bin frequency axis
-- window: `Window.{Hann,Hamming,Cosine,Lanczos,Bartlett}` ship both a symmetric and a `*Periodic` form (filter-design symmetric, FFT framing periodic); `Window.{Blackman,BlackmanHarris,BlackmanNuttall,Dirichlet,FlatTop,Gauss,Nuttall,Tukey,Triangular}` ship one form only — the rectangular window is `Window.Dirichlet` (all-ones), never a hand-rolled `Enumerable.Repeat`
+- window: only `Window.{Hann,Hamming,Cosine,Lanczos}` ship both a symmetric and a `*Periodic` form (filter-design symmetric, FFT framing periodic); `Window.{Bartlett,BartlettHann,Blackman,BlackmanHarris,BlackmanNuttall,Dirichlet,FlatTop,Gauss,Nuttall,Tukey,Triangular}` ship one form only (`Bartlett` has no `BartlettPeriodic` — `BartlettHann` is a distinct window, not its periodic twin) — the rectangular window is `Window.Dirichlet` (all-ones), never a hand-rolled `Enumerable.Repeat`
 - not shipped: MathNet has no DWT/wavelet surface and no analog-prototype IIR design — the `dwt` QMF cascade and the Butterworth/Chebyshev/elliptic bilinear design ground in-fence at the signal-lane design gate; only the FFT and window tapers ride this package
 
 [LOCAL_ADMISSION]:

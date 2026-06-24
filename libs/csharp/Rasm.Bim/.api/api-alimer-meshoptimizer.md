@@ -1,18 +1,26 @@
 # [RASM_BIM_API_MESHOPTIMIZER]
 
-`Alimer.Bindings.MeshOptimizer` exposes the full `meshoptimizer` C library surface as
-a single static P/Invoke class `Meshopt` plus supporting value types, covering index
-and vertex buffer optimization, encode/decode compression for GPU streaming, LOD
-simplification, meshlet generation, spatial clustering, quantization helpers, and
-cache/overdraw/fetch analysis for Bim and Compute mesh processing rails.
+`Alimer.Bindings.MeshOptimizer` exposes the full `meshoptimizer` C library through a
+single static class `Meshopt` plus supporting value types. The first-class surface is
+the MANAGED generic tier — `Span<TVertex>`/`ReadOnlySpan<T>` overloads constrained
+`where TVertex : unmanaged`, with `out float error` and `Bounds`/`*Statistics` value
+returns — that internally pins and forwards to the raw `unsafe static extern` P/Invoke
+twins. A dense rail composes the managed tier (no manual pinning); the extern tier is
+the fallback for caller-owned `stackalloc`/`NativeMemory` buffers. Covers index and
+vertex buffer optimization, encode/decode compression for GPU streaming, LOD
+simplification, meshlet generation, spatial clustering and partitioning, quantization
+helpers, and cache/overdraw/fetch/coverage analysis for Bim and Compute mesh rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Alimer.Bindings.MeshOptimizer`
 - package: `Alimer.Bindings.MeshOptimizer`
+- version: `1.2.1`
 - assembly: `Alimer.Bindings.MeshOptimizer`
 - namespace: `MeshOptimizer`
-- asset: net10.0, net9.0 (native: win-x64, win-arm64, linux-x64, linux-arm64, osx, android-arm, android-arm64, android-x64)
+- asset: net10.0, net9.0 — `net10.0` consumer binds `lib/net10.0`
+- asset: native `runtimes/<rid>/native/` for `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx` (universal arm64+x64 fat dylib), `android-arm`, `android-arm64`, `android-x64`; `net10.0`-only TFM firebreaks it out of any `net48` in-Rhino plugin ALC
+- license: MIT (`LICENSE.md` file, `requireLicenseAcceptance=true`); admitted for the Compute `EXPORT_RAIL`, outside-Rhino only
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
@@ -22,8 +30,8 @@ cache/overdraw/fetch analysis for Bim and Compute mesh processing rails.
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [ROLE]                                                                              |
 | :-----: | :-------- | :------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `Meshopt` | static class  | entire meshoptimizer operation surface via P/Invoke; `MESHOPTIMIZER_VERSION = 1000` |
-|  [02]   | `Stream`  | unsafe struct | multi-stream vertex remap input: `data` (void*), `size` (nuint), `stride` (nuint)   |
+|  [01]   | `Meshopt` | static class  | entire operation surface: managed `Span<T>` tier + raw extern tier; public consts `MESHOPTIMIZER_VERSION = 1000u`, `LibraryName = "meshoptimizer"`; static event `ResolveLibrary` (`DllImportResolver`) |
+|  [02]   | `Stream`  | unsafe struct | multi-stream vertex remap input (primary-ctor `(void* data, nuint size, nuint stride)`); the managed `GenerateVertexRemapMulti<TVertex>` overloads take `ReadOnlySpan<Stream>` |
 
 [PUBLIC_TYPE_SCOPE]: meshlet geometry
 - rail: geometry
@@ -53,8 +61,43 @@ cache/overdraw/fetch analysis for Bim and Compute mesh processing rails.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: vertex remap and index generation
+[ENTRYPOINT_SCOPE]: managed `Span<T>` tier — the first-class rail surface
 - rail: geometry
+
+Every algorithm ships a managed overload that pins the spans internally and forwards to the extern twin. These are the surface a Rasm rail composes — no caller pinning, generic over the vertex struct (`where TVertex : unmanaged`), error/`Bounds`/`*Statistics` returned by value. Pass canonical interleaved vertex structs directly as `ReadOnlySpan<TVertex>`; the index pipeline stays `uint`.
+
+| [INDEX] | [SURFACE]                  | [SIGNATURE_SHAPE]                                                                                                                                                         | [ROLE]                                          |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `GenerateVertexRemap<TVertex>` | `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<TVertex> verts)` → `nuint` (also `(dst, nuint idxCount, verts)` for unindexed)                                 | typed remap table eliminating duplicate verts   |
+|  [02]   | `GenerateVertexRemapMulti<TVertex>` | `(Span<uint> dst, ReadOnlySpan<uint> idx, nuint vertCnt, ReadOnlySpan<Stream> streams)` → `nuint`                                                                | multi-stream typed remap                         |
+|  [03]   | `RemapVertexBuffer<TVertex>` | `(Span<TVertex> dst, ReadOnlySpan<TVertex> verts, ReadOnlySpan<uint> remap)`                                                                                           | applies remap to typed vertex data              |
+|  [04]   | `RemapIndexBuffer`         | `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<uint> remap)` (also `(dst, nuint idxCount, remap)`)                                                              | applies remap to index buffer                   |
+|  [05]   | `OptimizeVertexCache`      | `(Span<uint> dst, ReadOnlySpan<uint> idx, nuint vertCnt)`                                                                                                                | tipsify cache reorder (also `…Strip`, `…Fifo`)  |
+|  [06]   | `OptimizeOverdraw`         | `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<float> pos, nuint stride, float threshold)`                                                                       | overdraw reorder                                |
+|  [07]   | `OptimizeVertexFetch<TVertex>` | `(Span<uint> dst, Span<uint> idx, ReadOnlySpan<TVertex> verts)` → `nuint`                                                                                            | fetch reorder, rewrites idx in place            |
+|  [08]   | `EncodeVertexBuffer<TVertex>` | `(Span<byte> buf, ReadOnlySpan<TVertex> verts)` → `nuint`; `EncodeVertexBufferLevel<TVertex>(buf, verts, int level, int version = -1)`                                | typed vertex encode (`EXT_meshopt_compression`) |
+|  [09]   | `DecodeVertexBuffer<TVertex>` | `(Span<TVertex> dst, ReadOnlySpan<byte> buf)` → `int`                                                                                                                 | typed vertex decode                             |
+|  [10]   | `EncodeIndexBuffer`        | `(Span<byte> buf, ReadOnlySpan<uint> idx)` → `nuint`; `DecodeIndexBuffer<TIndex>(Span<TIndex> dst, ReadOnlySpan<byte> buf)` → `int`                                       | index encode/decode (typed index out)          |
+|  [11]   | `DecodeIndexVersion` / `DecodeVertexVersion` | `(ReadOnlySpan<byte> buf)` → `int`                                                                                                                     | reads bitstream version from a buffer           |
+|  [12]   | `EncodeFilterOct<T>` / `…Quat` / `…Exp` / `…Color` | `(Span<T> dst, int bits, ReadOnlySpan<float> data[, EncodeExpMode mode])`; `DecodeFilter*<T>(Span<T> buf)`                                          | typed vertex-attribute filters                  |
+|  [13]   | `Simplify`                 | `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<float> pos, nuint stride, nuint targetIdxCount, float targetError, SimplificationOptions opts, out float error)` → `nuint` | LOD simplify with error readback                |
+|  [14]   | `SimplifyWithAttributes`   | `(…, ReadOnlySpan<float> attrs, nuint attrStride, ReadOnlySpan<float> attrWeights, nuint attrCount[, ReadOnlySpan<byte> vertexLock], nuint targetIdxCount, float targetError, SimplificationOptions opts, out float error)` → `nuint` | attribute-weighted simplify (optional lock mask) |
+|  [15]   | `SimplifySloppy` / `SimplifyPrune` / `SimplifyPoints` | `(Span<uint> dst, …, out float error)` / `(…, float targetError)` → `nuint`; `SimplifyScale(ReadOnlySpan<float> pos, nuint stride)` → `float` | aggressive/prune/point-cloud simplify + scale   |
+|  [16]   | `BuildMeshlets`            | `(Span<Meshlet> meshlets, Span<uint> meshletVerts, Span<byte> meshletTris, ReadOnlySpan<uint> idx, ReadOnlySpan<float> pos, nuint stride, nuint maxVerts, nuint maxTris, float coneWeight)` → `nuint` | meshlet build with cone weight                  |
+|  [17]   | `BuildMeshletsFlex` / `BuildMeshletsSpatial` | `(…, nuint maxVerts, nuint minTris, nuint maxTris, float coneWeight, float splitFactor)` / `(…, float fillWeight)` → `nuint`                          | flexible / spatially-coherent meshlet build     |
+|  [18]   | `ComputeClusterBounds` / `ComputeMeshletBounds` | `(ReadOnlySpan<uint> idx|meshletVerts[, ReadOnlySpan<byte> meshletTris], ReadOnlySpan<float> pos, nuint stride)` → `Bounds`                       | sphere + cone `Bounds` by value                 |
+|  [19]   | `ComputeSphereBounds`      | `(ReadOnlySpan<float> pos, nuint stride[, ReadOnlySpan<float> radii, nuint radiiStride])` → `Bounds`                                                                      | bounding sphere (optional per-point radii)      |
+|  [20]   | `PartitionClusters`        | `(Span<uint> dst, ReadOnlySpan<uint> clusterIdx, ReadOnlySpan<uint> clusterIdxCounts, ReadOnlySpan<float> pos, nuint stride, nuint targetPartitionSize)` → `nuint`        | two-level cluster partition                     |
+|  [21]   | `SpatialSortRemap` / `SpatialSortTriangles` / `SpatialClusterPoints` | `(Span<uint> dst, ReadOnlySpan<float> pos, nuint stride[, nuint clusterSize])`                                                 | spatial locality remap/reorder/cluster          |
+|  [22]   | `AnalyzeVertexCache`       | `(ReadOnlySpan<uint> idx, nuint vertCnt, uint cacheSize, uint warpSize, uint primGroupSize)` → `VertexCacheStatistics`                                                    | ACMR/ATVR by value                              |
+|  [23]   | `AnalyzeOverdraw` / `AnalyzeVertexFetch` / `AnalyzeCoverage` | `(ReadOnlySpan<uint> idx, …)` → `OverdrawStatistics` / `VertexFetchStatistics` / `CoverageStatistics`                                  | overdraw/fetch/coverage stats by value          |
+|  [24]   | `Stripify` / `Unstripify`  | `(Span<uint> dst, ReadOnlySpan<uint> idx, nuint vertCnt, uint restartIndex)` / `(dst, idx, uint restartIndex)` → `nuint`                                                  | strip ↔ list with explicit restart index        |
+|  [25]   | `GenerateVertexRemapCustom` | `(Span<uint> dst, ReadOnlySpan<uint> idx, ReadOnlySpan<float> pos, nuint stride, delegate*<nint,uint,uint,int> callback, nint context)` → `nuint`                       | remap with a custom unmanaged equality callback |
+
+[ENTRYPOINT_SCOPE]: raw extern P/Invoke tier — caller-pinned fallback
+- rail: geometry
+
+The `unsafe static extern` twins each managed overload forwards to. Compose these only when the caller already owns a pinned `stackalloc`/`NativeMemory`/`fixed` pointer and wants to skip the managed pin; otherwise prefer the `Span<T>` tier above.
 
 | [INDEX] | [SURFACE]                         | [SIGNATURE_SHAPE]                                                                                    | [ROLE]                                    |
 | :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------- |
@@ -174,20 +217,27 @@ cache/overdraw/fetch analysis for Bim and Compute mesh processing rails.
 
 [MESHOPT_TOPOLOGY]:
 - namespace: `MeshOptimizer`; 10 public types in 1 namespace; entire algorithmic surface is on `Meshopt`
-- native library: `meshoptimizer` (`.dll` on Windows, `.dylib` on macOS, `.so` on Linux/Android); loaded via `NativeLibrary.SetDllImportResolver` at static init
-- `Meshopt.ResolveLibrary` is a `DllImportResolver` event for custom native load paths before the built-in resolver runs
-- all methods are `unsafe static extern`; all pointer arguments require pinned or stack-allocated buffers from the caller
-- `SimplificationOptions` is a `[Flags]` enum; flags compose with bitwise OR
-- `EncodeIndexVersion` and `EncodeVertexVersion` must be called before encoding when targeting a specific bitstream format version
+- `Meshopt` exposes TWO tiers of every algorithm: a managed `Span<T>`/`ReadOnlySpan<T>` overload (the first-class rail surface — pins internally, generic over `TVertex : unmanaged`, returns `out float error`/`Bounds`/`*Statistics` by value) and the raw `unsafe static extern` twin it forwards to (`meshopt_*` entry points, `[LibraryImport]`/`[DllImport]` dual-attributed). The managed tier is NOT a thin rename — it owns pinning, span-length→`nuint` count derivation, and the function-pointer marshalling for `GenerateVertexRemapCustom`.
+- native library: entry-point `meshoptimizer` (`LibraryName` const; `.dll` Windows, `.dylib` macOS, `.so` Linux/Android); resolved via `NativeLibrary.SetDllImportResolver` at static init, with the `osx` RID shipping a universal arm64+x64 fat `libmeshoptimizer.dylib`
+- `Meshopt.ResolveLibrary` is a static `DllImportResolver` event for custom native load paths ahead of the built-in resolver; `Meshopt.SetAllocator` installs a custom native allocator
+- `SimplificationOptions` is a `[Flags]` enum; flags compose with bitwise OR (`SimplifyLockBorder | meshopt_SimplifyErrorAbsolute`)
+- `EncodeIndexVersion(int)` / `EncodeVertexVersion(int)` set the target bitstream format version process-wide before encoding; `EncodeVertexBufferLevel<TVertex>(…, int level, int version = -1)` takes the version per-call; `DecodeIndexVersion`/`DecodeVertexVersion` read it back from an encoded buffer
+
+[INTEGRATION_STACK]:
+- `Alimer.Bindings.MeshOptimizer` is the `EXT_meshopt_compression` leg of the Compute glTF `EXPORT_RAIL`, sibling to `Openize.Drako` (the `KHR_draco_mesh_compression` leg) and stacking ONTO `SharpGLTF.Core` (the glTF wire owner). One export-codec dispatch row chooses meshopt vs Draco by extension policy; `EncodeVertexBuffer<TVertex>`/`EncodeIndexBuffer` produce the `byte[]` payload SharpGLTF references under the `EXT_meshopt_compression` extension, with `EncodeFilterOct`/`…Quat`/`…Exp` pre-quantizing normals/quaternions/exponents into the filter-coded layout the extension declares.
+- The pipeline composes on the canonical interleaved vertex struct — pass it straight as `ReadOnlySpan<TVertex>` to `GenerateVertexRemap<TVertex>` → `RemapVertexBuffer<TVertex>` → `OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch<TVertex>` → `EncodeVertexBuffer<TVertex>`, so the SAME canonical buffer that feeds Draco intake (`PointAttribute.Wrap`) feeds meshopt without a second projection.
+- Meshlet/cluster output stacks onto the Compute LOD owner: `BuildMeshlets`/`BuildMeshletsSpatial` (sizes via `BuildMeshletsBound`) → `OptimizeMeshlet` per meshlet → `ComputeMeshletBounds` → `PartitionClusters` for two-level GPU culling; the `Bounds`/`*Statistics` value returns become typed receipt fields (ACMR/ATVR, overdraw, coverage extent, compression ratio), never a generic ledger.
+- A Compute codec rail runs the managed tier inside the project `Fin`/`Eff` rail: span allocation, the `out float error` LOD readback, and the `nuint` written-byte count fold into one typed receipt under a per-codec telemetry span; native-load failures from `ResolveLibrary`/`SetAllocator` map to a typed boundary fault rather than an unhandled `DllNotFoundException`.
 
 [LOCAL_ADMISSION]:
-- Index path: `GenerateVertexRemap` → `RemapVertexBuffer` + `RemapIndexBuffer` → `OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch` → `EncodeIndexBuffer` / `EncodeVertexBuffer`
+- Index path (managed tier): `GenerateVertexRemap<TVertex>` → `RemapVertexBuffer<TVertex>` + `RemapIndexBuffer` → `OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch<TVertex>` → `EncodeIndexBuffer` / `EncodeVertexBuffer<TVertex>`
 - Meshlet path: `BuildMeshlets` (allocate via `BuildMeshletsBound`) → `OptimizeMeshlet` per meshlet → `ComputeMeshletBounds` for culling
-- Simplification path: `Simplify` / `SimplifyWithAttributes` with `SimplificationOptions` flags → optional `SimplifyPrune` for cleanup
-- Custom native resolution: subscribe `Meshopt.ResolveLibrary` before first P/Invoke call when deploying outside standard NuGet layout
+- Simplification path: `Simplify` / `SimplifyWithAttributes` (`SimplificationOptions` flags + `out float error`) → optional `SimplifyPrune` for cleanup; normalize the error budget with `SimplifyScale`
+- Pin only when caller-owned: drop to the extern twin solely for an existing `stackalloc`/`NativeMemory`/`fixed` pointer; otherwise the managed `Span<T>` overload pins internally
+- Custom native resolution: subscribe `Meshopt.ResolveLibrary` (or `SetAllocator`) before first call when deploying outside standard NuGet layout
 
 [RAIL_LAW]:
 - Package: `Alimer.Bindings.MeshOptimizer`
-- Owns: index/vertex optimization, encode/decode compression, LOD simplification, meshlet generation, spatial clustering, cache analysis
-- Accept: unsafe pointer inputs from pinned managed arrays, `NativeMemory`, or `stackalloc` buffers
-- Reject: hand-rolled vertex cache optimization, meshlet partition algorithms, or custom half-float encode/decode
+- Owns: index/vertex optimization, encode/decode compression (`EXT_meshopt_compression`), LOD simplification, meshlet generation, spatial clustering/partitioning, cache/overdraw/fetch/coverage analysis
+- Accept: canonical interleaved vertex structs as `Span<TVertex>`/`ReadOnlySpan<TVertex>` (`where TVertex : unmanaged`) through the managed tier; caller-pinned pointers through the extern twin only when the buffer is already pinned
+- Reject: hand-rolled vertex cache optimization, meshlet partition algorithms, custom half-float/octahedral/quaternion filter encode, or manual pinning around the managed overloads when the span tier already owns it

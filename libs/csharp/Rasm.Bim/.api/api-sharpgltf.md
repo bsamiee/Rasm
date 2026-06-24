@@ -8,31 +8,38 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 
 [PACKAGE_SURFACE]: `SharpGLTF.Core`
 - package: `SharpGLTF.Core`
+- version: `1.0.6`
+- license: MIT
 - assembly: `SharpGLTF.Core`
 - namespace: `SharpGLTF.Schema2`
 - namespace: `SharpGLTF.Memory`
 - namespace: `SharpGLTF.Validation`
 - namespace: `SharpGLTF.Animations`
+- namespace: `SharpGLTF.Transforms` (owns `SparseWeight8`, `IGeometryTransform`)
 - namespace: `SharpGLTF.IO`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Toolkit`
 - package: `SharpGLTF.Toolkit`
+- version: `1.0.6`
+- license: MIT
 - assembly: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Scenes`
 - namespace: `SharpGLTF.Geometry`
 - namespace: `SharpGLTF.Geometry.VertexTypes`
 - namespace: `SharpGLTF.Materials`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Runtime`
 - package: `SharpGLTF.Runtime`
+- version: `1.0.6`
+- license: MIT
 - assembly: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0; the net10.0 consumer binds the `lib/net10.0` asset
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
@@ -400,14 +407,19 @@ The scale/translation/rotation/morph channels each carry a second `(TangentIn, V
 - namespace: `SharpGLTF.Materials`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]        | [CAPABILITY]                           |
-| :-----: | :--------------------------------------------- | :------------------ | :------------------------------------- |
-|  [01]   | `MaterialBuilder.WithMetallicRoughnessShader`  | `()`                | selects PBR metallic-roughness shader  |
-|  [02]   | `MaterialBuilder.WithSpecularGlossinessShader` | `()`                | selects KHR specular-glossiness shader |
-|  [03]   | `MaterialBuilder.WithUnlitShader`              | `()`                | selects KHR_materials_unlit shader     |
-|  [04]   | `MaterialBuilder.WithShader`                   | `(string)`          | selects shader by name string          |
-|  [05]   | `MaterialBuilder.WithFallback`                 | `(MaterialBuilder)` | chains a fallback material             |
-|  [06]   | `MaterialBuilder.DoubleSided`                  | `bool` property     | enables back-face rendering            |
+| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                                          | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------- | :--------------------------------------------------- | :------------------------------------- |
+|  [01]   | `MaterialBuilder.WithMetallicRoughnessShader`  | `()`                                                 | selects PBR metallic-roughness shader  |
+|  [02]   | `MaterialBuilder.WithSpecularGlossinessShader` | `()`                                                 | selects KHR specular-glossiness shader |
+|  [03]   | `MaterialBuilder.WithUnlitShader`              | `()`                                                 | selects KHR_materials_unlit shader     |
+|  [04]   | `MaterialBuilder.WithShader`                   | `(string)`                                           | selects shader by name string          |
+|  [05]   | `MaterialBuilder.UseChannel`                   | `(KnownChannel)` or `(string)` → `ChannelBuilder`    | gets/creates a channel for mutation    |
+|  [06]   | `MaterialBuilder.WithChannelParam`             | `(KnownChannel, KnownProperty, object)` / `(KnownChannel, Vector4)` | sets a channel scalar/vector parameter |
+|  [07]   | `MaterialBuilder.WithChannelImage`             | `(KnownChannel, ImageBuilder)` or `(string, ImageBuilder)` | binds a channel texture image    |
+|  [08]   | `MaterialBuilder.WithAlpha`                    | `(AlphaMode = OPAQUE, float alphaCutoff = 0.5)`      | sets alpha mode + mask cutoff          |
+|  [09]   | `MaterialBuilder.WithDoubleSide`               | `(bool)`                                             | enables back-face rendering            |
+|  [10]   | `MaterialBuilder.WithFallback`                 | `(MaterialBuilder)`                                  | chains a fallback material             |
+|  [11]   | `KnownChannel` / `KnownProperty`               | enum                                                 | typed channel keys (BaseColor, MetallicRoughness, Normal, Emissive, ...) and property keys — the typed path the channel mutators discriminate on |
 
 [ENTRYPOINT_SCOPE]: SceneTemplate — runtime decode
 - package: `SharpGLTF.Runtime`
@@ -422,13 +434,15 @@ The scale/translation/rotation/morph channels each carry a second `(TangentIn, V
 |  [04]   | `ArmatureInstance.SetPoseTransforms`    | `()`                                      | resets all bones to rest pose                      |
 |  [05]   | `ArmatureInstance.SetLocalMatrix`       | `(string nodeName, Matrix4x4)`            | overrides a bone's local-space matrix              |
 |  [06]   | `ArmatureInstance.SetModelMatrix`       | `(string nodeName, Matrix4x4)`            | overrides a bone's model-space matrix              |
-|  [07]   | `MeshDecoder.Decode`                    | extension on `IReadOnlyList<Mesh>`        | returns `IMeshDecoder<Material>[]`                 |
-|  [08]   | `IMeshPrimitiveDecoder.GetPosition`     | `(int vertexIndex)`                       | returns `Vector3` position for vertex              |
-|  [09]   | `IMeshPrimitiveDecoder.GetNormal`       | `(int vertexIndex)`                       | returns `Vector3` normal for vertex                |
-|  [10]   | `IMeshPrimitiveDecoder.GetTangent`      | `(int vertexIndex)`                       | returns `Vector4` tangent for vertex               |
-|  [11]   | `IMeshPrimitiveDecoder.GetTextureCoord` | `(int vertexIndex, int set)`              | returns `Vector2` UV for vertex                    |
-|  [12]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)`                       | returns `SparseWeight8` skin weights               |
+|  [07]   | `MeshDecoder.Decode`                    | `(this Mesh, RuntimeOptions?)` / `(this IReadOnlyList<Mesh>, RuntimeOptions?)` | decodes one mesh or a batch → `IMeshDecoder<Material>`[`[]`] |
+|  [08]   | `MeshDecoder.GetPosition`               | `(this IMeshPrimitiveDecoder, int vertexIdx, IGeometryTransform xform)` | `Vector3` position, optionally transformed |
+|  [09]   | `MeshDecoder.GetNormal`/`GetTangent`    | `(this IMeshPrimitiveDecoder, int vertexIdx, IGeometryTransform xform)` | `Vector3`/`Vector4` normal/tangent (generated if absent) |
+|  [10]   | `MeshDecoder.GetTextureCoord`           | `(this IMeshPrimitiveDecoder, int vertexIdx, int setIndex, IGeometryTransform xform)` | `Vector2` UV for a texture set |
+|  [11]   | `MeshDecoder.GetColor`                  | `(this IMeshPrimitiveDecoder, int vertexIdx, int colorSetIndex, IGeometryTransform xform)` | `Vector4` vertex color |
+|  [12]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)`                       | returns `SparseWeight8` (ns `SharpGLTF.Transforms`) |
 |  [13]   | `IMeshPrimitiveDecoder.TriangleIndices` | property                                  | `IEnumerable<(int,int,int)>` triangle index tuples |
+|  [14]   | `MeshDecoder.EvaluateBoundingSphere`    | `(this SceneTemplate, IMeshDecoder<Material>[], float samplingTimeStep = 1)` → `(Vector3 Center, float Radius)` | animation-aware bounding sphere |
+|  [15]   | `MeshDecoder.EvaluateBoundingBox`       | `(this SceneInstance, IReadOnlyList<IMeshDecoder<TMat>>)` → `(Vector3 Min, Vector3 Max)` | per-instance AABB after pose evaluation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -471,6 +485,13 @@ The scale/translation/rotation/morph channels each carry a second `(TangentIn, V
 - draw loop: enumerate `SceneInstance` (it is `IEnumerable<DrawableInstance>`) → each `DrawableInstance.Template.LogicalMeshIndex` selects the mesh, `DrawableInstance.Transform` carries `IGeometryTransform`
 - mesh decode: `model.LogicalMeshes.Decode()` returns `IMeshDecoder<Material>[]`; each primitive exposes typed vertex accessors
 - normal/tangent generation: the decode path computes smooth normals and MikkTSpace tangents through `internal` factory kernels; consumers read the generated values through `IMeshPrimitiveDecoder.GetNormal`/`GetTangent`
+
+[INTEGRATION_STACK]:
+- compression leg: `SharpGLTF.Core` carries NO Draco/meshopt encoder (decompile-verified absence — see `COMPRESSION_LAW`); the encode legs stack the sibling-admitted `Openize.Drako` (`KHR_draco_mesh_compression`) and `Alimer.Bindings.MeshOptimizer` (`EXT_meshopt_compression`), both catalogued separately and both Compute-side outside-Rhino. The `ModelRoot` is authored uncompressed here, then the encode adapter rewrites the buffer-views — SharpGLTF owns the schema, the sibling owns the codec.
+- structural-metadata leg: per-tile `EXT_structural_metadata`/`EXT_mesh_features` (3D Tiles 1.1) lives in `SharpGLTF.Ext.3DTiles` (`api-sharpgltf-3dtiles`, separate package + `OneOf` transitive), NOT Core — the same `ModelRoot`/`MeshPrimitive` is the shared mutation target across both packages.
+- georeference leg: an imported `ModelRoot`'s decoded vertex span (`MeshDecoder.Decode` → `IMeshPrimitiveDecoder`) feeds the `Semantics/georeference#GEODETIC_TRANSFORM` `ProjNET` batch reproject before the frame normalization, so a glTF asset lands in the shared projected frame; the decode's `IGeometryTransform` arg and the ProjNET `Span` batch are two stages of one ingest rail.
+- identity leg: a `ModelRoot.WriteGLB(WriteSettings)` byte segment (or a `MemoryAccessor` buffer region) feeds `System.IO.Hashing` `XxHash3.Append` directly for the export snapshot fingerprint — zero-copy over the produced `ArraySegment<byte>`.
+- decode policy: `RuntimeOptions` (`IsolateMemory`, `GpuMeshInstancing`, `ExtrasConverterCallback`) is the single decode-policy carrier threaded through `SceneTemplate.Create` and `MeshDecoder.Decode`; the normal/tangent generation runs inside that decode under the `internal` `VertexNormalsFactory`/`VertexTangentsFactory` kernels, never re-implemented.
 
 [LOCAL_ADMISSION]:
 - geometry export enters through `SceneBuilder` → `ToGltf2()` → `ModelRoot.Save*` or `WriteGLB`.

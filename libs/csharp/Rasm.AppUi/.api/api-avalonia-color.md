@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_AVALONIA_COLOR]
 
-`Avalonia.Controls.ColorPicker` supplies color selection controls, color views, palette families, HSV/RGB primitives, and color-change events.
+`Avalonia.Controls.ColorPicker` is the Avalonia 12 color-editing family: `ColorView` is the full editor (spectrum, sliders, palette grid, hex input, preview) exposing the selected color in both representations (`Color` and `HsvColor`) with a `ColorChanged` event carrying old/new, and `ColorPicker : ColorView` wraps it in a flyout button. The editor's subviews are individually toggled (`IsColorSpectrumVisible`/`IsColorPaletteVisible`/`IsHexInputVisible`/`IsAlphaEnabled`/…), the active tab is `ColorViewTab` (`Spectrum`/`Palette`/`Components`), and the working model is `ColorModel` (`Hsva`/`Rgba`). Palettes are pluggable through `IColorPalette` (`GetColor(colorIndex, shadeIndex)` over a `ColorCount`×`ShadeCount` grid) with `Fluent`/`Material`/`Flat`/`SixteenColor` families. Hex transport is the static `ColorToHexConverter.ToHexString`/`ParseHexString` codec (the public conversion surface), and `ColorHelper` gives `GetRelativeLuminance`/`ToDisplayName`. The HSV/RGB primitive structs (`Hsv`/`Rgb`) and the bitmap/increment helpers are **internal** to the package — consumers convert through Avalonia.Media's framework `Color`/`HsvColor` value types, which `ColorView.Color`/`HsvColor` expose directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,103 +10,134 @@
 - namespace: `Avalonia.Controls`
 - namespace: `Avalonia.Controls.Primitives`
 - namespace: `Avalonia.Controls.Converters`
-- asset: runtime library
+- asset: managed runtime library + embedded `avares://` XAML control templates
+- tfm: `net10.0` (consumer-bound; the package multi-targets `net8.0`/`net10.0`, the workspace binds `net10.0`)
+- license: `MIT`
 - rail: controls
 
 ## [02]-[PUBLIC_TYPES]
 
-[COLOR_CONTROLS]: color editor surfaces
+[COLOR_CONTROLS]: editor controls and slider/spectrum primitives
 - rail: controls
 
-| [INDEX] | [SYMBOL]         | [RAIL]           |
-| :-----: | :--------------- | :--------------- |
-|  [01]   | `ColorPicker`    | picker shell     |
-|  [02]   | `ColorView`      | editor surface   |
-|  [03]   | `ColorSpectrum`  | spectrum surface |
-|  [04]   | `ColorSlider`    | slider surface   |
-|  [05]   | `ColorPreviewer` | preview surface  |
+| [INDEX] | [SYMBOL]         | [BASE]              | [RAIL]                                          |
+| :-----: | :--------------- | :------------------ | :---------------------------------------------- |
+|  [01]   | `ColorView`      | `TemplatedControl`  | full color editor (spectrum/palette/hex/sliders)|
+|  [02]   | `ColorPicker`    | `ColorView`         | flyout-button wrapper exposing `Content`        |
+|  [03]   | `ColorSpectrum`  | `TemplatedControl`  | box/ring spectrum primitive (`Primitives`)      |
+|  [04]   | `ColorSlider`    | `Slider`            | single-component gradient slider (`Primitives`) |
+|  [05]   | `ColorPreviewer` | `TemplatedControl`  | hover/preview swatch primitive (`Primitives`)   |
 
-[COLOR_MODELS]: color models and events
+[COLOR_MODELS]: model/component vocabularies and the change event
 - rail: controls
 
-| [INDEX] | [SYMBOL]                  | [RAIL]         |
-| :-----: | :------------------------ | :------------- |
-|  [01]   | `ColorModel`              | color model    |
-|  [02]   | `ColorComponent`          | component key  |
-|  [03]   | `HsvComponent`            | HSV component  |
-|  [04]   | `RgbComponent`            | RGB component  |
-|  [05]   | `AlphaComponentPosition`  | alpha position |
-|  [06]   | `ColorChangedEventArgs`   | change event   |
-|  [07]   | `ColorSpectrumShape`      | spectrum shape |
-|  [08]   | `ColorSpectrumComponents` | spectrum axes  |
+| [INDEX] | [SYMBOL]                  | [KIND]            | [RAIL]                                           |
+| :-----: | :------------------------ | :---------------- | :----------------------------------------------- |
+|  [01]   | `ColorModel`              | enum              | `Hsva` / `Rgba` — the editor's working model     |
+|  [02]   | `ColorViewTab`            | enum              | `Spectrum` / `Palette` / `Components` subview     |
+|  [03]   | `ColorComponent`          | enum              | a single component selector (Alpha/R/G/B/H/S/V)  |
+|  [04]   | `HsvComponent`            | enum              | `Hue` / `Saturation` / `Value`                   |
+|  [05]   | `RgbComponent`            | enum              | `Red` / `Green` / `Blue`                         |
+|  [06]   | `AlphaComponentPosition`  | enum              | leading/trailing alpha placement in hex/inputs   |
+|  [07]   | `ColorSpectrumShape`      | enum              | `Box` / `Ring` spectrum geometry                 |
+|  [08]   | `ColorSpectrumComponents` | enum              | the two axes the spectrum plots                  |
+|  [09]   | `ColorChangedEventArgs`   | `EventArgs`       | `OldColor` / `NewColor` on a color change        |
 
-[PALETTE_TYPES]: palette families
+[PALETTE_TYPES]: pluggable palette families over `IColorPalette`
 - rail: controls
 
-| [INDEX] | [SYMBOL]                   | [RAIL]           |
-| :-----: | :------------------------- | :--------------- |
-|  [01]   | `IColorPalette`            | palette contract |
-|  [02]   | `FlatColorPalette`         | flat palette     |
-|  [03]   | `FlatHalfColorPalette`     | compact flat     |
-|  [04]   | `FluentColorPalette`       | Fluent palette   |
-|  [05]   | `MaterialColorPalette`     | Material palette |
-|  [06]   | `MaterialHalfColorPalette` | compact material |
-|  [07]   | `SixteenColorPalette`      | fixed palette    |
+| [INDEX] | [SYMBOL]                   | [KIND]            | [RAIL]                                       |
+| :-----: | :------------------------- | :---------------- | :------------------------------------------- |
+|  [01]   | `IColorPalette`            | palette contract  | `GetColor(colorIndex, shadeIndex)` + counts  |
+|  [02]   | `FluentColorPalette`       | palette           | Fluent design swatch grid                    |
+|  [03]   | `MaterialColorPalette`     | palette           | Material design swatch grid                  |
+|  [04]   | `MaterialHalfColorPalette` | palette           | compact Material grid                        |
+|  [05]   | `FlatColorPalette`         | palette           | flat-UI swatch grid                          |
+|  [06]   | `FlatHalfColorPalette`     | palette           | compact flat grid                            |
+|  [07]   | `SixteenColorPalette`      | palette           | fixed 16-color grid                          |
 
-[PRIMITIVES_AND_CONVERTERS]: color helpers
+[CONVERTERS]: public value converters (the consumable conversion surface)
 - rail: controls
 
-| [INDEX] | [SYMBOL]              | [RAIL]           |
-| :-----: | :-------------------- | :--------------- |
-|  [01]   | `Hsv`                 | HSV primitive    |
-|  [02]   | `Rgb`                 | RGB primitive    |
-|  [03]   | `ColorHelper`         | color metadata   |
-|  [04]   | `ColorPickerHelpers`  | bitmap helpers   |
-|  [05]   | `ColorToHexConverter` | hex conversion   |
-|  [06]   | `ToBrushConverter`    | brush conversion |
-|  [07]   | `ToColorConverter`    | color conversion |
+| [INDEX] | [SYMBOL]                       | [KIND]            | [RAIL]                                                  |
+| :-----: | :----------------------------- | :---------------- | :----------------------------------------------------- |
+|  [01]   | `ColorToHexConverter`          | `IValueConverter` | `Color` <-> hex string; static `ToHexString`/`ParseHexString` codec |
+|  [02]   | `ToBrushConverter`             | `IValueConverter` | `Color`/`HsvColor` -> `IBrush` for binding              |
+|  [03]   | `ToColorConverter`             | `IValueConverter` | `HsvColor`/string -> `Color` for binding                |
+|  [04]   | `ColorToDisplayNameConverter`  | `IValueConverter` | `Color` -> human display name                           |
+|  [05]   | `ColorHelper`                  | static class      | `GetRelativeLuminance`/`ToDisplayName` color metadata   |
+
+[INTERNAL_PRIMITIVES]: `internal`, not consumable — listed so a design page does not compose them
+- rail: controls
+
+| [INDEX] | [SYMBOL]             | [VISIBILITY] | [NOTE]                                                            |
+| :-----: | :------------------- | :----------- | :--------------------------------------------------------------- |
+|  [01]   | `Primitives.Hsv`     | `internal`   | convert via Avalonia.Media `HsvColor` (`ColorView.HsvColor`) instead |
+|  [02]   | `Primitives.Rgb`     | `internal`   | convert via Avalonia.Media `Color` (`ColorView.Color`) instead   |
+|  [03]   | `Primitives.ColorPickerHelpers` | `internal` | bitmap/increment helpers used by the templates only       |
 
 ## [03]-[ENTRYPOINTS]
 
-[CONTROL_ENTRYPOINTS]: color editor operations
+[EDITOR_STATE]: `ColorView` selected-color, model, and subview-visibility surface
 - rail: controls
-- surface: `ColorView`
+- surface: `ColorView` (inherited unchanged by `ColorPicker`)
 
-| [INDEX] | [SURFACE]               | [RAIL]          |
-| :-----: | :---------------------- | :-------------- |
-|  [01]   | `Color`                 | selected color  |
-|  [02]   | `HsvColor`              | selected HSV    |
-|  [03]   | `ColorChanged`          | change event    |
-|  [04]   | `HexInputAlphaPosition` | alpha placement |
-|  [05]   | `IsAlphaEnabled`        | alpha toggle    |
-|  [06]   | `IsColorPaletteVisible` | palette toggle  |
-|  [07]   | `Palette`               | palette source  |
-|  [08]   | `PaletteColumnCount`    | palette layout  |
+| [INDEX] | [SURFACE]                                                       | [PROPERTY_KIND]   | [RAIL]                                          |
+| :-----: | :-------------------------------------------------------------- | :---------------- | :---------------------------------------------- |
+|  [01]   | `Color`                                                         | styled            | selected color as Avalonia.Media `Color`        |
+|  [02]   | `HsvColor`                                                      | styled            | selected color as Avalonia.Media `HsvColor`     |
+|  [03]   | `ColorChanged`                                                  | event             | `ColorChangedEventArgs` (old/new)               |
+|  [04]   | `ColorModel`                                                    | styled            | `Hsva` / `Rgba` working model                   |
+|  [05]   | `SelectedIndex`                                                 | styled            | active `ColorViewTab` index                     |
+|  [06]   | `IsAlphaEnabled` / `IsAlphaVisible`                            | styled            | alpha editing / alpha visibility                |
+|  [07]   | `IsColorSpectrumVisible` / `IsColorSpectrumSliderVisible`      | styled            | spectrum + its slider                           |
+|  [08]   | `IsColorPaletteVisible`                                        | styled            | palette subview                                 |
+|  [09]   | `IsColorComponentsVisible` / `IsComponentSliderVisible` / `IsComponentTextInputVisible` | styled | component sliders/inputs            |
+|  [10]   | `IsHexInputVisible` / `HexInputAlphaPosition`                  | styled            | hex field + alpha placement in hex              |
+|  [11]   | `IsColorPreviewVisible` / `IsColorModelVisible` / `IsAccentColorsVisible` | styled | preview / model toggle / accent swatches |
+|  [12]   | `Palette` / `PaletteColors` / `PaletteColumnCount`            | styled            | `IColorPalette` source, color seq, grid columns |
+|  [13]   | `MaxHue`/`MaxSaturation`/`MaxValue`/`MinHue`/`MinSaturation`/`MinValue` | styled  | HSV editing bounds                              |
 
-[PRIMITIVE_ENTRYPOINTS]: primitive and helper operations
+[PALETTE_AND_CONVERTER_OPS]: palette lookup and the hex/luminance statics
 - rail: controls
 
-| [INDEX] | [SURFACE]                    | [SURFACE_ROOT]       | [RAIL]            |
-| :-----: | :--------------------------- | :------------------- | :---------------- |
-|  [01]   | `GetColor`                   | `IColorPalette`      | palette lookup    |
-|  [02]   | `ToHsvColor`                 | `Hsv`                | HSV conversion    |
-|  [03]   | `ToRgb`                      | `Hsv`                | RGB conversion    |
-|  [04]   | `ToColor`                    | `Rgb`                | color conversion  |
-|  [05]   | `ToHsv`                      | `Rgb`                | HSV conversion    |
-|  [06]   | `GetRelativeLuminance`       | `ColorHelper`        | contrast input    |
-|  [07]   | `ToDisplayName`              | `ColorHelper`        | display label     |
-|  [08]   | `CreateComponentBitmapAsync` | `ColorPickerHelpers` | bitmap generation |
+| [INDEX] | [SURFACE]                                                                        | [SURFACE_ROOT]        | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------------------- | :-------------------- | :------------------------------------------- |
+|  [01]   | `GetColor(int colorIndex, int shadeIndex) -> Color`                               | `IColorPalette`       | color×shade grid lookup                      |
+|  [02]   | `ColorCount` / `ShadeCount`                                                       | `IColorPalette`       | palette grid dimensions                      |
+|  [03]   | `ToHexString(Color, AlphaComponentPosition, bool includeAlpha = true, bool includeSymbol = false)` | `ColorToHexConverter` | static color -> hex codec |
+|  [04]   | `ParseHexString(string, AlphaComponentPosition) -> Color?`                        | `ColorToHexConverter` | static hex -> color codec                    |
+|  [05]   | `Convert` / `ConvertBack`                                                         | `ColorToHexConverter` | `IValueConverter` binding path               |
+|  [06]   | `GetRelativeLuminance(Color) -> double`                                           | `ColorHelper`         | WCAG contrast input                          |
+|  [07]   | `ToDisplayName(Color) -> string` / `ToDisplayNameExists`                          | `ColorHelper`         | named-color label + availability flag        |
+
+[SLIDER_AND_SPECTRUM_OPS]: primitive control state
+- rail: controls
+
+| [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]    | [RAIL]                                       |
+| :-----: | :--------------------------------------------------------- | :---------------- | :------------------------------------------- |
+|  [01]   | `Color` / `HsvColor` / `ColorChanged`                      | `ColorSlider`     | bound color + change event                   |
+|  [02]   | `ColorComponent` / `ColorModel`                            | `ColorSlider`     | which component this slider edits            |
+|  [03]   | `IsAlphaVisible` / `IsPerceptive` / `IsRoundingEnabled`    | `ColorSlider`     | alpha track / perceptual gradient / rounding |
+|  [04]   | `Color` / `HsvColor` / `ColorChanged`                      | `ColorSpectrum`   | bound color + change event                   |
+|  [05]   | `Shape` / `Components` / `ThirdComponent`                  | `ColorSpectrum`   | box/ring, plotted axes, third-axis slider    |
+|  [06]   | `MinHue/MaxHue` `MinSaturation/MaxSaturation` `MinValue/MaxValue` | `ColorSpectrum` | spectrum HSV bounds                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COLOR_EDITOR_LAW]:
-- Package: `Avalonia.Controls.ColorPicker`
-- Owns: color editor controls, palette contracts, HSV/RGB primitives, and color event flow
-- Accept: color choices enter typed editors with explicit model, palette, alpha, and spectrum state
-- Reject: custom color picker forks
+- `ColorView` is the editor; `ColorPicker` is the flyout wrapper that inherits the entire `ColorView` surface and adds only `Content`/`ContentTemplate` — a design that needs an inline editor binds `ColorView`, one that needs a popup binds `ColorPicker`.
+- The selected color is dual-represented: `Color` (Avalonia.Media `Color`) and `HsvColor` (Avalonia.Media `HsvColor`) stay in sync, and `ColorChanged` carries `OldColor`/`NewColor` — the product color state is a typed framework value, never a string.
+- Subview visibility is a property family (`Is*Visible`/`Is*Enabled`), so a constrained editor (e.g. spectrum-only, no alpha) is configured by toggling rows, never by forking a control.
+
+[STACKING_LAW]:
+- Color↔hex transport is the static codec, not a hand-rolled formatter: `ColorToHexConverter.ToHexString(color, alphaPosition, includeAlpha, includeSymbol)` and `ParseHexString(text, alphaPosition)` are the canonical hex rail — a settings persistence layer or a swatch import reads/writes hex through these statics, and the same converter binds in XAML for live hex fields.
+- Conversion between RGB and HSV uses Avalonia.Media's framework types (`Color.ToHsv()`/`HsvColor.ToRgb()` live on the framework value types), not this package's `internal` `Hsv`/`Rgb` structs — a design page composing those internal primitives is composing a non-surface and is the rejected form.
+- Palette swatches stack with the app theme: an `IColorPalette` implementation feeds `ColorView.Palette` and the grid lays out by `ColorCount`×`ShadeCount` with `PaletteColumnCount` columns, so a brand palette is a data source, not a templated fork.
+- Contrast/accessibility composes off `ColorHelper.GetRelativeLuminance` — a foreground/background pair feeds the WCAG contrast computation the accessibility rail reports, and `ToDisplayName` supplies the announced color label.
 
 [MODEL_LAW]:
 - Package: `Avalonia.Controls.ColorPicker`
-- Owns: RGB, HSV, alpha, palette, and hex conversion vocabulary
-- Accept: product color state remains typed across shell, diagnostics, support, and downstream app surfaces
-- Reject: string-only color transport as a UI model
+- Owns: color editor controls, the `ColorModel`/`ColorViewTab`/component vocabularies, the `IColorPalette` grid contract, the public hex codec, and the color-change event flow.
+- Accept: color choices enter typed editors with explicit `ColorModel`, palette, alpha, and spectrum state; selected color crosses as Avalonia.Media `Color`/`HsvColor`; hex transport goes through the `ColorToHexConverter` statics.
+- Reject: custom color-picker forks; string-only color transport as a UI model; composing the `internal` `Hsv`/`Rgb`/`ColorPickerHelpers` primitives as if public; hand-rolled hex formatting where `ToHexString`/`ParseHexString` is the codec.

@@ -7,13 +7,14 @@
 [PACKAGE_SURFACE]: `HanumanInstitute.LibMpv`
 - package: `HanumanInstitute.LibMpv`
 - package: `HanumanInstitute.LibMpv.Avalonia`
+- version: `0.10.1`
+- license: MIT (expression)
 - assembly: `HanumanInstitute.LibMpv`
 - assembly: `HanumanInstitute.LibMpv.Avalonia`
-- namespace: `HanumanInstitute.LibMpv`
-- namespace: `HanumanInstitute.LibMpv.Core`
-- namespace: `HanumanInstitute.LibMpv.Avalonia`
-- framework: `net10.0`
-- framework: `netstandard2.0`
+- namespace: `HanumanInstitute.LibMpv` (context, command, option, property, event types)
+- namespace: `HanumanInstitute.LibMpv.Core` (low-level `MpvApi` P/Invoke, `MpvFormat`/`MpvError`/`MpvLogLevel`/`MpvNode`)
+- namespace: `HanumanInstitute.LibMpv.Avalonia` (`MpvView` + render controls)
+- target: core `lib/net10.0` (bound) + `lib/netstandard2.0`; Avalonia control `lib/net10.0` only
 - asset: managed client over the libmpv native runtime
 - asset: Avalonia control library
 - rail: media
@@ -33,31 +34,41 @@
 |  [07]   | `MpvEventLoop`      | event-loop enum | loop strategy selection      |
 
 [PUBLIC_TYPE_SCOPE]: typed property and option wrappers — rail: media
+- `MpvOption<T> : MpvPropertyWrite<T,T> where T : struct`, so options inherit `Get`/`Set`/`GetAsync`/`SetAsync` from the property base — option and property are one wrapper hierarchy, not two.
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]  | [RAIL]                     |
-| :-----: | :---------------------------- | :------------- | :------------------------- |
-|  [01]   | `MpvPropertyRead<T>`          | read property  | value-typed property read  |
-|  [02]   | `MpvPropertyWrite<T>`         | read/write     | value-typed property write |
-|  [03]   | `MpvPropertyReadRef<T,TApi>`  | read property  | reference-typed read       |
-|  [04]   | `MpvPropertyWriteRef<T,TApi>` | read/write     | reference-typed write      |
-|  [05]   | `MpvPropertyReadString`       | read property  | string property read       |
-|  [06]   | `MpvPropertyIndexRead<TI,T>`  | indexed read   | track/list indexed read    |
-|  [07]   | `MpvPropertyIndexWrite<TI,T>` | indexed write  | track/list indexed write   |
-|  [08]   | `MpvOption<T>`                | startup option | value option get/set       |
-|  [09]   | `MpvOptionEnum<T>`            | startup option | enum option get/set        |
-|  [10]   | `MpvOptionString`             | startup option | string option get/set      |
-|  [11]   | `MpvOptionList`               | list option    | additive list option       |
-|  [12]   | `MpvOptionDictionary`         | dictionary     | key/value option map       |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                |
+| :-----: | :----------------------------- | :-------------- | :------------------------------------ |
+|  [01]   | `MpvPropertyRead<T>`           | read property   | value-typed property read             |
+|  [02]   | `MpvPropertyWrite<T,TApi>`     | read/write      | value-typed property write            |
+|  [03]   | `MpvPropertyReadRef<T,TApi>`   | read property   | reference-typed read                  |
+|  [04]   | `MpvPropertyWriteRef<T,TApi>`  | read/write      | reference-typed write                 |
+|  [05]   | `MpvPropertyReadString`        | read property   | string property read                  |
+|  [06]   | `MpvPropertyWriteString`       | read/write      | string property write                 |
+|  [07]   | `MpvPropertyIndexRead<TI,T>`   | indexed read    | track/list indexed read               |
+|  [08]   | `MpvPropertyIndexWrite<TI,T>`  | indexed write   | track/list indexed write              |
+|  [09]   | `MpvPropertyIndexReadRef` / `…WriteRef` | indexed ref | reference-typed indexed              |
+|  [10]   | `MpvOption<T>`                 | startup option  | value option get/set (`T : struct`)   |
+|  [11]   | `MpvOptionEnum<T>`             | startup option  | enum option get/set                   |
+|  [12]   | `MpvOptionString`              | startup option  | string option get/set                 |
+|  [13]   | `MpvOptionRef<T,TApi>`         | startup option  | reference-typed option                |
+|  [14]   | `MpvOptionList`                | list option     | additive list option                  |
+|  [15]   | `MpvOptionDictionary` / `…RefDictionary` | dictionary | key/value option map              |
+|  [16]   | `MpvOptionWithAuto` / `…AutoNo` | sentinel option | `auto` / `no` special-value wrapper   |
+|  [17]   | `MpvOptionWithNo` / `…NoAlways` / `…YesNo` | sentinel option | `no` / `yes`/`no` sentinel    |
+|  [18]   | `MpvOptionWithDefault` / `…Inf` / `…AllCurrent` | sentinel option | `default` / `inf` / `all` sentinel |
+|  [19]   | `MpvOptionWithIndex` / `…Full` | sentinel option | indexed / full-range sentinel         |
 
 [PUBLIC_TYPE_SCOPE]: event payloads — rail: media
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [RAIL]                   |
-| :-----: | :----------------------- | :-------------- | :----------------------- |
-|  [01]   | `MpvPropertyEventArgs`   | property event  | observed property change |
-|  [02]   | `MpvLogMessageEventArgs` | log event       | libmpv log line          |
-|  [03]   | `MpvStartFileEventArgs`  | lifecycle event | playback start           |
-|  [04]   | `MpvEndFileEventArgs`    | lifecycle event | playback end and reason  |
-|  [05]   | `EndReason`              | reason enum     | end-of-file classifier   |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [RAIL]                      |
+| :-----: | :-------------------------- | :-------------- | :------------------------- |
+|  [01]   | `MpvPropertyEventArgs`      | property event  | observed property change   |
+|  [02]   | `MpvLogMessageEventArgs`    | log event       | libmpv log line + level    |
+|  [03]   | `MpvStartFileEventArgs`     | lifecycle event | playback start             |
+|  [04]   | `MpvEndFileEventArgs`       | lifecycle event | playback end and reason    |
+|  [05]   | `MpvCommandReplyEventArgs`  | command event   | async command completion   |
+|  [06]   | `EndReason`                 | reason enum     | end-of-file classifier     |
+|  [07]   | `MpvEventLoop`              | event-loop enum | `Default` (simple) / `Thread` |
 
 [PUBLIC_TYPE_SCOPE]: Avalonia view and render integration — rail: media
 
@@ -113,21 +124,23 @@
 
 [ENTRYPOINT_SCOPE]: client core and render path on `MpvContextBase`
 - rail: media
+- The low-level command/property surface is the `RunCommand*` / `GetProperty*` / `SetProperty*` family below, format/`void*`-based. There is no `CommandAsync<T>`/`GetPropertyAsync<T>`/`SetPropertyAsync<T>` on the base — typed async lives on the property/option wrappers' `GetAsync`/`SetAsync`, which marshal through these base primitives. `MpvCommandOptions`/`MpvAsyncOptions` set throw-on-error, response timeout, and wait-for-response, read back via `GetThrowOnErrorOption`/`GetResponseTimeoutOption`/`GetWaitForResponseOption`.
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                      |
-| :-----: | :----------------------------------------- | :-------------- | :-------------------------- |
-|  [01]   | `Initialize`                               | lifecycle       | create the libmpv client    |
-|  [02]   | `CommandAsync<T>(options, args)`           | command rail    | async typed command         |
-|  [03]   | `GetPropertyAsync<T>(name, options)`       | property rail   | async typed property read   |
-|  [04]   | `SetPropertyAsync<T>(name, value, opts)`   | property rail   | async typed property write  |
-|  [05]   | `ObserveProperty(requestId, name, format)` | observation     | property-change events      |
-|  [06]   | `StartOpenGlRendering(getProcAddress, ..)` | render setup    | bind the OpenGL render path |
-|  [07]   | `OpenGlRender(width, height, fb, flipY)`   | render frame    | draw one GL frame           |
-|  [08]   | `StartSoftwareRendering(updateCallback)`   | render setup    | bind the software path      |
-|  [09]   | `SoftwareRender(w, h, surface, format)`    | render frame    | blit one CPU frame          |
-|  [10]   | `StartNativeRendering(hw)`                 | render setup    | embed a native window       |
-|  [11]   | `StopRendering`                            | render teardown | release the render context  |
-|  [12]   | `RequestLogMessages(minLevel)`             | diagnostics     | enable log events           |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [RAIL]                       |
+| :-----: | :------------------------------------------------- | :-------------- | :--------------------------- |
+|  [01]   | `MpvContextBase(MpvEventLoop)` / `Initialize()`     | lifecycle       | create client, pick loop     |
+|  [02]   | `RunCommand(MpvCommandOptions?, params object?[])`  | command rail    | sync command, throw policy    |
+|  [03]   | `RunCommandAsync(ulong requestId, string[] args)`   | command rail    | async command (reply event)  |
+|  [04]   | `RunCommandNode(MpvNode, bool returnData)` / `…NodeAsync` | command rail | node-arg command + data    |
+|  [05]   | `RunCommandString(string args)`                     | command rail    | flat-string command          |
+|  [06]   | `GetProperty(name, MpvFormat, void*)` / `GetPropertyString` / `GetPropertyOsdString` | property rail | typed/string/OSD read |
+|  [07]   | `SetProperty(name, MpvFormat, void*)` / `SetPropertyDouble` / `…Long` / `…Flag` / `…String` | property rail | typed property write |
+|  [08]   | `ObserveProperty(ulong requestId, name, MpvFormat)` | observation     | property-change events       |
+|  [09]   | `AbortAsyncCommand(ulong requestId)` / `WaitAsyncRequests()` | async control | cancel / drain pending     |
+|  [10]   | `StartOpenGlRendering(getProcAddress, ..)` / `OpenGlRender(w, h, fb, flipY)` | render | bind + draw GL frame |
+|  [11]   | `StartSoftwareRendering(updateCallback)` / `SoftwareRender(w, h, surface, format)` | render | bind + blit CPU frame |
+|  [12]   | `StartNativeRendering(hw)` / `StopRendering()`      | render          | embed native / release       |
+|  [13]   | `RequestLogMessages(minLevel)`                      | diagnostics     | enable log events             |
 
 [ENTRYPOINT_SCOPE]: typed property and option wrapper operations
 - rail: media
@@ -162,19 +175,21 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MEDIA_TOPOLOGY]:
-- `HanumanInstitute.LibMpv` carries 241 types across `HanumanInstitute.LibMpv` and `HanumanInstitute.LibMpv.Core`; `HanumanInstitute.LibMpv.Avalonia` carries 11 types in one namespace.
-- `MpvContextBase` owns the raw libmpv client: `Initialize`, the async `CommandAsync`/`GetPropertyAsync`/`SetPropertyAsync` rails, property observation, event surfacing, and the render entrypoints.
-- `MpvContext` derives from `MpvContextBase` and projects the libmpv command set into named `MpvCommand` methods and the property/option set into hundreds of typed `MpvOption`, `MpvOptionEnum`, `MpvPropertyRead`, and `MpvPropertyWrite` members keyed to mpv property names such as `time-pos`, `volume`, and `pause`.
+- `HanumanInstitute.LibMpv` carries 280 types across `HanumanInstitute.LibMpv` and `HanumanInstitute.LibMpv.Core`; `HanumanInstitute.LibMpv.Avalonia` carries 17 types.
+- `MpvContextBase` owns the raw libmpv client: the `MpvContextBase(MpvEventLoop)` ctor + `Initialize`, the `RunCommand*` command primitives, the `GetProperty*`/`SetProperty*` property primitives, `ObserveProperty`, async control (`AbortAsyncCommand`/`WaitAsyncRequests`), event surfacing, and the render entrypoints. The `MpvEventLoop.Default` path drives an `MpvSimpleEventLoop` (caller-pumped); `MpvEventLoop.Thread` drives an `MpvThreadEventLoop` (dedicated event thread) — the surface selects one at construction.
+- `MpvContext` derives from `MpvContextBase` and projects the libmpv command set into named `MpvCommand` methods (`LoadFile`, `Seek`, `Screenshot`, ...) and the property/option set into hundreds of typed `MpvOption`, `MpvOptionEnum`, `MpvOptionWith*` sentinel, `MpvPropertyRead`, and `MpvPropertyWrite` members keyed to mpv property names such as `time-pos`, `volume`, and `pause` — the typed async on those wrappers (`GetAsync`/`SetAsync`) is the surface a UI binding awaits, not a base method.
 - Render paths are mutually exclusive: `StartOpenGlRendering`/`OpenGlRender`, `StartSoftwareRendering`/`SoftwareRender`, and `StartNativeRendering` each bind one strategy until `StopRendering` releases it.
-- `VideoRenderer` admits `Auto`, `Software`, `OpenGl`, and `Native`; `MpvView` selects one and swaps in the matching `IVideoView` child (`OpenGlView`, `SoftwareView`, or `NativeView`).
+- `VideoRenderer` admits `Auto`, `Software`, `OpenGl`, and `Native`; `MpvView` selects one through the `RendererProperty` `DirectProperty` and `InitRenderer` swaps in the matching `IVideoView` child (`OpenGlView`, `SoftwareView`, or `NativeView`) — `IVideoView : IDisposable` exposes the bound `MpvContext`.
 - `OpenGlView` derives from `OpenGlControlBase` and renders inside the Avalonia GL surface, avoiding the `NativeControlHost` airspace that `NativeView` requires.
-- Events surface through `MpvContextBase`: `PropertyChanged`, `LogMessage`, `StartFile`, `EndFile`, `FileLoaded`, `PlaybackRestart`, `SeekRaised`, and `Shutdown`.
-- Failures raise `MpvException` carrying the libmpv `MpvError` code; `MpvCommandOptions` and `MpvAsyncOptions` set throw-on-error, response timeout, and wait-for-response behavior.
+- Events surface through `MpvContextBase`: payload events `PropertyChanged`, `LogMessage`, `StartFile`, `EndFile`; bare-signal events `FileLoaded`, `PlaybackRestart`, `SeekRaised`, `Shutdown`, `Idle`, `Tick`, `PreRender`, `QueueOverflow`, `AudioReconfig`, `VideoReconfig` — the surface subscribes the observed-property and lifecycle events it needs, never polling on a timer.
+- Failures raise `MpvException` carrying the libmpv `MpvError` code (in `HanumanInstitute.LibMpv.Core`); `MpvCommandOptions` and `MpvAsyncOptions` set throw-on-error, response timeout, and wait-for-response behavior, and `MpvFormat`/`MpvNode` (also `.Core`) are the marshalling primitives `GetProperty`/`ObserveProperty`/`RunCommandNode` pass.
 
 [LOCAL_ADMISSION]:
 - The MediaSurface composes `MpvView` with `Renderer` set to `VideoRenderer.OpenGl`, taking the OpenGL render path so playback shares the Avalonia GL surface instead of a separate native window.
 - Playback control flows through the `MpvContext` exposed by the bound `IVideoView`: `LoadFile` for source intake, `Pause`/`Speed`/`Volume`/`Mute` options for transport and audio, and `TimePos`/`PercentPos` for seek.
 - Position and state surface through observed `MpvPropertyRead` members and `PropertyChanged`; the surface never polls libmpv on a timer.
+- `MpvEventLoop.Default` (the `MpvSimpleEventLoop`) is the Avalonia-friendly path: events marshal onto the `Dispatcher.UIThread` the `MpvView` lives on, so the observed-property `PropertyChanged` updates ReactiveUI bindings without a cross-thread hop — `MpvEventLoop.Thread` is for a headless/non-UI host where no dispatcher pumps.
+- `LogMessage` (gated by `RequestLogMessages(minLevel)`) and `EndFile` (`MpvEndFileEventArgs.Reason` of `EndReason`) route into the AppUi receipt sink as media-evidence rows exactly as the wgpu `SetLogCallback` native stream does — a decode failure or unsupported codec is a counted media fault on the telemetry spine, not a swallowed native print.
 - Every `MpvContext`, view, and overlay is disposed through `IVideoView.Dispose` at teardown to free the render context.
 
 [RAIL_LAW]:

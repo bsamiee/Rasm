@@ -10,9 +10,12 @@ static `Draco` facade for Bim mesh interchange rails.
 
 [PACKAGE_SURFACE]: `Openize.Drako`
 - package: `Openize.Drako`
+- version: `26.2.0`
 - assembly: `Openize.Drako`
 - namespace: `Openize.Drako`
-- asset: net8.0, net7.0, net6.0, netstandard2.1, net46
+- asset: net8.0, net7.0, net6.0, netstandard2.1, net46 — `net10.0` consumer binds `lib/net8.0`
+- asset: IL-only AnyCPU managed assembly; no `runtimes/` folder, no native binaries; the bound `net8.0` group declares zero package dependencies (`System.Memory`/`System.Numerics.Vectors` ride only the `net46` fallback)
+- license: commercial Openize (`LICENSE` file, `requireLicenseAcceptance=true`); accepted at `Directory.Packages.props` for the Compute `EXPORT_RAIL`, outside-Rhino only
 - rail: geometry
 
 ## [02]-[PUBLIC_TYPES]
@@ -75,15 +78,14 @@ static `Draco` facade for Bim mesh interchange rails.
 [ENTRYPOINT_SCOPE]: `DracoPointCloud` — attribute and metadata management
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]   | [RAIL]                                      |
-| :-----: | :----------------------------------------------------------------- | :--------------- | :------------------------------------------ |
-|  [01]   | `AddAttribute(PointAttribute pa)`                                  | attribute add    | appends attribute; returns attribute id     |
-|  [02]   | `AddAttribute(GeometryAttribute att, bool identityMapping, int n)` | attribute add    | appends with mapping policy and value count |
-|  [03]   | `Attribute(int attId)`                                             | attribute access | returns `PointAttribute` by id              |
-|  [04]   | `NumPoints` property                                               | point count      | get/set number of points in cloud           |
-|  [05]   | `NumAttributes` property                                           | attribute count  | number of attributes on the cloud           |
-|  [06]   | `DeduplicateAttributeValues()`                                     | deduplication    | removes duplicate attribute values in-place |
-|  [07]   | `DeduplicatePointIds()`                                            | deduplication    | merges duplicate point identities           |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [RAIL]                                              |
+| :-----: | :------------------------------------------------------------------------ | :--------------- | :-------------------------------------------------- |
+|  [01]   | `AddAttribute(GeometryAttribute att, bool identityMapping, int numValues)` → `int` | attribute add    | the SOLE add overload; pass a `PointAttribute` (it `: GeometryAttribute`); returns the new attribute id |
+|  [02]   | `Attribute(int attId)`                                                    | attribute access | returns `PointAttribute` by id                      |
+|  [03]   | `NumPoints` property                                               | point count      | get/set number of points in cloud           |
+|  [04]   | `NumAttributes` property                                           | attribute count  | number of attributes on the cloud           |
+|  [05]   | `DeduplicateAttributeValues()`                                     | deduplication    | removes duplicate attribute values in-place; run before encode to collapse shared values |
+|  [06]   | `DeduplicatePointIds()`                                            | deduplication    | merges duplicate point identities           |
 
 [ENTRYPOINT_SCOPE]: `DracoMesh` — face management
 - rail: geometry
@@ -125,13 +127,18 @@ static `Draco` facade for Bim mesh interchange rails.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DRACO_TOPOLOGY]:
-- namespace: `Openize.Drako`; 141 types across 5 namespaces (`Openize.Drako`, `.Utils`, `.Encoder`, `.Decoder`, `.Compression`); the public surface is the 13 root-namespace types catalogued here
-- `DracoMesh` inherits `DracoPointCloud`; triangulated meshes are still point clouds with indexed faces
+- namespace: `Openize.Drako`; 5 namespaces (`Openize.Drako`, `.Utils`, `.Encoder`, `.Decoder`, `.Compression`). The consumer-facing surface is the 13 root-namespace types catalogued here PLUS three public `Openize.Drako.Utils` carriers reached through them: `DataBuffer` (the `PointAttribute` ctor backing buffer + `GeometryAttribute.Buffer`), `IntList` (the `DracoMesh.Indices` corner-index list), and `ShannonEntropyTracker`. `.Encoder`/`.Decoder`/`.Compression` are internal-pipeline namespaces the `Draco` facade drives.
+- `DracoMesh : DracoPointCloud`; triangulated meshes are still point clouds with indexed faces
 - `Draco.Decode` returns `DracoPointCloud` for point clouds and `DracoMesh` for triangulated meshes; callers discriminate by `is DracoMesh`
 - `DracoEncodingMethod` and `EncodedGeometryType` are internal; encoder selection is automatic based on geometry type and compression level
 - quantization defaults: `PositionBits=11`, `TextureCoordinateBits=12`, `NormalBits=10`, `ColorBits=10`, `CompressionLevel=Standard`
-- attribute types: `Position`, `Normal`, `Color`, `TexCoord`, `Generic` are the five named types; `NamedAttributesCount` is a sentinel
-- metadata: `Metadata.Entries` is string→byte[]; `GeometryMetadata.AttributeMetadata` maps attribute id → `Metadata`
+- attribute types: `Position`, `Normal`, `Color`, `TexCoord`, `Generic` are the five named types; `Invalid` and `NamedAttributesCount` are sentinels
+- metadata: `Metadata.Entries` is `Dictionary<string, byte[]>`; `Metadata.SubMetadata` is `Dictionary<string, Metadata>`; `GeometryMetadata.AttributeMetadata` is `Dictionary<int, Metadata>` keyed by attribute id
+
+[INTEGRATION_STACK]:
+- `Openize.Drako` is the `KHR_draco_mesh_compression` leg of the Compute glTF `EXPORT_RAIL`; it stacks ONTO `SharpGLTF.Core` (the catalogued glTF wire owner) and is a sibling of `Alimer.Bindings.MeshOptimizer` (the `EXT_meshopt_compression` leg). One export-codec dispatch row selects Draco vs meshopt by extension policy: `Draco.Encode(mesh, opts) → byte[]` becomes the bufferView payload SharpGLTF references under the `KHR_draco_mesh_compression` extension, while meshopt's `EncodeVertexBuffer`/`EncodeIndexBuffer` feeds the `EXT_meshopt_compression` payload — both produce `byte[]`/`Span<byte>` blobs the same glTF buffer writer absorbs.
+- The intake side stacks onto the canonical mesh owner: project the runtime triangle-soup (positions/normals/UVs + index buffer) into `PointAttribute.Wrap(AttributeType.Position, Span<Vector3>)` / `Wrap(AttributeType.Normal, …)` / `Wrap(AttributeType.TexCoord, Span<Vector2>)` and `DracoMesh.AddFace(int[])`, so the same canonical buffers feed Draco intake AND meshopt's generic `EncodeVertexBuffer<TVertex>` overload without a second projection.
+- A Compute codec rail wraps `Draco.Encode`/`Draco.Decode` in the project `Fin`/`Eff` rail, mapping `DrakoException` to a typed codec failure at the boundary (the package raises `DrakoException`, never a `Fin`), and emits a per-codec telemetry span carrying the pre/post byte count for the compression-ratio receipt.
 
 [LOCAL_ADMISSION]:
 - Encode intake: populate `DracoMesh` or `DracoPointCloud` with `PointAttribute.Wrap` factory calls; call `Draco.Encode` with explicit `DracoEncodeOptions`.

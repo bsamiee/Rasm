@@ -5,32 +5,24 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp`
-- package: `ACadSharp`
+- package: `ACadSharp` (3.6.29, MIT)
 - assembly: `ACadSharp`
-- namespace: `ACadSharp`
-- namespace: `ACadSharp.Entities`
-- namespace: `ACadSharp.Tables`
-- namespace: `ACadSharp.IO`
-- asset: runtime library
+- namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO`, `ACadSharp.IO.SVG`
+- asset: managed runtime library (`lib/net9.0` binds the `net10.0` consumer — highest available TFM); geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
 - rail: drafting
 
 [PACKAGE_SURFACE]: `netDxf`
-- package: `netDxf`
+- package: `netDxf` (2023.11.10, MIT) — the maintained `netDxf.netstandard`/Reloaded fork on the `netDxf` id
 - assembly: `netDxf`
-- namespace: `netDxf`
-- namespace: `netDxf.Entities`
-- namespace: `netDxf.IO`
-- asset: runtime library
+- namespace: `netDxf`, `netDxf.Entities`, `netDxf.Tables`, `netDxf.IO`
+- asset: managed runtime library (`lib/net6.0` binds the `net10.0` consumer — highest available TFM; `netstandard2.0` fallback); geometry points are `netDxf.Vector2`/`Vector3`
 - rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
-- package: `DocumentFormat.OpenXml`
+- package: `DocumentFormat.OpenXml` (3.5.1, MIT, © Microsoft) — the SDK; depends `DocumentFormat.OpenXml.Framework`
 - assembly: `DocumentFormat.OpenXml`
-- namespace: `DocumentFormat.OpenXml.Packaging`
-- namespace: `DocumentFormat.OpenXml.Wordprocessing`
-- namespace: `DocumentFormat.OpenXml.Spreadsheet`
-- namespace: `DocumentFormat.OpenXml.Presentation`
-- asset: runtime library
+- namespace: `DocumentFormat.OpenXml.Packaging`, `.Wordprocessing`, `.Spreadsheet`, `.Presentation`
+- asset: managed runtime library (`lib/net10.0` binds the consumer directly)
 - rail: drafting
 
 ## [02]-[PUBLIC_TYPES]
@@ -164,20 +156,15 @@
 
 | [INDEX] | [SURFACE]                                          | [SURFACE_ROOT] | [RAIL]              |
 | :-----: | :------------------------------------------------- | :------------- | :------------------ |
-|  [01]   | `DwgReader(string, config)`                        | `DwgReader`    | DWG stream open     |
-|  [02]   | `DwgReader(Stream, config)`                        | `DwgReader`    | DWG stream open     |
-|  [03]   | `Read()`                                           | `DwgReader`    | DWG document parse  |
-|  [04]   | `DxfReader(string, config)`                        | `DxfReader`    | DXF stream open     |
-|  [05]   | `DxfReader(Stream, config)`                        | `DxfReader`    | DXF stream open     |
-|  [06]   | `Read()`                                           | `DxfReader`    | DXF document parse  |
-|  [07]   | `Write(string, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
-|  [08]   | `Write(Stream, CadDocument, ...)`                  | `DwgWriter`    | static DWG emit     |
-|  [09]   | `Write(string, CadDocument, ...)`                  | `DxfWriter`    | static DXF emit     |
-|  [10]   | `Write(Stream, CadDocument, ...)`                  | `DxfWriter`    | static DXF emit     |
-|  [11]   | `Write()`                                          | `DxfWriter`    | instance DXF emit   |
-|  [12]   | `DwgWriter(string, CadDocument)`                   | `DwgWriter`    | writer construction |
-|  [13]   | `DxfWriter(string, CadDocument, binary)`           | `DxfWriter`    | writer construction |
-|  [14]   | `SvgWriter(string, CadDocument, SvgConfiguration)` | `SvgWriter`    | SVG emit            |
+|  [01]   | `DwgReader(string\|Stream, NotificationEventHandler?)` + `.Configuration` (`DwgReaderConfiguration`) | `DwgReader` | DWG open (config is a property) |
+|  [02]   | `Read()` / static `DwgReader.Read(string\|Stream, DwgReaderConfiguration, NotificationEventHandler?)` | `DwgReader` | DWG document parse |
+|  [03]   | `DxfReader(string\|Stream, NotificationEventHandler?)` + `.Configuration` (`DxfReaderConfiguration`) | `DxfReader` | DXF open (config is a property) |
+|  [04]   | `Read()` / static `DxfReader.Read(string\|Stream, DxfReaderConfiguration, NotificationEventHandler?)` | `DxfReader` | DXF document parse |
+|  [05]   | static `DwgWriter.Write(string\|Stream, CadDocument, DwgWriterConfiguration?, NotificationEventHandler?)` | `DwgWriter` | one-call DWG emit |
+|  [06]   | static `DxfWriter.Write(string\|Stream, CadDocument, bool binary, DxfWriterConfiguration?, NotificationEventHandler?)` | `DxfWriter` | one-call DXF emit |
+|  [07]   | `new DwgWriter(string\|Stream, CadDocument)` + `.Configuration` + `Write()` | `DwgWriter` | instance DWG emit (reusable config) |
+|  [08]   | `new DxfWriter(string\|Stream, CadDocument, bool binary = false)` + `.Configuration` + `Write()` | `DxfWriter` | instance DXF emit (binary at ctor) |
+|  [09]   | `new SvgWriter(string\|Stream, CadDocument)` + `.Configuration` (`SvgConfiguration`) + `Write()` | `SvgWriter` | SVG emit (`SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`) |
 
 [ENTRYPOINT_SCOPE]: netDxf document round-trip operations
 - rail: drafting
@@ -227,7 +214,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DRAFTING_TOPOLOGY]:
-- `ACadSharp`: 706 types across 35 namespaces; `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
+- `ACadSharp` (3.6.29, `lib/net9.0` bound): `CadDocument` is the document root; `ACadSharp.IO` owns all read and write paths through `CadReaderBase<T>`/`CadWriterBase<T>` (settable `.Configuration`, `Read()`/`Write()`, plus static one-call `Read`/`Write` overloads); a `NotificationEventHandler` is the optional warning/error sink threaded through every reader/writer ctor and static call; `SvgWriter` (in `ACadSharp.IO.SVG`) emits SVG with `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`; `ACadSharp.Entities` covers the geometry entity roster; `ACadSharp.Tables` covers layer, linetype, style, and block-record entries
 - `netDxf`: 365 types across 10 namespaces; `DxfDocument` is the document root with static `Load` factory and instance `Save`; read/write is self-contained through `DxfDocument.Load`/`Save`; `DxfDocument(Header.DxfVersion)` selects the output version, geometry points are `netDxf.Vector2`/`Vector3`, `netDxf.Entities.Line`/`MText` are the line and text entities, and `netDxf.Tables.Layer`/`Linetype` (with the `Linetype.Continuous`/`Dashed` singletons) carry the layer structure
 - `ACadSharp` geometry points are `CSMath.XYZ`, entity layers attach through the entity `Layer` property bound to a `Layer` table entry (`LineType.Continuous`/`Dashed` linetype singletons), `MText` carries `Value`/`InsertPoint`/`Height`, and the document `Entities`/`Layers` collections take typed entities through `Add`
 - `DocumentFormat.OpenXml`: 5210 types across 140 namespaces; `Packaging` owns the three document roots; `Wordprocessing`, `Spreadsheet`, and `Presentation` namespaces supply the open content element trees
@@ -236,7 +223,7 @@
 - `ACadSharp` owns DWG authorship and round-trip; `netDxf` owns DXF authorship and round-trip; they are not interchangeable — `CadDocument` and `DxfDocument` are independent models.
 - `DocumentFormat.OpenXml` package documents are disposable; every open or create path pairs with `Save`/`Dispose` or a `using` scope.
 - Entity construction flows through the entity type constructor, then collection `Add`; never bypass typed entity APIs with raw group-code writes.
-- Configuration objects (`DwgReaderConfiguration`, `DxfWriterConfiguration`) scope read/write posture; pass them at construction, not post-hoc.
+- Configuration objects scope read/write posture two ways: the instance `Reader`/`Writer` exposes a settable `.Configuration` property (`CadReaderBase<T>`/`CadWriterBase<T>`, default-constructed), and the static `Read`/`Write` overloads take the config as an optional trailing argument alongside an optional `NotificationEventHandler` (the warning/error sink). The reader ctor's second argument is the `NotificationEventHandler`, never the config — set `reader.Configuration` after construction.
 - OOXML part-graph construction flows root-first: `Create(Stream, type)` mints the package, `AddWorkbookPart`/`AddMainDocumentPart` mints the root part, the part's root element (`Workbook`/`Document`) is assigned, child parts (`WorksheetPart` via `AddNewPart`, `FontTablePart` for embedded faces) attach under it, content elements (`Sheets`/`Sheet`/`SheetData`/`Row`/`Cell`, `Body`/`Paragraph`/`Run`/`Text`) append through `Append`/`AppendChild`, and `Save` on the root element plus the `using` package dispose commits the byte stream; `GetIdOfPart` supplies the relationship id a `Sheet` registry entry binds, never a hand-written `rId`.
 
 [RAIL_LAW]:

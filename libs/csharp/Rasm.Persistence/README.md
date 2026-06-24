@@ -74,6 +74,7 @@ PostgreSQL 18 server-tier extensions: no managed assembly, provisioned through r
 - `Apache.Arrow`
 - `Apache.Arrow.Flight`
 - `Apache.Arrow.Adbc`
+- `Apache.Arrow.Compression` (admitted concrete `ICompressionCodecFactory` for `Lz4Frame`/`Zstd` Arrow-IPC compression; pure-managed, transitives `K4os.Compression.LZ4.Streams` + `ZstdSharp.Port` — distinct from the `K4os.Compression.LZ4` snapshot codec)
 - `FastCDC.Net`
 
 [OBJECT_STORE]:

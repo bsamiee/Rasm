@@ -7,32 +7,35 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SharpGLTF.Core`
-- package: `SharpGLTF.Core`
+- package: `SharpGLTF.Core` (`1.0.6`)
 - assembly: `SharpGLTF.Core`
+- license: MIT
 - namespace: `SharpGLTF.Schema2`
 - namespace: `SharpGLTF.Memory`
 - namespace: `SharpGLTF.Validation`
 - namespace: `SharpGLTF.Animations`
 - namespace: `SharpGLTF.IO`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Toolkit`
-- package: `SharpGLTF.Toolkit`
+- package: `SharpGLTF.Toolkit` (`1.0.6`)
 - assembly: `SharpGLTF.Toolkit`
+- license: MIT
 - namespace: `SharpGLTF.Scenes`
 - namespace: `SharpGLTF.Geometry`
 - namespace: `SharpGLTF.Geometry.VertexTypes`
 - namespace: `SharpGLTF.Materials`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
 - rail: geometry
 
 [PACKAGE_SURFACE]: `SharpGLTF.Runtime`
-- package: `SharpGLTF.Runtime`
+- package: `SharpGLTF.Runtime` (`1.0.6`)
 - assembly: `SharpGLTF.Runtime`
+- license: MIT
 - namespace: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF`
-- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0
+- asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
 - rail: geometry
 - consumer: transitive-only — pulled by `SharpGLTF.Toolkit` (`packages.lock.json` Toolkit→Runtime 1.0.6), explicitly version-pinned in the central manifest for central control, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page. The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface (this catalogue's Runtime scope: scene template + `*Instance` types + the `IMeshDecoder`/`IMeshPrimitiveDecoder` decode contracts) is the `Rasm.Bim` glTF-import owner reached at `Runtime/codecs#TESSELLATION_BRIDGE` — the two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core` (the raw glTF-extension write surface `Runtime/codecs.md` composes) and `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path) are direct Compute consumers.
 
@@ -142,28 +145,40 @@ for game-engine integration (`SharpGLTF.Runtime`) across three coordinated packa
 |  [06]   | `LinkException`     | invalid inter-object relationships                                     |
 |  [07]   | `DataException`     | invalid binary data                                                    |
 
-[PUBLIC_TYPE_SCOPE]: Schema2 — material channel surface and extension capability
+[PUBLIC_TYPE_SCOPE]: Schema2 — material channel surface (Core, string-keyed)
 - package: `SharpGLTF.Core`
 - namespace: `SharpGLTF.Schema2`
 - rail: geometry
 
-The KHR material extension classes (`MaterialClearCoat`, `MaterialSheen`, `MaterialVolume`, etc.) are `internal` in SharpGLTF.Core; the public surface for every PBR extension is the channel API. `Material.FindChannel(string)` and `Material.Channels` project `MaterialChannel` rows keyed by the `KnownChannel` enum, whose values carry each extension capability.
+The KHR material extension classes (`MaterialClearCoat`, `MaterialSheen`, `MaterialVolume`, etc.) are `internal` in SharpGLTF.Core; the public Core surface for every PBR extension is the STRING-keyed channel API on the `MaterialChannel` value struct — there is NO `KnownChannel` enum in Core (that enum is Toolkit-side, below). `Material.FindChannel(string)` and `Material.Channels` project `MaterialChannel` rows, each carrying a string `Key`, a `Texture`, `GetFactor`/`SetFactor`, and the `SetTransform` (`KHR_texture_transform`) leg.
+
+| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                                          |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `Material.Channels`          | `IEnumerable<MaterialChannel>` of all active channels on the material                 |
+|  [02]   | `Material.FindChannel`       | resolves one `MaterialChannel?` by channel key string                                 |
+|  [03]   | `MaterialChannel`            | `readonly struct`; `Key`, `Texture`, `GetFactor(string)`/`SetFactor(string, float)`   |
+|  [04]   | `MaterialChannel.SetTexture` | `(int texCoord, Image primary, Image? fallback, wrap/filter…)` channel texture set    |
+|  [05]   | `MaterialChannel.SetTransform` | `(Vector2 offset, Vector2 scale, float rotation, int? texCoordOverride)` — `KHR_texture_transform` per-channel UV transform |
+
+[PUBLIC_TYPE_SCOPE]: Materials — `KnownChannel` enum and PBR extension capability (Toolkit)
+- package: `SharpGLTF.Toolkit`
+- namespace: `SharpGLTF.Materials`
+- rail: geometry
+
+`KnownChannel` is a Toolkit enum (NOT Core/Schema2); `MaterialBuilder.UseChannel(KnownChannel)` keys the builder channel by it. Each value selects an in-box KHR PBR-extension capability.
 
 | [INDEX] | [SYMBOL]                                | [CAPABILITY]                                                                          |
 | :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `Material.Channels`                     | public `IReadOnlyList<MaterialChannel>` of all active channels on the material        |
-|  [02]   | `Material.FindChannel`                  | resolves one `MaterialChannel?` by channel key string                                 |
-|  [03]   | `MaterialChannel`                       | struct carrying texture, parameter values, and channel key for one channel            |
-|  [04]   | `KnownChannel`                          | channel-key enum: `BaseColor`, `MetallicRoughness`, `Normal`, `Occlusion`, `Emissive` |
-|  [05]   | `KnownChannel.ClearCoat`                | KHR_materials_clearcoat (`ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`)        |
-|  [06]   | `KnownChannel.Transmission`             | KHR_materials_transmission; optical transmission                                      |
-|  [07]   | `KnownChannel.SheenColor`               | KHR_materials_sheen (`SheenColor`, `SheenRoughness`)                                  |
-|  [08]   | `KnownChannel.SpecularColor`            | KHR_materials_specular (`SpecularColor`, `SpecularFactor`)                            |
-|  [09]   | `KnownChannel.VolumeThickness`          | KHR_materials_volume (`VolumeThickness`, `VolumeAttenuation`)                         |
-|  [10]   | `KnownChannel.Iridescence`              | KHR_materials_iridescence (`Iridescence`, `IridescenceThickness`)                     |
-|  [11]   | `KnownChannel.Anisotropy`               | KHR_materials_anisotropy; anisotropic reflections                                     |
-|  [12]   | `KnownChannel.DiffuseTransmissionColor` | KHR_materials_diffuse_transmission                                                    |
-|  [13]   | `TextureTransform`                      | KHR_texture_transform; public `ExtraProperties` UV shift/scale per texture            |
+|  [01]   | `KnownChannel`                          | core channels: `BaseColor`, `MetallicRoughness`, `Normal`, `Occlusion`, `Emissive`, `Diffuse`, `SpecularGlossiness` |
+|  [02]   | `KnownChannel.ClearCoat`                | KHR_materials_clearcoat (`ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`)        |
+|  [03]   | `KnownChannel.Transmission`             | KHR_materials_transmission; optical transmission                                      |
+|  [04]   | `KnownChannel.SheenColor`               | KHR_materials_sheen (`SheenColor`, `SheenRoughness`)                                  |
+|  [05]   | `KnownChannel.SpecularColor`            | KHR_materials_specular (`SpecularColor`, `SpecularFactor`)                            |
+|  [06]   | `KnownChannel.VolumeThickness`          | KHR_materials_volume (`VolumeThickness`, `VolumeAttenuation`)                         |
+|  [07]   | `KnownChannel.Iridescence`              | KHR_materials_iridescence (`Iridescence`, `IridescenceThickness`)                     |
+|  [08]   | `KnownChannel.Anisotropy`               | KHR_materials_anisotropy; anisotropic reflections                                     |
+|  [09]   | `KnownChannel.DiffuseTransmissionColor` | KHR_materials_diffuse_transmission (`DiffuseTransmissionColor`, `DiffuseTransmissionFactor`) |
+|  [10]   | `TextureTransform`                      | `SharpGLTF.Schema2` KHR_texture_transform extension type (Core); UV shift/scale per texture |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — XMP metadata extensions
 - package: `SharpGLTF.Core`
@@ -297,16 +312,18 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 - namespace: `SharpGLTF.Schema2`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                  | [CAPABILITY]                                   |
-| :-----: | :-------------------------------- | :---------------------------- | :--------------------------------------------- |
-|  [01]   | `ModelRoot.Save`                  | `(string, WriteSettings?)`    | writes glTF or GLB by file extension           |
-|  [02]   | `ModelRoot.SaveGLB`               | `(string, WriteSettings?)`    | writes binary GLB to file                      |
-|  [03]   | `ModelRoot.SaveGLTF`              | `(string, WriteSettings?)`    | writes text glTF to file                       |
-|  [04]   | `ModelRoot.WriteGLB`              | `(WriteSettings?)` → `byte[]` | serializes GLB to byte array                   |
-|  [05]   | `ModelRoot.WriteGLB`              | `(Stream, WriteSettings?)`    | writes GLB to stream                           |
-|  [06]   | `WriteContext.WriteTextSchema2`   | `(string, ModelRoot)`         | writes text schema to context output           |
-|  [07]   | `WriteContext.WriteBinarySchema2` | `(string, ModelRoot)`         | writes binary schema to context output         |
-|  [08]   | `ModelRoot.GetJsonPreview`        | `()`                          | returns JSON text preview without side effects |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                              | [CAPABILITY]                                   |
+| :-----: | :-------------------------------- | :---------------------------------------- | :--------------------------------------------- |
+|  [01]   | `ModelRoot.Save`                  | `(string, WriteSettings?)`                | writes glTF or GLB by file extension           |
+|  [02]   | `ModelRoot.SaveGLB`               | `(string, WriteSettings?)`                | writes binary GLB to file                      |
+|  [03]   | `ModelRoot.SaveGLTF`              | `(string, WriteSettings?)`                | writes text glTF to file                       |
+|  [04]   | `ModelRoot.WriteGLB`              | `(WriteSettings?)` → `ArraySegment<byte>` | serializes GLB to a byte segment (not `byte[]`) |
+|  [05]   | `ModelRoot.WriteGLB`              | `(Stream, WriteSettings?)`                | writes GLB to stream                           |
+|  [06]   | `WriteContext.WriteTextSchema2`   | `(string, ModelRoot)`                     | writes text schema to context output           |
+|  [07]   | `WriteContext.WriteBinarySchema2` | `(string, ModelRoot)`                     | writes binary schema to context output         |
+|  [08]   | `WriteContext.WriteImage`         | `(string assetName, MemoryImage)`         | writes one image to context output             |
+|  [09]   | `ModelRoot.GetJSON`               | `(bool indented)`                         | returns full JSON text                         |
+|  [10]   | `ModelRoot.GetJsonPreview`        | `()`                                      | returns JSON text preview without side effects |
 
 [ENTRYPOINT_SCOPE]: ModelRoot — construction and mutation
 - package: `SharpGLTF.Core`
@@ -338,16 +355,21 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 - namespace: `SharpGLTF.Scenes`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                      | [CAPABILITY]                               |
-| :-----: | :--------------------------------- | :------------------------------------------------ | :----------------------------------------- |
-|  [01]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder)`                  | adds mesh attached to animatable node      |
-|  [02]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, AffineTransform)`              | adds mesh at fixed world transform         |
-|  [03]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder, AffineTransform)` | adds mesh relative to node                 |
-|  [04]   | `SceneBuilder.ToGltf2`             | `()` or `(SceneBuilderSchema2Settings)`           | converts builder to `ModelRoot`            |
-|  [05]   | `SceneBuilder.ToGltf2`             | `(IEnumerable<SceneBuilder>, settings)`           | converts multiple scenes to `ModelRoot`    |
-|  [06]   | `SceneBuilder.AddScene`            | `(SceneBuilder, Matrix4x4)`                       | merges another scene with offset transform |
-|  [07]   | `SceneBuilder.ApplyBasisTransform` | `(Matrix4x4, string)`                             | transforms all instances in this scene     |
-|  [08]   | `SceneBuilder.FindArmatures`       | `()`                                              | returns unique armature roots              |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                  | [CAPABILITY]                                  |
+| :-----: | :--------------------------------- | :----------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder)`                             | adds mesh attached to animatable node         |
+|  [02]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, AffineTransform)`                        | adds mesh at fixed world transform            |
+|  [03]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder, AffineTransform)`           | adds mesh relative to node                    |
+|  [04]   | `SceneBuilder.AddSkinnedMesh`      | `(IMeshBuilder<M>, Matrix4x4, params NodeBuilder[] joints)`  | adds skinned mesh with joint armature         |
+|  [05]   | `SceneBuilder.AddSkinnedMesh`      | `(IMeshBuilder<M>, params (NodeBuilder, Matrix4x4)[])`       | adds skinned mesh with per-joint bind matrix  |
+|  [06]   | `SceneBuilder.AddCamera`           | `(CameraBuilder, NodeBuilder)` / `(…, Vector3, Vector3)`    | adds camera at node or look-at framing        |
+|  [07]   | `SceneBuilder.AddLight`            | `(LightBuilder, NodeBuilder)` / `(…, AffineTransform)`      | adds punctual light at node or transform      |
+|  [08]   | `SceneBuilder.AddNode`             | `(NodeBuilder)`                                             | adds a bare armature node (no content)        |
+|  [09]   | `SceneBuilder.ToGltf2`             | `()` or `(SceneBuilderSchema2Settings)`                    | converts builder to `ModelRoot`               |
+|  [10]   | `SceneBuilder.ToGltf2`             | `(IEnumerable<SceneBuilder>, settings)` (static)           | converts multiple scenes to one `ModelRoot`   |
+|  [11]   | `SceneBuilder.AddScene`            | `(SceneBuilder, Matrix4x4)` → `IReadOnlyList<InstanceBuilder>` | merges another scene with offset transform    |
+|  [12]   | `SceneBuilder.ApplyBasisTransform` | `(Matrix4x4, string)`                                      | transforms all instances in this scene        |
+|  [13]   | `SceneBuilder.FindArmatures`       | `()` → `IReadOnlyList<NodeBuilder>`                        | returns unique armature roots                 |
 
 [ENTRYPOINT_SCOPE]: MeshBuilder — primitive assembly
 - package: `SharpGLTF.Toolkit`
@@ -369,14 +391,22 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 - namespace: `SharpGLTF.Materials`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]        | [CAPABILITY]                           |
-| :-----: | :--------------------------------------------- | :------------------ | :------------------------------------- |
-|  [01]   | `MaterialBuilder.WithMetallicRoughnessShader`  | `()`                | selects PBR metallic-roughness shader  |
-|  [02]   | `MaterialBuilder.WithSpecularGlossinessShader` | `()`                | selects KHR specular-glossiness shader |
-|  [03]   | `MaterialBuilder.WithUnlitShader`              | `()`                | selects KHR_materials_unlit shader     |
-|  [04]   | `MaterialBuilder.WithShader`                   | `(string)`          | selects shader by name string          |
-|  [05]   | `MaterialBuilder.WithFallback`                 | `(MaterialBuilder)` | chains a fallback material             |
-|  [06]   | `MaterialBuilder.DoubleSided`                  | `bool` property     | enables back-face rendering            |
+| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                                  | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------- | :-------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `MaterialBuilder.WithMetallicRoughnessShader`  | `()`                                          | selects PBR metallic-roughness shader          |
+|  [02]   | `MaterialBuilder.WithSpecularGlossinessShader` | `()`                                          | selects KHR specular-glossiness shader         |
+|  [03]   | `MaterialBuilder.WithUnlitShader`              | `()`                                          | selects KHR_materials_unlit shader             |
+|  [04]   | `MaterialBuilder.WithShader`                   | `(string)`                                    | selects shader by name string                  |
+|  [05]   | `MaterialBuilder.WithFallback`                 | `(MaterialBuilder)`                           | chains a fallback material                     |
+|  [06]   | `MaterialBuilder.WithDoubleSide`               | `(bool enabled)`                              | fluent back-face toggle (NOT a `DoubleSided` property) |
+|  [07]   | `MaterialBuilder.WithAlpha`                    | `(AlphaMode = OPAQUE, float alphaCutoff)`     | sets alpha mode and mask cutoff                |
+|  [08]   | `MaterialBuilder.UseChannel`                   | `(KnownChannel)` / `(string)`                 | gets/creates a `ChannelBuilder` by channel key |
+|  [09]   | `MaterialBuilder.WithBaseColor`                | `(Vector4 rgba)` / `(ImageBuilder, Vector4?)` | sets base-color factor and/or texture          |
+|  [10]   | `MaterialBuilder.WithMetallicRoughness`        | `(float? metallic, float? roughness)` / `(ImageBuilder, …)` | sets metallic-roughness factors/texture        |
+|  [11]   | `MaterialBuilder.WithNormal`                   | `(ImageBuilder, float scale)`                 | sets normal-map texture and scale              |
+|  [12]   | `MaterialBuilder.WithEmissive`                 | `(Vector3 rgb, float strength)` / `(ImageBuilder, …)` | sets emissive factor (KHR emissive_strength)   |
+|  [13]   | `MaterialBuilder.WithChannelParam`             | `(KnownChannel, KnownProperty, object)`       | sets one channel scalar/vector parameter       |
+|  [14]   | `MaterialBuilder.WithChannelImage`             | `(KnownChannel, ImageBuilder)`                | sets one channel's primary image               |
 
 [ENTRYPOINT_SCOPE]: SceneTemplate — runtime decode
 - package: `SharpGLTF.Runtime`
@@ -395,9 +425,14 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 |  [08]   | `IMeshPrimitiveDecoder.GetPosition`     | `(int vertexIndex)`                       | returns `Vector3` position for vertex              |
 |  [09]   | `IMeshPrimitiveDecoder.GetNormal`       | `(int vertexIndex)`                       | returns `Vector3` normal for vertex                |
 |  [10]   | `IMeshPrimitiveDecoder.GetTangent`      | `(int vertexIndex)`                       | returns `Vector4` tangent for vertex               |
-|  [11]   | `IMeshPrimitiveDecoder.GetTextureCoord` | `(int vertexIndex, int set)`              | returns `Vector2` UV for vertex                    |
-|  [12]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)`                       | returns `SparseWeight8` skin weights               |
-|  [13]   | `IMeshPrimitiveDecoder.TriangleIndices` | property                                  | `IEnumerable<(int,int,int)>` triangle index tuples |
+|  [11]   | `IMeshPrimitiveDecoder.GetTextureCoord` | `(int vertexIndex, int textureSetIndex)`  | returns `Vector2` UV for vertex                    |
+|  [12]   | `IMeshPrimitiveDecoder.GetColor`        | `(int vertexIndex, int colorSetIndex)`    | returns `Vector4` vertex color                     |
+|  [13]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)`                       | returns `SparseWeight8` skin weights               |
+|  [14]   | `IMeshPrimitiveDecoder.TriangleIndices` | property → `IEnumerable<(int,int,int)>`   | triangle index tuples (`LineIndices` mirrors)      |
+|  [15]   | `IMeshPrimitiveDecoder.Get*Deltas`      | `(int vertexIndex[, int set])`            | per-vertex morph-target position/normal/tangent/UV/color deltas |
+|  [16]   | `MeshDecoder.EvaluateBoundingSphere`    | ext on `Scene`/`SceneInstance`            | `(Vector3 Center, float Radius)` bounding sphere   |
+|  [17]   | `MeshDecoder.EvaluateBoundingBox`       | ext on `Scene`/`SceneInstance`            | `(Vector3 Min, Vector3 Max)` AABB                  |
+|  [18]   | `MeshDecoder.GetWorldVertices`          | ext `(IMeshDecoder<T>, IGeometryTransform)` | world-space vertex stream for a decoded mesh       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -431,14 +466,15 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 [TOOLKIT_BUILD]:
 - primary path: `MeshBuilder<M,vG,vM,vS>` → `SceneBuilder.AddRigidMesh` → `SceneBuilder.ToGltf2()` → `ModelRoot`
 - vertex type selection: compose `VertexBuilder<TvG, TvM, TvS>` from geometry fragment + material fragment + skinning fragment
-- material builder: `new MaterialBuilder(name).WithMetallicRoughnessShader()` then set channels via `UseChannel(key)`
+- material builder: `new MaterialBuilder(name).WithMetallicRoughnessShader()` then the high-level fluent setters `WithBaseColor`/`WithMetallicRoughness`/`WithNormal`/`WithEmissive`/`WithAlpha`/`WithDoubleSide`, or the low-level `UseChannel(KnownChannel)` → `ChannelBuilder` for raw channel/texture-transform authoring; the obsolete `DoubleSided` property does not exist — the fluent `WithDoubleSide(bool)` is the only back-face toggle
 - skinned mesh: add via `AddSkinnedMesh(mesh, Matrix4x4.Identity, joints)` where joints are `NodeBuilder` instances
 - output settings: `SceneBuilderSchema2Settings` controls strided buffers, buffer merge, GPU instancing threshold
 
 [RUNTIME_DECODE]:
 - instancing path: `SceneTemplate.Create(schema2Scene)` → `SceneTemplate.CreateInstance()` → drive `SetAnimationFrame` per tick
 - draw loop: iterate `SceneInstance.DrawableInstances` → each `DrawableInstance.Template.LogicalMeshIndex` selects mesh, `DrawableInstance.Transform` carries `IGeometryTransform`
-- mesh decode: `model.LogicalMeshes.Decode()` returns `IMeshDecoder<Material>[]`; each primitive exposes typed vertex accessors
+- mesh decode: `model.LogicalMeshes.Decode()` returns `IMeshDecoder<Material>[]`; each primitive exposes typed vertex accessors (`GetPosition`/`GetNormal`/`GetTangent`/`GetTextureCoord`/`GetColor`/`GetSkinWeights` + `Get*Deltas` morph accessors + `TriangleIndices`/`LineIndices`)
+- bounding-volume evaluation: `MeshDecoder.EvaluateBoundingSphere(scene)` → `(Vector3 Center, float Radius)` and `EvaluateBoundingBox(scene)` → `(Vector3 Min, Vector3 Max)` are the in-box bounding-volume kernels the `Runtime/codecs#TILE_PARTITION` `TileNode.BoundingVolume` octree-bound computation composes — a hand-rolled vertex AABB sweep over the decoded mesh is the deleted form when this returns the bound directly
 - normal/tangent generation: `VertexBufferColumns.CalculateSmoothNormals` and `VertexBufferColumns.CalculateTangents` operate over primitive vertex/index pairs (the `VertexNormalsFactory`/`VertexTangentsFactory` helpers are internal)
 
 [LOCAL_ADMISSION]:
@@ -448,7 +484,8 @@ The `*Template` classes (`SceneTemplate` excepted), `ArmatureTemplate`, `NodeTem
 - extension admission must register at `ExtensionsFactory` before any read or write that uses that extension.
 
 [RAIL_LAW]:
-- Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime`
+- Packages: `SharpGLTF.Core`, `SharpGLTF.Toolkit`, `SharpGLTF.Runtime` (all `1.0.6`, MIT)
 - Owns: glTF 2.0 read/write, typed mesh building, runtime scene instancing
 - Accept: geometry exchange, asset authoring, runtime mesh evaluation
 - Reject: rendering pipeline, GPU resource management, image decode
+- Compute stacking: only `SharpGLTF.Core` (the raw `ExtensionsFactory.RegisterExtension<TParent, TExt>` write surface the `Runtime/codecs#TILE_PARTITION` `EXT_structural_metadata`/`EXT_mesh_features` schema and buffer-view columns emit through a `JsonSerializable`-derived extension) and `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path, the `MeshDecoder.EvaluateBoundingSphere` octree-bound kernel) are direct Compute consumers; `SharpGLTF.Runtime` is transitive (pulled by Toolkit) — its `SceneTemplate.CreateInstance` runtime decode is owned by the `Rasm.Bim` glTF-import rail at `Runtime/codecs#TWO_HOP_TESSELLATION`, never re-derived Compute-side. The 3D-Tiles per-tile types (`SharpGLTF.Schema2.Tiles3D`) ship in the separate `SharpGLTF.Ext.3DTiles` package (Bim-owned), NOT `SharpGLTF.Core`.

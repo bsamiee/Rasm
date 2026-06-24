@@ -108,6 +108,10 @@
         <PackageVersion Include="Apache.Arrow" Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Flight" Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Adbc" Version="0.23.0" />
+        <!-- Arrow-IPC compression: package-owned ICompressionCodecFactory over LZ4-frame + ZSTD.
+             Rides the 23.0.0 Arrow line; pure-managed (no native RID asset). Its transitives
+             K4os.Compression.LZ4.Streams + ZstdSharp.Port floor-pinned in Transitive Floors. -->
+        <PackageVersion Include="Apache.Arrow.Compression" Version="23.0.0" />
         <!-- FastCDC content-defined chunking: stable dedup chunk boundaries for the versioning/sync rail. -->
         <PackageVersion Include="FastCDC.Net" Version="1.0.1" />
         <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.3" />
@@ -253,6 +257,11 @@
 
     <!-- Transitive-pin conflicts get a named floor row here, never a NoWarn. -->
     <ItemGroup Label="Transitive Floors">
+        <!-- Apache.Arrow.Compression closure: the Arrow-IPC LZ4-frame stream codec and the pure-managed
+             Zstandard port. Both pure-managed AnyCPU, no native RID asset; floor-pinned to the nuspec
+             versions so central transitive pinning stays deterministic. -->
+        <PackageVersion Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
+        <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
         <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
         <PackageVersion Include="Microsoft.Build.Framework" Version="18.7.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.9" />

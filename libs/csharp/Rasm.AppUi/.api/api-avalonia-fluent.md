@@ -1,16 +1,20 @@
 # [RASM_APPUI_API_AVALONIA_FLUENT]
 
-`Avalonia.Themes.Fluent` supplies Fluent theme resources, palette tokens, density styles, and control themes for the theme rail.
+`Avalonia.Themes.Fluent` is the Fluent control-theme `Styles` collection plus the `ColorPaletteResources` accent/system-token surface the AppUi theme rail resolves into. `FluentTheme` carries one runtime-switchable `DensityStyle` direct property and a `ThemeVariant`-keyed `Palettes` dictionary; `ColorPaletteResources` exposes the full Windows-Fluent system-color token set as settable `Color` properties, deriving the six accent shades from a single `Accent` set. The `Theme/tokens.md` resolve fold projects its `Paint` anchors into a `ColorPaletteResources` instance per variant and maps its `DensityRow` onto `DensityStyle`, so this package is the host theme spine that the page's `ResolvedTheme` writes through rather than a parallel token framework.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Themes.Fluent`
 - package: `Avalonia.Themes.Fluent`
+- version: `12.0.4`
+- license: `MIT`
 - assembly: `Avalonia.Themes.Fluent`
+- target: `net10.0` (multi-targets `net8.0`/`net10.0`; the AppUi consumer binds the `net10.0` asset)
 - namespace: `Avalonia.Themes.Fluent`
 - namespace: `Avalonia.Themes.Fluent.Accents`
-- asset: runtime library
-- asset: embedded XAML resources
+- asset: managed runtime library
+- asset: embedded `avares://` XAML resources (compiled into the assembly, not loose files)
+- depends: `Avalonia` (`Styles`, `ResourceProvider`, `ResourceDictionary`, `ThemeVariant`, `Color`, `DirectProperty`) — see `api-avalonia.md`
 - rail: theme
 
 ## [02]-[PUBLIC_TYPES]
@@ -18,64 +22,93 @@
 [THEME_TYPES]: public theme objects
 - rail: theme
 
-| [INDEX] | [SYMBOL]                | [RAIL]           |
-| :-----: | :---------------------- | :--------------- |
-|  [01]   | `FluentTheme`           | theme root       |
-|  [02]   | `ColorPaletteResources` | palette resource |
+| [INDEX] | [SYMBOL]                | [BASE / KIND]                              | [RAIL]            |
+| :-----: | :---------------------- | :----------------------------------------- | :---------------- |
+|  [01]   | `FluentTheme`           | `: Styles, IResourceNode`                  | theme root        |
+|  [02]   | `DensityStyle`          | `enum { Normal, Compact }`                 | density vocabulary|
+|  [03]   | `ColorPaletteResources` | `: ResourceProvider` (ns `…Accents`)       | palette resource  |
 
-[THEME_ASSET_GROUPS]: embedded XAML families
+[INTERNAL_TYPES]: not public — consume only the surface above
 - rail: theme
 
-| [INDEX] | [SYMBOL]                 | [RAIL]            |
-| :-----: | :----------------------- | :---------------- |
-|  [01]   | `FluentTheme.xaml`       | theme root        |
-|  [02]   | `FluentControls.xaml`    | control themes    |
-|  [03]   | `BaseColorsPalette.xaml` | base palette      |
-|  [04]   | `Compact.xaml`           | compact density   |
-|  [05]   | `Controls/*.xaml`        | control resources |
+| [INDEX] | [SYMBOL]                          | [VISIBILITY] | [NOTE]                                                              |
+| :-----: | :-------------------------------- | :----------- | :----------------------------------------------------------------- |
+|  [01]   | `ColorPaletteResourcesCollection` | `internal`   | the `IDictionary<ThemeVariant, ColorPaletteResources>` `FluentTheme.Palettes` returns; reached only through the `Palettes` property, never `new`-d |
+|  [02]   | `SystemAccentColors`              | `internal`   | owns `CalculateAccentShades(Color)`; runs implicitly when `Accent` is set |
+
+[THEME_ASSET_GROUPS]: embedded `avares://Avalonia.Themes.Fluent/…` XAML families (resource keys, not CLR types)
+- rail: theme
+
+| [INDEX] | [RESOURCE]                  | [RAIL]            |
+| :-----: | :-------------------------- | :---------------- |
+|  [01]   | `FluentTheme.xaml`          | theme root        |
+|  [02]   | `Controls/*.xaml`           | control themes    |
+|  [03]   | `DensityStyles/Compact.xaml`| compact overlay   |
+|  [04]   | `Accents/*.xaml`            | system color/brush keys (`SystemAccentColor`, `SystemBaseHighColor`, …) |
 
 ## [03]-[ENTRYPOINTS]
 
-[THEME_ENTRYPOINTS]: theme operations
+[THEME_ENTRYPOINTS]: `FluentTheme` operations
 - rail: theme
 - surface: `FluentTheme`
 
-| [INDEX] | [SURFACE]      | [RAIL]            |
-| :-----: | :------------- | :---------------- |
-|  [01]   | constructor    | theme admission   |
-|  [02]   | `Palettes`     | palette mapping   |
-|  [03]   | `DensityStyle` | density selection |
-|  [04]   | `Resources`    | resource exposure |
+| [INDEX] | [SURFACE]                                                       | [SHAPE]                                                        | [RAIL]            |
+| :-----: | :-------------------------------------------------------------- | :------------------------------------------------------------ | :---------------- |
+|  [01]   | `FluentTheme(IServiceProvider? sp = null)`                      | ctor; throws `InvalidOperationException` if the embedded `ColorPaletteResourcesCollection` is absent | theme admission   |
+|  [02]   | `DensityStyle DensityStyle { get; set; }`                       | direct property; swaps the `Compact.xaml` overlay and notifies host resources at runtime | density selection |
+|  [03]   | `DirectProperty<FluentTheme, DensityStyle> DensityStyleProperty`| registered direct property, default `DensityStyle.Normal`, `BindingMode.OneWay` — the bind target for the page `DensityRow` | density binding   |
+|  [04]   | `IDictionary<ThemeVariant, ColorPaletteResources> Palettes { get; }` | per-variant accent/system-color override map, keyed by `ThemeVariant.Light/Dark/Default` | palette mapping    |
+|  [05]   | `IResourceNode.TryGetResource(object key, ThemeVariant?, out object?)` | explicit-interface resolve; overlays `Compact.xaml` first when `DensityStyle == Compact` | resource exposure |
 
-[PALETTE_ENTRYPOINTS]: color resource properties
+[PALETTE_ENTRYPOINTS]: `ColorPaletteResources` settable system-color tokens (all `Color`, default-`Color` set clears the override)
 - rail: theme
 - surface: `ColorPaletteResources`
 
-| [INDEX] | [SURFACE]      | [RAIL]         |
-| :-----: | :------------- | :------------- |
-|  [01]   | `Accent`       | accent token   |
-|  [02]   | `BaseHigh`     | base contrast  |
-|  [03]   | `BaseMedium`   | base tone      |
-|  [04]   | `BaseLow`      | base tone      |
-|  [05]   | `AltHigh`      | alternate tone |
-|  [06]   | `AltMedium`    | alternate tone |
-|  [07]   | `ChromeHigh`   | chrome tone    |
-|  [08]   | `ChromeMedium` | chrome tone    |
-|  [09]   | `ChromeLow`    | chrome tone    |
-|  [10]   | `ErrorText`    | error token    |
-|  [11]   | `ListLow`      | list tone      |
-|  [12]   | `RegionColor`  | region token   |
+| [INDEX] | [SURFACE]                                                  | [BACKING KEY / NOTE]                                              | [RAIL]            |
+| :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------- | :---------------- |
+|  [01]   | `Accent`                                                   | `DirectProperty` `AccentProperty`, bindable; setting it derives `SystemAccentColorDark1/2/3` + `Light1/2/3` via `SystemAccentColors.CalculateAccentShades` and raises resources-changed | accent token      |
+|  [02]   | `AltHigh` `AltMediumHigh` `AltMedium` `AltMediumLow` `AltLow` | `SystemAlt*Color`                                              | alternate tones   |
+|  [03]   | `BaseHigh` `BaseMediumHigh` `BaseMedium` `BaseMediumLow` `BaseLow` | `SystemBase*Color`                                          | base tones        |
+|  [04]   | `ChromeHigh` `ChromeMedium` `ChromeMediumLow` `ChromeLow` `ChromeAltLow` | `SystemChrome*Color`                                     | chrome tones      |
+|  [05]   | `ChromeWhite` `ChromeGray` `ChromeBlackHigh` `ChromeBlackMedium` `ChromeBlackMediumLow` `ChromeBlackLow` | `SystemChrome*Color`        | chrome neutrals   |
+|  [06]   | `ChromeDisabledHigh` `ChromeDisabledLow`                   | `SystemChromeDisabled*Color`                                     | disabled tones    |
+|  [07]   | `ListLow` `ListMedium`                                     | `SystemList*Color`                                               | list tones        |
+|  [08]   | `ErrorText`                                                | `SystemErrorTextColor`                                           | error token       |
+|  [09]   | `RegionColor`                                              | `SystemRegionColor`                                              | region token      |
+|  [10]   | `HasResources { get; }`                                    | `override bool` — true when `Accent` is set or any token override exists | resource gate     |
+|  [11]   | `TryGetResource(object key, ThemeVariant?, out object?)`   | `override bool` — resolves `SystemAccentColor*` (including derived shades) and any overridden `System*Color` key | token resolve     |
 
-## [04]-[IMPLEMENTATION_LAW]
+## [04]-[INTEGRATION]
+
+[TOKEN_PROJECTION]: the page resolve fold writes this surface
+- The `Theme/tokens.md` `ResolvedTheme.Resolve(ThemeVariantRow, DensityRow, mix)` fold projects its `TokenRow.Paint` anchors into one `ColorPaletteResources` per variant: `new() { Accent = …, BaseHigh = …, BaseMedium = …, BaseLow = …, AltHigh = …, AltMedium = …, ChromeHigh = …, ChromeMedium = …, ChromeLow = …, ErrorText = …, ListLow = …, RegionColor = … }`. Every member it sets is a verified `ColorPaletteResources` property; the un-set tokens (the full Alt/Base/Chrome ladders above) are the in-place growth headroom for that projection, not absent capability.
+- Setting `Accent` once yields the six accent shades for free — the page does not author `Dark1/Light1/…`; `SystemAccentColors.CalculateAccentShades` fills them and `TryGetResource` serves them.
+
+[DENSITY_BINDING]: one density vocabulary, one direct property
+- The page `DensityRow` `[SmartEnum<string>]` (two rows, `tokens.md` `[04]-[DENSITY_AXIS]`) binds `DensityStyle` and selects `Metric` columns orthogonally to the variant axis. `DensityStyle { Normal, Compact }` is the closed host vocabulary, and `DensityStyleProperty` (`BindingMode.OneWay`, default `Normal`) is the bind target so a density flip swaps the `Compact.xaml` overlay through one host property with no per-control spacing system.
+
+[VARIANT_KEYING]: `ThemeVariant` is the cross-axis discriminant
+- `FluentTheme.Palettes` is keyed by `Avalonia.Styling.ThemeVariant` (`Light/Dark/Default`, owned by `api-avalonia.md`). The page `ThemeVariantRow` `[SmartEnum<string>]` carries `ThemeVariant Variant`, constructs high-contrast as `new ThemeVariant("high-contrast", ThemeVariant.Dark)` (the `InheritVariant` chain), and resolves `host-matched` to `ThemeVariant.Default` — so a resolved variant indexes directly into `Palettes` and the host appearance probe (`RunningInDarkMode`, `IPlatformSettings.GetColorValues()`) re-resolves the matching palette.
+
+[EDITOR_PALETTE_SEAM]: distinct from the color-editor palettes
+- `FluentTheme.Palettes` (theme accent/system tokens) is NOT the `IColorPalette` swatch family. The editor `FluentColorPalette`/`MaterialColorPalette`/`FlatColorPalette` consumed by `Editing/inspector.md` come from `Avalonia.Controls.ColorPicker` (`api-avalonia-color.md`). Keep the theme palette (resource resolution) and the picker palette (user swatch grid) on their own owners; they meet only at the resolved `Color` value.
+
+## [05]-[IMPLEMENTATION_LAW]
 
 [THEME_LAW]:
 - Package: `Avalonia.Themes.Fluent`
-- Owns: base theme resources, palette tokens, density styles, and control themes
-- Accept: product theme tokens resolve through Fluent resources
-- Reject: parallel theme frameworks
+- Owns: the Fluent control-theme `Styles` collection, the embedded control/accent XAML, and the `ColorPaletteResources` system-token surface
+- Accept: the page `ResolvedTheme` resolves and overrides through `ColorPaletteResources` and `FluentTheme.Palettes`; `Accent` carries the derive-shades contract
+- Reject: a parallel theme framework, a second control-theme dictionary, or hand-rolled accent-shade math when `Accent` already derives them
 
 [DENSITY_LAW]:
 - Package: `Avalonia.Themes.Fluent`
-- Owns: compact and default density selection
-- Accept: shell, sidecar, panel, diagnostics, and support views use one density vocabulary
-- Reject: host-specific spacing systems
+- Owns: the `DensityStyle { Normal, Compact }` vocabulary and the `Compact.xaml` runtime overlay behind `DensityStyleProperty`
+- Accept: shell, sidecar, panel, diagnostics, and support views bind the one `DensityRow` onto `DensityStyle`
+- Reject: host-specific spacing systems or a per-view density literal outside the `DensityRow`
+
+[VARIANT_LAW]:
+- Package: `Avalonia.Themes.Fluent` (keyed by `ThemeVariant` from `api-avalonia.md`)
+- Owns: per-variant accent/system-color override via `Palettes[ThemeVariant]`
+- Accept: one `ThemeVariantRow` per host variant indexes `Palettes`; high-contrast rides the `InheritVariant` dark chain
+- Reject: a per-variant palette object constructed outside the resolve fold, or string-keyed variant lookup bypassing `ThemeVariant`

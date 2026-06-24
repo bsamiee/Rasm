@@ -43,39 +43,59 @@ Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low
 |  [06]   | `CompleteMultipartUploadRequest`  | request            | carries `PartETags` list             |
 |  [07]   | `CompleteMultipartUploadResponse` | response           | yields object `ETag`/`Location`      |
 |  [08]   | `AbortMultipartUploadRequest`     | request            | abandons an in-flight upload         |
-|  [09]   | `PartETag`                        | value              | `(PartNumber, ETag)` pair            |
-|  [10]   | `TransferUtility`                 | high-level surface | managed multipart upload             |
-|  [11]   | `TransferUtilityUploadRequest`    | request            | `PartSize`/stream high-level config  |
-|  [12]   | `GetObjectRequest`                | request            | range-read resumption (`ByteRange`)  |
-|  [13]   | `S3StorageClass`                  | enum               | storage-class column                 |
+|  [09]   | `ListPartsRequest`                | request            | lists committed parts for resume     |
+|  [10]   | `ListPartsResponse`               | response           | `Parts` (`PartDetail` `PartNumber`/`ETag`) for resume skip |
+|  [11]   | `PartETag`                        | value              | `(PartNumber, ETag)` pair            |
+|  [12]   | `TransferUtility`                 | high-level surface | managed multipart upload             |
+|  [13]   | `TransferUtilityUploadRequest`    | request            | `PartSize`/stream high-level config  |
+|  [14]   | `GetObjectRequest`                | request            | range-read resumption (`ByteRange`)  |
+|  [15]   | `GetObjectResponse`               | response           | `ResponseStream` range-read body     |
+|  [16]   | `GetObjectMetadataResponse`       | response           | `Metadata`/`ContentLength`/`ETag` for `Stat` |
+|  [17]   | `ListObjectsV2Request`            | request            | content-key namespace enumeration    |
+|  [18]   | `ListObjectsV2Response`           | response           | `S3Objects` (`S3Object` `Key`/`Size`/`LastModified`) |
+|  [19]   | `DeleteObjectRequest`             | request            | removes object by content-key name   |
+|  [20]   | `S3StorageClass`                  | enum               | storage-class column                 |
 
 [AZURE_TYPES]: Azure.Storage.Blobs staged-block and parallel upload
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE] | [CAPABILITY]                       |
 | :-----: | :--------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `BlockBlobClient : BlobBaseClient` | client         | staged-block upload                |
-|  [02]   | `BlobClient : BlobBaseClient`      | client         | simple/parallel upload             |
-|  [03]   | `BlockBlobStageBlockOptions`       | options        | per-block conditions/progress      |
-|  [04]   | `CommitBlockListOptions`           | options        | headers/metadata/tags/conditions   |
-|  [05]   | `BlobUploadOptions`                | options        | carries `TransferOptions`          |
-|  [06]   | `StorageTransferOptions`           | value          | chunk-size and concurrency tuning  |
-|  [07]   | `BlockInfo`                        | response       | block `ContentHash`/`ContentCrc64` |
-|  [08]   | `BlobContentInfo`                  | response       | object `ETag`/`ContentHash`        |
-|  [09]   | `BlobRequestConditions`            | value          | `IfMatch`/`IfNoneMatch` ETag gate  |
-|  [10]   | `BlobDownloadStreamingResult`      | response       | range-read resumption stream       |
+|  [01]   | `BlobContainerClient`              | container       | `GetBlobClient`/`GetBlobs` namespace ops |
+|  [02]   | `BlockBlobClient : BlobBaseClient` | client         | staged-block upload                |
+|  [03]   | `BlobClient : BlobBaseClient`      | client         | simple/parallel upload             |
+|  [04]   | `SpecializedBlobExtensions`        | extension      | `GetBlockBlobClient(this BlobContainerClient, name)` |
+|  [05]   | `BlockBlobStageBlockOptions`       | options        | per-block conditions/progress      |
+|  [06]   | `CommitBlockListOptions`           | options        | headers/metadata/tags/conditions   |
+|  [07]   | `BlobUploadOptions`                | options        | carries `TransferOptions`          |
+|  [08]   | `BlobDownloadOptions`              | options        | `Range` (`HttpRange`) range-read   |
+|  [09]   | `StorageTransferOptions`           | value          | chunk-size and concurrency tuning  |
+|  [10]   | `HttpRange`                        | value          | `(offset, length)` range window    |
+|  [11]   | `BlockListTypes`                   | enum           | `Committed`/`Uncommitted`/`All` filter for resume |
+|  [12]   | `BlockList`                        | response       | `CommittedBlocks`/`UncommittedBlocks` for resume skip |
+|  [13]   | `BlockInfo`                        | response       | block `ContentHash`/`ContentCrc64` |
+|  [14]   | `BlobContentInfo`                  | response       | object `ETag`/`ContentHash`        |
+|  [15]   | `BlobProperties`                   | response       | `Metadata`/`ContentLength`/`ETag` for `Stat` |
+|  [16]   | `BlobItem`                         | list element   | `Name`/`Properties` for `List`     |
+|  [17]   | `BlobRequestConditions`            | value          | `IfMatch`/`IfNoneMatch` ETag gate; `ETag.All` write-once |
+|  [18]   | `BlobDownloadStreamingResult`      | response       | range-read resumption stream (`.Content`) |
 
 [GCS_TYPES]: Google.Cloud.Storage.V1 resumable upload
 - rail: object-store
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]    | [CAPABILITY]                                   |
 | :-----: | :---------------------- | :---------------- | :--------------------------------------------- |
-|  [01]   | `StorageClient`         | client (abstract) | upload/download/list object ops                |
+|  [01]   | `StorageClient`         | client (abstract) | upload/download/list/delete object ops          |
 |  [02]   | `UploadObjectOptions`   | options           | `ChunkSize` resumable + generation-match gate  |
-|  [03]   | `DownloadObjectOptions` | options           | range-read resumption                          |
-|  [04]   | `Object`                | value             | destination descriptor + `Generation`/`Crc32c` |
-|  [05]   | `IUploadProgress`       | progress          | per-chunk byte progress                        |
-|  [06]   | `PredefinedObjectAcl`   | enum              | predefined-acl column                          |
+|  [03]   | `DownloadObjectOptions` | options           | `Range` (`RangeHeaderValue`) range-read         |
+|  [04]   | `GetObjectOptions`      | options           | generation/projection on `Stat`                |
+|  [05]   | `DeleteObjectOptions`   | options           | generation-match on delete                      |
+|  [06]   | `ListObjectsOptions`    | options           | prefix/delimiter list tuning                    |
+|  [07]   | `Object`                | value             | destination descriptor + `Generation`/`Crc32c` |
+|  [08]   | `Objects`               | list page         | `Items` page over `PagedEnumerable`             |
+|  [09]   | `IUploadProgress`       | progress          | per-chunk byte progress                        |
+|  [10]   | `EncryptionKey`         | value             | CSEK customer-supplied encryption key           |
+|  [11]   | `PredefinedObjectAcl`   | enum              | predefined-acl column                          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -112,9 +132,25 @@ Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (b
 | :-----: | :-------------------------- | :------------------------------ | :--------------- |
 |  [01]   | `UploadObjectAsync`         | object, stream, options         | resumable upload |
 |  [02]   | `DownloadObjectAsync`       | bucket, object, stream, options | range-read fetch |
-|  [03]   | `StorageClient.CreateAsync` | credential option               | client factory   |
+|  [03]   | `StorageClient.CreateAsync(GoogleCredential?, EncryptionKey?)` | optional credential + CSEK | client factory (`Create`/`CreateAsync`); app-root credential |
 
 Type members consumed: `UploadObjectOptions` — `ChunkSize` (int?, positive multiple of 262144 enables resumable chunked; null = single-request), `IfGenerationMatch` (long?), `IfGenerationNotMatch` (long?), `IfMetagenerationMatch` (long?), `PredefinedAcl` (`PredefinedObjectAcl?`), `KmsKeyName` (string?); `Object` — `Name`, `Bucket`, `Generation` (long?), `Crc32c` (string), `Md5Hash` (string), `Size` (ulong?), `ContentType`; `DownloadObjectOptions` — `Range` (`System.Net.Http.Headers.RangeHeaderValue?`).
+
+[OBJECT_CRUD]: head / list / delete / multipart-resume across the three providers
+- rail: object-store
+
+The `BlobRemote.Stat`/`Delete`/`List` legs and the multipart resume skip are the second half of the placement contract the multipart-upload rows above do not cover. One unified entry per leg dispatches on the `ObjectClient` union row.
+
+| [INDEX] | [LEG]   | [S3]                                                    | [AZURE]                                                          | [GCS]                                                  |
+| :-----: | :------ | :------------------------------------------------------ | :-------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `Stat`  | `GetObjectMetadataAsync(bucket, key)` -> `Metadata`/`ETag`/`ContentLength` | `BlobBaseClient.GetPropertiesAsync()` -> `BlobProperties`        | `GetObjectAsync(bucket, name)` -> `Object`            |
+|  [02]   | `List`  | `ListObjectsV2Async(ListObjectsV2Request)` -> `S3Objects` | `BlobContainerClient.GetBlobs()` -> `Pageable<BlobItem>`         | `StorageClient.ListObjects(bucket)` -> `PagedEnumerable<Objects, Object>` |
+|  [03]   | `Delete`| `DeleteObjectAsync(bucket, key)`                        | `BlobClient.DeleteIfExistsAsync()`                              | `DeleteObjectAsync(bucket, name)`                     |
+|  [04]   | `Get`   | `GetObjectAsync(GetObjectRequest{ByteRange})` -> `ResponseStream` | `BlobBaseClient.DownloadStreamingAsync(BlobDownloadOptions{Range=HttpRange})` -> `.Content` | `DownloadObjectAsync(bucket, name, sink, DownloadObjectOptions{Range=RangeHeaderValue})` |
+|  [05]   | resume  | `ListPartsAsync(ListPartsRequest{UploadId})` -> `Parts` (`PartDetail.PartNumber`/`ETag`) | `BlockBlobClient.GetBlockListAsync(BlockListTypes.Uncommitted)` -> `UncommittedBlocks` | resumable session is provider-internal; chunked `UploadObjectAsync` resumes server-side |
+|  [06]   | block client | n/a (multipart on `AmazonS3Client`)               | `SpecializedBlobExtensions.GetBlockBlobClient(container, name)` (extension) | n/a (object-level on `StorageClient`)                 |
+
+The resume row is the resumable-upload edge `MultipartTransfer` skips already-committed windows on: S3 reads prior `PartETag`s by `UploadId`, Azure reads prior uncommitted block ids, GCS resumes its session server-side. `GetBlockBlobClient` is an **extension** on `BlobContainerClient` from `SpecializedBlobExtensions`, not an instance member.
 
 ## [04]-[ERROR_TAXONOMY]
 
@@ -128,6 +164,11 @@ Type members consumed: `UploadObjectOptions` — `ChunkSize` (int?, positive mul
 |  [03]   | `Google.Cloud.Storage.V1` | `GoogleApiException`     | `HttpStatusCode` + `Error.Code`             |
 
 Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `ConditionNotMet`/`412`, GCS `412` on generation-match — each routes to the `RemoteStoreFault.Conflict` case.
+
+[WRITE_ONCE_SEAL]: the content-address write-once gate is the optimistic-concurrency edge each provider exposes through a distinct member, all collapsed into the one `ConditionalWrite` row column:
+- S3 / Azure: `CompleteMultipartUploadRequest`/`CommitBlockListAsync` carry `IfNoneMatch: *` (Azure `BlobRequestConditions.IfNoneMatch = ETag.All`) so a second writer racing the same content-key `412`s.
+- GCS: `UploadObjectOptions.IfGenerationMatch = 0` is the create-if-absent precondition; a racing overwrite of an existing generation `412`s.
+- This is why the content-address store needs no read-before-write — the seal itself is the concurrency primitive, and a `412` on any provider is a benign no-op (the content is already durably present, identical by hash), folded to `RemoteStoreFault.Conflict` and treated as success by the write-once placement.
 
 ## [05]-[CATALOGUE_LAW]
 

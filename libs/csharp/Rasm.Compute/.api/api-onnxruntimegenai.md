@@ -4,24 +4,33 @@
 process-global init, model/config handles, tokenizer and chat-template assembly,
 generator search options and structured-output guidance, the per-step token loop,
 multimodal image/audio encoding via `MultiModalProcessor` and `StreamingProcessor`,
-LoRA adapter hot-swap, and the sole generative fault rail; `Microsoft.Extensions.AI.Abstractions` supplies
-the `IChatClient` projection that composes the same handle chain for the M.E.AI
-streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster.
+LoRA adapter hot-swap, GPU-device and native-log control via `Utils`, and the sole
+generative fault rail; `Microsoft.Extensions.AI.Abstractions` supplies the `IChatClient`
+contract that the built-in `OnnxRuntimeGenAIChatClient` composes over the same handle
+chain for the M.E.AI streaming consumer. Both serve the Compute model rail's
+`GENERATIVE_RUN` cluster; the generated tokens stage their byte buffers through the
+`api-recyclable-stream` pool and the structured-output arm constrains generation in
+the native layer rather than validating output managed-side. This page is HOST-LOCAL
+and carries no TS_PROJECTION.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntimeGenAI`
-- package: `Microsoft.ML.OnnxRuntimeGenAI` (native runtime meta-package)
-- managed-assembly: `Microsoft.ML.OnnxRuntimeGenAI.Managed` → `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll`
+- package: `Microsoft.ML.OnnxRuntimeGenAI` (version 0.14.1, direct pin; native meta-package)
+- license: MIT (ONNX Runtime GenAI; nuspec `license type="file"`, `microsoft/onnxruntime-genai`)
+- managed-assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed` 0.14.1 → the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll` (the facade also ships `netstandard2.0` + `net9.0-{android,ios,maccatalyst}` variants; only `net8.0` is the bound desktop asset)
+- native-floor: depends on `Microsoft.ML.OnnxRuntime` >= 1.23.0 (the central pin resolves it to the `1.27.0` asset the inference engine `api-onnxruntime` owns); the genai native (`onnxruntime-genai.{dll,dylib,so}` + `.aar`/`.xcframework.zip` mobile forms) co-locates per-RID BESIDE the base `libonnxruntime` payload — the per-RID base-runtime ABI matrix and the EP/device roster are owned by `api-onnxruntime#NATIVE_RUNTIME` (the `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix` + `[EXECUTION_PROVIDER_SELECTION]`), NOT restated here
+- native-rids: `linux-arm64`, `linux-x64`, `osx-arm64`, `win-arm64`, `win-x64` (+ `android`/`ios` archive forms) — the genai payload set, which is the subset of `api-onnxruntime`'s base-runtime RIDs that the genai meta-package also publishes; the `osx-arm64` runtime is the verified host asset, so a model run with no matching genai-AND-base RID payload faults at native init
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
-- asset: native-only meta-package (`libonnxruntime-genai`) + managed facade via transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed`
+- asset: native-only meta-package (`build/native` props/targets + `ort_genai.h`) plus the managed facade via the transitive `.Managed` package
 - rail: model
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions`
-- assembly: `Microsoft.Extensions.AI.Abstractions`
+- package: `Microsoft.Extensions.AI.Abstractions` (version 10.7.0, direct pin)
+- license: MIT (`dotnet/extensions`)
+- assembly: `Microsoft.Extensions.AI.Abstractions` → the `net10.0` consumer binds `lib/net10.0`
 - namespace: `Microsoft.Extensions.AI`
-- asset: managed abstractions
+- asset: managed abstractions; the GenAI facade's transitive floor is 9.8.0 but the 10.7.0 central pin wins, so the `IChatClient` surface is the 10.x contract
 - rail: model
 
 ## [02]-[PUBLIC_TYPES]
@@ -43,22 +52,25 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 |  [10]   | `OnnxRuntimeGenAIException` | fault rail                | the sole generative exception type                     |
 |  [11]   | `NamedTensors`              | named-tensor batch        | opaque batch of named tensors for multimodal injection |
 |  [12]   | `Tensor`                    | native tensor carrier     | wraps a native buffer with shape and element type      |
-|  [13]   | `ElementType`               | tensor element enum       | discriminates ONNX element types (float32, int32, …)   |
+|  [13]   | `ElementType`               | tensor element enum       | `enum ElementType : long` — ONNX element discriminant  |
 |  [14]   | `Images`                    | image media loader        | loads images from paths or raw byte buffers            |
 |  [15]   | `Audios`                    | audio media loader        | loads audios from paths or raw byte buffers            |
 |  [16]   | `MultiModalProcessor`       | multimodal processor      | encodes image/audio/text batches into `NamedTensors`   |
 |  [17]   | `StreamingProcessor`        | streaming audio processor | incremental audio chunking to `NamedTensors`           |
+|  [18]   | `Utils`                     | static native control     | GPU device id + native log toggles (process-global)    |
 
 [PUBLIC_TYPE_SCOPE]: M.E.AI projection
 - rail: model
+- note: `OnnxRuntimeGenAIChatClient` and `OnnxRuntimeGenAIChatClientOptions` are the only M.E.AI types defined IN the GenAI facade; `IChatClient`/`ChatResponse`/`ChatResponseUpdate`/`ChatMessage`/`ChatOptions` are owned by `Microsoft.Extensions.AI.Abstractions` (`api-extensions-ai`).
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]     | [CAPABILITY]                               |
-| :-----: | :--------------------------- | :----------------- | :----------------------------------------- |
-|  [01]   | `OnnxRuntimeGenAIChatClient` | `IChatClient` impl | streaming chat over the GenAI handle chain |
-|  [02]   | `IChatClient`                | M.E.AI contract    | response and streaming-response surface    |
-|  [03]   | `ChatResponse`               | M.E.AI response    | non-streaming response carrier             |
-|  [04]   | `ChatResponseUpdate`         | M.E.AI update      | streaming incremental update carrier       |
-|  [05]   | `ChatMessage`                | M.E.AI message     | role-tagged message carrier                |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------- | :------------------ | :------------------------------------------------------------- |
+|  [01]   | `OnnxRuntimeGenAIChatClient`      | `IChatClient` impl  | `sealed`; streaming chat over the GenAI handle chain, owns its `Model`/`Config` lifetime |
+|  [02]   | `OnnxRuntimeGenAIChatClientOptions` | client policy     | `sealed`; `StopSequences`, `PromptFormatter`, `EnableCaching`  |
+|  [03]   | `IChatClient`                     | M.E.AI contract     | response and streaming-response surface (abstractions package) |
+|  [04]   | `ChatResponse`                    | M.E.AI response     | non-streaming response carrier (abstractions package)          |
+|  [05]   | `ChatResponseUpdate`              | M.E.AI update       | streaming incremental update carrier (abstractions package)    |
+|  [06]   | `ChatMessage` / `ChatOptions`     | M.E.AI message/opts | role-tagged message + per-call options (abstractions package)  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -228,14 +240,38 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 |  [09]   | `min_length`         | `double`     | minimum generated sequence length          |
 |  [10]   | `early_stopping`     | `bool`       | halts beam search when all beams reach EOS |
 
+[ENTRYPOINT_SCOPE]: GPU device and native-log control (`Utils`)
+- rail: model
+- note: `Utils` is a static process-global control surface; the GPU device id selects the CUDA/DML device before model load and the log toggles drive the native ORT logger.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                      | [CAPABILITY]                                  |
+| :-----: | :------------------------------ | :------------------------------------------------ | :-------------------------------------------- |
+|  [01]   | `Utils.SetCurrentGpuDeviceId`   | `static void SetCurrentGpuDeviceId(int device_id)` | selects the active GPU device for model load  |
+|  [02]   | `Utils.GetCurrentGpuDeviceId`   | `static int GetCurrentGpuDeviceId()`              | reads the active GPU device id                |
+|  [03]   | `Utils.SetLogBool`              | `static void SetLogBool(string name, bool value)` | toggles a native ORT log flag                 |
+|  [04]   | `Utils.SetLogString`            | `static void SetLogString(string name, string value)` | sets a native ORT log string option           |
+
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
 - rail: model
+- note: the ctor admits three handle forms with an `owns*` lifetime flag; the `string`/`Config` forms build the `Model` internally. The streaming/response/`GetService` surface comes from `IChatClient` in `api-extensions-ai`.
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]       | [CAPABILITY]                                                                                                                            |
-| :-----: | :-------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `OnnxRuntimeGenAIChatClient`            | model wrapper      | `OnnxRuntimeGenAIChatClient(Model, OnnxRuntimeGenAIChatClientOptions?)` — wraps a `Model` as `IChatClient`                              |
-|  [02]   | `IChatClient.GetResponseAsync`          | async response     | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)` — non-streaming response               |
-|  [03]   | `IChatClient.GetStreamingResponseAsync` | streaming response | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)` — streaming |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                       | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `new OnnxRuntimeGenAIChatClient(string)` | `OnnxRuntimeGenAIChatClient(string modelPath, OnnxRuntimeGenAIChatClientOptions? options = null)` | builds the `Model` from a path and owns it             |
+|  [02]   | `new OnnxRuntimeGenAIChatClient(Model)`  | `OnnxRuntimeGenAIChatClient(Model model, bool ownsModel = true, OnnxRuntimeGenAIChatClientOptions? options = null)` | wraps an existing `Model`; `ownsModel` gates disposal  |
+|  [03]   | `new OnnxRuntimeGenAIChatClient(Config)` | `OnnxRuntimeGenAIChatClient(Config config, bool ownsConfig = true, OnnxRuntimeGenAIChatClientOptions? options = null)` | builds the `Model` from a `Config` (provider-tuned)    |
+|  [04]   | `IChatClient.GetResponseAsync`          | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)` | non-streaming response                                 |
+|  [05]   | `IChatClient.GetStreamingResponseAsync` | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)` | streaming response                                     |
+
+[ENTRYPOINT_SCOPE]: `OnnxRuntimeGenAIChatClientOptions`
+- rail: model
+- note: the client-policy bag; `PromptFormatter` overrides the default chat-template assembly and `StopSequences`/`EnableCaching` tune the M.E.AI streaming loop.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                | [CAPABILITY]                                  |
+| :-----: | :------------------------------ | :-------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `StopSequences`                 | `IList<string>? StopSequences { get; set; }`                                | halts generation on any listed sequence       |
+|  [02]   | `PromptFormatter`               | `Func<IEnumerable<ChatMessage>, ChatOptions?, string>? PromptFormatter { get; set; }` | replaces the default chat-template assembly   |
+|  [03]   | `EnableCaching`                 | `bool EnableCaching { get; set; }`                                          | reuses generator state across turns           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -266,13 +302,26 @@ streaming consumer. Both serve the Compute model rail's `GENERATIVE_RUN` cluster
 [FAULT_LAW]:
 - `OnnxRuntimeGenAIException` is the sole fault rail at `Model`/`Config` construction and across the generation loop; it lifts to `ComputeFault.ModelRejected` at the boundary, never a per-call catch.
 
+[MEAI_PROJECTION]:
+- `OnnxRuntimeGenAIChatClient` is `sealed : IChatClient, IDisposable`; the ctor admits `(string modelPath, …)`, `(Model, bool ownsModel = true, …)`, and `(Config, bool ownsConfig = true, …)` — there is NO `(Model, options)` two-arg form, and the `owns*` flag governs whether the client disposes the underlying handle.
+- `OnnxRuntimeGenAIChatClientOptions` is the only policy bag — `StopSequences`/`PromptFormatter`/`EnableCaching`; `PromptFormatter` (`Func<IEnumerable<ChatMessage>, ChatOptions?, string>?`) is the override seam for `Tokenizer.ApplyChatTemplate` when the M.E.AI consumer owns prompt assembly.
+- `IChatClient`/`ChatResponse`/`ChatResponseUpdate`/`ChatMessage`/`ChatOptions` resolve from `api-extensions-ai`; the GenAI facade defines only the client and its options, so a second managed chat-message model beside `ChatMessage` is the rejected form.
+
+[NATIVE_CONTROL]:
+- `Utils` is a static process-global control: `SetCurrentGpuDeviceId(int)` selects the device BEFORE model load (provider device selection is `Config.SetDecoderProviderOptionsHardwareDeviceId` per-decoder; `Utils` is the global default), and `SetLogBool`/`SetLogString` drive the native ORT logger — there is no managed log abstraction over them.
+- The native floor is `Microsoft.ML.OnnxRuntime >= 1.23.0` (central-pinned to `1.27.0`); the genai runtime composes the inference engine `api-onnxruntime` owns. The provider strings `Config.AppendProvider` accepts, the option keys `Config.SetProviderOption` sets, and the device selectors `Config.SetDecoderProviderOptionsHardware{DeviceType,DeviceId,VendorId}` bind are the EP roster + `OrtHardwareDevice` (`Type`/`VendorId`/`DeviceId`) discovery owned by `api-onnxruntime#EXECUTION_PROVIDER_SELECTION`; the per-RID native payload availability (which accelerated provider exists on which RID) is owned by `api-onnxruntime`'s `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix`. This lane restates neither — a decoder provider selected here that has no native payload on the host RID faults at native init.
+
+[STAGING_INTEGRATION]:
+- Token/tensor byte buffers stage through the `api-recyclable-stream` pool, not ad hoc arrays; `Tensor.GetData<T>()` and `GetSequence(ulong)` return native-backed `ReadOnlySpan<T>` views that copy into a rented stream only at the edge.
+- A structured generative artifact crossing the wire is a `Runtime/channels#PROTO_VOCABULARY` `api-protobuf` message, not a managed DTO; the model-rejection fault lifts to `ComputeFault.ModelRejected` at the boundary.
+
 [LOCAL_ADMISSION]:
 - Token-streaming is a run mode on the owned model lane; a `GenerativeService`, `ChatClient`, `Conversation`, or `PromptService` wrapper is the rejected form.
-- The built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer.
+- The built-in `OnnxRuntimeGenAIChatClient : IChatClient` composes the same handle chain when the M.E.AI streaming abstraction is the consumer — it is the admitted projection, never a hand-rolled one.
 - Grammar-constrained structured output is enforced at generation through `SetGuidance`; a managed JSON-schema validator over the output is the rejected form.
 
 [RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntimeGenAI` + `Microsoft.Extensions.AI.Abstractions`
-- Owns: generative token-streaming runtime, multimodal encoding, streaming audio, and the `IChatClient` projection
-- Accept: model-dir generative runs over the LIFO handle chain; multimodal `Images`/`Audios` + `MultiModalProcessor` pipelines; incremental `StreamingProcessor` audio paths
-- Reject: chat-client/conversation/prompt service families; managed output validators; `System.Numerics.Tensors.Tensor<T>` confused with `Microsoft.ML.OnnxRuntimeGenAI.Tensor`
+- Package: `Microsoft.ML.OnnxRuntimeGenAI` (0.14.1, MIT, native + `.Managed` net8.0) + `Microsoft.Extensions.AI.Abstractions` (10.7.0, MIT, net10.0)
+- Owns: generative token-streaming runtime, multimodal encoding, streaming audio, GPU-device/native-log control via `Utils`, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
+- Accept: model-dir generative runs over the LIFO handle chain; multimodal `Images`/`Audios` + `MultiModalProcessor` pipelines; incremental `StreamingProcessor` audio paths; M.E.AI streaming via the three admitted ctors stacked onto the `api-recyclable-stream` staging pool
+- Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with `Microsoft.ML.OnnxRuntimeGenAI.Tensor`; a model run with no matching native RID payload

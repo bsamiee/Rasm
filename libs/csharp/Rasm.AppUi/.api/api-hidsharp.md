@@ -5,12 +5,12 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HidSharp`
-- package: `HidSharp`
-- assembly: `HidSharp`
+- package: `HidSharp` (version `2.6.4`, Apache-2.0)
+- assembly: `HidSharp` (single asset `lib/netstandard2.0`; no multi-target ambiguity — netstandard2.0 is what the `net10.0` consumer binds)
 - namespace: `HidSharp`
 - namespace: `HidSharp.Reports`
 - namespace: `HidSharp.Reports.Input`
-- asset: runtime library (managed, no native dependency)
+- asset: runtime library — pure managed; P/Invokes the OS HID stack (Win32 `hid.dll`/SetupAPI, Linux `udev`/`hidraw`, macOS IOKit) at runtime, ships no NuGet native asset and needs no provisioning
 - rail: input
 
 ## [02]-[PUBLIC_TYPES]
@@ -116,15 +116,29 @@
 |  [01]   | `GetReportDescriptor()`                                                 | `HidDevice`             | parsed `ReportDescriptor`      |
 |  [02]   | `GetRawReportDescriptor()`                                              | `HidDevice`             | raw descriptor bytes           |
 |  [03]   | `new ReportDescriptor(byte[])`                                          | `ReportDescriptor`      | parse from raw bytes           |
-|  [04]   | `DeviceItems`                                                           | `ReportDescriptor`      | top-level collection list      |
-|  [05]   | `InputReports` / `OutputReports` / `FeatureReports`                     | `DeviceItem`            | reports by type                |
-|  [06]   | `CreateDeviceItemInputParser()`                                         | `DeviceItem`            | per-collection value parser    |
-|  [07]   | `CreateHidDeviceInputReceiver()`                                        | `ReportDescriptor`      | background report pump         |
-|  [08]   | `TryParseReport(byte[] buffer, int offset, Report)`                     | `DeviceItemInputParser` | decode report into values      |
-|  [09]   | `GetValue(int index)` / `GetPreviousValue(int index)`                   | `DeviceItemInputParser` | read current/prior `DataValue` |
-|  [10]   | `HasChanged` / `GetNextChangedIndex()` / `ValueCount`                   | `DeviceItemInputParser` | changed-field iteration        |
-|  [11]   | `GetLogicalValue()` / `GetScaledValue(min, max)` / `GetPhysicalValue()` | `DataValue`             | per-axis value projection      |
-|  [12]   | `Usages` / `DataItem` / `DataIndex`                                     | `DataValue`             | field identity and usage codes |
+|  [04]   | `DeviceItems` / `Reports` / `ReportsUseID`                             | `ReportDescriptor`      | collections / flat reports / id-prefixed flag |
+|  [05]   | `MaxInputReportLength` / `MaxOutputReportLength` / `MaxFeatureReportLength` | `ReportDescriptor`  | descriptor-derived buffer sizes |
+|  [06]   | `GetReport(ReportType, byte id)` / `TryGetReport(...)`                  | `ReportDescriptor`      | report lookup by type+id       |
+|  [07]   | `InputReports` / `OutputReports` / `FeatureReports`                     | `DeviceItem`            | reports by type                |
+|  [08]   | `CreateDeviceItemInputParser()`                                         | `DeviceItem`            | per-collection value parser    |
+|  [09]   | `CreateHidDeviceInputReceiver()`                                        | `ReportDescriptor`      | background report pump         |
+|  [10]   | `TryParseReport(byte[] buffer, int offset, Report)`                     | `DeviceItemInputParser` | decode report into values      |
+|  [11]   | `GetValue(int index)` / `GetPreviousValue(int index)`                   | `DeviceItemInputParser` | read current/prior `DataValue` |
+|  [12]   | `HasChanged` / `GetNextChangedIndex()` / `ValueCount` / `DeviceItem`    | `DeviceItemInputParser` | changed-field iteration        |
+|  [13]   | `GetLogicalValue()` / `GetScaledValue(min, max)` / `GetFractionalValue()` / `GetPhysicalValue()` | `DataValue` | per-axis value projection |
+|  [14]   | `Usages` / `DataItem` / `DataIndex` / `Report` / `IsValid`             | `DataValue`             | field identity and usage codes |
+
+[ENTRYPOINT_SCOPE]: field model and callback decode (descriptor introspection)
+- rail: input
+
+| [INDEX] | [SURFACE]                                                              | [SURFACE_ROOT] | [RAIL]                            |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `DataItems` / `Length` / `ReportID` / `ReportType`                    | `Report`       | report shape and id               |
+|  [02]   | `Read(byte[], int, ReportValueCallback)` / `GetAllUsages()`           | `Report`       | callback decode (parser-free path) |
+|  [03]   | `ElementCount` / `ElementBits` / `TotalBits`                          | `DataItem`     | field bit geometry                |
+|  [04]   | `LogicalMinimum` / `LogicalMaximum` / `LogicalRange` / `IsLogicalSigned` | `DataItem`  | logical range for scaling         |
+|  [05]   | `PhysicalMinimum` / `PhysicalMaximum` / `Unit`                        | `DataItem`     | physical units                    |
+|  [06]   | `IsVariable` / `IsArray` / `IsRelative` / `IsAbsolute` / `IsConstant` / `IsBoolean` | `DataItem` | flag-derived field class    |
 
 [ENTRYPOINT_SCOPE]: event-driven receiver
 - rail: input
@@ -142,11 +156,17 @@
 - `DeviceList.Local` is the process-wide enumeration root; `GetHidDevices` returns `IEnumerable<HidDevice>` and the `vendorID`/`productID`/`releaseNumberBcd`/`serialNumber` overload filters at the source through `DeviceFilterHelper.MatchHidDevices`, so SpaceMouse selection passes the 3DConnexion vendor id rather than post-filtering a full list.
 - `HidDevice` carries identity (`VendorID`, `ProductID`, `ReleaseNumber`, `Manufacturer`, `ProductName`, `SerialNumber`) and report capacities (`MaxInputReportLength`, `MaxOutputReportLength`, `MaxFeatureReportLength`) without opening the device; `Open` is the only call that acquires the OS handle.
 - `HidDevice.Open` returns a `HidStream` (the `HidDevice`-typed override of the `Device.Open` -> `DeviceStream` base), and `HidStream` is a `System.IO.Stream`: `Read(byte[])` blocks for one input report up to `ReadTimeout` (default 3000 ms, `Timeout.Infinite` disables), `Write(byte[])` sends one output report, and `GetFeature`/`SetFeature` issue Get/Set Feature control transfers off the report path.
-- `OpenConfiguration` is an option bag keyed by `OpenOption` static keys; `Interruptible` plus `Priority` (`OpenPriority` from `Idle` to `VeryHigh`) let a higher-priority opener interrupt a lower one, surfaced through the `DeviceStream.InterruptRequested` event, and `Exclusive`/`Transient` govern shared access and transient-device tolerance.
+- `OpenConfiguration` is an option bag (`SetOption(OpenOption, object)`/`GetOption`/`IsOptionSet`/`Clone`) keyed by `OpenOption` static keys; `Interruptible` plus `Priority` (`OpenPriority` from `Idle` to `VeryHigh`) let a higher-priority opener interrupt a lower one, surfaced through the `DeviceStream.InterruptRequested` event, `Exclusive`/`Transient` govern shared access and transient-device tolerance, and `TimeoutIfInterruptible`/`TimeoutIfTransient` bound the open wait under those policies.
 - `HidDevice.GetReportDescriptor()` parses the raw descriptor into a `ReportDescriptor` whose `DeviceItems` are application collections; each `DeviceItem` groups `Report`s by `ReportType`, and a `Report` owns `DataItem`s describing bit offset, `ElementCount`, `LogicalMinimum`/`LogicalMaximum`, `PhysicalMinimum`/`PhysicalMaximum`, `Unit`, and `DataItemFlags` (`Variable`, `Relative`, `Constant`, `Array`).
 - `DeviceItemInputParser` from `DeviceItem.CreateDeviceItemInputParser()` decodes a raw input report: `TryParseReport(buffer, offset, report)` populates the value table, `ValueCount` bounds the index space, `GetValue(index)` returns a `DataValue`, and `HasChanged`/`GetNextChangedIndex()` walk only the fields that moved since the prior report — the 6-DOF SpaceMouse path reads six translation/rotation axes plus button bits per report this way.
-- `DataValue` projects one field three ways: `GetLogicalValue()` returns the raw signed logical integer, `GetScaledValue(min, max)` maps the logical range linearly onto an arbitrary range through `DataConvert.CustomFromLogical`, and `GetPhysicalValue()` applies the descriptor's physical units; `Usages` exposes the HID usage codes that identify which axis or button the value carries.
-- `HidDeviceInputReceiver` from `ReportDescriptor.CreateHidDeviceInputReceiver()` is the event-driven alternative to a manual `Read` loop: `Start(stream)` pumps reports on a background thread, `Received` fires per report, `TryRead` dequeues buffered reports, and `WaitHandle` gates a consumer that parks until data arrives.
+- `DataValue` projects one field four ways: `GetLogicalValue()` returns the raw signed logical integer, `GetScaledValue(min, max)` maps the logical range linearly onto an arbitrary range through `DataConvert.CustomFromLogical`, `GetFractionalValue()` returns the logical position as a [0,1] fraction of the logical range, and `GetPhysicalValue()` applies the descriptor's physical units; `Usages` exposes the HID usage codes that identify which axis or button the value carries, and `IsValid`/`DataItem`/`Report` carry the field's descriptor context. The SpaceMouse capsule normalizes to canonical [-1,1] through `GetScaledValue(-1, 1)`, reading the per-field `DataItem.LogicalMinimum`/`LogicalMaximum` when a symmetric range is needed.
+- `HidDeviceInputReceiver` from `ReportDescriptor.CreateHidDeviceInputReceiver()` is the event-driven alternative to a manual `Read` loop: `Start(stream)` pumps reports on a background thread, `Received` fires per report, `TryRead` dequeues buffered reports, and `WaitHandle` gates a consumer that parks until data arrives. `Report.Read(buffer, offset, callback)` is the parser-free decode path (a `ReportValueCallback`/`ReportScanCallback` visits each field) where the descriptor is known and the full `DeviceItemInputParser` value-table is not needed.
+
+[STACKING]:
+- The `Shell/input` `DeviceDriver.Hid` capsule (`[07]-[DEVICE_DRIVERS]`) is the only AppUi consumer: it enumerates through `DeviceList.Local.GetHidDevices(vendorId, productId)`, opens a scoped `HidStream`, and projects the `HidDeviceInputReceiver.Received` event (or a `Read` loop gated by `WaitHandle`) into an `IObservable<Seq<DeviceAxis>>` through `System.Reactive` `Observable.FromEventPattern`/`Create` (`api-reactive.md`), so the per-report decode runs off the render thread and the normalized axes marshal once at the bind edge.
+- The `Hid` case is one arm on the single `InputFabric` edge that also folds the `Gamepad(Silk.NET.Input)`/`Haptic(Silk.NET.SDL)` (`api-silk-input.md`, `api-silk-sdl.md`) and `Midi(Melanchall.DryWetMidi)` (`api-drywetmidi.md`) device streams: every device lifts onto the same `CommandIntent` table through one fold, so the SpaceMouse HID stream raises existing viewport intents exactly as the gamepad, haptic, and MIDI streams do — there is no second device→intent edge for HID. HidSharp carries no SDL2 native dependency, so unlike the `Gamepad`/`Haptic` pair the `Hid` capsule shares no native bundle; its only shared surface is the canonical `DeviceAxis`/`CommandIntent` fold at the edge.
+- `DataValue.GetScaledValue(-1, 1)` is the boundary projection — the canonical `DeviceAxis` (normalized continuous sample) crosses the capsule, never a raw HID byte array or a raw logical integer; the InputFabric folds those axes onto the one `CommandIntent` table. `HasChanged`/`GetNextChangedIndex` bound the per-report work to fields that moved, so a 6-DOF SpaceMouse report decodes six axes plus button bits without scanning the full value table.
+- Hot-plug stacks onto `DeviceList.Changed`: the capsule re-enumerates on that event rather than re-opening a stale handle, and the open/dispose pair is one scoped fold (`Open` -> `HidStream` -> `Dispose`) tracked by the `DeviceSession.Teardown` disposable.
 
 [LOCAL_ADMISSION]:
 - Device enumeration uses `DeviceList.Local.GetHidDevices(vendorID, productID)` with the target vendor and product ids; the boundary capsule never enumerates the full device set and post-filters.
@@ -158,5 +178,5 @@
 [RAIL_LAW]:
 - Package: `HidSharp`
 - Owns: cross-platform raw HID device access — enumeration, open/configuration, raw input/output/feature report I/O, report-descriptor parsing, and typed multi-axis value decoding for the InputFabric `Hid` input source.
-- Accept: `DeviceList.Local` enumeration with source-side vendor/product filters; scoped `HidStream` open-and-dispose pairs; descriptor-driven decoding through `DeviceItemInputParser` and `DataValue`.
-- Reject: a vendor-specific 3DConnexion driver dependency; manual bit-shifting of raw report bytes when `DataItem`/`DataValue` already model the field; a busy-wait `Read` loop when `HidDeviceInputReceiver` plus `WaitHandle` carries the same input stream.
+- Accept: `DeviceList.Local` enumeration with source-side vendor/product filters; scoped `HidStream` open-and-dispose pairs; descriptor-driven decoding through `DeviceItemInputParser` and `DataValue`; composition as the `Hid` case on the single `InputFabric` edge beside the `Gamepad`/`Haptic`/`Midi` peers (`api-silk-input.md`, `api-silk-sdl.md`, `api-drywetmidi.md`), folding normalized `DeviceAxis` samples onto the one `CommandIntent` table.
+- Reject: a vendor-specific 3DConnexion driver dependency; manual bit-shifting of raw report bytes when `DataItem`/`DataValue` already model the field; a busy-wait `Read` loop when `HidDeviceInputReceiver` plus `WaitHandle` carries the same input stream; a parallel HID device→intent edge beside the single `InputFabric` fold the other three device rails share.

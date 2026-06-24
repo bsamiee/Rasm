@@ -6,7 +6,11 @@
 
 [PACKAGE_SURFACE]: `Silk.NET.SDL`
 - package: `Silk.NET.SDL`
+- version: `2.23.0`
+- license: `MIT`
 - assembly: `Silk.NET.SDL`
+- consumer-tfm: `net6.0` (package multi-targets `net6.0`/`net5.0`/`netcoreapp3.1`/`netstandard2.1`/`netstandard2.0`; `net10.0` binds the highest available `net6.0` asset)
+- native: SDL2 runtime resolved through `Silk.NET.SDL.targets`; the bundle is shared with `Silk.NET.Input` (`api-silk-input`) and bound once per process
 - namespace: `Silk.NET.SDL`
 - asset: runtime library + shared native SDL2 binaries
 - rail: input
@@ -50,6 +54,7 @@
 |  [06]   | `GameControllerButton` | enum   | button identifier              |
 |  [07]   | `SensorType`           | enum   | controller sensor kind         |
 |  [08]   | `SdlBool`              | enum   | native tri-state boolean       |
+|  [09]   | `SdlException`         | class  | typed wrap of native error     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -128,8 +133,18 @@
 |  [05]   | `GUIDFromString(byte*)` / `JoystickGetGUIDFromString`                | `Sdl`          | text to GUID               |
 |  [06]   | `GetJoystickGUIDInfo(GUID, ushort* vendor, product, version, crc16)` | `Sdl`          | decompose GUID fields      |
 |  [07]   | `JoystickOpen(int)` / `GameControllerOpen(int)`                      | `Sdl`          | device open                |
-|  [08]   | `GameControllerMappingForGUID(GUID)`                                 | `Sdl`          | resolve SDL mapping string |
-|  [09]   | `GameControllerAddMapping(string)`                                   | `Sdl`          | register mapping string    |
+|  [08]   | `GameControllerMappingForGUID(GUID)` / `GameControllerMappingForGUIDS(GUID)` | `Sdl`  | resolve mapping (`byte*`/string) |
+|  [09]   | `GameControllerAddMapping(string)` / `GameControllerAddMappingsFromRW(RWops*, int)` | `Sdl` | register mapping(s)    |
+
+[ENTRYPOINT_SCOPE]: native-status error lift
+- rail: input
+
+| [INDEX] | [SURFACE]                  | [SURFACE_ROOT] | [RAIL]                            |
+| :-----: | :------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `GetError()` (`byte*`)     | `Sdl`          | raw last-error pointer            |
+|  [02]   | `GetErrorS()` (`string`)   | `Sdl`          | managed last-error text           |
+|  [03]   | `GetErrorAsException()` (`SdlException?`) | `Sdl` | typed exception for the boundary lift |
+|  [04]   | `ClearError()`             | `Sdl`          | reset error state before a call   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -144,13 +159,13 @@
 - `GUID` is a 16-byte `fixed byte Data[16]` value that survives reconnect; `JoystickGetDeviceGUID` reads identity before open and `JoystickGetGUID` after, with `GetJoystickGUIDInfo` decomposing vendor, product, version, and CRC for device matching against the `GameControllerMappingForGUID` mapping database.
 
 [LOCAL_ADMISSION]:
-- One `Sdl` instance binds the native runtime per process; the InputFabric shares the single SDL2 native bundle with `Silk.NET.Input`, so the boundary capsule owns exactly one `Sdl.GetApi()` handle rather than re-loading the binding.
-- Haptic devices, joysticks, and controllers open through their `XxxOpen` call and close through `HapticClose`/`HapticFlush` matched in a scoped fold; there is no `IDisposable` on the native handles.
-- Native call results carry SDL's int-status convention (`0` success, negative failure with `GetError`); the boundary capsule lifts that into the typed input rail and never lets a raw negative status cross into domain code.
-- Device identity persists as the `GUID` byte value, not the volatile device or instance index; reconnect matching resolves through `GetJoystickGUIDInfo` plus `GameControllerMappingForGUID`.
+- One `Sdl` instance binds the native runtime per process; the InputFabric shares the single SDL2 native bundle with `Silk.NET.Input` (`api-silk-input`), so the boundary capsule owns exactly one `Sdl.GetApi()` handle rather than re-loading the binding. The SDL2 haptic rail composes alongside the SDL2/Silk.NET.Input gamepad-button/axis stream, the HidSharp (`api-hidsharp`) SpaceMouse HID stream, and the DryWetMidi (`api-drywetmidi`) device stream under one InputFabric edge that lifts every device into the canonical input shapes.
+- Haptic devices, joysticks, and controllers open through their `XxxOpen` call and close through `HapticClose`/`JoystickClose`/`GameControllerClose` matched in a scoped fold; there is no `IDisposable` on the native handles.
+- Native call results carry SDL's int-status convention (`0` success, negative failure); the boundary capsule lifts a negative status through `GetErrorAsException()` (or reads `GetErrorS()` text), surfaces it as a typed input-rail failure, and never lets a raw negative status cross into domain code. `ClearError()` resets state before a sequence of unsafe calls when error attribution matters.
+- Device identity persists as the `GUID` byte value, not the volatile device or instance index; reconnect matching resolves through `GetJoystickGUIDInfo` plus `GameControllerMappingForGUID`/`GameControllerMappingForGUIDS`.
 
 [RAIL_LAW]:
 - Package: `Silk.NET.SDL`
 - Owns: the managed SDL2 binding for force-feedback (`SDL_Haptic` open/close, effect upload/run, simple rumble, controller and joystick rumble) and the joystick and game-controller `GUID` identity surface.
-- Accept: raw-pointer unsafe calls on the single `Sdl.GetApi()` function-table root; `InitHaptic` subsystem arming before device open; native-handle scoped open-and-close pairs at the boundary capsule.
-- Reject: a second `Sdl` instance or re-loaded native bundle beside `Silk.NET.Input`; a managed convenience wrapper renaming the native surface; device-index identity persisted in place of the stable `GUID`.
+- Accept: raw-pointer unsafe calls on the single `Sdl.GetApi()` function-table root; `InitHaptic` subsystem arming before device open; native-handle scoped open-and-close pairs at the boundary capsule; native int-status lifted through `GetErrorAsException()`/`GetErrorS()`; composition under the one InputFabric edge beside `api-silk-input`, `api-hidsharp`, and `api-drywetmidi`.
+- Reject: a second `Sdl` instance or re-loaded native bundle beside `Silk.NET.Input`; a managed convenience wrapper renaming the native surface; device-index identity persisted in place of the stable `GUID`; a raw negative native status crossing into domain code.

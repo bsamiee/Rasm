@@ -6,9 +6,11 @@
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour.Datasets`
 - package: `Wacton.Unicolour.Datasets`
+- version: `4.0.0`
+- license: MIT (`github.com/waacton/Unicolour`)
 - assembly: `Wacton.Unicolour.Datasets`
 - namespace: `Wacton.Unicolour.Datasets`
-- asset: runtime library
+- asset: runtime library (`netstandard2.0` single-TFM; consumer `net10.0` binds the netstandard2.0 asset). Transitively depends on `Wacton.Unicolour` (the `Unicolour`/`Pigment`/`Configuration` carriers) — pure-managed, ALC-safe, no native or extra transitive assets.
 - rail: colour-datasets
 
 ## [02]-[PUBLIC_TYPES]
@@ -23,7 +25,7 @@
 |  [03]   | `EbnerFairchild` | reference set     | Ebner-Fairchild constant-hue `Unicolour` loci     |
 |  [04]   | `HungBerns`      | reference set     | Hung-Berns constant-hue `Unicolour` loci          |
 |  [05]   | `IsccNbs`        | reference set     | ISCC-NBS centroid `Unicolour` colour names        |
-|  [06]   | `Css`            | named-colour list | 148 CSS named `Unicolour` colours                 |
+|  [06]   | `Css`            | named-colour list | 149 CSS named `Unicolour` colours                 |
 |  [07]   | `Xkcd`           | named-colour list | 949 xkcd survey named `Unicolour` colours         |
 |  [08]   | `Nord`           | named-colour list | Nord 16-swatch palette as `Unicolour`             |
 |  [09]   | `ArtistPaint`    | pigment set       | Golden artist-paint `Pigment` reflectance set     |
@@ -88,8 +90,8 @@
 |  [09]   | `HungBerns.All`                                                           | static property | all Hung-Berns loci as `IEnumerable<Unicolour>`      |
 |  [10]   | `IsccNbs.VividPink` .. (267 centroids)                                    | static field    | named ISCC-NBS centroid `Unicolour` values           |
 |  [11]   | `IsccNbs.All`                                                             | static property | all 267 centroids as `IEnumerable<Unicolour>`        |
-|  [12]   | `Css.AliceBlue` .. (148 colours)                                          | static field    | named CSS `Unicolour` values                         |
-|  [13]   | `Css.All`                                                                 | static property | all 148 CSS colours as `IEnumerable<Unicolour>`      |
+|  [12]   | `Css.AliceBlue` .. (149 colours)                                          | static field    | named CSS `Unicolour` values                         |
+|  [13]   | `Css.All`                                                                 | static property | all 149 CSS colours as `IEnumerable<Unicolour>`      |
 |  [14]   | `Xkcd.AcidGreen` .. (949 colours)                                         | static field    | named xkcd `Unicolour` values                        |
 |  [15]   | `Xkcd.All`                                                                | static property | all 949 xkcd colours as `IEnumerable<Unicolour>`     |
 |  [16]   | `Nord.Nord0` .. `Nord.Nord15`                                             | static field    | Nord swatch `Unicolour` values                       |
@@ -107,7 +109,7 @@
 - sampling: `Map` accepts `x` in `[0, 1]`; `MapWithClipping` clamps below to `Black` (or `lowerClipColour`) and above to `White` (or `upperClipColour`); `Palette(count)` emits evenly spaced samples.
 - registry: `Colourmaps` exposes one static handle per concrete `Colourmap`.
 - reference sets: `Macbeth`, `MacAdam`, `EbnerFairchild`, `HungBerns`, and `IsccNbs` expose named static `Unicolour` members plus grouping `IEnumerable<Unicolour>` rows and an `All` aggregate.
-- working space: each set fixes its own `Configuration` (sRGB with D65, D50, or Illuminant C / Observer.Degree2 as the source measurement requires); `ArtistPaint` uses sRGB with D50.
+- working space: each set fixes its own `Configuration` for the source measurement — `Colourmap.Config` is sRGB/`XyzConfiguration.D65`, `Macbeth` is sRGB/`Illuminant.D50`/`Observer.Degree2`, `ArtistPaint.Configuration` is sRGB/`XyzConfiguration.D50`; a consumer reads the set's own `Configuration` rather than assuming the global `Configuration.Default`.
 
 [BOUNDARY]:
 - This package carries named-colour lists, ColorChecker / Macbeth reference sets, perceptual colourmaps, and academic reference datasets only.
@@ -120,8 +122,13 @@
 - Perceptual ramps sample a `Colourmap` through `Map` or `Palette`; the lookup table is read, never re-derived.
 - Pigment reflectance for paint mixing reads `ArtistPaint` `Pigment` values and mixes through the main `Wacton.Unicolour` Kubelka-Munk constructor.
 
+[STACK]:
+- finish seam: `finish#FINISH` `FinishPigment` builds a `FrozenDictionary<string, Pigment>` from `ArtistPaint.All`, then `finish#FINISH` mixes the selected `Pigment[]` through the MAIN owner's `new Unicolour(pigments, weights)` Kubelka-Munk constructor under `ArtistPaint.Configuration` (sRGB/D50) — this package supplies the measured Golden pigment table, the main `Wacton.Unicolour` owner runs the mix.
+- graph seam: `graph#MATERIAL_LIBRARY` `NearestChecker` measures a candidate `MaterialParameters` base colour against `Macbeth.All` patches through the main owner's `Difference(patch, DeltaE.Ciede2000)`, returning the `(Patch, DeltaE)` drift pair — the reference patches live here, the metric runs on the main owner.
+- colourmap seam: a perceptual ramp samples a `Colourmap` through `Map(x)`/`Palette(count)` (each map interpolates its static `Lookup` `IEnumerable<Unicolour>` in `Rgb` with `HueSpan.Shorter` under `Colourmap.Config`) — the lookup is read, never re-derived; the produced `Unicolour` values flow to the main owner for any further conversion or gamut check.
+
 [RAIL_LAW]:
-- Package: `Wacton.Unicolour.Datasets`
-- Owns: named-colour lists, ColorChecker / Macbeth reference sets, perceptual colourmaps, academic reference datasets
-- Accept: a reference patch, named colour, colourmap sample position, or pigment lookup
-- Reject: observer CMFs, illuminant SPDs, generic reflectance, and spectral upsampling, which stay on the main `Wacton.Unicolour` owner
+- Package: `Wacton.Unicolour.Datasets` 4.0.0 (MIT, `netstandard2.0`, depends on `Wacton.Unicolour`)
+- Owns: named-colour lists (`Css` 149, `Xkcd` 949, `Nord` 16), ColorChecker / Macbeth reference set (24 patches), academic reference sets (`MacAdam`, `EbnerFairchild`, `HungBerns`, `IsccNbs` 267), the 15 perceptual `Colourmap` instances, and the Golden `ArtistPaint` 19-pigment table — all as static `Unicolour`/`Pigment` tables built on the main owner
+- Accept: a reference patch, named colour, colourmap sample position, or pigment lookup, each read with its set's own `Configuration`
+- Reject: observer CMFs, illuminant SPDs, generic reflectance, the Kubelka-Munk mix math, delta-E, and spectral upsampling, which stay on the main `Wacton.Unicolour` owner

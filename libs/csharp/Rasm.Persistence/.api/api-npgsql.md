@@ -21,7 +21,7 @@ replication surfaces for provider store profiles.
 The compact rows below preserve these member groups:
 - `NpgsqlDataSource`: `CreateConnection`, `OpenConnection`, `OpenConnectionAsync`, `CreateCommand`, `CreateBatch`, `ReloadTypes`, `ReloadTypesAsync`, `Clear`
 - `NpgsqlDataSourceBuilder`: `Build()`, `BuildMultiHost()`
-- `NpgsqlMultiHostDataSource`: `TargetSessionAttributes`
+- `NpgsqlMultiHostDataSource`: `WithTargetSession(TargetSessionAttributes)`, `OpenConnection(TargetSessionAttributes)`/`Async`, `CreateConnection(TargetSessionAttributes)`, `ClearDatabaseStates`
 - `NpgsqlConnection`: `BeginBinaryImport`/`Async`, `BeginBinaryExport`/`Async`, `BeginRawBinaryCopy`/`Async`, `ReloadTypes`/`Async`, `CreateBatch`
 - `NpgsqlConnectionStringBuilder`: `MaxAutoPrepare`, `AutoPrepareMinUsages`, `NoResetOnClose`, `Multiplexing`, `TargetSessionAttributes`, `LoadBalanceHosts`
 - `NpgsqlConnectionStringBuilder`: `Options`, `IncludeErrorDetail`, `IncludeFailedBatchedCommand`, `LogParameters`

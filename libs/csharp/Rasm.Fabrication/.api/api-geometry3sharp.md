@@ -55,10 +55,11 @@
 |  [06]   | `Vector2d Arc2d.SampleT(double t)`                             | method          | the arc point at parameter `t∈[0,1]` (`SampleT(0)`=start, `SampleT(1)`=end) |
 |  [07]   | `Vector2d Arc2d.P0` / `P1`                                     | property        | start/end endpoints, defined as `SampleT(0.0)`/`SampleT(1.0)` |
 |  [08]   | `double Arc2d.ArcLength`                                       | property        | the swept arc length `(AngleEndDeg−AngleStartDeg)·(π/180)·Radius` — the feedrate/tab-spacing length |
-|  [09]   | `Segment2d(Vector2d p0, Vector2d p1)`                          | constructor     | the endpoint-pair overload `set_output` builds the degenerate span from |
-|  [10]   | `Vector2d Segment2d.P0` / `P1`                                 | property        | the segment endpoints (`Center ∓ Extent·Direction`)     |
-|  [11]   | `Vector2d Segment2d.Center` / `Direction` / `double Extent`    | field           | the segment center-direction-extent form                 |
-|  [12]   | `double Segment2d.Length`                                      | property        | the segment length `2·Extent` — the straight-span feed length |
+|  [09]   | `Vector2d Arc2d.SampleArcLength(double a)` / `Segment2d.SampleArcLength(double a)` | method | the curve point at arc-length `a∈[0,ArcLength]` (NOT parameter `t`) — the exact tab/micro-bridge insertion sampler the `TabbedRing` walk steps at every `TabSpacing` interval, so the gap lands at a true arc-length offset rather than a `t`-uniform (curvature-skewed) one |
+|  [10]   | `Segment2d(Vector2d p0, Vector2d p1)`                          | constructor     | the endpoint-pair overload `set_output` builds the degenerate span from |
+|  [11]   | `Vector2d Segment2d.P0` / `P1`                                 | property        | the segment endpoints (`Center ∓ Extent·Direction`)     |
+|  [12]   | `Vector2d Segment2d.Center` / `Direction` / `double Extent`    | field           | the segment center-direction-extent form                 |
+|  [13]   | `double Segment2d.Length`                                      | property        | the segment length `2·Extent` — the straight-span feed length |
 
 [PUBLIC_TYPE_SCOPE]: `Vector2d` members (the point/tangent carrier)
 - rail: fabrication
@@ -94,6 +95,7 @@
 - `BiArcFit2(p1, t1, p2, t2)` fits two arcs `G1`-tangent-continuous at a solved junction; each fitted span is an `Arc2d` UNLESS the geometry degenerates to a straight run, in which case `Arc1IsSegment`/`Arc2IsSegment` is true and the `Segment1`/`Segment2` carries the straight span — the consumer reads the flag per span and emits an `ArcCw`/`ArcCcw` `GWord` for an arc or a `Feed` `GWord` for a segment
 - the input tangents must be unit-length: the consumer builds each from `new Vector2d(t.X, t.Y).Normalized` (the property returns `Vector2d.Zero` below `2.22E-16`), or normalizes in place with `Vector2d.Normalize()` whose RETURNED prior length is the zero-tangent signal — a `0.0` length is a degenerate (collinear-collapsed) chord run the consumer skips below `MinRunLength` rather than fitting
 - `Arc2d` endpoints read through `SampleT(0.0)` (start) and `SampleT(1.0)` (end); `Arc2d.P0`/`P1` are convenience properties defined as exactly those samples, so the consumer uses `SampleT` uniformly. The `I`/`J` center offset the G-code word carries is `Center - SampleT(0.0)` (the start-to-center vector)
+- tab/micro-bridge insertion reads `SampleArcLength(a)` NOT `SampleT(t)`: the `TabbedRing` walk steps the fitted arc at `TabSpacing` arc-length increments (`a = 0, TabSpacing, 2·TabSpacing, … ≤ ArcLength`), so a gap on a high-curvature arc lands at a true distance offset — a `t`-uniform sample skews the spacing by the local curvature and a tight arc would crowd its tabs. The straight-span degenerate run steps `Segment2d.SampleArcLength` identically over `Length = 2·Extent`, so the one arc-length sampler serves both the arc and segment spans of a biarc
 - `IsReversed` selects the sweep direction: `IsReversed == true` maps to a clockwise `G2` (`ArcCw`), `false` to a counter-clockwise `G3` (`ArcCcw`)
 - the fit error is read through `BiArcFit2.Distance(p)` (a query point's deviation from the fitted biarc) and `NearestPoint(p)`: the consumer gates emission on the worst original-chord-vertex deviation staying within the cut tolerance, falling back to a chorded `Feed` run when the biarc over-deviates rather than emitting an out-of-tolerance `G2`/`G3` block
 

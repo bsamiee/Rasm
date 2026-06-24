@@ -1,97 +1,129 @@
 # [RASM_PERSISTENCE_API_JSONPATCH]
 
 `Microsoft.AspNetCore.JsonPatch.SystemTextJson` supplies RFC 6902 JSON Patch document
-construction, serialisation via `System.Text.Json`, and application to object graphs
-for Persistence snapshot partial-update profiles.
+construction, `System.Text.Json` serialisation through a registered converter factory, and
+break-on-first-error application to object graphs — the document-granular partial-update fallback
+the `Sync/collaboration#TRANSPORT_AXIS` op-log changefeed falls back to (RFC 7386 merge-patch is the
+rejected form). It is the STJ-native variant: the patch document is serialised by STJ
+(`Utf8JsonReader`/`Utf8JsonWriter`), never Newtonsoft, and it carries a public minimal-API binding
+seam (`IEndpointParameterMetadataProvider`).
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- assembly: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- namespace: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `Microsoft.AspNetCore.JsonPatch.SystemTextJson.Operations`
+- package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (10.0.9)
+- assembly: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (`lib/net10.0` — single-target, no TFM fallback)
+- namespace: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `.Operations`, `.Adapters`, `.Exceptions`
+- license: MIT
 - asset: runtime library
-- rail: snapshot
+- rail: snapshot, collaboration-fallback
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: patch document family
 - rail: snapshot
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [CAPABILITY]                                  |
-| :-----: | :--------------------- | :----------------- | :-------------------------------------------- |
-|  [01]   | `JsonPatchDocument`    | untyped patch doc  | RFC 6902 operations list and apply            |
-|  [02]   | `JsonPatchDocument<T>` | typed patch doc    | typed RFC 6902 operations list and apply      |
-|  [03]   | `IJsonPatchDocument`   | patch doc contract | operations access and application             |
-|  [04]   | `JsonPatchError`       | error value        | operation, error message, and affected object |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [CAPABILITY]                                                              |
+| :-----: | :--------------------- | :----------------- | :----------------------------------------------------------------------- |
+|  [01]   | `JsonPatchDocument`    | untyped patch doc  | string-path RFC 6902 op list + apply; `[JsonConverter(JsonPatchDocumentConverter)]` |
+|  [02]   | `JsonPatchDocument<T>` | typed patch doc    | `Expression<Func<T,_>>` lambda-path op list + apply; `[JsonConverter(JsonPatchDocumentConverterFactory)]` |
+|  [03]   | `IJsonPatchDocument`   | patch doc contract | `GetOperations()`; the untyped operation projection both docs expose     |
+|  [04]   | `JsonPatchError`       | error value        | `AffectedObject`, `Operation`, `ErrorMessage` — the `logErrorAction` payload |
 
-[PUBLIC_TYPE_SCOPE]: operations family
+`JsonPatchDocument` and `JsonPatchDocument<T>` both implement `IEndpointParameterMetadataProvider`
+(`static PopulateMetadata(ParameterInfo, EndpointBuilder)`), so each is a first-class minimal-API
+request-body parameter that registers its `application/json-patch+json` accepts-metadata.
+
+[PUBLIC_TYPE_SCOPE]: operations family (`.Operations`)
 - rail: snapshot
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CAPABILITY]                                          |
-| :-----: | :-------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `Operation`     | untyped op     | RFC 6902 operation with `op`, `path`, `from`, `value` |
-|  [02]   | `OperationBase` | operation base | `op`, `path`, `from`, `OperationType` property        |
-|  [03]   | `OperationType` | op enum        | `Add`, `Remove`, `Replace`, `Move`, `Copy`, `Test`    |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]    | [CAPABILITY]                                                          |
+| :-----: | :---------------- | :--------------- | :------------------------------------------------------------------- |
+|  [01]   | `OperationBase`   | operation base   | `op` (string), `path`, `from` (JSON Pointer), `OperationType` (parsed); `ShouldSerializeFrom()` |
+|  [02]   | `Operation`       | untyped op       | `OperationBase` + `object value`; `Apply(object, IObjectAdapter)` dispatch |
+|  [03]   | `Operation<T>`    | typed op         | `Operation` + `Apply(T, IObjectAdapter)`; the element type of `JsonPatchDocument<T>.Operations` |
+|  [04]   | `OperationType`   | op enum          | `Add`, `Remove`, `Replace`, `Move`, `Copy`, `Test`, **`Invalid`**     |
 
-[PUBLIC_TYPE_SCOPE]: adapter and converter family
+`OperationBase.op` parses to `OperationType` via `Enum.TryParse(ignoreCase)` — an unrecognised `op`
+string lands `OperationType.Invalid`, the discriminant a defensive apply must reject.
+
+[PUBLIC_TYPE_SCOPE]: adapter + exception family (`.Adapters`, `.Exceptions`)
 - rail: snapshot
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]    | [CAPABILITY]                                     |
-| :-----: | :----------------------- | :--------------- | :----------------------------------------------- |
-|  [01]   | `IObjectAdapter`         | adapter contract | `Add`, `Remove`, `Replace`, `Move`, `Copy`       |
-|  [02]   | `IObjectAdapterWithTest` | adapter contract | extends `IObjectAdapter` with `Test`             |
-|  [03]   | `ObjectAdapter`          | default adapter  | reflection-based POCO adapter                    |
-|  [04]   | `IAdapterFactory`        | factory contract | produces `IAdapter` for a given object type      |
-|  [05]   | `AdapterFactory`         | default factory  | selects list, dictionary, POCO, or JSON adapters |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]    | [CAPABILITY]                                                              |
+| :-----: | :----------------------- | :--------------- | :----------------------------------------------------------------------- |
+|  [01]   | `IObjectAdapter`         | adapter contract | `Add`, `Remove`, `Replace`, `Move`, `Copy` `(Operation, object)` — the per-graph apply seam |
+|  [02]   | `IObjectAdapterWithTest` | adapter contract | extends `IObjectAdapter` with `Test(Operation, object)`                   |
+|  [03]   | `JsonPatchException`     | typed failure    | `FailedOperation`, `AffectedObject`; thrown per-op, caught inside `ApplyTo`, folded to `JsonPatchError` |
+
+The default adapter (`ObjectAdapter` + its `AdapterFactory` dispatching list/dictionary/`JsonObject`/POCO
+adapters) is `internal`: it is constructed by the parameterless `ApplyTo`, never a consumer surface.
+The STJ variant exposes NO public `IAdapterFactory`/`AdapterFactory`/`ObjectAdapter` — the public
+extension seam for a non-POCO target (e.g. a `JsonNode` snapshot) is implementing `IObjectAdapter` /
+`IObjectAdapterWithTest` and passing it to the `ApplyTo(obj, adapter)` overload. (Those factory types
+exist only in the legacy Newtonsoft `Microsoft.AspNetCore.JsonPatch` package, which this rail rejects.)
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: typed document construction
+[ENTRYPOINT_SCOPE]: untyped string-path construction
 - rail: snapshot
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :----------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `new JsonPatchDocument()`                                    | ctor           | creates empty untyped patch document           |
-|  [02]   | `new JsonPatchDocument(operations, serializerOptions)`       | ctor           | creates from operation list and STJ options    |
-|  [03]   | `JsonPatchDocument.Add(path, value)`                         | fluent op      | appends `add` operation                        |
-|  [04]   | `JsonPatchDocument.Remove(path)`                             | fluent op      | appends `remove` operation                     |
-|  [05]   | `JsonPatchDocument.Replace(path, value)`                     | fluent op      | appends `replace` operation                    |
-|  [06]   | `JsonPatchDocument.Move(from, path)`                         | fluent op      | appends `move` operation                       |
-|  [07]   | `JsonPatchDocument.Copy(from, path)`                         | fluent op      | appends `copy` operation                       |
-|  [08]   | `JsonPatchDocument.Test(path, value)`                        | fluent op      | appends `test` operation                       |
-|  [09]   | `JsonPatchDocument.ApplyTo(objectToApplyTo)`                 | apply          | applies all operations using default adapter   |
-|  [10]   | `JsonPatchDocument.ApplyTo(objectToApplyTo, adapter)`        | apply          | applies with custom `IObjectAdapter`           |
-|  [11]   | `JsonPatchDocument.ApplyTo(objectToApplyTo, logErrorAction)` | apply          | applies and invokes error callback per failure |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `new JsonPatchDocument()`                                    | ctor           | empty doc; `SerializerOptions` defaults to `JsonSerializerOptions.Default` |
+|  [02]   | `new JsonPatchDocument(List<Operation>, JsonSerializerOptions)` | ctor        | rehydrate from operation list under explicit STJ options |
+|  [03]   | `Add(path, value)` / `Remove(path)` / `Replace(path, value)` | fluent op      | append; each returns `this` for chaining, path normalised internally |
+|  [04]   | `Move(from, path)` / `Copy(from, path)` / `Test(path, value)` | fluent op     | append move/copy/test; `from`/`path` are JSON Pointer (RFC 6901) |
 
-[ENTRYPOINT_SCOPE]: operation application
+[ENTRYPOINT_SCOPE]: typed lambda-path construction (`JsonPatchDocument<T>`)
 - rail: snapshot
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `Operation.Apply(objectToApplyTo, adapter)` | op apply       | dispatches to adapter method by `OperationType` |
-|  [02]   | `OperationBase.OperationType`               | property       | typed `OperationType` discriminant              |
-|  [03]   | `OperationBase.op`                          | property       | RFC 6902 operation string                       |
-|  [04]   | `OperationBase.path`                        | property       | JSON Pointer path string                        |
-|  [05]   | `OperationBase.from`                        | property       | JSON Pointer source path (move/copy)            |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------------ | :--------------- | :--------------------------------------------------- |
+|  [01]   | `Add<P>(Expression<Func<T,P>> path, P value)`                             | typed scalar op  | compile-checked member path; refactor-safe vs string |
+|  [02]   | `Add<P>(Expression<Func<T,IList<P>>> path, P value [, int position])`     | typed list op    | append (`-` sentinel) or insert at index             |
+|  [03]   | `Remove<P>(Expression<Func<T,P>> path)` / `Remove<P>(IList path [, int position])` | typed op | scalar clear or list element removal at index        |
+|  [04]   | `Replace<P>` / `Test<P>` (scalar + `IList<P>` + `int position` variants)  | typed op         | typed replace/test mirroring the scalar/list/positional arity |
+|  [05]   | `Move<P>` / `Copy<P>` (scalar↔scalar, list↔scalar, scalar↔list, list↔list with `positionFrom`/`positionTo`) | typed relocation | every endpoint-arity combination of source/target index |
+
+The typed overloads are the integration default: a `JsonPatchDocument<TSnapshot>` built from
+`Expression` member paths binds the patch to the snapshot record's shape, so a renamed property breaks
+the build rather than producing a silent no-op `path` at apply.
+
+[ENTRYPOINT_SCOPE]: application + dispatch
+- rail: snapshot
+
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `ApplyTo(objectToApplyTo)`                             | apply          | default internal `ObjectAdapter`; throws `JsonPatchException` on first failure |
+|  [02]   | `ApplyTo(objectToApplyTo, Action<JsonPatchError>)`    | apply          | break-on-first-error; the failing op reports through the callback, no throw |
+|  [03]   | `ApplyTo(objectToApplyTo, IObjectAdapter)`            | apply          | custom adapter (non-POCO target), throwing form      |
+|  [04]   | `ApplyTo(objectToApplyTo, IObjectAdapter, Action<JsonPatchError>)` | apply | custom adapter + error callback — the fullest control point |
+|  [05]   | `Operation.Apply(objectToApplyTo, IObjectAdapter)`    | op dispatch    | switch over `OperationType` to the adapter's `Add`/`Remove`/`Replace`/`Move`/`Copy`/`Test` |
+|  [06]   | `IJsonPatchDocument.GetOperations()`                  | projection     | untyped `IList<Operation>` view for serialisation/inspection |
+
+`ApplyTo` is break-on-first-error: it iterates `Operations`, and the first op that throws
+`JsonPatchException` is folded into a `JsonPatchError` (via the supplied `logErrorAction` or the
+internal `ErrorReporter.Default`) and the loop **breaks** — later operations do not run. Atomic
+all-or-nothing apply is therefore a caller obligation (apply to a clone, swap on full success).
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PATCH_TOPOLOGY]:
-- `JsonPatchDocument` is decorated with `[JsonConverter(typeof(JsonPatchDocumentConverter))]`; STJ deserialisation is built-in
-- `JsonPatchDocument.SerializerOptions` defaults to `JsonSerializerOptions.Default`; it is settable per-instance
-- `Operation.Apply` dispatches over `OperationType`: `Add`, `Remove`, `Replace`, `Move`, `Copy`, `Test`
-- `Test` operation requires `IObjectAdapterWithTest`; using `ObjectAdapter` (which does not implement it) throws `NotSupportedException`
-- path strings are JSON Pointer format (RFC 6901); `PathHelpers.ValidateAndNormalizePath` is called internally on every fluent builder method
-- list indexing uses `-` as an append sentinel per RFC 6902
+- `JsonPatchDocument` carries `[JsonConverter(typeof(JsonPatchDocumentConverter))]`; `JsonPatchDocument<T>` carries `[JsonConverter(typeof(JsonPatchDocumentConverterFactory))]` — STJ (de)serialisation is built-in, no manual converter registration. Both converters and the factory are `internal`, reached only through the attributes.
+- `SerializerOptions` is a settable per-instance `JsonSerializerOptions` defaulting to `JsonSerializerOptions.Default`; it governs how `value` payloads inside operations bind to/from member types.
+- `Operation.Apply` dispatches over `OperationType`; `OperationType.Invalid` (unknown `op` string) is unhandled by the switch and surfaces as a failure.
+- the `Test` operation requires `IObjectAdapterWithTest`; routing `Test` through a bare `IObjectAdapter` is a contract gap — the internal default adapter implements `IObjectAdapterWithTest`, so default `ApplyTo` supports `Test`.
+- list indexing uses `-` as the RFC 6902 append sentinel; out-of-range indices fault as `JsonPatchError` rather than silently clamping. Internal `PathHelpers.ValidateAndNormalizePath` runs on every fluent builder call, so a malformed pointer faults at build time.
 
 [LOCAL_ADMISSION]:
-- Patch documents persist as `List<Operation>` over the wire; deserialisation reconstructs them through the registered STJ converter.
-- Error handling uses the `Action<JsonPatchError>` callback form rather than exception propagation for partial-apply scenarios.
-- Custom adapter injection via `IAdapterFactory` is the extension point for non-POCO targets (e.g. `JsonNode`, `JsonObject`).
+- Patch documents persist as `List<Operation>` on the wire; deserialisation reconstructs them through the registered STJ converter under the same `JsonSerializerOptions` the snapshot rail's `PersistenceWireContext` carries.
+- Error handling uses the `Action<JsonPatchError>` callback form, not exception propagation: the `Sync/collaboration` document-granular fallback applies a patch to a snapshot clone with a callback that lifts each `JsonPatchError`/`JsonPatchException` once at the seam into an `Error.New(...)` on the sync receipt, mirroring the Speckle marshal-fault lift — never a raw STJ fault crossing into the merge law.
+- A non-POCO snapshot target (`JsonNode`/`JsonObject`) injects a consumer `IObjectAdapterWithTest` through the `ApplyTo(obj, adapter, logErrorAction)` overload — there is no public factory to register, so the adapter is the extension point.
+- The typed `JsonPatchDocument<TSnapshot>` is the canonical authoring shape so patch paths track the snapshot record's member names through `Expression`, leaving string-path `JsonPatchDocument` for wire-decoded inbound patches only.
 
 [RAIL_LAW]:
 - Package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
-- Owns: RFC 6902 patch document construction, serialisation, and application
-- Accept: `JsonPatchDocument<T>` typed paths, `IObjectAdapter` for non-POCO targets
-- Reject: JSON Patch document hand-rolling, Newtonsoft-backed patch documents
+- Owns: RFC 6902 patch document construction, STJ serialisation, and break-on-first-error application
+- Accept: `JsonPatchDocument<T>` typed `Expression` paths, `IObjectAdapter`/`IObjectAdapterWithTest` for non-POCO targets, the `Action<JsonPatchError>` collector
+- Reject: JSON Patch hand-rolling, Newtonsoft-backed patch documents, RFC 7386 merge-patch, the legacy `IAdapterFactory`/`AdapterFactory` surface

@@ -2,11 +2,18 @@
 
 `tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces.
 
-## [00]-[PLANNED_DOTNET_EF]
+## [00]-[KNOWN_ISSUES]
 
-`dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail. That rail must prove migration metadata and generated SQL under Assay-owned artifacts, not act as general package health.
+[API_TFM_RESOLUTION] — `api resolve`/`query` can decompile the wrong target framework for a multi-targeted package:
+- `api resolve`/`query` select ONE `primary_assembly` per NuGet key but do NOT rank candidate `lib/<tfm>` folders against the workspace consumer TFM (`net10.0` from `Directory.Build.props`). For a multi-target package they can decompile a lower/fallback TFM whose PUBLIC surface differs from the asset the build actually binds.
+- Observed: `RectpackSharp 1.2.0` resolved `lib/netstandard2.0` (`RectanglePacker.Pack(PackingRectangle[] …)`) while the `net10.0` consumer binds `lib/net5.0` (`RectanglePacker.Pack(Span<PackingRectangle> …)`) — a genuinely different public signature, not a formatting variant.
+- IMPACT: a catalog or agent that trusts the default resolution documents a phantom or misses the real signature; `query`'s "provable absence" is provable only for the RESOLVED TFM, never proof for the CONSUMED one.
+- WORKAROUND until hardened: when a package multi-targets, decompile the consumer-bound TFM explicitly and diff it against the resolved primary, trusting the consumer-TFM surface — `DOTNET_ROOT=$(dirname "$(readlink -f "$(command -v dotnet)")") ilspycmd <pkg>/lib/<consumer-tfm>/<asm>.dll -t <FQN>`.
+- FIX DIRECTION: rank `lib/<tfm>` candidates by NuGet TFM-precedence against the workspace `TargetFramework` floor so `primary_assembly` is the bound asset; surface the chosen TFM on `ApiResolution`/`status` and emit a note whenever a non-bound fallback TFM is decompiled.
 
-Package health is SDK-first: use `dotnet package list --outdated|--deprecated|--vulnerable --format json` and `dotnet nuget why`. A `dotnet-outdated` fallback must be an explicit Assay rail before the tool returns to the manifest.
+[PLANNED_DOTNET_EF]:
+- `dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail. That rail must prove migration metadata and generated SQL under Assay-owned artifacts, not act as general package health.
+- Package health is SDK-first: use `dotnet package list --outdated|--deprecated|--vulnerable --format json` and `dotnet nuget why`. A `dotnet-outdated` fallback must be an explicit Assay rail before the tool returns to the manifest.
 
 ## [01]-[SCOPE]
 

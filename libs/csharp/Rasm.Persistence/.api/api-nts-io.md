@@ -10,25 +10,34 @@ binary and text IO in `NetTopologySuite.IO`.
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoJSON4STJ`
 - package: `NetTopologySuite.IO.GeoJSON4STJ`
+- version: `4.0.0`
+- license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoJSON4STJ`
-- namespace: `NetTopologySuite.IO.Converters`, `NetTopologySuite.Features`
+- namespace: `NetTopologySuite.IO.Converters` (converters + attribute tables), `NetTopologySuite.Features`
 - geometry package: `NetTopologySuite`, `NetTopologySuite.Features`
 - serializer package: `System.Text.Json`
+- bound asset: `lib/netstandard2.0` (single TFM; binds on the net10.0 consumer via netstandard2.0)
 - asset: runtime library
 - rail: spatial-values
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoPackage`
 - package: `NetTopologySuite.IO.GeoPackage`
+- version: `2.0.0`
+- license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoPackage`
 - namespace: `NetTopologySuite.IO`
 - geometry package: `NetTopologySuite`
+- bound asset: `lib/netstandard2.0` (single TFM; binds on net10.0 via netstandard2.0)
 - asset: runtime library
 - rail: spatial-values
 
 [PACKAGE_SURFACE]: `NetTopologySuite` (IO surface)
 - package: `NetTopologySuite`
+- version: `2.6.0` (transitive floor pulled by the IO packages and Npgsql.NetTopologySuite)
+- license: BSD-3-Clause
 - assembly: `NetTopologySuite`
 - namespace: `NetTopologySuite.IO`, `NetTopologySuite.Geometries`
+- bound asset: `lib/netstandard2.1` (binds netstandard2.1 over 2.0 on net10.0)
 - asset: transitive runtime library
 - rail: spatial-values
 
@@ -46,14 +55,16 @@ binary and text IO in `NetTopologySuite.IO`.
 `RingOrientationOption` cases: `DoNotModify`, `EnforceRfc9746`.
 `GeoJsonConverterFactory` constructor overloads: `()`, `(factory)`, `(writeGeometryBBox)`, `(factory, writeGeometryBBox)`, `(writeGeometryBBox, idPropertyName)`, `(factory, writeGeometryBBox, idPropertyName)`, `(writeGeometryBBox, idPropertyName, ringOrientationOption)`, `(factory, writeGeometryBBox, idPropertyName, ringOrientationOption)`, `(writeGeometryBBox, idPropertyName, ringOrientationOption, allowModifyingAttributesTables)`, `(factory, writeGeometryBBox, idPropertyName, ringOrientationOption, allowModifyingAttributesTables)`.
 
-[ATTRIBUTE_TYPES]: feature attribute projection
+[ATTRIBUTE_TYPES]: feature attribute projection (namespace `NetTopologySuite.IO.Converters`)
 - rail: spatial-values
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]     | [CAPABILITY]                                     |
 | :-----: | :-------------------------------------- | :----------------- | :----------------------------------------------- |
-|  [01]   | `IPartiallyDeserializedAttributesTable` | attribute contract | deserializes table or property to typed values   |
+|  [01]   | `IPartiallyDeserializedAttributesTable` | attribute contract | `: IAttributesTable`; typed table/property reify |
 |  [02]   | `JsonElementAttributesTable`            | read-only adapter  | adapts `JsonElement` as `IAttributesTable`       |
 |  [03]   | `JsonObjectAttributesTable`             | mutable adapter    | adapts `JsonObject` with `Add`/`DeleteAttribute` |
+
+`IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(JsonSerializerOptions, out T)` reifies the whole table to a typed CLR value and `TryGetJsonObjectPropertyValue<T>(name, JsonSerializerOptions, out T)` reifies one property — both take the same `JsonSerializerOptions` carrying the `GeoJsonConverterFactory`, so a feature's properties deserialize under the same converter graph as its geometry.
 
 [GEOPACKAGE_TYPES]: GeoPackage geometry blob codec
 - rail: spatial-values
@@ -64,7 +75,7 @@ binary and text IO in `NetTopologySuite.IO`.
 |  [02]   | `GeoPackageGeoWriter`    | blob encoder   | writes `Geometry` to GPB header plus WKB body        |
 |  [03]   | `GeoPackageBinaryHeader` | header value   | carries magic, version, flags, SRID, and extent data |
 
-`GeoPackageBinaryHeader` exposes `Magic`, `Version`, `Flags`, `Ordinates`, `IsEmpty`, `Endianess`, `SrsId`, `Extent`, `ZRange`, `MRange`; `Read(BinaryReader)` and `Write(BinaryWriter, header)` are static.
+`GeoPackageBinaryHeader` exposes `byte[] Magic` (`GP`), `byte Version`, `byte Flags`, `Ordinates Ordinates` (derived from the envelope-kind flag bits), `bool IsEmpty`, `int Endianess` (0/1 from the low flag bit), `int SrsId`, `Envelope Extent`, `Interval ZRange`, `Interval MRange`; the codec is static: `static GeoPackageBinaryHeader Read(BinaryReader)` and `static void Write(BinaryWriter, GeoPackageBinaryHeader)`. `ZRange`/`MRange` are NTS `Interval`, `Extent` is an NTS `Envelope` — not generic ranges.
 
 [WKB_IO_TYPES]: binary geometry codec (NetTopologySuite core)
 - rail: spatial-values
@@ -74,7 +85,7 @@ binary and text IO in `NetTopologySuite.IO`.
 |  [01]   | `WKBReader` | binary decoder | reads WKB byte arrays and streams  |
 |  [02]   | `WKBWriter` | binary encoder | writes WKB byte arrays and streams |
 
-`WKBReader` policy properties: `HandleSRID`, `HandleOrdinates`, `AllowedOrdinates`, `IsStrict`, `RepairRings`. Constructors: `()`, `(NtsGeometryServices)`. Read: `Read(byte[])`, `Read(Stream)`.
+`WKBReader` policy properties: `HandleSRID`, `HandleOrdinates`, `AllowedOrdinates` (`Ordinates.XYZM & factory.Ordinates`), `IsStrict`. `RepairRings` is `[Obsolete("Use !IsStrict")]` and delegates to `!IsStrict` — use `IsStrict` directly. Constructors: `()`, `(NtsGeometryServices)`. Read: `Read(byte[])`, `Read(Stream)`. Static: `HexToBytes(string) → byte[]`.
 `WKBWriter` policy properties: `EncodingType`, `Strict`, `HandleSRID`, `HandleOrdinates`. Constructors: `()`, `(ByteOrder)`, `(ByteOrder, handleSRID)`, `(ByteOrder, handleSRID, emitZ)`, `(ByteOrder, handleSRID, emitZ, emitM)`. Write: `Write(Geometry)` → `byte[]`, `Write(Geometry, Stream)`. Static: `ToHex(byte[])`. Constant: `AllowedOrdinates = Ordinates.XYZM`.
 
 [WKT_IO_TYPES]: text geometry codec (NetTopologySuite core)
@@ -130,9 +141,10 @@ binary and text IO in `NetTopologySuite.IO`.
 | :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------ |
 |  [01]   | `GeoPackageGeoReader.Read`                       | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
 |  [02]   | `GeoPackageGeoWriter.Write`                      | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
-|  [03]   | `HandleOrdinates` / `HandleSRID` / `RepairRings` | codec policy       | caps ordinates, stamps header SRID, repairs rings |
-|  [04]   | `GeoPackageBinaryHeader.Read`                    | static decoder     | parses the GPB header from `BinaryReader`         |
-|  [05]   | `GeoPackageBinaryHeader.Write`                   | static encoder     | serializes the GPB header to `BinaryWriter`       |
+|  [03]   | `GeoPackageGeoReader.{HandleOrdinates,HandleSRID,RepairRings}` | reader policy | caps ordinates, stamps header SRID, repairs rings |
+|  [04]   | `GeoPackageGeoWriter.HandleOrdinates`            | writer policy      | caps written ordinates within `AllowedOrdinates`  |
+|  [05]   | `GeoPackageBinaryHeader.Read`                    | static decoder     | parses the GPB header from `BinaryReader`         |
+|  [06]   | `GeoPackageBinaryHeader.Write`                   | static encoder     | serializes the GPB header to `BinaryWriter`       |
 
 [ENTRYPOINT_SCOPE]: WKB binary codec
 - rail: spatial-values
@@ -179,6 +191,12 @@ binary and text IO in `NetTopologySuite.IO`.
 - profile: standard OGC WKT and extended WKT with ordinate, precision, and formatting policy
 - ordinate policy: `OutputOrdinates` on the writer selects which dimensions appear; `PrecisionModel` controls decimal digits
 - format policy: `Formatted` and `Tab`/`MaxCoordinatesPerLine` control indentation; `ForMicrosoftSqlServer()` uses legacy point syntax
+
+[INTEGRATION_LAW]:
+- The four codecs share one `NtsGeometryServices`/`GeometryFactory` precision+SRID configuration: `GeoJsonConverterFactory`, `GeoPackageGeoReader`, `WKBReader`, and `WKTReader` all bind a factory carrying the same `PrecisionModel` and SRID, so a geometry surviving a GeoJSON->WKB->GeoPackage round trip keeps one precision grid. A per-codec ad hoc factory is the rejected form.
+- GeoJSON conversion stacks onto the `System.Text.Json` boundary the rest of Persistence uses: `GeoJsonConverterFactory` is added to the SAME `JsonSerializerOptions` instance that carries the document's other converters, and `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>(options, out _)` reifies feature properties under that one options graph — a geometry and its typed properties never deserialize under two disjoint converter sets.
+- The GeoPackage blob codec and the WKB core codec meet the Npgsql spatial seam (`api-nts-ef`, `api-npgsql`): a PostgreSQL/PostGIS geometry column round-trips through Npgsql's NTS plugin, a SQLite GeoPackage column through `GeoPackageGeoReader`/`Writer`, and both produce the same NTS `Geometry` CLR type — the spatial-values rail is provider-agnostic at the `Geometry` boundary, codec-specific only at the wire.
+- WKB is the canonical interchange binary: `WKBWriter.Write(Geometry) → byte[]` keyed by `XxHash128.HashToUInt128` (`api-hashing`) gives a geometry a content-stable identity independent of the storage codec, so the same geometry stored as GeoPackage blob, PostGIS column, or GeoJSON text shares one content key.
 
 [LOCAL_ADMISSION]:
 - GeoJSON conversion enters only through `GeoJsonConverterFactory` on serializer options; never instantiate `Stj*` converters.

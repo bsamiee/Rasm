@@ -2,15 +2,21 @@
 
 `NodaTime` supplies semantic instants, local calendar values, offsets, zones, periods,
 durations, intervals, clocks, resolvers, and text patterns for AppHost receipts,
-health snapshots, support windows, and persisted clock facts.
+health snapshots, support windows, and persisted clock facts. Version `3.3.2` is
+Apache-2.0 and ships `lib/net8.0`+`lib/netstandard2.0`; the workspace `net10.0`
+consumer binds `lib/net8.0`, which is the build that carries the `NodaTime.HighPerformance`
+`Instant64`/`Duration64` `long`-backed tier and the generic-math operator interfaces
+(`IAdditionOperators`/`IComparisonOperators`/`IMinMaxValue`) those compact types implement.
+The Protobuf and System.Text.Json wire seams live in the sibling `NodaTime.Serialization.*`
+packages (`.api/api-nodatime-protobuf.md`); this catalog is the core temporal owner.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime`
 - package: `NodaTime`
 - assembly: `NodaTime`
-- namespace: `NodaTime`
-- asset: runtime library
+- namespace: `NodaTime`, `NodaTime.Text`, `NodaTime.Text.Patterns`, `NodaTime.TimeZones`, `NodaTime.TimeZones.Cldr`, `NodaTime.Xml`, `NodaTime.HighPerformance`
+- asset: runtime library (managed; Apache-2.0; consumer-bound TFM `lib/net8.0`)
 - rail: time
 
 ## [02]-[PUBLIC_TYPES]
@@ -72,10 +78,10 @@ health snapshots, support windows, and persisted clock facts.
 |  [07]   | `ZonedDateTimePattern`     | zone pattern      | zoned timestamp text      |
 |  [08]   | `DurationPattern`          | duration pattern  | elapsed span text         |
 |  [09]   | `PeriodPattern`            | period pattern    | calendar span text        |
-|  [10]   | `TypeConverterSettings`    | converter policy  | type-converter admission  |
-|  [11]   | `XmlSerializationSettings` | XML policy        | XML projection admission  |
-|  [12]   | `Instant64`                | compact instant   | high-performance instant  |
-|  [13]   | `Duration64`               | compact duration  | high-performance duration |
+|  [10]   | `Text.TypeConverterSettings`    | converter policy  | type-converter `DateTimeZoneProvider` admission (namespace `NodaTime.Text`)  |
+|  [11]   | `Xml.XmlSerializationSettings`  | XML policy        | XML projection `DateTimeZoneProvider` admission (namespace `NodaTime.Xml`)  |
+|  [12]   | `HighPerformance.Instant64`     | compact instant   | `long`-tick instant (namespace `NodaTime.HighPerformance`); bridge `Instant64.FromInstant(Instant)` / `.ToInstant()`; `UnixEpoch`/`MinValue`/`MaxValue`, `PlusTicks`/`PlusNanoseconds`/`Plus(Duration64)`/`Minus`, generic-math operators |
+|  [13]   | `HighPerformance.Duration64`    | compact duration  | `long`-tick duration (namespace `NodaTime.HighPerformance`); bridge `Duration64.FromDuration(Duration)` / `.ToDuration()`; `Zero`/`MaxValue`/`MinValue`, additive/negation/comparison generic-math operators |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -118,12 +124,16 @@ health snapshots, support windows, and persisted clock facts.
 |  [10]   | `AtLeniently`                         | lenient mapping        | resolves gaps/overlaps     |
 |  [11]   | `GetZoneInterval`                     | interval lookup        | offset interval at instant |
 |  [12]   | `GetZoneIntervals`                    | interval range         | offset intervals in span   |
-|  [13]   | `Resolvers.ReturnEarlier`             | ambiguous resolver     | earlier duplicate time     |
+|  [13]   | `Resolvers.ReturnEarlier`             | ambiguous resolver     | earlier duplicate time (`AmbiguousTimeResolver`) |
 |  [14]   | `Resolvers.ReturnLater`               | ambiguous resolver     | later duplicate time       |
 |  [15]   | `Resolvers.ThrowWhenAmbiguous`        | ambiguous resolver     | rejects duplicate time     |
-|  [16]   | `Resolvers.ReturnForwardShifted`      | skipped resolver       | shifts skipped time        |
-|  [17]   | `Resolvers.StrictResolver`            | mapping resolver       | rejects non-unique time    |
-|  [18]   | `Resolvers.LenientResolver`           | mapping resolver       | resolves non-unique time   |
+|  [16]   | `Resolvers.ReturnForwardShifted`      | skipped resolver       | shifts skipped time forward (`SkippedTimeResolver`) |
+|  [17]   | `Resolvers.ReturnStartOfIntervalAfter`| skipped resolver       | start of the interval after the gap |
+|  [18]   | `Resolvers.ReturnEndOfIntervalBefore` | skipped resolver       | end of the interval before the gap |
+|  [19]   | `Resolvers.ThrowWhenSkipped`          | skipped resolver       | rejects skipped time       |
+|  [20]   | `Resolvers.StrictResolver`            | mapping resolver       | `CreateMappingResolver(ThrowWhenAmbiguous, ThrowWhenSkipped)` — rejects non-unique time |
+|  [21]   | `Resolvers.LenientResolver`           | mapping resolver       | `CreateMappingResolver(ReturnEarlier, ReturnForwardShifted)` — resolves non-unique time |
+|  [22]   | `Resolvers.CreateMappingResolver`     | resolver composer      | folds an ambiguous + skipped resolver into one `ZoneLocalMappingResolver` |
 
 [ENTRYPOINT_SCOPE]: text and interop operations
 - rail: time
@@ -151,7 +161,7 @@ health snapshots, support windows, and persisted clock facts.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TIME_TOPOLOGY]:
-- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`
+- namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.Text.Patterns`, `NodaTime.TimeZones`, `NodaTime.TimeZones.Cldr`, `NodaTime.Xml`, `NodaTime.HighPerformance`
 - instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime`
 - local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`
 - calendar types: `CalendarSystem`, `YearMonth`, `IsoDayOfWeek`, calendar eras
@@ -159,8 +169,8 @@ health snapshots, support windows, and persisted clock facts.
 - zone providers: `DateTimeZoneProviders.Tzdb`, `DateTimeZoneProviders.Bcl`
 - zone mapping: strict, lenient, explicit resolver, ambiguous mapping, skipped mapping
 - text patterns: `InstantPattern`, local-date patterns, zoned-date-time patterns
-- interop surfaces: BCL conversion extensions, XML settings, type converter settings
-- compact surfaces: `Instant64`, `Duration64`
+- interop surfaces: BCL conversion extensions, `NodaTime.Xml.XmlSerializationSettings`, `NodaTime.Text.TypeConverterSettings` (both expose a `DateTimeZoneProvider` admission seam)
+- compact surfaces: `NodaTime.HighPerformance.Instant64`/`Duration64` — `long`-tick value types bridged to the semantic tier through `Instant64.FromInstant`/`.ToInstant()` and `Duration64.FromDuration`/`.ToDuration()`; they implement the generic-math operator interfaces, so a hot-path accumulation stays in the compact tier and crosses to `Instant`/`Duration` only at the receipt boundary. The semantic `Instant`/`Duration` stay the persisted and exported truth; the compact tier is an interior arithmetic accelerator, never the wire shape.
 
 [LOCAL_ADMISSION]:
 - Receipts store semantic instants, not local wall-clock values.

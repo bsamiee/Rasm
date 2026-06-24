@@ -1,14 +1,16 @@
 # [RASM_COMPUTE_API_ORTOOLS]
 
-`Google.OrTools` supplies the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP exact-optimization wrapper across pluggable backends, and the ConstraintSolver routing engine, with per-RID native solver libraries resolved transitively for the Compute solver/optimizer rails behind the `OptimizerKind` rows.
+`Google.OrTools` supplies the CP-SAT constraint-programming model and solver, the LinearSolver MIP/LP exact-optimization wrapper across pluggable backends, and the ConstraintSolver routing engine, with per-RID native solver libraries resolved transitively for the Compute solver/optimizer rails behind the `OptimizerKind` rows. The wire-level model/response carriers (`CpModelProto`, `CpSolverResponse`, `MPModelProto`) are `api-protobuf` messages, so the proto vocabulary stacks directly onto the `Runtime/channels` remote lane; the solve fault lifts to `ComputeFault` at the boundary.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.OrTools`
-- package: `Google.OrTools` (meta-package, version 9.15.6755)
-- assembly: `Google.OrTools`
-- namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Util`
-- asset: managed wrapper plus per-RID native solver libraries (`osx-arm64` verified)
+- package: `Google.OrTools` (meta-package, version 9.15.6755, direct pin)
+- license: Apache-2.0 (`google/or-tools`)
+- assembly: `Google.OrTools` → the `net10.0` consumer binds `lib/net8.0/Google.OrTools.dll` (the package also ships `lib/net462`; only `net8.0` is the bound asset)
+- namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
+- asset: managed SWIG/protobuf wrapper plus per-RID native solver libraries (`Google.OrTools.runtime.{osx-arm64,osx-x64,linux-arm64,linux-x64,win-x64}`; `osx-arm64` verified) — a solve with no matching RID payload faults at native load
+- transitive: bundles `Google.Protobuf` 3.33.1 transitively for the proto carriers; the central 3.35.1 pin (`api-protobuf`) wins resolution and is binary-compatible
 - rail: solver
 
 ## [02]-[PUBLIC_TYPES]
@@ -123,6 +125,34 @@
 |  [30]   | `AddAssumption` / `AddAssumptions` / `ClearAssumptions`                        | assumption set   | infeasibility-core assumptions   |
 |  [31]   | `ModelStats()` / `Validate()` / `ExportToFile(string)`                         | model inspection | stats, validation, proto export  |
 
+[ENTRYPOINT_SCOPE]: CP-SAT constraint reification and structural-family builders
+- rail: solver#CP_SAT
+- note: every `CpModel.Add*` returns either a base `Constraint` (reifiable through `OnlyEnforceIf`) or a refined family that exposes its own fluent builder. These are the methods a discretization/clash design page composes — the table in section 2 names the types, this names the live builders.
+
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [RAIL]                                          |
+| :-----: | :------------------------------------------------------------------------ | :--------------- | :---------------------------------------------- |
+|  [01]   | `Constraint.OnlyEnforceIf(ILiteral lit)` / `OnlyEnforceIf(ILiteral[] lits)` | reification      | half-reifies any constraint on a literal/and-set |
+|  [02]   | `Constraint.Proto` / `Constraint.Index`                                   | constraint value | the underlying `ConstraintProto` and model index |
+|  [03]   | `ReservoirConstraint.AddEvent<T,L>(T time, L levelChange)`                 | reservoir build  | adds a fixed level event                        |
+|  [04]   | `ReservoirConstraint.AddOptionalEvent<T,L>(T time, L levelChange, ILiteral)` | reservoir build  | adds a presence-gated level event               |
+|  [05]   | `CumulativeConstraint.AddDemand<D>(IntervalVar interval, D demand)`        | cumulative build | binds one interval's resource demand            |
+|  [06]   | `CumulativeConstraint.AddDemands<D>(IEnumerable<IntervalVar>, IEnumerable<D>)` | cumulative build | binds a batch of interval demands               |
+|  [07]   | `NoOverlap2dConstraint.AddRectangle(IntervalVar xInterval, IntervalVar yInterval)` | 2D pack build | adds an x/y interval rectangle to the packing   |
+|  [08]   | `AutomatonConstraint.AddTransition(int tail, int head, long label)`       | automaton build  | adds one labeled state transition               |
+
+[ENTRYPOINT_SCOPE]: `Domain` value algebra
+- rail: solver#CP_SAT
+- note: `Domain` (`Google.OrTools.Util`) is the discrete-domain value type behind `NewIntVarFromDomain`/`AddLinearExpressionInDomain`; it is a full set algebra, not an opaque token, and is `IDisposable`.
+
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [RAIL]                                          |
+| :-----: | :------------------------------------------------------------------------ | :--------------- | :---------------------------------------------- |
+|  [01]   | `new Domain(long value)` / `new Domain(long left, long right)`            | ctor             | singleton or single-interval domain             |
+|  [02]   | `Domain.FromValues(long[])` / `FromIntervals(long[][])` / `FromFlatIntervals(long[])` | static factory | explicit value set or interval set              |
+|  [03]   | `Domain.AllValues()` / `LowerOrEqual(long)` / `GreaterOrEqual(long)`      | static factory   | half-open and universal domains                 |
+|  [04]   | `Domain.Complement()` / `IntersectionWith` / `UnionWith`                  | set algebra      | domain set operations                           |
+|  [05]   | `Domain.Contains(long)` / `IsIncludedIn(Domain)` / `OverlapsWith(Domain)` | set predicate    | membership and containment tests                |
+|  [06]   | `Domain.Min()` / `Max()` / `Size()` / `IsEmpty()` / `FlattenedIntervals()` | domain inspect   | bounds, cardinality, and the flat interval form |
+
 [ENTRYPOINT_SCOPE]: CP-SAT solve and result projection
 - rail: solver#CP_SAT
 - note: all are members of `CpSolver`; `Value`/`BooleanValue` read the best solution after `Solve`.
@@ -182,8 +212,9 @@
 |  [16]   | `SetHint(MPVariableVector, double[])`                        | solve control      | warm-start hint                     |
 |  [17]   | `InterruptSolve()` / `EnableOutput()` / `SuppressOutput()`   | solve control      | interrupt and logging               |
 |  [18]   | `Iterations()` / `Nodes()` / `WallTime()`                    | solve stats        | simplex/branch statistics           |
-|  [19]   | `ExportModelAsLpFormat` / `ExportModelAsMpsFormat(bool)`     | model export       | LP/MPS text export                  |
+|  [19]   | `ExportModelAsLpFormat(bool obfuscated)` / `ExportModelAsMpsFormat(bool fixed_format, bool obfuscated)` | model export | LP/MPS text export    |
 |  [20]   | `VerifySolution(double tolerance, bool log_errors)`          | solve check        | feasibility verification            |
+|  [21]   | `SetSolverSpecificParametersAsString(string)` / `SolverVersion()` | solve control  | backend-native parameter passthrough + version |
 
 [ENTRYPOINT_SCOPE]: ConstraintSolver routing model and solve
 - rail: solver#ROUTING
@@ -219,8 +250,17 @@
 - LinearSolver: `Solver` selects a backend via `Solver.OptimizationProblemType` (`GLOP`, `CLP`, `PDLP`, `SCIP`, `CBC`, `BOP`, `SAT`, plus optional `GUROBI`, `CPLEX`, `XPRESS`, `GLPK`) or `CreateSolver(solver_id)`; status is `Solver.ResultStatus { OPTIMAL, FEASIBLE, INFEASIBLE, UNBOUNDED, ABNORMAL, MODEL_INVALID, NOT_SOLVED }`
 - LinearSolver duals: continuous relaxations expose `ReducedCost`, `DualValue`, `Activity`, and `Solver.BasisStatus { FREE, AT_LOWER_BOUND, AT_UPPER_BOUND, FIXED_VALUE, BASIC }`
 - routing: `RoutingIndexManager` maps node ids to solver indices; `RoutingModel` registers transit/arc-cost callbacks, adds dimensions and disjunctions, and solves through `SolveWithParameters(RoutingSearchParameters)`; first-solution and improvement engines are `FirstSolutionStrategy.Types.Value` and `LocalSearchMetaheuristic.Types.Value`; outcome is `RoutingSearchStatus.Types.Value`
-- native binding: the managed wrapper is a SWIG/protobuf surface; `IDisposable` roots (`CpSolver`, `Solver`, `RoutingModel`, `RoutingIndexManager`, `MPSolverParameters`, `Objective`) own native handles released by `Dispose`
-- proto carriers: `CpModel.Model` (`CpModelProto`), `CpSolver.Response` (`CpSolverResponse`), and `MPModelProto`/`MPModelRequest` in `OperationsResearch` are the wire-level model and response messages
+- reification: `Constraint.OnlyEnforceIf(ILiteral)` half-reifies any constraint; the structural families refine `Constraint` with fluent builders (`ReservoirConstraint.AddEvent`, `CumulativeConstraint.AddDemand`/`AddDemands`, `NoOverlap2dConstraint.AddRectangle`, `AutomatonConstraint.AddTransition`), so a scheduling/packing model composes the builder rather than a parallel constraint type
+- domain algebra: `Domain` is a closed set value (`FromValues`/`FromIntervals`/`Complement`/`IntersectionWith`/`UnionWith`/`Contains`/`IsIncludedIn`); a discretization page expresses a variable's admissible set through the algebra, never an external bit-set beside it
+- native binding: the managed wrapper is a SWIG/protobuf surface; `IDisposable` roots (`CpSolver`, `Solver`, `RoutingModel`, `RoutingIndexManager`, `MPSolverParameters`, `Objective`, `Domain`) own native handles released by `Dispose`
+- proto carriers: `CpModel.Model` (`CpModelProto`), `CpSolver.Response` (`CpSolverResponse`), `Constraint.Proto` (`ConstraintProto`), and `MPModelProto`/`MPModelRequest` in `Google.OrTools.OperationsResearch` are `api-protobuf` messages — the wire-level model and response carriers
+
+[INTEGRATION_STACK]:
+- proto wire: the `CpModelProto`/`CpSolverResponse`/`MPModelProto` carriers are `Google.Protobuf` messages, so a solve request/response crosses the `Runtime/channels#PROTO_VOCABULARY` lane on the `api-protobuf` codec and stages its serialized bytes through the `api-recyclable-stream` pool — no managed solve DTO beside the proto.
+- optimizer rows: the `Solver/optimizer#OPTIMIZER_LANE` `OptimizerKind` axis carries `cp-sat`/`milp` rows that lower the typed `DesignProblem` to a `CpModel`/`Solver` through the typed model-builder API (`NewIntVar`/`MakeIntVar`/`MakeNumVar` over the `DesignVariable` cases, never a string-parsed model); one `Optimize` fold discriminates on the row, so a per-backend solver owner is the collapsed form.
+- backend policy: `Solver.OptimizationProblemType`, a `solver_id` string, the `SatParameters` proto-text (`CpSolver.StringParameters`), and `SetSolverSpecificParametersAsString` are policy DATA carried on the row, never branched inside a solve helper.
+- time budget: `CpModel`/`Solver` time limits accept the deadline the `Runtime/scheduling` budget folds (NodaTime `Duration` → ms via `Solver.SetTimeLimit(long)` / the `max_time_in_seconds` `SatParameters` key); the solve elapsed (`WallTime()`) stamps the typed receipt.
+- streaming callbacks: `CpSolver.SetLogCallback`/`SetBestBoundCallback` and a `SolutionCallback` subclass stream search progress to the `Stats`/`Runtime/progress` sink; `StopSearch()`/`InterruptSolve()` honor cooperative cancellation from the channel deadline.
 
 [LOCAL_ADMISSION]:
 - The `OptimizerKind` rows select the rail: CP-SAT through `CpModel`/`CpSolver`, MIP/LP through `Solver`, and routing through `RoutingModel`; one canonical solve operation discriminates on optimizer kind rather than parallel solver entrypoints.
@@ -229,7 +269,7 @@
 - Native solver handles enter only through declared `IDisposable` roots and release deterministically; the SWIG `SWIGTYPE_p_*` and `*PINVOKE` types are interop plumbing and stay out of canonical owners.
 
 [RAIL_LAW]:
-- Package: `Google.OrTools`
-- Owns: CP-SAT constraint programming, MIP/LP exact optimization, and vehicle-routing search
-- Accept: declared decision variables, typed constraints, and an objective solved to a classified status
-- Reject: hand-rolled branch-and-bound, simplex, or routing search, and float-equality feasibility checks outside the solver
+- Package: `Google.OrTools` (9.15.6755, Apache-2.0, managed net8.0 + per-RID native)
+- Owns: CP-SAT constraint programming (with reification + structural-family builders + `Domain` algebra), MIP/LP exact optimization across pluggable backends, and vehicle-routing search; the proto carriers are `api-protobuf` messages
+- Accept: declared decision variables, typed constraints reified through `OnlyEnforceIf`, admissible sets expressed as `Domain` algebra, and an objective solved to a classified status — stacked onto the `OptimizerKind` row, the proto wire, and the NodaTime deadline budget
+- Reject: hand-rolled branch-and-bound, simplex, or routing search; float-equality feasibility checks outside the solver; per-backend solve entrypoints where one `Solve` discriminates on `OptimizerKind`; a managed solve DTO beside the proto carriers; the SWIG `SWIGTYPE_p_*`/`*PINVOKE` interop types leaking into canonical owners; a solve with no matching native RID payload

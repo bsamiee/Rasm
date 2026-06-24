@@ -1,131 +1,125 @@
 # [RASM_PERSISTENCE_API_THINKTECTURE_SERIALIZATION]
 
-`Thinktecture.Runtime.Extensions.Json`, `Thinktecture.Runtime.Extensions.MessagePack`,
-and `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` project Thinktecture
-smart enums, value objects, and unions across the JSON snapshot codec, the
-MessagePack snapshot codec, and EF Core value conversion.
+The cross-codec composition tier for Thinktecture-generated Smart Enums, Value Objects, and
+Unions: one factory or resolver registration projects every generated owner across the System.Text.Json
+snapshot codec, the MessagePack snapshot codec, and EF Core value conversion — never a hand-written
+converter, formatter, or `HasConversion` per type. This page owns the MessagePack formatter surface and
+the stacking recipe that mounts all three onto the `SnapshotCodec`/`ConverterRail` rails; the deep
+System.Text.Json member roster lives in `api-thinktecture-json.md` and the deep EF surface in
+`api-thinktecture-ef.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json`
-- assembly: `Thinktecture.Runtime.Extensions.Json`
-- namespace: `Thinktecture.Text.Json.Serialization`
-- core package: `Thinktecture.Runtime.Extensions`
-- asset: runtime library
-- rail: snapshot-codec
-
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
 - package: `Thinktecture.Runtime.Extensions.MessagePack`
+- version: `10.3.0`
+- license: file LICENSE.md (Pawel Gerr)
 - assembly: `Thinktecture.Runtime.Extensions.MessagePack`
 - namespace: `Thinktecture`, `Thinktecture.Formatters`
-- core package: `Thinktecture.Runtime.Extensions`
-- asset: runtime library
+- core package: `Thinktecture.Runtime.Extensions` 10.3.0 (generator + `IObjectFactory`/`IConvertible`/`IValidationError` contracts)
+- target: `net8.0` only; the `net10.0` consumer binds `lib/net8.0`
+- rail: snapshot-codec
+
+[PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
+- package: `Thinktecture.Runtime.Extensions.Json`
+- version: `10.3.0`
+- license: file LICENSE.md
+- assembly: `Thinktecture.Runtime.Extensions.Json`
+- namespace: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`
+- target: multi-target (`net8.0`, `net9.0`); the `net10.0` consumer binds `lib/net9.0`
+- deep roster: `api-thinktecture-json.md`
 - rail: snapshot-codec
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
+- version: `10.3.0`
+- license: file LICENSE.md
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`
-- core package: `Thinktecture.Runtime.Extensions`
-- asset: runtime library
+- namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`, `Thinktecture.EntityFrameworkCore.Storage.ValueConversion`
+- target: `net10.0` only
+- deep roster: `api-thinktecture-ef.md`
 - rail: store-provider
 
 ## [02]-[PUBLIC_TYPES]
 
-[JSON_TYPES]: System.Text.Json converter surfaces
+[MESSAGEPACK_TYPES]: MessagePack formatter surface (namespaces `Thinktecture`, `Thinktecture.Formatters`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]    | [CAPABILITY]                   |
-| :-----: | :------------------------------------------------------------------ | :---------------- | :----------------------------- |
-|  [01]   | `ThinktectureJsonConverterFactory`                                  | converter factory | converts all generated types   |
-|  [02]   | `ThinktectureJsonConverterFactory<T, TKey, TValidationError>`       | typed factory     | converts one keyed type        |
-|  [03]   | `ThinktectureJsonConverterFactory<T, TValidationError>`             | typed factory     | converts one string-keyed type |
-|  [04]   | `ThinktectureJsonConverter<T, TKey, TValidationError>`              | converter         | converts via object factory    |
-|  [05]   | `ThinktectureJsonConverter<T, TValidationError>`                    | converter         | converts string-keyed values   |
-|  [06]   | `ThinktectureSpanParsableJsonConverter<T, TValidationError>`        | span converter    | parses from UTF-8 spans        |
-|  [07]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory      | creates span converters        |
-|  [08]   | `Utf8JsonReaderExtensions`                                          | reader extension  | reads and writes key values    |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------------ | :----------------- | :--------------------------------------------------- |
+|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | `: IFormatterResolver`; `Instance`, `GetFormatter<T>` over generated owners |
+|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | `: IMessagePackFormatter<T?>`; keyed reference-type owners (constrained `class`) |
+|  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter   | `: IMessagePackFormatter<T>, IMessagePackFormatter<T?>`; keyed value-type owners (constrained `struct`) |
 
-[MESSAGEPACK_TYPES]: MessagePack formatter surfaces
+[JSON_TYPES]: System.Text.Json codec roots (deep roster `api-thinktecture-json.md`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------------------------ | :----------------- | :---------------------------- |
-|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | resolves generated formatters |
-|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | formats keyed reference types |
-|  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter   | formats keyed value types     |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]    | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------ | :---------------- | :------------------------------------------- |
+|  [01]   | `ThinktectureJsonConverterFactory`                                  | converter factory | `: JsonConverterFactory`; admits all generated owners on `JsonSerializerOptions.Converters` |
+|  [02]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory      | builds the zero-allocation UTF-8-span converter for span-parsable owners |
 
-[EF_TYPES]: EF Core value-conversion surfaces
+[EF_TYPES]: EF Core store roots (deep roster `api-thinktecture-ef.md`)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]                     |
-| :-----: | :-------------------------------------- | :------------------- | :------------------------------- |
-|  [01]   | `DbContextOptionsBuilderExtensions`     | builder extension    | admits converters context-wide   |
-|  [02]   | `ModelBuilderExtensions`                | model extension      | adds converters per model        |
-|  [03]   | `EntityTypeBuilderExtensions`           | entity extension     | adds converters per entity       |
-|  [04]   | `PropertyBuilderExtensions`             | property extension   | converts one property            |
-|  [05]   | `ComplexTypePropertyBuilderExtensions`  | complex extension    | converts complex-type properties |
-|  [06]   | `PrimitiveCollectionBuilderExtensions`  | collection extension | converts collection elements     |
-|  [07]   | `ThinktectureValueConverterFactory`     | converter factory    | creates value converters         |
-|  [08]   | `Configuration`                         | conversion policy    | carries converter settings       |
-|  [09]   | `SmartEnumConfiguration`                | smart-enum policy    | sets smart-enum max-length       |
-|  [10]   | `KeyedValueObjectConfiguration`         | value-object policy  | sets value-object max-length     |
-|  [11]   | `ThinktectureConventionsPlugin`         | convention plugin    | installs conversion conventions  |
-|  [12]   | `ThinktectureDbContextOptionsExtension` | options extension    | carries plugin policy            |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                          |
+| :-----: | :---------------------------------- | :------------------ | :--------------------------------------------------- |
+|  [01]   | `DbContextOptionsBuilderExtensions` | convention entry    | `UseThinktectureValueConverters` installs the model convention |
+|  [02]   | `Configuration`                     | conversion policy   | `Default`/`NoMaxLength`; carries the key-column max-length strategy |
+|  [03]   | `ThinktectureValueConverterFactory` | converter factory   | `Create<T, TKey>` builds a `ValueConverter<T, TKey>` directly |
+
+The convention plugin, options extension, MessagePack `SerializationContext`, and Json reflection probes are `internal`, reachable only through the factory/resolver/extension surfaces above.
 
 ## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: JSON codec admission
-- rail: snapshot-codec
-
-Factory constructors optionally receive `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
-
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]              | [CAPABILITY]                 |
-| :-----: | :--------------------------------- | :------------------------ | :--------------------------- |
-|  [01]   | `ThinktectureJsonConverterFactory` | parameterless constructor | converts all generated types |
-|  [02]   | `ThinktectureJsonConverterFactory` | attribute-skip flag       | skips attributed types       |
-|  [03]   | `ThinktectureJsonConverterFactory` | skip flag plus opt-out    | gates span deserialization   |
-|  [04]   | `CanConvert` / `CreateConverter`   | factory overrides         | resolves per-type converters |
 
 [ENTRYPOINT_SCOPE]: MessagePack codec admission
 - rail: snapshot-codec
 
-The resolver constructor optionally receives `skipObjectsWithMessagePackFormatterAttribute`.
+The resolver constructor optionally receives `skipObjectsWithMessagePackFormatterAttribute`; filtering routes through `MetadataLookup.FindMetadataForConversion` on `SerializationFrameworks.MessagePack`.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]         | [CAPABILITY]                  |
-| :-----: | :------------------------------------- | :------------------- | :---------------------------- |
-|  [01]   | `ThinktectureMessageFormatterResolver` | static resolver      | resolves generated formatters |
-|  [02]   | `ThinktectureMessageFormatterResolver` | resolver constructor | skips attributed types        |
-|  [03]   | `GetFormatter<T>`                      | resolver call        | returns the typed formatter   |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]         | [CAPABILITY]                                  |
+| :-----: | :----------------------------------------------------------------- | :------------------- | :-------------------------------------------- |
+|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                    | static resolver      | the singleton composed into the resolver chain |
+|  [02]   | `new ThinktectureMessageFormatterResolver(skipObjectsWith…: true)` | resolver constructor | skips owners already carrying a `[MessagePackFormatter]` |
+|  [03]   | `GetFormatter<T>()`                                                | resolver call        | returns the keyed reference/struct formatter, or `null` to defer |
+
+[ENTRYPOINT_SCOPE]: System.Text.Json codec admission
+- rail: snapshot-codec
+
+The factory constructor optionally receives `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
+
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]        | [CAPABILITY]                       |
+| :-----: | :------------------------------------------------------------------- | :------------------ | :--------------------------------- |
+|  [01]   | `new ThinktectureJsonConverterFactory()`                             | converter factory   | admits all generated owners        |
+|  [02]   | `new ThinktectureJsonConverterFactory(skipObjectsWith…: true [, optOut])` | converter factory | skips attributed owners; gates span deserialization per type |
+|  [03]   | `CanConvert` / `CreateConverter`                                     | factory overrides   | resolves the span, string, or keyed converter per type |
 
 [ENTRYPOINT_SCOPE]: EF value-converter admission
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]       | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------- | :----------------- | :------------------------------- |
-|  [01]   | `UseThinktectureValueConverters`                      | provider option    | admits converters context-wide   |
-|  [02]   | `AddThinktectureValueConverters`                      | model extension    | adds converters in builder scope |
-|  [03]   | `HasThinktectureValueConverter`                       | property extension | converts one declared property   |
-|  [04]   | `ThinktectureValueConverterFactory.Create`            | factory call       | creates a typed `ValueConverter` |
-|  [05]   | `Configuration.Default` / `Configuration.NoMaxLength` | policy value       | selects max-length policy        |
+| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]       | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------------------- | :----------------- | :-------------------------------------------- |
+|  [01]   | `UseThinktectureValueConverters([Configuration])`    | convention         | installs converters + max-length context-wide |
+|  [02]   | `AddThinktectureValueConverters`                     | model/entity entry | bulk registration in builder scope            |
+|  [03]   | `HasThinktectureValueConverter`                      | property entry     | converts one declared scalar/complex/collection member |
+|  [04]   | `Configuration.Default` / `Configuration.NoMaxLength` | policy value       | bounded vs. unbounded key-column width        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CODEC_PROFILE]:
-- profile: Thinktecture serialization is codec and store policy for generated domain types
-- JSON root: `ThinktectureJsonConverterFactory` on `JsonSerializerOptions.Converters`
-- MessagePack root: `ThinktectureMessageFormatterResolver.Instance` composed into the resolver chain
-- store root: `UseThinktectureValueConverters` on `DbContextOptionsBuilder`
+- One registration per codec derives every per-type converter/formatter: `ThinktectureJsonConverterFactory` on `JsonSerializerOptions.Converters`, `ThinktectureMessageFormatterResolver.Instance` in the MessagePack `CompositeResolver` chain, and `UseThinktectureValueConverters` on the `DbContextOptionsBuilder`.
+- The MessagePack resolver discriminates reference owners onto `ThinktectureMessagePackFormatter<T, TKey, TVErr>` (`class` constraint) and value owners onto `ThinktectureStructMessagePackFormatter<T, TKey, TVErr>` (`struct` constraint), so a keyed value-object struct never boxes through the reference formatter.
+- All three packages share the `Thinktecture.Runtime.Extensions` generator contracts (`IObjectFactory<T, TKey, TValidationError>`, `IConvertible<TKey>`, `IValidationError<…>`); a generated owner's static factory + key conversion is the single source the Json converter, the MessagePack formatter, and the EF `ValueConverter` all read, so the three codecs round-trip a value identically.
+- Span-parsable owners take `ThinktectureSpanParsableJsonConverter<T, TVErr>` on the Json rail (zero-alloc UTF-8-span read); the MessagePack rail keys through the resolver; the EF rail keys through `ThinktectureValueConverterFactory.Create<T, TKey>`.
 
 [LOCAL_ADMISSION]:
-- Generated smart enums, value objects, and keyed unions cross codecs only through these surfaces.
-- Codec profiles register the factory or resolver once; per-type converters are derived, not declared.
-- Store conversion enters through the options builder; per-property overrides stay model-local.
-- Max-length policy is conversion metadata and lives in `Configuration`, not in column annotations.
+- `Version/snapshots#CODEC_AXIS` composes the Json + MessagePack stack: `SnapshotCodec.JsonStj`'s `SnapshotJson` options carry `new ThinktectureJsonConverterFactory()`, and `SnapshotCodec.MessagePackBinary`'s `Binary` options carry `ThinktectureMessageFormatterResolver.Instance` composed ahead of `SourceGeneratedFormatterResolver.Instance` and `StandardResolver.Instance` in one `CompositeResolver.Create`, under `MessagePackCompression.Lz4BlockArray`. A doubly-registered converter never shadows the source-generated one because the `skipObjectsWith…: true` ctors arm only where a source context already owns the type.
+- `Schema/converters#CONVERTER_RAIL` composes the EF leg: `ConverterRail.Compose` mounts `.UseThinktectureValueConverters(Configuration.Default)`, so the same generated owners that cross the JSON/MessagePack wire also persist as bounded key columns — one generator, three codecs, zero hand-written conversion classes.
+- A `[Union]`/`[SmartEnum]` key parses inbound from a UTF-8 span through `ThinktectureSpanParsableJsonConverter`; max-length policy is conversion metadata on the EF `Configuration` (`SmartEnumConfiguration`/`KeyedValueObjectConfiguration`), never a column annotation; the `Foreign` MessagePack route arms `MessagePackSecurity.UntrustedData` over the same resolver for the cross-process boundary.
+- Codec profiles register the factory or resolver once; per-type converters/formatters are derived, not declared; a hand-written converter, formatter, or `HasConversion` beside the generated ones is the named defect.
 
 [RAIL_LAW]:
-- Packages: `Thinktecture.Runtime.Extensions.Json`, `Thinktecture.Runtime.Extensions.MessagePack`, `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- Own: codec and store projection of Thinktecture-generated types
-- Accept: factory, resolver, and options-builder admission
-- Reject: handwritten converters or formatters for generated types
+- Packages: `Thinktecture.Runtime.Extensions.Json`, `Thinktecture.Runtime.Extensions.MessagePack`, `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (all 10.3.0, over `Thinktecture.Runtime.Extensions` 10.3.0)
+- Own: the single-registration codec and store projection of Thinktecture-generated owners across JSON, MessagePack, and EF Core
+- Accept: `ThinktectureJsonConverterFactory` on `JsonSerializerOptions`, `ThinktectureMessageFormatterResolver.Instance` in the `CompositeResolver`, `UseThinktectureValueConverters(Configuration.Default)` on the options builder
+- Reject: handwritten converters/formatters for generated owners, a per-type `HasConversion`, a second registration shadowing the source-generated codec

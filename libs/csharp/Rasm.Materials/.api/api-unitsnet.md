@@ -1,16 +1,16 @@
 # [RASM_MATERIALS_API_UNITSNET]
 
-`UnitsNet` supplies quantity structs, unit enums, parsing, conversion,
-formatting, metadata, dimensions, generic math, and unit-system policy for
-measured execution inputs and receipts.
+`UnitsNet` supplies immutable quantity structs, unit enums, parsing, conversion, formatting, dimension metadata, generic-math aggregation, and unit-system policy for measured execution inputs and receipts. It is admitted IN-FOLDER through the Materials `MaterialUnits` boundary (`Appearance/photometric#PHOTOMETRIC`, `Properties/properties#PHYSICAL_PROPERTIES`) for the SI-base rescale plus the quantity family-membership gate — the strata-acyclic AEC-domain owns its own unit boundary and never reaches DOWN to the app-platform `Rasm.Compute` units owner.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `UnitsNet`
 - package: `UnitsNet`
+- version: `5.75.0`
+- license: MIT-0 (`licenses.nuget.org/MIT-0` — public-domain-equivalent, no attribution clause)
 - assembly: `UnitsNet`
-- namespace: `UnitsNet`
-- asset: runtime library
+- namespace: `UnitsNet`, `UnitsNet.Units`, `UnitsNet.GenericMath`
+- asset: runtime library (multi-TFM `net8.0` / `net9.0` / `netstandard2.0`; the consumer `net10.0` binds the `net9.0` asset — the `net8.0+` `GenericMath` static-abstract-interface surface is present. Per-culture `*.resources.dll` satellites ship under `lib/<tfm>/{fr-CA,nb-NO,ru-RU,zh-CN}/`; the in-Rhino ALC loads the managed `UnitsNet.dll` only. Determinism is a code invariant, not a build-config dependency: every parser/abbreviation surface takes an explicit `IFormatProvider?`, and a `null` provider defaults to `CultureInfo.CurrentCulture` (only the internal per-unit secondary degrade reaches the invariant culture), so the `MaterialUnits` boundary keeps determinism by passing `CultureInfo.InvariantCulture` explicitly to every parse/abbreviation call — it parses identically regardless of satellite presence or ambient `CurrentCulture` because it never relies on a `null`/`CurrentCulture`-defaulted lookup. Pinning `SatelliteResourceLanguages` is unnecessary for this boundary; it remains a build-config option the consuming photometric/properties pages own if they ever surface localized abbreviations.)
 - rail: units
 
 ## [02]-[PUBLIC_TYPES]
@@ -142,14 +142,14 @@ measured execution inputs and receipts.
 | :-----: | :------------------------------ | :-------------- | :-------------------- |
 |  [01]   | `From`                          | factory call    | creates quantity      |
 |  [02]   | `Quantity.FromUnitAbbreviation` | factory call    | creates dynamic value |
-|  [03]   | `Parse`                         | parser call     | parses quantity text  |
-|  [04]   | `TryParse`                      | parser call     | parses quantity text  |
-|  [05]   | `As`                            | conversion call | converts unit value   |
-|  [06]   | `ToUnit`                        | conversion call | converts unit value   |
-|  [07]   | `ToString`                      | formatter call  | formats quantity text |
+|  [03]   | `Parse(string, IFormatProvider?)`    | parser call     | parses quantity text under an explicit culture |
+|  [04]   | `TryParse(string, IFormatProvider?, out)` | parser call | parses quantity text under an explicit culture (non-throwing); the `MaterialUnits` boundary passes `CultureInfo.InvariantCulture` so parsing is satellite-independent |
+|  [05]   | `As(Enum unit)` / `As(UnitSystem)` | conversion call | converts to a scalar in the named unit or the unit-system's unit         |
+|  [06]   | `ToUnit(Enum unit)` / `ToUnit(UnitSystem)` | conversion call | converts to a quantity in the named unit or the unit-system's unit |
+|  [07]   | `ToString` / `ToString(IFormatProvider)` | formatter call | formats quantity text                                                 |
 |  [08]   | `CompareTo`                     | comparison call | compares quantities   |
-|  [09]   | `Equals`                        | equality call   | compares quantities   |
-|  [10]   | `UnitMath`                      | math surface    | executes unit math    |
+|  [09]   | `Equals`                        | equality call   | compares quantities (with optional tolerance overload)                   |
+|  [10]   | `UnitMath.Sum<T>` / `Average<T>` / `Min<T>` / `Max<T>` / `Abs<T>` / `Clamp<T>` | math surface | typed aggregation over `IEnumerable<T : IArithmeticQuantity>` — never a raw `double` reduce |
 
 [ENTRYPOINT_SCOPE]: setup and metadata
 - rail: units
@@ -159,29 +159,34 @@ measured execution inputs and receipts.
 |  [01]   | `UnitsNetSetup.Default`                    | setup property    | provides setup root            |
 |  [02]   | `UnitAbbreviationsCache.Default`           | cache property    | provides abbreviations         |
 |  [03]   | `Quantity.Infos`                           | metadata property | lists quantity metadata        |
-|  [04]   | `UnitConverter.Convert`                    | converter call    | converts numeric values        |
-|  [05]   | `UnitParser.Default.Parse`                 | parser call       | resolves unit enum             |
-|  [06]   | `QuantityFormatter.Format`                 | formatter call    | writes quantity text           |
-|  [07]   | `GenericMath.GenericMathExtensions`        | extension surface | applies generic math (net8.0+) |
-|  [08]   | `GenericMath.DecimalGenericMathExtensions` | extension surface | applies decimal math (net8.0+) |
+|  [04]   | `UnitConverter.Convert` / `ConvertByName` / `ConvertByAbbreviation` (+ `Try*`) | converter call | converts a scalar between units by enum, name, or abbreviation |
+|  [05]   | `UnitConverter.CreateDefault` / `RegisterDefaultConversions` | converter setup   | builds/extends the conversion registry |
+|  [06]   | `UnitParser.Default.Parse<TUnit>(string, IFormatProvider?)` / `TryParse<TUnit>(string, IFormatProvider?, out)` | parser call | resolves a unit enum under an explicit culture; a `null` provider resolves to `CultureInfo.CurrentCulture` first and only degrades per-unit to the invariant fallback when the current culture has no abbreviation, so the deterministic boundary passes `CultureInfo.InvariantCulture` explicitly rather than relying on `null` |
+|  [07]   | `QuantityFormatter.Format`                 | formatter call    | writes quantity text           |
+|  [08]   | `GenericMath.GenericMathExtensions.Sum<T>` / `Average<T>` | extension surface | `net8.0+` static-abstract-interface aggregation over `IAdditionOperators`/`IAdditiveIdentity`/`IDivisionOperators` quantities |
+|  [09]   | `GenericMath.DecimalGenericMathExtensions` | extension surface | the `decimal`-quantity mirror of the `Sum`/`Average` aggregation (`net8.0+`) |
 
 [ENTRYPOINT_SCOPE]: metadata, dimensions, and unit-system policy
 - rail: units
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]       | [CAPABILITY]                                 |
 | :-----: | :----------------------------- | :----------------- | :------------------------------------------- |
-|  [01]   | `Quantity.TryFrom`             | factory call       | creates dynamic value from numeric plus enum |
-|  [02]   | `Info` (per-quantity static)   | metadata property  | exposes the family `QuantityInfo`            |
-|  [03]   | `QuantityInfo.ValueType`       | metadata property  | names the quantity CLR type                  |
-|  [04]   | `QuantityInfo.BaseDimensions`  | metadata property  | exposes the dimension vector                 |
-|  [05]   | `IQuantity.Dimensions`         | metadata property  | exposes constructed-quantity dimensions      |
-|  [06]   | `IQuantity.Unit`               | unit property      | names the constructed unit enum value        |
-|  [07]   | `BaseDimensions.Multiply`      | dimension algebra  | composes dimension products                  |
-|  [08]   | `BaseDimensions.Divide`        | dimension algebra  | composes dimension quotients                 |
-|  [09]   | `BaseDimensions.Dimensionless` | dimension constant | names the zero-dimension vector              |
-|  [10]   | `UnitSystem.SI`                | unit policy        | provides the SI base-unit system             |
-|  [11]   | `UnitParser.Default`           | parser property    | provides the default unit parser             |
-|  [12]   | `UnitConverter.TryConvert`     | converter call     | converts numeric values without throwing     |
+|  [01]   | `Quantity.TryFrom`                  | factory call       | creates dynamic value from numeric plus enum                          |
+|  [02]   | `Info` (per-quantity static)        | metadata property  | exposes the family `QuantityInfo<TUnit>` (e.g. `Illuminance.Info`)     |
+|  [03]   | `QuantityInfo.ValueType`            | metadata property  | names the quantity CLR type                                           |
+|  [04]   | `QuantityInfo.BaseDimensions`       | metadata property  | the family dimension vector (the family-membership reference)         |
+|  [05]   | `IQuantity.Dimensions`              | metadata property  | the constructed quantity's dimension vector                           |
+|  [06]   | `IQuantity.Unit`                    | unit property      | the constructed unit `Enum` value                                     |
+|  [07]   | `BaseDimensions.Equals(other)`      | dimension predicate | the family-membership gate — `q.Dimensions.Equals(Fam.Info.BaseDimensions)` proves a measured row belongs to a quantity family |
+|  [08]   | `BaseDimensions.IsDimensionless()`  | dimension predicate | tests the zero-dimension (ratio) vector                              |
+|  [09]   | `BaseDimensions.Multiply` / `Divide` | dimension algebra  | composes dimension products and quotients                            |
+|  [10]   | `BaseDimensions.Dimensionless`      | dimension constant | the zero-dimension vector                                            |
+|  [11]   | `<Quantity>.BaseUnit`               | unit metadata      | the SI base unit the `MaterialUnits` rescale targets (e.g. `Illuminance.BaseUnit == IlluminanceUnit.Lux`) |
+|  [12]   | `UnitSystem.SI`                     | unit policy        | the SI base-unit system; `As(UnitSystem.SI)`/`ToUnit(UnitSystem.SI)` coerce to SI base |
+|  [13]   | `UnitParser.Default`                | parser property    | the default unit parser                                              |
+|  [14]   | `UnitConverter.TryConvert`          | converter call     | converts a scalar between units without throwing (the `MaterialUnits.Coerce` SI-base rescale) |
+|  [15]   | `UnitAbbreviationsCache.Default.GetUnitAbbreviations<TUnit>(unit, IFormatProvider?)` / `GetDefaultAbbreviation<TUnit>(unit, IFormatProvider?)` | abbreviation lookup | resolves a unit's abbreviation set under an explicit culture; absent a provider these default to `CurrentCulture` and may read a satellite, so the deterministic boundary passes `CultureInfo.InvariantCulture` |
+|  [16]   | (internal) `UnitAbbreviationsCache.FallbackCulture` | abbreviation policy | `internal` constant `== CultureInfo.InvariantCulture`; the per-unit secondary degrade a non-invariant lookup falls back to — not a public surface, so the boundary must pass `CultureInfo.InvariantCulture` explicitly rather than read it |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -209,18 +214,24 @@ measured execution inputs and receipts.
 [QUANTITY_POLICY]:
 - parsing: `QuantityParser` and `UnitParser`
 - formatting: `QuantityFormatter` and `UnitFormatter`
-- abbreviation policy: `UnitAbbreviationsCache`
+- abbreviation policy: `UnitAbbreviationsCache` — every accessor takes an explicit `IFormatProvider?` that defaults to `CurrentCulture` when `null` (the internal invariant `FallbackCulture` is only the per-unit secondary degrade); the `MaterialUnits` boundary passes `CultureInfo.InvariantCulture` explicitly to keep parse/lookup satellite- and `CurrentCulture`-independent
 - setup policy: `UnitsNetSetup`
 - generic math: `UnitsNet.GenericMath`
 
 [LOCAL_ADMISSION]:
 - Compute numeric inputs and receipts carry explicit quantities when units affect meaning.
 - Unit conversion is rail policy and cannot be hidden inside numeric helper calls.
-- Parsing and formatting are boundary operations, not internal numeric representation.
+- Parsing and formatting are boundary operations, not internal numeric representation; the boundary passes `CultureInfo.InvariantCulture` to every `Parse`/`TryParse`/abbreviation call so admission is deterministic across the host's ambient culture and the loaded satellite set, never `CurrentCulture`-defaulted.
 - Quantity metadata informs diagnostics, support output, and receipt projection.
 
+[STACK]:
+- in-folder boundary: `UnitsNet` is admitted ONLY through the Materials `MaterialUnits` owner, never crossed into an interior numeric signature (the `BOUNDARY_ADMISSION` law) and never reached DOWN to the app-platform `Rasm.Compute/Symbolic/units` owner (the strata-acyclic AEC-domain owns its own unit boundary). Conversion runs exactly once at admission; interior numerics are raw `double`.
+- photometric seam: `photometric#PHOTOMETRIC` `MaterialUnits.Admit(Illuminance.Info, value, unit, …)` gates the illuminance row by `q.Dimensions.Equals(Illuminance.Info.BaseDimensions)`, rescales any sub/multiple to `Illuminance.BaseUnit` (`IlluminanceUnit.Lux`) through `UnitConverter.TryConvert`, and returns `Fin<UnitEvidence>` reading `evidence.CanonicalValue` — the membership gate and the SI-base rescale are one boundary call. The luminous↔radiometric divide (683 lm/W) is author-kernel, not a `UnitsNet` conversion.
+- properties seam: `properties#PHYSICAL_PROPERTIES` coerces measured conductivity/specific-heat/thermal-transmittance to `ThermalConductivity.BaseUnit`/`SpecificEntropy.BaseUnit`/`HeatTransferCoefficient.BaseUnit` (the `WattPerMeterKelvin`/`JoulePerKilogramKelvin`/`WattPerSquareMeterKelvin` SI bases) through the same `MaterialUnits.Coerce` rescale; an aggregation over a measured-quantity series (e.g. layered-assembly resistance) folds through `UnitMath.Sum<T>`, never a raw-`double` accumulation that drops the unit.
+- wire seam: a quantity that reaches the `interchange#MATERIAL_WIRE` projection serializes as its canonical SI-base scalar plus the unit `Enum` token (resolved through `Quantity.Infos`/`QuantityInfo`), not a localized formatted string — the TS/Python peers decode the SI scalar. The inverse path that admits a measured row from a text abbreviation (e.g. an IFC property string or `Quantity.FromUnitAbbreviation`) resolves the unit through `UnitParser.Default.Parse(abbr, CultureInfo.InvariantCulture)`, never the `CurrentCulture` default, so the same wire byte parses identically on every host regardless of which `*.resources.dll` satellites the runtime loaded.
+
 [RAIL_LAW]:
-- Package: `UnitsNet`
-- Owns: quantity and unit algebra
-- Accept: measured unit-aware execution
-- Reject: raw numeric unit comments
+- Package: `UnitsNet` 5.75.0 (MIT-0, multi-TFM, `net10.0` binds `net9.0`)
+- Owns: the immutable quantity/unit algebra — quantity structs, `UnitsNet.Units` enums, parsing/formatting, `UnitConverter` rescale, `BaseDimensions` family-membership algebra, `UnitMath`/`GenericMath` typed aggregation, and `UnitSystem` SI policy
+- Accept: measured unit-aware execution admitted through the `MaterialUnits` in-folder boundary; the `Dimensions.Equals(Info.BaseDimensions)` family gate plus the `BaseUnit` SI-base rescale
+- Reject: raw numeric unit comments; a quantity type crossing into an interior signature; a reach DOWN to the Compute units owner; a raw-`double` reduce where `UnitMath` preserves the unit

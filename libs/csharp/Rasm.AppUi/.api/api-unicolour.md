@@ -1,14 +1,22 @@
 # [RASM_APPUI_API_UNICOLOUR]
 
-`Wacton.Unicolour` supplies a 40-space colour model via the `Unicolour` type, with construction from any `ColourSpace` discriminant, lazy-evaluated conversion accessors for all spaces, perceptual delta-E metrics, gamut mapping, mixing, spectral SPD intake, and configurable working spaces through `Configuration`, `RgbConfiguration`, and `XyzConfiguration`.
+`Wacton.Unicolour` 7.0.0 (MIT, pure-managed `netstandard2.0`, zero dependencies,
+ALC-safe) supplies a 40-space colour model via the immutable `Unicolour` type, with
+construction from any `ColourSpace` discriminant, lazy-evaluated conversion accessors
+for every space, perceptual delta-E metrics (`DeltaE`), gamut mapping, hue-aware
+mixing/palette generation (`HueSpan`), spectral SPD and blackbody/CCT (`Locus`)
+intake, and fully configurable working spaces through `Configuration` and its
+`RgbConfiguration`/`XyzConfiguration`/`YbrConfiguration`/`CamConfiguration`/`DynamicRange`/`IccConfiguration`
+slots. The companion `Wacton.Unicolour.Datasets` 4.0.0 (`netstandard2.0`) adds named
+colour / ColorChecker reference sets and perceptual colourmaps over the same model.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour`
-- package: `Wacton.Unicolour`
+- package / license: `Wacton.Unicolour` 7.0.0 / MIT
 - assembly: `Wacton.Unicolour`
 - namespace: `Wacton.Unicolour`
-- asset: netstandard2.0
+- asset: `netstandard2.0` (sole lib; bound under both the net10 AppUi and Materials consumers; zero deps, ALC-safe)
 - rail: colour
 
 ## [02]-[PUBLIC_TYPES]
@@ -220,10 +228,12 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 |  [03]   | `new Unicolour(string hex)`                           | ctor                                     | hex intake                        |
 |  [04]   | `new Unicolour(Spd)`                                  | ctor                                     | spectral intake                   |
 |  [05]   | `new Unicolour(Pigment[], double[])`                  | ctor                                     | Kubelka-Munk mix                  |
-|  [06]   | `Unicolour.Difference(Unicolour, DeltaE)`             | instance call → `double`                 | perceptual delta                  |
-|  [07]   | `Unicolour.Contrast(Unicolour)`                       | instance call → `double`                 | WCAG contrast                     |
-|  [08]   | `Unicolour.Mix(Unicolour, ColourSpace, double, ...)`  | instance call → `Unicolour`              | interpolation                     |
-|  [09]   | `Unicolour.Palette(Unicolour, ColourSpace, int, ...)` | instance call → `IEnumerable<Unicolour>` | palette generation                |
+|  [06]   | `double Difference(Unicolour reference, DeltaE deltaE)` | instance call → `double`               | perceptual delta                  |
+|  [07]   | `double Contrast(Unicolour other)`                    | instance call → `double`                 | WCAG contrast                     |
+|  [08]   | `Unicolour Mix(Unicolour other, ColourSpace, double amount = 0.5, HueSpan = Shorter, bool premultiplyAlpha = true)` | instance call → `Unicolour` | hue-aware interpolation |
+|  [09]   | `IEnumerable<Unicolour> Palette(Unicolour other, ColourSpace, int count, HueSpan = Shorter, bool premultiplyAlpha = true)` | instance call → `IEnumerable<Unicolour>` | hue-aware palette generation |
+
+`HueSpan` enum (mix/palette hue-traversal axis): `Shorter`, `Longer`, `Increasing`, `Decreasing`. `Locus` enum (CCT-construction radiator): `Blackbody`, `Daylight`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -231,8 +241,22 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 - namespace: `Wacton.Unicolour`
 - primary type: `Unicolour` — immutable, lazy-evaluated per colour-space accessor
 - construction discriminant: `ColourSpace` enum (40 members)
-- working-space policy: `Configuration` (holds `RgbConfiguration`, `XyzConfiguration`, `DynamicRange`, `CamConfiguration`)
+- working-space policy: `Configuration` (holds `Rgb`, `Xyz`, `Ybr`, `Cam`, `DynamicRange`, `Icc` slots)
 - display primaries (DisplayP3, Rec2020, AdobeRGB) are `RgbConfiguration` statics, not `ColourSpace` cases
+
+[INTEGRATION]:
+- AppUi boundary: `Unicolour` is the canonical colour value; map to/from Avalonia `Color`/`HsvColor`
+  (`api-avalonia-color.md`) only at the view edge — read `.Rgb` (sRGB bytes) outbound and construct
+  `new Unicolour(ColourSpace.Rgb255, r, g, b)` inbound, keeping all perceptual maths in `Unicolour`.
+- Accessibility: `Contrast(other)` is the WCAG ratio and `RelativeLuminance` the WCAG luminance;
+  drive theme contrast gates off these rather than re-deriving luminance from Avalonia brushes.
+- Palette pipelines: `Mix`/`Palette` over `ColourSpace.Oklab`/`Oklch` with `HueSpan` produce
+  perceptually-even theme ramps; feed the `IEnumerable<Unicolour>` straight into a swatch
+  `ItemsSource` after a single `.Rgb`-to-`Color` projection.
+- Materials/BSDF: the Materials consumer composes the spectral/appearance surface
+  (`Spd`, `Pigment[]`/`KubelkaMunk`, `DeltaE.Ciede2000`, `Configuration` working spaces) for
+  #PHOTOMETRIC and #BSDF_MODEL pages; AppUi reuses the same model for UI colour without a
+  second colour library.
 
 [GAMUT_LAW]:
 - gamut mapping is internal only; public access is `IsInRgbGamut` check + `Mix`/`Palette`
@@ -334,21 +358,32 @@ Entry point: `double Unicolour.Difference(Unicolour reference, DeltaE deltaE)` a
 
 ## [CONFIGURATION]
 
-`Configuration` carries RGB, XYZ, YBR, CAM, dynamic-range, and ICC policy for the working space.
+`Configuration` carries RGB, XYZ, YBR, CAM, dynamic-range, and ICC policy for the
+working space. The ctor takes every slot as an optional argument:
+`Configuration(RgbConfiguration? = null, XyzConfiguration? = null, YbrConfiguration? = null, CamConfiguration? = null, DynamicRange? = null, IccConfiguration? = null)`,
+so a custom working space overrides only the axes it cares about and inherits
+`Default` for the rest.
 
-| [INDEX] | [SURFACE]                    | [TYPE_FAMILY]      | [CAPABILITY]         |
-| :-----: | :--------------------------- | :----------------- | :------------------- |
-|  [01]   | `Configuration.Default`      | static preset      | baseline policy      |
-|  [02]   | `Configuration..ctor`        | configuration ctor | custom working space |
-|  [03]   | `Configuration.Rgb`          | property           | RGB working space    |
-|  [04]   | `Configuration.Xyz`          | property           | XYZ working space    |
-|  [05]   | `Configuration.DynamicRange` | property           | HDR/SDR tone policy  |
+| [INDEX] | [SURFACE]                    | [TYPE_FAMILY]      | [CAPABILITY]               |
+| :-----: | :--------------------------- | :----------------- | :------------------------- |
+|  [01]   | `Configuration.Default`      | static preset      | baseline sRGB/D65 policy   |
+|  [02]   | `Configuration..ctor(rgb?, xyz?, ybr?, cam?, dynamicRange?, icc?)` | configuration ctor | custom working space (per-slot override) |
+|  [03]   | `Configuration.Rgb`          | property           | RGB working space          |
+|  [04]   | `Configuration.Xyz`          | property           | XYZ working space          |
+|  [05]   | `Configuration.Ybr`          | property           | YCbCr/YPbPr matrix policy   |
+|  [06]   | `Configuration.Cam`          | property           | CAM02/16 viewing-condition policy |
+|  [07]   | `Configuration.DynamicRange` | property           | HDR/SDR tone policy        |
+|  [08]   | `Configuration.Icc`          | property           | ICC working-profile policy |
 
 ---
 
 ## [RGB_CONFIGURATION]
 
-Static presets on `RgbConfiguration` keep exact capitalization. The custom constructor carries red, green, and blue chromaticities, a white point, transfer delegates, and a name.
+Static presets on `RgbConfiguration` keep exact capitalization. The rows below are the
+display/scene/log presets AppUi composes against; the full static set also includes
+broadcast/legacy primaries (`Rec601Line625`, `Rec601Line525`, `XvYcc`, `Pal`, `PalM`,
+`Pal625`, `Pal525`, `Ntsc`) selected the same way. The custom constructor carries red,
+green, and blue chromaticities, a white point, transfer delegates, and a name.
 
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]     | [CAPABILITY]                |
 | :-----: | :----------------------- | :--------------- | :-------------------------- |
