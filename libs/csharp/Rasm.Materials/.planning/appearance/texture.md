@@ -12,16 +12,18 @@ ONE `TextureUv` static sampling fold over the closed `TextureSource` `[Union]` (
 - Cases: address {repeat, clamp, mirror} · filter {nearest, bilinear, bicubic, trilinear} · noise-basis {perlin, simplex, worley} (fBm is octave-summation over a basis, `Octaves > 1`, not a fourth basis) · source {`Noise`, `Checker`, `Gradient`, `Image`, `Triplanar`}.
 - Entry: `public static Fin<Unicolour> Sample(TextureSource source, UvSample point, SamplerState sampler, Op key)` — color-bearing texture output is the canonical `graph#MATERIAL_GRAPH` `PortValue.Color` carrier (a scene-linear `Unicolour`), produced once by the `ShadeVec4.AsColor` boundary at the fold tail; the interior algebra threads the raw `ShadeVec4` scalar-field register. `Fin<T>` aborts on a non-finite UV, an undersized image payload, or a mip level outside the pyramid through the `Op key`-correlated `MaterialFault` rail; arity is one — a texture variation discriminates on the `TextureSource` union case, never on a sibling sampler method.
 - Packages: Rasm (project — `UnitInterval`, `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter is one `FilterMode` row, a new leaf noise basis is one `NoiseBasis` row binding one `ProceduralNoise.Sample` arm, a new texture is one `TextureSource` case — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface, and never a parallel fractal-kind enum since fBm rides the basis octave-sum. The noise kernel is the closed FastNoiseLite basis set; a fifth leaf basis (value/cubic) is one `NoiseBasis` row binding one `ProceduralNoise` arm, not a new noise class. The MaterialX-1.39 Worley/color-ramp node parity is the interchange-alignment target framed at `graph#MATERIALX_GRAPH_INTERCHANGE`.
+- Growth: a new addressing rule is one `AddressMode` row, a new reconstruction filter is one `FilterMode` row, a new leaf noise basis is one `NoiseBasis` row binding one `ProceduralNoise.Sample` arm, a new texture is one `TextureSource` case carrying its `MtlxCategory` — never a parallel `BilinearSampler`/`PerlinTexture`/`NoiseSampler3D` surface, and never a parallel fractal-kind enum since fBm rides the basis octave-sum. The noise kernel is the closed FastNoiseLite basis set confirmed complete against MaterialX 1.39; a fifth leaf basis (value/cubic) is one `NoiseBasis` row binding one `ProceduralNoise` arm and one `MtlxNode`, not a new noise class. The MaterialX-1.39 node-category parity is REALIZED at `[MATERIALX_NODE_PARITY]` — the `TextureSource.MtlxCategory`/`NoiseBasis.MtlxNode`/`AddressMode.MtlxAddress`/`FilterMode.MtlxFilter` projections the `interchange#MATERIALX_DOCUMENT` consumes.
 - Boundary: UV coordinates enter as Rasm/Vectors `UnitInterval` pairs (the `[0,1]` validated value-object), image extents as `Dimension` (the `>=1` validated value-object); the sampler NEVER re-mints a coordinate or extent primitive. Color crosses the axis exactly once: the interior noise/checker/gradient/image/triplanar algebra runs over the raw `ShadeVec4` four-lane scalar-field register, and the single `ShadeVec4.AsColor` adapter constructs the canonical scene-linear `Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, X, Y, Z)` at the fold tail — the sampler NEVER mints a second color register and color literals on `TextureSource` rows (`Low`/`High`, `Even`/`Odd`, gradient `Stops`) enter as `Unicolour` and decompose to `ShadeVec4` through `ShadeVec4.FromColor` for the scalar-field math. `AddressMode.Apply` folds a raw continuous UV into `[0,1)` once before any non-image filter touches a coordinate, and image reconstruction addresses exclusively through the discrete `AddressMode.Texel` companion so the wrap arithmetic is consulted once per axis, not double-applied at the mip seam; `FilterMode` reconstructs through one weight algebra (nearest snaps, bilinear is the unit-square lerp, bicubic is the separable Catmull-Rom 4×4 convolution, trilinear blends two bilinear taps across the mip pyramid by fractional level decomposed by `SampleImage`, so `ReconstructLevel` carries no trilinear arm); the FastNoiseLite gradient/simplex/cellular kernels are author-folds over the hashed-gradient lattice (no managed lib owns 2D/3D coherent noise, the `LIBRARY_DEPTH` NOT_COVERED carve-out) with the published FNL anchors — `PrimeX`/`PrimeY`/`PrimeZ`, the quintic fade `6t⁵−15t⁴+10t³`, the simplex skew `(√3−1)/2` and unskew `(3−√3)/6`, the 8-direction 2D and 12-cube-edge 3D unit-gradient tables — vendored inline as kernel literals, and fBm is the octave-sum over a leaf `NoiseBasis` (the `Fbm` self-base is unrepresentable — `NoiseBasis` excludes it); the `ProceduralNoise` hash-lattice fills and the fixed `3×3` Worley / closed three-corner simplex loops are the page's `[EXPRESSION_SPINE]` kernel exemption, in-place by index over the per-shade hot path; triplanar projects a world point onto the three axis planes and blends by the squared-normal weight so the same `TextureSource` evaluates without a UV unwrap; out-of-gamut or non-finite results rail to `MaterialFault` rather than propagating a sentinel texel.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class AddressMode {
-    public static readonly AddressMode Repeat = new(0);
-    public static readonly AddressMode Clamp  = new(1);
-    public static readonly AddressMode Mirror = new(2);
+    // MtlxAddress is the MaterialX 1.39 image/tiledimage uaddressmode/vaddressmode enum string each mode maps to.
+    public static readonly AddressMode Repeat = new(0, mtlxAddress: "periodic");
+    public static readonly AddressMode Clamp  = new(1, mtlxAddress: "clamp");
+    public static readonly AddressMode Mirror = new(2, mtlxAddress: "mirror");
+    public string MtlxAddress { get; }
 
     public double Apply(double t) =>
         Switch(
@@ -38,17 +40,25 @@ public sealed partial class AddressMode {
 
 [SmartEnum<int>]
 public sealed partial class FilterMode {
-    public static readonly FilterMode Nearest   = new(0);
-    public static readonly FilterMode Bilinear  = new(1);
-    public static readonly FilterMode Bicubic   = new(2);
-    public static readonly FilterMode Trilinear = new(3);
+    // MtlxFilter is the MaterialX 1.39 image/tiledimage filtertype enum string; MaterialX has closest/linear/cubic,
+    // so trilinear maps to linear (the mip blend is the sampler's mip-pyramid concern, not a MaterialX filtertype).
+    public static readonly FilterMode Nearest   = new(0, mtlxFilter: "closest");
+    public static readonly FilterMode Bilinear  = new(1, mtlxFilter: "linear");
+    public static readonly FilterMode Bicubic   = new(2, mtlxFilter: "cubic");
+    public static readonly FilterMode Trilinear = new(3, mtlxFilter: "linear");
+    public string MtlxFilter { get; }
 }
 
 [SmartEnum<int>]
 public sealed partial class NoiseBasis {
-    public static readonly NoiseBasis Perlin  = new(0);
-    public static readonly NoiseBasis Simplex = new(1);
-    public static readonly NoiseBasis Worley  = new(2);
+    // MtlxNode is the MaterialX 1.39 standard-library node category each basis round-trips to: Perlin→noise2d,
+    // Simplex→fractal2d (MaterialX folds simplex/fractal under one fractal node; the FNL OpenSimplex2 kernel is the
+    // documented LIBRARY_DEPTH carve-out the implementation differs by), Worley→worleynoise2d. The three-basis set
+    // is COMPLETE against the standard library — cellnoise2d/unifiednoise2d exist but no fourth value/cubic row is needed.
+    public static readonly NoiseBasis Perlin  = new(0, mtlxNode: "noise2d");
+    public static readonly NoiseBasis Simplex = new(1, mtlxNode: "fractal2d");
+    public static readonly NoiseBasis Worley  = new(2, mtlxNode: "worleynoise2d");
+    public string MtlxNode { get; }
 
     public double Sample(double x, double y, int seed) =>
         Switch(
@@ -66,6 +76,16 @@ public abstract partial record TextureSource {
     public sealed record Gradient(bool Vertical, Seq<(UnitInterval At, Unicolour Color)> Stops) : TextureSource;
     public sealed record Image(Dimension Width, Dimension Height, Seq<ReadOnlyMemory<ShadeVec4>> Levels) : TextureSource;
     public sealed record Triplanar(TextureSource Projected, double Scale, double BlendSharpness) : TextureSource;
+
+    // The MaterialX 1.39 standard-library node category each TextureSource round-trips to (interchange#MATERIALX_DOCUMENT):
+    // a noise picks its NoiseBasis.MtlxNode (fBm with Octaves>1 stays the same fractal node), a checker→checkerboard,
+    // a gradient→ramplr/ramptb by axis, an image→tiledimage, a triplanar→triplanarprojection — the case IS the category.
+    public string MtlxCategory => Switch(
+        noise:     static n => n.Octaves > 1 && n.Base == NoiseBasis.Perlin ? "fractal2d" : n.Base.MtlxNode,
+        checker:   static _ => "checkerboard",
+        gradient:  static g => g.Vertical ? "ramptb" : "ramplr",
+        image:     static _ => "tiledimage",
+        triplanar: static _ => "triplanarprojection");
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -329,4 +349,4 @@ public static class TextureUv {
 
 - [SIMPLEX_PATENT]: the noise kernel uses OpenSimplex2 (the FastNoiseLite default), not Perlin's patented Simplex — the patent (US 6,867,776, expired 2022) is moot, but OpenSimplex2 is the vendored basis regardless, with the skewed-lattice three-corner summation transcribed inline; a value/cubic basis lands as one `NoiseBasis` row binding one `ProceduralNoise.Sample` arm.
 - [MIP_GENERATION]: the `Image` case carries a pre-built mip pyramid (`Levels`); the box-filter downsample that generates it is the consumer's responsibility at texture import, not a sampler concern — the sampler reconstructs from the supplied pyramid and rails `<texture-level-undersized>` on a malformed payload rather than synthesizing levels at sample time.
-- [MATERIALX_NODE_PARITY]: the MaterialX 1.39.4 standard-node library adds improved Worley noise and color-ramp nodes; aligning the `TextureSource`/`AddressMode`/`FilterMode` vocabulary onto the MaterialX node categories lets a `Texture` graph node round-trip through `.mtlx` (the `graph#MATERIALX_GRAPH_INTERCHANGE` target). The probe is the node-category mapping, not a second sampler.
+- [MATERIALX_NODE_PARITY]: REALIZED against the MaterialX 1.39 standard-node library — the `TextureSource.MtlxCategory` projection maps each closed case to its real node category (`Noise`→`noise2d` for Perlin / `fractal2d` for Simplex or fBm octaves / `worleynoise2d` for Worley per the `NoiseBasis.MtlxNode`, `Checker`→`checkerboard`, `Gradient`→`ramplr`/`ramptb` by axis, `Image`→`tiledimage`, `Triplanar`→`triplanarprojection`), the `AddressMode.MtlxAddress` maps to the `uaddressmode`/`vaddressmode` enum (`periodic`/`clamp`/`mirror`), and the `FilterMode.MtlxFilter` to the `filtertype` enum (`closest`/`linear`/`cubic`, trilinear→`linear` the mip blend being the sampler's pyramid concern). The three-basis `NoiseBasis` set is CONFIRMED complete against the standard library: MaterialX carries `noise2d`/`fractal2d`/`cellnoise2d`/`worleynoise2d`/`unifiednoise2d`, and the Perlin/Simplex/Worley triple covers the gradient/fractal/cellular families — no fourth value/cubic row is needed (`cellnoise2d` is the value-noise analogue, `unifiednoise2d` a parameterized selector neither basis maps cleanly onto). The FastNoiseLite OpenSimplex2 kernel stays the documented `LIBRARY_DEPTH` NOT_COVERED vendored carve-out the implementation differs by; the per-input port-name alignment per node is the remaining calibration, not a second sampler. Verified against the AcademySoftwareFoundation/MaterialX 1.39 `MaterialX.StandardNodes.md`.

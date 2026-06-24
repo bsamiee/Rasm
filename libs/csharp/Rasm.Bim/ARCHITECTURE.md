@@ -59,6 +59,7 @@ Semantics/*               ←  csharp:Rasm.Materials                    # [CONTE
 Model/query               →  csharp:Rasm.AppUi/Render                 # [PORT]: ElementSet query algebra via capability descriptor
 Model                     ←  csharp:Rasm.Materials/Connection         # [WIRE]: ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener
 Semantics                 ←  csharp:Rasm.Materials/Construction       # [PROJECTION]: MaterialAssignment IFC trichotomy LayerSet/ProfileSet/ConstituentSet
+Semantics                 ←  csharp:Rasm.Materials/Properties         # [PROJECTION]: sustainability Environmental/Cost/Classification → Pset_EnvironmentalImpactValues/Pset_ConstructionCosts + Uniclass/OmniClass IfcClassificationReference by MaterialId
 Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJECTION]: IFC/glTF semantic metadata layer
 Semantics/connection      ←  csharp:Rasm.Materials/Connection         # [WIRE]: ConnectionItem realizing-element IfcMechanicalFastener...
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/channels     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse

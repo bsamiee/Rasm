@@ -5,7 +5,6 @@
 
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
-        <ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Color Spectral">
@@ -15,6 +14,26 @@
 
     <ItemGroup Label="Quantities">
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Numerics">
+        <!-- Direct AEC-domain dependency for the acquisition MeasuredBrdf overdetermined GGX/Smith least-squares
+             fit (thin-QR Gauss-Newton, the algorithms-doc ROUTE_SPINE dense-overdetermined route). NOT a Rasm.Compute
+             edge — the acyclic strata forbids the AEC->app-platform reference; this is Materials' own pin. The
+             photometric and properties unit coercion is owned the same way: UnitsNet is admitted IN-FOLDER at
+             Appearance/photometric and Properties/properties, never reaching DOWN to the Rasm.Compute units owner —
+             the strata-correct seam the Rasm.Compute Symbolic/units owner and ARCHITECTURE [04]/[05] enshrine. -->
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Serializers">
+        <!-- The Thinktecture generated System.Text.Json + MessagePack codecs the Appearance/Interchange MaterialWire /
+             MtlxDocument projection serializes the SmartEnum/Union/ValueObject wire shapes through, replacing the
+             hand-rolled CultureInfo.InvariantCulture ToString('R') string projection — the C# sole-producer mints one
+             generated codec and the TS/Python peers decode the same shape. The MessagePack heavy-transitive branch
+             scopes to the companion/outside-Rhino wire; the in-Rhino ALC stays STJ-only per the Speckle.Sdk firebreak. -->
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
     </ItemGroup>
 
     <ItemGroup>

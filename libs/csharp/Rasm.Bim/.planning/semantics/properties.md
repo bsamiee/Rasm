@@ -11,7 +11,7 @@ The first-class Pset/Qto owner: one `PropertySet`/`QuantitySet` keyed vocabulary
 - Owner: `PropertyKey` the `[SmartEnum<string>]` standard property-set vocabulary keyed on the `Pset_*`/`Qto_*` name carrying its applicable `IfcClass` domain and its template kind; `PropertySet` the typed occurrence- or type-bound named property bag; `QuantitySet` the typed quantity bag carrying the `QuantityKind` per value; `PropertyValue` the `[Union]` typed property value (text/measure/boolean/enumerated) so a property carries its IFC data type rather than a stringly-typed value.
 - Entry: `PropertySet.Resolve(BimElement element, IfcSemanticModel semantic, Seq<BsddProperty> template)` folds the element's occurrence `PropertyRow` family and its `TypeGlobalId` type-row family into one typed `PropertySet` applying the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance — a type-driven quantity overrides an occurrence quantity of the same key, an occurrence property overrides a type property — reading the `BsddProperty` template rows the `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` mapping resolves so each value carries its dictionary-declared `DataType`/`PropertySet` placement rather than a hardcoded `Pset_*` name; `QuantitySet.Derive(BimElement element)` derives the standard base quantities from the `GeometryHandle` kernel-geometry the element binds by reference; `Fin<T>` aborts on an unknown property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) lowered with `.ToError()`.
 - Auto: `Resolve` reads the element's `Properties` occurrence bindings grouped by `SetName`, reads the type object's properties through the `TypeGlobalId` row family, and folds them with occurrence-wins precedence into `PropertySet` values keyed on `PropertyKey`, the `template` `BsddProperty` rows supplying each value's `DataType` so a `PropertyValue.Measure` carries its dictionary unit rather than a stringly-typed text; `Derive` reads the `GeometryHandle` kernel-geometry measures by reference (`Volume`/`Area`/`Length`, all SI-base from the kernel) and folds the standard `Qto_*` base quantities per `element.Class` `IfcDomain` through the `BaseQuantityTable` frozen row table — a `Wall`/`Slab`/`Column`/`Beam` derives `NetVolume`/`GrossArea`/`Length` from the bound solid, the derived rows merging with the occurrence `QuantityBinding` rows under derived-wins precedence so an authoring tool's stored quantity is superseded by the geometry-true takeoff — each quantity carried as a `UnitsNet` typed value (`Length`/`Area`/`Volume`/`Mass`/`Duration`) coerced to its SI base through `ToUnit(UnitSystem.SI)`, so a takeoff reads one unit-checked `QuantitySet` rather than a free `double` and never re-tessellates; `MeasureValue.Of` collapses the IFC `KindOf` unit-abbreviation axis onto the typed quantity through `UnitParser.Default.TryParse<TUnit>` then `Quantity.From(value, unit)`, an unparseable abbreviation degrading to a dimensionless `Count` rather than faulting ingest; the `PropertyKey` row carries the bSDD `Semantics/classification#BSDD_RESOLUTION` dictionary class-to-property mapping so the standard-Pset vocabulary resolves from the live dictionary rather than a hardcoded template table.
-- Receipt: the typed `PropertySet`/`QuantitySet` is the property evidence the `Model/query#ELEMENT_SET` `ByProperty` predicate and the `Review/validation#IDS_FACETS` Property facet read; a quantity takeoff reads the `MeasureValue` already SI-base-coerced through `UnitsNet` `ToUnit(UnitSystem.SI)`, and `UnitMath.Sum` aggregates a same-quantity element set without a manual `double` fold so the 5D `Planning/cost#ESTIMATE` `CostItem.ValueOf` join reads a dimensioned magnitude rather than a raw scalar.
+- Receipt: the typed `PropertySet`/`QuantitySet` is the property evidence the `Model/query#ELEMENT_SET` `ByProperty` predicate and the `Review/validation#IDS_FACETS` Property facet read; a quantity takeoff reads the `MeasureValue` already SI-base-coerced through `UnitsNet` `ToUnit(UnitSystem.SI)`, and `QuantitySet.Total(kind)` lifts each persisted SI scalar back into its typed `Length`/`Area`/`Volume`/`Mass`/`Duration` and reduces through `UnitMath.Sum(quantities, SiUnit)` so a same-quantity element-set aggregate is the dimensioned algebra's typed reducer, never a manual `double` fold — the 5D `Planning/cost#ESTIMATE` `CostItem.ValueOf` join reads the `IQuantity` magnitude rather than a raw scalar; `PropertyKey.Resolve(element, BsddClass)` unions the live `BsddClass.Properties` dictionary rows over the static anchors (dictionary-wins on a `PropertySet.Code` collision) so a bSDD-declared property with no static row still resolves its placement and `DataType`, and `PropertySet.Resolve` reads that resolved template so each value carries its dictionary unit.
 - Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet, Rasm
 - Growth: a new standard Pset/Qto is one `PropertyKey` row carrying its name, domain, and template kind; a new property data type is one `PropertyValue` union arm; a new quantity kind is one `QuantityKind` enum case; the bSDD class-to-property mapping is one dictionary-URI row shared with `classification` and `validation`; never a per-Pset type and never a second property store.
 - Boundary: there is ONE property model — a per-Pset `WallProperties`/`SlabProperties` class family or a second property store is the deleted form, the `PropertyKey` SmartEnum keys the one bag; the round-trip rides the GeometryGym `IfcRelDefinesByProperties`/`IfcRelDefinesByType`/`IfcElementQuantity`/`IfcPropertySingleValue` surface (`Exchange/format#FORMAT_AXIS` packages) consumed as settled vocabulary — a hand-rolled Pset reader is the deleted form; the type-vs-occurrence precedence is the IFC `QTO_TYPEDRIVENOVERRIDE` inheritance rule applied once in `Resolve`, never a per-call-site merge; base-quantity derivation runs from the kernel `Rasm` `GeometryHandle` measures the element binds by reference and a re-tessellation in this owner is the named seam violation; unit coercion rides the `UnitsNet` `UnitParser`/`Quantity`/`ToUnit(UnitSystem.SI)`/`UnitMath` SI-base resolver and a stringly-keyed `KindOf` unit switch or an ad-hoc `double` unit-conversion arithmetic is the deleted form (`UnitsNet` is the admitted owner of dimensioned scalar quantities per `.api/api-unitsnet`, consumed at full capability — `Length`/`Area`/`Volume`/`Mass`/`Duration` typed structs, never a bare `double`); the `PropertyKey` standard-Pset template resolves from the live `Semantics/classification#BSDD_RESOLUTION` `BsddClass.Properties` dictionary mapping threaded into `Resolve`, never a frozen `Pset_*` table that drifts from the dictionary — the static `PropertyKey` rows are the well-known anchors the bSDD resolution enriches, not the authoritative source; the typed `PropertyValue` carries the IFC data type so the `Review/validation#IDS_FACETS` Property facet matches a typed value and a stringly-keyed property lookup is the named defect; the flat `IfcSemanticModel.PropertyRow`/`QuantityRow` projections stay the import rail wire shape and this owner is the typed promotion the query/IDS/bSDD/cost consumers read.
@@ -19,6 +19,7 @@ The first-class Pset/Qto owner: one `PropertySet`/`QuantitySet` keyed vocabulary
 ```csharp contract
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Frozen;
+using System.Linq;
 using GeometryGym.Ifc;
 using LanguageExt;
 using LanguageExt.Common;
@@ -132,6 +133,18 @@ public sealed partial class PropertyKey {
     // template at resolution time so a dictionary-declared property never needs a new static row.
     public static Seq<PropertyKey> TemplatesFor(IfcDomain domain) =>
         Items.Filter(row => row.Kind == TemplateKind.Property && row.Domain == domain).ToSeq();
+
+    // Dictionary-driven template resolution: the bSDD ClassProperty rows the BsddResolution mapping
+    // returns supply each `PropertySet.Code` typed DataType, so the standard-Pset vocabulary resolves
+    // from the live dictionary rather than the frozen `Pset_*` table that drifts — a bSDD-declared
+    // property with no static anchor still resolves its placement and type. The static rows seed the
+    // well-known set; the dictionary rows union over them, dictionary-wins on a placement collision.
+    public static Seq<BsddProperty> Resolve(BimElement element, BsddClass dictionary) =>
+        dictionary.Properties
+            .Filter(static p => p.PropertySet.Length > 0)
+            .Append(TemplatesFor(element.Class.Domain)
+                .Map(static key => new BsddProperty(key.Key, key.Key, "IfcText", key.Key, "", IsRequired: false)))
+            .DistinctBy(static p => $"{p.PropertySet}.{p.Code}");
 }
 
 // Per-class base-quantity derivation table: which Qto set and which kinds a class derives from the
@@ -197,10 +210,31 @@ public sealed record QuantitySet(string Name, Map<string, MeasureValue> Quantiti
         QuantityKind.Volume => "NetVolume", QuantityKind.Weight => "Weight", _ => "Count",
     };
 
-    // Unit-checked aggregation over an element set's same-kind quantities — UnitMath, never a manual fold.
-    public Option<double> Total(QuantityKind kind) =>
-        Quantities.Values.Filter(q => q.Kind == kind).Map(static q => q.Si).Fold(Option<double>.None,
-            static (acc, si) => acc.Match(Some: t => Some(t + si), None: () => Some(si)));
+    // Unit-checked aggregation over an element set's same-kind quantities through the UnitsNet UnitMath.Sum
+    // typed reducer (the persisted Si scalar lifts back into the typed quantity at its SI base unit, sums in
+    // the dimensioned algebra, and reads the SI magnitude) — never a manual `double` fold per .api/api-unitsnet.
+    public Option<IQuantity> Total(QuantityKind kind) =>
+        Quantities.Values.Filter(q => q.Kind == kind).ToList() is { Count: > 0 } rows
+            ? Some(UnitMath.Sum(rows.Select(static q => Quantum(q.Kind, q.Si)), SiUnitOf(kind)))
+            : None;
+
+    public static double TotalSi(QuantitySet set, QuantityKind kind) =>
+        set.Total(kind).Map(static q => (double)q.Value).IfNone(0d);
+
+    static IQuantity Quantum(QuantityKind kind, double si) => kind switch {
+        QuantityKind.Length => Length.FromMeters(si),
+        QuantityKind.Area   => Area.FromSquareMeters(si),
+        QuantityKind.Volume => Volume.FromCubicMeters(si),
+        QuantityKind.Weight => Mass.FromKilograms(si),
+        QuantityKind.Time   => Duration.FromSeconds(si),
+        _                   => Length.FromMeters(si),
+    };
+
+    static Enum SiUnitOf(QuantityKind kind) => kind switch {
+        QuantityKind.Length => LengthUnit.Meter, QuantityKind.Area => AreaUnit.SquareMeter,
+        QuantityKind.Volume => VolumeUnit.CubicMeter, QuantityKind.Weight => MassUnit.Kilogram,
+        QuantityKind.Time => DurationUnit.Second, _ => LengthUnit.Meter,
+    };
 }
 ```
 

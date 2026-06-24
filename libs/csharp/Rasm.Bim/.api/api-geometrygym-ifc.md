@@ -122,6 +122,9 @@ for the Compute geometry interchange rail.
 |  [12]   | `IfcMaterialLayerSetUsage`   | geometry | layer-set application to an element                                               |
 |  [13]   | `IfcMaterialProfileSet`      | geometry | material-profile assembly for linear members                                      |
 |  [14]   | `IfcMaterialConstituentSet`  | geometry | named constituent material set                                                    |
+|  [15]   | `IfcMaterialProperties`      | geometry | `IfcExtendedProperties` subtype binding a named Pset to an `IfcMaterial`; public ctor `(string name, IfcMaterialDefinition mat)`, `Material` member, columns added to the inherited `Properties` dict |
+|  [16]   | `IfcExtendedProperties`      | geometry | extended-property base; `Name`/`Description` plus `Properties` `Dictionary<string, IfcProperty>` and a `this[name]` indexer |
+|  [17]   | `IfcProperty`                | geometry | abstract property root (`IfcPropertySingleValue` etc.); the `Properties`-dict element type |
 
 [PUBLIC_TYPE_SCOPE]: relationship families
 - package: `GeometryGymIFC_Core`
@@ -376,8 +379,27 @@ for the Compute geometry interchange rail.
 |  [04]   | `IfcDerivedUnit`             | geometry | compound derived unit                                        |
 |  [05]   | `IfcMonetaryUnit`            | geometry | currency unit                                                |
 |  [06]   | `IfcMeasureWithUnit`         | geometry | value bound to a unit                                        |
-|  [07]   | `IfcClassificationReference` | geometry | reference to an external classification                      |
-|  [08]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
+|  [07]   | `IfcClassificationReference` | geometry | reference to an external classification; `ReferencedSource`/`Identification`/`Location` |
+|  [08]   | `IfcClassification`          | geometry | the classification source `IfcClassificationReference.ReferencedSource` names (Uniclass2015/OmniClass) |
+|  [09]   | `VersionAddedAttribute`      | geometry | reflection attribute marking schema-version availability     |
+
+[PUBLIC_TYPE_SCOPE]: structural-connection realizing-element surface
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+
+| [INDEX] | [SYMBOL]                              | [RAIL]   | [CAPABILITY]                                                                                                                                                       |
+| :-----: | :------------------------------------ | :------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `IfcRelConnectsElements`              | geometry | abstract connection between two elements; `RelatingElement`/`RelatedElement` (`IfcElement`), `ConnectionGeometry` (`IfcConnectionGeometry`)                         |
+|  [02]   | `IfcRelConnectsWithRealizingElements` | geometry | `IfcRelConnectsElements` subtype; `RealizingElements` (`SET<IfcElement>`, read-only) plus internal `ConnectionType` string — the realizing-fastener joint relation |
+|  [03]   | `IfcMechanicalFastener`               | geometry | `IfcElementComponent`; only public scalar `PredefinedType` (`IfcMechanicalFastenerTypeEnum`) — `mNominalDiameter`/`mNominalLength` are `internal` (no public getter)|
+|  [04]   | `IfcMechanicalFastenerTypeEnum`       | geometry | `NOTDEFINED`/`USERDEFINED`/`ANCHORBOLT`/`BOLT`/`DOWEL`/`NAIL`/`NAILPLATE`/`RIVET`/`SCREW`/`SHEARCONNECTOR`/`STAPLE`/`STUDSHEARCONNECTOR`/`COUPLER`(4x2)/4x3 rail set  |
+|  [05]   | `IfcReinforcingElement`               | geometry | abstract reinforcing root under `IfcElementComponent`; `SteelGrade` carrier for the bar/mesh subtypes                                                              |
+|  [06]   | `IfcReinforcingBar`                   | geometry | `IfcReinforcingElement`; public `NominalDiameter` (type-fallback get) / `CrossSectionArea` / `BarLength` (`double`), `PredefinedType` (`IfcReinforcingBarTypeEnum`) |
+|  [07]   | `IfcReinforcingBarTypeEnum`           | geometry | `NOTDEFINED`/`USERDEFINED`/`MAIN`/`SHEAR`/`LIGATURE`/`STUD`/`PUNCHING`/`EDGE`/`RING`/`ANCHORING`/`SPACEBAR`(4x2) — `STUD` is the cast-in bar, NOT the welded connector |
+|  [08]   | `IfcReinforcingMesh`                  | geometry | `IfcReinforcingElement`; public `MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarCrossSectionArea` (`double`) |
+|  [09]   | `IfcMaterialProfileSetUsage`          | geometry | binds an `IfcMaterialProfileSet` to an element; the public round-trip channel carrying a fastener's nominal diameter as the associated circle-profile cross-section  |
+|  [10]   | `IfcCircleProfileDef`                 | geometry | parametric circular profile; public `Radius` (`double`) — the fastener nominal-diameter carrier reached through `IfcRelAssociatesMaterial.RelatingMaterial`         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -515,6 +537,23 @@ for the Compute geometry interchange rail.
 |  [07]   | `IfcGroup.IsGroupedBy`                                     | `IfcRelAssignsToGroup` set                                                   | the assignment relationships grouping objects into a group                                                                        |
 |  [08]   | `IfcCostItem.CostValues`                                   | `IfcCostValue` set                                                           | the cost rates/values applied to a cost line item                                                                                 |
 |  [09]   | `IfcDistributionPort.ContainedIn`                          | `IfcRelConnectsPortToElement` property                                       | the distribution element a port belongs to                                                                                        |
+
+[ENTRYPOINT_SCOPE]: structural-connection realizing-element construction and read
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                                                | [CAPABILITY]                                                                                                                       |
+| :-----: | :----------------------------------------- | :----------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new IfcRelConnectsWithRealizingElements`  | `(IfcConnectionGeometry cg, IfcElement relating, IfcElement related, IfcElement realizing)` | the single-realizing-element joint relation; auto-registers the back-pointer `IfcElement.IsConnectionRealization`                  |
+|  [02]   | `IfcRelConnectsWithRealizingElements.RealizingElements` | `SET<IfcElement>` property (read-only; `.Add`/`.AddRange` mutate)               | the realizing-fastener/reinforcing set the `ConnectionProjection.Project` fold materializes once                                   |
+|  [03]   | `new IfcMechanicalFastener`                | `(IfcObjectDefinition host, IfcObjectPlacement placement, IfcProductDefinitionShape rep)`   | the generic occurrence ctor (no single-arg `(DatabaseIfc)` ctor exists); host on `db.Project` at the factory root placement       |
+|  [04]   | `new IfcMechanicalFastener`                | `(IfcProduct host, IfcMaterialProfileSetUsage profile, IfcAxis2Placement3D placement, double length)` | the profile-hosted ctor wiring the `IfcMaterialProfileSetUsage` nominal-diameter channel + length directly — the wire `Profiled` path |
+|  [05]   | `IfcMechanicalFastener.PredefinedType`     | `IfcMechanicalFastenerTypeEnum` property (get/set; schema-validated on set)                  | the only public fastener scalar — the welded stud is `STUDSHEARCONNECTOR`, a discrete fastener `BOLT`/`ANCHORBOLT`                 |
+|  [06]   | `IfcElement.HasAssociations`               | `SET<IfcRelAssociates>` property                                                            | the association set carrying `IfcRelAssociatesMaterial` — the read path to the fastener's profile-usage nominal diameter            |
+|  [07]   | `IfcRelAssociatesMaterial.RelatingMaterial`| `IfcMaterialSelect` property (`IfcMaterialProfileSetUsage` arm)                              | the material-profile chain the `DiameterOf` projection narrows to recover the fastener nominal scalars                              |
+|  [08]   | `IfcMaterialProfileSetUsage.ForProfileSet` | `IfcMaterialProfileSet` → `MaterialProfiles` (`IfcMaterialProfile` list) → `Profile`         | the profile chain to the `IfcCircleProfileDef.Radius` carrying the fastener nominal diameter (radius × 2)                          |
+|  [09]   | `IfcReinforcingBar.NominalDiameter`        | `double` property (get falls back to `IfcReinforcingBarType.NominalDiameter`)               | the public bar diameter — written directly by `ConnectionWire.Author` for the reinforcing arm                                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

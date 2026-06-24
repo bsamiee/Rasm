@@ -10,10 +10,10 @@ THE HOST-NEUTRAL ELEMENT AND THE IFC MATERIAL-ASSIGNMENT OWNER. One `Element` is
 ## [02]-[ELEMENT_MODEL]
 
 - Owner: `Element` placed-unit shape; `Placement` the host-neutral scalar tuple; `RunPath` `[Union]` the path geometry; `ConstructionFault` `[Union]` band 2350.
-- Cases: path {line (length), arc (radius, sweep)} — the closed `RunPath` set; an element is a `Profile` placed at a `Placement` carrying one `MaterialAssignment`, never a path subtype.
-- Entry: `public static Fin<double> LengthOf(RunPath path, Op key)` — the line/arc arc-length algebra (`Fin<T>` aborts on a non-positive length/radius/sweep, `ConstructionFault.Path`); `RunPathAlgebra.AngleAt` projects a station onto a path angle so a curved run reads its local rotation without a host curve.
+- Cases: path {line (length), arc (radius, sweep), dome (radius, ring-courses)} — the closed `RunPath` set; a dome is the surface-of-revolution path the `Construction/layout#ASSEMBLY_FOLD` ring-course fold resolves to a stack of horizontal courses, the meridian a quarter great circle springing→crown; an element is a `Profile` placed at a `Placement` carrying one `MaterialAssignment`, never a path subtype.
+- Entry: `public static Fin<double> LengthOf(RunPath path, Op key)` — the line/arc/dome arc-length algebra (`Fin<T>` aborts on a non-positive length/radius/sweep/ring-count, `ConstructionFault.Path`); the dome meridian is `radius·π/2`; `RunPathAlgebra.AngleAt` projects a station onto a path angle so a curved run (or a dome ring course at its latitude) reads its local rotation without a host curve.
 - Packages: Rasm (project — scalar geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new path geometry is one `RunPath` case (spline/polyline) carrying its arc-length arm; a new fault is one `ConstructionFault` case; a placed-unit attribute shared by all families is one `Placement`/`Element` column — never a per-path placement method, never a per-family element type.
+- Growth: a new path geometry is one `RunPath` case (spline/polyline/the realized dome surface-of-revolution) carrying its arc-length arm; a new fault is one `ConstructionFault` case; a placed-unit attribute shared by all families is one `Placement`/`Element` column — never a per-path placement method, never a per-family element type.
 - Boundary: `Placement` is HOST-NEUTRAL — it carries station/elevation/run/rise/path-angle plus the `NormalOffsetMm` layer-buildup offset along the path normal as raw scalars, plus the orientation and cut, NEVER a `Rhino.Geometry.Plane`/`Transform`/curve; the `NormalOffsetMm` defaults to zero for a single-ply run and carries the cumulative layer offset for a `Construction/layout#ASSEMBLY_FOLD` `LayerSet` buildup so the host materializes each ply at its depth without a second placement owner; the host boundary at the app root materializes the placement stream into geometry, this owner produces only portable data the wire and the appearance engine read; `RunPath` is the closed path geometry and `LengthOf` the one arc-length algebra (a line is its length, an arc is `radius · sweep · π/180`), so a curved run never re-derives arc length per call site; `ConstructionFault` is the one fault every `Fin.Fail` reads (path/joint/course/opening slots), an `Expected`-derived `Error` (`IValidationError<ConstructionFault>`) whose 2350 band IS the `Expected` `Code` so a bare typed case lifts directly into the `Fin<T>` rail, so a layout never throws and never returns a sentinel placement; the orientation/cut vocabulary is the `masonry#PROFILE_FAMILY` `Orientation`/`Cut` algebra composed, never re-minted here.
 
 ```csharp signature
@@ -23,6 +23,7 @@ public abstract partial record RunPath {
     private RunPath() { }
     public sealed record Line(double LengthMm) : RunPath;
     public sealed record Arc(double RadiusMm, double SweepDegrees) : RunPath;
+    public sealed record Dome(double RadiusMm, int RingCourses) : RunPath;
 }
 
 // --- [ERRORS] ------------------------------------------------------------------------------
@@ -62,13 +63,19 @@ public static class RunPathAlgebra {
                 : Fin.Fail<double>(ConstructionFault.Path(k, "<run-path-degenerate>")),
             arc: static (k, arc) => double.IsFinite(arc.RadiusMm) && arc.RadiusMm > 0.0 && Math.Abs(arc.SweepDegrees) > 0.0
                 ? Fin.Succ(arc.RadiusMm * (Math.PI / 180.0) * Math.Abs(arc.SweepDegrees))
+                : Fin.Fail<double>(ConstructionFault.Path(k, "<run-path-degenerate>")),
+            // A hemispherical dome's meridian is a quarter great circle springing→crown; length is radius·π/2.
+            dome: static (k, dome) => double.IsFinite(dome.RadiusMm) && dome.RadiusMm > 0.0 && dome.RingCourses > 0
+                ? Fin.Succ(dome.RadiusMm * Math.PI * 0.5)
                 : Fin.Fail<double>(ConstructionFault.Path(k, "<run-path-degenerate>")));
 
     public static double AngleAt(RunPath path, double stationMm) =>
         path.Switch(
             state: stationMm,
             line: static (_, _) => 0.0,
-            arc: static (station, arc) => Math.Sign(arc.SweepDegrees) * station / arc.RadiusMm * 180.0 / Math.PI);
+            arc: static (station, arc) => Math.Sign(arc.SweepDegrees) * station / arc.RadiusMm * 180.0 / Math.PI,
+            // The meridian tilt at a station: the latitude angle from springing (station/radius radians) in degrees.
+            dome: static (station, dome) => station / dome.RadiusMm * 180.0 / Math.PI);
 }
 ```
 

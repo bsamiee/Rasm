@@ -200,7 +200,7 @@ public abstract partial record TourSource {
                 topic.Topics
                     .Filter(static t => !t.Viewpoints.IsEmpty)
                     .Map(t => TourStop.Create(
-                        ViewpointCodec.FromBcf(t.Guid, ToBcfViewpoint(t.Viewpoints.Head), ctx.Clocks),
+                        ViewpointCodec.FromBcf(t.Guid, t.Viewpoints.Head, ctx.Clocks),
                         MotionToken.SpringGentle.Duration,
                         MotionToken.Emphasized,
                         new NarrationTrack(t.Title, Optional(t.Comments.HeadOrNone().Map(static c => c.Text).IfNone(string.Empty)).Filter(static s => !string.IsNullOrEmpty(s)))))
@@ -208,15 +208,6 @@ public abstract partial record TourSource {
                     switch {
                         var stops => ReviewTour.Of(topic.Key, stops),
                     });
-
-    static BcfViewpoint ToBcfViewpoint(Rasm.Bim.Coordination.BcfViewpoint vp) =>
-        new(
-            new BcfCamera(
-                vp.CameraDirection.LengthSquared() > 0f ? "perspective" : "orthogonal",
-                vp.CameraPosition.X, vp.CameraPosition.Y, vp.CameraPosition.Z, vp.FieldOfView),
-            vp.SelectedGlobalIds,
-            Seq<(string ElementId, uint Color)>(),
-            Seq<string>());
 }
 ```
 

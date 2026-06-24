@@ -20,6 +20,7 @@
         <PackageReference Include="Openize.Drako" />
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="geometry3Sharp" />
+        <PackageReference Include="ACadSharp" />
     </ItemGroup>
 
     <ItemGroup Label="Speckle Sync Seam">

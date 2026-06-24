@@ -27,6 +27,8 @@
 - [21]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization, per-tile `EXT_structural_metadata` `TileMetadata` author, and the `InterchangePolicy`/`ExportArtifact` carriers.
 - [22]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
 - [23]-[WIRE](.planning/Exchange/wire.md): host-free `BimWire` JSON projection of the generated owners through the Thinktecture converters, the source-generated `BimWireContext`, and the content-keyed `BimModel` snapshot the Python and TypeScript peers decode.
+- [24]-[CONNECTION](.planning/Semantics/connection.md): host-neutral `ConnectionDetail` realizing-element joint `[Union]` (`Bolted`/`Welded`/`Bearing`/`Cast`) over `IfcRelConnectsWithRealizingElements`, and the `csharp:Rasm.Materials/Connection` `ConnectionItem` axis IFC 4.3 wire (the `IfcReinforcingBar`/`IfcMechanicalFastener` author, the `MaterialAssignment` trichotomy, the sustainability Psets).
+- [25]-[COORDINATION](.planning/Review/coordination.md): `CoordinationRule` `[Union]` rule engine over the `ElementPredicate` algebra, the `ClashProposal` fold over the `Model/systems#INTERFERENCE` evidence, the `ImpactReport` over two diffs, and the `SignOff` `[SmartEnum]` BCF state machine — the BCF issue-board DOMAIN owner the Persistence/AppUi relocations settle here.
 
 ## [02]-[DOMAIN_PACKAGES]
 

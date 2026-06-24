@@ -63,7 +63,7 @@ public sealed record Issue(
     CommentThread Thread,
     Option<string> SnapshotKey) {
     public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, ClockPolicy clocks) =>
-        topic.Viewpoints.Map(vp => new IssueBinding(vp.Guid, ToViewpoint(vp, clocks))) switch {
+        topic.Viewpoints.Map(vp => new IssueBinding(vp.Guid, ViewpointCodec.FromBcf(vp.Guid, vp, clocks))) switch {
             var bindings => Fin.Succ(new Issue(
                 topic.Guid, topic.Title, IssueStatus.FromBcf(topic.Status), topic.TopicType, topic.Priority,
                 topic.Author, topic.CreationDate, bindings,
@@ -73,26 +73,7 @@ public sealed record Issue(
 
     public Rasm.Bim.Coordination.BcfTopic ToTopic() =>
         new(Guid, Title, ToBcfStatus(Status), TopicType, Priority, Author, CreatedAt,
-            Thread.Materialize(), Bindings.Map(static binding => FromBinding(binding)));
-
-    private static Viewpoint ToViewpoint(Rasm.Bim.Coordination.BcfViewpoint vp, ClockPolicy clocks) =>
-        new(vp.Guid, Viewpoint.Schema,
-            new ViewCamera(true, vp.CameraPosition.X, vp.CameraPosition.Y, vp.CameraPosition.Z,
-                vp.CameraPosition.X + vp.CameraDirection.X, vp.CameraPosition.Y + vp.CameraDirection.Y, vp.CameraPosition.Z + vp.CameraDirection.Z,
-                vp.CameraUpVector.X, vp.CameraUpVector.Y, vp.CameraUpVector.Z, vp.FieldOfView, 1d),
-            new SectionBox(0d, 0d, 0d, 0d, 0d, 0d, false),
-            vp.VisibleGlobalIds.Map(static id => new VisibilityOverride(id, true, None, 0d)),
-            vp.SelectedGlobalIds, clocks.Now);
-
-    private static Rasm.Bim.Coordination.BcfViewpoint FromBinding(IssueBinding binding) =>
-        new(binding.ViewpointGuid,
-            new System.Numerics.Vector3((float)binding.View.Camera.EyeX, (float)binding.View.Camera.EyeY, (float)binding.View.Camera.EyeZ),
-            new System.Numerics.Vector3((float)(binding.View.Camera.TargetX - binding.View.Camera.EyeX), (float)(binding.View.Camera.TargetY - binding.View.Camera.EyeY), (float)(binding.View.Camera.TargetZ - binding.View.Camera.EyeZ)),
-            new System.Numerics.Vector3((float)binding.View.Camera.UpX, (float)binding.View.Camera.UpY, (float)binding.View.Camera.UpZ),
-            binding.View.Camera.FieldOfView,
-            binding.View.Selection,
-            binding.View.Overrides.Filter(static o => o.Visible).Map(static o => o.ElementId),
-            None);
+            Thread.Materialize(), Bindings.Map(static binding => ViewpointCodec.ToBcf(binding.ViewpointGuid, binding.View)));
 
     private static Rasm.Bim.Coordination.BcfStatus ToBcfStatus(IssueStatus status) => status.Switch(
         open: static _ => Rasm.Bim.Coordination.BcfStatus.Open,
@@ -229,4 +210,4 @@ public sealed record IssueBoard(string Key, Seq<Issue> Issues) {
 
 ## [06]-[RESEARCH]
 
-- [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary — the topic GUID/title/status/type/priority/author/creation-instant columns, the comment GUID/author/text/viewpoint-guid/date columns, and the viewpoint `CameraPosition`/`CameraDirection`/`CameraUpVector`/`FieldOfView`/`SelectedGlobalIds`/`VisibleGlobalIds`/`Snapshot` columns anchored on IFC GlobalIds — resolves at implementation against the finalized `Rasm.Bim` issue-exchange surface, including the `Rasm.Bim.Coordination` namespace and the `BcfStatus` enum spelling; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `Vector3` camera-position-and-direction-to-`ViewCamera` eye-target-up correspondence and the GlobalId visibility set) is the board's own boundary mapping over the consumed contract, the board issue model, the comment-thread CRDT, the dashboard tile projection, and the issue-to-viewpoint binding are settled, the exact `Rasm.Bim` BCF record column spellings and namespace are the unverified surface composed at the package edge, never re-minted.
+- [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary — the topic GUID/title/status/type/priority/author/creation-instant columns, the comment GUID/author/text/viewpoint-guid/date columns, and the viewpoint `CameraPosition`/`CameraDirection`/`CameraUpVector`/`FieldOfView`/`SelectedGlobalIds`/`VisibleGlobalIds`/`Snapshot` columns anchored on IFC GlobalIds — resolves at implementation against the finalized `Rasm.Bim` issue-exchange surface, including the `Rasm.Bim.Coordination` namespace, the host-free `System.Numerics.Vector3` camera triplet, and the `BcfStatus` enum spelling; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `System.Numerics.Vector3` camera-position-and-direction-to-`ViewCamera` eye-target-up correspondence and the `SelectedGlobalIds`/`VisibleGlobalIds` set) is the one `Render/pipeline.md#VIEWPOINT_CODEC` `ViewpointCodec.FromBcf`/`ToBcf` over the consumed contract — the board folds each topic through that single codec and re-mints no second viewpoint mapping, the board issue model, the comment-thread CRDT, the dashboard tile projection, and the issue-to-viewpoint binding are settled, and the exact `Rasm.Bim` BCF record column spellings and namespace are the package-edge surface composed through the codec, never re-minted.

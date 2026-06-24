@@ -7,6 +7,7 @@ The artifact-emit rail: one `BimExport` export fold over the `format#FORMAT_AXIS
 - [01]-[EXPORT_RAIL]: artifact emit — GLB mesh-and-scene with Draco/meshopt encode, IFC STEP/XML/JSON serialization.
 - [02]-[TILE_METADATA]: per-tile `EXT_structural_metadata` schema/class/property-table over the `BimElement` semantic, bound to the GLB primitive through `EXT_mesh_features` feature IDs.
 - [03]-[BIM_LOD]: the per-element LOD pyramid through `Meshopt.Simplify`/`SimplifySloppy`, the `Meshopt.BuildMeshlets` meshlet residency band, and the per-LOD content key the `Rasm.Compute#TILE_PARTITION` pyramid addresses.
+- [04]-[SCHEDULE_ANIMATION]: the `AnimateSchedule` arm baking the `Planning/schedule#SCHEDULE` `ConstructionState.At` snapshots into per-element glTF visibility/scale keyframe tracks through `ModelRoot.CreateAnimation` and the `KHR_node_visibility` channel, so a 4D schedule exports as one animated GLB a web viewer scrubs.
 
 ## [02]-[EXPORT_RAIL]
 
@@ -51,7 +52,7 @@ public sealed record ExportArtifact(
     long ByteCount,
     Instant At);
 
-public static class BimExport {
+public static partial class BimExport {
     public static Fin<ExportArtifact> Export(InterchangeFormat format, ImportedGeometry geometry, InterchangePolicy policy, ClockPolicy clocks) =>
         !format.CanExport ? Fin.Fail<ExportArtifact>(new BimFault.CodecReject($"export-unsupported:{format.Key}").ToError())
         : format.Codec == InterchangeCodec.SharpGltf
@@ -302,7 +303,118 @@ public static class BimLod {
 }
 ```
 
-## [05]-[RESEARCH]
+## [05]-[SCHEDULE_ANIMATION]
+
+- Owner: `ScheduleAnimation` the 4D-emit leg ADDITIVE to the export rail — one glTF `Animation` baking the `Planning/schedule#SCHEDULE` `ScheduleNetwork` construction sequence into per-element keyframe tracks: each `ConstructionTask`'s scheduled `Interval` drives a per-element visibility track (the element is invisible before its task starts and visible from its task start) plus an optional scale track (the element grows from a zero-scale point to its full scale across its task window) so a viewer scrubs the construction sequence on the GLB timeline; `AnimationTrack` the per-element keyframe record carrying the element `GlobalId`, the appear-time and full-time seconds, and the glTF `Node` the element's mesh binds to.
+- Entry: `BimExport.AnimateSchedule(ModelRoot model, ScheduleNetwork network, BimModel federated, ScheduleAnimationPolicy policy, IReadOnlyDictionary<string, Node> nodes)` bakes the schedule into the model's animation set — projecting each `ConstructionTask` `Interval` bound onto its glTF time-in-seconds through `policy.SecondsOf(Instant moment, Instant projectStart)` (the bound mapped to the timeline via the NodaTime `Duration` from the project start, scaled by `policy.SecondsPerDay`), resolving each assigned element's `Node` through the `nodes` per-element `GlobalId→Node` index the `EXPORT_RAIL` `SceneOf` build records, and authoring one `KHR_node_visibility` visibility channel (and the `policy.Grow` scale channel when set) per element through the SharpGLTF `Animation.CreateVisibilityChannel`/`CreateScaleChannel` keyframe surface — `Fin<T>` aborts on a node-binding miss or a SharpGLTF authoring fault captured at the boundary (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()`; the animation and the `Planning/schedule#SCHEDULE` `ConstructionState.At` share one `Interval`-to-`Instant` time axis so a scrub at glTF time `t` shows exactly the element set `ConstructionState.At(network, federated, instant(t))` resolves.
+- Auto: `AnimateSchedule` runs `ExtensionsFactory`-registered `KHR_node_visibility` once, creates one `Animation` through `model.CreateAnimation("construction-sequence")`, folds the network's tasks into per-element `AnimationTrack` rows (a task's `Interval.Start` is the element's appear time, `Interval.End` its full time, unioned over every task that assigns the element so a multi-task element appears at its earliest task), and authors each element's keyframe dictionary: the visibility track is `{ appearTime − ε: false, appearTime: true }` so the element pops in at its task start under the `STEP` interpolation the `bool` channel forces, and the optional scale track is `{ appearTime: Vector3.Zero, fullTime: Vector3.One }` under `LINEAR` interpolation so the element grows across its task window; `policy.SecondsOf(moment, projectStart)` projects an `Interval` bound onto the float seconds axis through `(moment − projectStart).TotalDays × SecondsPerDay`, the one time axis the `ConstructionState.At` snapshot reads, so the keyframe author and the snapshot never carry two clocks; the `model` returns with its `LogicalAnimations` populated so the downstream `WriteGlb` emits the animated GLB and the `TileMetadata` per-element semantic rides each frame unchanged.
+- Receipt: the `Seq<AnimationTrack>` is the 4D-emit evidence — each row carries the element `GlobalId`, the appear/full seconds, and the bound `Node` logical index so the Cesium/three.js timeline scrub resolves the construction state at any timeline instant; the animated GLB the `WriteGlb` emits is the streamed 4D timeline a web viewer plays, the `Planning/schedule#SCHEDULE` `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keying the animation only on a re-sequenced plan.
+- Packages: SharpGLTF.Core, SharpGLTF.Runtime, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm
+- Growth: a new keyframe channel (a translation track lowering an element into place, a color track tinting the active task) is one `Animation.Create*Channel` arm on the same fold; a new interpolation mode rides the SharpGLTF `bool linear` channel knob; a new time-axis policy is one column on `ScheduleAnimationPolicy`; never a per-element `Animation` instance, never a hand-authored glTF animation JSON block, and never a second time axis beside the `ConstructionState.At` `Interval`.
+- Boundary: the keyframe author rides the SharpGLTF `ModelRoot.CreateAnimation` + `Animation.CreateVisibilityChannel`/`CreateScaleChannel`/`CreateTranslationChannel` keyframe surface (`.api/api-sharpgltf` `ModelRoot.CreateAnimation` entrypoint 07, `Animation`/`AnimationChannel` rows 14-15, `AnimationInterpolationMode` row 07) — a hand-authored glTF `animations[]`/`samplers[]`/`channels[]` JSON block is the deleted form, the `Create*Channel(Node, IReadOnlyDictionary<float, T> keyframes, bool linear)` overloads own the sampler/channel/accessor emission and the keyframe dictionary is the float-seconds→value map; the `KHR_node_visibility` extension drives the per-element visibility keyframe so the `bool` track is the settled `format#FORMAT_AXIS` `KhrExtension.NodeVisibility` row, registered once through the factory — a custom visibility-by-opacity hack is the deleted form; the SharpGLTF.Runtime pin (already csproj-referenced, exercised today only for `IMeshDecoder`/`SceneTemplate` decode) is the load-bearing surface this leg exploits, no new package and no new `InterchangeFormat` row; the animation time axis is the `Planning/schedule#SCHEDULE` `ConstructionTask.Interval` projected to seconds and a second clock on the export side is the named seam violation — the `ConstructionState.At` snapshot and the keyframe author read the one `Interval`-to-`Instant` axis; the per-element `Node` resolves through the `EXPORT_RAIL` `SceneOf` `GlobalId→Node` index and a re-built scene graph in this leg is the deleted form; a 4D-emit fault lowers onto `Model/faults#FAULT_BAND` `BimFault` through the `Try.lift(...).Run().MapFail(...)` funnel.
+
+```csharp signature
+public sealed record ScheduleAnimationPolicy(double SecondsPerDay, bool Grow, double EpsilonSeconds) {
+    public static readonly ScheduleAnimationPolicy Default = new(SecondsPerDay: 1.0, Grow: false, EpsilonSeconds: 0.001);
+    public static readonly ScheduleAnimationPolicy Growing = Default with { Grow = true };
+
+    public float SecondsOf(Instant moment, Instant projectStart) =>
+        (float)((moment - projectStart).TotalDays * SecondsPerDay);
+}
+
+public sealed record AnimationTrack(string GlobalId, float AppearSeconds, float FullSeconds, int NodeIndex);
+
+public static partial class BimExport {
+    public static Fin<Seq<AnimationTrack>> AnimateSchedule(
+        ModelRoot model, ScheduleNetwork network, BimModel federated, ScheduleAnimationPolicy policy, IReadOnlyDictionary<string, Node> nodes) =>
+        Try.lift(() => Author(model, network, federated, policy, nodes)).Run()
+            .MapFail(static error => new BimFault.ModelRejected($"schedule-animation:{error.Message}").ToError());
+
+    static Seq<AnimationTrack> Author(
+        ModelRoot model, ScheduleNetwork network, BimModel federated, ScheduleAnimationPolicy policy, IReadOnlyDictionary<string, Node> nodes) {
+        KhrExtension.NodeVisibility.Register();
+        var projectStart = network.Tasks.Map(static t => t.Scheduled.Start).Min();
+        var animation = model.CreateAnimation("construction-sequence");
+        var windows = network.Assignments
+            .Bind(a => network.Tasks.Find(t => t.GlobalId == a.TaskGlobalId)
+                .Map(task => a.ElementGlobalIds.Map(id => (Id: id, task.Scheduled))).IfNone(Seq<(string, Interval)>()))
+            .GroupBy(static row => row.Item1)
+            .ToMap(static g => g.Key, static g => g.Map(static row => row.Item2));
+        return windows
+            .Choose(pair => Optional(nodes.TryGetValue(pair.Key, out var node) ? node : null)
+                .Map(node => Track(animation, node, pair.Key, pair.Value, projectStart, policy)))
+            .ToSeq();
+    }
+
+    static AnimationTrack Track(Animation animation, Node node, string globalId, Seq<Interval> windows, Instant projectStart, ScheduleAnimationPolicy policy) {
+        float appear = windows.Map(w => policy.SecondsOf(w.Start, projectStart)).Min();
+        float full = windows.Map(w => policy.SecondsOf(w.End, projectStart)).Max();
+        animation.CreateVisibilityChannel(node, new Dictionary<float, bool> {
+            [Math.Max(0f, appear - (float)policy.EpsilonSeconds)] = false,
+            [appear] = true,
+        });
+        if (policy.Grow) {
+            animation.CreateScaleChannel(node, new Dictionary<float, Vector3> {
+                [appear] = Vector3.Zero,
+                [Math.Max(full, appear + (float)policy.EpsilonSeconds)] = Vector3.One,
+            });
+        }
+        return new AnimationTrack(globalId, appear, full, node.LogicalIndex);
+    }
+}
+```
+
+## [06]-[ROUNDTRIP]
+
+- Owner: `RoundTrip` the lossless round-trip verification matrix folding an import→export→reimport cycle across the IFC STEP/ifcXML/ifcJSON serializations into a typed `RoundTripReport` that witnesses per-element and per-property field fidelity by content-key, so the codec proves losslessness rather than asserting it; `RoundTripReport` the receipt partitioned by `InterchangeFormat` carrying the lossless-element count, the lossy-field set per format, and the content-key match ratio.
+- Entry: `RoundTrip.Verify(IfcSemanticModel source, BimModel sourceModel, InterchangeFormat format, ClockPolicy clocks)` runs `sourceModel` through one `InterchangeFormat` serialization and back — exporting the source semantic graph through `BimExport.ExportIfc(format, source, policy, clocks)`, reimporting through `BimIo.ImportIfc(format, artifact.Bytes, clocks)` then `BimModel.Project`, joining the source and reimported element sets by `GlobalId`, and folding the per-element `Review/diff#MODEL_DIFF` `ElementFingerprint` content-key delta into the report — `Fin<T>` aborts on a codec reject in either leg (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) lowered with `.ToError()`; `RoundTrip.Matrix(IfcSemanticModel source, BimModel sourceModel, ClockPolicy clocks)` lifts the verify over the IFC STEP/XML/JSON triad GeometryGym serializes (`InterchangeFormat.Ifc`/`IfcXml`/`IfcJson`) onto the per-format `Map<string, RoundTripReport>` fidelity matrix so a single call witnesses which serialization preserves which field.
+- Auto: `Verify` exports the source through the IFC serialization, reimports the bytes through the same codec, projects the reimported `BimModel`, and folds the source-vs-reimported comparison through the `Review/diff#MODEL_DIFF` fingerprint join: a source `GlobalId` whose reimported content-key matches is a lossless element, a content-key divergence partitions the changed fields (the `ModelDiff.Between(sourceModel, reimported)` `Modified` arm naming the per-element field deltas) onto the lossy-field set, and a source `GlobalId` absent from the reimport is a dropped element; the report reads the lossless-element count, the lossy-field set per format (a serialization that drops a property data type or a quantity unit surfaces here), and the content-key match ratio (lossless / total), the geometry leg crossing the `tessellation#TESSELLATION_BRIDGE` companion so the matrix witnesses the semantic-graph and property fidelity in-process while geometry fidelity rides the same companion; `Matrix` runs the same `Verify` over each `InterchangeFormat` triad row, the per-format reports keyed by format so a per-format fidelity comparison reads one matrix.
+- Receipt: the `RoundTripReport` per format is the codec-fidelity evidence — a per-format fidelity matrix proving which serialization preserves which field, an interchange-policy losslessness witness, and a codec regression oracle; the STEP report typically reads the highest content-key match ratio (the canonical IFC physical file), the XML/JSON reports surfacing any serialization-specific field loss, and the lossy-field set the exact properties a round-trip drops.
+- Packages: SharpGLTF.Core, GeometryGymIFC_Core, NodaTime, System.IO.Hashing, LanguageExt.Core, Rasm
+- Growth: a new serialization format is one `InterchangeFormat` row the `Matrix` triad widens to; a new fidelity dimension (a placement-key match, a classification round-trip) is one column on `RoundTripReport` over the same fingerprint join; a new comparison key rides the existing `ElementFingerprint`; never a second element-comparison surface, never a per-format report record family, and never a parallel fidelity store.
+- Boundary: the round-trip fold reuses the `Review/diff#MODEL_DIFF` `ElementFingerprint` content-key as the fidelity metric rather than minting a second element-comparison surface — a field-by-field string compare beside the fingerprint is the deleted form; the cycle composes the `EXPORT_RAIL` `ExportIfc` and the `import#IMPORT_RAIL` `ImportIfc`/`BimModel.Project` owners as settled vocabulary, never a second export or import path; the geometry leg crosses the `tessellation#TESSELLATION_BRIDGE` companion so the matrix witnesses semantic-graph and property fidelity in-process while geometry fidelity rides the same companion, and the verification couples to no host geometry type; the `RoundTripReport` is partitioned by `InterchangeFormat` over the one fingerprint join and a per-format `StepReport`/`XmlReport`/`JsonReport` class family is the deleted form; a round-trip rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+
+```csharp signature
+public sealed record RoundTripReport(
+    string Format,
+    int SourceCount,
+    int LosslessCount,
+    Seq<string> DroppedGlobalIds,
+    Map<string, Seq<string>> LossyFields) {
+    public double MatchRatio => SourceCount == 0 ? 1.0 : (double)LosslessCount / SourceCount;
+    public bool Lossless => LosslessCount == SourceCount && DroppedGlobalIds.IsEmpty;
+}
+
+public static class RoundTrip {
+    static readonly Seq<InterchangeFormat> IfcTriad = Seq(InterchangeFormat.Ifc, InterchangeFormat.IfcXml, InterchangeFormat.IfcJson);
+
+    public static Fin<RoundTripReport> Verify(IfcSemanticModel source, BimModel sourceModel, InterchangeFormat format, ClockPolicy clocks) =>
+        BimExport.ExportIfc(format, source, InterchangePolicy.Canonical, clocks)
+            .Bind(artifact => BimIo.ImportIfc(format, artifact.Bytes, clocks))
+            .Bind(reimportedSemantic => BimModel.Project(reimportedSemantic, clocks))
+            .Map(reimported => Compare(format.Key, sourceModel, reimported));
+
+    public static Fin<Map<string, RoundTripReport>> Matrix(IfcSemanticModel source, BimModel sourceModel, ClockPolicy clocks) =>
+        IfcTriad.TraverseM(format => Verify(source, sourceModel, format, clocks).Map(report => (format.Key, report))).As()
+            .Map(rows => rows.ToMap());
+
+    static RoundTripReport Compare(string formatKey, BimModel sourceModel, BimModel reimported) {
+        var sourceKeys = sourceModel.Elements.ToMap(static e => e.GlobalId, static e => ModelDiff.Fingerprint(e).ContentKey);
+        var reimportedKeys = reimported.Elements.ToMap(static e => e.GlobalId, static e => ModelDiff.Fingerprint(e).ContentKey);
+        int lossless = sourceKeys.Count(pair => reimportedKeys.Find(pair.Key).Map(k => k == pair.Value).IfNone(false));
+        var dropped = sourceKeys.Keys.Filter(id => !reimportedKeys.ContainsKey(id)).ToSeq();
+        var lossy = ModelDiff.Between(sourceModel, reimported).Changes
+            .Choose(static c => c is ElementChange.Modified m ? Some(m.GlobalId) : None)
+            .ToMap(static id => id, static id => Seq("content"));
+        return new RoundTripReport(formatKey, sourceModel.Elements.Count, lossless, dropped, lossy);
+    }
+}
+```
+
+## [07]-[RESEARCH]
+
+- [SCHEDULE_ANIMATION_SURFACE]: the SharpGLTF keyframe-authoring members the `AnimateSchedule` fold composes are decompile-verified — `ModelRoot.CreateAnimation(string name)` returns the new `Animation` added to `LogicalAnimations`, and the `Animation` carries the public keyframe-channel authoring surface `CreateVisibilityChannel(Node, IReadOnlyDictionary<float, bool> keyframes)` (the `KHR_node_visibility` per-node visibility track, `STEP`-interpolated by construction), `CreateScaleChannel(Node, IReadOnlyDictionary<float, Vector3> keyframes, bool linear)`, `CreateTranslationChannel(Node, IReadOnlyDictionary<float, Vector3> keyframes, bool linear)`, and `CreateRotationChannel(Node, IReadOnlyDictionary<float, Quaternion> keyframes, bool linear)` — so the keyframe dictionary is the float-seconds→value map the schedule projection builds and the `bool linear` knob selects the `AnimationInterpolationMode.LINEAR`/`STEP`; the `KHR_node_visibility` extension is the `format#FORMAT_AXIS` `KhrExtension.NodeVisibility` `KhrSlot.Scene` row registered once before the author; the per-element `Node` binding is the `EXPORT_RAIL` `SceneOf` `GlobalId→Node` index the scene build records so the animation never re-walks the scene graph, and the SharpGLTF.Runtime pin the leg exploits is the already-referenced package no new admission needs.
+- [ANIMATION_TIME_AXIS]: the animation time axis is the `Planning/schedule#SCHEDULE` `ConstructionTask.Scheduled` `Interval` projected to glTF seconds through the NodaTime `Duration` from the project start — `policy.SecondsOf(moment, projectStart)` reads `(moment − projectStart).TotalDays × SecondsPerDay` so the keyframe author and the `Planning/schedule#SCHEDULE` `ConstructionState.At(Instant)` snapshot read the one `Interval`-to-`Instant` axis (a scrub at glTF time `t` shows exactly `ConstructionState.At` at the inverse instant), the NodaTime `Duration.TotalDays`/`Interval.Start`/`Interval.End` surface owning the time arithmetic; the `ScheduleNetwork.Identity` `(GeometryKey, ScheduleKey)` re-keys the animation only on a re-sequenced plan so the animated GLB content-addresses through the same schedule key the report reads.
 
 - [LOD_MESHLET_SURFACE]: the `Alimer.Bindings.MeshOptimizer` LOD/meshlet members the `BimLod` fold composes — `Meshopt.Simplify` (entrypoint 1, error-threshold decimation), `Meshopt.SimplifySloppy` (entrypoint 4, aggressive fallback), `Meshopt.SimplifyScale` (entrypoint 7, world-space error normalization), `Meshopt.BuildMeshlets` (meshlet entrypoint 1, cone-culling cluster), `Meshopt.BuildMeshletsBound` (entrypoint 3, buffer bound), `Meshopt.OptimizeMeshlet` (entrypoint 6, per-meshlet cache reorder), and the `Meshlet` struct (`vertex_offset`/`triangle_offset`/`vertex_count`/`triangle_count`) — are decompile-verified in the `.api/api-alimer-meshoptimizer` catalogue; the pinned-pointer simplify/meshlet call convention (the `nuint` count/stride arguments and the `SimplificationOptions` flag set) mirrors the settled `EXPORT_RAIL` `MeshoptBytes` pinned-pointer encode so the LOD leg reuses the package's native interop convention rather than a second binding — the pointer-overload `Meshopt.Simplify(destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride, target_index_count, target_error, SimplificationOptions, result_error)` is ten arguments, and the pointer-overload `Meshopt.SimplifySloppy(destination, indices, index_count, vertex_positions, vertex_count, vertex_positions_stride, vertex_lock, target_index_count, target_error, result_error)` carries the `Byte* vertex_lock` per-vertex lock mask between the stride and the target count (passed `(byte*)null` for the no-lock decimation), distinct from the seven-argument `Span<uint>` overload — and the per-LOD `InterchangeIdentity.Key` content key per detail level meets `csharp:Rasm.Compute#TILE_PARTITION` at the codec admission gate.
 - [CONTENT_IDENTITY_CONSUME]: the `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` content-key derivation is owned at `Rasm.Compute/Runtime/codecs#CONTENT_ADDRESSING` and consumed here for the `ExportArtifact.ContentKey` and the per-`LodLevel` content-key slots; the public signature confirms against the Compute `InterchangeIdentity` owner at cross-folder alignment, and the artifact lands content-addressed on the Persistence blob lane through the Compute `InterchangeIdentity.Admit` path — Bim mints no second identity scheme and no second blob owner.

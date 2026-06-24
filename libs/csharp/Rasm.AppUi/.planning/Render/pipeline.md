@@ -6,7 +6,7 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 
 - [01]-[RENDER_GRAPH]: Frame pass-DAG, per-backend `RenderTargetFactory`, resolve ladder, frame-budget invariant, fallback.
 - [02]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes off the Compute receipts.
-- [03]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection as a BCF receipt.
+- [03]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection projecting onto the `Rasm.Bim` `BcfViewpoint` exchange contract.
 - [04]-[TS_PROJECTION]: Viewpoint, frame-evidence, and content-keyed geometry-residency wire contract.
 
 ## [02]-[RENDER_GRAPH]
@@ -274,13 +274,13 @@ public abstract partial record SimVisual {
 
 ## [04]-[VIEWPOINT_CODEC]
 
-- Owner: `Viewpoint` the portable view-state receipt; `SectionBox` the clip volume; `VisibilityOverride` the per-element visibility-and-color row; `ViewpointCodec` the BCF-compatible serializer.
+- Owner: `Viewpoint` the portable view-state receipt; `SectionBox` the clip volume; `VisibilityOverride` the per-element visibility-and-color row; `ViewpointCodec` the projection binding the receipt to the `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract, never an AppUi-local BCF viewpoint schema.
 - Entry: `public string Encode(JsonSerializerOptions wire)` — serializes the camera, section box, visibility set, color overrides, and selection into one portable JSON receipt; `public static Fin<Viewpoint> Decode(string blob, JsonSerializerOptions wire)` — round-trips a stored or shared viewpoint.
 - Auto: a viewpoint captures the full reproducible view state in one receipt — the perspective-or-orthographic camera with its field-of-view, the active section-box clip planes, the per-element visibility and color-override set keyed by element guid, and the current selection — so a saved view, a shared markup, and a coordination issue carry the same portable shape; the BCF projection maps the camera onto the BCF `PerspectiveCamera`/`OrthogonalCamera` fields and the visibility set onto the BCF `Components` visibility and coloring so a viewpoint exports to and imports from an open BCF topic without a second view model.
 - Receipt: `Viewpoint` serializes through the package wire context as a versioned portable receipt the dashboard, the markup, and the cross-process coordination consume.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project), BCL inbox
 - Growth: a new view-state field is one `Viewpoint` member; a new override channel is one `VisibilityOverride` column; zero new surface.
-- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; the BCF-compatible projection is the open-format consequence so a viewpoint round-trips an external BCF tool; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is fence-complete and host-local today — its camera and section apply onto the 2D-fallback projection now and onto the GPU clip when the viewport context lands; the `Editing/issues` board and the `Editing/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
+- Boundary: the viewpoint is the one portable view-state owner — a per-feature camera-snapshot shape is the deleted form, and the section box, visibility, override, and selection all ride this one receipt so a coordination markup and a saved camera share it; `ViewpointCodec` projects the receipt onto the one `cs:Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfViewpoint` exchange contract (the host-free `System.Numerics.Vector3` camera triplet, the `SelectedGlobalIds`/`VisibleGlobalIds` GlobalId sets) so a viewpoint round-trips an external BCF tool through the Bim-owned record and an AppUi-local BCF viewpoint schema is the deleted form — the colour override is a render-only channel the receipt owns and the cross-tool viewpoint deliberately does not carry; the viewpoint binds onto the render-graph camera and section pass at apply time and the GPU clip is the render-graph consequence under VIEWPORT_GPU; the viewpoint receipt is fence-complete and host-local today — its camera and section apply onto the 2D-fallback projection now and onto the GPU clip when the viewport context lands; the `Editing/issues` board and the `Editing/tour` saved-viewpoints consume this one receipt so a coordination viewpoint mints no second camera-snapshot shape.
 
 ```csharp signature
 public readonly record struct ViewCamera(
@@ -321,29 +321,35 @@ public sealed record Viewpoint(
             : Fin.Fail<Viewpoint>(new ViewportFault.Text("viewpoint/decode: blob version mismatch or malformed"));
 }
 
+// The viewpoint <-> BCF projection binds the portable `Viewpoint` receipt to the one
+// `Rasm.Bim.Coordination.BcfViewpoint` exchange contract the Bim owner mints — AppUi re-mints no
+// BCF viewpoint schema, the camera triplet is the host-free `System.Numerics.Vector3` the Bim record
+// carries (position = eye, direction = target - eye, up), and the selection/visibility ride the
+// `SelectedGlobalIds`/`VisibleGlobalIds` GlobalId sets. The per-element colour override is a render-only
+// channel the `Viewpoint` receipt owns and the cross-tool BCF viewpoint deliberately does not carry.
 public static class ViewpointCodec {
-    public static BcfViewpoint ToBcf(Viewpoint view) =>
+    public static Rasm.Bim.Coordination.BcfViewpoint ToBcf(string guid, Viewpoint view) =>
         new(
-            Camera: view.Camera.Perspective
-                ? new BcfCamera("perspective", view.Camera.EyeX, view.Camera.EyeY, view.Camera.EyeZ, view.Camera.FieldOfView)
-                : new BcfCamera("orthogonal", view.Camera.EyeX, view.Camera.EyeY, view.Camera.EyeZ, view.Camera.OrthoScale),
-            Selection: view.Selection,
-            Coloring: view.Overrides.Filter(static o => o.ColorArgb.IsSome).Map(static o => (o.ElementId, (uint)o.ColorArgb)),
-            Hidden: view.Overrides.Filter(static o => !o.Visible).Map(static o => o.ElementId));
+            guid,
+            new System.Numerics.Vector3((float)view.Camera.EyeX, (float)view.Camera.EyeY, (float)view.Camera.EyeZ),
+            new System.Numerics.Vector3((float)(view.Camera.TargetX - view.Camera.EyeX), (float)(view.Camera.TargetY - view.Camera.EyeY), (float)(view.Camera.TargetZ - view.Camera.EyeZ)),
+            new System.Numerics.Vector3((float)view.Camera.UpX, (float)view.Camera.UpY, (float)view.Camera.UpZ),
+            view.Camera.Perspective ? view.Camera.FieldOfView : view.Camera.OrthoScale,
+            view.Selection,
+            view.Overrides.Filter(static o => o.Visible).Map(static o => o.ElementId),
+            Option<ReadOnlyMemory<byte>>.None);
 
-    public static Viewpoint FromBcf(string key, BcfViewpoint bcf, ClockPolicy clocks) =>
+    public static Viewpoint FromBcf(string key, Rasm.Bim.Coordination.BcfViewpoint bcf, ClockPolicy clocks) =>
         new(
             key, Viewpoint.Schema,
-            new ViewCamera(bcf.Camera.Kind == "perspective", bcf.Camera.X, bcf.Camera.Y, bcf.Camera.Z, 0d, 0d, 0d, 0d, 0d, 1d, bcf.Camera.FieldOrScale, bcf.Camera.FieldOrScale),
+            new ViewCamera(bcf.CameraDirection.LengthSquared() > 0f,
+                bcf.CameraPosition.X, bcf.CameraPosition.Y, bcf.CameraPosition.Z,
+                bcf.CameraPosition.X + bcf.CameraDirection.X, bcf.CameraPosition.Y + bcf.CameraDirection.Y, bcf.CameraPosition.Z + bcf.CameraDirection.Z,
+                bcf.CameraUpVector.X, bcf.CameraUpVector.Y, bcf.CameraUpVector.Z, bcf.FieldOfView, bcf.FieldOfView),
             new SectionBox(0d, 0d, 0d, 0d, 0d, 0d, false),
-            bcf.Coloring.Map(static c => new VisibilityOverride(c.ElementId, true, Some(c.Color), 0d))
-                + bcf.Hidden.Map(static id => new VisibilityOverride(id, false, None, 1d)),
-            bcf.Selection, clocks.Now);
+            bcf.VisibleGlobalIds.Map(static id => new VisibilityOverride(id, true, None, 0d)),
+            bcf.SelectedGlobalIds, clocks.Now);
 }
-
-public readonly record struct BcfCamera(string Kind, double X, double Y, double Z, double FieldOrScale);
-
-public sealed record BcfViewpoint(BcfCamera Camera, Seq<string> Selection, Seq<(string ElementId, uint Color)> Coloring, Seq<string> Hidden);
 ```
 
 ## [05]-[TS_PROJECTION]

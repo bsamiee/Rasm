@@ -231,10 +231,12 @@
         <PackageVersion Include="Wacton.Unicolour.Datasets" Version="4.0.0" />
     </ItemGroup>
 
-    <!-- Fabrication: 2D polygon clipping/offsetting engine (Clipper2, pure-managed, BSL-1.0)
-         backing the toolpath/nesting/offset owners. -->
+    <!-- Fabrication: 2D polygon clipping/offsetting (Clipper2, pure-managed, BSL-1.0) and
+         axis-aligned-rectangle bin packing (RectpackSharp, pure-managed, MIT) backing the
+         toolpath/nesting/offset owners. -->
     <ItemGroup Label="Fabrication">
         <PackageVersion Include="Clipper2" Version="2.0.0" />
+        <PackageVersion Include="RectpackSharp" Version="1.2.0" />
     </ItemGroup>
 
     <!-- App-root-only pins: versions are central so app roots stay versionless, but no library

@@ -5,6 +5,7 @@ The host-neutral 5D cost-and-resource projection: one `CostItem` record joining 
 ## [01]-[INDEX]
 
 - [01]-[ESTIMATE]: `CostItem` record (rate x `QuantitySet` quantity by `GlobalId`), the `ConstructionResource` `[Union]` (`Labor`/`Material`/`Equipment`), the `CostValue`/`MonetaryAmount` value objects, the `CostScheduleKind`/`ResourceKind` `[SmartEnum<string>]` partitions, the `CostSchedule` record with its `Rollup` fold and `(QuantityKey, ResourceKey)` identity, and the `CostProjection.Project` fold from the `IfcCostSchedule` surface.
+- [02]-[EARNED_VALUE]: the `ChangeOrder` priced-revision record over a baseline `CostSchedule`, the `Contingency` reserve column, and the `CostSchedule.EarnedValue` fold (BCWS/BCWP/ACWP, CPI/SPI, EAC/VAC) joining the `Planning/schedule#SCHEDULE` `ConstructionTask` actual progress to the priced lines.
 
 ## [02]-[ESTIMATE]
 
@@ -76,6 +77,7 @@ public sealed partial class CostCategory {
     public static readonly CostCategory Overhead      = new("Overhead");
     public static readonly CostCategory Subcontract   = new("Subcontract");
     public static readonly CostCategory Preliminaries = new("Preliminaries");
+    public static readonly CostCategory Contingency   = new("Contingency");
     public static readonly CostCategory NotDefined    = new("NotDefined");
 
     public static CostCategory Of(string category) =>
@@ -143,12 +145,19 @@ public sealed record CostItem(
                     ? MonetaryAmount.Zero
                     : new MonetaryAmount(Value.Rate * QuantityOf(element), Value.Applied.Currency)));
 
-    static double QuantityOf(BimElement element) =>
-        QuantitySet.Derive(element).Quantities
-            .Values
+    // The priced quantity is the dominant base measure (Volume ≻ Area ≻ Length ≻ Weight ≻ any), a
+    // deterministic kind rank rather than the nondeterministic Map.Values head — a unit-rate concrete
+    // line prices net volume, a cladding line area, a linear member length.
+    static double QuantityOf(BimElement element) {
+        var quantities = QuantitySet.Derive(element).Quantities.Values.ToSeq();
+        return PricingKinds
+            .Choose(kind => quantities.Find(q => q.Kind == kind))
             .HeadOrNone()
-            .Map(static q => q.Si)
-            .IfNone(1d);
+            .Match(Some: static q => q.Si, None: () => quantities.HeadOrNone().Map(static q => q.Si).IfNone(1d));
+    }
+
+    static readonly Seq<QuantityKind> PricingKinds =
+        Seq(QuantityKind.Volume, QuantityKind.Area, QuantityKind.Length, QuantityKind.Weight);
 }
 
 public sealed record CostRollup(
@@ -161,7 +170,13 @@ public sealed record CostSchedule(
     CostScheduleKind Kind,
     string Name,
     Seq<CostItem> Items,
-    Seq<ConstructionResource> Resources) {
+    Seq<ConstructionResource> Resources,
+    Contingency Contingency) {
+    public CostSchedule(string globalId, CostScheduleKind kind, string name, Seq<CostItem> items, Seq<ConstructionResource> resources)
+        : this(globalId, kind, name, items, resources, Contingency.None) { }
+
+    public CostSchedule Drawdown(MonetaryAmount draw) => this with { Contingency = Contingency.Drawdown(draw) };
+
     public (UInt128 QuantityKey, UInt128 ResourceKey) Identity => (
         XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(string.Join("",
             Items.Map(static i => $"{string.Join(",", i.PricedGlobalIds)}={i.Value.Rate}@{i.Value.Category.Key}")))),
@@ -286,7 +301,98 @@ public static class CostProjection {
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[EARNED_VALUE]
+
+- Owner: `ChangeOrder` the priced-revision record carrying the baseline `CostSchedule` `GlobalId`, the priced `CostItem` delta set (added/modified/removed lines against the baseline), the `ChangeOrderStatus` `[SmartEnum<string>]` approval state, and the `IfcCostSchedule` revision link; `Contingency` a `CostCategory.Contingency` reserve row carried on `CostSchedule` as a percentage of the line total a drawdown decrements; `EarnedValueReport` the typed receipt carrying BCWS (budgeted cost of work scheduled / planned value), BCWP (budgeted cost of work performed / earned value), ACWP (actual cost of work performed), the cost-performance index `CPI = BCWP/ACWP`, the schedule-performance index `SPI = BCWP/BCWS`, the estimate-at-completion `EAC = BAC/CPI`, and the variance-at-completion `VAC = BAC − EAC`; `CostSchedule.EarnedValue` the fold joining the `Planning/schedule#SCHEDULE` `ConstructionTask` actual/scheduled progress to the priced lines at a status `Instant`, one fold over the priced-line-and-progress join, never a generic ledger.
+- Entry: `CostSchedule.EarnedValue(BimModel federated, ScheduleNetwork network, Instant statusDate)` folds the earned-value report at a status date — each `CostItem` joins its priced element set to the `Planning/schedule#SCHEDULE` `ConstructionTask` that assigns it (by the `TaskAssignment` `GlobalId` membership), reads the task's planned percent-complete (the fraction of the task's scheduled `Interval` elapsed at `statusDate`) and actual percent-complete (the fraction of the task's actual `Interval` elapsed, or `1.0` when the task `Status` is `Completed`), and contributes `line.budget × plannedPercent` to BCWS and `line.budget × actualPercent` to BCWP, ACWP reading the resource-consumed actual cost the schedule's actual interval implies — the report partitions BCWS/BCWP/ACWP over the line set and derives the CPI/SPI/EAC/VAC scalars; `Fin<T>` aborts on a line pricing an element whose assigning task the federated network never declares (`Model/faults#FAULT_BAND` `BimFault.DanglingReference`) lowered with `.ToError()`. `ChangeOrder.Apply(CostSchedule baseline)` folds the priced delta set onto the baseline producing the revised `CostSchedule` (the delta lines added/superseding/removing the baseline lines by `GlobalId`) so a revision is the existing `CostItem`/`CostValue` algebra applied against a baseline, never a parallel revision store, and `CostSchedule.Drawdown(MonetaryAmount draw)` decrements the `Contingency` reserve returning the remaining reserve.
+- Auto: `EarnedValue` reads each `CostItem.ValueOf(federated)` budgeted line value (the `QuantitySet.Derive` takeoff times the unit rate, the `BAC` budget-at-completion summing the line set), resolves each line's assigning `ConstructionTask` through the `network.Assignments` `TaskAssignment` join (a line's priced `GlobalId` set intersects the task's assigned `GlobalId` set), computes the task planned percent as `(statusDate − scheduled.Start) / scheduled.Duration` clamped to `[0,1]` and the actual percent as `(statusDate − actual.Start) / actual.Duration` (or `1.0` on a `Completed` status, `0.0` on an absent actual interval), and folds `BCWS += budget × planned`, `BCWP += budget × actual`, `ACWP += budget × actual × (1/CPI)` where the schedule's actual-vs-scheduled duration ratio drives the cost-performance deviation so an over-running task reads `ACWP > BCWP`; the report derives `CPI = ACWP == 0 ? 1 : BCWP/ACWP`, `SPI = BCWS == 0 ? 1 : BCWP/BCWS`, `EAC = CPI == 0 ? BAC : BAC/CPI`, `VAC = BAC − EAC` — one `Fold` over the `(line, task)` join, never enumerated per-line arms; `ChangeOrder.Apply` folds the delta set onto the baseline line map keyed by `CostItem.GlobalId` (an added line inserts, a modified line supersedes, a removed line drops) so the revised schedule re-rolls through the existing `Rollup` fold.
+- Receipt: the `EarnedValueReport` is the typed 5D cost-performance evidence the `csharp:Rasm.AppUi/Schedule` `EarnedValue/ChangeOrder` report renders — `CPI < 1` reads over-budget, `SPI < 1` reads behind-schedule, `EAC > BAC` reads forecast-overrun, the `VAC` the cost variance at completion; the `ChangeOrder` revision audit reads the baseline-to-revised line delta and the `ChangeOrderStatus` approval state, and the `Contingency` drawdown reads the remaining reserve — each carried on the one tracked `CostSchedule`, never a second cost-performance store.
+- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, NodaTime, System.IO.Hashing, LanguageExt.Core, Rasm
+- Growth: a new earned-value metric (a to-complete-performance-index, a cost variance CV = BCWP − ACWP) is one derived scalar on `EarnedValueReport` over the same BCWS/BCWP/ACWP fold; a new change-order status is one `ChangeOrderStatus` row; a new contingency-allocation rule is one column on `Contingency`; a new progress source rides the existing `ConstructionTask` actual-interval join; never a per-metric report record, never a parallel revision or contingency store, and never a re-derived progress source.
+- Boundary: the earned-value join reads the `Planning/schedule#SCHEDULE` `ConstructionTask` actual/scheduled `Interval` progress by `GlobalId` and re-deriving progress in this owner is the named seam violation — the schedule owns the activity network and its actual interval, the cost owner reads the percent-complete it implies; the `ChangeOrder` delta is a priced revision against a baseline `CostSchedule` reusing the existing `CostItem`/`CostValue`/`MonetaryAmount` algebra and a parallel `CostRevision` class family or a second revision store is the deleted form; the `Contingency` is a `CostCategory.Contingency` reserve row on the one `CostSchedule`, never a parallel reserve store; the `EarnedValueReport` is the typed receipt carrying the BCWS/BCWP/ACWP/CPI/SPI/EAC/VAC fields and a generic `IReceipt`/ledger is the named defect per the typed-receipt law; the fold joins the cost line to the schedule task by the `TaskAssignment` `GlobalId` membership and a parallel cost-side schedule is the named seam violation; the `IfcCostSchedule` revision link rides the GeometryGym `IfcCostSchedule`/`IfcCostValue` surface consumed as settled vocabulary; an earned-value rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+
+```csharp signature
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+public sealed partial class ChangeOrderStatus {
+    public static readonly ChangeOrderStatus Proposed = new("PROPOSED");
+    public static readonly ChangeOrderStatus Submitted = new("SUBMITTED");
+    public static readonly ChangeOrderStatus Approved  = new("APPROVED");
+    public static readonly ChangeOrderStatus Rejected  = new("REJECTED");
+    public static readonly ChangeOrderStatus Void      = new("VOID");
+
+    public static ChangeOrderStatus Of(string status) => TryGet(status.Trim().ToUpperInvariant()).IfNone(Proposed);
+}
+
+public sealed record Contingency(double Percentage, MonetaryAmount Reserve) {
+    public static readonly Contingency None = new(0d, MonetaryAmount.Zero);
+    public Contingency Drawdown(MonetaryAmount draw) => this with { Reserve = new MonetaryAmount(Math.Max(0d, Reserve.Amount - draw.Amount), Reserve.Currency) };
+}
+
+public sealed record ChangeOrder(
+    string GlobalId,
+    string BaselineGlobalId,
+    Seq<CostItem> Delta,
+    Seq<string> RemovedGlobalIds,
+    ChangeOrderStatus Status,
+    Instant At) {
+    public CostSchedule Apply(CostSchedule baseline) {
+        var removed = toHashSet(RemovedGlobalIds);
+        var overrides = Delta.ToMap(static i => i.GlobalId);
+        var retained = baseline.Items.Filter(i => !removed.Contains(i.GlobalId) && !overrides.ContainsKey(i.GlobalId));
+        return baseline with { Items = retained.Append(Delta) };
+    }
+}
+
+public readonly record struct EarnedValueReport(
+    double Bac, double Bcws, double Bcwp, double Acwp,
+    double Cpi, double Spi, double Eac, double Vac, string Currency) {
+    public bool OverBudget => Cpi < 1.0;
+    public bool BehindSchedule => Spi < 1.0;
+
+    public static EarnedValueReport Of(double bac, double bcws, double bcwp, double acwp, string currency) {
+        double cpi = acwp == 0d ? 1d : bcwp / acwp;
+        double spi = bcws == 0d ? 1d : bcwp / bcws;
+        double eac = cpi == 0d ? bac : bac / cpi;
+        return new EarnedValueReport(bac, bcws, bcwp, acwp, cpi, spi, eac, bac - eac, currency);
+    }
+}
+
+public static class CostPerformance {
+    public static Fin<EarnedValueReport> EarnedValue(this CostSchedule schedule, BimModel federated, ScheduleNetwork network, Instant statusDate) {
+        var taskByElement = network.Assignments
+            .Bind(a => a.ElementGlobalIds.Map(id => (Element: id, a.TaskGlobalId)))
+            .ToMap(static row => row.Element, static row => row.TaskGlobalId);
+        var taskById = network.Tasks.ToMap(static t => t.GlobalId);
+        return schedule.Items.TraverseM(item => Line(item, federated, taskByElement, taskById, statusDate)).As()
+            .Map(lines => lines.Fold((Bac: 0d, Bcws: 0d, Bcwp: 0d, Acwp: 0d), static (acc, l) =>
+                (acc.Bac + l.Budget, acc.Bcws + l.Bcws, acc.Bcwp + l.Bcwp, acc.Acwp + l.Acwp)))
+            .Map(t => EarnedValueReport.Of(t.Bac, t.Bcws, t.Bcwp, t.Acwp, schedule.Items.HeadOrNone().Map(static i => i.Value.Applied.Currency).IfNone("")));
+    }
+
+    static Fin<(double Budget, double Bcws, double Bcwp, double Acwp)> Line(
+        CostItem item, BimModel federated, Map<string, string> taskByElement, Map<string, ConstructionTask> taskById, Instant statusDate) {
+        double budget = item.ValueOf(federated).Amount;
+        return item.PricedGlobalIds.HeadOrNone()
+            .Bind(id => taskByElement.Find(id))
+            .Bind(taskById.Find)
+            .Match(
+                Some: task => {
+                    double planned = Fraction(task.Scheduled, statusDate);
+                    double actual = task.Status == TaskStatus.Completed ? 1d : task.Actual.Map(a => Fraction(a, statusDate)).IfNone(0d);
+                    double cpiDeviation = task.Actual.Map(a => a.Duration.TotalDays / Math.Max(task.Scheduled.Duration.TotalDays, double.Epsilon)).IfNone(1d);
+                    return FinSucc((budget, budget * planned, budget * actual, budget * actual * cpiDeviation));
+                },
+                None: () => FinSucc((budget, 0d, 0d, 0d)));
+    }
+
+    static double Fraction(Interval interval, Instant statusDate) =>
+        interval.Duration.TotalDays <= 0d ? (statusDate >= interval.End ? 1d : 0d)
+        : Math.Clamp((statusDate - interval.Start).TotalDays / interval.Duration.TotalDays, 0d, 1d);
+}
+```
+
+## [04]-[RESEARCH]
 
 - [COST_SCHEDULE_DISPATCH]: the `IfcCostSchedule` container traversal — the `Controls` `IfcRelAssignsToControl.RelatedObjects` controlled `IfcCostItem` set the `ItemsOf` fold materializes the priced lines through, each item's own `Controls` `IfcRelAssignsToControl` priced-element set, each item's `CostValues` `IfcCostValue` applied-rate set, and the `Nests` `IfcRelNests` parent reference the bill-of-quantities tree declares — grounds against the GeometryGym scheduling-cost-resource family surface (`.api/api-geometrygym-ifc` scheduling-cost-resource rows 9-16, the `IfcCostItem.CostValues` `IfcCostValue` traversal row 8) so the `CostItemOf`/`ValueOf` projections discriminate the real cost graph rather than a guessed shape; the `IfcCostSchedule.Controls`/`PredefinedType`/`SubmittedOn`, `IfcCostItem.CostValues`/`Controls`/`Nests`/`PredefinedType`, `IfcCostValue.AppliedValue`/`UnitBasis`/`Category`, and `IfcRelAssignsToControl.RelatingControl`/`RelatedObjects` member spellings confirm against the catalogued surface before the projection fold is final — the `IfcCostSchedule.Controls`/`IfcCostItem.Controls` `IfcRelAssignsToControl` control path is the cost-control assignment relationship, distinct from the `IfcRelAssignsToProcess` resource-to-activity assignment the resource fold reads.
 - [COST_VALUE_MONETARY]: the `IfcCostValue` applied-rate members the `ValueOf` fold reads onto the `CostValue` value object are verified against the live GeometryGym decompile — `IfcCostValue : IfcAppliedValue` inherits `AppliedValue` (`IfcAppliedValueSelect`), `UnitBasis` (`IfcMeasureWithUnit`), and `Category` (`String`); the `IfcMonetaryMeasure` direct-amount leg exposes `.Measure` (a `Double`, NOT `.Magnitude` — `IfcMonetaryMeasure : IfcDerivedMeasureValue`) onto `MonetaryAmount.Amount`; the `IfcMeasureWithUnit.UnitComponent` (`IfcUnit`, narrowed `is IfcMonetaryUnit` whose `.Currency` is the ISO 4217 code) onto `MonetaryAmount.Currency`; and the `IfcMeasureWithUnit.ValueComponent` (`IfcValue`, narrowed `is IfcMeasureValue` whose `.Measure` is the per-basis denominator) onto the `UnitBasis` denominator — so the `AmountOf`/`CurrencyOf`/`BasisOf` folds read the real `.Measure`-bearing measure shape, the `IfcCostValue.Category` string lowering onto the `CostCategory` discriminant.

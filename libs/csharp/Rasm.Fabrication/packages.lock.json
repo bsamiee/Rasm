@@ -14,6 +14,12 @@
         "resolved": "2.0.0",
         "contentHash": "2X23RZxJrjRjOSZc20aqXY9jpmHLekDRy4PIMfrsi2LPNzxFYlnuqzX/nLdk77fbURHUeX+gMhUn2a1z9/wMTQ=="
       },
+      "geometry3Sharp": {
+        "type": "Direct",
+        "requested": "[1.0.324, )",
+        "resolved": "1.0.324",
+        "contentHash": "vdEC1zaX6lV8LI9BvqizplraEJ6zFE98rMM+hDZqVPXMtwDIIY/RpTQQtxe043E9gsSdx0Xyz1TbSqIYQnBPaw=="
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -38,6 +44,15 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
+      "RectpackSharp": {
+        "type": "Direct",
+        "requested": "[1.2.0, )",
+        "resolved": "1.2.0",
+        "contentHash": "uLgPjEZebK5Eyhvy3xlbsa2GC+3ML6j2m69ugbNYLH7folQcGckYJQwvcne6Huu6p+jsKNMd0JIqD60iUcqbrQ==",
+        "dependencies": {
+          "Microsoft.Bcl.HashCode": "1.1.1"
+        }
+      },
       "System.IO.Hashing": {
         "type": "Direct",
         "requested": "[10.0.9, )",
@@ -60,6 +75,11 @@
         "requested": "[5.75.0, )",
         "resolved": "5.75.0",
         "contentHash": "CgzvfvE2FaFE+swo7SzZFjhosmh4GpiVJ7Y1N4cQ1qChaUaw3ymw4al+ZxpoBh1RFoo88d+fo2SG194P9G1X+A=="
+      },
+      "Microsoft.Bcl.HashCode": {
+        "type": "Transitive",
+        "resolved": "1.1.1",
+        "contentHash": "MalY0Y/uM/LjXtHfX/26l2VtN4LDNZ2OE3aumNOHDLsT4fNYy2hiHXI4CXCqKpNUNm7iJ2brrc4J89UdaL56FA=="
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",

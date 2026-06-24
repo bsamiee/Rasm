@@ -25,9 +25,9 @@ namespace Rasm.Bim.Coordination;
 
 public sealed record BcfViewpoint(
     string Guid,
-    Vector3 CameraPosition,
-    Vector3 CameraDirection,
-    Vector3 CameraUpVector,
+    System.Numerics.Vector3 CameraPosition,
+    System.Numerics.Vector3 CameraDirection,
+    System.Numerics.Vector3 CameraUpVector,
     double FieldOfView,
     Seq<string> SelectedGlobalIds,
     Seq<string> VisibleGlobalIds,
@@ -102,10 +102,10 @@ public static class BcfArchive {
             Option<ReadOnlyMemory<byte>>.None);
     }
 
-    static Vector3 VectorOf(XElement el) => new(
-        double.Parse(el.Element("X")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture),
-        double.Parse(el.Element("Y")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture),
-        double.Parse(el.Element("Z")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture));
+    static System.Numerics.Vector3 VectorOf(XElement el) => new(
+        float.Parse(el.Element("X")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(el.Element("Y")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(el.Element("Z")?.Value ?? "0", System.Globalization.CultureInfo.InvariantCulture));
 
     static byte[] Encode(Seq<BcfTopic> topics) {
         using var sink = new MemoryStream();
@@ -134,11 +134,11 @@ public static class BcfArchive {
 
 - Owner: `BcfWire` the host-free JSON wire producer of the `[2]-[BCF_ARCHIVE]` topic family — `BcfWire.Topics` the projected `Seq<BcfTopicWire>` payload carrying the topic/comment/viewpoint graph the `ts:ui/bcf-anchor` panel decodes, `BcfTopicWire`/`BcfCommentWire`/`BcfViewpointWire` the wire records mirroring the codec records with the `BcfStatus` string-stable discriminant and the IFC-GUID component anchor; `BcfWire.Encode`/`Decode` the `Exchange/wire#WIRE_PROJECTION` `BimWireOptions.Json`-bound codec so the BCF payload rides the same source-generated `BimWireContext` and `ThinktectureJsonConverterFactory` machinery the model snapshot rides, never a second serializer.
 - Entry: `BcfWire.Encode(Seq<BcfTopic> topics)` projects the codec topic set onto the wire payload and `BcfWire.Decode(ReadOnlyMemory<byte> json)` admits it back — `Fin<T>` aborts on a malformed payload (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) lowered with `.ToError()` at the `Boundary` funnel, the identical `Try.lift(...).Run().MapFail(...)` funnel the `[2]-[BCF_ARCHIVE]` codec carries; `BcfWire.Anchor(BcfViewpoint viewpoint)` projects the viewpoint `SelectedGlobalIds`/`VisibleGlobalIds` onto the element-GlobalId set the UI live-binding highlights, so a TS pick round-trips the exact `Model/elements#ELEMENT_MODEL` `GlobalId` selection the C# viewpoint carries.
-- Auto: `Encode` serializes through `BimWireOptions.Json` — the `BcfStatus` enum serializes by its `[JsonStringEnumMemberName]` lower-kebab name (`open`/`in-progress`/`resolved`/`closed`/`reopened`) so a TS discriminant switches on the string rather than the ordinal, the `Instant` creation/comment dates serialize through the `BimWireContext` `Instant` metadata as `InstantPattern.ExtendedIso` ISO-8601 text, the `Vector3` camera triplet serializes as the kernel `{X,Y,Z}` object the TS camera binding reads, and the `SelectedGlobalIds`/`VisibleGlobalIds` `Seq<string>` serialize as the element-GlobalId arrays the live-binding anchors on; `Decode` re-admits every owner through the same converter factory so a malformed `Instant` or a half-built record faults at admission rather than minting a partial topic.
+- Auto: `Encode` serializes through `BimWireOptions.Json` — the `BcfStatus` enum serializes by its `[JsonStringEnumMemberName]` lower-kebab name (`open`/`in-progress`/`resolved`/`closed`/`reopened`) so a TS discriminant switches on the string rather than the ordinal, the `Instant` creation/comment dates serialize through the `BimWireContext` `Instant` metadata as `InstantPattern.ExtendedIso` ISO-8601 text, the `System.Numerics.Vector3` camera triplet serializes as the host-free `{X,Y,Z}` object the TS camera binding reads, and the `SelectedGlobalIds`/`VisibleGlobalIds` `Seq<string>` serialize as the element-GlobalId arrays the live-binding anchors on; `Decode` re-admits every owner through the same converter factory so a malformed `Instant` or a half-built record faults at admission rather than minting a partial topic.
 - Receipt: the `BcfWire.Topics` payload is the one BCF cross-runtime contract — the `ts:ui/bcf-anchor` panel and live-binding decode the same `BcfTopic`/`BcfComment`/`BcfViewpoint` vocabulary the C# branch mints, never re-minting a parallel issue shape; a viewpoint anchors on the `Model/elements#ELEMENT_MODEL` `GlobalId` so the TS selection highlight and the C# component selection carry one element identity, and the `BcfApi` REST JSON and this wire payload carry the one `BcfTopicWire` vocabulary so the file, REST, and web forms never fork.
 - Packages: Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, Rasm, BCL `System.Text.Json`
 - Growth: a new BCF entity on the wire is one `[JsonSerializable]` row on the `Exchange/wire#WIRE_PROJECTION` `BimWireContext` and one wire record mirroring its codec record; a new topic field is one column on `BcfTopicWire`; the TS panel decodes the new column with no second wire vocabulary; never a second serializer beside `BimWireOptions.Json`.
-- Boundary: `BcfWire` is HOST-FREE — it carries no RhinoCommon type and no `ZipArchive`/`XDocument` codec surface, only the host-free record graph and the kernel `Vector3`; it rides the `Exchange/wire#WIRE_PROJECTION` `BimWireOptions.Json` and the source-generated `BimWireContext`, and a second `JsonSerializerOptions` or a hand-authored DTO mirror is the deleted form — the BCF rows are `[JsonSerializable]` rows on the one `BimWireContext`; the `BcfStatus` discriminant is the `[JsonStringEnumMemberName]` string so a TS decode switches on a stable name and an ordinal-keyed enum crossing the wire is the named seam violation; the viewpoint anchors on the `Model/elements#ELEMENT_MODEL` `GlobalId` so the payload aligns to element GlobalIds only, never to a geometry handle; the `.bcfzip` archive and the `BcfApi` REST forms project onto this one wire family so the issue vocabulary is minted once in C# and decoded by the TS peer, never re-minted — a TS-side parallel topic shape is the named cross-language drift defect.
+- Boundary: `BcfWire` is HOST-FREE — it carries no RhinoCommon type and no `ZipArchive`/`XDocument` codec surface, only the host-free record graph and the BCL `System.Numerics.Vector3`; it rides the `Exchange/wire#WIRE_PROJECTION` `BimWireOptions.Json` and the source-generated `BimWireContext`, and a second `JsonSerializerOptions` or a hand-authored DTO mirror is the deleted form — the BCF rows are `[JsonSerializable]` rows on the one `BimWireContext`; the `BcfStatus` discriminant is the `[JsonStringEnumMemberName]` string so a TS decode switches on a stable name and an ordinal-keyed enum crossing the wire is the named seam violation; the viewpoint anchors on the `Model/elements#ELEMENT_MODEL` `GlobalId` so the payload aligns to element GlobalIds only, never to a geometry handle; the `.bcfzip` archive and the `BcfApi` REST forms project onto this one wire family so the issue vocabulary is minted once in C# and decoded by the TS peer, never re-minted — a TS-side parallel topic shape is the named cross-language drift defect.
 
 ```csharp signature
 namespace Rasm.Bim.Coordination;
@@ -153,9 +153,9 @@ public enum BcfStatus : byte {
 
 public sealed record BcfViewpointWire(
     string Guid,
-    Vector3 CameraPosition,
-    Vector3 CameraDirection,
-    Vector3 CameraUpVector,
+    System.Numerics.Vector3 CameraPosition,
+    System.Numerics.Vector3 CameraDirection,
+    System.Numerics.Vector3 CameraUpVector,
     double FieldOfView,
     Seq<string> SelectedGlobalIds,
     Seq<string> VisibleGlobalIds);
@@ -202,4 +202,4 @@ public sealed record BcfWire(Seq<BcfTopicWire> Topics) {
 
 - [BCF_MARKUP_SCHEMA]: the BCF 3.0 `markup.bcf` / `viewpoint.bcfv` / `bcf.version` XML element grammar — the `Markup`/`Topic`/`Comment`/`Viewpoints` structure, the `PerspectiveCamera`/`OrthogonalCamera`/`Components`/`Component` viewpoint sub-grammar with the IFC-GUID `IfcGuid` component anchor, the `Visibility`/`Selection`/`ClippingPlanes` selection vocabulary, and the topic `TopicStatus`/`TopicType`/`Priority` enumerations — grounds against the published buildingSMART BCF-XML 3.0 schema so the `XDocument` element-name projection matches the container layout before the codec body is final; the `ZipArchive`/`XDocument` BCL surfaces are settled inbox.
 - [BCF_API_REST]: the BCF-API 3.0 REST resource shape — the topic/comment/viewpoint endpoint vocabulary and the JSON projection of the same topic family — grounds against the published buildingSMART BCF-API 3.0 specification so the `BcfApi.Project` request shape matches the REST resource model; the request issues over the `csharp:Compute/Runtime/channels#TRANSPORT_AXIS` transport at cross-folder alignment, never a transport minted here, and the file and REST forms carry one `BcfTopic` vocabulary.
-- [KERNEL_VECTOR_COMPOSE]: the kernel `Rasm` `Vector3` member spelling the `BcfViewpoint` camera carries confirms against the kernel `Rasm` vector owner at cross-folder alignment so the viewpoint camera reuses the kernel vector rather than a host-bound or BCF-local coordinate type.
+- [HOST_FREE_VECTOR_COMPOSE]: the `BcfViewpoint`/`BcfViewpointWire` camera triplet is the BCL `System.Numerics.Vector3` — the one host-free 3-vector the HOST-FREE BCF record family admits (the kernel `Rasm/Vectors` owner exposes only the host-bound RhinoCommon `Vector3d`, which a host-free coordination record may never carry), so the codec record, the wire record, and the `csharp:Rasm.AppUi/Editing/issues` board projection's `BcfViewpoint` construction all name `System.Numerics.Vector3` and a BCF-local or host-bound coordinate type is the deleted form.

@@ -82,7 +82,7 @@ Query/transaction   ←  csharp:Rasm.AppHost/Runtime        # [PORT]: drain 2PC 
 Store/encryption    ←  csharp:Rasm.AppHost/Runtime        # [PORT]: KMS-unwrap port
 Sync/egress         ←  csharp:Rasm.AppHost/Runtime        # [PORT]: keyed OutboundHop egress
 Schema/identity     ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: ObjectAcl identity store, TenantId RLS (ONE_IDENTITY_STORE)
-Sync/coordination   ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: fenced-CAS Budget + workflow step-state, same-tx outbox, TenantId RLS (ONE_FENCED_LEASE_STORE + ONE_OUTBOX_EGRESS_SPINE)
+Sync/coordination   ⇄  csharp:Rasm.AppHost/Runtime        # [PORT]: fenced-CAS Budget + workflow step-state, same-tx outbox, TenantId RLS
 Query/pipeline      ⇄  csharp:Rasm.Compute/Runtime/codecs # [PORT]: parse-to-canonical-bytes (Extract)
 Store/quality       ←  csharp:Rasm.Compute                # [SHAPE]: geometry-derived anomaly rule source
 Store/quality       ←  csharp:Rasm.Bim/Model              # [SHAPE]: IFC validation rules into QualityRule rows

@@ -1,23 +1,23 @@
 # [RASM_FABRICATION_MOTION]
 
-The CAM-motion owner: the toolpath motion kernel one `Cam` static fold dispatches over the `(Process, ToolpathKind)` pair — the milling rows (`contour`/`pocket`/`drill`/`trochoidal`) unchanged, plus the turning rows (`turn-rough`/`turn-finish`/`face`/`groove`/`thread`, a 1-axis radial sweep over the `BarStock` envelope), the shared `thermal-contour` (laser/plasma/waterjet, the pierce/lead differing by `Process` row and conditioned at posting), and `slice-layer` (the additive perimeter-and-infill reading the `Toolpath/slicing#SLICING` layer set) — generating the cut moves. Contour, pocket, and the thermal contour route their offsetting through the `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 substrate — the constant-offset contour rings and the inward pocket clearing are integer-robust polygon offsets, never a hand-rolled per-vertex-normal `OffsetRing` that self-intersects on a reflex vertex. The `trochoidal` row is the dominant HEM (high-efficiency machining) class — an adaptive-clearing toolpath holding constant material-removal rate and radial engagement — driven by the `Toolpath/skeleton#STRAIGHT_SKELETON` straight-skeleton/medial-axis primitive, the one place no managed library exists and the author-kernel posture is correct and forward. The generator reads its per-process budget from the `Process/physics#CUT_PARAMETER` `RemovalBudget` case (the `SubtractiveBudget` MRR for trochoidal, the `ThermalBudget` cut-speed for thermal-contour, the `AdditiveBudget` layer geometry for slice-layer) selected by the `Process.RemovalModality`. The kernel composes the `Process/owner#FABRICATION_OWNER` `Loop`/`Move`/`FabricationPolicy.Cam`/`FabricationResult.Motion` shared vocabulary, drives each chain-targeting move through the `Toolpath/kinematics#SERIAL_CHAIN` FK/IK solver (the gantry-driven turning/thermal/slice kinds take the non-IK arm directly), and reads the kernel `Rasm.Geometry/Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation where a side verdict is needed. It is dispatched by the `Process/owner#FABRICATION_OWNER` `Run` fold's `Cam` policy case; it mints no second owner surface, computes no hash, and operates on raw coordinate doubles at the interior.
+The CAM-motion owner: the toolpath motion kernel one `Cam` static fold dispatches over the `(RemovalModality, CutStrategy)` cross-product — the engagement `CutStrategy` (the `Process/family#PROCESS_FAMILY` axis: `boundary-pass`/`pocket-clear`/`peck`/`adaptive`/`radial-sweep`/`plunge-dwell`/`helical`/`layer-walk`) lands its move geometry ONCE and the `RemovalModality` off `input.Process` selects the envelope, so a process-agnostic strategy stops masquerading as a process-bound row: the milling `boundary-pass`/`pocket-clear`/`peck`/`adaptive`, the turning `radial-sweep`/`plunge-dwell`/`helical` (a 1-axis radial sweep over the `BarStock` envelope), the thermal `boundary-pass` (laser/plasma/waterjet sharing the contour generator, the pierce/lead differing by modality and conditioned at posting), and the additive `layer-walk` (the perimeter-and-infill reading the `Toolpath/slicing#SLICING` layer set) are all ONE strategy row read across every admitting modality, the `RemovalModality.Admits(CutStrategy)` relation routing an inadmissible pair (turning's `radial-sweep` on a `thermal` laser) to `FabricationFault.InadmissiblePair` rather than a silent empty move set. `boundary-pass` and `pocket-clear` route their offsetting through the `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 substrate — the constant-offset contour rings and the inward pocket clearing are integer-robust polygon offsets, never a hand-rolled per-vertex-normal `OffsetRing` that self-intersects on a reflex vertex. The `adaptive` strategy is the dominant HEM (high-efficiency machining) class — an adaptive-clearing toolpath holding constant material-removal rate and radial engagement — driven by the `Toolpath/skeleton#STRAIGHT_SKELETON` straight-skeleton/medial-axis primitive, the one place no managed library exists and the author-kernel posture is correct and forward; the constant-engagement step is realized over the linear `Move` chord stream and its variable-radius circular-arc identity is recovered at posting by the `Posting/program#CUT_PROGRAM` `BIARC_ARC_EMISSION` biarc refit, the `Move` carrying an `Option<ArcCenter>` column the refit fills so a `G2`/`G3` arc block emits where the chord run is curvature-faithful. The generator reads its per-process budget from the `Process/physics#CUT_PARAMETER` `RemovalBudget` case (the `SubtractiveBudget` MRR for `adaptive`, the `ThermalBudget` cut-speed for the thermal `boundary-pass`, the `AdditiveBudget` layer geometry for `layer-walk`) selected by the `Process.RemovalModality`. The kernel composes the `Process/owner#FABRICATION_OWNER` `Loop`/`Move`/`FabricationPolicy.Cam`/`FabricationResult.Motion` shared vocabulary, drives each chain-targeting move through the `Toolpath/kinematics#SERIAL_CHAIN` FK/IK solver (the gantry-driven `radial-sweep`/thermal/`layer-walk` kinds take the non-IK arm directly), and reads the kernel `Rasm.Geometry/Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient2D` exact orientation where a side verdict is needed. It is dispatched by the `Process/owner#FABRICATION_OWNER` `Run` fold's `Cam` policy case; it mints no second owner surface, computes no hash, and operates on raw coordinate doubles at the interior.
 
 Wire posture: HOST-LOCAL. The `Motion` toolpath/joint stream crosses only the in-process seam to the `Posting/program#CUT_PROGRAM` emitter — never a browser or peer wire.
 
 ## [01]-[INDEX]
 
-- [01]-[CAM_MOTION]: owns the `ToolpathKind` contour/pocket/drill/trochoidal move generators over the Geometry2D offset and the `Cam` fold driving each move target through the serial-chain IK; one motion owner over the kind axis.
+- [01]-[CAM_MOTION]: owns the `(RemovalModality, CutStrategy)` cross-product move generators over the Geometry2D offset and the `Cam` fold driving each move target through the serial-chain IK; one motion owner over the strategy×modality dispatch, the `CutStrategy` axis itself owned by `Process/family#PROCESS_FAMILY`.
 
 ## [02]-[CAM_MOTION]
 
-- Owner: `ToolpathKind` `[SmartEnum<string>]` the toolpath strategy axis (`contour`/`pocket`/`drill`/`trochoidal`/`turn-rough`/`turn-finish`/`face`/`groove`/`thread`/`thermal-contour`/`slice-layer`), the per-kind move-generation behavior carried by the `Generate` generated total `Switch` arm rather than a parallel behavior flag the dispatch re-derives; `Cam` the static motion fold over the `(Process, ToolpathKind)` pair generating the cut moves, then driving each chain-targeting move through the FK/IK chain and emitting the `Motion` joint stream.
-- Cases: `ToolpathKind` rows `contour` (constant-offset boundary passes via Geometry2D `Offset`) · `pocket` (inward continuous spiral via repeated Geometry2D `Offset` rings) · `drill` (peck-cycle point set) · `trochoidal` (adaptive-clearing HEM over the straight-skeleton medial axis, constant MRR and radial engagement) · `turn-rough`/`turn-finish` (a 1-axis radial sweep over the `BarStock` revolved envelope, the cut profile a Z-vs-radius pass) · `face` (an end-facing radial sweep to a target Z) · `groove` (a plunge-and-dwell radial cut) · `thread` (a constant-lead helical sweep) · `thermal-contour` (the laser/plasma/waterjet contour generator, the same Geometry2D contour offset as milling, the pierce/lead conditioned at posting) · `slice-layer` (the additive perimeter-and-infill move set walking the `Toolpath/slicing#SLICING` layer contour) (11).
-- Entry: `public static Fin<FabricationResult> Solve(FabricationPolicy.Cam policy, FabricationInput input)` — `Fin<T>` routes `FabricationFault.OpenLoop` on a non-closed toolpath boundary, the kernel `GeometryFault.DegenerateInput` on an empty profile, and `FabricationFault.Unreachable` when a reach-strict `IkPolicy.ReachStrict` solve does not converge, each lowered with `.ToError()`; the body dispatches the `(Process, ToolpathKind)` pair to the move generator, then runs the FK chain to verify reach and the IK solver to drive the end-effector to each chain-targeting move, emitting the `Motion` joint stream.
-- Auto: `Cam.Solve` dispatches the `ToolpathKind` through the generated total `Switch` in `Generate`, threading the `(policy, loop)` state into each case arm — `contour` folds the boundary loop inward by `ToolRadius + k·StepOver` constant Geometry2D offsets for `Passes` rings; `pocket` generates the inward clearing as successive Geometry2D offset rings stitched into one continuous path so the cutter never lifts; `drill` emits a peck point per profile centroid with retract moves between; `trochoidal` reads the `Toolpath/skeleton#STRAIGHT_SKELETON` medial axis of the pocket, then walks it with a variable radial step sized per point from the `StraightSkeleton.ClearanceAt` local channel half-width and the `EngagementPolicy.TargetAngle` so the cutter holds constant radial engagement (a wide channel takes a coarse step, a narrowing channel a finer step), the per-pass step further bounded by the `EngagementPolicy.MaxAxialDepth` stickout-derived cap — the constant-engagement HEM strategy a uniform `len/stepOver` march cannot give since it ignores the channel width; the turning rows (`turn-rough`/`turn-finish`/`face`/`groove`/`thread`) sweep the boundary as a 1-axis radial pass over the `BarStock` envelope (a Z-vs-radius profile, not a 2D-pocket offset) so the lathe tool walks the diameter profile in successive depth-of-cut steps; `thermal-contour` SHARES the `contour` generator (the same Geometry2D constant-offset boundary pass), the pierce-point and lead conditioning owned at `Posting/program#CUT_PROGRAM`, so the `Generate` arm is thin; `slice-layer` walks the `Toolpath/slicing#SLICING` layer contour set as the per-layer perimeter-and-infill move sequence at the `AdditiveBudget` layer height. After move generation the fold drives each chain-targeting move through the `Toolpath/kinematics#SERIAL_CHAIN` IK solver, warm-starting each solve from the previous move's joint solution; under a permissive `IkPolicy` it emits the `Motion` with the per-target joint stream, the final residual, and the reached conjunction, and under `IkPolicy.ReachStrict` a non-converged reached conjunction routes `FabricationFault.Unreachable` carrying the residual — `Cam.Solve` is the one in-folder producer of `Unreachable` since `Ik.Solve` stays total and never decides the reach contract; the gantry-driven turning/thermal/slice kinds whose `input.Chain` is empty take the non-IK arm directly (the existing empty-chain fold path), the IK drive reserved for the serial-chain-targeting kinds.
-- Receipt: the `Motion` carries the ordered `Move` list (rapid/feed with feedrate), the per-target joint-angle stream, the final IK position residual, and the reached flag — the typed motion evidence the posting owner consumes; no generic motion ledger.
-- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, the side verdict), Clipper2 (via `Polygon/clipper#POLYGON_ALGEBRA` — the contour/pocket offset), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new toolpath strategy is one `ToolpathKind` row plus one `Generate` `Switch` arm, the generated dispatch breaking the build until the arm lands; a collision-aware retract is one `Move`-fold arm reading the settled `SpatialIndex`; a 5-axis tilt strategy is one orientation column on the trochoidal arm; the variable-radius G2/G3 arc emission of the constant-engagement walk is one `Move` arc-center column the `BIARC_ARC_EMISSION` posting fold renders, the linear `Move` sample stream the chord input the biarc fit refits; zero new surface.
-- Boundary: CAM is the ONE motion owner over the `(Process, ToolpathKind)` pair and a `ContourPath`/`PocketPath`/`DrillCycle`/`TurningPass`/`ThermalPath`/`SlicePath` sibling family is the deleted form — every process toolpath is one `Generate` `Switch` arm; the per-kind behavior lives in the `Generate` generated total `Switch` arm and a parallel `Spiral`/`Adaptive`/`Thermal` boolean column on `ToolpathKind` beside the case the dispatch already reads is the deleted form — one axis carries one discriminant, the union case, never a second flag the arm re-derives; the thermal contour SHARES the `contour` generator and a parallel thermal-only contour kernel is the deleted form — the pierce/lead conditioning is owned at posting, not a second offset routine; the contour, pocket, and thermal offsetting route the one `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 owner and a hand-rolled `OffsetRing` is the deleted form; the trochoidal adaptive clearing reads the `Toolpath/skeleton#STRAIGHT_SKELETON` medial-axis primitive and a per-vertex spiral approximation of HEM is the rejected form; the radial step holds constant engagement off the `ClearanceAt` local channel half-width and a uniform `stepOver` march ignoring the channel width is the deleted form — the engagement walk reads the wavefront clearance field the skeleton already encodes, never a re-derived distance transform, and the per-pass step is bounded by the `EngagementPolicy.MaxAxialDepth` stickout cap; the slice-layer generator reads the `Toolpath/slicing#SLICING` layer set and a CAM-local re-slice is the deleted form; the FK/IK chain is owned at `Toolpath/kinematics#SERIAL_CHAIN` and a CAM-local kinematics re-mint is the deleted form; the side verdict reads `Predicate.Orient2D` exact sign and a `double` cross at the call site is the named robustness defect.
+- Owner: `Cam` the static motion fold over the `(RemovalModality, CutStrategy)` pair (the modality read off `input.Process`, the strategy off `policy.Strategy`) generating the cut moves through the `Generate` generated total `Switch`, then driving each chain-targeting move through the FK/IK chain and emitting the `Motion` joint stream; `ArcCenter` the readonly arc-identity column the `Move` carries (`Option<ArcCenter>`) recording the `(Center, Clockwise)` a constant-engagement arc segment resolves to, the linear chord stream the `Posting/program#CUT_PROGRAM` `BIARC_ARC_EMISSION` biarc refit reads; `EngagementPolicy` the constant-engagement knobs (`TargetAngle`/`MaxAxialDepth`). The `CutStrategy` engagement axis and the `RemovalModality.Admits(CutStrategy)` relation are owned at `Process/family#PROCESS_FAMILY` — this page composes them, never re-mints a parallel motion enum.
+- Cases: the `(RemovalModality, CutStrategy)` `Generate` arms — `boundary-pass` (constant-offset boundary passes via Geometry2D `Offset`, the milling-contour/thermal-contour/routing strategy a modality envelopes: a `subtractive` modality cuts the rings, a `thermal` modality the pierce/lead conditioned at posting) · `pocket-clear` (inward continuous spiral via repeated Geometry2D `Offset` rings) · `peck` (peck-cycle point set) · `adaptive` (adaptive-clearing HEM over the straight-skeleton medial axis, constant MRR and radial engagement, emitting the `Option<ArcCenter>`-tagged chord stream) · `radial-sweep` (a 1-axis radial sweep over the `BarStock` revolved envelope, the lathe rough/finish/face Z-vs-radius pass) · `plunge-dwell` (the groove plunge-and-dwell radial cut) · `helical` (a constant-lead helical sweep, lathe threading and helical entry) · `layer-walk` (the additive perimeter-and-infill move set walking the `Toolpath/slicing#SLICING` layer contour at the `AdditiveBudget` layer height) (8 strategy arms × the modality envelope), the `(RemovalModality, CutStrategy)` cross-product PARTIAL — an inadmissible pair routes `FabricationFault.InadmissiblePair`, never an empty move set.
+- Entry: `public static Fin<FabricationResult> Solve(FabricationPolicy.Cam policy, FabricationInput input)` — `Fin<T>` routes `FabricationFault.InadmissiblePair` when `input.Process.Modality.Admits(policy.Strategy)` is false, `FabricationFault.OpenLoop` on a non-closed toolpath boundary, the kernel `GeometryFault.DegenerateInput` on an empty profile, and `FabricationFault.Unreachable` when a reach-strict `IkPolicy.ReachStrict` solve does not converge, each lowered with `.ToError()`; the body gates the `(RemovalModality, CutStrategy)` pair against `Admits`, dispatches it to the move generator, then runs the FK chain to verify reach and the IK solver to drive the end-effector to each chain-targeting move, emitting the `Motion` joint stream.
+- Auto: `Cam.Solve` reads `policy.Strategy` and `input.Process.Modality`, and on `Admits` success dispatches the `CutStrategy` through the generated total `Switch` in `Generate`, threading the `(policy, loop, modality)` state into each arm — `boundary-pass` folds the boundary loop inward by `ToolRadius + k·StepOver` constant Geometry2D offsets for `Passes` rings (the thermal modality emitting one ring, the pierce/lead owned at posting, so the arm is modality-thin); `pocket-clear` generates the inward clearing as successive Geometry2D offset rings stitched into one continuous path so the cutter never lifts; `peck` emits a peck point per profile centroid with retract moves between; `adaptive` reads the `Toolpath/skeleton#STRAIGHT_SKELETON` medial axis of the pocket, then walks it with a variable radial step sized per point from the `StraightSkeleton.ClearanceAt` local channel half-width and the `EngagementPolicy.TargetAngle` so the cutter holds constant radial engagement (a wide channel takes a coarse step, a narrowing channel a finer step), the per-pass step further bounded by the `EngagementPolicy.MaxAxialDepth` stickout-derived cap, and each curving arc segment tagged with its `ArcCenter` (the bisector-normal circle center through the segment endpoints) on the emitted `Move` so the posting biarc refit recovers the `G2`/`G3` block — the constant-engagement HEM strategy a uniform `len/stepOver` march cannot give since it ignores the channel width; `radial-sweep` sweeps the boundary as a 1-axis radial pass over the `BarStock` envelope (a Z-vs-radius profile, not a 2D-pocket offset) so the lathe tool walks the diameter profile in successive depth-of-cut steps; `plunge-dwell` plunges to the groove centroid and dwells; `helical` sweeps the constant-lead helix; `layer-walk` walks the `Toolpath/slicing#SLICING` layer contour set as the per-layer perimeter-and-infill move sequence at the `AdditiveBudget` layer height. After move generation the fold drives each chain-targeting move through the `Toolpath/kinematics#SERIAL_CHAIN` IK solver, warm-starting each solve from the previous move's joint solution; under a permissive `IkPolicy` it emits the `Motion` with the per-target joint stream, the final residual, and the reached conjunction, and under `IkPolicy.ReachStrict` a non-converged reached conjunction routes `FabricationFault.Unreachable` carrying the residual — `Cam.Solve` is the one in-folder producer of `Unreachable` since `Ik.Solve` stays total and never decides the reach contract; the gantry-driven `radial-sweep`/thermal/`layer-walk` kinds whose `input.Chain` is empty take the non-IK arm directly (the existing empty-chain fold path), the IK drive reserved for the serial-chain-targeting kinds.
+- Receipt: the `Motion` carries the ordered `Move` list (rapid/feed with feedrate plus the `Option<ArcCenter>` arc identity), the per-target joint-angle stream, the final IK position residual, and the reached flag — the typed motion evidence the posting owner consumes; no generic motion ledger.
+- Packages: `Rasm`/Vectors (`Point3d`/`Vector3d` — composed), `Rasm.Geometry.Numerics` (`Predicate.Orient2D` — settled, the side verdict), Clipper2 (via `Polygon/clipper#POLYGON_ALGEBRA` — the contour/pocket offset), `Process/family#PROCESS_FAMILY` (`CutStrategy`/`RemovalModality.Admits` — composed), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new engagement strategy is one `CutStrategy` row at `Process/family#PROCESS_FAMILY` plus one `Generate` `Switch` arm here and its addition to every admitting modality's `Strategies` set, the generated dispatch breaking the build until the arm lands — a new process reusing an existing strategy adds ZERO arms (a routing contour and a thermal contour are both `boundary-pass`); a collision-aware retract is one `Move`-fold arm reading the settled `SpatialIndex` (the `Toolpath/guard#GUARD` `Lift` verdict the `Guard.Check` per-move gate produces); a 5-axis tilt strategy is one orientation column on the `adaptive` arm; the variable-radius G2/G3 arc emission of the constant-engagement walk is the realized `Option<ArcCenter>` `Move` column the `BIARC_ARC_EMISSION` posting fold renders, the linear `Move` sample stream the chord input the biarc fit refits; zero new surface.
+- Boundary: CAM is the ONE motion owner over the `(RemovalModality, CutStrategy)` pair and a `ContourPath`/`PocketPath`/`DrillCycle`/`TurningPass`/`ThermalPath`/`SlicePath` sibling family is the deleted form — every process toolpath is one `Generate` `Switch` arm; the flat 11-row `ToolpathKind` conflating strategy with modality (turn-rough/turn-finish/face/groove/thread/thermal-contour/slice-layer beside contour/pocket/drill/trochoidal) is the deleted form this factoring retires — a strategy lands once on the `CutStrategy` axis and the modality envelopes it, the turning rows collapsing onto `radial-sweep`/`plunge-dwell`/`helical`, the thermal contour onto `boundary-pass`, the additive walk onto `layer-walk`, never an axis re-encoding the modality; the `(RemovalModality, CutStrategy)` cross-product is gated by the `Process/family#PROCESS_FAMILY` `RemovalModality.Admits(CutStrategy)` relation and a silent empty move set on an inadmissible pair is the deleted form — the dispatch queries `Admits` and routes `FabricationFault.InadmissiblePair`; the per-strategy behavior lives in the `Generate` generated total `Switch` arm and a parallel `Spiral`/`Adaptive`/`Thermal` boolean column beside the strategy the dispatch already reads is the deleted form — one axis carries one discriminant, never a second flag the arm re-derives; the thermal `boundary-pass` SHARES the contour generator and a parallel thermal-only contour kernel is the deleted form — the pierce/lead conditioning is owned at posting, not a second offset routine; the boundary-pass and pocket-clear offsetting route the one `Polygon/clipper#POLYGON_ALGEBRA` Clipper2 owner and a hand-rolled `OffsetRing` is the deleted form; the `adaptive` clearing reads the `Toolpath/skeleton#STRAIGHT_SKELETON` medial-axis primitive and a per-vertex spiral approximation of HEM is the rejected form; the radial step holds constant engagement off the `ClearanceAt` local channel half-width and a uniform `stepOver` march ignoring the channel width is the deleted form — the engagement walk reads the wavefront clearance field the skeleton already encodes, never a re-derived distance transform, and the per-pass step is bounded by the `EngagementPolicy.MaxAxialDepth` stickout cap; the variable-radius arc identity rides the `Option<ArcCenter>` `Move` column the posting biarc refit reads and a CAM-side G2/G3 word emission is the deleted form — the move stream stays linear chords, the arc recovered ONCE at posting, never a second arc-aware offset call site; the `layer-walk` generator reads the `Toolpath/slicing#SLICING` layer set and a CAM-local re-slice is the deleted form; the FK/IK chain is owned at `Toolpath/kinematics#SERIAL_CHAIN` and a CAM-local kinematics re-mint is the deleted form; the side verdict reads `Predicate.Orient2D` exact sign and a `double` cross at the call site is the named robustness defect.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -27,6 +27,7 @@ using Rasm.Fabrication.Additive;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
+using Rasm.Fabrication.ProcessModel;
 using Rasm.Geometry;
 using Rasm.Geometry.Numerics;
 using Rhino.Geometry;
@@ -40,56 +41,40 @@ public readonly record struct EngagementPolicy(double TargetAngle, double MaxAxi
     public static readonly EngagementPolicy Default = new(TargetAngle: 60.0, MaxAxialDepth: double.PositiveInfinity);
 }
 
-[SmartEnum<string>]
-public sealed partial class ToolpathKind {
-    public static readonly ToolpathKind Contour = new("contour");
-    public static readonly ToolpathKind Pocket = new("pocket");
-    public static readonly ToolpathKind Drill = new("drill");
-    public static readonly ToolpathKind Trochoidal = new("trochoidal");
-    public static readonly ToolpathKind TurnRough = new("turn-rough");
-    public static readonly ToolpathKind TurnFinish = new("turn-finish");
-    public static readonly ToolpathKind Face = new("face");
-    public static readonly ToolpathKind Groove = new("groove");
-    public static readonly ToolpathKind Thread = new("thread");
-    public static readonly ToolpathKind ThermalContour = new("thermal-contour");
-    public static readonly ToolpathKind SliceLayer = new("slice-layer");
-}
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Cam {
     public static Fin<FabricationResult> Solve(FabricationPolicy.Cam policy, FabricationInput input) =>
-        input.Profiles.IsEmpty
-            ? Fin.Fail<FabricationResult>(GeometryFault.DegenerateInput("cam:no-profile").ToError())
-            : input.Profiles.Find(static l => !l.Closed).Match(
-                Some: _ => Fin.Fail<FabricationResult>(FabricationFault.OpenLoop("cam:open-boundary").ToError()),
-                None: () => {
-                    Seq<Move> moves = toSeq(input.Profiles).Bind(loop => Generate(policy, loop.AsCcw()));
-                    var fold = input.Chain.IsEmpty
-                        ? (Joints: Seq<double[]>(), Seed: Array.Empty<double>(), Residual: 0.0, Reached: true)
-                        : moves.Fold((Joints: Seq<double[]>(), Seed: new double[input.Chain.Count], Residual: 0.0, Reached: true),
-                            (acc, move) => {
-                                var (theta, residual, ok) = Ik.Solve(input.Chain.ToArray(), acc.Seed, move.To, policy.Ik);
-                                return (acc.Joints.Add(theta), theta, residual, acc.Reached && ok);
-                            });
-                    return policy.Ik.ReachStrict && !fold.Reached
-                        ? Fin.Fail<FabricationResult>(FabricationFault.Unreachable($"cam:ik-residual:{fold.Residual:0.###}").ToError())
-                        : Fin.Succ((FabricationResult)new FabricationResult.Motion(moves, fold.Joints, fold.Residual, fold.Reached));
-                });
+        !input.Process.Modality.Admits(policy.Strategy)
+            ? Fin.Fail<FabricationResult>(FabricationFault.InadmissiblePair($"cam:{input.Process.Modality.Key}-rejects-{policy.Strategy.Key}").ToError())
+            : input.Profiles.IsEmpty
+                ? Fin.Fail<FabricationResult>(GeometryFault.DegenerateInput("cam:no-profile").ToError())
+                : input.Profiles.Find(static l => !l.Closed).Match(
+                    Some: _ => Fin.Fail<FabricationResult>(FabricationFault.OpenLoop("cam:open-boundary").ToError()),
+                    None: () => {
+                        Seq<Move> moves = toSeq(input.Profiles).Bind(loop => Generate(policy, loop.AsCcw()));
+                        var fold = input.Chain.IsEmpty
+                            ? (Joints: Seq<double[]>(), Seed: Array.Empty<double>(), Residual: 0.0, Reached: true)
+                            : moves.Fold((Joints: Seq<double[]>(), Seed: new double[input.Chain.Count], Residual: 0.0, Reached: true),
+                                (acc, move) => {
+                                    var (theta, residual, ok) = Ik.Solve(input.Chain.ToArray(), acc.Seed, move.To, policy.Ik);
+                                    return (acc.Joints.Add(theta), theta, residual, acc.Reached && ok);
+                                });
+                        return policy.Ik.ReachStrict && !fold.Reached
+                            ? Fin.Fail<FabricationResult>(FabricationFault.Unreachable($"cam:ik-residual:{fold.Residual:0.###}").ToError())
+                            : Fin.Succ((FabricationResult)new FabricationResult.Motion(moves, fold.Joints, fold.Residual, fold.Reached));
+                    });
 
     static Seq<Move> Generate(FabricationPolicy.Cam p, Loop loop) =>
-        p.Kind.Switch(
-            state:          (p, loop),
-            contour:        static s => Contour(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
-            pocket:         static s => Pocket(s.loop, s.p.ToolRadius, s.p.StepOver),
-            drill:          static s => Peck(s.loop, s.p.ToolRadius),
-            trochoidal:     static s => Trochoidal(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Engagement),
-            turnRough:      static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
-            turnFinish:     static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, 1),
-            face:           static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
-            groove:         static s => Plunge(s.loop, s.p.ToolRadius),
-            thread:         static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
-            thermalContour: static s => Contour(s.loop, s.p.ToolRadius, s.p.StepOver, 1),
-            sliceLayer:     static s => SliceWalk(s.loop));
+        p.Strategy.Switch(
+            state:        (p, loop),
+            boundaryPass: static s => Contour(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
+            pocketClear:  static s => Pocket(s.loop, s.p.ToolRadius, s.p.StepOver),
+            peck:         static s => Peck(s.loop, s.p.ToolRadius),
+            adaptive:     static s => Adaptive(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Engagement),
+            radialSweep:  static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
+            plungeDwell:  static s => Plunge(s.loop, s.p.ToolRadius),
+            helical:      static s => Turn(s.loop, s.p.ToolRadius, s.p.StepOver, s.p.Passes),
+            layerWalk:    static s => SliceWalk(s.loop));
 
     static Seq<Move> Turn(Loop profile, double radius, double stepOver, int passes) =>
         toSeq(Enumerable.Range(0, Math.Max(1, passes)))
@@ -125,7 +110,7 @@ public static class Cam {
         return Seq(new Move(c with { Z = c.Z + 5.0 }, Rapid: true, Feed: 0.0), new Move(c, Rapid: false, Feed: 0.5));
     }
 
-    static Seq<Move> Trochoidal(Loop loop, double radius, double stepOver, EngagementPolicy engage) =>
+    static Seq<Move> Adaptive(Loop loop, double radius, double stepOver, EngagementPolicy engage) =>
         StraightSkeleton.MedialAxis(loop).Match(
             Succ: axis => axis.Bind(seg => Engage(loop, seg, radius, stepOver, engage)),
             Fail: _ => Seq<Move>());
@@ -138,12 +123,17 @@ public static class Cam {
         return toSeq(Walk(loop, seg, len, half, radius, stepOver, engageRatio, axialCap, t: 0.0, first: true));
     }
 
+    // The walk emits linear chords; an adaptive turn carries its osculating ArcCenter so the
+    // posting biarc refit recovers the G2/G3 block — never a CAM-side arc word.
     static IEnumerable<Move> Walk(Loop loop, Edge3 seg, double len, double half, double radius, double stepOver, double engageRatio, double axialCap, double t, bool first) {
         double s = t * len;
         Point3d here = seg.A + (s / Math.Max(len, 1e-9)) * (seg.B - seg.A);
-        yield return new Move(here, Rapid: first, Feed: 1.0);
-        if (s >= len) yield break;
+        Vector3d dir = seg.B - seg.A; dir.Unitize();
+        Vector3d nrm = new(-dir.Y, dir.X, 0.0);
         double clearance = StraightSkeleton.ClearanceAt(loop, here).IfFail(half);
+        Option<ArcCenter> arc = first || clearance <= 1e-6 ? None : Some(new ArcCenter(here + clearance * nrm, Clockwise: false));
+        yield return new Move(here, Rapid: first, Feed: 1.0, Arc: arc);
+        if (s >= len) yield break;
         double radialStep = Math.Max(1e-3, Math.Min(axialCap, engageRatio * Math.Min(clearance, radius + stepOver)));
         foreach (Move m in Walk(loop, seg, len, half, radius, stepOver, engageRatio, axialCap, t + radialStep / Math.Max(len, 1e-9), first: false))
             yield return m;
@@ -161,16 +151,19 @@ config:
   theme: base
 ---
 flowchart LR
-    Process["Process row"] -->|"(Process, ToolpathKind)"| Cam["Cam"]
-    Profiles["Profiles"] -->|ToolpathKind row| Cam
-    Cam -->|contour / pocket / thermal-contour| Offset["Geometry2D Offset"]
-    Cam -->|trochoidal| Skeleton["StraightSkeleton medial axis"]
-    Cam -->|turn / face / groove / thread| Radial["BarStock radial sweep"]
-    Cam -->|slice-layer| Slice["Toolpath/slicing layer set"]
-    Offset -->|chain moves| Drive["IK drive"]
-    Skeleton -->|adaptive arcs| Drive
+    Process["Process.RemovalModality"] -->|"Admits(CutStrategy) gate"| Cam["Cam"]
+    Policy["policy.Strategy CutStrategy"] -->|"(Modality, CutStrategy)"| Cam
+    Profiles["Profiles"] --> Cam
+    Cam -->|boundary-pass / pocket-clear| Offset["Geometry2D Offset"]
+    Cam -->|adaptive| Skeleton["StraightSkeleton medial axis"]
+    Cam -->|radial-sweep / plunge-dwell / helical| Radial["BarStock radial sweep"]
+    Cam -->|layer-walk| Slice["Toolpath/slicing layer set"]
+    Cam -.->|inadmissible pair| Fault["FabricationFault.InadmissiblePair"]
+    Skeleton -->|Option&lt;ArcCenter&gt;-tagged chords| Drive["IK drive"]
+    Offset -->|chain moves| Drive
     Radial -->|gantry moves| Direct["non-IK arm"]
     Slice -->|layer moves| Direct
-    Drive -->|serial-chain solve| Motion["Motion"]
+    Drive -->|serial-chain solve| Motion["Motion · arc-tagged"]
     Direct -->|gantry stream| Motion
+    Motion -.->|chord run + ArcCenter| Biarc["Posting biarc refit G2/G3"]
 ```

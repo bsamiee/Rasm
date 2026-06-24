@@ -6,6 +6,7 @@ The host-neutral MEP distribution-system connectivity layer: one `DistributionSy
 
 - [01]-[CONNECTIVITY]: `DistributionSystem` record, the `DistributionSystemKind` `[SmartEnum<string>]` over `IfcDistributionSystemEnum`, the `DistributionPort` record carrying its `FlowDirection`/`PortKind`, the `PortConnection` `[Union]` (`ConnectsPortToElement`/`ConnectsPorts`), and the `DistributionSystemProjection.Project`/`ProjectAll` fold from the GeometryGym `IfcDistributionSystem`/`IfcDistributionPort`/`IfcRelConnectsPorts` surface to the typed network.
 - [02]-[SYSTEM_TRACE]: `SystemNetwork` the port-adjacency graph the `PortConnection` edges fold into, the `SystemTrace` reachability fold over every element downstream of a junction port, and the `(GeometryKey, TopologyKey)` content-key identity the trace re-reads only on a changed network.
+- [03]-[INTERFERENCE]: the `Interference` record (clash `GlobalId` pair, `ClashKind` hard/clearance, measured deficit, the two discipline `IfcDomain`s) and the `Interferences` fold detecting hard/clearance clashes between distribution runs and across the structural set, ranked by clearance deficit, feeding `Review/coordination#COORDINATION` `ClashProposal`.
 
 ## [02]-[CONNECTIVITY]
 
@@ -280,8 +281,110 @@ public sealed record SystemTrace(string SeedPortGlobalId, Seq<string> ReachedEle
 }
 ```
 
-## [04]-[RESEARCH]
+## [04]-[INTERFERENCE]
+
+- Owner: `Interference` the host-neutral clash-evidence record carrying the clashing `(GlobalId, GlobalId)` pair, the `ClashKind` (`Hard` overlapping solids, `Clearance` insufficient maintenance/insulation gap), the measured deficit (the penetration depth for a hard clash, the clearance shortfall for a clearance clash, both as a kernel-SI scalar), the two member disciplines (`IfcDomain` pair), and the priority rank a cross-discipline clash carries above an intra-discipline one; `ClashKind` the closed `[SmartEnum<string>]` clash partition; `InterferenceQuery` the proximity request the kernel `Rasm` geometry owner resolves — a `GeometryHandle` pair plus the clearance threshold, the host-neutral systems owner producing the request and reading the scalar deficit back, never evaluating the solid intersection in this lane; `Interferences` the fold pairing the distribution-member geometry against itself and the structural `Model/structural#ANALYSIS_MODEL` member set.
+- Entry: `DistributionSystem.Interferences(Seq<DistributionSystem> systems, Seq<BimElement> structural, GeometryProximity proximity, double clearanceThreshold)` folds the cross-system clash set — pairing each distribution member's `GeometryHandle` against every other member (across systems for a cross-discipline clash, against the `structural` set for a duct-vs-beam clash), routing each pair to the injected `proximity.Test(InterferenceQuery)` kernel proximity test, and emitting an `Interference` row for each pair whose solids overlap (`Hard`, deficit = penetration) or whose gap falls below the member's insulation/maintenance Pset clearance (`Clearance`, deficit = threshold − gap) — `Fin<T>` aborts on a member whose geometry handle is unresolved (`Model/faults#FAULT_BAND` `BimFault.CapabilityMiss`) lowered with `.ToError()`; the fold ranks the result by deficit descending and cross-discipline-first, so the worst structural penetration sorts above a minor intra-discipline clearance graze, and the ranked `Seq<Interference>` feeds the `Review/coordination#COORDINATION` `ClashProposal` substrate. The clearance threshold reads each member's `Semantics/properties#PROPERTY_SETS` insulation/maintenance Pset (an insulated chilled-water pipe carries a larger maintenance envelope than a bare cable tray), defaulting to `clearanceThreshold` when the Pset is absent.
+- Auto: `Interferences` builds the candidate member-pair set once — the distribution members grouped by their owning `DistributionSystem.Kind` discipline plus the structural set — and prunes it through the kernel `proximity.Bounds(handle)` axis-aligned bounds the `GeometryHandle` carries so only bounds-overlapping pairs reach the precise `proximity.Test`, the coarse bounds pass host-neutral (the `GeometryHandle` AABB is portable scalar data) and the precise solid-distance test the kernel's concern; each surviving pair routes to `proximity.Test(new InterferenceQuery(handleA, handleB, thresholdOf(memberA, memberB)))` returning a `ProximityResult` (the signed gap — negative for penetration — and the closest-approach distance), the fold reading `result.Gap < 0` as a `Hard` clash with deficit `−result.Gap` and `0 ≤ result.Gap < threshold` as a `Clearance` clash with deficit `threshold − result.Gap`; the discipline pair reads each member's `DistributionSystem.Kind.Domain` (a structural member carries `IfcDomain.Structural`), the rank folding `crossDiscipline ? deficit + DisciplineWeight : deficit` so the ranking is one ordering key, and the `Interference.Identity` content key over the sorted `GlobalId` pair memoizes the clash so a re-check re-tests only a moved member's pairs.
+- Receipt: the ranked `Seq<Interference>` is the MEP coordination evidence the `Review/coordination#COORDINATION` `ClashProposal` fold consumes (the clash pair, kind, and deficit anchoring a proposed resolution and a BCF topic) and the `csharp:Rasm.AppUi/Schedule`-side clash report renders — a duct-vs-beam hard clash, a pipe-clearance violation, and a tray-vs-structure graze each carry their measured deficit and discipline pair on one host-neutral row, the connectivity graph's coordination check beyond flow-reachability.
+- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, System.IO.Hashing, LanguageExt.Core, Rasm
+- Growth: a new clash kind (a soft clash, a code-clearance violation) is one `ClashKind` row reading the same proximity result; a new clearance source (a code-mandated envelope, a thermal-expansion gap) is one threshold-resolution column; a new ranking dimension is one ordering key on the same fold; never a per-discipline clash record, never a second proximity surface in this owner, and never a re-tessellation here.
+- Boundary: the interference test is geometric proximity binding the kernel `Rasm` geometry by reference — the systems owner keeps the `Interference` row as host-neutral scalar evidence (the `GlobalId` pair plus the measured deficit) and the solid-intersection/signed-distance test routes to the injected `GeometryProximity` kernel owner through the `InterferenceQuery`, the same host-neutrality law the `[2]-[CONNECTIVITY]` connectivity graph holds — a RhinoCommon `Brep.CreateBooleanIntersection` or a `Mesh` overlap test crossing this signature is the named seam violation; the coarse bounds pass reads the portable `GeometryHandle` AABB and the precise test is the kernel's concern, never re-tessellating in this lane; the clash partition is the closed `ClashKind` `[SmartEnum]` and a `HardClash`/`ClearanceClash` class family is the deleted form; the clearance threshold reads the `Semantics/properties#PROPERTY_SETS` member Pset and a hardcoded per-discipline gap table is the deleted form; the `Interference` row is the `Review/coordination#COORDINATION` `ClashProposal` substrate so coordination consumes this clash evidence rather than re-deriving proximity — re-running the proximity test in the coordination owner is the named cross-page drift defect; the `(GlobalId, GlobalId)` content key is derived through the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` idiom; an interference rejection lowers onto `Model/faults#FAULT_BAND` `BimFault` through `.ToError()`.
+
+```csharp contract
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.IO.Hashing;
+using System.Text;
+using LanguageExt;
+using LanguageExt.Common;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Bim;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<InterchangeKeyPolicy, string>]
+public sealed partial class ClashKind {
+    public static readonly ClashKind Hard      = new("HARD");
+    public static readonly ClashKind Clearance = new("CLEARANCE");
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+// The kernel proximity seam: the host-neutral systems owner produces the request and reads the
+// scalar result, the kernel Rasm geometry owner evaluates the solid distance/intersection.
+public readonly record struct InterferenceQuery(GeometryHandle A, GeometryHandle B, double ClearanceThreshold);
+
+public readonly record struct ProximityResult(double Gap, double ClosestApproach);
+
+public interface GeometryProximity {
+    (double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ) Bounds(GeometryHandle handle);
+    Fin<ProximityResult> Test(InterferenceQuery query);
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record Interference(
+    string FirstGlobalId,
+    string SecondGlobalId,
+    ClashKind Kind,
+    double Deficit,
+    IfcDomain FirstDomain,
+    IfcDomain SecondDomain) {
+    const double DisciplineWeight = 1_000_000d;
+
+    public bool CrossDiscipline => FirstDomain != SecondDomain;
+    public double Rank => CrossDiscipline ? Deficit + DisciplineWeight : Deficit;
+
+    public UInt128 Identity => XxHash128.HashToUInt128(Encoding.UTF8.GetBytes(
+        string.CompareOrdinal(FirstGlobalId, SecondGlobalId) <= 0
+            ? $"{FirstGlobalId}|{SecondGlobalId}" : $"{SecondGlobalId}|{FirstGlobalId}"));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class InterferenceCheck {
+    public static Fin<Seq<Interference>> Interferences(
+        Seq<DistributionSystem> systems, Seq<BimElement> structural,
+        Func<string, GeometryHandle> geometryOf, GeometryProximity proximity, double clearanceThreshold) {
+        var members = systems
+            .Bind(system => system.MemberGlobalIds.Map(id => (Id: id, Domain: system.Kind.Domain)))
+            .Append(structural.Map(static e => (Id: e.GlobalId, Domain: IfcDomain.Structural)))
+            .ToSeq();
+        return Pairs(members)
+            .TraverseM(pair => Clash(pair, geometryOf, proximity, clearanceThreshold)).As()
+            .Map(rows => rows.Somes().OrderByDescending(static c => c.Rank).ToSeq());
+    }
+
+    static Seq<((string Id, IfcDomain Domain) A, (string Id, IfcDomain Domain) B)> Pairs(Seq<(string Id, IfcDomain Domain)> members) =>
+        members.AsIterable().SelectMany((a, i) => members.Skip(i + 1).Map(b => (a, b))).ToSeq();
+
+    static Fin<Option<Interference>> Clash(
+        ((string Id, IfcDomain Domain) A, (string Id, IfcDomain Domain) B) pair,
+        Func<string, GeometryHandle> geometryOf, GeometryProximity proximity, double threshold) {
+        var (a, b) = pair;
+        var (ha, hb) = (geometryOf(a.Id), geometryOf(b.Id));
+        return BoundsOverlap(proximity, ha, hb)
+            ? proximity.Test(new InterferenceQuery(ha, hb, threshold)).Map(result => Classify(a, b, result, threshold))
+            : FinSucc(Option<Interference>.None);
+    }
+
+    static Option<Interference> Classify((string Id, IfcDomain Domain) a, (string Id, IfcDomain Domain) b, ProximityResult result, double threshold) =>
+        result.Gap < 0d
+            ? Some(new Interference(a.Id, b.Id, ClashKind.Hard, -result.Gap, a.Domain, b.Domain))
+        : result.Gap < threshold
+            ? Some(new Interference(a.Id, b.Id, ClashKind.Clearance, threshold - result.Gap, a.Domain, b.Domain))
+            : None;
+
+    static bool BoundsOverlap(GeometryProximity proximity, GeometryHandle a, GeometryHandle b) {
+        var (x0, y0, z0, x1, y1, z1) = proximity.Bounds(a);
+        var (u0, v0, w0, u1, v1, w1) = proximity.Bounds(b);
+        return x0 <= u1 && u0 <= x1 && y0 <= v1 && v0 <= y1 && z0 <= w1 && w0 <= z1;
+    }
+}
+```
+
+## [05]-[RESEARCH]
 
 - [DISTRIBUTION_SYSTEM_TRAVERSAL]: the `IfcDistributionSystem` container traversal is verified against the live GeometryGym decompile — `IfcDistributionSystem : IfcSystem : IfcGroup` carries `PredefinedType` (`IfcDistributionSystemEnum`) and inherits `IsGroupedBy` (`IfcRelAssignsToGroup`), so the `MembersOf` fold materializes the grouped `IfcDistributionElement` member set (`IfcFlowSegment`/`IfcFlowFitting`/`IfcFlowTerminal`/`IfcFlowController`) through the same `IsGroupedBy` grouping path the `Model/zones#ZONE_GRAPH` overlay flattens, distinct from per-element spatial containment; the served spatial-structure set has NO forward inverse on the distribution system in GeometryGym 25.7.30 (`IfcRelServicesBuildings` is reachable only as `IfcSpatialElement.ServicedBySystems` from the spatial side), so the `ServesOf` fold yields empty and the served column is joined from the spatial owner at a later pass; the `IfcDistributionSystem.PredefinedType`/`IsGroupedBy` and `IfcDistributionElement.HasPorts` member spellings confirm against the live surface before the projection fold is final.
 - [PORT_CONNECTION_GRAPH]: the `IfcDistributionPort`/`IfcRelConnectsPortToElement`/`IfcRelConnectsPorts` connection-edge member spellings the `PortsOf`/`EdgesOf` folds read onto the `PortConnection` union — the `IfcDistributionElement.HasPorts` `IfcRelConnectsPortToElement` port-membership set (`RelatingPort` the port, the element the owner), the port's `IfcDistributionPort.FlowDirection` `IfcFlowDirectionEnum` and `PredefinedType`, the port's single `ContainedIn` (`IfcRelConnectsPortToElement`), `ConnectedFrom`, and `ConnectedTo` (each a single `IfcRelConnectsPorts`, NOT a set — the fold wraps the two non-null references into a two-element array) flow-edge references (`RelatingPort`/`RelatedPort` the two ends, the optional `RealizingElement` the joint that realizes the connection) — verified against the live GeometryGym decompile: `IfcDistributionElement.HasPorts` is a `SET<IfcRelConnectsPortToElement>`, `IfcDistributionPort : IfcPort` carries `FlowDirection` (`IfcFlowDirectionEnum`) and `PredefinedType` (`IfcDistributionPortTypeEnum`), `IfcRelConnectsPortToElement.RelatingPort`/`RelatedElement`, and `IfcRelConnectsPorts.RelatingPort`/`RelatedPort`/`RealizingElement` are the real member spellings, and the unordered-pair dedupe on the `(RelatingPort.GlobalId, RelatedPort.GlobalId)` key — a connection materialized from both incident ports — is the verified single-edge invariant before the `EdgesOf` fold is final.
 - [NETWORK_CONTENT_KEY]: the `DistributionSystem.Identity` `(GeometryKey, TopologyKey)` `UInt128` pair the `SystemTrace` re-reads the network by grounds against the `Review/diff#MODEL_DIFF` `XxHash128.HashToUInt128` content-key idiom, so a trace re-walks the network only on a changed `GeometryKey` (the ordered member-element geometry-handle keys) or `TopologyKey` (the sorted connection-edge unordered port pairs) rather than re-folding the adjacency; the trace identity is the BIM-side network key and re-minting a second identity scheme for the connectivity memoization is the named cross-folder drift defect — the connectivity owner produces the typed network and its content-key identity, the trace folds reachability over it, never a re-projection of the GeometryGym graph per query.
+- [INTERFERENCE_PROXIMITY]: the `Interference` clash fold's geometric proximity binds the kernel `Rasm` geometry by reference through the injected `GeometryProximity` seam — the host-neutral systems owner produces the `InterferenceQuery` (`GeometryHandle` pair plus clearance threshold) and reads the `ProximityResult` signed gap back, the kernel geometry owner evaluating the solid distance/intersection so a RhinoCommon `Brep`/`Mesh` overlap test never crosses this lane; the coarse `proximity.Bounds(handle)` axis-aligned-bounds pass prunes the candidate pair set host-neutrally (the `GeometryHandle` AABB is portable scalar data) before the precise `proximity.Test`, and the clearance threshold reads the member's `Semantics/properties#PROPERTY_SETS` insulation/maintenance Pset so an insulated chilled-water pipe carries a larger maintenance envelope than a bare cable tray; the ranked `Seq<Interference>` is the `Review/coordination#COORDINATION` `ClashProposal` substrate so the coordination owner consumes this evidence rather than re-deriving proximity — the `GeometryProximity` member shape and the kernel `GeometryHandle` AABB accessor confirm against the kernel `Rasm` geometry owner at cross-folder alignment before the fold is final, and the `Model/structural#ANALYSIS_MODEL` member set the structural clash leg pairs against is read by reference.

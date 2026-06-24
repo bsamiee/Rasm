@@ -9,15 +9,17 @@
 - [03]-[CLIPPER](.planning/Polygon/clipper.md): `Clipper2` polygon-algebra substrate — offset/inflate, Boolean clip, Minkowski sum, open-path screen clip.
 - [04]-[IMPORT](.planning/Polygon/import.md): portable 2D profile-ingress boundary — DXF/DWG closed-polyline and arc entities tessellated into the canonical `Loop` via `ACadSharp`, host-neutral and coexisting with Rhino-native I/O.
 - [05]-[PROJECTION](.planning/Posting/projection.md): HLR — BSP front-to-back visibility and `Clipper2` open-path-Boolean screen clip; world-space edge sets for the `AppUi` `Viewport2D`.
-- [06]-[MOTION](.planning/Toolpath/motion.md): CAM motion — `(Process, ToolpathKind)` move family (milling contour/pocket/drill/trochoidal, lathe turn/face/groove/thread, thermal contour, additive slice-layer) over the `Geometry2D` offset.
+- [06]-[MOTION](.planning/Toolpath/motion.md): CAM motion — `(RemovalModality, CutStrategy)` cross-product move family (boundary-pass/pocket-clear/peck/adaptive/radial-sweep/plunge-dwell/helical/layer-walk, the modality enveloping each strategy) over the `Geometry2D` offset, the arc-capable `Move` carrying its `ArcCenter` for the posting biarc refit.
 - [07]-[SKELETON](.planning/Toolpath/skeleton.md): straight-skeleton/medial-axis author-kernel driving trochoidal adaptive clearing.
 - [08]-[SLICING](.planning/Toolpath/slicing.md): FFF/DED slicing author-kernel — planar-section layer contours, perimeter shells, and hatch-clip infill over the `Geometry2D` substrate.
 - [09]-[KINEMATICS](.planning/Toolpath/kinematics.md): DH forward kinematics and the damped-least-squares Jacobian-pseudoinverse IK solver.
-- [10]-[NFP](.planning/Nesting/nfp.md): 2D true-shape nesting — NFP feasibility, bottom-left/genetic placement, and the `Stock` union (sheet/plate/bar/tube/billet/filament/remnant) content-keyed feasibility set.
-- [11]-[PROGRAM](.planning/Posting/program.md): host-neutral cut-program emission — dialect-neutral G-code AST plus `PostDialect` family (linuxcnc/grbl/fanuc/marlin/hypertherm), kerf-comp, lead-in/out, pierce, micro-tab, cut-sequencing.
+- [10]-[NFP](.planning/Nesting/nfp.md): 2D true-shape nesting — NFP feasibility plus the inner-fit-polygon dual, bottom-left/genetic/`RectpackSharp` rect-fastpath placement over a `Seq<Stock>` multi-sheet inventory, and the kerf-inflated Boolean-difference `Remnant` lineage producer.
+- [11]-[PROGRAM](.planning/Posting/program.md): host-neutral cut-program emission — dialect-neutral G-code AST plus the `Process/family` `PostDialect` family with the independent dialect-override seam, kerf-comp, lead-in/out, pierce, micro-tab, `geometry3Sharp` `g3.BiArcFit2` biarc arc-fit, jerk-limited look-ahead feedrate, cut-sequencing.
 - [12]-[WORKHOLDING](.planning/Nesting/workholding.md): `Workholder` keep-out family (clamp/vise/chuck/vacuum-table/magnet/sacrificial-bed) conditioning the toolpath and cut sequence against fixture geometry.
 - [13]-[PHYSICS](.planning/Process/physics.md): removal-physics table projecting `process × material × tool × operation` to the modality-discriminated `RemovalBudget` (subtractive/thermal/abrasive/additive) the toolpath generators read.
 - [14]-[FAULTS](.planning/Process/faults.md): band-2500 `FabricationFault` cases composing the kernel band-2400 `GeometryFault`.
+- [15]-[GUARD](.planning/Toolpath/guard.md): swept tool-plus-holder collision/gouge guard — `SweptVolume` over the `Geometry2D` Minkowski substrate, the `Verdict` union (clear/gouge/collision/clearance), and the collision-aware safe-Z lift `Cam.Solve` consults per feed move.
+- [16]-[MAGAZINE](.planning/Process/magazine.md): tool-magazine — `Magazine` carousel/turret/manual slot map, per-slot `ToolAssembly` holder geometry, and the minimal-swap tool-change `Schedule` the posting `G43`/`M6` emits.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -33,7 +35,7 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 - `RectpackSharp`
 
 [ARC_FIT]:
-- `geometry4Sharp`
+- `geometry3Sharp` — the SOLE biarc/curve-fit owner, the SAME gradientspace package the `Rasm.Bim` mesh-text importer already admits centrally; this folder reuses it scoped to the `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d` curve surface, the `DMesh3`/mesh-boolean half firewalled. No second `geometry4Sharp` fork is admitted beside it.
 
 [QUANTITY_INGRESS]:
 - `UnitsNet`
@@ -44,6 +46,7 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 [REJECTED]:
 - `netDxf` — present in the central manifest as an `Rasm.AppUi` DXF-write dependency, NOT a Fabrication rail. Rejected as a second DXF reader: DXF-only (no DWG, no AC1014-AC1032 spread), no managed `Spline`/bulge sampler parity with `ACadSharp`. No sibling kernel opens a `netDxf` reader beside `ProfileImport`.
 - `MaxRect`, `BinPack.NET` — rejected rectangle packers: AABB-only, cannot express true-shape NFP feasibility, superseded by `RectpackSharp` as the axis-aligned fast-path arm.
+- `geometry4Sharp` — the NewWheelTech fork of gradientspace `geometry3Sharp`. Rejected as a SECOND mesh/curve package: the central manifest already pins `geometry3Sharp` (the `Rasm.Bim` mesh-text importer owner), and `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d` exist identically in the already-admitted `geometry3Sharp`, so the biarc rail composes the pinned package, never a duplicate heavy fork. The `g3` namespace and the entire biarc surface are shared between fork and base.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

@@ -346,6 +346,25 @@ The template types (`ArmatureTemplate`, `NodeTemplate`, `DrawableTemplate` and i
 |  [16]   | `ModelRoot.CreateSkin`          | `(string)`                    | creates a new skin                         |
 |  [17]   | `ModelRoot.CreatePunctualLight` | `(string, PunctualLightType)` | creates a KHR punctual light               |
 
+[ENTRYPOINT_SCOPE]: Animation — keyframe channel authoring
+- package: `SharpGLTF.Core`
+- namespace: `SharpGLTF.Schema2`
+- rail: geometry
+
+`ModelRoot.CreateAnimation(name)` returns the `Animation` added to `LogicalAnimations`; the per-node keyframe channels below each allocate their own `AnimationSampler` (the `bool linear` selects `AnimationInterpolationMode.LINEAR`/`STEP`, the tuple overloads force `CUBICSPLINE`). The keyframe argument is the float-seconds → value map, so the time axis is supplied by the caller. `CreateVisibilityChannel` emits the `KHR_node_visibility` per-node boolean track and is `STEP`-interpolated by construction (no `linear` parameter); the extension is authored through this channel, never a named `JsonSerializable` class — so its `KhrExtension` row carries `Registrar=None`.
+
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                              | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------- | :----------------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `Animation.CreateVisibilityChannel`        | `(Node, IReadOnlyDictionary<float, bool>)`                               | `KHR_node_visibility` per-node visibility, `STEP`         |
+|  [02]   | `Animation.CreateScaleChannel`             | `(Node, IReadOnlyDictionary<float, Vector3>, bool linear = true)`        | per-node scale TRS track                                  |
+|  [03]   | `Animation.CreateTranslationChannel`       | `(Node, IReadOnlyDictionary<float, Vector3>, bool linear = true)`        | per-node translation TRS track                            |
+|  [04]   | `Animation.CreateRotationChannel`          | `(Node, IReadOnlyDictionary<float, Quaternion>, bool linear = true)`     | per-node rotation TRS track                               |
+|  [05]   | `Animation.CreateMorphChannel`             | `(Node, IReadOnlyDictionary<float, TWeights>, int morphCount, bool)`     | per-node morph-weight track                               |
+|  [06]   | `Animation.CreateMaterialPropertyChannel`  | `(Material, string propertyName, IReadOnlyDictionary<float, T>, bool)`   | `KHR_animation_pointer` material-channel track            |
+|  [07]   | `Animation.DangerousCreatePointerChannel`  | `(string pointerPath, IReadOnlyDictionary<float, T>, bool, bool)`        | `KHR_animation_pointer` arbitrary-DOM target track        |
+
+The scale/translation/rotation/morph channels each carry a second `(TangentIn, Value, TangentOut)` tuple-keyframe overload forcing `CUBICSPLINE` interpolation. `KHR_node_visibility` and `KHR_animation_pointer` are the in-box scene-rail extensions reached only through these channel members, never named — consistent with the `internal`-extension policy the material/texture rows above hold.
+
 [ENTRYPOINT_SCOPE]: SceneBuilder — mesh placement and output
 - package: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Scenes`

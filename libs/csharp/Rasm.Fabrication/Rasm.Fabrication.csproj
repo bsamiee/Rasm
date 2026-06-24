@@ -10,6 +10,8 @@
     <ItemGroup Label="Fabrication">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="Clipper2" />
+        <PackageReference Include="geometry3Sharp" />
+        <PackageReference Include="RectpackSharp" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
