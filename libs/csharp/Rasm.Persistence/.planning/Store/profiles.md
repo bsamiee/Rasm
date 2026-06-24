@@ -1,6 +1,6 @@
 # [PERSISTENCE_STORE_PROFILES]
 
-Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis: each string-keyed row is the widened record carrying capability columns, concurrency-token policy, retention default, the ordered open-proof set, and three delegate columns, while `StoreLifecycle` runs the five-row state machine whose open, restore, drain, and health folds mint typed receipts. The page owns the engine axis, the lifecycle and cross-process law, the placement fold over the resolved profile record, the operator-provisioning manifest, and the multi-standard classification and 5D cost catalog the store tier hosts — `Classification` the standard axis over the ltree-backed catalog table, `CostRollup` the formula-evaluated quantity-takeoff fold over the DuckDB analytical lane — over Microsoft.Data.Sqlite, the EF Core providers, Npgsql, DuckDB.NET, Thinktecture vocabulary, LanguageExt rails, and NodaTime instants. The federated entity graph (`Query/federation#ENTITY_GRAPH`), the element-set currency (`Query/federation#ELEMENT_SET_ALGEBRA`), the DuckDB analytical lane (`Query/lanes#ANALYTICAL_LANE`), and the ltree classification hierarchy (`Query/lanes#GEO_LANES`) arrive settled and compose inside the catalog fences.
+Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis: each string-keyed row is the widened record carrying capability columns, concurrency-token policy, retention default, the ordered open-proof set, and three delegate columns, while `StoreLifecycle` runs the five-row state machine whose open, restore, drain, and health folds mint typed receipts. The page owns exactly the residence law of the durable tier — the engine axis, the open/restore/drain/health lifecycle, the cross-process lease and locality law, the placement fold over the resolved profile record, and the operator-provisioning manifest — and routes every failure once into the `Query/rail#OPERATION_ALGEBRA` `StoreFault` union, never a bare `Error.New`. The spine is Microsoft.Data.Sqlite, the EF Core providers, Npgsql, DuckDB.NET, Thinktecture vocabulary, LanguageExt rails, and NodaTime instants. Domain currency arrives settled and rides this residence rather than re-spelling here: the federated entity graph (`Query/federation#ENTITY_GRAPH`) keys its `Classification` axis and the BIM classification systems are the `Rasm.Bim/Semantics/classification#CLASSIFICATION_AXIS` bSDD-bound owner; the element-set currency (`Query/federation#ELEMENT_SET_ALGEBRA`) and the `Query/federation#RULE_PLAN` `RuleAggregate`/`QuantityMeasure` own quantity takeoff; the priced 5D estimate is the `Rasm.Bim/Planning/cost#BIM_COST_ESTIMATE` `CostSchedule.Rollup` source the analytical catalog reads by content key, never re-priced in the store tier; the DuckDB analytical lane (`Query/lanes#ANALYTICAL_LANE`) and the ltree hierarchy (`Query/lanes#GEO_LANES`) are the substrate those owners ride.
 
 ## [01]-[INDEX]
 
@@ -9,8 +9,6 @@ Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis:
 - [03]-[CROSS_PROCESS_LAW]: one lease shape, locality admission, and epoch fencing.
 - [04]-[PLACEMENT_MATRIX]: eight modality arms resolve placement from the resolved profile.
 - [05]-[PROVISIONING_ROWS]: operator manifest, verification fold, and maintenance rows.
-- [06]-[CLASSIFICATION_CATALOG]: multi-standard classification axis, ltree codes, and federated entity map.
-- [07]-[COST_ROLLUP]: cost-code mapping, formula-evaluated line items, and DuckDB hierarchy rollup.
 
 ## [02]-[PROFILE_AXIS]
 
@@ -20,7 +18,7 @@ Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis:
 - Auto: the pg row pins `SetPostgresVersion(18, 0)` so uuidv7 and virtual-generated-column translations activate over the provider's 14.0 default dialect; the memory row rides Mode=Memory plus Cache=Shared with a token-gated keeper proof pinning the shared-cache lifetime; the seed delegate enters EF through the UseSeeding and UseAsyncSeeding option hooks at pooled-factory build.
 - Packages: Microsoft.EntityFrameworkCore.Sqlite, Microsoft.Data.Sqlite, Npgsql, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, Pgvector.EntityFrameworkCore, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, DuckDB.NET.Data.Full, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one profile row — key, capability columns, three delegate bindings — absorbs a new engine with zero new surface; the sqlite vector gate flips one capability column; a mapped enum or composite is one `SchemaDdl.Enum` or `SchemaDdl.Composite` row folded by `MapEnums`/`MapComposites` into the pg connect builder; an unmapped-type admission is one `EnableUnmappedTypes` builder column on the pg row and a custom provider classification is one `INpgsqlTypeMapper` mapper column; an attach-only durable lane is one `SqliteOpenMode.ReadOnly` placement value on the embedded row; a daylight-transition stance is one `temporalResolution` policy value on the row; a cloud object-store provider is one `Store/remote#OBJECT_STORE` row projecting a `BlobRemote` placement with zero Persistence rework.
-- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record over the snapshot catalog protocol and the `blob-remote` row's `BlobRemote` implementation set is the `Store/remote#OBJECT_STORE` provider rows, so the `connect: StoreRows.NoConnection` leg stays correct because object-store residence carries no `DbConnection`; the pg row's `SetPostgresVersion(18, 0)` is the provider feature-gate floor that activates uuidv7/VIRTUAL-generated-column/OLD-NEW-RETURNING translations, distinct from the PG18.4 deploy-image minimum the cluster-config provisioning rows carry; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners; dsn and store-root inputs are host-resolved values handed over by app roots; the data-source `UseNodaTime` and `UseNetTopologySuite` registrations are builder-preserving generic extensions while `UseVector` returns the erased mapper interface, so the vector registration binds by tuple-capture beside the typed builder and never re-types the chain; `EnableUnmappedTypes` opens the pg builder to enum-as-text and range round-trips without a per-type `MapEnum` row, and the `INpgsqlTypeMapper` handle the builder exposes is the one classification seam a custom provider type registers on, never a second mapper surface; a reader replica attaches the same embedded file through `SqliteOpenMode.ReadOnly`, so a read-only consumer never contends for the writer lease; the pg `temporalResolution` policy column carries the `Resolvers` strategy as a row value — `strict` maps a local timestamp through `AtStrictly` so a skipped or ambiguous local time rejects, `lenient` and `local` admit them through `AtLeniently` and `ResolveLocal` over a `ZoneLocalMapping` under one declared rule, and `none` rides the engine rows that persist instants only — so a daylight-transition timestamp resolves by policy value and never by an ad hoc catch, and the `MapEnums`/`MapComposites` builder folds register every `SchemaDdl.Enum` and `SchemaDdl.Composite` type so a native pg enum or composite column round-trips without a per-type hand-written reader.
+- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record over the snapshot catalog protocol and the `blob-remote` row's `BlobRemote` implementation set is the `Store/remote#OBJECT_STORE` provider rows, so the `connect: StoreRows.NoConnection` leg stays correct because object-store residence carries no `DbConnection`; the pg row's `SetPostgresVersion(18, 0)` is the provider feature-gate floor that activates uuidv7/VIRTUAL-generated-column/OLD-NEW-RETURNING translations, distinct from the PG18.4 deploy-image minimum the cluster-config provisioning rows carry; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners, and the sqlite busy budget is the `SqliteConnectionStringBuilder.DefaultTimeout` value this axis sets on the durable row (the provider retries `BUSY`/`LOCKED` until it elapses), never a `busy_timeout` PRAGMA, so the WAL busy-retry knob `Store/engine#PRAGMA_TABLE` routes here resides on the connection string the profile owns; dsn and store-root inputs are host-resolved values handed over by app roots; the data-source `UseNodaTime` and `UseNetTopologySuite` registrations are builder-preserving generic extensions while `UseVector` returns the erased mapper interface, so the vector registration binds by tuple-capture beside the typed builder and never re-types the chain; `EnableUnmappedTypes` opens the pg builder to enum-as-text and range round-trips without a per-type `MapEnum` row, and the `INpgsqlTypeMapper` handle the builder exposes is the one classification seam a custom provider type registers on, never a second mapper surface; a reader replica attaches the same embedded file through `SqliteOpenMode.ReadOnly`, so a read-only consumer never contends for the writer lease; the pg `temporalResolution` policy column carries the `Resolvers` strategy as a row value — `strict` maps a local timestamp through `AtStrictly` so a skipped or ambiguous local time rejects, `lenient` and `local` admit them through `AtLeniently` and `ResolveLocal` over a `ZoneLocalMapping` under one declared rule, and `none` rides the engine rows that persist instants only — so a daylight-transition timestamp resolves by policy value and never by an ad hoc catch, and the `MapEnums`/`MapComposites` builder folds register every `SchemaDdl.Enum` and `SchemaDdl.Composite` type so a native pg enum or composite column round-trips without a per-type hand-written reader; a connect leg that lacks its required input — an absent dsn on the pg row, an absent store-root on the duckdb row, the `NoConnection` rows with no relational surface — fails inside the rail through the `Query/rail#OPERATION_ALGEBRA` `StoreFault.Unsupported` case rather than a bare `Error.New`, so every page failure is one closed `StoreFault` row the open ceremony folds.
 
 ```csharp signature
 public sealed class StoreKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -66,6 +64,7 @@ public static class StoreRows {
     const string StoreFile = "rasm.db";
     const string AnalyticsFile = "analytics.duckdb";
     const string SharedMemory = "rasm-memory";
+    const int BusyBudgetSeconds = 30;
 
     public static IO<DbConnection> Sqlite(StorePlacement placement) =>
         IO.lift(() => (DbConnection)new SqliteConnection(SqliteText(placement)));
@@ -76,15 +75,15 @@ public static class StoreRows {
                 .Map(static builder => SchemaDdl.MapEnums(SchemaDdl.MapComposites(builder)))
                 .Map(static builder => (builder.UseVector(), builder).Item2)
                 .Map(static builder => (DbConnection)builder.Build().OpenConnection())
-            : IO.fail<DbConnection>(Error.New("<dsn-absent:postgres-server>"));
+            : IO.fail<DbConnection>(new StoreFault.Unsupported("dsn-absent:postgres-server"));
 
     public static IO<DbConnection> DuckDb(StorePlacement placement) =>
         placement.StoreRoot is { IsSome: true, Case: string root }
             ? IO.lift(() => (DbConnection)new DuckDBConnection($"Data Source={Path.Join(root, AnalyticsFile)}"))
-            : IO.fail<DbConnection>(Error.New("<store-root-absent:duckdb-analytical>"));
+            : IO.fail<DbConnection>(new StoreFault.Unsupported("store-root-absent:duckdb-analytical"));
 
     public static IO<DbConnection> NoConnection(StorePlacement placement) =>
-        IO.fail<DbConnection>(Error.New($"<no-connection-surface:{placement.Durable.Key}>"));
+        IO.fail<DbConnection>(new StoreFault.Unsupported($"no-connection-surface:{placement.Durable.Key}"));
 
     public static DbContextOptionsBuilder SqliteOptions(DbContextOptionsBuilder options, StorePlacement placement) =>
         options.UseSqlite(SqliteText(placement));
@@ -106,7 +105,7 @@ public static class StoreRows {
 
     static string SqliteText(StorePlacement placement) =>
         placement.StoreRoot is { IsSome: true, Case: string root }
-            ? new SqliteConnectionStringBuilder { DataSource = Path.Join(root, StoreFile), Pooling = true, Mode = placement.ReadOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate }.ToString()
+            ? new SqliteConnectionStringBuilder { DataSource = Path.Join(root, StoreFile), Pooling = true, DefaultTimeout = BusyBudgetSeconds, Mode = placement.ReadOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate }.ToString()
             : new SqliteConnectionStringBuilder { DataSource = SharedMemory, Mode = SqliteOpenMode.Memory, Cache = SqliteCacheMode.Shared }.ToString();
 }
 
@@ -133,8 +132,8 @@ public sealed record BlobRemote(
 - Owner: `StoreLifecycle` — five string-keyed rows with the total `Legal` transition law; `StoreOpenReceipt` is the typed open evidence; `StoreCeremony` is the open, restore, drain-registration, and health fold surface over one Atom-backed cell.
 - Cases: closed, opening, ready, drain, repair; legal transitions: closed to opening; opening to ready, repair, or closed; ready to drain or repair; drain to closed; repair to opening or closed.
 - Entry: `public static IO<StoreOpenReceipt> Open(StoreProfile row, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, Func<DbConnection, IO<StoreOpenReceipt>> prove, ClockPolicy clocks)` — `IO` carries the bracketed ceremony; ready is unreachable without a green receipt.
-- Auto: the prove delegate runs the row's open-proof order — token-gated Batteries_V2 init once per process, PRAGMA ladder, writer-lease and first-opener gate, `MigrateAsync` (the migration lock is provider-internal on both providers — lock outcome reads from migration receipts, never from Internal-namespace types), compiled-model fingerprint gate consuming the XxHash3 value as `ulong`, quick_check before ready; `Restore` fences every sharing writer, hash-verifies the staged payload, materializes to a temp file, integrity-checks, atomically renames while deleting the -wal and -shm sidecars, bumps the writer-lease epoch, and reopens through `Open`.
-- Receipt: `StoreOpenReceipt` — profile, provider route, schema fingerprint, migrations applied, pragmas applied, ordered proof facts, integrity result, lock holder, elapsed `Duration`, `Instant`, `CorrelationId`; step facts ride the receipt-sink envelope under the store-open, store-restore, and store-drain kinds; `LockHolderPid` fills from the `StoreLeaseRow` first-opener row because the provider's public migration-lock handle carries no holder identity.
+- Auto: the prove delegate runs the row's open-proof order — token-gated Batteries_V2 init once per process, PRAGMA ladder, writer-lease and first-opener gate, `MigrateAsync` (the migration lock is provider-internal on both providers — lock outcome reads from migration receipts, never from Internal-namespace types), compiled-model fingerprint gate consuming the XxHash3 value as `ulong`, quick_check before ready; `Restore` is the seven typed steps the durability epoch-fence law names — `fenceWriters` quiesces every sharing writer, `materialize` stages a temp copy, `verify` proves the staged payload's `UInt128` content identity (the copy succeeding is never the proof), `check` runs quick_check on the copy itself, `swap` atomically renames while deleting the `-wal`/`-shm` sidecars as the one unit of replacement, `fence` bumps the `StoreLeaseRow.Epoch` so every stale writer handle invalidates, and `Open` reopens with the bumped epoch on the receipt — so a reader detects the fence from the receipt's `Epoch` rather than a silent stale handle.
+- Receipt: `StoreOpenReceipt` — profile, provider route, schema fingerprint, migrations applied, pragmas applied, ordered proof facts, integrity result, lock holder, writer-lease `Epoch`, elapsed `Duration`, `Instant`, `CorrelationId`; step facts ride the receipt-sink envelope under the store-open, store-restore, and store-drain kinds; `LockHolderPid` fills from the `StoreLeaseRow` first-opener row because the provider's public migration-lock handle carries no holder identity, and `Epoch` carries the won lease row's fence token so the receipt is the cross-process trust boundary a peer reads to detect a `Restore`-driven `Fence` — the one epoch token that fences the open ritual, the sync cursors, and the artifact headers alike.
 - Packages: SQLitePCLRaw.bundle_e_sqlite3, Microsoft.EntityFrameworkCore.Sqlite, Microsoft.Extensions.Diagnostics.HealthChecks, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one lifecycle row plus its `Legal` arms, or one proof kind appended to a row's open-proof order; zero new surface.
 - Boundary: `StoreCeremony` is the named boundary capsule for the statement carve-out — the CAS transition body carries language-owned statement forms while every other member stays expression-shaped; drain registration is the band-300 row set in checkpoint, optimize, sweep, backup, close order — ranks are the page's frozen order rows inside the AppHost Stores band, and store writes foreclose at the Telemetry band; the health row grades the lifecycle cell plus the latest receipt, with cadence one policy value derived from the health-probe deadline row at composition.
@@ -169,6 +168,7 @@ public readonly record struct StoreOpenReceipt(
     Seq<(string Kind, string Fact)> Proofs,
     string IntegrityResult,
     Option<int> LockHolderPid,
+    ulong Epoch,
     Duration Elapsed,
     Instant At,
     CorrelationId Correlation);
@@ -191,7 +191,7 @@ public static class StoreCeremony {
         });
         return admitted
             ? Fin.Succ(settled.State)
-            : Fin.Fail<StoreLifecycle>(Error.New($"<store-transition-rejected:{settled.State.Key}:{target.Key}>"));
+            : Fin.Fail<StoreLifecycle>(new StoreFault.Concurrency($"store-transition-rejected:{settled.State.Key}:{target.Key}"));
     }
 
     public static IO<StoreOpenReceipt> Open(StoreProfile row, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, Func<DbConnection, IO<StoreOpenReceipt>> prove, ClockPolicy clocks) =>
@@ -204,14 +204,16 @@ public static class StoreCeremony {
         from ready in IO.lift(() => Transition(cell, StoreLifecycle.Ready, Some(receipt)))
         select receipt;
 
-    public static IO<StoreOpenReceipt> Restore(StoreProfile row, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, Func<IO<Unit>> fenceWriters, Func<IO<string>> materialize, Func<string, IO<string>> check, Func<string, IO<Unit>> swap, Func<DbConnection, IO<StoreOpenReceipt>> prove, ClockPolicy clocks) =>
+    public static IO<StoreOpenReceipt> Restore(StoreProfile row, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, Func<IO<Unit>> fenceWriters, Func<IO<string>> materialize, Func<string, IO<UInt128>> verify, Func<string, IO<string>> check, Func<string, IO<Unit>> swap, Func<IO<ulong>> fence, Func<DbConnection, IO<StoreOpenReceipt>> prove, ClockPolicy clocks) =>
         from repair in IO.lift(() => Transition(cell, StoreLifecycle.Repair))
         from fenced in fenceWriters()
         from staged in materialize()
+        from content in verify(staged)
         from integrity in check(staged)
         from swapped in swap(staged)
+        from epoch in fence()
         from reopened in Open(row, placement, cell, prove, clocks)
-        select reopened;
+        select reopened with { Epoch = epoch };
 
     public static Seq<DrainParticipantPort> DrainRows(Func<string, CancellationToken, IO<Unit>> flush) =>
         DrainOrder.Map(row => new DrainParticipantPort(row.Name, DrainBand.Stores, row.Rank, token => flush(row.Name, token)));
@@ -260,11 +262,11 @@ stateDiagram-v2
 
 - Owner: `StoreLeaseRow` — one persisted lease shape with two kind rows; `StoreLocality` — the filesystem-locality admission guard.
 - Cases: writer and maintenance lease kinds; the lease table creation is pinned to the first migration so every sharing process reads one coordination surface, and the unique `(store, kind)` constraint makes the `Claim` conflict the first-open arbiter.
-- Entry: `public static IO<StorePlacement> Admit(StorePlacement placement)` — `IO` carries the volume probe and aborts a WAL placement on a non-local volume with typed evidence.
+- Entry: `public static IO<StorePlacement> Admit(StorePlacement placement)` — `IO` carries the volume probe and aborts a WAL placement on a non-local volume through the `Query/rail#OPERATION_ALGEBRA` `StoreFault.Unsupported` case; the first-open `Claim` conflict aborts through `StoreFault.Concurrency`, the same 7001 case `StoreFault.From` mints from a live `DbUpdateConcurrencyException`.
 - Auto: WAL plus busy-retry plus first-opener-migrates govern every shared sqlite file; the first-open race resolves through `Claim` — a candidate writes its `StoreLeaseRow` Writer row inside one `INSERT ... ON CONFLICT(Store, Kind) DO NOTHING` so exactly one process wins the writer row, the loser folds to a reader attach under `SqliteOpenMode.ReadOnly` and reads the winner's applied migrations rather than re-running `MigrateAsync`, and the won row's `Epoch` seeds every writer handle so a later `Fence` invalidates stale handles; maintenance work runs only while the registering process holds the maintenance lease scheduled as the AppHost persistence-maintenance entry; handoff-on-drain releases on the conductor's Stores-band row while crash-reclaim waits the `LeasePolicy.Maintenance` CrashStaleness past the holder's last `Heartbeat` stamp; `Restore` calls `Fence` so the epoch bump invalidates every stale writer handle; cross-process tag invalidation is a consequence — peer processes replay entity-kind tag transitions from the op-log HLC cursor on schedule cadence.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: one lease kind row or one remote-home marker row; zero new surface.
-- Boundary: `LeasePolicy` is the only lease policy shape — this row is its persisted projection, never a second policy record; rejection evidence converts once into the package fault union at the query rail; storeEpoch surfaces in the discovery manifest as the settled AppHost field, sourced from the writer lease row's `Epoch`; `ClaimSql` is the one declared identifier seam for the `store_lease` table and its `(store, kind, holder_pid, stamp, epoch)` columns — the first migration pins those identifiers and `ClaimSql` is the single place the program restates them, so every other lease read derives from `StoreLeaseRow` members and never from a second copy of the literal. Exemption: `ClaimSql` is the SYMBOLIC_REFERENCE carve-out for the atomic first-open arbiter — the `INSERT ... ON CONFLICT(store, kind) DO NOTHING RETURNING` race cannot route through the EF set-based write path because the conflict arbitration must execute as one provider statement before any `DbContext` exists, so the literal is owned by, and only consumed inside, the native-sqlite open-ceremony bracket seam that runs `Claim` on the raw `SqliteCommand`; the `store_lease` table that pins the same identifiers is the first migration's `EnsureCreated` artifact, making this the sole write path and not a second DML owner.
+- Boundary: `LeasePolicy` is the only lease policy shape — this row is its persisted projection, never a second policy record; the lease-conflict and locality rejections mint the typed `Query/rail#OPERATION_ALGEBRA` `StoreFault` case at this admission boundary (`Concurrency` for the lost `Claim`, `Unsupported` for the non-local volume), so a bare `Error.New` is the deleted form and a downstream rail re-wraps nothing; storeEpoch surfaces in the discovery manifest as the settled AppHost field, sourced from the writer lease row's `Epoch`; `ClaimSql` is the one declared identifier seam for the `store_lease` table and its `(store, kind, holder_pid, stamp, epoch)` columns — the first migration pins those identifiers and `ClaimSql` is the single place the program restates them, so every other lease read derives from `StoreLeaseRow` members and never from a second copy of the literal. Exemption: `ClaimSql` is the SYMBOLIC_REFERENCE carve-out for the atomic first-open arbiter — the `INSERT ... ON CONFLICT(store, kind) DO NOTHING RETURNING` race cannot route through the EF set-based write path because the conflict arbitration must execute as one provider statement before any `DbContext` exists, so the literal is owned by, and only consumed inside, the native-sqlite open-ceremony bracket seam that runs `Claim` on the raw `SqliteCommand`; the `store_lease` table that pins the same identifiers is the first migration's `EnsureCreated` artifact, making this the sole write path and not a second DML owner.
 
 ```csharp signature
 public sealed record StoreLeaseRow(string Store, string Kind, int HolderPid, Instant Stamp, ulong Epoch) {
@@ -284,7 +286,7 @@ public sealed record StoreLeaseRow(string Store, string Kind, int HolderPid, Ins
     public static Fin<StoreLeaseRow> Claim(StoreLeaseRow candidate, Option<int> winnerPid) =>
         winnerPid is { IsSome: true, Case: int pid } && pid == candidate.HolderPid
             ? Fin.Succ(candidate)
-            : Fin.Fail<StoreLeaseRow>(Error.New($"<writer-lease-held:{candidate.Store}>"));
+            : Fin.Fail<StoreLeaseRow>(new StoreFault.Concurrency($"writer-lease-held:{candidate.Store}"));
 }
 
 public static class StoreLocality {
@@ -293,7 +295,7 @@ public static class StoreLocality {
     public static IO<StorePlacement> Admit(StorePlacement placement) =>
         IO.lift(() => placement.Durable.LocalVolumeRequired && placement.StoreRoot is { IsSome: true, Case: string root }
             ? root.AsSpan().ContainsAny(RemoteHomeMarkers) || new DriveInfo(Path.GetPathRoot(root) ?? root).DriveType == DriveType.Network
-                ? Fin.Fail<StorePlacement>(Error.New($"<non-local-volume:{root}>"))
+                ? Fin.Fail<StorePlacement>(new StoreFault.Unsupported($"non-local-volume:{root}"))
                 : Fin.Succ(placement)
             : Fin.Succ(placement));
 }
@@ -344,7 +346,7 @@ public sealed record StorePlacement(
 
 - Owner: `ExtensionRequirement` — the operator-provisioning manifest rows, the pure provisioning-verification fold, and the type-resolution verification fold.
 - Cases: eleven operator rows with preload columns — pg_stat_statements, auto_explain, timescaledb, timescaledb_toolkit, pg_partman, pgvectorscale, pg_search, pg_squeeze, hypopg, pgaudit, btree_gist; `btree_gist` is the mandatory no-preload self-provisioned row backing the WITHOUT OVERLAPS temporal primary-key GiST exclusion (SqlState 23P01 → `schema-rail` `TemporalOverlap`), `CREATE EXTENSION`'d in the first migration before any temporal-key table; pg_cron, pgmq, pg_repack, pg_stat_monitor, pg_uuidv7, and pg_duckdb are rejected rows because the schedule port owns cadence, native pgoutput owns the changefeed, pg_squeeze owns in-DB online reorg, pg_stat_statements plus the OTLP rollup own query observability, PG18-native uuidv7 owns key minting, and in-process DuckDB plus TimescaleDB continuous aggregates own analytical reads; self-provisioned DDL extensions are model annotations and stay out of this manifest.
-- Entry: `public static Fin<FrozenSet<string>> Verify(Seq<ExtensionRequirement> required, FrozenSet<string> installed, string preloaded)` — `Fin` aborts with server-not-provisioned evidence; `public static Fin<Unit> VerifyTypes(Seq<SchemaDdl.Enum> enums, Seq<SchemaDdl.Composite> composites, FrozenSet<string> resolved)` aborts when a declared native enum or composite type is absent from the live source's resolved `PostgresType` set.
+- Entry: `public static Fin<FrozenSet<string>> Verify(Seq<ExtensionRequirement> required, FrozenSet<string> installed, string preloaded)` — `Fin` aborts through the `Query/rail#OPERATION_ALGEBRA` `StoreFault.ServerNotProvisioned` case (the same 7004 code `StoreFault.From` mints from a live `PostgresErrorCodes.UndefinedObject`), so a verify-time gap and a use-time `UndefinedObject` are one fault row; `public static Fin<Unit> VerifyTypes(Seq<SchemaDdl.Enum> enums, Seq<SchemaDdl.Composite> composites, FrozenSet<string> resolved)` aborts the same way when a declared native enum or composite type is absent from the live source's resolved `PostgresType` set.
 - Auto: the pg open ceremony reads the pg_extension and pg_settings probes and folds the manifest — the runtime verifies provisioning and never executes it, with runtime `ALTER SYSTEM` the rejected form; a missing preload folds to degradation through the health row; the `type-resolution` open-proof reads the live source's resolved `PostgresEnumType` and `PostgresCompositeType` names and folds `VerifyTypes` so a declared `SchemaDdl.Enum`/`SchemaDdl.Composite` whose `MapEnum`/`MapComposite` registration never resolved on the server aborts the open rather than failing per-row at first use; probe results land in the open receipt's proof rows.
 - Packages: Npgsql, LanguageExt.Core, BCL inbox
 - Growth: one manifest row per new server extension; deploy-time postgresql.conf fragments, pg_hba fragments, and role grants land as physical assets at the first headless or web app root — one asset row, zero new surface.
@@ -373,13 +375,13 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
         required.Filter(row => !row.DevGated && (row.PreloadRequired
             ? !preloaded.Contains(row.Name, StringComparison.Ordinal)
             : !row.SelfProvisioned && !installed.Contains(row.Name))) is { IsEmpty: false } missing
-            ? Fin.Fail<FrozenSet<string>>(Error.New($"<server-not-provisioned:{string.Join(',', missing.Map(static row => row.Name))}>"))
+            ? Fin.Fail<FrozenSet<string>>(new StoreFault.ServerNotProvisioned($"server-not-provisioned:{string.Join(',', missing.Map(static row => row.Name))}"))
             : Fin.Succ(installed);
 
     public static Fin<Unit> VerifyTypes(Seq<SchemaDdl.Enum> enums, Seq<SchemaDdl.Composite> composites, FrozenSet<string> resolved) =>
         (enums.Map(static row => row.Name) + composites.Map(static row => row.Name))
             .Filter(name => !resolved.Contains(name)) is { IsEmpty: false } unresolved
-            ? Fin.Fail<Unit>(Error.New($"<type-not-resolved:{string.Join(',', unresolved)}>"))
+            ? Fin.Fail<Unit>(new StoreFault.ServerNotProvisioned($"type-not-resolved:{string.Join(',', unresolved)}"))
             : Fin.Succ(unit);
 }
 ```
@@ -390,145 +392,8 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 |  [02]   | pg-reindex         | REINDEX CONCURRENTLY        | persistence-maintenance cron occurrence | maintenance |
 |  [03]   | autovacuum-posture | pg_settings autovacuum read | open ceremony                           | none        |
 
-## [07]-[CLASSIFICATION_CATALOG]
+## [07]-[RESEARCH]
 
-- Owner: `ClassificationStandard` the standard axis (Uniclass, OmniClass, MasterFormat, IfcClassification); `ClassificationCode` the hierarchical code record carrying the ltree path; `ClassificationMap` the federated-entity-to-codes resolution; `Catalog` the static surface owning the catalog load, the hierarchical code lookup, the cross-standard mapping, and the entity-classification fold.
-- Cases: `Uniclass | OmniClass | MasterFormat | IfcClassification` on `ClassificationStandard`; a code carries its standard, its ltree path (so `Pr_20_93_52` and `23-30 00 00` are both hierarchical), its title, and its parent; an entity maps to zero or more codes across standards.
-- Entry: `public static ClassificationCode Code(ClassificationStandard standard, string code, string title, string parentPath, UInt128 editionKey)` — projects a hierarchical code with its ltree path; `public static Seq<ClassificationCode> Resolve(FederatedEntity entity, Func<string, Seq<ClassificationCode>> byTag)` resolves a federated entity to its classification codes from its property sets and tags.
-- Auto: each classification standard loads as a catalog table whose code column is an `ltree` path so a hierarchical query (every code under `Pr_20`) rides the ltree `lquery` operators (`Query/lanes#GEO_LANES` ltree row) — no per-standard hierarchy walker; cross-standard mapping is a catalog table relating a code in one standard to its equivalent in another so a Uniclass-classified entity reports its OmniClass and MasterFormat equivalents through one join; a federated entity resolves to codes from its `IfcClassification` reference psets and from a classification rule (`Query/federation#RULE_PLAN` `ByClassification`) so an unclassified entity surfaces in a takeoff as an `unclassified` line item; the catalog is content-addressed so a standard's published edition dedupes.
-- Receipt: a catalog load rides `store.catalog.load` carrying the standard and the code count; an entity classification rides `store.catalog.classify`.
-- Packages: System.IO.Hashing, Npgsql.EntityFrameworkCore.PostgreSQL, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
-- Growth: a new classification standard is one `ClassificationStandard` row plus its catalog table; a new cross-standard mapping is one mapping-table row; zero new surface — a per-standard classification model, a hardcoded code hierarchy, or a separate IFC classification handler is the deleted form because each standard is one axis row over the ltree-backed catalog table and the entity mapping rides the federated graph.
-- Boundary: the classification standard is one axis, never a per-standard model — Uniclass tables (Ss, Pr, EF, Ac), OmniClass tables (11-49), MasterFormat divisions, and IfcClassification references are all `ClassificationCode` rows differentiated by the `Standard` column, so a cross-standard rollup is one query over the one catalog; the code hierarchy is an ltree path so a roll-up-to-parent or a drill-to-children rides the `lquery` operators the data-lanes ltree row owns, never a recursive code-string parse; cross-standard equivalence is a mapping table so a Uniclass-classified takeoff reports MasterFormat cost divisions through one join, and a hardcoded code-to-code map is the deleted form; the entity classification reads the federated entity's IFC classification psets and a classification rule so it rides the federated graph and the element-set algebra, never a per-entity classification column duplicated across sources; the catalog is content-addressed per published edition so a standard revision is a new content key and a takeoff pins the edition it classified against, so a rate-base change is traceable.
-
-```csharp signature
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<StoreKeyPolicy, string>]
-[KeyMemberComparer<StoreKeyPolicy, string>]
-public sealed partial class ClassificationStandard {
-    public static readonly ClassificationStandard Uniclass = new("uniclass", separator: "_");
-    public static readonly ClassificationStandard OmniClass = new("omniclass", separator: " ");
-    public static readonly ClassificationStandard MasterFormat = new("masterformat", separator: " ");
-    public static readonly ClassificationStandard IfcClassification = new("ifc-classification", separator: ".");
-
-    public string Separator { get; }
-}
-
-public sealed record ClassificationCode(
-    ClassificationStandard Standard,
-    string Code,
-    string LtreePath,
-    string Title,
-    Option<string> ParentPath,
-    UInt128 EditionKey);
-
-public sealed record ClassificationMap(Guid Entity, Seq<ClassificationCode> Codes);
-
-public static class Catalog {
-    public static ClassificationCode Code(ClassificationStandard standard, string code, string title, string parentPath, UInt128 editionKey) =>
-        new(standard, code, Ltree(standard, code), title,
-            parentPath.Length == 0 ? None : Some(parentPath), editionKey);
-
-    public static Seq<ClassificationCode> Resolve(FederatedEntity entity, Func<string, Seq<ClassificationCode>> byTag) =>
-        entity.PropertySets
-            .Find("ifc-classification")
-            .Map(field => field is CrdtField.LwwRegister reg ? Encoding.UTF8.GetString(reg.Value.Span) : "")
-            .Filter(static code => code.Length > 0)
-            .Map(byTag)
-            .IfNone(Seq<ClassificationCode>());
-
-    public static Seq<ClassificationCode> Descendants(Seq<ClassificationCode> catalog, string ancestorPath) =>
-        catalog.Filter(code => code.LtreePath.StartsWith(ancestorPath, StringComparison.Ordinal));
-
-    public static Option<ClassificationCode> CrossMap(Seq<(string From, string To)> mapping, Seq<ClassificationCode> target, ClassificationCode source) =>
-        mapping.Find(pair => pair.From == source.LtreePath)
-            .Bind(pair => target.Find(code => code.LtreePath == pair.To));
-
-    private static string Ltree(ClassificationStandard standard, string code) =>
-        code.Replace(standard.Separator, ".", StringComparison.Ordinal).Replace("-", ".", StringComparison.Ordinal);
-}
-```
-
-| [INDEX] | [STANDARD]        | [CODE_FORM]                  | [LTREE_PATH]                                    |
-| :-----: | :---------------- | :--------------------------- | :---------------------------------------------- |
-|  [01]   | Uniclass          | `Pr_20_93_52`                | `Pr.20.93.52`; tables Ss/Pr/EF/Ac differentiate |
-|  [02]   | OmniClass         | `23-30 00 00`                | `23.30.00.00`; tables 11-49                     |
-|  [03]   | MasterFormat      | `03 30 00`                   | `03.30.00`; divisions                           |
-|  [04]   | IfcClassification | `IfcClassificationReference` | reference-pset code path                        |
-
-## [08]-[COST_ROLLUP]
-
-- Owner: `CostCode` the classification-to-cost-code mapping with rate; `CostLineItem` a formula-evaluated takeoff line; `CostRollup` the static surface owning the formula evaluation, the quantity-takeoff line projection, and the hierarchical DuckDB rollup over the element-set.
-- Cases: a cost code maps a classification path to a unit rate and a unit of measure; a line item evaluates a cost formula (`quantity * rate`, or a parametric expression over the element's quantities) into an extended amount; the rollup folds line items up the classification ltree hierarchy.
-- Entry: `public static CostLineItem Evaluate(FederatedEntity entity, CostCode code, Func<FederatedEntity, string, double> quantity)` — projects a line item by evaluating the cost code's quantity measure against the entity and applying the rate; `public static IO<Seq<(string Path, double Amount)>> Rollup(DuckDBConnection lane, ElementSet subject, CostCode code, Func<DuckDBConnection, string, Seq<UInt128>, IO<Seq<(string Path, double Amount)>>> query)` folds the takeoff up the classification hierarchy through a DuckDB `GROUP BY ROLLUP` over the ltree path, lowering the cost code's `Formula` as the rollup scalar expression and falling to `quantity * rate` when the code carries no parametric formula.
-- Auto: the cost formula evaluates through the DuckDB analytical lane's SQL — `quantity * rate` and parametric expressions over the entity's property-set quantities lower to a DuckDB scalar expression so the formula is data, never a hand-rolled expression evaluator (no NCalc, no expression-tree compiler); the takeoff subject is an `ElementSet` (`Query/federation#ELEMENT_SET_ALGEBRA`) so a cost rollup over a discipline, a level, or a clash-result set is one element-set selection; the hierarchical rollup rides DuckDB's `GROUP BY ROLLUP` over the classification ltree path so a cost summary at every hierarchy level (project → building → level → element-class) folds in one query; the rate base pins the catalog edition so a re-priced takeoff is traceable to its rate source.
-- Receipt: a rollup rides `store.cost.rollup` carrying the line count and the rolled total; a re-price rides `store.cost.reprice`.
-- Packages: DuckDB.NET.Data.Full, Npgsql.EntityFrameworkCore.PostgreSQL, System.IO.Hashing, LanguageExt.Core, NodaTime.
-- Growth: a new cost-code dimension is one column on `CostCode`; a new formula form is one DuckDB scalar expression (data, never code); a new rollup cut is one `GROUP BY ROLLUP` grouping over the same lane; zero new surface — a hand-rolled formula-expression evaluator, a per-discipline cost calculator, or a second analytical engine is the deleted form because the formula lowers to DuckDB SQL, the takeoff subject is an element-set, and the rollup is one DuckDB ROLLUP over the ltree hierarchy.
-- Boundary: the cost formula lowers to DuckDB SQL so the takeoff is an analytical query, never an imperative cost loop — a hand-rolled expression evaluator (NCalc, a custom expression-tree compiler) is the deleted form because the DuckDB engine already evaluates parametric expressions over the quantity columns, and a parametric formula like `area * 2.5 + perimeter * waste_factor` is a DuckDB scalar expression the rollup query carries; the takeoff subject is an `ElementSet` so a cost rollup composes with any selection — a cost-per-discipline, a cost-per-level, or a cost-of-the-clash-result set is one element-set the rollup folds over, never a per-subject calculator; the hierarchical rollup is one DuckDB `GROUP BY ROLLUP` over the classification ltree path so the project/building/level/class cost breakdown folds in one query, never a recursive hand-fold; the rate base pins the catalog edition content key so a re-price re-runs the same rollup against a new rate base and the cost delta is the difference of two content-addressed rollups; the line item's quantity reads the federated entity's quantity property sets (areas, volumes, lengths, counts the IFC `IfcElementQuantity` or a measured geometry carries) so the takeoff rides the federated graph, never a per-entity quantity column; the rollup export rides the analytical lane's parquet export (`Query/lanes#ANALYTICAL_LANE`) so a cost report exports through the one tabular path.
-
-```csharp signature
-public sealed record CostCode(
-    string ClassificationPath,
-    string Code,
-    double Rate,
-    string Unit,
-    string QuantityMeasure,
-    string Formula,
-    UInt128 RateBaseEdition);
-
-public readonly record struct CostLineItem(
-    Guid Entity,
-    string ClassificationPath,
-    string CostCode,
-    double Quantity,
-    double Rate,
-    double Amount,
-    string Unit,
-    Instant At);
-
-public static class CostRollup {
-    public static CostLineItem Evaluate(FederatedEntity entity, CostCode code, Func<FederatedEntity, string, double> quantity) {
-        var measured = quantity(entity, code.QuantityMeasure);
-        return new CostLineItem(
-            entity.Identity.Origin, code.ClassificationPath, code.Code,
-            measured, code.Rate, measured * code.Rate, code.Unit, entity.At);
-    }
-
-    public static string RollupSql(ElementSet subject, string formula) =>
-        $"""
-        SELECT classification_path, cost_code,
-               SUM({formula}) AS amount,
-               SUM(quantity) AS quantity, unit
-        FROM cost_line_item
-        WHERE entity = ANY($keys)
-        GROUP BY ROLLUP (classification_path), cost_code, unit
-        ORDER BY classification_path
-        """;
-
-    public static IO<Seq<(string Path, double Amount)>> Rollup(
-        DuckDBConnection lane,
-        ElementSet subject,
-        CostCode code,
-        Func<DuckDBConnection, string, Seq<UInt128>, IO<Seq<(string Path, double Amount)>>> query) =>
-        query(lane, RollupSql(subject, code.Formula.Length == 0 ? "quantity * rate" : code.Formula), subject.Keys);
-
-    public static double Reprice(CostLineItem line, double newRate) => line.Quantity * newRate;
-}
-```
-
-| [INDEX] | [CONCERN]           | [SURFACE]                                      | [LAW]                                            |
-| :-----: | :------------------ | :--------------------------------------------- | :----------------------------------------------- |
-|  [01]   | formula evaluation  | DuckDB scalar expression over quantity columns | data formula, never a hand-rolled evaluator      |
-|  [02]   | takeoff subject     | `ElementSet` selection                         | composes with any element-set selection          |
-|  [03]   | hierarchical rollup | DuckDB `GROUP BY ROLLUP` over ltree path       | one query for every hierarchy level              |
-|  [04]   | rate base           | content-addressed catalog edition              | re-price is a content-addressed rollup delta     |
-|  [05]   | report export       | analytical-lane parquet export                 | one tabular path, never a second report pipeline |
-
-## [09]-[RESEARCH]
-
-- [FIRST_OPEN_RACE]: RESOLVED (proof) — the `Claim` conflict elects the writer deterministically and the loser's reader attach observes the winner's `MigrateAsync` commit boundary atomically. Proved by a two-process console harness over `Microsoft.Data.Sqlite` 10.0.9 / e_sqlite3 3.50.4 racing first-open + lease-INSERT + a 60ms-widened migration commit on one WAL file (2/4/6-process, 110 races, zero failures): exactly one winner per race, all processes agree on the deterministic winner pid, losers read the full committed schema + 64-row seed with no torn/partial read and no post-commit empty-schema window, `quick_check` `ok` everywhere. The `ON CONFLICT DO NOTHING RETURNING` no-op yields a `null` scalar (a value, not a throw) folded to the `<writer-lease-held>` `Fin.Fail`; `SQLITE_BUSY` (code 5) is the only diagnosable retry fault and never triggered under 5000ms busy_timeout. WAL per-reader snapshot isolation makes the migration transaction all-or-nothing to any concurrent reader.
+- [FIRST_OPEN_RACE]: RESOLVED (proof) — the `Claim` conflict elects the writer deterministically and the loser's reader attach observes the winner's `MigrateAsync` commit boundary atomically. Proved by a two-process console harness over `Microsoft.Data.Sqlite` 10.0.9 / e_sqlite3 3.50.4 racing first-open + lease-INSERT + a 60ms-widened migration commit on one WAL file (2/4/6-process, 110 races, zero failures): exactly one winner per race, all processes agree on the deterministic winner pid, losers read the full committed schema + 64-row seed with no torn/partial read and no post-commit empty-schema window, `quick_check` `ok` everywhere. The `ON CONFLICT DO NOTHING RETURNING` no-op yields a `null` scalar (a value, not a throw) folded to the `writer-lease-held` `StoreFault.Concurrency`; `SQLITE_BUSY` (code 5) is the only diagnosable retry fault and never triggered under the `SqliteConnectionStringBuilder.DefaultTimeout` busy budget the provider's BUSY/LOCKED retry loop owns. WAL per-reader snapshot isolation makes the migration transaction all-or-nothing to any concurrent reader.
 - [TYPE_RESOLUTION_ACCESSOR]: the `NpgsqlDataSource` database-info accessor that projects the live source's resolved `PostgresType`, `PostgresEnumType`, and `PostgresCompositeType` names into the `FrozenSet<string>` the `type-resolution` open-proof hands `VerifyTypes` — whether the projection reads from a connection database-info property or a data-source mapper enumeration, resolved before the proof row reads a live source.
 - [LEASE_CADENCE]: the writer-lease `Heartbeat` renewal interval for a paired single-writer store — the `Duration` between successive `StoreLeaseRow.Heartbeat` stamps that keeps `Reclaimable` false for the healthy holder while bounding a crashed holder's reclaim latency under `LeasePolicy.Maintenance.CrashStaleness`, resolved against the paired-topology drain cadence before the cadence literal lands on the lease row.
-- [CLASSIFICATION_LTREE_LOAD]: the published Uniclass/OmniClass/MasterFormat code-table ingestion into the `ltree`-pathed catalog table — the canonical code-to-ltree-path transform per standard separator and the cross-standard mapping-table source, verified against a published edition before the catalog-load fence pins a code form.
-- [COST_FORMULA_PUSHDOWN]: the DuckDB scalar-expression evaluation of a parametric cost formula over the quantity columns and the `GROUP BY ROLLUP` hierarchical fold over the ltree classification path — whether a parametric formula referencing multiple quantity measures lowers to one DuckDB expression and the ROLLUP groups correctly over the ltree hierarchy on the live in-process engine.

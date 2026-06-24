@@ -1,8 +1,8 @@
 export const meta = {
-  name: 'rebuild-csharp',
-  description: 'Hostile ground-up rebuild of libs/csharp design pages to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. Untied to any idea/task: it improves every page objectively. args = optional package scope (e.g. "Rasm.Bim"); empty/"ALL" = all of libs/csharp.',
+  name: 'rebuild-persistence-querystore',
+  description: 'Focused hostile ground-up rebuild of EXACTLY the design pages in libs/csharp/Rasm.Persistence/.planning/Query and libs/csharp/Rasm.Persistence/.planning/Store (hardcoded two-folder scope, NO args, NO whole-package sweep) to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. Per page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile over only these pages. A deterministic JS filter drops any discovered path not under the two target folders, so the universe is provably just Query + Store. Disposable, takes no args.',
   phases: [
-    { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },
+    { title: 'Discover', detail: 'enumerate *.md in EXACTLY the Query and Store folders, then JS-filter to those two dirs (provable scope)' },
     { title: 'Rebuild', detail: 'per page (1 agent/file): rebuild(max) -> critique(xhigh, 6-checklist + capability-completeness) -> redteam(max, counterfactual + cold re-review), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP=11' },
     { title: 'Reconcile', detail: 'consume cross-file residuals: union-find cluster by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
   ],
@@ -25,12 +25,14 @@ const pool = async (items, cap, worker) => {
 }
 const CAP = 11
 
-// --- [INPUT] -- args = optional scope under the language root (package name or sub-path; empty/"ALL" = whole root) ---
-const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
+// --- [INPUT] -- HARDCODED two-folder scope: NO args; the universe is EXACTLY these two Persistence sub-domains ---
 const ROOT = 'libs/csharp'
-const rawScope = (typeof input === 'string') ? input.trim() : (input && typeof input === 'object' && input.target) ? String(input.target).trim() : ''
-const SCOPE = (!rawScope || rawScope === 'ALL') ? '' : rawScope
-const SWEEP = !SCOPE ? ROOT : (SCOPE === ROOT || SCOPE.indexOf(ROOT + '/') === 0) ? SCOPE : ROOT + '/' + SCOPE
+const TARGETS = [
+  'libs/csharp/Rasm.Persistence/.planning/Query',
+  'libs/csharp/Rasm.Persistence/.planning/Store',
+]
+const SWEEP = TARGETS.join(' + ')
+const underTargets = (p) => TARGETS.some((t) => typeof p === 'string' && p.indexOf(t + '/') === 0)
 const folderOf = (p) => { const head = p.split('/.planning/')[0].split('/'); return head[head.length - 1] || 'root' }
 const subOf = (p) => p.split('/.planning/').pop()
 
@@ -106,8 +108,8 @@ const processPage = async (w, tag) => {
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 phase('Discover')
-const inv = await agent('List every design page under ' + SWEEP + ' — markdown specs at paths matching */.planning/**/*.md. Return each as a repo-relative path (e.g. ' + ROOT + '/<Package>/.planning/<sub>/<page>.md). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Use find; do not cd.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
-const pending = ((inv && inv.pages) || []).filter(Boolean).map((p) => ({ page: p }))
+const inv = await agent('List every markdown design page inside EXACTLY these two directories and NOWHERE else: ' + TARGETS.join(' AND ') + '. Run `find ' + TARGETS.join(' ') + ' -maxdepth 1 -name "*.md"` and return each hit as a repo-relative path. Every file in these two folders IS a design page; exclude only IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md if any appear. Do NOT cd; do NOT recurse into or search any sibling sub-domain (not Schema, Sync, Version, or any other package).', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
+const pending = ((inv && inv.pages) || []).filter(Boolean).filter(underTargets).map((p) => ({ page: p }))
 const total = pending.length
 log('Discover under ' + SWEEP + ': ' + total + ' design pages; pooling at CAP=' + CAP)
 
@@ -144,4 +146,4 @@ const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) 
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual -> resolve-residuals), ' + dropped.length + ' dropped as invalid')
-return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
+return { root: ROOT, scope: 'Rasm.Persistence/.planning/{Query,Store}', targets: TARGETS, complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
