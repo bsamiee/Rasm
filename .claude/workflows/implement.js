@@ -20,19 +20,24 @@ const RECONCILE_VERIFY = { type: 'object', additionalProperties: false, required
 const PKGPREP = { type: 'object', additionalProperties: false, required: ['package', 'verdict'], properties: { package: { type: 'string' }, verdict: { type: 'string', enum: ['admitted', 'exists', 'skipped'] }, manifest: { type: 'string' }, api_catalog: { type: 'string' }, summary: { type: 'string' } } }
 const CLOSEOUT_FOLDER = { type: 'object', additionalProperties: false, required: ['folder', 'cards'], properties: { folder: { type: 'string' }, cards: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['slug', 'disposition'], properties: { slug: { type: 'string' }, disposition: { type: 'string', enum: ['complete', 'dropped', 'open'] }, strength: { type: 'string', enum: ['strong', 'weak', 'partial'] } } } } } }
 
-// --- [HARNESS] -- steady bounded worker pool (<=cap concurrent, staggered start) ----------
+// --- [HARNESS] -- steady bounded pool: <=cap in flight AND a serialized launch gate --------
+// The gate spaces EVERY agent start >= STAGGER_MS apart for the pool's whole life, not just the
+// initial ramp. Without it, a synchronized batch of fast failures (e.g. a rate-limit cascade)
+// frees every worker at the same instant and re-fires a thundering-herd of launches that sustains
+// the throttle. With it, real (slow) work still fans out to `cap` — the 1.5s spacing is negligible
+// against minutes-long agents — while a fast-fail cascade self-throttles to 1 launch / STAGGER_MS.
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 12 // one concurrency ceiling for every heavy pooled phase (Plan, Package-prep, Realize, Reconcile, Closeout); phases run sequentially so there is no second cap to balance, and the runtime independently clamps to min(16, cores-2), so 12 is the deliberate effective throttle (the serial probe now lives in scout)
+const CAP = 10 // in-flight ceiling for every pooled phase (Plan, Package-prep, Realize, Reconcile, Closeout); combined with the launch gate, real work fans out to CAP while a fast-fail cascade can never exceed 1 launch / STAGGER_MS — no thundering-herd burst. Runtime also clamps to min(16, cores-2); the serial probe lives in scout
 const MAX_RECONCILE_ROUNDS = 3
 
 // --- [INPUT] -- args = a target path | [targets] | { target } ; empty/"ALL" = all of libs ---
@@ -300,11 +305,13 @@ let round = 0
 while (pending.length && round < MAX_RECONCILE_ROUNDS) {
   round++
   const clusters = clusterByFiles(pending)
-  const out = (await pipeline(
-    clusters,
-    (cl) => agent(reconcileFixPrompt(cl), { label: 'recon-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX, effort: 'max', stallMs: 300000 }),
-    (fix, cl, i) => fix ? agent(reconcileVerifyPrompt(cl, fix), { label: 'recon-verify:r' + round + ':' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY, effort: 'xhigh', stallMs: 300000 }).then((v) => ({ cluster: cl, verify: v })) : null,
-  )).filter(Boolean)
+  // Reconcile honors the same CAP=12 ceiling as every other fan-out: fix -> verify run sequentially per cluster, at most CAP clusters concurrent (no unbounded pipeline)
+  const out = (await pool(clusters, CAP, async (cl, i) => {
+    const fix = await agent(reconcileFixPrompt(cl), { label: 'recon-fix:r' + round, phase: 'Reconcile', schema: RECONCILE_FIX, effort: 'max', stallMs: 300000 })
+    if (!fix) return null
+    const verify = await agent(reconcileVerifyPrompt(cl, fix), { label: 'recon-verify:r' + round + ':' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY, effort: 'xhigh', stallMs: 300000 })
+    return { cluster: cl, verify }
+  })).filter(Boolean)
   const next = []
   for (const o of out) { const files = [...new Set(o.cluster.flatMap((x) => x.files || []))]; for (const c of ((o.verify && o.verify.claims) || [])) { if (c.status === 'open') next.push({ files, claim: c.claim }); else if (c.status === 'invalid') dropped.push({ files, claim: c.claim, evidence: c.evidence || '' }) } }
   const nextUniq = [...new Map(next.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
