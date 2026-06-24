@@ -196,7 +196,7 @@ public sealed partial class HashPolicy {
 - Receipt: `SnapshotCatalogRow` is the durable evidence; the `SealedSnapshot` payload rides the receipt envelope at the sink edge, so the catalog HLC stamp and the receipt stamp are one value.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new header capability is one flag bit row on `Flags`; one artifact kind is one catalog row value; the chunk-dedup hand-off is one `ContentChunker.Chunk` fold over the packed payload before catalog insertion (`#CONTENT_CHUNKING`), never a second framing; zero new surface.
-- Boundary: `Seal` and the sweep deletion kernel are this fence's boundary capsules — language-owned statement forms stay inside those two bodies; `directory` arrives from the placement law and is never derived here; the durability order is settled — `Flush(flushToDisk: true)` forces the data blocks before `File.Move` performs the atomic rename, so a crash between the two leaves the temp file swept rather than a torn final; temp residue and catalog-orphaned payloads leave only through `Sweep`; catalog insertion enters through the `persist` delegate so the store rail stays the single write path; `ContentAddress` parses the sealed `Hash` so the cache, blob, and diff surfaces share one content key and never mint parallel identities; the magic constant spells RSNP in little-endian byte order.
+- Boundary: `Seal` and the sweep deletion kernel are this fence's boundary capsules — language-owned statement forms stay inside those two bodies; `directory` arrives from the placement law and is never derived here; the durability order is settled — `Flush(flushToDisk: true)` forces the data blocks before `File.Move` performs the atomic rename, so a crash between the two leaves the temp file swept rather than a torn final; temp residue and catalog-orphaned payloads leave only through `Sweep`; catalog insertion enters through the `persist` delegate so the store rail stays the single write path; `ContentAddress` parses the sealed `Hash` so the cache, blob, and diff surfaces share one content key and never mint parallel identities; the magic constant spells RSNP in little-endian byte order; `AsOfKey` is the icechunk as-of content-key seam — the `python:data/gridded/virtual` lane stamps an icechunk as-of snapshot identity over the one C#-owned XxHash128 content-key seed (the same seed `ContentAddress` reads), so a data virtual-cube as-of read reproduces its snapshot content-key from the shared seed and resolves against this durable content-addressed snapshot spine rather than a second snapshot identity — the version-control surface is the Persistence Version concern read at the wire, and a second as-of snapshot identity per runtime is the deleted form.
 
 ```csharp signature
 public readonly record struct SnapshotHeader(
@@ -248,6 +248,16 @@ public static class Snapshots {
 
     public static UInt128 ContentAddress(SnapshotCatalogRow row) =>
         UInt128.Parse(row.Hash, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+    public static UInt128 AsOfKey(Seq<UInt128> sortedManifest, Instant asOf) {
+        var buffer = new ArrayBufferWriter<byte>();
+        foreach (var key in sortedManifest)
+            BinaryPrimitives.WriteUInt128LittleEndian(buffer.GetSpan(16)[..16], key);
+        buffer.Advance(sortedManifest.Count * 16);
+        BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(8)[..8], asOf.ToUnixTimeTicks());
+        buffer.Advance(8);
+        return XxHash128.HashToUInt128(buffer.WrittenSpan);
+    }
 
     public static IO<SnapshotCatalogRow> Write<T>(
         ReceiptSinkPort sink,

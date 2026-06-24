@@ -4,7 +4,7 @@ Rasm.Compute interchange lane: the compute-and-transport half of artifact interc
 
 ## [01]-[INDEX]
 
-- [01]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc.
+- [01]-[TWO_HOP_TESSELLATION]: IFC/AP242/native geometry crosses to the companion, never in-proc; ifctester IDS-audit oracle and GeoArrow-buffer consume ride the same companion rpc.
 - [02]-[FIELD_RESULT_CODEC]: chunked simulation-field layout; error-bounded lossy/lossless; zero-copy.
 - [03]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
 - [04]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
@@ -12,13 +12,13 @@ Rasm.Compute interchange lane: the compute-and-transport half of artifact interc
 
 ## [02]-[TWO_HOP_TESSELLATION]
 
-- Owner: `TessellationRequest` — the two-hop bridge that crosses IFC geometry evaluation to the IfcOpenShell companion (`IfcConvert` producing GLB) and re-imports the GLB through the Bim glTF import path; the request is host-local in posture and rides the existing remote-lane companion rpc, never a new transport; `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `InterchangePolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
+- Owner: `TessellationRequest` — the two-hop bridge that crosses IFC geometry evaluation to the IfcOpenShell companion (`IfcConvert` producing GLB) and re-imports the GLB through the Bim glTF import path; the request is host-local in posture and rides the existing remote-lane companion rpc, never a new transport; `IdsAuditRequest` the companion-rpc leg passing an IDS-XML payload to the Python ifctester oracle and projecting the per-specification pass/fail `GlobalId` set back into the Bim `IdsAudit` shape (one ifctester invocation shape beside the `IfcConvert` one, no new transport); `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `InterchangePolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
 - Entry: `public static Fin<TessellationRequest> Plan(string formatKey, bool requiresCompanion, ReadOnlyMemory<byte> ifcBytes, InterchangePolicy policy)` builds the request keyed on the IFC content and the deflection/tolerance policy; the companion round-trip rides the existing `Runtime/channels#PROTO_VOCABULARY` `Solve`/artifact transport — the GLB result re-enters through the Bim glTF import rail as an `ImportedGeometry`.
 - Auto: `Plan` reads the source format's companion-tessellation flag to gate the hop so a non-IFC format never crosses; the request carries the IFC bytes, the deflection and tolerance from `InterchangePolicy`, and the content-key so a re-tessellation of the same model at the same deflection reuses the cached GLB by reference to the Persistence artifact index rather than re-crossing the companion.
 - Receipt: the `RemoteCall` receipt carries the companion transport, the IFC content-key, the deflection, and the elapsed; a cache hit on the prior GLB stamps a `Cache` receipt instead of crossing.
 - Packages: LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.Persistence (project), BCL inbox
-- Growth: a new tessellation companion is one transport-row consumption (never a new transport); a new evaluation parameter is one column on `TessellationRequest` folded into the content-key; zero new surface.
-- Boundary: the two-hop rail is the single IFC-to-geometry path because the Bim IFC object model carries no tessellation kernel — a managed IFC BRep evaluator is the deleted form; the companion is the IfcOpenShell PyPI package living in `libs/python/geometry`, never a NuGet pin, and it is reached only through the existing remote-lane companion rpc so this page mints no transport, no channel, and no second wire vocabulary — the host-local posture means an in-process Rhino host crosses to the companion process over the same UDS/InProcess leg `Runtime/channels#TRANSPORT_AXIS` owns and a remote tessellation rides that same companion rpc; the GLB the companion returns re-enters the Bim glTF import rail so the decoded mesh is one `ImportedGeometry` shape, and the IFC semantic graph (owned by `Rasm.Bim`) and the tessellated geometry (from this hop) are two projections of one content-keyed IFC artifact joined by the content-key.
+- Growth: a new tessellation companion is one transport-row consumption (never a new transport); a new evaluation parameter is one column on `TessellationRequest` folded into the content-key; a geospatial mesh payload is one `GeoArrowBuffer` decode landing into the same `ImportedGeometry` vertex/index spans (never a second spatial codec); zero new surface.
+- Boundary: the two-hop rail is the single IFC-to-geometry path because the Bim IFC object model carries no tessellation kernel — a managed IFC BRep evaluator is the deleted form; the companion is the IfcOpenShell PyPI package living in `libs/python/geometry`, never a NuGet pin, and it is reached only through the existing remote-lane companion rpc so this page mints no transport, no channel, and no second wire vocabulary — the host-local posture means an in-process Rhino host crosses to the companion process over the same UDS/InProcess leg `Runtime/channels#TRANSPORT_AXIS` owns and a remote tessellation rides that same companion rpc; the GLB the companion returns re-enters the Bim glTF import rail so the decoded mesh is one `ImportedGeometry` shape, and the IFC semantic graph (owned by `Rasm.Bim`) and the tessellated geometry (from this hop) are two projections of one content-keyed IFC artifact joined by the content-key; the `python:data/spatial/geospatial` `[SHAPE]` GeoArrow buffers (the data companion's `geoarrow-rust-compute` column-major coordinate/offset buffers, zero GEOS/GDAL) decode through `GeoArrowBuffer.ToImportedGeometry` directly into the GLB tessellation wire's vertex/index spans on the EXISTING companion channel so a geospatial mesh crosses on the one settled GLB binary layout the tessellation bridge already projects, never a second spatial codec — the GeoArrow column buffers (the interleaved `xy`/`xyz` coordinate buffer and the geometry/ring offset buffers) marshal into the `ImportedGeometry` `Vertices`/`Indices` `ReadOnlyMemory` spans by reinterpreting the column-major coordinate buffer as the vertex stream and the offset buffer as the triangle-fan index stream, and the decoded geometry emits the existing tessellation receipt; the GeoArrow buffer interchange is consumed at the wire on both endpoints (the data companion produces the buffers, this seam consumes them) so the geospatial interchange never strands one-sided on the Python producer; the ifctester IDS-audit oracle rides the EXISTING companion path the tessellation bridge proves so Compute mints no new transport — `IdsAuditRequest` adds one ifctester invocation shape beside the `IfcConvert` one, passing the IDS-XML payload plus the IFC content to the `python:geometry/ifc-companion` ifctester (the IfcOpenShell `ids` oracle) and projecting the per-specification `IdsVerdict` GlobalId-plus-facet set back, so the Bim `Review/validation#IDS_FACETS` `IdsAudit` compares the C# self-audit with the conformant ifctester result on GlobalId and facet rather than a message diff — the Bim owner authors and parses the IDS spec (Compute owns only the companion-rpc orchestration and the verdict projection, the Python companion owns the IfcOpenShell `ids` oracle), and a Compute-minted IDS parser or a second transport beside the tessellation companion rpc is the rejected form.
 
 ```csharp signature
 public sealed record ImportedGeometry(
@@ -46,6 +46,71 @@ public sealed record TessellationRequest(
 
     public string ArtifactKey => $"{IfcContentKey:x32}:glb";
 }
+
+// The data-companion GeoArrow buffer interchange consumed at the GLB tessellation wire: the column-major
+// coordinate buffer and the geometry/ring offset buffers (the data companion's geoarrow-rust-compute layout,
+// zero GEOS/GDAL) decode into the one ImportedGeometry vertex/index spans the tessellation bridge already
+// projects, mirroring the python:data/spatial/geospatial -> Rasm.Compute [SHAPE] edge so the geospatial
+// interchange lands at the wire on both endpoints rather than stranded one-sided on the Python producer.
+public sealed record GeoArrowBuffer(
+    int Dimensions,
+    ReadOnlyMemory<double> Coordinates,
+    ReadOnlyMemory<int> GeometryOffsets,
+    ReadOnlyMemory<int> RingOffsets,
+    string FormatKey) {
+    public Fin<ImportedGeometry> ToImportedGeometry(Instant at) {
+        if (Dimensions is < 2 or > 3) { return Fin.Fail<ImportedGeometry>(new ComputeFault.PayloadOverBounds($"<geoarrow-dim:{Dimensions}>")); }
+        int vertexCount = Coordinates.Length / Dimensions;
+        var vertices = new float[vertexCount * 3];
+        ReadOnlySpan<double> coords = Coordinates.Span;
+        for (int v = 0; v < vertexCount; v++) {
+            vertices[v * 3] = (float)coords[v * Dimensions];
+            vertices[v * 3 + 1] = (float)coords[v * Dimensions + 1];
+            vertices[v * 3 + 2] = Dimensions == 3 ? (float)coords[v * Dimensions + 2] : 0f;
+        }
+        var indices = Triangulate(RingOffsets.Span, vertexCount);
+        return Fin.Succ(new ImportedGeometry(FormatKey, vertices.AsMemory(), Array.Empty<float>(), indices.AsMemory(), vertexCount, indices.Length / 3, at));
+    }
+
+    // Each ring fans into triangles around its first vertex; the offset buffer delimits the rings so a
+    // polygon mesh crosses on the GLB triangle-index stream the tessellation wire expects.
+    static long[] Triangulate(ReadOnlySpan<int> ringOffsets, int vertexCount) {
+        if (ringOffsets.Length < 2) { return [.. Enumerable.Range(0, vertexCount).Select(static i => (long)i)]; }
+        var triangles = new List<long>();
+        for (int ring = 0; ring + 1 < ringOffsets.Length; ring++) {
+            int start = ringOffsets[ring], end = ringOffsets[ring + 1];
+            for (int v = start + 1; v + 1 < end; v++) { triangles.Add(start); triangles.Add(v); triangles.Add(v + 1); }
+        }
+        return [.. triangles];
+    }
+}
+
+// The ifctester cross-tool IDS-audit oracle over the settled TWO_HOP companion rpc: the Bim owner authors
+// and parses the IDS spec and Compute orchestrates the companion invocation identically to the tessellation
+// TWO_HOP pattern, passing the IDS-XML payload plus the IFC content to the Python ifc-companion ifctester
+// and projecting the per-specification pass/fail GlobalId set back so the Bim IdsAudit diffs the C#
+// self-audit against a buildingSMART-audit-test-suite-conformant result on GlobalId-plus-facet — never a
+// message diff, never a new transport.
+public sealed record IdsAuditRequest(
+    UInt128 IfcContentKey,
+    ReadOnlyMemory<byte> IfcBytes,
+    ReadOnlyMemory<byte> IdsXml,
+    string ResultFormatKey) {
+    public static Fin<IdsAuditRequest> Plan(ReadOnlyMemory<byte> ifcBytes, ReadOnlyMemory<byte> idsXml, InterchangePolicy policy) =>
+        idsXml.IsEmpty
+            ? Fin.Fail<IdsAuditRequest>(new ComputeFault.ModelRejected("<ids-audit-empty-spec>"))
+            : Fin.Succ(new IdsAuditRequest(
+                InterchangeIdentity.Key("ids", ifcBytes.Span, policy.Deflection, policy.Tolerance, policy.AngleTolerance), ifcBytes, idsXml, "ids-verdict"));
+
+    public string ArtifactKey => $"{IfcContentKey:x32}:ids";
+}
+
+// Per-specification verdict the Python ifctester decoder produces, the conformant oracle the Bim
+// Review/validation#IDS_FACETS IdsAudit.Reconcile folds against the self-audit. The Facet column carries the
+// shared lowercase IDS facet-type token (entity/attribute/property/classification/material/partOf) the Bim
+// IdsFacet.FacetKey join key emits, so the diff joins on the (GlobalId, Facet) axis identically on both ends
+// of the seam — the one cross-runtime audit row shape, never a Compute-side IdsAudit re-projection.
+public readonly record struct IdsVerdict(string GlobalId, string Specification, string Facet, bool Passed, string Reason);
 ```
 
 ## [03]-[FIELD_RESULT_CODEC]
@@ -514,7 +579,7 @@ public static class TilePartition {
 - Receipt: the `Cache` receipt carries the content-key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; a sentinel-keyed empty artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
 - Growth: a new evaluation parameter that changes the artifact is one canonical-scalar column folded into the seed; a new keyed-input kind is one `CanonicalForm` arm; zero new surface.
-- Boundary: artifact identity is `XxHash128` over the canonical bytes — the suite hash law the `Runtime/channels#ARTIFACT_FRAMES` whole-artifact identity row and the model-lane `ModelIdentity` checksum already hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor `lang:python:runtime/evidence/identity#IDENTITY` and `lang:typescript:interchange/Codec/frame#CONTENT_HASHING` reproduce against — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN, so two semantically-equal artifacts on osx-arm64, linux-x64, and win-x64 hash one identity and a raw-string-interpolated seed (the `$"{formatKey}|{deflection:R}|..."` form) is the rejected drift defect that keys distinctly across cultures and float renderings; the seed-zero sentinel is the absent-versus-empty law — an empty-bytes artifact keys to `SeedZero` over the policy alone, never the byte hash of an empty span, so a content key never collides between absent and present-but-empty; the HLC compose order is byte-identical to `AppHost/Runtime/ports#PORT_RECORDS` — physical half first, logical half second, both little-endian — so a content key and a causal stamp seal one frame the peers re-derive from the same two-half order and a logical-half-first composition is the named defect that folds a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; the deflection and tolerance fold into the seed so the geometry-evaluation settings partition the key and a coarse and a fine tessellation of the same IFC never collide — a cross-setting hit is the named defect; the addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` keyed on the content-key, the single artifact owner, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are content-keyed rows under one identity scheme the Persistence index owns — Compute owns the identity derivation and Persistence owns blob residence, neither re-declaring the other; a managed copy of the artifact bytes beside the blob lane is the rejected form.
+- Boundary: artifact identity is `XxHash128` over the canonical bytes — the suite hash law the `Runtime/channels#ARTIFACT_FRAMES` whole-artifact identity row and the model-lane `ModelIdentity` checksum already hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor `lang:python:runtime/evidence/identity#IDENTITY` and `lang:typescript:interchange/Codec/frame#CONTENT_HASHING` reproduce against — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN, so two semantically-equal artifacts on osx-arm64, linux-x64, and win-x64 hash one identity and a raw-string-interpolated seed (the `$"{formatKey}|{deflection:R}|..."` form) is the rejected drift defect that keys distinctly across cultures and float renderings; the seed-zero sentinel is the absent-versus-empty law — an empty-bytes artifact keys to `SeedZero` over the policy alone, never the byte hash of an empty span, so a content key never collides between absent and present-but-empty; the HLC compose order is byte-identical to `AppHost/Runtime/ports#PORT_RECORDS` — physical half first, logical half second, both little-endian — so a content key and a causal stamp seal one frame the peers re-derive from the same two-half order and a logical-half-first composition is the named defect that folds a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; the deflection and tolerance fold into the seed so the geometry-evaluation settings partition the key and a coarse and a fine tessellation of the same IFC never collide — a cross-setting hit is the named defect; the addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, the single artifact owner, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are content-keyed rows under one identity scheme the Persistence index owns — Compute owns the identity derivation and Persistence owns blob residence, neither re-declaring the other; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` is their own `ContentHash`, a single-projection row) while the tessellated GLB and the IFC-semantic graph of one source IFC are admitted with the source-IFC `InterchangeIdentity` as the `Option<UInt128> sourceKey` so both rows carry one `SourceKey` and the Persistence `ArtifactIndexRow.Project` fold returns the two-projection family — the GLB admission threads that source key through `InterchangeIdentity.Admit(artifact, classification, retentionClass, Some(sourceIfcKey))` at the app-platform seam (`InterchangeIdentity.Key(sourceFormatKey, ifcBytes, …)`, the same key the Bim `TessellationRequest.IfcContentKey` folds), never a GLB self-key that would strand the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
 
 ```csharp signature
 public sealed class InterchangeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -580,8 +645,8 @@ public static class InterchangeIdentity {
         return XxHash128.HashToUInt128(frame);
     }
 
-    public static ArtifactIndexRow Admit(ExportArtifact artifact, DataClassification classification, string retentionClass) =>
-        ArtifactIndexRow.Admit(ArtifactIndexRow.Interchange, $"{artifact.ContentKey:x32}:{CanonicalForm.Tag(artifact.FormatKey)}", artifact.Bytes.ToArray(), classification, retentionClass, artifact.At);
+    public static ArtifactIndexRow Admit(ExportArtifact artifact, DataClassification classification, string retentionClass, Option<UInt128> sourceKey = default) =>
+        ArtifactIndexRow.Admit(ArtifactIndexRow.Interchange, $"{artifact.ContentKey:x32}:{CanonicalForm.Tag(artifact.FormatKey)}", artifact.Bytes.ToArray(), classification, retentionClass, artifact.At, sourceKey);
 }
 ```
 

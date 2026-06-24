@@ -62,17 +62,18 @@
 [QUERY_TYPES]: sort, page, virtual, aggregate, and diagnostic model
 - rail: live-data
 
-| [INDEX] | [SYMBOL]                    | [RAIL]            |
-| :-----: | :-------------------------- | :---------------- |
-|  [01]   | `SortExpressionComparer<T>` | sort comparer     |
-|  [02]   | `SortExpression<T>`         | sort expression   |
-|  [03]   | `PageRequest`               | page request      |
-|  [04]   | `PageContext<T>`            | page context      |
-|  [05]   | `VirtualRequest`            | virtual request   |
-|  [06]   | `VirtualResponse`           | virtual response  |
-|  [07]   | `IAggregateChangeSet<T>`    | aggregate changes |
-|  [08]   | `ChangeStatistics`          | diagnostics       |
-|  [09]   | `ChangeSummary`             | diagnostics       |
+| [INDEX] | [SYMBOL]                    | [RAIL]                                         |
+| :-----: | :-------------------------- | :--------------------------------------------- |
+|  [01]   | `SortExpressionComparer<T>` | sort comparer                                  |
+|  [02]   | `SortExpression<T>`         | sort expression                                |
+|  [03]   | `PageRequest`               | page request                                   |
+|  [04]   | `PageContext<T>`            | page context                                   |
+|  [05]   | `VirtualRequest`            | virtual request                                |
+|  [06]   | `VirtualResponse`           | virtual response                               |
+|  [07]   | `Node<TObject,TKey>`        | tree node — `Item`/`Depth`/`Children`/`Parent` |
+|  [08]   | `IAggregateChangeSet<T>`    | aggregate changes                              |
+|  [09]   | `ChangeStatistics`          | diagnostics                                    |
+|  [10]   | `ChangeSummary`             | diagnostics                                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -94,18 +95,23 @@
 - rail: live-data
 - surface-root: `ObservableCacheEx`
 
-| [INDEX] | [SURFACE]     | [RAIL]             |
-| :-----: | :------------ | :----------------- |
-|  [01]   | `Filter`      | predicate filter   |
-|  [02]   | `Sort`        | comparer sort      |
-|  [03]   | `Group`       | key grouping       |
-|  [04]   | `Transform`   | projection         |
-|  [05]   | `AutoRefresh` | refresh stream     |
-|  [06]   | `MergeMany`   | child stream merge |
-|  [07]   | `ExpireAfter` | timed expiry       |
-|  [08]   | `LimitSizeTo` | size bound         |
-|  [09]   | `Page`        | paging             |
-|  [10]   | `Virtualise`  | virtualisation     |
+| [INDEX] | [SURFACE]                 | [RAIL]                                                                                |
+| :-----: | :------------------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `Filter`                  | predicate filter                                                                      |
+|  [02]   | `Sort`                    | comparer sort                                                                         |
+|  [03]   | `Group`                   | key grouping                                                                          |
+|  [04]   | `Transform`               | projection                                                                            |
+|  [05]   | `TransformMany`           | one-to-many child expansion                                                           |
+|  [06]   | `TransformToTree`         | parent-keyed `Node<T,K>` tree                                                         |
+|  [07]   | `AutoRefresh`             | refresh stream                                                                        |
+|  [08]   | `MergeMany`               | child stream merge                                                                    |
+|  [09]   | `ExpireAfter`             | timed expiry                                                                          |
+|  [10]   | `LimitSizeTo`             | size bound                                                                            |
+|  [11]   | `Page`                    | paging                                                                                |
+|  [12]   | `Virtualise`              | virtualisation                                                                        |
+|  [13]   | `ToCollection`            | change-set to `IReadOnlyCollection`                                                   |
+|  [14]   | `ToObservableChangeSet`   | `IObservable<IEnumerable<T>>` snapshot to keyed change-set (successive-snapshot diff) |
+|  [15]   | `AutoRefreshOnObservable` | external-trigger re-evaluation stream                                                 |
 
 [BINDING_ENTRYPOINTS]: UI binding and disposal operations
 - rail: live-data
@@ -147,3 +153,9 @@
 - Owns: filter, sort, group, transform, bind, dispose, aggregate, page, and virtualise operations
 - Accept: host panels, companion windows, sidecars, diagnostics, and downstream shells share one live projection rail
 - Reject: separate collection mutation paths per view modality
+
+[HIERARCHY_LAW]:
+- `TransformToTree(parentKeySelector, predicateChanged?)` folds a flat parent-keyed cache into an `IObservable<IChangeSet<Node<TObject,TKey>,TKey>>` whose `Node<TObject,TKey>` carries `Item`, `Depth`, `Parent`, and a nested `Children` observable cache; its default root predicate is `IsRoot`, so it emits root nodes only and the consumer walks `Children` for descendants.
+- `TransformMany(manySelector, keySelector)` expands each source item into a child change-set, the operator a flatten composes onto to project a `Node` tree into flat indent rows.
+- The tree-flatten fold is one owner: `TransformToTree` plus the `Node` recursion is the hierarchical projection, never a per-surface tree control or a hand-sliced descendant collection.
+- Incremental re-flatten on an expansion toggle holds ONE `TransformToTree` subscription: `CombineLatest(tree.ToCollection(), expansion)` re-walks the root collection against the live expansion set and `ToObservableChangeSet(keySelector)` diffs successive flat snapshots into the minimal keyed change-set, so a toggle re-realizes only the changed indent rows and never re-subscribes the tree transform (an `expansion.Select(rebuild).Switch()` that re-runs `TransformToTree` per toggle is the rejected O(n)-per-toggle form).

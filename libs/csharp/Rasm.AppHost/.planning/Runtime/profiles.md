@@ -1,6 +1,6 @@
 # [APPHOST_HOST_PROFILES]
 
-Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from the same record, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host. The page owns the profile axis, the lifetime-adapter delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
+Rasm.AppHost boots every process through one host-variance axis: eight string-keyed `HostProfile` rows carry every modality difference as column values and delegate bindings, one `Resolve` fold materializes the `ResolvedProfile` record siblings consume, one `Boot` fold turns that record into a configured Generic Host builder, one identity fold derives per-user roots and telemetry resource attributes from the same record, and one power-and-fidelity fold reads the live power state and thermal budget to scale compute fidelity on a battery- or thermally-constrained host. The per-modality durability objective is one `RecoveryObjective(Rpo, Rto)` column on the `HostProfile` row — a web service targets a tighter RPO/RTO window than a Rhino plugin — projected onto `ResolvedProfile` so `Rasm.Persistence/Version/recovery` reads the DR target as settled vocabulary and never mints it locally. The page owns the profile axis, the per-modality DR objective, the lifetime-adapter delegate rows, the resource-identity fold, and the energy-aware fidelity scaling over Microsoft.Extensions.Hosting, Thinktecture-generated vocabulary, LanguageExt rails, NodaTime instants, the OpenTelemetry resource seam, and the macOS IOKit/SMC power-state native reads.
 
 ## [01]-[INDEX]
 
@@ -11,13 +11,13 @@ Rasm.AppHost boots every process through one host-variance axis: eight string-ke
 
 ## [02]-[PROFILE_AXIS]
 
-- Owner: `HostProfile` — one `[SmartEnum<string>]` host-variance axis; `ResolvedProfile` is the only profile artifact siblings consume.
+- Owner: `HostProfile` — one `[SmartEnum<string>]` host-variance axis; `RecoveryObjective` the per-modality `(Rpo, Rto)` durability target column; `ResolvedProfile` is the only profile artifact siblings consume.
 - Cases: rhino-plugin, gh2-plugin, standalone-desktop, companion-process, sidecar, headless-service, web-service, test-host; `RuntimeAttachment` = Isolated | Integrating; `ProfileFault` = Text | AttachmentRejected | RootUnresolved in the 1100 code band.
 - Entry: `Fin<ResolvedProfile> Resolve(HostProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default)` — `Fin` aborts on attachment and root rejection.
 - Auto: one Resolve fold replaces eight bootstrap programs — column values, attachment legality, per-user roots, and process identity land in one record; raw profile keys admit through the generated `Validate` against `ProfileFault`.
 - Packages: Microsoft.Extensions.Hosting, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one profile row — key, seven column values, two delegate bindings — absorbs a new host modality with zero new surface; standalone-integrating stays the `Integrating` field, never a ninth row.
-- Boundary: column values are app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the standalone single-instance value is probed through the discovery manifest, the web row serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof.
+- Boundary: column values are app-root publish and composition facts — DATAS tuning knobs enter only behind a losing benchmark claim, the standalone single-instance value is probed through the discovery manifest, the web row serves the built TS bundle same-origin from its app root with cross-origin headers held as designed growth, and the test row composes FakeTimeProvider, FakeClock, in-memory configuration, instant deadline overrides, and LeakTrackingObjectPool over provider-validation proof; the `RecoveryObjective` column is the one DR-target source — `Rasm.Persistence/Version/recovery` `Recovery.Objective(ResolvedProfile)` reads `ResolvedProfile.Recovery` as settled vocabulary through the `Runtime ⇄ Rasm.Persistence/Version/recovery # [PORT]: ResolvedProfile DR-objective inputs` seam and never re-derives the per-modality `(Rpo, Rto)` from the profile key, so a host-band-keyed RPO/RTO table on the Persistence side is the deleted form and the durability objective stays a profile column the runtime owns, the engine arms gauge their measured RPO/RTO against, never a second DR taxonomy.
 
 ```csharp signature
 public sealed class HostProfileKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -54,19 +54,32 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
     public sealed record RootUnresolved : ProfileFault { public RootUnresolved(string detail) : base(detail, 1102) { } }
 }
 
+// The per-modality durability objective: the declared (Rpo, Rto) DR window each HostProfile row carries and
+// projects onto ResolvedProfile. Rasm.Persistence/Version/recovery reads ResolvedProfile.Recovery as settled
+// vocabulary and gauges its measured RPO/RTO against it, never re-deriving the window from the profile key.
+public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
+    public static readonly RecoveryObjective Strict = new(Duration.FromMinutes(1), Duration.FromMinutes(15));
+    public static readonly RecoveryObjective Standard = new(Duration.FromMinutes(5), Duration.FromMinutes(30));
+    public static readonly RecoveryObjective Relaxed = new(Duration.FromMinutes(15), Duration.FromHours(1));
+    public static readonly RecoveryObjective Instant = new(Duration.Zero, Duration.Zero);
+
+    public bool MeetsRpo(Duration measured) => measured <= Rpo;
+    public bool MeetsRto(Duration measured) => measured <= Rto;
+}
+
 [SmartEnum<string>]
 [ValidationError<ProfileFault>]
 [KeyMemberEqualityComparer<HostProfileKeyPolicy, string>]
 [KeyMemberComparer<HostProfileKeyPolicy, string>]
 public sealed partial class HostProfile {
-    public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
-    public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
-    public static readonly HostProfile StandaloneDesktop = new("standalone-desktop", serverGc: false, readyToRun: true, moduleScan: true, otlpExport: false, singleInstance: true, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
-    public static readonly HostProfile CompanionProcess = new("companion-process", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
-    public static readonly HostProfile Sidecar = new("sidecar", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
-    public static readonly HostProfile HeadlessService = new("headless-service", serverGc: true, readyToRun: false, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Oci, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Service);
-    public static readonly HostProfile WebService = new("web-service", serverGc: true, readyToRun: false, moduleScan: false, otlpExport: true, singleInstance: false, coHostedAssets: true, vehicle: ShipVehicle.Oci, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
-    public static readonly HostProfile TestHost = new("test-host", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Folder, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
+    public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
+    public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, recovery: RecoveryObjective.Relaxed, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
+    public static readonly HostProfile StandaloneDesktop = new("standalone-desktop", serverGc: false, readyToRun: true, moduleScan: true, otlpExport: false, singleInstance: true, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
+    public static readonly HostProfile CompanionProcess = new("companion-process", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
+    public static readonly HostProfile Sidecar = new("sidecar", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, recovery: RecoveryObjective.Standard, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
+    public static readonly HostProfile HeadlessService = new("headless-service", serverGc: true, readyToRun: false, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Oci, recovery: RecoveryObjective.Strict, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Service);
+    public static readonly HostProfile WebService = new("web-service", serverGc: true, readyToRun: false, moduleScan: false, otlpExport: true, singleInstance: false, coHostedAssets: true, vehicle: ShipVehicle.Oci, recovery: RecoveryObjective.Strict, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
+    public static readonly HostProfile TestHost = new("test-host", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Folder, recovery: RecoveryObjective.Instant, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
 
     public bool ServerGc { get; }
     public bool ReadyToRun { get; }
@@ -75,6 +88,7 @@ public sealed partial class HostProfile {
     public bool SingleInstance { get; }
     public bool CoHostedAssets { get; }
     public ShipVehicle Vehicle { get; }
+    public RecoveryObjective Recovery { get; }
 
     [UseDelegateFromConstructor]
     public partial HostApplicationBuilder CreateBuilder(HostApplicationBuilderSettings settings);
@@ -83,7 +97,9 @@ public sealed partial class HostProfile {
     public partial IHostApplicationBuilder AttachLifetime(IHostApplicationBuilder builder);
 }
 
-public sealed record ResolvedProfile(HostProfile Profile, string ApplicationName, string EnvironmentName, string ContentRoot, string ServiceVersion, ProfileRoots Roots, Option<RuntimeAttachment> Attachment, int ProcessId, Instant StartInstant);
+public sealed record ResolvedProfile(HostProfile Profile, string ApplicationName, string EnvironmentName, string ContentRoot, string ServiceVersion, ProfileRoots Roots, Option<RuntimeAttachment> Attachment, int ProcessId, Instant StartInstant) {
+    public RecoveryObjective Recovery => Profile.Recovery;
+}
 
 public static class ProfileSurface {
     public static Fin<ResolvedProfile> Resolve(HostProfile profile, string applicationName, string environmentName, string contentRoot, string serviceVersion, IClock clock, Option<RuntimeAttachment> attachment = default) =>

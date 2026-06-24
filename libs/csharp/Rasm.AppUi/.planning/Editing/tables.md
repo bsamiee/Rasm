@@ -114,10 +114,10 @@ public static class ViewStateSurface {
 - Owner: `TableProjection<TRow, TKey>` `[Union]` with `TreeRow<TRow>` as the flat indent row and `ExpansionState<TKey>` as the expansion cell; `ProjectionFold` dispatches the union to one flat row stream.
 - Cases: `Flat`, `TreeFlattened(Func<TRow, TKey> ParentKey, Option<IComparer<TRow>> Order, Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren)`, `Grouped(string GroupColumnKey)`, `Paged(IObservable<PageRequest> Pages)`, `Virtualized(IObservable<VirtualRequest> Window)`.
 - Entry: `IObservable<IChangeSet<TreeRow<TRow>, TKey>> Project(TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key)`.
-- Auto: an expansion toggle re-emits the flattened stream through the change-set diff; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
-- Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Auto: an expansion toggle re-emits the flattened stream through the change-set diff; the `TreeFlattened` arm delegates the flatten to the one `Shell/virtualization` `HierarchyFlatten.Flatten` bridge and the `Virtualized` arm delegates windowing to `VirtualWindow.Realize`, so the tables fold contributes its `ParentKey`, `Order` comparer, and expansion cell while the shared owner runs `TransformToTree` plus the indent-row recursion; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
+- Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm.AppUi/Shell/virtualization.
 - Growth: one projection case; an ordering or depth change is one policy value; zero new surface — the closed five-case family is the axis.
-- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the recursive `Rows` fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`.
+- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; windowing routes through the one `Shell/virtualization` `VirtualWindow` owner — the `TreeFlattened` case folds through `HierarchyFlatten.Flatten` (the one tree-flatten bridge, `Shell/virtualization#HIERARCHY_FLATTEN`) and the `Virtualized` case folds through `VirtualWindow.Realize`, so a tables-local virtualizer is the `[05]-[PROHIBITIONS]` per-surface-virtualizer rejected form and `Editing/tables` delegates windowing to the one fabric while conserving its `TableColumnRow` column-metadata family and its sibling-order comparer; the tables-side fold contributes its `parentKey`, sibling-order comparer, and expansion cell to `HierarchyFlatten`, which owns the `TransformToTree`-plus-recursion the `ProjectionFold.Rows` previously held in-folder, so the flatten algebra moves to the shared owner with zero capability lost — the column metadata, the lazy `LoadChildren`, and the grouped/paged arms stay tables-owned; `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the shared flatten fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`; the `VirtualWindow.Realize` realized bounds construct the `WindowState` snapshot field (`[03]-[VIEW_STATE]`) so restore re-requests the exact viewport with zero re-query.
 
 ```csharp signature
 public readonly record struct TreeRow<TRow>(TRow Item, int Level, bool HasChildren, bool IsExpanded) {
@@ -153,34 +153,25 @@ public static class ProjectionFold {
             projection.Switch(
                 state: (source, expansion, key),
                 flat: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
-                treeFlattened: static (s, tree) => s.expansion.Cell
-                    .Select(expanded => s.source
-                        .TransformToTree(tree.ParentKey)
-                        .TransformMany(node => node.Rows(expanded, s.key, tree.Order), row => s.key(row.Item)))
-                    .Switch(),
+                treeFlattened: static (s, tree) => s.source
+                    .Flatten(tree.ParentKey, s.expansion.Cell, s.key, tree.Order)
+                    .Transform(static node => new TreeRow<TRow>(node.Item, node.Depth, node.HasChildren, node.Expanded)),
                 grouped: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
                 paged: static (s, paged) => s.source.Page(paged.Pages).Transform(TreeRow<TRow>.Leaf),
-                virtualized: static (s, virtualized) => s.source.Virtualise(virtualized.Window).Transform(TreeRow<TRow>.Leaf));
-    }
-
-    extension<TRow, TKey>(Node<TRow, TKey> node) where TRow : notnull where TKey : notnull {
-        public Seq<TreeRow<TRow>> Rows(Set<TKey> expanded, Func<TRow, TKey> key, Option<IComparer<TRow>> order) =>
-            new TreeRow<TRow>(node.Item, node.Depth, node.Children.Count > 0, expanded.Contains(key(node.Item)))
-                .Cons(expanded.Contains(key(node.Item))
-                    ? (order is { IsSome: true, Case: IComparer<TRow> comparer }
-                        ? node.Children.Items.OrderBy(static child => child.Item, comparer)
-                        : node.Children.Items)
-                        .ToSeq()
-                        .Bind(child => child.Rows(expanded, key, order))
-                    : Seq<TreeRow<TRow>>());
+                virtualized: static (s, virtualized) => VirtualWindowSpec.FixedRow switch {
+                    var spec => new VirtualWindow<TRow, TKey>(spec, new ExtentLedger<TKey>())
+                        .Realize(s.source, virtualized.Window.Select(request => spec.Range(request.StartIndex * spec.FixedItemExtent, request.Size * spec.FixedItemExtent)), s.key)
+                        .Transform(static realized => TreeRow<TRow>.Leaf(realized.Item)),
+                });
     }
 }
 ```
 
 [FLATTEN_LAW]:
-- One stream: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so row virtualization covers every projection.
-- Tree order: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer — sorting flat indent rows is the deleted form.
-- Lazy children: `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache, never a side collection.
+- One stream: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so the one `VirtualWindow` fabric windows every projection.
+- One flatten owner: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family and the sibling-order comparer stay tables-owned while windowing delegates to the one fabric.
+- Tree order: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer threaded into `HierarchyFlatten.Flatten` — sorting flat indent rows is the deleted form.
+- Lazy children: `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache the shared flatten reads, never a side collection.
 - Grouped: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
 
 ## [05]-[GRID_COMMIT]

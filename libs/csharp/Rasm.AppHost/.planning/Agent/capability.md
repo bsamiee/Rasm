@@ -337,14 +337,14 @@ flowchart LR
 
 ## [05]-[GRANT_BROKER]
 
-- Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `GrantFault` `[Union]` fault family in the 4620 band; `GrantBroker` the static admission-and-metering surface.
-- Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired.
-- Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the `Budget` under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
-- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the `Budget` cell, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension.
+- Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family in the 4620 band; `GrantBroker` the static admission-and-metering surface.
+- Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced.
+- Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
+- Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying both the cost and the scope `Ceiling` under a `FencingToken.Admits`-fenced compare-and-set, so the ceiling check executes INSIDE the one atomic store write — `spent + cost > ceiling` rejects `CeilingExceeded` within the same transaction — and a tenant's cost ceiling is enforced fleet-wide because two nodes presenting fresh tokens cannot both overshoot (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate would open, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
 - Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event in the 1000-1999 band — no parallel grant receipt.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column plus one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; zero new surface.
-- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, and a second cost meter are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
+- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, System.IO.Hashing, BCL inbox
+- Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column plus one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already; cross-process metering is the one `DistributedBudget` seam, never a second meter; zero new surface.
+- Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, budget, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's budget independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam debits through the existing `Runtime/time#FENCING_TOKEN` `FencingToken.Admits` Kleppmann reject-lower so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell plus the fenced debit ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable budget so a multi-node identity plane cannot let a tenant exceed its ceiling N-fold; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
 
 ```csharp signature
 public sealed record GrantScope(
@@ -377,12 +377,28 @@ public abstract partial record GrantFault : Expected, IValidationError<GrantFaul
     public sealed record CeilingExceeded : GrantFault { public CeilingExceeded(string unit, long over) : base($"{unit}:+{over}", 4622) => Unit = unit; public string Unit { get; } }
     public sealed record WindowClosed : GrantFault { public WindowClosed(string detail) : base(detail, 4623) { } }
     public sealed record ConsentRequired : GrantFault { public ConsentRequired(string detail) : base(detail, 4624) { } }
+    public sealed record Fenced : GrantFault { public Fenced(string detail) : base(detail, 4625) { } }
 }
+
+// The cross-process quota seam: a durable per-tenant Budget the broker reads and debits under a
+// FencingToken-fenced compare-and-set. Spent reads the durable cell (the dry-run pre-flight price), Debit
+// applies the fenced CAS at Persistence carrying BOTH the cost AND the ceiling so the ceiling is enforced
+// INSIDE the one atomic store write — two nodes presenting fresh tokens cannot both overshoot because the
+// store rejects the second debit when spent + cost exceeds the ceiling within the same transaction, and a
+// stale token fails Fenced — Token mints the holder's monotone fence. The AppHost never gates the ceiling
+// outside the fenced write (that is the multi-node TOCTOU the card forecloses). With no seam bound the
+// broker debits the per-process Cell. The durable Budget cell + fenced debit ledger are the Rasm.Persistence
+// ONE_FENCED_LEASE_STORE ripple under the TenantId RLS predicate — one backing, never a second meter.
+public sealed record DistributedBudget(
+    Func<TenantId, Fin<CostVector>> Spent,
+    Func<TenantId, FencingToken, CostVector, CostVector, Fin<CostVector>> Debit,
+    Func<TenantId, Fin<FencingToken>> Token);
 
 public sealed record GrantBroker(
     Atom<HashMap<TenantId, (GrantScope Scope, CostVector Spent)>> Cell,
     Func<TenantContext, Option<GrantScope>> ScopeOf,
-    ClockPolicy Clocks) {
+    ClockPolicy Clocks,
+    Option<DistributedBudget> Distributed = default) {
     public Fin<CostVector> Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun) {
         var now = Clocks.Now;
         var cost = descriptor.Cost.Estimate(arguments);
@@ -395,19 +411,37 @@ public sealed record GrantBroker(
     public Seq<(string Id, Fin<CostVector>)> Simulate(CapabilityDescriptor descriptor, Seq<(string Id, CommandArguments Args)> plan) =>
         plan.Map(step => (step.Id, Admit(descriptor, step.Args, dryRun: true)));
 
-    Fin<CostVector> Charge(TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) {
-        var current = Cell.Value.Find(tenant).Map(static row => row.Spent).IfNone(CostVector.Zero);
-        var next = current.Add(cost);
-        var breach = scope.Ceiling.Units.AsIterable()
+    Fin<CostVector> Charge(TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
+        Distributed.Match(
+            Some: store => FencedCharge(store, tenant, scope, cost, dryRun),
+            None: () => LocalCharge(tenant, scope, cost, dryRun));
+
+    Fin<CostVector> LocalCharge(TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
+        Cell.Value.Find(tenant).Map(static row => row.Spent).IfNone(CostVector.Zero).Add(cost) is var next
+            ? Ceiling(scope, next).Match(
+                Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Unit, cap.Over)),
+                None: () => { if (!dryRun) ignore(Cell.Swap(map => map.AddOrUpdate(tenant, _ => (scope, next), (scope, next)))); return Fin.Succ(cost); })
+            : Fin.Fail<CostVector>(new GrantFault.Text(tenant.ToString()));
+
+    // Fleet-wide debit: a dry run prices off the durable spent and gates the ceiling AppHost-side without
+    // touching the store; a live charge delegates the ceiling to the store's atomic fenced CAS — Debit
+    // carries the scope ceiling so spent + cost > ceiling rejects CeilingExceeded INSIDE the one transaction
+    // and a stale token fails Fenced, so two nodes with fresh tokens cannot both overshoot (the AppHost-side
+    // ceiling check is never the live gate, foreclosing the multi-node TOCTOU).
+    Fin<CostVector> FencedCharge(DistributedBudget store, TenantId tenant, GrantScope scope, CostVector cost, bool dryRun) =>
+        dryRun
+            ? from spent in store.Spent(tenant)
+              from _ceiling in Ceiling(scope, spent.Add(cost)).Match(
+                  Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Unit, cap.Over)),
+                  None: () => Fin.Succ(cost))
+              select cost
+            : store.Token(tenant).Bind(token => store.Debit(tenant, token, cost, scope.Ceiling)).Map(static _ => cost);
+
+    static Option<(string Unit, long Over)> Ceiling(GrantScope scope, CostVector next) =>
+        scope.Ceiling.Units.AsIterable()
             .Filter(cap => next.Of(cap.Key) > cap.Value)
-            .HeadOrNone();
-        return breach.Match(
-            Some: cap => Fin.Fail<CostVector>(new GrantFault.CeilingExceeded(cap.Key.Key, next.Of(cap.Key) - cap.Value)),
-            None: () => {
-                if (!dryRun) ignore(Cell.Swap(map => map.AddOrUpdate(tenant, _ => (scope, next), (scope, next))));
-                return Fin.Succ(cost);
-            });
-    }
+            .HeadOrNone()
+            .Map(cap => (cap.Key.Key, next.Of(cap.Key) - cap.Value));
 }
 ```
 

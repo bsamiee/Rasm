@@ -42,17 +42,21 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 [PUBLIC_TYPE_SCOPE]: strategy and registry family
 - rail: resilience
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                    |
-| :-----: | :--------------------------------- | :--------------- | :------------------------ |
-|  [01]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule            |
-|  [02]   | `TimeoutStrategyOptions`           | strategy options | execution timeout         |
-|  [03]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy    |
-|  [04]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution          |
-|  [05]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy           |
-|  [06]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup     |
-|  [07]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider   |
-|  [08]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation |
-|  [09]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control    |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                     |
+| :-----: | :--------------------------------- | :--------------- | :------------------------- |
+|  [01]   | `RetryStrategyOptions<T>`          | strategy options | retry schedule             |
+|  [02]   | `TimeoutStrategyOptions`           | strategy options | execution timeout          |
+|  [03]   | `CircuitBreakerStrategyOptions<T>` | strategy options | circuit-breaker policy     |
+|  [04]   | `HedgingStrategyOptions<T>`        | strategy options | hedged execution           |
+|  [05]   | `FallbackStrategyOptions<T>`       | strategy options | fallback policy            |
+|  [06]   | `ResiliencePipelineRegistry<TKey>` | registry         | keyed pipeline lookup      |
+|  [07]   | `ResiliencePipelineProvider<TKey>` | provider         | keyed pipeline provider    |
+|  [08]   | `CircuitBreakerStateProvider`      | state provider   | breaker state observation  |
+|  [09]   | `CircuitBreakerManualControl`      | control surface  | manual breaker control     |
+|  [10]   | `ChaosLatencyStrategyOptions`      | chaos options    | Simmy latency injection    |
+|  [11]   | `ChaosFaultStrategyOptions`        | chaos options    | Simmy fault injection      |
+|  [12]   | `ChaosOutcomeStrategyOptions<T>`   | chaos options    | Simmy outcome substitution |
+|  [13]   | `ChaosBehaviorStrategyOptions`     | chaos options    | Simmy behavior injection   |
 
 [PUBLIC_TYPE_SCOPE]: telemetry and rejection family
 - rail: resilience
@@ -72,15 +76,20 @@ surfaces, and telemetry event contracts for non-HTTP and shared resilience rails
 [ENTRYPOINT_SCOPE]: builder operations
 - rail: resilience
 
-| [INDEX] | [SURFACE]           | [ENTRY_FAMILY]    | [RAIL]                    |
-| :-----: | :------------------ | :---------------- | :------------------------ |
-|  [01]   | `AddRetry`          | builder extension | retry strategy            |
-|  [02]   | `AddTimeout`        | builder extension | timeout strategy          |
-|  [03]   | `AddCircuitBreaker` | builder extension | circuit-breaker strategy  |
-|  [04]   | `AddHedging`        | builder extension | hedging strategy          |
-|  [05]   | `AddFallback`       | builder extension | fallback strategy         |
-|  [06]   | `AddPipeline`       | builder extension | nested pipeline strategy  |
-|  [07]   | `AddStrategy`       | builder extension | custom strategy admission |
+| [INDEX] | [SURFACE]               | [ENTRY_FAMILY]    | [RAIL]                    |
+| :-----: | :---------------------- | :---------------- | :------------------------ |
+|  [01]   | `AddRetry`              | builder extension | retry strategy            |
+|  [02]   | `AddTimeout`            | builder extension | timeout strategy          |
+|  [03]   | `AddCircuitBreaker`     | builder extension | circuit-breaker strategy  |
+|  [04]   | `AddHedging`            | builder extension | hedging strategy          |
+|  [05]   | `AddFallback`           | builder extension | fallback strategy         |
+|  [06]   | `AddPipeline`           | builder extension | nested pipeline strategy  |
+|  [07]   | `AddStrategy`           | builder extension | custom strategy admission |
+|  [08]   | `AddConcurrencyLimiter` | builder extension | bulkhead permit isolation |
+|  [09]   | `AddChaosLatency`       | builder extension | Simmy latency strategy    |
+|  [10]   | `AddChaosFault`         | builder extension | Simmy fault strategy      |
+|  [11]   | `AddChaosOutcome`       | builder extension | Simmy outcome strategy    |
+|  [12]   | `AddChaosBehavior`      | builder extension | Simmy behavior strategy   |
 
 [ENTRYPOINT_SCOPE]: execution operations
 - rail: resilience

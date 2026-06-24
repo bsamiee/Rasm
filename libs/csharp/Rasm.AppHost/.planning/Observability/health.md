@@ -165,14 +165,14 @@ public static class HealthSurface {
 
 ## [03]-[DEGRADATION_RAIL]
 
-- Owner: `Capability` and `DegradationLevel` vocabularies under one `HealthKeyPolicy` comparer accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationCell` is the boundary capsule owning the atom cell and the publisher seam.
+- Owner: `Capability` and `DegradationLevel` vocabularies under one `HealthKeyPolicy` comparer accessor; `DegradationPolicy` with nested `Rule` rows is the derivation table; `DegradationState` is the fold receipt; `DegradationReading` is the coherent `(snapshot, state)` pair; `DegradationCell` is the boundary capsule owning the one atom cell and the publisher seam.
 - Cases: `Full(0)`, `ReducedRemote(1)`, `LocalOnly(2)`, `ReadOnly(3)`, `Suspended(4)` in severity order; six `Capability` keys form the retained sets.
-- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor.
-- Auto: `DegradationCell` registers as the `IHealthCheckPublisher`; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives.
-- Receipt: `DegradationState` carries derived level, forced input, cascade floor, recovery streak, and dwell anchor; a `Level` change rides the lifecycle transition receipt as the degraded trigger.
+- Entry: `Derive(DegradationState state, HealthSnapshot snapshot)` folds rules with escalation-immediate, recovery-hysteresis semantics; `Force(Option<DegradationLevel> forced)` is the single override entrypoint; `Cascade(Option<DegradationLevel> parent)` admits a parent-forced level as a derivation floor; `Read()` returns the one `DegradationReading` carrying the snapshot that produced the level and the derived `DegradationState` in one coherent value.
+- Auto: `DegradationCell` registers as the `IHealthCheckPublisher` and owns one `Atom<DegradationReading>` — `PublishAsync` snapshots the `HealthReport` and folds `Derive` in the SAME swap, so the published snapshot and the level it produced are one atomic transition and a reader can never observe a fresh level against a stale snapshot or the reverse; `HealthCheckPublisherOptions` binds `Delay` and `Period` from `DegradationPolicy.Canonical` and `Timeout` from `DeadlineClass.HealthProbe`; `OperatorOverride` projects onto `Force` at the composition root — forced beats derived, release re-derives; `Force` and `Cascade` swap the `State` slot of the reading while preserving the last snapshot so the override is coherent with the evidence it overrides.
+- Receipt: `DegradationReading` carries the latest `HealthSnapshot` and the `DegradationState` (derived level, forced input, cascade floor, recovery streak, dwell anchor); a `Level` change rides the lifecycle transition receipt as the degraded trigger.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one `Rule` row or one `Capability` case absorbs a new degradation driver; a new level is one `DegradationLevel` item — zero new surface.
-- Boundary: degradation is process-local, peer-health-informed, and parent-cascade-floored — a peer level never propagates as this process's level, but a parent process's forced level enters `Derive` as a floor through `Cascade`, never as shared state; `LocalOnly` is the host-absent fold: `Capability.HostDocument` gates off and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `ResourceQuota` so the `Pressure`-tagged `Gauge` row escalates on the cgroup limit, and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis, so a container-throttled process degrades and recovers on its own limit with zero added `Rule` row. The cross-process cascade is a seam-split: the READ — this process's own derived `Level` value — stays the owner here; the WRITE — a parent fanning its level to a child over the control hop — lands at `Wire/companion#DEGRADATION_CASCADE`, which calls `Cascade` with the observed parent level; release passes `None` and the cell re-derives off its own snapshots, the cascade floor never escalating below local pressure.
+- Growth: one `Rule` row or one `Capability` case absorbs a new degradation driver; a new level is one `DegradationLevel` item; a new pressure-read consumer reads the one `DegradationReading` value, never a second cell — zero new surface.
+- Boundary: degradation is process-local, peer-health-informed, and parent-cascade-floored — a peer level never propagates as this process's level, but a parent process's forced level enters `Derive` as a floor through `Cascade`, never as shared state; the snapshot and the derived level are one `DegradationReading` atom so the `Runtime/laneguard#LANE_GUARD` governor reads a coherent `(snapshot, level)` pressure value for its adaptive-concurrency and load-shed decisions — the prior two-surface read (a `HealthSnapshot.Snapshot` independent of a `DegradationState.Derive`) is the collapsed form, and a governor reading a stale snapshot against a fresh level is the race the single atom forecloses; `LocalOnly` is the host-absent fold: `Capability.HostDocument` gates off and document sources yield absence; the container-limit pressure signal enters the rank algebra as data, not a new rule — a `PressurePolicy.Container` row grades against `ResourceQuota` so the `Pressure`-tagged `Gauge` row escalates on the cgroup limit, and the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules carry that limit-relative status into `Derive` with the same retained-set hysteresis, so a container-throttled process degrades and recovers on its own limit with zero added `Rule` row. The cross-process cascade is a seam-split the snapshot fold preserves: the READ — this process's own `DegradationReading` — stays the owner here; the WRITE — a parent fanning its level to a child over the control hop — lands at `Wire/companion#DEGRADATION_CASCADE`, which calls `Cascade` with the observed parent level mutating only the `State` slot; release passes `None` and the cell re-derives off its own snapshots, the cascade floor never escalating below local pressure, so folding the snapshot into the cell preserves the cascade-floor and hysteresis fields and never merges the parent-cascade owner.
 
 ```csharp signature
 public sealed class HealthKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -261,19 +261,32 @@ public sealed record DegradationPolicy(
                 : worst);
 }
 
+// The coherent pressure cell: one atom carries the snapshot that produced the level and the
+// derived state together, so a governor's load-shed/bulkhead-resize read is race-free — it can
+// never see a fresh level against a stale snapshot. Force/Cascade swap only the State slot.
+public readonly record struct DegradationReading(HealthSnapshot Snapshot, DegradationState State) {
+    public static DegradationReading Boot(Instant at, CorrelationId correlation) =>
+        new(new HealthSnapshot(HealthStatus.Healthy, at, correlation, []), DegradationState.Boot);
+    public DegradationLevel Level => State.Level;
+}
+
 public sealed class DegradationCell(DegradationPolicy policy, IClock clock, CorrelationId correlation) : IHealthCheckPublisher {
-    private readonly Atom<DegradationState> cell = Atom(DegradationState.Boot);
-    public DegradationState State => cell.Value;
+    private readonly Atom<DegradationReading> cell = Atom(DegradationReading.Boot(clock.GetCurrentInstant(), correlation));
+    public DegradationReading Read() => cell.Value;
+    public DegradationState State => cell.Value.State;
     public DegradationLevel Level => cell.Value.Level;
 
     public DegradationState Force(Option<DegradationLevel> forced) =>
-        cell.Swap(state => state with { Forced = forced });
+        cell.Swap(reading => reading with { State = reading.State with { Forced = forced } }).State;
 
     public DegradationState Cascade(Option<DegradationLevel> parent) =>
-        cell.Swap(state => state with { Cascade = parent });
+        cell.Swap(reading => reading with { State = reading.State with { Cascade = parent } }).State;
 
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken) =>
-        Task.FromResult(cell.Swap(state => policy.Derive(state, report.Snapshot(clock.GetCurrentInstant(), correlation))));
+        Task.FromResult(cell.Swap(reading =>
+            report.Snapshot(clock.GetCurrentInstant(), correlation) is var snapshot
+                ? new DegradationReading(snapshot, policy.Derive(reading.State, snapshot))
+                : reading).State);
 }
 ```
 

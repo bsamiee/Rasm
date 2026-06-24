@@ -13,17 +13,17 @@ Support capture is the runtime spine's bounded diagnostic evidence surface: one 
 
 - Owner: `SupportTrigger` `[Union]` six capture-cause cases.
 - Cases: `UserRequested`, `FaultTransition`, `HealthThreshold`, `WatchdogTimeout`, `ExternalCommand`, `Scheduled`.
-- Auto: `FaultTransition` auto-arms on every `FaultSource` entry including the host-crash-marker boot probe; `WatchdogTimeout` fires on a missed heartbeat deadline and `Scheduled` fires from a `ScheduleEntry` row on the schedule port; `ExternalCommand` admits the `ControlService` capture-support verb for service modalities.
+- Auto: `FaultTransition` carries the wire-stable `FaultRecord` the `Runtime/lifecycle#FAULT_SPINE` `FaultRecord.From` flatten produces — the one fault-to-capture fact `FaultSpine.ArmTraps` emits for every `FaultSource` entry, the live unhandled/unobserved/signalled commits and the `ProbeMarkers` host-crash-marker boot probe alike, so a fault commit and its capture trigger are one fact rather than an untyped capture delegate beside a `PhaseTrigger.FaultCommitted` emission; the case holds `FaultRecord` (kind-discriminated, `Error`-free) so the trigger payload is the exact shape the bundle manifest serializes, never the live `Error`-bearing `FaultSource`; `WatchdogTimeout` fires on a missed heartbeat deadline and `Scheduled` fires from a `ScheduleEntry` row on the schedule port; `ExternalCommand` admits the `ControlService` capture-support verb for service modalities.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core
-- Growth: one case lands a new capture cause and breaks the `Facts` dispatch at compile time — zero new surface.
-- Boundary: the private root constructor plus deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total `Facts` dispatch.
+- Growth: one case lands a new capture cause and breaks the `Facts` dispatch at compile time; a new fault cause is one `FaultSource` case the `FaultRecord.From` flatten and the one `FaultTransition` payload both absorb, never a second trigger case per fault kind — zero new surface.
+- Boundary: the private root constructor plus deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total `Facts` dispatch; the `FaultTransition` payload is the wire-stable `FaultRecord` whose `kind` literals (`unhandled`/`unobserved-task`/`posix-signal`/`host-crash-marker`) the `Facts` rendering reads, so the durable-orchestration crash-recovery (`Runtime/orchestration#CRASH_RESUME`) and the bundle manifest read one kind-discriminated fault fact, and a flattened trigger that loses the `FaultRecord` kind fields is the deleted form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SupportTrigger {
     private SupportTrigger() { }
     public sealed record UserRequested(CorrelationId Correlation, string Reason, Option<Duration> WindowOverride = default) : SupportTrigger;
-    public sealed record FaultTransition(CorrelationId Correlation, FaultSource Fault, Option<Duration> WindowOverride = default) : SupportTrigger;
+    public sealed record FaultTransition(CorrelationId Correlation, FaultRecord Fault, Option<Duration> WindowOverride = default) : SupportTrigger;
     public sealed record HealthThreshold(CorrelationId Correlation, DegradationLevel Level, Option<Duration> WindowOverride = default) : SupportTrigger;
     public sealed record WatchdogTimeout(CorrelationId Correlation, ScheduleEntry Entry, Option<Duration> WindowOverride = default) : SupportTrigger;
     public sealed record ExternalCommand(CorrelationId Correlation, string Reason, Option<Duration> WindowOverride = default) : SupportTrigger;
@@ -34,11 +34,19 @@ public static class SupportTriggerOps {
     extension(SupportTrigger trigger) {
         public (CorrelationId Correlation, string Kind, string Reason, Option<Duration> Override) Facts() => trigger.Switch(
             userRequested:   static u => (u.Correlation, "user-requested", u.Reason, u.WindowOverride),
-            faultTransition: static f => (f.Correlation, "fault-transition", f.Fault.ToString(), f.WindowOverride),
+            faultTransition: static f => (f.Correlation, "fault-transition", FaultReason(f.Fault), f.WindowOverride),
             healthThreshold: static h => (h.Correlation, "health-threshold", h.Level.ToString(), h.WindowOverride),
             watchdogTimeout: static w => (w.Correlation, "watchdog-timeout", w.Entry.ToString(), w.WindowOverride),
             externalCommand: static e => (e.Correlation, "external-command", e.Reason, e.WindowOverride),
             scheduled:       static s => (s.Correlation, "scheduled", s.Entry.ToString(), s.WindowOverride));
+
+        // The fault reason carries the FaultRecord kind literal plus its wire-stable payload, so the
+        // manifest's flat reason string preserves the kind-discriminated evidence the [Union] pins.
+        static string FaultReason(FaultRecord record) => record.Switch(
+            unhandled:       static u => $"unhandled:{(u.Terminating ? "terminating" : "observed")}:{u.Evidence}",
+            unobservedTask:  static t => $"unobserved-task:{t.Evidence}",
+            signalled:       static s => $"posix-signal:{s.Signal}",
+            hostCrashMarker: static h => $"host-crash-marker:{h.Path}");
     }
 }
 ```

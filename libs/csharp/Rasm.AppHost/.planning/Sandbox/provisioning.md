@@ -1,12 +1,12 @@
 # [APPHOST_PROVISIONING_AND_UPDATE]
 
-Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in health-gated waves. The page owns the update rail, the channel axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
+Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in a `RollStrategy`-shaped (canary, blue-green, linear-wave) health-gated wave. The page owns the update rail, the channel axis, the progressive-rollout strategy axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the strategy-shaped wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
 
 ## [01]-[INDEX]
 
 - [01]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
 - [02]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
-- [03]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and health-gated fleet-wide rolling-update wave.
+- [03]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and the canary/blue-green/linear-wave `RollStrategy` axis over a health-gated fleet-wide wave.
 
 ## [02]-[UPDATE_RAIL]
 
@@ -191,14 +191,14 @@ public sealed partial class UpdateChannel {
 
 ## [04]-[ROLLOVER_DRAIN]
 
-- Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced; `FleetRoll` the fleet-wide rolling-update conductor walking `PeerRoster.Attached` in health-gated waves; `FleetRollReceipt` the per-wave fleet-progress projection riding the existing receipt stream.
-- Cases: two conduct paths on the local node — `Conduct` for a staged asset, `ConductPending` for a post-bounce resume; one fleet conduct — `FleetRoll.Roll` paces the wave across the roster, gating each next node on the prior node's recovered serving status.
-- Entry: `IO<UpdateReceipt> Conduct(UpdateRail rail, VelopackAsset staged, DeadlineClass cooperative, DeadlineClass forced)` — `IO` carries the drain-then-restart effect; the drain receipt seats the rollover; `IO<Seq<FleetRollReceipt>> Roll(PeerRoster roster, int batch, Func<RosterEntry, IO<UpdateReceipt>> rollNode, Func<RosterEntry, IO<HealthReport>> probe, ReceiptSinkPort sink, IClock clock, TenantContext tenant)` walks the roster in fixed-size batches, rolling each batch and waiting on the post-roll `WireHealth.Evaluate` serving probe before advancing.
-- Auto: the conductor's first act is the draining transition, so inbound admission ceases before the staged release rolls over; the cooperative and forced budgets arrive from the `DrainCooperative` and `DrainForced` deadline rows; the rollover histogram records the span from drain settle to restart handoff; on a fleet node the parent's drain registration fans the signal to the child over the local-ipc hop before the parent itself rolls over; `FleetRoll.Roll` reads `PeerRoster.Attached` as the wave membership, batches at the caller's `batch` width, and after each batch's `rollNode` it folds the `probe` serving status so a node that fails to recover halts the wave before the next batch — the rolling update never proceeds past an unhealthy node.
-- Receipt: the `RollingOver` `UpdateReceipt` carries the `DrainReceipt.Elapsed` as its drain span and the rollover outcome; a straggled drain step does not abort the rollover — the restart proceeds and the straggler surfaces on the drain receipt the rollover receipt references by correlation id; each `FleetRoll` wave mints one `FleetRollReceipt` — wave index, node pid, the node's terminal `UpdateOutcome`, post-roll serving status, nodes-remaining — fanned through the existing receipt stream beside the per-node `UpdateReceipt`, never a parallel fleet instrument.
+- Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced; `RollStrategy` `[SmartEnum<string>]` the progressive-delivery axis (canary, blue-green, linear-wave) with a delegate-backed `Next(cohort, health)` plan arm per strategy; `RollPlan` the per-wave cohort projection; `FleetRoll` the fleet-wide rolling-update conductor walking `PeerRoster.Attached` in strategy-shaped health-gated waves; `FleetRollReceipt` the per-wave fleet-progress projection riding the existing receipt stream.
+- Cases: two conduct paths on the local node — `Conduct` for a staged asset, `ConductPending` for a post-bounce resume; three roll strategies — `Canary` rolls a single-node probe then expands the cohort on a health-hold, `BlueGreen` swaps a parallel half-fleet cohort on a health-pass, `LinearWave` advances fixed N% increments with a bake window between waves; one fleet conduct — `FleetRoll.Roll` paces the wave across the roster, the `RollStrategy` row shaping each next cohort off the prior cohort's recovered serving status.
+- Entry: `IO<UpdateReceipt> Conduct(UpdateRail rail, VelopackAsset staged, DeadlineClass cooperative, DeadlineClass forced)` — `IO` carries the drain-then-restart effect; the drain receipt seats the rollover; `IO<Seq<FleetRollReceipt>> Roll(PeerRoster roster, RollStrategy strategy, Func<RosterEntry, IO<UpdateReceipt>> rollNode, Func<RosterEntry, IO<HealthReport>> probe, Func<Duration, IO<Unit>> bake, ReceiptSinkPort sink, IClock clock, TenantContext tenant)` plans the cohorts from `RollStrategy.Plan(roster.Attached)`, rolls each cohort, waits on the post-roll `WireHealth.Evaluate` serving probe, then bakes the strategy's inter-wave dwell through the injected clock-driven `bake` delegate before the next cohort admits.
+- Auto: the conductor's first act is the draining transition, so inbound admission ceases before the staged release rolls over; the cooperative and forced budgets arrive from the `DrainCooperative` and `DrainForced` deadline rows; the rollover histogram records the span from drain settle to restart handoff; on a fleet node the parent's drain registration fans the signal to the child over the local-ipc hop before the parent itself rolls over; `RollStrategy.Plan` folds `PeerRoster.Attached` into the ordered cohort sequence the strategy shape dictates — `Canary` plans a 1-node lead cohort then the remainder, `BlueGreen` plans a single half-fleet cohort, `LinearWave` plans equal `WavePercent`-sized cohorts with a `BakeWindow` dwell — and `FleetRoll.Roll` rolls each cohort, folds the `probe` serving status, and halts the wave on a `NotServing` node before the next cohort so a node that fails to recover stops the rollout; the canary health-hold reuses the existing `HealthSnapshot`/`DegradationLevel` gate through the `probe`, never a new probe owner; the strategy row also threads the targeting plane — a `Runtime/features#FLAG_VERDICT` verdict selects which `RollStrategy` row a wave runs so progressive binary rollout and feature rollout share one targeting plane.
+- Receipt: the `RollingOver` `UpdateReceipt` carries the `DrainReceipt.Elapsed` as its drain span and the rollover outcome; a straggled drain step does not abort the rollover — the restart proceeds and the straggler surfaces on the drain receipt the rollover receipt references by correlation id; each `FleetRoll` cohort mints one `FleetRollReceipt` — wave index, the `RollStrategy` key, node pid, the node's terminal `UpdateOutcome`, post-roll serving status, nodes-remaining — fanned through the existing receipt stream beside the per-node `UpdateReceipt`, never a parallel fleet instrument.
 - Packages: Velopack, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions.
-- Growth: one drain participant row per update-sensitive subsystem registered through `DrainParticipantPort` at its declared band; a wider fleet wave is one `batch` value, never a second conductor; zero new surface.
-- Boundary: drain-before-swap is the law — `ApplyUpdatesAndRestart` is never reached until `DrainConductor.Drain` settles, so the replaced process leaves no half-flushed store write or in-flight hop; the cooperative and forced deadline values are the `DrainCooperative`/`DrainForced` rows, never an inline literal; the staged asset is `UpdatePendingRestart` read at composition, so a rollover after a process bounce resumes from the staged phase without re-staging; the rollover is the single restart path — the bare `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` forms are deleted because the drain-gated restart owns the handoff; `FleetRoll` is a conductor over the existing owners, never a new update surface — it consumes `PeerRoster.Attached` from Wire/companion#PROCESS_MODALITY as the wave membership and `WireHealthRow` from Observability/health#WIRE_HEALTH as the per-node recovery gate, both as settled vocabulary, and each node's actual roll is the same `RolloverDrain.Conduct` the local node runs dialed over the control hop, so the fleet wave never re-implements the drain-gated restart; the wave halts on the first unrecovered node so a bad release never rolls the whole fleet.
+- Growth: one drain participant row per update-sensitive subsystem registered through `DrainParticipantPort` at its declared band; a new progressive strategy is one `RollStrategy` row with its `Plan`/`Next` arm, never a second roll state machine; a wave-width retune is the `LinearWave` `WavePercent` column; zero new surface.
+- Boundary: drain-before-swap is the law — `ApplyUpdatesAndRestart` is never reached until `DrainConductor.Drain` settles, so the replaced process leaves no half-flushed store write or in-flight hop; the cooperative and forced deadline values are the `DrainCooperative`/`DrainForced` rows, never an inline literal; the staged asset is `UpdatePendingRestart` read at composition, so a rollover after a process bounce resumes from the staged phase without re-staging; the rollover is the single restart path — the bare `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` forms are deleted because the drain-gated restart owns the handoff; `RollStrategy` is one row on the existing `FleetRoll`, not a parallel conductor — a second roll state machine or a strategy-specific scheduler beside `ScheduleEntry.Spread` is the rejected form, and the `ScheduleEntry.Spread` fleet-spread seed stays the wave-pacing cadence the strategy `BakeWindow` reads, never a new scheduler; `FleetRoll` is a conductor over the existing owners — it consumes `PeerRoster.Attached` from Wire/companion#PROCESS_MODALITY as the wave membership and `WireHealthRow` from Observability/health#WIRE_HEALTH as the per-node recovery gate, both as settled vocabulary, and each node's actual roll is the same `RolloverDrain.Conduct` the local node runs dialed over the control hop, so the fleet wave never re-implements the drain-gated restart; the wave halts on the first unrecovered node so a bad release never rolls the whole fleet; `FencingToken` conductor election keeps one conductor per fleet so two nodes never drive overlapping waves.
 
 ```csharp signature
 public static class RolloverDrain {
@@ -211,8 +211,41 @@ public static class RolloverDrain {
             : IO.fail<UpdateReceipt>(new UpdateFault.StagePending(nameof(rail.PendingRestart)));
 }
 
+// The progressive-delivery axis: one row per strategy carries its cohort plan, the recover-and-advance
+// predicate, and the inter-wave bake window. Plan folds the roster into the ordered cohort sequence the
+// strategy shape dictates; Next admits the following cohort only on a held health-pass. A second roll
+// state machine beside this axis is the rejected form.
+public sealed record RollPlan(Seq<Seq<RosterEntry>> Cohorts, Duration BakeWindow);
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<UpdateKeyPolicy, string>]
+[KeyMemberComparer<UpdateKeyPolicy, string>]
+public sealed partial class RollStrategy {
+    public static readonly RollStrategy Canary = new("canary", wavePercent: 0, bake: Duration.FromSeconds(120),
+        plan: static nodes => nodes.IsEmpty ? [] : Seq(nodes.Take(1).ToSeq()).Add(nodes.Skip(1).ToSeq()).Filter(static c => !c.IsEmpty));
+    public static readonly RollStrategy BlueGreen = new("blue-green", wavePercent: 50, bake: Duration.Zero,
+        plan: static nodes => nodes.IsEmpty ? [] : Chunk(nodes, int.Max((nodes.Count + 1) / 2, 1)));
+    public static readonly RollStrategy LinearWave = new("linear-wave", wavePercent: 25, bake: Duration.FromSeconds(300),
+        plan: static nodes => nodes.IsEmpty ? [] : Chunk(nodes, int.Max(nodes.Count / 4, 1)));
+
+    public int WavePercent { get; }
+    public Duration Bake { get; }
+
+    [UseDelegateFromConstructor]
+    public partial Seq<Seq<RosterEntry>> Cohorts(Seq<RosterEntry> nodes);
+
+    public RollPlan Plan(Seq<RosterEntry> nodes) => new(Cohorts(nodes), Bake);
+
+    // A health-pass admits the next cohort; a NotServing node in the just-rolled cohort halts the wave.
+    public bool Advances(Seq<FleetRollReceipt> cohort) => cohort.ForAll(static row => row.Serving == ServingStatus.Serving);
+
+    static Seq<Seq<RosterEntry>> Chunk(Seq<RosterEntry> nodes, int width) =>
+        nodes.AsEnumerable().Chunk(width).Select(static c => c.ToSeq()).ToSeq();
+}
+
 public readonly record struct FleetRollReceipt(
     int Wave,
+    string Strategy,
     int Pid,
     UpdateOutcome Outcome,
     ServingStatus Serving,
@@ -220,34 +253,43 @@ public readonly record struct FleetRollReceipt(
     Instant At);
 
 public static class FleetRoll {
+    // The bake delay rides the injected clock-driven `bake` delegate (the SchedulePort cadence the strategy
+    // BakeWindow reads, test-fakeable through the same TimeProvider the spine injects), never an ambient
+    // Task.Delay — so a LinearWave bakes its 300s window and a Canary holds its 120s probe between cohorts.
     public static IO<Seq<FleetRollReceipt>> Roll(
         PeerRoster roster,
-        int batch,
+        RollStrategy strategy,
         Func<RosterEntry, IO<UpdateReceipt>> rollNode,
         Func<RosterEntry, IO<HealthReport>> probe,
+        Func<Duration, IO<Unit>> bake,
         ReceiptSinkPort sink,
         IClock clock,
         TenantContext tenant) =>
-        Wave(roster.Attached.AsEnumerable().Chunk(batch).Select(static nodes => nodes.ToSeq()).ToSeq(), 0, roster, rollNode, probe, sink, clock, tenant);
+        strategy.Plan(roster.Attached) is var plan
+            ? Wave(plan.Cohorts, 0, strategy, plan, roster, rollNode, probe, bake, sink, clock, tenant)
+            : IO.pure(Seq<FleetRollReceipt>());
 
     static IO<Seq<FleetRollReceipt>> Wave(
-        Seq<Seq<RosterEntry>> waves, int index, PeerRoster roster,
+        Seq<Seq<RosterEntry>> cohorts, int index, RollStrategy strategy, RollPlan plan, PeerRoster roster,
         Func<RosterEntry, IO<UpdateReceipt>> rollNode, Func<RosterEntry, IO<HealthReport>> probe,
-        ReceiptSinkPort sink, IClock clock, TenantContext tenant) =>
-        waves.IsEmpty
+        Func<Duration, IO<Unit>> bake, ReceiptSinkPort sink, IClock clock, TenantContext tenant) =>
+        cohorts.IsEmpty
             ? IO.pure(Seq<FleetRollReceipt>())
-            : waves.Head.Value
+            : cohorts.Head.Value
                 .TraverseM(node =>
                     from rolled in rollNode(node)
                     from report in probe(node)
                     from at in IO.lift(() => clock.GetCurrentInstant())
-                    let receipt = new FleetRollReceipt(index, node.Pid, rolled.Outcome, Serving(report), roster.Attached.Count, at)
+                    let receipt = new FleetRollReceipt(index, strategy.Key, node.Pid, rolled.Outcome, Serving(report), roster.Attached.Count, at)
                     from _ in sink.Send(Correlation.Mint(), tenant, TelemetrySource.AppHost.Key, nameof(FleetRoll), JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.FleetRollReceipt))
                     select receipt)
                 .As()
-                .Bind(here => here.Exists(static row => row.Serving == ServingStatus.NotServing)
-                    ? IO.pure(here)
-                    : Wave(waves.Tail, index + 1, roster, rollNode, probe, sink, clock, tenant).Map(rest => here + rest));
+                .Bind(here => strategy.Advances(here) && !cohorts.Tail.IsEmpty
+                    // health-pass with a following cohort: bake the inter-wave dwell, then advance.
+                    ? (plan.BakeWindow > Duration.Zero ? bake(plan.BakeWindow) : IO.pure(unit))
+                        .Bind(_ => Wave(cohorts.Tail, index + 1, strategy, plan, roster, rollNode, probe, bake, sink, clock, tenant))
+                        .Map(rest => here + rest)
+                    : IO.pure(here));
 
     static ServingStatus Serving(HealthReport report) =>
         report.Status == HealthStatus.Unhealthy ? ServingStatus.NotServing : ServingStatus.Serving;

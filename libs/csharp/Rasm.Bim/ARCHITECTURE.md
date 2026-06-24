@@ -82,7 +82,7 @@ Exchange/format           ⇄  csharp:Rasm.Fabrication                  # [SHAPE
 Exchange/wire             →  typescript:interchange                   # [WIRE]: BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity
 Exchange/wire             →  typescript:ui/overlay                    # [WIRE]: BcfWire/DiffWire GlobalId anchor decode
 coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log
-schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]: durable schedule store
+schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]: P6/MS-Project + 4D construction domain
 coordination              →  csharp:Rasm.AppUi/Editing/issues         # [PORT]: BCF issue-board projection
 ```
 - [^1] App-root RhinoDoc import projected to host-neutral mesh + GlobalId; Rhino owns the Rhino-side production + projection adapter, Bim owns the wire payload — the two reader engines (Rhino FileIO vs the managed PlyReader/ThreeMfReader/StepReader + SharpGLTF/geometry3Sharp arms) can disagree on the same OBJ/STL/PLY/3MF/glTF/STEP bytes, so the app path declares which reader is authoritative

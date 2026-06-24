@@ -4,7 +4,8 @@ Rasm.Compute solve contract: one `PhysicsKind`×`BoundaryCondition`×`ElementCla
 
 ## [01]-[INDEX]
 
-- [01]-[SOLVE_CONTRACT]: physics×BC×element solve axis; transient/nonlinear; multi-physics; recovery.
+- [02]-[SOLVE_CONTRACT]: physics×BC×element solve axis; transient/nonlinear; multi-physics; recovery.
+- [03]-[CONSTITUTIVE]: per-Gauss-point stress-update axis (plasticity/hyperelastic/viscoelastic/damage) and frictional-contact enforcement whose consistent tangent is the AD HVP of the strain-energy / gap potential.
 
 ## [02]-[SOLVE_CONTRACT]
 
@@ -596,7 +597,104 @@ public static class CoupledLane {
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[CONSTITUTIVE]
+
+- Owner: `ConstitutiveModel` `[Union]` the per-Gauss-point material-law axis carrying each case's strain-energy/yield function, evolving per-point material state distinct from the `PhysicsKind` physics-assembly axis (a new Solver owner, never a fourth `MaterialForm` literal); `ContactConstraint` `[Union]` the frictional-contact axis (normal gap, Coulomb stick-slip) reusing the optimizer feasibility machinery; `StressUpdate` the static fold returning `(stress = ∂W/∂ε via the reverse VJP, consistent tangent = ∂²W/∂ε² via the AD HVP)` per integration point; `ContactEnforcement` the static fold binding the `Solver/optimizer#OPTIMIZER_LANE` `ConstraintHandling.AugmentedLagrangian` multiplier update `λ ← λ + ρ·g` to the gap function with the contact stiffness from the HVP of the regularized contact potential; `MaterialState` the per-point evolving-state carrier (plastic strain, hardening, damage); `ConstitutiveResult`/`ContactResult` the field-plus-tangent carriers riding the `Solve` receipt.
+- Cases: `ConstitutiveModel` cases `Plastic` (return-mapping, yield + hardening) · `Hyperelastic` (Neo-Hookean / Mooney-Rivlin stored-energy) · `Viscoelastic` (Prony series) · `Damage` (scalar damage variable); `ContactConstraint` cases `NodeToSurface(Slave, Master, Gap, Regularization)` · `Mortar(SlaveSegments, MasterSegments, Gap, Regularization)`.
+- Entry: `public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks)` returns the updated stress, the per-point consistent tangent, and the evolved state — `Fin<T>` aborts on a non-converged return-map; `public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks)` returns the contact force, the contact stiffness, and the updated multipliers over the broad-phase pair set the Clash lane supplies.
+- Auto: `Stress` folds the case to its stored-energy function `W(ε)` and reads `stress = ∂W/∂ε` through the `Tensor/dispatch#EQUIVALENCE_INTEROP` reverse-mode `SensitivityLaw.Chain` over the recorded energy tape and `tangent = ∂²W/∂ε²` through `SensitivityLaw.Hvp` (forward-over-reverse) so adding a material law is one case carrying its energy function, not a hand-coded `D`-matrix; the `Plastic` case differentiates THROUGH the return-mapping iteration so the AD tangent is the algorithmic (consistent) tangent of the return map — a naive AD of the elastic predictor gives the continuum tangent and breaks Newton convergence (the named defect); `Enforce` regularizes the gap/stick-slip potential, reads the contact stiffness as the HVP of that regularized potential, and updates the Lagrange multiplier through the existing `ConstraintHandling.AugmentedLagrangian` `λ ← λ + ρ·g` update so contact is a constraint discipline reusing the optimizer feasibility/multiplier machinery, not a new solver; the elastic `D`-matrix and inelastic parameters (yield, hardening, damage, Prony) read once from the `Rasm.Materials` physical-properties source through the `Rasm.Bim/Model` `AnalysisModel (GeometryKey, PropertyKey)` content-key seam, the analysis element binding the material to a mesh element.
+- Receipt: the `Solve` `ComputeReceipt` case carries the physics key extended with the constitutive-model key, the integration-point count, the return-map iteration count (plastic), the consistent-tangent condition, and the converged flag; the contact path stamps the active-set size, the penetration residual, and the multiplier-update count, so a nonlinear-material or contact run is auditable on the same `Solve` receipt the linear solve rides — never a parallel constitutive receipt.
+- Packages: System.Numerics.Tensors, MathNet.Numerics, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project), BCL inbox
+- Growth: a new material law is one `ConstitutiveModel` case carrying its strain-energy/yield function (the consistent tangent derives by AD, no hand-coded tangent); a new contact discipline is one `ContactConstraint` case; a new evolving-state field is one column on `MaterialState`; zero new surface — a `PlasticityModel`/`HyperelasticModel`/`ViscoelasticModel`/`DamageModel` sibling family is the rejected form collapsed onto the one `ConstitutiveModel` union, a hand-derived `D`-matrix beside the AD HVP tangent is the deleted form, and a contact solver parallel to the optimizer multiplier machinery is the rejected form.
+- Boundary: the constitutive tangent rides the AD `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Hvp` so the material tangent is the AD Hessian of the stored-energy function and never a hand-derived `D`-matrix — the `Plastic` case differentiates through the return-mapping iteration (the algorithmic tangent), the `Hyperelastic` case differentiates the Neo-Hookean/Mooney-Rivlin energy directly, the `Viscoelastic` case differentiates the Prony-relaxed energy, and the `Damage` case differentiates the degraded energy, so a fourth `MaterialForm` literal beside the `PhysicsKind` axis is the deleted form (this is a distinct per-Gauss-point owner) and the closed-form energy where it is analytic rides the `Symbolic/expression#…` differentiate family rather than AD; the frictional contact's stick-slip transition is non-smooth and non-associative so the AD tangent of a regularized (smoothed) friction potential is consistent only within the regularization — the case carries the regularization parameter and the broad-phase pair set from the `Solver/clash#CLASH_AND_TWIN` acceleration-structure collision (it never re-detects contact pairs, the named defect), the augmented-Lagrangian update reuses the optimizer `ConstraintHandling.AugmentedLagrangian` `Penalize`/`Lagrange` machinery, and the contact tangent reuses the `SensitivityLaw.Hvp`; the consistent tangent feeds the `Solver/contract#SOLVE_CONTRACT` Newton-Raphson tangent re-assembly so a nonlinear FEM solve converges quadratically with the AD-consistent tangent instead of a fixed-step Picard, the stress-update reads the elastic `D` and inelastic parameters once from the `Rasm.Materials` physical-properties source across the `AnalysisModel (GeometryKey, PropertyKey)` content-key seam (sourced once, never re-minted), and the colored Jacobian for a large nonlinear system assembles through the `Tensor/factor#SPARSE_ALGEBRA` `SparseTensorOpFamily` contraction rows and the `Tensor/dispatch#EQUIVALENCE_INTEROP` `JacobianColoring`.
+
+```csharp signature
+public sealed record MaterialParameters(double YoungModulus, double PoissonRatio, double YieldStress, double HardeningModulus, Seq<(double Modulus, double RelaxationTime)> Prony, double DamageThreshold);
+
+public sealed record MaterialState(ReadOnlyMemory<double> PlasticStrain, double Hardening, double Damage, Seq<ReadOnlyMemory<double>> ViscoHistory) {
+    public static MaterialState Pristine(int components) =>
+        new(new double[components], 0.0, 0.0, Seq<ReadOnlyMemory<double>>());
+}
+
+public sealed record ConstitutiveResult(ReadOnlyMemory<double> Stress, ReadOnlyMemory<double> Tangent, MaterialState State, int ReturnMapIterations, bool Converged, Instant At);
+
+public sealed record ContactResult(ReadOnlyMemory<double> Force, ReadOnlyMemory<double> Stiffness, ReadOnlyMemory<double> Multipliers, int ActiveSet, double PenetrationResidual, Instant At);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ConstitutiveModel {
+    private ConstitutiveModel() { }
+
+    public sealed record Plastic(int MaxReturnMapIterations) : ConstitutiveModel;
+    public sealed record Hyperelastic(bool MooneyRivlin) : ConstitutiveModel;
+    public sealed record Viscoelastic(int PronyTerms) : ConstitutiveModel;
+    public sealed record Damage(double Exponent) : ConstitutiveModel;
+
+    // Records the stored-energy tape W(ε) the AD reverse/forward modes read. The Plastic arm records the
+    // return-map iteration so the recorded tape carries the algorithmic (consistent) tangent, never the
+    // elastic-predictor continuum tangent.
+    public Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> EnergyTape(ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters) =>
+        Switch(
+            state: (Strain: strain, State: state, Parameters: parameters),
+            plastic: static (s, p) => ReturnMapTape(s.Strain, s.State, s.Parameters, p.MaxReturnMapIterations),
+            hyperelastic: static (s, h) => HyperelasticTape(s.Strain, s.Parameters, h.MooneyRivlin),
+            viscoelastic: static (s, v) => PronyTape(s.Strain, s.State, s.Parameters, v.PronyTerms),
+            damage: static (s, d) => DamageTape(s.Strain, s.State, s.Parameters, d.Exponent));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ContactConstraint {
+    private ContactConstraint() { }
+
+    public sealed record NodeToSurface(long[] Slave, long[] Master, double Gap, double Regularization) : ContactConstraint;
+    public sealed record Mortar(long[] SlaveSegments, long[] MasterSegments, double Gap, double Regularization) : ContactConstraint;
+
+    // Regularized gap potential whose AD HVP is the contact stiffness; the regularization parameter bounds
+    // the stick-slip non-smoothness so the tangent is consistent within the regularization.
+    public Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> PotentialTape(ReadOnlyMemory<double> displacement, double penalty) =>
+        Switch(
+            state: (Displacement: displacement, Penalty: penalty),
+            nodeToSurface: static (s, c) => GapPotentialTape(s.Displacement, s.Penalty, c.Gap, c.Regularization),
+            mortar: static (s, c) => MortarPotentialTape(s.Displacement, s.Penalty, c.Gap, c.Regularization));
+}
+
+public static class StressUpdate {
+    // The Plastic case iterates a return-map; ReturnMapVerdict yields its converged iteration count or a
+    // <return-map-diverged> fault so the entry's "aborts on a non-converged return-map" contract is honored
+    // here, never a hardcoded Converged: true. The closed-form cases (Hyperelastic/Viscoelastic/Damage) are
+    // always converged and return 0 iterations from the same gate.
+    public static Fin<ConstitutiveResult> Stress(ConstitutiveModel model, ReadOnlyMemory<double> strain, MaterialState state, MaterialParameters parameters, ClockPolicy clocks) {
+        var tape = model.EnergyTape(strain, state, parameters);
+        ReadOnlyMemory<float> seed = [.. Enumerable.Repeat(1f, strain.Length)];
+        ReadOnlyMemory<float> primalSeed = [.. strain.Span.ToArray().Select(static x => (float)x)];
+        return ReturnMapVerdict(model, strain, state, parameters)
+            .Bind(iterations => SensitivityLaw.Chain(tape, seed)
+                .Bind(stress => SensitivityLaw.Hvp(tape, primalSeed, primalSeed)
+                    .Map(tangent => new ConstitutiveResult(
+                        [.. stress.Span.ToArray().Select(static s => (double)s)],
+                        [.. tangent.Span.ToArray().Select(static t => (double)t)],
+                        Evolve(model, state, strain), iterations, Converged: true, clocks.Now))));
+    }
+}
+
+public static class ContactEnforcement {
+    public static Fin<ContactResult> Enforce(ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers, double penalty, Seq<(int Slave, int Master)> broadPhasePairs, ClockPolicy clocks) {
+        var tape = contact.PotentialTape(displacement, penalty);
+        ReadOnlyMemory<float> seed = [.. Enumerable.Repeat(1f, displacement.Length)];
+        ReadOnlyMemory<float> primalSeed = [.. displacement.Span.ToArray().Select(static x => (float)x)];
+        double[] gap = Gap(contact, displacement, broadPhasePairs);
+        double[] updated = multipliers.Span.ToArray();
+        for (int i = 0; i < updated.Length && i < gap.Length; i++) { updated[i] += penalty * Math.Max(0.0, gap[i]); }
+        return SensitivityLaw.Chain(tape, seed)
+            .Bind(force => SensitivityLaw.Hvp(tape, primalSeed, primalSeed)
+                .Map(stiffness => new ContactResult(
+                    [.. force.Span.ToArray().Select(static f => (double)f)],
+                    [.. stiffness.Span.ToArray().Select(static s => (double)s)],
+                    updated.AsMemory(), broadPhasePairs.Count(p => Penetrates(gap, p)), Penetration(gap), clocks.Now)));
+    }
+}
+```
+
+## [04]-[RESEARCH]
 
 - [ASSEMBLY_KERNELS]: the per-`PhysicsKind` element assembly (`SolveLane.Triplets`/`LocalStiffness` over the `ElementClass.ShapeGrad` delegate and the `QuadratureRule.Tet4`/`Hex27` Gauss tables from `Solver/discretization#DISCRETIZATION_MESH`, the `Bᵀ·D·B` stiffness against the `PhysicsKind.Material` `D`-matrix, and the COO handoff to `Tensor/factor#SPARSE_SOLVE`) is authored in the cluster fences; the open leaf is the `Rasm`/Vectors boundary-extraction member spelling the discretization owner names for the `MeshSpace.Encloses` inclusion test.
 - [GRADIENT_ADJOINT]: the gradient-adjoint route is settled — the tensor-lane DDG-operator VJP bodies (`Tensor/dispatch#EQUIVALENCE_INTEROP` `GeometryAdjoint`/`Backward.Operator`) compose the `Rasm`/Vectors `Spectral.cs` `OperatorRow.Adjoint` over the live `DiscreteCalculus` assembly through the linear-operator transpose law, the six geometry rows land on the `Tensor/vocabulary#OPERATION_TABLE` axis under `TensorOpKind.Geometry`, and the `Solver/optimizer#OPTIMIZER_LANE` `DesignProblem.OperatorRows` lowers the shape/topology design fields to a snapshot-bearing `Seq<GeometryTape>` the reverse-mode `SensitivityLaw.Chain` consumes; the open leaf is the live design-mesh wiring at the shape-optimization/inverse-design call site that supplies the `MeshAdjointSnapshot` the tape records through `MeshAdjointSnapshot.Of`.

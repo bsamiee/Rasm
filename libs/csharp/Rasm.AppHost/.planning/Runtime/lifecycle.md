@@ -187,11 +187,11 @@ stateDiagram-v2
 
 - Owner: `FaultSource` `[Union]` four cases; `BootMarker` crash and upgrade marker record; `FaultRecord` kind-discriminated wire-projection record; `FaultSpine` trap and probe surface.
 - Cases: Unhandled, UnobservedTask, Signalled, HostCrashMarker.
-- Entry: `PhaseSubscription ArmTraps(Option<Action<FaultSource>> capture = default, Option<Action> reload = default)` — one LIFO detacher composite over every trap registration.
-- Auto: every in-process fault commit invokes the capture delegate with its `FaultSource` payload before the phase transition, arming the fault-transition support trigger; SIGTERM and SIGQUIT project to the drain transition; SIGHUP invokes the reload delegate feeding the reload-outcome rail.
+- Entry: `PhaseSubscription ArmTraps(CorrelationId correlation, Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default)` — one LIFO detacher composite over every trap registration; the capture arm now receives one `SupportTrigger.FaultTransition(correlation, FaultRecord.From(source))` fact rather than the raw `FaultSource`, so a fault commit and its support-capture trigger are one fact stream and `ProbeMarkers` boot evidence rides the identical trigger case.
+- Auto: every in-process fault commit folds its `FaultSource` through `FaultRecord.From` into one `SupportTrigger.FaultTransition` and emits that single fact to the capture arm before the `PhaseTrigger.FaultCommitted` phase transition, so the capture trigger and the phase transition derive from one `Commit` fold, never a free capture delegate beside a separate trigger; SIGTERM and SIGQUIT project to the drain transition; SIGHUP invokes the reload delegate feeding the reload-outcome rail.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one trap registration row inside `ArmTraps` or one host-marker path value; zero new surface.
-- Boundary: `FaultSpine` is the named boundary capsule for the statement carve-out — trap wiring and signal handlers carry language-owned statement forms; plugin rows arm no posix traps because the host owns process signals and host-attach injection drives phases; marker bytes ride the package wire codec handed in as `JsonTypeInfo<BootMarker>`; stale own markers and host `.rhl`/`.ips` markers project to `HostCrashMarker` evidence feeding the support trigger, never a live fault transition; the marker writes at boot, clears on clean drain, and its version stamp doubles as upgrade-boot detection; `FaultRecord.From` is the total flatten — `Error` evidence and `PosixSignal` payloads land as wire-stable record fields under the kind literals the polymorphic metadata pins.
+- Growth: one trap registration row inside `ArmTraps` or one host-marker path value; one new fault cause is one `FaultSource` case the `FaultRecord.From` flatten and the one `SupportTrigger.FaultTransition` emission both absorb; zero new surface.
+- Boundary: `FaultSpine` is the named boundary capsule for the statement carve-out — trap wiring and signal handlers carry language-owned statement forms; plugin rows arm no posix traps because the host owns process signals and host-attach injection drives phases; marker bytes ride the package wire codec handed in as `JsonTypeInfo<BootMarker>`; stale own markers and host `.rhl`/`.ips` markers project to `HostCrashMarker` evidence flowing through the same `FaultRecord.From` flatten into one `SupportTrigger.FaultTransition`, never a live fault transition and never a second capture path; the marker writes at boot, clears on clean drain, and its version stamp doubles as upgrade-boot detection; `FaultRecord.From` is the total flatten — `Error` evidence and `PosixSignal` payloads land as wire-stable record fields under the kind literals the polymorphic metadata pins, so the `FaultTransition` fact carries the wire-stable `FaultRecord` and never the live `Error`-bearing `FaultSource`; the fault-to-capture path is one fact with kind metadata the durable-orchestration crash-recovery reads to resume in-flight steps, collapsing the prior capture-delegate-then-`PhaseTrigger.FaultCommitted` two-site construction (`Runtime/orchestration#CRASH_RESUME`, `Observability/bundles#TRIGGER_UNION`).
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -228,14 +228,14 @@ public abstract partial record FaultRecord {
 public static class FaultSpine {
     const string MarkerFile = "boot-marker.json";
     extension(Lifecycle host) {
-        public PhaseSubscription ArmTraps(Option<Action<FaultSource>> capture = default, Option<Action> reload = default) {
+        public PhaseSubscription ArmTraps(CorrelationId correlation, Option<Action<SupportTrigger>> capture = default, Option<Action> reload = default) {
             UnhandledExceptionEventHandler unhandled = (_, args) =>
-                Commit(host, capture, new FaultSource.Unhandled(
+                Commit(host, correlation, capture, new FaultSource.Unhandled(
                     args.ExceptionObject as Exception is { } failure ? Error.New(failure) : Error.New($"{args.ExceptionObject}"),
                     args.IsTerminating));
             EventHandler<UnobservedTaskExceptionEventArgs> unobserved = (_, args) => {
                 args.SetObserved();
-                Commit(host, capture, new FaultSource.UnobservedTask(Error.New(args.Exception)));
+                Commit(host, correlation, capture, new FaultSource.UnobservedTask(Error.New(args.Exception)));
             };
             AppDomain.CurrentDomain.UnhandledException += unhandled;
             TaskScheduler.UnobservedTaskException += unobserved;
@@ -269,8 +269,12 @@ public static class FaultSpine {
             stale.Filter(marker => marker.AppVersion != current)
                  .Map(marker => (PhaseTrigger)new PhaseTrigger.UpgradeDetected(marker.AppVersion, current)));
     }
-    static Unit Commit(Lifecycle host, Option<Action<FaultSource>> capture, FaultSource source) =>
-        (capture.Iter(arm => arm(source)), ignore(host.Transition(new PhaseTrigger.FaultCommitted(source)))).Item2;
+    // One fault fact, two consequences: the wire-stable FaultRecord rides one SupportTrigger.FaultTransition
+    // the capture arm and the durable crash-recovery both read, and the phase cell transitions on the same
+    // FaultSource. The prior capture-delegate-then-FaultCommitted two-site construction is the collapsed form.
+    static Unit Commit(Lifecycle host, CorrelationId correlation, Option<Action<SupportTrigger>> capture, FaultSource source) =>
+        (capture.Iter(arm => arm(new SupportTrigger.FaultTransition(correlation, FaultRecord.From(source)))),
+         ignore(host.Transition(new PhaseTrigger.FaultCommitted(source)))).Item2;
     static Unit Drainward(Lifecycle host, PosixSignalContext context) =>
         ((context.Cancel = true), ignore(host.Transition(RuntimePhase.Draining))).Item2;
 }
@@ -281,11 +285,11 @@ public static class FaultSpine {
 - Owner: `DrainBand` `[SmartEnum<int>]` frozen rank bands with the store-dependency column; `DrainOutcome` `[SmartEnum<string>]` step vocabulary; `DrainConductor` ordered fold.
 - Cases: Interaction 100, Compute 200, Stores 300, Telemetry 400; outcomes flushed | escalated | straggled.
 - Entry: `IO<DrainReceipt> Drain(Seq<(string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain)> rows, Duration cooperative, Duration forced)` — `IO` carries the ordered flush effects and aborts on a rejected fence transition.
-- Auto: the conductor's first act is the draining transition, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; queue completion awaits and telemetry flush rows enter as ordinary registrations at their declared band; every step receipt lands regardless of outcome.
+- Auto: the conductor's first act is the draining transition, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; queue completion awaits and telemetry flush rows enter as ordinary registrations at their declared band; the Stores-band 2PC in-doubt reconciliation row reads the `TwoPhase.InDoubt` prepared-transaction set and resolves each before the store closes so a prepared transaction never strands across the drain; every step receipt lands regardless of outcome.
 - Receipt: `DrainReceipt` aggregates `DrainStep` rows — name, band, allotted, consumed, outcome — with final phase, `Instant`, elapsed, correlation id; `Stragglers` is the deadline-miss projection naming every miss.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one registration row per participant and one band row per new package altitude; zero new surface.
-- Boundary: cooperative and forced budgets arrive from the drain-cooperative and drain-forced deadline rows; registration rows arrive field-identical from the drain-participant port; store writes stay legal through band 300 and are foreclosed on the Telemetry row; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
+- Boundary: cooperative and forced budgets arrive from the drain-cooperative and drain-forced deadline rows; registration rows arrive field-identical from the drain-participant port; store writes stay legal through band 300 and are foreclosed on the Telemetry row; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the 2PC in-doubt reconciliation registers as one Stores-band (300) `DrainParticipantPort` row — `Rasm.Persistence/Query/transaction` `TwoPhase.InDoubt(db)` projects the `pg_prepared_xacts` set and the drain row resolves each prepared-but-unresolved transaction (`TwoPhase.Commit`/`TwoPhase.Rollback` per the coordinator's last-recorded second-phase decision) through the `Runtime ⇄ Rasm.Persistence/Query/transaction # [PORT]: drain 2PC in-doubt set` seam, so a crash between prepare and second-phase resolution drains rather than stranding a prepared transaction holding locks — the in-doubt reconciliation runs while store writes stay open at band 300 and a managed XA transaction manager is the deleted form, the conductor consumes the `InDoubt` projection and AppHost never owns the 2PC protocol the engine's `PREPARE TRANSACTION` owns; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
 
 ```csharp signature
 [SmartEnum<int>]
@@ -391,3 +395,4 @@ interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly 
 
 - [FAULT_PROBES]: standalone-row crash-flag marker path and schema beneath the per-user support root; SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger.
 - [DRAIN_CLASSIFIER]: `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates.
+- [TWO_PHASE_DRAIN]: the Stores-band (300) 2PC in-doubt reconciliation drain row consumes the `Rasm.Persistence/Query/transaction#TWO_PHASE_COMMIT` `TwoPhase.InDoubt(db)` `pg_prepared_xacts` projection and resolves each prepared-but-unresolved transaction (`COMMIT PREPARED`/`ROLLBACK PREPARED` per the coordinator's last second-phase decision) through the `[PORT]: drain 2PC in-doubt set` seam — the AppHost conductor consumes the `InDoubt` projection and names the resolution while the PG-native prepared-transaction protocol stays Persistence, so a managed XA transaction manager is the rejected form; the reconciliation runs at band 300 while store writes remain open, before the Telemetry-band foreclosure, so a crash between prepare and second-phase resolution drains the in-doubt set rather than stranding a prepared transaction holding its locks past unload, and the `max_prepared_transactions` GUC floor verified through Persistence `ClusterConfig.Verify` is the engine-side precondition the drain assumes.

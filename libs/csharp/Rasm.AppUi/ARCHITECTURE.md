@@ -10,29 +10,37 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 Rasm.AppUi/
 ├── Shell/                # Host-mount axis and application shell spine
 │   ├── Navigation.cs     # Routing spine with deep-link grammar over Dock-driven dockable layouts
-│   ├── Screens.cs        # Screen catalog and ref-counted activation lifecycle with OAPH-paced state
+│   ├── Screens.cs        # Screen catalog, ref-counted activation, OAPH-paced state, control-intent stream body
 │   ├── Hosts.cs          # Host-neutral SurfaceHost mounting with seam delegate columns
 │   ├── Commands.cs       # One CommandIntent vocabulary with availability algebra and total receipts
+│   ├── Controls.cs       # One ControlIntent [Union] materialized through ControlFactory over BehaviorRail.Intent
+│   ├── Solver.cs         # LayoutConstraint Kiwi algebra solved by one LayoutSolver custom Avalonia panel
+│   ├── Virtualization.cs # One VirtualWindow owner over DynamicData change-sets every windowed surface consumes
 │   ├── Dialogs.cs        # Typed-Fin dialog intents with dismissal-as-value and host-agnostic pickers
-│   ├── Input.cs          # Command-derived hotkeys, behavior trigger/action rows, pan-zoom canvas
+│   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, InputFabric device drivers
 │   └── Accessibility.cs  # Automation identity, tab-order/trap law, one WCAG luminance gate
 ├── Render/               # GPU render surface and its viewport projections
-│   ├── Viewport.cs       # GPU RenderGraph pass-DAG with meshlet cluster-LOD and ReSTIR path tracing
+│   ├── Pipeline.cs       # RenderGraph pass-DAG, per-backend RenderTargetFactory, resolve ladder, SimVisual, Viewpoint
+│   ├── Meshlets.cs       # MeshletCluster GPU-driven cluster-LOD with bindless residency and VRAM-budget streaming
+│   ├── PathTrace.cs      # BVH/ReSTIR/denoise integrator shading FROM Materials LayeredBsdf/SurfaceShade
 │   ├── Capture.cs        # Offscreen render and document export over a Skia draw capsule
 │   ├── Drafting.cs       # Sheet drafting with title-blocks, hidden-line projection, ASME Y14.5 dimensioning
 │   ├── Reality.cs        # Gaussian-splat/point-cloud reality-capture viewport render-pass cases
 │   ├── Evidence.cs       # One EvidenceReceipt union sealed through HLC sink envelope
-│   ├── Shading.cs        # PLANNED — GPU shader-asset owner with per-backend pipeline-state cache
-│   └── Immersive.cs      # PLANNED — OpenXR stereo design-review over shared Wgpu device
+│   ├── Shading.cs        # GPU ShaderAsset cache per GpuBackend feeding the LayeredBsdf SurfaceShade pass
+│   └── Immersive.cs      # OpenXR stereo design-review plus FB passthrough over the shared Wgpu device
 ├── Charts/               # Chart and dashboard projection over receipt spine
 │   ├── Dashboards.cs     # LiveCharts series/axis rows, LTTB-downsampled stream binding, cross-filter brushing
 │   └── Custom.cs         # CustomVisual Skia layout-algebra rail for bespoke chart geometry
 ├── Editing/              # Typed-edit surfaces over model
 │   ├── Inspector.cs      # Typed PropertyGrid inspection with ranked editor-factory rows and conflict resolution
-│   ├── Tables.cs         # Tabular/hierarchical projection with column-metadata family and tree-flatten fold
+│   ├── Tables.cs         # Tabular/hierarchical projection with column-metadata family routed through VirtualWindow
 │   ├── Notebook.cs       # Reproducible computational document with CapabilityPin cells and CRDT co-editing
 │   ├── LiveData.cs       # Reactive data spine over closed DataSource cases and DynamicData operators
-│   ├── Issues.cs         # openBIM issue board over Rasm.Bim BCF topic/component contract
+│   ├── Forms.cs          # FormSchema+wizard through ControlFactory, selection batch-edit folding one CommandReceipt
+│   ├── History.cs        # RevertibleOp inverse algebra over CancelableCommandRecorder + durable op-log
+│   ├── Media.cs          # Markdig inlines + MediaSurface [Union] codec rows on the one SurfaceSeam (LibMpv)
+│   ├── Issues.cs         # openBIM issue board PROJECTION over Rasm.Bim-owned BCF topic/component contract
 │   └── Tour.cs           # Saved-viewpoint review tour over animation playhead
 └── Theme/                # Vocabulary tier: tokens, typography, motion, assets, locale
     ├── Tokens.cs         # Design-token engine with OKLab ramp mix and atomic theme swap
@@ -43,7 +51,7 @@ Rasm.AppUi/
     └── Locale.cs         # Resx/ICU/NodaTime locale rows with pseudo-locale conformance and RTL mirroring
 ```
 
-`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, dialog, input, and accessibility pages ride the same spine. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `viewport`, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and the planned `shading` and `immersive` pages deepen it without minting a parallel scene model. `Charts` and `Editing` project over the same receipt spine; `Editing/issues` composes the viewport, notebook, and chart owners over the `Rasm.Bim` BCF topic contract, and `Editing/tour` rides the animation playhead.
+`Shell` owns the host-mount axis and the application shell: the host-mount axis precedes the shell, the shell precedes the screens it routes, and the command, control, layout, virtualization, dialog, input, and accessibility pages ride the same spine — `controls` materializes the one `ControlIntent` family through `ControlFactory`, `solver` solves the `LayoutConstraint` algebra in one `LayoutSolver` panel, and `virtualization` owns the one `VirtualWindow` every windowed surface consumes. `Theme` is the vocabulary tier every literal traces to. `Render` is the GPU render surface — `pipeline` drives the frame pass-DAG and draws the `meshlets` cluster-LOD and the `pathtrace` integrator, `drafting`, `reality`, and `evidence` resolve over the receipt spine, the `capture` codec, and the GPU render-target factory, and `shading` and `immersive` deepen it (the GPU shader-asset cache feeding the `LayeredBsdf` shade, the OpenXR stereo surface) without minting a parallel scene model or a second GPU device. `Charts` and `Editing` project over the same receipt spine; `forms` and `history` deliver declarative forms, batch editing, and the one revertible-op inverse algebra over `PropertyModels`, `media` renders markdown inlines and mounts codec rows on the one `SurfaceSeam`, `Editing/issues` composes the viewport, notebook, and chart owners as a pure board PROJECTION over the `Rasm.Bim`-owned BCF topic contract, and `Editing/tour` rides the animation playhead.
 
 ## [02]-[SEAMS]
 
@@ -51,22 +59,42 @@ Rasm.AppUi/
 Shell/commands    →  typescript:interchange/transport            # [WIRE]: CommandPayloadWire + AvailabilityStore gate
 Render/capture    →  typescript:interchange/codec                # [PROJECTION]: RenderReceiptWire frame-hash proof
 Render/evidence   →  typescript:projection/evidence              # [PROJECTION]: EvidenceFeed / EvidenceTimeline
-Render/viewport   →  typescript:platform/transport               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
+Render/pipeline   →  typescript:platform/transport               # [PROJECTION]: GeometryResidencyWire ResidencyManifest content-key
 Render/glb        →  typescript:ui/render                        # [RECEIPT]: ResidencyManifest content-key-keyed mesh residency
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
 Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
 Render/query      ←  csharp:Rasm.Bim/Model                       # [PORT]: ElementSet query algebra via capability descriptor
 Editing           ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: annotation collaboration op-log
 Editing/notebook  ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: NotebookOp op-log
-Render            ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
+Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
 Render            ←  csharp:Rasm/Geometry/Drawing                # [PROJECTION]: DrawingProjection / drafting-sheet layout
 Render            ←  csharp:Rasm/Geometry/Processing             # [PROJECTION]: ChartAtlas / texture UV channel
 Render/reality    ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: SplatPayload / PointPayload decode
 Render/drafting   ←  csharp:Rasm.Fabrication/Posting             # [BOUNDARY]: HiddenLineSeam BSP visibility solver
 Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets
-Render            ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SurfaceShade at path tracer
+Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
 Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
-Editing/forms     →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: revertible op-log (ONE_REVERT_VOCABULARY)
+Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: RevertibleOp forward/inverse delta replays as SyncOpKind durable inverse stream (ONE_REVERT_VOCABULARY)
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
+Shell/controls    →  typescript:interchange/transport            # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
+Shell/solver      →  typescript:ui/render                        # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
+Editing/tables    ←  csharp:Rasm.AppUi/Shell/virtualization      # [PORT]: VirtualWindow viewport-range realized-item window
 ```
+
+## [05]-[PROHIBITIONS]
+
+The closed NEVER list — the deleted patterns the owner regions foreclose. Every UI seed cites the concrete owner that forecloses it.
+
+- NEVER runtime XAML for production view materialization — every view enters the tree through its `Configure<TApp>` compiled-XAML class, `Surfaces.RejectRuntimeXaml` is the never-callable surface folding an `AvaloniaXamlLoader.Load(this)`/`Load(uri)` attempt into `SurfaceFault.MountRejected`, and the `Avalonia.Markup.Xaml.Loader` markup-loader resolves only inside the Debug HotAvalonia closure.
+- NEVER per-host `GpuBackend`/`GRContext.CreateMetal`/`CreateVulkan`/`CreateGl` construction in a dispatch arm — Avalonia owns backend selection through `EmbedOptions.RenderingMode` (`AvaloniaNativePlatformOptions.RenderingMode`), and a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition.
+- NEVER a per-surface `AsyncImageLoader`, telemetry sink, or receipt sink — every owner contributes through the one `AppUiTelemetry.Contribute` spine and the `ReceiptSinkPort`, and the `RamCachedWebImageLoader`-backed `Loader` is the single image cache.
+- NEVER an `SKSurface` outside the `Offscreen` capsule — the capture capsule owns the one Skia draw boundary and every offscreen render confines to it.
+- NEVER ReactiveUI code-behind view binding — `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor<TViewModel>` property-expression wiring are rejected wholesale; `BehaviorRail.Intent(ICommand)` is the single C# binding bridge and `BehaviorRail.RejectViewBinding` is the never-callable structural rejection folding the rejected binder symbols into the typed faulting rail.
+- NEVER a second command, hotkey, palette, or conflict registry beside the one `CommandIntent` row table and `CommandDeck.Freeze` — menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation folds over the one table, and the freeze-time `GestureConflicts` fold is the only conflict evidence.
+- NEVER a parallel control-generation or layout framework — a control-materialization or constraint-layout system is ONE polymorphic owner feeding the existing rails (the `ControlIntent` `[Union]` materialized through `ControlFactory`, the `LayoutConstraint` algebra solved by one `LayoutSolver` `Panel`), never a parallel framework with a second binding, token, or automation path.
+- NEVER a per-surface virtualizer — viewport-range windowing, control recycling, variable-extent measurement, sticky headers, and hierarchical flatten ride the one `VirtualWindow` owner over `DynamicData` change-sets, and every windowed surface (tables, notebook, dashboard, canvas) consumes it.
+- NEVER a generic `IReceipt`, ledger, or reported-value abstraction — every receipt stays its typed record (`CommandReceipt`, `FrameReceipt`, `ShaderReceipt`, `MediaReceipt`, `FormReceipt`, `EditReceipt`) sealed through `ReceiptSinkPort`.
+- NEVER a second revert vocabulary beside the one inverse algebra — `RevertibleOp` forward/inverse deltas fold across the client `CancelableCommandRecorder` window and the durable `Rasm.Persistence/Sync` `OpLogEntry` inverse stream as two arms of one `RevertScope`, the `EditOutcome.Reverted` outcome the only revert receipt.
+- NEVER a second BCF or coordination-domain owner inside AppUi — `Rasm.Bim/coordination` owns the openBIM topic/component/comment exchange semantics and AppUi retains only the `Viewpoint` board projection over the consumed contract.
+- CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

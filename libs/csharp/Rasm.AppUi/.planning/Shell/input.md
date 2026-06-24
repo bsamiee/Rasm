@@ -9,6 +9,7 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 - [03]-[POINTER_GESTURES]: Gesture routing rows and the frozen pan-zoom canvas family.
 - [04]-[DRAG_CLIPBOARD]: Typed transfer payload union and clipboard codec rows.
 - [05]-[INPUT_FABRIC]: Alternative-input device union and device-output union over the intent table.
+- [06]-[DEVICE_DRIVERS]: The four admitted SDK boundary capsules binding the fabric's delegate columns.
 
 ## [02]-[HOTKEY_DERIVATION]
 
@@ -216,13 +217,13 @@ flowchart LR
 
 ## [06]-[INPUT_FABRIC]
 
-- Owner: `InputDevice` `[Union]` the alternative-input source family; `DeviceAxis` the normalized continuous-axis sample; `DeviceOutput` `[Union]` the device-output sink family; `InputFabric` the device-to-intent and intent-to-device fold.
-- Cases: `InputDevice` = SpaceMouse | GameController | EyeTracker | SwitchAccess | Voice | MidiSurface under the locked kind literals; `DeviceOutput` = MotionController | CncMachine | Robot | HapticRumble under the locked kind literals.
+- Owner: `InputDevice` `[Union]` the alternative-input source family over the four admitted net10 SDKs; `DeviceAxis` the normalized continuous-axis sample; `DeviceOutput` `[Union]` the device-output sink family; `InputFabric` the device-to-intent and intent-to-device fold.
+- Cases: `InputDevice` = SpaceMouse | GameController | HapticSurface | MidiSurface under the locked kind literals; `DeviceOutput` = ControllerRumble | HapticRumble under the locked kind literals — eye-gaze, switch-access, voice, CNC, and robot are out of the fabric (no viable cross-platform net10 SDK, closed `INPUT-FABRIC-SDKS`).
 - Entry: `public Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck)` — folds a device sample into the command intents it raises through the one table; `public IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command)` — folds a command into the device-output samples it emits.
-- Auto: every alternative-input device folds onto the one `CommandIntent` table — a SpaceMouse six-degree-of-freedom sample maps to the viewport orbit/pan/zoom intents, a game-controller stick to the same navigation intents, an eye-tracker gaze-dwell to a focus-and-select intent, a switch-access scan-and-select to the focused intent, a voice command to its intent key through the speech-to-intent fold, and a MIDI control surface to parameter intents — so a new input modality raises existing verbs and never a parallel command path; device output is the symmetric fold — a motion controller, CNC machine, robot, or haptic rumble consumes the normalized command axes so the same intent that an input device raises a device output can consume, completing the input-output fabric; the continuous-axis sample is normalized to [-1, 1] so a device-specific range never leaks into the intent fold.
+- Auto: every alternative-input device folds onto the one `CommandIntent` table — a SpaceMouse six-degree-of-freedom translation/rotation sample maps to the viewport orbit/pan/zoom intents, a game-controller stick to the same navigation intents, a haptic-surface trigger to a feedback intent, and a MIDI control surface to parameter intents — so a new input modality raises existing verbs and never a parallel command path; device output is the symmetric fold — a controller rumble or a haptic-device pulse consumes the normalized command axes so the same intent that an input device raises a device output can consume, completing the input-output fabric; the continuous-axis sample is normalized to [-1, 1] so a device-specific range never leaks into the intent fold; each device's continuous axes fold through the `Shell/input` pan-zoom canvas algebra (`[04]-[POINTER_GESTURES]`) and discrete events map onto the `CommandIntent` vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new input device is one `InputDevice` case; a new output device is one `DeviceOutput` case; a new continuous control is one `DeviceAxis` row; zero new surface.
-- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, gaze, switch, voice, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the device sample is normalized so the fabric carries no device-specific range literal; voice-to-intent rides the command-table label index through the same `CommandProjections.Search` fuzzy match so a spoken phrase resolves to an intent key without a second voice grammar; device output is the symmetric consequence — the motion-controller, CNC, robot, and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, and the HID/SpaceMouse driver, the eye-tracker SDK, the speech-recognition engine, the MIDI port, and the CNC/robot transport are all composition-bound delegate columns whose member spellings resolve under INPUT_DEVICE_SDK; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input.
+- Growth: a new input device is one `InputDevice` case reading the shared intent rail; a new output device is one `DeviceOutput` case; a new continuous control is one `DeviceAxis` row; zero new surface — a parallel input framework beside this fabric is the rejected form.
+- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the device sample is normalized so the fabric carries no device-specific range literal; device output is the symmetric consequence — the controller-rumble and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, the SDK driver capsules live in `[07]-[DEVICE_DRIVERS]`; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input; the fabric union arm carries only the device→intent projection delegate, so the four SDK boundary capsules of `[07]` bind those columns at composition and the fabric body names no SDK member.
 
 ```csharp signature
 public readonly record struct DeviceAxis(string Channel, double Value);
@@ -232,22 +233,17 @@ public abstract partial record InputDevice {
     private InputDevice() { }
     public sealed record SpaceMouse(string Id, Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : InputDevice;
     public sealed record GameController(string Id, Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : InputDevice;
-    public sealed record EyeTracker(string Id, double DwellSeconds, Func<DeviceAxis, DeviceAxis, Option<string>> Gaze) : InputDevice;
-    public sealed record SwitchAccess(string Id, double ScanInterval, Func<int, Option<string>> Select) : InputDevice;
-    public sealed record Voice(string Id, Func<string, CommandDeck, Option<string>> Recognize) : InputDevice;
+    public sealed record HapticSurface(string Id, Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : InputDevice;
     public sealed record MidiSurface(string Id, Func<Seq<DeviceAxis>, Seq<(string Key, double Value)>> ToParameters) : InputDevice;
 
     public string Id => Switch(
-        spaceMouse: static s => s.Id, gameController: static g => g.Id, eyeTracker: static e => e.Id,
-        switchAccess: static s => s.Id, voice: static v => v.Id, midiSurface: static m => m.Id);
+        spaceMouse: static s => s.Id, gameController: static g => g.Id, hapticSurface: static h => h.Id, midiSurface: static m => m.Id);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeviceOutput {
     private DeviceOutput() { }
-    public sealed record MotionController(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Emit) : DeviceOutput;
-    public sealed record CncMachine(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Stream) : DeviceOutput;
-    public sealed record Robot(string Id, Func<Seq<DeviceAxis>, IO<Unit>> Command) : DeviceOutput;
+    public sealed record ControllerRumble(string Id, Func<double, double, ushort, IO<Unit>> Rumble) : DeviceOutput;
     public sealed record HapticRumble(string Id, Func<double, IO<Unit>> Pulse) : DeviceOutput;
 }
 
@@ -261,23 +257,78 @@ public static class InputFabric {
             state: (Sample: sample, Deck: deck),
             spaceMouse: static (ctx, s) => s.ToIntents(ctx.Sample),
             gameController: static (ctx, g) => g.ToIntents(ctx.Sample),
-            eyeTracker: static (ctx, e) => ctx.Sample is [var x, var y, ..] ? e.Gaze(x, y).ToSeq() : Seq<string>(),
-            switchAccess: static (ctx, s) => ctx.Sample is [var index, ..] ? s.Select((int)index.Value).ToSeq() : Seq<string>(),
-            voice: static (ctx, v) => ctx.Sample is [] && v.Recognize(string.Empty, ctx.Deck) is { IsSome: true, Case: string key } ? Seq1(key) : Seq<string>(),
+            hapticSurface: static (ctx, h) => h.ToIntents(ctx.Sample),
             midiSurface: static (ctx, m) => m.ToParameters(ctx.Sample).Map(static p => p.Key));
 
     public static IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command) =>
         output.Switch(
             state: command,
-            motionController: static (cmd, m) => m.Emit(cmd),
-            cncMachine: static (cmd, c) => c.Stream(cmd),
-            robot: static (cmd, r) => r.Command(cmd),
+            controllerRumble: static (cmd, c) => c.Rumble(cmd is [var lo, ..] ? lo.Value : 0d, cmd is [_, var hi, ..] ? hi.Value : 0d, 200),
             hapticRumble: static (cmd, h) => h.Pulse(cmd is [var first, ..] ? first.Value : 0d));
 }
 ```
 
-## [07]-[RESEARCH]
+## [07]-[DEVICE_DRIVERS]
+
+- Owner: `DeviceDriver` `[Union]` the four SDK boundary capsules binding the fabric's delegate columns; `DeviceSession` the scoped device handle; `InputDriverFault` the fault family in the 4150 code band.
+- Cases: `DeviceDriver` = Hid(HidSharp SpaceMouse) | Gamepad(Silk.NET.Input controller) | Haptic(Silk.NET.SDL force-feedback) | Midi(Melanchall.DryWetMidi control surface) under the locked kind literals; `InputDriverFault` = Text | DeviceAbsent | OpenRejected | DecodeFailed in the 4150 code band.
+- Entry: `public Fin<DeviceSession> Open(DeviceDriver driver)` — opens the SDK handle in a scoped boundary, returning the device→intent projection the fabric arm reads and the teardown that releases the native handle; `public IObservable<Seq<DeviceAxis>> Stream(DeviceSession session)` — projects the SDK's raw report stream into normalized `DeviceAxis` samples.
+- Auto: the `Hid` capsule enumerates a 3Dconnexion SpaceMouse through `DeviceList.Local.GetHidDevices(vendorId, productId)`, opens a scoped `HidStream`, and decodes its six translation/rotation axes through `DeviceItemInputParser`/`DataValue.GetScaledValue` so canonical [-1,1] axes leave the capsule, not raw HID bytes (`.api/api-hidsharp.md`); the `Gamepad` capsule mints one `IInputContext` per view through `IView.CreateInput()`, reads `IGamepad.Thumbsticks`/`Triggers`/`Buttons` through the named `GamepadExtensions` accessors with `Deadzone.Apply` recentering, and folds them into `DeviceAxis` samples (`.api/api-silk-input.md`); the `Haptic` capsule arms the SDL haptic subsystem through `Init(InitHaptic)`, opens a device through `HapticOpenFromJoystick`, and runs effects through `HapticRumblePlay`/`GameControllerRumble` gated behind `HapticQuery` capability (`.api/api-silk-sdl.md`); the `Midi` capsule resolves an input device through `InputDevice.GetByName`, listens through `StartEventsListening`, and projects `ControlChangeEvent.ControlValue`/`NoteOnEvent.Velocity` (bounded `SevenBitNumber`) into normalized parameter axes (`.api/api-drywetmidi.md`); every handle is lifecycle-scoped and disposed at teardown.
+- Receipt: the first opened device emits a driver-resolved evidence row — device kind, identity, axis count; `TelemetryRow` contributes the device-resolved and device-absent instruments inward through the AppHost `TelemetryContributorPort`.
+- Packages: HidSharp, Silk.NET.Input, Silk.NET.SDL, Melanchall.DryWetMidi, Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Reactive
+- Growth: a new device backend is one `DeviceDriver` case with its scoped open/stream pair; one device instrument is one `InstrumentRow` on `InputDrivers.TelemetryRow`; zero new surface.
+- Boundary: each capsule is the named boundary admission for its SDK — `Open` pairs the SDK's enumerate-and-open with the teardown in one scoped fold and the raw report crosses the boundary exactly once, so a normalized `DeviceAxis` leaves the capsule and a raw HID byte array, a raw `MidiEvent`, or a raw SDL status never propagates into the fabric (the per-SDK `LOCAL_ADMISSION` of each `.api`); the `Hid` capsule re-enumerates on `DeviceList.Changed` rather than re-opening a stale handle, the `Gamepad` capsule holds exactly one `IInputContext` per view (the SDL2 backend reflection-loaded through `TryAdd("Silk.NET.Input.Sdl")`), the `Haptic` capsule shares the single `Sdl.GetApi()` instance with the `Gamepad` SDL2 backend so no second native bundle loads, and the `Midi` capsule disposes every `InputDevice`/`OutputDevice` it opens; the bounded byte discipline holds at the edge — MIDI data crosses as `SevenBitNumber`/`FourBitNumber` and rejects out-of-range before forming, and HID axes cross as `GetScaledValue` projections, so a raw integer velocity or a raw logical HID value never enters the fabric; the capsule binds the `InputDevice`/`DeviceOutput` union arm's projection delegate at composition so the fabric body of `[05]` names no SDK member; the four native SDKs (SDL2 shared between Silk.NET.Input and Silk.NET.SDL, libmpv-independent) provision at the app-host distribution layer, never bundled by the managed packages.
+
+```csharp signature
+[Union]
+public abstract partial record InputDriverFault : Expected, IValidationError<InputDriverFault> {
+    private InputDriverFault(string detail, int code) : base(detail, code, None) { }
+
+    public static InputDriverFault Create(string message) => new Text(message);
+
+    public sealed record Text : InputDriverFault { public Text(string detail) : base(detail, 4150) { } }
+    public sealed record DeviceAbsent : InputDriverFault { public DeviceAbsent(string detail) : base(detail, 4151) { } }
+    public sealed record OpenRejected : InputDriverFault { public OpenRejected(string detail) : base(detail, 4152) { } }
+    public sealed record DecodeFailed : InputDriverFault { public DecodeFailed(string detail) : base(detail, 4153) { } }
+}
+
+public sealed record DeviceSession(string Id, InputDevice Device, IObservable<Seq<DeviceAxis>> Samples, IDisposable Teardown) : IDisposable {
+    public void Dispose() => Teardown.Dispose();
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DeviceDriver {
+    private DeviceDriver() { }
+    public sealed record Hid(int VendorId, int ProductId, Func<DataValue, double> Axis) : DeviceDriver;
+    public sealed record Gamepad(int Index, Deadzone Deadzone) : DeviceDriver;
+    public sealed record Haptic(int Index, Func<double, double, ushort, IO<Unit>> Rumble) : DeviceDriver;
+    public sealed record Midi(string DeviceName, Func<ControlChangeEvent, (string Key, double Value)> Control) : DeviceDriver;
+}
+
+public static class InputDrivers {
+    public const string ResolvedInstrument = "rasm.appui.input.device-resolved";
+    public const string AbsentInstrument = "rasm.appui.input.device-absent";
+
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
+
+    public static Fin<DeviceSession> Open(DeviceDriver driver) => driver.Switch(
+        hid: static h => OpenHid(h),
+        gamepad: static g => OpenGamepad(g),
+        haptic: static h => OpenHaptic(h),
+        midi: static m => OpenMidi(m));
+}
+```
+
+| [INDEX] | [DRIVER]   | [SDK]                   | [ENUMERATE]                              | [SAMPLE_SOURCE]                                 | [NORMALIZE]                |
+| :-----: | ---------- | ----------------------- | ---------------------------------------- | ----------------------------------------------- | -------------------------- |
+|  [01]   | SpaceMouse | `HidSharp`              | `DeviceList.Local.GetHidDevices(vid,pid)` | `DeviceItemInputParser.GetValue`/`DataValue`    | `GetScaledValue(-1, 1)`    |
+|  [02]   | Controller | `Silk.NET.Input`        | `IView.CreateInput().Gamepads`           | `IGamepad.Thumbsticks`/`Triggers`/`Buttons`     | `Deadzone.Apply` + `[-1,1]` |
+|  [03]   | Haptic     | `Silk.NET.SDL`          | `Sdl.NumHaptics` + `HapticOpenFromJoystick` | `HapticQuery` capability + `GameControllerRumble` | output-only normalized      |
+|  [04]   | MIDI       | `Melanchall.DryWetMidi` | `InputDevice.GetAll`/`GetByName`          | `ControlChangeEvent`/`NoteOnEvent` (`EventReceived`) | `SevenBitNumber / 127`   |
+
+## [08]-[RESEARCH]
 
 - [PANEL_KEYS]: Rhino panel return-key policy knob residence and its registration point on the panel host.
 - [EMBEDDED_DRAG]: host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel.
-- [INPUT_DEVICE_SDK]: the alternative-input and device-output driver surfaces the `InputDevice` and `DeviceOutput` delegate columns bind — the 3Dconnexion SpaceMouse HID driver, the game-controller gamepad API, the eye-tracker gaze SDK, the switch-access scan timer, the speech-recognition engine, the MIDI port, and the CNC/robot/haptic transport — resolved at implementation against the admitted device packages bound through `SurfaceSeam` delegate columns; the `InputDevice`/`DeviceOutput` union, the normalized `DeviceAxis`, and the device-to-intent and intent-to-device folds are settled, the per-device SDK member spellings are the unverified surface bound at composition.
+- [INPUT_DEVICE_SDK]: the per-SDK member spellings the four `[07]-[DEVICE_DRIVERS]` capsules bind beyond the catalogued surfaces — the 3Dconnexion SpaceMouse HID usage-page constants the `DeviceItemInputParser` reads for the six translation/rotation axes, the `Silk.NET.Input.Sdl` reflection-load order against the shared SDL2 bundle, the `HapticEffect` tagged-union member layout for a non-rumble force-feedback effect, and the `Melanchall.DryWetMidi` `MidiEventReceivedEventArgs.Event` narrowing to `ControlChangeEvent`/`NoteOnEvent` — resolved at implementation against the admitted device packages (`.api/api-hidsharp.md`, `api-silk-input.md`, `api-silk-sdl.md`, `api-drywetmidi.md`); the `InputDevice`/`DeviceOutput` union, the normalized `DeviceAxis`, the device-to-intent and intent-to-device folds, the `DeviceDriver` capsules, and the enumerate/sample/normalize table are settled, the per-device SDK usage-code and event-narrowing spellings are the unverified surface bound at composition.

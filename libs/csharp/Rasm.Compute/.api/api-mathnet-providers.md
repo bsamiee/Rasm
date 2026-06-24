@@ -3,8 +3,11 @@
 `MathNet.Numerics` supplies dense and sparse linear algebra, the RID-keyed
 native-provider selection façade over MKL and OpenBLAS, the CSR sparse storage
 surface with its CSC/COO/indexed ingestion conversions, the matrix
-factorization family, and the in-assembly probability `Distributions` and
-descriptive `Statistics` surfaces the uncertainty lane samples and reduces;
+factorization family, the in-assembly `IntegralTransforms.Fourier` discrete
+Fourier transform with its `FourierOptions` scaling and `Window` taper family the
+signal lane marshals and windows, and the in-assembly probability
+`Distributions` and descriptive `Statistics` surfaces the uncertainty,
+estimator, and hypothesis-test lanes sample, reduce, and read CDFs from;
 `CSparse` supplies direct sparse Cholesky, LU, and QR factorizations beside the
 MathNet iterative solvers for the numeric lane.
 
@@ -13,7 +16,7 @@ MathNet iterative solvers for the numeric lane.
 [PACKAGE_SURFACE]: `MathNet.Numerics`
 - package: `MathNet.Numerics`
 - assembly: `MathNet.Numerics`
-- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `MathNet.Numerics.LinearAlgebra.Double`, `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Factorization`, `MathNet.Numerics.Providers.LinearAlgebra`
+- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `MathNet.Numerics.LinearAlgebra.Double`, `MathNet.Numerics.LinearAlgebra.Storage`, `MathNet.Numerics.LinearAlgebra.Factorization`, `MathNet.Numerics.Providers.LinearAlgebra`, `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`
 - asset: runtime library (managed; native providers ride sibling asset packages)
 - rail: numeric
 
@@ -93,6 +96,18 @@ MathNet iterative solvers for the numeric lane.
 |  [04]   | `MathNet.Numerics.LinearAlgebra.Double.Solvers.MlkBiCgStab` | solver         | multiple-Lanczos BiCGStab       |
 |  [05]   | `MathNet.Numerics.LinearAlgebra.Solvers.Iterator<T>`        | control        | iteration stop criteria         |
 
+[PUBLIC_TYPE_SCOPE]: signal transform + window
+- rail: numeric
+
+The `IntegralTransforms.Fourier` static surface owns the in-place DFT over `Complex[]`/`Complex32[]`, the real-packed `ForwardReal`/`InverseReal`, the 2-D and N-D transforms, and `FrequencyScale`; `Window` is the static taper family the signal lane reads by `WindowKind` row. MathNet ships no wavelet (`dwt`) or analog-prototype IIR design surface — those ground in-fence at the signal-lane design gate.
+
+| [INDEX] | [SYMBOL]                                             | [PACKAGE_ROLE] | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `MathNet.Numerics.IntegralTransforms.Fourier`        | static DFT     | in-place forward/inverse FFT family            |
+|  [02]   | `MathNet.Numerics.IntegralTransforms.FourierOptions` | scaling enum   | symmetric/asymmetric/no-scaling convention     |
+|  [03]   | `MathNet.Numerics.Window`                            | static tapers  | window function family (Hann/Hamming/Blackman) |
+|  [04]   | `System.Numerics.Complex` / `Complex32`              | sample carrier | the in-place transform value type              |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider selection
@@ -150,26 +165,50 @@ Math.NET sparse imports normalize to CSR; CSparse factorization consumes CSC sto
 |  [09]   | `ISparseFactorization<T>.Solve`                                      | factorization call | solves `Ax=b` in place          |
 |  [10]   | `IIterativeSolver<T>.Solve`                                          | solver call        | iterative solve with `Iterator` |
 
+[ENTRYPOINT_SCOPE]: discrete Fourier transform + window
+- rail: numeric
+
+`Fourier` transforms in place over `Complex[]`/`Complex32[]` (the signal lane marshals the real `Tensor<float>` into `Complex[]` once); `FourierOptions.Default` is symmetric `1/√n` scaling, `NoScaling` is the FFT-then-IFFT round-trip, `AsymmetricScaling`/`Matlab` matches MATLAB. `Window` factories return a `double[]` taper of the requested width; symmetric forms suit filter design, `*Periodic` forms suit FFT framing, and `Blackman`/`Dirichlet` ship one form only.
+
+| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]      | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
+|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                                 | static `void`     | in-place forward DFT, scaling-governed            |
+|  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                                 | static `void`     | in-place inverse DFT, scaling-governed            |
+|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                         | static `void`     | real-packed forward (half-spectrum `rfft`)        |
+|  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                         | static `void`     | real-packed inverse                               |
+|  [05]   | `Fourier.Forward2D` / `ForwardMultiDim`                                      | static `void`     | 2-D / N-D forward transform                       |
+|  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                      | static `double[]` | the FFT-bin frequency axis                        |
+|  [07]   | `Window.Hann` / `HannPeriodic`                                               | static `double[]` | Hann symmetric / FFT-periodic taper               |
+|  [08]   | `Window.Hamming` / `HammingPeriodic`                                         | static `double[]` | Hamming symmetric / FFT-periodic taper            |
+|  [09]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                     | static `double[]` | Blackman family taper (no periodic split)         |
+|  [10]   | `Window.Dirichlet`                                                           | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
+|  [11]   | `Window.Bartlett` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | static `double[]` | the remaining taper family                        |
+
 [ENTRYPOINT_SCOPE]: probability distributions + descriptive statistics
 - rail: numeric
 
-The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.Numerics` assembly (no separate package); the uncertainty lane consumes them for forward-UQ random-variable sampling, moment reduction, and quantile estimation. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws.
+The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.Numerics` assembly (no separate package); the uncertainty lane samples the forward-UQ continuous distributions, the estimator lane fits per-class moments and reads the IRLS variance function, and the hypothesis-test lane reads the test-statistic CDF from the inference distributions. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws; each distribution also exposes the static `CDF`/`InvCDF`/`Sample` form (parameters + value) beside the instance `CumulativeDistribution`/`InverseCumulativeDistribution`/`Sample`.
 
-| [INDEX] | [SYMBOL]                                                   | [NAMESPACE]                      | [CAPABILITY]                                                   |
-| :-----: | :--------------------------------------------------------- | :------------------------------- | :------------------------------------------------------------- |
-|  [01]   | `Normal(mean, stddev)`                                     | `MathNet.Numerics.Distributions` | Gaussian continuous distribution                               |
-|  [02]   | `LogNormal(mu, sigma)`                                     | `MathNet.Numerics.Distributions` | log-normal continuous distribution                             |
-|  [03]   | `ContinuousUniform(lower, upper)`                          | `MathNet.Numerics.Distributions` | uniform continuous distribution                                |
-|  [04]   | `Weibull(shape, scale)`                                    | `MathNet.Numerics.Distributions` | Weibull reliability distribution                               |
-|  [05]   | `Beta(a, b)`                                               | `MathNet.Numerics.Distributions` | Beta continuous distribution                                   |
-|  [06]   | `IContinuousDistribution.Sample()`                         | `MathNet.Numerics.Distributions` | one draw; `Samples()` is the lazy `IEnumerable<double>` stream |
-|  [07]   | `IContinuousDistribution.InverseCumulativeDistribution(p)` | `MathNet.Numerics.Distributions` | quantile / PPF for inverse-transform sampling                  |
-|  [08]   | `IContinuousDistribution.CumulativeDistribution(x)`        | `MathNet.Numerics.Distributions` | CDF for reliability / failure-probability scoring              |
-|  [09]   | `{Mean, Variance, StdDev, Median}`                         | `MathNet.Numerics.Distributions` | closed-form distribution moments                               |
-|  [10]   | `Statistics.Mean` / `Variance` / `StandardDeviation`       | `MathNet.Numerics.Statistics`    | sample moments over an `IEnumerable<double>`                   |
-|  [11]   | `Statistics.Quantile(data, tau)` / `Percentile`            | `MathNet.Numerics.Statistics`    | sample quantile / percentile estimate                          |
-|  [12]   | `Statistics.Covariance` / `Correlation.Pearson`            | `MathNet.Numerics.Statistics`    | pairwise covariance / Pearson correlation                      |
-|  [13]   | `DescriptiveStatistics(data)`                              | `MathNet.Numerics.Statistics`    | one-pass mean/variance/skewness/kurtosis carrier               |
+| [INDEX] | [SYMBOL]                                                           | [NAMESPACE]                      | [CAPABILITY]                                                     |
+| :-----: | :----------------------------------------------------------------- | :------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `Normal(mean, stddev)`                                             | `MathNet.Numerics.Distributions` | Gaussian continuous distribution                                 |
+|  [02]   | `LogNormal(mu, sigma)`                                             | `MathNet.Numerics.Distributions` | log-normal continuous distribution                               |
+|  [03]   | `ContinuousUniform(lower, upper)`                                  | `MathNet.Numerics.Distributions` | uniform continuous distribution                                  |
+|  [04]   | `Weibull(shape, scale)`                                            | `MathNet.Numerics.Distributions` | Weibull reliability distribution                                 |
+|  [05]   | `Beta(a, b)`                                                       | `MathNet.Numerics.Distributions` | Beta continuous distribution                                     |
+|  [06]   | `IContinuousDistribution.Sample()`                                 | `MathNet.Numerics.Distributions` | one draw; `Samples()` is the lazy `IEnumerable<double>` stream   |
+|  [07]   | `IContinuousDistribution.InverseCumulativeDistribution(p)`         | `MathNet.Numerics.Distributions` | quantile / PPF for inverse-transform sampling                    |
+|  [08]   | `IContinuousDistribution.CumulativeDistribution(x)`                | `MathNet.Numerics.Distributions` | CDF for reliability / failure-probability scoring                |
+|  [09]   | `{Mean, Variance, StdDev, Median}`                                 | `MathNet.Numerics.Distributions` | closed-form distribution moments                                 |
+|  [10]   | `Statistics.Mean` / `Variance` / `StandardDeviation`               | `MathNet.Numerics.Statistics`    | sample moments over an `IEnumerable<double>`                     |
+|  [11]   | `Statistics.Quantile(data, tau)` / `QuantileCustom` / `Percentile` | `MathNet.Numerics.Statistics`    | sample quantile / percentile estimate                            |
+|  [12]   | `Statistics.Covariance` / `Correlation.Pearson` / `Spearman`       | `MathNet.Numerics.Statistics`    | pairwise covariance / Pearson + Spearman correlation             |
+|  [13]   | `DescriptiveStatistics(data)`                                      | `MathNet.Numerics.Statistics`    | one-pass mean/variance/skewness/kurtosis carrier                 |
+|  [14]   | `StudentT(location, scale, freedom)` `.CDF`/`.InvCDF`              | `MathNet.Numerics.Distributions` | t-test p-value CDF (the `t`/`welch-t` test statistic)            |
+|  [15]   | `FisherSnedecor(d1, d2)` `.CDF`/`.InvCDF`                          | `MathNet.Numerics.Distributions` | F-distribution CDF (the `anova` test statistic)                  |
+|  [16]   | `ChiSquared(freedom)` `.CDF`/`.InvCDF`                             | `MathNet.Numerics.Distributions` | χ² CDF (the `chi-square` test statistic)                         |
+|  [17]   | `Gamma(shape, rate)` `.CDF`/`.Density`                             | `MathNet.Numerics.Distributions` | Gamma CDF/PDF (GLM-Gamma deviance + `glm-gamma` IRLS variance)   |
+|  [18]   | `Poisson(lambda)` `.CumulativeDistribution`/`.Probability`         | `MathNet.Numerics.Distributions` | discrete Poisson CDF/PMF (GLM-Poisson + `naive-bayes` per-class) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -192,6 +231,13 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 - direct solvers: `CSparse.Double.Factorization.SparseCholesky`/`SparseLU`/`SparseQR` factor a CSparse `CompressedColumnStorage<double>` (CSC) and solve in place
 - iterative solvers: `BiCgStab`/`GpBiCg`/`TFQMR`/`MlkBiCgStab` over MathNet sparse matrices with an `Iterator<T>` stop-criteria control
 
+[SIGNAL_TRANSFORM]:
+- namespace: `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics`
+- transform: `Fourier.Forward`/`Inverse` mutate a `Complex[]` in place; the signal lane marshals the real `Tensor<float>` into `Complex[]` once through the dispatch-lane Complex kernels and applies one consistent `FourierOptions` scaling — `Default` symmetric `1/√n` for a magnitude spectrum, `NoScaling` for an FFT-then-IFFT round-trip — never re-implementing the radix-2/Bluestein kernel
+- real packing: `ForwardReal`/`InverseReal` carry the half-spectrum `rfft`; `Forward2D`/`ForwardMultiDim` carry the image/volume transforms; `FrequencyScale(length, sampleRate)` is the FFT-bin frequency axis
+- window: `Window.{Hann,Hamming,Cosine,Lanczos,Bartlett}` ship both a symmetric and a `*Periodic` form (filter-design symmetric, FFT framing periodic); `Window.{Blackman,BlackmanHarris,BlackmanNuttall,Dirichlet,FlatTop,Gauss,Nuttall,Tukey,Triangular}` ship one form only — the rectangular window is `Window.Dirichlet` (all-ones), never a hand-rolled `Enumerable.Repeat`
+- not shipped: MathNet has no DWT/wavelet surface and no analog-prototype IIR design — the `dwt` QMF cascade and the Butterworth/Chebyshev/elliptic bilinear design ground in-fence at the signal-lane design gate; only the FFT and window tapers ride this package
+
 [LOCAL_ADMISSION]:
 - The numeric lane selects the provider once at composition through `LinearProvider.Select()`; a per-call-site `Control.UseNativeMKL()` is the named defect.
 - Dense and sparse solves emit the `Factorization` `ComputeReceipt` case; provider rank is claim-gated through `BenchmarkRow.Claim`, never a static default.
@@ -204,8 +250,15 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 - reduction: response moments fold through `Statistics.Mean`/`Variance` and `Statistics.Quantile`, never a hand-rolled accumulator; the failure probability is `CumulativeDistribution` over the limit-state response and the reliability index β is `Normal.InvCDF(1 - pf)`
 - Reject: a per-call fresh `System.Random` seed beside the owned sampler, a hand-rolled moment accumulator beside `Statistics`, an in-process distribution-learning loop (the learned input distribution is the offline-science companion's)
 
+[INFERENCE_LAW]:
+- namespace: `MathNet.Numerics.Distributions`, `MathNet.Numerics.Statistics`
+- hypothesis tests: each `StatisticalTest` row reads its p-value from the matching CDF — `StudentT.CDF` for `t`/`welch-t`, `FisherSnedecor.CDF` for `anova`, `ChiSquared.CDF` for `chi-square`, `Normal.CDF` for the large-sample `mann-whitney` normal approximation — never a hand-derived error function; the `ks` Kolmogorov statistic is distribution-free and grounds its asymptotic in-fence
+- GLM variance: the IRLS inner loop reads the variance function and deviance from the response-family distribution — binomial through `Logit`, `Poisson.Probability`/`ProbabilityLn` for the count deviance, `Gamma.Density`/`DensityLn` for the gamma deviance — so the GLM fit-quality metric is the package deviance, not a hand-coded link
+- descriptive reduction: the estimator lane folds `Statistics.Mean`/`Variance`/`Covariance`/`Correlation.Pearson` for the moment/correlation features and `Statistics.Quantile` for the robust statistics, and the `naive-bayes` row fits per-class `Normal`/`Poisson` moments through `Statistics` rather than a hand-rolled Gaussian
+- Reject: a hand-derived error function or incomplete-beta/gamma reimplementation beside the `Distributions` CDF, a hand-rolled Welford accumulator beside `Statistics`, a per-algorithm distribution class beside the one MathNet distribution surface
+
 [RAIL_LAW]:
 - Package: `MathNet.Numerics` (+ `.Providers.MKL`, `.Providers.OpenBLAS`), `CSparse`
-- Owns: dense + sparse BLAS-class algebra, native-provider selection, matrix factorization, probability distributions + descriptive statistics
-- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/DOK sparse ingestion, direct + iterative solve, `IContinuousDistribution` sampling + `Statistics` moment/quantile reduction
-- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches, a hand-rolled distribution sampler or moment accumulator beside the `Distributions`/`Statistics` surface
+- Owns: dense + sparse BLAS-class algebra, native-provider selection, matrix factorization, the discrete Fourier transform + window taper family, probability distributions + descriptive statistics
+- Accept: `Matrix<double>`/`Vector<double>` dense work, CSR/CSC/COO/DOK sparse ingestion, direct + iterative solve, in-place `Fourier` transform over `Complex[]` with `Window` tapers, `IContinuousDistribution` sampling + `Distributions` CDF/PDF inference + `Statistics` moment/quantile/correlation reduction
+- Reject: a package-local matrix wrapper face, a second provider selector beside `LinearProvider`, per-call-site provider switches, a re-implemented radix-2/Bluestein FFT or hand-rolled cosine/rectangular taper beside `Fourier`/`Window`, a hand-rolled distribution sampler, error-function reimplementation, or moment accumulator beside the `Distributions`/`Statistics` surface

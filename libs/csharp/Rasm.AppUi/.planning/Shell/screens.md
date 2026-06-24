@@ -9,6 +9,7 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 - [03]-[DERIVED_STATE]: OAPH derivations, paced streams, one screen fault fold.
 - [04]-[VALIDATION_UX]: One typed-rail lift into ReactiveUI.Validation rule rows.
 - [05]-[SCREEN_STATE]: Per-surface snapshots; restore-on-activate merge; checkpoint law.
+- [06]-[CONTROL_STREAM]: A screen body is a control-intent stream materialized through `ControlFactory`, not a XAML literal.
 
 ## [02]-[SCREEN_CATALOG]
 
@@ -16,8 +17,8 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 - Entry: `public static Fin<ScreenCatalog> Freeze(params ReadOnlySpan<ScreenCatalogRow> rows)` — `Fin` aborts on a duplicate row id.
 - Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterView` on the ReactiveUI builder at the composition root, one registration per catalog row.
 - Packages: ReactiveUI, LanguageExt.Core, BCL inbox
-- Growth: one catalog row carries screen, dockable, title, automation name, and headless proof; zero new surface.
-- Boundary: `Id`, `RouteKey`, `IconKey`, and `TitleRole` cells are string-serializable symbols — the route key crosses deep links and remote invocation unchanged, the title-role and icon cells resolve against the typography-role and icon-key vocabularies at render, and `Surface` is the single per-host admission gate; the `AutomationName`, `HeadlessProof`, and `Surface` columns are the one derivation source for accessibility names and headless proof lanes; a per-screen base-class family is the rejected form.
+- Growth: one catalog row carries screen, dockable, title, automation name, headless proof, and the generative control-intent body; zero new surface.
+- Boundary: `Id`, `RouteKey`, `IconKey`, and `TitleRole` cells are string-serializable symbols — the route key crosses deep links and remote invocation unchanged, the title-role and icon cells resolve against the typography-role and icon-key vocabularies at render, and `Surface` is the single per-host admission gate; the `AutomationName`, `HeadlessProof`, and `Surface` columns are the one derivation source for accessibility names and headless proof lanes; a per-screen base-class family is the rejected form; the `Body` column is the generative control-intent body — a `Func<ScreenBase, ControlIntent>` projecting the screen's model onto the one `ControlIntent` vocabulary (`Shell/controls`) materialized through `ControlFactory`, so a screen is authored as a control-intent stream and a per-screen XAML literal body is the deleted form, the body crossing the `ControlIntentWire` seam unchanged so a web/remote caller materializes the same screen the desktop renders.
 
 ```csharp signature
 public sealed record ScreenCatalogRow(
@@ -29,7 +30,8 @@ public sealed record ScreenCatalogRow(
     string AutomationName,
     bool HeadlessProof,
     Func<SurfaceHost, bool> Surface,
-    Func<string, ScreenBase> Model);
+    Func<string, ScreenBase> Model,
+    Func<ScreenBase, ControlIntent> Body);
 
 public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Rows) {
     public Seq<ScreenCatalogRow> HeadlessLane => toSeq(Rows.Values).Filter(static row => row.HeadlessProof);
@@ -250,5 +252,28 @@ flowchart LR
     Merge --> Restore
     Checkpoint --> Snapshot
     Snapshot --> Persist
+```
+
+## [07]-[CONTROL_STREAM]
+
+- Owner: `ScreenWire` the screen control-intent stream extension over `ScreenBase`; `ScreenBody` the materialized root the activation scope mounts.
+- Entry: `public IObservable<ControlIntent> Wire()` — composes the catalog row's `Body` projection into a control-intent stream that re-emits when the screen's bound state changes; `public Fin<Control> Compose(MaterializeContext context)` — materializes the current intent tree through `ControlFactory` into the mounted root, recycling realized controls across re-emits.
+- Auto: `ScreenCatalogRow.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`), so a `ScreenCatalog` row carries its whole body as a generative intent rather than a per-screen XAML literal — the XAML-literal screen body is deleted across the frozen-row table; the intent stream re-emits on the screen's `WhenAnyValue` state edges so a model change re-materializes only the changed sub-tree through the `RecycleScope` pool; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity, so the screen's automation name and the control-intent automation names compose one tree.
+- Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
+- Growth: a screen is one `ScreenBase` subclass plus one catalog row whose `Body` names its control-intent tree; a new control on a screen is one intent in the tree, never a XAML edit; zero new surface.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — a per-screen compiled-XAML view class is the deleted body form (the view still enters the tree through its `Configure<TApp>` shell host, but the screen content is the materialized intent tree, not a hand-authored XAML literal), so the `[05]-[PROHIBITIONS]` parallel-control-framework clause holds and `ControlFactory` is the only materialization path; the intent stream re-emits through the screen's paced `Calm` fold so a burst model change collapses before re-materialize; control recycling rides the `RecycleScope` pool over the `VirtualWindow` window so a windowed screen recycles its realized controls; the body crosses the `ControlIntentWire` seam unchanged, so the same screen materializes on the web head; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site and a `BindCommand` in a screen is the deleted form.
+
+```csharp signature
+public sealed record ScreenBody(Control Root, RecycleScope Recycle);
+
+public static class ScreenWire {
+    extension(ScreenBase screen) {
+        public IObservable<ControlIntent> Wire(IScheduler scheduler) =>
+            screen.Calm(Observable.Return(screen.Row.Body(screen)), scheduler);
+
+        public Fin<Control> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle) =>
+            recycle.Realize(intent, context);
+    }
+}
 ```
 

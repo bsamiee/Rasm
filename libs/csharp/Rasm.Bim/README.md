@@ -12,7 +12,7 @@
 - [06]-[APPEARANCE](.planning/Semantics/appearance.md): `BimAppearance` host-neutral PBR record projected from `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
 - [07]-[STRUCTURE](.planning/Model/structure.md): host-neutral spatial-structure tree and the closed `AssemblyRel` decomposition algebra.
 - [08]-[ZONES](.planning/Model/zones.md): cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem`, distinct from the single-parent containment tree, with the `ByZone` query arm.
-- [09]-[PROPERTIES](.planning/Semantics/properties.md): typed `PropertySet`/`QuantitySet` keyed vocabulary, type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
+- [09]-[PROPERTIES](.planning/Semantics/properties.md): typed `PropertySet`/`QuantitySet` keyed vocabulary, the bSDD-resolved `PropertyKey` template, the `QuantitySet.Derive` per-`IfcClass` base-quantity fold over the `GeometryHandle` with `UnitsNet` SI-base coercion, the type-vs-occurrence inheritance fold, and the `IfcRelDefinesByProperties` round-trip.
 - [10]-[VALIDATION](.planning/Review/validation.md): IDS v1.0 `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `ElementPredicate` algebra, the XSD parse, and the `IdsAudit` receipt.
 - [11]-[ISSUES](.planning/Review/issues.md): BCF 3.0 `BcfTopic`/`BcfComment`/`BcfViewpoint` record family, the `.bcfzip` codec, and the `BcfApi` REST projection.
 - [12]-[DIFF](.planning/Review/diff.md): `ModelDiff` change-set folding two `BimModel` snapshots into added/modified/removed/moved arms joined by GlobalId plus content-key.

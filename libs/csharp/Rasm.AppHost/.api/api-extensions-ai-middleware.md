@@ -25,6 +25,8 @@
 |  [05]   | `OpenTelemetryChatClient`      | delegating client | GenAI `gen_ai.*` span/metric instrumentation             |
 |  [06]   | `LoggingChatClient`            | delegating client | request/response structured logging                      |
 |  [07]   | `ConfigureOptionsChatClient`   | delegating client | mutates `ChatOptions` per request                        |
+|  [08]   | `DelegatingChatClient`         | middleware base   | public custom-middleware base; `virtual` verb pass-throughs over `protected InnerClient` |
+|  [09]   | `AnonymousDelegatingChatClient`| delegating client | `internal sealed` delegate-backed client behind the public `Use(sharedFunc)`/`Use(getResponseFunc,getStreamingResponseFunc)` overloads; uninstantiable from a consumer package |
 
 [PUBLIC_TYPE_SCOPE]: embedding-generator builder and decorators
 - rail: capability-agent
@@ -60,6 +62,9 @@
 |  [01]   | `IChatClient.AsBuilder()`                                                                          | extension    | `ChatClientBuilder`                 |
 |  [02]   | `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)`                                             | builder call | `ChatClientBuilder`                 |
 |  [03]   | `ChatClientBuilder.Build(IServiceProvider?)`                                                       | builder call | `IChatClient`                       |
+|  [03a]  | `ChatClientBuilder.Use(Func<IChatClient,IServiceProvider,IChatClient>)`                            | builder call | `ChatClientBuilder`                 |
+|  [03b]  | `ChatClientBuilder.Use(Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task> sharedFunc)` | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; pre/post only, no response handle) |
+|  [03c]  | `ChatClientBuilder.Use(getResponseFunc, getStreamingResponseFunc)`                                 | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; per-verb delegates) |
 |  [04]   | `ChatClientBuilder.UseFunctionInvocation(ILoggerFactory?, Action<FunctionInvokingChatClient>?)`    | extension    | `ChatClientBuilder`                 |
 |  [05]   | `ChatClientBuilder.UseDistributedCache(IDistributedCache?, Action<DistributedCachingChatClient>?)` | extension    | `ChatClientBuilder`                 |
 |  [06]   | `ChatClientBuilder.UseOpenTelemetry(ILoggerFactory?, string?, Action<OpenTelemetryChatClient>?)`   | extension    | `ChatClientBuilder`                 |
@@ -92,6 +97,7 @@
 - token usage: a completed `ChatResponse` carries `ChatResponse.Usage` (`UsageDetails` with `InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`) the governance fold projects onto a cost vector.
 - instrumentation: `UseOpenTelemetry` emits the OTel GenAI `gen_ai.*` conventions; the source name argument names the `ActivitySource`/`Meter` the observability composition root registers.
 - function invocation: `FunctionInvokingChatClient` runs the tool-call loop over `ChatOptions.Tools`, invoking each `AIFunction`; the governance fold supplies the brokered `CommandAIFunction` instances so every tool call routes through the command algebra.
+- custom middleware: a response-mutating governance arm subclasses the public `DelegatingChatClient` base (`virtual` `GetResponseAsync`/`GetStreamingResponseAsync`/`GetService` over the `protected InnerClient`) woven through `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)`; the `internal sealed AnonymousDelegatingChatClient` behind the `Use(sharedFunc)` overload exposes only a pre/post `Func<…,Task>` with no `ChatResponse` handle, so a middleware that rewrites the response or redacts content is the subclass, never the `sharedFunc` overload.
 
 [IMPLEMENTATION_LAW]: AppHost usage
 - rail: capability-agent

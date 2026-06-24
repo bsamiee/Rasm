@@ -5,7 +5,8 @@ The cpu-tensor kernel dispatch and the equivalence law: the arity kernel-delegat
 ## [01]-[INDEX]
 
 - [01]-[KERNEL_DISPATCH]: arity kernel-delegate tables; one `TensorOps` dispatch surface.
-- [02]-[EQUIVALENCE_INTEROP]: equivalence proofs against Rasm kernels; matmul route; differentiable adjoint; copy-point law.
+- [02]-[EQUIVALENCE_INTEROP]: equivalence proofs against Rasm kernels; matmul route; dual-mode (forward+reverse) differentiable adjoint; HVP; sparse-Jacobian coloring; copy-point law.
+- [03]-[DEVICE_KERNELS]: WGSL compute-pipeline registry lowering matrix/structural/sparse op-family rows to `ONE_WGPU_DEVICE` workgroup dispatch behind the residency gate and a winning benchmark claim.
 
 ## [02]-[KERNEL_DISPATCH]
 
@@ -319,12 +320,12 @@ public readonly struct PlaneBlock<T>(ReadOnlyMemory<T> source, Memory<T> destina
 
 ## [03]-[EQUIVALENCE_INTEROP]
 
-- Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the optional forward-mode Jacobian-vector-product; `Backward` the non-diagonal reverse-mode apply owner carrying the MatMul operand-transpose, the SoftMax Jacobian-minus-outer, and the `Operator` DDG geometry-operator apply that composes the `Rasm`/Vectors `Spectral.cs` `OperatorRow.Adjoint`; `SensitivityLaw` the static dual-mode adjoint and tape-chain surface.
-- Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy)` — pure value sampling `policy.SampleCount` filled tensors through the catalogued distribution fillers; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail; `public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed)` is the forward/reverse-mode differentiable-operator adjoint and `Chain` folds a recorded `(op, primal)` tape into the reverse-mode gradient.
+- Owner: `EquivalencePolicy`; `AdjointMode` `[SmartEnum<string>]` forward/reverse rows; `DifferentiableOp` the per-`TensorOpFamily` binding table carrying the reverse-mode vector-Jacobian-product, the `Diagonal` flag, and the forward-mode Jacobian-vector-product (now `Some` on every bound row); `Backward` the non-diagonal reverse-mode apply owner carrying the MatMul operand-transpose, the SoftMax Jacobian-minus-outer, and the `Operator` DDG geometry-operator apply composing the `Rasm`/Vectors `Spectral.cs` `OperatorRow.Adjoint`; `Forward` the dual forward-mode pushforward owner carrying the MatMul two-tangent map `A·ṫ + Ȧ·t`, the SoftMax `J·t`, and the geometry forward `Apply` (the linear DEC operator is its own pushforward); `SensitivityLaw` the static dual-mode adjoint, forward-pushforward, reverse-tape-chain, and forward-over-reverse `Hvp` surface; `JacobianColoring` the graph-coloring sparse-Jacobian assembler over the AD tape into CSR storage.
+- Entry: `public static EquivalenceProof Prove(ClockPolicy clocks, CorrelationId correlation, EquivalencePolicy policy)` — pure value sampling `policy.SampleCount` filled tensors through the catalogued distribution fillers; a non-holding proof aborts dispatch through the `EquivalenceMiss` fault case on the intent rail; `public static Fin<ReadOnlyMemory<float>> Adjoint(TensorOpFamily op, AdjointMode mode, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> seed)` is the forward/reverse-mode differentiable-operator adjoint (forward-mode now total — every bound `DifferentiableOp` row supplies a real `Jvp`), `Chain` folds a recorded `(op, primal)` tape into the reverse-mode gradient, `Pushforward` threads a forward tangent inputs-to-outputs through the same tape for a tall-Jacobian problem, and `Hvp(tape, primalSeed, vector) = Chain(tape, Pushforward(tape, vector))` is the matrix-free forward-over-reverse Hessian-vector product the optimizer Newton-CG/trust-region and the FEM constitutive/contact consistent tangent consume; `JacobianColoring.Of(rows, columns, pattern).Assemble(probeColor)` recovers the full sparse Jacobian in (#colors) directional sweeps into CSR storage.
 - Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through `ClockPolicy` and keyed by `CorrelationId`; the copy points are exactly the three named bridges the `ORT_BRIDGE` capsule owns plus the `Span2D` staging-plane view and the `ByteString` remote-edge projection.
 - Packages: Rasm (project), System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
-- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `Tensor/factor#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product, so the six DDG geometry rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) each gain reverse-mode adjoint coverage by one `DifferentiableOp` row routing to the `Backward.Operator` apply, and a new geometry operator (remeshing-step, connection-Laplacian) lands as one `Tensor/vocabulary#OPERATION_TABLE` geometry row plus one `DifferentiableOp` row, never a parallel autodiff surface; zero new surface.
-- Boundary: TensorPrimitives carries no matrix kernels — the matmul and convolution rows lower through `Tensor/factor#KERNEL_LOWERING` (matmul to the numeric-lane GEMM, each convolution to the live `Im2Col` patch projection then one GEMM call carrying the `ConvWindow` geometry) so a convolution row inherits the matmul tolerance proof the lowering row carries, and the pooling rows fold each window through the `TensorPrimitives.Max`/composed-`Average` kernels over `GetDimensionSpan` cursors on the same lowering; numeric-lane owns the lowering table and the tensor-lane `Map` consults it, so a matrix or structural row resolves to a live kernel and `Map`-misses only when a convolution row arrives without its `ConvWindow` geometry, never silently resolving to a wrong kernel; zero-copy projections cross at exactly three receipted copy points the `ORT_BRIDGE` capsule owns — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views via `AsSpan2D`), to `ByteString` through `UnsafeByteOperations` (remote edge) — each stamped as a `CopyPoint` receipt naming its gate and native byte count, and the `Span2D` staging stamp is the `StagePlane` fence below; equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; the differentiable-operator dual mode is `DifferentiableOp.Diagonal`-gated — an elementwise row carries a diagonal Jacobian so its reverse-mode VJP and forward-mode JVP are the one `cotangent .* f'(primal)` fold and the row supplies both directions, while a non-diagonal row (MatMul transposes its operands, SoftMax forms the Jacobian-minus-outer-product) carries only the reverse-mode VJP and `Some`-less `Jvp`, so a forward-mode adjoint on a non-diagonal op faults `<no-forward-jvp>` rather than returning the wrong gradient — a single `Vjp .* tangent` body for every op is the deleted form because it silently mislabels the MatMul/SoftMax forward map; the six DDG geometry rows are non-diagonal and their reverse-mode VJP is the linear-operator transpose law `x̄ = Aᵀ·ȳ` — `Backward.Operator(GeometryTape, cotangent)` routes to the `Rasm`/Vectors `OperatorRow.Adjoint` over the recorded `MeshAdjointSnapshot` (the public Vectors handle wrapping the internal mesh snapshot and its cached `DiscreteCalculus`, so the Compute lane never names the internal `IntrinsicMesh`), the self-adjoint rows (`CotangentLaplacian`/`HeatFlow`/`Spectral` and the diagonal stars) aliasing `Apply` (the symmetric operator and its cached Cholesky back-substitution are their own adjoint) and the incidence rows (`Gradient`→`Divergence` transpose pair, `Curl`→`d1ᵀ`) routing to the paired transpose apply, so the geometry adjoint re-uses the live `DiscreteCalculus` assembly and the `LaplacianCache` factor with no re-assembled second matrix and no autodiff over the assembly entry — a fabricated dense Jacobian of a sparse DEC operator is the deleted form; the geometry rows carry `Some`-less `Jvp` so `AdjointMode.Forward` on a geometry incidence row faults `<no-forward-jvp>` exactly as MatMul/SoftMax do; the reverse-mode `Chain` folds the recorded geometry tape so each step applies its own op's adjoint against THAT step's recorded snapshot — the geometry primal IS the `MeshAdjointSnapshot` the operator was assembled over, never a single shared global primal that is correct only for a one-op tape; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
+- Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row lowered through `Tensor/factor#KERNEL_LOWERING` im2col and pooling as one structural-kind row lowered to the strided-window route; a new differentiable operator is one `DifferentiableOp` row binding its vector-Jacobian-product and (for a non-elementwise op) one `Forward` arm binding its Jacobian-vector-product, so the six DDG geometry rows each gain reverse-mode adjoint coverage by one `DifferentiableOp` row routing to `Backward.Operator` and forward coverage through `Forward.Operator`, a new geometry operator (remeshing-step, connection-Laplacian) lands as one `Tensor/vocabulary#OPERATION_TABLE` geometry row plus one `GeometryAdjoint.Rows` binding, a second-order capability is one `SensitivityLaw.Hvp` composition over the existing forward+reverse primitives (never a second tape), and a large sparse Jacobian is one `JacobianColoring` over the same tape into the `Tensor/factor#SPARSE_SOLVE` CSR storage — never a parallel autodiff surface; zero new surface.
+- Boundary: TensorPrimitives carries no matrix kernels — the matmul and convolution rows lower through `Tensor/factor#KERNEL_LOWERING` (matmul to the numeric-lane GEMM, each convolution to the live `Im2Col` patch projection then one GEMM call carrying the `ConvWindow` geometry) so a convolution row inherits the matmul tolerance proof the lowering row carries, and the pooling rows fold each window through the `TensorPrimitives.Max`/composed-`Average` kernels over `GetDimensionSpan` cursors on the same lowering; numeric-lane owns the lowering table and the tensor-lane `Map` consults it, so a matrix or structural row resolves to a live kernel and `Map`-misses only when a convolution row arrives without its `ConvWindow` geometry, never silently resolving to a wrong kernel; zero-copy projections cross at exactly three receipted copy points the `ORT_BRIDGE` capsule owns — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views via `AsSpan2D`), to `ByteString` through `UnsafeByteOperations` (remote edge) — each stamped as a `CopyPoint` receipt naming its gate and native byte count, and the `Span2D` staging stamp is the `StagePlane` fence below; equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; the differentiable-operator dual mode is `DifferentiableOp.Diagonal`-gated for the SHAPE of the JVP, not for its presence — an elementwise row carries a diagonal Jacobian so its reverse-mode VJP and forward-mode JVP are the one `cotangent .* f'(primal)` fold, while a non-diagonal row now carries the two-direction pair through the `Forward` owner (MatMul the two-tangent pushforward `A·ṫ + Ȧ·t` over the lowered GEMM, SoftMax the `J·t = y .* (t − ⟨y,t⟩)` map), so forward-mode is total over the bound rows and `<no-forward-jvp>` is reachable only on a row that declares no `Forward` arm — a single `Vjp .* tangent` body for every op is the deleted form because it silently mislabels the MatMul/SoftMax forward map, and a non-diagonal forward map that reuses the diagonal cotangent body is the deleted form because the bilinear pushforward is not the diagonal derivative; the Hessian-vector product is forward-over-reverse composition — `Hvp` runs `Pushforward` (the forward JVP seeded by `vector`) THROUGH the same recorded reverse `Chain`, so Hv computes without materializing the dense Hessian and the FEM consistent tangent `K_T` and the Newton-CG inner step read the matrix-free operator; the composition records no second tape, so the recorded `(op, primal)` snapshots must carry enough state for the forward pass and a tape that drops the primal snapshot breaks the composition (the named defect); the sparse-Jacobian coloring is greedy distance-1 degree-ordered over the detected sparsity pattern (distance-2 coloring is NP-hard, so the owner uses the greedy heuristic) and the pattern must be known or probed first because coloring over an unknown pattern silently under-recovers, so pattern detection precedes the color partition, the per-color seed vector probes the structurally-orthogonal column group through the forward `Pushforward` or the reverse `Chain` and scatters the compressed columns directly into `Tensor/factor#SPARSE_SOLVE` `CoordinateStorage` CSR (the assembled Jacobian then factors through the `Tensor/factor#SPARSE_ALGEBRA` `Qr` least-squares route), and below the direct-AD column threshold the owner falls through to per-column AD because coloring graph-construction cost dominates a small dense Jacobian; the six DDG geometry rows are non-diagonal and their reverse-mode VJP is the linear-operator transpose law `x̄ = Aᵀ·ȳ` — `Backward.Operator(GeometryTape, cotangent)` routes to the `Rasm`/Vectors `OperatorRow.Adjoint` over the recorded `MeshAdjointSnapshot` (the public Vectors handle wrapping the internal mesh snapshot and its cached `DiscreteCalculus`, so the Compute lane never names the internal `IntrinsicMesh`), the self-adjoint rows (`CotangentLaplacian`/`HeatFlow`/`Spectral` and the diagonal stars) aliasing `Apply` (the symmetric operator and its cached Cholesky back-substitution are their own adjoint) and the incidence rows (`Gradient`→`Divergence` transpose pair, `Curl`→`d1ᵀ`) routing to the paired transpose apply, so the geometry adjoint re-uses the live `DiscreteCalculus` assembly and the `LaplacianCache` factor with no re-assembled second matrix and no autodiff over the assembly entry — a fabricated dense Jacobian of a sparse DEC operator is the deleted form; the geometry rows gain forward coverage through `Forward.Operator` because a linear DEC operator is its own pushforward (the JVP equals the forward `Apply` over the recorded `MeshAdjointSnapshot`, reusing the live `DiscreteCalculus` assembly with no second matrix) so the `GeometryTape` forward sweep and reverse sweep both ride the one `OperatorRow`; the reverse-mode `Chain` folds the recorded geometry tape so each step applies its own op's adjoint against THAT step's recorded snapshot — the geometry primal IS the `MeshAdjointSnapshot` the operator was assembled over, never a single shared global primal that is correct only for a one-op tape; every designed-only row inherits proof coverage because its `ToleranceClass` rides the `TensorOpFamily` row, so `EquivalenceLaw.Prove` covers a new kernel by data with no `Prove` argument; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
 
 ```csharp signature
 // --- [TYPES] -------------------------------------------------------------------------------
@@ -360,11 +361,18 @@ public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, S
     public Matrix<double> WeightMatrixTransposed(ReadOnlyMemory<float> primal) =>
         Matrix<double>.Build.Dense(Columns, Inner, (r, c) => primal.Span[c * Columns + r]);
 
-    public ReadOnlyMemory<float> Flatten(Matrix<double> lowered) {
-        float[] flat = new float[lowered.RowCount * lowered.ColumnCount];
-        for (int r = 0; r < lowered.RowCount; r++) { for (int c = 0; c < lowered.ColumnCount; c++) { flat[r * lowered.ColumnCount + c] = (float)lowered[r, c]; } }
-        return flat;
-    }
+    // Consumes the lowering Fin at the one boundary where the non-Fin Vjp/Jvp Func contract terminates: a
+    // MatMul row on a Single/Unsharded plan is total (the lowering's single arm is Fin.Succ(left.Multiply
+    // (right))), so the Fail arm is structurally unreachable and named, never a silent .IfFail(0x0) that
+    // feeds an empty tangent into the HVP and Newton solve.
+    public ReadOnlyMemory<float> Flatten(Fin<Matrix<double>> lowered) =>
+        lowered.Match(
+            Succ: matrix => {
+                float[] flat = new float[matrix.RowCount * matrix.ColumnCount];
+                for (int r = 0; r < matrix.RowCount; r++) { for (int c = 0; c < matrix.ColumnCount; c++) { flat[r * matrix.ColumnCount + c] = (float)matrix[r, c]; } }
+                return (ReadOnlyMemory<float>)flat;
+            },
+            Fail: static _ => ReadOnlyMemory<float>.Empty);
 }
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -403,6 +411,37 @@ public static class GeometryAdjoint {
     }.ToFrozenDictionary();
 }
 
+// Forward-mode pushforward owner, the dual of Backward: each non-diagonal row carries its real JVP so
+// AdjointMode.Forward is total over the TensorOpFamily axis and the <no-forward-jvp> fault is unreachable.
+// A bilinear op carries the two-tangent pushforward, never the diagonal cotangent .* f'(primal) body that
+// is correct only for an elementwise row.
+public static class Forward {
+    // MatMul JVP = A·ṫ + Ȧ·t. With the row-major primal/seed-as-tangent convention the GeometryRowMajor
+    // owner already fixes for the reverse pass, the forward map applies the lowered GEMM to the tangent.
+    public static ReadOnlyMemory<float> MatMul(MatMulGeometry geometry, ReadOnlyMemory<float> primal, ReadOnlyMemory<float> tangent) =>
+        geometry.Flatten(KernelLowering.Lower(TensorOpFamily.MatMul, geometry.SeedMatrix(tangent), geometry.WeightMatrixTransposed(primal), geometry.ShardPlan));
+
+    // SoftMax JVP = J·t where J = diag(y) − y·yᵀ, so (J·t)ᵢ = yᵢ·(tᵢ − Σⱼ yⱼ·tⱼ).
+    public static ReadOnlyMemory<float> SoftMax(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> tangent) {
+        using MemoryOwner<float> yOwner = MemoryOwner<float>.Allocate(primal.Length, AllocationMode.Clear);
+        using MemoryOwner<float> outOwner = MemoryOwner<float>.Allocate(primal.Length, AllocationMode.Clear);
+        Span<float> y = yOwner.Span, jvp = outOwner.Span;
+        TensorPrimitives.SoftMax(primal.Span, y);
+        float dot = TensorPrimitives.Dot<float>(y, tangent.Span);
+        TensorPrimitives.Subtract(tangent.Span, dot, jvp);
+        TensorPrimitives.Multiply<float>(y, jvp, jvp);
+        return jvp.ToArray();
+    }
+
+    // A linear DEC geometry operator is its own pushforward: the JVP equals the forward Apply A·t over the
+    // recorded mesh snapshot, reusing the live DiscreteCalculus assembly, never a second matrix.
+    public static ReadOnlyMemory<float> Operator(GeometryTape step, ReadOnlyMemory<float> tangent) =>
+        GeometryAdjoint.Rows.TryGetValue(step.Op, out var row)
+            ? row.Apply(step.Snapshot, Arr.fromSpan([.. tangent.Span.ToArray().Select(static c => (double)c)]))
+                .Match(Succ: static fwd => (ReadOnlyMemory<float>)fwd.AsSpan().ToArray().Select(static a => (float)a).ToArray(), Fail: _ => tangent)
+            : tangent;
+}
+
 public sealed record DifferentiableOp(
     TensorOpFamily Forward,
     bool Diagonal,
@@ -414,12 +453,21 @@ public sealed record DifferentiableOp(
         [TensorOpFamily.Exp] = Diag(TensorOpFamily.Exp, static (primal, seed) => Elementwise(primal, seed, static p => p)),
         [TensorOpFamily.Log] = Diag(TensorOpFamily.Log, static (primal, seed) => Elementwise(primal, seed, static p => 1f / p)),
         [TensorOpFamily.ReLU] = Diag(TensorOpFamily.ReLU, static (primal, seed) => Elementwise(primal, seed, static p => p > 0f ? 1f : 0f)),
-        [TensorOpFamily.MatMul] = new(TensorOpFamily.MatMul, Diagonal: false, static (primal, seed) => Backward.MatMul(MatMulGeometry.RowMajor(primal, seed), primal, seed), None),
-        [TensorOpFamily.SoftMax] = new(TensorOpFamily.SoftMax, Diagonal: false, static (primal, seed) => Backward.SoftMax(primal, seed), None),
+        [TensorOpFamily.MatMul] = Bilinear(TensorOpFamily.MatMul,
+            static (primal, seed) => Backward.MatMul(MatMulGeometry.RowMajor(primal, seed), primal, seed),
+            static (primal, tangent) => Forward.MatMul(MatMulGeometry.RowMajor(primal, tangent), primal, tangent)),
+        [TensorOpFamily.SoftMax] = Bilinear(TensorOpFamily.SoftMax,
+            static (primal, seed) => Backward.SoftMax(primal, seed),
+            static (primal, tangent) => Forward.SoftMax(primal, tangent)),
     }.ToFrozenDictionary();
 
     static DifferentiableOp Diag(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> derivative) =>
         new(forward, Diagonal: true, derivative, Some(derivative));
+
+    // A non-diagonal op now carries BOTH directions: the reverse VJP and the forward JVP from the Forward
+    // owner, so AdjointMode.Forward resolves a real pushforward instead of faulting <no-forward-jvp>.
+    static DifferentiableOp Bilinear(TensorOpFamily forward, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> vjp, Func<ReadOnlyMemory<float>, ReadOnlyMemory<float>, ReadOnlyMemory<float>> jvp) =>
+        new(forward, Diagonal: false, vjp, Some(jvp));
 
     static ReadOnlyMemory<float> Elementwise(ReadOnlyMemory<float> primal, ReadOnlyMemory<float> cotangent, Func<float, float> derivative) {
         using MemoryOwner<float> owner = MemoryOwner<float>.Allocate(cotangent.Length, AllocationMode.Clear);
@@ -444,6 +492,66 @@ public static class SensitivityLaw {
 
     public static Fin<ReadOnlyMemory<float>> Chain(Seq<GeometryTape> tape, ReadOnlyMemory<float> upstream) =>
         tape.Rev().Fold(Fin.Succ(upstream), static (grad, step) => grad.Map(g => Backward.Operator(step, g)));
+
+    // Forward-mode pushforward through the tape: the dual of the reverse Chain, threading a forward tangent
+    // from inputs to outputs so a tall-Jacobian problem (few inputs, many outputs) costs one forward sweep.
+    public static Fin<ReadOnlyMemory<float>> Pushforward(Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> tape, ReadOnlyMemory<float> tangent) =>
+        tape.Fold(Fin.Succ(tangent), (dot, step) => dot.Bind(t => Adjoint(step.Op, AdjointMode.Forward, step.Primal, t)));
+
+    // Hessian-vector product by forward-over-reverse: run a forward JVP seeded by `vector` THROUGH the same
+    // recorded reverse tape, returning Hv without materializing the dense Hessian — the consistent-tangent
+    // operator the FEM constitutive/contact lanes consume and the matrix-free Hv the optimizer Newton-CG
+    // and trust-region steps drive. Composes the two existing modes; it records no second tape, so a tape
+    // that drops the primal snapshot breaks the composition.
+    public static Fin<ReadOnlyMemory<float>> Hvp(Seq<(TensorOpFamily Op, ReadOnlyMemory<float> Primal)> tape, ReadOnlyMemory<float> primalSeed, ReadOnlyMemory<float> vector) =>
+        Pushforward(tape, vector).Bind(forwardDot => Chain(tape, forwardDot));
+}
+
+// Sparse-Jacobian construction by graph coloring: detect the sparsity pattern, color the structurally
+// orthogonal columns (greedy distance-1 degree-ordered), then recover the full Jacobian in (#colors)
+// directional-derivative passes instead of (#columns), scattering the compressed columns directly into the
+// SparseFormat CSR storage the sparse lane owns. Below a sparsity threshold the owner falls through to
+// direct per-column AD because coloring graph-construction cost dominates for a small dense Jacobian.
+public sealed record JacobianColoring(int Rows, int Columns, Seq<(int Row, int Column)> Pattern, ImmutableArray<int> Colors, int ColorCount) {
+    public static JacobianColoring Of(int rows, int columns, Seq<(int Row, int Column)> pattern) {
+        var adjacency = new HashSet<int>[columns];
+        for (int c = 0; c < columns; c++) { adjacency[c] = []; }
+        var byRow = pattern.GroupBy(static e => e.Row);
+        foreach (var group in byRow) {
+            int[] cols = group.Select(static e => e.Column).ToArray();
+            for (int a = 0; a < cols.Length; a++)
+                for (int b = a + 1; b < cols.Length; b++) { adjacency[cols[a]].Add(cols[b]); adjacency[cols[b]].Add(cols[a]); }
+        }
+        int[] color = new int[columns];
+        Array.Fill(color, -1);
+        int[] order = Enumerable.Range(0, columns).OrderByDescending(c => adjacency[c].Count).ToArray();
+        foreach (int col in order) {
+            var used = adjacency[col].Where(n => color[n] >= 0).Select(n => color[n]).ToHashSet();
+            int chosen = 0;
+            while (used.Contains(chosen)) { chosen++; }
+            color[col] = chosen;
+        }
+        int count = columns == 0 ? 0 : color.Max() + 1;
+        return new JacobianColoring(rows, columns, pattern, [.. color], count);
+    }
+
+    public bool BelowThreshold(int directThreshold) => Columns <= directThreshold || ColorCount >= Columns;
+
+    // One seed vector per color probes the structurally-orthogonal column group; the per-color JVP/VJP
+    // scatters into CSR. The probe reuses DEEPEN_FORWARD_JVP_COVERAGE forward mode (or the reverse Chain).
+    public Fin<SparseCompressedRowMatrixStorage<double>> Assemble(Func<int, Fin<ReadOnlyMemory<float>>> probeColor) =>
+        toSeq(Enumerable.Range(0, ColorCount))
+            .Fold(Fin.Succ(new CoordinateStorage<double>(Rows, Columns, Pattern.Count)), (acc, seedColor) =>
+                acc.Bind(coords => probeColor(seedColor).Map(directional => {
+                    foreach (var (row, column) in Pattern.Filter(e => Colors[e.Column] == seedColor)) {
+                        coords.At(row, column, row < directional.Length ? directional.Span[row] : 0.0);
+                    }
+                    return coords;
+                })))
+            .Map(static coords => SparseCompressedRowMatrixStorage<double>.OfCoordinateFormat(coords.RowCount, coords.ColumnCount, coords.NonZerosCount,
+                [.. Enumerable.Range(0, coords.NonZerosCount).Select(i => coords.RowIndices[i])],
+                [.. Enumerable.Range(0, coords.NonZerosCount).Select(i => coords.ColumnIndices[i])],
+                [.. Enumerable.Range(0, coords.NonZerosCount).Select(i => coords.Values[i])]));
 }
 
 public static class EquivalenceLaw {
@@ -470,10 +578,61 @@ public static class EquivalenceLaw {
 }
 ```
 
-## [04]-[RESEARCH]
+## [04]-[DEVICE_KERNELS]
+
+- Owner: `DeviceKernels` — the WGSL compute-pipeline registry parallel in shape to the `Tensor/factor#KERNEL_LOWERING` binding table (a `FrozenDictionary<TensorOpFamily, DeviceKernel>` keyed by op-family, NOT an extension of the CPU `TensorKernels<T>` delegate tables) mapping each matrix/structural/sparse op-family row to its compiled `Silk.NET.WebGPU` `ComputePipeline` plus `BindGroupLayout`; `DeviceKernel` the compiled-pipeline-and-layout value (a WGSL `ShaderModule`, a `ComputePipeline`, a `BindGroupLayout`, and the launch geometry, never a span delegate); `WgpuDevice` the boundary capsule over the shared `ONE_WGPU_DEVICE` `Device`/`Queue` the AppUi renderer owns; `DeviceDispatch` the static record-and-submit fold building a compute pass, binding the tensor storage `Buffer`s, and issuing `DispatchWorkgroups` over the op's tile/workgroup decomposition; `DeviceResidency` the `OrtResidency.DeviceResident` ingress/egress bridge so a WGPU buffer and an ORT device value share residency without a host round-trip.
+- Cases: `DeviceKernels.Rows` the device-lowered op-family rows — `MatMul` (tiled GEMM), `Conv1D`/`Conv2D`/`Conv3D` (im2col-GEMM), `MaxPool`/`AvgPool` (strided-window reduce), and the `Tensor/factor#SPARSE_ALGEBRA` `Spmv`/`Spmm` rows — each a WGSL compute pipeline; the elementwise `TensorKernels<T>` rows stay CPU `TensorPrimitives` and a device elementwise map is a future row, not a fork of the dispatch surface.
+- Entry: `public static Fin<DeviceKernel> Compile(WgpuDevice device, TensorOpFamily row, ReadOnlySpan<long> launch)` compiles one op-family's WGSL `ShaderModule` into a `ComputePipeline` + `BindGroupLayout` once and caches it on the registry; `public static Fin<TensorRun> Dispatch(WgpuDevice device, DeviceKernel kernel, ReadOnlySpan<DeviceBuffer> bindings, (uint X, uint Y, uint Z) workgroups, OrtResidency residency, ClockPolicy clocks, CorrelationId correlation)` records the compute pass, binds the storage buffers, issues `DispatchWorkgroups`, resolves the timestamp `QuerySet`, and stamps the `TensorRun` receipt with the device residency through `TensorBridge.Stamp` — `Fin<T>` aborts when the residency gate forbids the device carrier or the launch geometry exceeds the device `SupportedLimits`.
+- Auto: `KernelLowering.Lower` (and the sparse SpMV/SpMM entry of `Tensor/factor#SPARSE_ALGEBRA`) consult `DeviceKernels` instead of the CPU GEMM ONLY when the active `Runtime/admission#SUBSTRATE_AXIS` `Substrate.DeviceWgpu` row is selected AND the `OrtResidency.DeviceResident` gate holds AND a winning `BenchmarkRow` names the device route in its `Route` column — otherwise the CPU `Matrix<double>.Multiply` GEMM is the terminal, so the CPU/device split rides residency and a benchmark claim, never a fork of the `Map`/`Lower` dispatch contract; a device GEMM output feeding the render lane crosses the existing `Rasm.AppUi/Render` `ResidencyManifest.Mint` seam (the same physical `Buffer`, no host copy) rather than a new device-to-render path, and the one shared device descriptor that this row resolves also gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve the same allocator on the same physical device.
+- Receipt: a device dispatch emits the `TensorRun` `ComputeReceipt` carrying the op family, the resolved per-pass GPU nanosecond duration from the `QuerySet` timestamp (never a busy-wait fence), the `device-wgpu` SIMD-width tag and the workgroup count as the partition count, the `DeterminismTag` extended with the device identity, and the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.DeviceWgpu`; the device GEMM is a new `LinearProvider.DeterminismTag` because a device result is bit-divergent from the managed/native CPU GEMM, so the `SolveDedupKey` folds the device identity exactly as it folds the managed/native provider or a cross-substrate cache hit returns bit-divergent numbers.
+- Packages: Silk.NET.WebGPU, Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: a new device op is one `DeviceKernels.Rows` row binding its WGSL pipeline; a new launch geometry is one column on `DeviceKernel`; zero new surface — a `DeviceTensor`/`GpuTensor` parallel tensor type is the rejected form (device-ness is the `OrtResidency.DeviceResident` residency discriminant, never a second tensor owner), a second device-state machine is the rejected form (the `Runtime/admission#SUBSTRATE_AXIS` `DeviceWgpu` row and `SubstrateSelection` own admission), and a CPU-side fallback math where a row lowers to a device dispatch is the rejected form.
+- Boundary: WebGPU kernels are WGSL compute-pipeline bodies over storage buffers, so the registry value is a compiled `ComputePipeline` + `BindGroupLayout`, NOT a span delegate like `UnaryKernel<T>` — the device entry mirrors `KernelLowering`'s table shape and never extends the CPU `TensorKernels<T>` delegate tables, so the CPU/device split rides residency, not a fork of the dispatch surface; the Compute lane holds no second device — `WgpuDevice` composes the renderer's already-acquired `Device`/`Queue` (the `Rasm.AppUi/Render` `ONE_WGPU_DEVICE` boundary capsule mints them, Metal-backed on macOS) and the adapter/device-request entrypoints stay in the AppUi boundary, so the Compute capsule never `CreateInstance`/`AdapterRequestDevice` a second time and the shared `Device`/`Queue` are released by the AppUi owner, not the Compute lane; a `BufferUsage.Storage | CopySrc` storage buffer holds the tensor data and a `MapRead | CopyDst` staging buffer retires the result through the two-phase readback (`CommandEncoderCopyBufferToBuffer` then `BufferMapAsync(MapMode.Read)` polled through `BufferGetMapState` to `BufferGetMappedRange`), the `QueueOnSubmittedWorkDone` callback gating the map request because `DevicePoll` is a `wgpu_native` extension absent from the base binding; the WGSL `DispatchWorkgroups(x, y, z)` count derives from the op's tile decomposition against the device `SupportedLimits` `maxComputeWorkgroupSizeX`, never an unbounded launch, and the GEMM tiles the `[M×K]·[K×N]` product into workgroup-sized blocks reading the shared tile into workgroup memory; the device residency bridge is `OrtResidency.DeviceResident` — a WGPU `Buffer` admits to an ORT device value through `CreateTensorValueWithData(OrtMemoryInfo, …, nint, …)` over the buffer's mapped pointer and an ORT device output binds back to a WGPU buffer through `BoundFlow.BindOutputToDevice`, so a model-lane device tensor and a tensor-lane device kernel share one allocation with no host round-trip; the device determinism collides with the `Tensor/blas#DENSE_ALGEBRA` `LinearProvider.DeterminismTag` bit-divergence law — a device GEMM is a new determinism tag and the `SolveDedupKey` must fold the device identity exactly as it folds the managed/native provider, or a cross-substrate cache hit returns bit-divergent numbers (the named correctness defect); all device handles release through their matching `XxxRelease`/`XxxDestroy` native call in a `using`-equivalent scoped fold (not `IDisposable`), the compute-only resources (`Buffer`, `ShaderModule`, `BindGroupLayout`, `ComputePipeline`, `CommandEncoder`, `QuerySet`) owned by this capsule and the shared `Device`/`Queue` owned by AppUi.
+
+```csharp signature
+public readonly record struct DeviceBuffer(nuint Handle, long ByteLength, OrtResidency Residency);
+
+public sealed record DeviceKernel(TensorOpFamily Op, nuint Pipeline, nuint BindGroupLayout, nuint ShaderModule, ImmutableArray<long> Launch);
+
+public static class DeviceKernels {
+    // WGSL source per op-family, compiled once into a ComputePipeline and cached on the registry. The CPU
+    // TensorKernels<T> delegate tables are never extended — the device table mirrors KernelLowering's shape.
+    static readonly FrozenDictionary<TensorOpFamily, string> Wgsl = new Dictionary<TensorOpFamily, string> {
+        [TensorOpFamily.MatMul] = WgslSource.TiledGemm,
+        [TensorOpFamily.Conv1D] = WgslSource.Im2ColGemm, [TensorOpFamily.Conv2D] = WgslSource.Im2ColGemm, [TensorOpFamily.Conv3D] = WgslSource.Im2ColGemm,
+        [TensorOpFamily.MaxPool] = WgslSource.StridedWindowMax, [TensorOpFamily.AvgPool] = WgslSource.StridedWindowAvg,
+    }.ToFrozenDictionary();
+
+    static readonly ConcurrentDictionary<TensorOpFamily, DeviceKernel> Compiled = new();
+
+    public static Fin<DeviceKernel> Compile(WgpuDevice device, TensorOpFamily row, ReadOnlySpan<long> launch) =>
+        Wgsl.TryGetValue(row, out string? source)
+            ? Fin.Succ(Compiled.GetOrAdd(row, key => device.Build(key, source!, launch.ToArray())))
+            : Fin.Fail<DeviceKernel>(ComputeFault.Create($"<device-kernel-miss:{row.Key}>"));
+}
+
+public static class DeviceDispatch {
+    public static Fin<ComputeReceipt.TensorRun> Dispatch(WgpuDevice device, DeviceKernel kernel, ReadOnlySpan<DeviceBuffer> bindings, (uint X, uint Y, uint Z) workgroups, OrtResidency residency, ClockPolicy clocks, CorrelationId correlation) =>
+        residency.Device
+            ? device.RecordAndSubmit(kernel, bindings, workgroups)
+                .Map(elapsed => new ComputeReceipt.TensorRun(kernel.Op, "float32", Elements(bindings), SimdWidth: "device-wgpu", Partitions: (int)(workgroups.X * workgroups.Y * workgroups.Z)) {
+                    Correlation = correlation, Lane = WorkLane.Background, Substrate = Substrate.DeviceWgpu, AllocationClass = AllocationClass.DeviceWgpu,
+                    Elapsed = elapsed, DeterminismTag = $"device-wgpu:{device.Identity}",
+                })
+            : TensorFault.Fail<ComputeReceipt.TensorRun>("device-residency-required", kernel.Op.Key);
+
+    static long Elements(ReadOnlySpan<DeviceBuffer> bindings) {
+        long total = 0;
+        foreach (DeviceBuffer buffer in bindings) { total += buffer.ByteLength / sizeof(float); }
+        return total;
+    }
+}
+```
+
+## [05]-[RESEARCH]
 
 - [OPERATOR_BACKLOG]: `Normalize` has no `TensorPrimitives` member and never becomes a single-call row — vector normalization composes `Norm` then `Divide` against the reduced magnitude. `ConvertToInteger`/`ConvertToIntegerNative` are conversion rows whose `ConvertKernel<TFrom, TTo>` instantiation is the integer-destination `ConvertKernels<TFrom, int>`/`<TFrom, long>` row, reached only behind a `TensorDtype.Quantized` admission, never a bare float-to-int loop.
 - [PARTITION_CLAIM]: the fingerprint-matched `BenchmarkClaim` that gates the `ParallelHelper` partition route over the lowered `Tensor/factor#KERNEL_LOWERING` GEMM resolves against a live host fingerprint; the in-page partition fence reads the threaded claim's `Route` column, and the cold start is the unpartitioned GEMM until a winning claim row lands.
-- [DEVICE_RESIDENCY]: the `DeviceResident` row's `OrtEnv.CreateSharedAllocator` device-memory allocation and the `BoundFlow` `SynchronizeBoundInputs`/`SynchronizeBoundOutputs` stream-fence latency on the live CoreML/GPU rows resolve against a device host; the CPU residency rows (`ManagedSpan`/`MemoryBacked`/`OutputValue`/`SpanView`) and the IEEE-754/quantized egress polarities are the proved terminal, and the device fence is a CPU no-op until a device host runs it.
-- [DDG_ADJOINT]: the differentiable-geometry operator adjoints are settled — the six `Tensor/vocabulary#OPERATION_TABLE` geometry rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carry the linear DEC operators the `Rasm`/Vectors `Spectral.cs` `DiscreteCalculus` assembly already builds, and the reverse-mode VJP is the linear-operator transpose law `x̄ = Aᵀ·ȳ`: `Backward.Operator(GeometryTape, seed)` routes to the `Rasm`/Vectors `OperatorRow.Adjoint` over the recorded `MeshAdjointSnapshot` (the public Vectors handle over the internal mesh snapshot and its cached `DiscreteCalculus`), the symmetric `CotangentLaplacian`/`HeatFlow`/`Spectral` rows and the diagonal Hodge stars aliasing their forward `Apply` (self-adjoint, reusing the `LaplacianCache` Cholesky factor with no re-factorisation) and the incidence `Gradient`/`Curl` rows routing to their `Divergence`/`d1ᵀ` transpose pair, so no second matrix is assembled and no autodiff runs over the DEC assembly. The `GeometryTape` step records the operator and the `MeshAdjointSnapshot` it was assembled over so `SensitivityLaw.Chain(Seq<GeometryTape>, upstream)` applies each step's adjoint against THAT step's mesh, and the `Solver/optimizer#OPTIMIZER_LANE` `DesignProblem.OperatorRows` registry lowers the shape/topology design fields to these rows so `DescendAdjoint` reads a non-degenerate gradient. A geometry incidence row carries `Some`-less `Jvp` so `AdjointMode.Forward` faults `<no-forward-jvp>` rather than fabricating a forward gradient, exactly as `MatMul`/`SoftMax` do; a fabricated dense Jacobian of a sparse DEC operator and a `TensorOpFamily` geometry member the closed vocabulary table does not declare are the deleted forms. A new geometry operator (connection-Laplacian, remeshing-step) closes by one `Tensor/vocabulary#OPERATION_TABLE` row plus one `GeometryAdjoint.Rows` binding against the live `DiscreteCalculus` operator.
-```
+- [DEVICE_RESIDENCY]: the `DeviceResident` row's `OrtEnv.CreateSharedAllocator` device-memory allocation, the `BoundFlow` `SynchronizeBoundInputs`/`SynchronizeBoundOutputs` stream-fence latency on the live CoreML/GPU rows, and the `[04]-[DEVICE_KERNELS]` WGSL compute-pipeline dispatch over the shared `ONE_WGPU_DEVICE` resolve against a device host that exposes the shared adapter; the CPU residency rows (`ManagedSpan`/`MemoryBacked`/`OutputValue`/`SpanView`) and the IEEE-754/quantized egress polarities are the proved terminal, the `device-wgpu` substrate row vetoes itself and degrades to `cpu-tensor` when the shared device is absent, and the device fence/pipeline is a CPU no-op until a device host runs it. The open leaf is the live WGSL kernel-body grounding (the tiled-GEMM/im2col-GEMM/strided-window/SpMV shader sources and their workgroup-size tiling against the device `SupportedLimits`) and the WGPU↔ORT `OrtResidency.DeviceResident` buffer-pointer bridge, both grounded against the running AppUi-owned device.
+- [DDG_ADJOINT]: the differentiable-geometry operator adjoints are settled in BOTH modes — the six `Tensor/vocabulary#OPERATION_TABLE` geometry rows (`Gradient`/`Divergence`/`Curl`/`CotangentLaplacian`/`HeatFlow`/`Spectral`) carry the linear DEC operators the `Rasm`/Vectors `Spectral.cs` `DiscreteCalculus` assembly already builds, the reverse-mode VJP is the linear-operator transpose law `x̄ = Aᵀ·ȳ` (`Backward.Operator(GeometryTape, seed)` routing to `OperatorRow.Adjoint`), and the forward-mode JVP is the operator's own forward `Apply` (`Forward.Operator(GeometryTape, tangent)` — a linear DEC operator is its own pushforward) over the recorded `MeshAdjointSnapshot` (the public Vectors handle over the internal mesh snapshot and its cached `DiscreteCalculus`), the symmetric `CotangentLaplacian`/`HeatFlow`/`Spectral` rows and the diagonal Hodge stars aliasing their forward `Apply` (self-adjoint, reusing the `LaplacianCache` Cholesky factor with no re-factorisation) and the incidence `Gradient`/`Curl` rows routing to their `Divergence`/`d1ᵀ` transpose pair, so no second matrix is assembled and no autodiff runs over the DEC assembly. The `GeometryTape` step records the operator and the `MeshAdjointSnapshot` it was assembled over so the reverse `SensitivityLaw.Chain(Seq<GeometryTape>, upstream)` and the forward sweep both apply each step against THAT step's mesh, and the `Solver/optimizer#OPTIMIZER_LANE` `DesignProblem.OperatorRows` registry lowers the shape/topology design fields to these rows so `DescendAdjoint` reads a non-degenerate gradient. A fabricated dense Jacobian of a sparse DEC operator and a `TensorOpFamily` geometry member the closed vocabulary table does not declare are the deleted forms; a new geometry operator (connection-Laplacian, remeshing-step) closes by one `Tensor/vocabulary#OPERATION_TABLE` row plus one `GeometryAdjoint.Rows` binding against the live `DiscreteCalculus` operator.
+- [HVP_AND_COLORING]: the forward-over-reverse `SensitivityLaw.Hvp` and the `JacobianColoring` greedy distance-1 partition are settled in shape over the recorded tape; the open leaf is the live re-traversable tape state (the `(op, primal)` snapshots carrying enough state for the forward pass through the reverse tape) and the FEM constitutive/contact consumption at the `Solver/contract#CONSTITUTIVE` stress-update/contact-enforcement call site that supplies the strain-energy/gap-potential tape, grounded against the live `DiscreteCalculus` and the Rasm.Materials physical-properties source.

@@ -46,13 +46,10 @@ Implementation collapses to one owner per axis and one entrypoint family per rai
 ```text seams
 Appearance/interchange     →  typescript:interchange/codec     # [WIRE]: MaterialWire OpenPBR vector wire
 Appearance/bsdf            →  csharp:Rasm.Bim/Semantics        # [CONTENT_KEY]: BimAppearance
-Appearance/bsdf            ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance for emission
-Appearance/bsdf            ←  csharp:Rasm.Compute/Symbolic     # [PORT]: ONNX spectral-reconstruction conductor curve
-Appearance/photometric     ←  csharp:Rasm.Compute/Symbolic     # [PORT]: QuantityFamily illuminance seam
-Appearance/acquisition     ←  csharp:Rasm.Compute/algorithms   # [PORT]: QR/LM least-squares BRDF fit over GGX/Smith
-Appearance/surface         →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf + SlabStack at path tracer
-Appearance/bsdf            →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: LayeredBsdf shading at path tracer
-Appearance/graph           →  csharp:Rasm.AppUi/Render         # [BOUNDARY]: SurfaceShade to path tracer
+Appearance/bsdf            ←  host-free-peer / host-edge wire  # [WIRE]: decoded per-wavelength conductor-IOR curve (spectral-reconstruction inference); NOT a Rasm.Compute reference — the acyclic strata forbids the AEC→app-platform edge, so the curve arrives as wire data, never a project dependency
+Appearance/bsdf            →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]: LayeredBsdf.Sample/Evaluate/Pdf + SlabStack.ToLayered at PATH_TRACE seam
+Appearance/bsdf            →  csharp:Rasm.AppUi/Render/shading    # [BOUNDARY]: LayeredBsdf lobe-weight uniforms at SURFACE_SHADE seam
+Appearance/graph           →  csharp:Rasm.AppUi/Render/pathtrace  # [BOUNDARY]: MaterialGraph.Evaluate SurfaceShade sink to integrator + GPU shading pass
 Appearance/graph           →  csharp:Rasm.Persistence          # [TRANSPORT]: MaterialLibrary content-keyed durable catalogue rows
 Connection                 →  csharp:Rasm.Bim/Model            # [WIRE]: ConnectionItem IFC wire IfcReinforcingBar/IfcMechanicalFastener
 Connection/joint           →  csharp:Rasm.Bim/Model            # [WIRE]: weld/stud IfcMechanicalFastener + IfcRelConnectsWithRealizingElements

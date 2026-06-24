@@ -77,7 +77,7 @@ public abstract partial record FabricationPolicy {
     private FabricationPolicy() { }
 
     public sealed record HiddenLine(double FacetTolerance, int SpatialLeaf) : FabricationPolicy;
-    public sealed record Cam(ToolpathKind Kind, double StepOver, double ToolRadius, int Passes, IkPolicy Ik) : FabricationPolicy;
+    public sealed record Cam(ToolpathKind Kind, double StepOver, double ToolRadius, int Passes, IkPolicy Ik, EngagementPolicy Engagement) : FabricationPolicy;
     public sealed record Nest(NestPolicy Nesting) : FabricationPolicy;
 }
 

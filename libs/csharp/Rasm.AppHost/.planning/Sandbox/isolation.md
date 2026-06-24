@@ -64,11 +64,14 @@ public readonly record struct SandboxReceipt(
 
 public sealed record SandboxRuntime(
     SupplyChainGate Gate,
-    GrantBroker Broker,
+    CommandRuntime Command,
     Func<PluginArtifact, GrantScope, IO<CompanionPeer>> Spawn,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
-    CancelScope Spine);
+    CancelScope Spine,
+    Option<Func<GrantScope, CapabilityDescriptor, CommandArguments, Fin<Unit>>> Policy = default) {
+    public GrantBroker Broker => Command.Broker;
+}
 
 public static class SandboxRows {
     public static readonly SandboxRow WasmComponent = new(SandboxIsolation.WasmComponent, LinearMemory: true, OutOfProcess: false, DeadlineClass.HopTotal, QuotaShape.Canonical);
@@ -94,15 +97,26 @@ public static class SandboxRows {
 
 ## [03]-[GRANT_HANDLE]
 
-- Owner: `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation record; `GrantHandleSurface` the static mediation surface.
-- Entry: `Invoke(PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments)` returns `IO<ToolResult>` — every host call from a plugin routes through the broker: the handle's scope is checked against the descriptor, the quota is charged, and the call dispatches through the command algebra exactly as an agent call does.
-- Auto: the grant handle carries no host references — it carries the plugin's `GrantScope` and a dispatch closure bound to the command algebra, so a plugin cannot reach a host capability the scope does not name even by reflection, because the handle holds no object to reflect on; the per-call charge debits the same `Budget` the agent and operator calls debit so a plugin's cost is metered against its tenant's ceiling on one broker; a call outside the scope returns `SandboxFault.NoAuthority` and never reaches the command algebra.
-- Receipt: each brokered call mints a `CommandReceipt` through the command algebra carrying the plugin id as the surface, so a plugin's call history is the same evidence stream every command lands on, never a parallel plugin log.
-- Packages: LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new mediation policy is one column on `GrantHandle`; the brokered call rides the existing command algebra, so a new plugin capability is one `CapabilityDescriptor` row the grant scope names, never a new mediation surface; zero new surface.
-- Boundary: the grant handle is the only authority a plugin holds — a plugin that imports a host type directly is impossible because the wasm import table and the process control verbs are both scoped to the granted descriptors, so the handle is the sole bridge; the no-ambient-authority law is enforced by construction, not by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle, so a plugin's reachable surface is exactly the brokered descriptor set; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle, so a plugin's authority grows only through explicit consent, never through ambient access; the handle's dispatch crosses the wasm boundary as a serialized `CommandArguments` and crosses the process boundary as the control-hop `DispatchTool` verb, so one mediation semantic serves both isolation rows.
+- Owner: `CallerModality` `[SmartEnum<string>]` the operator/agent/plugin caller axis under the `CapabilityKeyPolicy` accessor; `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation record discriminating caller modality; `GrantHandleSurface` the one grant-and-charge mediation surface.
+- Cases: three caller modalities — operator (an interactive host call), agent (an in-process reasoning or MCP tool call), plugin (a sandboxed-plugin call over the grant handle) — each routing through one `Mediate` fold where modality is a discriminant on the record, never a parallel broker per caller.
+- Entry: `Mediate(MediationRuntime runtime, CallerModality caller, GrantScope scope, string descriptorId, CommandArguments arguments, Func<string, CommandArguments, IO<ToolResult>> dispatch)` returns `IO<(BrokeredCall Call, ToolResult Result)>` — the one mediation fold the operator, agent, and plugin front doors share: it resolves the descriptor, runs the single `Scope.Covers` policy gate, debits the one `Budget` through `GrantBroker.Admit`, and dispatches through the supplied closure exactly as a command-algebra call; `Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments)` returns `IO<ToolResult>` — the plugin front door that seats `CallerModality.Plugin` and the handle's scope+dispatch-closure onto `Mediate` under the quota window.
+- Auto: the grant handle carries no host references — it carries the plugin's `GrantScope` and a dispatch closure bound to the command algebra, so a plugin cannot reach a host capability the scope does not name even by reflection, because the handle holds no object to reflect on; `Mediate` runs ONE `Scope.Covers` policy gate and ONE `GrantBroker.Admit` charge regardless of caller modality, so an operator, an agent, and a plugin call debit the same per-tenant `Budget` (or the `DistributedBudget` fenced store when bound) against one broker and the per-call charge is metered identically — the caller modality is a `BrokeredCall` discriminant on one evidence record, not a second admission path; a call outside the scope returns `SandboxFault.NoAuthority` and never reaches the dispatch closure, and the `RuntimePolicy` ABAC verdict (when bound) gates the same `Mediate` fold before the scope check so identity, policy, and cost meet on one mediation.
+- Receipt: each mediated call mints a `CommandReceipt` through the command algebra carrying the surface keyed by caller modality (the plugin id for a plugin call), so an operator, agent, and plugin call land on the same evidence stream and the `BrokeredCall` record carries the caller modality, permitted flag, and charged vector — never a parallel plugin log or a per-caller receipt.
+- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: a new caller modality is one `CallerModality` row plus one `BrokeredCall` discriminant value the `Mediate` fold reads, never a parallel broker; the brokered call rides the existing command algebra, so a new plugin capability is one `CapabilityDescriptor` row the grant scope names; zero new surface.
+- Boundary: the grant handle is the only authority a plugin holds — a plugin that imports a host type directly is impossible because the wasm import table and the process control verbs are both scoped to the granted descriptors, so the handle is the sole bridge; the no-ambient-authority law is enforced by construction, not by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle, so the plugin path carries ONLY scope + dispatch-closure and the unified `Mediate` surface preserves that invariant: `CallerModality.Plugin` seats the handle's closure, never a service provider, so merging the mediation in a way that hands a plugin a service provider is the deleted form; the operator and agent modalities carry the host-side `CommandRuntime` closure but the plugin modality carries only the handle, so one mediation fold serves three callers without leaking host references into the plugin path; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle, so a plugin's authority grows only through explicit consent, never through ambient access; the handle's dispatch crosses the wasm boundary as a serialized `CommandArguments` and crosses the process boundary as the control-hop `DispatchTool` verb, so one mediation semantic serves both isolation rows; the `RuntimePolicy` verdict resolves against the branch `ONE_IDENTITY_STORE` principal/role rows and the per-call charge debits the branch `ONE_FENCED_LEASE_STORE` `Budget`, both consumed at the seam, so the unified admission point is the one gate identity, policy, and cost meet on (`Agent/capability#GRANT_BROKER` `DistributedBudget`).
 
 ```csharp signature
+// The caller axis: operator/agent/plugin are discriminants on one mediation, never parallel brokers.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<CapabilityKeyPolicy, string>]
+[KeyMemberComparer<CapabilityKeyPolicy, string>]
+public sealed partial class CallerModality {
+    public static readonly CallerModality Operator = new("operator");
+    public static readonly CallerModality Agent = new("agent");
+    public static readonly CallerModality Plugin = new("plugin");
+}
+
 public sealed record GrantHandle(
     string PluginId,
     GrantScope Scope,
@@ -112,25 +126,53 @@ public sealed record GrantHandle(
 }
 
 public readonly record struct BrokeredCall(
-    string PluginId,
+    CallerModality Caller,
+    string Subject,
     string Descriptor,
     bool Permitted,
     CostVector Charged,
     Instant At);
 
+public sealed record MediationRuntime(
+    CommandRuntime Command,
+    Option<Func<GrantScope, CapabilityDescriptor, CommandArguments, Fin<Unit>>> Policy,
+    ClockPolicy Clocks);
+
 public static class GrantHandleSurface {
+    // The one grant-and-charge fold all three callers share: policy gate, scope cover, broker charge,
+    // then the supplied dispatch closure. Caller modality is a discriminant on the BrokeredCall, never a
+    // parallel admission. The plugin closure carries only scope+dispatch; operator/agent carry CommandRuntime.
+    public static IO<(BrokeredCall Call, ToolResult Result)> Mediate(
+        MediationRuntime runtime, CallerModality caller, GrantScope scope, string descriptorId,
+        CommandArguments arguments, Func<string, CommandArguments, IO<ToolResult>> dispatch) =>
+        runtime.Command.Registry.Resolve(descriptorId).Match(
+            Some: descriptor =>
+                (from _policy in runtime.Policy.Match(Some: gate => gate(scope, descriptor, arguments), None: () => Fin.Succ(unit))
+                 from _scope in scope.Covers(descriptor.Permission, runtime.Clocks.Now) ? Fin.Succ(unit) : Fin.Fail<Unit>(new SandboxFault.NoAuthority(descriptorId))
+                 from charged in runtime.Command.Broker.Admit(descriptor, arguments, dryRun: false)
+                 select charged).Match(
+                    Succ: charged =>
+                        from result in dispatch(descriptorId, arguments)
+                        let call = new BrokeredCall(caller, Subject(caller, arguments), descriptorId, Permitted: true, charged, runtime.Clocks.Now)
+                        select (call, result),
+                    Fail: fault => IO.pure((
+                        new BrokeredCall(caller, Subject(caller, arguments), descriptorId, Permitted: false, CostVector.Zero, runtime.Clocks.Now),
+                        new ToolResult(descriptorId, [JsonValue.Create(fault.Message)!], IsError: true, arguments.Correlation)))),
+            None: () => IO.pure((
+                new BrokeredCall(caller, Subject(caller, arguments), descriptorId, Permitted: false, CostVector.Zero, runtime.Clocks.Now),
+                new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.Text($"unknown:{descriptorId}").Message)!], IsError: true, arguments.Correlation))));
+
     public static IO<ToolResult> Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments) =>
-        runtime.Broker is var broker && plugin.Quota.Within(runtime.Clocks.Now)
-            ? handle.Dispatch(descriptorId, arguments with { Tenant = arguments.Tenant })
+        plugin.Quota.Within(runtime.Clocks.Now)
+            ? Mediate(new MediationRuntime(runtime.Command, runtime.Policy, runtime.Clocks), CallerModality.Plugin, handle.Scope, descriptorId, arguments, handle.Dispatch).Map(static outcome => outcome.Result)
             : IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.QuotaExceeded("wall-millis", 0L).Message)!], IsError: true, arguments.Correlation));
 
     public static GrantHandle Bind(PluginInstance plugin, CommandRuntime command) =>
         new(plugin.PluginId, plugin.Scope, (descriptorId, arguments) =>
-            command.Registry.Resolve(descriptorId).Match(
-                Some: descriptor => plugin.Scope.Covers(descriptor.Permission, command.Clocks.Now)
-                    ? McpDispatch.Call(new McpRuntime(command.Registry, command, command.Broker, () => DegradationLevel.Full, _ => JsonValue.Create(string.Empty)!, command.Clocks, command.Sink, command.Wire), descriptorId, arguments)
-                    : IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.NoAuthority(descriptorId).Message)!], IsError: true, arguments.Correlation)),
-                None: () => IO.pure(new ToolResult(descriptorId, [JsonValue.Create(new SandboxFault.Text($"unknown:{descriptorId}").Message)!], IsError: true, arguments.Correlation))));
+            McpDispatch.Call(new McpRuntime(command.Registry, command, command.Broker, () => DegradationLevel.Full, _ => JsonValue.Create(string.Empty)!, command.Clocks, command.Sink, command.Wire), descriptorId, arguments));
+
+    static string Subject(CallerModality caller, CommandArguments arguments) =>
+        caller == CallerModality.Plugin ? arguments.Correlation.ToString() : arguments.Tenant.TenantId.ToString();
 }
 ```
 

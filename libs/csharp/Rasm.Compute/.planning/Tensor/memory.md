@@ -4,14 +4,14 @@ Staging memory for every payload that moves through Rasm.Compute between intent 
 
 ## [01]-[INDEX]
 
-- [01]-[ALLOCATION_AXIS]: five-row staging axis; admission predicate; evidence record.
+- [01]-[ALLOCATION_AXIS]: six-row staging axis (incl. device-wgpu GPU buffer); admission predicate; evidence record.
 - [02]-[PLANE_VIEWS]: bare plane projections; reinterpretation law; layout split.
 - [03]-[STREAM_POOL]: one pooled stream manager; policy record; event-fold evidence.
 
 ## [02]-[ALLOCATION_AXIS]
 
-- Owner: `AllocationClass` `[SmartEnum<string>]` five rows under the `StagingKeyPolicy` ordinal accessor; `AllocationEvidence` is the evidence record every staging grant stamps.
-- Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`.
+- Owner: `AllocationClass` `[SmartEnum<string>]` six rows under the `StagingKeyPolicy` ordinal accessor; `AllocationEvidence` is the evidence record every staging grant stamps.
+- Cases: `SpanStack`, `PooledMemory`, `RecyclableStream`, `NativeOrt`, `EdgeCopy`, `DeviceWgpu` (the `Tensor/dispatch#DEVICE_KERNELS` GPU storage/staging buffer over the shared `ONE_WGPU_DEVICE`, `copyReceipted` because a device readback crosses the host boundary).
 - Entry: `bool Admits(long requestedBytes, long payloadBound, Option<string> copyReason = default)`.
 - Auto: intent admission evaluates `Admits` once against the intent-declared payload bound; every grant stamps `AllocationEvidence` under the intent correlation with zero call-site accounting.
 - Receipt: `AllocationEvidence` — correlation, class row, requested and granted bytes, copy reason, native allocator slots; it materializes at the receipt sink edge from hot-path structs.
@@ -34,6 +34,7 @@ public sealed partial class AllocationClass {
     public static readonly AllocationClass RecyclableStream = new("recyclable-stream", syncOnly: false, copyReceipted: false);
     public static readonly AllocationClass NativeOrt = new("native-ort", syncOnly: false, copyReceipted: false);
     public static readonly AllocationClass EdgeCopy = new("edge-copy", syncOnly: false, copyReceipted: true);
+    public static readonly AllocationClass DeviceWgpu = new("device-wgpu", syncOnly: false, copyReceipted: true);
 
     public bool SyncOnly { get; }
 

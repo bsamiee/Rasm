@@ -30,13 +30,15 @@
 - [24]-[SWEEP](.planning/Solver/sweep.md)
 - [25]-[CLASH](.planning/Solver/clash.md)
 - [26]-[UNCERTAINTY](.planning/Solver/uncertainty.md)
-- [27]-[ADMISSION](.planning/Runtime/admission.md)
-- [28]-[SCHEDULING](.planning/Runtime/scheduling.md)
-- [29]-[PROGRESS](.planning/Runtime/progress.md)
-- [30]-[RECEIPTS](.planning/Runtime/receipts.md)
-- [31]-[CHANNELS](.planning/Runtime/channels.md)
-- [32]-[CODECS](.planning/Runtime/codecs.md)
-- [33]-[PAYLOAD](.planning/Runtime/payload.md)
+- [27]-[ESTIMATOR](.planning/Stats/estimator.md)
+- [28]-[SIGNAL](.planning/Stats/signal.md)
+- [29]-[ADMISSION](.planning/Runtime/admission.md)
+- [30]-[SCHEDULING](.planning/Runtime/scheduling.md)
+- [31]-[PROGRESS](.planning/Runtime/progress.md)
+- [32]-[RECEIPTS](.planning/Runtime/receipts.md)
+- [33]-[CHANNELS](.planning/Runtime/channels.md)
+- [34]-[CODECS](.planning/Runtime/codecs.md)
+- [35]-[PAYLOAD](.planning/Runtime/payload.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 

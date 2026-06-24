@@ -247,12 +247,12 @@ public static class SqliteMaintenance {
 ## [05]-[EXTENSION_GATES]
 
 - Owner: `ExtensionGate`
-- Cases: vec0 gated | sqlean-regexp, sqlean-crypto, sqlean-fuzzy, sqlean-uuid, sqlean-stats, sqlean-text deferred | sqlcipher research
+- Cases: vec0 gated | sqlean-regexp, sqlean-crypto, sqlean-fuzzy, sqlean-uuid, sqlean-stats, sqlean-text deferred | sqlcipher promoted (the keying ceremony and the `EncryptionGate` owner relocated to `Store/encryption#SQLITE_KEYING`, bound to a KMS-unwrapped DEK)
 - Entry: `public static IO<SqliteFact> Load(SqliteConnection connection, ClockPolicy clocks, ExtensionGate gate)` — arms the db_config route and loads through the OS loader.
 - Receipt: one extension-load fact per opened gate (Slot = gate name, After = entrypoint); the encryption ceremony receipts cipher_version on the same stream when its research gate opens.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new loadable concern is one `ExtensionGate` row naming artifact route and fallback lane; a new per-connection hardening posture is one `DbConfig` row; future cr-sqlite admission lands as one gate row plus merge-law rows on the sync owner, never a transport case; zero new surface.
-- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; `DbConfig.Apply` folds per-connection config flags through `raw.sqlite3_db_config` so defensive-mode and double-quoted-string-literal rejection are connection policy values rather than connection-string knobs, applied once per physical open before any user statement; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying the osx-arm64 payload to output and every off-platform RID asset dropped under the single-RID target so the `e_sqlite3` bundle and the loadable-extension payloads ship as the osx-arm64 dylib set only; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives from the app root per open and is never persisted, and the `EncryptionGate.Sqlcipher` ceremony rows declare the keying surface — `PRAGMA key`, `cipher_migrate`, `cipher_version`, and `rekey` — whose `SQLite3Provider_sqlcipher` keying mechanics resolve through the gate's research row before the row leaves `ExtensionGateState.Research`; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
+- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; `DbConfig.Apply` folds per-connection config flags through `raw.sqlite3_db_config` so defensive-mode and double-quoted-string-literal rejection are connection policy values rather than connection-string knobs, applied once per physical open before any user statement; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying the osx-arm64 payload to output and every off-platform RID asset dropped under the single-RID target so the `e_sqlite3` bundle and the loadable-extension payloads ship as the osx-arm64 dylib set only; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives unwrapped from the `Store/encryption#KEY_ENVELOPE` `EnvelopeKeyring` per open and is never persisted, and the SQLCipher keying surface — `PRAGMA key`, `cipher_migrate`, `cipher_version`, and `rekey` over the `SQLite3Provider_sqlcipher` provider — is owned at `Store/encryption#SQLITE_KEYING` where the promoted `EncryptionGate` binds the ceremony to a KMS-unwrapped DEK, so the `sqlcipher` gate row here is `ExtensionGateState.Gated` (no longer Research) and this page carries only the loadable-extension and db-config posture, never the keying record; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -273,14 +273,7 @@ public sealed record ExtensionGate(string Name, Option<string> EntryPoint, strin
         new ExtensionGate("sqlean-uuid", None, "sqlean osx-arm64 loadable vendored as build content", ExtensionGateState.Deferred, Some("uuid7 function row")),
         new ExtensionGate("sqlean-stats", None, "sqlean osx-arm64 loadable vendored as build content", ExtensionGateState.Deferred, Some("analytical-lane percentiles")),
         new ExtensionGate("sqlean-text", None, "sqlean osx-arm64 loadable vendored as build content", ExtensionGateState.Deferred, None),
-        new ExtensionGate("sqlcipher", None, "SQLite3Provider_sqlcipher provider with an externally supplied native library; the batteries bundle route is deprecated and the two routes never mix", ExtensionGateState.Research, Some("plaintext default")));
-}
-
-public sealed record EncryptionGate(string GateRow, FrozenSet<DataClassification> Mandating, Seq<string> Ceremony) {
-    public static readonly EncryptionGate Sqlcipher = new(
-        GateRow: "sqlcipher",
-        Mandating: new[] { DataClassification.Personal, DataClassification.Credential, DataClassification.Secret }.ToFrozenSet(),
-        Ceremony: Seq("PRAGMA key", "PRAGMA cipher_migrate", "PRAGMA cipher_version", "PRAGMA rekey"));
+        new ExtensionGate("sqlcipher", None, "SQLite3Provider_sqlcipher provider with an externally supplied native library; the batteries bundle route is deprecated and the two routes never mix; keying ceremony owned at Store/encryption#SQLITE_KEYING", ExtensionGateState.Gated, Some("plaintext default")));
 }
 
 public sealed record DbConfig(int Op, int Value) {
@@ -309,5 +302,5 @@ public static class ExtensionOps {
 
 ## [06]-[RESEARCH]
 
-- [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set; the `SQLite3Provider_sqlcipher` keying surface for the `EncryptionGate.Sqlcipher` ceremony rows — the connection-string keying keyword versus the inline `PRAGMA key` form, key-literal escaping, and the pooled-physical-open application point.
+- [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; the SQLCipher provider route with an externally supplied native library on osx-arm64 and its crypto-backend notice set (the keying ceremony itself is owned and researched at `Store/encryption#SQLITE_KEYING`).
 - [DB_CONFIG_OPS]: the live ordering of the `DbConfig.Hardened` set against pooled physical opens — whether defensive mode and the double-quoted-string-literal DDL/DML rejection must precede the migration ladder or apply after schema creation, and the interaction of `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` enablement with the db_config extension-arming path on the same connection.

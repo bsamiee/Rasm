@@ -30,6 +30,7 @@
     <ItemGroup Label="Domain Foundation">
         <PackageReference Include="NodaTime" />
         <PackageReference Include="ProjNET" />
+        <PackageReference Include="UnitsNet" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>

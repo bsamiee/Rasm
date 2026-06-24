@@ -118,12 +118,12 @@ public static class OpLog {
 
 ## [03]-[MERGE_LAW]
 
-- Owner: `ConflictReceipt`, `ConflictOutcome` `[Union]`, `SyncApplyReceipt`, `SyncSession` — the one session capsule of policy values and delegate rows, including the `SpeckleSend`/`SpeckleReceive` marshal delegates that bind the DI-resolved instance `IOperations.Send`/`Receive`; the `SyncMerge` fold surface routing LWW per column family and the `crdt` column family into the settled `Crdt.Apply`.
-- Cases: 4 outcome cases — LocalWin, RemoteWin, Merged, Rejected — every case carrying its `ConflictReceipt`; the convergent `crdt` family supersedes the scalar adjudication on its column family and converges by merge, never by discarding the loser.
+- Owner: `ConflictReceipt`, `ConflictVerdict` `[SmartEnum<string>]`, `ConflictResult`, `SyncApplyReceipt`, `SyncSession` — the one session capsule of policy values and delegate rows, including the `SpeckleSend`/`SpeckleReceive` marshal delegates that bind the DI-resolved instance `IOperations.Send`/`Receive`; the `SyncMerge` fold surface routing LWW per column family and the `crdt` column family into the settled `Crdt.Apply`.
+- Cases: 4 verdict rows on `ConflictVerdict` — local-win, remote-win, merged, rejected — collapsed from the prior `ConflictOutcome` 4-case `[Union]` into one `ConflictResult(Verdict, Receipt)` record carrying the verdict discriminant beside its `ConflictReceipt`, so merge resolution and the `Query/transaction#SQLSTATE_CLASSIFIER` deadlock classifier speak one verdict vocabulary and a parallel sync-side outcome union is the deleted form; the convergent `crdt` family supersedes the scalar adjudication on its column family and converges by merge, never by discarding the loser.
 - Entry: `public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming)` — `IO` carries commit effects; replay converges idempotently and the receipt proves applied, skipped, conflicted, merged, and pushed counts.
 - Receipt: `ConflictReceipt` is the typed conflict evidence projected to the inspector surface — one projection record, no second rail; `SyncApplyReceipt` is the per-run apply evidence carrying queue depth, the advanced cursor, and the acknowledged LSN.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
-- Growth: a new merge stance is one policy value on the column-family axis feeding `Held` resolution, zero new surface; a fifth outcome case is the named defect; a new replicated data type is a `Version/commits#CRDT_ALGEBRA` `CrdtField` case dispatched by this fold, never a fifth scalar arm.
+- Growth: a new merge stance is one policy value on the column-family axis feeding `Held` resolution, zero new surface; a fifth `ConflictVerdict` row is the named defect; a new replicated data type is a `Version/commits#CRDT_ALGEBRA` `CrdtField` case dispatched by this fold, never a fifth scalar arm.
 - Boundary: LWW per column family is the default — `Held` resolves the competing local entry per entity key and column family, content-key equality adjudicates LocalWin (idempotent replay), an absent competitor adjudicates Merged, and equal stamps with divergent content adjudicate Rejected; HLC ordering ties break on origin store id so adjudication is deterministic across peers; a SyncEngine service class is the rejected form — the fold and the dispatch rows own the engine; the `crdt` column family routes its `OpLogEntry.Payload` through `Version/commits#CRDT_ALGEBRA` `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than a scalar last-writer-wins, the LWW `Adjudicate` surviving only as the `LwwRegister` arm — a cross-package wire-vocabulary amendment recorded as a ledger seam-split, never a parallel sync engine, and the same one IMMEDIATE apply transaction holds both the scalar register mutation and the crdt-field merge so crash recovery is re-delivery for both; the `SpeckleSend`/`SpeckleReceive` delegates are the marshal seam for the `SpeckleLikeDiff` transport — `SpeckleSend` binds the instance `Operations.Send(Base, IServerTransport, useDefaultCache, ...)` resolved from the `AddSpeckleSdk` container and projects the returned `rootObjId` content hash onto the `UInt128 RootContentKey` (the existing `ContentKey`, zero second identity) with the `convertedReferences` `ObjectReference` map collapsed to its count, while `SpeckleReceive` binds the instance `Operations.Receive(objectId, remoteTransport, localTransport, ...)` and maps the returned `Base`/`DataObject` graph to closed Rasm op-log entries AT THE SEAM so no `Base`, `ObjectReference`, or `DataObject` shape crosses into the domain; the SDK boundary faults (`SpeckleException`, `TransportException`, `SpeckleDeserializeException`, `HttpRequestException`) lift once at this marshal into the Persistence merge/sync rail as an `Error.New(8251, ...)` on `SyncApplyReceipt`, never the TS-projection wire fault union.
 
 ```csharp signature
@@ -133,18 +133,19 @@ public readonly record struct ConflictReceipt(
     Instant IncomingPhysical, ulong IncomingLogical, string IncomingActor,
     CorrelationId Correlation, Instant At);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ConflictOutcome {
-    private ConflictOutcome() { }
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<SyncKeyPolicy, string>]
+[KeyMemberComparer<SyncKeyPolicy, string>]
+public sealed partial class ConflictVerdict {
+    public static readonly ConflictVerdict LocalWin = new("LocalWin", applies: false);
+    public static readonly ConflictVerdict RemoteWin = new("RemoteWin", applies: true);
+    public static readonly ConflictVerdict Merged = new("Merged", applies: true);
+    public static readonly ConflictVerdict Rejected = new("Rejected", applies: false);
 
-    public sealed record LocalWin(ConflictReceipt Receipt) : ConflictOutcome;
-
-    public sealed record RemoteWin(ConflictReceipt Receipt) : ConflictOutcome;
-
-    public sealed record Merged(ConflictReceipt Receipt) : ConflictOutcome;
-
-    public sealed record Rejected(ConflictReceipt Receipt) : ConflictOutcome;
+    public bool Applies { get; }
 }
+
+public readonly record struct ConflictResult(ConflictVerdict Verdict, ConflictReceipt Receipt);
 
 public readonly record struct SyncApplyReceipt(
     long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth,
@@ -174,32 +175,31 @@ public static class SyncMerge {
             incoming.Physical, incoming.Logical, incoming.Actor,
             session.Correlation, session.Clocks.Now);
 
-    public static ConflictOutcome Adjudicate(SyncSession session, OpLogEntry incoming) =>
+    public static ConflictResult Adjudicate(SyncSession session, OpLogEntry incoming) =>
         session.Held(incoming) is { IsSome: true, Case: OpLogEntry held }
             ? incoming.ContentKey == held.ContentKey
-                ? new ConflictOutcome.LocalWin(Receipt(session, held, incoming))
+                ? new ConflictResult(ConflictVerdict.LocalWin, Receipt(session, held, incoming))
                 : (incoming.Physical, incoming.Logical, incoming.OriginStoreId)
                     .CompareTo((held.Physical, held.Logical, held.OriginStoreId)) switch {
-                        > 0 => new ConflictOutcome.RemoteWin(Receipt(session, held, incoming)),
-                        < 0 => new ConflictOutcome.LocalWin(Receipt(session, held, incoming)),
-                        _ => new ConflictOutcome.Rejected(Receipt(session, held, incoming)),
+                        > 0 => new ConflictResult(ConflictVerdict.RemoteWin, Receipt(session, held, incoming)),
+                        < 0 => new ConflictResult(ConflictVerdict.LocalWin, Receipt(session, held, incoming)),
+                        _ => new ConflictResult(ConflictVerdict.Rejected, Receipt(session, held, incoming)),
                     }
-            : new ConflictOutcome.Merged(Receipt(session, incoming, incoming));
+            : new ConflictResult(ConflictVerdict.Merged, Receipt(session, incoming, incoming));
 
     public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming) =>
         incoming.Fold(
             IO.pure((Applied: 0L, Skipped: 0L, Conflicted: 0L, Converged: 0L, Conflicts: Seq<ConflictReceipt>())),
             (acc, entry) => acc.Bind(counts => entry.ColumnFamily == "crdt"
                 ? session.Converge(entry).Map(_ => counts with { Converged = counts.Converged + 1L })
-                : Adjudicate(session, entry).Switch(
-                    state: (Session: session, Entry: entry, Counts: counts),
-                    localWin: static (s, _) => IO.pure(s.Counts with { Skipped = s.Counts.Skipped + 1L }),
-                    remoteWin: static (s, _) => s.Session.Commit(s.Entry).Map(_ => s.Counts with { Applied = s.Counts.Applied + 1L }),
-                    merged: static (s, _) => s.Session.Commit(s.Entry).Map(_ => s.Counts with { Applied = s.Counts.Applied + 1L }),
-                    rejected: static (s, outcome) => IO.pure(s.Counts with {
-                        Conflicted = s.Counts.Conflicted + 1L,
-                        Conflicts = s.Counts.Conflicts.Add(outcome.Receipt),
-                    }))))
+                : Adjudicate(session, entry) is var result && result.Verdict.Applies
+                    ? session.Commit(entry).Map(_ => counts with { Applied = counts.Applied + 1L })
+                    : result.Verdict == ConflictVerdict.Rejected
+                        ? IO.pure(counts with {
+                            Conflicted = counts.Conflicted + 1L,
+                            Conflicts = counts.Conflicts.Add(result.Receipt),
+                        })
+                        : IO.pure(counts with { Skipped = counts.Skipped + 1L })))
             .Map(counts => new SyncApplyReceipt(
                 counts.Applied, counts.Skipped, counts.Conflicted, counts.Converged, Pushed: 0L,
                 session.QueueDepth(), counts.Conflicts, session.Cursor, session.Correlation, session.Clocks.Now));

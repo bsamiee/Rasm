@@ -157,15 +157,19 @@
 [REACTIVE_ENTRYPOINTS]: `PropertyModels.ComponentModel` reactive surfaces
 - rail: inspectors
 
-| [INDEX] | [SURFACE]                                      | [SURFACE_ROOT]              | [RAIL]                              |
-| :-----: | :--------------------------------------------- | :-------------------------- | :---------------------------------- |
-|  [01]   | `RaisePropertyChanged(string)`                 | `MiniReactiveObject`        | property change notify              |
-|  [02]   | `SetProperty<T>(ref T, T, string?)`            | `MiniReactiveObject`        | set + notify helper                 |
-|  [03]   | `BeginBatchUpdate()` / `EndBatchUpdate()`      | `MiniReactiveObject`        | suppress intermediate notifications |
-|  [04]   | `CanExecute()` / `Execute()`                   | `IBaseCommand`              | command gate and execute            |
-|  [05]   | `CanUndo` / `CanRedo`                          | `CancelableCommandRecorder` | undo/redo state                     |
-|  [06]   | `GetUndoQueue()` / `GetRedoQueue()`            | `CancelableCommandRecorder` | queue snapshots                     |
-|  [07]   | `UndoCommand` / `RedoCommand` / `ClearCommand` | `CommandHistoryViewModel`   | bindable commands                   |
+| [INDEX] | [SURFACE]                                                                     | [SURFACE_ROOT]              | [RAIL]                              |
+| :-----: | :---------------------------------------------------------------------------- | :-------------------------- | :---------------------------------- |
+|  [01]   | `RaisePropertyChanged(string)`                                                | `MiniReactiveObject`        | property change notify              |
+|  [02]   | `SetProperty<T>(ref T, T, string?)`                                           | `MiniReactiveObject`        | set + notify helper                 |
+|  [03]   | `BeginBatchUpdate()` / `EndBatchUpdate()`                                     | `MiniReactiveObject`        | suppress intermediate notifications |
+|  [04]   | `CanExecute()` / `Execute()`                                                  | `IBaseCommand`              | command gate and execute            |
+|  [05]   | `Cancel()` / `CanCancel()`                                                    | `ICancelableCommand`        | inverse gate and apply              |
+|  [06]   | `new GenericCancelableCommand(name, Func<bool>? exec, Func<bool>? cancel, …)` | `GenericCancelableCommand`  | two-delegate cancelable command     |
+|  [07]   | `PushCommand(ICancelableCommand)` / `ExecuteCommand(ICancelableCommand)`      | `CancelableCommandRecorder` | enqueue / execute-and-enqueue       |
+|  [08]   | `Undo()` / `Redo()` / `Clear()`                                               | `CancelableCommandRecorder` | pop-and-apply inverse / forward     |
+|  [09]   | `CanUndo` / `CanRedo`                                                         | `CancelableCommandRecorder` | undo/redo state                     |
+|  [10]   | `GetUndoQueue()` / `GetRedoQueue()`                                           | `CancelableCommandRecorder` | queue snapshots                     |
+|  [11]   | `UndoCommand` / `RedoCommand` / `ClearCommand`                                | `CommandHistoryViewModel`   | bindable commands                   |
 
 [COLLECTION_ENTRYPOINTS]: checked list operations — `PropertyModels.Collections`
 - rail: inspectors
@@ -253,6 +257,11 @@
 - Owns: reactive base objects, command/undo pipeline, checked/selectable collections, data annotation attributes, localization contracts, and descriptor extensions
 - Accept: application view models inherit `ReactiveObject` or `MiniReactiveObject`; command pipelines use `CancelableCommandRecorder` + `CommandHistoryViewModel`
 - Reject: hand-rolling `INotifyPropertyChanged`, per-screen undo stacks, or string-keyed property registries
+
+[RECORDER_LAW]:
+- `ICancelableCommand` is a two-delegate command: `Execute()` runs the forward and `Cancel()` runs the inverse, both `bool`, gated by `CanExecute()`/`CanCancel()`; `GenericCancelableCommand(name, executeFunc, cancelFunc, canExecuteFunc?, canCancelFunc?)` binds them as `Func<bool>?`.
+- `CancelableCommandRecorder` owns the queue lifecycle: `PushCommand` enqueues a command whose forward already applied (clearing the redo queue), `ExecuteCommand` runs the forward then enqueues, `Undo()` pops the head and runs its `Cancel`, `Redo()` re-runs its `Execute`, `Clear()` empties both queues; `CanUndo`/`CanRedo` read the head command's `CanCancel`/`CanExecute`, and `MaxCommand` (default 20) bounds the window.
+- A revert that resolves an op without driving `Undo()`/`Redo()` leaves the inverse unapplied — the recorder, not a hand-rolled stack, owns pop-and-apply.
 
 [INSPECTOR_LAW]:
 - Package: `bodong.Avalonia.PropertyGrid`

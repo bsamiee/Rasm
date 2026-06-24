@@ -26,11 +26,12 @@ and ordered handoff for AppHost drain.
 |  [04]   | `TransformManyBlock<TInput,TOutput>` | propagator block   | expands messages      |
 |  [05]   | `BroadcastBlock<T>`                  | broadcast block    | fans out latest value |
 |  [06]   | `BatchBlock<T>`                      | grouping block     | batches messages      |
-|  [07]   | `JoinBlock<T1,T2>`                   | grouping block     | joins messages        |
-|  [08]   | `WriteOnceBlock<T>`                  | single-value block | publishes one value   |
-|  [09]   | `IDataflowBlock`                     | lifecycle contract | owns completion       |
-|  [10]   | `IPropagatorBlock<TInput,TOutput>`   | block contract     | consumes and produces |
-|  [11]   | `IReceivableSourceBlock<T>`          | receive contract   | supports pull receive |
+|  [07]   | `JoinBlock<T1,T2>`                   | grouping block     | joins two streams     |
+|  [08]   | `BatchedJoinBlock<T1,T2>`            | grouping block     | coalesces two streams |
+|  [09]   | `WriteOnceBlock<T>`                  | single-value block | publishes one value   |
+|  [10]   | `IDataflowBlock`                     | lifecycle contract | owns completion       |
+|  [11]   | `IPropagatorBlock<TInput,TOutput>`   | block contract     | consumes and produces |
+|  [12]   | `IReceivableSourceBlock<T>`          | receive contract   | supports pull receive |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -50,6 +51,7 @@ and ordered handoff for AppHost drain.
 |  [09]   | `OutputAvailableAsync` | readiness task    | awaits source readiness   |
 |  [10]   | `TriggerBatch`         | batch trigger     | forces batch emission     |
 |  [11]   | `Encapsulate`          | block composition | wraps target and source   |
+|  [12]   | `Target1`/`Target2`    | join arm targets  | feed join/coalesce arms   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,11 +1,11 @@
 # [COMPUTE_ADMISSION]
 
-Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec` policy record, routes it over one four-row `Substrate` axis whose availability predicates, cost ranks, payload caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
+Rasm.Compute admits every execution request through one six-case `ComputeIntent` union with one nested `Spec` policy record, routes it over one five-row `Substrate` axis (cpu-tensor, device-wgpu, onnx, genai, remote-grpc) whose availability predicates, cost ranks, payload caps, load tie-breaks, and fallback successors are row columns, and dispatches through generated total Switches — selection is a fold over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. The page owns the intent vocabulary, the substrate axis, the `ComputeFault` family in the 2200 code band, and the dispatch spine over Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary.
 
 ## [01]-[INDEX]
 
 - [01]-[INTENT_FAMILY]: six intent cases, one shared `Spec` record, one boundary admission fold.
-- [02]-[SUBSTRATE_AXIS]: four substrate rows; predicates, ranks, caps, load, fallback as columns.
+- [02]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); predicates, ranks, caps, load, fallback as columns.
 - [03]-[DISPATCH_SPINE]: fault band 2200, ordered selection fold, total dispatch, selection receipt.
 
 ## [02]-[INTENT_FAMILY]
@@ -94,13 +94,13 @@ public static class IntentAdmission {
 
 ## [03]-[SUBSTRATE_AXIS]
 
-- Owner: `Substrate` `[SmartEnum<string>]` four rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
-- Cases: cpu-tensor, onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), genai (token-streaming over the model-lane GenAI session), remote-grpc.
+- Owner: `Substrate` `[SmartEnum<string>]` five rows under the `ComputeKeyPolicy` ordinal accessor; `SubstrateProbes` veto delegates; `SelectionContext` resolved selection inputs; `BenchmarkRank` boot-frozen rank projection.
+- Cases: cpu-tensor, device-wgpu (GPGPU compute-shader dispatch over the shared `ONE_WGPU_DEVICE`, fallback-successor `cpu-tensor`), onnx (one EP-parameterized row — EP variance is model-lane row data, never substrate-row twins), genai (token-streaming over the model-lane GenAI session), remote-grpc.
 - Entry: `public partial Option<string> Veto(SelectionContext context)` — `Option<T>` carries the rejection reason; `None` admits the row; one delegate collapses the availability predicate and its evidence.
 - Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection and falls through to the static cost rank when the host fingerprint mismatches; provider names arrive boot-frozen in `SelectionContext.Providers` from the model-lane environment probe; the warm-start affinity column reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob — the same fold that picks cpu-vs-onnx picks host-vs-companion-vs-farm because the discriminant is a column, never an `if (warm)` branch; the `LoadRank` column is the third tie-break key (rank → warm-affinity → load) reading the per-node load value from the AppHost `PeerRoster` health so among rank-equal-and-warm nodes the least-loaded wins.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Microsoft.ML.OnnxRuntime, BCL inbox
-- Growth: one substrate row — key, rank, cap, fallback key, veto delegate — absorbs a new execution substrate; gpu-direct lands as one row on `Substrate`; warm-start affinity and the `LoadRank` load value are columns the selection fold already reads, so farm load-and-offload lands without a `FarmRouter`; zero new surface.
-- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx row while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier so a benchmark rank never loses to an affinity preference — affinity is a tie-breaker column, never a rank override, and the `LoadRank` load value breaks ties only beneath affinity so a least-loaded node never outranks a warm one; the genai row vetoes itself when the GenAI native dylib is absent or the requested model is not genai-format — its veto reads the same `Providers`/`Capability` set as the onnx row and a second GenAI health probe is the named defect, and the genai token-streaming path falls back to remote-grpc, never to the cpu-tensor row.
+- Growth: one substrate row — key, rank, cap, fallback key, sheddable flag, veto delegate — absorbs a new execution substrate; the `device-wgpu` GPGPU row is exactly that one row (a column on the existing axis, fallback-successor `cpu-tensor`, sheddable under host saturation, veto `SubstrateProbes.DeviceWgpu`), so the device thrust never spawns a parallel device-state machine or a second `SelectionReceipt` — admission, dispatch, and receipt all read device-ness from the same `OrtResidency.DeviceResident` discriminant the CPU path already uses; warm-start affinity and the `LoadRank` load value are columns the selection fold already reads, so farm load-and-offload lands without a `FarmRouter`; zero new surface.
+- Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` structurally excludes the onnx and device-wgpu rows while cpu-tensor and remote-grpc admit it, and a wasm substrate row is the deleted form; the `device-wgpu` row vetoes itself when the shared `ONE_WGPU_DEVICE` adapter is absent (its `Providers` key not present in the boot-frozen set, the same `Providers`/`Capability` fold the onnx row reads) and its fallback-successor is `cpu-tensor` so a device-unavailable tensor intent degrades to the CPU GEMM through the same `Chain` fold (never a throw or a parallel device-admission path), keeping the fallback chain total; the `SubstrateSelection` fold consumes the one per-`WorkLane` `ShedVerdict` the AppHost `LaneGuard` mints from the atomic `DegradationReading` (the `Runtime/admission ← csharp:Rasm.AppHost` `ONE_DEGRADATION_SHED_VERDICT` seam) — the verdict is resolved once by the AppHost governor for the admitted intent's `Spec.Lane` and carried on `SelectionContext.Shed` exactly as the settled `DegradationLevel` vocabulary already rides `SelectionContext.Level`, so the seam couples to the `ShedVerdict(WorkLane, DegradationLevel, bool Shed)` shape and the interior reads the verdict's `Shed`/`Lane`/`Level`, never the `DegradationCell` it derives from (the governor interior stays AppHost-side; only the minted verdict crosses); the `Sheddable` column marks the local-compute rows (cpu-tensor and device-wgpu) that a saturated host backs off, and `SelectionContext.ShedVeto` folds the lane-shed-AND-sheddable veto into the same `Routed` veto composition the `Veto`/`VetoPayload` rejections already ride — carrying the verdict's lane and level into the hop reason (`shed:{Lane}:{Level}`) as receipt evidence rather than a bare flag — so a shed lane degrades a sheddable device op to its non-sheddable successor (`remote-grpc` offloads the work off the saturated host) or, when no row admits, reuses the existing `SubstrateUnavailable` fault toward the same `SelectionReceipt` with the full hop trail — a device-only backpressure path, a whole-op short-circuit that discards the chain evidence, a bare-`bool` projection that drops the lane/level receipt facts, and a Compute-side re-derivation of the shed from raw saturation are the deleted forms because the verdict is minted once at the in-process governor and consumed here as a column the fold reads, never re-computed nor branched on with an `if (shed)` ladder; the same shared device descriptor the device-wgpu row resolves also gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve the same allocator on the same physical device through this one discriminant; substrate predicates read the retained `Capability` set so remote health rides the AppHost degradation fold and a second health probe is the named defect — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes itself through `Capability.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier so a benchmark rank never loses to an affinity preference — affinity is a tie-breaker column, never a rank override, and the `LoadRank` load value breaks ties only beneath affinity so a least-loaded node never outranks a warm one; the genai row vetoes itself when the GenAI native dylib is absent or the requested model is not genai-format — its veto reads the same `Providers`/`Capability` set as the onnx row and a second GenAI health probe is the named defect, and the genai token-streaming path falls back to remote-grpc, never to the cpu-tensor row.
 
 ```csharp signature
 public sealed class ComputeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -119,6 +119,7 @@ public sealed record BenchmarkRank(string HostFingerprint, HashMap<string, int> 
 public sealed record SelectionContext(
     ResolvedProfile Profile,
     DegradationLevel Level,
+    ShedVerdict Shed,
     FrozenSet<string> Providers,
     string Fingerprint,
     Option<BenchmarkRank> Ranks,
@@ -130,11 +131,20 @@ public sealed record SelectionContext(
     public int AffinityRank(Substrate row) => WarmAffinity.Contains(row.Key) ? 0 : 1;
 
     public double LoadRank(Substrate row) => Loads.TryGetValue(row.Key, out double load) ? load : 0.0;
+
+    public Option<string> ShedVeto(Substrate row) =>
+        Shed.Shed && row.Sheddable ? Some($"shed:{Shed.Lane}:{Shed.Level.Key}") : None;
 }
 
 public static class SubstrateProbes {
     public static Option<string> Cpu(SelectionContext context) =>
         context.Level.Permits(Capability.LocalCompute) ? None : Some(Capability.LocalCompute.Key);
+
+    public static Option<string> DeviceWgpu(SelectionContext context) =>
+        OperatingSystem.IsBrowser() ? Some(nameof(OperatingSystem.IsBrowser))
+        : !context.Level.Permits(Capability.LocalCompute) ? Some(Capability.LocalCompute.Key)
+        : !context.Providers.Contains(Substrate.DeviceWgpu.Key) ? Some(Substrate.DeviceWgpu.Key)
+        : None;
 
     public static Option<string> Onnx(SelectionContext context) =>
         OperatingSystem.IsBrowser() ? Some(nameof(OperatingSystem.IsBrowser))
@@ -156,15 +166,18 @@ public static class SubstrateProbes {
 [KeyMemberEqualityComparer<ComputeKeyPolicy, string>]
 [KeyMemberComparer<ComputeKeyPolicy, string>]
 public sealed partial class Substrate {
-    public static readonly Substrate CpuTensor = new("cpu-tensor", rank: 0, payloadCapBytes: null, fallback: null, veto: SubstrateProbes.Cpu);
-    public static readonly Substrate Onnx = new("onnx", rank: 1, payloadCapBytes: null, fallback: "cpu-tensor", veto: SubstrateProbes.Onnx);
-    public static readonly Substrate GenAi = new("genai", rank: 1, payloadCapBytes: null, fallback: "remote-grpc", veto: SubstrateProbes.GenAi);
-    public static readonly Substrate RemoteGrpc = new("remote-grpc", rank: 2, payloadCapBytes: GrpcChannelPolicy.Canonical.MaxSendBytes, fallback: "cpu-tensor", veto: SubstrateProbes.Remote);
+    public static readonly Substrate CpuTensor = new("cpu-tensor", rank: 0, payloadCapBytes: null, fallback: null, sheddable: true, veto: SubstrateProbes.Cpu);
+    public static readonly Substrate DeviceWgpu = new("device-wgpu", rank: 0, payloadCapBytes: null, fallback: "cpu-tensor", sheddable: true, veto: SubstrateProbes.DeviceWgpu);
+    public static readonly Substrate Onnx = new("onnx", rank: 1, payloadCapBytes: null, fallback: "cpu-tensor", sheddable: false, veto: SubstrateProbes.Onnx);
+    public static readonly Substrate GenAi = new("genai", rank: 1, payloadCapBytes: null, fallback: "remote-grpc", sheddable: false, veto: SubstrateProbes.GenAi);
+    public static readonly Substrate RemoteGrpc = new("remote-grpc", rank: 2, payloadCapBytes: GrpcChannelPolicy.Canonical.MaxSendBytes, fallback: "cpu-tensor", sheddable: false, veto: SubstrateProbes.Remote);
 
     private readonly long? payloadCapBytes;
     private readonly string? fallback;
 
     public int Rank { get; }
+
+    public bool Sheddable { get; }
 
     public Option<long> PayloadCap => Optional(payloadCapBytes);
 
@@ -231,7 +244,7 @@ public sealed record SelectionReceipt(
 public static class SubstrateSelection {
     public static Seq<Substrate> Eligible(ComputeIntent intent) =>
         intent.Switch(
-            tensorOp: static _ => Seq(Substrate.CpuTensor, Substrate.RemoteGrpc),
+            tensorOp: static _ => Seq(Substrate.DeviceWgpu, Substrate.CpuTensor, Substrate.RemoteGrpc),
             modelInfer: static _ => Seq(Substrate.Onnx, Substrate.RemoteGrpc),
             remoteCall: static _ => Seq(Substrate.RemoteGrpc),
             unitProject: static _ => Seq(Substrate.CpuTensor),
@@ -259,7 +272,7 @@ public static class SubstrateSelection {
         Receipted(admitted, context, chain.Fold(
             (Route: Option<Substrate>.None, Hops: Seq<SelectionHop>()),
             (acc, row) => acc.Route.IsSome ? acc
-                : (row.Veto(context) | row.VetoPayload(admitted.PayloadBytes)) is { IsSome: true, Case: string reason }
+                : (row.Veto(context) | context.ShedVeto(row) | row.VetoPayload(admitted.PayloadBytes)) is { IsSome: true, Case: string reason }
                     ? (acc.Route, acc.Hops.Add(new SelectionHop(row, Some(reason))))
                     : (Some(row), acc.Hops.Add(new SelectionHop(row, None)))));
 
@@ -271,6 +284,7 @@ public static class SubstrateSelection {
 
 public sealed record DispatchTable(
     Func<AdmittedIntent, IO<Unit>> CpuTensor,
+    Func<AdmittedIntent, IO<Unit>> DeviceWgpu,
     Func<AdmittedIntent, IO<Unit>> Onnx,
     Func<AdmittedIntent, IO<Unit>> GenAi,
     Func<AdmittedIntent, IO<Unit>> RemoteGrpc) {
@@ -278,6 +292,7 @@ public sealed record DispatchTable(
         selection.Route.Switch(
             state: (Table: this, Work: admitted),
             cpuTensor: static s => s.Table.CpuTensor(s.Work),
+            deviceWgpu: static s => s.Table.DeviceWgpu(s.Work),
             onnx: static s => s.Table.Onnx(s.Work),
             genAi: static s => s.Table.GenAi(s.Work),
             remoteGrpc: static s => s.Table.RemoteGrpc(s.Work));

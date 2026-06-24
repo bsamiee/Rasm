@@ -8,31 +8,36 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 
 ```text codemap
 Rasm.AppHost/
-├── Runtime/             # Runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism
+├── Runtime/             # Runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism, orchestration, lane-guard
 │   ├── Profiles.cs      # Host-variance profile axis, lifetime adapters, power/thermal fidelity
-│   ├── Lifecycle.cs     # Total lifecycle/phase/drain/cancellation spine
+│   ├── Lifecycle.cs     # Total lifecycle/phase/drain/cancellation spine; fault-to-capture SupportTrigger.FaultTransition
 │   ├── Time.cs          # Injected clock pair, deadline taxonomy, and one scheduler
 │   ├── Resources.cs     # Bounded resource lanes: hybrid cache, object pools, drainable queues
 │   ├── Modules.cs       # One composition root folding and freezing service graph
 │   ├── Config.cs        # Ranked config-source chain with fail-closed source-gen binding
 │   ├── Ports.cs         # Seven inward port records — only cross-package seam
-│   └── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
+│   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
+│   ├── Orchestration.cs # Crash-durable workflow + persistent-job owner over CommandDispatch/EventLog/SchedulePort
+│   └── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead/adaptive-concurrency/load-shed/hedge/Simmy
 ├── Agent/               # Bidirectional agent surface over capability registry
 │   ├── Mcp.cs           # MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
-│   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling
+│   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling; model-selection + content-filter governance
 │   ├── Federation.cs    # Folds external MCP servers into one registry as brokered descriptors
-│   └── Capability.cs    # Self-describing CapabilityDescriptor op catalog and command algebra
+│   ├── Capability.cs    # Self-describing CapabilityDescriptor op catalog, command algebra, fenced distributed quota
+│   └── Runtime.cs       # One command-dispatch front door consolidating CommandAlgebra/CommandAIFunction/CommandReceipt
 ├── Wire/                # Outbound and external-binding seam
 │   ├── Outbound.cs      # Single outbound boundary with per-seam retry/cache and delivery fan-out
 │   ├── LiveWire.cs      # Reactive bidirectional external-binding studio over industrial-transport axis
-│   └── Companion.cs     # Multi-process modality axis and gRPC-over-UDS control-service host
+│   ├── Companion.cs     # Multi-process modality axis and gRPC-over-UDS control-service host
+│   ├── Topics.cs        # In-process event-bus topology over Dataflow fan-out/join/coalesce DrainSurface builders
+│   └── Outbox.cs        # Transactional outbox + dead-letter relay over the watermark-advancing dispatch sweep
 ├── Sandbox/             # Capability-brokered plugin isolation and solver-plugin contract
-│   ├── Isolation.cs     # Capability-brokered WASM/process plugin isolation with no-ambient-authority grants
+│   ├── Isolation.cs     # Capability-brokered WASM/process plugin isolation; unified BrokeredCall caller-modality mediation
 │   ├── Solver.cs        # Seven-kind solver-plugin contract with canonical-representation negotiation
-│   └── Provisioning.cs  # Post-fetch self-update state machine with health-gated rolling waves
+│   └── Provisioning.cs  # Post-fetch self-update state machine with the canary/blue-green/linear-wave RollStrategy axis
 └── Observability/       # Four-signal telemetry, health, and redacted support capture
     ├── Telemetry.cs     # Unified four-signal telemetry through minted identities and egress redaction
-    ├── Health.cs        # Resource-pressure health fold and degradation/alert rails
+    ├── Health.cs        # Resource-pressure health fold and degradation/alert rails; one atomic DegradationReading cell
     └── Bundles.cs       # Bounded redacted support capture
 ```
 
@@ -65,10 +70,11 @@ Runtime                     →  csharp:Rasm.Persistence/Store/encryption   # [P
 Runtime                     →  csharp:Rasm.Persistence/Sync/egress        # [PORT]: keyed OutboundHop egress
 Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                    # [PORT]: HLC two-half + TenantContext causal frame
 Agent/identity              ⇄  csharp:Rasm.Persistence                    # [PORT]: identity store (TenantId RLS)
-Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state
-Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox (same-tx)
+Agent/capability            ⇄  csharp:Rasm.Persistence                    # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
+Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
+Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
 Wire/coordination           ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease store
-Runtime                     →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
+Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 ```
 
 ## [03]-[SPINE]
