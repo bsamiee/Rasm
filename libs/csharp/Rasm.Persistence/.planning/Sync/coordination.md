@@ -157,7 +157,13 @@ public static class CoordStore {
         FencingToken token, Func<Option<CoordCell>, Fin<CoordCell>> transition) =>
         Transactions.Scoped(
             runtime.Contexts,
-            TxnScope.Serializable(new LockMode.RowExclusive()),
+            // The fenced conditional upsert is the write — its `(tenant_id, kind, coord_key)` unique
+            // constraint plus the `fence_token <= excluded.fence_token` reject-lower IS the serializer,
+            // so the scope needs no `SELECT … FOR UPDATE` row lock; the coarse `ROW EXCLUSIVE` table grant
+            // is the declaration the bracket receipts. The CAS replays bit-stable under serialization retry
+            // (a re-run reads the prior commit's accepted token and rejects-or-no-ops), so the tail is
+            // `RetrySafety.Idempotent` and `verifySucceeded` is `null` — never the double-apply `NonRetryable`.
+            TxnScope.Serializable(LockMode.On(TableLockMode.RowExclusiveTable, "coord_cell"), new RetrySafety.Idempotent()),
             // The Maintain arm carries the raw conditional-upsert statement: it runs the linq2db
             // MergeWithOutputAsync RETURNING write (UpdateWhenMatchedAnd carrying the fence reject-lower)
             // itself and never triggers the Upsert arm's SaveChangesAsync, because the fenced CAS is one
@@ -181,7 +187,7 @@ public static class CoordStore {
         Runtime runtime, TenantContext tenant, CoordKind kind, CoordQuery query, Func<Seq<CoordCell>, T> project) =>
         query switch {
             CoordQuery.Sweep s => Transactions.Scoped(
-                runtime.Contexts, new TxnScope(IsolationPolicy.ReadCommitted, Some<LockMode>(s.Lock), Seq<Savepoint>(), Prepared: false, None),
+                runtime.Contexts, new TxnScope(IsolationPolicy.ReadCommitted, Some(s.Lock), Seq<Savepoint>(), new RetrySafety.Idempotent(), Prepared: false, None),
                 new StoreOp<T>.Query(async (db, ct) => project(await SweepAfter(db, tenant.TenantId, kind, s.Watermark, ct))),
                 runtime.Policy, runtime.Clocks, runtime.Deadline),
             _ => StoreRail.Run(
@@ -278,7 +284,7 @@ public sealed record StepStateRow(
 public static class OutboxBacking {
     public static IO<Fin<Seq<OutboxRow>>> Pending(CoordStore.Runtime store, TenantContext tenant, ulong watermark) =>
         CoordStore.Read(store, tenant, CoordKind.Outbox,
-            new CoordQuery.Sweep(watermark, new LockMode.SkipLocked()),
+            new CoordQuery.Sweep(watermark, LockMode.ForUpdate(WaitPolicy.SkipLocked)),
             static rows => rows.Traverse(static c => c.Read<OutboxRow>()).As());
 
     public static IO<Fin<ulong>> Advance(CoordStore.Runtime store, TenantContext tenant, OutboxRow row, FencingToken token) =>

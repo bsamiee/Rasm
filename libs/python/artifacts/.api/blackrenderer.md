@@ -27,7 +27,7 @@
 |  [02]   | `blackrenderer.font.PaintFormat`                               | enum (32 members)   | COLRv1 paint-graph vocabulary (solid/gradient/transform/composite + Var mirrors) |
 |  [03]   | `blackrenderer.font.CompositeMode`                             | enum (28 members)   | COLRv1 blend set (CLEAR/SRC_OVER..XOR/PLUS..HSL_LUMINOSITY) |
 |  [04]   | `blackrenderer.font.VarStoreInstancer`                         | var resolver        | resolve `PaintVar*` deltas at a normalized axis location    |
-|  [05]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: name, gid, advances, offsets              |
+|  [05]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: `(name, gid, xAdvance, yAdvance, xOffset, yOffset)` |
 |  [06]   | `blackrenderer.render.BackendUnavailableError`                 | error               | requested backend module is not importable                  |
 |  [07]   | `blackrenderer.backends.base.Canvas`                           | abstract protocol   | path build, transform/scale/translate, clip, solid/gradient/rect draw, composite |
 |  [08]   | `blackrenderer.backends.base.Surface`                          | abstract protocol   | `canvas(boundingBox)` context, `saveImage(path)`, `fileExtension` |
@@ -46,7 +46,7 @@
 [ENTRYPOINT_SCOPE]: render one-shot and backend selection
 - rail: rasterize
 
-`renderText` is the single string-to-file surface: it loads the font, shapes the text with HarfBuzz, computes pixel bounds with `margin`, selects the backend by `backendName` (or infers `svg` for `.svg`, else `skia`), and serializes. `getSurfaceClass` returns the concrete `Surface` class or `None` when the backend module is unimportable; `listBackends` enumerates the `(backendName, suffixes)` registry rows.
+`renderText` is the single string-to-file surface: it loads the font, shapes the text with HarfBuzz, computes pixel bounds with `margin`, selects the backend by `backendName` (or infers `svg` for `.svg`, else `skia`), and serializes. `getSurfaceClass(backendName, imageExtension)` indexes the `_surfaces[extension][backend]` registry and returns the concrete `Surface` class, or `None` when the backend module is unimportable (it is also re-exported from `blackrenderer.render`). `listBackends` enumerates the `(backendName, suffixes)` registry rows; the live matrix is `cairo -> [.pdf, .png, .svg]`, `coregraphics -> [.pdf, .png]`, `skia -> [.pdf, .png, .svg]`, `svg -> [.svg]`.
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                                                                                         | [CAPABILITY]                                         |
 | :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |

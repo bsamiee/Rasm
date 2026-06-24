@@ -34,7 +34,7 @@
 [PUBLIC_TYPE_SCOPE]: color, norm, and tick types
 - rail: visuals
 
-`matplotlib.colormaps` is the singleton `ColormapRegistry` (`get`/`get_cmap`/`register`/`unregister`/`keys`/`items`); `matplotlib.color_sequences` is the qualitative-palette registry. The module-level `cm.get_cmap`/`register_cmap` accessors are removed in 3.11 — the registry mapping is the only colormap-lookup surface.
+`matplotlib.colormaps` is the singleton `ColormapRegistry` (`get`/`get_cmap`/`register`/`unregister`/`keys`/`items`/`values`); `matplotlib.color_sequences` is the singleton `ColorSequenceRegistry` (qualitative-palette registry). The module-level `cm.get_cmap`/`cm.register_cmap` accessors are removed in 3.11 — the registry mapping is the only colormap-lookup surface, and an unknown colormap name raises `KeyError` off the registry rather than returning a silent default.
 
 | [INDEX] | [SYMBOL]                                                  | [PACKAGE_ROLE] | [CAPABILITY]                      |
 | :-----: | :------------------------------------------------------- | :------------- | :-------------------------------- |

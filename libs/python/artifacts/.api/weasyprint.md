@@ -40,10 +40,12 @@
 
 | [INDEX] | [SYMBOL]      | [ROLE]                                                     |
 | :-----: | :------------ | :--------------------------------------------------------- |
-|  [01]   | `pages`       | list of `Page` objects                                     |
-|  [02]   | `metadata`    | `DocumentMetadata` (title/authors/description/dates/custom) |
-|  [03]   | `url_fetcher` | `URLFetcher` used for resource loading                     |
-|  [04]   | `fonts`       | resolved `Font` set                                        |
+|  [01]   | `pages`         | list of `Page` objects                                   |
+|  [02]   | `metadata`      | `DocumentMetadata` (title/authors/description/dates/custom) |
+|  [03]   | `url_fetcher`   | `URLFetcher` used for resource loading                   |
+|  [04]   | `fonts`         | resolved `Font` set                                      |
+|  [05]   | `color_profiles`| ICC color-profile registry resolved at render           |
+|  [06]   | `output_intent` | resolved ICC output-intent the PDF/A write embeds        |
 
 [PUBLIC_TYPE_SCOPE]: `Page` members
 - rail: pdf
@@ -145,9 +147,9 @@ These keywords are the variant/forms/tagging/optimization policy. Archival profi
 | [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [ROLE]                                       |
 | :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
 |  [01]   | `FontConfiguration.add_font_face(rule_descriptors, url_fetcher)`                                    | register       | register an `@font-face` rule                |
-|  [02]   | `CounterStyle` dict assignment (name -> `@counter-style` rule)                                       | register       | supply custom list/marker counter styles (dict mapping, no resolve method) |
+|  [02]   | `CounterStyle` dict assignment (name -> `@counter-style` rule)                                       | register       | `dict` subclass: assign `name -> @counter-style` rule, then `resolve_counter(values, previous_types)` / `render_value(counter_value, counter_name)` / `render_marker(counter_name, counter_value)` resolve markers, `copy()` clones the registry |
 |  [03]   | `URLFetcher.fetch(url, headers=None)`                                                                | fetch          | sandboxed/configured resource load; pass the instance as `url_fetcher=` |
-|  [04]   | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None, allow_redirects=True)` | fetch | load a URL or data URI resource              |
+|  [04]   | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` | fetch | load a URL or data URI resource (module function; `allow_redirects`/`fail_on_errors` live on the `URLFetcher` class, not this function) |
 |  [05]   | finisher: `finisher(document: Document, pdf: pydyf.PDF) -> None`                                     | post-process   | mutate the `pydyf.PDF` after layout, before write |
 
 ## [04]-[IMPLEMENTATION_LAW]
@@ -175,4 +177,4 @@ These keywords are the variant/forms/tagging/optimization policy. Archival profi
 - Package: `weasyprint`
 - Owns: HTML/CSS-to-PDF rendering via `pydyf`, paged layout, font/counter resolution, bookmark/link/anchor/form extraction, embedded attachments, and PDF/A + PDF/UA archival/accessible variant emission
 - Accept: a single HTML source with `base_url`; supplemental `CSS`; a per-render `FontConfiguration`/`CounterStyle`; archival output via `pdf_variant`/`pdf_tags`/`output_intent`; a `pydyf.PDF` `finisher`
-- Reject: hand-rolled HTML-to-PDF conversion; parallel layout engines; a cairo-era backend assumption; a phantom `Page.paint` low-level draw entry; wrapper-renames of `write_pdf`/`render`; forked code paths per PDF variant where a `**options` row suffices
+- Reject: hand-rolled HTML-to-PDF conversion; parallel layout engines; a cairo-era backend assumption; driving the real low-level `Page.paint(stream, scale=1)` draw primitive directly when `write_pdf`/`render` already own the page-to-PDF path; wrapper-renames of `write_pdf`/`render`; forked code paths per PDF variant where a `**options` row suffices

@@ -11,7 +11,7 @@
 - rail: compression
 - installed: `0.25.0` reflected via assay api on cp315 (`cp315-cp315-macosx_14_0_arm64` native wheel)
 - license: `BSD-3-Clause`
-- abi: native `_cffi`/`backend_c` extension; `backend` module attr reports `"cext"` vs `"cffi"` and `backend_features` enumerates the active build's optional capability set (`multi_compress_to_buffer`, `multi_decompress_to_buffer`, `buffer_with_segments` — absent under the pure-cffi fallback)
+- abi: native `_cffi`/`backend_c` extension; `backend` module attr reports `"cext"` vs `"cffi"` and `backend_features` enumerates the active build's optional capability set — the cp315 native wheel reports `{'buffer_types', 'multi_compress_to_buffer', 'multi_decompress_to_buffer'}`; these are absent under the pure-cffi fallback
 - marker floor: `cffi~=1.17` for `python_version<'3.14'`, `cffi>=2.0.0b` for `>=3.14`, only under the `cffi` extra; the C-extension build needs no cffi
 - entry points: none (library only)
 - capability: Zstandard one-shot, streaming, incremental, and threaded-batch compression/decompression; trained dictionaries; frame inspection; advanced compression-parameter tuning; magicless and content-size/checksum frame-header policy
@@ -25,13 +25,12 @@
 | :-----: | :-------------------------- | :------------------ | :--------------------------------------------------------------------------------- |
 |  [01]   | `ZstdCompressor`            | compressor root     | level/dict/params/threads-configured compression root; all modalities are methods  |
 |  [02]   | `ZstdDecompressor`          | decompressor root   | dict/window/format-configured decompression root; all modalities are methods       |
-|  [03]   | `ZstdCompressionDict`       | trained dictionary  | shared small-payload dictionary; `dict_id`/`as_bytes`/`precompute_compress`         |
-|  [04]   | `ZstdCompressionParameters` | parameter object    | full advanced tuning; `from_level` derives a param set; `estimated_*_context_size`  |
-|  [05]   | `CompressionParameters`     | param alias         | subclass alias of `ZstdCompressionParameters` (legacy name; no added surface)       |
-|  [06]   | `FrameParameters`           | frame header view   | `content_size`/`window_size`/`dict_id`/`has_checksum` parsed from a frame header    |
+|  [03]   | `ZstdCompressionDict`       | trained dictionary  | shared small-payload dictionary; `dict_id`/`as_bytes`/`precompute_compress(level=, compression_params=)`; `k`/`d` carry the trained COVER params |
+|  [04]   | `ZstdCompressionParameters` | parameter object    | full advanced tuning; `from_level(level, source_size=, dict_size=, **overrides)` derives a param set; readable `window_log`/`hash_log`/`chain_log`/`search_log`/`min_match`/`target_length`/`strategy`/`enable_ldm`/`ldm_*`/`overlap_log`/`threads`/`job_size`/`write_checksum`/`write_content_size`/`write_dict_id`; `estimated_compression_context_size()` |
+|  [05]   | `FrameParameters`           | frame header view   | `content_size`/`window_size`/`dict_id`/`has_checksum` parsed from a frame header    |
 
 [PUBLIC_TYPE_SCOPE]: streaming and incremental carriers
-- rail: compression — minted by root methods, never constructed directly
+- rail: compression — minted by root methods, never constructed directly. These are the typed return shapes the `__init__.pyi` stub declares; under the `cext` build `ZstdCompression*Reader`/`Writer` are real module attributes, while `compressobj()`/`decompressobj()`/`chunker()` return `backend_c` runtime classes (`chunker()` -> `ZstdCompressionChunkerType`) that are NOT re-exported as `zstandard.*` names — bind them by the method that mints them, never by import
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]       | [CAPABILITY]                                                                   |
 | :-----: | :---------------------------- | :------------------- | :----------------------------------------------------------------------------- |
@@ -44,7 +43,7 @@
 |  [07]   | `ZstdCompressionChunker`      | fixed-size chunker   | `compress`/`flush`/`finish` emitting uniform output chunks from `chunker`       |
 
 [PUBLIC_TYPE_SCOPE]: zero-copy batch buffers and faults
-- rail: compression — buffer carriers are present only when `backend_features` advertises them
+- rail: compression — buffer carriers are present only when `backend_features` advertises `'buffer_types'` (the cext capability flag; the cffi fallback omits it along with `multi_*_to_buffer`)
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                                              |
 | :-----: | :-------------------------------- | :--------------- | :----------------------------------------------------------------------- |
@@ -124,7 +123,7 @@
 - dictionary axis: `ZstdCompressionDict` via `train_dictionary` (COVER algorithm; `k`/`d`/`steps`/`accel` tune training) is the small-payload optimization, passed as `dict_data=` on either root. `DICT_TYPE_*` selects auto/fulldict/rawcontent interpretation; `precompute_compress` caches the compression-side dictionary state. Never a separate dict-codec type.
 - parameter axis: `ZstdCompressionParameters` (or `.from_level(level, source_size=, dict_size=)`) carries window/hash/chain/search logs, `strategy` (`STRATEGY_*`), long-distance-matching (`enable_ldm`, `ldm_*`), and `threads`; `estimated_compression_context_size()` sizes the context before allocation. Pass as `compression_params=` instead of scattering raw ints.
 - frame axis: `get_frame_parameters`/`frame_content_size`/`frame_header_size` inspect a frame header without decoding; `FORMAT_ZSTD1_MAGICLESS` strips the 4-byte magic for embedded frames and must match on both roots. `read_across_frames`/`allow_extra_data` on decompress govern multi-frame and trailing-byte tolerance.
-- batch axis: `BufferWithSegments(data, segments)` frames many payloads in one allocation; `multi_*_to_buffer(..., threads=N)` runs zero-copy threaded batch codec returning a `BufferWithSegmentsCollection` — gate on `'multi_compress_to_buffer' in zstandard.backend_features` because the cffi fallback omits it.
+- batch axis: `BufferWithSegments(data, segments)` frames many payloads in one allocation; `multi_*_to_buffer(..., threads=N)` runs zero-copy threaded batch codec returning a `BufferWithSegmentsCollection` — gate on `'multi_compress_to_buffer' in zstandard.backend_features` for the method and `'buffer_types' in zstandard.backend_features` for the `BufferWithSegments` carrier; the cffi fallback omits both flags (the cp315 native wheel advertises all three).
 - abi axis: `zstandard.backend` is `"cext"` (native) or `"cffi"` (pure-Python fallback); `backend_features` is the capability set. Treat batch-buffer ops as conditional on the C extension; the streaming/one-shot/incremental rails are present under both backends.
 - integration: feed a `stamina`-retried boundary call producing the input bytes, compress the canonical `msgspec.msgpack.encode(...)` payload with a level/`threads`-tuned `ZstdCompressor`, and stamp an `otel` span with `level`, `dict_id`, `frame_content_size`, and `frame_progression()` produced-byte count. For many small records sharing structure, `train_dictionary` once and thread the `ZstdCompressionDict` through every per-record `compress`; for a streaming sink, wrap the downstream writer in `stream_writer(...)` so back-pressure stays in the codec, not in an in-RAM buffer.
 - evidence: each codec call captures level, `dict_id`, `frame_content_size`, input/output byte lengths, `threads`, `format`, and checksum flag as a compression receipt.

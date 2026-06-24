@@ -9,12 +9,12 @@
 - import: `colour`
 - owner: `artifacts`
 - rail: colour
-- installed: `0.4.7` reflected via `import colour; colour.__version__` on cp313
+- version: `0.4.7` (lockfile-resolved; imports and runs on cp315)
 - license: `BSD-3-Clause`
 - wheel: `colour_science-0.4.7-py3-none-any.whl` — pure Python, no native build; runtime dep `numpy`
 - marker: `python_requires <3.15,>=3.11`; SciPy and Matplotlib are optional accelerators — interpolation/optimisation and `plot_*` surfaces warn and degrade (or are absent) when those packages are not installed
 - entry points: none (library only)
-- capability: spectral distribution representation and resampling, XYZ/RGB/Lab/LCH/CAM appearance transforms, universal `convert` model-pair gateway, chromatic adaptation, CCTF encode/decode, colour difference (`delta_E`), LUT IO (`.cube`/`.clf`/`.csp`), image IO, CCT and chromaticity transforms, dominant/complementary wavelength, whiteness/yellowness and colour-quality indices, and dataset registries for CMFS, illuminants, and light sources
+- capability: spectral distribution representation and resampling, XYZ/RGB/Lab/LCH/CAM appearance transforms, universal `convert` model-pair gateway, direct named-RGB→RGB conversion (`RGB_to_RGB`) and primary/adaptation matrices, scene/display transfer functions (`oetf`/`eotf`/`ootf`), measured colour correction (`colour_correction`), chromatic adaptation, CCTF encode/decode, colour difference (`delta_E`), LUT IO (`.cube`/`.clf`/`.csp`), image IO, CCT and chromaticity transforms, dominant/complementary wavelength, whiteness/yellowness and colour-quality indices, and dataset registries for CMFS, illuminants, and light sources
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -93,6 +93,16 @@
 |  [05]   | `domain_range_scale(scale)` / `get_domain_range_scale()` / `set_domain_range_scale(scale)` | scale context  | `'reference'` / `'1'` / `'100'` mode control            |
 |  [06]   | `describe_conversion_path(source, target)`                                                 | graph query    | list conversion path between two colour models          |
 
+[ENTRYPOINT_SCOPE]: RGB-space, transfer-function, and colour-correction operations
+- rail: colour
+
+| [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY]          | [CAPABILITY]                                                                          |
+| :-----: | :--------------------------------------------------------------------------------------------------------------- | :---------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `RGB_to_RGB(RGB, input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02', apply_cctf_decoding, apply_cctf_encoding)` | RGB-space conversion | direct named-RGB to named-RGB with built-in chromatic adaptation, no XYZ round-trip |
+|  [02]   | `matrix_RGB_to_RGB(input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02')` / `normalised_primary_matrix(primaries, whitepoint)` | RGB matrix | the 3×3 adaptation-baked RGB→RGB matrix and the NPM from primaries+whitepoint |
+|  [03]   | `oetf(value, function='ITU-R BT.709')` / `eotf(value, function='ITU-R BT.1886')` / `ootf(value, function='ITU-R BT.2100 PQ')` | transfer function | scene/display/end-to-end transfer trio, method-dispatched (`OETFS`/`EOTFS`/`OOTFS` registries) |
+|  [04]   | `colour_correction(RGB, M_T, M_R, method='Cheung 2004')` / `matrix_colour_correction(M_T, M_R, method='Cheung 2004')` / `apply_matrix_colour_correction(RGB, CCM)` | colour correction | measured-vs-reference CCM derivation and application (`Cheung 2004`/`Finlayson 2015`/`Vandermonde`) |
+
 [ENTRYPOINT_SCOPE]: CCT, wavelength, and colour-quality operations
 - rail: colour
 
@@ -121,7 +131,8 @@
 - namespace: `colour`; 408 public `__all__` symbols covering spectral, colorimetric, appearance, adaptation, difference, CCT, chromaticity, IO, dataset, and interpolation domains
 - domain-range scale: three modes — `'reference'` (native), `'1'` (normalised), `'100'` (percentage); use the `domain_range_scale` context manager at the boundary or `set_domain_range_scale` for the call stack; interior calls never toggle it
 - dispatch: `convert` is the universal entry point keyed on `source`/`target` model strings; the named transforms (`XYZ_to_Lab`, `XYZ_to_CIECAM02`, `CCT_to_xy`, …) are the direct rows and accept the same `**kwargs`/`method=` axis for method selection — never a per-method wrapper
-- method registries: `CHROMATIC_ADAPTATION_METHODS`, `DELTA_E_METHODS`, `CCTF_ENCODINGS`, `CCTF_DECODINGS`, `SD_TO_XYZ_METHODS` enumerate the admitted method strings; the `method=` argument is a registry-key row, never a parallel function
+- method registries: `CHROMATIC_ADAPTATION_METHODS`, `DELTA_E_METHODS`, `CCTF_ENCODINGS`, `CCTF_DECODINGS`, `SD_TO_XYZ_METHODS`, and the transfer-function maps `OETFS`/`EOTFS`/`OOTFS` enumerate the admitted method strings; the `function=`/`method=` argument is a registry-key row, never a parallel function
+- transfer vs CCTF: `cctf_encoding`/`cctf_decoding` are the generic gamma/log CCTF rows, while `oetf`/`eotf`/`ootf` select the named broadcast transfer functions (`'ITU-R BT.709'`, `'ITU-R BT.1886'`, `'ITU-R BT.2100 PQ'`, …) — distinct registries, both `function=` rows; `RGB_to_RGB` carries `chromatic_adaptation_transform=` and optional `apply_cctf_decoding`/`apply_cctf_encoding`, so an HDR or wide-gamut RGB→RGB conversion is one call, never a hand-chained XYZ round-trip; `colour_correction` derives and applies a measured-to-reference CCM keyed by `method=` (`Cheung 2004`/`Finlayson 2015`/`Vandermonde`)
 - colourspace catalog: `RGB_COLOURSPACES` is a keyed registry; `RGB_Colourspace` instances carry primaries, whitepoint, encoding/decoding CCTFs, and derivable XYZ matrices
 - dataset registries: `MSDS_CMFS`, `SDS_ILLUMINANTS`, `CCS_ILLUMINANTS`, `SDS_LIGHT_SOURCES` are keyed dataset maps; CMFS and illuminant SPDs are looked up by name, never reconstructed
 - spectral: `SpectralShape(start, end, interval)` drives wavelength grids; SPDs align via `SpectralDistribution.align(shape)` and interpolate/extrapolate through the registered interpolator family (`SpragueInterpolator` for uniform CIE work, `Extrapolator` for boundary extension)

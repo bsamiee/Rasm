@@ -8,8 +8,8 @@
 - import: `svgelements`
 - owner: `artifacts`
 - rail: figure
-- asset: pure-Python runtime library (no native build; `py3-none-any` wheel); zero install-time dependencies
-- installed: `1.9.6` reflected via `svgelements.SVGELEMENTS_VERSION` (the module exposes no `__version__`) on cp315
+- asset: pure-Python runtime library (no native build; `py2.py3-none-any` universal wheel, interpreter-agnostic); zero install-time dependencies
+- installed: `1.9.6` reflected via `svgelements.SVGELEMENTS_VERSION` (the module exposes no `__version__`); cp315-clean
 - entry points: none (library only)
 - capability: SVG document parse from path/stream/string, full `PathSegment` algebra (move/line/close/quadratic/cubic/arc with smooth/relative variants), spec-faithful affine transform with pre/post compose and inverse, length/color/angle/point value objects with unit resolution and color-channel/blend math, the document-tree node vocabulary (group/use/text/image/shape primitives), bounding-box query with stroke option, viewport/viewBox resolution, and `reify` transform-baking
 
@@ -83,22 +83,26 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (o
 [ENTRYPOINT_SCOPE]: `Path` construct, build, serialize, query
 - rail: figure
 
-`Path(d)` parses an SVG `d` string; the builder rows (`move`/`line`/`cubic`/`quad`/`arc`/`horizontal`/`vertical`/`smooth_*`/`close`) append segments fluently; `d()`/`bbox()`/`length()`/`point()` query and serialize. The path is one mutable owner — figure composition reads bounds, transforms by `*`, and re-serializes through the same `Path`, never a re-parsed string.
+`Path("M0,0 …")` parses an SVG `d` string; the builder rows (`move`/`line`/`cubic`/`quad`/`arc`/`horizontal`/`vertical`/`smooth_*`/`closed`) append segments fluently, each accepting `relative=`; `d()`/`bbox()`/`length()`/`point()` query and serialize. The path is one mutable owner — figure composition reads bounds, transforms by `*`, and re-serializes through the same `Path`, never a re-parsed string. The arc/bezier-approximation rows flatten curves for a downstream consumer that only accepts polylines or cubics.
 
 | [INDEX] | MEMBER                                          | KIND      | ROLE                                                        |
 | :-----: | ----------------------------------------------- | --------- | ----------------------------------------------------------- |
-|  [01]   | `Path(d=None, ...)`                             | construct | build a path from an SVG `d` string or empty                |
-|  [02]   | `Path.d(relative=None, transformed=True, smooth=None)` | serialize | emit the SVG `d` path-data string                    |
+|  [01]   | `Path(*args, **kwargs)` / `Path.parse(d)`       | construct | build a path from `d` string, segment list, or empty (`Path("M0,0 L10,10 Z")`) |
+|  [02]   | `Path.d(relative=None, transformed=True, smooth=None)` / `Path.svg_d(...)` | serialize | emit the SVG `d` path-data string (`svg_d` is the cached alias) |
 |  [03]   | `Path.bbox(transformed=True, with_stroke=False)` | query    | bounding box `(xmin, ymin, xmax, ymax)`                     |
 |  [04]   | `Path.point(position, error=1e-12)`             | query     | point at parametric position `0..1`                         |
 |  [05]   | `Path.npoint(positions, error=1e-12)`           | query     | vectorized points at multiple parametric positions          |
 |  [06]   | `Path.length(error=1e-12, min_depth=5)`         | query     | arc length of the path                                      |
 |  [07]   | `Path.segments(transformed=True)`               | iterate   | the `PathSegment` list (optionally transformed)             |
-|  [08]   | `Path.as_subpaths()` / `count_subpaths()`       | iterate   | split into `Subpath` views                                  |
+|  [08]   | `Path.as_subpaths()` / `subpath(index)` / `count_subpaths()` | iterate | split into / address `Subpath` views               |
 |  [09]   | `Path.as_points()`                              | iterate   | the segment endpoint `Point` sequence                       |
 |  [10]   | `Path.reify()`                                  | bake      | bake the path's own transform into segment coordinates      |
-|  [11]   | `Path.move/line/cubic/quad/arc/horizontal/vertical/smooth_cubic/smooth_quad/close` | build | fluent segment-append builder rows                          |
-|  [12]   | `Path.reverse()`                                | transform | reverse segment order                                       |
+|  [11]   | `Path.move/line/cubic/quad/arc/horizontal/vertical/smooth_cubic/smooth_quad` `(*points, relative=False)` | build | fluent segment-append builder rows (each takes `relative=`) |
+|  [12]   | `Path.closed(relative=False)` / `Path.direct_close()` | build | append a `Close` to the current subpath (`closed` honors the relative flag) |
+|  [13]   | `Path.approximate_arcs_with_cubics(error=0.1)` / `approximate_arcs_with_quads(error=0.1)` | flatten | replace every `Arc` with cubic/quad Beziers for a consumer that cannot render arcs |
+|  [14]   | `Path.approximate_bezier_with_circular_arcs(error=0.01)` | flatten | replace cubics with circular arcs (toolpath/G-code egress) |
+|  [15]   | `Path.first_point` / `current_point` / `start` / `end` / `is_degenerate()` | state   | pen-state and degeneracy for incremental building          |
+|  [16]   | `Path.reverse()`                                | transform | reverse segment order                                       |
 
 [ENTRYPOINT_SCOPE]: `Matrix` construct, compose, apply
 - rail: figure
@@ -127,9 +131,9 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (o
 | :-----: | ----------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
 |  [01]   | `Length(value).value(ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None)` | resolve | resolve a length to absolute px                            |
 |  [02]   | `Length.to_mm()` / `to_cm()` / `to_inch()` / `in_pixels()` / `value_in_units(unit, ...)`        | convert | absolute-unit conversions                                  |
-|  [03]   | `Color(value)` / `Color.parse(value)` / `parse_color_hex/hsl/rgb/rgbp/lookup`                   | parse   | SVG/CSS color literal -> `Color` (channels) or int value   |
-|  [04]   | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance`                        | channel | channel and derived-property access                        |
-|  [05]   | `Color.rgb()` / `rgba()` / `hsl()` / `over(bg)` / `distance(a, b)` / `blend(...)`               | math    | color construction, alpha-over composite, distance metric  |
+|  [03]   | `Color(*args)` / `Color.parse(color_string)` (static) / `Color.parse_color_hex/hsl/rgb/rgbp/lookup` (static) | parse | SVG/CSS color literal -> `Color` (channels) or int value |
+|  [04]   | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance`                        | channel | channel and derived-property (read/write) access           |
+|  [05]   | `Color.rgb` / `rgba` / `hsl` (props) ; `Color.over(c1, c2)` / `distance(c1, c2)` (static) / `instance.blend(other, opacity=None)` | math | color construction, alpha-over composite, distance metric  |
 |  [06]   | `Angle.parse(value)` / `as_degrees` / `as_radians` / `as_turns` / `as_gradians` / `normalized()` | angle  | CSS-angle parse and unit projection                        |
 |  [07]   | `Point(x, y)` / `Point.distance_to(p)` / `angle_to(p)` / `matrix_transform(m)` / `reflected_across(p)` / `polar_to(angle, dist)` | point | point geometry, transform, reflection, polar      |
 
@@ -139,7 +143,7 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (o
 - parse axis: `SVG.parse` is the single ingestion factory across filename/stream/string; `reify=True` resolves transforms into element geometry so a downstream consumer reads absolute coordinates; `ppi`/`width`/`height` seed the viewport for unit resolution and `on_error` controls malformed-input policy (`'ignore'`/`'raise'`), never a per-source parser type.
 - iterate axis: `elements(conditional=)` is the single polymorphic selection surface — a predicate discriminates which resolved nodes the iterator yields; there is no `find`/`select_by_tag`/`filter` family, the predicate carries the discrimination.
 - transform axis: `Matrix` is the one affine owner; `scale`/`translate`/`rotate`/`skew` are bare factory rows, `pre_*`/`post_*` compose in the requested order, and a shape or path transforms by `element * matrix` (returns the same node type), never a hand-rolled coordinate-transform helper.
-- path axis: `Path` is the single mutable `MutableSequence` of `PathSegment`; the segment vocabulary (`Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc`) is the bounded grammar, fluent `move`/`line`/`cubic`/`quad`/`arc`/`smooth_*`/`close` builders append, and `d()`/`bbox()`/`length()`/`point()` query and serialize through one owner, never a re-parsed path string.
+- path axis: `Path` is the single mutable `MutableSequence` of `PathSegment`; the segment vocabulary (`Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc`) is the bounded grammar, fluent `move`/`line`/`cubic`/`quad`/`arc`/`smooth_*`/`closed` builders (each taking `relative=`) append, and `d()`/`bbox()`/`length()`/`point()` query and serialize through one owner, never a re-parsed path string. The arc-flattening rows (`approximate_arcs_with_cubics`/`approximate_arcs_with_quads`, `approximate_bezier_with_circular_arcs`) are the native pipeline for a consumer that cannot render arcs/cubics (a toolpath or polyline egress) — flatten through the owner, never re-sample the `d` string.
 - node axis: the document tree is `Shape(SVGElement, GraphicObject, Transformable)` subclasses plus `Group`/`Use` containers; figure composition reads each node's `bbox()` and transforms by `*`, so n-up/scale-to-fit/crop operates on typed nodes, never on raw XML.
 - unit axis: `Length`/`Color`/`Angle`/`Point` are spec-faithful value objects; `Length.value(ppi=...)` resolves to absolute px for document egress and `Color.parse`/channel access answers the color question, never a raw float multiply or string slice.
 - query axis: `bbox(transformed=, with_stroke=)` on shapes and paths and `elements()` iteration answer the layout-and-bounds question that figure composition (n-up, scale-to-fit, crop) needs, never a re-implemented SVG geometry engine.

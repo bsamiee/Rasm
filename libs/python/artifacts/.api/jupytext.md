@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_JUPYTEXT]
 
-`jupytext` supplies the notebook<->text pairing surface for the artifacts reports rail: a polymorphic `read`/`reads`/`write`/`writes` quartet that exchanges an `nbformat.NotebookNode` across `.ipynb` and the text grammars (`py:percent`, `py:light`, `md`, `md:myst`, `Rmd`, `qmd`, `R`, `jl`, marimo, ...), a `JupytextConfiguration` traitlets policy object that drives paired-format selection and metadata filtering, the `jupytext.formats` registry that resolves and normalizes the `fmt` selector, and the jupyter-server contents managers for live paired editing. The package owner composes `read`, `writes`, `guess_format`, and `JupytextConfiguration` into the reports pairing path; it removes any hand-rolled cell-block parser because jupytext owns the percent/light/myst grammar end to end, and it never re-implements the `nbformat` round-trip jupytext already drives. jupytext is the text-source pairing layer feeding the `nbclient`/`papermill` execution rail and the `nbconvert` export rail, never a parallel notebook executor or HTML renderer.
+`jupytext` supplies the notebook<->text pairing surface for the artifacts reports rail: a polymorphic `read`/`reads`/`write`/`writes` quartet that exchanges an `nbformat.NotebookNode` across `.ipynb` and the text grammars (`py:percent`, `py:light`, `md`, `md:myst`, `Rmd`, `qmd`, `R`, `jl`, marimo, ...), a `config.JupytextConfiguration` traitlets policy object that drives paired-format selection and metadata filtering, the `jupytext.formats` registry that resolves and normalizes the `fmt` selector, and the jupyter-server contents managers for live paired editing. The package owner composes `read`, `writes`, `guess_format`, and `config.JupytextConfiguration` into the reports pairing path; it removes any hand-rolled cell-block parser because jupytext owns the percent/light/myst grammar end to end, and it never re-implements the `nbformat` round-trip jupytext already drives. jupytext is the text-source pairing layer feeding the `nbclient`/`papermill` execution rail and the `nbconvert` export rail, never a parallel notebook executor or HTML renderer.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - import: `jupytext`
 - owner: `artifacts`
 - rail: reports
-- installed: `1.19.3` (PyPI, cp315 core; pure Python, no ABI floor) — depends on `nbformat`, `markdown-it-py`, `mdit-py-plugins`, `pyyaml`
+- installed: `1.19.4` (PyPI, cp315 core; pure Python `py3-none-any`, no ABI floor; ungated in the manifest) — depends on `nbformat`, `markdown-it-py`, `mdit-py-plugins`, `pyyaml`
 - license: MIT
 - entry points: console scripts `jupytext` (conversion CLI) and `jupytext-config` (contents-manager config); jupyter-server contents-manager plugins; library use is import-only
 - capability: bidirectional notebook<->text conversion across `.ipynb`/`md`/`markdown`/`Rmd`/`qmd`/`myst`/`mystnb` and the script extensions (`py:percent`, `py:light`, `R`, `jl`, marimo, sphinx-gallery, ...), content-based format auto-detection, per-format implementation lookup, traitlets-backed pairing configuration with metadata filtering, optional pandoc/myst markdown engines, and jupyter-server contents managers for paired editing
@@ -19,17 +19,17 @@
 [PUBLIC_TYPE_SCOPE]: conversion exchange and pairing roots
 - rail: reports
 
-`read`/`reads`/`write`/`writes` exchange an `nbformat` notebook (`nbformat.NotebookNode`), not a jupytext-owned type; `fmt` is a short-form string (`py:percent`) or a long-form dict (`{"extension": ".py", "format_name": "percent"}`). `JupytextConfiguration` is the traitlets policy object that carries the paired formats, metadata filters, and cell-marker conventions; it is constructed once and threaded through `config=`. `NOTEBOOK_EXTENSIONS` enumerates every extension the conversion surface accepts. `TextFileContentsManager`/`AsyncTextFileContentsManager` are the jupyter-server contents managers built by the class builders; when jupyter-server is absent they evaluate to a deferred raiser.
+`read`/`reads`/`write`/`writes` exchange an `nbformat` notebook (`nbformat.NotebookNode`), not a jupytext-owned type; `fmt` is a short-form string (`py:percent`) or a long-form dict (`{"extension": ".py", "format_name": "percent"}`). `config.JupytextConfiguration` is the traitlets policy object that carries the paired formats, metadata filters, and cell-marker conventions; it is constructed once (or resolved by `config.load_jupytext_config`) and threaded through `config=`. The top-level `jupytext` re-exports only the verb quartet, `NOTEBOOK_EXTENSIONS`, `get_format_implementation`, `guess_format`, and the two contents-manager classes plus their builders (its `__all__`); `JupytextConfiguration` and `TextNotebookConverter` are submodule symbols (`jupytext.config` / `jupytext.jupytext`), never top-level. `NOTEBOOK_EXTENSIONS` enumerates every extension the conversion surface accepts. `TextFileContentsManager`/`AsyncTextFileContentsManager` are the jupyter-server contents managers built by the class builders; when jupyter-server is absent they evaluate to a deferred raiser.
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                                  |
 | :-----: | :----------------------------- | :--------------- | :----------------------------------------------------- |
-|  [01]   | `JupytextConfiguration`        | policy object    | traitlets config: `default_jupytext_formats`, `preferred_jupytext_formats_save`, `notebook_metadata_filter`, `cell_metadata_filter`, cell-marker conventions |
+|  [01]   | `config.JupytextConfiguration` | policy object    | traitlets config: `default_jupytext_formats`, `preferred_jupytext_formats_save`, `notebook_metadata_filter`, `cell_metadata_filter`, `cell_markers`, `comment_magics`, `hide_notebook_metadata`, `root_level_metadata_as_raw_cell` |
 |  [02]   | `NOTEBOOK_EXTENSIONS`          | constant         | accepted notebook/text extensions list (`.ipynb`/`.md`/`.Rmd`/`.qmd`/`.py`/`.R`/`.jl`/`.myst`/...) |
 |  [03]   | `formats.JUPYTEXT_FORMATS`     | registry         | list of `NotebookFormatDescription` rows (ext + format_name + reader/exporter) |
 |  [04]   | `formats.MYST_FORMAT_NAME`     | constant         | the `myst` format-name literal                         |
-|  [05]   | `jupytext.TextNotebookConverter` | converter      | text<->`NotebookNode` engine `read`/`write` route to    |
-|  [06]   | `TextFileContentsManager`      | contents manager | jupyter-server sync contents manager for paired files  |
-|  [07]   | `AsyncTextFileContentsManager` | contents manager | jupyter-server async contents manager for paired files |
+|  [05]   | `jupytext.jupytext.TextNotebookConverter` | converter | text<->`NotebookNode` engine `read`/`write` route to (submodule symbol, not top-level) |
+|  [06]   | `TextFileContentsManager`      | contents manager | jupyter-server sync contents manager for paired files (top-level `__all__`)  |
+|  [07]   | `AsyncTextFileContentsManager` | contents manager | jupyter-server async contents manager for paired files (top-level `__all__`) |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: reports
@@ -102,7 +102,7 @@ Per-grammar `*_to_notebook`/`notebook_to_*` functions are the lower-level conver
 - conversion axis: one `read`/`reads` pair owns parsing and one `write`/`writes` pair owns serialization; the file-vs-string distinction is the `fp`/`text` argument, never a parallel reader type; `read`/`write` delegate to `reads`/`writes` after extension handling and route every text grammar through one `TextNotebookConverter`.
 - format axis: `fmt` is the single format selector — short form (`py:percent`) or long-form dict — keyed per call and normalized through `long_form_*`/`short_form_*`; `.ipynb` round-trips through `nbformat` while text formats route through the registry implementation, never a per-format function family at the boundary.
 - detection axis: `guess_format`/`divine_format` resolve `(format_name, format_options)` from content and extension; `get_format_implementation` resolves the `NotebookFormatDescription` row; format identity is data over `JUPYTEXT_FORMATS`, never a hard-coded branch.
-- config axis: one `JupytextConfiguration` (via `load_jupytext_config`) carries paired formats, metadata filters, and cell-marker conventions threaded through `config=`; metadata filtering and paired-save policy are config traits, never per-call flags scattered across the owner.
+- config axis: one `config.JupytextConfiguration` (via `config.load_jupytext_config`) carries paired formats, metadata filters, and cell-marker conventions threaded through `config=`; metadata filtering and paired-save policy are config traits, never per-call flags scattered across the owner.
 - exchange axis: the notebook payload is the `nbformat.NotebookNode` from `nbformat.read`/`reads`; jupytext owns the text<->node mapping and never mints a parallel notebook model.
 - pairing axis: `TextFileContentsManager`/`AsyncTextFileContentsManager`, built by the contents-manager class builders, own paired `.ipynb`<->text editing inside a jupyter-server host; absent jupyter-server they are deferred raisers, never a silent no-op.
 - evidence: each conversion captures source extension, resolved `format_name`, format options, `nbformat` major/minor version, and output byte length as a reports receipt.

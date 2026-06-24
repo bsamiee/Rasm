@@ -36,7 +36,7 @@
 |  [12]   | `PdfAttachment`           | attachment     | embedded-file attachment (`get_data`/`set_data`/`get_name`/params)  |
 |  [13]   | `PdfMatrix`               | affine matrix  | transform value object for render/object placement                  |
 |  [14]   | `PdfColorScheme`          | render colors  | render color override (`path_fill`/`path_stroke`/`text_fill`/`text_stroke`) |
-|  [15]   | `PdfPosConv`              | coord converter | page<->bitmap coordinate conversion (from `PdfBitmap.get_posconv`)   |
+|  [15]   | `PdfPosConv`              | coord converter | page<->bitmap coordinate conversion via `to_page(x, y)`/`to_bitmap(x, y)` (from `PdfBitmap.get_posconv(page)`) |
 |  [16]   | `raw` (`pypdfium2_raw`)   | ctypes bindings | the full PDFium C API (`FPDF_*`) escape hatch for surfaces the helpers do not wrap |
 
 [PUBLIC_TYPE_SCOPE]: faults
@@ -61,7 +61,7 @@
 |  [05]   | `PdfDocument.import_pages`     | `import_pages(pdf, pages=None, index=None) -> None`          | splice pages from another document                    |
 |  [06]   | `PdfDocument.page_as_xobject`  | `page_as_xobject(index, dest_pdf) -> PdfXObject`             | reuse a page as a stampable form XObject              |
 |  [07]   | `PdfDocument.get_toc`          | `get_toc(max_depth=15) -> Iterator[PdfBookmark]`             | walk the outline                                      |
-|  [08]   | `PdfDocument.get_metadata_dict` / `get_metadata_value` | `get_metadata_dict(skip_empty=False)` / `get_metadata_value(key)` | recover docinfo metadata (keys in `METADATA_KEYS`)    |
+|  [08]   | `PdfDocument.get_metadata_dict` / `get_metadata_value` | `get_metadata_dict(skip_empty=False)` / `get_metadata_value(key)` | recover docinfo metadata (standard keys `Title`/`Author`/`Subject`/`Keywords`/`Creator`/`Producer`/`CreationDate`/`ModDate`) |
 |  [09]   | `PdfDocument.get_identifier` / `get_version` / `get_pagemode` / `is_tagged` / `get_page_label` | accessors        | document identity/version/page-mode/tagged/page-label |
 |  [10]   | `PdfDocument` attachments      | `count_attachments()` / `get_attachment(i)` / `new_attachment(name)` / `del_attachment(i)` | embedded-file attachment table                        |
 |  [11]   | `PdfDocument.init_forms`       | `init_forms(config=None) -> None`                            | enable the AcroForm/XFA form environment              |
@@ -94,7 +94,7 @@ Text rows share range, bounds, char-index, and search policy; char-geometry rows
 |  [03]   | `PdfTextPage.get_text_bounded` | `get_text_bounded(left=None, bottom=None, right=None, top=None, errors="ignore") -> str` | extract text within a rectangle                       |
 |  [04]   | `PdfTextPage.count_chars` / `count_rects` | `count_chars() -> int` / `count_rects(index, count) -> int`         | char and rect counts for iteration                    |
 |  [05]   | `PdfTextPage.get_charbox` / `get_rect` / `get_index` | `get_charbox(index, loose=False)` / `get_rect(index)` / `get_index(x, y, x_tol, y_tol)` | per-char bbox, rect geometry, hit-test a point        |
-|  [06]   | `PdfTextPage.search`           | `search(text, index=0, match_case=False, match_whole_word=False, consecutive=False) -> PdfTextSearcher` | build a search cursor                                 |
+|  [06]   | `PdfTextPage.search`           | `search(text, index=0, match_case=False, match_whole_word=False, consecutive=False, flags=0) -> PdfTextSearcher` | build a search cursor (`flags` passes raw `FPDF_MATCHCASE`/`FPDF_MATCHWHOLEWORD`/`FPDF_CONSECUTIVE` bits) |
 |  [07]   | `PdfTextSearcher`              | `get_next()` / `get_prev()` (return char index + count, or `None`)     | step matches forward/backward                         |
 
 ## [04]-[IMPLEMENTATION_LAW]

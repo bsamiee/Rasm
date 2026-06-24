@@ -44,9 +44,9 @@
 |  [03]   | `formatting.rule`                 | conditional module | `CellIsRule`/`ColorScaleRule`/`DataBarRule`/`IconSetRule`/`FormulaRule`/`Rule` + `DifferentialStyle` |
 |  [04]   | `formula.translate.Translator`    | formula engine     | shift cell references when copying a formula across a range      |
 |  [05]   | `formula.tokenizer.Tokenizer`     | formula lexer      | tokenize a formula string into operands/operators/functions      |
-|  [06]   | `worksheet.formula.ArrayFormula`  | array formula      | dynamic/spilled array formula bound to a `ref`                   |
+|  [06]   | `worksheet.formula.ArrayFormula` / `DataTableFormula`  | array/table formula      | `ArrayFormula(ref)` dynamic/spilled array; `DataTableFormula` one/two-variable what-if data table bound to a `ref` |
 |  [07]   | `worksheet.table.TableStyleInfo`  | table style        | banded-row/column table styling applied to a `Table`             |
-|  [08]   | `utils`                           | coordinate utils   | `get_column_letter`/`column_index_from_string`/`range_boundaries`/`coordinate_to_tuple`/`quote_sheetname` |
+|  [08]   | `utils`                           | coordinate utils   | `get_column_letter`/`column_index_from_string`/`range_boundaries`/`coordinate_to_tuple`/`absolute_coordinate`/`quote_sheetname`/`rows_from_range`/`cols_from_range` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -62,12 +62,14 @@
 |  [03]   | `Workbook.active`          | property -> `Worksheet`                                                                                    | the active sheet                                      |
 |  [04]   | `Workbook.create_sheet`    | `create_sheet(title=None, index=None)` -> `Worksheet`                                                     | add a sheet at an optional index                      |
 |  [05]   | `Workbook.copy_worksheet`  | `copy_worksheet(from_worksheet)` -> `Worksheet`                                                            | duplicate a sheet (in-file only)                      |
-|  [06]   | `Workbook.move_sheet`      | `move_sheet(sheet, offset=0)`                                                                              | reorder a sheet by signed offset                      |
-|  [07]   | `Workbook.add_named_style` | `add_named_style(style)`                                                                                   | register a reusable `NamedStyle`                      |
-|  [08]   | `Workbook.create_named_range` | `create_named_range(name, worksheet=None, value=None, scope=None)`                                     | register a `DefinedName` range                        |
-|  [09]   | `Workbook.defined_names`   | mapping property                                                                                          | workbook-scoped name -> `DefinedName` resolution      |
-|  [10]   | `Workbook.save`            | `save(filename)`                                                                                          | serialize the workbook to a path or stream            |
-|  [11]   | `Workbook.close`           | `close()`                                                                                                 | release `read_only`/`write_only` file handles         |
+|  [06]   | `Workbook.create_chartsheet` | `create_chartsheet(title=None, index=None)` -> `Chartsheet`                                              | add a full-sheet chart sheet                           |
+|  [07]   | `Workbook.remove`          | `remove(worksheet)`                                                                                        | delete a sheet (the inverse of `create_sheet`)        |
+|  [08]   | `Workbook.move_sheet`      | `move_sheet(sheet, offset=0)`                                                                              | reorder a sheet by signed offset                      |
+|  [09]   | `Workbook.add_named_style` | `add_named_style(style)`                                                                                   | register a reusable `NamedStyle`                      |
+|  [10]   | `Workbook.create_named_range` | `create_named_range(name, worksheet=None, value=None, scope=None)`                                     | register a `DefinedName` range                        |
+|  [11]   | `Workbook.defined_names`   | mapping property                                                                                          | workbook-scoped name -> `DefinedName` resolution      |
+|  [12]   | `Workbook.save`            | `save(filename)`                                                                                          | serialize the workbook to a path or stream            |
+|  [13]   | `Workbook.close`           | `close()`                                                                                                 | release `read_only`/`write_only` file handles         |
 
 [ENTRYPOINT_SCOPE]: sheet cell, row, structure, and feature access
 - rail: office
@@ -89,7 +91,7 @@ One `Worksheet` owns addressed access (`cell`), bulk iteration (`iter_rows`/`ite
 |  [11]   | `Worksheet.add_data_validation`        | `add_data_validation(data_validation)`                                                | attach a `DataValidation` rule            |
 |  [12]   | `Worksheet.add_pivot`                  | `add_pivot(pivot)`                                                                    | attach a pivot table definition           |
 |  [13]   | `Worksheet.freeze_panes`               | property (coordinate or cell)                                                         | freeze rows/columns above-left of a cell  |
-|  [14]   | `Worksheet.conditional_formatting.add` | `add(range_string, rule)`                                                             | attach a conditional-format rule          |
+|  [14]   | `Worksheet.conditional_formatting.add` | `add(range_string, cfRule)` (the `conditional_formatting` instance is a `ConditionalFormattingList`) | attach a conditional-format rule          |
 
 [ENTRYPOINT_SCOPE]: style, chart, formatting, formula, and coordinate authoring
 - rail: office
@@ -104,19 +106,19 @@ Styles mint once and share by reference; conditional-format and chart objects ar
 |  [04]   | `chart.<Kind>Chart`             | `BarChart()` / `LineChart()` / `ScatterChart()` / ... with `.add_data(ref)`/`.set_categories(ref)` | a chart of one kind (the kind is a row)     |
 |  [05]   | `formatting.rule.ColorScaleRule`| `ColorScaleRule(start_type, start_value, start_color, end_type, end_value, end_color)`  | a 2/3-color-scale conditional rule                 |
 |  [06]   | `formatting.rule.CellIsRule` / `DataBarRule` / `IconSetRule` / `FormulaRule` | constructor each                                           | the conditional-rule kinds (each a row)            |
-|  [07]   | `formula.translate.Translator`  | `Translator(formula, origin)` -> `.translate_formula(dest)`                             | shift a formula's references when copied to `dest` |
-|  [08]   | `worksheet.formula.ArrayFormula`| `ArrayFormula(ref, text=None)`                                                          | a spilled/dynamic array formula bound to `ref`     |
-|  [09]   | `utils.get_column_letter`       | `get_column_letter(idx)` / `column_index_from_string(letter)` / `range_boundaries(range_string)` / `coordinate_to_tuple(coord)` | A1 <-> tuple coordinate conversion at the boundary |
+|  [07]   | `formula.translate.Translator`  | `Translator(formula, origin)` -> `.translate_formula(dest)`; `Translator.translate_range(range_str, rdelta, cdelta)` | shift a formula's references to `dest`, or a whole range string by a row/col delta |
+|  [08]   | `worksheet.formula.ArrayFormula` / `DataTableFormula` | `ArrayFormula(ref, text=None)` / `DataTableFormula(ref, ca, dt2D, dtr, r1, r2, del1, del2)` | a spilled/dynamic array formula, or a one/two-variable what-if data table, bound to `ref` |
+|  [09]   | `utils.get_column_letter`       | `get_column_letter(idx)` / `column_index_from_string(letter)` / `range_boundaries(range_string)` / `coordinate_to_tuple(coord)` / `absolute_coordinate(coord)` | A1 <-> tuple coordinate conversion at the boundary |
 |  [10]   | `utils.dataframe.dataframe_to_rows` | `dataframe_to_rows(df, index=True, header=True)`                                    | stream a pandas/polars-compatible frame into `append` rows |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OFFICE_XLSX]:
 - import: `import openpyxl` (or targeted `from openpyxl import Workbook, load_workbook`, `from openpyxl.styles import NamedStyle, Font`, `from openpyxl.chart import BarChart, Reference`, `from openpyxl.formatting.rule import ColorScaleRule`) at boundary scope only; module-level import is banned by the manifest import policy.
-- workbook axis: one `Workbook` owns sheets, named styles, defined names, and save; `Workbook(write_only=True)` (append-only write streaming yielding `WriteOnlyWorksheet`) and `load_workbook(read_only=True)` (lazy read streaming yielding `ReadOnlyWorksheet`) are mode rows for large workbooks, never parallel workbook types; `data_only=True` reads the last cached values instead of formula text, `keep_vba=True` round-trips `.xlsm` macros, `rich_text=True` reads inline `CellRichText`.
+- workbook axis: one `Workbook` owns the sheet lifecycle (`create_sheet`/`copy_worksheet`/`create_chartsheet`/`remove`/`move_sheet`), named styles, defined names, and save; `Workbook(write_only=True)` (append-only write streaming yielding `WriteOnlyWorksheet`) and `load_workbook(read_only=True)` (lazy read streaming yielding `ReadOnlyWorksheet`) are mode rows for large workbooks, never parallel workbook types; `data_only=True` reads the last cached values instead of formula text, `keep_vba=True` round-trips `.xlsm` macros, `rich_text=True` reads inline `CellRichText`.
 - cell axis: `Worksheet.cell`/`append`/`iter_rows`/`iter_cols` are the grid access rows; `values_only` selects raw-value vs `Cell`-object iteration — a call flag, never separate functions; structural `insert_rows`/`delete_cols`/`move_range` shift the grid in place, with `translate=True` re-anchoring moved formulas.
 - styling axis: the `styles` module (`Font`/`PatternFill`/`GradientFill`/`Border`/`Side`/`Alignment`/`Protection`/`NamedStyle`) mints reusable value objects assigned by reference to `Cell.font`/`.fill`/...; `NamedStyle` registers once via `add_named_style` and is referenced by name, never per-cell duplication; `CellRichText`/`TextBlock`/`InlineFont` carry mixed-style runs inside one cell.
-- formula axis: formula strings assign to `Cell.value`; `formula.Translator(formula, origin).translate_formula(dest)` shifts relative references when a formula is copied across a range, never a manual offset rewrite; `ArrayFormula(ref, text)` carries spilled/dynamic arrays; `formula.Tokenizer` lexes a formula for inspection.
+- formula axis: formula strings assign to `Cell.value`; `formula.Translator(formula, origin).translate_formula(dest)` (or `.translate_range(range_str, rdelta, cdelta)` for a whole range) shifts relative references when a formula is copied, never a manual offset rewrite; `ArrayFormula(ref, text)` carries spilled/dynamic arrays and `DataTableFormula(ref, ...)` carries one/two-variable what-if data tables; `formula.Tokenizer` lexes a formula for inspection.
 - feature axis: `chart.<Kind>Chart` + `Reference`/`Series` + `add_chart`, `worksheet.table.Table` + `TableStyleInfo` + `add_table`, `DataValidation` + `add_data_validation`, conditional `formatting.rule.*Rule` + `conditional_formatting.add`, and `add_pivot` are the feature-attach rows; the chart/rule/validation kind is a row, never a per-feature sheet type.
 - interchange axis: `utils.dataframe.dataframe_to_rows` streams a frame into `append`; `utils.get_column_letter`/`column_index_from_string`/`range_boundaries`/`coordinate_to_tuple`/`quote_sheetname` are the A1<->tuple boundary converters — internal code uses these, never an open-coded base-26 column math.
 - evidence: each workbook op captures sheet count, populated cell count, named-style count, defined-name count, chart/table/validation/pivot counts, streaming mode, and output byte length as an office receipt.

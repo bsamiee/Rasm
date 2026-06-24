@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_ODFPY]
 
-`odfpy` supplies the pure-Python OpenDocument read+write DOM for the artifacts office rail: the `OpenDocument*` factory family mints typed OASIS document trees, `add_element`/`add_text`/`set_attribute` author the namespaced `Element` graph, `save`/`write` serialize the ZIP-plus-XML container, and on the read side `load` parses an `.ods`/`.odt`/`.odp` container back into the same tree that `get_elements_by_type`/`get_attribute`/`teletype.extractText` walk. The package owner composes the factory roots, the `Element` write API, and `save` into the `OFFICE_ODF` authoring path and the `load` -> `getElementsByType` -> `getAttribute` read path; it removes any LibreOffice/UNO bridge because the entire OASIS parse-and-serialize is in-package, and never re-implements the ODF ZIP-plus-XML container, the namespaced allowed-attribute grammar, or the whitespace-correct text serialization odfpy already owns.
+`odfpy` supplies the pure-Python OpenDocument read+write DOM for the artifacts office rail: the `OpenDocument*` factory family mints typed OASIS document trees, the camelCase `Element` write API (`addElement`/`addText`/`setAttribute`) authors the namespaced graph, `save`/`write` serialize the ZIP-plus-XML container, and on the read side `load` parses an `.ods`/`.odt`/`.odp` container back into the same tree that `getElementsByType`/`getAttribute`/`teletype.extractText` walk. The package owner composes the factory roots, the `Element` write API, and `save` into the `OFFICE_ODF` authoring path and the `load` -> `getElementsByType` -> `getAttribute` read path; it removes any LibreOffice/UNO bridge because the entire OASIS parse-and-serialize is in-package, and never re-implements the ODF ZIP-plus-XML container, the namespaced allowed-attribute grammar, or the whitespace-correct text serialization odfpy already owns.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -54,14 +54,14 @@ Every node in the tree (factory-built or parsed) is one `odf.element.Element`; e
 [ENTRYPOINT_SCOPE]: document author and serialize
 - rail: office — `odf.opendocument`
 
-A factory mints the `OpenDocument`; `addElement` attaches authored nodes; styles register through `automaticstyles`/`styles`; `save`/`write` serialize; the `*xml` accessors expose individual parts without writing a file.
+A factory mints the `OpenDocument`; authored nodes attach to a content container — `addElement` lives on `Element`, so nodes go through `doc.body.addElement(...)` (or the flavor alias `doc.spreadsheet`/`doc.text` and the style containers `doc.automaticstyles`/`doc.styles`), never `OpenDocument.addElement`; styles register through `automaticstyles`/`styles`; `save`/`write` serialize; the `*xml` accessors expose individual parts without writing a file. `createElement`/`createTextNode`/`createCDATASection` are the DOM-factory mirror, and `getMediaType` returns the document mimetype.
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                       | [CAPABILITY]                                            |
 | :-----: | :------------------------------------- | :------------------------------------------------- | :------------------------------------------------------ |
 |  [01]   | `OpenDocument*` factory                | `OpenDocumentSpreadsheet()` -> `OpenDocument`      | mint a typed document tree (mimetype + body seeded)     |
-|  [02]   | `OpenDocument.addElement`              | `addElement(element, check_grammar=True)`          | attach an authored node (validates allowed-child grammar) |
+|  [02]   | `OpenDocument.body` (`Element`) `.addElement` | `doc.body.addElement(element, check_grammar=True)` | attach an authored node to the content root (validates allowed-child grammar); `OpenDocument` itself has no `addElement` |
 |  [03]   | `OpenDocument.save`                    | `save(outputfile, addsuffix=False)`                | serialize to a path (or `.stdout`); optional suffix add |
-|  [04]   | `OpenDocument.write`                   | `write(outputfile)`                                | serialize the ZIP to an open binary stream              |
+|  [04]   | `OpenDocument.write`                   | `write(outputfp)`                                  | serialize the ZIP to an open binary stream              |
 |  [05]   | `OpenDocument.xml`                     | `xml()` -> `bytes`                                 | full packaged document as bytes without touching disk   |
 |  [06]   | `OpenDocument.contentxml`              | `contentxml()` -> `bytes`                          | the `content.xml` part only                             |
 |  [07]   | `OpenDocument.stylesxml`               | `stylesxml()` -> `bytes`                           | the `styles.xml` part only                              |
@@ -69,7 +69,7 @@ A factory mints the `OpenDocument`; `addElement` attaches authored nodes; styles
 |  [09]   | `OpenDocument.addPictureFromFile`      | `addPictureFromFile(filename, mediatype=None)` -> `str` | embed an image part, return its manifest href      |
 |  [10]   | `OpenDocument.addPictureFromString`    | `addPictureFromString(content, mediatype)` -> `str` | embed image bytes, return its manifest href            |
 |  [11]   | `OpenDocument.addObject`               | `addObject(document, objectname=None)` -> `str`    | embed a sub-`OpenDocument` (chart/object) part          |
-|  [12]   | `OpenDocument.addThumbnail`            | `addThumbnail(thumbnail=None)`                     | attach the `Thumbnails/thumbnail.png` preview           |
+|  [12]   | `OpenDocument.addThumbnail`            | `addThumbnail(filecontent=None)`                   | attach the `Thumbnails/thumbnail.png` preview           |
 
 [ENTRYPOINT_SCOPE]: Element write and traverse
 - rail: office — `odf.element`
@@ -80,7 +80,7 @@ A factory mints the `OpenDocument`; `addElement` attaches authored nodes; styles
 | :-----: | :----------------------------- | :--------------------------------------------------- | :----------------------------------------------------------------- |
 |  [01]   | `Element.addElement`           | `addElement(element, check_grammar=True)`            | append a child node; grammar-validate the parent/child qname pair  |
 |  [02]   | `Element.addText`              | `addText(text, check_grammar=True)`                  | append a `Text` leaf; rejects on `Childless`/`IllegalText`         |
-|  [03]   | `Element.addCDATA`             | `addCDATA(cdata)`                                    | append a `CDATASection` (raw script/formula payload)               |
+|  [03]   | `Element.addCDATA`             | `addCDATA(cdata, check_grammar=True)`                | append a `CDATASection` (raw script/formula payload)               |
 |  [04]   | `Element.setAttribute`         | `setAttribute(attr, value, check_grammar=True)`      | set an attribute by lowercase dash-stripped local name             |
 |  [05]   | `Element.setAttrNS`            | `setAttrNS(namespace, localpart, value)`             | set an attribute by explicit `(namespace, localpart)` qname        |
 |  [06]   | `Element.appendChild`          | `appendChild(node)`                                  | W3C-DOM append (no grammar check; raw tree mutation)               |
@@ -89,7 +89,7 @@ A factory mints the `OpenDocument`; `addElement` attaches authored nodes; styles
 |  [09]   | `Element.getElementsByType`    | `getElementsByType(element)` -> `list[Element]`      | collect all nodes whose qname matches the factory's qname          |
 |  [10]   | `Element.getAttribute`         | `getAttribute(attr)` -> `str \| None`                | read attribute by lowercase dash-stripped local name               |
 |  [11]   | `Element.getAttrNS`            | `getAttrNS(namespace, localpart)` -> `str \| None`   | read attribute by explicit `(namespace, localpart)` qname          |
-|  [12]   | `Element.removeAttribute`      | `removeAttribute(attr)` / `removeAttrNS(ns, local)`  | drop an attribute by local name or explicit qname                  |
+|  [12]   | `Element.removeAttribute`      | `removeAttribute(attr, check_grammar=True)` / `removeAttrNS(namespace, localpart)` | drop an attribute by local name or explicit qname    |
 |  [13]   | `Element.isInstanceOf`         | `isInstanceOf(element)` -> `bool`                    | test a node's qname against a factory function                     |
 |  [14]   | `Element.toXml`                | `toXml(level, f)`                                    | serialize this subtree into the writer at indent level             |
 |  [15]   | `odf.teletype.extractText`     | `extractText(odfElement)` -> `str`                   | flatten a node to text, unwrapping `<text:s>`/`tab`/`line-break`   |

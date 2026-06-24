@@ -67,7 +67,7 @@ The constructor booleans set the underlying `MAGIC_*` bitmask; the `MAGIC_PARAM_
 |  [05]   | `keep_going`     | `MAGIC_CONTINUE`      | return all matches, not just the first                             |
 |  [06]   | `raw`            | `MAGIC_RAW`           | do not translate unprintable characters                            |
 |  [07]   | `magic_file=`    | (passed to `magic_load`) | load a custom compiled `.mgc` or text magic database               |
-|  [08]   | `MAGIC_PARAM_*`  | (param ordinals)      | `INDIR_MAX`/`NAME_MAX`/`REGEX_MAX`/`BYTES_MAX` recursion/budget caps |
+|  [08]   | `MAGIC_PARAM_*`  | (param ordinals)      | `INDIR_MAX`/`NAME_MAX`/`REGEX_MAX`/`BYTES_MAX` recursion/budget caps plus `ELF_NOTES_MAX`/`ELF_PHNUM_MAX`/`ELF_SHNUM_MAX` ELF-table caps for `setparam`/`getparam` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -33,7 +33,7 @@
 |  [08]   | `items.Date/Time/DateTime`        | temporal items   | styled RFC-3339 temporals                          |
 |  [09]   | `items.Key/SingleKey/DottedKey`   | key items        | styled bare/quoted/dotted keys                     |
 |  [10]   | `items.Comment/Whitespace/Trivia` | trivia items     | comment, whitespace, and per-item trivia carrier   |
-|  [11]   | `items.StringType` / `items.KeyType` | style enums   | `SLB`/`SLL`/`MLB`/`MLL` string + bare/quoted key styles |
+|  [11]   | `items.StringType` / `items.KeyType` | style enums   | `StringType.{SLB,SLL,MLB,MLL}` (single/multi-line basic/literal) + `KeyType.{Bare,Basic,Literal}` key styles |
 |  [12]   | `items.Null`                      | absent marker    | the styled absent/removed-item sentinel            |
 
 [PUBLIC_TYPE_SCOPE]: faults

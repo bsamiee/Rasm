@@ -10,9 +10,9 @@
 - owner: `artifacts`
 - rail: visuals
 - version: `6.2.1`; license `BSD-3-Clause` (Vega-Altair Developers); pure-Python, markerless in the manifest (cp315-clean)
-- deps: dataframe ingest is delegated to `narwhals` (polars/pandas/pyarrow/any narwhals-native frame); spec validation uses `jsonschema`; static export delegates to `vl-convert-python`; server-side pre-transform to `vegafusion`
+- deps: dataframe ingest is delegated to `narwhals` (polars/pandas/pyarrow/any narwhals-native frame, cp315-clean); spec validation uses `jsonschema` (cp315-clean); static export delegates to `vl-convert-python` (cp315-clean, in-process); server-side pre-transform to `vegafusion` (`python_version<'3.15'`-gated, sub-3.15 worker only)
 - entry points: none (library only); `Chart.save` / `vl-convert` / `vegafusion` perform export
-- capability: declarative Vega-Lite v6 chart construction — 18 `mark_*` geometric marks, ~40 encoding channels, 19 `transform_*` data transforms (including statistical `regression`/`loess`/`density`/`quantile`/`window`/`aggregate`), the `param`/`when`/`condition`/`binding_*` interaction algebra, `layer`/`hconcat`/`vconcat`/`facet`/`repeat` composition, narwhals-backed `transformed_data` pre-execution, the `expr` Vega-expression vocabulary, pluggable `theme`/`renderers`/`data_transformers`/`vegalite_compilers` registries, and multi-format `save` to JSON/HTML/PNG/SVG/PDF
+- capability: declarative Vega-Lite v6 chart construction — 17 `mark_*` geometric marks, ~40 encoding channels, 19 `transform_*` data transforms (including statistical `regression`/`loess`/`density`/`quantile`/`window`/`aggregate`), the `param`/`when`/`condition`/`binding_*` interaction algebra, `layer`/`hconcat`/`vconcat`/`facet`/`repeat` composition, narwhals-backed `transformed_data` pre-execution, the `expr` Vega-expression vocabulary, the `graticule`/`sphere`/`sequence` data generators, pluggable `theme`/`renderers`/`data_transformers`/`vegalite_compilers` registries, and multi-format `save` to JSON/HTML/PNG/SVG/PDF
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -32,7 +32,7 @@
 |  [09]   | `data_transformers`   | plugin registry | dataset handling axis (`default`/`json`/`csv`/`vegafusion`) |
 |  [10]   | `renderers`           | plugin registry | output renderer axis (`html`/`json`/`png`/`svg`/`jupyter`/`mimetype`/...) |
 |  [11]   | `vegalite_compilers`  | plugin registry | spec-to-vega compiler axis (`vl-convert`)             |
-|  [12]   | `theme`               | plugin registry | named chart theme axis + `register` decorator + `ThemeConfig` |
+|  [12]   | `theme`               | plugin registry | named chart theme axis + `theme.register` decorator + `theme.ThemeConfig` (a `@theme.register(name, *, enable)`-decorated function returns one) |
 
 [PUBLIC_TYPE_SCOPE]: encoding channels, guides, and the interaction algebra
 - rail: visuals
@@ -62,12 +62,12 @@ The encoding channel constructors (`X`/`Y`/`Color`/...) and guides (`Scale`/`Axi
 
 ## [03]-[ENTRYPOINTS]
 
-`Chart(data)` admits any narwhals-native frame, a `pandas`/`polars`/`pyarrow` frame, a URL string, or a `Data` object. The `mark_*` family is the single geometric-mark axis (18 rows); `encode` binds fields to channels; `transform_*` is the single data-pipeline axis (19 rows, including the statistical `regression`/`loess`/`density`/`quantile`/`window`); `add_params` registers interaction `param`s; `properties`/`configure*` set view and theme config.
+`Chart(data)` admits any narwhals-native frame, a `pandas`/`polars`/`pyarrow` frame, a URL string, or a `Data` object. The `mark_*` family is the single geometric-mark axis (17 rows); `encode` binds fields to channels; `transform_*` is the single data-pipeline axis (19 rows, including the statistical `regression`/`loess`/`density`/`quantile`/`window`); `add_params` registers interaction `param`s; `properties`/`configure*` set view and theme config.
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                          | [CAPABILITY]                                            |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------ | :------------------------------------------------------ |
 |  [01]   | `Chart`             | `Chart(data=None, *, mark=..., width=..., height=..., title=..., ...)`                | build a chart over a frame / URL / `Data`               |
-|  [02]   | `Chart.mark_*`      | `mark_bar` / `mark_line` / `mark_point` / `mark_area` / `mark_circle` / `mark_square` / `mark_tick` / `mark_rect` / `mark_rule` / `mark_text` / `mark_arc` / `mark_geoshape` / `mark_image` / `mark_trail` / `mark_boxplot` / `mark_errorbar` / `mark_errorband` / `mark_point` | set the geometric mark (each takes mark-config kwargs)  |
+|  [02]   | `Chart.mark_*`      | `mark_bar` / `mark_line` / `mark_point` / `mark_area` / `mark_circle` / `mark_square` / `mark_tick` / `mark_rect` / `mark_rule` / `mark_text` / `mark_arc` / `mark_geoshape` / `mark_image` / `mark_trail` / `mark_boxplot` / `mark_errorbar` / `mark_errorband` | set the geometric mark (each takes mark-config kwargs)  |
 |  [03]   | `Chart.encode`      | `encode(*args, x=..., y=..., color=..., size=..., theta=..., tooltip=..., ...) -> Self` | bind data fields to ~40 encoding channels             |
 |  [04]   | `Chart.transform_*` | `transform_filter` / `transform_calculate` / `transform_aggregate` / `transform_bin` / `transform_fold` / `transform_pivot` / `transform_window` / `transform_joinaggregate` / `transform_lookup` / `transform_density` / `transform_regression` / `transform_loess` / `transform_quantile` / `transform_impute` / `transform_flatten` / `transform_sample` / `transform_stack` / `transform_timeunit` / `transform_extent` | data transform pipeline (server-side Vega transforms) |
 |  [05]   | `Chart.transform_regression` | `transform_regression(on, regression, method='linear', order=..., extent=..., groupby=..., params=...) -> Self` | fit a regression (`linear`/`log`/`exp`/`pow`/`quad`/`poly`) trend |
@@ -108,24 +108,26 @@ The encoding channel constructors (`X`/`Y`/`Color`/...) and guides (`Scale`/`Axi
 |  [08]   | `Chart.to_json`        | `to_json(...) -> str`                                                                                             | emit spec as JSON string                              |
 |  [09]   | `Chart.save`           | `save(fp, format=None ('json'/'html'/'png'/'svg'/'pdf'), scale_factor=1.0, engine=None, inline=False, embed_options=None, **kwargs) -> None` | export to file via `vl-convert`/`vegafusion` |
 |  [10]   | `Chart.to_url`         | `to_url(...) -> str`                                                                                              | shareable Vega editor URL                             |
-|  [11]   | `theme.register`       | `@theme.register(name, enable=False)` returning a `ThemeConfig`; `theme.enable(name)`                            | register / enable a named chart theme                 |
+|  [11]   | `theme.register`       | `@theme.register(name, *, enable)` decorating a `() -> ThemeConfig` factory; `theme.enable(name)`                | register / enable a named chart theme                 |
 |  [12]   | `data_transformers.enable` | `data_transformers.enable('vegafusion' \| 'default' \| 'json' \| 'csv')`                                       | select dataset handling (server-side pre-aggregation) |
+|  [13]   | `graticule` / `sphere` / `sequence` | `graticule(extent=..., precision=..., step=...) -> GraticuleGenerator`; `sphere() -> SphereGenerator`; `sequence(start, stop, step=...) -> SequenceGenerator` | generator-data sources for `mark_geoshape` (geo graticule / globe outline) and numeric sequences |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VISUALS_VEGALITE]:
 - import: `import altair as alt` at boundary scope only; module-level import is banned by the manifest import policy.
 - ingest axis: `Chart(data)` admits any narwhals-native frame (polars/pandas/pyarrow); the frame interchange is delegated to `narwhals`, never re-implemented as a pandas-only or per-backend ingest path.
-- chart axis: one `Chart` builder owns the single-view grammar; the 18 `mark_*`, ~40 `encode` channels, and 19 `transform_*` are method-family rows on the builder, never parallel chart types per mark; statistical transforms (`regression`/`loess`/`density`/`quantile`/`window`) run server-side in Vega, never a hand-rolled numpy fit pre-baked into the data.
+- chart axis: one `Chart` builder owns the single-view grammar; the 17 `mark_*`, ~40 `encode` channels, and 19 `transform_*` are method-family rows on the builder, never parallel chart types per mark; statistical transforms (`regression`/`loess`/`density`/`quantile`/`window`) run server-side in Vega, never a hand-rolled numpy fit pre-baked into the data.
 - interaction axis: `param` is the single interaction primitive registered via `add_params`; `selection_point`/`selection_interval` are its factories and `when().then().otherwise()` the conditional-encoding chain — the deprecated `add_selection`/bare-`condition` and `selection`/`selection_single`/`selection_multi` family is never minted.
 - composition axis: `layer`/`hconcat`/`vconcat`/`concat`/`facet`/`repeat` compose `Chart` instances into the composite roots (mirrored by `+`/`|`/`&`); composition is an operator, never a duplicated chart definition.
-- registry axis: `theme`/`renderers`/`data_transformers`/`vegalite_compilers` are the four plugin registries; a custom theme is a `@theme.register`-decorated `ThemeConfig`, not a manually-merged config dict; `data_transformers.enable('vegafusion')` is the large-dataset server-side pre-aggregation switch.
+- registry axis: `theme`/`renderers`/`data_transformers`/`vegalite_compilers` are the four plugin registries; a custom theme is a `@theme.register(name, *, enable)`-decorated factory returning a `theme.ThemeConfig`, not a manually-merged config dict; `data_transformers.enable('vegafusion')` is the large-dataset server-side pre-aggregation switch.
 - export axis: `to_dict`/`to_json` emit the spec; `transformed_data` executes the transform pipeline locally through narwhals; `save` with `format` is the single export entry — `engine` selects the `vl-convert` compiler (static PNG/SVG/PDF) or `vegafusion` (pre-transformed), and `inline=True` produces an offline HTML, never a re-minted rasterizer or JS bundler.
-- evidence: each chart captures mark kind, encoded channel set, transform chain length, registered param names, active theme/renderer/compiler, output format, and output spec/byte size as a visuals receipt.
+- runtime seam: altair itself is markerless and builds the spec on the cp315 core (narwhals is cp315-clean, `transformed_data` executes locally), but the gated render backends differ — `vl-convert-python` is cp315-clean and rasterizes in-process, whereas `data_transformers.enable('vegafusion')` and the `lets-plot` sibling are `python_version<'3.15'`-gated; the vegafusion pre-aggregation crosses the runtime `anyio.to_process` (`.api/anyio.md`) subprocess seam onto the sub-3.15 worker (the `Chart` spec — a JSON-serializable dict from `to_dict` — is what crosses, never a live builder), while the `lets-plot` self-render rides the gated band IN-PROCESS (`PlotSpec.to_*` is pure-Python over the bundled core, no subprocess hop — see `.api/lets-plot.md`).
+- evidence: each chart captures mark kind, encoded channel set, transform chain length, registered param names, active theme/renderer/compiler, output format, and output spec/byte size as a `msgspec.Struct` (`.api/msgspec.md`) visuals receipt — emitted under one `structlog` (`.api/structlog.md`) event inside an OpenTelemetry (`.api/opentelemetry-api.md`) span; a `SchemaValidationError` (`altair.utils.schemapi`) from `to_dict` validation folds onto the `expression.Result` (`.api/expression.md`) rail rather than raising into the producer.
 - boundary: altair owns Vega-Lite spec construction; static rendering routes to `vl-convert-python` (the `vl-convert` compiler) and large-data pre-transform to `vegafusion`; publication display tables route to `great-tables`; host-free self-render to `lets-plot`; non-COLR SVG rasterization to `resvg-py`; live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `altair`
 - Owns: declarative Vega-Lite v6 chart construction over narwhals frames, the `param`/`when` interaction algebra, statistical transforms, composition, local transform execution, and spec/multi-format export through the `vl-convert`/`vegafusion` backends
-- Accept: grammar-of-graphics chart specs feeding the visuals owner and the `vl-convert`/`vegafusion` render path
+- Accept: grammar-of-graphics chart specs built on cp315-core feeding the visuals owner; in-process `vl-convert` rasterization on cp315, the gated `vegafusion` pre-aggregation dispatched over the runtime `anyio.to_process` subprocess seam (the `to_dict` spec crosses, bytes return), the orthogonal gated `lets-plot` self-render running in-process on the sub-3.15 band
 - Reject: wrapper-renames of `mark_*`/`encode`/`param`; a hand-built Vega-Lite dict where the builder is admitted; the deprecated `selection_*`/`add_selection` interaction family where `param`/`when` is canonical; a pandas-only ingest where narwhals owns interchange; a re-minted rasterizer or numpy statistical fit where `vl-convert`/server-side transforms render; identity minting the runtime owns

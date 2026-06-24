@@ -9,7 +9,7 @@
 - import: `pypdf`
 - owner: `artifacts`
 - rail: pdf
-- installed: `6.13.3` reflected via `python -c "import pypdf"` on cp315
+- installed: `6.14.2` reflected via `import pypdf` (`__version__`) on cp315; markerless in the manifest (pure `py3-none-any`, cp315-clean)
 - license: `BSD-3-Clause`; pure-Python `py3-none-any` wheel, no native link — the permissive structural-editing arm of the pdf rail, admissible in a closed/distributed service where AGPL `pymupdf` is not
 - extras: image extraction needs `pypdf[image]` (Pillow); AES needs `pypdf[crypto]` (`cryptography`, or `pycryptodome` legacy); both resolve through the manifest, never a per-package pin
 - entry points: none (library only)
@@ -53,7 +53,7 @@
 | :-----: | :-------------------------------- | :-------------- | :------------------------------------------------------------------- |
 |  [01]   | `ImageType`                       | image enum      | `XOBJECT_IMAGES`/`INLINE_IMAGES`/`DRAWING_IMAGES` extraction filter   |
 |  [02]   | `PasswordType`                    | auth enum       | `NOT_DECRYPTED`/`OWNER_PASSWORD`/`USER_PASSWORD` decrypt discriminant |
-|  [03]   | `ObjectDeletionFlag`              | cleanup flag    | `TEXT`/`LINKS`/`ATTACHMENTS`/`OBJECTS_3D`/`ALL_ANNOTATIONS`/`XOBJECT_IMAGES`/`INLINE_IMAGES`/`DRAWING_IMAGES` removal selector (composes by `\|`) |
+|  [03]   | `ObjectDeletionFlag`              | cleanup flag    | `NONE`/`TEXT`/`LINKS`/`ATTACHMENTS`/`OBJECTS_3D`/`ALL_ANNOTATIONS`/`XOBJECT_IMAGES`/`INLINE_IMAGES`/`DRAWING_IMAGES`/`IMAGES` (`IMAGES` is the three image kinds OR'd) removal selector (composes by `\|`) |
 |  [04]   | `constants.UserAccessPermissions` | permission flag | `IntFlag` permission bitmask for `PdfWriter.encrypt`                  |
 |  [05]   | `errors.PdfReadError` / `PdfStreamError` / `DependencyError` | fault rail | parse/stream faults and missing-extra (`[image]`/`[crypto]`) failures |
 
@@ -69,7 +69,7 @@ Constructor rows carry stream/path input, password, strictness, cloning, increme
 | [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                                                  | [CAPABILITY]                                |
 | :-----: | :----------------------- | :----------------------------------------------------------------------------------------------------------- | :------------------------------------------ |
 |  [01]   | `PdfReader`              | `PdfReader(stream, strict=False, password=None, *, root_object_recovery_limit=10000)`                        | open and decrypt an existing PDF            |
-|  [02]   | `PdfWriter`              | `PdfWriter(fileobj="", clone_from=None, incremental=False, full=False, strict=False, *, incremental_clone_object_count_limit=500000)` | build / clone / incremental-edit a writer   |
+|  [02]   | `PdfWriter`              | `PdfWriter(fileobj="", clone_from=None, incremental=False, full=False, strict=False, *, incremental_clone_object_count_limit=500000, incremental_clone_object_id_limit=1000000)` | build / clone / incremental-edit a writer   |
 |  [03]   | `PdfReader.decrypt`      | `decrypt(password: str \| bytes) -> PasswordType`                                                            | decrypt; result discriminates owner/user    |
 |  [04]   | `PdfReader.is_encrypted` / `decode_permissions` | property / `decode_permissions() -> UserAccessPermissions`                              | encryption-state probe + permission readout |
 |  [05]   | `PdfReader.metadata` / `xmp_metadata` | `DocumentInformation` property / optional `XmpInformation` property                            | docinfo and XMP metadata views              |
@@ -110,7 +110,7 @@ The writer owns the full document-authoring surface beyond page assembly: AcroFo
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                                  | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `PdfWriter.update_page_form_field_values` | `update_page_form_field_values(page, fields: Mapping[str, str \| list[str] \| tuple], auto_regenerate=True, flatten=False)` | fill AcroForm fields; `flatten=True` bakes values into content |
+|  [01]   | `PdfWriter.update_page_form_field_values` | `update_page_form_field_values(page: PageObject \| list[PageObject] \| None, fields: Mapping[str, str \| list[str] \| tuple[str,str,float]], flags=FieldDictionaryAttributes.FfBits(0), auto_regenerate=True, flatten=False)` | fill AcroForm fields; `flags` sets field-flag bits (read-only/required), `flatten=True` bakes values into content; `page=None` fills across all pages |
 |  [02]   | `PdfWriter.set_need_appearances_writer` | bool                                                                                                        | force viewer regeneration of field appearances               |
 |  [03]   | `PdfWriter.add_outline_item`           | `add_outline_item(title, page_number, parent=None, before=None, color=None, bold=False, italic=False, fit=Fit.fit(), is_open=True) -> IndirectObject` | author an outline (bookmark) node                            |
 |  [04]   | `PdfWriter.add_outline_item_destination` / `find_outline_item` | destination / search                                                                       | author from a dest / locate an existing item                 |
@@ -120,7 +120,7 @@ The writer owns the full document-authoring surface beyond page assembly: AcroFo
 |  [08]   | `PdfWriter.add_attachment`             | `add_attachment(filename, data: str \| bytes) -> EmbeddedFile`                                               | embed a file attachment                                      |
 |  [09]   | `PdfWriter.remove_objects_from_page`   | `remove_objects_from_page(page, to_delete: ObjectDeletionFlag \| Iterable, text_filters=None)`               | prune text/links/images/annotations from a page              |
 |  [10]   | `PdfWriter.remove_images` / `remove_text` / `remove_links` / `remove_annotations` | flag / subtype selectors                                                          | bulk-remove an object class document-wide                    |
-|  [11]   | `PdfWriter.compress_identical_objects` | `compress_identical_objects(remove_identicals=True, remove_orphans=True)`                                     | dedup/garbage-collect the object table (size reduction)      |
+|  [11]   | `PdfWriter.compress_identical_objects` | `compress_identical_objects(*, remove_duplicates=True, remove_unreferenced=True)`                             | dedup/garbage-collect the object table (size reduction); both flags keyword-only |
 |  [12]   | `PdfWriter.create_viewer_preferences` / `set_page_layout` / `page_mode` | preference object / layout / mode                                            | author viewer view-state                                     |
 |  [13]   | `PdfWriter.generate_file_identifiers`  | no-arg                                                                                                        | (re)generate the `/ID` file identifiers                      |
 
@@ -138,6 +138,13 @@ The writer owns the full document-authoring surface beyond page assembly: AcroFo
 - evidence: each operation captures source page count, output page count, encryption state (`PasswordType`), permission flags, filled-field count, pruned-object count, and output byte length as a pdf receipt.
 - license posture: BSD-3-Clause, no native link — pypdf is the structural-editing arm admissible inside a closed/distributed network service where AGPL `pymupdf` rendering is barred; pair pypdf editing with `pypdfium2` render to keep the whole pipeline permissive.
 - boundary: pypdf owns pure-Python structural read/write, merge/transform, form fill, outline/annotation/attachment authoring, object pruning, and encryption; rasterization and rendered-text extraction route to `pymupdf`/`pypdfium2`; AES-256-R6 and content-stream tokenization route to `pikepdf`; OCR-to-PDF/A routes to `ocrmypdf`; live UI stays outside this package.
+
+[STACK_INTEGRATION]:
+- universal `expression` tier (`libs/python/.api/expression.md`): the `errors` subtree (`PdfReadError`/`PdfStreamError`/`DependencyError`) maps at the boundary to `Result[PdfReceipt, PdfError]` — `DependencyError` is the missing-`[image]`/`[crypto]`-extra arm, `PdfReadError`/`PdfStreamError` the malformed-input arm; `decrypt` returns a `PasswordType` that the owner lifts to an `Ok(OWNER|USER)` / `Error(NOT_DECRYPTED)` split rather than a boolean. `extract_text` is exception-light (returns `""` on undecodable spans), so it stays inside the `Ok` arm and the empty string is data, not a failure.
+- universal `numpy`/`msgspec` tier: the `visitor_text(text, cm, tm, font_dict, font_size)` and `visitor_operand_before/after` callbacks fed to `extract_text(extraction_mode="layout", ...)` are the positioned-glyph capture hook — each call appends `(text, x, y, font, size)` to a canonical buffer the owner folds into a `numpy` coordinate array or an `msgspec.Struct` run, so layout-aware extraction is one streaming visitor, never a re-minted text model or a regex over raw operators.
+- universal `anyio` tier (`libs/python/.api/anyio.md`): a per-page op (`extract_text`/`images`/`merge_page`/`remove_objects_from_page`) over a large `reader.pages` is CPU-bound pure Python, so a bulk extract/prune over a multi-hundred-page document fans across `anyio.to_thread.run_sync` workers under a `CapacityLimiter`; the `PdfWriter` mutation stays single-owner (the object table is not thread-safe), only the read-side page work parallelizes.
+- `[image]`/`pillow` seam: `PageObject.images` yields `ImageFile` whose `.image` is a `PIL.Image` and `.data` the raw codec bytes — the extracted image hands directly to the `pillow` artifacts owner (downscale/ICC/format-convert) or to `av.VideoFrame.from_image` for a page-to-frame poster, never a hand-decoded XObject stream.
+- document-rail STACK: `pypdf` is the structural spine — `PdfWriter.append`/`merge` assembles the multi-source document, `vl_convert`/`typst`/`reportlab`/`weasyprint`-emitted PDF pages are appended source files, `pymupdf`/`pypdfium2` render a page to a raster when layout fidelity needs a render, `pikepdf` re-encrypts at AES-256-R6 / linearizes for web, `ocrmypdf` adds the OCR text layer, and `pyhanko` digitally signs (PAdES) the finished bytes; each sibling owns one stage and `pypdf` owns the page-tree edits between them.
 
 ## [05]-[LOCAL_ADMISSION]
 

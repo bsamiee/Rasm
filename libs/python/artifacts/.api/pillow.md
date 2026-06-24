@@ -9,10 +9,10 @@
 - import: `PIL`
 - owner: `artifacts`
 - rail: image
-- version: `12.2.0`
-- license: `MIT-CMU` (permissive; no copyleft obligation)
+- locked: `12.2.0` (`uv.lock`); surface source-verified from the lock-built wheel tree (`PIL/Image.py`, `ImageDraw.py`, `ImageFont.py`, `ImageOps.py`, `ImageFilter.py`, `ImageEnhance.py`, `ImageChops.py`, `ImageCms.py`, `ImageSequence.py`, `features.py`). Manifest-gated `python_version<'3.15'`, so it is absent from the live cp315 `.venv` and `assay api resolve pillow` yields no pydist source on the dev band; the surface is read from the lock-built module, not live reflection
+- license: `License-Expression: MIT-CMU` (permissive; no copyleft obligation)
 - abi: per-interpreter CPython wheels; `Requires-Python >=3.10`; manifest-gated `python_version<'3.15'` (no cp315 wheel exists yet, so this rail is dark on the 3.15 dev band and live on the supported cpXXX bands)
-- codec features (`PIL.features.check`): `jpg`, `jpg_2000`, `zlib`, `libtiff`, `webp`, `avif`, `freetype2`, `littlecms2`, `xcb` present; `raqm` (complex-script text shaping) absent
+- codec features: query the live build with `PIL.features.check(<feature>) -> bool | None` (`check_codec`/`check_feature` underlie it) — it is build-conditional, never asserted. The Pillow-shipped binary wheels build `jpg`, `jpg_2000`, `zlib`, `libtiff`, `webp`, `avif`, `freetype2`, `littlecms2`, `xcb`; `raqm` (complex-script HarfBuzz/FriBidi text shaping) is not bundled in the standard wheels, so a consumer that needs RTL/ligature shaping gates on `features.check('raqm')` at the image boundary rather than presuming it. Because the rail is dark on cp315, the rebuild reads the live feature set off `PIL.features` when the package lands, not off this catalog
 - entry points: none (library only)
 - capability: raster decode/encode across plugin codecs, geometric transform, resampling, filtering, enhancement, channel/band ops, compositing, 3D-LUT color grading, ICC color management, drawing, FreeType text rendering, EXIF/XMP metadata, multi-frame sequence access, NumPy/Arrow array interop
 
@@ -63,7 +63,7 @@ Factory rows take path/stream/buffer/array/Arrow sources; the `Image` method row
 |  [04]   | `Image.fromarray` / `fromarrow` | `fromarray(obj, mode=None)` / `fromarrow(obj, mode, size)` | build from NumPy / Arrow array interface |
 |  [05]   | `Image.Image.save`    | `save(fp, format=None, **params)`                       | encode to a codec format (quality/optimize/compression kwargs) |
 |  [06]   | `Image.Image.tobytes` | `tobytes(encoder_name='raw', *args)`                    | encode to raw bytes                     |
-|  [07]   | `ImageFile.ImageFile.draft` | `draft(mode, size)`                               | JPEG-only fast lossy decode-scale hint  |
+|  [07]   | `Image.Image.draft`   | `draft(mode, size)`                                     | JPEG-only fast lossy decode-scale hint (method on `Image.Image`; the JPEG plugin overrides it) |
 |  [08]   | `Image.merge` / `Image.composite` | `merge(mode, bands)` / `composite(im1, im2, mask)` | merge single-band images / mask-composite |
 
 [ENTRYPOINT_SCOPE]: transform, resample, and band operations
@@ -109,7 +109,7 @@ Factory rows take path/stream/buffer/array/Arrow sources; the `Image` method row
 - band/stat axis: `split`/`merge`/`getchannel`/`alpha_composite`/`putalpha` own channel composition; `point`/`histogram`/`getextrema`/`entropy`/`getcolors` own per-pixel transform and statistics, never a NumPy round-trip where a Pillow band op suffices.
 - operation axis: `ImageOps` (`fit`/`contain`/`cover`/`pad`/`exif_transpose`/`autocontrast`/`equalize`/`colorize`), `ImageFilter` (`GaussianBlur`/`UnsharpMask`/`Kernel`/`Color3DLUT`/`Rank`/`Median`), `ImageEnhance`, and `ImageChops` (blend-mode algebra) are pure-function/factory surfaces returning a new image; enhancement, filtering, and 3D-LUT grading compose, never mutate the source.
 - color-management axis: `ImageCms.buildTransform`/`applyTransform`/`profileToProfile` run ICC-profile color conversion under an `Intent`/`Flags` row through littlecms2; embedded ICC bytes recovered from `info['icc_profile']` (or `pikepdf.models.PdfImage.icc`) feed a managed transform, never a naive `convert('RGB')` that drops the profile.
-- text axis: `ImageDraw.text`/`multiline_text`/`textbbox`/`textlength` render and measure with an `ImageFont.FreeTypeFont` (variation axes via `set_variation_by_axes`); complex-script shaping needs the absent `raqm` feature, so RTL/ligature text degrades to per-glyph layout on this build.
+- text axis: `ImageDraw.text`/`multiline_text`/`textbbox`/`textlength` render and measure with an `ImageFont.FreeTypeFont` (variation axes via `set_variation_by_axes`); complex-script shaping requires the `raqm` feature, which the standard wheels omit, so a consumer gates on `PIL.features.check('raqm')` and falls back to per-glyph layout (or routes shaping to the `uharfbuzz`/`blackrenderer` owners) when it is absent rather than assuming RTL/ligature support.
 - frame axis: `seek`/`tell` plus `ImageSequence.Iterator`/`all_frames` walk GIF/TIFF/APNG/WebP multi-frame containers; frame count and per-frame duration ride `info`, never a manual offset scan.
 - encode axis: `Image.save` keys the codec by the target extension or explicit `format`; quality/optimize/compress_level/progressive/lossless/icc_profile/exif ride save kwargs, never a parallel encoder.
 - evidence: each image op captures mode, size, frame count, color bands, ICC presence, and output byte length as an image receipt.

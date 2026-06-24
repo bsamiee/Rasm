@@ -9,10 +9,10 @@
 - import: `detools`
 - owner: `artifacts`
 - rail: delta
-- installed: `0.53.0` reflected via `import detools; detools.__version__` on cp313
-- license: `BSD` (BSD-2-Clause/MIT-style; `LICENSE` ships in the sdist)
+- locked: `0.53.0` (`uv.lock`); source-verified from the lock-built sdist tree (`detools/__init__.py`, `create.py`, `apply.py`, `info.py`). Not present in the live cp315 `.venv`, so `assay api resolve detools` yields no pydist source and the surface is read from the sdist-built module, not live reflection
+- license: `BSD` (`License: BSD`, `Classifier: License :: OSI Approved :: BSD License`; `LICENSE` ships in the sdist)
 - wheel: NONE published — `detools-0.53.0.tar.gz` sdist only; install builds the C extensions `detools.create.bsdiff`, `detools.create.hdiffpatch`, and `detools.create.suffix_array` from source, so a C toolchain is required at install time and there is no abi3/manylinux wheel
-- marker: no `python_requires` pin; runtime deps `bitstruct` (header bit-packing), `heatshrink2` (crle/heatshrink codec), `humanfriendly` (`format_size`/`format_timespan`), `lz4`, `pyelftools` (ELF data-format segmentation), `zstandard`
+- marker: no `Requires-Python` pin (the sdist METADATA omits it); runtime deps `bitstruct` (header bit-packing), `heatshrink2` (crle/heatshrink codec), `humanfriendly` (`format_size`/`format_timespan`), `lz4`, `pyelftools` (ELF data-format segmentation), `zstandard` — all six are `Requires-Dist` rows in the sdist METADATA
 - entry points: console script `detools` (CLI); library use is import-only
 - capability: binary-delta patch creation across `sequential`/`in-place`/`bsdiff` patch types and `bsdiff`/`hdiffpatch` algorithms, `divsufsort`/`sais` suffix-array construction, `bz2`/`crle`/`lzma`/`zstd`/`lz4`/`heatshrink`/`none` compression, data-format-aware ELF/AArch64/Cortex-M4/Xtensa segmentation with `from_*`/`to_*` offset rows, patch application from file-like or named-file inputs, and patch-container inspection
 

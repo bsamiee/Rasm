@@ -13,7 +13,7 @@
 - license: MIT (Steve Canny) — permissive, no copyleft gate; aligns with the MIT/BSD sibling office owners
 - abi: pure Python; single runtime dependency `lxml` (BSD) carries the compiled XML extension and is the only ABI surface; `typing_extensions` on older interpreters. Installs clean on cp315
 - entry points: none (library only)
-- capability: `.docx` construction and editing — paragraphs with runs and named styles, headings, tables (rows/columns/cells, nested tables, cell merge, vertical alignment), inline pictures (document- and run-level), page/line/column breaks and tabs, sections (header/footer triad, margins, orientation, page geometry), the named paragraph/character/table/list style catalog with latent styles, comments, core document properties, and ordered block iteration via `iter_inner_content`
+- capability: `.docx` construction and editing — paragraphs with runs and named styles, headings, tables (rows/columns/cells, nested tables, cell merge, vertical alignment), inline pictures (document- and run-level), page/line/column breaks and tabs, sections (header/footer triad gated by `different_first_page_header_footer`, margins, orientation, page geometry), the named paragraph/character/table/list style catalog with latent styles, the comment collection (`add_comment`/`comments`), document settings, core document properties, and ordered block iteration via `iter_inner_content` (with rendered-page-break detection in `Run.iter_inner_content`)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -42,8 +42,9 @@
 |  [04]   | `opc.coreprops.CoreProperties`    | metadata       | author/title/created/modified/keywords/category set    |
 |  [05]   | `shared.Length`                   | unit base      | EMU value object (`Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Twips`)|
 |  [06]   | `shared.RGBColor`                 | color          | run-font color value object                           |
-|  [07]   | `enum.text.WD_ALIGN_PARAGRAPH`    | alignment enum | paragraph alignment (also `WD_BREAK`/`WD_LINE_SPACING`)|
-|  [08]   | `enum.section.WD_SECTION_START`   | section enum   | section start kind (also `WD_ORIENTATION`)            |
+|  [07]   | `enum.text.WD_ALIGN_PARAGRAPH`    | alignment enum | paragraph alignment (also `WD_BREAK`/`WD_LINE_SPACING`/`WD_UNDERLINE`/`WD_TAB_ALIGNMENT`/`WD_COLOR_INDEX`) |
+|  [08]   | `enum.section.WD_SECTION_START`   | section enum   | section start kind (also `WD_ORIENTATION`/`WD_HEADER_FOOTER`) |
+|  [09]   | `enum.style.WD_STYLE_TYPE`        | style-kind enum | the `add_style` discriminant (`PARAGRAPH`/`CHARACTER`/`TABLE`/`LIST`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -94,8 +95,10 @@ The `Run` inline surface is where text/break/picture/tab live; `Table`/`_Cell` o
 |  [04]   | `Document.styles`          | `styles -> Styles`                      | the named-style catalog                        |
 |  [05]   | `Document.inline_shapes`   | `inline_shapes -> InlineShapes`         | all inline pictures/drawings                   |
 |  [06]   | `Document.core_properties` | `core_properties -> CoreProperties`     | author/title/created/modified/keywords/category|
-|  [07]   | `Section.orientation`      | `orientation` / `page_width` / `page_height` | page geometry (`WD_ORIENTATION`)          |
-|  [08]   | `Run.font`                 | `font -> Font` (`bold`/`italic`/`underline`/`color`) | run typography value                |
+|  [07]   | `Document.comments` / `settings` | `comments -> Comments` / `settings -> Settings` | the comment collection (mirror of `add_comment`) / document settings part |
+|  [08]   | `Section.orientation`      | `orientation` / `page_width` / `page_height` / `left_margin` / `right_margin` / `top_margin` / `bottom_margin` | page geometry (`WD_ORIENTATION`) + the four margins (all `Length`) |
+|  [09]   | `Section.different_first_page_header_footer` | `different_first_page_header_footer -> bool` | toggle that activates `first_page_header`/`first_page_footer` |
+|  [10]   | `Run.font` / `Run.iter_inner_content` | `font -> Font` (`bold`/`italic`/`underline`/`color`) / `iter_inner_content() -> Iterator[str \| Drawing \| RenderedPageBreak]` | run typography value / rendered-page-break + drawing walk |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -105,10 +108,10 @@ The `Run` inline surface is where text/break/picture/tab live; `Table`/`_Cell` o
 - content axis: `add_paragraph`/`add_heading`/`add_table`/`add_picture`/`add_section`/`add_page_break`/`add_comment` is one content-add surface on the document object; each content kind is a row, never a parallel document type. The inline run surface (`Run.add_break`/`add_picture`/`add_tab`/`add_text`) is the within-paragraph mirror — a run-level picture flows with text where the document-level `add_picture` is block-anchored.
 - table axis: `Table.add_row`/`add_column`/`cell`/`row_cells`/`column_cells` own grid growth and addressing; `_Cell.merge` spans cells and `_Cell.add_table` nests — never a parallel merged-cell or nested-table type. A table cell is authored through the same `_Cell.add_paragraph` surface as the body.
 - styling axis: named styles come from `Document.styles`; `Styles.add_style(name, WD_STYLE_TYPE, builtin=)` mints a reusable row and `default(style_type)` reads the catalog default — styles are named rows attached to paragraphs/runs/tables, never per-run duplication. `Run.font` carries `RGBColor`/`WD_UNDERLINE` directly only for ad-hoc emphasis the catalog does not name.
-- section axis: `Section` owns page geometry (`page_width`/`page_height`/`orientation`/margins) and the header/footer triad (`header`/`first_page_header`/`even_page_header` and footer mirrors); a multi-layout document is a sequence of section rows, never per-page objects.
+- section axis: `Section` owns page geometry (`page_width`/`page_height`/`orientation`/the four margins) and the header/footer triad (`header`/`first_page_header`/`even_page_header` and footer mirrors); the first-page/even-page headers are inert until `different_first_page_header_footer = True` (and the document settings odd/even flag) — set the toggle, never assume the triad applies. A multi-layout document is a sequence of section rows, never per-page objects.
 - unit axis: all measurements use `Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Twips` `Length` value objects, never raw EMU ints; alignment/break/section-start are `WD_ALIGN_PARAGRAPH`/`WD_BREAK`/`WD_SECTION_START` enum rows, never magic strings.
 - evidence: each document op captures paragraph count, table count, image count, section count, comment count, and output byte length as an office receipt.
-- boundary: python-docx owns `.docx`. Integration: `docxtpl` wraps a `Document` as a jinja2 template — prefer `docxtpl.DocxTemplate.render` for styled fill-from-context and reserve raw `python-docx` for programmatic block construction. `msoffcrypto-tool` decrypts an encrypted container to a plaintext stream `Document(stream)` reads, and re-seals the saved bytes; `python-magic` gates which reader runs at admission. Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`. Live UI stays outside this package.
+- boundary: python-docx owns `.docx`. Integration: `docxtpl` (`libs/python/artifacts/.api/docxtpl.md`) wraps a `Document` as a jinja2 template — prefer `docxtpl.DocxTemplate.render` for styled fill-from-context and reserve raw `python-docx` for programmatic block construction. `msoffcrypto-tool` (`libs/python/artifacts/.api/msoffcrypto-tool.md`) decrypts an encrypted container to a plaintext stream `Document(stream)` reads, and re-seals the saved bytes; `python-magic` (`libs/python/artifacts/.api/python-magic.md`) gates which reader runs at admission. An embedded chart/QR arrives as a PNG from `vl-convert`/`segno` and anchors through `add_picture`; the office-receipt model is a `msgspec`/`pydantic` struct (`libs/python/.api/msgspec.md`) and the op carries an `opentelemetry` span (`libs/python/.api/opentelemetry-api.md`). Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`. Live UI stays outside this package.
 
 ## [05]-[LOCAL_ADMISSION]
 

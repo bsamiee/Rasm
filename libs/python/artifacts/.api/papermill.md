@@ -9,7 +9,7 @@
 - import: `papermill`
 - owner: `artifacts`
 - rail: notebook
-- installed: `2.7.0` reflected via reflection on cp315 (Python 3.15)
+- locked: `2.7.0` (`uv.lock`); source-verified from the lock-built wheel tree (`papermill/__init__.py`, `execute.py`, `engines.py`, `iorw.py`, `translators.py`, `exceptions.py`, `parameterize.py`, `inspection.py`, `models.py`). Declared in `pyproject.toml` but not synced into the live cp315 `.venv`, so the surface is read from the lock-built module, not live reflection
 - license: BSD-3-Clause; pure Python (`papermill-2.7.0-py3-none-any.whl`); core runtime deps `click`/`nbclient`/`nbformat`/`tenacity`/`requests`/`tqdm`/`ansicolors`; cloud handlers are extras (`papermill[s3]`/`[gcs]`/`[azure]`/`[hdfs]`/`[github]`) that lazy-import `boto3`/`gcsfs`/`azure-*`/`pyarrow`/`PyGithub` and raise `PapermillOptionalDependencyException` when the extra is absent; no compiled extension, installs clean on cp315
 - entry points: `papermill` CLI (`click`-backed; executes via the `nbclient` engine, not nbconvert)
 - capability: parameterized notebook execution, parameter injection, kernel-language translation (Python/R/Julia/Scala/Bash/Matlab/.NET-C#/.NET-F#/.NET-PowerShell), pluggable notebook I/O (local/S3/GCS/ABS/ADLS/HDFS/HTTP/GitHub/stream/in-memory), execution lifecycle management with progress bar and autosave, and `tenacity`-backed retry on cloud rate limits
@@ -94,6 +94,7 @@ Every handler conforms structurally to the four-method contract `read(path)`/`wr
 
 [ENTRYPOINT_SCOPE]: notebook execution and inspection
 - rail: notebook — `papermill`
+- import paths: only `execute_notebook` and `inspect_notebook` are re-exported at top-level `papermill`; `parameterize_notebook`/`add_builtin_parameters` are `papermill.parameterize`, and `translate_parameters` is `papermill.translators` — a consumer imports the latter three from their owning submodules, not the package root
 
 | [INDEX] | [SURFACE]                                                                                                                                    | [ENTRY_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |

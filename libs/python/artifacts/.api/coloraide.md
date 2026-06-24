@@ -9,7 +9,7 @@
 - import: `coloraide`
 - owner: `artifacts`
 - rail: color
-- installed: `8.8.1` reflected via `import coloraide; coloraide.__version__` on cp313
+- version: `8.8.1` (lockfile-resolved; imports and runs on cp315)
 - license: `MIT`
 - wheel: `coloraide-8.8.1-py3-none-any.whl` — pure Python, no native dependency
 - marker: `python_requires >=3.10`; no NumPy or native acceleration — all math is pure Python
@@ -133,7 +133,7 @@ Construction parses any `ColorInput` (CSS string, named color, `(space, coords)`
 - gamut-map axis: `fit` is the single gamut-mapping surface keyed by `method`; `raytrace`/`oklch-chroma`/`lch-chroma`/`minde-chroma`/`scale`/`scale-luminance` are method rows, never parallel mapping functions; `in_gamut` is the predicate row and `clip` is the hard-clip row; conversion-time fitting flows through `convert(space, fit=...)`.
 - CVD axis: `filter` is the single filter surface keyed by `name`; `protan`/`deutan`/`tritan` are the CVD rows and `brightness`/`contrast`/`saturate`/`hue-rotate`/`grayscale`/`sepia`/`invert`/`opacity` are the W3C rows; CVD simulation is a `name` row with `amount`, never a hand-rolled Daltonization transform.
 - distance axis: `delta_e` selects the perceptual metric row (base `76` default, `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok`; `ColorAll` adds `99o`/`cam02`/`cam16`/`hct`) and `distance` is the raw Euclidean row; `closest` folds `delta_e` over a candidate set.
-- interpolation axis: `interpolate`/`steps`/`mix`/`discrete`/`weighted_mix` are rows over one interpolation surface keyed by `method` (`linear` default, `continuous`, `bspline`, `natural`, `monotone`, `css-linear`); `hue` strategy, `premultiplied` alpha, `domain`, `padding`, and `progress` easing (`stop`/`hint`/`cubic_bezier`/`ease*`) are arguments, never parallel gradient functions.
+- interpolation axis: `interpolate`/`steps`/`mix`/`discrete`/`weighted_mix` are rows over one interpolation surface keyed by `method` (`linear` default, `continuous`, `bspline`, `natural`, `monotone`, `css-linear`); `hue` strategy, `premultiplied` alpha, `domain`, `padding`, and `progress` easing (`stop`/`hint`/`cubic_bezier`/`ease*`) are arguments, never parallel gradient functions. `interpolate`/`discrete` return a reusable `Interpolator` object that is itself callable `(point: float) -> Color` and carries `.steps(...)`/`.discretize(...)` plus `.domain`/`.extrapolate`; the owner builds the interpolator once and samples it per gradient stop, never re-deriving the curve per sample.
 - CCT axis: `blackbody` mints a Planckian-locus color and `cct` reads temperature+Duv keyed by `method` (base `ohno-2013`/`robertson-1968`); `chromatic_adaptation` adapts XYZ between white points keyed by CAT `method` (base `bradford`; `ColorAll` adds `cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`); CCT is a `method` row, never a hand-rolled Planckian fit.
 - plugin axis: `register`/`deregister` extend the engine maps (`CS_MAP`, `FIT_MAP`, `FILTER_MAP`, `DE_MAP`, `CAT_MAP`, `CONTRAST_MAP`, `INTERPOLATE_MAP`, `CCT_MAP`); the base `Color` registers 27 spaces, `everything.ColorAll` registers 74; new spaces, fit methods, and filters are registered plugins on the class, never local conversion kernels.
 - evidence: each color captures the resolved space, channel vector, alpha, in-gamut flag, applied fit method, applied filter name and amount, delta-E metric, and (when read) CCT/Duv as a color receipt.

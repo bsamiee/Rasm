@@ -58,7 +58,7 @@ Bounded vocabularies the call rows discriminate on — module-level `int`/flag c
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------- |
 |  [01]   | `TEXTFLAGS_*`       | `TEXT`/`WORDS`/`BLOCKS`/`DICT`/`RAWDICT`/`HTML`/`XHTML`/`XML`/`SEARCH` presets + `TEXT_PRESERVE_*`/`TEXT_DEHYPHENATE` bits | `get_text`/`get_textpage` flag composition           |
 |  [02]   | `TEXT_OUTPUT_*`     | `TEXT`/`HTML`/`JSON`/`XHTML`/`XML`                                                                                         | `get_text` output kind                               |
-|  [03]   | `PDF_REDACT_*`      | image `NONE`/`REMOVE`/`PIXELS`/`REMOVE_UNLESS_INVISIBLE`; line-art `NONE`/`REMOVE_IF_TOUCHED`/`REMOVE_IF_COVERED`; text `NONE`/`REMOVE`/`REMOVE_INVISIBLE` | `apply_redactions(images=, graphics=, text=)` policy |
+|  [03]   | `PDF_REDACT_*`      | image `NONE`(0)/`REMOVE`(1)/`PIXELS`(2)/`REMOVE_UNLESS_INVISIBLE`; line-art `NONE`(0)/`REMOVE_IF_TOUCHED`(1)/`REMOVE_IF_COVERED`; text `REMOVE`(0)/`NONE`(1)/`REMOVE_INVISIBLE` (text family value order is INVERTED vs image — `0` is remove) | `apply_redactions(images=, graphics=, text=)` policy |
 |  [04]   | `PDF_ENCRYPT_*`     | `KEEP`/`NONE`/`RC4_40`/`RC4_128`/`AES_128`/`AES_256`                                                                       | `save(encryption=)` strength                         |
 |  [05]   | `PDF_PERM_*`        | `PRINT`/`MODIFY`/`COPY`/`ANNOTATE`/`FORM`/`ACCESSIBILITY`/`ASSEMBLE`/`PRINT_HQ`                                            | `save(permissions=)` bitmask                         |
 |  [06]   | `PDF_WIDGET_TYPE_*` | `UNKNOWN`/`BUTTON`/`CHECKBOX`/`RADIOBUTTON`/`TEXT`/`LISTBOX`/`COMBOBOX`/`SIGNATURE`                                        | `Widget.field_type` discriminant                     |
@@ -87,7 +87,7 @@ Document rows carry path/stream/filetype input, save compaction, encryption, con
 | :-----: | :------------------------ | :--------------------------------- | :-------------------------------------- |
 |  [01]   | `open`                    | `open(filename=None, stream=None, filetype=None, ...)` (module fn, alias of `Document`) | open from path or in-memory stream      |
 |  [02]   | `Document`                | `Document(filename=None, stream=None, filetype=None, rect=None, width=0, height=0, fontsize=11)` | the document constructor; `pymupdf.open` is the module-level alias |
-|  [03]   | `Document.save`           | `save(filename, *, garbage=0, clean=0, deflate=0, deflate_images=0, incremental=0, linear=0, encryption=1, permissions=4095, owner_pw=None, user_pw=None, use_objstms=0, ...)` | save with compaction/linearization/encryption knobs |
+|  [03]   | `Document.save`           | `save(filename, garbage=0, clean=0, deflate=0, deflate_images=0, deflate_fonts=0, incremental=0, ascii=0, expand=0, linear=0, no_new_id=0, appearance=0, pretty=0, encryption=1, permissions=4095, owner_pw=None, user_pw=None, preserve_metadata=1, use_objstms=0, compression_effort=0, raise_on_repair=False, ...)` | save with compaction/linearization/encryption knobs (`compression_effort` tunes brotli object-stream effort; `deflate_fonts` shrinks embedded fonts; `preserve_metadata` keeps the info dict) |
 |  [04]   | `Document.ez_save`        | target plus defaulted kwargs       | save with deflate/garbage/use-objstms defaults on |
 |  [05]   | `Document.convert_to_pdf` | page range plus rotation           | convert a non-PDF document to PDF bytes |
 |  [06]   | `Document.authenticate`   | password                           | unlock an encrypted document            |
@@ -160,7 +160,7 @@ Render and extraction rows share matrix/dpi, color, clip, text mode, textpage, s
 |  [04]   | `Page.get_textpage_ocr` | `get_textpage_ocr(flags=0, language="eng", dpi=72, full=False, tessdata=None) -> TextPage`                                                                            | Tesseract-OCR a page into a searchable `TextPage`               |
 |  [05]   | `Page.search_for`       | needle plus match policy                                                                                                                                              | locate text regions                                             |
 |  [06]   | `Page.get_images`       | full-image flag                                                                                                                                                       | enumerate embedded images                                       |
-|  [07]   | `Page.apply_redactions` | `apply_redactions(images=PDF_REDACT_IMAGE_REMOVE, graphics=PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=PDF_REDACT_TEXT_REMOVE) -> bool`                               | burn in redaction annotations (module `PDF_REDACT_*` int flags) |
+|  [07]   | `Page.apply_redactions` | `apply_redactions(images=PDF_REDACT_IMAGE_PIXELS, graphics=PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED, text=PDF_REDACT_TEXT_REMOVE) -> bool` (literal defaults `2`/`1`/`0`; note `PDF_REDACT_TEXT_REMOVE==0` and `PDF_REDACT_TEXT_NONE==1`, inverted from the image family) | burn in redaction annotations (module `PDF_REDACT_*` int flags) |
 |  [08]   | `Page.insert_image`     | `insert_image(rect, *, stream=None, filename=None, pixmap=None, xref=0, alpha=-1, keep_proportion=True, overlay=True, rotate=0, width=0, height=0, mask=None) -> int` | embed a raster losslessly from stream/file/pixmap               |
 |  [09]   | `Pixmap`                | `Pixmap(*args)` (e.g. `Pixmap(doc, xref)`, `Pixmap(colorspace, irect, alpha)`)                                                                                        | construct a raster buffer from a doc xref or spec               |
 |  [10]   | `Pixmap.save`           | target plus output policy                                                                                                                                             | encode raster to PNG/JPEG/etc.                                  |
@@ -222,8 +222,8 @@ Optional-content groups gate visibility; the journal is the native undo/redo + s
 |  [06]   | `DocumentWriter`            | `DocumentWriter(path, options="")`                                  | author sink for drawn pages (path or `BytesIO`)     |
 |  [07]   | `DocumentWriter.begin_page` | `begin_page(mediabox) -> Device`                                    | open a page and hand back its draw device           |
 |  [08]   | `DocumentWriter.end_page`   | `end_page()`                                                        | close the current page                              |
-|  [07]   | `DocumentWriter.close`      | `close()`                                            | finalize the written document                       |
-|  [08]   | `paper_rect`                | `paper_rect(s: str) -> Rect`                         | named paper-size rect (e.g. `"a4"`)                 |
+|  [09]   | `DocumentWriter.close`      | `close()`                                            | finalize the written document                       |
+|  [10]   | `paper_rect`                | `paper_rect(s: str) -> Rect`                         | named paper-size rect (e.g. `"a4"`)                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

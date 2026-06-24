@@ -86,7 +86,7 @@
 | [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                          |
 | :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------ |
 |  [01]   | `SimpleSigner.load(key_file, cert_file, ca_chain_files=None, key_passphrase=None, other_certs=None, signature_mechanism=None, prefer_pss=False)` | PEM loader | load PEM key + cert chain |
-|  [02]   | `SimpleSigner.load_pkcs12(pfx_file, ca_chain_files=None, other_certs=None, passphrase=None, prefer_pss=False)` | PKCS#12 loader | load a PKCS#12 bundle |
+|  [02]   | `SimpleSigner.load_pkcs12(pfx_file, ca_chain_files=None, other_certs=None, passphrase=None, signature_mechanism=None, prefer_pss=False)` | PKCS#12 loader | load a PKCS#12 bundle |
 |  [03]   | `ExternalSigner(signing_cert, cert_registry, signature_value=None, signature_mechanism=None, prefer_pss=False, embed_roots=True)` | HSM/remote signer | detached signer with injected or deferred signature bytes |
 |  [04]   | `load_certs_from_pemder(cert_files)`                                                              | cert loader    | parse a PEM/DER cert list             |
 
@@ -106,7 +106,7 @@
 [ENTRYPOINT_SCOPE]: signing descriptor knobs
 - rail: pdf — `pyhanko.sign.PdfSignatureMetadata`
 
-`PdfSignatureMetadata(field_name=None, md_algorithm=None, location=None, reason=None, contact_info=None, name=None, certify=False, subfilter=None, embed_validation_info=False, use_pades_lta=False, timestamp_field_name=None, validation_context=None, docmdp_permissions=MDPPerm.FILL_FORMS, signer_key_usage=..., cades_signed_attr_spec=None, dss_settings=DSSContentSettings(...), tight_size_estimates=False, ac_validation_context=None, prop_auth_type=None)`
+`PdfSignatureMetadata(field_name=None, md_algorithm=None, location=None, reason=None, contact_info=None, name=None, app_build_props=None, prop_auth_time=None, prop_auth_type=None, certify=False, subfilter=None, embed_validation_info=False, use_pades_lta=False, timestamp_field_name=None, validation_context=None, docmdp_permissions=MDPPerm.FILL_FORMS, signer_key_usage=..., cades_signed_attr_spec=None, dss_settings=DSSContentSettings(...), tight_size_estimates=False, ac_validation_context=None)`
 
 | [INDEX] | [KNOB]                  | [CAPABILITY]                                                          |
 | :-----: | :---------------------- | :------------------------------------------------------------------- |
@@ -134,7 +134,7 @@
 | [INDEX] | [SURFACE]                                                                                              | [ENTRY_FAMILY]   | [CAPABILITY]                             |
 | :-----: | :----------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------- |
 |  [01]   | `append_signature_field(pdf_out, sig_field_spec)`                                                     | field writer     | add a signature field to a writer        |
-|  [02]   | `SigFieldSpec(sig_field_name, on_page=0, box=None, seed_value_dict=None, field_mdp_spec=None, combine_annotation=True, visible_sig_settings=...)` | field descriptor | declare a field placement + seed value |
+|  [02]   | `SigFieldSpec(sig_field_name, on_page=0, box=None, seed_value_dict=None, field_mdp_spec=None, doc_mdp_update_value=None, combine_annotation=True, empty_field_appearance=False, invis_sig_settings=InvisSigSettings(...), readable_field_name=None, visible_sig_settings=VisibleSigSettings(...))` | field descriptor | declare a field placement + seed value; both `invis_sig_settings` and `visible_sig_settings` carry the appearance flags, `doc_mdp_update_value` sets the per-field DocMDP level |
 |  [03]   | `enumerate_sig_fields(handler, filled_status=None, with_name=None)`                                   | field enumerator | iterate signature fields with fill state |
 |  [04]   | `prepare_sig_field(sig_field_name, root, update_writer, ...)`                                         | field preparer   | locate or create a field for signing     |
 
@@ -151,7 +151,7 @@
 |  [06]   | `async_add_validation_info(embedded_sig, validation_context, ...)`                                                 | DSS async embed    | coroutine variant of DSS embedding                |
 |  [07]   | `collect_validation_info(embedded_sig, validation_context, skip_timestamp=False)`                                  | info collect       | gather OCSP/CRL material without writing          |
 |  [08]   | `read_certification_data(reader) -> DocMDPInfo`                                                                    | certification read | retrieve DocMDP info from a certifying signature  |
-|  [09]   | `EmbeddedPdfSignature.compute_digest(...)` / `evaluate_signature_coverage()` / `evaluate_modifications(...)`        | coverage eval      | byte-range digest, `SignatureCoverageLevel`, diff |
+|  [09]   | `EmbeddedPdfSignature.compute_digest(...)` / `evaluate_signature_coverage()` / `evaluate_modifications(...)` / `compute_integrity_info(...)` / `signer_cert`        | coverage eval      | byte-range digest, `SignatureCoverageLevel`, diff, the consolidated integrity record, and the embedded signer certificate |
 
 [ENTRYPOINT_SCOPE]: document I/O and trust context
 - rail: pdf — `pyhanko.pdf_utils`, `pyhanko_certvalidator`

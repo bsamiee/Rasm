@@ -86,6 +86,8 @@
 |  [06]   | `label2rgb(label, image, colors, alpha, ...)`      | label colorize     | map integer label mask to RGB overlay         |
 |  [07]   | `convert_colorspace(arr, fromspace, tospace)`      | generic convert    | dispatch colorspace conversion by name string |
 |  [08]   | `deltaE_ciede2000(lab1, lab2, kL, kC, kH)`         | color distance     | CIEDE2000 perceptual color difference         |
+|  [09]   | `separate_stains(rgb, conv_matrix, *, channel_axis)` / `combine_stains(stains, conv_matrix, *, channel_axis)` | stain separation | color-deconvolution stain unmixing/remixing (H&E/HDX) — the `color` stain-separation owner |
+|  [10]   | `rgb2ycbcr(rgb)` / `ycbcr2rgb(ycbcr)`              | colorspace convert | RGB <-> YCbCr (the broadcast/video colorspace) |
 
 [ENTRYPOINT_SCOPE]: geometric transform
 - rail: imaging — `skimage.transform`
@@ -102,6 +104,9 @@
 |  [08]   | `hough_circle(image, radius, normalize, full_output)`                              | Hough           | Hough circle accumulation                           |
 |  [09]   | `radon(image, theta, circle, preserve_range)`                                      | Radon           | compute Radon transform (sinogram)                  |
 |  [10]   | `iradon(radon_image, theta, output_size, filter_name, interpolation, circle, ...)` | Radon inverse   | filtered back-projection reconstruction             |
+|  [11]   | `hough_line_peaks(hspace, angles, dists, ...)` / `hough_circle_peaks(...)` / `probabilistic_hough_line(image, threshold, line_length, line_gap, theta, ...)` | Hough peaks | extract peaks from the Hough accumulator (the detect half of the Hough pipeline) |
+|  [12]   | `pyramid_gaussian(image, max_layer, downscale, ..., channel_axis)` / `pyramid_laplacian(...)` | pyramid | Gaussian / Laplacian image-pyramid generators       |
+|  [13]   | `swirl(image, center, strength, radius, ...)` / `warp_polar(image, center, *, radius, output_shape, ...)` / `integral_image(image, *, dtype)` / `matrix_transform(coords, matrix)` | warp/util | swirl warp, log-/linear-polar unwrap, summed-area table, point-set matrix apply |
 
 [ENTRYPOINT_SCOPE]: filtering and thresholding
 - rail: imaging — `skimage.filters`
@@ -169,6 +174,11 @@
 |  [06]   | `random_walker(data, labels, beta, mode, tol, copy, ...)`                      | probabilistic  | random walker segmentation from seed labels     |
 |  [07]   | `find_boundaries(label_img, connectivity, mode, background)`                   | boundary       | boolean boundary map from label image           |
 |  [08]   | `expand_labels(label_image, distance)`                                         | label expand   | expand label regions by Euclidean distance      |
+|  [09]   | `quickshift(image, ratio, kernel_size, max_dist, ..., channel_axis)`           | superpixel     | quickshift mode-seeking superpixel segmentation |
+|  [10]   | `mark_boundaries(image, label_img, color, outline_color, mode, background_label)` | overlay     | draw label boundaries over an image (visualization helper) |
+|  [11]   | `clear_border(labels, buffer_size, bgval, mask, *, out)`                       | label clean    | drop labels touching the image border           |
+|  [12]   | `morphological_chan_vese(...)` / `morphological_geodesic_active_contour(...)` / `inverse_gaussian_gradient(image, alpha, sigma)` | level-set | morphological-snake level-set evolution + its edge-stopping map |
+|  [13]   | `join_segmentations(s1, s2, ...)` / `relabel_sequential(label_field, offset)` | label algebra  | intersection of two segmentations; compact consecutive relabeling |
 
 [ENTRYPOINT_SCOPE]: region measurement
 - rail: imaging — `skimage.measure`
@@ -192,7 +202,7 @@
 |  [01]   | `canny(image, sigma, low_threshold, high_threshold, mask, use_quantiles, ...)`  | edge detect      | Canny multi-stage edge detector                |
 |  [02]   | `hog(image, orientations, pixels_per_cell, cells_per_block, ..., channel_axis)` | descriptor       | histogram of oriented gradients feature vector |
 |  [03]   | `SIFT(upsampling, n_octaves, n_scales, sigma_min, ...)`                         | descriptor class | SIFT keypoint and descriptor extraction        |
-|  [04]   | `match_descriptors(descriptors1, descriptors2, metric, p, max_distance, ...)`   | matching         | nearest-neighbor descriptor matching           |
+|  [04]   | `match_descriptors(descriptors1, descriptors2, metric=None, p=2, max_distance=inf, cross_check=True, max_ratio=1.0)` | matching | nearest-neighbor descriptor matching (Lowe-ratio + cross-check) |
 |  [05]   | `blob_dog(image, min_sigma, max_sigma, sigma_ratio, threshold, overlap, ...)`   | blob detect      | Difference-of-Gaussian blob detection          |
 |  [06]   | `blob_log(image, min_sigma, max_sigma, num_sigma, threshold, overlap, ...)`     | blob detect      | Laplacian-of-Gaussian blob detection           |
 |  [07]   | `corner_harris(image, method, k, eps, sigma, *, axis)`                          | corner detect    | Harris corner response                         |
@@ -222,6 +232,8 @@
 |  [06]   | `adjust_log(image, gain, inv)`                                      | log adjust      | logarithmic intensity adjustment                 |
 |  [07]   | `histogram(image, nbins, source_range, normalize, ...)`             | histogram       | image histogram array                            |
 |  [08]   | `is_low_contrast(image, fraction_threshold, lower_percentile, ...)` | contrast check  | detect low-contrast images                       |
+|  [09]   | `adjust_sigmoid(image, cutoff, gain, inv)`                          | sigmoid         | sigmoid (S-curve) contrast adjustment            |
+|  [10]   | `cumulative_distribution(image, nbins)`                             | histogram       | image CDF and bin centers (the equalization primitive) |
 
 [ENTRYPOINT_SCOPE]: restoration and denoising
 - rail: imaging — `skimage.restoration`
@@ -236,6 +248,9 @@
 |  [06]   | `inpaint_biharmonic(image, mask, *, split_into_regions, channel_axis)`                 | inpaint        | biharmonic inpainting of masked regions     |
 |  [07]   | `richardson_lucy(image, psf, num_iter, clip, filter_epsilon, *, channel_axis)`         | deconvolve     | Richardson-Lucy deconvolution               |
 |  [08]   | `rolling_ball(image, *, radius, kernel, nansafe, num_threads)`                         | background     | rolling-ball background subtraction         |
+|  [09]   | `unsupervised_wiener(image, psf, reg, ..., clip, *, channel_axis)` / `wiener(image, psf, balance, ...)` | deconvolve | self-tuned / supervised Wiener-Hunt deconvolution |
+|  [10]   | `unwrap_phase(image, wrap_around=False, rng=None)`                                     | phase          | 2D/3D phase unwrapping (the package phase-unwrap owner) |
+|  [11]   | `calibrate_denoiser(image, denoise_function, denoise_parameters, *, ...)`              | denoise tune   | J-invariant denoiser parameter calibration  |
 
 [ENTRYPOINT_SCOPE]: registration
 - rail: imaging — `skimage.registration`
@@ -290,6 +305,7 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 |  [02]   | `predict_segmenter(features, clf)`                                                 | predict        | predict a label map from a feature stack              |
 |  [03]   | `TrainableSegmenter(clf, features_func)`                                           | segmenter      | bundled fit/predict pixel segmenter                   |
 |  [04]   | `feature.multiscale_basic_features(image, intensity, edges, texture, sigma_min, ...)` | feature stack  | the standard intensity/edge/texture feature input     |
+|  [05]   | `manual_lasso_segmentation(image, alpha, return_all)` / `manual_polygon_segmentation(image, alpha, return_all)` | seed label | interactive lasso/polygon label-mask collection (matplotlib UI) |
 
 [ENTRYPOINT_SCOPE]: utility
 - rail: imaging — `skimage.util`
@@ -304,6 +320,10 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 |  [06]   | `random_noise(image, mode, rng, clip, **kwargs)` | augment        | add noise (Gaussian/Poisson/salt/pepper/speckle) |
 |  [07]   | `view_as_windows(arr_in, window_shape, step)`    | windowing      | rolling window view without copy                 |
 |  [08]   | `view_as_blocks(arr_in, block_shape)`            | block view     | non-overlapping block view without copy          |
+|  [09]   | `montage(arr_in, fill, rescale_intensity, grid_shape, padding_width, *, channel_axis)` | tiling | tile an image stack into one montage array       |
+|  [10]   | `crop(ar, crop_width, copy, order)` / `invert(image, *, signed_float)` / `map_array(input_arr, input_vals, output_vals)` | array op | symmetric crop; intensity invert; vectorized label/value remap |
+|  [11]   | `apply_parallel(function, array, chunks, depth, mode, ..., compute, *, channel_axis, dtype)` | parallel | dask-chunked tiled parallel apply of any per-tile function |
+|  [12]   | `regular_grid(ar_shape, n_points)`               | sampling       | even N-point grid of slice objects over an array |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -311,7 +331,7 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 - all functions accept and return `numpy.ndarray`; there is no private image class, so the rail composes by passing arrays, not objects.
 - dtype axis: `img_as_float`/`img_as_ubyte`/`img_as_uint`/`img_as_float32` own dtype normalization at the boundary; domain functions assume `[0,1]` float or the native integer range and do not recast internally unless `preserve_range=False`. Drive dtype conversion explicitly; never rely on implicit promotion.
 - channel axis: multichannel functions take `channel_axis` (integer or `-1`, default `None` = grayscale); never infer from shape. The legacy `multichannel=` keyword is removed in 0.26.
-- structuring elements: the `skimage.morphology` footprint factory (`disk`/`diamond`/`ball`/`ellipse`/`octagon`/`star` plus the unified `footprint_rectangle` that supersedes `square`/`cube`/`rectangle`) and the `decomposition='sequence'` argument own structuring-element construction; never hand-roll footprint arrays.
+- structuring elements: the `skimage.morphology` footprint factory (`disk`/`diamond`/`ball`/`ellipse`/`octagon`/`star` plus the unified `footprint_rectangle` that supersedes `square`/`cube`/`rectangle` — the predecessors remain callable but emit a `FutureWarning` since 0.25, so new code uses `footprint_rectangle`) and the `decomposition='sequence'` argument own structuring-element construction; never hand-roll footprint arrays.
 - transform model: `estimate_transform(ttype, src, dst)` or `Model().estimate(src, dst)` fits from correspondences; `warp(image, model.inverse)` applies the inverse map. Transform objects compose via `+` (matrix product) and invert via `.inverse`.
 - RANSAC: `ransac(data, ModelClass, min_samples, residual_threshold, *, max_trials=100, rng=None, ...)` wraps any model exposing `estimate`/`residuals`; the seed kwarg is `rng` (a `numpy.random.Generator`/int), not `random_state`. `CircleModel`/`EllipseModel`/`LineModelND` are the built-in models; a custom model is any object with the two methods.
 - feature pipeline: `detector = SIFT()/ORB()/BRIEF()/CENSURE(); detector.detect_and_extract(image)` -> `detector.keypoints`, `detector.descriptors` -> `match_descriptors(d1, d2, cross_check=True)`; descriptor classes carry no array on construction.
@@ -330,10 +350,12 @@ Classical (non-deep) trainable pixel segmentation: extract a multiscale feature 
 - skimage is the array-algorithm tier beneath the visualization tier: overlay/label maps render through `matplotlib` (gated sibling) or colorize via `color.label2rgb`; SVG/vector figures rasterize through `resvg_py`; never render inside skimage.
 - the 3D `measure.marching_cubes` isosurface and `measure.mesh_surface_area` stack with the geometry `trimesh`/mesh owner — skimage extracts the array isosurface, the mesh owner owns the triangulation and watertight repair.
 - `feature.multiscale_basic_features` + `future.fit_segmenter`/`predict_segmenter` stack with a `scikit-learn` classifier (gated sibling) for trainable segmentation; skimage owns the feature stack, sklearn owns the model fit.
+- `color.separate_stains`/`combine_stains` color-deconvolution stacks with `colour-science` (the artifacts CIE/spectral owner) — skimage unmixes the histological stain planes, `colour-science` owns the appearance/illuminant math; never re-derive a stain matrix.
+- `util.apply_parallel` chunks a per-tile function over a `dask` array (the data-tier dask), so a large image processes out-of-core through the same tiling the data rail already owns — never an open-coded tile loop.
 - numeric heavy lifting is `numpy`/`scipy` (skimage builds on `scipy.ndimage`); pass `scipy.sparse` arrays only where a function documents acceptance (e.g. `random_walker`).
 
 [RAIL_LAW]:
 - Package: `scikit-image`
-- Owns: array-level image processing across color/stain, geometry and Hough/Radon, filtering/ridge/threshold, morphology and reconstruction, segmentation and level-sets, measurement and isosurface extraction, feature/texture/descriptor extraction, exposure, denoising/deconvolution/inpainting, registration/optical-flow, quality metrics, region adjacency graphs, and trainable pixel segmentation
-- Accept: NumPy ndarray inputs; SciPy sparse arrays where documented; sklearn-style classifiers for the trainable segmenter
-- Reject: OpenCV, PIL, or hand-rolled reimplementations of operations skimage already owns; per-pixel Python loops where a vectorized skimage operation applies; in-package rendering where `matplotlib`/`resvg_py`/`color.label2rgb` own visualization; image decode/encode where `pillow`/`tifffile` own the codec
+- Owns: array-level image processing across color/stain-separation, geometry and pyramids and Hough/Radon, filtering/ridge/threshold, morphology and reconstruction, segmentation and level-sets/morphological-snakes, measurement and isosurface extraction, feature/texture/descriptor extraction, exposure, denoising/deconvolution/inpainting/phase-unwrapping, registration/optical-flow, quality metrics, region adjacency graphs, and trainable pixel segmentation
+- Accept: NumPy ndarray inputs; SciPy sparse arrays where documented; sklearn-style classifiers for the trainable segmenter; a dask array for `util.apply_parallel`
+- Reject: OpenCV, PIL, or hand-rolled reimplementations of operations skimage already owns; per-pixel Python loops where a vectorized skimage operation applies; an open-coded tile loop where `util.apply_parallel` owns dask-chunked parallelism; in-package rendering where `matplotlib`/`resvg_py`/`color.label2rgb` own visualization; image decode/encode where `pillow`/`tifffile` own the codec

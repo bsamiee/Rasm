@@ -12,7 +12,7 @@
 - license: MIT
 - installed: `0.19.1` reflected via `python -c "import ruamel.yaml"` on cp315 (pure-Python `>=3.9`, cp315-clean; the optional `ruamel.yaml.clib` C emitter/parser ships separate per-version wheels and `YAML(pure=True)` forces the pure-Python codec when clib is absent)
 - entry points: none (library only)
-- capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, tags, and per-node block/flow/quote styling; safe/unsafe/base typ variants; multi-document streams; styled-scalar construction; programmatic comment/anchor attach; custom class registration; low-level compose/serialize/parse/emit event and node rails
+- capability: round-trip YAML 1.1/1.2 load/dump preserving comments, key order, anchors/aliases, tags, and per-node block/flow/quote styling; safe/unsafe/base typ variants; multi-document streams; styled-scalar construction; programmatic comment/anchor attach; custom class registration (`@yaml_object`) and the low-level tag/resolver/representer hooks (`add_representer`/`add_constructor`/`add_implicit_resolver`/`add_path_resolver`); low-level compose/serialize/parse/emit event and node rails
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -27,10 +27,12 @@
 |  [04]   | `CommentedKeyMap` / `CommentedKeySeq`           | hashable container | round-trip map/seq usable as a mapping key                                         |
 |  [05]   | `TaggedScalar`                                  | tagged node        | a scalar carrying an explicit `!tag`                                               |
 |  [06]   | `CommentToken`                                  | comment node       | a parsed comment attached to a node via `.ca`                                       |
-|  [07]   | `Anchor`                                        | anchor handle      | the `&name` anchor bound to a node (`.anchor` / `yaml_set_anchor`)                  |
+|  [07]   | `anchor.Anchor`                                 | anchor handle      | the `&name` anchor bound to a node (`.anchor` / `yaml_set_anchor`); NOT re-exported top-level — import from `ruamel.yaml.anchor` |
 |  [08]   | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec   | the load/dump halves preserving fidelity (the `rt` typ)                            |
-|  [09]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves                                                      |
-|  [10]   | `Version`                                       | version tuple      | the `(major, minor)` YAML directive carried by `YAML.version`                      |
+|  [09]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves; `add_representer`/`add_constructor` extend either   |
+|  [10]   | `Version` / `DocInfo`                           | doc metadata       | `Version(major, minor)` (`ruamel.yaml.docinfo.Version`, carried by `YAML.version`); `DocInfo` carries directives/tags/version read from a parsed stream |
+|  [11]   | `Tag`                                           | tag handle         | a resolved `!tag`/`!!type` on a node (set on `CommentedMap`/`TaggedScalar`)         |
+|  [12]   | `YAMLObject` / `yaml_object`                    | class registration | base class / `@yaml_object(yaml)` decorator binding a custom class to a tag for round-trip |
 
 [PUBLIC_TYPE_SCOPE]: styled-scalar family
 - rail: structured documents — `ruamel.yaml.scalarstring`, `scalarint`, `scalarfloat`, `scalarbool`, `timestamp`
@@ -76,6 +78,8 @@ Construct these in place of plain `str`/`int` to force emission style on dump; o
 |  [07]   | `YAML.allow_duplicate_keys`                                           | attribute (`bool`, default `False`)                                                       | accept duplicate mapping keys instead of `DuplicateKeyError`            |
 |  [08]   | `YAML.explicit_start` / `explicit_end`                               | attribute (`bool`)                                                                        | emit `---` / `...` document markers                                     |
 |  [09]   | `YAML.sequence_dash_offset` / `top_level_colon_align`                | attribute                                                                                 | dash indentation and key-colon alignment                                |
+|  [10]   | `YAML.tags`                                                          | attribute (`dict \| None`)                                                                | custom `!handle!` -> tag-prefix directive map for emit                  |
+|  [11]   | `YAML.compact` / `block_seq_indent`                                 | method / attribute                                                                        | compact flow-collection seq/map emission; block-sequence indent width   |
 
 [ENTRYPOINT_SCOPE]: load / dump and node builders
 - rail: structured documents
@@ -91,6 +95,20 @@ Construct these in place of plain `str`/`int` to force emission style on dump; o
 |  [05]   | `YAML.map`              | `map(**kw) -> CommentedMap`                                        | build an engine-bound `CommentedMap` (correct typ wiring)               |
 |  [06]   | `YAML.seq`              | `seq(*args) -> CommentedSeq`                                       | build an engine-bound `CommentedSeq`                                    |
 |  [07]   | `YAML.register_class`   | `register_class(cls) -> cls`                                       | register a `@yaml_object`-style class for round-trip (decorator/call)   |
+
+[ENTRYPOINT_SCOPE]: tag / codec / resolver extension hooks
+- rail: structured documents — module-level `ruamel.yaml` functions plus the `@yaml_object` decorator
+
+For a custom domain type that is not a plain mapping/sequence, register a tag<->object codec instead of pre/post-walking the tree. `register_class`/`@yaml_object(yaml)` is the high-level binding (declares `yaml_tag` + `to_yaml`/`from_yaml` on the class); the `add_*` functions are the low-level resolver/representer hooks when the class form does not fit. These extend the engine's own constructor/representer, never a parallel serializer.
+
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                       | [CAPABILITY]                                                       |
+| :-----: | :--------------------------------- | :--------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `yaml_object`                      | `@yaml_object(yaml)` (class decorator)                                              | bind a class to its `yaml_tag` for round-trip (uses the instance's typ) |
+|  [02]   | `add_representer` / `add_constructor` | `add_representer(data_type, fn, Dumper=None) -> None`                            | tag<->object codec for one exact type                              |
+|  [03]   | `add_multi_representer` / `add_multi_constructor` | `add_multi_constructor(tag_prefix, fn, Loader=None) -> None`         | codec for a tag-prefix family / subclass hierarchy                 |
+|  [04]   | `add_implicit_resolver`            | `add_implicit_resolver(tag, regexp, first=None) -> None`                           | auto-resolve a plain scalar pattern to a tag (no explicit `!tag`)  |
+|  [05]   | `add_path_resolver`                | `add_path_resolver(tag, path, kind=None) -> None`                                  | resolve a tag by its position in the document path                 |
+|  [06]   | `DocInfo` / `Tag`                  | read `parsed.docinfo` / node `.tag`                                                 | inspect directives/version/tags of a parsed stream; the resolved node tag |
 
 [ENTRYPOINT_SCOPE]: comment, anchor, and position attach
 - rail: structured documents — `CommentedMap` / `CommentedSeq` methods
@@ -127,12 +145,13 @@ The four-stage YAML pipeline is exposed directly for streaming transforms and no
 - container axis: `CommentedMap`/`CommentedSeq` are the round-trip data carriers; the `rt` typ is the default so comments, key order, anchors, and styling survive a load->edit->dump cycle. Edit the tree in place (or build via `yaml.map()`/`yaml.seq()`); never round-trip through a plain `dict`, which discards `.ca`/`.lc` and collapses anchors.
 - style axis: emission style is data-driven through the styled-scalar family (`LiteralScalarString` for embedded code/SQL blocks, `FoldedScalarString` for prose, the quoted/based-int types for exact representation) plus the engine attributes (`indent`/`width`/`version`/`default_flow_style`). Set style on the value object or the engine, never by string-munging the emitted text.
 - stream axis: `load`/`dump` (single) and `load_all`/`dump_all` (multi-document) are rows on the engine; `dump(data, transform=fn)` or a `StringIO` sink yields a string without a temp file; a `pathlib.Path` argument lets the engine own open/close.
-- evidence: each load/dump captures typ, document count, YAML version, anchor count, and output byte length as a structured-documents receipt.
-- integration: ruamel.yaml is the fidelity tier of the structured-text triad with `tomlkit` (TOML round-trip) and `lxml` (XML round-trip) — all three preserve comments/order/styling so a config-rewrite rail edits the loaded tree in place and re-emits without churn; route by format, never cross-parse. For schema-validated config the rail is `YAML.load -> msgspec/pydantic decode of the plain values -> validate -> mutate the CommentedMap -> YAML.dump`, keeping the commented tree as the durable artifact while typed models own validation. `jinja2`-templated YAML renders to text first, then loads here.
+- tag axis: a custom domain type round-trips through `yaml.register_class(cls)` / `@yaml_object(yaml)` (declaring `yaml_tag` + `to_yaml`/`from_yaml`), or the low-level `add_representer`/`add_constructor` (exact type) and `add_multi_*`/`add_implicit_resolver`/`add_path_resolver` hooks — extend the engine's own constructor/representer, never a manual pre/post tree walk or a `str()` of the object. A loaded `!tag` lands as `TaggedScalar`/tagged `CommentedMap`; read it through the node `.tag`/`DocInfo`.
+- evidence: each load/dump captures typ, document count, YAML version, anchor count, registered-tag count, and output byte length as a structured-documents receipt.
+- integration: ruamel.yaml is the fidelity tier of the structured-text triad with `tomlkit` (TOML round-trip) and `lxml` (XML round-trip, `libs/python/artifacts/.api/lxml.md`) — all three preserve comments/order/styling so a config-rewrite rail edits the loaded tree in place and re-emits without churn; route by format, never cross-parse. For schema-validated config the rail is `YAML.load -> msgspec/pydantic decode of the plain values -> validate -> mutate the CommentedMap -> YAML.dump` (`libs/python/.api/msgspec.md`, `libs/python/.api/pydantic.md`), keeping the commented tree as the durable artifact while typed models own validation; a `DuplicateKeyError` or a `MarkedYAMLError` (carrying `problem_mark`) maps to the same typed config-failure rail. `jinja2`-templated YAML (`libs/python/artifacts/.api/jinja2.md`) renders to text first, then loads here.
 - boundary: ruamel.yaml owns YAML; XML routes to `lxml`, TOML to `tomlkit`; live UI stays outside this package.
 
 [RAIL_LAW]:
 - Package: `ruamel-yaml`
-- Owns: round-trip YAML 1.1/1.2 load/dump preserving comments/order/anchors/tags/styling, typ variants, styled-scalar construction, programmatic comment/anchor attach, multi-document streams, class registration, and the low-level compose/serialize/parse/emit rails
+- Owns: round-trip YAML 1.1/1.2 load/dump preserving comments/order/anchors/tags/styling, typ variants, styled-scalar construction, programmatic comment/anchor attach, multi-document streams, class registration plus the low-level tag/resolver/representer hooks, and the compose/serialize/parse/emit rails
 - Accept: fidelity-preserving YAML processing feeding the structured-documents owner
-- Reject: wrapper-renames of `load`/`dump`; the module-level `safe_load`/`round_trip_*` legacy functions where a `YAML` instance applies; a `pyyaml` fallback where ruamel is admitted (it destroys comments/order/styling); a per-typ engine class where a `typ` row suffices; string-munging emitted text where a styled-scalar type or engine attribute owns the style; identity minting the runtime owns
+- Reject: wrapper-renames of `load`/`dump`; the module-level `safe_load`/`round_trip_*` legacy functions where a `YAML` instance applies; a `pyyaml` fallback where ruamel is admitted (it destroys comments/order/styling); a per-typ engine class where a `typ` row suffices; a manual pre/post tree walk or `str()` of a custom type where `register_class`/`add_representer` owns the tag codec; string-munging emitted text where a styled-scalar type or engine attribute owns the style; identity minting the runtime owns

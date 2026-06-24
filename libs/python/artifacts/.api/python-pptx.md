@@ -9,9 +9,9 @@
 - import: `pptx`
 - owner: `artifacts`
 - rail: office
-- installed: `1.0.2` (uv.lock pin, ungated — runs on cp315-core; reflected on cp313 with matching version)
+- installed: `1.0.2` (uv.lock pin); markerless in the manifest itself but transitively gated off cp315-core — it hard-requires `lxml`, which is `python_version<'3.15'`-gated (no cp315 wheel), so python-pptx resolves only on the sub-3.15 worker lane and the cp315-core owner reaches it over the runtime `anyio.to_process` (`.api/anyio.md`) subprocess seam; reflected on cp313 with matching version `1.0.2`
 - license: MIT (Steve Canny) — permissive, no copyleft gate; aligns with the MIT/BSD sibling office owners
-- abi: pure Python; runtime dependencies `lxml` (BSD, the only compiled/ABI surface), `Pillow` (image-embed sizing), `XlsxWriter` (chart-data workbook embed). Installs clean on cp315
+- abi: pure Python over compiled runtime dependencies — `lxml` (BSD, the libxml2/libxslt ABI surface and the cp315 gate driver), `Pillow` (image-embed sizing), `XlsxWriter` (chart-data workbook embed). No cp315 wheel for the `lxml` dependency, so the whole rail runs on the sub-3.15 worker, never cp315-core
 - entry points: none (library only)
 - capability: `.pptx` construction and editing — slides from layouts, layouts/masters, textboxes, runs/paragraphs/fonts with color and hyperlinks, pictures, tables, native category/xy/bubble charts, autoshapes, connectors, group shapes, movie and OLE-object embeds, freeform vector shapes, placeholders, speaker notes, core properties, and offscreen slide-shape geometry in EMU value objects
 
@@ -79,7 +79,7 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size values; the add famil
 |  [07]   | `SlideShapes.add_group_shape`  | `add_group_shape(shapes: Iterable[BaseShape] = ()) -> GroupShape`                         | group shapes                         |
 |  [08]   | `SlideShapes.add_movie`        | `add_movie(movie_file, left, top, width, height, poster_frame_image=None, mime_type='video/unknown') -> GraphicFrame` | embed a movie     |
 |  [09]   | `SlideShapes.add_ole_object`   | `add_ole_object(object_file, prog_id, left, top, width=None, height=None, icon_file=None, ...) -> GraphicFrame` | embed an OLE object         |
-|  [10]   | `SlideShapes.build_freeform`   | `build_freeform(start_x=0, start_y=0, scale=1.0) -> FreeformBuilder`                      | begin a freeform vector path         |
+|  [10]   | `SlideShapes.build_freeform`   | `build_freeform(start_x=0, start_y=0, scale: tuple[float, float] \| float = 1.0) -> FreeformBuilder` | begin a freeform vector path (per-axis `scale` tuple admitted) |
 |  [11]   | `FreeformBuilder.add_line_segments`| `add_line_segments(vertices: Iterable[tuple[float, float]], close=True)`              | extend the freeform path             |
 |  [12]   | `FreeformBuilder.convert_to_shape`| `convert_to_shape(origin_x: Length = 0, origin_y: Length = 0) -> FreeformShape`        | place the freeform on the slide      |
 
@@ -109,13 +109,13 @@ A shape's `TextFrame` owns paragraphs/runs and fit; `ChartData` builders feed `a
 - text axis: a shape exposes a `TextFrame` whose `paragraphs`/`add_paragraph` and `_Run`/`add_run` carry text; `fit_text`/`auto_size`/`word_wrap` own sizing. `Font` is one font value per run with `color` as a `ColorFormat` (`rgb` or `theme_color`) and `_Run.hyperlink` the link target — never per-run color duplication.
 - chart axis: build a `CategoryChartData` (categories first via `add_category`, then `add_series`) or `XyChartData`/`BubbleChartData`, then `add_chart(XL_CHART_TYPE, x, y, cx, cy, chart_data)`; chart type is an `XL_CHART_TYPE` enum row. The chart-data workbook is embedded via the `XlsxWriter` dependency, never a separate spreadsheet file.
 - unit axis: positions and sizes use `Inches`/`Pt`/`Emu`/`Cm`/`Mm`/`Centipoints` value objects, never raw EMU ints; autoshape geometry is an `MSO_SHAPE` row, connector kind an `MSO_CONNECTOR_TYPE` row, text anchor an `MSO_ANCHOR` row, alignment a `PP_ALIGN` row.
-- evidence: each presentation op captures slide count, shape count, image count, chart count, and output byte length as an office receipt.
-- boundary: python-pptx owns `.pptx`. Integration: `python-magic` gates the reader at admission; `msoffcrypto-tool` decrypts an encrypted container to a stream `Presentation(stream)` reads and re-seals the saved bytes; chart imagery generated outside (`matplotlib`/`vl-convert-python`/`pyvista`) lands as a `Picture` via `add_picture`, and `Pillow` (a dependency) sizes embedded images. Word routes to `python-docx`, Excel to `openpyxl`, ODF presentation to `odfpy`. Live UI stays outside this package.
+- evidence: each presentation op captures slide count, shape count, image count, chart count, and output byte length as a `msgspec.Struct` (`.api/msgspec.md`) office receipt — emitted under one `structlog` (`.api/structlog.md`) event inside an OpenTelemetry (`.api/opentelemetry-api.md`) span on the sub-3.15 worker; the build authors on the worker and only the saved `.pptx` bytes (or a stream) plus the typed receipt cross the `anyio.to_process` seam back, never a live `Presentation` object.
+- boundary: python-pptx owns `.pptx`. Integration: `python-magic` gates the reader at admission; `msoffcrypto-tool` decrypts an encrypted container to a stream `Presentation(stream)` reads and re-seals the saved bytes; chart imagery generated outside (`matplotlib`/`vl-convert-python`/`pyvista`) lands as a `Picture` via `add_picture`, and `Pillow` (a dependency, co-resident on the worker) sizes embedded images. Word routes to `python-docx`, Excel to `openpyxl`, ODF presentation to `odfpy`. Live UI stays outside this package.
 
 ## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `python-pptx`
 - Owns: `.pptx` construction and editing — slides from layouts, textboxes/runs/paragraphs/fonts with color and hyperlinks, pictures, tables, native category/xy/bubble charts, autoshapes, connectors, groups, movie/OLE embeds, freeform vector shapes, placeholders, notes, core properties
-- Accept: presentation authoring feeding the office and export-bundle owners, downstream of the `python-magic` admission gate and the `msoffcrypto-tool` confidentiality edge
-- Reject: wrapper-renames of `add_slide`/`save`; a per-shape-kind slide type where the `add_*` family suffices; hand-built path XML where `build_freeform` exists; raw-EMU integers where the `Length` value objects exist; magic shape/anchor/alignment strings where the `MSO_*`/`PP_*`/`XL_*` enums exist; identity minting the runtime owns
+- Accept: presentation authoring on the sub-3.15 worker (gated off cp315-core by the `lxml` dependency) dispatched over the runtime `anyio.to_process` subprocess seam with saved-bytes-only return, feeding the office and export-bundle owners, downstream of the `python-magic` admission gate and the `msoffcrypto-tool` confidentiality edge
+- Reject: wrapper-renames of `add_slide`/`save`; a per-shape-kind slide type where the `add_*` family suffices; hand-built path XML where `build_freeform` exists; raw-EMU integers where the `Length` value objects exist; magic shape/anchor/alignment strings where the `MSO_*`/`PP_*`/`XL_*` enums exist; a `pptx` import in the cp315-core process or a live `Presentation` returned across the worker seam; identity minting the runtime owns
