@@ -1,6 +1,6 @@
 # [PERSISTENCE_FEDERATION]
 
-Rasm.Persistence owns the source-agnostic federated entity graph and the universal BIM query currency that rides it: `FederatedEntity` keys every element by a stable composite identity (geometry refs, property sets, classification, spatial containment, provenance) across every source document, carrying the spatial `Envelope`, the `EmbeddingIdentity`, the search corpus, and the `TenantId` the fusion and lane consumers join on; `ElementSet` is the polymorphic, composable, stable selection receipt every clash/IDS/MVD/QTO surface consumes; `SetPredicate` is the closed leaf-predicate algebra that spatial, document, and classification selection lower through so no `SetExpr` leaf carries a raw stringly-typed predicate; `CrossDocLink` resolves typed inter-document references with pin-versus-float semantics and transitive impact analysis; `RulePlan` lowers a declarative rule DSL — including the buildingSMART IDS 1.0 value-restriction grammar — into a predicate/query plan emitting typed pass/fail/element-set/viewpoint receipts; `FusionRank` fuses the world-class pgvector HNSW, PostGIS GiST, and pg_search/FTS index branches into one reciprocal-rank result with per-hit lineage through the one n-ary RRF fold the `Query/lanes#SEARCH_LANES` `HybridRetrieve` two-branch leaf also rides; and `FederatedPlan` pushes one selection AST across engines with cost-based engine selection and partial-pushdown. Every durable mutation and resolution is a `Query/rail#OPERATION_ALGEBRA` `StoreOp` case run through `StoreRail.Run`, never an injected `persist`/`resolve` delegate; every fault is the closed `FederationFault` `[Union]` deriving from `Expected`, never a bare `Error.New`. The federated graph rides the existing PostGIS GiST + jsonb + ltree substrate on the `PostgresServer` profile, the content-addressed identity (`XxHash128`), the op-log changefeed, and the structural-diff node identity; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive settled.
+Rasm.Persistence owns the source-agnostic federated entity graph and the universal BIM query currency that rides it: `FederatedEntity` keys every element by a stable composite identity (geometry refs, property sets, classification, spatial containment, provenance) across every source document, carrying the spatial `Envelope`, the `EmbeddingIdentity`, the search corpus, and the `TenantId` the fusion and lane consumers join on; `ElementSet` is the polymorphic, composable, stable selection receipt every clash/IDS/MVD/QTO surface consumes; `SetPredicate` is the closed leaf-predicate algebra that spatial, document, and classification selection lower through so no `SetExpr` leaf carries a raw stringly-typed predicate; `CrossDocLink` resolves typed inter-document references with pin-versus-float semantics and transitive impact analysis; `RulePlan` lowers a declarative rule DSL — including the buildingSMART IDS 1.0 value-restriction grammar — into a predicate/query plan emitting typed pass/fail/element-set/viewpoint receipts; `FusionRank` fuses the world-class pgvector HNSW, PostGIS GiST, and pg_search/FTS index branches into one reciprocal-rank result with per-hit lineage through the one n-ary RRF fold the `Query/lanes#SEARCH_LANES` `HybridRetrieve` two-branch leaf also rides; and `FederatedPlan` pushes one selection AST across engines with cost-based engine selection and partial-pushdown, admitting a portable `python:data` Substrait/ibis plan at the wire through `Admit` into the one `RuleAst` algebra. Every durable mutation and resolution is a `Query/rail#OPERATION_ALGEBRA` `StoreOp` case run through `StoreRail.Run`, never an injected `persist`/`resolve` delegate; every fault is the closed `FederationFault` `[Union]` deriving from `Expected`, never a bare `Error.New`. The federated graph rides the existing PostGIS GiST + jsonb + ltree substrate on the `PostgresServer` profile, the content-addressed identity (`XxHash128`), the op-log changefeed, and the structural-diff node identity; `ClockPolicy`, `ReceiptSinkPort`, `CorrelationId`, and `TenantContext` arrive settled.
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@ Rasm.Persistence owns the source-agnostic federated entity graph and the univers
 - [03]-[CROSS_DOC_LINKS]: typed inter-doc links, pin/float, and transitive impact propagation as one immutable fold.
 - [04]-[RULE_PLAN]: declarative rule DSL to predicate/query plan; the IDS value-restriction grammar; typed result receipts.
 - [05]-[FUSION_RANK]: HNSW + GiST + FTS fused through one n-ary RRF fold with per-branch lineage.
-- [06]-[FEDERATED_PLAN]: one selection AST across engines; cost-based engine and partial-pushdown.
+- [06]-[FEDERATED_PLAN]: one selection AST across engines; cost-based engine and partial-pushdown; the `PlanWire` Substrait/portable-SQL ingress decoding into the one `SetExpr` algebra.
 
 ## [02]-[ENTITY_GRAPH]
 
@@ -52,7 +52,16 @@ public abstract partial record FederationFault : Expected, IValidationError<Fede
     public sealed record IdsParse(string Detail) : FederationFault($"<ids-parse:{Detail}>", 8274);
 }
 
-public readonly record struct EntityIdentity(UInt128 GeometryRef, UInt128 PsetHash, string Classification, string ContainmentPath, Guid Origin) {
+[ComplexValueObject]
+public sealed partial class EntityIdentity {
+    public UInt128 GeometryRef { get; }
+    public UInt128 PsetHash { get; }
+    public string Classification { get; }
+    public string ContainmentPath { get; }
+    public Guid Origin { get; }
+
+    // The stable composite key — `XxHash128` over the canonical five-axis byte tuple, the value the
+    // stored `Key` PK denormalizes and the `Version/commits#CRDT_WIRE` corpus pins by reference.
     public UInt128 Key {
         get {
             var buffer = new ArrayBufferWriter<byte>();
@@ -68,13 +77,16 @@ public readonly record struct EntityIdentity(UInt128 GeometryRef, UInt128 PsetHa
 
 public sealed record SourceRef(SourceKind Kind, Guid Document, string SourceElementId, Instant At);
 
+// `Identity` is the `[ComplexValueObject]` owning the five identity axes (geometry ref, pset hash,
+// classification, containment path, origin); EF flattens its members to the `geometry`/`ltree`/relational
+// columns the residence table maps, so `GeometryRef` and `ContainmentPath` live ONCE inside `Identity`,
+// never duplicated top-level where a drift could split the join column from the identity. `Key` is the
+// stored PK (`XxHash128` of the identity), the one denormalization a content-addressed PK needs.
 public sealed record FederatedEntity(
     UInt128 Key,
     EntityIdentity Identity,
     Seq<SourceRef> Sources,
     HashMap<string, CrdtField> PropertySets,
-    string ContainmentPath,
-    UInt128 GeometryRef,
     Envelope Bounds,
     Option<EmbeddingIdentity> Embedding,
     string Corpus,
@@ -85,7 +97,7 @@ public sealed record FederatedEntity(
 
 public static class EntityGraph {
     public static EntityIdentity Identify(UInt128 geometryRef, UInt128 psetHash, string classification, string containmentPath, Guid origin) =>
-        new(geometryRef, psetHash, classification, containmentPath, origin);
+        EntityIdentity.Create(geometryRef, psetHash, classification, containmentPath, origin);
 
     // Two invariants gate the merge before the convergent property fold runs, so the interior never
     // sees a foreign tenant or a key aliasing two physically distinct elements: a cross-tenant source
@@ -95,7 +107,7 @@ public static class EntityGraph {
     public static Fin<FederatedEntity> Merge(FederatedEntity prior, SourceRef source, EntityIdentity identity, UInt128 tenant, HashMap<string, CrdtField> incoming) =>
         tenant != prior.Tenant
             ? Fin.Fail<FederatedEntity>(new FederationFault.TenantMismatch(prior.Key, prior.Tenant, tenant))
-            : identity.Key == prior.Key && identity.GeometryRef != prior.GeometryRef
+            : identity.Key == prior.Key && identity.GeometryRef != prior.Identity.GeometryRef
                 ? Fin.Fail<FederatedEntity>(new FederationFault.IdentityConflict(prior.Key, prior.Identity.Origin, identity.Origin))
                 : prior with {
                     Sources = prior.Sources.Exists(s => s.Document == source.Document && s.SourceElementId == source.SourceElementId)
@@ -113,14 +125,14 @@ public static class EntityGraph {
             }));
 
     public static Seq<FederatedEntity> Contained(Seq<FederatedEntity> graph, string ancestorPath) =>
-        graph.Filter(entity => entity.ContainmentPath.StartsWith(ancestorPath, StringComparison.Ordinal));
+        graph.Filter(entity => entity.Identity.ContainmentPath.StartsWith(ancestorPath, StringComparison.Ordinal));
 }
 ```
 
 | [INDEX] | [AXIS]              | [RESIDENCE]                              | [INDEX_ROUTE]                                          |
 | :-----: | :------------------ | :--------------------------------------- | :---------------------------------------------------- |
-|  [01]   | geometry ref        | `geometry` GiST column                   | `Query/lanes#GEO_LANES` spatial predicates            |
-|  [02]   | spatial bounds      | stored `Envelope` bbox column            | `#FUSION_RANK` spatial branch; `SpatialOp` GiST join  |
+|  [01]   | geometry ref        | `Identity.GeometryRef` content-key btree column | identity dedup; re-ingest matches by geometry signature |
+|  [02]   | spatial geometry    | `geometry`/`Envelope` GiST column        | `Query/lanes#GEO_LANES` `SpatialOp`/`Clash` GiST predicates; `#FUSION_RANK` spatial branch |
 |  [03]   | property sets       | merged jsonb column                      | `Query/lanes#DOCUMENT_LANE` `@?`/`@@` predicates      |
 |  [04]   | classification      | `tsvector` generated + ltree key         | `Query/lanes#SEARCH_LANES` + classification catalog   |
 |  [05]   | search corpus       | `Corpus` text → `tsvector` generated     | `#FUSION_RANK` lexical branch; BM25/trigram match     |
@@ -133,7 +145,7 @@ public static class EntityGraph {
 
 - Owner: `ElementSet` the polymorphic composable selection record carrying a stable content-addressed set receipt; `SetPredicate` `[Union]` the closed leaf-predicate algebra spatial/document/classification/containment leaves carry; `SetExpr` `[Union]` the selection-tree algebra; `ElementSetAlgebra` the static surface owning literal selection, the boolean/spatial/property/classification combinators, and the stable-receipt fold.
 - Cases: `Spatial | Jsonpath | Classification | Containment | Material | Exists` on `SetPredicate`; `Literal | Predicate | ByRule | Union | Intersect | Difference | Closure` on `SetExpr`.
-- Entry: `public static ElementSet Evaluate(SetExpr expr, Func<SetExpr, Seq<UInt128>> resolve)` — folds the expression tree into a stable element-key set; `public static UInt128 Receipt(Seq<UInt128> keys)` derives the content-addressed set identity so the same selection produces the same receipt across runs and peers.
+- Entry: `public static ElementSet Evaluate(SetExpr expr, Func<SetExpr, Seq<UInt128>> resolve)` — folds the expression tree into a stable element-key set; `public static UInt128 Receipt(Seq<UInt128> sortedKeys)` derives the content-addressed set identity over the distinct-sorted key set `ElementSet.Of` supplies so the same selection produces the same receipt across runs and peers.
 - Auto: an element set is the universal BIM currency — clash, IDS, MVD, QTO, and rule surfaces all consume and produce `ElementSet` values, so a clash result is an `ElementSet`, an IDS pass-set is an `ElementSet`, and a QTO subject is an `ElementSet`; the set receipt is `XxHash128` over the distinct-sorted `UInt128LE`-packed element-key set so two selections yielding the same elements share one receipt and a cached selection result keys on it through the `Query/cache#MODEL_RESULT_INDEX`; the boolean combinators (`Union`/`Intersect`/`Difference`) fold over evaluated leaf sets, and the one `Predicate` leaf carries a `SetPredicate` — `Spatial` carries the `Query/lanes#GEO_LANES` `SpatialOp` row plus its `Geometry` operand and lowers to that row's `ST_*` GiST predicate, `Jsonpath` carries a typed `JsonComparison` and lowers to a jsonb path predicate, `Classification` lowers to a tsvector/classification-catalog predicate, `Containment(Ancestor, Subtree)` lowers to the `ltree` `<@` ancestry predicate or the `~ <lquery>` subtree form over the spatial-hierarchy `ContainmentPath` column so a "every element under room X" selection is a typed leaf rather than an abused `Classification`, and `Material`/`Exists` lower to their jsonb existence forms — so one algebra composes every selection concern with no leaf carrying a raw stringly-typed predicate.
 - Receipt: an evaluation rides `store.elementset.eval` carrying the leaf count and the result cardinality; the stable receipt is the cache key.
 - Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, NodaTime, BCL inbox.
@@ -257,29 +269,37 @@ public static class LinkStore {
         });
     }
 
-    public static Seq<ImpactNode> Impact(Func<UInt128, Seq<CrossDocLink>> adjacency, UInt128 changed, int depth) {
-        var bound = int.Min(depth, MaxImpactDepth);
-        return Walk(adjacency, bound, HashSet(changed), Seq<ImpactNode>(),
-            Seq((Element: changed, Depth: 0, Path: Seq<UInt128>())));
-    }
+    private readonly record struct Frontier(UInt128 Element, int Depth, Seq<UInt128> Path);
 
+    public static Seq<ImpactNode> Impact(Func<UInt128, Seq<CrossDocLink>> adjacency, UInt128 changed, int depth) =>
+        Walk(adjacency, int.Min(depth, MaxImpactDepth), HashSet(changed), Seq<ImpactNode>(),
+            Seq(new Frontier(changed, 0, Seq<UInt128>())));
+
+    // The dedup membership is the FOLD accumulator, not the frontier-entry snapshot, so two links
+    // expanded from one frontier node to the same target enqueue once — reading the outer `seen` would
+    // re-admit the second within the same batch. One fold over a node's adjacency yields the next
+    // `(seen, impact, frontier)` state the tail-recursion continues from; an empty frontier returns.
     private static Seq<ImpactNode> Walk(
         Func<UInt128, Seq<CrossDocLink>> adjacency, int bound,
         HashSet<UInt128> seen, Seq<ImpactNode> impact,
-        Seq<(UInt128 Element, int Depth, Seq<UInt128> Path)> frontier) =>
-        frontier.HeadOrNone().Match(
-            None: () => impact,
-            Some: head => head.Depth >= bound
+        Seq<Frontier> frontier) =>
+        frontier.HeadOrNone() is { IsSome: true, Case: Frontier head }
+            ? head.Depth >= bound
                 ? Walk(adjacency, bound, seen, impact, frontier.Tail)
-                : adjacency(head.Element)
-                    .Filter(link => !seen.Contains(link.To))
-                    .Fold((Seen: seen, Impact: impact, Next: frontier.Tail), (acc, link) => (
-                        acc.Seen.Add(link.To),
-                        acc.Impact.Add(new ImpactNode(link.To, head.Depth + 1, head.Path.Add(head.Element), link.Kind)),
-                        acc.Next.Add((link.To, head.Depth + 1, head.Path.Add(head.Element)))))
-                    is var step
-                        ? Walk(adjacency, bound, step.Seen, step.Impact, step.Next)
-                        : impact);
+                : Step(adjacency, bound, head, frontier.Tail, seen, impact)
+            : impact;
+
+    private static Seq<ImpactNode> Step(
+        Func<UInt128, Seq<CrossDocLink>> adjacency, int bound, Frontier head,
+        Seq<Frontier> rest, HashSet<UInt128> seen, Seq<ImpactNode> impact) {
+        var next = adjacency(head.Element).Fold((Seen: seen, Impact: impact, Frontier: rest), (acc, link) =>
+            acc.Seen.Contains(link.To)
+                ? acc
+                : (acc.Seen.Add(link.To),
+                   acc.Impact.Add(new ImpactNode(link.To, head.Depth + 1, head.Path.Add(head.Element), link.Kind)),
+                   acc.Frontier.Add(new Frontier(link.To, head.Depth + 1, head.Path.Add(head.Element)))));
+        return Walk(adjacency, bound, next.Seen, next.Impact, next.Frontier);
+    }
 
     public static Seq<CrossDocLink> StalePins(Seq<CrossDocLink> links, Func<UInt128, UInt128> sourceHead) =>
         links.Filter(link => link.PinCommit.Map(pin => sourceHead(link.From) != pin).IfNone(false));
@@ -290,24 +310,31 @@ public static class LinkStore {
 
 - Owner: `RuleAst` `[Union]` the declarative rule DSL parsed shape; `RuleResult` `[Union]` the typed result family; `RuleAggregate` the QTO fold vocabulary and `QuantityMeasure` the closed buildingSMART base-quantity vocabulary carrying each measure's jsonb path and canonical unit; `RulePlan` the static surface lowering a rule AST into a predicate/query plan over the federated graph and the element-set algebra, emitting the typed result; `IdsValue` `[Union]` the buildingSMART IDS 1.0 value-restriction grammar; `IdsSpecification`/`IdsFacet`/`IdsRequirement`/`IdsImport` the IDS 1.0 importer projecting a published IDS document's facets into `RuleAst` rows and emitting `IdsConformance` audit receipts.
 - Cases: `Select | Where | Requires | Forbids | Clash | Quantity | Property` on `RuleAst` (`Requires`/`Forbids` carry a `SetExpr` requirement selection, not a single `SetPredicate`, so a two-sided bound or a composite `partOf` requirement lowers as an `Intersect` of leaves); `Pass | Fail | Selection | Viewpoint | Quantity` on `RuleResult`; `Count | Sum | Min | Max | Mean` on `RuleAggregate`; `Count | Length | Area | GrossArea | Volume | GrossVolume | Weight | Perimeter` on `QuantityMeasure`; `Simple | Enumeration | Pattern | Bounds | Length` on `IdsValue`; `Entity | Attribute | Classification | Property | Material | PartOf` on `IdsFacet`; `Required | Prohibited | Optional` on `IdsCardinality`.
-- Entry: `public static SetExpr Lower(RuleAst rule)` — pure lowering of the rule DSL into an `ElementSet` plan over the typed `SetPredicate` leaves; `public static StoreOp<RuleResult> Evaluate(RuleAst rule, Func<SetExpr, ElementSet> evaluate)` runs the plan as a `StoreOp<RuleResult>` so the clash spatial-intersection and the QTO aggregate execute server-side through `StoreRail.Run` over the GiST/jsonb indexes, folds the typed result, and never takes an injected `clash`/`quantity` delegate; the QTO aggregate binds the `RuleAggregate.AggFn` closed-vocabulary identifier into the statement text and parameterizes the `QuantityMeasure.JsonPath` and the key set through a `FormattableString`, so the dynamic identifier rides the one declared seam and no caller input concatenates into SQL.
-- Auto: the rule DSL covers clash (two element sets intersecting in space), IDS/MVD (every element of a selection requires/forbids a property or classification), compliance (a predicate over a selection), and QTO (a `RuleAggregate` over a selection) — so one rule engine serves every validation and takeoff concern; a rule lowers to an `ElementSet` plan over typed `SetPredicate` leaves, so a clash rule lowers to two `SetPredicate.Spatial` selections under the `SpatialOp.Intersects` row plus the GiST `ST_3DIntersects` intersection yielding a `Fail` with the clashing pairs, an IDS rule lowers to a `SetPredicate.Classification` selection plus a typed `SetPredicate.Jsonpath`/`Exists` requirement yielding `Pass`/`Fail` with the violating element set, and a QTO rule lowers to a selection plus a `RuleAggregate` yielding a `Quantity` result; every `Fail` carries the offending `ElementSet` and a typed `RuleViolation` so a downstream surface selects the failures and dispatches on the violation, and a clash `Fail` carries a viewpoint receipt the annotation surface anchors.
+- Entry: `public static SetExpr Lower(RuleAst rule)` — pure lowering of the rule DSL into an `ElementSet` plan over the typed `SetPredicate` leaves; `public static StoreOp<RuleResult> Evaluate(RuleAst rule, Func<SetExpr, ElementSet> evaluate)` runs the plan as a `StoreOp<RuleResult>` so the clash GiST spatial self-join (`Clash`) and the QTO aggregate (`Aggregate`) execute server-side through `StoreRail.Run` over the GiST/jsonb indexes, folds the typed result, and never takes an injected `clash`/`quantity` delegate; the QTO aggregate binds the `RuleAggregate.Projection` closed-vocabulary body into the statement text and parameterizes the `QuantityMeasure.JsonPath` and the key set through a `FormattableString`, the clash binds both subject key-sets and the `Clash.Tolerance` clearance bound through the same `FormattableString`, so the dynamic identifier rides the one declared seam and no caller input concatenates into SQL.
+- Auto: the rule DSL covers clash (two element sets whose geometries overlap in space), IDS/MVD (every element of a selection requires/forbids a property or classification), compliance (a predicate over a selection), and QTO (a `RuleAggregate` over a selection) — so one rule engine serves every validation and takeoff concern; a rule lowers to an `ElementSet` plan over typed `SetPredicate` leaves, so a clash rule selects its two candidate sets and the `Evaluate` `Clash` arm runs the GiST `ST_3DIntersects`/`ST_3DDWithin(tolerance)` spatial self-join between them (`a.key <> b.key`, the offending keys either side of any clash pair) yielding a `Fail` with the offending set and pair count, an IDS rule lowers to a `SetPredicate.Classification` selection plus a typed `SetPredicate.Jsonpath`/`Exists` requirement yielding `Pass`/`Fail` with the violating element set, and a QTO rule lowers to a selection plus a `RuleAggregate` yielding a `Quantity` result; every `Fail` carries the offending `ElementSet` and a typed `RuleViolation` so a downstream surface selects the failures and dispatches on the violation, and a clash `Fail` carries a viewpoint receipt the annotation surface anchors.
 - Receipt: an evaluation rides `store.rule.eval` carrying the rule kind, the pass/fail verdict, and the result cardinality; a clash result carries the pair count.
 - Packages: System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.Xml.Linq (BCL inbox), BCL inbox.
 - Growth: a new rule primitive is one `RuleAst` case; a new result shape is one `RuleResult` case; a new takeoff fold is one `RuleAggregate` row and a new base quantity is one `QuantityMeasure` row carrying its jsonb path and unit; a new IDS facet kind is one `IdsFacet` case plus one `Selection`/`Require`/`Forbid` arm; a new IDS value-restriction is one `IdsValue` case lowering to one `SetExpr` form, and an unsupported facet is the typed `FederationFault.IdsParse` rejection captured at the one parse seam, never a second checker; zero new surface — a per-standard validator (a hard-coded IDS checker, a separate clash engine, a separate QTO calculator) is the deleted form because one DSL lowers to the element-set algebra and emits a typed result, the IDS specification is data parsed into `RuleAst` rows rather than C# predicate code, and the rule itself is a `ByRule` selection leaf so a rule's pass-set composes with any other selection.
-- Boundary: the rule DSL lowers to the element-set algebra so a rule is a query plan, never imperative validation code — a hard-coded clash loop, a string-templated IDS check, or a per-discipline QTO calculator is the deleted form; the buildingSMART IDS 1.0 importer is the standards-conformant face of this engine — `IdsImport.Parse` reads an IDS XSD-shaped document through `System.Xml.Linq` into `IdsSpecification` rows inside one `Try.lift` kernel that captures BOTH the `XDocument.Load` throw AND every facet-walk throw, so an unsupported facet rejoins the rail as the typed `FederationFault.IdsParse` it carries through the boundary `IdsParseException` (never a bare `Error.New` and never an exception escaping the capture seam past the projection), `Scope` folds the applicability facets into one `SetExpr` intersection over each facet's `Selection`, and `Lower` projects each requirement facet under its `IdsCardinality` into a `RuleAst.Requires`/`Forbids`/pass-through carrying the facet's full `SetExpr` selection over that scope, so a published IDS check runs against the federated entity graph through the settled `RulePlan.Evaluate` lowering and the `IdsConformance` receipt aligns with `Sync/annotation.md#BCF_PROTOCOL` as an exportable CDE audit artifact, never a parallel checker; the IDS value grammar is a closed `IdsValue` `[Union]` so a facet value is never the magic `"exists"` string the prior fence carried — `Simple` lowers to `JsonComparison.Equals`, `Enumeration` to a key-in-set predicate, `Pattern` to `JsonComparison.Matches` (the IDS `xs:pattern` restriction the GIN-expression-index regex serves), `Bounds` lowers a two-sided `xs:minInclusive`/`maxInclusive` restriction to the `Intersect` of a `GreaterThan` AND a `LessThan` leaf so BOTH bounds survive (collapsing to one comparison and silently dropping the upper bound is the deleted form), `Length` lowers `xs:length`/min/max to the `path.length()` jsonpath bound pair, and a `partOf` facet checks the relation presence AND the related whole's `Entity` selection (never the relation alone), so an IDS restriction-typed facet (`xs:restriction` with `xs:enumeration`/`xs:pattern`/bounds children) lowers to the richer `SetExpr` the RESEARCH gate named rather than the flat `simpleValue` equality, and an unsupported facet maps to one `IdsFacet` case or the typed `FederationFault.IdsParse` rejection, never C# predicate code or a second validation surface; every rule result is typed — `Pass`/`Fail` carry the verdict, the offending `ElementSet`, and a typed `RuleViolation` (`MissingProperty | ForbiddenProperty | Clash | OutOfBounds | PatternMismatch`), `Selection` carries the matched set, `Viewpoint` carries the wire camera blob and the highlighted set the `Sync/annotation#ANCHOR_ALGEBRA` anchors, and `Quantity` carries the typed `QuantityMeasure` (its canonical `Unit` derived from the row, never a parallel `string Unit`), the `RuleAggregate` fold, and the aggregated value — so a downstream surface dispatches on the result and the violation type, never parses a string verdict; the durable `Evaluate` is a `StoreOp<RuleResult>` so the clash spatial intersection lowers to a GiST `ST_3DIntersects` predicate run through `StoreRail.Run` (the same rail every store op rides, with provider failure converting to `StoreFault` once) over the spatial index, never a client-side bounding-box loop or an injected delegate, and an IDS/MVD property requirement lowers to a jsonb path predicate so the validation rides the document index; the rule result `ElementSet` is content-addressed so a re-run of an unchanged rule against an unchanged graph reuses the cached result through `Query/cache#MODEL_RESULT_INDEX`, and an incremental re-test (only the changed elements) rides the structural diff's changed-node set so a clash re-runs over the delta, never the whole graph.
+- Boundary: the rule DSL lowers to the element-set algebra so a rule is a query plan, never imperative validation code — a hard-coded clash loop, a string-templated IDS check, or a per-discipline QTO calculator is the deleted form; the buildingSMART IDS 1.0 importer is the standards-conformant face of this engine — `IdsImport.Parse` reads an IDS XSD-shaped document through `System.Xml.Linq` into `IdsSpecification` rows inside one `Try.lift` kernel that captures BOTH the `XDocument.Load` throw AND every facet-walk throw, so an unsupported facet rejoins the rail as the typed `FederationFault.IdsParse` it carries through the boundary `IdsParseException` (never a bare `Error.New` and never an exception escaping the capture seam past the projection), `Scope` folds the applicability facets into one `SetExpr` intersection over each facet's `Selection`, and `Lower` projects each requirement facet under its `IdsCardinality` into a `RuleAst.Requires`/`Forbids`/pass-through carrying the facet's full `SetExpr` selection over that scope, so a published IDS check runs against the federated entity graph through the settled `RulePlan.Evaluate` lowering and the `IdsConformance` receipt aligns with `Sync/annotation.md#BCF_PROTOCOL` as an exportable CDE audit artifact, never a parallel checker; the IDS value grammar is a closed `IdsValue` `[Union]` so a facet value is never the magic `"exists"` string the prior fence carried — `Simple` lowers to `JsonComparison.Equals`, `Enumeration` to a key-in-set predicate, `Pattern` to `JsonComparison.Matches` (the IDS `xs:pattern` restriction the GIN-expression-index regex serves), `Bounds` lowers a two-sided `xs:minInclusive`/`maxInclusive` restriction to the `Intersect` of a `GreaterThan` AND a `LessThan` leaf so BOTH bounds survive (collapsing to one comparison and silently dropping the upper bound is the deleted form), `Length` lowers `xs:length`/min/max to the `path.length()` jsonpath bound pair, and a `partOf` facet checks the relation presence AND the related whole's `Entity` selection (never the relation alone), so an IDS restriction-typed facet (`xs:restriction` with `xs:enumeration`/`xs:pattern`/bounds children) lowers to the richer `SetExpr` the RESEARCH gate named rather than the flat `simpleValue` equality, and an unsupported facet maps to one `IdsFacet` case or the typed `FederationFault.IdsParse` rejection, never C# predicate code or a second validation surface; every rule result is typed — `Pass`/`Fail` carry the verdict, the offending `ElementSet`, and a typed `RuleViolation` (`MissingProperty | ForbiddenProperty | Clash | OutOfBounds | PatternMismatch`), `Selection` carries the matched set, `Viewpoint` carries the wire camera blob and the highlighted set the `Sync/annotation#ANCHOR_ALGEBRA` anchors, and `Quantity` carries the typed `QuantityMeasure` (its canonical `Unit` derived from the row, never a parallel `string Unit`), the `RuleAggregate` fold, and the aggregated value — so a downstream surface dispatches on the result and the violation type, never parses a string verdict; the durable `Evaluate` is a `StoreOp<RuleResult>` so the clash runs the GiST `ST_3DIntersects`/`ST_3DDWithin` spatial self-join (`a.key <> b.key` over the two candidate key-sets, the `Clash.Tolerance` clearance bound bound as a parameter) through `StoreRail.Run` (the same rail every store op rides, with provider failure converting to `StoreFault` once) over the spatial index — a managed key-set `Intersect` of the two scopes is the named-rejected form because distinct elements never share a key so it can never surface a clash, and a client-side bounding-box loop or an injected delegate is equally rejected — and an IDS/MVD property requirement lowers to a jsonb path predicate so the validation rides the document index; the rule result `ElementSet` is content-addressed so a re-run of an unchanged rule against an unchanged graph reuses the cached result through `Query/cache#MODEL_RESULT_INDEX`, and an incremental re-test (only the changed elements) rides the structural diff's changed-node set so a clash re-runs over the delta, never the whole graph.
 
 ```csharp signature
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<FederationKeyPolicy, string>]
 public sealed partial class RuleAggregate {
-    public static readonly RuleAggregate Count = new("count", aggFn: "count");
-    public static readonly RuleAggregate Sum = new("sum", aggFn: "sum");
-    public static readonly RuleAggregate Min = new("min", aggFn: "min");
-    public static readonly RuleAggregate Max = new("max", aggFn: "max");
-    public static readonly RuleAggregate Mean = new("mean", aggFn: "avg");
+    public static readonly RuleAggregate Count = new("count", aggFn: "count", overMeasure: false);
+    public static readonly RuleAggregate Sum = new("sum", aggFn: "sum", overMeasure: true);
+    public static readonly RuleAggregate Min = new("min", aggFn: "min", overMeasure: true);
+    public static readonly RuleAggregate Max = new("max", aggFn: "max", overMeasure: true);
+    public static readonly RuleAggregate Mean = new("mean", aggFn: "avg", overMeasure: true);
 
     public string AggFn { get; }
+    public bool OverMeasure { get; }
+
+    // Renders the SQL aggregate body over the measure expression: a `Count` projects `count(*)` (the
+    // element cardinality, never `count(<measure>)` which counts present paths), every other row projects
+    // `fn(<measure>)`. The closed-vocabulary `AggFn` is the only literal — the measure expression is the
+    // already-parameterized jsonb path the caller threads, so no caller input concatenates here.
+    public string Projection(string measureExpr) => OverMeasure ? $"{AggFn}({measureExpr})" : $"{AggFn}(*)";
 }
 
 [SmartEnum<string>]
@@ -361,53 +388,107 @@ public abstract partial record RuleResult {
     public sealed record Quantity(ElementSet Subject, QuantityMeasure Measure, RuleAggregate Aggregate, double Value) : RuleResult;
 }
 
+// The keyless `(Key, Directed)` row the clash self-join CTE projects — `SqlQuery<ClashHit>` maps the
+// scalar projection a keyed entity type cannot; `Directed` is the windowed total directed-pair count
+// carried on every row, halved into the unordered pair count the `Clash` violation reports.
+public readonly record struct ClashHit(UInt128 Key, long Directed);
+
 public static class RulePlan {
+    // `clash` lowers to the UNION of both scopes — the candidate universe the GiST `ST_3DIntersects`
+    // self-join ranges over — not their key `Intersect`: two clashing elements are distinct entities with
+    // distinct keys, so a membership intersection is empty and the spatial overlap lives in the `Evaluate`
+    // `Clash` SQL kernel, not the set algebra. `Lower` projects the selection plan; the verdict is `Evaluate`.
     public static SetExpr Lower(RuleAst rule) =>
         rule.Switch(
             select:   static s => s.Scope,
             where:    static w => new SetExpr.Intersect(Lower(w.Source), new SetExpr.Predicate(w.Leaf)),
             requires: static r => Lower(r.Scope),
             forbids:  static f => Lower(f.Scope),
-            clash:    static c => new SetExpr.Intersect(Lower(c.Left), Lower(c.Right)),
+            clash:    static c => new SetExpr.Union(Lower(c.Left), Lower(c.Right)),
             quantity: static q => Lower(q.Scope),
             property: static p => Lower(p.Scope));
 
+    // One total generated `Switch` over the seven `RuleAst` arms — a new case breaks every dispatch site
+    // at compile time, never a runtime-silent `_` arm wrapping a second switch. The `quantity` and `clash`
+    // arms await server-side SQL (`Aggregate` the jsonb measure fold, `Clash` the GiST `ST_3DIntersects`/
+    // `ST_3DDWithin` spatial self-join), the verdict arms are synchronous over the already-resolved
+    // `evaluate`, and every arm yields one `ValueTask<RuleResult>` so the rail's `Query` shape carries the
+    // whole family without a statement-level dispatch beside the generated one. A clash is NEVER a key-set
+    // `Intersect` — two clashing elements are DISTINCT entities with distinct keys, so a membership
+    // intersection is always empty; the spatial overlap is a `(a.geom, b.geom) WHERE a.key <> b.key`
+    // self-join that only the GiST index can answer, the named-rejected client-side bounding-box loop.
     public static StoreOp<RuleResult> Evaluate(RuleAst rule, Func<SetExpr, ElementSet> evaluate) =>
-        new StoreOp<RuleResult>.Query((db, token) => rule switch {
-            RuleAst.Quantity q => Aggregate(db, evaluate(Lower(q.Scope)), q, token),
-            _ => ValueTask.FromResult(rule.Switch(
-                state: evaluate,
-                clash: static (eval, c) => Verdict(
-                    eval(Lower(c.Left)),
-                    eval(new SetExpr.Intersect(Lower(c.Left), Lower(c.Right))),
-                    offending => new RuleViolation.Clash(offending.Count)),
-                requires: static (eval, r) => Verdict(
-                    eval(Lower(r.Scope)),
-                    eval(new SetExpr.Difference(Lower(r.Scope), r.Required)),
-                    _ => Violated(r.Required, required: true)),
-                forbids: static (eval, f) => Verdict(
-                    eval(Lower(f.Scope)),
-                    eval(new SetExpr.Intersect(Lower(f.Scope), f.Forbidden)),
-                    _ => Violated(f.Forbidden, required: false)),
-                quantity: static (eval, q) => (RuleResult)new RuleResult.Selection(eval(Lower(q.Scope))),
-                select:   static (eval, s) => (RuleResult)new RuleResult.Selection(eval(s.Scope)),
-                where:    static (eval, w) => (RuleResult)new RuleResult.Selection(eval(Lower(w))),
-                property: static (eval, p) => (RuleResult)new RuleResult.Selection(eval(Lower(p.Scope)))),
-        });
+        new StoreOp<RuleResult>.Query((db, token) => rule.Switch(
+            state: (Db: db, Eval: evaluate, Token: token),
+            quantity: static (ctx, q) => Aggregate(ctx.Db, ctx.Eval(Lower(q.Scope)), q, ctx.Token),
+            clash: static (ctx, c) => Clash(ctx.Db, ctx.Eval(Lower(c.Left)), ctx.Eval(Lower(c.Right)), c.Tolerance, ctx.Token),
+            requires: static (ctx, r) => ValueTask.FromResult(Verdict(
+                ctx.Eval(Lower(r.Scope)),
+                ctx.Eval(new SetExpr.Difference(Lower(r.Scope), r.Required)),
+                _ => Violated(r.Required, required: true))),
+            forbids: static (ctx, f) => ValueTask.FromResult(Verdict(
+                ctx.Eval(Lower(f.Scope)),
+                ctx.Eval(new SetExpr.Intersect(Lower(f.Scope), f.Forbidden)),
+                _ => Violated(f.Forbidden, required: false))),
+            select:   static (ctx, s) => ValueTask.FromResult((RuleResult)new RuleResult.Selection(ctx.Eval(s.Scope))),
+            where:    static (ctx, w) => ValueTask.FromResult((RuleResult)new RuleResult.Selection(ctx.Eval(Lower(w)))),
+            property: static (ctx, p) => ValueTask.FromResult((RuleResult)new RuleResult.Selection(ctx.Eval(Lower(p.Scope))))));
 
     private static async ValueTask<RuleResult> Aggregate(DbContext db, ElementSet subject, RuleAst.Quantity rule, CancellationToken token) {
-        // `aggFn` is a closed `RuleAggregate` vocabulary literal (count/sum/min/max/avg) baked into the
-        // statement text — never caller input, so the dynamic identifier rides the one declared seam —
-        // while the jsonb `path` and the `key` set bind as parameters through the `FormattableString`,
-        // so the statement carries no concatenated user data.
+        // `Projection` is a closed `RuleAggregate` vocabulary literal baked into the statement text (the
+        // `count(*)`/`sum`/`min`/`max`/`avg` body over the `double precision`-cast measure, never caller
+        // input) so the dynamic identifier rides the one declared seam, while the jsonb `path` and the
+        // `key` set bind as parameters through the `FormattableString`. The whole aggregate is wrapped in
+        // `coalesce(...::float8, 0)` so it maps to the keyless `double` projection on every row — `count`
+        // returns `bigint` and `min`/`max`/`sum` over `numeric` return `numeric`, both of which fail or
+        // truncate against `SqlQuery<double>` if returned bare, and an all-null measure yields 0 rather
+        // than a `NULL` the non-nullable `double` projection cannot bind. `Count` is `count(*)` over the
+        // subject rows, never `count(jsonb_path_query_first(...))` (which counts present paths, not
+        // elements), so a takeoff count is the element cardinality.
+        // `{predicate}`/`{Projection}` interpolate verbatim (their `{0}` is plain-literal text); the directly
+        // written `{{1}}` doubles its braces so the `$"""..."""` emits a literal `{1}` placeholder for
+        // `Create` to bind, never the interpolation hole `{1}` that would render the integer 1.
         FormattableString query = FormattableStringFactory.Create(
             $"""
-            SELECT {rule.Aggregate.AggFn}(jsonb_path_query_first(property_sets, {{0}}::jsonpath)::numeric)
+            SELECT coalesce({rule.Aggregate.Projection("jsonb_path_query_first(property_sets, {0}::jsonpath)::float8")}, 0)::float8
             FROM federated_entity WHERE key = ANY({{1}})
             """,
             rule.Measure.JsonPath, subject.Keys.ToArray());
         var value = await db.Database.SqlQuery<double>(query).SingleAsync(token).ConfigureAwait(false);
         return new RuleResult.Quantity(subject, rule.Measure, rule.Aggregate, value);
+    }
+
+    // The clash arm IS the one verdict that needs server geometry: a GiST spatial self-join over the
+    // provisioned `geom` column (the full `geometry`/`geometryz` the `Auto` table carries and the GiST
+    // index covers — the narrow-phase exact geometry, never the `Envelope Bounds` bbox which over-reports),
+    // hard `ST_3DIntersects` when `tolerance` is 0 and the `ST_3DDWithin(a, b, tolerance)` clearance form
+    // otherwise (so the decorative `Clash.Tolerance` becomes the load-bearing clearance bound), with
+    // `a.key <> b.key` excluding self-pairs. Raw SQL reads the `geom` column directly — the
+    // `FederatedEntity` record maps the identity/bbox/lane columns, the lane owner owns the `Geometry`
+    // value chain, and the two meet at this one wire column rather than a duplicated managed geometry. The CTE projects one
+    // row per offending element key (either side of any clash pair) carrying the windowed total directed
+    // count; the unordered pair count is that total halved (each pair appears as `(a,b)` and `(b,a)`). Both
+    // key-sets and the tolerance bind as parameters, the `3d` predicate name is the only closed literal.
+    private static async ValueTask<RuleResult> Clash(DbContext db, ElementSet left, ElementSet right, double tolerance, CancellationToken token) {
+        // `predicate` is a plain-literal string so its `{2}` is literal text inserted verbatim by the outer
+        // interpolation; the directly written `{{0}}`/`{{1}}` double their braces so the `$"""..."""` emits
+        // literal `{0}`/`{1}` placeholders for `Create` to bind, never the integer-rendering holes.
+        var predicate = tolerance > 0 ? "ST_3DDWithin(a.geom, b.geom, {2})" : "ST_3DIntersects(a.geom, b.geom)";
+        FormattableString query = FormattableStringFactory.Create(
+            $"""
+            WITH pairs AS (
+                SELECT a.key AS key FROM federated_entity a JOIN federated_entity b
+                ON a.key <> b.key AND {predicate}
+                WHERE a.key = ANY({{0}}) AND b.key = ANY({{1}}))
+            SELECT DISTINCT key AS "Key", count(*) OVER () AS "Directed" FROM pairs
+            """,
+            left.Keys.ToArray(), right.Keys.ToArray(), tolerance);
+        var hits = toSeq(await db.Database.SqlQuery<ClashHit>(query).ToListAsync(token).ConfigureAwait(false));
+        var offending = ElementSet.Of(hits.Map(static h => h.Key));
+        var subject = ElementSet.Of(left.Keys + right.Keys);
+        return offending.Count == 0
+            ? new RuleResult.Pass(subject)
+            : new RuleResult.Fail(subject, offending, new RuleViolation.Clash((int)(hits.Head.Map(static h => h.Directed).IfNone(0L) / 2)));
     }
 
     private static RuleResult Verdict(ElementSet subject, ElementSet offending, Func<ElementSet, RuleViolation> violation) =>
@@ -493,12 +574,11 @@ public abstract partial record IdsValue {
 
     // Intersects every present bound leaf into one selection; an all-empty restriction degrades to an
     // existence check on the path so the facet still constrains presence rather than vanishing.
-    private static SetExpr Conjoin(string path, params ReadOnlySpan<Option<SetPredicate>> leaves) {
-        var present = toSeq(leaves.ToArray()).Choose(static o => o.Map(Leaf));
-        return present.IsEmpty
-            ? Leaf(new SetPredicate.Exists(path))
-            : present.Tail.Fold(present.Head, static (acc, leaf) => new SetExpr.Intersect(acc, leaf));
-    }
+    private static SetExpr Conjoin(string path, params ReadOnlySpan<Option<SetPredicate>> leaves) =>
+        toSeq(leaves.ToArray()).Choose(static o => o.Map(Leaf)) is { IsEmpty: false } present
+            ? present.Tail.Fold(present.Head.IfNone(() => Leaf(new SetPredicate.Exists(path))),
+                static (acc, leaf) => new SetExpr.Intersect(acc, leaf))
+            : Leaf(new SetPredicate.Exists(path));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
@@ -529,14 +609,36 @@ public abstract partial record IdsFacet {
                     new SetExpr.Predicate(new SetPredicate.Jsonpath("$.entity", JsonComparison.Equals, Some(e.Name))),
                     new SetExpr.Predicate(new SetPredicate.Jsonpath("$.predefinedType", JsonComparison.Equals, Some(pt)))),
                 None: () => new SetExpr.Predicate(new SetPredicate.Jsonpath("$.entity", JsonComparison.Equals, Some(e.Name)))),
-            Classification c => new SetExpr.Predicate(new SetPredicate.Classification(c.System, c.Value.Map(static v => (v as IdsValue.Simple)?.Value).Bind(Optional))),
-            Material m => new SetExpr.Predicate(new SetPredicate.Material(m.Value.Map(static v => (v as IdsValue.Simple)?.Value).Bind(Optional))),
+            // A classification/material facet carries a full `IdsValue` restriction (an `xs:enumeration`
+            // of allowed systems, an `xs:pattern` reference, a bound) — the typed `Classification`/
+            // `Material` leaf anchors the system/medium membership while the restriction lowers onto the
+            // facet path so an enumeration or pattern restriction survives; collapsing the value to its
+            // `Simple` case (the prior `(v as IdsValue.Simple)?.Value` cast) silently dropped every
+            // enumeration/pattern/bounds restriction on a classification facet.
+            Classification c => Constrain(
+                new SetExpr.Predicate(new SetPredicate.Classification(c.System, Simple(c.Value))),
+                c.Value, $"$.classification.{c.System}"),
+            Material m => Constrain(
+                new SetExpr.Predicate(new SetPredicate.Material(Simple(m.Value))),
+                m.Value, "$.material"),
             // PartOf checks the relation presence AND the related whole's entity, never the relation alone.
             PartOf po => new SetExpr.Intersect(
                 new SetExpr.Predicate(new SetPredicate.Exists($"$.partOf.{po.Relation}")),
                 po.Whole.Selection),
             _ => Value.Match(Some: v => v.Lower(Path), None: () => new SetExpr.Predicate(new SetPredicate.Exists(Path))),
         };
+
+    // The simple-value face of a restriction (the `Classification`/`Material` leaf reads the system or
+    // medium literal directly); a richer restriction keeps `None` here and survives via `Constrain`.
+    private static Option<string> Simple(Option<IdsValue> value) =>
+        value.Bind(static v => v is IdsValue.Simple s ? Some(s.Value) : None);
+
+    // The typed leaf alone for a simple/absent value; the typed leaf intersected with the lowered
+    // restriction when the value is an enumeration/pattern/bounds form, so no restriction is dropped.
+    private static SetExpr Constrain(SetExpr leaf, Option<IdsValue> value, string path) =>
+        value.Match(
+            Some: v => v is IdsValue.Simple ? leaf : new SetExpr.Intersect(leaf, v.Lower(path)),
+            None: () => leaf);
 
     private Option<IdsValue> Value =>
         this switch { Attribute a => a.Value, Property p => p.Value, _ => None };
@@ -629,7 +731,11 @@ public static class IdsImport {
             ? new IdsValue.Enumeration(toSeq(enums.Map(static e => e.Attribute("value")?.Value ?? "")))
             : restriction.Element(Ids + "pattern")?.Attribute("value")?.Value is { } pattern
                 ? new IdsValue.Pattern(pattern)
-                : restriction.Element(Ids + "length") ?? restriction.Element(Ids + "minLength") ?? restriction.Element(Ids + "maxLength") is not null
+                // `is not null` binds tighter than `??`, so a `length ?? minLength ?? maxLength is not null`
+                // spelling parses as `length ?? minLength ?? (maxLength is not null)` — an `XElement ?? bool`
+                // type error that also mis-detects the facet; the length family is present iff ANY of the
+                // three length children exists.
+                : restriction.Element(Ids + "length") is not null || restriction.Element(Ids + "minLength") is not null || restriction.Element(Ids + "maxLength") is not null
                     ? new IdsValue.Length(
                         FacetInt(restriction, "length"),
                         FacetInt(restriction, "minLength"),
@@ -655,12 +761,12 @@ public static class IdsImport {
 
 - Owner: `FusionBranch` the one ranked-retrieval-branch row carrying its lane name, RRF weight, and SQL projection; `FusionCandidate` a scored hit carrying its per-branch rank map and lineage; `FusionRank` the static surface fusing an arbitrary set of `FusionBranch` rows — the pgvector HNSW, PostGIS GiST, and pg_search/FTS branches — into one reciprocal-rank result with per-hit provenance through one n-ary RRF fold.
 - Cases: a `FusionBranch` row per ranked retrieval lane (`vector`, `spatial`, `lexical`, and any future lane); each candidate carries its rank in every branch that returned it (absent where it did not) plus the federated entity key and its provenance head.
-- Entry: `public static Seq<FusionCandidate> Fuse(Seq<FusionBranch> branches, Seq<Seq<(UInt128 Key, int Rank)>> ranked, int k, int rrfConstant = DefaultRrfConstant)` — folds N ranked candidate sets, one per branch, into one reciprocal-rank-fused top-k with the full per-branch contribution map, so the two-branch `HybridRetrieve` (vector + BM25) and the three-branch spatial-vector-lexical fusion are the same fold at different arity; `public static (string Sql, Seq<NpgsqlParameter> Parameters) FuseSql(Seq<FusionBranch> branches, int k, int rrfConstant)` projects the N-way RRF CTE by unioning each branch's `ROW_NUMBER()`-ranked SQL and returns the composed statement paired with its bound `NpgsqlParameter` list for `FromSqlRaw` — the branch operands, the per-branch weights, the `rrfConstant`, and the `k` limit all bind as parameters, never as interpolated literals.
+- Entry: `public static Seq<FusionCandidate> Fuse(Seq<FusionBranch> branches, Seq<Seq<(UInt128 Key, int Rank)>> ranked, int k, int rrfConstant = DefaultRrfConstant)` — folds N ranked candidate sets, one per branch, into one reciprocal-rank-fused top-k with the full per-branch contribution map, so the two-branch `HybridRetrieve` (vector + BM25) and the three-branch spatial-vector-lexical fusion are the same fold at different arity; `public static (string Sql, Seq<NpgsqlParameter> Parameters) FuseSql(Seq<FusionBranch> branches, int k, int rrfConstant)` projects the N-way RRF CTE by unioning each branch's `ROW_NUMBER()`-ranked SQL and returns the composed statement paired with its bound `NpgsqlParameter` list for `db.Database.SqlQueryRaw<FusionHit>(Sql, [.. Parameters])` — the dynamically composed CTE text is the raw door (the lane keys interpolate the CTE names over a closed vocabulary), the `(key, fused)` projection is the keyless `FusionHit` row (`SqlQueryRaw<TResult>` carries a keyless projection, where `FromSqlRaw<TEntity>` is entity-only and cannot map a CTE scalar), and the branch operands, the per-branch weights, the `rrfConstant`, and the `k` limit all bind as parameters, never as interpolated literals.
 - Auto: the indexes exist and are world-class individually — pgvector HNSW/diskann on the `EmbeddingArity` column (`Query/lanes#SEARCH_LANES`), PostGIS GiST on the `geometry`/`Envelope` column (`Query/lanes#GEO_LANES`), and pg_search BM25 / native tsvector on the `Corpus` (`Query/lanes#SEARCH_LANES`) — so this owner is purely the fusion-ranking layer: it sums `weight / (rrfConstant + rank)` across every branch that returned a candidate and re-ranks, never a fourth index or a learned reranker; each fused candidate carries its federated entity key so the result is a stable `ElementSet`, and each carries its provenance head so a fused hit joins lineage as a per-hit dimension; the `Query/lanes#SEARCH_LANES` two-branch RRF (vector + BM25) is not a separate implementation but the same `FusionRank.Fuse` fold over a two-row `FusionBranch` set, so a geometry-aware find-similar adds the spatial `FusionBranch` row and the fold is unchanged.
 - Receipt: a fusion rides `store.fusion.rank` carrying the per-branch hit counts and the fused top-k cardinality; each hit's per-branch ranks ride the `search.*` fact family.
 - Packages: Pgvector.EntityFrameworkCore, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, Npgsql, System.IO.Hashing, LanguageExt.Core, NodaTime.
 - Growth: a new fusable index is one `FusionBranch` row carrying its weight and SQL projection — the fold and the CTE generalize over the branch set with zero new arm; a new weighting policy is one `Weight` value on a `FusionBranch`; zero new surface — a learned cross-encoder reranker, a fourth parallel index, a per-modality result class, or a second hand-written `Score`/`FuseSql`/`DefaultRrfConstant` beside the `HybridRetrieve` two-way one is the deleted form because the branches are world-class, only the fusion is net-new, and the fusion is one n-ary RRF fold the two-way and three-way uses both ride.
-- Boundary: fusion is reciprocal-rank summation over the branch set so it needs no learned model and no training — a candidate's score is `Σ weight_b / (rrfConstant + rank_b)` over the branches that returned it; the fold and the CTE are parameterized by `Seq<FusionBranch>` so the two-branch `Query/lanes#SEARCH_LANES` `HybridRetrieve.Fuse` and the three-branch federated fusion are literally one `FusionRank.Fuse`/`FusionRank.FuseSql` at arity 2 and 3 — a parallel two-way implementation with its own `Score`, its own CTE string, and its own `DefaultRrfConstant` is the deleted form, so the lanes owner delegates its two-branch fusion to this fold rather than re-deriving RRF; the fused result is a stable `ElementSet` keyed on federated entity ids so it composes with the element-set algebra and the rule engine; each hit carries its provenance head so a federated search joins lineage per-hit — a search result whose source lineage is unknown is the deleted form; a branch that returns no candidate for a key contributes zero, so a hit strong in one modality still surfaces; the `rrfConstant` defaults to 60 per the standard RRF damping and a `FusionBranch.Weight` defaults to 1.0 so an unweighted fusion is the branch mean; the fusion projects identities then re-queries the federated graph by the surviving keys so it never materializes N full candidate payloads; the SQL form is one CTE unioning each branch's `ROW_NUMBER()`-ranked projection executed through `FromSqlRaw(Sql, Parameters)` — the per-query probe vector, query point, radius, and term string ride the branch's `NpgsqlParameter` `Operands` bound through `FusionBranch.Bind`, and the per-branch weight, the `rrfConstant`, and the `k` limit bind as `@w_*`/`@rrf`/`@k` parameters, so a `$probe`/`$terms` token spliced as a raw literal (which binds against nothing) and a `{k}`/`{weight}` numeric concatenation are both the deleted form; the spatial branch is one more `FusionBranch` row, never a special case.
+- Boundary: fusion is reciprocal-rank summation over the branch set so it needs no learned model and no training — a candidate's score is `Σ weight_b / (rrfConstant + rank_b)` over the branches that returned it; the fold and the CTE are parameterized by `Seq<FusionBranch>` so the two-branch `Query/lanes#SEARCH_LANES` `HybridRetrieve.Fuse` and the three-branch federated fusion are literally one `FusionRank.Fuse`/`FusionRank.FuseSql` at arity 2 and 3 — a parallel two-way implementation with its own `Score`, its own CTE string, and its own `DefaultRrfConstant` is the deleted form, so the lanes owner delegates its two-branch fusion to this fold rather than re-deriving RRF; the fused result is a stable `ElementSet` keyed on federated entity ids so it composes with the element-set algebra and the rule engine; each hit carries its provenance head so a federated search joins lineage per-hit — a search result whose source lineage is unknown is the deleted form; a branch that returns no candidate for a key contributes zero, so a hit strong in one modality still surfaces; the `rrfConstant` defaults to 60 per the standard RRF damping and a `FusionBranch.Weight` defaults to 1.0 so an unweighted fusion is the branch mean; the fusion projects identities then re-queries the federated graph by the surviving keys so it never materializes N full candidate payloads; the SQL form is one CTE unioning each branch's `ROW_NUMBER()`-ranked projection executed through `SqlQueryRaw<FusionHit>(Sql, [.. Parameters])` (the raw door, because the CTE text is composed dynamically over the closed lane-key vocabulary and the keyless `(key, fused)` projection cannot ride the entity-only `FromSqlRaw<TEntity>`) — the per-query probe vector, query point, radius, and term string ride the branch's `NpgsqlParameter` `Operands` bound through `FusionBranch.Bind`, and the per-branch weight, the `rrfConstant`, and the `k` limit bind as `@w_*`/`@rrf`/`@k` parameters, so a `$probe`/`$terms` token spliced as a raw literal (which binds against nothing) and a `{k}`/`{weight}` numeric concatenation are both the deleted form; the spatial branch is one more `FusionBranch` row, never a special case.
 
 ```csharp signature
 // A branch is its lane key, its RRF weight, the `RankSql` whose value-holes are `@lane_*` named
@@ -687,6 +793,10 @@ public readonly record struct FusionCandidate(
     double FusedScore,
     Option<UInt128> ProvenanceHead);
 
+// The keyless `(key, fused)` row shape the N-way RRF CTE projects — `SqlQueryRaw<FusionHit>` maps a CTE
+// scalar projection a keyed entity type cannot, so the fused identities re-query the graph by `Key`.
+public readonly record struct FusionHit(UInt128 Key, double Fused);
+
 public static class FusionRank {
     public const int DefaultRrfConstant = 60;
 
@@ -707,10 +817,11 @@ public static class FusionRank {
             .Take(k));
     }
 
-    // The N-way RRF CTE is one parameterized statement for `FromSqlRaw(Sql, Parameters)`: the per-branch
-    // `Weight`, the `rrfConstant` damping, and the `k` limit bind as `@w_*`/`@rrf`/`@k` parameters, the
-    // branch operands flow through unchanged, and the only interpolated tokens are the closed lane keys
-    // that name the CTEs — so no caller string, score, or numeric literal ever concatenates into SQL.
+    // The N-way RRF CTE is one parameterized statement for `db.Database.SqlQueryRaw<FusionHit>(Sql, [.. Parameters])`:
+    // the per-branch `Weight`, the `rrfConstant` damping, and the `k` limit bind as `@w_*`/`@rrf`/`@k`
+    // parameters, the branch operands flow through unchanged, and the only interpolated tokens are the
+    // closed lane keys that name the CTEs — so no caller string, score, or numeric literal concatenates
+    // into SQL; the keyless `(key, fused)` projection rides `SqlQueryRaw`, never the entity-only `FromSqlRaw`.
     public static (string Sql, Seq<NpgsqlParameter> Parameters) FuseSql(Seq<FusionBranch> branches, int k, int rrfConstant) {
         var ctes = string.Join(",\n", branches.Map(b => $"{b.Lane}_branch AS ({b.RankSql} LIMIT @k)"));
         var unions = string.Join("\nUNION ALL ", branches.Map(b => $"SELECT key, rank, @w_{b.Lane} AS weight FROM {b.Lane}_branch"));
@@ -731,13 +842,13 @@ public static class FusionRank {
 ## [07]-[FEDERATED_PLAN]
 
 - Owner: `PlanNode` `[Union]` the cross-store query AST; `EngineCost` the per-engine cost estimate row; `FederatedPlan` the static surface owning predicate pushdown across stores, cost-based engine selection, partial-pushdown splitting, and the cross-store join fold.
-- Cases: `Scan | Filter | Join | Aggregate | Pushdown | Materialize` on `PlanNode`, each node carrying typed operands — `Filter` the `SetPredicate` leaf, `Join` the `SetCombine` (`Union | Intersect | Difference`) discriminant, `Aggregate` the `QuantityMeasure` plus `RuleAggregate` fold — never a pre-rendered SQL string; cost-based selection picks the engine (pg relational, pg GiST, pg jsonb, DuckDB analytical, pgvector) whose estimated cost is lowest for a node, and partial-pushdown splits a node into a pushed sub-plan and a residual local fold.
-- Entry: `public static PlanNode Plan(SetExpr selection, Func<PlanNode, EngineCost> cost)` — lowers an element-set selection into a cost-optimal cross-store plan; `public static (PlanNode Pushed, PlanNode Residual) Split(PlanNode node, FrozenSet<string> pushableOps)` partitions a plan into the store-pushable sub-plan and the local residual.
+- Cases: `Scan | Filter | Join | Aggregate | Pushdown | Materialize` on `PlanNode`, each node carrying typed operands — `Filter` the `SetPredicate` leaf, `Join` the `SetCombine` (`Union | Intersect | Difference`) discriminant, `Aggregate` the `QuantityMeasure` plus `RuleAggregate` fold — never a pre-rendered SQL string; cost-based selection ranks every candidate engine a leaf admits (a spatial leaf serves from GiST or seqscan, a jsonb leaf from the GIN index or seqscan) through the live `EngineCost` — `EngineCost.Pushable` gates a candidate out and `EngineCost.Estimate` ranks the survivors, so the leaf engine is data from `pg_stat_statements`/route facts rather than a static map and a GIN-unpushable jsonb leaf falls to the relational seqscan — and partial-pushdown splits a node into a pushed sub-plan and a residual local fold, the non-pushable filter landing in the residual rather than a forced push.
+- Entry: `public static PlanNode Plan(SetExpr selection, Func<PlanNode, EngineCost> cost)` — lowers an element-set selection into a cost-optimal cross-store plan; `public static (PlanNode Pushed, PlanNode Residual) Split(PlanNode node, FrozenSet<string> pushableOps)` partitions a plan into the store-pushable sub-plan and the local residual; `public static Fin<RuleAst> Admit(PlanWire wire)` is the wire-ingress that decodes a portable `python:data` plan — a Substrait `rel` tree or an ibis-emitted SQL string — into the one canonical `RuleAst` (so an `AggregateRel` keeps its measure/fold a bare-`SetExpr` target would drop) that `RulePlan.Lower`/`Evaluate` then drives against the federated entity graph through the same `Plan`/`Split` lowering, rejecting a relation no rule arm expresses as `FederationFault.PlanUnpushable` at the one decode seam rather than fanning to a second SQL engine.
 - Auto: the federation is single-source-per-residence by design — one element's relational, spatial, document, vector, and analytical facets live in one `PostgresServer` row set (plus the embedded `DuckDB` analytical lane), so the planner pushes each predicate to the engine that owns its index rather than fanning across separate stores: a `SetPredicate.Spatial` leaf pushes to the GiST index, a `SetPredicate.Jsonpath`/`Material`/`Exists` leaf to the jsonb GIN index, a `SetPredicate.Classification` leaf to the ltree/relational index, and an analytical aggregate to the DuckDB lane through the live attach; cost-based selection reads the index-route facts (`search.vector.route`, `search.spatial.route`) and the `pg_stat_statements` evidence so a node routes to the cheapest engine; partial-pushdown splits a node when only part of it is pushable — the pushable predicate executes in the store and the residual (a cross-engine join or a managed fold) executes locally over the pushed result, never client-filtering a full scan.
 - Receipt: a plan rides `store.plan.federated` carrying the engine selection per node and the pushdown ratio; a partial-pushdown rides `store.plan.partial`.
 - Packages: Npgsql.EntityFrameworkCore.PostgreSQL, DuckDB.NET.Data.Full, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new plan operator is one `PlanNode` case plus one `Split` arm; a new selection lowering is one `SetExpr` arm on `Plan`; a new engine is one `EngineCost` row; a new pushdown rule is one entry in the pushable-op set; zero new surface — `Plan` and `Split` are total generated `Switch` folds so a new `SetExpr` or `PlanNode` case breaks the build rather than routing to a silent default, and a generic federated query engine fanning a query across heterogeneous remote stores is deliberately not built (the suite is single-source-per-residence), so this owner is the within-store cross-engine planner over the one federated table, never a multi-database query federator.
-- Boundary: federation here is cross-engine within one residence, never cross-store across heterogeneous databases — the deliberate single-source-per-residence posture means one element's facets live in one PG row set so the planner pushes each predicate to the engine (relational, GiST, jsonb GIN, HNSW, DuckDB) that owns its index, and a true multi-database query federator (postgres_fdw fan-out, a cross-store join engine) stays the rejected form because the per-store rail is world-class and a generic federator re-derives it; cost-based selection reads the live index-route and `pg_stat_statements` evidence so engine choice is data, never a hardcoded route; partial-pushdown is the one mechanism that keeps a non-fully-pushable plan efficient — the pushable predicate runs in the store and only the irreducible residual (a managed cross-engine join or a fold the translator cannot express) runs locally over the already-filtered result, so a client-side filter over a full scan is the deleted form; the plan AST stays typed end-to-end — `PlanNode.Filter` carries the `SetPredicate` leaf, `PlanNode.Aggregate` the `QuantityMeasure`, `PlanNode.Join` the `SetCombine` discriminant — so SQL translation rides the existing `Query/lanes#GEO_LANES` `SpatialOp.Predicate`, the jsonb-lane `@?`/`@@` path owner, and the parameterized `Aggregate` `SqlQuery` at execution, never a `Clause` that concatenates a raw path string into a SQL literal (`detail @? '<path>'`) — an interpolated-identifier-or-value plan-render is the deleted SQL-injection form because the parameterizing translator already owns the leaf; the plan operands are `SetExpr` selections so the federated planner is the lowering target of the element-set algebra and the rule engine, one plan surface every selection rides; a portable `python:data` `[SUBSTRAIT_FEDERATION_SEAM]` Substrait/ibis plan admits at the wire by decoding into this same `SetExpr`/`PlanNode` algebra, never a second SQL engine.
+- Growth: a new plan operator is one `PlanNode` case plus one `Split` arm; a new selection lowering is one `SetExpr` arm on `Plan`; a new engine is one `EngineCost` row; a new pushdown rule is one entry in the pushable-op set; a new portable-plan dialect is one `PlanWire` case lowering to `SetExpr` in `Admit`; zero new surface — `Plan`, `Split`, and `Admit` are total generated `Switch` folds so a new `SetExpr`, `PlanNode`, or `PlanWire` case breaks the build rather than routing to a silent default, and a generic federated query engine fanning a query across heterogeneous remote stores is deliberately not built (the suite is single-source-per-residence), so this owner is the within-store cross-engine planner over the one federated table, never a multi-database query federator.
+- Boundary: federation here is cross-engine within one residence, never cross-store across heterogeneous databases — the deliberate single-source-per-residence posture means one element's facets live in one PG row set so the planner pushes each predicate to the engine (relational, GiST, jsonb GIN, HNSW, DuckDB) that owns its index, and a true multi-database query federator (postgres_fdw fan-out, a cross-store join engine) stays the rejected form because the per-store rail is world-class and a generic federator re-derives it; cost-based selection reads the live index-route and `pg_stat_statements` evidence so engine choice is data, never a hardcoded route; partial-pushdown is the one mechanism that keeps a non-fully-pushable plan efficient — the pushable predicate runs in the store and only the irreducible residual (a managed cross-engine join or a fold the translator cannot express) runs locally over the already-filtered result, so a client-side filter over a full scan is the deleted form; the plan AST stays typed end-to-end — `PlanNode.Filter` carries the `SetPredicate` leaf, `PlanNode.Aggregate` the `QuantityMeasure`, `PlanNode.Join` the `SetCombine` discriminant — so SQL translation rides the existing `Query/lanes#GEO_LANES` `SpatialOp.Predicate`, the jsonb-lane `@?`/`@@` path owner, and the parameterized `Aggregate` `SqlQuery` at execution, never a `Clause` that concatenates a raw path string into a SQL literal (`detail @? '<path>'`) — an interpolated-identifier-or-value plan-render is the deleted SQL-injection form because the parameterizing translator already owns the leaf; the plan operands are `SetExpr` selections so the federated planner is the lowering target of the element-set algebra and the rule engine, one plan surface every selection rides; a portable `python:data` `[SUBSTRAIT_FEDERATION_SEAM]` Substrait/ibis plan admits at the wire through `Admit`, which decodes the `PlanWire.Substrait` `rel` tree or the `PlanWire.PortableSql` ibis-`to_sql` rule under one `Fin` rail — a Substrait `ReadRel`/`FilterRel`/`SetRel`/`AggregateRel` maps to the `Select(Literal)`/`Where`/`Select(Union·Intersect·Difference)`/`Quantity` `RuleAst` shapes the planner already lowers (the `RuleAst` target keeps the `AggregateRel` measure/fold a bare-`SetExpr` decode would drop), and a relation no arm expresses (an arbitrary `ExtensionRel`, a join the algebra does not model) rejoins the rail as `FederationFault.PlanUnpushable` rather than admitting a partial plan, so the wire-projected plan rides the one PostGIS/DuckDB substrate with zero second SQL engine and a `Substrait.Protobuf.Plan`-walking `IConsumer` re-implementation beside the `RuleAst` decode is the deleted form.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -771,11 +882,51 @@ public abstract partial record PlanNode {
     public sealed record Materialize(PlanNode Source) : PlanNode;
 }
 
+// The closed mirror of the Substrait relational shapes `Admit` lowers — `ReadRel` (a named-table scan
+// carrying its key literals), `FilterRel` (a condition over a typed `SetPredicate`), `SetRel` (the
+// union/intersect/minus set operation), `AggregateRel` (a measure-plus-fold) — so the decode is a total
+// fold over the relations the federated graph models rather than a partial walk of the full Substrait
+// IR; a relation outside this family (an arbitrary `ExtensionRel`, an unmodeled join) is the
+// `PlanUnpushable` rejection. The wire decoder hands the protobuf `Substrait.Protobuf.Rel` tree in as
+// this mirror at the marshal seam, never the raw proto into the algebra.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
+public abstract partial record SubstraitRel {
+    private SubstraitRel() { }
+
+    public sealed record Read(Seq<UInt128> Keys) : SubstraitRel;
+    public sealed record Filter(SubstraitRel Input, SetPredicate Condition) : SubstraitRel;
+    public sealed record Set(SubstraitRel Left, SubstraitRel Right, SetCombine Op) : SubstraitRel;
+    public sealed record Aggregate(SubstraitRel Input, QuantityMeasure Measure, RuleAggregate Fold) : SubstraitRel;
+    public sealed record Extension(string Uri) : SubstraitRel;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
+public abstract partial record PlanWire {
+    private PlanWire() { }
+
+    public sealed record Substrait(SubstraitRel Root) : PlanWire;
+    public sealed record PortableSql(string Dialect, RuleAst Lowered) : PlanWire;
+}
+
 public static class FederatedPlan {
+    // The leaf predicate's candidate engines, index-owner first then the always-available relational
+    // sequential scan — a spatial leaf can serve from GiST or seqscan, a jsonb leaf from the GIN index or
+    // seqscan, so the planner ranks the live `EngineCost` per candidate rather than hardcoding one route.
+    private static readonly FrozenDictionary<string, Seq<PlanEngine>> LeafCandidates =
+        new Dictionary<string, Seq<PlanEngine>> {
+            [SpatialKind] = Seq(PlanEngine.Spatial, PlanEngine.Relational),
+            [DocumentKind] = Seq(PlanEngine.Document, PlanEngine.Relational),
+            [RelationalKind] = Seq(PlanEngine.Relational),
+        }.ToFrozenDictionary(StringComparer.Ordinal);
+
     public static PlanNode Plan(SetExpr selection, Func<PlanNode, EngineCost> cost) =>
         selection.Switch(
             state: cost,
-            predicate:  static (_, p) => new PlanNode.Filter(new PlanNode.Scan(EngineOf(p.Leaf)), p.Leaf, EngineOf(p.Leaf)),
+            // Cost-based: rank every candidate engine the leaf admits through the live `EngineCost` (the
+            // `Pushable` flag gates a candidate out and `Estimate` ranks the survivors), so the leaf engine
+            // is data from `pg_stat_statements`/route facts, never a static map — a `jsonpath` leaf the cost
+            // model marks GIN-unpushable falls to the relational seqscan rather than a phantom index route.
+            predicate:  static (c, p) => Filter(p.Leaf, Cheapest(p.Leaf, c)),
             union:      static (c, u) => Combine(c, Plan(u.Left, c), Plan(u.Right, c), SetCombine.Union),
             intersect:  static (c, i) => Combine(c, Plan(i.Left, c), Plan(i.Right, c), SetCombine.Intersect),
             difference: static (c, d) => new PlanNode.Join(Plan(d.Left, c), Plan(d.Right, c), SetCombine.Difference, PlanEngine.Relational),
@@ -783,12 +934,44 @@ public static class FederatedPlan {
             byRule:     static (_, _) => new PlanNode.Scan(PlanEngine.Relational),
             closure:    static (_, _) => new PlanNode.Scan(PlanEngine.Relational));
 
+    // The portable-plan ingress lowers to `RuleAst`, not bare `SetExpr`, so a Substrait `AggregateRel`
+    // keeps its `QuantityMeasure`/`RuleAggregate` (a selection-only target would silently drop the fold);
+    // an ibis-`to_sql` plan arrives already lowered by the data lane's dialect onto this same rule AST,
+    // and an `Extension`/untranslatable relation rejoins the rail as `PlanUnpushable` so a partial plan
+    // never admits. The result is the `RulePlan.Lower`/`Evaluate` lowering target every selection rides.
+    public static Fin<RuleAst> Admit(PlanWire wire) =>
+        wire.Switch(
+            substrait:   static s => Lower(s.Root),
+            portableSql: static q => Fin.Succ(q.Lowered));
+
+    // `Fin` is the abort rail, so the `set` arm sequences the two sub-relation lowerings monadically
+    // (`Bind` then `Map`): the first `PlanUnpushable` short-circuits the whole plan rather than admitting a
+    // one-sided fragment — a partial relational plan is never half-decoded. A new `SubstraitRel` case breaks
+    // this generated `Switch` at compile time.
+    private static Fin<RuleAst> Lower(SubstraitRel rel) =>
+        rel.Switch(
+            read:      static r => Fin.Succ((RuleAst)new RuleAst.Select(new SetExpr.Literal(r.Keys))),
+            filter:    static f => Lower(f.Input).Map(inner => (RuleAst)new RuleAst.Where(inner, f.Condition)),
+            set:       static s => Lower(s.Left).Bind(l => Lower(s.Right).Map(r =>
+                          (RuleAst)new RuleAst.Select(Compose(RulePlan.Lower(l), RulePlan.Lower(r), s.Op)))),
+            aggregate: static a => Lower(a.Input).Map(inner => (RuleAst)new RuleAst.Quantity(inner, a.Measure, a.Fold)),
+            extension: static e => Fin.Fail<RuleAst>(new FederationFault.PlanUnpushable(e.Uri)));
+
+    private static SetExpr Compose(SetExpr left, SetExpr right, SetCombine op) =>
+        op.Switch(
+            union:      () => (SetExpr)new SetExpr.Union(left, right),
+            intersect:  () => new SetExpr.Intersect(left, right),
+            difference: () => new SetExpr.Difference(left, right));
+
+    // A non-pushable filter lands in the Residual local fold, never a forced push to relational — the
+    // false branch keeping a `Pushdown` defeats partial-pushdown by client-side-filtering a full scan,
+    // the named-rejected form; the pushed sub-plan is the bare scan and the leaf predicate refines locally.
     public static (PlanNode Pushed, PlanNode Residual) Split(PlanNode node, FrozenSet<string> pushableOps) =>
         node.Switch(
             state: pushableOps,
             filter:      static (ops, f) => ops.Contains(f.Engine.Key)
                 ? (Pushed: (PlanNode)new PlanNode.Pushdown(f, f.Engine), Residual: (PlanNode)new PlanNode.Materialize(f))
-                : (Pushed: new PlanNode.Pushdown(f, PlanEngine.Relational), Residual: new PlanNode.Materialize(f)),
+                : (Pushed: (PlanNode)new PlanNode.Pushdown(f.Source, PlanEngine.Relational), Residual: f),
             join:        static (ops, j) => (Pushed: (PlanNode)new PlanNode.Pushdown(j.Left, j.Engine), Residual: j),
             scan:        static (ops, s) => (Pushed: (PlanNode)new PlanNode.Pushdown(s, PlanEngine.Relational), Residual: new PlanNode.Materialize(s)),
             aggregate:   static (ops, a) => (Pushed: (PlanNode)new PlanNode.Pushdown(a, a.Engine), Residual: new PlanNode.Materialize(a)),
@@ -798,19 +981,40 @@ public static class FederatedPlan {
     private static PlanNode.Join Combine(Func<PlanNode, EngineCost> cost, PlanNode left, PlanNode right, SetCombine on) =>
         new(left, right, on, cost(left).Estimate <= cost(right).Estimate ? cost(left).Engine : cost(right).Engine);
 
-    private static PlanEngine EngineOf(SetPredicate leaf) =>
+    private static PlanNode.Filter Filter(SetPredicate leaf, PlanEngine engine) => new(new PlanNode.Scan(engine), leaf, engine);
+
+    // The cheapest pushable engine the leaf admits — the candidate set folds through the live `EngineCost`,
+    // a non-pushable candidate drops, and the survivors rank by `Estimate`; with no pushable candidate the
+    // leaf's index-owning engine (the head of its candidate row) is the static fallback.
+    private static PlanEngine Cheapest(SetPredicate leaf, Func<PlanNode, EngineCost> cost) {
+        var candidates = LeafCandidates[KindOf(leaf)];
+        return candidates
+            .Map(engine => cost(new PlanNode.Scan(engine)))
+            .Filter(static c => c.Pushable)
+            .OrderBy(static c => c.Estimate)
+            .HeadOrNone()
+            .Map(static c => c.Engine)
+            .IfNone(() => candidates.HeadOrNone().IfNone(PlanEngine.Relational));
+    }
+
+    private const string SpatialKind = "spatial";
+    private const string DocumentKind = "document";
+    private const string RelationalKind = "relational";
+
+    private static string KindOf(SetPredicate leaf) =>
         leaf.Switch(
-            spatial:        static _ => PlanEngine.Spatial,
-            classification: static _ => PlanEngine.Relational,
-            containment:    static _ => PlanEngine.Relational,
-            jsonpath:       static _ => PlanEngine.Document,
-            material:       static _ => PlanEngine.Document,
-            exists:         static _ => PlanEngine.Document);
+            spatial:        static _ => SpatialKind,
+            jsonpath:       static _ => DocumentKind,
+            material:       static _ => DocumentKind,
+            exists:         static _ => DocumentKind,
+            classification: static _ => RelationalKind,
+            containment:    static _ => RelationalKind);
 }
 ```
 
 ## [08]-[RESEARCH]
 
 - [IDS_FACET_SCHEMA]: the buildingSMART IDS 1.0 XSD element/attribute shape the `IdsImport.Facet` reader projects — the `specification` `name`/`identifier`/`ifcVersion` attributes, the `applicability`/`requirements` element split, the per-facet `simpleValue`/`restriction` child grammar (`entity.name`, `attribute.name`/`value`, `classification.system`/`value`, `property.propertySet`/`baseName`/`dataType`/`value`, `material.value`, `partOf.relation`/`entity`), and the `requirement` `cardinality` attribute (`required`/`prohibited`/`optional`) — confirmed against the published IDS 1.0 schema before the `Facet` element-name dispatch and the `IdsConformance` receipt shape pin; the `xs:restriction` child grammar (`xs:enumeration`, `xs:pattern`, `xs:minInclusive`/`xs:maxInclusive`, `xs:length`) is modeled as the closed `IdsValue` `[Union]` lowering to a `SetExpr` over `SetPredicate.Jsonpath` `JsonComparison` leaves — a two-sided inclusive bound or a min/max length intersects both leaves so neither side is dropped — so the open item is the exact `xs:pattern` regex-flavor mapping onto the PG `~` operator and the GIN-expression-index that serves it for a high-cardinality pattern facet, plus the `jsonb` `.length()`-path serving form for the `xs:length` facet.
-- [SPATIAL_CLASH_PUSHDOWN]: the PostGIS `ST_3DIntersects`/`ST_3DDWithin` pushdown for a `Clash` rule over a GiST-indexed `geometry`/`geometryz` column on PG18 — the index-route the planner observes for a two-set spatial intersection and the incremental-clash form re-testing only the structural-diff changed-node set against the GiST index rather than the full cross-product.
+- [SPATIAL_CLASH_PUSHDOWN]: the `Clash` self-join SQL form is settled — the `ST_3DIntersects` (hard) / `ST_3DDWithin(tolerance)` (clearance) `a.key <> b.key` join over the GiST-indexed `geom` column with the windowed directed-pair count is the realized kernel; the held probe is the live PG18 GiST index-route the planner observes for that two-set self-join over a `geometryz` column (whether the planner selects the GiST index for both join sides under the `key = ANY(...)` prefilter) and the incremental-clash form re-running the join with one side bound to only the structural-diff changed-node set rather than the full candidate cross-product.
 - [FUSION_PLANNER_COST]: the cost-model inputs the `FederatedPlan` reads to rank the GiST, jsonb-GIN, HNSW, and DuckDB-attach engines for a node — whether `pg_stat_statements` plan-cost evidence and the `search.*.route` facts are sufficient to drive cost-based engine selection, and the N-way `FusionRank.FuseSql` CTE planner route (the same fold at arity 2 for the `Query/lanes#SEARCH_LANES` `HybridRetrieve` vector+BM25 case and arity 3 for the spatial-vector-lexical case) on a live PG18 server carrying pgvectorscale and pg_search.
+- [SUBSTRAIT_REL_MAPPING]: the field-level projection of the published Substrait `Rel` proto (`ReadRel.named_table`/`base_schema`, `FilterRel.condition` `Expression`, `SetRel.op` `SetOp`, `AggregateRel.measures`) onto the closed `SubstraitRel` mirror `FederatedPlan.Admit` lowers — the decode of a `FilterRel.condition` scalar-function `Expression` into a typed `SetPredicate` leaf (an `ST_*` function reference to `SetPredicate.Spatial`, a `jsonb_path` reference to `SetPredicate.Jsonpath`) and of an `AggregateRel` measure function into the `QuantityMeasure`/`RuleAggregate` pair is the one marshal-seam detail held with the `python:data` query owner that emits the plan, the algebra-side lowering (`Read`→`Select(Literal)`, `Filter`→`Where`, `Set`→`Select(Union`/`Intersect`/`Difference)`, `Aggregate`→`Quantity`) being settled; the `python:data` `[SUBSTRAIT_PORTABILITY]`/`[QUERY_IR_AND_SQLGATE]` leg owns the proto-to-mirror marshal and the ibis-`to_sql` dialect that targets this `RuleAst` algebra.

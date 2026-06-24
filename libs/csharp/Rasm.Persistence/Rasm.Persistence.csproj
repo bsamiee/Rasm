@@ -40,6 +40,7 @@
     <ItemGroup Label="Cache And Object Store">
         <PackageReference Include="AWSSDK.S3" />
         <PackageReference Include="Azure.Storage.Blobs" />
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="Google.Cloud.Storage.V1" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="StackExchange.Redis" />
