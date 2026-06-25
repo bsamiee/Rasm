@@ -3,10 +3,11 @@ name = "workspace-foundation-python"
 version = "0.1.0"
 requires-python = ">=3.15"
 dependencies = [
+    # --- [GENERAL]
     "anyio>=4.14.0",
-    "protobuf>=6.33,<7.0",       # runtime transport wire codec; capped <7.0 by opentelemetry-proto (no OTel release admits protobuf 7.x yet); lift the cap when it does. cp310-abi3+py3-none-any => cp315-clean
-    "grpcio>=1.81",              # runtime: gRPC transport (server/serve ServerHost); resolves on cp315, already transitive core via google-cloud-storage
-    "findiff>=0.13.1; python_version<'3.15'", # compute finite-difference floor for solvers/sensitivity; gated by transitive scipy CPython 3.15 wheel lag
+    "protobuf>=6.33,<7.0",                         # runtime transport wire codec; capped <7.0 by opentelemetry-proto (no OTel release admits protobuf 7.x yet); lift the cap when it does. cp310-abi3+py3-none-any => cp315-clean
+    "grpcio>=1.81",                                # runtime: gRPC transport (server/serve ServerHost); resolves on cp315, already transitive core via google-cloud-storage
+    "findiff>=0.13.1; python_version<'3.15'",      # compute finite-difference floor for solvers/sensitivity; gated by transitive scipy CPython 3.15 wheel lag
     "beartype>=0.22.2",
     "cyclopts>=4.18.0",
     "msgspec>=0.21.1",
@@ -21,45 +22,23 @@ dependencies = [
     "structlog>=26.1.0",
     "psutil>=7.2.2",
     "fsspec>=2026.6.0",
-    "s3fs>=2026.6.0",             # data: S3 fsspec backend for shared-pull artifact reads
-    "gcsfs>=2026.6.0",            # data: GCS fsspec backend for shared-pull artifact reads
-    "obstore>=0.10.1",            # data: abi3 object_store backend while cloud-storage wheels lag on CPython 3.15
-    "httpx>=0.28.1",              # transport: approved HTTP client surface for typed adapters
+    "s3fs>=2026.6.0",                              # data: S3 fsspec backend for shared-pull artifact reads
+    "gcsfs>=2026.6.0",                             # data: GCS fsspec backend for shared-pull artifact reads
+    "obstore>=0.10.1",                             # data: abi3 object_store backend while cloud-storage wheels lag on CPython 3.15
+    "httpx>=0.28.1",                               # transport: approved HTTP client surface for typed adapters
     "watchfiles>=1.2.0",
-    "apscheduler>=3.11.2",        # runtime: cron, interval, and date triggers (sole cron owner; aiocron purged)
-    "universal-pathlib>=0.3.10",  # data: UPath storage_options/protocol resolution for the fsspec artifact store
+    "apscheduler>=3.11.2",                         # runtime: cron, interval, and date triggers (sole cron owner; aiocron purged)
+    "universal-pathlib>=0.3.10",                   # data: UPath storage_options/protocol resolution for the fsspec artifact store
     "asyncssh>=2.23.1",
     "tree-sitter>=0.25.2",
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
-    "keyring",                    # runtime: OS keychain credential boundary; never probe unattended
-    "zstandard>=0.23.0",          # tooling: zstd compression for the tools.assay logging/cache rail; root-tool dependency, always available
-]
-
-[dependency-groups]
-dev = [
-    "coverage>=7.14.1",
-    "dirty-equals",
-    "hypothesis>=6.155.3",
-    "inline-snapshot",
-    "moto[server]>=5.2.2",
-    "mypy>=2.1.0",
-    "pytest>=9.1.0",
-    "pytest-benchmark>=5.2.3",
-    "pytest-cov>=7.1.0",
-    "pytest-deadfixtures>=3.1.0",
-    "pytest-randomly>=4.1.0",
-    "pytest-socket>=0.8.0",
-    "pytest-timeout>=2.4.0",
-    "pytest-xdist>=3.8.0",
-    "ruff>=0.15.17,<0.16",
-    "squawk-cli>=2.58.0",
-    "ty>=0.0.50",
-    "types-psutil>=7.2.2.20260518",
-    "validate-pyproject[all]",
-]
-mutation = ["mutmut>=3.6.0"]
-scientific = [
+    "keyring",                                     # runtime: OS keychain credential boundary; never probe unattended
+    "zstandard>=0.23.0",                           # tooling: zstd compression for the tools.assay logging/cache rail; root-tool dependency, always available
+    "trio>=0.27.0",                                # runtime: structured-concurrency backend anyio runs on; the high-scrutiny async owner
+    "zlib-ng",                                     # data: zlib-ng/gzip-ng accelerated compression (the python-zlib-ng project) beside zstandard/lz4/brotli
+    "csvkit",                                      # data: CSV CLI suite (in2csv/csvcut/csvjoin/csvsql) for the tabular subprocess boundary
+    # --- [SCIENTIFIC]
     "adbc-driver-manager",                         # data: ADBC driver manager for Arrow Flight SQL and DuckDB; Cython source-build on CPython 3.15
     "arro3-core>=0.8.1",                           # data: abi3 Arrow core bridge while pyarrow CPython 3.15 support stabilizes
     "arviz>=1.2.0; python_version<'3.15'",         # compute: Bayesian diagnostics; gated by scipy/Pythran CPython 3.15 lag
@@ -166,8 +145,7 @@ scientific = [
     "geoarrow-rust-compute; python_version<'3.15'",# data: GeoRust on GeoArrow memory replacing the GEOARROW byte-roundtrip
     "lazrs; python_version<'3.15'",                # data: compressed-COPC LAZ backend for laspy.copc
     "laszip; python_version<'3.15'",               # data: alternate compressed-COPC LAZ backend for laspy.copc
-]
-artifacts = [
+    # --- [ARTIFACTS]
     "altair",
     "brotli; python_version<'3.15'",               # artifacts: compression; no CPython 3.15 wheel
     "colour-science>=0.4.6",                       # artifacts: color science for CIE, spectral, and appearance models; pure Python
@@ -222,9 +200,33 @@ artifacts = [
     "lets-plot; python_version<'3.15'",            # artifacts: host-free grammar-of-graphics self-render to svg/png/pdf bytes
     "python-calamine; python_version<'3.15'",      # artifacts: fast Rust xlsx/xlsb/xls/ods reader closing the spreadsheet/ODF read inverse
     "usd-core; python_version<'3.15'",             # artifacts: USD/USDZ scene packaging beside the vtk USD exporter
-    "zxing-cpp; python_version<'3.15'",            # artifacts: 2D matrix codes (DataMatrix/PDF417/Aztec/MaxiCode) read/write
+    "zxing-cpp",                                   # artifacts: 2D matrix codes (DataMatrix/PDF417/Aztec/MaxiCode) encode+decode; native C++ pybind11 sdist source-build via the Parametric_Forge scientific toolchain on cp315
     "stream-unzip; python_version<'3.15'",         # artifacts: streaming decompress inverse for stream-zip
 ]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.14.1",
+    "dirty-equals",
+    "hypothesis>=6.155.3",
+    "inline-snapshot",
+    "moto[server]>=5.2.2",
+    "mypy>=2.1.0",
+    "pytest>=9.1.0",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.1.0",
+    "pytest-deadfixtures>=3.1.0",
+    "pytest-randomly>=4.1.0",
+    "pytest-socket>=0.8.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.17,<0.16",
+    "squawk-cli>=2.58.0",
+    "ty>=0.0.50",
+    "types-psutil>=7.2.2.20260518",
+    "validate-pyproject[all]",
+]
+mutation = ["mutmut>=3.6.0"]
 
 # --- [UV] ------------------------------------------------------------------
 

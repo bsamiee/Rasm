@@ -1,8 +1,8 @@
 # [PYTHON_SHAPES]
 
-Every Python shape must prove its lifecycle role, invariant owner, projection relation, and collapse test. The governing path is `Raw -> Payload -> Canonical owner -> Rail/effect -> Projection -> Egress`; choose role first, owner second, projection third. Stage names, function names, and return types agree with their stage: materialization returns the canonical owner, projection returns the boundary view, egress returns encoded or foreign material.
+A value-level concept takes exactly one owner, and the lifecycle `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress` fixes where it changes shape: raw material is admitted once into an evidence-carrying owner, the interior is total over admitted owners, and projection plus egress derive outward. Role decides first, owner second, projection third; stage names, function names, and return types agree with the stage they occupy — materialization returns the canonical owner, projection returns the boundary view, egress returns encoded or foreign material.
 
-Admit payloads, schemas, models, structs, dataclasses, rich classes, enums, protocols, rails, immutable evidence, projections, and replacements only when they change implementation law. Reject package-branded internal layers, package-named model families, research taxonomy, and shapes added to reduce local line count or hide weak ownership.
+One refinement alias, one fault vocabulary, and one canonical owner span the whole lifecycle: the shared `Annotated[T, Is[...]]` constraint is enforced at every stage it crosses — the `pydantic` ingress field, the `@beartype` owner factory, and the `msgspec` egress band — so the admission rule has one edit site and no parallel DTO restates it. Admit a payload, ingress model, canonical owner, vocabulary, port, projection, or replacement only when it changes implementation law; reject package-branded interior layers, parallel DTOs, field-rename wrappers, and shapes minted to lower local line count or to mask weak ownership.
 
 ## [01]-[SHAPE_LIFECYCLE]
 
@@ -30,65 +30,63 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 - Rail rule: validation and codec exceptions map to `Result` at the owning boundary.
 - Composition rule: composed pipelines preserve visible admission, materialization, projection, and egress surfaces.
 
+[SHARED_REFINEMENT]:
+- Law: one `Annotated[T, Is[...], msgspec.Meta(...)]` alias carries every refinement member at once, and three validators each read their own at the stage they own — `@beartype` enforces `Is[...]` in O(1) at the owner factory, `msgspec.Meta` enforces the bound on the wire, and a `pydantic` field honors both at ingress — one alias definition, zero parallel constraint literals.
+- Law: admission maps a contract violation onto the seam's fault, never an exception into the interior — `ConfigDict(extra="forbid", strict=True)` on the ingress model rejects drift, `BeartypeConf(violation_type=...)` redirects a boundary violation to a domain exception the seam catches, and the interior receives only the admitted owner.
+- Reject: re-validating an admitted owner in the interior; a second constraint literal restating the alias on the egress struct; a `try`/`except` wrapping an interior rail transform.
+
 [LIFECYCLE_FLOW]:
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 import msgspec
+from beartype import BeartypeConf, beartype
+from beartype.vale import Is
 from expression import Error, Ok, Result
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-type ShapeFault = Literal["<empty-key>", "<invalid-payload>", "<invalid-egress>"]
+type Key = Annotated[str, Is[lambda text: text.isascii()], msgspec.Meta(min_length=1, max_length=64)]
+type AdmitFault = Literal["<drift>", "<refused>"]
+
+_ADMIT = BeartypeConf(violation_type=ValueError)
 
 
 class ShapeIngress(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
-    key: str = Field(validation_alias="source_key")
+    key: Key = Field(validation_alias="source_key")
     note: str | None = Field(default=None, validation_alias="source_note")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    key: str
+    key: Key
     note: str | None = None
 
     @classmethod
-    def admit(cls, ingress: ShapeIngress, /) -> Result[Self, ShapeFault]:
-        return Error("<empty-key>") if ingress.key == "" else Ok(cls(key=ingress.key, note=ingress.note))
+    @beartype(conf=_ADMIT)
+    def admit(cls, *, key: Key, note: str | None = None) -> Self:
+        return cls(key=key, note=note)
 
 
-class ShapeWire(msgspec.Struct, frozen=True, omit_defaults=True, rename={"key": "wire_key", "note": "wire_note"}):
-    key: str
+class ShapeWire(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename={"key": "wire_key", "note": "wire_note"}):
+    key: Key
     note: str | None = None
 
 
-SHAPE_ENCODER = msgspec.json.Encoder()
+_ENCODER = msgspec.json.Encoder()
 
 
-def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
+def delivered(raw: object, /) -> Result[bytes, AdmitFault]:
     try:
         ingress = ShapeIngress.model_validate(raw)
+        owned = Shape.admit(key=ingress.key, note=ingress.note)
     except ValidationError:
-        return Error("<invalid-payload>")
-    return Shape.admit(ingress)
-
-
-def projected(shape: Shape, /) -> ShapeWire:
-    # convert matches source attributes by field name, so the wire owner keeps canonical names and renames only at the encoded edge
-    return msgspec.convert(shape, ShapeWire, from_attributes=True)
-
-
-def egressed(wire: ShapeWire, /) -> Result[bytes, ShapeFault]:
-    try:
-        return Ok(SHAPE_ENCODER.encode(wire))
-    except msgspec.EncodeError:
-        return Error("<invalid-egress>")
-
-
-def delivered(raw: object, /) -> Result[bytes, ShapeFault]:
-    return admitted(raw).map(projected).bind(egressed)
+        return Error("<drift>")
+    except ValueError:
+        return Error("<refused>")
+    return Ok(_ENCODER.encode(msgspec.convert(owned, ShapeWire, from_attributes=True)))
 ```
 
 ## [02]-[OWNER_CHOOSER]
@@ -99,7 +97,7 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 
 | [INDEX] | [DECISION]             | [DISCRIMINANT]           | [OWNER]              | [CHOOSE]                   | [REJECT]              |
 | :-----: | :--------------------- | :----------------------- | :------------------- | :------------------------- | :-------------------- |
-|  [01]   | static keys            | untrusted, def-time      | `[BOUNDARY_SHAPES]`  | `TypedDict`                | `dict[str, object]`   |
+|  [01]   | static keys            | untrusted, def-time      | `[BOUNDARY_SHAPES]`  | closed `TypedDict`         | `dict[str, object]`   |
 |  [02]   | untrusted admission    | untrusted, runtime       | `[BOUNDARY_SHAPES]`  | Pydantic                   | interior revalidation |
 |  [03]   | wire or row            | trusted, fixed layout    | `[BOUNDARY_SHAPES]`  | `msgspec.Struct`           | domain wire owner     |
 |  [04]   | compact invariant      | trusted, value-equal     | `[DOMAIN_SHAPES]`    | frozen dataclass           | field rename class    |
@@ -109,112 +107,109 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 |  [08]   | immutable evidence     | trusted, key/order id    | `[TOKEN_STATE_PORT]` | tuple, `frozendict`, `Map` | mutable staging       |
 |  [09]   | replaceable capability | open, structural id      | `[TOKEN_STATE_PORT]` | `Protocol`                 | single implementation |
 
-[BOUNDARY_SHAPES]:
-- `TypedDict` admits static key presence, closure (`closed=True`), `extra_items` extension, and `ReadOnly` evidence before materialization.
-- Pydantic admits untrusted ingress, settings, alias policy, discriminated variants, and rich errors at the boundary.
-- `msgspec.Struct` admits deterministic wire, cache, row, and high-volume serialization layout.
-- Collapse: payloads materialize into ingress or canonical owners, admission schemas promote once, and wire projections derive from canonical owners.
+[OWNER_SELECTION]:
+- Law: resolve the row by answering the five discriminants in order — admission, identity regime, variant arity, payload timing, openness — and the first row whose discriminant column matches wins; a shape placed by feel rather than by the matched discriminant is the defect, and every misplacement traces to one mis-answered column.
+- Law: a `[BOUNDARY_SHAPES]` owner exists only between the wire and the canonical owner — `TypedDict` carries static-key closure (`closed=True`/`extra_items`/per-key `Required`/`NotRequired`/`ReadOnly`), Pydantic carries untrusted runtime admission, settings, alias policy, and `Discriminator`/`Tag` variant resolution, `msgspec.Struct` carries deterministic wire/row layout with `gc=False` dropping a non-container leaf from the tracked set on hot paths — and none survives into an interior signature.
+- Law: a `[DOMAIN_SHAPES]` owner is the first durable frozen shape the interior accepts — a frozen dataclass for a compact value-equal invariant under `copy.replace`, a frozen Pydantic model only when compiled validation, computed fields, and JSON Schema are themselves the contract, a frozen `msgspec.Struct` only when a fixed wire layout is the canonical owner, a rich class when construction law, folds, transitions, evidence, or projection methods exceed declarative fields.
+- Law: a `[TOKEN_STATE_PORT]` owner carries identity without product — `StrEnum`/`Literal` for token identity, `sentinel()` for caller omission, a `@tagged_union` case for dispatch-changing absence, `frozendict`/`Map`/`tuple`/`Block`/`frozenset` for immutable evidence, a `Protocol` only where independent implementers replace one operation family — and never a one-field wrapper standing in for a scalar the interior already owns.
+- Reject: a package-branded interior layer, a parallel DTO, a one-field wrapper without an independent invariant, `None`-as-failure, `Option` masking an error cause, mutable staging after materialization, and a protocol minted to repair weak ownership — each is a row answered by package convenience instead of by discriminant.
 
-[DOMAIN_SHAPES]:
-- Frozen dataclass owns a compact invariant; frozen Pydantic only when compiled validation, computed fields, and schema are the contract; msgspec only when fixed wire layout is policy-canonical; rich class when construction law, folds, transitions, evidence, or projection methods exceed declarative fields.
-- Collapse: absorb one-field wrappers, field-rename classes, sibling factories, and variant shells into the deeper owner.
+[COLLAPSE_ALGEBRA]:
+- Law: the collapse move is keyed on which owner absorbs the family — sibling shapes sharing a field set fold into one `[DOMAIN_SHAPES]` closed family (a union of distinct frozen records for distinct payloads, a `@tagged_union` when each case carries payload), sibling module constants fold into one `[TOKEN_STATE_PORT]` `frozendict` table or `StrEnum`, and a wrapper renaming a package API dissolves into the `[BOUNDARY_SHAPES]` package surface used directly.
+- Law: a one-field wrapper, a field-rename class, a sibling factory, and a variant shell each fold into the deeper owner — the wrapper becomes a refinement alias on the owner's field, the rename becomes an egress projection, the sibling factory becomes one classmethod discriminating on input shape, the shell becomes one case under the owner's `match`.
+- Reject: a shape minted to lower local line count, a mirror total/non-total payload pair, an enum-plus-parallel-`dict` where the enum should carry the column, and a second owner restating an invariant the first already proves.
 
-[TOKEN_STATE_PORT]:
-- Vocabulary owner: use one `StrEnum` for runtime token identity or one `Literal` set for static token proof; use `Flag` or `IntFlag` only when bit composition is the contract.
-- Absence/failure owner: use `sentinel()` for caller omission, explicit members for dispatch-changing state, `Option[T]` for computed absence, and `Result[T, E]` for typed fallibility.
-- Immutable evidence owner: use `frozendict` for immutable map rows, `Map` for persistent updates, `tuple` or `Block` for ordered evidence, and `frozenset` for membership facts.
-- Structural port: use `Protocol` only when independent implementers provide one replaceable operation family; otherwise use `Callable`, a concrete owner, or a closed family.
+[GROWTH_ABSORPTION]:
+- Law: each owner has exactly one growth site, and the diff of the next requirement names it — a new `[BOUNDARY_SHAPES]` key is one `extra_items`/`Required` line plus one promotion-fold branch, a new `[DOMAIN_SHAPES]` variant is one frozen record plus one arm under the total `match`, a new `[TOKEN_STATE_PORT]` token is one vocabulary member, and a new policy correspondence is one `frozendict` row.
+- Law: the projection and rail derive from the owner, so a new domain field reaches the wire as one projection mapping and the egress struct, never a parallel edit across the owner, the wire, and the row; the owner is the single edit site and the secondaries follow by derivation.
+- Reject: a new requirement answered by a parallel type, a boolean flag, or a sibling factory rather than by a case, row, or member inside the owner; an owner sized for the single case in hand whose every consumer must change when the second case arrives.
 
-[OWNER_REJECTS]:
-- Package-branded internal layers, parallel DTOs, and one-field wrappers without independent invariants.
-- `None` failure, `Option` hiding errors, mutable staging after materialization, and protocols repairing weak ownership.
+[OWNER_COMPOSITION]:
+- Law: owners nest without revalidation — a canonical owner holding another canonical owner trusts the inner owner's admission, and the outer materialization never re-runs the inner factory, because admission is proven once at the leaf and the composite inherits it.
+- Law: identity regime stays local to each owner in a composite — a value-equal field, a tag-identity case, and a key-identity vocabulary coexist under one owner, each comparing by its own regime, and the composite's equality is the structural product of its fields' regimes, never a flattened reference check.
+- Boundary: a wire projection of a composite owner projects through one converter at the edge (`msgspec.convert` for a pure rename, an explicit constructor or `frozendict` adapter for a value transform), never by flattening the nested owners into one wire bag; the projection mechanics are the boundary page's, composed here.
 
 ## [03]-[PAYLOAD_AND_MATERIALIZATION]
 
+A typed payload is a static dictionary contract that lives only between the wire and the canonical owner; it is admitted exactly once and never forwarded into an interior. The closed `TypedDict` carries the full static law — exact-key closure, a typed extension band, and per-key presence and read-only evidence — and a module-level `TypeAdapter` is the runtime admission gate that materializes the payload into the owner.
+
 [TYPED_PAYLOADS]:
-- Payloads are static dictionary contracts before materialization.
-- Declare openness with `closed=True` or `extra_items=T`; `extra_items` is the only admitted open band and carries the bare element type, because the materialized `frozendict` owner—not `ReadOnly`, which no runtime validator honors inside a band—enforces extension immutability.
-- Declare per-key presence with `Required[T]` and `NotRequired[T]`.
-- Declare static per-key read-only evidence with `ReadOnly[T]`.
-- Use `Unpack[Payload]` at root keyword entrypoints, never forwarded through domain interiors.
-- Use `Callable[[Unpack[Payload]], R]` for keyword-callable values.
-- Fold `extra_items` extension bands into `frozendict` or tuple evidence at promotion.
-- Reject total/non-total mirror shapes, homogeneous `**kwargs`, forwarded payload kwargs, and payload imports in domain interiors.
+- Law: declare closure with `closed=True` or one `extra_items=T` band; `extra_items` is the only admitted open slot and carries the bare element type, because the materialized `frozendict` owner — not `ReadOnly`, which no runtime validator enforces inside a band — owns extension immutability.
+- Law: declare per-key presence with `Required[T]`/`NotRequired[T]` and per-key static immutability with `ReadOnly[T]`; a new key is one band line on the payload and one branch in the promotion fold, not a second total/non-total mirror shape.
+- Law: `Unpack[TypedDict]` types the root keyword entrypoint and `Callable[[Unpack[Payload]], R]` types a keyword-callable value; the payload type never appears in an interior signature, because the interior holds the canonical owner.
+- Law: the `extra_items` band folds into one `frozendict` of evidence at promotion, and the closed-key set drives the partition through `Payload.__required_keys__ | __optional_keys__`.
+- Reject: total/non-total mirror shapes, homogeneous `**kwargs`, forwarded payload kwargs, `Mapping[str, object]` bags, and runtime revalidation repairing an erased payload shape.
 
 ```python conceptual
 from dataclasses import dataclass, field
 from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict, Unpack
 
-from expression import Error, Ok, Result
 from builtins import frozendict
+from expression import Error, Ok, Result
 from pydantic import TypeAdapter, ValidationError
 
-type ShapeFault = Literal["<empty-key>", "<invalid-payload>"]
+type PayloadFault = Literal["<invalid-payload>"]
 
 
 class ShapePayload(TypedDict, extra_items=str):
     key: Required[ReadOnly[str]]
-    note: NotRequired[ReadOnly[str | None]]
+    rank: NotRequired[ReadOnly[int]]
 
 
-SHAPE_PAYLOAD = TypeAdapter(ShapePayload)
-_PAYLOAD_KEYS: frozenset[str] = ShapePayload.__required_keys__ | ShapePayload.__optional_keys__
+_PAYLOAD = TypeAdapter(ShapePayload)
+_DECLARED: frozenset[str] = ShapePayload.__required_keys__ | ShapePayload.__optional_keys__
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     key: str
-    note: str | None = None
+    rank: int = 0
     extensions: frozendict[str, str] = field(default_factory=frozendict)
 
     @classmethod
-    def materialized(cls, payload: ShapePayload, /) -> Result[Self, ShapeFault]:
-        return (
-            Error("<empty-key>")
-            if payload["key"] == ""
-            else Ok(
-                cls(key=payload["key"], note=payload.get("note"), extensions=frozendict({k: v for k, v in payload.items() if k not in _PAYLOAD_KEYS}))
-            )
-        )
+    def materialized(cls, payload: ShapePayload, /) -> Self:
+        band = frozendict({name: value for name, value in payload.items() if name not in _DECLARED})
+        return cls(key=payload["key"], rank=payload.get("rank", 0), extensions=band)
 
 
-def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, ShapeFault]:
+def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, PayloadFault]:
     try:
-        return Shape.materialized(SHAPE_PAYLOAD.validate_python(raw))
-    except ValidationError:
+        return Ok(Shape.materialized(_PAYLOAD.validate_python(raw)))
+    except ValidationError as fault:
+        fault.add_note(f"<errors:{[error['loc'] for error in fault.errors()]}>")
         return Error("<invalid-payload>")
 ```
 
 [PYDANTIC_ADMISSION]:
-- Pydantic owns untrusted ingress, settings, alias policy, discriminated admission, `Annotated` validation, JSON Schema-rich contracts, and mapped `ValidationError` surfaces.
-- Use module-level `TypeAdapter` for unions, payloads, scalars, and containers.
-- Use frozen and closed ingress models for closed contracts: `ConfigDict(frozen=True, extra="forbid")`.
-- Use discriminators for variant admission; do not rely on ambiguous union order.
-- Use validators for admission and normalization only; no I/O, registry mutation, or domain orchestration inside validators.
-- Reject per-request `TypeAdapter`, `model_construct` on untrusted input, `model_dump` key surgery, and second Pydantic passes in domain interiors.
+- Use: module-level `TypeAdapter` for unions, payloads, scalars, and containers; frozen and closed ingress models (`ConfigDict(frozen=True, extra="forbid")`) for closed contracts; `Discriminator`/`Tag` for variant admission instead of ambiguous union order; `AliasChoices`/`AliasGenerator` for wire-to-canonical renaming.
+- Law: validators normalize and admit only — no I/O, registry mutation, or domain orchestration inside a validator — and a caught `ValidationError` maps through `.errors()` (the `loc` path and `type` code), never `str(exc)`, before entering domain logic.
+- Reject: per-request `TypeAdapter` construction, `model_construct` on untrusted input, `model_dump` key surgery, and a second Pydantic pass inside a domain interior.
 
 [MATERIALIZATION]:
-- Validate raw material once at the boundary.
-- Normalize wire names, aliases, and foreign tokens before canonical construction.
-- Promote through one named adapter or composition-root gate.
-- Construction that can fail returns `Result[Owner, E]`.
-- Domain logic receives owners, closed family members, or rails over owners.
-- Egress projects from canonical through explicit adapter construction, `msgspec.convert`, or an owner-approved projection.
+- Law: validate raw material once at the boundary, normalize wire names and foreign tokens before canonical construction, and promote through one named adapter or composition-root gate.
+- Law: construction that can fail returns `Result[Owner, E]`; the interior then receives owners, closed-family members, or rails over owners, never the payload.
+- Law: egress projects from the canonical owner through `msgspec.convert`, explicit construction, or an owner-approved projection — never a re-validation pass.
 
 ## [04]-[CANONICAL_OWNERS]
 
+The canonical owner is the first durable frozen shape domain logic accepts, and it owns the invariants, lifecycle transitions, folds, and projections that no boundary owns. Owner-type selection follows OWNER_INDEX rows [04]-[06]; a canonical owner never imports a boundary engine unless that engine is itself the durable owner.
+
 [CANONICAL_OWNER_LAW]:
-- Definition: the canonical owner is the first durable frozen shape accepted by domain logic.
-- Invariants: it owns domain invariants, lifecycle transitions, behavior, folds, and projections that do not belong to a boundary.
-- Owner-type selection follows [OWNER_INDEX] rows [4]-[6]; a canonical owner never imports a boundary engine unless that engine is itself the durable owner.
-- Family owner: use one closed family owner when mutually exclusive shapes represent one concept.
+- Law: domain invariants, transitions, and folds live on the owner; a transition that can fail returns `Result[Self, E]`, and an absence-bearing field is `Option[T]`, never `None`.
+- Law: one closed family owner holds mutually exclusive shapes of one concept; a projection method derives the boundary view from the owner, and the view never gains authority over the owner.
+- Reject: a boundary engine imported into an interior owner, a mutable field on a frozen owner, and a projection that revalidates.
+
+[GRADUATION]:
+- Graduate repeated primitive validation to a refinement alias or owner field; repeated field bundles to one owner; three or more sibling factories, models, or dispatch arms to a closed family or polymorphic owner.
+- Graduate mutable update law to immutable replacement, and a stable wire or persistence concern to an egress projection, never a second domain owner.
+- Reject: mirrored validation/domain/wire hierarchies, validator side effects, and tag-only shape families.
 
 ```python conceptual
-from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from copy import replace
+from dataclasses import dataclass
 from typing import Literal, Self
 
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result
 
 type ShapeFault = Literal["<empty-key>", "<empty-tag>", "<duplicate-tag>"]
 
@@ -222,380 +217,267 @@ type ShapeFault = Literal["<empty-key>", "<empty-tag>", "<duplicate-tag>"]
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ShapeView:
     key: str
-    note: Option[str]
+    label: str
     tags: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     key: str
-    note: str | None = None
-    tags: tuple[str, ...] = field(default_factory=tuple)
+    note: Option[str] = Nothing
+    tags: tuple[str, ...] = ()
 
     @classmethod
-    def admit(cls, *, key: str, note: str | None = None) -> Result[Self, ShapeFault]:
-        return Error("<empty-key>") if key == "" else Ok(cls(key=key, note=note))
+    def admit(cls, *, key: str, note: Option[str] = Nothing) -> Result[Self, ShapeFault]:
+        return Ok(cls(key=key, note=note)) if key else Error("<empty-key>")
 
     def tagged(self, tag: str, /) -> Result[Self, ShapeFault]:
-        return Error("<empty-tag>") if tag == "" else Error("<duplicate-tag>") if tag in self.tags else Ok(replace(self, tags=(*self.tags, tag)))
-
-    def fold_note[T](self, some: Callable[[str], T], none: Callable[[], T], /) -> T:
-        match self.note:
-            case str() as note:
-                return some(note)
-            case None:
-                return none()
+        match tag:
+            case "":
+                return Error("<empty-tag>")
+            case existing if existing in self.tags:
+                return Error("<duplicate-tag>")
+            case fresh:
+                return Ok(replace(self, tags=(*self.tags, fresh)))
 
     def viewed(self, /) -> ShapeView:
-        return ShapeView(key=self.key, note=self.fold_note(Some, lambda: Nothing), tags=self.tags)
+        return ShapeView(key=self.key, label=self.note.default_value(self.key), tags=self.tags)
 ```
-
-[GRADUATION_REJECTS]:
-- Graduate repeated primitive validation to a vocabulary, constrained scalar, or owner field.
-- Graduate repeated field bundles to one model, struct, dataclass, or rich owner.
-- Graduate three or more sibling factories, models, or dispatch arms to a closed family or polymorphic owner.
-- Graduate mutable update law to immutable replacement.
-- Graduate stable wire or persistence concern to an egress projection, not a second domain owner.
-- Reject mirrored validation/domain/wire hierarchies, validator side effects, and tag-only shape families.
 
 ## [05]-[VOCABULARY_ABSENCE_AND_VARIANTS]
 
+One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, registry rows, and schema enum arms; absence is a closed axis, not a scatter of nullable fields; and a variant family is one owner namespace under a total `match`. The three concerns share one rule: a bounded set of states is one closed owner, never parallel module-level types or boolean flags.
+
 [VOCABULARY]:
-- One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, registry rows, schema enum arms, and proof samples.
-- Use `StrEnum` for runtime token identity, iteration, registry keys, settings, CLI, or wire values.
-- Use `Literal` when static proof is sufficient and runtime vocabulary behavior is not needed.
-- Use verified `Flag` only when bit composition is the contract.
-- Do not route on `.value` strings in domain code.
-- Do not duplicate token bands across enums, literals, schemas, fixtures, and handler maps.
+- Use: `StrEnum` for runtime token identity, iteration, registry keys, settings, CLI, or wire values; `Literal` when static proof suffices and no runtime vocabulary behavior is needed; verified `Flag` only when bit composition is the contract.
+- Reject: routing on `.value` strings in domain code; duplicating a token band across enums, literals, schemas, fixtures, and handler maps.
 
 [ABSENCE]:
-- Omitted key is `NotRequired[T]`.
-- Valid null is `T | None` only when `None` is a domain or wire value.
-- Caller omission or inherited default is a module-global `sentinel("NAME")`, compared with `is`, never serialized.
-- Wire unset/null is a boundary posture collapsed at the owning adapter.
-- Domain null, inherit, unknown, or withheld state is an explicit enum member or variant when it changes dispatch.
-- `Option.none` is non-failing computed absence after admission.
-- `Result.Error` is failure.
-- Reject `None` for failure, sentinel on wire structs, `Option` hiding validation errors, bool flags splitting one option shape, and three-way unions without a named contract.
-
-[ABSENCE_STATES]:
+- Law: omitted key is `NotRequired[T]`; valid null is `T | None` only when `None` is a real domain or wire value; caller omission or inherited default is a module-global `sentinel("NAME")` compared with `is`, never serialized.
+- Law: wire unset is the codec's own presence sentinel collapsed at the seam — `msgspec.UNSET` (a field typed `T | UnsetType = UNSET` round-trips absent under `omit_defaults`) on the struct side and `pydantic.experimental.missing_sentinel.MISSING` on the model side — and the domain absence axis that changes dispatch is a `@tagged_union` case, never the wire sentinel leaked inward.
+- Law: `Option.none` is non-failing computed absence after admission; `Result.Error` is failure.
+- Reject: `None` for failure, a sentinel on a wire struct's domain field, `Option` hiding validation errors, bool flags splitting one option shape, and three loose dataclasses standing in for one closed absence family.
 
 ```python conceptual
-from builtins import sentinel
-from dataclasses import dataclass, field
-from typing import Literal, NotRequired, ReadOnly, TypedDict, assert_never
+from typing import Literal, assert_never
 
-from expression import Error, Nothing, Ok, Option, Result, Some
-from pydantic import TypeAdapter, ValidationError
+import msgspec
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 
-MISSING = sentinel("MISSING")
-type ShapeFault = Literal["<invalid-patch>", "<invalid-note>"]
+type NoteFault = Literal["<empty-note>"]
 
 
-class ShapePatch(TypedDict, total=False, closed=True):
-    note: NotRequired[ReadOnly[str | None]]
+@tagged_union(frozen=True)
+class Note:
+    tag: Literal["omitted", "null", "provided"] = tag()
+    omitted: None = case()
+    null: None = case()
+    provided: str = case()
 
 
-@dataclass(frozen=True, slots=True)
-class Omitted: ...
+class NotePatch(msgspec.Struct, frozen=True, omit_defaults=True):
+    note: str | None | msgspec.UnsetType = msgspec.UNSET
 
 
-@dataclass(frozen=True, slots=True)
-class Null: ...
-
-
-@dataclass(frozen=True, slots=True)
-class Provided:
-    text: str
-
-
-type Note = Omitted | Null | Provided
-
-
-def admitted_note(row: ShapePatch, /) -> Result[Note, ShapeFault]:
-    match row.get("note", MISSING):
-        case value if value is MISSING:
-            return Ok(Omitted())
+def admitted_note(patch: NotePatch, /) -> Result[Note, NoteFault]:
+    match patch.note:
+        case msgspec.UnsetType():
+            return Ok(Note(omitted=None))
         case None:
-            return Ok(Null())
+            return Ok(Note(null=None))
         case "":
-            return Error("<invalid-note>")
+            return Error("<empty-note>")
         case str() as text:
-            return Ok(Provided(text))
+            return Ok(Note(provided=text))
 
 
 def selected(note: Note, fallback: Option[str] = Nothing, /) -> Option[str]:
     match note:
-        case Provided(text):
-            return Some(text)
-        case Null():
+        case Note(tag="provided"):
+            return Some(note.provided)
+        case Note(tag="null"):
             return Nothing
-        case Omitted():
+        case Note(tag="omitted"):
             return fallback
-        case unreachable:
+        case _ as unreachable:
             assert_never(unreachable)
-
-
-SHAPE_PATCH = TypeAdapter(ShapePatch)
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Shape:
-    note: Note = field(default_factory=Omitted)
-
-
-def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
-    try:
-        patch = SHAPE_PATCH.validate_python(raw)
-    except ValidationError:
-        return Error("<invalid-patch>")
-    return admitted_note(patch).map(lambda note: Shape(note=note))
 ```
 
 [FAMILIES]:
-- Closed family: one owner namespace, one vocabulary, distinct runtime members or one tagged owner for shallow variants, total `match`, and `assert_never`.
-- Encode as a union of distinct frozen records (structural `match`) when variants carry different fields or own different lifecycle states; encode as one tagged owner (`StrEnum` discriminant plus `folded[T]`) when shallow variants share one field set under a single tag.
-- Semi-closed family: closed core plus typed extension band or explicit extension variant.
-- Open family: only when foreign or plugin code can add members without editing the owner.
-- Use `TypeIs` only when a reusable predicate proves exact membership, not filtered validity.
-- Match concrete members or discriminated variants in total folds; guards may narrow before a fold but must not be the exhaustiveness proof.
-- Use `@disjoint_base`, tagged generics, discriminated Pydantic unions, msgspec tagged unions, or expression tagged unions by lifecycle role.
-- Reject optional-field variant bags, string dispatch, `singledispatch` for owned closed vocabularies, protocol-per-variant, catch-all default arms, and foreign token spelling inside canonical owners.
-
-[CLOSED_FAMILY]:
+- Law: a closed family of variants that carry different fields or lifecycle states is one `type Member = A | B | C` union of distinct frozen records whose interior owns the failable transition fold and the applicative accumulation over the family — a transition returns `Result[Active, E]`, two transitions combine through `map2`, and a fourth variant lands as one frozen record plus one arm with every fold breaking loudly at type-check until the arm exists; the growth axis is the union member, never a sibling type beside the family.
+- Law: total structural `match` over the concrete members with `assert_never` is the settled exhaustiveness mechanic; this card composes it to carry the value-level transition algebra and never re-teaches the dispatch form. The shared-field shallow encoding — one frozen owner with a `StrEnum` discriminant and a `folded[T]` method, or one `@tagged_union` when the cases carry payload — is the codec/dispatch form owned where the discriminant is admitted: this card owns the distinct-records transition fold, that form is the surface and boundary pages' tagged dispatch.
+- Law: a semi-closed family is a closed core union plus one typed `extra_items` extension band; an open family is admitted only when foreign or plugin code adds members without editing the owner, dispatched through `singledispatch` at that one seam.
+- Law: match concrete members in total folds; a guard narrows before a fold but is never the exhaustiveness proof, and `TypeIs` proves exact membership only, never filtered validity.
+- Reject: optional-field variant bags collapsing N shapes into one nullable record, string dispatch on a `.value`, `singledispatch` over an owned closed family, protocol-per-variant, catch-all default arms, and foreign token spelling inside canonical members.
 
 ```python conceptual
-from collections.abc import Callable
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Self, assert_never
+from typing import Literal, assert_never
 
-from expression import Nothing, Option, Some
-
-
-class Variant(StrEnum):
-    PRIMARY = "<value-a>"
-    SECONDARY = "<value-b>"
+from expression import Error, Nothing, Ok, Option, Result
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Shape:
-    kind: Variant
+class Pending:
     key: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Active:
+    key: str
+    epoch: int
     note: Option[str] = Nothing
 
-    @classmethod
-    def primary(cls, key: str, /) -> Self:
-        return cls(kind=Variant.PRIMARY, key=key)
 
-    @classmethod
-    def secondary(cls, key: str, note: str | None = None, /) -> Self:
-        return cls(kind=Variant.SECONDARY, key=key, note=Nothing if note is None else Some(note))
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Retired:
+    key: str
+    reason: str
 
-    def folded[T](self, primary: Callable[[str], T], secondary: Callable[[str, Option[str]], T], /) -> T:
-        match self.kind:
-            case Variant.PRIMARY:
-                return primary(self.key)
-            case Variant.SECONDARY:
-                return secondary(self.key, self.note)
-            case unreachable:
-                assert_never(unreachable)
+
+type Member = Pending | Active | Retired
+type MemberFault = Literal["<not-active>", "<exhausted>"]
+
+
+def advanced(member: Member, /) -> Result[Active, MemberFault]:
+    match member:
+        case Pending(key=key):
+            return Ok(Active(key=key, epoch=1))
+        case Active(epoch=epoch) if epoch >= 9:
+            return Error("<exhausted>")
+        case Active(key=key, epoch=epoch, note=note):
+            return Ok(Active(key=key, epoch=epoch + 1, note=note))
+        case Retired():
+            return Error("<not-active>")
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def merged(left: Member, right: Member, /) -> Result[Active, MemberFault]:
+    return advanced(left).map2(advanced(right), lambda x, y: Active(key=x.key, epoch=x.epoch + y.epoch, note=x.note))
 ```
 
-## [06]-[PROJECTIONS_PORTS_AND_BOUNDARIES]
+## [06]-[PROJECTIONS_AND_PORTS]
+
+Projection derives outward and never gains authority: a wire struct, persistence row, receipt, or schema view is computed from the canonical owner, and the owner stays unaware of the wire. A structural port is the inverse seam — a capability the interior consumes through admitted implementers — and its dispatch and rail mechanics are owned by the surface page, so this page fixes only which owner a port is and how a projection maps fields.
 
 [BOUNDARY_PROJECTIONS]:
-- Ingress direction: payloads, settings, CLI slices, provider material, and ingress models admit foreign material inward.
-- Egress direction: wire structs, persistence rows, receipts, schema views, and export views derive outward from canonical owners.
-- Adapter ownership: foreign boundaries remap provider names, token vocabularies, cardinality, discriminants, aliases, and omitted fields before canonical entry.
-- Correspondence: field mapping belongs in adapter tables, explicit constructors, `msgspec.convert`, or schema-owned aliases.
-- Reject: projection-to-projection authority, codec engines in canonical owners, scattered `model_dump` key pops, model-per-provider interiors, provider-shaped domain fields, and canonical `schema_version` branches that belong to read-boundary migration.
-
-[DISPATCH_TABLE]:
-- Drive vocabulary routing, transition selection, and token translation with a `frozendict` table, not conditional chains.
-- Declare one primary `frozendict[K, tuple[...]]` and derive secondary maps from its values; never re-declare the correspondence.
-- `msgspec.convert(owner, Wire, from_attributes=True)` projects a pure field rename when `Wire` keeps canonical attribute names and renames at the encoded boundary; explicit construction or an adapter table owns any projection that transforms a value.
+- Law: ingress admits foreign material inward through payloads, settings, and ingress models; egress derives wire structs, rows, receipts, and schema views outward from the canonical owner.
+- Law: a foreign boundary remaps provider names, token vocabularies, cardinality, discriminants, and omitted fields before canonical entry, and the correspondence lives in an adapter table, explicit constructor, `msgspec.convert`, or schema-owned alias.
+- Law: `msgspec.convert(owner, Wire, from_attributes=True)` projects a pure field rename when `Wire` keeps canonical attribute names and renames only at the encoded edge; any projection that transforms a value rides explicit construction or an adapter table, never `convert`.
+- Reject: projection-to-projection authority, codec engines in canonical owners, scattered `model_dump` key pops, model-per-provider interiors, provider-shaped domain fields, and a canonical `schema_version` branch that belongs to read-boundary migration.
 
 ```python conceptual
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, ReadOnly, Required, Self, TypedDict
+from typing import Annotated
 
 import msgspec
-from expression import Error, Ok, Result
-from builtins import frozendict
-from pydantic import TypeAdapter, ValidationError
+from beartype.vale import Is
+
+type Score = Annotated[int, Is[lambda n: n >= 0], msgspec.Meta(ge=0)]
+_WIDTH: int = 8
 
 
-class Variant(StrEnum):
+class Grade(StrEnum):
     PRIMARY = "<value-a>"
     SECONDARY = "<value-b>"
 
 
-type WireKind = Literal["<wire-a>", "<wire-b>"]
-type ShapeFault = Literal["<empty-key>", "<invalid-row>", "<unknown-kind>"]
-
-
-class ForeignRow(TypedDict, closed=True):
-    foreign_kind: Required[ReadOnly[str]]
-    foreign_key: Required[ReadOnly[str]]
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    kind: Variant
     key: str
-
-    @classmethod
-    def admit(cls, *, kind: Variant, key: str) -> Result[Self, ShapeFault]:
-        return Error("<empty-key>") if key == "" else Ok(cls(kind=kind, key=key))
+    grade: Grade
+    score: Score
 
 
-class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    wire_kind: WireKind
-    wire_key: str
+class ShapeWire(msgspec.Struct, frozen=True, gc=False, rename={"key": "wire_key", "grade": "wire_grade", "score": "wire_score"}):
+    key: str
+    grade: Grade
+    score: Score
 
 
-KIND_ROUTE: frozendict[str, tuple[Variant, WireKind]] = frozendict({
-    "<foreign-a>": (Variant.PRIMARY, "<wire-a>"),
-    "<foreign-b>": (Variant.SECONDARY, "<wire-b>"),
-})
-KIND_OUT: frozendict[Variant, WireKind] = frozendict({kind: wire for kind, wire in KIND_ROUTE.values()})
-
-FOREIGN_ROW = TypeAdapter(ForeignRow)
+class ShapeRow(msgspec.Struct, frozen=True, gc=False):
+    row_key: str
+    band: str
 
 
-def materialized(raw: object, /) -> Result[Shape, ShapeFault]:
-    try:
-        row = FOREIGN_ROW.validate_python(raw)
-    except ValidationError:
-        return Error("<invalid-row>")
-    route = KIND_ROUTE.get(row["foreign_kind"])
-    return Error("<unknown-kind>") if route is None else Shape.admit(kind=route[0], key=row["foreign_key"])
+def wired(shape: Shape, /) -> ShapeWire:
+    return msgspec.convert(shape, ShapeWire, from_attributes=True)
 
 
-def projected(shape: Shape, /) -> ShapeWire:
-    return ShapeWire(wire_kind=KIND_OUT[shape.kind], wire_key=shape.key)
-
-
-def translated(raw: object, /) -> Result[ShapeWire, ShapeFault]:
-    return materialized(raw).map(projected)
+def rowed(shape: Shape, /) -> ShapeRow:
+    return ShapeRow(row_key=f"{shape.grade}:{shape.key}", band=f"{shape.score:0{_WIDTH}d}")
 ```
 
 [STRUCTURAL_PORTS]:
-- Protocols are capability seams, not data shapes.
-- Admit `Protocol` only when multiple independent implementers satisfy one replaceable operation family without inheritance.
-- Keep method sets minimal and capability-named.
-- Key scope maps by `type[Port]` when a port is injected.
-- Use `get_protocol_members` for registration or proof, not per-request validation.
-- Use `@runtime_checkable` only at real dynamic gates.
-- Use `TypeIs[Port]` when semantic narrowing exceeds member presence.
-- Port methods return `Result` or owned fault unions for expected failure.
-- Reject one-method callback protocols where `Callable` works, protocol unions simulating closed variants, protocols as wire or ingress fields, and protocols used as weak type repair.
-
-```python conceptual
-from dataclasses import dataclass, field, replace
-from typing import Literal, Protocol, Self
-
-from expression import Error, Ok, Result
-from builtins import frozendict
-
-type ShapeFault = Literal["<missing>"]
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Shape:
-    key: str
-    value: str
-
-
-class ShapeStore(Protocol):
-    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]: ...
-    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]: ...
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class MemoryStore:
-    rows: frozendict[str, Shape] = field(default_factory=frozendict)
-
-    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]:
-        return Ok(self.rows[key]) if key in self.rows else Error("<missing>")
-
-    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
-        return Ok(replace(self, rows=self.rows | {shape.key: shape}))
-
-
-@dataclass(frozen=True, slots=True)
-class SnapshotStore:
-    row: Shape
-
-    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]:
-        return Ok(self.row) if key == self.row.key else Error("<missing>")
-
-    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
-        return Ok(replace(self, row=shape)) if shape.key == self.row.key else Error("<missing>")
-
-
-def refreshed[S: ShapeStore](store: S, key: str, value: str, /) -> Result[S, ShapeFault]:
-    return store.loaded(key).map(lambda shape: replace(shape, value=value)).bind(store.stored)
-```
+- Law: a `Protocol` is a capability seam, admitted only when multiple independent implementers satisfy one replaceable operation family without inheritance; method sets stay minimal and capability-named, and every method returns the rail the domain declares.
+- Law: keying scope by `type[Port]` injects the port, `get_protocol_members` proves coverage at registration, `@runtime_checkable` gates only a real dynamic edge, and `TypeIs[Port]` narrows when semantic membership exceeds member presence.
+- Boundary: the generic function constrained `[S: Port]` and its rail composition are the surface page's dispatch law; this page fixes only that the port is the owner for a replaceable capability and that its methods stay rail-typed.
+- Reject: a one-method callback protocol where `Callable` works, a protocol union simulating a closed family, a protocol as a wire or ingress field, and a protocol used as weak type repair.
 
 ## [07]-[IMMUTABLE_REPLACEMENT]
 
-[IMMUTABLE_REPLACEMENT_LAW]:
-- Owner state: durable owners are frozen after materialization, and durable collections are `tuple`, `frozenset`, `frozendict`, `Map`, `Block`, or another admitted immutable owner.
-- Transition shape: state change returns `Self`, `Result[Self, E]`, or a closed successor union; mutation is not a transition.
-- Trusted swap: use the owner kernel directly for same-process trusted shallow swaps, such as `copy.replace`, `model_copy(update=...)`, `msgspec.structs.replace`, `frozendict` union, or persistent `Map` and `Block` combinators.
-- Revalidated delta: validate a closed patch at the boundary before replacement when the delta is untrusted, computed, wire-sourced, cross-boundary, or requires full schema semantics.
-- Lane separation: trusted replacement lives on the owner, while untrusted replacement starts from a patch payload and returns through the owner rail.
-- Deep transition: isolate or rebuild nested identity when shallow replacement would replay mutable, cached, or session-owned state.
-- Patch payload: represent patch contracts as closed `TypedDict` shapes with `NotRequired` update fields and `ReadOnly` identity or version fields; patch payloads stop at root materialization and become replacement expressions.
-- Alias boundary: normalize aliases before replacement and never use alias keys inside owner replacement.
-- Reject: mutable fields on frozen owners unless promoted or isolated, direct `__replace__`, mutate-then-freeze, shallow nested dict updates, cached-session replay by shallow replace, mutable staging maps, and `MappingProxyType` as durable immutability.
+A durable owner is frozen after materialization, and state change is a transition that returns a successor, never a mutation. The replacement lane splits by trust: a same-process trusted swap runs the owner kernel directly, and an untrusted, computed, or wire-sourced delta starts from a closed patch payload validated at the boundary and returns through the owner rail.
 
-[REPLACEMENT_FLOW]:
+[IMMUTABLE_REPLACEMENT_LAW]:
+- Law: durable collections are `tuple`, `frozenset`, `frozendict`, `Map`, `Block`, or another admitted immutable owner; a transition returns `Self`, `Result[Self, E]`, or a closed successor union.
+- Law: a trusted swap uses `copy.replace`, `msgspec.structs.replace`, `frozendict` union, or a persistent `Map`/`Block` combinator; an untrusted delta validates a closed patch first, then becomes a replacement expression.
+- Law: a patch is a closed `TypedDict` with `NotRequired` update fields and `Required[ReadOnly[...]]` identity or version fields, admitted exactly once through the `[03]-[PAYLOAD_AND_MATERIALIZATION]` `TypeAdapter` gate; the replacement lane receives the admitted patch and never re-validates it, so this section owns the transition algebra and not the admission it composes.
+- Law: deep transition rebuilds nested identity when a shallow swap would replay cached, mutable, or session-owned state — a composite owner's transition replaces the inner owner through its own kernel and the outer owner through `copy.replace`, so a stale nested map, cursor, or session is never carried forward by a top-level field swap.
+- Law: a `frozendict` field transitions through union (`row | {key: value}`), a `Map`/`Block` field through its persistent combinator, and the whole successor is one expression; aliases normalize before replacement and never key an owner replacement.
+- Reject: a mutable field on a frozen owner, a direct `__replace__` where `copy.replace` states the transition, mutate-then-freeze, a shallow nested-dict update, cached-session replay by shallow replace, a second `TypeAdapter` pass over the already-admitted patch, and `MappingProxyType` as durable immutability.
 
 ```python conceptual
 from copy import replace
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict
 
-from expression import Error, Ok, Result
-from pydantic import TypeAdapter, ValidationError
+from builtins import frozendict
+from expression import Error, Ok, Result, case, tag, tagged_union
 
-type ShapeFault = Literal["<empty-key>", "<invalid-patch>", "<stale-version>"]
+
+@tagged_union(frozen=True)
+class ReplaceFault:
+    tag: Literal["stale", "empty_key"] = tag()
+    stale: tuple[int, int] = case()
+    empty_key: None = case()
 
 
 class ShapePatch(TypedDict, closed=True):
     expected_version: Required[ReadOnly[int]]
     key: NotRequired[ReadOnly[str]]
-    note: NotRequired[ReadOnly[str | None]]
+    labels: NotRequired[ReadOnly[frozendict[str, str]]]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Cursor:
+    offset: int
+    epoch: int
+
+    def rewound(self, epoch: int, /) -> Self:
+        return replace(self, offset=0, epoch=epoch)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     key: str
-    note: str | None = None
     version: int = 1
+    labels: frozendict[str, str] = field(default_factory=frozendict)
+    cursor: Cursor = field(default_factory=lambda: Cursor(offset=0, epoch=0))
 
-    def advanced(self, *, expected_version: int, key: str, note: str | None) -> Result[Self, ShapeFault]:
-        return (
-            Error("<stale-version>")
-            if expected_version != self.version
-            else Error("<empty-key>")
-            if key == ""
-            else Ok(replace(self, key=key, note=note, version=self.version + 1))
-        )
-
-
-SHAPE_PATCH = TypeAdapter(ShapePatch)
-
-
-def patched(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
-    try:
-        patch = SHAPE_PATCH.validate_python(raw)
-    except ValidationError:
-        return Error("<invalid-patch>")
-
-    return shape.advanced(expected_version=patch["expected_version"], key=patch.get("key", shape.key), note=patch.get("note", shape.note))
+    def advanced(self, patch: ShapePatch, /) -> Result[Self, ReplaceFault]:
+        match patch:
+            case {"expected_version": stale} if stale != self.version:
+                return Error(ReplaceFault(stale=(stale, self.version)))
+            case {"key": ""}:
+                return Error(ReplaceFault(empty_key=None))
+            case _:
+                return Ok(replace(
+                    self,
+                    key=patch.get("key", self.key),
+                    version=self.version + 1,
+                    labels=self.labels | patch.get("labels", frozendict()),
+                    cursor=self.cursor.rewound(self.version + 1),
+                ))
 ```
