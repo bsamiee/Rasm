@@ -19,14 +19,14 @@ The recover-TO half of the bidirectional document seam: where `document/model#NO
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from __future__ import annotations
-
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from copy import replace
 from enum import StrEnum
 from io import BytesIO
 from typing import Final, assert_never
 
 from anyio import to_process
+from beartype import BeartypeConf, beartype
 from msgspec import Struct, msgpack
 
 from rasm.artifacts.document.model import (
@@ -52,6 +52,7 @@ from rasm.artifacts.document.model import (
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
+from rasm.runtime.receipts import Receipt, Redaction, receipted
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -59,6 +60,8 @@ type Bounds = tuple[float, float, float, float]
 type Grid = list[list[str | None]]
 type Spans = tuple[tuple[int, int, int, int], ...]
 type RecoverArm = Callable[[bytes, LensProvider, dict[str, object]], tuple[DocumentNode, ...]]
+
+_CONTRACT: Final = BeartypeConf(violation_type=ValueError)
 
 
 class LensOp(StrEnum):
@@ -68,6 +71,9 @@ class LensOp(StrEnum):
     WORDS = "words"
     REGION = "region"
     OUTLINE = "outline"
+    STRUCTURE = "structure"
+    LINK = "link"
+    METADATA = "metadata"
     SEARCH = "search"
     OCR = "ocr"
     EMBEDDED = "embedded"
@@ -99,6 +105,7 @@ class LensProvider(StrEnum):
     OCRMYPDF = "ocrmypdf"
     CALAMINE = "python-calamine"
     LXML = "lxml"
+    PIKEPDF = "pikepdf"
 
     @property
     def band(self) -> LensBand:
@@ -131,29 +138,37 @@ class DocumentLens(Struct, frozen=True):
     payload: bytes
     params: dict[str, object] = {}
     provider: LensProvider | None = None
+    recovered: tuple[DocumentNode, ...] = ()
 
+    @beartype(conf=_CONTRACT)
     async def recover(self) -> RuntimeRail[ContentKey]:
         return await async_boundary(f"lens.{self.op.value}", self._emit)
 
+    def _recovered(self) -> tuple[DocumentNode, ...]:
+        provider = self.provider or _DEFAULT_PROVIDER[self.op]
+        return _ARMS[self.op](self.payload, provider, self.params)
+
+    @receipted(Redaction.STRUCTURAL)  # the runtime harvest weave drains `contribute` and emits via `Signals.emit_async`
     async def _emit(self) -> ContentKey:
         provider = self.provider or _DEFAULT_PROVIDER[self.op]
         nodes = (
             await to_process.run_sync(_gated_recover, self.op.value, provider.value, self.payload, self.params)
             if provider.band is LensBand.GATED
-            else _ARMS[self.op](self.payload, provider, self.params)
+            else self._recovered()
         )
         return ContentIdentity.of(f"lens-{self.op.value}", msgpack.encode(nodes))
 
-    @staticmethod
-    def receipt(key: ContentKey, nodes: tuple[DocumentNode, ...], /) -> ArtifactReceipt:
+    def contribute(self, phase: str = "emitted") -> Iterable[Receipt]:
+        nodes = self.recovered or self._recovered()
         flat = tuple(child for node in nodes for child in walk(node))
-        return ArtifactReceipt.Introspection(
+        key = ContentIdentity.of(f"lens-{self.op.value}", msgpack.encode(nodes))
+        yield from ArtifactReceipt.Introspection(
             key,
             len(flat),
             sum(len(node.text) for node in flat if isinstance(node, RunNode)),
             sum(isinstance(node, FigureNode) for node in flat),
             sum(isinstance(node, AnnotationNode) for node in flat),
-        )
+        ).contribute(phase)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -200,7 +215,21 @@ def _outline_node(level: int, title: str, page: int) -> DocumentNode:
 # --- [READER_ARMS] ----------------------------------------------------------------------
 
 
-def _text_arm(payload: bytes, _provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
+def _text_arm(payload: bytes, provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
+    if provider is LensProvider.MUPDF:
+        import pymupdf
+
+        with pymupdf.open(stream=payload, filetype="pdf") as document:
+            return tuple(
+                _node(
+                    NodeKind.BLOCK, "block", index, line["spans"][0]["text"].encode() if line["spans"] else b"",
+                    bounds=tuple(block["bbox"]), block=BlockKind.PARAGRAPH,
+                    runs=tuple(_node(NodeKind.RUN, "span", index, span["text"].encode(), bounds=tuple(span["bbox"]), text=span["text"], font_key=span.get("font", _RECOVERED_FONT), size=float(span.get("size", 0.0)), weight=700 if int(span.get("flags", 0)) & 16 else 400) for line in block.get("lines", ()) for span in line.get("spans", ())),
+                )
+                for index, page in enumerate(document)
+                for block in page.get_text("dict", flags=int(params.get("flags", pymupdf.TEXTFLAGS_DICT)))["blocks"]
+                if block.get("type", 1) == 0
+            )
     import pypdf
 
     reader = pypdf.PdfReader(BytesIO(payload))
@@ -315,6 +344,67 @@ def _outline_arm(payload: bytes, provider: LensProvider, _params: dict[str, obje
     )
 
 
+def _structure_arm(payload: bytes, provider: LensProvider, _params: dict[str, object]) -> tuple[DocumentNode, ...]:
+    if provider is LensProvider.PLUMBER:
+        import pdfplumber
+
+        with pdfplumber.open(BytesIO(payload)) as document:
+            return tuple(_struct_branch(branch, index) for index, page in enumerate(document.pages) for branch in page.structure_tree)
+    import pikepdf
+
+    with pikepdf.open(BytesIO(payload)) as pdf:
+        root = pdf.Root.get(pikepdf.Name.StructTreeRoot)
+        return tuple(_struct_obj(kid) for kid in root.get(pikepdf.Name.K, pikepdf.Array())) if root is not None else ()
+
+
+def _struct_branch(branch: Mapping[str, object], page: int) -> DocumentNode:
+    role = _STRUCT_ROLE.get(str(branch.get("type", "")), StructEltKind.SECT)
+    kids = tuple(_struct_branch(child, page) for child in branch.get("children", ()) if isinstance(child, Mapping))
+    return _node(NodeKind.STRUCTURE, str(branch.get("type", role.value)), page, repr(branch).encode(), elt=role, children=kids)
+
+
+def _struct_obj(obj: object, page: int = 0) -> DocumentNode:
+    import pikepdf
+
+    role = _STRUCT_ROLE.get(str(obj.get(pikepdf.Name.S, "")).removeprefix("/"), StructEltKind.SECT) if isinstance(obj, pikepdf.Dictionary) else StructEltKind.SECT
+    children = tuple(_struct_obj(kid, page) for kid in obj.get(pikepdf.Name.K, pikepdf.Array()) if isinstance(kid, pikepdf.Dictionary)) if isinstance(obj, pikepdf.Dictionary) else ()
+    return _node(NodeKind.STRUCTURE, role.value, page, str(obj).encode(), elt=role, children=children)
+
+
+def _link_arm(payload: bytes, provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
+    if provider is LensProvider.MUPDF:
+        import pymupdf
+
+        with pymupdf.open(stream=payload, filetype="pdf") as document:
+            return tuple(
+                _node(NodeKind.ANNOTATION, "link", index, str(link.get("uri", link.get("page", ""))).encode(), bounds=tuple(link["from"]), annot=AnnotKind.LINK, contents=str(link.get("uri", "")))
+                for index, page in enumerate(document)
+                for link in page.get_links()
+            )
+    import pdfplumber
+
+    with pdfplumber.open(BytesIO(payload), repair=bool(params.get("repair", False))) as document:
+        return tuple(
+            _node(NodeKind.ANNOTATION, "link", index, str(hit.get("uri", "")).encode(), bounds=(hit["x0"], hit["top"], hit["x1"], hit["bottom"]), annot=AnnotKind.LINK, contents=str(hit.get("uri", "")))
+            for index, page in enumerate(document.pages)
+            for hit in page.hyperlinks
+        )
+
+
+def _metadata_arm(payload: bytes, _provider: LensProvider, _params: dict[str, object]) -> tuple[DocumentNode, ...]:
+    import pypdf
+
+    reader = pypdf.PdfReader(BytesIO(payload))
+    info = reader.metadata or {}
+    fields = tuple(
+        _node(NodeKind.FIELD, _META_KEY.get(slot, slot), 0, str(value).encode(), field=FieldKind.TEXT, name=_META_KEY.get(slot, slot), value=str(value))
+        for slot, value in info.items()
+        if value
+    )
+    root = _node(NodeKind.STRUCTURE, str(info.get("/Title", "document")), 0, str(info.get("/Author", "")).encode(), elt=StructEltKind.DOCUMENT, children=fields)
+    return (root,)
+
+
 def _search_arm(payload: bytes, provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
     needle = str(params["needle"])
     if provider is LensProvider.MUPDF:
@@ -343,9 +433,9 @@ def _ocr_arm(payload: bytes, provider: LensProvider, params: dict[str, object]) 
         with pymupdf.open(stream=payload, filetype=str(params.get("filetype", "pdf"))) as document:
             language = "+".join(str(lang) for lang in params.get("language", ("eng",)))
             return tuple(
-                _node(NodeKind.RUN, "ocr", index, text.encode(), text=text)
+                _node(NodeKind.RUN, "ocr", index, word[4].encode(), bounds=(word[0], word[1], word[2], word[3]), text=word[4])
                 for index, page in enumerate(document)
-                if (text := page.get_textpage_ocr(language=language, dpi=int(params.get("dpi", 72)), full=bool(params.get("full", False))).extractText())
+                for word in page.get_text("words", textpage=page.get_textpage_ocr(language=language, dpi=int(params.get("dpi", 72)), full=bool(params.get("full", False))))
             )
     from tempfile import NamedTemporaryFile
 
@@ -400,15 +490,23 @@ def _embedded_arm(payload: bytes, _provider: LensProvider, _params: dict[str, ob
     return fields + figures
 
 
-def _widget_arm(payload: bytes, _provider: LensProvider, _params: dict[str, object]) -> tuple[DocumentNode, ...]:
-    import pymupdf
+def _widget_arm(payload: bytes, provider: LensProvider, _params: dict[str, object]) -> tuple[DocumentNode, ...]:
+    if provider is LensProvider.MUPDF:
+        import pymupdf
 
-    with pymupdf.open(stream=payload, filetype="pdf") as document:
-        return tuple(
-            _node(NodeKind.FIELD, widget.field_name, index, str(widget.field_value).encode(), field=_WIDGET_FIELD.get(widget.field_type, FieldKind.TEXT), name=widget.field_name, value=widget.field_value)
-            for index, page in enumerate(document)
-            for widget in page.widgets()
-        )
+        with pymupdf.open(stream=payload, filetype="pdf") as document:
+            return tuple(
+                _node(NodeKind.FIELD, widget.field_name, index, str(widget.field_value).encode(), field=_widget_field(pymupdf, widget.field_type), name=widget.field_name, value=widget.field_value)
+                for index, page in enumerate(document)
+                for widget in page.widgets()
+            )
+    import pypdf
+
+    reader = pypdf.PdfReader(BytesIO(payload))
+    return tuple(
+        _node(NodeKind.FIELD, name, 0, str(field.value or "").encode(), field=_PYPDF_FIELD.get(str(field.field_type or ""), FieldKind.TEXT), name=name, value=field.value)
+        for name, field in (reader.get_fields() or {}).items()
+    )
 
 
 def _redact_arm(payload: bytes, _provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
@@ -433,9 +531,19 @@ def _annotate_arm(payload: bytes, _provider: LensProvider, params: dict[str, obj
     page_index = int(params["page"])
     with pymupdf.open(stream=payload, filetype="pdf") as document:
         return tuple(
-            _node(NodeKind.ANNOTATION, "annotation", page_index, annot.info["content"].encode(), bounds=tuple(annot.rect), annot=_ANNOT_KIND.get(annot.type[0], AnnotKind.NOTE), contents=annot.info["content"])
+            _node(NodeKind.ANNOTATION, "annotation", page_index, annot.info["content"].encode(), bounds=tuple(annot.rect), annot=_annot_kind(pymupdf, annot.type[0]), contents=annot.info["content"])
             for annot in document[page_index].annots()
         )
+
+
+def _widget_field(pymupdf: object, code: int) -> FieldKind:
+    # the symbol→FieldKind map is derived from the catalogued `pymupdf.PDF_WIDGET_TYPE_*` module
+    # constants resolved on the live gated module — no hardcoded int, the SYMBOLIC_REFERENCE form
+    return {getattr(pymupdf, name): kind for name, kind in _WIDGET_SYMBOL.items()}.get(code, FieldKind.TEXT)
+
+
+def _annot_kind(pymupdf: object, code: int) -> AnnotKind:
+    return {getattr(pymupdf, name): kind for name, kind in _ANNOT_SYMBOL.items()}.get(code, AnnotKind.NOTE)
 
 
 def _story_arm(_payload: bytes, _provider: LensProvider, params: dict[str, object]) -> tuple[DocumentNode, ...]:
