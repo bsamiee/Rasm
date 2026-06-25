@@ -15,9 +15,9 @@ The Python branch is a first-class host-free science/compute/data/geometry/IFC l
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-The cross-domain Python foundation every folder builds on: typing/rails, concurrency, observability, the numeric substrate, content identity, the wire-codegen toolchain, and the test stack. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here. Folder READMEs list these under their own `## [3]-[SUBSTRATE_PACKAGES]` section rather than duplicating the registry here.
+The cross-domain Python foundation every folder builds on: typing/rails, concurrency, observability, the numeric substrate, content identity, byte/array compression, the wire-codegen toolchain, and the test stack. Root-compatible package versions live in the root manifest; companion-floor rows carry no pin here. Folder READMEs list these under their own `## [3]-[SUBSTRATE_PACKAGES]` section rather than duplicating the registry here.
 
-The typing/rails, concurrency, observability, numeric-substrate, identity, and companion-wire tiers each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`. Domain-owned packages (geometry, data/geometry seams, runtime/data transport) keep their catalogues in the consuming folder, not here.
+The typing/rails, concurrency, observability, numeric-substrate, identity, compression, and companion-wire tiers each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`. Domain-owned packages (geometry, data/geometry seams, runtime/data transport) keep their catalogues in the consuming folder, not here.
 
 [TYPING_RAILS]:
 - `expression`
@@ -27,6 +27,7 @@ The typing/rails, concurrency, observability, numeric-substrate, identity, and c
 
 [CONCURRENCY]:
 - `anyio`
+- `trio` (the alternate structured-concurrency backend `anyio` runs on; a runtime selection, never a code change)
 
 [OBSERVABILITY]:
 - `structlog`
@@ -37,6 +38,10 @@ The typing/rails, concurrency, observability, numeric-substrate, identity, and c
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+
+[COMPRESSION]:
+- `zlib-ng` (drop-in accelerated `zlib`/`gzip`/`deflate`/`crc32`)
+- `numcodecs` (chunked-array compression + filter codec registry)
 
 [IDENTITY]:
 - `xxhash`
