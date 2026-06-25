@@ -4,7 +4,7 @@ This page is the carrier algebra: `expression` owns the result and absence carri
 
 ## [01]-[RAIL_CHOOSER]
 
-Choose the narrowest carrier that preserves the real outcome. A wider carrier is earned only by a capability the narrower one cannot carry: a typed failure cause, or accumulated independent faults. The carrier choice *is* the sequencing algebra; the collection owner and the do-notation builder are the same algebra at traversal scale, not a sixth and seventh carrier.
+Choose the narrowest carrier that preserves the real outcome. A wider carrier is earned only by a capability the narrower one cannot carry: a typed failure cause, or accumulated independent faults. The carrier choice is itself the sequencing algebra; the collection owner and the do-notation builder are the same algebra at traversal scale, not a sixth and seventh carrier.
 
 | [INDEX] | [SURFACE]                | [OWNS]                         | [REJECT]                          |
 | :-----: | :----------------------- | :----------------------------- | :-------------------------------- |
@@ -34,7 +34,7 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Reject: `contextlib.suppress` hiding fallibility; a bare `try`/`except` wrapping interior carrier transforms; discarding the caught message when mapping to the fault.
 
 [CROSS_RAIL_PROJECTION]:
-- Law: the instance matrix — `Option.to_result(error)`, `Result.to_option()`, `Option.of_result(...)`, `Option.of_optional(value)`, `Result.of_option(error)` — migrates a carrier exactly once at a boundary; widening supplies the missing structure, narrowing discards it, and `to_result_with`/`of_option_with` supply a *computed* fault when the cause depends on the absent value's site.
+- Law: the instance matrix — `Option.to_result(error)`, `Result.to_option()`, `Option.of_result(...)`, `Option.of_optional(value)`, `Result.of_option(error)` — migrates a carrier exactly once at a boundary; widening supplies the missing structure, narrowing discards it, and `to_result_with`/`of_option_with` supply a computed fault when the cause depends on the absent value's site.
 - Law: the `Result -> Option -> Result` round trip erases the original fault and breaks every later `map_error` or fault-code predicate; `option.to_result(specific_fault)` re-supplies a precise fault instead of a placeholder.
 - Reject: round trips where an explicit projection carries the fault through; `Option.value` access without a prior `is_some` proof; collapse inside a pure projection that stays railed.
 

@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'rebuild-csharp',
+  name: 'plan-cs',
   description: 'Hostile ground-up rebuild of libs/csharp design pages to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. Untied to any idea/task: it improves every page objectively. args = optional package scope (e.g. "Rasm.Bim"); empty/"ALL" = all of libs/csharp.',
   phases: [
     { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },

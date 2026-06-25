@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'rebuild-python',
+  name: 'plan-py',
   description: 'Hostile ground-up rebuild of libs/python design pages to world-class py3.15 (ADT collapse, AOP, unified rails, full both-tier .api-stacking) AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + stack both .api tiers, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. args = optional folder scope (e.g. "geometry"); empty/"ALL" = all of libs/python.',
   phases: [
     { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },

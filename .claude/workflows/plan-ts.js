@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'rebuild-typescript',
+  name: 'plan-ts',
   description: 'Hostile ground-up rebuild of libs/typescript design pages to TRULY ultra-advanced TypeScript (Effect-TS rails, Schema-first boundaries, branded/nominal types, exhaustive discriminated unions, zero any/throw/enum) per docs/stacks/typescript/ + coding-ts, AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + stack both .api tiers, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. args = optional area scope (e.g. "ui"); empty/"ALL" = all of libs/typescript.',
   phases: [
     { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },

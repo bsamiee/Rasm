@@ -26,7 +26,7 @@ The task group is the failure boundary: one `async with anyio.create_task_group(
 
 [CHILD_CARRIER]:
 - Law: `group.start_soon(operation, *args)` takes the coroutine function and its arguments — never a pre-built awaitable — and returns a `TaskHandle[T]`; once the group exits cleanly, `handle.return_value` reads that child's carrier, so the gather is the typed property the handle already owns, never a shared mutable list mutated from inside the child and never a `create_memory_object_stream` rig re-implementing result transport. The stream pair stays the producer-consumer log the boundary owner holds; this rail reaches for it only when a child must publish a sequence of intermediates, not one terminal.
-- Law: a cancelled child's `return_value` raises `TaskCancelled` and a failed child's raises `TaskFailed`, so the gather runs only on the clean path — the deadline verdict and the group fault are read first, and the rail page's `threaded` reducer folds the handles into one `Result[Block[T], E]` only after `cancelled_caught` and the group edge prove no abort happened.
+- Law: `handle.return_value` reads the child carrier on the clean path only — a cancelled child's raises `TaskCancelled` and a failed child's raises `TaskFailed` — so the gather yields one `Block[Result[T, E]]` of carriers and the rail page's fail-fast reducer folds it into `Result[Block[T], E]`; the gather never re-derives that reducer, and the deadline verdict and group fault that gate it are the `[03]` and `[05]` owners.
 - Use: `group.start` over `start_soon` when the child must signal readiness — it blocks until the child calls `task_status.started(value)` and returns that value, the listener-bound / port-ready handshake; `start_soon` is fire-and-track with no handshake.
 - Reject: `asyncio.gather`, `asyncio.create_task`, or a bare `create_task_group` without `async with`; a child appending to a closure-captured list; a `MemoryObjectReceiveStream` drained as the result carrier where `return_value` already carries it.
 
@@ -49,7 +49,7 @@ from expression import Error, Ok, Result
 from expression.collections import Block
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type RunFault = Literal["<deadline>", "<worker>", "<child>"]
+type RunFault = Literal["<worker>"]
 type Offload[T] = Callable[[Callable[[], T], CapacityLimiter], Awaitable[T]]
 
 
@@ -75,11 +75,7 @@ async def _process[T](work: Callable[[], T], limiter: CapacityLimiter, /) -> T:
 ARM: frozendict[Lane, Offload[object]] = frozendict({Lane.THREAD: _thread, Lane.INTERP: _interp, Lane.PROCESS: _process})
 
 
-def threaded[T](acc: Result[Block[T], RunFault], handle: TaskHandle[Result[T, RunFault]], /) -> Result[Block[T], RunFault]:
-    return acc.bind(lambda done: handle.return_value.map(lambda value: done.append(Block.singleton(value))))
-
-
-async def gathered[T](work: Block[Callable[[], T]], /, *, lane: Lane, slots: int) -> Result[Block[T], RunFault]:
+async def gathered[T](work: Block[Callable[[], T]], /, *, lane: Lane, slots: int) -> Block[Result[T, RunFault]]:
     arm, limiter = ARM[lane], CapacityLimiter(slots)
     handles: list[TaskHandle[Result[T, RunFault]]] = []
 
@@ -91,8 +87,7 @@ async def gathered[T](work: Block[Callable[[], T]], /, *, lane: Lane, slots: int
 
     async with anyio.create_task_group() as group:
         handles = [group.start_soon(offloaded, job) for job in work]
-    seed: Result[Block[T], RunFault] = Ok(Block.empty())
-    return Block.of_seq(handles).fold(threaded, seed)
+    return Block.of_seq(handle.return_value for handle in handles)
 ```
 
 ## [03]-[DEADLINE_AND_CANCELLATION]

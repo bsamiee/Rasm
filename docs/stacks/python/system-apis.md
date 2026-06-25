@@ -130,15 +130,10 @@ class Receipt:
     peak: Fraction
 
 
-def _peak(weights: tuple[Fraction, ...], /) -> Fraction:
-    heap = list(weights)
-    heapify_max(heap)  # Exemption: heapq mutates the buffer in place.
-    return heappop_max(heap)
-
-
 @beartype
 def receipted(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prior: UUID, /) -> Result[Receipt, WeightFault]:
-    minted = uuid7()
+    identity, heap = max(uuid7(), prior), list(weights)
+    heapify_max(heap)  # Exemption: heapq mutates the buffer in place before the railed return.
     return (
         Error("<unseeded>")
         if prior == NIL
@@ -150,10 +145,10 @@ def receipted(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prior
         if not (exact := Fraction.from_number(sumprod(weights, values))).is_integer()
         else Ok(
             Receipt(
-                identity=max(minted, prior),
+                identity=identity,
                 weighted=exact,
                 corrected=fma(float(weights[0]), float(values[0]), float(exact)),
-                peak=_peak(weights),
+                peak=heappop_max(heap),
             )
         )
     )
