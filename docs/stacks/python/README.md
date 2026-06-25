@@ -8,17 +8,18 @@ Pages carry no outside-source blocks, release narration, provenance, process sta
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]                                         | [READ]                                            | [STATE]   |
-| :-----: | :------------------------------------------------- | :------------------------------------------------ | :-------- |
-|  [01]   | language syntax and standards                      | [language](language.md)                           | finalized |
-|  [02]   | data shape                                         | [shapes](shapes.md)                               | finalized |
-|  [03]   | surface and dispatch                               | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
-|  [04]   | rail and effect flow                               | [rails and effects](rails-and-effects.md)         | finalized |
-|  [05]   | host and wire boundary                             | [boundaries](boundaries.md)                       | finalized |
-|  [06]   | numeric approach                                   | [algorithms](algorithms.md)                       | finalized |
-|  [07]   | system API replacement                             | [system APIs](system-apis.md)                     | finalized |
-|  [08]   | concurrency, isolation, diagnostics, observability | [runtime](runtime.md)                             | finalized |
-|  [09]   | proof rail                                         | `testing/README.md`                               | target    |
+| [INDEX] | [DECISION]                          | [READ]                                            | [STATE]   |
+| :-----: | :---------------------------------- | :------------------------------------------------ | :-------- |
+|  [01]   | language syntax and standards       | [language](language.md)                           | finalized |
+|  [02]   | data shape                          | [shapes](shapes.md)                               | finalized |
+|  [03]   | surface and dispatch                | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
+|  [04]   | rail and effect flow                | [rails and effects](rails-and-effects.md)         | partial   |
+|  [05]   | structured concurrency              | [concurrency](concurrency.md)                     | partial   |
+|  [06]   | host and wire boundary              | [boundaries](boundaries.md)                       | finalized |
+|  [07]   | numeric approach                    | [algorithms](algorithms.md)                       | finalized |
+|  [08]   | system API replacement              | [system APIs](system-apis.md)                     | finalized |
+|  [09]   | interpreter execution and isolation | [runtime](runtime.md)                             | partial   |
+|  [10]   | proof rail                          | `testing/README.md`                               | target    |
 
 ## [02]-[DOCTRINE]
 

@@ -1,6 +1,6 @@
 # [PYTHON_SURFACES_AND_DISPATCH]
 
-A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a `@tagged_union` request under one total `match` so a new verb breaks every dispatch site instead of growing a sibling, arity collapses into one `T | Iterable[T]` parameter the body discriminates by shape, and the discriminant is the value, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior; optional context enters as `Option[T]` or one frozen settings owner whose default derives from the policy. Five dispatch forms are selected by where ownership lives — one `Protocol` core, one `frozendict` table, one `match`, one closed-family fold, one `functools.singledispatch` over a genuinely open type set — while the rail stays orthogonal to the form and alone decides accumulate-versus-abort. Aspects split at one seam: a definition-time weave preserves the signature and the rail through inline `**P` and `functools.wraps` and never raises into domain flow, a call-site combinator composes around the one invocation it modifies. The named defect this page refuses is surface spam: parallel near-identical functions, `get`/`get_many`/`get_by_id` families, stringly-typed dispatch ladders, one-method classes, thin rename wrappers, and barrel re-export files.
+A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a `@tagged_union` request under one total `match` so a new verb breaks every dispatch site instead of growing a sibling, arity collapses into one `T | Iterable[T]` parameter the body discriminates by shape, and a dependent dispatch loop is one `tailrec` trampoline over a closed continue-or-done step rather than an open recursion. The discriminant is the value, never a mode flag beside it; knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option[T]` or one frozen settings owner whose default derives from the policy. Six dispatch forms are selected by where ownership lives — one `Protocol` core, one `frozendict` table, one closed-family `match`, behavior carried on the vocabulary member, one `tailrec` step, one `functools.singledispatch` over a genuinely open type set — while the rail stays orthogonal to the form and alone decides accumulate-versus-abort. Aspects split at one seam: a definition-time weave preserves the signature and the rail through inline `**P` and `functools.wraps` and never raises into domain flow, a call-site combinator composes around the one invocation it modifies. The named defect this page refuses is surface spam: parallel near-identical functions, `get`/`get_many`/`get_by_id` families, stringly-typed dispatch ladders, one-method classes, thin rename wrappers, and barrel re-export files.
 
 ## [01]-[FORM_CHOOSER]
 
@@ -10,14 +10,16 @@ When a concern matches several rows, the most specific wins; the rail axis is re
 | :-----: | :------------------------------------------ | :----------------------------------- | :------------------------------------ |
 |  [01]   | verb family, shared preamble                | request tagged union + total `match` | sibling `create`/`update` functions   |
 |  [02]   | one verb, varying arity                     | one `T \| Iterable[T]`, shape-tested | per-arity overload family             |
-|  [03]   | closed family owns the behavior             | case fold method on the owner        | external `match` repeated per call    |
-|  [04]   | key is a value, result is static data       | module-level `frozendict` table      | `if`/`elif` returning constants       |
-|  [05]   | receiver is foreign, behavior is local      | one function over the foreign value  | wrapper class renaming the receiver   |
-|  [06]   | input shape, not nominal tag, discriminates | structural `match` patterns          | `isinstance` ladder over open input   |
-|  [07]   | one body serving every rail                 | union member-overlap function        | `run_result`/`run_option` sibling set |
-|  [08]   | open type set, foreign code adds arms       | `functools.singledispatch`           | `match` editing the owner per type    |
-|  [09]   | optional context with identity              | one `Option[Context]`                | `a=None, b=None, strict=False` tail   |
-|  [10]   | replaceable capability, many implementers   | one `Protocol` port                  | concrete dependency hardcoded inline  |
+|  [03]   | consumer owns logic, family owns coverage   | closed-family `match` on the owner   | external `match` repeated per call    |
+|  [04]   | the vocabulary member is the behavior       | callable carried on the member       | full-coverage `match` per call site   |
+|  [05]   | key is a value, result is static data       | module-level `frozendict` table      | `if`/`elif` returning constants       |
+|  [06]   | dependent dispatch loops to a fixpoint      | `tailrec` continue-or-done step      | open recursion or a `while` mutator   |
+|  [07]   | receiver is foreign, behavior is local      | one function over the foreign value  | wrapper class renaming the receiver   |
+|  [08]   | input shape, not nominal tag, discriminates | structural `match` patterns          | `isinstance` ladder over open input   |
+|  [09]   | one body serving every rail                 | union member-overlap function        | `run_result`/`run_option` sibling set |
+|  [10]   | open type set, foreign code adds arms       | `functools.singledispatch`           | `match` editing the owner per type    |
+|  [11]   | optional context with identity              | one `Option[Context]`                | `a=None, b=None, strict=False` tail   |
+|  [12]   | replaceable capability, many implementers   | one `Protocol` port                  | concrete dependency hardcoded inline  |
 
 ## [02]-[ENTRYPOINT_LAW]
 
@@ -83,7 +85,8 @@ def dispatched(request: Request, ledger: "Ledger", /) -> Result["Receipt", Reque
 - Reject: a `batch` flag, a `mode` flag, or sibling `process`/`process_many` functions; `singular`/`plural`/`stream` name suffixes that re-describe the input the value already carries; a guard beyond the named `str`/`bytes` seam that smuggles a discriminant the value already answers.
 
 [MODALITY_FOLD]:
-- Law: singular, plural-preserving, and plural-reducing are one arm under three combinators — `Block.map` for singular and plural-preserving with shape intact, `Block.fold` keyed on the monoid policy value for plural-reducing — the same arm, the reducer alone switching the algebra; the fail-fast-versus-accumulate sequencing operator is owned by the rail page and threaded here unchanged.
+- Law: singular, plural-preserving, and plural-reducing are one arm under three combinators — `Block.map` for singular and plural-preserving with shape intact, `Block.fold` keyed on the monoid policy value for plural-reducing — the same arm, the reducer alone switching the algebra; a case whose payload is a tuple spreads through `Result.map2`/`Option.starmap` rather than an unpacking lambda, so the join names no positional accessor.
+- Boundary: the fail-fast-versus-accumulate sequencing operator and the seed-`bind` reducer it drives are the rail page's `threaded`; this surface composes that reducer to carry the failure semantics and spends its own lines on the arity normalization and the monoid-keyed reduction, never re-deriving the fold.
 - Use: the rail's own `bind`/`map` so the carrier owns short-circuit; the combinator is the sequencing policy, never a tuning flag.
 - Reject: a manual index counter, a mutable accumulator list appended in a `for` loop, and `zip` across unequal lengths without `zip(strict=True)` proving the arity invariant.
 
@@ -101,6 +104,10 @@ class Monoid[R]:
     combine: Callable[[R, R], R]
 
 
+def threaded[T, E](acc: Result[Block[T], E], result: Result[T, E], /) -> Result[Block[T], E]:  # the rail page's reducer
+    return acc.bind(lambda done: result.map(lambda value: done.append(Block.singleton(value))))
+
+
 def normalized[T](items: T | Iterable[T], /) -> Block[T]:
     match items:
         case tuple() | list() as many:
@@ -111,16 +118,16 @@ def normalized[T](items: T | Iterable[T], /) -> Block[T]:
             return Block.singleton(lone)
 
 
-def dispatched_all[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], reduce: Monoid[R], /) -> Result[R, E]:
-    seed: Result[R, E] = Ok(reduce.empty)
-    return normalized(items).fold(lambda acc, item: acc.bind(lambda done: step(item).map(lambda r: reduce.combine(done, r))), seed)
+def swept[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], reduce: Monoid[R], /) -> Result[R, E]:
+    railed = normalized(items).map(step)
+    return railed.fold(threaded, Ok(Block.empty())).map(lambda kept: kept.fold(reduce.combine, reduce.empty))
 ```
 
 ## [04]-[PARAMETER_ALGEBRA]
 
 [POLICY_VALUES]:
 - Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed and no `if`/`match` reconstructs at the call site what the value already encodes.
-- Law: behavior-bearing policy is one frozen owner whose fields include the callable step, or a `frozendict` policy table keyed on the discriminant; a `StrEnum` member carries a column only when the column is data, and the callable lives on the owner the enum selects.
+- Law: behavior-bearing policy is one frozen owner whose fields include the callable step, or a `frozendict` policy table keyed on the discriminant; a `StrEnum` member carries a column only when the column is data, and the callable lives on the owner the enum selects — chooser row `[04]` is exactly this, the vocabulary member owning its behavior so the dispatch is the member's own method, never a full-coverage `match` re-spelled per call site.
 - Law: a package whose entry point already accepts a behavior value takes the policy directly — `stamina.retry`'s `on=` is an `ExcOrBackoffHook` discriminator, so a `Callable[[Exception], bool | float | timedelta]` that decides retry and overrides the backoff per error is the policy value, never a `bool` plus a separate `delay` parameter the body recombines.
 - Use: a frozen dataclass with a `Callable` field and named module-level instances (`STRICT`, `LENIENT`) as the policy family, the caller passing the instance and the entrypoint calling `policy.step(...)`; the package's own behavior-valued knob where it owns the concern.
 - Reject: a `strict: bool` parameter selecting between two bodies; a behavioral near-twin chosen by flag rather than by the value that encodes the boundary behavior.
@@ -169,8 +176,8 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
 ## [05]-[DISPATCH_FORMS]
 
 [FORM_SELECTION]:
-- Law: the five forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
-- Law: a closed vocabulary the program owns dispatches through a fold method on the owner or a `frozendict` table; `functools.singledispatch` is reserved for a genuinely open type set foreign code extends, where editing one `match` per new type is impossible.
+- Law: the six forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
+- Law: a closed vocabulary the program owns dispatches through a `match` over the owner or a `frozendict` table; `functools.singledispatch` is reserved for a genuinely open type set foreign code extends, where editing one `match` per new type is impossible.
 - Reject: a `frozendict` table restating a closed family's own cases — a duplicate-entry burden with a silent missed-case failure when a member is added; `singledispatch` over a closed family the program owns, which trades the static exhaustiveness proof for a runtime registration scan; an `if`/`elif` ladder over a `StrEnum`'s `.value` strings.
 - Boundary: mixing forms at one site signals an unresolved ownership boundary, except the valid composition — a `match` arm reading a `frozendict` table is dispatch plus data retrieval, and a function owning foreign-to-domain translation while its inner `match` owns per-case projection.
 
@@ -186,6 +193,7 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
 - Use: `singledispatch` only at a true plugin seam — a renderer over a host type hierarchy the library does not own; the closed `match` everywhere the program owns the type set.
 
 ```python conceptual
+from collections.abc import Sequence
 from enum import StrEnum
 from functools import singledispatch
 
@@ -216,13 +224,11 @@ def rendered(value: object, /) -> Result[str, str]:
 
 
 @rendered.register
-def _(value: int, /) -> Result[str, str]:
-    return Ok(f"<int:{value}>")
-
-
-@rendered.register
 def _(value: Marker, /) -> Result[str, str]:
     return Ok(LABEL[value])
+
+
+rendered.register(Sequence, lambda value: Ok(f"<seq:{len(value)}>"))
 ```
 
 ## [06]-[RAIL_POLYMORPHIC_DISPATCH]
@@ -233,24 +239,57 @@ def _(value: Marker, /) -> Result[str, str]:
 - Use: a generic `[T, E]` signature whose body names only `map`/`bind`/`default_value`, deleting the `run_result`/`run_option` sibling pair and admitting any fault vocabulary; the rail page's `@effect.result`/`@effect.option` builders own the sequential `yield from` form, reached only when one carrier is already fixed.
 
 [INDEPENDENT_JOIN]:
-- Law: independent computations combine through `map2` (two operands) or a railed comprehension over a fixed tuple, and dependent steps chain through `bind`; the choice is load-bearing because a `bind` chain over independent operands reports only the first failure and silently discards the rest.
+- Law: independent computations combine through `map2` (two operands), `starmap` (one tuple-carrying operand), or a railed comprehension over a fixed tuple, and dependent steps chain through `bind`; the choice is load-bearing because a `bind` chain over independent operands reports only the first failure and silently discards the rest.
 - Law: `Result.map2(other, f)` runs both operands and applies `f` to the pair, short-circuiting on the first `Error`; an accumulating join that reports every independent fault folds the faults through the error type's own combination before reporting.
 - Reject: a branch inside the join whose only legitimate content is total construction over already-railed values; a branch is a fourth dispatch smuggled into combination and lifts into its own arm.
 
+[ITERATIVE_DISPATCH]:
+- Law: a dependent dispatch loop — each step's successor decided by the prior step's case — is one `tailrec` function over a closed continue-or-done step, the live case picking the next seed and the done case returning the fixpoint, so the stack never grows and the loop carries no mutable index; the continue-or-done split is itself a two-case `@tagged_union`, never a sentinel return or a `None` terminator the caller re-reads.
+- Law: the step is a pure function returning `TailCall(*next_seed)` to recurse or a plain terminal to complete; a fallible step threads the rail by returning the carrier as the terminal, so the trampoline drives dependent dispatch to a fixpoint and the boundary lifts the terminal once — `match` over the step's own two cases is the dispatch, `tailrec` is the driver, and the two stay orthogonal exactly as form and rail do.
+- Use: `tailrec` for bounded fixpoint iteration the call modality folds over — a settle loop, a refinement sweep, a state-machine advance whose verb the prior state selects; the `@effect.result` do-notation when the chain is dependent but not iterative.
+- Reject: an open `def f(): ... return f(...)` recursion that grows the stack on deep input; a `while` loop mutating an accumulator; a `count` parameter bounding a loop whose terminal case already answers when to stop.
+
 ```python conceptual
-from collections.abc import Callable
+from typing import Literal, assert_never
 
-from expression import Option, Result
-
-
-def threaded[T, U, V, E](
-    carrier: Result[T, E] | Option[T], step: Callable[[T], Result[U, E] | Option[U]], project: Callable[[U], V], fallback: V, /
-) -> V:
-    return carrier.bind(step).map(project).default_value(fallback)
+from expression import Error, Ok, Result, TailCall, TailCallResult, case, tag, tagged_union, tailrec
 
 
-def joined(left: Result[int, str], mid: Result[int, str], right: Result[int, str], /) -> Result[int, str]:
-    return left.map2(mid, lambda a, b: a + b).map2(right, lambda ab, c: ab + c)
+type StepFault = Literal["<diverged>"]
+
+
+@tagged_union(frozen=True)
+class Step:
+    tag: Literal["advance", "settle", "diverge"] = tag()
+    advance: tuple[int, int] = case()
+    settle: int = case()
+    diverge: None = case()
+
+
+def stepped(state: int, epoch: int, ceiling: int, /) -> Step:
+    if epoch <= 0:
+        return Step(diverge=None)
+    if state <= 1:
+        return Step(settle=state)
+    folded = state // 2 if state % 2 == 0 else (3 * state + 1) // 2
+    return Step(diverge=None) if folded >= ceiling else Step(advance=(folded, epoch - 1))
+
+
+@tailrec
+def driven(state: int, epoch: int, ceiling: int, /) -> TailCallResult[Result[int, StepFault], ...]:
+    match stepped(state, epoch, ceiling):
+        case Step(tag="advance", advance=(nxt, left)):
+            return TailCall(nxt, left, ceiling)
+        case Step(tag="settle", settle=fixed):
+            return Ok(fixed)
+        case Step(tag="diverge"):
+            return Error("<diverged>")
+        case unreachable:
+            assert_never(unreachable)
+
+
+def converged(seed: int, ceiling: int, /) -> Result[int, StepFault]:
+    return driven(seed, ceiling, ceiling)
 ```
 
 ## [07]-[TYPE_LEVEL_DISPATCH]
@@ -263,7 +302,7 @@ def joined(left: Result[int, str], mid: Result[int, str], right: Result[int, str
 
 [REACH_LIMIT]:
 - Law: structural typing is static, so the `[S: Port]` form serves implementers fixed at the call site; a runtime-discovered candidate needs `@runtime_checkable` plus an `isinstance` gate, which checks method presence only, never signatures — so the runtime gate pairs with a `TypeIs` predicate that narrows to the exact port when semantic membership exceeds member presence, and the narrowed value re-enters the same static `[S: Port]` surface.
-- Use: `typing.get_protocol_members` for registration or proof of port coverage once at admission; never per-request structural validation, which re-pays the reflective scan the static form deletes on every call.
+- Law: port coverage is proved once at admission — `typing.get_protocol_members` reads the required member set and `beartype.door.is_subhint` decides a candidate hint against the port hint as a variance-aware subtype query — never a per-request structural validation that re-pays the reflective scan the static form deletes on every call.
 - Boundary: the runtime-checkable protocol exists only at the discovery seam; everywhere the implementer is statically known, the bare structural `Protocol` resolves with zero runtime cost.
 
 ```python conceptual
@@ -300,9 +339,9 @@ def selected(candidate: object, key: str, value: str, /) -> Option[Result[object
 [DECORATOR_STACKING]:
 - Law: decorators apply bottom-up at definition and execute top-down at call, so the stack is an ordered sequence and the same aspects in two orders are two policies — a retry weave outside the contract re-validates per attempt, the contract folded innermost validates once and the outer weaves retry or trace only the validated body; the order is therefore the `*composed` tuple's order, weaves the factory folds right-to-left onto its own contract arm, not a fixed tower re-spelled at every owner, so a further co-occurring concern is one more entry in the same call with no body edited.
 - Law: every weave in the fold satisfies one signature — `Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]` — which is what keeps `**P`, the return rail, and `functools.wraps` identity intact through an arbitrary-depth stack; a package decorator whose own signature unifies to this shape (`stamina.retry` over a `Result`-returning core) enters directly with no wrapper, while a weave typed `Callable[..., Any]` erases the parameter list and severs the chain, and a weave returning a bare `T` instead of the rail breaks the next weave's `Result` contract.
-- Law: the contract weave is this surface's own aspect and the factory's fixed innermost arm — `beartype(conf=BeartypeConf(violation_type=...))` redirects a `BeartypeCallHintViolation` onto the fault and the `except` arm maps it to the rail's `Error`, so a violation never throws past the wrapped function; every other concern — the rail page's `stamina.retry(on=...)` weave, the runtime page's emission weave — enters as a `*composed` entry already built at its owner, threaded through this fold and never re-derived here.
+- Law: the contract weave is this surface's own aspect and the factory's fixed innermost arm — `beartype(conf=BeartypeConf(violation_type=...))` redirects a `BeartypeCallHintViolation` onto the fault and the `except` arm maps it to the rail's `Error`, so a violation never throws past the wrapped function; every other concern — the rail page's `stamina.retry(on=...)` weave, the domain observability page's emission weave — enters as a `*composed` entry already built at its owner, threaded through this fold and never re-derived here.
 - Use: the variadic `*composed` weave tuple folded onto the contract arm, the rail-safe `beartype(conf=BeartypeConf(violation_type=...))` contract weave as this page's spotlight; this factory when two-to-four owner-built weaves recur together over one pure core.
-- Reject: a bare `try`/`except` retry loop; a hand-rolled span timer or a `structlog.get_logger` chain re-built here where the runtime emission weave already owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature.
+- Reject: a bare `try`/`except` retry loop; a hand-rolled span timer or a `structlog.get_logger` chain re-built here where the emission weave already owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature.
 
 ```python conceptual
 from collections.abc import Callable

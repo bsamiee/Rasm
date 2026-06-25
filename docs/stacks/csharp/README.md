@@ -1,6 +1,6 @@
 # [STACKS_CSHARP]
 
-This folder is the C# stack router. It routes language, shape, surface, rail, boundary, algorithm, system-API, domain, and quality-rail decisions to the concept page that owns the coding choice. The router builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
+This folder is the C# stack router. It routes language, shape, surface, rail, boundary, algorithm, system-API, and domain decisions to the concept page that owns the coding choice. The router builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
 
 Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, generated-surface, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
@@ -17,21 +17,20 @@ This table is the lookup by reader decision.
 |  [05]   | host and wire boundary  | [boundaries](boundaries.md)                       | finalized |
 |  [06]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
 |  [07]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
-|  [08]   | quality rail            | [testing](testing/README.md)                      | finalized |
-|  [09]   | domain routing          | [domain](domain/README.md)                        | finalized |
-|  [10]   | hosting and runtime     | [runtime](domain/runtime.md)                      | finalized |
-|  [11]   | concurrency and streams | [concurrency](domain/concurrency.md)              | finalized |
-|  [12]   | telemetry signal        | [diagnostics](domain/diagnostics.md)              | finalized |
-|  [13]   | boundary validation     | [validation](domain/validation.md)                | finalized |
-|  [14]   | resilience policy       | [resilience](domain/resilience.md)                | finalized |
-|  [15]   | wire transport          | [transport](domain/transport.md)                  | finalized |
-|  [16]   | data persistence        | [persistence](domain/persistence.md)              | finalized |
-|  [17]   | embedded durability     | [durability](domain/durability.md)                | finalized |
-|  [18]   | postgres surface        | [postgres](domain/postgres.md)                    | finalized |
-|  [19]   | data interchange        | [data interchange](domain/data-interchange.md)    | finalized |
-|  [20]   | compute lane            | [compute](domain/compute.md)                      | finalized |
-|  [21]   | render and visuals      | [visuals](domain/visuals.md)                      | finalized |
-|  [22]   | retained interaction    | [interaction](domain/interaction.md)              | finalized |
+|  [08]   | domain routing          | [domain](domain/README.md)                        | finalized |
+|  [09]   | hosting and runtime     | [runtime](domain/runtime.md)                      | finalized |
+|  [10]   | concurrency and streams | [concurrency](domain/concurrency.md)              | finalized |
+|  [11]   | telemetry signal        | [diagnostics](domain/diagnostics.md)              | finalized |
+|  [12]   | boundary validation     | [validation](domain/validation.md)                | finalized |
+|  [13]   | resilience policy       | [resilience](domain/resilience.md)                | finalized |
+|  [14]   | wire transport          | [transport](domain/transport.md)                  | finalized |
+|  [15]   | data persistence        | [persistence](domain/persistence.md)              | finalized |
+|  [16]   | embedded durability     | [durability](domain/durability.md)                | finalized |
+|  [17]   | postgres surface        | [postgres](domain/postgres.md)                    | finalized |
+|  [18]   | data interchange        | [data interchange](domain/data-interchange.md)    | finalized |
+|  [19]   | compute lane            | [compute](domain/compute.md)                      | finalized |
+|  [20]   | render and visuals      | [visuals](domain/visuals.md)                      | finalized |
+|  [21]   | retained interaction    | [interaction](domain/interaction.md)              | finalized |
 
 ## [02]-[DOCTRINE]
 

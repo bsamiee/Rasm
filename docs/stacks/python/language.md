@@ -1,6 +1,6 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active language surface. This page is the version-feature and type-LEVEL evidence law: every static, caller-facing type-form contract that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. The value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; concurrency, isolation, and diagnostics primitives ride `runtime.md`.
+Python `>=3.15` is the active language surface. This page is the version-feature and type-LEVEL evidence law: every static, caller-facing type-form contract that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. The value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; structured concurrency rides `concurrency.md`; interpreter isolation and introspection ride `runtime.md`.
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
@@ -20,7 +20,7 @@ Treat source files as modern Python, not compatibility layers. Remove old import
 
 ## [02]-[CANONICAL_CHOOSER]
 
-Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; concurrency, interpreter isolation, and diagnostics primitives are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior. The chooser groups by form kind, and each group routes to its `[03]` placement card for the rule the table row cannot state.
+Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; structured concurrency is owned by `concurrency.md`, and interpreter isolation and introspection are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior. The chooser groups by form kind, and each group routes to its `[03]` placement card for the rule the table row cannot state.
 
 [TYPE_DECLARATION_FORMS]: which declaration, generated-owner, callable, or generic form carries the type evidence.
 
@@ -123,7 +123,7 @@ Use these contracts when the chooser names the primitive but code still needs a 
 - Soundness: `TypeIs[T]` is a biconditional type-membership proof, not a validation rail for valid, non-empty, active, normalized, positive, or otherwise filtered `T` values; that refinement is `beartype.vale.Is[...]` on a shared `Annotated` alias or the owning result rail.
 - Consumption: keep predicate use at ingress, dispatch, or projection boundaries; the narrowed value folds through one total `match` or the owning rail, never a branch body re-spread across the function.
 
-The type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, `TypeForm` carries the refinement-alias type-expression value that `door.is_bearable` decides, `is_primary` narrows at the projection boundary, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
+The type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, a `TypeForm` registry carries refinement-alias type-expression values, `door.is_subhint` decides registry membership by decidable subtyping while `door.is_bearable` narrows a raw boundary value into the aliased `T` it admits, `is_primary` narrows at the projection boundary, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
 
 ```python conceptual
 import dataclasses
@@ -133,12 +133,13 @@ from typing import Annotated, Concatenate, Literal, Self, TypeForm, TypeIs
 from typing import assert_never, dataclass_transform, disjoint_base, final, override
 
 from beartype import beartype
-from beartype.door import is_bearable
+from beartype.door import is_bearable, is_subhint
 from beartype.vale import Is
 
 
 type Kind = Literal["<value-a>", "<value-b>"]
 type Atom = Annotated[int, Is[lambda n: n >= 0]]
+type Atoms = tuple[Atom, ...]
 type Context = tuple[Kind, str]
 
 
@@ -179,8 +180,15 @@ class Secondary(Shape):
 
 
 type Member = Primary | Secondary
-ATOM_FORM: TypeForm[Atom] = Atom
-ATOM_ADMITS: bool = is_bearable(0, ATOM_FORM)
+REGISTRY: tuple[tuple[str, TypeForm[Atom] | TypeForm[Atoms]], ...] = (("<scalar>", Atom), ("<vector>", Atoms))
+
+
+def admits[T](value: object, form: TypeForm[T], /) -> TypeIs[T]:
+    return is_bearable(value, form)
+
+
+def registered(form: TypeForm[Atom] | TypeForm[Atoms], /) -> str:
+    return next((name for name, candidate in REGISTRY if is_subhint(form, candidate)), "<unregistered>")
 
 
 def is_primary(value: Member, /) -> TypeIs[Primary]:
@@ -200,12 +208,12 @@ def with_context[**P, T](context: Context, /) -> Callable[[Callable[Concatenate[
 
 @with_context(("<value-a>", "<field-a>"))
 @beartype
-def rendered(context: Context, value: Member, /) -> str:
-    _, prefix = context
-    projected = value.widened(0) if is_primary(value) else value
+def rendered(context: Context, value: Member, raw: object, /) -> str:
+    namespace, prefix = registered(Atom), context[1]
+    projected = value.widened(raw) if is_primary(value) and admits(raw, Atom) else value
     match projected:
         case Primary() as primary:
-            return primary.rendered(prefix)
+            return f"{namespace}:{primary.rendered(prefix)}"
         case Secondary() as secondary:
             return secondary.rendered(prefix)
         case _ as unreachable:
