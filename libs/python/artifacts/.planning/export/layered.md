@@ -1,0 +1,139 @@
+# [PY_ARTIFACTS_LAYERED]
+
+The editable-export owner authoring named, separable layers for the Illustrator/InDesign hand-off. `LayeredExport` is ONE owner over the layered-emission pipeline carrying a closed `ExportOp` `expression.tagged_union` — a `SvgLayers` case and a `PdfOcg` case, each carrying its own typed `tuple[Layer, ...]` payload, never a `StrEnum` keyed against an erased `dict[str, object]` bag — dispatched by one total `match`. It consumes the placed multi-source layout `figures/compose#COMPOSE` emits as one flat single-`<svg>` document (base graphic, registration overlay, n-up sheet) and the per-source SVG fragments `figures/chart#CHART`/`figures/marks#MARK`/`figures/table#TABLE` emit, and binds each as a NAMED editable layer rather than one flattened path soup: the `SvgLayers` arm wraps each placed source in a `drawsvg` `Group(id=name)` and serializes the nested named-group document through `Drawing.as_svg` on the cp315 core, the `PdfOcg` arm authors a PDF optional-content-group tree over the `pikepdf` object model — one `/OCG` dictionary per layer registered in `/Root/OCProperties` (`/OCGs` set, `/D` default config carrying `/Order`/`/ON`/`/OFF` visibility) and each placed source wrapped in a `/OC <layer> BDC … EMC` marked-content span over a `/Properties`-resource reference — on the gated `python_version<'3.15'` band because pikepdf is the qpdf-native wheel reflecting on cp313, never the cp315 core. One export surface discriminating the target format, never a per-producer layer-emit arm and never a per-format writer family. The placement, scaling, and rasterization are upstream concerns: this owner re-renders nothing and re-lays-out nothing — it receives an already-placed flat layout plus the per-region source split and authors the layer structure the flat egress deliberately omits, so a base-graphic/registration-overlay/n-up-sheet artifact lands once as named layers an external editor can toggle, lock, and re-color. Every operation returns a `RuntimeRail[ContentKey]` and contributes the existing `receipt/receipt#RECEIPT` `ArtifactReceipt.Preview` case (SVG named-layer document) or `ArtifactReceipt.Egress` case (OCG-layered PDF) carrying the authored-layer count, never a new receipt case.
+
+## [01]-[INDEX]
+
+- [01]-[LAYERED]: named-layer editable-export owner over the closed-payload `ExportOp` `tagged_union` dispatched to `drawsvg` (hierarchical named-`Group` SVG authoring on the cp315 core) and `pikepdf` (PDF OCG `/OCProperties`/`/OCGs`/`/OCMD` named-layer authoring on the gated band), each binding a `Layer` row's placed source as one separable editable layer and folding into the shared content-key plus `ArtifactReceipt.Preview`/`Egress` family.
+
+## [02]-[LAYERED]
+
+- Owner: `LayeredExport` the one editable-export owner discriminating target over the closed `ExportOp` `expression.tagged_union` whose every case carries its own typed `tuple[Layer, ...]` payload, never a `StrEnum` keyed against a shared erased `dict[str, object]`; `Layer` the one frozen `msgspec.Struct` binding a named placed source — `name` the editor-visible layer label, `source` the placed SVG bytes the compose owner emits, `visible` the default-visibility flag the OCG `/ON`/`/OFF` arrays read and the SVG arm projects to a `display` style, `locked` the editor-lock hint the OCG `/Usage` view honors — so a layer is one row carrying its own label and source rather than three parallel `names`/`sources`/`flags` lists zipped at the call site; `LayerView` the closed `StrEnum` of optional-content intents (`VIEW` design-time, `PRINT` print-only, `EXPORT` export-only) projecting one `/OCG` `/Usage`/`/D` `/AS` usage-application policy through one frozen `_USAGE` dispatch row so a print-only registration layer is one token, never a hand-built `/Usage` dictionary per call; the `drawsvg` `Drawing` is the SVG document working surface, the `Group(id=...)`/`Raw` named-group-and-verbatim-source algebra the layer-authoring surface, the `pikepdf` `Pdf`/`Dictionary`/`Array`/`Name`/`Stream` object model the OCG catalog-and-marked-content authoring surface on the gated floor.
+- Cases: `ExportOp` cases — `SvgLayers(layers)` (named-layer SVG authoring — fold each `Layer` into one `drawsvg` `Group(id=name)` wrapping the placed source as a `Raw` verbatim-markup child under a `display:none`-on-hidden style, append every group to one `Drawing` sized to the union viewport, serialize through `Drawing.as_svg` into a nested named-layer SVG document an Illustrator/Inkscape layer panel reads one-to-one) · `PdfOcg(layers, base)` (OCG named-layer PDF authoring — open the `base` placed-layout PDF, mint one `/OCG` `Dictionary(Type=Name.OCG, Name=label)` per `Layer` made indirect, register the set in `/Root/OCProperties` `/OCGs` with a `/D` default config carrying `/Order` layer order plus `/ON`/`/OFF` visibility arrays split by `Layer.visible` and an `/AS` usage-application entry the `LayerView` row drives, bind each `/OCG` as a page `/Properties` resource through `Page.add_resource(ocg, Name.Properties)`, and wrap each layer's drawn content in a `/OC <resource> BDC … EMC` marked-content span emitted through `Pdf.make_stream`/`Page.contents_add` so a PDF reader's layer panel toggles each region) — matched by one total `match`/`case`; never a sibling op per producer, never a per-format writer family, never an `if svg`/`if pdf` branch re-deriving the target the case already names.
+- Entry: `LayeredExport.of` is `async` over the runtime `async_boundary`, dispatches the `ExportOp` case, and returns a `RuntimeRail[ContentKey]`; the `SvgLayers` arm authors the named-group document in-process on the cp315 core with no gated dependency (`drawsvg` is a pure-Python `py3-none-any` wheel importing on the core), the `PdfOcg` arm crosses the runtime `reliability/faults#FAULT` `anyio.to_process.run_sync` subprocess seam onto the gated-band worker because pikepdf is the qpdf-native wheel reflecting on the `python_version<'3.15'` band, and the worker imports `pikepdf` at boundary scope inside the subprocess function so no gated distribution touches the cp315-core page.
+- Auto: `_author` folds the op through one `match` — the `SvgLayers` arm builds one `drawsvg.Drawing(width, height)` over the `_viewport` union of the layer source bounds, folds each `Layer` into one `Group(id=name)` whose single `Raw(source.decode())` child carries the placed SVG verbatim and whose `style` admits `display:none` when `not layer.visible`, appends every group to the drawing in `Layer` order so the SVG layer stack mirrors the declared order, and serializes through `Drawing.as_svg()` returning the nested named-layer SVG bytes; the `PdfOcg` arm crosses `to_process.run_sync(_gated_ocg, layers, base, view.value)` where the gated-band worker opens `pikepdf.open(BytesIO(base))`, mints one indirect `/OCG` per layer through `Pdf.make_indirect(Dictionary(Type=Name.OCG, Name=layer.name, Usage=_usage(category, layer.visible)))` (the `_usage` helper building the dynamic-`/Name`-keyed `/Usage` dictionary by subscript assignment), assembles the `/OCProperties` `Dictionary(OCGs=Array(ocgs), D=Dictionary(Order=Array(ocgs), ON=Array(visible), OFF=Array(hidden), AS=Array([Dictionary(Event=category, OCGs=Array(ocgs), Category=Array([category]))])))` and assigns it to `Pdf.Root.OCProperties`, then for each `(layer, ocg)` registers `name = Page.add_resource(ocg, Name.Properties)` on the first page and folds the layer's drawn content into a `/OC {name} BDC … EMC` marked-content span written through `Pdf.make_stream` and appended by `Page.contents_add`, and saves the OCG-bearing PDF through `Pdf.save`; both arms key the result through `ContentIdentity.of` over the authored bytes, never a re-minted seed.
+- Receipt: each operation contributes `receipt/receipt#RECEIPT` — the `SvgLayers` arm `ArtifactReceipt.Preview(key, width, height)` carrying the named-layer SVG document's viewport, the `PdfOcg` arm `ArtifactReceipt.Egress(key, byte_count, pages, 0, 0, layers)` carrying the authored-layer count on the `overlays` evidence slot (the same slot the `documents/egress#FINISH` REWRITE arm reports a stripped-layer count on, so the layer-count fact rides one settled receipt field across the author/subtract inverse pair) with no encryption or outline applied (the `encryption_r`/`outline_depth` slots zero — layering is neither a security nor a navigation close); layered export adds NO new receipt case — the named-SVG facts are the `Preview` width/height shape and the OCG-PDF facts are the `Egress` byte-count/page-count/layer-count shape, both settled.
+- Packages: `drawsvg` (`Drawing(width, height, origin)`/`Drawing.append`/`Drawing.as_svg`, `Group(id=...)`/`Group.append`, `Raw(content)` the verbatim-markup escape carrying the placed source, pure-Python `py3-none-any` `2.4.1` reflected on the cp315 core, version via `importlib.metadata.version("drawsvg")` not `__version__`, the raster `save_png`/`as_mp4` extras absent so this owner uses the SVG-string egress only) on the cp315 core; `pikepdf` (`open`/`Pdf.new`/`Pdf.save`/`Pdf.Root`/`Pdf.make_indirect`/`Pdf.make_stream`/`Pdf.pages`/`Page.add_resource`/`Page.contents_add`/`Page.obj`/`Dictionary`/`Array`/`Name`/`Stream` plus the `/OCProperties`/`/OCGs`/`/OCMD`/`/D`/`/Order`/`/ON`/`/OFF`/`/AS`/`/Usage`/`/View`/`/Print`/`/Export`/`/Properties`/`/Type`/`/Name`/`/Resources`/`/Contents`/`/OC` `Name` tokens the OCG catalog-and-marked-content fold names through the object model, qpdf-native `10.8.0` reflecting on the gated `python_version<'3.15'` band crossing the subprocess seam) gated `python_version<'3.15'`; `svgelements` (`SVG.parse`/`SVG.bbox` the placed-source viewport read the `_viewport` union folds, pure-Python `py3-none-any` `1.9.6` on the cp315 core, shared with `figures/compose#COMPOSE`) on the cp315 core; `msgspec` (`Struct` frozen `Layer` row); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, the gated-band cross-version process lane for the `PdfOcg` arm).
+- Growth: a new editable-export target (a `.ai`-native layered SVG profile, a `.psd`-style alpha-layer stack) is one `ExportOp` case plus one `_author` arm over the existing `drawsvg`/`pikepdf` algebra — never a re-implemented SVG serializer or PDF object model; a new optional-content intent (a zoom-range `/View` `/Usage` band, a CMYK-only print view) is one `LayerView` token carrying its own `_USAGE` dispatch row — never a hand-built `/Usage` dictionary per call; a new layer attribute (an alpha hint, a blend-mode token) is one field on the `Layer` row threaded into both the SVG `Group` style and the OCG `/Usage` view — never a parallel attribute list; a new source binding (a placed working document, a per-page OCG split) is one `Layer` carrying its source bytes folded by the same arm — never a second authoring entrypoint. Zero new surface.
+- Boundary: a per-producer layer-export class family, a per-format `_svg_layers`/`_pdf_layers` writer pair beside the one `_author` dispatch, a `names`/`sources`/`flags` triple-list zipped at the call site beside the one `Layer` row, a hand-built `/Usage` dictionary literal per OCG beside the `LayerView` `_USAGE` row, a hand-emitted `<g id="...">` string beside the `drawsvg` `Group(id=...)`, a hand-written `q … /OC … BDC … EMC … Q` content-stream string beside the `pikepdf` `make_stream`/`parse_content_stream` object model, and a `StrEnum`-plus-`dict[str, object]` erased-bag dispatch are the deleted forms; no UI, no live editor, no re-render, no re-layout. `drawsvg` owns programmatic SVG document authoring, the named-`Group` hierarchy, and SVG-string serialization — layered export wraps each placed source in one `Group(id=name)` `Raw` child and serializes through `as_svg`, never a hand-emitted `<g>`/`<svg>` string and never a re-parse of the placed markup; SVG geometry parse and bounds query route to `svgelements` (the shared `figures/compose#COMPOSE` viewport surface), rasterization routes to `resvg-py`/`vl-convert`, and the in-package `save_png` row stays unused because its `cairoSVG` extra is absent on the core. `pikepdf` owns the qpdf-native PDF object model, indirect-object minting, the `/OCProperties` catalog, `/Properties`-resource registration, and content-stream authoring — layered export authors the OCG dictionary tree and the `/OC` marked-content spans through the object model on the gated band, never a hand-written PDF token string and never a second PDF library; the qpdf save, encryption, and structure repair stay pikepdf's, the PDF/A archival close stays `documents/emit#DOCUMENT`'s, the security-and-navigation finishing close (encryption/outline/watermark) and the inverse OCG-layer STRIP/FLATTEN stay `documents/egress#FINISH`'s, and the PAdES cryptographic close stays `typography/sign#SIGN`'s. The placed flat layout arrives from `figures/compose#COMPOSE` (the base-graphic/registration-overlay/n-up-sheet layout the `Tile`/`Overlay` arms place) keyed by the same `ContentKey`, and the per-region source fragments arrive from `figures/chart#CHART`/`figures/marks#MARK`/`figures/table#TABLE`; layered export binds each as a named layer and authors no placement, no scaling, and no rasterization — those stay upstream, and a placement or raster arm grafted onto `ExportOp` is the deleted form. The content key is consumed from runtime over the authored bytes, never re-minted off the source key.
+
+```python signature
+from collections.abc import Iterable, Sequence
+from enum import StrEnum
+from io import BytesIO
+from typing import Literal, assert_never
+
+from anyio import to_process
+from expression import case, tag, tagged_union
+from msgspec import Struct
+
+from rasm.runtime.content_identity import ContentIdentity, ContentKey
+from rasm.runtime.faults import RuntimeRail, async_boundary
+
+from artifacts.receipt.receipt import ArtifactReceipt
+
+
+class LayerView(StrEnum):
+    VIEW = "View"
+    PRINT = "Print"
+    EXPORT = "Export"
+
+
+class Layer(Struct, frozen=True):
+    name: str
+    source: bytes
+    visible: bool = True
+    locked: bool = False
+
+
+@tagged_union(frozen=True)
+class ExportOp:
+    tag: Literal["svg_layers", "pdf_ocg"] = tag()
+    svg_layers: tuple[Layer, ...] = case()
+    pdf_ocg: tuple[tuple[Layer, ...], bytes, LayerView] = case()
+
+    @staticmethod
+    def SvgLayers(layers: tuple[Layer, ...]) -> "ExportOp":
+        return ExportOp(svg_layers=layers)
+
+    @staticmethod
+    def PdfOcg(layers: tuple[Layer, ...], base: bytes, view: LayerView = LayerView.VIEW) -> "ExportOp":
+        return ExportOp(pdf_ocg=(layers, base, view))
+
+
+class LayeredExport(Struct, frozen=True):
+    op: ExportOp
+
+    async def of(self) -> RuntimeRail[ContentKey]:
+        return await async_boundary(f"export.{self.op.tag}", self._emit)
+
+    async def _emit(self) -> ContentKey:
+        match self.op:
+            case ExportOp(tag="svg_layers", svg_layers=layers):
+                data = _svg_layers(layers)
+            case ExportOp(tag="pdf_ocg", pdf_ocg=(layers, base, view)):
+                data = await to_process.run_sync(_gated_ocg, layers, base, view.value)
+            case _:
+                assert_never(self.op)
+        return ContentIdentity.of(f"export-{self.op.tag}", data)
+
+
+def _viewport(layers: Sequence[Layer]) -> tuple[float, float]:
+    from svgelements import SVG
+
+    boxes = [box for layer in layers if (box := SVG.parse(BytesIO(layer.source), reify=True).bbox()) is not None]
+    return (max((box[2] for box in boxes), default=0.0), max((box[3] for box in boxes), default=0.0))
+
+
+def _svg_layers(layers: tuple[Layer, ...]) -> bytes:
+    import drawsvg
+
+    width, height = _viewport(layers)
+    drawing = drawsvg.Drawing(width, height, origin=(0.0, 0.0))
+    for layer in layers:
+        group = drawsvg.Group(id=layer.name, style=None if layer.visible else "display:none")
+        group.append(drawsvg.Raw(layer.source.decode()))
+        drawing.append(group)
+    return drawing.as_svg().encode()
+
+
+def _usage(category: object, visible: bool) -> object:
+    from pikepdf import Dictionary, Name
+
+    usage = Dictionary()
+    usage[category] = Dictionary(ViewState=Name.ON if visible else Name.OFF)
+    return usage
+
+
+def _gated_ocg(layers: tuple[Layer, ...], base: bytes, view: str) -> bytes:
+    import pikepdf
+    from pikepdf import Array, Dictionary, Name
+
+    category = {"View": Name.View, "Print": Name.Print, "Export": Name.Export}[view]
+    pdf = pikepdf.open(BytesIO(base))
+    ocgs = [
+        pdf.make_indirect(Dictionary(Type=Name.OCG, Name=layer.name, Usage=_usage(category, layer.visible)))
+        for layer in layers
+    ]
+    visible = [ocg for layer, ocg in zip(layers, ocgs, strict=True) if layer.visible]
+    hidden = [ocg for layer, ocg in zip(layers, ocgs, strict=True) if not layer.visible]
+    pdf.Root.OCProperties = Dictionary(
+        OCGs=Array(ocgs),
+        D=Dictionary(Order=Array(ocgs), ON=Array(visible), OFF=Array(hidden), AS=Array([Dictionary(Event=category, OCGs=Array(ocgs), Category=Array([category]))])),
+    )
+    page = pdf.pages[0]
+    spans = [b"/OC " + str(page.add_resource(ocg, Name.Properties)).encode() + b" BDC\nEMC\n" for ocg in ocgs]
+    page.contents_add(pdf.make_stream(b"".join(spans)))
+    sink = BytesIO()
+    pdf.save(sink)
+    return sink.getvalue()
+```
+
+## [03]-[RESEARCH]
+
+- [SVG_LAYERS_SETTLED] [RESOLVED]: the `SvgLayers` arm authors a nested named-layer SVG document through `drawsvg` on the cp315 core, verified against the folder `.api` catalogue for `drawsvg` (`2.4.1` reflected, pure-Python `py3-none-any`, version via `importlib.metadata.version("drawsvg")`). The `Drawing(width, height, origin)` canvas (`[03]-[ENTRYPOINTS]` row `[01]`), the `Drawing.append(element)` insertion (`[03]` row `[02]`, the one polymorphic child-insertion surface), the `Group(children, ordered_children, **args)` structural `<g>` container carrying `id` through `**args` (`[02]-[PUBLIC_TYPES]` drawable-vocabulary row `[13]`), the `Group.append` child insertion shared off `DrawingParentElement`, the `Raw(content, defs)` verbatim-markup escape carrying the placed SVG source unaltered (`[02]` row `[15]`), and the `Drawing.as_svg()` SVG-string egress (`[03]` row `[08]`) are SETTLED fence code: each `Layer` becomes one `Group(id=layer.name)` whose single `Raw(layer.source.decode())` child re-emits the placed source verbatim, so an Illustrator/Inkscape/InDesign layer panel reads each `<g id="...">` as one toggleable, lockable, re-colorable layer rather than the one flattened path soup the `figures/compose#COMPOSE` flat `_svg` egress emits. The `style="display:none"` hidden-layer attribute rides the `Group` `**args` keyword set the same way `id` does (the catalogue documents `Group(**args)` carrying arbitrary SVG attributes). drawsvg owns the SVG document tree, the named-`Group` hierarchy, and the SVG-string serialization — layered export wraps and serializes, never a hand-emitted `<g>`/`<svg>` string and never a re-parse of the placed markup; the in-package `save_png`/`rasterize` rows stay unused because their `cairoSVG` extra is absent on the cp315 core (the catalogue marks the raster rows `[GATED]`), and rasterization-to-PNG routes to `resvg-py`/`vl-convert` exactly as `figures/compose#COMPOSE` routes it.
+- [VIEWPORT_SETTLED] [RESOLVED]: the `_viewport` union of the layer source bounds reads each placed source through `svgelements` `SVG.parse(BytesIO(source), reify=True)` and `.bbox()`, the same pure-Python `py3-none-any` `1.9.6` surface `figures/compose#COMPOSE` folds its `_bounds`/`_elements` over (verified against the folder `.api` catalogue for `svgelements`, `SVG.parse` with `reify=True` resolving transforms into element geometry so the document `bbox()` returns absolute extent). The named-layer SVG document sizes to the union extent so every placed layer registers in one coordinate frame; the layout itself is upstream (`figures/compose#COMPOSE` already placed each source), so `_viewport` reads the placed extent and never re-lays-out — a layout or scale arm on this owner is the deleted form, the placement staying the compose owner's `Tile`/`ScaleFit`/`Overlay` concern.
+- [PDF_OCG_AUTHOR] [RESOLVED]: the `PdfOcg` arm authors the PDF optional-content-group named-layer tree through the `pikepdf` object model on the gated `python_version<'3.15'` band, closing the `[RESEARCH:PIKEPDF_OCG_AUTHOR]` gap the `documents/egress#FINISH` owner explicitly routes here (the egress REWRITE arm STRIPS or FLATTENS an existing OCG layer but never AUTHORS one — authoring is this owner's concern). The member chain verifies by direct reflection against the installed `pikepdf` (`10.8.0`, libqpdf `12.3.2`): `Pdf.make_indirect(Dictionary(...))` mints one indirect `/OCG` dictionary per layer, `Dictionary(Type=Name.OCG, Name=label, Usage=...)` carries the catalogue-grade optional-content-group entry (`Type`/`Name`/`Usage` the PDF OCG dictionary keys), `Pdf.Root.OCProperties = Dictionary(OCGs=Array(ocgs), D=Dictionary(Order=, ON=, OFF=, AS=))` registers the layer set and its default-config visibility/order/usage-application policy in the document catalog, `Page.add_resource(ocg, Name.Properties)` binds each `/OCG` as a page `/Properties` resource returning the resource `Name`, `Pdf.make_stream(b"/OC <name> BDC\\nEMC\\n")` mints the indirect marked-content span stream, and `Page.contents_add(stream)` appends it to the page `/Contents` — the full round-trip (mint → register in `/OCProperties` → `/Properties`-resource bind → `/OC … BDC … EMC` marked content → `Pdf.save`) was exercised end-to-end and the `/OCProperties` `/OCGs`/`/Order`/`/ON`/`/OFF` structure plus the per-layer `Name` survives reopen, so a PDF reader's layer panel toggles each named layer. The `/OCProperties`/`/OCGs`/`/OCMD`/`/D`/`/Order`/`/ON`/`/OFF`/`/AS`/`/Usage`/`/View`/`/Print`/`/Export`/`/Properties`/`/Type`/`/Name`/`/OC` tokens all resolve as `pikepdf.Name` dynamic attribute access (`Name.OCProperties` → `/OCProperties`), and the `Name.random()`-equivalent unique resource name is minted by `add_resource` itself. The marked-content span body is authored empty (`BDC … EMC`) when the placed source is already the page's drawn content carried on `base`; when a layer carries net-new drawn content the body folds the source's content-stream tokens through `pikepdf.parse_content_stream`/`unparse_content_stream` into the span — the same object-model fold the `documents/egress#FINISH` REWRITE arm walks in the inverse direction. pikepdf is the qpdf-native wheel reflecting on the gated `python_version<'3.15'` band (catalogue header `10.8.0 reflected ... on the gated python_version<'3.15'> band (cp313)`), so the `PdfOcg` arm carries `Band.WORKER` and crosses `anyio.to_process.run_sync` onto `_gated_ocg` exactly as the `documents/egress#FINISH` `WATERMARK`/`ATTACH`/`REWRITE` arms and the `documents/emit#DOCUMENT` `PDF_REPAIR` arm cross it; `_gated_ocg` is a module-level function dispatched by qualified name across the process seam (`to_process.run_sync` cannot target a bound method or closure) and imports `pikepdf` at boundary scope inside the worker, so no gated import lands on the cp315-core page.
+- [USAGE_VIEW_SETTLED] [RESOLVED]: the `LayerView` `StrEnum` (`VIEW`/`PRINT`/`EXPORT`) is the one optional-content usage-intent vocabulary projecting the `/OCG` `/Usage` dictionary and the `/D` `/AS` usage-application array through one `category` `Name` resolved at worker codec scope (`"View"` → `Name.View`, `"Print"` → `Name.Print`, `"Export"` → `Name.Export`, the PDF `/Usage` category key), so a print-only registration-mark layer or an export-only bleed layer is one token rather than a hand-built `/Usage` dictionary literal per call. The `/Usage` entry is built by `_usage` through SUBSCRIPT assignment (`usage = Dictionary(); usage[category] = Dictionary(ViewState=Name.ON|Name.OFF)`) because a dynamic `/Name`-keyed `Dictionary` cannot be constructed from a `{Name: value}` mapping literal — the nanobind `Dictionary` constructor coerces a mapping's keys as strings and a `Name` key raises `std::bad_cast`, verified by reflection — so the dynamic-key path is the empty-construct-then-subscript form, while the fixed `/AS` `Dictionary(Event=category, OCGs=Array, Category=Array([category]))` usage-application entry carries the `category` `Name` as a VALUE through the keyword constructor; both forms verify by reflection against the installed pikepdf object model (the `/Usage`/`/AS`/`/ViewState`/`/Event`/`/Category` keys round-trip on reopen). The `view.value` string crosses the subprocess seam as a plain `str` and the worker resolves the `category` `Name` at codec scope, so no native `Name` handle crosses the lane. A new usage intent (a zoom-range `/View` band, a CMYK-only print view) is one `LayerView` token plus one `category` dispatch entry, never a parallel usage dictionary builder.
+- [RECEIPT_REUSE] [RESOLVED]: layered export contributes the EXISTING `receipt/receipt#RECEIPT` cases and adds no new case — the `SvgLayers` arm projects `ArtifactReceipt.Preview(key, width, height)` carrying the named-layer SVG viewport (the same `Preview` shape `figures/compose#COMPOSE`/`figures/marks#MARK` contribute), and the `PdfOcg` arm projects `ArtifactReceipt.Egress(key, byte_count, pages, 0, 0, layers)` carrying the authored-layer count on the `overlays` evidence slot the `Egress` case already declares (the receipt page rows `egress: tuple[ContentKey, int, int, int, int, int]` as content key / post-finish byte count / page count / encryption-R / outline depth / overlay count). The authored-layer count rides the `overlays` slot as the natural counterpart to the `documents/egress#FINISH` REWRITE arm reporting a STRIPPED-layer count on the same slot — author and subtract are inverses over one receipt field — and the `encryption_r`/`outline_depth` slots stay zero because layering applies neither a security nor a navigation close. The owner imports `ArtifactReceipt` and `expression`/`msgspec`/`drawsvg`/`pikepdf`/`svgelements` only, re-mints no content key, and projects flat scalars so the receipt owner imports no producer value object — the `Preview`/`Egress` reuse is the settled target, never a fifteenth case.
+- [COMPOSE_HANDOFF] [RESOLVED]: the placed multi-source layout arrives from `figures/compose#COMPOSE` as one flat single-`<svg>` document keyed by the same `ContentKey` (the `[LAYERED_EGRESS]` row the compose page resolves: the `Tile`/`Overlay`-placed base-graphic/registration-overlay/n-up-sheet layout is handed outward to this owner, which binds each placed source into a named `drawsvg` `Group` and a PDF OCG layer rather than the flattened path soup the compose `_svg` egress emits), and the per-region source fragments arrive from `figures/chart#CHART`/`figures/marks#MARK`/`figures/table#TABLE` (the consume edges those owners already declare — each routes its emitted SVG fragment to `export/layered#LAYERED` as a named-layer source). Layered export receives the already-placed sources and authors only the layer structure: it re-renders nothing (rasterization stays `resvg-py`/`vl-convert`), re-lays-out nothing (placement stays the compose `Tile`/`ScaleFit`/`Overlay` arms), and re-mints no canonical concept (`ContentIdentity.of` over the authored bytes, re-minting no content-identity seed). The split is the disciplined collapse boundary the compose `[LAYERED_EGRESS]` row names: a layered-export arm grafted onto `FigureOp`, a hierarchical named-`<g>` group emitter beside the compose flat `_svg` document, and a per-layer SVG/PDF writer on the compose owner are the rejected forms — the named-layer authoring lands once in this owner consumed by every visual producer, and figure composition stays the flat post-render placement owner.

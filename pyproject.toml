@@ -194,14 +194,16 @@ dependencies = [
     "c2pa-python",                                 # artifacts: cross-format C2PA content credentials distinct from PAdES
     "stream-zip",                                  # artifacts: bounded-memory streaming zip with ZIP64/AES-256
     "detools",                                     # artifacts: binary-delta engine (bsdiff/hdiffpatch superset) replacing bsdiff4
+    "drawsvg>=2.4.1",                              # artifacts: authors hierarchical named-layer <g id=...> SVG for Illustrator/InDesign hand-off; pure py3-none-any, cp315-clean
     "resvg-py",                                    # artifacts: in-process SVG->PNG/PDF rasterization with no system cairo
     "av",                                          # artifacts: PyAV video/audio/mux encode; bundles FFmpeg (abi3 cp311, cp315-clean)
     "pyvips",                                      # artifacts: fused decode+downscale+ICC and smartcrop; needs Forge native libvips
     "lets-plot; python_version<'3.15'",            # artifacts: host-free grammar-of-graphics self-render to svg/png/pdf bytes
+    "python-bidi>=0.6.10; python_version<'3.15'",  # artifacts: UAX#9 bidi reorder pass before HarfBuzz shaping for Arabic runs; Rust pyo3 lacks CPython 3.15 wheel (pyo3-ffi 0.27 caps at 3.14)
     "python-calamine; python_version<'3.15'",      # artifacts: fast Rust xlsx/xlsb/xls/ods reader closing the spreadsheet/ODF read inverse
     "usd-core; python_version<'3.15'",             # artifacts: USD/USDZ scene packaging beside the vtk USD exporter
     "zxing-cpp",                                   # artifacts: 2D matrix codes (DataMatrix/PDF417/Aztec/MaxiCode) encode+decode; native C++ pybind11 sdist source-build via the Parametric_Forge scientific toolchain on cp315
-    "stream-unzip; python_version<'3.15'",         # artifacts: streaming decompress inverse for stream-zip
+    "stream-unzip",                                # artifacts: bounded-memory streaming unzip inverse for stream-zip; pure-Python sdist (stream-inflate dep), builds+imports on cp315
 ]
 
 [dependency-groups]

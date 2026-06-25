@@ -32,7 +32,7 @@ const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [HARNESS] -- steady bounded pool: <=cap in flight AND a serialized launch gate --------
 const STAGGER_MS = 1500
-const CAP = 10
+const CAP = 5
 const STALL = 360000
 const EXEC_STALL = 600000
 const ROOT = 'libs/python/artifacts'
@@ -172,10 +172,13 @@ log('Catalog: ' + catalogs.filter((c) => c.verdict === 'authored').length + '/' 
 phase('Author')
 const workClusters = clusterBy(workItems, filesOf)
 log('Author: ' + workItems.length + ' work-item(s) -> ' + workClusters.length + ' shared-file cluster(s) (serial within a cluster, pooled across)')
+const wiLabel = (wi) => wi.id || (wi.action + ':' + (wi.targets || []).join(','))
+const authorOnce = (wi, attempt) => agent(authorPrompt(wi, blueprint) + (attempt ? '\n\nRETRY ' + attempt + ': a prior attempt returned NO result under transient API pressure (429 rate-limit / 529 overload / stall), NOT a content fault. The target(s) may be partially written or the source partially split from the interrupted attempt — read the CURRENT on-disk state and bring the source + target(s) to the correct FINAL state idempotently (no duplicated or orphaned content), then author fully to the schema.' : ''), { label: (attempt ? 'author-retry' + attempt + ':' : 'author:') + wiLabel(wi), phase: 'Author', schema: WORKLOG_SCHEMA, effort: 'max', stallMs: STALL })
 const authored = (await pool(workClusters, CAP, async (cluster) => {
   const logs = []
   for (const wi of cluster) {
-    const r = await agent(authorPrompt(wi, blueprint), { label: 'author:' + (wi.id || (wi.action + ':' + (wi.targets || []).join(','))), phase: 'Author', schema: WORKLOG_SCHEMA, effort: 'max', stallMs: STALL })
+    let r = await authorOnce(wi, 0)
+    for (let attempt = 1; attempt <= 2 && r === null; attempt++) { await sleep(STAGGER_MS * 4 * attempt); r = await authorOnce(wi, attempt) }
     if (r) logs.push(r)
   }
   return logs

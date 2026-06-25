@@ -1038,6 +1038,14 @@ wheels = [
 ]
 
 [[package]]
+name = "drawsvg"
+version = "2.4.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/07/a2c3db84e6af6fa761de905b39109fe24eff2c8d52653c1bff968b6b965d/drawsvg-2.4.1-py3-none-any.whl", hash = "sha256:241ff024968e03542bc8685b41a285427303c17f81eae1933229d26bb65b7fda", size = 44067, upload-time = "2026-01-04T00:06:09.817Z" },
+]
+
+[[package]]
 name = "duckdb"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -4201,6 +4209,22 @@ wheels = [
 ]
 
 [[package]]
+name = "stream-inflate"
+version = "0.0.43"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/7e/3bbc35054aad937dc267d6d0b96a9f39f60b41e39aa62d884bd72551404b/stream_inflate-0.0.43.tar.gz", hash = "sha256:840913d318369653aef8f6bf87f893d4d8399bfe24b5d5c255b4e0835bfa544a", size = 170535, upload-time = "2026-03-04T09:24:07.28Z" }
+
+[[package]]
+name = "stream-unzip"
+version = "0.0.101"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pycryptodome" },
+    { name = "stream-inflate" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/21/bc/e5d2c9b1fd1d5eeb37351a65279898a48b2cce72ba3efc2ebd1ce3df8f81/stream_unzip-0.0.101.tar.gz", hash = "sha256:4ba9dbc4e1558f0450c38480ec045254a935d0c63c6a9bde22ae8f37e66f7ef5", size = 265285, upload-time = "2026-03-03T08:37:47.625Z" }
+
+[[package]]
 name = "stream-zip"
 version = "0.0.84"
 source = { registry = "https://pypi.org/simple" }
@@ -4794,6 +4818,7 @@ dependencies = [
     { name = "deltalake" },
     { name = "detools" },
     { name = "docxtpl" },
+    { name = "drawsvg" },
     { name = "duckdb" },
     { name = "expression" },
     { name = "fastexcel" },
@@ -4880,6 +4905,7 @@ dependencies = [
     { name = "sqlglot" },
     { name = "stac-geoparquet" },
     { name = "stamina" },
+    { name = "stream-unzip" },
     { name = "stream-zip" },
     { name = "structlog" },
     { name = "svgelements" },
@@ -4973,6 +4999,7 @@ requires-dist = [
     { name = "detools" },
     { name = "diffrax", marker = "python_full_version < '3.15'" },
     { name = "docxtpl" },
+    { name = "drawsvg", specifier = ">=2.4.1" },
     { name = "duckdb" },
     { name = "equinox", marker = "python_full_version < '3.15'" },
     { name = "expression", specifier = ">=5.6.0" },
@@ -5069,6 +5096,7 @@ requires-dist = [
     { name = "pystac" },
     { name = "pystac-client" },
     { name = "python-barcode" },
+    { name = "python-bidi", marker = "python_full_version < '3.15'", specifier = ">=0.6.10" },
     { name = "python-calamine", marker = "python_full_version < '3.15'" },
     { name = "python-docx" },
     { name = "python-flint", marker = "python_full_version < '3.15'", specifier = ">=0.8.0" },
@@ -5100,7 +5128,7 @@ requires-dist = [
     { name = "sqlglot" },
     { name = "stac-geoparquet" },
     { name = "stamina", specifier = ">=26.1.0" },
-    { name = "stream-unzip", marker = "python_full_version < '3.15'" },
+    { name = "stream-unzip" },
     { name = "stream-zip" },
     { name = "structlog", specifier = ">=26.1.0" },
     { name = "svgelements" },
