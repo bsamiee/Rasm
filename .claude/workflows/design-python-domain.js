@@ -1,6 +1,6 @@
 export const meta = {
   name: 'design-python-domain',
-  description: 'WF2 of the docs/stacks/python doctrine rebuild (run AFTER harden-python-core; the numerics/ track design-python-numerics and the whole-set reconcile-python-stack run after). Adversarially DESIGNS then BUILDS the domain/ folder for the now-finalized core doctrine. The design is critiqued and red-teamed BEFORE any file is created. The domain/ axis set is decided seeded by BOTH the csharp 13-axis domain model AND the python libs folders (data/geometry/artifacts/runtime plus the non-numerical compute concerns). NUMERICAL/SCIENTIFIC COMPUTING (linear algebra, solvers, optimization, ODE/PDE, symbolic, signal/spectral, graphs, probabilistic, autodiff, sensitivity/UQ, units, interpolation/quadrature) is OUT OF SCOPE here: it is owned by the separate design-python-numerics track and its numerics/ folder; algorithms.md is left untouched for that track to supersede. Phases: Seed (axis universe) -> Draft (5 design angles in parallel) -> Judge (score + synthesize the winner) -> Decide (red-team gate emits the final decision + creates skeletons BEFORE build) -> Build (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), pooled at CAP=12) -> Sweep (sequential: each domain page integrates the finalized core + prior siblings, no duplicated snippets) -> Atlas (register the domain/ routing) -> Reconcile (union-find cross-file residuals -> fix -> verify). The csharp doc set is the READ-ONLY density reference; every edit is scoped to docs/stacks/python. Heavily-opinionated doctrine, zero table-stakes. Takes no args.',
+  description: 'Runs THIRD in the docs/stacks/python doctrine sequence (rebuild-python-core-2 -> design-python-numerics -> design-python-domain -> reconcile-python-stack), AFTER the core AND numerics/ are finalized, because domain pages COMPOSE the finalized core PLUS the finalized numerics/ owners where a domain concept needs one. Adversarially DESIGNS then BUILDS the domain/ folder. The Seed carries the OPERATOR-DECIDED agnostic domain set (observability/transport/tabular/parallel-compute[dask, deep]/storage/persistence) to validate+refine, NOT a libs/python folder mirror; the panel may merge a thin axis or split an overloaded one. NUMERICAL/SCIENTIFIC COMPUTING is OUT OF SCOPE (the numerics/ track owns it); a domain page COMPOSES a numerics owner but never re-opens it. Every page cites ONLY the RELEVANT catalogs its concept composes from docs/stacks/python/.api (substrate + its package cluster), never noise. Phases: Seed (validate+refine the decided set) -> Draft (5 angles) -> Judge -> Decide (red-team gate + skeletons BEFORE build) -> Build (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Sweep (TWO sequential passes: each domain page integrates the finalized core + numerics + prior siblings, no duplicated snippets) -> Atlas (register the domain/ routing) -> Reconcile (union-find cross-file residuals -> fix -> verify). The csharp doc set is the FLOOR not the ceiling; every edit is scoped to docs/stacks/python. Heavily-opinionated doctrine, zero table-stakes. Takes no args.',
   phases: [
     { title: 'Seed', detail: 'gather the candidate domain axis universe from the csharp domain model + the python libs folders (numerical/scientific computing carved out to the numerics track)' },
     { title: 'Draft', detail: '5 design angles in parallel each draft a full domain axis set' },
@@ -159,15 +159,19 @@ const done = (await pool(buildItems, CAP, (item) => processPage(item))).filter(B
 
 phase('Sweep')
 const orderedNew = buildItems.map((it) => it.path)
-const ledger = []
 const sweepLogs = []
-for (let i = 0; i < orderedNew.length; i++) {
-  const page = orderedNew[i]
-  const r = await agent(sweepPrompt(page, ledger), { label: 'sweep:' + nameOf(page), phase: 'Sweep', schema: SWEEP_SCHEMA, effort: 'xhigh', stallMs: STALL })
-  const d = done.find((x) => x.page === page)
-  const regions = (r && r.owned_regions && r.owned_regions.length) ? r.owned_regions : (d ? regionsOf(d.logs) : [])
-  ledger.push({ file: page, owned_regions: regions })
-  if (r) sweepLogs.push(r)
+let ledger = []
+for (let pass = 1; pass <= 2; pass++) {
+  ledger = []
+  for (let i = 0; i < orderedNew.length; i++) {
+    const page = orderedNew[i]
+    const r = await agent(sweepPrompt(page, ledger), { label: 'sweep' + pass + ':' + nameOf(page), phase: 'Sweep', schema: SWEEP_SCHEMA, effort: 'xhigh', stallMs: STALL })
+    const d = done.find((x) => x.page === page)
+    const regions = (r && r.owned_regions && r.owned_regions.length) ? r.owned_regions : (d ? regionsOf(d.logs) : [])
+    ledger.push({ file: page, owned_regions: regions })
+    if (r) sweepLogs.push(r)
+  }
+  log('Domain sweep pass ' + pass + '/2 complete over ' + orderedNew.length + ' pages')
 }
 log('Sweep: ' + sweepLogs.length + '/' + orderedNew.length + ' new pages integrated')
 
