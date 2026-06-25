@@ -1,29 +1,29 @@
 # [PYTHON_SYSTEM_APIS]
 
-This page is the stdlib-owner-replacement law: the high-churn surface where a yearly standard-library delta retires a local helper, kept disjoint from the stable language-form law so the language page never churns with a stdlib addition. A standard-library API replaces local machinery only when it owns the concern; it never replaces an `expression` rail, `pydantic`/`msgspec` admission, the numeric route owners, or the structured-concurrency owner. Each card names the owning stdlib surface and the local loop, wrapper, or pattern it deletes, and a snippet composes that surface under the `expression` rail. A snippet whose stdlib core leaves a boundary type-shape implicit carries a `beartype` contract proving that shape at the seam, the value-level invariant the types cannot carry staying on the `Result` rail; the violation-redirecting contract weave — `beartype(conf=BeartypeConf(violation_type=...))` folded onto the fault — is `surfaces-and-dispatch.md`'s aspect and is composed there, never re-derived here. Every member is fixed at the active interpreter surface `language.md` declares — a regressed owner moves to the language page's replacement column with the older spelling, and nothing here predates that floor. The platform-forced statement seams are named where they appear: the `pickle` protocol-5 `buffer_callback` sink collecting each out-of-band block, the `os.readinto` fill of a caller-owned buffer, the `heapq` in-place heapify, and the `try`/`except` converting a `strict=`-mode iterator's ragged-tail raise into the rail — each is the signal the stdlib API forces, and each still leaves the result an `expression` `Result`.
+This page is the stdlib-owner-replacement law: the high-churn surface where a yearly standard-library delta retires a local helper, kept disjoint from the stable language-form law so the language page never churns with a stdlib addition. A standard-library API replaces local machinery only when it owns the concern; it never replaces an `expression` rail, `pydantic`/`msgspec` admission, the numeric route owners, or the structured-concurrency owner. Each card names the owning stdlib surface and the local loop, wrapper, or pattern it deletes, and a snippet composes that surface under the `expression` rail. A snippet whose stdlib core leaves a boundary type-shape implicit carries a `beartype` contract proving that shape at the seam, the value-level invariant the types cannot carry staying on the `Result` rail; the violation-redirecting contract weave — `beartype(conf=BeartypeConf(violation_type=...))` folded onto the fault — is `surfaces-and-dispatch.md`'s aspect and is composed there, never re-derived here. Every member is fixed at the active interpreter surface `language.md` declares — a regressed owner moves to the language page's replacement column with the older spelling, and nothing here predates that floor. The platform-forced statement seams are named where they appear: the `__reduce_ex__` protocol hook a zero-copy carrier must define, the `pickle` protocol-5 `buffer_callback` sink collecting each out-of-band block, the `os.readinto` fill of a caller-owned buffer, the `heapq` in-place heapify, and the `try`/`except` converting a `strict=`-mode iterator's ragged-tail raise into the rail — each is the signal the stdlib API forces, and each still leaves the result an `expression` `Result`.
 
 ## [01]-[SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell; the owning card states the placement law and the spelling it deletes.
 
-| [INDEX] | [SMELL]                            | [OWNER]                         |
-| :-----: | :--------------------------------- | :------------------------------ |
-|  [01]   | stringly `os.walk`/`os.path` flow  | `pathlib.Path` algebra          |
-|  [02]   | `shutil` transfer wrapper          | `Path.copy_into`/`move_into`    |
-|  [03]   | repeated `stat()` probe per check  | `Path.info` one-syscall cache   |
-|  [04]   | `datetime.strptime` then slicing   | `date.strptime`/`time.strptime` |
-|  [05]   | float math on an integer algorithm | `math.integer`/`math.fma`       |
-|  [06]   | `zip` product fold                 | `math.sumprod`                  |
-|  [07]   | `Fraction` constructor branch      | `Fraction.from_number`          |
-|  [08]   | timestamp-prefixed UUID wrapper    | `uuid.uuid7`                    |
-|  [09]   | negated-priority heap wrapper      | `heapq` `_max` family           |
-|  [10]   | subprocess or bespoke zstd adapter | `compression.zstd`              |
-|  [11]   | `os.read` copy slice per call      | `os.readinto`                   |
-|  [12]   | `bytes(buf)` plus `buf.clear()`    | `bytearray.take_bytes`          |
-|  [13]   | copy-heavy pickle blob             | protocol-5 out-of-band buffers  |
-|  [14]   | local chunk/batch helper loop      | `itertools.batched`             |
-|  [15]   | `sum(counter.values())` fold       | `Counter.total`                 |
-|  [16]   | `reset(token)` in a `finally`      | `ContextVar.set` token-as-`with`|
+| [INDEX] | [SMELL]                            | [OWNER]                          |
+| :-----: | :--------------------------------- | :------------------------------- |
+|  [01]   | stringly `os.walk`/`os.path` flow  | `pathlib.Path` algebra           |
+|  [02]   | `shutil` transfer wrapper          | `Path.copy_into`/`move_into`     |
+|  [03]   | repeated `stat()` probe per check  | `Path.info` one-syscall cache    |
+|  [04]   | `datetime.strptime` then slicing   | `date.strptime`/`time.strptime`  |
+|  [05]   | float math on an integer algorithm | `math.integer`/`math.fma`        |
+|  [06]   | `zip` product fold                 | `math.sumprod`                   |
+|  [07]   | `Fraction` constructor branch      | `Fraction.from_number`           |
+|  [08]   | timestamp-prefixed UUID wrapper    | `uuid.uuid7`                     |
+|  [09]   | negated-priority heap wrapper      | `heapq` `_max` family            |
+|  [10]   | subprocess or bespoke zstd adapter | `compression.zstd`               |
+|  [11]   | `os.read` copy slice per call      | `os.readinto`                    |
+|  [12]   | `bytes(buf)` plus `buf.clear()`    | `bytearray.take_bytes`           |
+|  [13]   | copy-heavy pickle blob             | protocol-5 out-of-band buffers   |
+|  [14]   | local chunk/batch helper loop      | `itertools.batched`              |
+|  [15]   | `sum(counter.values())` fold       | `Counter.total`                  |
+|  [16]   | `reset(token)` in a `finally`      | `ContextVar.set` token-as-`with` |
 
 ## [02]-[PATHS_AND_FILES]
 
@@ -80,8 +80,8 @@ def transferred(mode: Transfer, source: Path, into: Path, /) -> Result[Path, Tra
 
 [REGEX]:
 - Owner: `re` with `re.PatternError`, `re.RegexFlag` composition, and compiled module-level patterns.
-- Rule: a structural grammar compiles once to a module-level `Pattern` and the flags compose as one `RegexFlag` value (`re.MULTILINE | re.VERBOSE`), never a re-compiled inline string per call; a parse-error path catches `re.PatternError`, the precise subtype, never the broad `re.error` alias.
-- Reject: an inline `re.compile` inside the call; a flag passed as a bare `int` the body re-derives; a broad `except re.error` masking a grammar bug as input failure.
+- Rule: a structural grammar compiles once to a module-level `Pattern` and the flags compose as one `RegexFlag` value (`re.MULTILINE | re.VERBOSE`), never a re-compiled inline string per call; a parse-error path catches `re.PatternError`, the canonical name `re.error` is the retained legacy alias for, so the exception identity is one and only the spelling is fixed.
+- Reject: an inline `re.compile` inside the call; a flag passed as a bare `int` the body re-derives; the legacy `except re.error` spelling where `re.PatternError` names the same class; a compile-error catch widened to mask a grammar bug as input failure.
 
 [DATETIME]:
 - Owner: `datetime.date.strptime`, `datetime.time.strptime`, and timezone-aware `datetime`.
@@ -90,8 +90,55 @@ def transferred(mode: Transfer, source: Path, into: Path, /) -> Result[Path, Tra
 
 [TEMPLATE_RENDER]:
 - Owner: t-string processors over `string.templatelib.Template` consumed at the render boundary.
-- Boundary: template structure — segments, interpolations, conversions, format specs — is the language-form concern `language.md` owns; this card owns only the render-time consumption of the already-built `Template`, so a processor reads `.strings`/`.interpolations` and never re-parses rendered text.
+- Boundary: template structure — segments, interpolations, conversions, format specs — is the language-form concern `language.md` owns; this card owns only the render-time consumption of the already-built `Template`, so a processor folds its `str | Interpolation` segments and never re-parses rendered text.
 - Reject: f-string pre-parsing; rendered-string reparsing; string concatenation hiding template policy.
+
+```python conceptual
+import datetime
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from string.templatelib import Template
+from typing import Literal
+
+from beartype import beartype
+from builtins import frozendict
+from expression import Error, Ok, Result
+
+type TextFault = Literal["<bad-grammar>", "<no-match>", "<bad-stamp>"]
+
+STAMPED: re.Pattern[str] = re.compile(r"^ (?P<at>\d{4}-\d\d-\d\d) \s+ (?P<body>.+) $", re.VERBOSE | re.DOTALL)
+CONVERT: frozendict[str | None, Callable[[object], str]] = frozendict({None: str, "s": str, "r": repr, "a": ascii})
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Record:
+    at: datetime.datetime
+    body: str
+    rendered: str
+
+
+def _rendered(template: Template, /) -> str:
+    return "".join(
+        part if isinstance(part, str) else format(CONVERT[part.conversion](part.value), part.format_spec)
+        for part in template
+    )
+
+
+@beartype
+def recorded(line: str, render: Template, *, refine: str | None = None) -> Result[Record, TextFault]:
+    try:  # Exemption: re.PatternError is a compile-time raise admitted at the runtime-grammar seam.
+        grammar = STAMPED if refine is None else re.compile(refine, STAMPED.flags)
+    except re.PatternError:
+        return Error("<bad-grammar>")
+    if (found := grammar.match(line)) is None:
+        return Error("<no-match>")
+    try:  # Exemption: date.strptime raises ValueError on a malformed stamp before the seam.
+        day = datetime.date.strptime(found["at"], "%Y-%m-%d")
+    except ValueError:
+        return Error("<bad-stamp>")
+    return Ok(Record(at=datetime.datetime.combine(day, datetime.time.min, datetime.UTC), body=found["body"], rendered=_rendered(render)))
+```
 
 ## [04]-[NUMERIC_PRIMITIVES]
 
@@ -103,10 +150,10 @@ def transferred(mode: Transfer, source: Path, into: Path, /) -> Result[Path, Tra
 - Reject: float math on an integer algorithm; a rounded multiply-add; a NaN-aware min/max wrapper; a bit-level float probe; a `zip` product fold; a `Fraction` constructor branch; a `denominator == 1` re-derivation.
 
 [IDENTITY_AND_HEAP]:
-- Owner: `uuid.uuid7`, `uuid.NIL`, `uuid.MAX`, `Counter.subtract`, the max-heap `heapq` family `heapify_max`/`heappush_max`/`heappop_max`/`heapreplace_max`, and `operator.is_none`/`is_not_none`.
+- Owner: `uuid.uuid7`, `uuid.NIL`, `uuid.MAX`, `Counter.subtract`, the complete max-heap `heapq` family `heapify_max`/`heappush_max`/`heappop_max`/`heapreplace_max`/`heappushpop_max`, and `operator.is_none`/`is_not_none`.
 - Rule: `uuid.uuid7` is monotonic within a timestamp tick, so a time-ordered key carries its own sort order and needs no separate sequence column; the minted value is compared against a prior before binding, so the successor is `max(minted, prior)` rather than a blind overwrite.
-- Rule: the `_max` heap family is the native max-priority surface a value-negation `heappush` wrapper simulates, and `Counter.subtract` keeps the signed count delta the multiset `-` operator clamps to positive and a paired-iteration fold restates by hand.
-- Reject: a timestamp-prefixed UUID wrapper; a magic UUID boundary literal where `uuid.NIL`/`MAX` name it; a manual count-difference fold; a negated-priority heap; a `lambda x: x is None`.
+- Rule: the `_max` heap family is the native max-priority surface a value-negation `heappush` wrapper simulates; `heapreplace_max` pops-then-pushes and `heappushpop_max` pushes-then-pops, so a bounded top-`k` retention is one atomic call against the root rather than a conditional `heappop_max`-then-`heappush_max` pair, and `Counter.subtract` keeps the signed count delta the multiset `-` operator clamps to positive and a paired-iteration fold restates by hand.
+- Reject: a timestamp-prefixed UUID wrapper; a magic UUID boundary literal where `uuid.NIL`/`MAX` name it; a manual count-difference fold; a negated-priority heap; a conditional pop-then-push where `heapreplace_max`/`heappushpop_max` is atomic; a `lambda x: x is None`.
 
 ```python conceptual
 from dataclasses import dataclass
@@ -190,7 +237,7 @@ class Frame:
     digest: str
 
 
-class Carrier[T: Buffer]:
+class Carrier[T: Buffer]:  # Exemption: zero-copy reduction is expressible only through the __reduce_ex__ protocol hook.
     __slots__ = ("_view",)
 
     def __init__(self, payload: T, /) -> None:

@@ -1,6 +1,6 @@
 # [PYTHON_ALGORITHMS]
 
-Numeric work is admitted once and routed by operand shape: raw arrays cross into a finite-checked owner at one boundary, the interior is total over admitted operands, and the operand's structure — definite, square, overdetermined, symmetric, nonsymmetric, sparse-pattern, periodic-grid — selects the owning factorization through one route-keyed policy row, never the call site and never a knob riding beside the matrix. Every solve is one composed `admit -> route -> solve -> witness -> receipt` lifecycle written once; a per-module pipeline re-deriving the chain is the rejected form. `numpy` is the page's one numeric substrate cited at member depth — array admission, the dtype algebra, the element-wise and reduction ufuncs, `einsum` contraction, `linalg`, `fft`, the finiteness predicates, and seeded sampling — stacked with the rail substrate every page cites: `expression` carriers and folds, the `msgspec.Struct` receipt codec, `stamina.retry` over the witness core, and the `beartype` contract weave. The dense factorization, sparse direct, Krylov, symbolic-lowering, dimensional, and uncertainty surfaces are the compute companion band (`scipy.linalg`, `scipy.sparse.linalg`, `sympy`, `pint`, `uncertainties`), gated off the bleeding-edge core wheel, so they enter as the route's policy-named cell value at the compute boundary and never as an interior import — this layer states the route law and admits each companion-produced value under a gate, never the per-member surface. Every library refuses its own gates — no constructor checks finiteness, array arithmetic returns `nan`/`inf` silently, a near-singular solve yields a garbage vector with no signal, an exact-`==` symmetry test fails on an accumulation-built matrix — so admission re-imposes each refused gate as one explicit predicate, and every result leaves as a frozen `msgspec.Struct` receipt carrying its route case, the scale-derived tolerance it was gated against, and the recomputed true relative residual against the original operator, never a raw `ndarray` or factorization handle. The interior is expression-shaped end to end; the one statement seam is the held-factor close-over at the compute boundary, named where it appears.
+Numeric work is admitted once and routed by operand shape: raw arrays cross into a finite-checked owner at one boundary, the interior is total over admitted operands, and the operand's structure — definite, square, overdetermined, symmetric, nonsymmetric, sparse-pattern, periodic-grid — selects the owning factorization through one route-keyed policy row, never the call site and never a knob riding beside the matrix. Every solve is one composed `admit -> route -> solve -> witness -> receipt` lifecycle written once; a per-module pipeline re-deriving the chain is the rejected form. `numpy` is the page's one numeric substrate cited at member depth — array admission, the dtype algebra, the element-wise and reduction ufuncs, `einsum` contraction, `linalg`, `fft`, the finiteness predicates, and seeded sampling — stacked with the rail substrate every page cites: `expression` carriers and folds, the `msgspec.Struct`/`Raw` receipt codec, and the `beartype` contract weave the `aspected` factory folds onto the witness core. The interior is pure CPU math with no transient provider, so the egress weave carries the contract arm, not a retry. The dense factorization, sparse direct, Krylov, symbolic-lowering, dimensional, and uncertainty surfaces are the compute companion band (`scipy.linalg`, `scipy.sparse.linalg`, `sympy`, `pint`, `uncertainties`), gated off the bleeding-edge core wheel, so they enter as the route's policy-named cell value at the compute boundary and never as an interior import — this layer states the route law and admits each companion-produced value under a gate, never the per-member surface. Every library refuses its own gates — no constructor checks finiteness, array arithmetic returns `nan`/`inf` silently, a near-singular solve yields a garbage vector with no signal, an exact-`==` symmetry test fails on an accumulation-built matrix — so admission re-imposes each refused gate as one explicit predicate, and every result leaves as a frozen `msgspec.Struct` receipt carrying its route case, the scale-derived tolerance it was gated against, and the recomputed true relative residual against the original operator, never a raw `ndarray` or factorization handle. The interior is expression-shaped end to end; the one statement seam is the held-factor close-over at the compute boundary, named where it appears.
 
 ## [01]-[ROUTE_SPINE]
 
@@ -23,10 +23,10 @@ Recover the fallback from the route value and record it on the receipt, never a 
 
 [ROUTE_UNION]:
 - Law: the `Route` `StrEnum` is the one closed vocabulary over every operand shape the route table lists — dense, sparse, iterative, symbolic — and it is the receipt's route discriminant, so a new substrate lands as one member and the receipt carries every taken path; the dense `@tagged_union` `FactorRoute(frozen=True)` whose `case()` payload is the admitted dense operator projects the full dense subset of that vocabulary — definite, square, overdetermined, spectral, nonsymmetric, evidence — the sparse and symbolic sections threading their own handle and callable. A new dense factorization is one `Route` member plus one `FactorRoute` case plus one `RoutePolicy` row, every consumer broken loudly at the total `match` until the case exists.
-- Law: every route's policy — the operand projector that reads the admitted operator off the case, the optional admission `Gate`, whether the route owns a conditioning probe, and the solver slot the compute boundary fills — is one `RoutePolicy` frozen owner in a single `frozendict[Route, RoutePolicy]`; the four parallel route-keyed tables collapse into this one row so the dispatch reads one policy and threads only the admitted operator, the policy-derived conditioning convention, and the witness gate. The solver slot is the companion factorization the route table names, applied at the boundary that owns its member surface; this dispatch holds only the route key and the rail.
+- Law: every route's policy — the operand projector that reads the admitted operator off the case, the optional admission `Gate`, the `Scale` derivation form its tolerance takes, whether the route owns a conditioning probe, and the solver slot the compute boundary fills — is one `RoutePolicy` frozen owner in a single `frozendict[Route, RoutePolicy]`; every parallel route-keyed table collapses into this one row so the dispatch reads one policy and threads only the admitted operator, the policy-derived conditioning convention, and the witness gate. The solver slot is the companion factorization the route table names, applied at the boundary that owns its member surface; this dispatch holds only the route key and the rail.
 - Law: the route owns its conditioning convention as the policy row's derived value (a rank tolerance, a regularization budget) computed once from operand scale; a bare literal threaded through the signature is the rejected form.
 - Reject: a `compute_vectors: bool`, a `mode: str`, or a `sym: bool` parameter riding beside the matrix — a parallel knob re-describing the input is arity smuggled back; sibling `solve_spd`/`solve_general`/`solve_lstsq` functions where one routed dispatch discriminates on the operand value; a second route-keyed `frozendict` per policy axis where one `RoutePolicy` row carries the whole axis bundle.
-- Boundary: the element carrier is `numpy` `float64`; admission narrows the dtype and asserts C-contiguity once, and the interior never re-checks either.
+- Boundary: the spine's terminal `bind` lands in the `witnessed` receipt core the witness layer owns, so `solved` returns `Result[SolveReceipt, SolveFault]` and the residual is computed exactly once at that terminus, never a second time here; the element carrier is `numpy` `float64`, admission narrows the dtype and asserts C-contiguity once, and the interior never re-checks either.
 
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -72,6 +72,7 @@ class FactorRoute:
 class RoutePolicy:
     operand: Callable[[FactorRoute], np.ndarray]
     gate: Gate
+    scale: Scale
     conditioned: bool
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -81,20 +82,22 @@ def ranked(a: np.ndarray, x: np.ndarray, rank: int, /) -> Result[np.ndarray, Sol
 
 PASS: Gate = lambda _a, x, _rank: Ok(x)
 POLICY: frozendict[Route, RoutePolicy] = frozendict({
-    Route.DEFINITE: RoutePolicy(operand=lambda r: r.definite, gate=PASS, conditioned=True),
-    Route.SQUARE: RoutePolicy(operand=lambda r: r.square, gate=PASS, conditioned=True),
-    Route.OVERDETERMINED: RoutePolicy(operand=lambda r: r.overdetermined, gate=ranked, conditioned=False),
-    Route.SPECTRAL: RoutePolicy(operand=lambda r: r.spectral, gate=PASS, conditioned=False),
-    Route.NONSYMMETRIC: RoutePolicy(operand=lambda r: r.nonsymmetric, gate=PASS, conditioned=False),
-    Route.EVIDENCE: RoutePolicy(operand=lambda r: r.evidence, gate=PASS, conditioned=False),
+    Route.DEFINITE: RoutePolicy(operand=lambda r: r.definite, gate=PASS, scale=Scale.OPERATOR_RHS, conditioned=True),
+    Route.SQUARE: RoutePolicy(operand=lambda r: r.square, gate=PASS, scale=Scale.OPERATOR_RHS, conditioned=True),
+    Route.OVERDETERMINED: RoutePolicy(operand=lambda r: r.overdetermined, gate=ranked, scale=Scale.SINGULAR_DIM, conditioned=False),
+    Route.SPECTRAL: RoutePolicy(operand=lambda r: r.spectral, gate=PASS, scale=Scale.OPERATOR_RHS, conditioned=False),
+    Route.NONSYMMETRIC: RoutePolicy(operand=lambda r: r.nonsymmetric, gate=PASS, scale=Scale.OPERATOR_RHS, conditioned=False),
+    Route.EVIDENCE: RoutePolicy(operand=lambda r: r.evidence, gate=PASS, scale=Scale.SINGULAR_DIM, conditioned=False),
 })
 
 
-def solved(route: FactorRoute, solvers: frozendict[Route, Solver], b: np.ndarray, cap: float, /) -> Result[np.ndarray, SolveFault]:
+def solved(route: FactorRoute, solvers: frozendict[Route, Solver], b: np.ndarray, cap: float, /) -> Result[SolveReceipt, SolveFault]:
     policy = POLICY[route.tag]
     gated = (lambda m: conditioned(m, cap)) if policy.conditioned else Ok
     return admitted(policy.operand(route)).bind(gated).bind(
-        lambda m: policy.gate(m, *solvers[route.tag](m, b)).bind(lambda x: attested(m, x, b, tolerance(route.tag, m, b)))
+        lambda m: policy.gate(m, *solvers[route.tag](m, b)).bind(
+            lambda x: witnessed(route.tag, m, x, b, scaled(policy.scale, m, b))
+        )
     )
 ```
 
@@ -136,7 +139,7 @@ def conditioned(a: np.ndarray, cap: float, /) -> Result[np.ndarray, SolveFault]:
 ## [03]-[TOLERANCE_AND_HELD_HANDLE]
 
 [SCALE_DERIVED_TOLERANCE]:
-- Law: derive every threshold from operator and right-hand-side scale through one route-keyed `frozendict[Route, Callable]` policy row reading `σ_max` from the held SVD, `‖A‖_F` via `numpy.linalg.norm`, and `‖b‖∞`, and carry the derived scalar onto the receipt as the tolerance the witness gated against; a bare per-module absolute literal in `1e-4..1e-8` is unreplayable and uncomparable across operators, the rejected form, and a fresh literal per call site is the same defect spelled inline. The conditioning policy is one row keyed by the route case, derived once from the admitted operator's scale, never re-typed beside each solve.
+- Law: every threshold is one of two derivation forms over operator and right-hand-side scale — `Scale.OPERATOR_RHS` is `ε·‖A‖_F·max(‖b‖∞, 1)` for a square solve, `Scale.SINGULAR_DIM` is `ε·σ_max·max(shape)` for the least-squares rank floor reading `σ_max` off the held SVD — closed in one `Scale` vocabulary and projected by one `scaled(form, a, b)`, never a per-route `frozendict[Route, Callable]` whose definite and square rows duplicate one body; the route's `Scale` member rides its `RoutePolicy` row so the derivation is the policy axis the spine already threads, and `solved` reads `scaled(policy.scale, m, b)` at the one terminus. A bare per-module absolute literal in `1e-4..1e-8` is unreplayable and uncomparable across operators, the rejected form, and a fresh literal per call site is the same defect spelled inline; the derived scalar carries onto the receipt as the tolerance the witness gated against.
 - Law: recompute domain rank as `count(σ_i > ε_rank · σ_max)` with a caller-supplied relative `ε_rank`; the LAPACK default rank cut misclassifies significant singular values for an operator with `‖A‖₂ ~ 10⁶`.
 
 [HELD_HANDLE]:
@@ -148,6 +151,7 @@ def conditioned(a: np.ndarray, cap: float, /) -> Result[np.ndarray, SolveFault]:
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
+from enum import StrEnum
 from typing import Literal
 
 import numpy as np
@@ -159,17 +163,23 @@ from expression.collections import Block
 type RefineFault = Literal["<non-finite-residual>", "<stalled>"]
 type Solve = Callable[[np.ndarray], np.ndarray]
 
+
+class Scale(StrEnum):
+    OPERATOR_RHS = "operator-rhs"
+    SINGULAR_DIM = "singular-dim"
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _EPS: float = float(np.finfo(np.float64).eps)
-SCALE: frozendict[Route, Callable[[np.ndarray, np.ndarray], float]] = frozendict({
-    Route.DEFINITE: lambda a, b: _EPS * float(np.linalg.norm(a)) * max(float(np.linalg.norm(b, np.inf)), 1.0),
-    Route.SQUARE: lambda a, b: _EPS * float(np.linalg.norm(a)) * max(float(np.linalg.norm(b, np.inf)), 1.0),
-    Route.OVERDETERMINED: lambda a, b: _EPS * float(np.linalg.svd(a, compute_uv=False)[0]) * max(a.shape),
+FORM: frozendict[Scale, Callable[[np.ndarray, np.ndarray], float]] = frozendict({
+    Scale.OPERATOR_RHS: lambda a, b: _EPS * float(np.linalg.norm(a)) * max(float(np.linalg.norm(b, np.inf)), 1.0),
+    Scale.SINGULAR_DIM: lambda a, b: _EPS * float(np.linalg.svd(a, compute_uv=False)[0]) * max(a.shape),
 })
 
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def tolerance(route: Route, a: np.ndarray, b: np.ndarray, /) -> float:
-    return SCALE.get(route, SCALE[Route.SQUARE])(a, b)
+def scaled(form: Scale, a: np.ndarray, b: np.ndarray, /) -> float:
+    return FORM[form](a, b)
 
 
 def refined(a: np.ndarray, held: Solve, b: np.ndarray, x: np.ndarray, tol: float, cap: int, /) -> Result[np.ndarray, RefineFault]:
@@ -238,13 +248,12 @@ def settled(verdict: SolveTerminal, witness: float, cap: float, /) -> Result[np.
 
 [TYPED_RECEIPT]:
 - Law: every result leaves as one frozen `msgspec.Struct` `SolveReceipt` carrying the route case as a `Route` member, the scale-derived tolerance it was gated against, and the recomputed residual — the numeric evidence this layer owns; it never carries the operator, the factorization handle, or an eagerly decoded solution array, because the numeric block is large and its decode is the consumer's choice. The solution defers as a `Raw` field whose octet capture and zero-copy reconstruction are the `boundaries.md` wire owner's mechanic, composed here, not taught here — this card fixes only which evidence the receipt holds.
-- Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, applied over the pure witness core: `stamina.retry` on the transient provider fault enters as a `*composed` weave already built at its owner, and the factory's fixed contract arm lifts a `BeartypeCallHintViolation` through `lifted` — the witness re-spells none of them, and a failing weave folds onto the `SolveFault` rail rather than escaping. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress would re-impose a gate the interior owns once.
+- Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, composed over the pure witness core and never re-derived here: the in-process numeric interior carries no transient provider, so the spine weaves only the factory's fixed contract arm, which lifts a `BeartypeCallHintViolation` through `lifted` onto `<contract>` — a malformed operand shape becomes a `SolveFault` member rather than an escaping exception, and a co-occurring concern lands as one more `*composed` entry with the body untouched. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress would re-impose a gate the interior owns once.
 - Boundary: the receipt's scalar projection — route, tolerance, residual — is the `str | float` evidence a downstream span or structured-emission consumer reads, never the `Raw` solution bytes; the emission weave that consumes it is the domain observability owner's, this layer states only that the projection carries scalars and the solution stays bytes.
 
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import numpy as np
-import stamina
 from expression import Error, Ok, Result
 from msgspec import Raw, Struct
 
@@ -261,7 +270,7 @@ def attested(a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Resu
     return Error("<non-finite>") if not np.isfinite(residual) else Ok((x, residual)) if residual <= tol else Error("<residual-exceeded>")
 
 
-@aspected(stamina.retry(on=ConnectionError, attempts=3), lifted=lambda _v: "<contract>")
+@aspected(lifted=lambda _v: "<contract>")
 def witnessed(route: Route, a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Result[SolveReceipt, SolveFault]:
     block = lambda ok: np.ascontiguousarray(ok, dtype=np.float64).tobytes()
     return attested(a, x, b, tol).map(lambda pair: SolveReceipt(route, tol, pair[1], Raw(block(pair[0]))))
@@ -269,14 +278,14 @@ def witnessed(route: Route, a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: fl
 
 ## [06]-[COMPANION_ADMISSION]
 
-The symbolic, dimensional, and uncertainty surfaces are the compute companion band produced at the boundary; this layer admits each produced value — a lowered callable, a dimension-stripped magnitude, a covariance-lifted estimate — into the `float64` interior under one gate, never re-deriving the companion algebra and never threading a companion object through the BLAS hot path.
+The symbolic, dimensional, and uncertainty surfaces are the compute companion band produced at the boundary; this layer admits each produced value — a lowered callable, a dimension-stripped magnitude, a covariance-lifted estimate — into the `float64` interior under one admission law, never re-deriving the companion algebra and never threading a companion object through the BLAS hot path. The law is shared, the gate is shape-fitted: a callable crosses the finite-sample probe below, a stripped magnitude crosses the flat finite `admitted` gate the dense route already owns, and neither a `Quantity` nor an object-dtype error array reaches a BLAS call where it silently degrades the kernel dispatch to an object loop.
 
 [SYMBOLIC_LOWERING]:
 - Law: the `sympy` derivation route — differentiation, simplification, common-subexpression elimination, then lowering to a `"numpy"`-backend vectorized callable — produces one `Kernel` exactly once at the compute boundary, and a runtime derivative lowers with its primal in one tuple-lowering so value and gradient share one compiled kernel and one subexpression pass; this layer admits that produced callable under a finite-sample gate that rejects a `nan`/`inf`-producing derivation before it poisons the interior, then the admitted kernel enters the dense route as an ordinary operator. The `"numpy"` lowering target is named because it fixes the backend the admitted kernel runs on.
 - Reject: symbolic per-sample evaluation in a loop; re-deriving the symbolic expression per call; admitting the lowered kernel without the finite-sample gate.
 
 [DIMENSIONAL_AND_ERROR]:
-- Law: the `pint` units route strips a dimensioned input to its canonical base-unit magnitude through one module-level registry before the array crosses the finite-admission gate, and the receipt re-attaches the unit on egress; the `uncertainties` route lifts a fit covariance into auto-propagating arithmetic strictly as a boundary-and-receipt concern. Both are companion-produced values admitted by the same gate as the lowered kernel — a dimensioned quantity or an object-dtype error array never reaches a BLAS call, where it defeats the kernel dispatch.
+- Law: the `pint` units route strips a dimensioned input to its canonical base-unit magnitude through one module-level registry before the stripped array crosses the `[02]` finite-admission gate, and the receipt re-attaches the unit on egress; the `uncertainties` route lifts a fit covariance into auto-propagating arithmetic strictly as a boundary-and-receipt concern. Both obey the one admission law under their own gate — the magnitude through the flat finite gate, the kernel through the finite-sample probe — so a `Quantity` or an object-dtype error array never reaches a BLAS call, where its `__array_ufunc__` dispatch defeats the float64 kernel.
 - Reject: stringly-typed unit suffixes on field names; manual error-propagation arithmetic where the route derives the partials from its own shared-variable graph; mixing a dimensioned quantity or an uncertainty object into the dense factorization hot path.
 
 ```python conceptual
@@ -308,7 +317,7 @@ The constant-coefficient periodic operators and the seeded sampler have no compa
 
 [SPECTRAL_OPERATOR]:
 - Law: collapse every constant-coefficient periodic operator to one symbol applied pointwise to the forward `numpy.fft.rfft`; the symbol is a `frozendict` policy row keyed by a closed `StrEnum` operator vocabulary, composed by pointwise multiplication before a single `irfft`, and a new operator is a new row, never a new code path.
-- Law: derive the split-spectrum wavenumber once at grid construction through `numpy.fft.rfftfreq`, scaled by `2π/extent`; hand-indexing the bin number applies an aliased symbol past the half length silently, and the Nyquist bin is zeroed for odd-order symbols.
+- Law: derive the split-spectrum wavenumber once at grid construction through `numpy.fft.rfftfreq`, scaled by `2π/extent`; hand-indexing the bin number applies an aliased symbol past the half length silently. The Nyquist-null is a property of the symbol, not a runtime branch on grid size: each operator row carries its odd-order flag beside its callable, and an odd-order symbol on an even-length grid nulls the Nyquist coefficient (the real `rfft` cannot represent its imaginary half) while an even-order symbol keeps it — the flag is the row's second column, never an `if` re-deciding parity per call.
 - Boundary: mark the result inadmissible on a non-finite inverse; a real-symbol operator owes a finite real field, and a `nan` diagnoses broken Hermitian symmetry in the assembled spectrum.
 
 [SEEDED_SAMPLING]:
@@ -327,6 +336,7 @@ from expression import Error, Ok, Result
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type SpectralFault = Literal["<broken-symmetry>"]
+type Symbol = tuple[Callable[[np.ndarray], np.ndarray], bool]
 
 
 class Operator(StrEnum):
@@ -335,17 +345,18 @@ class Operator(StrEnum):
     HELMHOLTZ = "helmholtz"
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-SYMBOL: frozendict[Operator, Callable[[np.ndarray], np.ndarray]] = frozendict({
-    Operator.LAPLACIAN: lambda k: -(k**2),
-    Operator.GRADIENT: lambda k: 1j * k,
-    Operator.HELMHOLTZ: lambda k: 1.0 / (1.0 + k**2),
+SYMBOL: frozendict[Operator, Symbol] = frozendict({
+    Operator.LAPLACIAN: (lambda k: -(k**2), False),
+    Operator.GRADIENT: (lambda k: 1j * k, True),
+    Operator.HELMHOLTZ: (lambda k: 1.0 / (1.0 + k**2), False),
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def driven(field: np.ndarray, extent: float, operator: Operator, /) -> Result[np.ndarray, SpectralFault]:
+    apply, odd_order = SYMBOL[operator]
     k = np.fft.rfftfreq(field.size, d=extent / field.size) * (2.0 * np.pi)
-    spectrum = np.fft.rfft(field) * SYMBOL[operator](k)
-    spectrum[-1] = 0.0 if field.size % 2 == 0 else spectrum[-1]
+    spectrum = np.fft.rfft(field) * apply(k)
+    spectrum[-1] *= 0.0 if odd_order and field.size % 2 == 0 else 1.0
     inverted = np.fft.irfft(spectrum, n=field.size)
     return Ok(inverted) if np.isfinite(inverted).all() else Error("<broken-symmetry>")
 ```

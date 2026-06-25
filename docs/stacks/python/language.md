@@ -123,7 +123,7 @@ Use these contracts when the chooser names the primitive but code still needs a 
 - Soundness: `TypeIs[T]` is a biconditional type-membership proof, not a validation rail for valid, non-empty, active, normalized, positive, or otherwise filtered `T` values; that refinement is `beartype.vale.Is[...]` on a shared `Annotated` alias or the owning result rail.
 - Consumption: keep predicate use at ingress, dispatch, or projection boundaries; the narrowed value folds through one total `match` or the owning rail, never a branch body re-spread across the function.
 
-The type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, a `TypeForm` registry carries refinement-alias type-expression values, `door.is_subhint` decides registry membership by decidable subtyping while `door.is_bearable` narrows a raw boundary value into the aliased `T` it admits, `is_primary` narrows at the projection boundary, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
+The type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, a `TypeForm` registry holds the structural type-expression values that `door.is_subhint` resolves by decidable subtyping, `is_primary` is the `TypeIs[Primary]` that narrows the member so its `widened` transition is callable while `door.is_bearable` narrows the raw value into the refinement alias `Atom` that transition admits, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
 
 ```python conceptual
 import dataclasses
@@ -139,7 +139,6 @@ from beartype.vale import Is
 
 type Kind = Literal["<value-a>", "<value-b>"]
 type Atom = Annotated[int, Is[lambda n: n >= 0]]
-type Atoms = tuple[Atom, ...]
 type Context = tuple[Kind, str]
 
 
@@ -180,14 +179,11 @@ class Secondary(Shape):
 
 
 type Member = Primary | Secondary
-REGISTRY: tuple[tuple[str, TypeForm[Atom] | TypeForm[Atoms]], ...] = (("<scalar>", Atom), ("<vector>", Atoms))
+type Form = TypeForm[int] | TypeForm[tuple[int, ...]]
+REGISTRY: tuple[tuple[str, Form], ...] = (("<scalar>", int), ("<vector>", tuple[int, ...]))
 
 
-def admits[T](value: object, form: TypeForm[T], /) -> TypeIs[T]:
-    return is_bearable(value, form)
-
-
-def registered(form: TypeForm[Atom] | TypeForm[Atoms], /) -> str:
+def registered(form: Form, /) -> str:
     return next((name for name, candidate in REGISTRY if is_subhint(form, candidate)), "<unregistered>")
 
 
@@ -209,13 +205,13 @@ def with_context[**P, T](context: Context, /) -> Callable[[Callable[Concatenate[
 @with_context(("<value-a>", "<field-a>"))
 @beartype
 def rendered(context: Context, value: Member, raw: object, /) -> str:
-    namespace, prefix = registered(Atom), context[1]
-    projected = value.widened(raw) if is_primary(value) and admits(raw, Atom) else value
+    kind, prefix = context
+    projected = value.widened(raw) if is_primary(value) and is_bearable(raw, Atom) else value
     match projected:
         case Primary() as primary:
-            return f"{namespace}:{primary.rendered(prefix)}"
+            return f"{kind}:{registered(int)}:{primary.rendered(prefix)}"
         case Secondary() as secondary:
-            return secondary.rendered(prefix)
+            return f"{kind}:{registered(tuple[int, ...])}:{secondary.rendered(prefix)}"
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -239,27 +235,31 @@ def rendered(context: Context, value: Member, raw: object, /) -> str:
 - Boundary: global lazy-import modes, startup policy, dependency graph costs, and tool graph truth belong to the runtime or platform owner.
 
 [TEMPLATE_STRUCTURE_SITE]:
-- Use when: dynamic text must preserve template structure for processing, policy, or AST analysis before rendering.
-- Accept: t-string processors, `string.templatelib.Template` and `Interpolation`, `ast.TemplateStr`, and `ast.Interpolation` where code needs static segments, interpolation values, expression text, conversion, or format-spec structure.
-- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, and string concatenation used to hide template policy.
-- Boundary: t-string processors decide whether to apply conversions and format specs; template security, localization, escaping, rendering, and AST rewrite policy belong to the owning boundary or text-processing concept page.
+- Use when: dynamic text must preserve template structure for policy or AST analysis instead of collapsing to a rendered string.
+- Accept: live `string.templatelib.Template`/`Interpolation` for evaluated `value`/`expression`/`conversion`/`format_spec` fields, and `ast.TemplateStr`/`ast.Interpolation` over `ast.parse(optimize=, module=)` for the pre-evaluation source structure — `Constant.value` static segments and `Interpolation.str` expression text with the integer `conversion` ordinal — proved congruent with `ast.compare`.
+- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, `ast.dump` string comparison where `ast.compare` decides node equality, and string concatenation hiding template policy.
+- Boundary: the render-time fold of a live `Template`'s `str | Interpolation` segments and the conversion/format-spec application are `system-apis.md`'s; this site owns the structural type forms — the AST nodes and the live `Template` shape — read before any rendering, never the render itself.
 
 ```python conceptual
-from string.templatelib import Template
-from typing import Literal
+import ast
+
+from builtins import frozendict
+
+type Segment = tuple[str, str]
+type TemplateShape = tuple[tuple[str, ...], tuple[Segment, ...]]
+
+CONVERSION: frozendict[int, str] = frozendict({-1: "<plain>", 114: "<repr>", 115: "<str>", 97: "<ascii>"})
 
 
-type Conversion = Literal["a", "r", "s"] | None
-type InterpolationParts = tuple[object, str, Conversion, str]
-type TemplateParts = tuple[tuple[str, ...], tuple[InterpolationParts, ...]]
+def shaped(source: str, /) -> TemplateShape:
+    template = ast.parse(source, mode="eval", optimize=1, module="<template>").body
+    statics = tuple(part.value for part in template.values if isinstance(part, ast.Constant))
+    fields = tuple((part.str, CONVERSION[part.conversion]) for part in template.values if isinstance(part, ast.Interpolation))
+    return statics, fields
 
 
-def selected(template: Template) -> TemplateParts:
-    return (template.strings, tuple((field.value, field.expression, field.conversion, field.format_spec) for field in template.interpolations))
-
-
-VALUE = "<value-a>"
-SELECTED_RESULT = selected(t"<field-a>{VALUE!r:<field-b>}")
+SHAPE = shaped('t"<head>{alpha!r:>{width}}<mid>{beta}<tail>"')
+CONGRUENT = ast.compare(ast.parse('t"{alpha}"', mode="eval"), ast.parse('t"{alpha}"', mode="eval"))
 ```
 
 [CLOSED_MATCH_SITE]:

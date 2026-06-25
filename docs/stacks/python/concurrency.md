@@ -9,7 +9,7 @@ This table selects the concurrency primitive for an effect; when an effect match
 | [INDEX] | [EFFECT_SIGNATURE]                  | [PRIMITIVE]                          | [REJECTED_FORM]                          |
 | :-----: | :---------------------------------- | :----------------------------------- | :--------------------------------------- |
 |  [01]   | concurrent children, joined fate    | `create_task_group()` + `start_soon` | `asyncio.gather` / bare `create_task`    |
-|  [02]   | child result carried back           | `TaskHandle.return_value`            | shared mutable list, stream gather rig    |
+|  [02]   | child result carried back           | `TaskHandle.return_value`            | shared mutable list, stream gather rig   |
 |  [03]   | bound the whole effect, abort       | `fail_after(seconds)`                | a `timeout=` parameter threaded inward   |
 |  [04]   | bound the whole effect, settle      | `move_on_after(seconds)`             | `asyncio.wait_for` wrapping the call     |
 |  [05]   | scope tripped, not a fault          | `get_cancelled_exc_class()` re-raise | cancellation caught into `Result.Error`  |
@@ -18,23 +18,23 @@ This table selects the concurrency primitive for an effect; when an effect match
 |  [08]   | GIL-hostile native call             | `to_process.run_sync(limiter=)`      | unbounded subprocess fan-out             |
 |  [09]   | fault-ordered handle disposal       | `AsyncExitStack` + shielded teardown | bare `try`/`finally` awaiting unshielded |
 |  [10]   | group failure into the vocabulary   | `except*` at the group edge          | `except Exception` over the whole block  |
-|  [11]   | deterministic timing in a spec      | `trio.testing.MockClock(0)`          | wall-clock `sleep` in a test             |
+|  [11]   | deterministic timing in a spec      | `MockClock(autojump_threshold=0)`    | wall-clock `sleep` in a test             |
 
 ## [02]-[TASK_GROUP]
 
 The task group is the failure boundary: one `async with anyio.create_task_group()` whose `__aexit__` awaits every child and cancels siblings on the first raise. The child carrier rides the handle, not a side channel.
 
 [CHILD_CARRIER]:
-- Law: `group.start_soon(operation, *args)` takes the coroutine function and its arguments — never a pre-built awaitable — and returns a `TaskHandle[T]`; once the group exits cleanly, `handle.return_value` reads that child's carrier, so the gather is the typed property the handle already owns, never a shared mutable list mutated from inside the child and never a `create_memory_object_stream` rig re-implementing result transport. The stream pair stays the producer-consumer log the boundary owner holds; this rail reaches for it only when a child must publish a sequence of intermediates, not one terminal.
-- Law: `handle.return_value` reads the child carrier on the clean path only — a cancelled child's raises `TaskCancelled` and a failed child's raises `TaskFailed` — so the gather yields one `Block[Result[T, E]]` of carriers and the rail page's fail-fast reducer folds it into `Result[Block[T], E]`; the gather never re-derives that reducer, and the deadline verdict and group fault that gate it are the `[03]` and `[05]` owners.
+- Law: `group.start_soon(operation, *args)` takes the coroutine function and its arguments — never a pre-built awaitable — and returns a `TaskHandle[T]` carrying the child's whole disposition through the closed `TaskHandle.Status` family (`PENDING`/`FINISHED`/`FAILED`/`CANCELLED`/`CANCELLING`), so the result transport is the property the handle already owns, never a shared mutable list mutated from inside the child and never a `create_memory_object_stream` rig re-implementing it. The stream pair stays the producer-consumer log the boundary owner holds; this rail reaches for it only when a child must publish a sequence of intermediates, not one terminal.
+- Law: the child body rails its own offload faults so the group exits clean and every handle settles `FINISHED` — `handle.return_value` then reads the carrier with no re-raise, and the gather yields one `Block[Result[T, E]]` the rail page's fail-fast reducer threads into `Result[Block[T], E]`. A child that raises instead leaves its handle `FAILED`/`CANCELLED` and propagates a `BaseExceptionGroup` from the `async with`, so `handle.return_value` is read only on the all-clean path; the `status`/`exception` accessors — `status` total and never raising, `return_value`/`exception` raising on a non-matching state — are the post-`except*` survivor classification the `[05]` group edge owns, and the deadline verdict that gates the read is the `[03]` owner.
 - Use: `group.start` over `start_soon` when the child must signal readiness — it blocks until the child calls `task_status.started(value)` and returns that value, the listener-bound / port-ready handshake; `start_soon` is fire-and-track with no handshake.
-- Reject: `asyncio.gather`, `asyncio.create_task`, or a bare `create_task_group` without `async with`; a child appending to a closure-captured list; a `MemoryObjectReceiveStream` drained as the result carrier where `return_value` already carries it.
+- Reject: `asyncio.gather`, `asyncio.create_task`, or a bare `create_task_group` without `async with`; a child appending to a closure-captured list; a `MemoryObjectReceiveStream` drained as the result carrier where the handle already carries it; reading `handle.return_value` on a path the group could have raised through.
 
 [OFFLOAD_LANE]:
-- Law: blocking work crosses the loop on exactly one arm keyed by isolation need — `to_thread.run_sync` for blocking I/O sharing the address space, `to_interpreter.run_sync` for CPU-bound work with no pickle hop (each subinterpreter owns its GIL), `to_process.run_sync` for a GIL-hostile native call needing a real process — and every arm takes an explicit `CapacityLimiter` so subsystem concurrency is bounded at the boundary, not left to the per-loop default. The arm is a `frozendict` policy value keyed on the lane, so a new lane is one row and the call site never re-pairs a `lane: str` knob to a dispatcher the value already selects.
-- Law: a worker death surfaces as a typed raise the boundary converts — `BrokenWorkerProcess` from `to_process`, `BrokenWorkerInterpreter` from `to_interpreter` — never a raw exception escaping the offload seam; the limiter the lane carries bounds the fan-out so a burst of children never exceeds the slot count the policy declares.
+- Law: blocking work crosses the loop on exactly one arm keyed by isolation need — `to_thread.run_sync` for blocking I/O sharing the address space, `to_interpreter.run_sync` for CPU-bound work with no pickle hop, `to_process.run_sync` for a GIL-hostile native call needing a real process — and every arm takes an explicit `CapacityLimiter` so subsystem concurrency is bounded at the boundary, not left to the per-loop `current_default_*_limiter()`. The arm is a `frozendict` row keying the `Lane` member straight to the unbound `run_sync` callable, so each `to_X` surface is the row's value with no forwarder wrapping it, a new lane is one entry, and the call site never re-pairs a `lane: str` knob to a dispatcher the value already selects; the subinterpreter isolation arm the offload targets is `runtime.md`'s.
+- Law: a worker death surfaces as a typed raise the seam converts into a two-case closed family — `BrokenWorkerProcess` from `to_process`, `BrokenWorkerInterpreter` from `to_interpreter` — each kept structurally addressable rather than flattened to one undifferentiated string, so a downstream `match` routes a process death apart from an interpreter death; the limiter the lane carries bounds the fan-out so a burst of children never exceeds the slot count the policy declares.
 - Use: one `CapacityLimiter(slots)` constructed at the boundary and threaded into every arm of one subsystem; `to_interpreter` over `to_process` whenever the callable and its arguments need no pickle round trip, since the subinterpreter hop is the lighter isolate.
-- Reject: a bare `ThreadPoolExecutor`/`ProcessPoolExecutor` on the loop; an unbounded offload trusting the default limiter; `to_process` for a callable `to_interpreter` already isolates without the pickle cost.
+- Reject: a per-lane forwarder function renaming `to_X.run_sync`; a bare `ThreadPoolExecutor`/`ProcessPoolExecutor` on the loop; an unbounded offload trusting the default limiter; `to_process` for a callable `to_interpreter` already isolates without the pickle cost; a single-case `Literal` collapsing the two worker deaths.
 
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -43,14 +43,17 @@ from enum import StrEnum
 from typing import Literal
 
 import anyio
+import anyio.to_interpreter
+import anyio.to_process
+import anyio.to_thread
 from anyio import BrokenWorkerInterpreter, BrokenWorkerProcess, CapacityLimiter, TaskHandle
 from builtins import frozendict
 from expression import Error, Ok, Result
 from expression.collections import Block
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type RunFault = Literal["<worker>"]
-type Offload[T] = Callable[[Callable[[], T], CapacityLimiter], Awaitable[T]]
+type RunFault = Literal["<broken-process>", "<broken-interpreter>"]
+type Offload[T] = Callable[..., Awaitable[T]]
 
 
 class Lane(StrEnum):
@@ -59,35 +62,26 @@ class Lane(StrEnum):
     PROCESS = "<lane-c>"
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+ARM: frozendict[Lane, Offload[object]] = frozendict(
+    {Lane.THREAD: anyio.to_thread.run_sync, Lane.INTERP: anyio.to_interpreter.run_sync, Lane.PROCESS: anyio.to_process.run_sync}
+)
+BROKEN: frozendict[type[Exception], RunFault] = frozendict({BrokenWorkerProcess: "<broken-process>", BrokenWorkerInterpreter: "<broken-interpreter>"})
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
-async def _thread[T](work: Callable[[], T], limiter: CapacityLimiter, /) -> T:
-    return await anyio.to_thread.run_sync(work, limiter=limiter)
-
-
-async def _interp[T](work: Callable[[], T], limiter: CapacityLimiter, /) -> T:
-    return await anyio.to_interpreter.run_sync(work, limiter=limiter)
-
-
-async def _process[T](work: Callable[[], T], limiter: CapacityLimiter, /) -> T:
-    return await anyio.to_process.run_sync(work, limiter=limiter)
-
-
-ARM: frozendict[Lane, Offload[object]] = frozendict({Lane.THREAD: _thread, Lane.INTERP: _interp, Lane.PROCESS: _process})
-
-
 async def gathered[T](work: Block[Callable[[], T]], /, *, lane: Lane, slots: int) -> Block[Result[T, RunFault]]:
     arm, limiter = ARM[lane], CapacityLimiter(slots)
-    handles: list[TaskHandle[Result[T, RunFault]]] = []
 
-    async def offloaded(job: Callable[[], T], /) -> Result[T, RunFault]:
+    async def railed(job: Callable[[], T], /) -> Result[T, RunFault]:
         try:
-            return Ok(await arm(job, limiter))
-        except (BrokenWorkerProcess, BrokenWorkerInterpreter):
-            return Error("<worker>")
+            return Ok(await arm(job, limiter=limiter))
+        except (BrokenWorkerProcess, BrokenWorkerInterpreter) as broken:
+            return Error(BROKEN[type(broken)])
 
     async with anyio.create_task_group() as group:
-        handles = [group.start_soon(offloaded, job) for job in work]
-    return Block.of_seq(handle.return_value for handle in handles)
+        handles: Block[TaskHandle[Result[T, RunFault]]] = work.map(lambda job: group.start_soon(railed, job))
+    return handles.map(lambda handle: handle.return_value)
 ```
 
 ## [03]-[DEADLINE_AND_CANCELLATION]
@@ -96,7 +90,7 @@ The bound on an effect is a scope, never a signature parameter: the deadline rid
 
 [DEADLINE_SCOPE]:
 - Law: a deadline is `anyio.fail_after(seconds)` when expiry is a fault — it raises `TimeoutError` the group edge maps into the vocabulary — or `anyio.move_on_after(seconds)` when expiry is a settled outcome the body reads through `scope.cancelled_caught`; the scope owns the bound, so a `timeout`/`deadline` entrypoint parameter is the knob the scope already encodes, deleted under the knob test.
-- Law: `move_on_after` returns and `cancelled_caught` is the post-scope verdict read before any child handle is drained, so the deadline short-circuits the terminal — a timed-out gather returns `Error("<deadline>")` without touching a `return_value` that would raise; nested scopes compose by `current_effective_deadline`, the inner bound never outliving the outer.
+- Law: `move_on_after` returns and `cancelled_caught` is the post-scope verdict read before any child handle is drained, so the deadline short-circuits the terminal — a timed-out gather returns `Error("<deadline>")` without touching a `return_value` that would raise; nested scopes compose by deadline propagation, `current_effective_deadline` reading the nearest active bound so the inner scope never outlives the outer.
 - Reject: `asyncio.wait_for` wrapping the call; a `timeout: float` parameter threaded through the signature; a deadline read after the handles are gathered where `cancelled_caught` already settled the outcome.
 
 [CANCELLATION_RAIL]:
@@ -126,7 +120,7 @@ from expression import Error, Ok, Result
 from expression.collections import Block
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type BracketFault = Literal["<acquire-deadline>", "<release>"]
+type BracketFault = Literal["<acquire-deadline>"]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -146,81 +140,66 @@ async def bracketed[T, E](
     async with AsyncExitStack() as stack:
         with anyio.move_on_after(seconds) as scope:
             held = Block.of_seq([await stack.enter_async_context(leased(name, acquire, release)) for name in names])
-        if scope.cancelled_caught:
-            return Error("<acquire-deadline>")
-    return body(held)
+        return Error("<acquire-deadline>") if scope.cancelled_caught else body(held)
 ```
 
 ## [05]-[GROUP_FAULT]
 
-The group's `BaseExceptionGroup` is converted into the closed fault vocabulary exactly once at the group edge through `except*`. The conversion reads the cancellation arm first, partitions the remaining failures by type, and preserves cause with `add_note`; the retry weave wraps each attempt and sees only a raised transient.
+The group's `BaseExceptionGroup` is the one raise this rail converts into the settled fault vocabulary, exactly once at the group edge through `except*`. The conversion reads the cancellation arm first, partitions the remaining failures into the vocabulary's cases by type, and preserves cause with `add_note`; the fault family, its two-tier constructor, and its associative `combined` monoid arrive finalized from `rails-and-effects.md` — this card weaves them, never re-spelling the combination law. The retry weave wraps each attempt and sees only a raised transient.
 
 [GROUP_CONVERSION]:
-- Law: a task group aggregates child failures into a `BaseExceptionGroup` the group edge splits with `except*` — one `except*` arm per closed fault case binding the partitioned subgroup, because `return`/`break`/`continue` are illegal inside an `except*` block, so each arm assigns a carrier and the post-scope read folds the assigned fault and the deadline verdict into one terminal; an `except Exception` over the whole `async with` flattens the group and erases which children failed.
-- Law: cause survives the conversion — `BaseException.add_note` annotates the in-flight exception before it is re-spelled into the vocabulary, and a release that raised during teardown joins the failure set rather than masking the trigger, so the aggregate fault's typed members stay structurally addressable instead of collapsing to one concatenated string.
-- Law: the conversion reads dispositions in fixed order — cancellation first (re-raised, never railed), then the worker arm, then the residual child arm — so a deadline that cancelled the group never routes through the transient set, and the fault vocabulary's own combination law aggregates multi-child failures.
-- Reject: `except Exception` over a task group; a stringified group message standing in for the typed cases; `return`/`break`/`continue` inside an `except*` block; the cancellation class folded into the retry-eligible set.
+- Law: a task group aggregates child failures into a `BaseExceptionGroup` the group edge splits with `except*` — one arm per vocabulary case binding the partitioned subgroup, because `return`/`break`/`continue` are illegal inside an `except*` block, so each arm folds its subgroup into a `Fault` and assigns the running carrier, and the post-scope read folds that carrier and the deadline verdict into one terminal; an `except Exception` over the whole `async with` flattens the group and erases which children failed.
+- Law: each `except*` arm reduces its subgroup through the settled `Fault.combined` monoid the rail page owns — every child re-spelled by the vocabulary's two-tier `Fault.of_detail` constructor, the railed results threaded by `Block.choose(to_option)`, and `reduce(Fault.combined)` closing the arm — and accrues onto the prior arm through that same law, so the multi-arm, multi-child accumulation is one associative reduction and no second combination algebra is authored here; the seam composes the monoid, it does not redefine it.
+- Law: cause survives the conversion — `BaseException.add_note` annotates each in-flight exception before it is re-spelled into a case, and a release that raised during teardown joins the failure set rather than masking the trigger, so the aggregate fault's typed members stay structurally addressable instead of collapsing to one concatenated string.
+- Law: the conversion reads dispositions in fixed order — cancellation first (re-raised, never railed), then the worker arm, then the residual child arm — so a deadline that cancelled the group never routes through the transient set, and the cancellation class is excluded from every `except*` arm because it is the backend signal, not a vocabulary case.
+- Reject: a parallel group-only fault family or a re-authored `combined` beside the settled `Fault` monoid; `except Exception` over a task group; a stringified group message standing in for the typed cases; `return`/`break`/`continue` inside an `except*` block; the cancellation class folded into a fault arm.
 
 [RETRY_BOUNDARY]:
-- Law: retry triggers only on a raised transient at the effect boundary and wraps each attempt independently — a domain fault already railed as `Result.Error` is not an exception and is never retried, so the boundary maps the retried call's terminal onto the carrier after the schedule returns, and re-raising an `Error` to force a retry is the rejected inversion. The `stamina.retry(on=...)` schedule is the policy value the surface page weaves at definition time; this rail composes that settled weave and owns the raised-versus-railed boundary that bounds what it may see.
+- Law: retry triggers only on a raised transient at the effect boundary and wraps each attempt independently — a domain fault already railed as `Result.Error` is not an exception and is never retried, so the boundary maps the retried call's terminal onto the carrier after the schedule returns, and re-raising an `Error` to force a retry is the rejected inversion. The `stamina.retry(on=...)` schedule is the policy value the surface page weaves at definition time; this rail composes that settled weave and owns the raised-versus-railed boundary that bounds what reaches it.
 - Law: the schedule is bounded — at least one of `attempts` or `timeout` is non-`None` — and its backoff sleep is an `anyio` checkpoint, so an enclosing `move_on_after` deadline preempts a retry storm and the `[03]` cancellation exclusion keeps a cancelled scope out of the transient set; a fixed-policy target reused across sites is one `AsyncRetryingCaller` built once with `.on(exc)` pre-binding the transient set.
 - Reject: retrying a `Result.Error` by re-raising it; an unbounded retry trusted to stop itself; a second retry implementation beside the composed weave; the cancellation class in the schedule's `on=` set.
 
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable
-from typing import Literal
 
 import anyio
 import stamina
 from anyio import BrokenWorkerProcess, TaskHandle
-from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-@tagged_union(frozen=True)
-class Fault:
-    tag: Literal["deadline", "worker", "child", "aggregate"] = tag()
-    deadline: float = case()
-    worker: str = case()
-    child: str = case()
-    aggregate: tuple["Fault", ...] = case()
-
-    @staticmethod
-    def combined(left: "Fault", right: "Fault", /) -> "Fault":
-        match left, right:
-            case Fault(tag="aggregate"), Fault(tag="aggregate"):
-                return Fault(aggregate=(*left.aggregate, *right.aggregate))
-            case Fault(tag="aggregate"), _:
-                return Fault(aggregate=(*left.aggregate, right))
-            case _, _:
-                return Fault(aggregate=(left, right))
+# `Fault` is the settled rail-page vocabulary: closed family + two-tier `of_detail` + associative `Fault.combined`.
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 @stamina.retry(on=BrokenWorkerProcess, attempts=5, timeout=30.0)
-async def _attempt[T](operation: Callable[[], Awaitable[Result[T, Fault]]], /) -> Result[T, Fault]:
+async def _attempt[T](operation: Callable[[], Awaitable[Result[T, "Fault"]]], /) -> Result[T, "Fault"]:
     return await operation()
 
 
-def _partitioned(group: BaseExceptionGroup[Exception], kind: Callable[[str], Fault], note: str, /) -> Fault:
+def _accrued(prior: Option["Fault"], group: BaseExceptionGroup[Exception], note: str, /) -> Option["Fault"]:
     for exc in group.exceptions:
         exc.add_note(note)
-    return Block.of_seq(kind(type(exc).__name__) for exc in group.exceptions).reduce(Fault.combined)
+    cased = Block.of_seq(Fault.of_detail(note, type(exc).__name__) for exc in group.exceptions).choose(lambda r: r.to_option())
+    if cased.is_empty():
+        return prior
+    arm = cased.reduce(Fault.combined)
+    return Some(prior.map(lambda held: Fault.combined(held, arm)).default_value(arm))
 
 
-async def converged[T](work: Block[Callable[[], Awaitable[Result[T, Fault]]]], /, *, seconds: float) -> Result[Block[Result[T, Fault]], Fault]:
-    handles: list[TaskHandle[Result[T, Fault]]] = []
-    fault: Option[Fault] = Nothing
+async def converged[T](work: Block[Callable[[], Awaitable[Result[T, "Fault"]]]], /, *, seconds: float) -> Result[Block[Result[T, "Fault"]], "Fault"]:
+    handles: list[TaskHandle[Result[T, "Fault"]]] = []
+    fault: Option["Fault"] = Nothing
 
     with anyio.move_on_after(seconds) as scope:
         try:
             async with anyio.create_task_group() as group:
                 handles = [group.start_soon(_attempt, job) for job in work]
         except* BrokenWorkerProcess as broken:
-            fault = Some(_partitioned(broken, lambda name: Fault(worker=name), "<at:worker>"))
+            fault = _accrued(fault, broken, "<at:worker>")
         except* Exception as failed:
-            fault = Some(_partitioned(failed, lambda name: Fault(child=name), "<at:converged>"))
+            fault = _accrued(fault, failed, "<at:converged>")
 
     if scope.cancelled_caught:
         return Error(Fault(deadline=seconds))
@@ -238,10 +217,11 @@ async def converged[T](work: Block[Callable[[], Awaitable[Result[T, Fault]]]], /
 
 ```python conceptual
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import override
 
 import trio
+import trio.testing
 from trio.abc import Instrument
 from trio.lowlevel import Task
 
@@ -260,13 +240,18 @@ class Spans(Instrument):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-async def _settled(body: Callable[[], Awaitable[None]], /) -> None:
-    async with trio.open_nursery() as nursery:
-        nursery.start_soon(body)
-        await trio.testing.wait_all_tasks_blocked()
+async def _expired(seconds: float, /) -> bool:
+    with trio.testing.assert_checkpoints():
+        await trio.sleep(0)
+    with trio.move_on_after(seconds) as scope:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(trio.sleep_forever)
+            await trio.testing.wait_all_tasks_blocked()
+            await trio.sleep(seconds * 2)
+    return scope.cancelled_caught
 
 
-def proven(body: Callable[[], Awaitable[None]], sink: Callable[[str, str], None], /) -> None:
+def proven(sink: Callable[[str, str], None], /, *, seconds: float) -> bool:
     clock = trio.testing.MockClock(autojump_threshold=0)
-    trio.run(_settled, body, clock=clock, instruments=[Spans(sink)])
+    return trio.run(_expired, seconds, clock=clock, instruments=[Spans(sink)])
 ```

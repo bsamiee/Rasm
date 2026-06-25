@@ -19,12 +19,12 @@ This table selects the owner for a foreign signal; when a signal matches several
 
 ## [02]-[ADMISSION]
 
-The absence axis arrives settled: a `None`-as-failure never crosses inward, computed non-failing absence is `Option`, and a cause-bearing foreign state is a `@tagged_union` case — the shape page owns that taxonomy and this page never re-decides it. The boundary law is narrower and unowned upstream — *where* a foreign sentinel is admitted, and that it is admitted exactly once.
+The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure never crosses inward, computed non-failing absence is `Option`, a cause-bearing foreign state is a `@tagged_union` case — and the carrier-minting matrix is `rails-and-effects.md`'s. This page owns the one fact neither settles: *where* a foreign sentinel is admitted, and that every site that can mint one is a seam.
 
-[SENTINEL_PROJECTION]:
-- Law: a foreign absence token — `None`, a missing key, a not-found code, a provider default — projects to the carrier at the single read site that first sees the foreign value, through `Option.of_optional(value)` for non-failing absence or `option.to_result(fault)` when the caller must know the cause; the projection is the last line that names a foreign sentinel, and every later interior reader holds the carrier the seam minted.
-- Law: a `None` that *re-appears* after the seam — a transform that can return `None`, a nested field that erases late — is itself a second admission site and projects there too; the present branch never manufactures `Some(None)`, because a carrier wrapping a foreign sentinel re-leaks the sentinel one hop later.
-- Reject: `None` checks threaded through interior flow; a nullable field riding past the seam; `dict.get(...)` returning `None` consumed directly; `Option.value` read without an `is_some` proof.
+[SENTINEL_SITE]:
+- Law: a sentinel projects at the single read site that first sees the foreign value, and that line is the last one in the program that names the sentinel — the carrier the rail page's `of_optional`/`to_result` matrix mints crosses inward, and no interior reader re-derives absence from a value it was never handed.
+- Law: a sentinel that *re-appears* after the seam — a transform that can itself return `None`, a nested field that erases late, a provider default surfacing on a second call — is a second admission site, not a leaked first one, so it projects where it appears; the present branch never manufactures `Some(None)`, because a carrier wrapping a foreign sentinel re-leaks the sentinel one hop later and breaks the interior totality the first admission promised.
+- Reject: a sentinel admitted once then trusted forever where a later transform re-mints it; a `None`-check threaded through interior flow; a nullable field riding past the seam; a `dict.get(...)` `None` consumed directly; `Option.value` read without an `is_some` proof.
 
 [ENV_ADMISSION]:
 - Law: the environment is the one foreign surface whose read, validation, and rail lift fuse into a single admission step — a `pydantic-settings` `BaseSettings` runs the source chain (env, dotenv, secrets dir) at construction, so `os.environ` is never read raw and a missing or malformed variable surfaces as `SettingsError`/`ValidationError` captured once into the seam fault, never a scattered `os.getenv(...) or default` across the interior.
@@ -32,25 +32,34 @@ The absence axis arrives settled: a `None`-as-failure never crosses inward, comp
 - Reject: a raw `os.environ[...]` read in interior flow; a settings value re-validated past the `BaseSettings` step; a nullable settings field where the absence carries a cause the port should own.
 
 [PROBE_SWEEP]:
-- Law: a multi-probe admission fixes its sweep disposition once at the seam — abort on the first refused probe or accumulate every refusal — and the carrier the projector mints realizes it; the abort fold short-circuits on the first `Error`, the accumulating fold keeps the full casualty set, and the sequencing operator is the rail page's, composed here and never re-derived.
-- Law: a per-probe boundary obligation — a release, a converted provider exception, a token check — attaches at the probe that incurs it, never inside the traverse that sweeps, because the traverse never guarantees the element function runs; a survivor/casualty partition is admitted only when callers need both the usable values and the rejected facts.
-- Reject: a single rail for a sweep whose callers need every casualty; a later walk over the admitted set reinterpreting why each probe disappeared.
+- Law: a multi-probe admission — several settings groups, capability handshakes, or provider reads admitted together — fixes its abort-versus-accumulate disposition at the seam where the probes run, never downstream, and composes the rail page's settled fold to realize it; the seam's contribution is the locality, that the decision is bound before the first probe rather than reconstructed by a later reader from a `Block` of mixed outcomes.
+- Law: a per-probe boundary obligation — a release, a converted provider exception, a token check — attaches at the probe that incurs it, never inside the traverse that sweeps, because a fail-fast traverse abandons the tail probes and their obligations never run; a survivor/casualty partition is admitted only when callers need both the usable values and the rejected facts, and the obligation rides each probe's own rail so an abandoned probe carries no orphaned cleanup.
+- Reject: a single rail for a sweep whose callers need every casualty; a cleanup hung off the sweep that a short-circuit skips; a later walk over the admitted set reinterpreting why each probe disappeared.
 
 ```python conceptual
+from collections.abc import Callable
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from beartype.vale import Is
 from expression import Error, Ok, Option, Result, case, tag, tagged_union
+from expression.collections import Block
+from expression.extra.result import sequence
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
-type Endpoint = Annotated[str, Is[lambda text: text.startswith("<scheme>")]]
+type Endpoint = Annotated[str, Is[lambda text: "://" in text and text.isascii()]]
 type AdmitFault = Literal["<unset>", "<malformed>"]
+
+
+class Sweep(StrEnum):
+    STRICT = "<strict>"
+    LENIENT = "<lenient>"
 
 
 class Env(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="<prefix>_", frozen=True, extra="forbid")
-    endpoint: Endpoint
+    endpoints: tuple[Endpoint, ...]
     fallback: str | None = None
 
 
@@ -58,17 +67,27 @@ class Env(BaseSettings):
 class Link:
     tag: Literal["bound", "unavailable"] = tag()
     bound: Endpoint = case()
-    unavailable: str = case()
+    unavailable: tuple[Endpoint, str] = case()
 
     @staticmethod
-    def admitted() -> Result[tuple["Link", Option[str]], AdmitFault]:
-        try:
-            env = Env()
-        except SettingsError:
-            return Error("<unset>")
-        except ValidationError:
-            return Error("<malformed>")
-        return Ok((Link(bound=env.endpoint), Option.of_optional(env.fallback)))
+    def probed(probe: Callable[[Endpoint], Result[None, str]], endpoint: Endpoint, /) -> Result["Link", "Link"]:
+        return probe(endpoint).map(lambda _ok: Link(bound=endpoint)).map_error(lambda reason: Link(unavailable=(endpoint, reason)))
+
+
+def admitted(probe: Callable[[Endpoint], Result[None, str]], disposition: Sweep, /) -> Result[tuple[Block[Link], Option[str]], AdmitFault | Link]:
+    try:
+        env = Env()
+    except SettingsError:
+        return Error("<unset>")
+    except ValidationError:
+        return Error("<malformed>")
+    swept = Block.of_seq(env.endpoints).map(lambda endpoint: Link.probed(probe, endpoint))
+    fallback = Option.of_optional(env.fallback)
+    match disposition:
+        case Sweep.STRICT:
+            return sequence(swept).map(lambda live: (live, fallback))
+        case Sweep.LENIENT:
+            return Ok((swept.map(lambda outcome: outcome.merge()), fallback))
 ```
 
 ## [03]-[LIFETIME]
@@ -77,7 +96,7 @@ class Link:
 - Use: native handles, FFI pointers, pinned buffers, pooled values, external cursors, and any foreign object with an explicit release.
 - Law: borrowed and owned lifetimes are cases of one closed `@tagged_union` capsule — the owned case registers release through `weakref.finalize` tied to the owner's identity and disposes on its terminal transition, the borrowed case projects a detached copy and never disposes; one `use` fold projects across both cases so a caller never branches on lifetime.
 - Law: a native borrow spans the full operation that observes the pointer — the view materializes inside the borrow window, the projection copies to owned `bytes` while the window is open, and the window closes before the foreign owner can free; liveness is never tested apart from the consumption it guards, because a separate liveness probe races the free the borrow window already orders against.
-- Law: callers receive values or rails, never live handles; the capsule converts its own `OSError`/`ctypes.ArgumentError`/`ValueError` into the domain fault, so no provider exception type escapes the seam.
+- Law: callers receive values or rails, never live handles; the native crossing is the one foreign fault family this page mints — `OSError`/`ctypes.ArgumentError`/`ValueError` split through the rail page's multi-`except` form into the closed `host`/`marshal`/`extent` cases so the syscall errno, the marshalling detail, and the bad extent stay structurally addressable instead of flattening to one provider token, and the discrimination rides the same borrow window the lifetime owns so no provider exception type escapes the seam unconverted.
 - Exemption: the address-to-view materialization, the `view.release()` call, and the `weakref.finalize` registration inside the capsule kernel are the named platform-forced statement seam.
 - Reject: a public handle field; scattered manual `close()`; parallel borrowed and owned wrapper classes; a `__del__` finalizer owning release where `weakref.finalize` states it.
 
@@ -89,7 +108,13 @@ from typing import Literal
 
 from expression import Error, Ok, Result, case, tag, tagged_union
 
-type CapsuleFault = Literal["<provider>"]
+
+@tagged_union(frozen=True)
+class CapsuleFault:
+    tag: Literal["host", "marshal", "extent"] = tag()
+    host: int = case()
+    marshal: str = case()
+    extent: tuple[int, int] = case()
 
 
 @tagged_union(frozen=True)
@@ -116,8 +141,12 @@ class Capsule:
                 return Ok(copy(view))
             finally:
                 view.release()
-        except (OSError, ValueError, ctypes.ArgumentError):
-            return Error("<provider>")
+        except OSError as host:
+            return Error(CapsuleFault(host=host.errno or 0))
+        except ctypes.ArgumentError as marshal:
+            return Error(CapsuleFault(marshal=str(marshal)))
+        except ValueError:
+            return Error(CapsuleFault(extent=(address, size)))
 
 
 def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
@@ -125,9 +154,8 @@ def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
 ```
 
 [REF_SAFE_PROJECTION]:
-- Law: live foreign memory crosses as a scoped `memoryview`/`collections.abc.Buffer` whose result is a value copy; any value returned from the projector is detached from the foreign lifetime through `bytes(view)` or an owned array, never the view itself.
-- Accept: a `memoryview` or `collections.abc.Buffer` consumed inside one synchronous projection that returns owned material.
-- Reject: storing a `memoryview` on a frozen owner; returning a view; carrying a foreign buffer across an `await` where the foreign owner can free it mid-suspension.
+- Law: the borrow window the capsule's `use` fold opens is strictly synchronous — a `memoryview`/`collections.abc.Buffer` materialized from foreign memory is consumed and copied to owned material before any `await`, because a suspension between the view and its copy lets the foreign owner free the backing store mid-await and the resumed read faults on dangling memory; the value that escapes the window is `bytes(view)` or an owned array, never the view, so the async seam never threads a live foreign buffer through a checkpoint.
+- Reject: storing a `memoryview` on a frozen owner; returning the view itself; an `await` between the view materialization and its `bytes(view)` copy; a foreign `Buffer` passed to `to_thread.run_sync` where the loop can free it before the worker reads it.
 
 ## [04]-[EVENTS_AND_THREADS]
 
@@ -140,7 +168,7 @@ def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
 
 [HOST_MARSHAL]:
 - Law: the seam this card owns is the inbound crossing's evidence — a foreign thread the loop never spawned re-enters through `concurrency.md`'s `BlockingPortal`, and the seam converts that crossing's outcome into a closed fault the interior reads, never the provider exception the bridge raised. The portal lifecycle (`start_blocking_portal`/`BlockingPortalProvider`, the coroutine-function-not-awaitable call contract, the worker-thread token rule for a bare `from_thread.run`) and the outbound offload it pairs with are `concurrency.md`'s runtime; the seam composes the bridge and owns only the conversion, mapping every non-cancellation worker raise into the closed crossing fault so none escapes unconverted.
-- Law: a crossing fault carries which crossing failed — loop teardown after the bridge closed, a converted worker exception, a refused readiness handshake — as distinct closed cases, never one stringified provider message, so a retry predicate refuses the cancellation arm first and routes the loop-closed arm to re-open rather than retry; cancellation is `concurrency.md`'s re-raised carrier and never enters this fault family.
+- Law: a crossing fault carries which crossing failed — loop teardown after the bridge closed, a refused readiness handshake, a converted worker raise — as distinct closed cases, never one stringified provider message, so the `Disposition` predicate routes only the converted worker raise to retry and sends both the loop-closed and the handshake-refusal arms to re-open the bridge; cancellation is `concurrency.md`'s re-raised carrier and never enters this fault family.
 - Law: context propagation and thread affinity are separate decisions — the bridge copies the caller's context across the crossing, and a callback reading no ambient state needs none; an interior transform never reads ambient thread state to recover what the crossing already carried, because the crossing's evidence is already an admitted value.
 - Reject: a `threading.current_thread()` affinity test in interior flow; an ambient `ContextVar` read inside a reusable transform; a fire-and-forget thread launch outside `concurrency.md`'s task group; `from_thread.run` from a thread the loop did not spawn; a stringified provider message standing in for the closed crossing fault.
 
@@ -151,19 +179,32 @@ def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
 
 ```python conceptual
 from collections.abc import Awaitable, Callable
-from typing import Literal, assert_never
+from enum import StrEnum
+from typing import Literal
 
 import anyio
 from anyio.from_thread import BlockingPortalProvider
 from anyio.streams.memory import MemoryObjectSendStream
+from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+
+
+class Disposition(StrEnum):
+    RETRY = "<retry>"
+    REOPEN = "<reopen>"
 
 
 @tagged_union(frozen=True)
 class CrossFault:
-    tag: Literal["loop_closed", "worker"] = tag()
+    tag: Literal["loop_closed", "handshake", "worker"] = tag()
     loop_closed: None = case()
+    handshake: str = case()
     worker: str = case()
+
+
+_DISPOSITION: frozendict[str, Disposition] = frozendict(
+    {"worker": Disposition.RETRY, "handshake": Disposition.REOPEN, "loop_closed": Disposition.REOPEN}
+)
 
 
 def re_entered[T](provider: BlockingPortalProvider, cross: Callable[[], Awaitable[T]], /) -> Result[T, CrossFault]:
@@ -172,20 +213,17 @@ def re_entered[T](provider: BlockingPortalProvider, cross: Callable[[], Awaitabl
             return Ok(portal.call(cross))
         except anyio.RunFinishedError:
             return Error(CrossFault(loop_closed=None))
+        except RuntimeError as refused:
+            return Error(CrossFault(handshake=str(refused)))
         except anyio.get_cancelled_exc_class():
             raise
-        except Exception as worker:  # noqa: BLE001 — every other provider raise becomes one closed crossing case
+        except Exception as worker:  # noqa: BLE001 — every non-cancellation provider raise becomes one closed crossing case
             return Error(CrossFault(worker=type(worker).__name__))
 
 
-def retry_disposition(fault: CrossFault, /) -> Literal["<retry>", "<reopen>"]:
-    match fault:
-        case CrossFault(tag="worker"):
-            return "<retry>"
-        case CrossFault(tag="loop_closed"):
-            return "<reopen>"
-        case _ as unreachable:
-            assert_never(unreachable)
+def reopened[T](provider: BlockingPortalProvider, cross: Callable[[], Awaitable[T]], /) -> Result[T, CrossFault]:
+    outcome = re_entered(provider, cross)
+    return outcome.or_else_with(lambda fault: re_entered(provider, cross) if _DISPOSITION[fault.tag] is Disposition.REOPEN else outcome)
 
 
 def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) -> Callable[[], None]:
@@ -209,11 +247,11 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
 [SERIALIZING_AGENT]:
 - Use: session, singleton, wake, drain, and cross-call boundary lifetime — every cell a foreign edge mutates from more than one task.
 - Law: the serialization owner is one consumer task draining a `MemoryObjectReceiveStream[Command]` — the bundled `expression.MailboxProcessor` is forbidden here because it reaches `asyncio.get_event_loop()` against the `asyncio` ban, so the cell rides an `anyio` send/receive pair where producers `send_nowait` a command and the lone consumer applies it. The agent holds the cell as a plain local, replaces the whole immutable reference per applied command, and is the only reader, so a torn multi-field read and a read-modify-write race are both structurally impossible — the `anyio` single-consumer drain is what `threading.Lock` around shared mutable state is the rejected substitute for.
-- Law: the lifecycle is a closed `@tagged_union` state family (pending, live, draining, failed; never booleans) and the agent's command set is a second closed `@tagged_union` (open, close, drain) folded under one total `match` — a new lifecycle verb is one state case plus one command case plus one transition arm, never a new lock, flag, or sibling mutator, so the agent surface absorbs the verb family the next requirement adds (the `draining` state is exactly that growth: one case carrying the deadline and in-flight count, one arm fencing admission).
+- Law: the lifecycle is a closed `@tagged_union` state family (pending, live, draining, failed; never booleans), the agent's command set is a second closed `@tagged_union` (open, close, drain) folded under one total `match`, and the refusal rail is a third closed `GateFault` vocabulary — never a bare `str` reason — so the `failed` state carries the typed cause and a waiter recovers on the fault's own case rather than a reconstructed message. A new lifecycle verb is one state case plus one command case plus one transition arm, never a new lock, flag, or sibling mutator, so the agent surface absorbs the verb family the next requirement adds (the `draining` state is exactly that growth: one case carrying the deadline and in-flight count, one arm fencing admission).
 - Law: each command carries its own reply channel — a per-command `anyio.Event` plus a single-slot result, set after the transition publishes — so a waiter wakes only on committed state, never an attempted or aborted one, and the post-command continuation rides that reply rather than a second flag polled from outside. The transition functions stay pure: `opened`/`closed`/`drained` take the state and return the successor and its outcome, and the agent is the only impure seam, holding no factory, disposer, deadline await, or external call inside the apply step.
 - Law: a stale teardown succeeds only while its token still owns the live state — the transition matches the live token before it acts, so a `close` carrying a superseded token is a total no-op, never a disposed replacement session; a faulted cell is escaped only by a fresh agent carrying typed evidence, because a cancelled `anyio.CancelScope` never resets and re-opening replaces the whole scope.
 - Law: drain is one command reading phase, in-flight count, and deadline together — admission is fenced the instant the agent applies it, and the post-drain continuation waits on the same reply channel as mid-flight work reaches a typed terminal, never a `threading.Lock` plus a polled second flag.
-- Reject: a `MailboxProcessor` on the `anyio` substrate; a `threading.Lock` or shutdown boolean standing in for the agent; a second flag polled from outside the reply; teardown that disposes a replacement session; a factory, deadline await, or external call inside the apply step; acting on a change fired from an aborted transition.
+- Reject: a `MailboxProcessor` on the `anyio` substrate; a `threading.Lock` or shutdown boolean standing in for the agent; a bare `str` reason where the closed `GateFault` carries the cause; a second flag polled from outside the reply; teardown that disposes a replacement session; a factory, deadline await, or external call inside the apply step; acting on a change fired from an aborted transition.
 
 [MEMO_KEY]:
 - Law: a boundary memo key binds the foreign identity content alone cannot recover — a provider handle's `id()`, a session token, or a capability fingerprint joins the content and policy axes into one hashable `frozendict`/`tuple` composite, so two payloads identical in bytes but sourced from distinct foreign owners never collide.
@@ -226,7 +264,10 @@ from typing import Literal, assert_never
 
 from anyio import Event
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+
+type GateFault = Literal["<draining>", "<not-live>", "<faulted>"]
 
 
 @tagged_union(frozen=True)
@@ -235,10 +276,10 @@ class Gate:
     pending: None = case()
     live: tuple[int, "Session"] = case()
     draining: tuple[int, "Session", float, int] = case()
-    failed: str = case()
+    failed: GateFault = case()
 
 
-def opened(gate: Gate, token: int, session: "Session", /) -> tuple[Gate, Result["Session", str]]:
+def opened(gate: Gate, token: int, session: "Session", /) -> tuple[Gate, Result["Session", GateFault]]:
     match gate:
         case Gate(tag="pending"):
             return Gate(live=(token, session)), Ok(session)
@@ -252,7 +293,7 @@ def opened(gate: Gate, token: int, session: "Session", /) -> tuple[Gate, Result[
             assert_never(unreachable)
 
 
-def closed(gate: Gate, token: int, /) -> tuple[Gate, Result[None, str]]:
+def closed(gate: Gate, token: int, /) -> tuple[Gate, Result[None, GateFault]]:
     match gate:
         case Gate(tag="live") if gate.live[0] == token:
             return Gate(pending=None), Ok(None)
@@ -262,7 +303,7 @@ def closed(gate: Gate, token: int, /) -> tuple[Gate, Result[None, str]]:
             return gate, Ok(None)
 
 
-def drained(gate: Gate, deadline: float, /) -> tuple[Gate, Result[int, str]]:
+def drained(gate: Gate, deadline: float, /) -> tuple[Gate, Result[int, GateFault]]:
     match gate:
         case Gate(tag="live"):
             token, session = gate.live
@@ -276,9 +317,9 @@ def drained(gate: Gate, deadline: float, /) -> tuple[Gate, Result[int, str]]:
 @dataclass(slots=True)
 class Reply[T]:
     ready: Event = field(default_factory=Event)
-    slot: list[Result[T, str]] = field(default_factory=list)
+    slot: list[Result[T, GateFault]] = field(default_factory=list)
 
-    def settle(self, outcome: Result[T, str], /) -> None:
+    def settle(self, outcome: Result[T, GateFault], /) -> None:
         self.slot.append(outcome)
         self.ready.set()
 
@@ -291,28 +332,21 @@ class Command:
     drain: tuple[float, Reply[int]] = case()
 
 
+_APPLY: frozendict[str, Callable[[Gate, tuple], tuple[Gate, Result[object, GateFault]]]] = frozendict(
+    {"open": lambda g, p: opened(g, p[0], p[1]), "close": lambda g, p: closed(g, p[0]), "drain": lambda g, p: drained(g, p[0])}
+)
+
+
 async def agent(inbox: MemoryObjectReceiveStream[Command], /) -> None:
     gate = Gate(pending=None)
     async with inbox:
         async for command in inbox:
-            match command:
-                case Command(tag="open"):
-                    token, session, reply = command.open
-                    gate, opened_outcome = opened(gate, token, session)
-                    reply.settle(opened_outcome)
-                case Command(tag="close"):
-                    token, close_reply = command.close
-                    gate, closed_outcome = closed(gate, token)
-                    close_reply.settle(closed_outcome)
-                case Command(tag="drain"):
-                    deadline, drain_reply = command.drain
-                    gate, drain_outcome = drained(gate, deadline)
-                    drain_reply.settle(drain_outcome)
-                case _ as unreachable:
-                    assert_never(unreachable)
+            payload = getattr(command, command.tag)
+            gate, outcome = _APPLY[command.tag](gate, payload)
+            payload[-1].settle(outcome)
 
 
-async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[[Reply[T]], Command], /) -> Result[T, str]:
+async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[[Reply[T]], Command], /) -> Result[T, GateFault]:
     reply: Reply[T] = Reply()
     outbox.send_nowait(build(reply))
     await reply.ready.wait()
@@ -328,7 +362,7 @@ async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[
 - Reject: a `schema_version` branch on a canonical owner that belongs to read-boundary migration; last-write-wins parse for an owned protocol shape; a domain owner decorated with serializer config.
 
 [CONVERTER_OWNER]:
-- Law: one converter owns a closed wire family — `msgspec.json.Decoder(type=Family)` over a tagged union resolves the discriminant once on read and `msgspec.json.Encoder` emits it on write, and `msgspec.convert(owner, Wire, from_attributes=True)` projects a pure field rename when the wire struct keeps canonical attribute names and renames only at the encoded edge; the converter consumes exactly the family it owns and converts both wire-rejection paths — `msgspec.DecodeError` for malformed bytes, `msgspec.ValidationError` for a constraint or discriminant miss, caught at their `msgspec.MsgspecError` base — so neither escapes and the path and cause stay boundary facts.
+- Law: one converter owns a closed wire family — `msgspec.json.Decoder(type=Family)` over a tagged union resolves the discriminant once on read and `msgspec.json.Encoder` emits it on write, and `msgspec.convert(owner, Wire, from_attributes=True)` projects a pure field rename when the wire struct keeps canonical attribute names and renames only at the encoded edge; the converter consumes exactly the family it owns and discriminates both wire-rejection paths into distinct fault cases — `msgspec.DecodeError` for malformed bytes, `msgspec.ValidationError` for a constraint or discriminant miss — as separate `except` arms under the shared `msgspec.MsgspecError` base, so neither escapes unconverted and which path failed stays a boundary fact rather than collapsing to one token.
 - Law: a value-transforming projection (not a pure rename) rides an explicit constructor or a `frozendict` adapter table, never `msgspec.convert`; the convert path is reserved for name-only correspondence.
 - Reject: a converter per case; a case-level codec bypassing the family owner; a sentinel returned from a decoder hook instead of a raised validation error; per-call `Decoder`/`Encoder` construction where one module-level instance serves.
 
@@ -337,8 +371,6 @@ from typing import Literal
 
 import msgspec
 from expression import Error, Ok, Result
-
-type WireFault = Literal["<invalid-frame>"]
 
 
 class FrameSingle(msgspec.Struct, tag="single", frozen=True, forbid_unknown_fields=True, rename={"at": "t"}):
@@ -351,6 +383,7 @@ class FrameBlock(msgspec.Struct, tag="block", frozen=True, forbid_unknown_fields
 
 
 type Frame = FrameSingle | FrameBlock
+type WireFault = Literal["<malformed>", "<constraint>"]
 
 _FRAME_DECODER = msgspec.json.Decoder(type=Frame)
 _FRAME_ENCODER = msgspec.json.Encoder()
@@ -359,12 +392,18 @@ _FRAME_ENCODER = msgspec.json.Encoder()
 def decoded(raw: bytes, /) -> Result[Frame, WireFault]:
     try:
         return Ok(_FRAME_DECODER.decode(raw))
-    except msgspec.MsgspecError:
-        return Error("<invalid-frame>")
+    except msgspec.ValidationError:  # subclass of DecodeError — the constraint/discriminant arm reads first
+        return Error("<constraint>")
+    except msgspec.DecodeError:
+        return Error("<malformed>")
 
 
-def projected(owner: "Span", /) -> bytes:
-    return _FRAME_ENCODER.encode(msgspec.convert(owner, FrameBlock, from_attributes=True))
+def renamed(owner: "Shape", /) -> FrameBlock:
+    return msgspec.convert(owner, FrameBlock, from_attributes=True)
+
+
+def encoded(frame: Frame, /) -> bytes:
+    return _FRAME_ENCODER.encode(frame)
 ```
 
 [BYTE_IDENTITY]:

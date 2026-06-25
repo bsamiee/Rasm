@@ -2,7 +2,7 @@
 
 A value-level concept takes exactly one owner, and the lifecycle `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress` fixes where it changes shape: raw material is admitted once into an evidence-carrying owner, the interior is total over admitted owners, and projection plus egress derive outward. Role decides first, owner second, projection third; stage names, function names, and return types agree with the stage they occupy — materialization returns the canonical owner, projection returns the boundary view, egress returns encoded or foreign material.
 
-One refinement alias, one fault vocabulary, and one canonical owner span the whole lifecycle: the shared `Annotated[T, Is[...]]` constraint is enforced at every stage it crosses — the `pydantic` ingress field, the `@beartype` owner factory, and the `msgspec` egress band — so the admission rule has one edit site and no parallel DTO restates it. Admit a payload, ingress model, canonical owner, vocabulary, port, projection, or replacement only when it changes implementation law; reject package-branded interior layers, parallel DTOs, field-rename wrappers, and shapes minted to lower local line count or to mask weak ownership.
+One refinement policy, one fault vocabulary, and one canonical owner span the whole lifecycle: a single declared bound derives the stage aliases each validator natively enforces — no validator reads a foreign validator's metadata, so the bound is supplied once as the policy and projected to the form each stage owns, giving the admission rule one edit site and no parallel DTO restating it. Admit a payload, ingress model, canonical owner, vocabulary, port, projection, or replacement only when it changes implementation law; reject package-branded interior layers, parallel DTOs, field-rename wrappers, and shapes minted to lower local line count or to mask weak ownership.
 
 ## [01]-[SHAPE_LIFECYCLE]
 
@@ -25,23 +25,27 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 - Law: a composed pipeline keeps each lifecycle surface visible — admission, materialization, projection, and egress stay nameable functions or methods, never folded into one opaque pass that hides where shape changes.
 
 [SHARED_REFINEMENT]:
-- Law: one `Annotated[T, Is[...], msgspec.Meta(...)]` alias carries every refinement member at once, and three validators each read their own at the stage they own — `@beartype` enforces `Is[...]` in O(1) at the owner factory, `msgspec.Meta` enforces the bound on the wire, and a `pydantic` field honors both at ingress — one alias definition, zero parallel constraint literals.
+- Law: each validator enforces only its own metadata — `msgspec.Meta(...)` on the wire, a `pydantic` `Field(min_length=..., ge=...)` (or its constrained-type) at ingress, `beartype.vale.Is[...]` at the owner factory — and no validator reads a foreign one's marker, so one declared bound (the numeric edges and the predicate, stated once) derives the three stage aliases rather than one mixed alias serving all three; the policy is the single edit site and the aliases are projections, zero parallel constraint values.
+- Law: `beartype.vale.Is[...]` cannot co-inhabit one `Annotated` with `msgspec.Meta(...)` on a `@beartype`-checked parameter — beartype raises `BeartypeDecorHintPep593Exception` against the agnostic marker — so the owner alias carries the predicate-as-`Is` alone (the numeric edge is already wire-proven before the factory), while the boundary alias stacks `msgspec.Meta` and the pydantic `Field` constraint, each band landing on the validator that reads it.
 - Law: admission maps a contract violation onto the seam's fault, never an exception into the interior — `ConfigDict(extra="forbid", strict=True)` on the ingress model rejects drift, `BeartypeConf(violation_type=...)` redirects a boundary violation to a domain exception the seam catches, and the interior receives only the admitted owner.
-- Reject: re-validating an admitted owner in the interior; a second constraint literal restating the alias on the egress struct; a `try`/`except` wrapping an interior rail transform.
+- Reject: a mixed `Is[...]` + `msgspec.Meta(...)` alias on a beartype factory; a validator's bound expressed in a foreign validator's marker that the validator silently ignores; re-validating an admitted owner in the interior; a `try`/`except` wrapping an interior rail transform.
 
 [LIFECYCLE_FLOW]:
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal
 
 import msgspec
 from beartype import BeartypeConf, beartype
 from beartype.vale import Is
-from expression import Error, Ok, Result
+from expression import Error, Nothing, Ok, Option, Result
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-type Key = Annotated[str, Is[lambda value: value.isascii()], msgspec.Meta(min_length=1, max_length=64)]
+_MIN, _MAX = 1, 64
+
+type KeyBound = Annotated[str, msgspec.Meta(min_length=_MIN, max_length=_MAX)]
+type KeyRefined = Annotated[str, Is[lambda value: value.isascii()]]
 type AdmitFault = Literal["<drift>", "<refused>"]
 
 _ADMIT = BeartypeConf(violation_type=ValueError)
@@ -49,24 +53,27 @@ _ADMIT = BeartypeConf(violation_type=ValueError)
 
 class ShapeIngress(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
-    key: Key = Field(validation_alias="source_key")
+    key: KeyBound = Field(validation_alias="source_key", min_length=_MIN, max_length=_MAX)
     note: str | None = Field(default=None, validation_alias="source_note")
 
 
 class ShapeWire(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename={"key": "wire_key", "note": "wire_note"}):
-    key: Key
+    key: KeyBound
     note: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    key: Key
-    note: str | None = None
+    key: KeyRefined
+    note: Option[str] = Nothing
 
-    @classmethod
-    @beartype(conf=_ADMIT)
-    def admit(cls, *, key: Key, note: str | None = None) -> Self:
-        return cls(key=key, note=note)
+    def wired(self, /) -> ShapeWire:
+        return ShapeWire(key=self.key, note=self.note.default_value(None))
+
+
+@beartype(conf=_ADMIT)
+def admitted(*, key: KeyRefined, note: Option[str] = Nothing) -> Shape:
+    return Shape(key=key, note=note)
 
 
 def delivered(raw: object, /) -> Result[Shape, AdmitFault]:
@@ -75,7 +82,7 @@ def delivered(raw: object, /) -> Result[Shape, AdmitFault]:
     except ValidationError:
         return Error("<drift>")
     try:
-        return Ok(Shape.admit(key=ingress.key, note=ingress.note))
+        return Ok(admitted(key=ingress.key, note=Option.of_optional(ingress.note)))
     except ValueError:
         return Error("<refused>")
 ```
@@ -189,12 +196,8 @@ The canonical owner is the first durable frozen shape domain logic accepts, and 
 - Law: domain invariants and the failable transition graph live on the owner — a transition that can fail returns `Result[Self, E]` so the successor re-proves the invariant, and an absence-bearing field is `Option[T]`, never `None`; the transition is an owner method, never a free function reconstructing the invariant outside the owner.
 - Law: a guard transition reads the owner's own evidence to admit or refuse the next state, so a sequence of transitions threads through `bind` and reports the first refusal, and the owner is the single site that knows which moves are legal from which state.
 - Law: a projection method derives the boundary view from the owner and the view never gains authority; the projection mechanics and the projection family are the boundary page's and the projection card's, named here only as the owner's outward derivation.
-- Reject: a boundary engine imported into an interior owner, a mutable field on a frozen owner, a transition as a free function, and a projection that revalidates.
-
-[GRADUATION]:
-- Graduate repeated primitive validation to a refinement alias or owner field; repeated field bundles to one owner; three or more sibling factories, models, or dispatch arms to a closed family or polymorphic owner.
-- Graduate mutable update law to immutable replacement, and a stable wire or persistence concern to an egress projection, never a second domain owner.
-- Reject: mirrored validation/domain/wire hierarchies, validator side effects, and tag-only shape families.
+- Law: a primitive earns this owner when its validation, bundle, or factory recurs — repeated primitive validation graduates to one refinement alias or owner field, a repeated field bundle to one owner, mutable update law to an immutable transition method, and a stable wire or persistence concern to an egress projection, never to a second domain owner mirroring the first.
+- Reject: a boundary engine imported into an interior owner, a mutable field on a frozen owner, a transition as a free function, a projection that revalidates, a mirrored validation/domain/wire owner hierarchy, a validator side effect, and a tag-only shape family.
 
 ```python conceptual
 from copy import replace
@@ -230,8 +233,8 @@ class Shape:
                 return Ok(replace(self, tags=(*self.tags, fresh)))
 
     def sealed_after(self, *tags: str) -> Result[Self, ShapeFault]:
-        threaded = reduce(lambda owner, tag: owner.bind(lambda live, tag=tag: live.tagged(tag)), tags, Ok(self))
-        return threaded.map(lambda live: replace(live, sealed=True))
+        advanced = reduce(lambda owner, tag: owner.bind(lambda live, tag=tag: live.tagged(tag)), tags, Ok(self))
+        return advanced.map(lambda live: replace(live, sealed=True))
 ```
 
 ## [05]-[VOCABULARY_ABSENCE_AND_VARIANTS]
@@ -348,7 +351,7 @@ def advanced(member: Member, /) -> Result[Member, MemberFault]:
         case Sealed():
             return Error("<not-active>")
         case Retired():
-            return Error("<not-active>")
+            return Error("<exhausted>")
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -369,11 +372,10 @@ from enum import StrEnum
 from typing import Annotated
 
 import msgspec
-from beartype.vale import Is
 
 from builtins import frozendict
 
-type Score = Annotated[int, Is[lambda value: value >= 0], msgspec.Meta(ge=0)]
+type Score = Annotated[int, msgspec.Meta(ge=0)]
 _WIDTH: int = 8
 
 

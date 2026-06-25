@@ -161,4 +161,4 @@ const claimsAll = reconciled.flatMap((r) => (r.verify && r.verify.claims) || [])
 const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) => c.claim))
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open hard residual(s) -> resolve-residuals')
-return { workflow: 'rebuild-csharp-doctrine', root: ROOT, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, clusters: clusters.length, hard_residual: hard_residual }
+return { workflow: 'stack-cs', root: ROOT, ordered: ordered, hardened: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: ordered.length, region_seed: ledger, clusters: clusters.length, hard_residual: hard_residual }
