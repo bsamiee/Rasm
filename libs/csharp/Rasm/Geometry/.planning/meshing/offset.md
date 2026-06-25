@@ -6,7 +6,7 @@ The owner composes `Vectors` `Point3d`/`Vector3d`/`Polyline`/`MeshSpace` coordin
 
 ## [01]-[INDEX]
 
-- [01]-[OFFSETTING]: `OffsetOp` `[Union]` (`Skeleton`/`Medial`/`Minkowski`/`Offset`) over one `WavefrontStore`; the Aichholzer-Aurenhammer wavefront edge/split-event queue driven by exact `Orient2D` turn sign; medial-axis read-off; Minkowski edge-normal convolution; `ToMesh`/`ToPolylines` projections.
+- [01]-[OFFSETTING]: `OffsetOp` `[Union]` (`Skeleton`/`Medial`/`Minkowski`/`Offset`/`Weighted`) over one `WavefrontStore`; the Aichholzer-Aurenhammer wavefront edge/split-event queue driven by exact `Orient2D` turn sign (the `Weighted` row scaling each bisector by the per-edge `OffsetPolicy.EdgeSpeed` column over the SAME queue); medial-axis read-off; Minkowski edge-normal convolution; `ToMesh`/`ToPolylines` projections.
 
 ## [02]-[OFFSETTING]
 
@@ -221,7 +221,7 @@ public static class Offsetting {
     static WavefrontStore Collapse(WavefrontStore store, OffsetEvent.Edge ev, List<SkeletonNode> nodes, List<SkeletonArc> arcs, PriorityQueue<OffsetEvent, double> queue, OffsetPolicy policy) {
         if (store.Dead[ev.Vertex] || store.Dead[ev.NextVertex]) return store;
         Point3d meet = store.At(ev.Vertex, ev.Time);
-        if (Predicate.Orient2D(store.At(ev.Vertex, ev.Time - policy.CollapseEpsilon), store.At(ev.NextVertex, ev.Time - policy.CollapseEpsilon), meet) == Sign.Zero == false && Math.Abs((store.At(ev.Vertex, ev.Time) - store.At(ev.NextVertex, ev.Time)).Length) > policy.CollapseEpsilon) return store;
+        if (Predicate.Orient2D(store.At(ev.Vertex, ev.Time - policy.CollapseEpsilon), store.At(ev.NextVertex, ev.Time - policy.CollapseEpsilon), meet) != Sign.Zero && Math.Abs((store.At(ev.Vertex, ev.Time) - store.At(ev.NextVertex, ev.Time)).Length) > policy.CollapseEpsilon) return store;
         int node = nodes.Count;
         nodes.Add(new SkeletonNode(meet, ev.Time));
         arcs.Add(new SkeletonArc(store.Origin[ev.Vertex], node, store.Origin[ev.Vertex]));

@@ -16,6 +16,26 @@
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
+    <ItemGroup Label="Section Catalogue">
+        <!-- Published AISC v16.0 + EN 10365 structural-section database as typed profile classes carrying
+             real UnitsNet.Length section geometry; grounds the Profiles steel/EN section seed in registered
+             data instead of hand-keyed rows, composing the in-folder UnitsNet quantity owner. -->
+        <PackageReference Include="VividOrange.Profiles.Catalogue" />
+        <!-- Arbitrary closed-polygon section-property solver — the COMPUTATION complement to the
+             VividOrange.Profiles.Catalogue section data: one shoelace/Green's-theorem solver over any
+             IPerimeter replaces the per-family rectangular section-property literals across the Profiles
+             families (timber/CMU/masonry/composite), composing the in-folder UnitsNet quantity owner. -->
+        <PackageReference Include="VividOrange.Sections.SectionProperties" />
+    </ItemGroup>
+
+    <ItemGroup Label="Layout Packing">
+        <!-- Construction 2D rectangle bin-packing / cutting-stock owner for sheet/stock-material
+             arrangement and material-utilization: MaxRects/Skyline/Guillotine/Shelf + SingleBin mass-cut
+             with explicit heuristic enums. The in-folder packing pin (Materials, an AEC-DOMAIN peer, cannot
+             reach Fabrication's nesting kernel; AEC peers depend only upward to the Rasm kernel). -->
+        <PackageReference Include="RectangleBinPack.CSharp" />
+    </ItemGroup>
+
     <ItemGroup Label="Numerics">
         <!-- Direct AEC-domain dependency for the acquisition MeasuredBrdf overdetermined GGX/Smith least-squares
              fit (thin-QR Gauss-Newton, the algorithms-doc ROUTE_SPINE dense-overdetermined route). NOT a Rasm.Compute

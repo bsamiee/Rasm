@@ -32,6 +32,12 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
+      "RectangleBinPack.CSharp": {
+        "type": "Direct",
+        "requested": "[1.0.4, )",
+        "resolved": "1.0.4",
+        "contentHash": "CVbSOftkn5PCbQbx9JOYNFta6c0OzlTjeZF2lfEdo4r1G2RgZz3FSRLLOUBisfucnfkdEsaxJq12svPKmtVvxA=="
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.3.0, )",
@@ -67,6 +73,26 @@
         "requested": "[5.75.0, )",
         "resolved": "5.75.0",
         "contentHash": "CgzvfvE2FaFE+swo7SzZFjhosmh4GpiVJ7Y1N4cQ1qChaUaw3ymw4al+ZxpoBh1RFoo88d+fo2SG194P9G1X+A=="
+      },
+      "VividOrange.Profiles.Catalogue": {
+        "type": "Direct",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "vcknVvZOC/UqELlrDAV8+rQ00jTErhX9Lctv9+zTqiUiAsJj4yPBSyHI4j03qtUakXuDIRJ5CPKcxXZ4A7NbmQ==",
+        "dependencies": {
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.Sections.SectionProperties": {
+        "type": "Direct",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "zZf1S+5EDVQVudj1zRGu4YAW2L9UUFKdI4rQN8u7Br77mJ4qPDG2buCjx2gfw3bDhSashbmgdp0KoYisVVhDgg==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.Profiles.Perimeter": "0.1.0",
+          "VividOrange.Sections.ISectionProperties": "0.1.0"
+        }
       },
       "Wacton.Unicolour": {
         "type": "Direct",
@@ -114,6 +140,7 @@
         "dependencies": {
           "CSparse": "[4.4.0, )",
           "Csp.Contracts": "[1.0.0, )",
+          "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
@@ -121,6 +148,7 @@
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
+          "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )"
         }
       },
@@ -129,6 +157,12 @@
         "requested": "[4.4.0, )",
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
+      },
+      "ExtendedNumerics.BigRational": {
+        "type": "CentralTransitive",
+        "requested": "[3000.0.2.132, )",
+        "resolved": "3000.0.2.132",
+        "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
       },
       "MathNet.Numerics.Providers.MKL": {
         "type": "CentralTransitive",
@@ -182,6 +216,117 @@
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "Rb71S3gggYVwEce9ugNw91vbr4vC4gThtx/imSJtLBW3AupEKujJPPQL6xF9q0DcNm6+z7hnYk7XqXaUpA4wDg=="
+      },
+      "TYoshimura.DoubleDouble": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.8, )",
+        "resolved": "5.0.8",
+        "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
+      },
+      "VividOrange.Geometry": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "Z6ICRE7qJ3b5CDfTh1T3JYavkQT4IwrYqV4GDkdJ8CY/L6/VqiCiDxgvxU0dz3AKS92yHDcdx//shlE+XjMbPQ==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0"
+        }
+      },
+      "VividOrange.ICartesianBase": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "gabEfSDpqX2/Ae5oRe69n/nBS8mas30VhI9x3SJb90TqJbHUo6MWNh85/UJLaovzOJpDq2cuw13vfyuZVGlSOQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0"
+        }
+      },
+      "VividOrange.IGeometry": {
+        "type": "CentralTransitive",
+        "requested": "[1.8.0, )",
+        "resolved": "1.8.0",
+        "contentHash": "ychtp6o2TERpi0eS3hmVaY0l8+7zM7/MWWJr1GMSEC/ZCGfG3HWNn1rEOYXtY6/7q7YeAkdlqxv7aUlYneyfMQ==",
+        "dependencies": {
+          "VividOrange.ICartesianBase": "1.8.0"
+        }
+      },
+      "VividOrange.IMaterials": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "tJAo9avBzUQaI9B28L7InRlPlkXUexq1fKv6GQPp/o+Zdfx2gm8Ftx6H9vvfFbwhwDcTVyTidWwIX2xNoyTivQ==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.ISerialization": "0.1.0",
+          "VividOrange.IStandards": "0.1.0"
+        }
+      },
+      "VividOrange.IProfiles": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "jFelFWS4Wo7c+7LGxRQDHIljvegYLa49mbMqN3p5Eqx92AhH4w8OdlhMWkWFPIowOg9qkUNWwR5jRIav84slUw==",
+        "dependencies": {
+          "UnitsNet": "5.75.0",
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.ISections": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "DoQhSyL3c1Sbgc3v1c3BxhaCYSpVC1I9ae+6HZow3Q2KKzRdf/KnHmrRErCSEV3LAP6HZE/bjAJgNVjJYlFByQ==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0",
+          "VividOrange.IMaterials": "0.1.0",
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.ISerialization": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "zF0yGlbs4Su3baGb6TaKnuh/b1N98J/35T6wbIVNVnnEoY3JiNJvYoK6p5x6DIezjs7L0fGefAI9vqXKfa+Vtg=="
+      },
+      "VividOrange.IStandards": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "dhp3Nhggv7lB2aCN9p5ejcd6dYe+0zNRPkHfzENjxWPyCNOd2cwBVVAAKOYQ2Pyj7zFdx/UmRG+RwrGHZqdKUg==",
+        "dependencies": {
+          "VividOrange.ISerialization": "0.1.0"
+        }
+      },
+      "VividOrange.Profiles": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "07XsnMiuqXFxot/2h+svPyJyzBU9Vp4e35mgrVEfwY8BvezpnBKZRzrXN+L3y+6UM6ioQn1PpicdPC3zs4f2kQ==",
+        "dependencies": {
+          "VividOrange.IProfiles": "0.1.0"
+        }
+      },
+      "VividOrange.Profiles.Perimeter": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "AjZix5BcVusadfjpPGDJvSN5HvJKFoREsXJ4b9cN5JAKEf15NBkQwSp3gK+9vnXJMmaJkancQWT3+RbOkWkqGA==",
+        "dependencies": {
+          "VividOrange.Geometry": "1.8.0",
+          "VividOrange.IProfiles": "0.1.0",
+          "VividOrange.Profiles": "0.1.0"
+        }
+      },
+      "VividOrange.Sections.ISectionProperties": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.0, )",
+        "resolved": "0.1.0",
+        "contentHash": "YfZKkLqcZ9vA41K6McVPIDUIicJJ/svUIWlww+x5/0WOPLyudWvhmjftKgJXZEX6bql/X/mp+JCDyT6SXV7ybA==",
+        "dependencies": {
+          "VividOrange.IGeometry": "1.8.0",
+          "VividOrange.ISections": "0.1.0",
+          "VividOrange.ISerialization": "0.1.0"
+        }
       }
     },
     "net10.0/osx-arm64": {}

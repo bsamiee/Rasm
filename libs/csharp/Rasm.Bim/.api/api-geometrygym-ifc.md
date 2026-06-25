@@ -59,6 +59,7 @@ for the Compute geometry interchange rail.
 |  [12]   | `IfcCostScheduleTypeEnum`          | geometry | cost-schedule kind: `BUDGET`, `COSTPLAN`, `ESTIMATE`, `TENDER`, `PRICEDBILLOFQUANTITIES`, `SCHEDULEOFRATES`, …                                                                                                                                                              |
 |  [13]   | `IfcStructuralCurveMemberTypeEnum` | geometry | idealized 1D member kind: `RIGID_JOINED_MEMBER`, `PIN_JOINED_MEMBER`, `CABLE`, `TENSION_MEMBER`, `COMPRESSION_MEMBER`, …                                                                                                                                                    |
 |  [14]   | `IfcLoadGroupTypeEnum`             | geometry | load-group kind: `LOAD_GROUP`, `LOAD_CASE`, `LOAD_COMBINATION`, `USERDEFINED`, `NOTDEFINED`                                                                                                                                                                                 |
+|  [15]   | `IfcCardinalPointReference`        | geometry | profile placement reference axis on `IfcMaterialProfileSetUsage.CardinalPoint`: `DEFAULT`(0)/`BOTLEFT`/`BOTMID`/`BOTRIGHT`/`MIDLEFT`/`MID`(5, default)/`MIDRIGHT`/`TOPLEFT`/`TOPMID`/`TOPRIGHT`(9 structural grid)/`CENTROID`/`BOTCENT`/`LEFTCENT`/`RIGHTCENT`/`TOPCENT`/`SHEARCENT`/`BOTSHEAR`/`LEFTSHEAR`/`RIGHTSHEAR`/`TOPSHEAR`(19) — the `CardinalPoint` smart-enum reciprocal |
 
 [PUBLIC_TYPE_SCOPE]: IFC kernel root entities
 - package: `GeometryGymIFC_Core`
@@ -125,6 +126,7 @@ for the Compute geometry interchange rail.
 |  [15]   | `IfcMaterialProperties`      | geometry | `IfcExtendedProperties` subtype binding a named Pset to an `IfcMaterial`; public ctor `(string name, IfcMaterialDefinition mat)`, `Material` member, columns added to the inherited `Properties` dict |
 |  [16]   | `IfcExtendedProperties`      | geometry | extended-property base; `Name`/`Description` plus `Properties` `Dictionary<string, IfcProperty>` and a `this[name]` indexer |
 |  [17]   | `IfcProperty`                | geometry | abstract property root (`IfcPropertySingleValue` etc.); the `Properties`-dict element type |
+|  [18]   | `IfcMaterialProfile`         | geometry | one profile-material row in an `IfcMaterialProfileSet.MaterialProfiles` (`LIST<IfcMaterialProfile>`); `Material` (`IfcMaterial`), `Profile` (`IfcProfileDef`, the subtype-discriminated section), `Name`/`Description`/`Category` (`string`), `Priority` (`int`) |
 
 [PUBLIC_TYPE_SCOPE]: relationship families
 - package: `GeometryGymIFC_Core`
@@ -326,6 +328,27 @@ for the Compute geometry interchange rail.
 |  [15]   | `IfcMappedItem`                     | geometry | instanced representation map reference                                                                                                                                                    |
 |  [16]   | `IfcRepresentationMap`              | geometry | reusable type-bound geometry library; `MappingOrigin` (`IfcAxis2Placement`), `MappedRepresentation` (`IfcRepresentation`), `HasShapeAspects`, referenced by `IfcMappedItem.MappingSource` |
 
+[PUBLIC_TYPE_SCOPE]: parameterized profile-definition family
+- package: `GeometryGymIFC_Core`
+- namespace: `GeometryGym.Ifc`
+- rail: geometry
+- note: the `IfcMaterialProfile.Profile` cross-section subtype axis the `Semantics/composition#MATERIAL_COMPOSITION` `ProfileDefKind`/`DimsOf` reciprocal discriminates against the `Rasm.Materials/Profiles/steel#STEEL_FAMILY` `SteelClass.IfcSubtype` egress; hollow subtypes derive from their solid bases (discriminate the wall section first)
+
+| [INDEX] | [SYMBOL]                       | [RAIL]   | [CAPABILITY]                                                                                                                                                                  |
+| :-----: | :----------------------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `IfcProfileDef`                | geometry | cross-section profile root; `ProfileType` (`IfcProfileTypeEnum`), `ProfileName` (`string`) — the subtype runtime type the `MaterialProfile.Kind` reciprocal discriminates    |
+|  [02]   | `IfcProfileTypeEnum`           | geometry | profile-use kind: `AREA` (solid swept section, default), `CURVE` (open section)                                                                                              |
+|  [03]   | `IfcParameterizedProfileDef`   | geometry | abstract base for dimensioned parametric sections under `IfcProfileDef`; `Position` (`IfcAxis2Placement2D`)                                                                   |
+|  [04]   | `IfcIShapeProfileDef`          | geometry | I/H wide-flange: `OverallWidth`, `OverallDepth`, `WebThickness`, `FlangeThickness`, `FilletRadius`, `FlangeEdgeRadius`, `FlangeSlope` (`double`)                              |
+|  [05]   | `IfcUShapeProfileDef`          | geometry | channel: `Depth`, `FlangeWidth`, `WebThickness`, `FlangeThickness`, `FilletRadius`, `EdgeRadius`, `FlangeSlope` (`double`)                                                    |
+|  [06]   | `IfcLShapeProfileDef`          | geometry | angle: `Depth`, `Width`, `Thickness`, `FilletRadius`, `EdgeRadius`, `LegSlope`, `CentreOfGravityInX`/`InY` (`double`)                                                         |
+|  [07]   | `IfcTShapeProfileDef`          | geometry | tee: `Depth`, `FlangeWidth`, `WebThickness`, `FlangeThickness`, `FilletRadius`, `FlangeEdgeRadius`, `WebEdgeRadius`, `WebSlope`, `FlangeSlope` (`double`)                      |
+|  [08]   | `IfcRectangleProfileDef`       | geometry | solid rectangle: `XDim`, `YDim` (`double`); base of `IfcRectangleHollowProfileDef`                                                                                            |
+|  [09]   | `IfcRectangleHollowProfileDef` | geometry | rectangular HSS: inherits `XDim`/`YDim`; `WallThickness`, `InnerFilletRadius`, `OuterFilletRadius` (`double`)                                                                 |
+|  [10]   | `IfcCircleProfileDef`          | geometry | solid circle: `Radius` (`double`); base of `IfcCircleHollowProfileDef`; the fastener nominal-diameter carrier                                                                 |
+|  [11]   | `IfcCircleHollowProfileDef`    | geometry | round HSS/pipe: inherits `Radius`; `WallThickness` (`double`)                                                                                                                 |
+|  [12]   | `IfcArbitraryClosedProfileDef` | geometry | non-parametric closed section under `IfcProfileDef`; `OuterCurve` (`IfcCurve`) — the `DoubleL`/composite carrier with no single parametric form (back-to-back rides a column) |
+
 [PUBLIC_TYPE_SCOPE]: tessellation geometry — AP242/IFC4.3 mesh interchange
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
@@ -398,7 +421,7 @@ for the Compute geometry interchange rail.
 |  [06]   | `IfcReinforcingBar`                   | geometry | `IfcReinforcingElement`; public `NominalDiameter` (type-fallback get) / `CrossSectionArea` / `BarLength` (`double`), `PredefinedType` (`IfcReinforcingBarTypeEnum`) |
 |  [07]   | `IfcReinforcingBarTypeEnum`           | geometry | `NOTDEFINED`/`USERDEFINED`/`MAIN`/`SHEAR`/`LIGATURE`/`STUD`/`PUNCHING`/`EDGE`/`RING`/`ANCHORING`/`SPACEBAR`(4x2) — `STUD` is the cast-in bar, NOT the welded connector |
 |  [08]   | `IfcReinforcingMesh`                  | geometry | `IfcReinforcingElement`; public `MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarCrossSectionArea` (`double`) |
-|  [09]   | `IfcMaterialProfileSetUsage`          | geometry | binds an `IfcMaterialProfileSet` to an element; the public round-trip channel carrying a fastener's nominal diameter as the associated circle-profile cross-section  |
+|  [09]   | `IfcMaterialProfileSetUsage`          | geometry | binds an `IfcMaterialProfileSet` to an element via `ForProfileSet`; `CardinalPoint` (`IfcCardinalPointReference`, default `MID`) + `ReferenceExtent` (`double`, default `NaN`) carry the profile placement the `Semantics/composition` `ProfileSetUsage` reciprocal reads, and the fastener nominal-diameter circle-profile channel  |
 |  [10]   | `IfcCircleProfileDef`                 | geometry | parametric circular profile; public `Radius` (`double`) — the fastener nominal-diameter carrier reached through `IfcRelAssociatesMaterial.RelatingMaterial`         |
 
 ## [03]-[ENTRYPOINTS]

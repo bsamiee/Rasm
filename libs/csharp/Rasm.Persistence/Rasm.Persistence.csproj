@@ -11,10 +11,13 @@
     <ItemGroup Label="Store Lanes">
         <PackageReference Include="AWSSDK.KeyManagementService" />
         <PackageReference Include="Azure.Security.KeyVault.Keys" />
+        <PackageReference Include="ClickHouse.Driver" />
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.Kafka" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
         <PackageReference Include="Confluent.Kafka" />
+        <PackageReference Include="DeltaLake.Net" />
+        <PackageReference Include="DotPulsar" />
         <PackageReference Include="DuckDB.NET.Data.Full" />
         <PackageReference Include="EFCore.NamingConventions" />
         <PackageReference Include="Google.Cloud.Kms.V1" />
@@ -33,8 +36,16 @@
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
+        <PackageReference Include="pocketken.H3" />
+        <PackageReference Include="Qdrant.Client" />
+        <PackageReference Include="ScyllaDBCSharpDriver" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
+    </ItemGroup>
+
+    <ItemGroup Label="Embedded KV Engines">
+        <PackageReference Include="LightningDB" />
+        <PackageReference Include="rocksdb" />
     </ItemGroup>
 
     <ItemGroup Label="Cache And Object Store">
@@ -43,15 +54,32 @@
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="Google.Cloud.Storage.V1" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+        <PackageReference Include="Minio" />
         <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 
     <ItemGroup Label="Analytical Egress And Chunking">
         <PackageReference Include="Apache.Arrow" />
         <PackageReference Include="Apache.Arrow.Adbc" />
+        <PackageReference Include="Apache.Arrow.Adbc.Drivers.Apache" />
+        <PackageReference Include="Apache.Arrow.Adbc.Drivers.BigQuery" />
         <PackageReference Include="Apache.Arrow.Compression" />
         <PackageReference Include="Apache.Arrow.Flight" />
         <PackageReference Include="FastCDC.Net" />
+        <PackageReference Include="FlowtideDotNet.Substrait" />
+        <PackageReference Include="ParquetSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Streaming And Messaging Protocols">
+        <PackageReference Include="Chr.Avro" />
+        <PackageReference Include="Chr.Avro.Binary" />
+        <PackageReference Include="Chr.Avro.Confluent" />
+        <PackageReference Include="Confluent.SchemaRegistry" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
+        <PackageReference Include="NATS.Net" />
+        <PackageReference Include="RabbitMQ.Client" />
     </ItemGroup>
 
     <ItemGroup Label="Snapshots And Support">
@@ -62,9 +90,12 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Sep" />
+        <PackageReference Include="Sylvan.Data.Excel" />
+        <PackageReference Include="System.Formats.Cbor" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
+        <PackageReference Include="ZstdSharp.Port" />
     </ItemGroup>
 
     <ItemGroup Label="Sync Outside-Rhino">

@@ -1,6 +1,6 @@
 # [APPHOST]
 
-`Rasm.AppHost` is the APP-PLATFORM runtime spine — the host-neutral C# backbone that `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. It owns host-profile variance, lifecycle/drain/cancellation, time/deadlines/scheduling, configuration/composition, resource lanes, four-signal observability, outbound resilience, the seven inward port records, post-fetch provisioning, the companion/sidecar control host, and a capability-and-extensibility platform: a self-describing op catalog, command algebra, grant/cost broker, polyglot SDK codegen, MCP projection, plugin sandbox, solver contract, live external binding, and determinism/replay. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.AppHost` is the APP-PLATFORM runtime spine — the host-neutral C# backbone that `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. It owns host-profile variance, lifecycle/drain/cancellation, time/deadlines/scheduling, configuration/composition, resource lanes, four-signal observability, outbound resilience, the seven inward port records, signature-and-contract-verified post-fetch provisioning, the companion/sidecar control host, an OIDC authentication boundary, and a capability-and-extensibility platform: a self-describing op catalog, command algebra, grant/cost broker, polyglot SDK codegen, MCP projection, plugin sandbox, solver contract, live external binding, and determinism/replay. The sub-domain map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
@@ -18,18 +18,19 @@
 - [12]-[REASONING](.planning/Agent/reasoning.md)
 - [13]-[FEDERATION](.planning/Agent/federation.md)
 - [14]-[CAPABILITY](.planning/Agent/capability.md)
-- [15]-[RUNTIME](.planning/Agent/runtime.md)
-- [16]-[OUTBOUND](.planning/Wire/outbound.md)
-- [17]-[LIVEWIRE](.planning/Wire/livewire.md)
-- [18]-[COMPANION](.planning/Wire/companion.md)
-- [19]-[TOPICS](.planning/Wire/topics.md)
-- [20]-[OUTBOX](.planning/Wire/outbox.md)
-- [21]-[ISOLATION](.planning/Sandbox/isolation.md)
-- [22]-[SOLVER](.planning/Sandbox/solver.md)
-- [23]-[PROVISIONING](.planning/Sandbox/provisioning.md)
-- [24]-[TELEMETRY](.planning/Observability/telemetry.md)
-- [25]-[HEALTH](.planning/Observability/health.md)
-- [26]-[BUNDLES](.planning/Observability/bundles.md)
+- [15]-[IDENTITY](.planning/Agent/identity.md)
+- [16]-[RUNTIME](.planning/Agent/runtime.md)
+- [17]-[OUTBOUND](.planning/Wire/outbound.md)
+- [18]-[LIVEWIRE](.planning/Wire/livewire.md)
+- [19]-[COMPANION](.planning/Wire/companion.md)
+- [20]-[TOPICS](.planning/Wire/topics.md)
+- [21]-[OUTBOX](.planning/Wire/outbox.md)
+- [22]-[ISOLATION](.planning/Sandbox/isolation.md)
+- [23]-[SOLVER](.planning/Sandbox/solver.md)
+- [24]-[PROVISIONING](.planning/Sandbox/provisioning.md)
+- [25]-[TELEMETRY](.planning/Observability/telemetry.md)
+- [26]-[HEALTH](.planning/Observability/health.md)
+- [27]-[BUNDLES](.planning/Observability/bundles.md)
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -65,6 +66,11 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+- `AspNetCore.HealthChecks.NpgSql`
+- `AspNetCore.HealthChecks.Redis`
+- `AspNetCore.HealthChecks.System`
+- `AspNetCore.HealthChecks.Uris`
+- `AspNetCore.HealthChecks.Kafka`
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry`
@@ -97,10 +103,21 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `ModelContextProtocol`
 - `ModelContextProtocol.Core`
 - `ModelContextProtocol.AspNetCore`
+- `Microsoft.ML.Tokenizers`
+- `Microsoft.ML.Tokenizers.Data.O200kBase`
+- `Microsoft.ML.Tokenizers.Data.Cl100kBase`
 
 [IDENTITY_AUTHZ]:
 - `OpenIddict.Client`
 - `Microsoft.AspNetCore.Authorization`
+- `Microsoft.IdentityModel.JsonWebTokens`
+- `Microsoft.IdentityModel.Tokens`
+- `Microsoft.IdentityModel.Protocols.OpenIdConnect`
+- `Microsoft.IdentityModel.Protocols` — transitive base of both `Microsoft.IdentityModel.Protocols.OpenIdConnect` and `OpenIddict.Client` (version-locked to the OpenIdConnect admission, not separately pinned); cataloged as the `ConfigurationManager<T>` refresh-manager seam for a design page that constructs the manager directly
+
+[SUPPLY_CHAIN]:
+- `Sigstore`
+- `NuGet.Versioning`
 
 [FEATURE_FLAGS]:
 - `OpenFeature`

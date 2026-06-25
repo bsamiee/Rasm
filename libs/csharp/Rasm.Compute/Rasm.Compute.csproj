@@ -13,11 +13,14 @@
     <ItemGroup Label="Tensors Numeric">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="CSparse" />
+        <PackageReference Include="GeneticSharp" />
         <PackageReference Include="Google.OrTools" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="TorchSharp" />
+        <PackageReference Include="libtorch-cpu" />
     </ItemGroup>
 
     <ItemGroup Label="Models">

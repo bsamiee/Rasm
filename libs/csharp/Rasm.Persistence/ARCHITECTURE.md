@@ -69,9 +69,9 @@ Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: Tes
 Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: Reimport prior-BimModel content-key delta join
 Query               ←  csharp:Rasm.Bim/Exchange           # [CONTENT_KEY]: BimWire snapshot content-key ArtifactIndexRow join
 Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: AuditEntry chained ElementChange mutation log
-Query/federation    ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: BimCommit content-addressed commit-DAG
+Version/commits     ←  csharp:Rasm.Bim/Review             # [CONTENT_KEY]: BimCommit host-neutral commit objects durably stored as CommitNode by the wire CommitKey
 Sync                ←  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: OpLogWire ElementChange op-stream CRDT convergence
-Sync                ←  csharp:Rasm.Bim/Review             # [SHAPE]: BimCommit DAG common-ancestor merge substrate
+Version/commits     ←  csharp:Rasm.Bim/Review             # [SHAPE]: BimCommit three-way merge resolves against CommitGraph.MergeBase common-ancestor antichain
 Sync/annotation     ⇄  csharp:Rasm.Bim/coordination       # [WIRE]: BCF/coordination domain
 Sync/schedule       ⇄  csharp:Rasm.Bim/schedule           # [WIRE]: P6/MS-Project + 4D construction domain
 Schema              ←  csharp:Rasm.Fabrication/Posting    # [WIRE]: CutProgram AST content-addressed durable-row projection
@@ -87,6 +87,9 @@ Query/pipeline      ⇄  csharp:Rasm.Compute/Runtime/codecs # [PORT]: parse-to-c
 Store/quality       ←  csharp:Rasm.Compute                # [SHAPE]: geometry-derived anomaly rule source
 Store/quality       ←  csharp:Rasm.Bim/Model              # [SHAPE]: IFC validation rules into QualityRule rows
 Sync                ←  csharp:Rasm.AppUi/Editing          # [PROJECTION]: revertible op-log (ONE_REVERT_VOCABULARY)
+Store               ←  csharp:Rasm.AppHost/Observability  # [HEALTH_PROBE]: Npgsql/Redis/Kafka driver reachability folded into the AppHost HealthContributorRow probe
+Sync/transport      ⇄  csharp:Rasm.Bim/Exchange           # [TRANSPORT]: Speckle.Sdk SyncTransport.SpeckleLikeDiff send/receive carrying Bim's Base object-graph -> BimModel import projection
+Sync/egress         ←  csharp:Rasm.Compute                # [WIRE]: Google.Protobuf wire format composed by Confluent.SchemaRegistry.Serdes.Protobuf for registry-governed Protobuf Kafka topics
 Query/federation    ←  python:data/tabular                # [CONTENT_KEY]: C#-seed ContentKey durable reuse ledger
 Query/federation    ⇄  python:data/tabular/query          # [WIRE]: Substrait binary plan + ibis-to_sql portable SQL
 Version/provenance  ←  python:artifacts/provenance        # [CONTENT_KEY]: signed-artifact content-key binding XxHash128 seed

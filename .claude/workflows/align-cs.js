@@ -1,0 +1,90 @@
+export const meta = {
+  name: 'align-cs',
+  description: 'Cross-folder alignment/smoothing of the seven C# AEC folders after the per-folder surveys admitted packages. Reads all seven folders at once (admitted packages, capabilities, seams), synthesizes the cross-folder picture to find what to smooth — a capability admitted divergently in two folders to align to one best choice, a version/roster inconsistency, a cross-folder seam to record, and a genuine cross-folder gap to cover (a sibling counterpart one folder admission implies) — then applies the alignment coherently: align the central manifest pins/versions, the folder README rosters, the folder ARCHITECTURE [02]-[SEAMS] cross-folder records, and admit any cross-folder gap-fill package plus its one-line .api stub. Does NOT fill .api catalogs (a focused rebuild-api run owns that) and does NOT integrate design pages (plan-cs-folders owns that). Phases: Survey (one read-only agent per folder) -> Synthesize (one barrier agent emits the alignment change-set) -> Apply (one coherent agent, serial on the shared manifest) -> Verify (restore/static gate). Disposable, hardcoded scope, no args.',
+  whenToUse: 'After the per-folder survey-gaps runs, before the focused rebuild-api, to smooth and align the admitted capabilities across all seven C# AEC folders.',
+  phases: [
+    { title: 'Survey', detail: 'one read-only opus agent per folder: admitted packages, capabilities, seams, cross-folder observations', model: 'opus' },
+    { title: 'Synthesize', detail: 'one opus barrier agent: consolidate all seven, emit the cross-folder alignment change-set (dedups, aligns, seams, gap-fills)', model: 'opus' },
+    { title: 'Apply', detail: 'one opus agent, serial on the shared manifest: align pins/versions + README rosters + ARCHITECTURE seams, admit any cross-folder gap-fill + one-line .api stub', model: 'opus' },
+    { title: 'Verify', detail: 'one agent: restore/static gate over the affected projects on osx-arm64', model: 'sonnet' },
+  ],
+}
+
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const STALL = 360000
+const APPLY_STALL = 900000
+const MANIFEST = 'Directory.Packages.props (central NuGet pins) + Directory.Build.props (TargetFramework net10.0, RuntimeIdentifiers osx-arm64)'
+
+// --- [SCOPE] -- the seven C# AEC folders; Geometry has the special nested layout --------------
+const FOLDERS = [
+  { name: 'Persistence', root: 'libs/csharp/Rasm.Persistence', api: 'libs/csharp/Rasm.Persistence/.api', csproj: 'libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj', note: '' },
+  { name: 'AppHost', root: 'libs/csharp/Rasm.AppHost', api: 'libs/csharp/Rasm.AppHost/.api', csproj: 'libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj', note: '' },
+  { name: 'AppUi', root: 'libs/csharp/Rasm.AppUi', api: 'libs/csharp/Rasm.AppUi/.api', csproj: 'libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj', note: '' },
+  { name: 'Bim', root: 'libs/csharp/Rasm.Bim', api: 'libs/csharp/Rasm.Bim/.api', csproj: 'libs/csharp/Rasm.Bim/Rasm.Bim.csproj', note: '' },
+  { name: 'Fabrication', root: 'libs/csharp/Rasm.Fabrication', api: 'libs/csharp/Rasm.Fabrication/.api', csproj: 'libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj', note: '' },
+  { name: 'Compute', root: 'libs/csharp/Rasm.Compute', api: 'libs/csharp/Rasm.Compute/.api', csproj: 'libs/csharp/Rasm.Compute/Rasm.Compute.csproj', note: '' },
+  { name: 'Materials', root: 'libs/csharp/Rasm.Materials', api: 'libs/csharp/Rasm.Materials/.api', csproj: 'libs/csharp/Rasm.Materials/Rasm.Materials.csproj', note: '' },
+  { name: 'Geometry', root: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', csproj: 'libs/csharp/Rasm/Rasm.csproj', note: 'SPECIAL LAYOUT: the README/ARCHITECTURE/.api live at the libs/csharp/Rasm ROOT; design pages live under libs/csharp/Rasm/Geometry/.planning; never touch the mature siblings Analysis/Domain/Vectors.' },
+]
+const ROSTER = JSON.stringify(FOLDERS.map((f) => ({ name: f.name, root: f.root, api: f.api, csproj: f.csproj, note: f.note })))
+
+// --- [SCHEMAS] ---------------------------------------------------------------------------
+const READ_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'admitted'], properties: { folder: { type: 'string' }, admitted: { type: 'array', items: { type: 'string' } }, capabilities: { type: 'array', items: { type: 'string' } }, seams: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['shape'], properties: { shape: { type: 'string' }, kind: { type: 'string' }, withFolder: { type: 'string' } } } }, crossFolder: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['observation'], properties: { observation: { type: 'string' }, relatedFolders: { type: 'array', items: { type: 'string' } } } } } } }
+const PLAN_SCHEMA = { type: 'object', additionalProperties: false, required: ['summary'], properties: { dedups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['concern', 'keep', 'removeFrom'], properties: { concern: { type: 'string' }, keep: { type: 'string' }, removeFrom: { type: 'array', items: { type: 'string' } }, why: { type: 'string' } } } }, aligns: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['concern', 'folders', 'action'], properties: { concern: { type: 'string' }, folders: { type: 'array', items: { type: 'string' } }, action: { type: 'string' } } } }, seams: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folders', 'shape'], properties: { folders: { type: 'array', items: { type: 'string' } }, shape: { type: 'string' }, kind: { type: 'string' } } } }, gapFills: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'folder', 'fills'], properties: { package: { type: 'string' }, folder: { type: 'string' }, fills: { type: 'string' }, version: { type: 'string' } } } }, summary: { type: 'string' } } }
+const APPLY_SCHEMA = { type: 'object', additionalProperties: false, required: ['summary'], properties: { dedups: { type: 'array', items: { type: 'string' } }, aligns: { type: 'array', items: { type: 'string' } }, seams: { type: 'array', items: { type: 'string' } }, gapFills: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package'], properties: { package: { type: 'string' }, folder: { type: 'string' }, apiPath: { type: 'string' } } } }, files: { type: 'array', items: { type: 'string' } }, green: { type: 'boolean' }, summary: { type: 'string' } } }
+const BUILD_SCHEMA = { type: 'object', additionalProperties: false, required: ['green'], properties: { green: { type: 'boolean' }, diagnostics: { type: 'string' }, projects: { type: 'array', items: { type: 'string' } } } }
+
+// --- [LAW] -------------------------------------------------------------------------------
+const LAW = [
+  'Rasm monorepo, CROSS-FOLDER ALIGNMENT of the seven C# AEC folders (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP strata; depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract). The per-folder surveys have each admitted packages to its own folder in isolation; THIS pass smooths and aligns ACROSS folders. Central pins live in ' + MANIFEST + '. The folder roster (name/root/.api/csproj; Geometry has the special layout) is: ' + ROSTER + '.',
+  'MISSION — smooth and align, do not re-survey: (1) DEDUP — a capability admitted divergently in two folders (two different packages for one concern, or the same package pinned/referenced inconsistently) collapses to the single best owner; the package lands in the folder whose stratum genuinely owns the concern and the sibling consumes the seam, never a second admission. (2) ALIGN — central pin versions, README package rosters, and group placement are made consistent across folders; one canonical version per package. (3) SEAM — a real cross-folder capability relationship (one folder produces what another consumes — e.g. a host health probe over a store/broker a sibling owns) is recorded in BOTH folders ARCHITECTURE [02]-[SEAMS] with mirrored glyphs, never left implicit. (4) GAP-FILL — a genuine cross-folder gap (one folder admission implies a sibling counterpart that no folder admitted) is covered by admitting the counterpart package to the rightful folder plus its one-line .api stub.',
+  'VALIDATION GATE for any gap-fill admission: best-of, osx-arm64 (managed AnyCPU or an osx-arm64 native asset), newest stable version named, OSS or free-full-commercial license, modern packaging, no duplicate of an existing admission. Default to NOT admitting on any unproven condition — alignment prefers consuming an existing owner over a new pin.',
+  'WRITE DISCIPLINE: the SURVEY and SYNTHESIZE stages are READ-ONLY and write nothing. ONLY the APPLY stage writes, and it writes EXACTLY the alignment surface: Directory.Packages.props pins/versions, the affected folder csproj PackageReference rows, the folder README rosters, the folder ARCHITECTURE [02]-[SEAMS] records, and — for a gap-fill only — a one-line placeholder .api stub for the newly admitted package. The APPLY stage does NOT fill any .api catalog (a focused rebuild-api run owns that) and does NOT edit any design page (plan-cs-folders owns design integration). A dedup that removes a package ripple-removes its manifest row + csproj reference + README mention repo-wide.',
+].join('\n')
+
+// --- [PROMPTS] ---------------------------------------------------------------------------
+const readPrompt = (f) => [
+  LAW, '',
+  'TASK (SURVEY folder ' + f.name + ' for cross-folder alignment — READ-ONLY, write nothing): read its README (package roster), ARCHITECTURE.md ([1]-[DOMAIN_MAP] + [2]-[SEAMS]), the catalogs under ' + f.api + '/, the central manifest rows for this folder, and the project file ' + f.csproj + '.' + (f.note ? ' ' + f.note : '') + ' Return: the admitted PACKAGES this folder carries; the CAPABILITIES it now owns (especially newly-admitted ones); the cross-folder SEAMS it already records or should (shape + kind + the sibling folder); and CROSS-FOLDER observations — any capability that overlaps, duplicates, or implies a counterpart in a sibling folder (name the related folders). Be precise; name packages and seam shapes exactly. Write nothing.',
+].join('\n')
+
+const synthPrompt = (reads) => [
+  LAW, '',
+  'TASK (SYNTHESIZE the cross-folder alignment change-set — the barrier, READ-ONLY): you hold the survey of all ' + FOLDERS.length + ' folders (INLINED below). Consolidate into the alignment change-set: DEDUPS (a concern admitted divergently across folders -> the single best owner + the folders to remove it from + why), ALIGNS (pin-version / README-roster / group inconsistencies -> the canonical action per concern across the named folders), SEAMS (a real cross-folder producer/consumer relationship -> the folders it spans + the shared shape + kind, to record in both ARCHITECTURE [02]-[SEAMS]), and GAP-FILLS (a genuine cross-folder gap one admission implies but no folder covered -> the counterpart package, the rightful owning folder, what it fills, the newest version). Prefer consuming an existing owner over a new pin; a gap-fill is justified only when no admitted package covers the counterpart and it passes the validation gate. Emit a bounded, non-redundant change-set. Write nothing.',
+  'SURVEY OF ALL FOLDERS:\n' + JSON.stringify(reads, null, 1),
+].join('\n')
+
+const applyPrompt = (plan) => [
+  LAW, '',
+  'TASK (APPLY the cross-folder alignment coherently — WRITE the alignment surface only, serial on the shared manifest): apply this change-set across the repo NOW. The folder roster (Geometry has the special layout — its README/ARCHITECTURE/.api are at the libs/csharp/Rasm root): ' + ROSTER + '. For each DEDUP: keep the package in the rightful owner folder, ripple-REMOVE it from the named folders (manifest row only if no folder still references it, the csproj PackageReference, the README mention), and ensure the consuming sibling reads the owner seam. For each ALIGN: make the central pin version canonical and the README rosters + manifest group placement consistent across the named folders. For each SEAM: record it in BOTH spanned folders ARCHITECTURE [02]-[SEAMS] with mirrored glyphs and the shared shape + kind. For each GAP-FILL (re-confirm the validation gate first; skip on any unproven condition): admit the central pin at the newest stable version + any pure-managed transitive floor pin, add the PackageReference to the owning folder csproj, add it to the owning folder README roster, and write a ONE-LINE placeholder .api stub at the owning folder .api root (report its apiPath). Do NOT fill any .api catalog and do NOT edit any design page. Restore each affected project so the manifest resolves on osx-arm64. Return the applied dedups/aligns/seams/gapFills, the files edited, green (true only if every affected project restores clean), and a one-line summary.',
+  'ALIGNMENT CHANGE-SET:\n' + JSON.stringify(plan, null, 1),
+].join('\n')
+
+const verifyPrompt = (applied) => [
+  LAW, '',
+  'TASK (VERIFY the alignment — restore/static gate): the alignment touched these files: ' + JSON.stringify((applied && applied.files) || []) + '. Run the assay static/restore gate over the affected projects via `uv run --frozen python -m tools.assay static --project <csproj>` (parse the one JSON Envelope on stdout), green=true ONLY if every affected project restores cleanly on osx-arm64 with no FAILED diagnostic. On red, return green=false with the concrete diagnostics (NU* restore error, a removed package still referenced, a version mismatch).',
+].join('\n')
+
+// --- [COMPOSITION] -- Survey(7) -> Synthesize(1) -> Apply(1) -> Verify(1) ---------------------
+phase('Survey')
+const reads = (await parallel(FOLDERS.map((f) => () =>
+  agent(readPrompt(f), { label: 'read:' + f.name, phase: 'Survey', schema: READ_SCHEMA, model: 'opus', effort: 'high', stallMs: STALL })
+))).filter(Boolean)
+log('survey: read ' + reads.length + '/' + FOLDERS.length + ' folders')
+if (!reads.length) return { scope: 'csharp-aec-stack', note: 'no folder surveys returned' }
+
+phase('Synthesize')
+const plan = await agent(synthPrompt(reads), { label: 'synthesize', phase: 'Synthesize', schema: PLAN_SCHEMA, model: 'opus', effort: 'max', stallMs: STALL })
+const counts = { dedups: ((plan && plan.dedups) || []).length, aligns: ((plan && plan.aligns) || []).length, seams: ((plan && plan.seams) || []).length, gapFills: ((plan && plan.gapFills) || []).length }
+log('synthesize: ' + counts.dedups + ' dedups, ' + counts.aligns + ' aligns, ' + counts.seams + ' seams, ' + counts.gapFills + ' gap-fills')
+if (!plan || (!counts.dedups && !counts.aligns && !counts.seams && !counts.gapFills)) return { scope: 'csharp-aec-stack', folders: reads.length, note: 'nothing to align', summary: (plan && plan.summary) || '' }
+
+phase('Apply')
+const applied = await agent(applyPrompt(plan), { label: 'apply', phase: 'Apply', schema: APPLY_SCHEMA, model: 'opus', effort: 'max', stallMs: APPLY_STALL })
+log('apply: ' + (((applied && applied.gapFills) || []).length) + ' gap-fills admitted, green=' + (applied && applied.green))
+
+phase('Verify')
+const v = await agent(verifyPrompt(applied), { label: 'verify', phase: 'Verify', schema: BUILD_SCHEMA, model: 'sonnet', effort: 'low', stallMs: APPLY_STALL })
+const stubs = ((applied && applied.gapFills) || []).map((g) => g.apiPath).filter(Boolean)
+log('align-cs complete: green=' + (v && v.green) + ', ' + stubs.length + ' new gap-fill .api stubs')
+return { scope: 'csharp-aec-stack', folders: reads.length, dedups: (applied && applied.dedups) || [], aligns: (applied && applied.aligns) || [], seams: (applied && applied.seams) || [], gapFills: (applied && applied.gapFills) || [], apiStubs: stubs, finalGreen: v && v.green, residualDiagnostics: (v && !v.green) ? v.diagnostics : '', summary: (applied && applied.summary) || '' }

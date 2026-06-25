@@ -24,6 +24,7 @@ Rasm.AppHost/
 │   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling; model-selection + content-filter governance
 │   ├── Federation.cs    # Folds external MCP servers into one registry as brokered descriptors
 │   ├── Capability.cs    # Self-describing CapabilityDescriptor op catalog, command algebra, fenced distributed quota
+│   ├── Identity.cs      # Authentication boundary: OIDC issuer-trust + JWKS-rotating token validation, OpenIddict credential flows, claims-policy gate
 │   └── Runtime.cs       # One command-dispatch front door consolidating CommandAlgebra/CommandAIFunction/CommandReceipt
 ├── Wire/                # Outbound and external-binding seam
 │   ├── Outbound.cs      # Single outbound boundary with per-seam retry/cache and delivery fan-out
@@ -75,6 +76,8 @@ Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [P
 Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
 Wire/coordination           ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease store
 Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
+Observability/Health.cs     →  csharp:Rasm.Persistence/Store              # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver
+Model/agent                 →  csharp:Rasm.Compute/Model                  # [PORT]: Microsoft.Extensions.AI middleware governing/pricing
 ```
 
 ## [03]-[SPINE]
@@ -134,4 +137,7 @@ The closed NEVER list — the deleted patterns the owner regions foreclose.
 - NEVER a second op-metadata owner beside `CapabilityDescriptor`, a second permission-and-cost owner beside `GrantBroker`, an in-process third-party plugin outside the WASM/process isolation boundary, or a plugin-private geometry representation; a plugin speaks the Compute canonical `EncodedTensor` and dispatches through the command algebra.
 - NEVER a second RNG or non-chained event log: `DeterminismContext` owns the seed and float mode, `EventLog` is the single hash-chained content-addressed command log riding the durable `OpLog`.
 - NEVER a second notification sender, external-binding poller, alerting owner, or power monitor: `DeliveryFanout`, `ExternalTransport`/`LiveWire`, `AlertEngine`, and `FidelityScale` are read consumers of the existing hop/health/power signals, never parallel state machines.
+- NEVER a second token-validation owner beside `Agent/identity` `TokenValidation`, a hand-rolled JWKS fetch or `.well-known` parse beside the `IssuerTrust` `ConfigurationManager<OpenIdConnectConfiguration>`, a pinned `IssuerSigningKey` for a rotating provider, a per-flow OAuth service beside the one `OpenIddictClientService`, the legacy `JwtSecurityTokenHandler`, or a claims/role check outside the `PolicyGate`; authentication produces one `Principal` whose `TenantContext` the `GrantBroker` reads, and the claims policy gate and the capability-cost broker stay distinct ordered seams over that `Principal`.
+- NEVER an unverified release or plugin install: the `Sandbox/provisioning` `SupplyChainGate.Admit` proves the downloaded artifact's Sigstore signature and SLSA provenance against a pinned offline trust root AND its SemVer-contract through `NuGet.Versioning` `VersionRange.Satisfies` before `UpdateRail.Stage` commits; a `System.Version` semver check, a hand-split `lower-upper` range string, a network-bound verify on an air-gapped node, or a skipped admit is the deleted form.
+- NEVER a backing-service health probe outside the one `Observability/health` `DriverProbe`/`Driver` adapter or on a second connection: a `Store`/`Remote`/`Pressure` driver row binds the shared pooled driver instance and routes onto an existing degradation rule, never a parallel `Add*` registration or an out-of-pool probe connection.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

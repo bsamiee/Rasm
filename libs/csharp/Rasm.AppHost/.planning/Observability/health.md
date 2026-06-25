@@ -1,6 +1,6 @@
 # [APPHOST_HEALTH_AND_DEGRADATION]
 
-Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks supplies probe mechanics, ResourceMonitoring publishes CPU/memory utilization and container limits through its OTel observable instruments and ResourceQuotaProvider, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
+Capability health and the usable-failure degradation rail for every Rasm.AppHost process: a health-contributor row family folds package probes into one wire-neutral snapshot, a `DriverProbe`-keyed adapter binds every admitted backing-service health check (Postgres, Redis, Kafka, upstream HTTP, disk, allocation) onto its degradation rule through one shared driver instance, the five-level DegradationLevel vocabulary carries one retained-capability set per row, and a wire-health mapping projects the registry onto the standard wire health service. Microsoft.Extensions.Diagnostics.HealthChecks supplies probe mechanics, the AspNetCore.HealthChecks.NpgSql/Redis/Kafka/Uris/System family supplies the concrete backing-service probes, ResourceMonitoring publishes CPU/memory utilization and container limits through its OTel observable instruments and ResourceQuotaProvider, Thinktecture owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps; every consumer reads one level value.
 
 ## [01]-[INDEX]
 
@@ -12,14 +12,14 @@ Capability health and the usable-failure degradation rail for every Rasm.AppHost
 
 ## [02]-[HEALTH_FOLD]
 
-- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `PressurePolicy` grades utilization with a `ResourceQuota` container-limit column; `UtilizationCell` is the `MeterListener`-backed boundary capsule that records the ResourceMonitoring observable instruments and grades on read; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
-- Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; instrument-name consts `CpuInstrument` and `MemoryInstrument` key the meter subscription; `Gauge` and `Peer` are the canonical row factories and `Monitor` is the resource-monitoring registration fold.
+- Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `DriverProbe` `[SmartEnum<string>]` is the backing-service probe axis carrying each dependency kind's contributor tag and failure status; `PressurePolicy` grades utilization with a `ResourceQuota` container-limit column; `UtilizationCell` is the `MeterListener`-backed boundary capsule that records the ResourceMonitoring observable instruments and grades on read; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
+- Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; instrument-name consts `CpuInstrument` and `MemoryInstrument` key the meter subscription; six `DriverProbe` rows — `Postgres`/`Cache` (Store), `Broker`/`Upstream` (Remote), `Disk`/`Allocations` (Pressure) — bind each admitted Xabaril health-check package to its degradation rule; `Gauge`, `Peer`, and `Driver` are the canonical row factories and `Monitor` is the resource-monitoring registration fold.
 - Entry: `Register(params ReadOnlySpan<HealthContributorRow> rows)` composes registrations; `Snapshot(Instant at, CorrelationId correlation)` is the pure report fold.
-- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `Monitor` folds the policy onto `AddResourceMonitoring`, binding `CollectionWindow` to `PressurePolicy.Canonical.Window`, `SamplingInterval` to `PressurePolicy.Canonical.Sampling`, and `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, setting `UseLinuxCalculationV2` from `CgroupV2` and `UseZeroToOneRangeForLinuxMetrics` so CPU rides the normalized zero-to-one range the grade reads, and turning on `EnableSystemDiskIoMetrics` from `DiskIoMetrics` for the disk-I/O instruments; `UtilizationCell.Attach` opens a `MeterListener` on the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, enables `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, and records each observed double into the atom, the publishing window bounding every derived signal's reaction time.
+- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `Driver(DriverProbe, cadence, IHealthCheck)` adapts ANY admitted package check — `NpgSqlHealthCheck` over the pooled `NpgsqlDataSource`, `RedisHealthCheck` over the singleton `IConnectionMultiplexer`, `KafkaHealthCheck` over the topics `ProducerConfig`, `UriHealthCheck` over a service-discovery `AddUrlGroup`, and `DiskStorageHealthCheck`/`ProcessAllocatedMemoryHealthCheck` over the BCL counters — into one contributor row whose synthetic `HealthCheckContext` seats the `DriverProbe.FailureStatus` the package check stamps, so the six packages enter as six rows through one adapter rather than six parallel `Add*` registration faces; `Monitor` folds the policy onto `AddResourceMonitoring`, binding `CollectionWindow` to `PressurePolicy.Canonical.Window`, `SamplingInterval` to `PressurePolicy.Canonical.Sampling`, and `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, setting `UseLinuxCalculationV2` from `CgroupV2` and `UseZeroToOneRangeForLinuxMetrics` so CPU rides the normalized zero-to-one range the grade reads, and turning on `EnableSystemDiskIoMetrics` from `DiskIoMetrics` for the disk-I/O instruments; `UtilizationCell.Attach` opens a `MeterListener` on the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, enables `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, and records each observed double into the atom, the publishing window bounding every derived signal's reaction time.
 - Receipt: `HealthSnapshot` stamped with `Instant` and `CorrelationId`; `HealthReport` never crosses the fold.
-- Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.Extensions.Diagnostics.ResourceMonitoring, NodaTime, LanguageExt.Core
-- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; container-limit grading is one `ResourceQuota` value flip on `PressurePolicy.Quota`, a sampling retune is one `Sampling` value, and a new utilization signal is one enabled instrument name on `UtilizationCell.Attach`, never a parallel policy.
-- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when `PressurePolicy.Quota` carries a `ResourceQuota` — the OCI `headless` and `web` rows set `CgroupV2` so `Monitor` turns on `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics`, folding the cgroup `MaxCpuInCores` and `MaxMemoryInBytes` ceilings into the same zero-to-one ratio axis the meter publishes, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, and whether the `process.cpu.utilization`/`dotnet.process.memory.virtual.ratio` instruments arrive already quota-normalized under that flag or require a `ResourceQuotaProvider.GetResourceQuota()` recompute rides `[MEMORY_RATIO_SEMANTIC]`; a bare host-ratio grade on a container row is the deleted form. The obsolete `IResourceMonitor`/`ResourceUtilization`/`SystemResources`/`IResourceUtilizationPublisher`/`ISnapshotProvider` pull path is the deleted form: utilization crosses as observable-instrument readings, container limits as `ResourceQuota`, never the windowed-snapshot interface.
+- Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.Extensions.Diagnostics.ResourceMonitoring, AspNetCore.HealthChecks.NpgSql, AspNetCore.HealthChecks.Redis, AspNetCore.HealthChecks.Kafka, AspNetCore.HealthChecks.Uris, AspNetCore.HealthChecks.System, NodaTime, LanguageExt.Core
+- Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; a new backing-service dependency is one `DriverProbe` row binding its tag and failure status, never a new factory; container-limit grading is one `ResourceQuota` value flip on `PressurePolicy.Quota`, a sampling retune is one `Sampling` value, and a new utilization signal is one enabled instrument name on `UtilizationCell.Attach`, never a parallel policy.
+- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; a `Driver` row binds the SAME pooled `NpgsqlDataSource`, singleton `IConnectionMultiplexer`, and topics `ProducerConfig` the production path owns, so a probe shares connection-pool pressure with live queries and never opens a second out-of-pool connection or invents a parallel connection vocabulary, and its tag routes a faulted dependency onto an EXISTING degradation rule (`Store` -> `ReadOnly`, `Remote` -> `ReducedRemote`, `Pressure` -> `Degraded`) with zero added `Rule`; the `Disk`/`Allocations` probes are the discrete hard-ceiling complement to the continuous `UtilizationCell` gauge, not a second utilization source — they grade an absolute breach the windowed ratio does not express, both projecting into the one `Pressure`-tagged contributor set; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when `PressurePolicy.Quota` carries a `ResourceQuota` — the OCI `headless` and `web` rows set `CgroupV2` so `Monitor` turns on `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics`, folding the cgroup `MaxCpuInCores` and `MaxMemoryInBytes` ceilings into the same zero-to-one ratio axis the meter publishes, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, and whether the `process.cpu.utilization`/`dotnet.process.memory.virtual.ratio` instruments arrive already quota-normalized under that flag or require a `ResourceQuotaProvider.GetResourceQuota()` recompute rides `[MEMORY_RATIO_SEMANTIC]`; a bare host-ratio grade on a container row is the deleted form. The obsolete `IResourceMonitor`/`ResourceUtilization`/`SystemResources`/`IResourceUtilizationPublisher`/`ISnapshotProvider` pull path is the deleted form: utilization crosses as observable-instrument readings, container limits as `ResourceQuota`, never the windowed-snapshot interface.
 
 ```csharp signature
 public sealed record HealthContributorRow(
@@ -69,6 +69,44 @@ public sealed record HealthContributorRow(
         Timeout: DeadlineClass.HealthProbe,
         Delay: cadence,
         Period: cadence);
+
+    // The one driver-probe adapter: any admitted Xabaril IHealthCheck (Npgsql/Redis/Kafka/Uris/System)
+    // becomes one contributor row carrying the DriverProbe row's tag and failure status, never a parallel
+    // AddNpgSql/AddRedis/AddKafka/AddUrlGroup registration scatter. The synthetic HealthCheckContext seats
+    // the failure status the package check stamps; the shared driver instance (pooled NpgsqlDataSource,
+    // singleton IConnectionMultiplexer, the topics ProducerConfig) is the one the production path owns.
+    public static HealthContributorRow Driver(DriverProbe probe, Duration cadence, IHealthCheck check) {
+        var context = new HealthCheckContext {
+            Registration = new HealthCheckRegistration(probe.Key, check, probe.FailureStatus, TagSet(probe.Tag), DeadlineClass.HealthProbe.Allotted.ToTimeSpan()),
+        };
+        return new(
+            Name: probe.Key,
+            Probe: ct => new ValueTask<HealthCheckResult>(check.CheckHealthAsync(context, ct)),
+            FailureStatus: probe.FailureStatus,
+            Tags: TagSet(probe.Tag),
+            Timeout: DeadlineClass.HealthProbe,
+            Delay: cadence,
+            Period: cadence);
+    }
+}
+
+// The backing-service probe axis: one row per dependency kind carries the contributor tag and failure
+// status that route a faulted dependency onto its existing degradation rule — Postgres/Redis to Store
+// (-> ReadOnly), Kafka/upstream HTTP to Remote (-> ReducedRemote), disk/allocation ceilings to Pressure
+// (-> Degraded). Adding a backing-service kind is one row; the degradation rules are untouched.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<HealthKeyPolicy, string>]
+[KeyMemberComparer<HealthKeyPolicy, string>]
+public sealed partial class DriverProbe {
+    public static readonly DriverProbe Postgres = new("npgsql", HealthContributorRow.Store, HealthStatus.Unhealthy);
+    public static readonly DriverProbe Cache = new("redis", HealthContributorRow.Store, HealthStatus.Unhealthy);
+    public static readonly DriverProbe Broker = new("kafka", HealthContributorRow.Remote, HealthStatus.Unhealthy);
+    public static readonly DriverProbe Upstream = new("uris", HealthContributorRow.Remote, HealthStatus.Unhealthy);
+    public static readonly DriverProbe Disk = new("diskstorage", HealthContributorRow.Pressure, HealthStatus.Degraded);
+    public static readonly DriverProbe Allocations = new("process_allocated_memory", HealthContributorRow.Pressure, HealthStatus.Degraded);
+
+    public string Tag { get; }
+    public HealthStatus FailureStatus { get; }
 }
 
 public readonly record struct Utilization(double CpuRatio, double MemoryRatio);

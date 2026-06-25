@@ -10,8 +10,8 @@ THE CMU PROFILEFAMILY. The concrete-masonry-unit cross-section vocabulary — th
 
 - Owner: the cmu unit vocabulary (`CmuGrade` the solid/hollow discriminant, `CmuSection` the ASTM C90 cell/face-shell record); `ProfileCatalogue.BuildCmuRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `CmuSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`.
 - Cases: grade {hollow-load-bearing, hollow-non-load-bearing, solid-load-bearing} — the ASTM C90 unit-grade set; a section is a `CmuSection` row over one `CmuGrade`, never a section subtype.
-- Entry: `public Fin<ProfileUnit> ToUnit(Context context, Op key)` on `CmuSection` — the section→`ProfileUnit` projection (`WidthMm` = actual unit width, `HeightMm`/`CourseHeightMm` = actual unit height plus the standard bed joint, `LengthMm` = actual unit length) so a CMU member flows through the SAME `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold; `public double SolidFraction()` the `[BoundaryAdapter]` net-area ratio the structural seam reads, and `public Coring ToCoring()` the masonry void-class bridge.
-- Packages: Rasm (project — `PositiveMagnitude` for every fractional-millimeter section column), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
+- Entry: `public Fin<ProfileUnit> ToUnit(Context context, Op key)` on `CmuSection` — the section→`ProfileUnit` projection (`WidthMm` = actual unit width, `HeightMm`/`CourseHeightMm` = actual unit height plus the standard bed joint, `LengthMm` = actual unit length) so a CMU member flows through the SAME `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold; `public Fin<ComputedSection> NetSection(Op key)` the EXACT net cross-section — the `profile#PROFILE_OWNER` `ParametricSection.Hollow` solver over the cell voids returning net Area AND net inertia, the design seam's true net section; `public double SolidFraction()` the quick net-area ratio the `Coring` bucket reads, and `public Coring ToCoring()` the masonry void-class bridge.
+- Packages: Rasm (project — `PositiveMagnitude` for every fractional-millimeter section column), VividOrange.Sections.SectionProperties (via the shared `profile#PROFILE_OWNER` `ParametricSection` bridge — the hollow `Perimeter` net-section integral; `.api/api-vividorange-sections-sectionproperties.md`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
 - Growth: the cmu vocabulary grows by data — a new ASTM C90 unit is one `CmuRow` catalogue row keyed by its nominal designation, a new grade one `CmuGrade` case — never a per-block type, never a per-family `Profile` variant. A timber/glazing family lands its own vocabulary on its own page the way cmu carries `CmuGrade`/`CmuSection`; the named cost is stated at `profile#STRUCTURAL_FAMILY_VOCABULARY`.
 - Boundary: the cmu vocabulary is a realized `ProfileFamily` — a per-block class is the deleted form; `CmuSection` composes the `Rasm` kernel `PositiveMagnitude` (double-backed `> 0` finite) for every length column so the section never re-mints a length primitive, the ASTM C90 minimum face-shell (19/25/32 mm by nominal width) and 19 mm web thickness admitting as fractional millimeters; `CmuSection.ToUnit` is the ONE bridge from the cell/face-shell vocabulary to the canonical `ProfileUnit` the `Resolve` fold consumes, and `CmuSection.ToCoring` maps the net-area solid fraction to the `masonry#PROFILE_FAMILY` `Coring` void class (a hollow two-cell unit reads `Coring.Hollow2Cell`) so the cmu unit shares the masonry course algebra; a CMU run is a `LayerSet`/`ProfileSet` assignment along the `RunPath` extruded through one `Profile`, never a masonry-special-case; the `CmuGrade` carries the load-bearing/non-load-bearing discriminant the design seam reads and the `IfcRectangleProfileDef` rectangle subtype the cmu maps to on the wire (a hollow unit's cell voids cross as the `Coring` void fraction, the wire profile the outer rectangle); `ProfileCatalogue.BuildCmuRows` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table with the ASTM C90 rows keyed `cmu.<designation>`, the realized cross-section grounded in the published ASTM C90 dimensional values.
 
@@ -51,12 +51,30 @@ public readonly record struct CmuSection(
         return Math.Max(0.0, cellWidth) * Math.Max(0.0, cellLength);
     }
 
+    // The cell voids in the horizontal L×W cross-section: CellCount equal cells separated by webs, each cell inset by
+    // the face shell across the width and centred along the length, the void list profile#PROFILE_OWNER ParametricSection
+    // subtracts from the outer rectangle for the EXACT net section.
+    private Seq<(double X, double Y, double W, double H)> CellVoids() {
+        if (!Grade.Hollow || CellCount <= 0) { return Seq<(double, double, double, double)>(); }
+        double cellWid = Math.Max(0.0, ActualWidthMm.Value - 2.0 * FaceShellMm.Value);
+        double cellLen = Math.Max(0.0, (ActualLengthMm.Value - (CellCount + 1) * WebThicknessMm.Value) / CellCount);
+        double pitch = cellLen + WebThicknessMm.Value;
+        return toSeq(Enumerable.Range(0, CellCount))
+            .Map(i => (X: -ActualLengthMm.Value / 2 + WebThicknessMm.Value + cellLen / 2 + i * pitch, Y: 0.0, W: cellLen, H: cellWid));
+    }
+
     public Coring ToCoring() => SolidFraction() switch {
         >= 0.95 => Coring.None,
         >= 0.70 => Coring.Cored3Hole,
         >= 0.55 => Coring.Perforated10Cell,
         _       => Coring.Hollow2Cell,
     };
+
+    // The EXACT net section the structural design seam reads — net Area AND net moment-of-inertia with the cells
+    // subtracted from the second moment, not the gross-minus-cell-area scalar SolidFraction approximates; the ONE
+    // profile#PROFILE_OWNER ParametricSection solver runs over the built hollow Perimeter, never a per-cell literal.
+    public Fin<ComputedSection> NetSection(Op key) =>
+        ParametricSection.Hollow(ActualLengthMm.Value, ActualWidthMm.Value, CellVoids(), key);
 
     public Fin<ProfileUnit> ToUnit(Context context, Op key) =>
         ProfileUnit.Of(ActualWidthMm.Value, ActualHeightMm.Value, ActualLengthMm.Value, ActualHeightMm.Value + BedJointMm, context, key);
@@ -103,4 +121,4 @@ public static class ProfileCatalogue {
 
 - [CMU_ROW_TRANSCRIPTION]: REALIZED — the ASTM C90 standard carries the hollow/solid load-bearing concrete-masonry-unit grades with the actual 190×190×390 mm 8-inch module, the minimum face-shell thickness by nominal width (19 mm at 4 in, 25 mm at 6 in, 32 mm at 8 in and above), and the 19 mm minimum web thickness; the catalogue carries the 4/6/8/10/12-inch hollow nominal widths, the 4/8-inch solid grades, the 190-mm splitface architectural unit, and the 90-mm half-high unit, the full standard nominal-width set keyed `cmu.<designation>`, a new architectural finish (ground-face, scored, ribbed) or metric A-series unit one further `CmuRow` data addition, never a new type. The raw `CmuRow` carries plain doubles and admits once through `CmuOf` into the kernel value-objects so the catalogue seed validates every column, a non-positive dimension dropping the row through `Choose` rather than seeding a degenerate `Profile`.
 - [IFCPROFILEDEF_CMU_ALIGNMENT]: the cmu family is the `IfcRectangleProfileDef` rectangle subtype on the `IfcProfileDef` wire — the outer 190×390 mm face is the `XDim`/`YDim` rectangle and the hollow-unit cell voids cross as the `Coring` void fraction the `ToCoring` net-area bridge derives, never a per-cell `IfcArbitraryProfileDefWithVoids` here; a CMU member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` carrying the rectangle profile plus the `Coring` receipt, the splitface/ground-face finish a surface-style on the element rather than a profile variant. The probe is the per-finish surface-style mapping at the `Rasm.Bim` boundary, the rectangle profile the realized base case.
-- [CMU_CELL_GEOMETRY]: the `CmuSection.NetAreaMm2` net-area solid fraction drives the `ToCoring` void-class bridge and the structural net-section design; a precise per-cell taper geometry (the cell draft for de-molding) is a `CmuSection` column growth, never a parallel section owner — the face-shell/web/cell-count columns already carry the net-area receipt the masonry course algebra and the `IfcRectangleProfileDef` wire read. The hollow-unit cell voids cross the IFC wire as the rectangle outer profile plus the `Coring` void fraction, never a per-cell profile.
+- [CMU_CELL_GEOMETRY]: REALIZED — the exact net section is the `CmuSection.NetSection` projection composing the shared `profile#PROFILE_OWNER` `ParametricSection.Hollow` solver over the `CellVoids` cell rectangles (the `VividOrange.Sections.SectionProperties` Green's-theorem integral subtracting the cells from BOTH the area AND the second moment), so the structural design seam reads the true net `Area`/`MomentOfInertiaYy`/`Zz` rather than the gross-minus-cell-area scalar the `SolidFraction` approximation yields — the `NetAreaMm2`/`CellAreaMm2` fast path survives only as the coarse `Coring`-bucket ratio the total `ToCoring` reads. The cell voids are computed from the face-shell/web/cell-count columns (`CellVoids`: `CellCount` equal cells inset by the face shell, separated by webs, centred along the length), never a per-cell profile literal; a precise per-cell draft taper is a `CellVoids` column growth, never a parallel section owner. The hollow-unit cell voids cross the IFC wire as the rectangle outer profile plus the `Coring` void fraction, the exact net properties the design seam's own concern.

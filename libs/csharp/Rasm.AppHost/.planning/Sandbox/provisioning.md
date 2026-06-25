@@ -1,12 +1,13 @@
 # [APPHOST_PROVISIONING_AND_UPDATE]
 
-Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in a `RollStrategy`-shaped (canary, blue-green, linear-wave) health-gated wave. The page owns the update rail, the channel axis, the progressive-rollout strategy axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the strategy-shaped wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
+Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state machine that downloads a found release, admits it through an offline supply-chain gate, stages it, drains the node, rolls it over through `ApplyUpdatesAndRestart`, and mints a typed `UpdateReceipt` on every phase, plus a three-row `UpdateChannel` vocabulary carrying feed routing and downgrade policy, plus a supply-chain admit gate proving the downloaded artifact's Sigstore signature and SemVer-contract before a byte is staged, plus a fleet-wide rolling-update conductor that walks the attached-peer roster in a `RollStrategy`-shaped (canary, blue-green, linear-wave) health-gated wave. The page owns the update rail, the channel axis, the supply-chain admit gate, the progressive-rollout strategy axis, and the rollover-drain handshake that runs `DrainConductor` before the restart hands the process to Velopack and the `FleetRoll` fleet conductor that paces the strategy-shaped wave over `PeerRoster`. The `UpdateCheck(ReleaseIdentity)` outbound hop stays the detect leg at outbound-resilience; everything after a release is found composes here over Velopack, the `Sigstore`/`NuGet.Versioning` admit gate, the `DrainConductor` fold, `ReceiptSinkPort`, and the generated metric attributes.
 
 ## [01]-[INDEX]
 
 - [01]-[UPDATE_RAIL]: Post-fetch state machine, fault band, per-phase receipt, and generated instruments.
 - [02]-[CHANNEL_AXIS]: Three feed rows binding explicit channel and downgrade policy onto options.
-- [03]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and the canary/blue-green/linear-wave `RollStrategy` axis over a health-gated fleet-wide wave.
+- [03]-[SUPPLY_CHAIN_GATE]: Offline Sigstore signature + SLSA provenance and SemVer-contract admission run before any release stages.
+- [04]-[ROLLOVER_DRAIN]: Drain-before-swap handshake and the canary/blue-green/linear-wave `RollStrategy` axis over a health-gated fleet-wide wave.
 
 ## [02]-[UPDATE_RAIL]
 
@@ -17,7 +18,7 @@ Rasm.AppHost owns the post-fetch update concern: a `UpdateManager`-borne state m
 - Receipt: `UpdateReceipt` — phase, channel key, target version, prior version, downgrade flag, delta count, `Instant`, elapsed `Duration`, outcome, correlation id.
 - Packages: Velopack, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.Extensions.Telemetry.Abstractions, BCL inbox.
 - Growth: one phase row plus its `Next` arm, or one outcome case, or one fault case breaking every dispatch site at compile time; one instrument is one strongly-typed metric-attribute factory; zero new surface.
-- Boundary: `UpdateRail` is the named boundary capsule for the statement carve-out — the `UpdateManager` ctor, the awaited download, and the terminal `ApplyUpdatesAndRestart` carry language-owned statement forms while every other member stays expression-shaped; the rail composes `UpdateManager` directly with no rename adapter — the `UpdateChannel` axis is the only added vocabulary; `VelopackApp.Build()...Run()` is the process-entry bootstrap owned at the app root, never a rail fence, so `VelopackHook` registration stays at the app root and never enters this page; `ApplyUpdatesAndRestart` takes `found.TargetFullRelease` as its `VelopackAsset`, never the `UpdateInfo`, and the call never returns because the host process is replaced — the rolled-over receipt mints and fans before the call; `found.IsDowngrade` against the channel's `AllowVersionDowngrade` column forecloses a disallowed downgrade as `DowngradeBlocked` before any byte transfers; an inline `meter.CreateCounter` call is the deleted form — every spine instrument is a generated factory whose name and tag set are declaration facts and whose generated metric type exposes the strongly-typed `Add`/`Record` over the channel-key tag; the `Target` fold reads `VelopackAsset.Version` (a `SemanticVersion`) through `ToString`, the single version-stamp seam; `UpdateReceipt` rides the suite wire law as one `AppHostWireContext` `[JsonSerializable]` row; notarization and SBOM are `vpk` build-time concerns and carry no rail fence; the page is host-local and crosses no browser or peer TS wire — `UpdateReceipt` and `FleetRollReceipt` reconstruct in TS solely through the existing `ReceiptEnvelopeWire` at Runtime/ports#TS_PROJECTION, so the page authors no `TS_PROJECTION` cluster and adds no second wire shape.
+- Boundary: `UpdateRail` is the named boundary capsule for the statement carve-out — the `UpdateManager` ctor, the awaited download, and the terminal `ApplyUpdatesAndRestart` carry language-owned statement forms while every other member stays expression-shaped; the rail composes `UpdateManager` directly with no rename adapter — the `UpdateChannel` axis is the only added vocabulary; `VelopackApp.Build()...Run()` is the process-entry bootstrap owned at the app root, never a rail fence, so `VelopackHook` registration stays at the app root and never enters this page; `ApplyUpdatesAndRestart` takes `found.TargetFullRelease` as its `VelopackAsset`, never the `UpdateInfo`, and the call never returns because the host process is replaced — the rolled-over receipt mints and fans before the call; `found.IsDowngrade` against the channel's `AllowVersionDowngrade` column forecloses a disallowed downgrade as `DowngradeBlocked` before any byte transfers; an inline `meter.CreateCounter` call is the deleted form — every spine instrument is a generated factory whose name and tag set are declaration facts and whose generated metric type exposes the strongly-typed `Add`/`Record` over the channel-key tag; the `Target` fold reads `VelopackAsset.Version` (a `SemanticVersion`) through `ToString`, the single version-stamp seam; `UpdateReceipt` rides the suite wire law as one `AppHostWireContext` `[JsonSerializable]` row; `vpk`-side notarization and SBOM emission are build-time signing concerns and carry no rail fence, but the RUNTIME admission verify of a downloaded release — proving the artifact's Sigstore signature and SemVer-contract before it stages — is the `#SUPPLY_CHAIN_GATE` `SupplyChainGate.Admit` boundary capsule the `Stage` fold composes, never a skipped step; the page is host-local and crosses no browser or peer TS wire — `UpdateReceipt` and `FleetRollReceipt` reconstruct in TS solely through the existing `ReceiptEnvelopeWire` at Runtime/ports#TS_PROJECTION, so the page authors no `TS_PROJECTION` cluster and adds no second wire shape.
 
 ```csharp signature
 public sealed class UpdateKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -54,6 +55,7 @@ public abstract partial record UpdateFault : Expected, IValidationError<UpdateFa
     public sealed record StagePending : UpdateFault { public StagePending(string detail) : base(detail, 1302) { } }
     public sealed record RolloverRejected : UpdateFault { public RolloverRejected(string detail) : base(detail, 1303) { } }
     public sealed record DowngradeBlocked : UpdateFault { public DowngradeBlocked(string detail) : base(detail, 1304) { } }
+    public sealed record AdmissionRejected : UpdateFault { public AdmissionRejected(string detail) : base(detail, 1305) { } }
 }
 
 public sealed record UpdateReceipt(
@@ -84,14 +86,16 @@ public sealed class UpdateRail {
     readonly UpdateChannel channel;
     readonly Lifecycle host;
     readonly ReceiptSinkPort sink;
+    readonly SupplyChainGate.Runtime gate;
     readonly StagedMetric staged;
     readonly RollbackMetric rollback;
     readonly RolloverDurationMetric rolloverDuration;
 
-    public UpdateRail(UpdateChannel channel, Lifecycle host, ReceiptSinkPort sink, Meter meter) {
+    public UpdateRail(UpdateChannel channel, Lifecycle host, ReceiptSinkPort sink, SupplyChainGate.Runtime gate, Meter meter) {
         this.channel = channel;
         this.host = host;
         this.sink = sink;
+        this.gate = gate;
         this.manager = new UpdateManager(channel.Feed, new UpdateOptions {
             ExplicitChannel = channel.ExplicitChannel,
             AllowVersionDowngrade = channel.AllowVersionDowngrade,
@@ -116,9 +120,15 @@ public sealed class UpdateRail {
                   await manager.DownloadUpdatesAsync(found, progress.Report, token).ConfigureAwait(false);
                   return unit;
               })
+              // Supply-chain admit gate: the downloaded artifact is verified BEFORE it is staged, so a
+              // forged or out-of-contract release never reaches ApplyUpdatesAndRestart — a failed admit
+              // mints a RolledBack receipt carrying the supply-chain fault rather than staging the bytes.
+              from admitted in SupplyChainGate.Admit(gate, found.TargetFullRelease, channel, token)
               from finish in IO.lift(() => host.Clock.GetCurrentInstant())
-              from receipt in Mint(UpdatePhase.Staged, Target(found.TargetFullRelease), found.IsDowngrade, found.DeltasToTarget.Length, finish - start, new UpdateOutcome.StagedPending(Target(found.TargetFullRelease)))
-              from _ in IO.lift(() => staged.Add(1, channel.Key))
+              from receipt in admitted.Match(
+                  Succ: _ => Mint(UpdatePhase.Staged, Target(found.TargetFullRelease), found.IsDowngrade, found.DeltasToTarget.Length, finish - start, new UpdateOutcome.StagedPending(Target(found.TargetFullRelease))),
+                  Fail: faults => Mint(UpdatePhase.RolledBack, Target(found.TargetFullRelease), found.IsDowngrade, found.DeltasToTarget.Length, finish - start, new UpdateOutcome.RolledBack(Prior, new UpdateFault.AdmissionRejected(faults.Head.Message))))
+              from _ in IO.lift(() => admitted.IsSuccess ? staged.Add(1, channel.Key) : rollback.Add(1, channel.Key))
               select receipt;
 
     public IO<UpdateReceipt> Rollover(VelopackAsset asset, Duration cooperative, Duration forced) =>
@@ -189,7 +199,73 @@ public sealed partial class UpdateChannel {
 }
 ```
 
-## [04]-[ROLLOVER_DRAIN]
+## [04]-[SUPPLY_CHAIN_GATE]
+
+- Owner: `SupplyChainFault` `[Union]` fault family in the 1320 band; `SupplyChainReceipt` the admit-evidence record; `TrustPolicy` the per-channel expected-signer plus version-contract policy; `SupplyChainGate` the static admit surface whose `Admit` is the named statement carve-out, with the nested `Runtime` binding the one offline `SigstoreVerifier`, the policy resolver, and the staging directory.
+- Cases: `SupplyChainFault` = Text | BundleMissing | SignatureRejected | ProvenanceUnbound | VersionIncompatible | TrustRootUnavailable — one case per admit-rejection cause.
+- Entry: `Admit(SupplyChainGate.Runtime gate, VelopackAsset asset, UpdateChannel channel, CancellationToken token)` returns `IO<Validation<SupplyChainFault, SupplyChainReceipt>>` — loads the cosign bundle sitting beside the downloaded artifact, verifies its Sigstore signature and SLSA provenance offline against the pinned trust root through `SigstoreVerifier.TryVerifyDigestAsync` over the artifact's `SHA256` digest, and checks the artifact `Version` against the channel's `VersionRange` contract; the signature leg and the version leg accumulate applicatively so a release that is both forged AND out-of-contract reports both faults in one pass.
+- Auto: the `Admit` runs BEFORE `UpdateRail.Stage` commits the staged phase, so a forged or out-of-contract release never reaches `ApplyUpdatesAndRestart` — the `Stage` fold branches on the admit `Validation`, minting `RolledBack` on a fault and `Staged` only on success; the trust anchor is the offline `FileTrustRootProvider(pinnedTrustedRootJson)` so the verify path performs NO network call and the gate is hermetic; `SigstoreVerifier.TryVerifyDigestAsync` is the non-throwing ROP mirror returning `(bool Success, VerificationResult? Result)` — a `VerificationException` never escapes the domain — and reuses the artifact's already-computed `SHA256` rather than re-reading the package stream; the expected signer is the `VerificationPolicy.CertificateIdentity` built once via `CertificateIdentity.ForGitHubActions(owner, repository)`, so an empty-identity verify that asserts only cryptographic integrity is the rejected form; the DSSE/in-toto provenance leg reads `VerificationResult.Statement` (`InTotoStatement`) and binds its `Subject` digest to the admitted artifact so one verify proves signature AND build provenance; the version leg parses the artifact's Velopack `SemanticVersion` through `NuGetVersion.TryParse(asset.Version.ToString())` and decides with `VersionRange.Satisfies`, the real SemVer-2.0 contract check `System.Version` cannot express, with a parse failure on either boundary failing closed as `VersionIncompatible`.
+- Receipt: `SupplyChainReceipt` — verified signer SAN, in-toto predicate type, admitted version string, `Instant`; the verified signer is the trusted-publisher principal the `Agent/capability#GRANT_BROKER` may treat as a privileged artifact source, and the receipt rides the `UpdateReceipt` correlation, never a parallel admit instrument.
+- Packages: Sigstore, NuGet.Versioning, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
+- Growth: one verify threshold is one `VerificationPolicy` column (`TransparencyLogThreshold`, `RequireSignedCertificateTimestamps`); one channel's expected signer is one `TrustPolicy` row; a managed-key (non-Fulcio) feed is the `VerificationPolicy.PublicKey` column; zero new surface.
+- Boundary: the gate is the suite's only supply-chain admit owner — a `System.Version`-based semver check, a hand-split `lower-upper` range string, a throwing `Parse` in the admission fold, an unsigned-release install, and a network-bound verify on an air-gapped node are the deleted forms; the gate is the precondition the `Sandbox/isolation` plugin loader's third-party-artifact admission shares — both the self-update release and a downloaded plugin/companion artifact verify through this one `Admit`, never two verify paths; `vpk`-side build-time notarization is distinct — this is the runtime admission verify of what was actually downloaded, so the build signs and this gate proves; the `TufTrustRootProvider` network anchor is admitted only on a connected node and rides the `Wire/outbound` `Polly.Core` pipeline, while the `FileTrustRootProvider` removes that dependency for a hermetic gate, so the trust-root fetch is the only outbound leg and the verify itself is offline; the version leg admits only the version/range/comparer surface — package-graph resolution and framework compatibility stay out of scope, the contract is one `VersionRange.Satisfies` membership test, and `FindBestMatch` selects the newest in-range candidate when a feed offers several.
+
+```csharp signature
+// --- [ERRORS] ---------------------------------------------------------------------------
+[Union]
+public abstract partial record SupplyChainFault : Expected, IValidationError<SupplyChainFault> {
+    private SupplyChainFault(string detail, int code) : base(detail, code, None) { }
+    public static SupplyChainFault Create(string message) => new Text(message);
+    public sealed record Text : SupplyChainFault { public Text(string detail) : base(detail, 1320) { } }
+    public sealed record BundleMissing : SupplyChainFault { public BundleMissing(string detail) : base(detail, 1321) { } }
+    public sealed record SignatureRejected : SupplyChainFault { public SignatureRejected(string detail) : base(detail, 1322) { } }
+    public sealed record ProvenanceUnbound : SupplyChainFault { public ProvenanceUnbound(string detail) : base(detail, 1323) { } }
+    public sealed record VersionIncompatible : SupplyChainFault { public VersionIncompatible(string detail) : base(detail, 1324) { } }
+    public sealed record TrustRootUnavailable : SupplyChainFault { public TrustRootUnavailable(string detail) : base(detail, 1325) { } }
+}
+
+// --- [MODELS] ---------------------------------------------------------------------------
+public readonly record struct SupplyChainReceipt(string Signer, string Provenance, string Version, Instant At);
+
+// --- [OPERATIONS] -----------------------------------------------------------------------
+public static class SupplyChainGate {
+    public sealed record TrustPolicy(VerificationPolicy Verification, VersionRange ContractRange);
+    public sealed record Runtime(SigstoreVerifier Verifier, Func<UpdateChannel, TrustPolicy> PolicyOf, DirectoryInfo Staging);
+
+    public static IO<Validation<SupplyChainFault, SupplyChainReceipt>> Admit(Runtime gate, VelopackAsset asset, UpdateChannel channel, CancellationToken token) =>
+        gate.PolicyOf(channel) is var policy && Bundle(gate.Staging, asset) is { IsSome: true } bundleFile
+            ? from loaded in IO.liftAsync(async () => await SigstoreBundle.LoadAsync(bundleFile.ValueUnsafe(), token))
+              from verified in IO.liftAsync(async () => await gate.Verifier.TryVerifyDigestAsync(
+                  Convert.FromHexString(asset.SHA256), HashAlgorithmType.Sha256, loaded, policy.Verification, token))
+              from at in IO.lift(() => DateTimeOffset.UtcNow)
+              select (Signature(verified, asset), Version(policy.ContractRange, asset))
+                  .Apply(static (signer, version) => new SupplyChainReceipt(
+                      signer.Signer.SubjectAlternativeName, signer.Provenance, version.ToNormalizedString(), Instant.FromDateTimeOffset(at)))
+                  .As()
+            : IO.pure<Validation<SupplyChainFault, SupplyChainReceipt>>(Fail(new SupplyChainFault.BundleMissing(asset.FileName)));
+
+    // Signature leg: a passing TryVerify carries a VerifiedIdentity AND the decoded in-toto SLSA statement;
+    // the provenance Subject binds the attested artifact, so signature and build-provenance pass as one.
+    static Validation<SupplyChainFault, (VerifiedIdentity Signer, string Provenance)> Signature((bool Success, VerificationResult? Result) verified, VelopackAsset asset) =>
+        verified is { Success: true, Result.SignerIdentity: { } signer }
+            ? verified.Result.Statement is { PredicateType: { } predicate }
+                ? Success<SupplyChainFault, (VerifiedIdentity, string)>((signer, predicate))
+                : Fail<SupplyChainFault, (VerifiedIdentity, string)>(new SupplyChainFault.ProvenanceUnbound(asset.FileName))
+            : Fail<SupplyChainFault, (VerifiedIdentity, string)>(new SupplyChainFault.SignatureRejected(verified.Result?.FailureReason ?? asset.FileName));
+
+    // Version leg: parse the Velopack SemanticVersion through NuGetVersion (real SemVer-2.0) and decide with
+    // VersionRange.Satisfies — a parse failure or an out-of-contract version fails closed, matching the rail's posture.
+    static Validation<SupplyChainFault, NuGetVersion> Version(VersionRange contract, VelopackAsset asset) =>
+        NuGetVersion.TryParse(asset.Version.ToString(), out var version) && contract.Satisfies(version)
+            ? Success<SupplyChainFault, NuGetVersion>(version)
+            : Fail<SupplyChainFault, NuGetVersion>(new SupplyChainFault.VersionIncompatible($"{asset.Version} ∉ {contract.PrettyPrint()}"));
+
+    static Option<FileInfo> Bundle(DirectoryInfo staging, VelopackAsset asset) =>
+        new FileInfo(Path.Combine(staging.FullName, $"{asset.FileName}.sigstore.json")) is { Exists: true } file ? Some(file) : None;
+}
+```
+
+## [05]-[ROLLOVER_DRAIN]
 
 - Owner: `RolloverDrain` static surface composing `DrainConductor.Drain` ahead of `UpdateRail.Rollover` so a node empties before its process is replaced; `RollStrategy` `[SmartEnum<string>]` the progressive-delivery axis (canary, blue-green, linear-wave) with a delegate-backed `Next(cohort, health)` plan arm per strategy; `RollPlan` the per-wave cohort projection; `FleetRoll` the fleet-wide rolling-update conductor walking `PeerRoster.Attached` in strategy-shaped health-gated waves; `FleetRollReceipt` the per-wave fleet-progress projection riding the existing receipt stream.
 - Cases: two conduct paths on the local node — `Conduct` for a staged asset, `ConductPending` for a post-bounce resume; three roll strategies — `Canary` rolls a single-node probe then expands the cohort on a health-hold, `BlueGreen` swaps a parallel half-fleet cohort on a health-pass, `LinearWave` advances fixed N% increments with a bake window between waves; one fleet conduct — `FleetRoll.Roll` paces the wave across the roster, the `RollStrategy` row shaping each next cohort off the prior cohort's recovered serving status.
@@ -308,6 +384,8 @@ sequenceDiagram
     Note over Velopack: process replaced, call never returns
 ```
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
 - [STAGED_FEED]: the production feed URIs per channel replace the placeholder authority on the `UpdateChannel` rows once the release-feed host is provisioned.
+- [TRUST_ANCHOR]: the pinned `trusted_root.json` the `FileTrustRootProvider` loads and the expected `CertificateIdentity.ForGitHubActions(owner, repository)` signer settle against the actual release-signing identity once the `vpk` build pipeline publishes the cosign bundle (`*.sigstore.json`) beside each release asset; the `SupplyChainGate.Runtime.Staging` directory is the Velopack packages dir the `UpdateManager` downloads into, where `Bundle` resolves the per-asset bundle file. The connected-node `TufTrustRootProvider` with a `CustomTrustedRoot` + local cache is the online anchor variant; the air-gapped node pins the offline `FileTrustRootProvider` so the verify path is fully hermetic.
+- [CONTRACT_RANGE]: the per-channel `VersionRange` contract on `TrustPolicy` settles against the host's plugin/release compatibility window — `stable` admits the broadest stable range, `canary` admits the floating prerelease range — resolved once the release-versioning policy is fixed; `VersionRange.FindBestMatch` selects the newest in-range release when a feed offers several candidates.

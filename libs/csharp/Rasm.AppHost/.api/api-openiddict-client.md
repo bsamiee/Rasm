@@ -9,6 +9,7 @@
 - assembly: `OpenIddict.Client`
 - namespace: `OpenIddict.Client`, `Microsoft.Extensions.DependencyInjection`
 - asset: runtime library
+- depends: `OpenIddict.Abstractions`, `Microsoft.IdentityModel.JsonWebTokens`, `Microsoft.IdentityModel.Protocols` (the refresh-manager substrate shared with the validation leg — `api-identitymodel-protocols.md`)
 - rail: oidc-client
 
 ## [02]-[PUBLIC_TYPES]
@@ -116,7 +117,7 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
-- standalone package: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition
+- standalone package: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition. It directly depends on `Microsoft.IdentityModel.JsonWebTokens` and the base `Microsoft.IdentityModel.Protocols` (the refresh-manager substrate cataloged at `api-identitymodel-protocols.md`) — the same base package the IdentityModel validation/discovery leg pulls in, unified to the central `8.19.1` line. The two legs are peers that meet at the validated token: this client acquires tokens (using its own internal `OpenIddictConfiguration` server discovery for the acquisition request), and `Microsoft.IdentityModel.JsonWebTokens` validates them against the JWKS that a `ConfigurationManager<OpenIdConnectConfiguration>` refreshes
 - service entry: `OpenIddictClientService` is the single resolved service; every flow is one polymorphic request record discriminated by record type, not a per-flow service
 - challenge/redeem split: interactive and device flows pair a `Challenge*Async` verb (emits a `Nonce`) with an `Authenticate*Async` verb that redeems the nonce; non-interactive flows (client-credentials, refresh, exchange, custom, password) are single-call
 - registration selection: `Issuer`, `ProviderName`, and `RegistrationId` on each request resolve one `OpenIddictClientRegistration`; `RegistrationId` is required to disambiguate registrations that share an issuer or provider

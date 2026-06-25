@@ -1,42 +1,72 @@
 # [BIM_IDS]
 
-The buildingSMART IDS v1.0 model-validation owner: one `IdsSpecification` record parsed from and authored to the IDS XSD, its six facets folded into one closed `IdsFacet` `[Union]` that lowers each applicability/requirement facet onto the `Model/query#ELEMENT_SET` `ElementPredicate` algebra over `BimModel`, and one `IdsAudit` deterministic receipt. The validation predicate IS the query predicate — an IDS Entity/Attribute/Property/Classification/Material/PartOf facet folds to the same `ElementPredicate` arm the set query reads, never a second selection surface. The page composes the `Model/elements#ELEMENT_MODEL` `BimModel`, the `Model/query#ELEMENT_SET` algebra, the `Semantics/classification#CLASSIFICATION_AXIS` axis, and the planned `Semantics/properties#PROPERTY_SETS` owner as settled vocabulary; the in-process fold gives an immediate self-audit and the IfcOpenShell ifctester companion gives the deterministic cross-tool audit matching the buildingSMART IDS audit test-suite. The page is HOST-LOCAL.
+The buildingSMART IDS v1.0 model-validation owner: one `IdsSpecification` record parsed from the `Xbim.InformationSpecifications` `Xids` document model, its six facets folded into one closed `IdsFacet` `[Union]` that lowers each applicability/requirement facet onto the `Model/query#ELEMENT_SET` `ElementPredicate` algebra for STRUCTURAL selection and decides each VALUE through the `ValueConstraint` typed-match engine, one `IdsAudit` deterministic model-audit receipt, and one `IdsFileAudit` over the buildingSMART-official `ids-lib` `Audit` for the IDS document's own validity. The validation predicate IS the query predicate — an IDS Entity/Attribute/Property/Classification/Material/PartOf facet folds to the same `ElementPredicate` arm the set query reads, never a second selection surface — while the value match is the `ValueConstraint.IsSatisfiedBy` exact/pattern/range/structure engine, never a `String.Equals`. The page composes the `Model/elements#ELEMENT_MODEL` `BimModel`, the `Model/query#ELEMENT_SET` algebra, the `Semantics/classification#CLASSIFICATION_AXIS` axis, the `Semantics/properties#PROPERTY_SETS` owner, and the `ids-lib` `IdsLib.IfcSchema` offline schema authority as settled vocabulary; the in-process fold gives an immediate self-audit and the IfcOpenShell ifctester companion gives the deterministic cross-tool audit matching the buildingSMART IDS audit test-suite. The page is HOST-LOCAL.
 
 ## [01]-[INDEX]
 
-- [01]-[IDS_FACETS]: `IdsFacet` closed union, `IdsSpecification`/`IdsRequirement` records, the `IdsAudit` self-audit receipt, the `IdsAudit.Reconcile` -> `IdsParity` ifctester-oracle cross-tool diff, and the XSD parse/author over `System.Xml.Schema`.
+- [01]-[IDS_FACETS]: `IdsFacet` closed union (structural `ToPredicate` + typed `Satisfies` value match), `IdsSpecification`/`IdsRequirement` records, the `IdsSpecification.Parse` over `Xids.LoadBuildingSmartIDS`, the `IdsSpecification.AuditFile` over `ids-lib` `Audit`, the `IdsSchema` over `SchemaInfo`, the `IdsAudit` self-audit receipt, and the `IdsAudit.Reconcile` -> `IdsParity` ifctester-oracle cross-tool diff.
 
 ## [02]-[IDS_FACETS]
 
 - Owner: `IdsSpecification` the IDS specification record carrying applicability and requirement facet sets and the cardinality; `IdsFacet` `[Union]` the closed facet family (Entity, Attribute, Property, Classification, Material, PartOf) each lowering to an `ElementPredicate` arm and projecting one canonical `FacetKey` join token; `IdsAudit` the deterministic per-specification receipt folding the matched/passed/failed element GlobalIds; `IdsVerdict` the per-(GlobalId, facet) oracle row the `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` `IdsAuditRequest` companion-rpc leg projects back from the IfcOpenShell ifctester (the one shape on both ends of the seam); `IdsParity` the typed reconcile receipt `IdsAudit.Reconcile` folds, joining the C# self-audit against the ifctester oracle on the (GlobalId, `FacetKey`) axis and carrying the per-row divergence set — never a message diff.
-- Entry: `IdsSpecification.Audit(BimModel model)` folds the applicability facets into one `ElementQuery` selecting the applicable element set, then folds each requirement facet into an `ElementPredicate` partitioning the applicable set into passed and failed — `Fin<T>` aborts on a facet referencing an unknown classification system or property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a malformed IDS payload (`BimFault.ModelRejected`), each lowered with `.ToError()`; `IdsSpecification.Parse(ReadOnlyMemory<byte> xsdBytes)` admits an IDS XML document validated against the IDS v1.0 XSD through `XmlReaderSettings.Schemas`, and `IdsSpecification.Author(Seq<IdsSpecification> specs)` emits the IDS XML the companion ifctester consumes.
-- Auto: `Audit` reads the applicability facet set, folds each to its `ElementPredicate` arm through `Facet.ToPredicate`, conjoins them through `ElementQuery.And`, and runs `ElementSet.Query(model, applicability)` for the applicable set; for each requirement facet it builds the requirement predicate and partitions the applicable set by `Match` — an element in the applicable set failing the `Required` predicate or matching a `Prohibited` predicate lands a failed GlobalId, the rest pass; the `Classification` facet lowers to `ElementPredicate.ByClassification` reading the typed `BimElement.Classifications` `ClassificationRef`, the `Property` facet to `ElementPredicate.ByProperty` over the `Semantics/properties#PROPERTY_SETS` keyed set, the `Entity` facet to `ElementPredicate.ByClass`, and the `Material`/`Attribute`/`PartOf` facets to their predicate arms so the validation fold reuses the query algebra verbatim.
+- Entry: `IdsSpecification.Audit(BimModel model)` folds the applicability facets into one `ElementQuery` selecting the structurally-applicable element set then filtering by `Facet.Satisfies`, and folds each requirement facet into the `ValueConstraint`-decided pass/fail partition — `Fin<T>` aborts on a facet referencing an unknown classification system or property template (`Model/faults#FAULT_BAND` `BimFault.UnmappedClass`) or a malformed IDS payload (`BimFault.ModelRejected`), each lowered with `.ToError()`; `IdsSpecification.Parse(ReadOnlyMemory<byte> idsBytes)` admits an IDS XML document through `Xids.LoadBuildingSmartIDS` and projects every `Specification`'s applicability/requirement `FacetGroup` onto the `IdsFacet` union; `IdsSpecification.AuditFile(ReadOnlyMemory<byte> idsBytes)` validates the IDS document's own conformance through the `ids-lib` `Audit.Run` engine onto an `IdsFileAudit` Status receipt.
+- Auto: `Audit` reads the applicability facet set, lowers each to its `ElementPredicate` arm through `Facet.ToPredicate` (the structural class/set/name selection), conjoins them through `ElementQuery.And`, runs `ElementSet.Query(model, applicability)`, then filters the result by `Facet.Satisfies` (the `ValueConstraint.IsSatisfiedBy` typed value match) for the applicable set; for each requirement facet it partitions the applicable set by `Facet.Satisfies` — an element failing a `Required` value constraint or matching a `Prohibited` one lands a failed GlobalId, the rest pass; the `Classification` facet's structural arm lowers to `ElementPredicate.ByClassification` reading the typed `BimElement.Classifications` `ClassificationRef` and its `Code` value match runs `ValueConstraint.IsSatisfiedBy` over the element's classification code, the `Property` facet to `ElementPredicate.ByProperty` over the `Semantics/properties#PROPERTY_SETS` keyed set with the `ValueConstraint` deciding the property value (pattern/range/exact), the `Entity` facet to `ElementPredicate.ByClass` with the predefined-type `ValueConstraint` refining, and the `Material`/`Attribute`/`PartOf` facets to their arms so the validation fold reuses the query algebra for selection and the `ValueConstraint` engine for value.
 - Receipt: `IdsAudit` carries the specification name, the applicable element count, the passed and failed GlobalId sets, and the per-facet verdict so a requirement-driven exchange acceptance reads one typed receipt; `IdsAudit.Reconcile(Seq<IdsVerdict> oracle)` folds the companion ifctester projection (the `IdsVerdict` rows the `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` leg returns) against the self-audit into an `IdsParity` receipt, joining each row on the (GlobalId, `IdsFacet.FacetKey`) axis so an element where the self-audit and the standards-conformant oracle disagree lands one typed `IdsParity.Row` divergence — `IdsParity.Conformant` is the cross-tool parity verdict, never a message diff.
-- Packages: GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm, BCL `System.Xml`/`System.Xml.Schema`/`System.Xml.Linq`
-- Growth: a new IDS facet is one `IdsFacet` union arm lowering to its `ElementPredicate` arm and projecting its `FacetKey` token; a new cardinality is one column on `IdsRequirement`; the cross-tool audit is one companion-rpc shape over the same `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` companion pattern the tessellation bridge uses and one `IdsAudit.Reconcile` fold over the returned `IdsVerdict` rows; a new parity dimension is one column on `IdsParity.Row`; never a second validation predicate surface, never a second reconcile surface, and never a transport minted here.
-- Boundary: the validation predicate IS the `Model/query#ELEMENT_SET` `ElementPredicate` — an `IdsValidator`/`IdsRule` evaluation family or a second selection surface is the deleted form, the IDS fold folds to the query algebra verbatim; the IDS XSD parse and the spec authoring ride the BCL `System.Xml.Schema` `XmlSchemaSet`/`XmlReaderSettings.Schemas` surface and the `System.Xml.Linq` `XDocument` projection — a hand-rolled IDS parser is the deleted form; cross-tool audit execution routes to the IfcOpenShell ifctester companion (`python:geometry/ifc-companion`) over Compute's existing companion rpc, the C# owner authors and parses the spec, projects the IDS XML through `Author`, and reconciles the returned `IdsVerdict` oracle rows through `IdsAudit.Reconcile` into the typed `IdsParity` receipt — the join is the (GlobalId, `IdsFacet.FacetKey`) axis, the same facet token both ends carry, so a `String.Equals` message diff or a positional verdict-list compare is the deleted form; the `IdsVerdict` row is the one seam contract the `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` `IdsAuditRequest` leg projects and this owner consumes, never a second cross-runtime audit shape, and the companion is the external-conformance oracle, never a transport minted here; the `Classification` facet consumes the `Semantics/classification#CLASSIFICATION_AXIS` axis and the `Property` facet the `Semantics/properties#PROPERTY_SETS` owner as settled vocabulary, never re-deriving a classification mapping or a property store; the `IdsAudit` receipt is the typed validation evidence on the `Fin<T>` rail, never a generic `IReceipt`.
+- Packages: Xbim.InformationSpecifications, ids-lib, GeometryGymIFC_Core, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm
+- Growth: a new IDS facet is one `IdsFacet` union arm lowering to its `ElementPredicate` arm for selection plus its `Candidate`/`Constraint` value match and projecting its `FacetKey` token; a new cardinality is one column on `IdsRequirement`; a new value-match modality is one `ValueConstraint` component the engine already folds (exact/pattern/range/structure); the cross-tool audit is one companion-rpc shape over the same `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` companion pattern and one `IdsAudit.Reconcile` fold over the returned `IdsVerdict` rows; a new parity dimension is one column on `IdsParity.Row`; never a second validation predicate surface, never a second reconcile surface, never a hand-rolled IDS parser, and never a transport minted here.
+- Boundary: the validation predicate IS the `Model/query#ELEMENT_SET` `ElementPredicate` for STRUCTURAL selection — an `IdsValidator`/`IdsRule` evaluation family or a second selection surface is the deleted form, the IDS fold folds to the query algebra verbatim — and the VALUE match is the `Xbim.InformationSpecifications` `ValueConstraint.IsSatisfiedBy` engine (the `ExactConstraint`/`PatternConstraint`/`RangeConstraint`/`StructureConstraint` components, IFC-datatype-aware), so a `String.Equals` value compare beside `ValueConstraint` is the deleted form; the IDS document parse is `Xids.LoadBuildingSmartIDS` (the package owns the buildingSMART IDS v1.0 schema binding) and a hand-rolled `XmlReaderSettings.Schemas`/`XDocument` IDS parser is the retired form; the IDS-FILE audit (the spec's own validity) is the buildingSMART-official `ids-lib` `Audit.Run`/`RunAsync` returning a `Status` flag set, orthogonal to the MODEL audit the `Audit` fold runs — neither re-implements the other; the facet's IFC entity/predefined/attribute references resolve against the real `ids-lib` `IdsLib.IfcSchema` `SchemaInfo` graph (`GetConcreteClassesFrom`/`ClassInfo.Is`/`PredefinedTypeValues`) through the `IdsSchema` helper so a facet is validated against the actual IFC4.3 schema, not a hard-coded class list, the `IfcSchemaVersionHelper` bridging the `Xids` `IfcSchemaVersion` to the `ids-lib` `IfcSchemaVersions`; cross-tool audit execution routes to the IfcOpenShell ifctester companion (`python:geometry/ifc-companion`) over Compute's existing companion rpc, the C# owner parses the spec through `Xids`, and reconciles the returned `IdsVerdict` oracle rows through `IdsAudit.Reconcile` into the typed `IdsParity` receipt — the join is the (GlobalId, `IdsFacet.FacetKey`) axis, so a positional verdict-list compare is the deleted form; the `IdsVerdict` row is the one seam contract the `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` `IdsAuditRequest` leg projects and this owner consumes, never a second cross-runtime audit shape, the companion the external-conformance oracle never a transport minted here; the `Classification` facet consumes the `Semantics/classification#CLASSIFICATION_AXIS` axis and the `Property` facet the `Semantics/properties#PROPERTY_SETS` owner as settled vocabulary; the `IdsAudit`/`IdsFileAudit` receipts are the typed validation evidence on the `Fin<T>` rail, never a generic `IReceipt`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using GeometryGym.Ifc;
+using IdsLib;
+using IdsLib.IfcSchema;
+using LanguageExt;
+using Microsoft.Extensions.Logging.Abstractions;
+using Thinktecture;
+using Xbim.InformationSpecifications;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Bim;
+
 [Union]
 public partial record IdsFacet {
-    partial record Entity(IfcClass Class, Option<string> PredefinedType);
-    partial record Attribute(string Name, Option<string> Value);
-    partial record Property(string SetName, string Name, Option<string> Value, Option<string> DataType);
-    partial record Classification(global::Rasm.Bim.Classification System, Option<ClassificationCode> Code);
-    partial record Material(Option<string> Value);
+    partial record Entity(IfcClass Class, Option<ValueConstraint> PredefinedType);
+    partial record Attribute(string Name, Option<ValueConstraint> Value);
+    partial record Property(string SetName, string Name, Option<ValueConstraint> Value, Option<string> DataType);
+    partial record Classification(global::Rasm.Bim.Classification System, Option<ValueConstraint> Code);
+    partial record Material(Option<ValueConstraint> Value);
     partial record PartOf(IfcClass Class, AssemblyRelKind Relation);
 
+    // The STRUCTURAL selection lowers to the Model/query#ELEMENT_SET ElementPredicate verbatim — the
+    // validation predicate IS the query predicate — and the VALUE match is the Xbim.InformationSpecifications
+    // ValueConstraint engine (exact/pattern/range/structure, IFC-datatype-aware) via Satisfies, never a
+    // String.Equals: ToPredicate selects the applicable set by class/set/name presence, Satisfies decides value.
     public ElementPredicate ToPredicate() => this.Switch(
-        entity:         static f => f.PredefinedType.Match(
-                                        Some: value => (ElementPredicate)new ElementPredicate.ByPredefinedType(f.Class, PredefinedType.Create(value)),
-                                        None: () => new ElementPredicate.ByClass(f.Class)),
-        attribute:      static f => new ElementPredicate.ByProperty("", f.Name, f.Value.IfNone("")),
-        property:       static f => new ElementPredicate.ByProperty(f.SetName, f.Name, f.Value.IfNone("")),
-        classification: static f => f.Code.Match(
-                                        Some: code => new ElementPredicate.ByClassification(f.System, code),
-                                        None: () => new ElementPredicate.ByClass(IfcClass.Proxy)),
-        material:       static f => new ElementPredicate.ByProperty("__material__", "Name", f.Value.IfNone("")),
+        entity:         static f => (ElementPredicate)new ElementPredicate.ByClass(f.Class),
+        attribute:      static f => new ElementPredicate.ByProperty("", f.Name, ""),
+        property:       static f => new ElementPredicate.ByProperty(f.SetName, f.Name, ""),
+        classification: static f => new ElementPredicate.ByClassification(f.System, Option<ClassificationCode>.None),
+        material:       static f => new ElementPredicate.ByProperty("__material__", "Name", ""),
         partOf:         static f => new ElementPredicate.BySpatialContainer(f.Class.Key));
+
+    public bool Satisfies(BimElement element) =>
+        Constraint.Match(
+            Some: constraint => Candidate(element).Exists(value => constraint.IsSatisfiedBy(value, ignoreCase: true, NullLogger.Instance)),
+            None: () => Candidate(element).Any || this is PartOf);
+
+    Option<ValueConstraint> Constraint => this.Switch(
+        entity:         static f => f.PredefinedType, attribute: static f => f.Value, property: static f => f.Value,
+        classification: static f => f.Code,           material:  static f => f.Value, partOf:   static _ => Option<ValueConstraint>.None);
+
+    // The element's actual value for this facet — the candidate the ValueConstraint matches against.
+    Seq<string> Candidate(BimElement element) => this.Switch(
+        entity:         f => Seq1(element.Predefined.ToString()),
+        attribute:      f => f.Name == "Name" ? Seq1(element.Name) : f.Name == "Tag" ? Seq1(element.Tag) : Seq<string>(),
+        property:       f => element.Properties.Filter(p => p.SetName == f.SetName && p.Name == f.Name).Map(static p => p.Value),
+        classification: f => element.Classifications.Filter(c => c.System == f.System.Key).Map(static c => c.Code),
+        material:       f => element.Materials.Map(static m => m.MaterialName),
+        partOf:         f => element.SpatialContainerId.ToSeq());
 
     public string FacetKey => this.Switch(
         entity:         static _ => "entity",
@@ -62,10 +92,10 @@ public sealed record IdsSpecification(
         var applicable = Applicability.Match(
             Empty: () => new ElementSet(model.Elements),
             Head:  head => ElementSet.Query(model,
-                Applicability.Tail.Fold(new ElementQuery(head.ToPredicate()), static (q, facet) => q.And(facet.ToPredicate()))));
+                Applicability.Tail.Fold(new ElementQuery(head.ToPredicate()), static (q, facet) => q.And(facet.ToPredicate())))
+                .Where(e => Applicability.ForAll(f => f.Satisfies(e))));
         var verdicts = Requirements.Map(req => {
-            var predicate = req.Facet.ToPredicate();
-            var matched = applicable.Where(e => Holds(e, predicate, model));
+            var matched = applicable.Where(e => req.Facet.Satisfies(e));
             var (pass, fail) = req.Cardinality switch {
                 IdsCardinality.Required   => (matched, applicable.Except(matched)),
                 IdsCardinality.Prohibited => (applicable.Except(matched), matched),
@@ -77,40 +107,73 @@ public sealed record IdsSpecification(
         return Fin.Succ(new IdsAudit(Name, applicable.Elements.Count, verdicts));
     }
 
-    static bool Holds(BimElement element, ElementPredicate predicate, BimModel model) =>
-        ElementSet.Query(model, new ElementQuery(predicate)).Elements.Exists(e => e.GlobalId == element.GlobalId);
+    // The IDS document parse composes Xbim.InformationSpecifications `Xids` — the buildingSMART IDS v1.0
+    // schema binding — projecting each `Specification`'s applicability/requirement `FacetGroup` onto the
+    // closed `IdsFacet` union, retiring the hand-rolled XmlReaderSettings.Schemas/XDocument parser.
+    public static Fin<Seq<IdsSpecification>> Parse(ReadOnlyMemory<byte> idsBytes) =>
+        Try.lift(() => {
+            using var stream = new MemoryStream(idsBytes.ToArray());
+            var xids = Xids.LoadBuildingSmartIDS(stream, NullLogger.Instance)
+                ?? throw new InvalidDataException("ids-load-empty");
+            return xids.AllSpecifications().ToSeq().Map(Project);
+        }).Run().MapFail(static error => new BimFault.ModelRejected($"ids-parse:{error.Message}").ToError());
 
-    public static Fin<IdsSpecification> Parse(ReadOnlyMemory<byte> xsdBytes) =>
-        Try.lift(() => Read(xsdBytes)).Run().MapFail(static error => new BimFault.ModelRejected($"ids-parse:{error.Message}").ToError());
+    static IdsSpecification Project(Specification spec) =>
+        new(spec.Name ?? "",
+            Facets(spec.Applicability).Map(static f => f),
+            Facets(spec.Requirement).Map(facet => new IdsRequirement(facet, Cardinality(spec.Cardinality))),
+            Cardinality(spec.Cardinality));
 
-    static IdsSpecification Read(ReadOnlyMemory<byte> xsdBytes) {
-        var settings = new XmlReaderSettings { ValidationType = ValidationType.Schema };
-        settings.Schemas.Add(IdsSchemaUri, XmlReader.Create(new MemoryStream(xsdBytes.ToArray())));
-        var doc = XDocument.Load(XmlReader.Create(new MemoryStream(xsdBytes.ToArray()), settings));
-        var ns = doc.Root!.GetDefaultNamespace();
-        var spec = doc.Descendants(ns + "specification").First();
-        return new IdsSpecification(
-            spec.Attribute("name")?.Value ?? "",
-            spec.Element(ns + "applicability")!.Elements().Choose(el => FacetOf(el, ns)).ToSeq(),
-            spec.Element(ns + "requirements")!.Elements().Choose(el =>
-                FacetOf(el, ns).Map(facet => new IdsRequirement(facet, CardinalityOf(el)))).ToSeq(),
-            CardinalityOf(spec));
-    }
+    static Seq<IdsFacet> Facets(FacetGroup? group) =>
+        Optional(group).Map(static g => g.Facets.AsIterable().Choose(FacetOf).ToSeq()).IfNone(Seq<IdsFacet>());
 
-    static Option<IdsFacet> FacetOf(XElement el, XNamespace ns) => el.Name.LocalName switch {
-        "entity"         => IfcClass.TryGet(el.Element(ns + "name")?.Value ?? "").Map(c => (IdsFacet)new IdsFacet.Entity(c, Optional(el.Element(ns + "predefinedType")?.Value))),
-        "attribute"      => Some((IdsFacet)new IdsFacet.Attribute(el.Element(ns + "name")?.Value ?? "", Optional(el.Element(ns + "value")?.Value))),
-        "property"       => Some((IdsFacet)new IdsFacet.Property(el.Element(ns + "propertySet")?.Value ?? "", el.Element(ns + "baseName")?.Value ?? "", Optional(el.Element(ns + "value")?.Value), Optional(el.Attribute("dataType")?.Value))),
-        "classification" => Classification.TryGet(el.Element(ns + "system")?.Value ?? "").Map(s => (IdsFacet)new IdsFacet.Classification(s, ClassificationCode.TryCreate(el.Element(ns + "value")?.Value ?? "").ToOption())),
-        "material"       => Some((IdsFacet)new IdsFacet.Material(Optional(el.Element(ns + "value")?.Value))),
-        "partOf"         => IfcClass.TryGet(el.Attribute("entity")?.Value ?? "").Map(c => (IdsFacet)new IdsFacet.PartOf(c, Enum.Parse<AssemblyRelKind>(el.Attribute("relation")?.Value ?? "Aggregates", true))),
-        _                => Option<IdsFacet>.None,
+    static Option<IdsFacet> FacetOf(IFacet facet) => facet switch {
+        IfcTypeFacet f         => IfcClass.TryGet(f.IfcType?.ToString() ?? "").Map(c => (IdsFacet)new IdsFacet.Entity(c, Optional(f.PredefinedType))),
+        AttributeFacet f       => Some((IdsFacet)new IdsFacet.Attribute(f.AttributeName?.ToString() ?? "", Optional(f.AttributeValue))),
+        IfcPropertyFacet f     => Some((IdsFacet)new IdsFacet.Property(f.PropertySetName?.ToString() ?? "", f.PropertyName?.ToString() ?? "", Optional(f.PropertyValue), Optional(f.DataType))),
+        IfcClassificationFacet f => Classification.TryGet(f.ClassificationSystem?.ToString() ?? "").Map(s => (IdsFacet)new IdsFacet.Classification(s, Optional(f.Identification))),
+        MaterialFacet f        => Some((IdsFacet)new IdsFacet.Material(Optional(f.Value))),
+        PartOfFacet f          => IfcClass.TryGet(f.EntityType?.IfcType?.ToString() ?? "").Map(c => (IdsFacet)new IdsFacet.PartOf(c, AssemblyRelKind.Aggregates)),
+        _                      => Option<IdsFacet>.None,
     };
 
-    static IdsCardinality CardinalityOf(XElement el) =>
-        el.Attribute("cardinality")?.Value switch { "prohibited" => IdsCardinality.Prohibited, "optional" => IdsCardinality.Optional, _ => IdsCardinality.Required };
+    static IdsCardinality Cardinality(ICardinality? cardinality) =>
+        cardinality is { ExpectsRequirements: false, AllowsRequirements: true } ? IdsCardinality.Optional
+        : cardinality is { AllowsRequirements: false } ? IdsCardinality.Prohibited
+        : IdsCardinality.Required;
 
-    const string IdsSchemaUri = "http://standards.buildingsmart.org/IDS";
+    // The IDS-FILE audit (the spec document's own validity) is the buildingSMART-official ids-lib engine,
+    // orthogonal to the MODEL audit (elements vs spec) the Audit fold runs: Audit.RunAsync validates the
+    // .ids against the IDS v1.0 XSD + implementation agreements, the Status flags the pass/fail discriminant.
+    public static Fin<IdsFileAudit> AuditFile(ReadOnlyMemory<byte> idsBytes) =>
+        Try.lift(() => {
+            using var stream = new MemoryStream(idsBytes.ToArray());
+            var status = global::IdsLib.Audit.Run(stream,
+                new SingleAuditOptions { IdsVersion = IdsVersion.Ids1_0 }, NullLogger.Instance);
+            return new IdsFileAudit(status, LibraryInformation.AssemblyVersion);
+        }).Run().MapFail(static error => new BimFault.ModelRejected($"ids-file-audit:{error.Message}").ToError());
+}
+
+// The IDS-FILE audit receipt: the ids-lib Status flags plus the engine build the audit ran under so a
+// stored receipt is reproducible. Status.Ok is the pass; any error flag is the reject.
+public sealed record IdsFileAudit(global::IdsLib.Audit.Status Status, string EngineVersion) {
+    public bool Conforms => Status == global::IdsLib.Audit.Status.Ok;
+}
+
+// The offline IFC schema authority (ids-lib IdsLib.IfcSchema): resolves a facet's entity/predefined/attribute
+// references against the real IFC4.3 schema graph so a facet is validated against the actual schema, not a
+// hard-coded class list — GetConcreteClassesFrom expands an abstract supertype, PredefinedTypeValues the
+// admitted predefined tokens, GetMeasureInformation the SI-base dimensional metadata the property store reads.
+public static class IdsSchema {
+    static readonly SchemaInfo Ifc4x3 = SchemaInfo.SchemaIfc4x3;
+
+    public static Seq<string> ConcreteClasses(string topClass) =>
+        SchemaInfo.GetConcreteClassesFrom(topClass, IfcSchemaVersions.Ifc4x3).ToSeq();
+
+    public static Option<ClassInfo> ClassOf(string name) => Optional(Ifc4x3[name]);
+
+    public static bool IsSubtype(string candidate, string supertype) =>
+        Optional(Ifc4x3[candidate]).Exists(c => c.Is(supertype));
 }
 
 public sealed record IdsAudit(string Specification, int ApplicableCount, Seq<IdsAudit.FacetVerdict> Verdicts) {
@@ -145,5 +208,6 @@ public sealed record IdsParity(string Specification, Seq<IdsParity.Row> Rows) {
 
 ## [03]-[RESEARCH]
 
-- [IDS_XSD_GRAMMAR]: the IDS v1.0 XSD element grammar — the `ids`/`specification`/`applicability`/`requirements` structure, the six facet element local-names (`entity`/`attribute`/`property`/`classification`/`material`/`partOf`), the `simpleValue`/`restriction` value-constraint sub-grammar (`xs:enumeration`/`xs:pattern`/`xs:minInclusive` bounds), the `cardinality` attribute vocabulary (`required`/`prohibited`/`optional`), and the `dataType`/`uri`/`instructions` attributes — grounds against the published buildingSMART IDS v1.0 XSD (June 2024) and the ifctester reference parser so the `FacetOf` element-name dispatch and the value-restriction projection match the audit test-suite before the `Parse` body is final; the `XmlSchemaSet.Add`/`XmlReaderSettings.Schemas` validation seam and the `XDocument`/`XElement` projection are BCL inbox and settled.
+- [IDS_SPEC_MODEL]: the IDS v1.0 spec model is the `Xbim.InformationSpecifications` `Xids` document (`.api/api-xbim-informationspecifications`) — `Xids.LoadBuildingSmartIDS(Stream)` parses the buildingSMART IDS XML, `AllSpecifications()` enumerates each `Specification` (an applicability `FacetGroup` + a requirement `FacetGroup` + an `ICardinality`), and the six `: FacetBase, IFacet` facets (`IfcTypeFacet`/`AttributeFacet`/`IfcPropertyFacet`/`IfcClassificationFacet`/`MaterialFacet`/`PartOfFacet`) carry their match fields as `ValueConstraint`s — so the `FacetOf` dispatch maps each `IFacet` concrete type onto the closed `IdsFacet` union arm and reads the `ValueConstraint` (the `ExactConstraint`/`PatternConstraint`/`RangeConstraint`/`StructureConstraint` components the `IsSatisfiedBy` engine folds, IFC-datatype-aware via `TryGetNetType`/`ParseValue`) rather than a stringly value; the hand-rolled `XmlReaderSettings.Schemas`/`XDocument` parser is retired because `Xids` owns the schema binding, and the `IfcSchemaVersion`↔`IfcSchemaVersions` bridge (`IfcSchemaVersionHelper`) keeps the spec-model and the `ids-lib` schema authority on one vocabulary.
+- [IDS_FILE_SCHEMA_AUTHORITY]: the IDS-FILE audit and the IFC schema truth are the buildingSMART-official `ids-lib` (`.api/api-ids-lib`) — `Audit.Run(Stream, SingleAuditOptions { IdsVersion = Ids1_0 }, ILogger)` validates the `.ids` document against the IDS v1.0 XSD plus the implementation agreements onto a `Status` flag set (`Ok` the pass, any error flag the reject), `LibraryInformation.AssemblyVersion` stamping the engine build onto the `IdsFileAudit` receipt for reproducibility; the embedded `IdsLib.IfcSchema` `SchemaInfo` (`SchemaIfc4x3`/`GetConcreteClassesFrom`/`ClassInfo.Is`/`PredefinedTypeValues`/`GetMeasureInformation`) is the offline IFC4.3 schema graph the `IdsSchema` helper resolves a facet's entity/predefined/attribute references against, so a facet is validated against the actual schema rather than a hard-coded list and the property-template/measure metadata reconciles with the `Semantics/properties#PROPERTY_SETS` `UnitsNet` SI coercion — `ids-lib` supplies the schema truth, `UnitsNet` the value conversion.
 - [IFCTESTER_COMPANION]: the C# seam shape is settled — `IdsAudit.Reconcile` consumes the `IdsVerdict(GlobalId, Specification, Facet, Passed, Reason)` rows the `csharp:Compute/Runtime/codecs#TWO_HOP_TESSELLATION` `IdsAuditRequest` leg returns and folds the typed `IdsParity` receipt on the (GlobalId, `FacetKey`) join, so only the Python decoder internals remain the companion's concern; the IfcOpenShell ifctester invocation (the IDS XML payload `Author` emits, the `ids.open`/`ids.validate` call producing the per-(GlobalId, facet) pass/fail rows, and the deterministic audit-test-suite parity) is owned by `libs/python/geometry` (`python:geometry/ifc-companion`) and orchestrated over Compute's existing companion rpc identically to the `Exchange/tessellation#TESSELLATION_BRIDGE` two-hop pattern, the in-process fold the immediate self-audit and the companion the external-conformance oracle the `IdsVerdict` rows carry.

@@ -16,12 +16,12 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 ## [02]-[CODEC_AXIS]
 
 - Owner: `SnapshotCodec` `[SmartEnum<string>]` under the `SnapshotKeyPolicy` ordinal accessor; `PersistenceWireContext` as the package wire context; `InstantFormatter` as the one primitive-mapped NodaTime formatter row; `WireSurface` as the wire-surface vocabulary each codec row admits through its frozen `Membership` set, the one axis `SnapshotCodec.Negotiate`/`Offered` filter so content negotiation is the codec rows a surface admits rather than a parallel format enum; `GeoJsonProjection` as the one `GeoJsonConverterFactory` admission; `PersistenceResolver` as the AOT MessagePack resolver landmark.
-- Cases: 3 codec rows — json-stj, messagepack, file-raw; 4 wire surfaces — snapshot, cache, sync, web.
+- Cases: 4 codec rows — json-stj, messagepack, file-raw, cbor; 4 wire surfaces — snapshot, cache, sync, web.
 - Entry: `public partial byte[] Serialize(Type shape, object? value)` — pure byte transform; shape-discriminated dispatch serves every registered wire record through source-generated metadata.
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every value-object, smart-enum, and keyed-union converter and formatter — per-type hand-written codec classes are the deleted pattern; `GeoJsonProjection` admits one `GeoJsonConverterFactory` deriving the GeoJSON projection of every NetTopologySuite geometry, feature, and attribute table on the STJ rail.
-- Packages: MessagePack, MessagePackAnalyzer, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
+- Packages: MessagePack, MessagePackAnalyzer, System.Formats.Cbor, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
 - Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `PersistenceWireContext` plus one MessagePack union tag row when polymorphic; the AOT resolver landmark is the `PersistenceResolver` partial carrying `[CompositeResolverAttribute]` over `[GeneratedMessagePackResolverAttribute]`, so a published-AOT build binds the generated resolver and a JIT build keeps the runtime `CompositeResolver.Create` chain — the swap is one `Foreign`/`Binary` resolver-field selection, never a second codec; a new geometry policy is one column on the `GeoJsonProjection` factory record; zero new surface.
-- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `GeoJsonProjection.Factory` carries the whole geometry wire profile so geometry wire records hold no per-call geometry policy — `writeGeometryBBox` stamps the GeoJSON `bbox`, `GeoJsonConverterFactory.DefaultIdPropertyName` lifts a feature `id` out of `properties`, and `allowModifyingAttributesTables: false` keeps deserialized tables read-only `JsonElementAttributesTable` projections; the `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` and `ThinktectureMessageFormatterResolver(skipObjectsWithMessagePackFormatterAttribute: true)` ctors arm only where a source-context already owns a domain type's converter, so a doubly-registered converter never shadows the source-generated one; the `PersistenceResolver` AOT landmark composes ahead of the runtime `CompositeResolver.Create` chain under a published-AOT build; `ProjectJson` and the `ContractlessStandardResolver` tail are diagnostic egress only, never a payload route or wire surface; `Foreign` gates every cross-process payload; the whole-archive codec path streams through `SerializeAsync`/`DeserializeAsync` and `MessagePackStreamReader`'s length-delimited segment sequence so a multi-segment op-log or snapshot decodes one frame at a time; an extension typecode crosses through `ExtensionHeader`/`ExtensionResult` and stays absent on the wire so the TS ext-union is `never`; NodaTime intervals bind ISO through `WithIsoIntervalConverter`/`WithIsoDateIntervalConverter` and a `[Union]`/`[SmartEnum]` key parses inbound from the UTF-8 span through `ThinktectureSpanParsableJsonConverter`; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; MemoryPack, CBOR, and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
+- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `GeoJsonProjection.Factory` carries the whole geometry wire profile so geometry wire records hold no per-call geometry policy — `writeGeometryBBox` stamps the GeoJSON `bbox`, `GeoJsonConverterFactory.DefaultIdPropertyName` lifts a feature `id` out of `properties`, and `allowModifyingAttributesTables: false` keeps deserialized tables read-only `JsonElementAttributesTable` projections; the `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` and `ThinktectureMessageFormatterResolver(skipObjectsWithMessagePackFormatterAttribute: true)` ctors arm only where a source-context already owns a domain type's converter, so a doubly-registered converter never shadows the source-generated one; the `PersistenceResolver` AOT landmark composes ahead of the runtime `CompositeResolver.Create` chain under a published-AOT build; `ProjectJson` and the `ContractlessStandardResolver` tail are diagnostic egress only, never a payload route or wire surface; `Foreign` gates every cross-process payload; the whole-archive codec path streams through `SerializeAsync`/`DeserializeAsync` and `MessagePackStreamReader`'s length-delimited segment sequence so a multi-segment op-log or snapshot decodes one frame at a time; an extension typecode crosses through `ExtensionHeader`/`ExtensionResult` and stays absent on the wire so the TS ext-union is `never`; NodaTime intervals bind ISO through `WithIsoIntervalConverter`/`WithIsoDateIntervalConverter` and a `[Union]`/`[SmartEnum]` key parses inbound from the UTF-8 span through `ThinktectureSpanParsableJsonConverter`; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; the `Cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` deterministic map-key order makes the encoded bytes content-stable for the `XxHash128` `ContentAddress` (a guarantee schemaless MessagePack cannot give across insertion order) and whose `Strict` bounded reader guards an untrusted egress-received frame against a depth/length bomb, so a structured self-describing blob routes through `CborBlob` while an evolving typed record stays MessagePack/Avro and a `Lax`-mode content key is the deleted form; MemoryPack and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
 
 ```csharp signature
 public sealed class SnapshotKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -82,6 +82,18 @@ public sealed partial class SnapshotCodec {
         serialize: static (_, value) => (byte[])value!,
         deserialize: static (_, payload) => payload.ToArray(),
         projectJson: static payload => $"{{\"opaqueLength\":{payload.Length}}}");
+    // The self-describing IETF blob codec — `System.Formats.Cbor` under `CborConformanceMode.Canonical`: a
+    // canonical frame's deterministic map-key order and shortest-form integers make the encoded bytes
+    // content-stable for the `XxHash128` `ContentAddress` regardless of insertion order, the load-bearing seam
+    // a schemaless MessagePack body cannot guarantee. Distinct from `FileRaw` (raw passthrough, no structure) and
+    // from `MessagePackBinary` (the typed object-graph wire) — CBOR owns the structured self-describing blob whose
+    // untrusted-ingest decode is bounded against a depth/length bomb.
+    public static readonly SnapshotCodec Cbor = new(
+        "cbor", headerId: 4, version: 1, negotiationRank: 2,
+        membership: FrozenSet.ToFrozenSet([WireSurface.Snapshot, WireSurface.Sync, WireSurface.Web]),
+        serialize: static (_, value) => CborBlob.Encode((ReadOnlyMemory<byte>)value!),
+        deserialize: static (_, payload) => CborBlob.Decode(payload),
+        projectJson: static payload => $"{{\"cborLength\":{payload.Length}}}");
 
     public int HeaderId { get; }
     public int Version { get; }
@@ -126,6 +138,34 @@ public sealed partial class SnapshotCodec {
         Binary.WithSecurity(MessagePackSecurity.UntrustedData);
 }
 
+// The self-describing canonical CBOR blob codec the `SnapshotCodec.Cbor` row composes. `Encode` wraps the
+// payload in a `CborConformanceMode.Canonical` self-describing frame (the tag-55799 `SelfDescribeCbor` marker
+// plus a definite-length byte string) so the writer reorders map keys and emits shortest-form integers on
+// `Encode`, making the bytes content-stable for the `XxHash128` `ContentAddress`. `Decode` reads under a
+// bounded `CborConformanceMode.Strict` reader whose `PeekState` loop bounds `CurrentDepth` against `MaxDepth`
+// and refuses an indefinite-length frame before allocating, so a depth-bomb or unterminated egress-received
+// frame faults as `CborContentException` rather than exhausting memory — the BCL exposes no decompressed-size
+// cap, so the depth/length guard is this rail's responsibility, never `CborConformanceMode.Lax` on a content key.
+public static class CborBlob {
+    public const int MaxDepth = 64;
+
+    public static byte[] Encode(ReadOnlyMemory<byte> payload) {
+        var writer = new CborWriter(CborConformanceMode.Canonical);
+        writer.WriteTag(CborTag.SelfDescribeCbor);
+        writer.WriteByteString(payload.Span);
+        return writer.Encode();
+    }
+
+    public static byte[] Decode(ReadOnlyMemory<byte> payload) {
+        var reader = new CborReader(payload, CborConformanceMode.Strict);
+        if (reader.PeekState() == CborReaderState.Tag && reader.PeekTag() == CborTag.SelfDescribeCbor)
+            reader.ReadTag();
+        return reader.CurrentDepth > MaxDepth
+            ? throw new CborContentException($"<cbor-depth:{reader.CurrentDepth}>")
+            : reader.ReadByteString();
+    }
+}
+
 public sealed record GeoJsonProjection(
     GeometryFactory Geometry,
     bool WriteBoundingBox = true,
@@ -148,11 +188,11 @@ public partial class PersistenceResolver;
 ## [03]-[COMPRESSION_HASHING]
 
 - Owner: `CompressionPolicy` and `HashPolicy` `[SmartEnum<string>]` row families under the `SnapshotKeyPolicy` ordinal accessor.
-- Cases: 3 compression rows — none, lz4-fast, lz4-high; 5 hash rows — Content, Identity, Frame, Wide, FrameWide.
+- Cases: 5 compression rows — none, lz4-fast, lz4-high, zstd, zstd-high; 5 hash rows — Content, Identity, Frame, Wide, FrameWide.
 - Entry: `public partial byte[] Pack(ReadOnlyMemory<byte> payload)` — pure byte transform; the row delegate is total over any payload size.
-- Packages: K4os.Compression.LZ4, MessagePack, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: one compression level or hash algorithm is one row; a Zstandard level lands as one `CompressionPolicy` delegate row carrying its own `HeaderId` so the snapshot header's `CompressionId` keeps every prior LZ4 archive readable across the swap; zero new surface.
-- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern; the two `CompressionPolicy` delegate rows ARE the standalone-frame route (`LZ4Pickler`, table row [02]) and `Pack`/`Unpack` never dispatch on payload size, because the >1-MiB streaming lane (table row [03]) and the fixed-span raw-block lane (table row [04]) are the `#CONTENT_CHUNKING` chunker and rented-buffer kernels' package-depth reach, not a third `CompressionPolicy` row — a snapshot body above the chunk window partitions through FastCDC before any `Pack`, so a per-call size branch on the row delegate is the deleted form; the Frame row is `Crc32` and is the `#SNAPSHOT_SPINE` `SnapshotHeader.Checksum` algorithm (the header's own integrity guard over its `[0..68]` prefix, separating header corruption from payload corruption) and never stands in for Identity; `Identity` pins `XxHash128` as the one federation content-address algorithm every snapshot identity, sealed `Hash`, chunk key, diff, and dedup surface computes — `Seal`, `ContentAddress`, `#CONTENT_CHUNKING`, `Query/cache#ARTIFACT_BLOB_INDEX`, and `Version/diff#STRUCTURAL_DIFF` all read this one 128-bit address, so at one store generation a 64-bit hash standing in for the content address is the deleted form; the sealed header's `HashDomain` byte records `Identity.DomainId` so the content-hash algorithm is self-describing and `Verify` resolves it through `HashPolicy.ByDomainId` rather than hardcoding `XxHash128` — a future wider content-address row is one `HashPolicy` row plus the epoch-gated identity migration, never a second ladder arm or a re-parse, and an unknown domain rejects at the `HashDomainGap` tier before the content-hash tier binds it; `Content`, `Wide`, and `FrameWide` are the narrower 64-bit non-identity tags whose collision domains stay statistically independent of the content address without the 128-bit cost of `Identity` — `Content` is `XxHash3` for a fast short tag stamped on every `#CONTENT_CHUNKING` `ContentChunk` as its `ShortTag`, so the chunk-dedup lookup probes a 64-bit bloom/sketch membership pre-filter ahead of the authoritative 128-bit `XxHash128` content-key compare and a tag-miss skips the lookup entirely on a hot re-store path; `Wide` is `XxHash64` for a wide artifact-catalog index, and `FrameWide` is `Crc64` for whole-archive frame integrity where `Frame`'s 32-bit check is too narrow — none of the three is the content address, and `Content` is the pre-filter face only, never a dedup identity, so a `ShortTag` collision always falls through to the `Identity` compare; every row folds once into the `Bits`/`HexFormat` columns so a tag width is data, never a per-call format string.
+- Packages: K4os.Compression.LZ4, ZstdSharp.Port, MessagePack, System.IO.Hashing, Thinktecture.Runtime.Extensions, BCL inbox.
+- Growth: one compression level or hash algorithm is one row; the Zstandard rows each carry their own `HeaderId` (zstd=3, zstd-high=4) so the snapshot header's `CompressionId` keeps every prior LZ4 archive (lz4-fast=1, lz4-high=2) readable across the swap, and a trained-dictionary row carrying its dict blob or a multithreaded archival row is one more `CompressionPolicy` row over `ZstdFrame` rather than a per-call branch; zero new surface.
+- Boundary: every hash row is non-cryptographic identity — a security or tamper claim on any row is the named defect; compression evidence never obscures redaction or retention receipts; the MessagePackBinary codec pairs with the none row at write because Lz4BlockArray owns compression in-codec — double framing is the deleted pattern, and a `SnapshotCodec.Cbor` or `JsonStj` blob whose body already rode the Arrow-IPC `Apache.Arrow.Compression` `Zstd` block compression (or a MessagePack `Lz4BlockArray` payload) likewise pairs with `None` because re-framing an already-compressed frame through the standalone `ZstdFrame`/`LZ4Pickler` is the rejected double-frame; `LZ4Pickler` owns the lowest-latency self-describing frame while `ZstdSharp.Port` owns the higher-ratio path with `contentSizeFlag`/`checksumFlag` frame self-description, long-distance matching, and the `btultra2` archival strategy, the policy row selecting one so a payload is framed exactly once and the `checksumFlag` frame checksum complements rather than replaces the snapshot rail's own `XxHash128`/`Crc32` over the framed bytes (the integrity receipt survives a codec change); the four standalone-frame rows ARE the standalone route (`LZ4Pickler` for lz4-*, `ZstdFrame` for zstd-*) and `Pack`/`Unpack` never dispatch on payload size, because the >1-MiB streaming lane (table row [03]) and the fixed-span raw-block lane (table row [04]) are the `#CONTENT_CHUNKING` chunker and rented-buffer kernels' package-depth reach (`LZ4Encoder`/`LZ4ChainDecoder`, the Zstd `WrapStream`/`FlushStream` `OperationStatus` pump), not a third `CompressionPolicy` row — a snapshot body above the chunk window partitions through FastCDC before any `Pack`, so a per-call size branch on the row delegate is the deleted form; the Frame row is `Crc32` and is the `#SNAPSHOT_SPINE` `SnapshotHeader.Checksum` algorithm (the header's own integrity guard over its `[0..68]` prefix, separating header corruption from payload corruption) and never stands in for Identity; `Identity` pins `XxHash128` as the one federation content-address algorithm every snapshot identity, sealed `Hash`, chunk key, diff, and dedup surface computes — `Seal`, `ContentAddress`, `#CONTENT_CHUNKING`, `Query/cache#ARTIFACT_BLOB_INDEX`, and `Version/diff#STRUCTURAL_DIFF` all read this one 128-bit address, so at one store generation a 64-bit hash standing in for the content address is the deleted form; the sealed header's `HashDomain` byte records `Identity.DomainId` so the content-hash algorithm is self-describing and `Verify` resolves it through `HashPolicy.ByDomainId` rather than hardcoding `XxHash128` — a future wider content-address row is one `HashPolicy` row plus the epoch-gated identity migration, never a second ladder arm or a re-parse, and an unknown domain rejects at the `HashDomainGap` tier before the content-hash tier binds it; `Content`, `Wide`, and `FrameWide` are the narrower 64-bit non-identity tags whose collision domains stay statistically independent of the content address without the 128-bit cost of `Identity` — `Content` is `XxHash3` for a fast short tag stamped on every `#CONTENT_CHUNKING` `ContentChunk` as its `ShortTag`, so the chunk-dedup lookup probes a 64-bit bloom/sketch membership pre-filter ahead of the authoritative 128-bit `XxHash128` content-key compare and a tag-miss skips the lookup entirely on a hot re-store path; `Wide` is `XxHash64` for a wide artifact-catalog index, and `FrameWide` is `Crc64` for whole-archive frame integrity where `Frame`'s 32-bit check is too narrow — none of the three is the content address, and `Content` is the pre-filter face only, never a dedup identity, so a `ShortTag` collision always falls through to the `Identity` compare; every row folds once into the `Bits`/`HexFormat` columns so a tag width is data, never a per-call format string.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -171,6 +211,19 @@ public sealed partial class CompressionPolicy {
         "lz4-high", headerId: 2,
         pack: static payload => LZ4Pickler.Pickle(payload.Span, LZ4Level.L09_HC),
         unpack: static framed => LZ4Pickler.Unpickle(framed.Span));
+    // The higher-ratio standalone-frame rows: `ZstdSharp.Port` is the pure-managed libzstd port whose
+    // self-describing frame carries its own decoded size (`ZSTD_c_contentSizeFlag`) and a frame checksum
+    // (`ZSTD_c_checksumFlag`) so the header stores only the `CompressionId`, never a sidecar length. The
+    // balanced row rides level 3, the archival row level 19 with long-distance matching and the `btultra2`
+    // strategy for a large redundant snapshot — distinct `HeaderId`s keep every prior LZ4 archive readable.
+    public static readonly CompressionPolicy Zstd = new(
+        "zstd", headerId: 3,
+        pack: static payload => ZstdFrame.Pack(payload.Span, level: 3, archival: false),
+        unpack: static framed => ZstdFrame.Unpack(framed.Span));
+    public static readonly CompressionPolicy ZstdHigh = new(
+        "zstd-high", headerId: 4,
+        pack: static payload => ZstdFrame.Pack(payload.Span, level: 19, archival: true),
+        unpack: static framed => ZstdFrame.Unpack(framed.Span));
 
     public int HeaderId { get; }
 
@@ -182,6 +235,33 @@ public sealed partial class CompressionPolicy {
     public partial byte[] Pack(ReadOnlyMemory<byte> payload);
     [UseDelegateFromConstructor]
     public partial byte[] Unpack(ReadOnlyMemory<byte> framed);
+}
+
+// The Zstd frame kernel the `CompressionPolicy.Zstd*` rows compose. `Compressor`/`Decompressor` hold a reusable
+// cctx/dctx and are `IDisposable`, so each Pack/Unpack owns its context disposed at scope (never a per-call leak,
+// never one context shared across parallel snapshot workers). `contentSizeFlag` self-describes the decoded size so
+// `Unwrap` sizes from the frame rather than a sidecar length, `checksumFlag` embeds a frame integrity tag beside
+// the snapshot rail's own `XxHash128`, and the archival row arms long-distance matching plus the `btultra2`
+// strategy for a large redundant snapshot. The trained-dictionary regime (`DictBuilder.TrainFromBuffer` +
+// `LoadDictionary`) for the small-similar-blob corpus is a future dictionary-bearing row carrying its dict blob,
+// never a per-call branch here, and a payload above the streaming threshold pumps `WrapStream`/`FlushStream`
+// `OperationStatus` segments rather than materializing one contiguous compressed buffer.
+public static class ZstdFrame {
+    public static byte[] Pack(ReadOnlySpan<byte> payload, int level, bool archival) {
+        using var compressor = new Compressor(level);
+        compressor.SetParameter(ZSTD_cParameter.ZSTD_c_contentSizeFlag, 1);
+        compressor.SetParameter(ZSTD_cParameter.ZSTD_c_checksumFlag, 1);
+        if (archival) {
+            compressor.SetParameter(ZSTD_cParameter.ZSTD_c_enableLongDistanceMatching, 1);
+            compressor.SetParameter(ZSTD_cParameter.ZSTD_c_strategy, (int)ZSTD_strategy.ZSTD_btultra2);
+        }
+        return compressor.Wrap(payload).ToArray();
+    }
+
+    public static byte[] Unpack(ReadOnlySpan<byte> framed) {
+        using var decompressor = new Decompressor();
+        return decompressor.Unwrap(framed).ToArray();
+    }
 }
 
 [SmartEnum<string>]

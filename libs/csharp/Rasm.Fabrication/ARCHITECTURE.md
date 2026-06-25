@@ -40,6 +40,7 @@ The `Process` owner and the `Polygon` substrate are read by every kernel, the `P
 Posting             ←  csharp:Rasm/Geometry/Meshing              # [WIRE]: IntersectResult / PlaneMesh section curve
 Posting             →  csharp:Rasm/Geometry/Numerics             # [WIRE]: Predicate.Orient2D/Orient3D exact verdict
 Process/physics     ←  csharp:Rasm.Materials/Properties          # [WIRE]: Thermal Conductivity / SpecificHeat / Density scalars
+Nesting/nfp         ←  csharp:Rasm.Materials/Construction        # [WIRE]: StockNest.Pack NestPlan admitted on FabricationInput.Plan as portable scalar CuttingPlan the Nest.Honor fold consumes rather than re-packing — Materials owns rectangular cutting-stock yield, Fabrication owns true-shape irregular nesting, neither duplicates the other (NOT a reference — the acyclic strata forbids the AEC peer crossing)
 Posting             ←  csharp:Rasm/Geometry/Drawing              # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Posting             ←  csharp:Rasm/Geometry/Processing           # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt
 Posting/projection  ←  csharp:Rasm.Geometry/Meshing/arrangement  # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline

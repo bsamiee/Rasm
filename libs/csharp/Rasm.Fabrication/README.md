@@ -37,6 +37,9 @@ Domain libraries owned outside the C# substrate registry. Versions are centraliz
 [ARC_FIT]:
 - `geometry3Sharp` — the SOLE biarc/curve-fit owner, the SAME gradientspace package the `Rasm.Bim` mesh-text importer already admits centrally; this folder reuses it scoped to the `g3.BiArcFit2`/`Arc2d`/`Segment2d`/`Vector2d` curve surface, the `DMesh3`/mesh-boolean half firewalled. No second `geometry4Sharp` fork is admitted beside it.
 
+[ROBOT_KINEMATICS]:
+- `Robots` (visose) — the SOLE host-neutral serial-chain robot-kinematics owner, superseding the hand-rolled DH-FK + damped-least-squares Jacobian IK in `Toolpath/kinematics.md`. Owns per-mechanism DH/Modified-DH forward kinematics, closed-form ANALYTIC IK (`SphericalWristKinematics`/`OffsetWristKinematics`) discriminated by `RobotConfigurations`, a `NumericalKinematics` iterative fallback, explicit joint-limit/singularity/reach-envelope validation stamped into a `KinematicSolution`, multi-mechanism groups (`MechanicalGroupKinematics`) plus external-axis (`TrackKinematics`/`PositionerKinematics`) kinematics, and the ABB/KUKA/UR/Staubli/Franka/Doosan/Fanuc/Igus/Jaka cell models. The `Robots` core binds `Rhino3dm` (its own `Rhino.Geometry.*` identity); plan-cs boundary-maps at the kinematics seam — consume via `Transform`/`double[]` joint vectors and `KinematicSolution`, never pass a RhinoCommon geometry type into the `Rhino3dm` API. Transitive floors `Rhino3dm` (osx-arm64 native `librhino3dm_native.dylib`), `SSH.NET` (the robot-program SFTP upload path), and `BouncyCastle.Cryptography` are centrally floor-pinned.
+
 [QUANTITY_INGRESS]:
 - `UnitsNet`
 

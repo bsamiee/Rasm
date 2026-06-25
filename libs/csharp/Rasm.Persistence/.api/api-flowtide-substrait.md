@@ -1,0 +1,169 @@
+<!-- catalog:FlowtideDotNet.Substrait@0.15.0 -->
+# [RASM_PERSISTENCE_API_FLOWTIDE_SUBSTRAIT]
+
+`FlowtideDotNet.Substrait` is the Substrait portable query-plan IR for `.NET`: a cross-backend relational-algebra plan model (`Plan` over a `List<Relation>` of `ReadRelation`/`FilterRelation`/`ProjectRelation`/`JoinRelation`/`AggregateRelation`/`SortRelation`/`WriteRelation`/... with a typed `Expression` tree, a `SubstraitBaseType` system, and the standard Substrait function-extension URI catalogs), an `Sql.SqlPlanBuilder` front-end that parses SQL text into a `Plan` via the admitted `SqlParserCS` (sqlparser-rs port) under the `FlowtideDialect`, a `PlanModifier` for composing views/subplans/multi-root plans, an `ITableProvider`/`ISqlFunctionRegister` extension seam for custom tables and functions, and a `RelationVisitor<TReturn, TState>`/`ExpressionVisitor<TOutput, TState>` double-dispatch fold over the plan tree. It is the cross-backend query-plan owner backing the `Query/federation` and `Query/pipeline` rails — not a store or transport — and the `Conversion.SubstraitToDifferentialCompute.Convert` static bridge lowers a `Plan` into the FlowtideDotNet streaming differential-compute engine. It consumes its bundled `SqlParserCS` transitive (the sqlparser-rs port — the SQL AST it lowers) as its text front-end and emits the vendor-neutral plan that the federation rail dispatches across DuckDB (`api-duckdb`), ClickHouse (`api-clickhouse`), and Delta (`api-deltalake`) backends.
+
+## [01]-[PACKAGE_SURFACE]
+
+[PACKAGE_SURFACE]: `FlowtideDotNet.Substrait`
+- package: `FlowtideDotNet.Substrait`
+- version: `0.15.0`
+- license: Apache-2.0 (the nuspec omits an SPDX `<license>` expression; the FlowtideDotNet project is Apache-2.0 — a port of the Substrait spec + sqlparser-rs)
+- assembly: `FlowtideDotNet.Substrait`
+- namespace: `FlowtideDotNet.Substrait` (`Plan`, `PlanModifier`), `FlowtideDotNet.Substrait.Relations` (the relational-algebra rel tree + `RelationVisitor`), `FlowtideDotNet.Substrait.Expressions` (+ `.Literals`, `.IfThen`), `FlowtideDotNet.Substrait.Type` (the type system), `FlowtideDotNet.Substrait.FunctionExtensions` (the standard function URI catalogs), `FlowtideDotNet.Substrait.Sql` (the SQL-text front-end), `FlowtideDotNet.Substrait.Conversion`, `FlowtideDotNet.Substrait.Hints`, `FlowtideDotNet.Substrait.Exceptions`
+- target: multi-target (`net10.0`, `net8.0`); the `net10.0` consumer binds `lib/net10.0` (the bound asset)
+- native: pure-managed (no `runtimes/<rid>/native` payload)
+- transitive: `SqlParserCS@0.6.5` (the sqlparser-rs port — the SQL AST the `SqlPlanBuilder` lowers; floor-pinned in the manifest transitive floors), `Google.Protobuf` (nuspec floor `3.34.0`; the substrate pins `Google.Protobuf@3.35.1` higher and is what resolves — the Substrait protobuf wire), `Microsoft.Extensions.Logging.Abstractions@10.0.2`, `Microsoft.Extensions.DependencyInjection.Abstractions@10.0.2`, `Microsoft.Extensions.ObjectPool@10.0.2`
+- xml docs: absent (member intent is decompile-sourced)
+- rail: query-plan
+
+This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` object, not a store connection or a wire client. The SQL front-end (`SqlPlanBuilder`) and the protobuf serialization (`Google.Protobuf` transitive) are internal-driven — the consumer composes the `Plan` model, the `SqlPlanBuilder`, the visitor double-dispatch, and the `SubstraitToDifferentialCompute` bridge.
+
+## [02]-[PUBLIC_TYPES]
+
+[PUBLIC_TYPE_SCOPE]: plan, modifier, and conversion
+- rail: query-plan
+
+`Plan` is the top-level IR (a `List<Relation>`; sealed, value-equatable). `PlanModifier` composes plans — registers subplans as named views, stacks root plans, and re-binds relation references across them via `Modify()`. `SubstraitToDifferentialCompute` is the public static bridge into the FlowtideDotNet streaming engine.
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
+|  [01]   | `Plan`                                | plan root        | sealed; `List<Relation> Relations`; value equality |
+|  [02]   | `PlanModifier`                        | plan composer    | `AddPlanAsView`/`AddRootPlan`/`Modify()`     |
+|  [03]   | `Conversion.SubstraitToDifferentialCompute` | engine bridge | static `Convert(Plan, addWriteRelation, tableName, params primaryKeys)` |
+|  [04]   | `Hints.Hint` / `Hints.HintOptimizations` | plan hint     | `Alias` + optimization flags on each `Relation` |
+|  [05]   | `Exceptions.SubstraitParseException`  | parse failure    | thrown by the SQL/plan front-end             |
+
+[PUBLIC_TYPE_SCOPE]: relations (the relational-algebra tree)
+- rail: query-plan
+
+`Relation` is the abstract base: `Emit` (column projection), `OutputLength`, `Hint`, and `Accept<TReturn, TState>(RelationVisitor<TReturn, TState>, state)` for double-dispatch. Each concrete relation is sealed and value-equatable, with `required` inputs.
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
+|  [01]   | `Relations.Relation`                  | rel base         | abstract; `Emit`/`OutputLength`/`Hint`/`Accept` |
+|  [02]   | `Relations.RelationVisitor<TReturn, TState>` | rel visitor | `Visit` + `VisitReadRelation`/`VisitJoinRelation`/... double-dispatch |
+|  [03]   | `Relations.ReadRelation`              | source rel       | `required NamedStruct BaseSchema`, `required NamedTable NamedTable`, `Filter?` |
+|  [04]   | `Relations.FilterRelation`            | filter rel       | predicate over an input                      |
+|  [05]   | `Relations.ProjectRelation`           | project rel      | computed expression columns                  |
+|  [06]   | `Relations.JoinRelation` / `MergeJoinRelation` | join rel | `JoinType`, `Left`/`Right`, `Expression`, `PostJoinFilter`; `IsFieldFromLeft` |
+|  [07]   | `Relations.AggregateRelation`         | aggregate rel    | `AggregateGrouping`/`AggregateMeasure` groupings |
+|  [08]   | `Relations.SortRelation` / `TopNRelation` / `FetchRelation` | order rel | sort fields, top-N, limit/offset |
+|  [09]   | `Relations.SetRelation`               | set rel          | `SetOperation` (union/intersect/except)      |
+|  [10]   | `Relations.WriteRelation`             | sink rel         | `required Input`/`TableSchema`/`NamedObject`, `Overwrite` |
+|  [11]   | `Relations.RootRelation`              | root rel         | `required Input`, `Names` (output column names) |
+|  [12]   | `Relations.ReferenceRelation`         | reference rel    | cross-subplan reference (view binding)       |
+|  [13]   | `Relations.ConsistentPartitionWindowRelation` | window rel | partitioned window functions                 |
+|  [14]   | `Relations.ExchangeRelation` / `TableFunctionRelation` / `VirtualTableReadRelation` / `IterationRelation` | rel | shuffle, table-function, literal-table, recursive iteration |
+|  [15]   | `Relations.JoinType` / `SetOperation` / `ExchangeKindType` | rel enum | join kind, set op, exchange partitioning |
+
+[PUBLIC_TYPE_SCOPE]: expressions and the type system
+- rail: query-plan
+
+`Expression` is the abstract expression base (`Accept<TOutput, TState>(ExpressionVisitor<TOutput, TState>, state)`); `SubstraitBaseType` roots the type lattice over the `SubstraitType` enum. Scalar/aggregate/window functions reference the standard function-extension URIs.
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
+|  [01]   | `Expressions.Expression`              | expr base        | abstract; `Accept<TOutput, TState>`          |
+|  [02]   | `Expressions.ExpressionVisitor<TOutput, TState>` | expr visitor | double-dispatch fold over the expression tree |
+|  [03]   | `Expressions.ScalarFunction` / `AggregateFunction` / `WindowFunction` | function expr | `ExtensionUri` + `ExtensionName` + arguments |
+|  [04]   | `Expressions.FieldReference` / `DirectFieldReference` / `ReferenceSegment` / `StructReferenceSegment` / `MapKeyReferenceSegment` | reference expr | column/struct/map field access |
+|  [05]   | `Expressions.CastExpression` / `IfThen.IfThenExpression` / `SingularOrListExpression` / `MultiOrListExpression` | control expr | cast, if/then, IN-list |
+|  [06]   | `Expressions.NestedExpression` / `ListNestedExpression` / `MapNestedExpression` / `StructExpression` | nested expr | list/map/struct constructors |
+|  [07]   | `Expressions.SortField` / `SortDirection` / `WindowBound` (+ `Preceeding`/`Following`/`CurrentRow`/`Unbounded`) | order/window | sort key, frame bound |
+|  [08]   | `Expressions.Literals.Literal` (+ `Bool`/`Numeric`/`String`/`Binary`/`Array`/`Null`) | literal expr | typed constants; `LiteralType` |
+|  [09]   | `Type.SubstraitBaseType` / `SubstraitType` | type base    | abstract `Type`/`Nullable`; enum `String`/`Int32`/`Fp64`/`Decimal`/`Struct`/`Map`/`List`/`Binary`/`TimestampTz`/... |
+|  [10]   | `Type.NamedStruct` / `Type.Struct`    | row type         | `Names` + `Struct` of column types           |
+|  [11]   | `Type.NamedTable` / `Type.VirtualTable` | table ref     | qualified table name / inline literal rows   |
+|  [12]   | `Type.Int32Type`/`Int64Type`/`Fp32Type`/`Fp64Type`/`BoolType`/`StringType`/`BinaryType`/`DateType`/`TimestampType`/`DecimalType`/`ListType`/`MapType`/`AnyType`/`NullType` | scalar/compound type | the concrete `SubstraitBaseType` leaves |
+
+[PUBLIC_TYPE_SCOPE]: SQL front-end and function-extension catalogs
+- rail: query-plan
+
+`SqlPlanBuilder` is the SQL-text → `Plan` front-end (parses via `SqlParserCS` under `FlowtideDialect`); `ITableProvider`/`ISqlFunctionRegister` are the extension seams. The `Functions*` static classes are the standard Substrait function-extension URI catalogs (each a `Uri` const plus the function-name consts).
+
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
+|  [01]   | `Sql.SqlPlanBuilder`                  | SQL front-end    | `AddTableDefinition`/`AddTableProvider`/`AddPlanAsView`/`Sql(text)`/`GetPlan()` |
+|  [02]   | `Sql.ITableProvider`                  | table seam       | `TryGetTableInformation`/`TryHandleTableFunction` |
+|  [03]   | `Sql.ISqlFunctionRegister`            | function seam    | `RegisterScalarFunction`/`RegisterAggregateFunction`/`RegisterTableFunction` |
+|  [04]   | `Sql.TableMetadata` / `TableProviderTableFunctionResult` / `TableProviderTableFunctionArguments` | table seam data | table name + `NamedStruct` schema; function relation result |
+|  [05]   | `Sql.SqlExpressionVisitor` / `BaseExpressionVisitor<TOut, TState>` | SQL expr visitor | the SQL expression lowering fold |
+|  [06]   | `Sql.ScalarResponse` / `AggregateResponse` / `WindowResponse` | registration result | the relation/expression a registered function emits |
+|  [07]   | `FunctionExtensions.FunctionsArithmetic` | function URIs  | `Uri`, `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`Avg`/`RowNumber`/`Lead`/`Lag`/... |
+|  [08]   | `FunctionExtensions.FunctionsComparison` | function URIs  | `Uri`, `Equal`/`GreaterThan`/`Between`/`Coalesce`/`IsNull`/`IsNan`/... |
+|  [09]   | `FunctionExtensions.FunctionsString` | function URIs    | `Uri`, `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/`StringSplit`/`ToJson`/... |
+|  [10]   | `FunctionExtensions.FunctionsAggregateGeneric` / `FunctionsBoolean` / `FunctionsDatetime` / `FunctionsList` / `FunctionsRounding` / `FunctionsHash` / `FunctionsGuid` / `FunctionsStruct` / `FunctionsCheck` / `FunctionsLogarithmic` / `FunctionsTableGeneric` | function URIs | `Count`/`CountDistinct`, boolean, datetime, list, rounding, hash, guid, struct, check, logarithmic, and table-function catalogs (each a `Uri` const + name consts) |
+
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: build a plan from SQL
+- rail: query-plan
+
+`SqlPlanBuilder` registers table schemas/providers and accumulates one or more SQL statements, then `GetPlan()` runs the `PlanModifier` to bind references and yield a single composed `Plan`. The default function register pre-loads the built-in Substrait functions.
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `new SqlPlanBuilder()`                               | ctor           | loads `BuiltInSqlFunctions` into the register |
+|  [02]   | `AddTableDefinition(name, NamedStruct schema)`       | schema decl    | declares a queryable table + its row type    |
+|  [03]   | `AddTableProvider(ITableProvider)`                   | table seam     | dynamic table/table-function resolution       |
+|  [04]   | `AddPlanAsView(viewName, Plan)`                      | view decl      | registers a prior plan as a named view        |
+|  [05]   | `Sql(sqlText)`                                       | parse          | parses + lowers SQL into the accumulating plan |
+|  [06]   | `GetPlan()`                                          | finalize       | runs `PlanModifier.Modify()` → composed `Plan` |
+|  [07]   | `FunctionRegister` (property)                        | function seam  | `ISqlFunctionRegister` for custom functions   |
+
+[ENTRYPOINT_SCOPE]: compose, register, and convert
+- rail: query-plan
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `new PlanModifier()` + `.AddRootPlan(Plan)` / `.AddPlanAsView(name, Plan)` / `.Modify()` | plan compose | stack roots + views, re-bind references |
+|  [02]   | `ISqlFunctionRegister.RegisterScalarFunction(name, Func<…, ScalarResponse>)` | function reg | custom scalar function lowering |
+|  [03]   | `ISqlFunctionRegister.RegisterAggregateFunction(name, Func<…, AggregateResponse>)` | function reg | custom aggregate lowering |
+|  [04]   | `ISqlFunctionRegister.RegisterTableFunction(name, Func<SqlTableFunctionArgument, TableFunction>)` | function reg | custom table-function lowering |
+|  [05]   | `ITableProvider.TryGetTableInformation(name, out TableMetadata)` | table seam | resolve a table's `NamedStruct` schema |
+|  [06]   | `SubstraitToDifferentialCompute.Convert(Plan, addWriteRelation, tableName, params primaryKeys)` | engine bridge | lower a `Plan` into the streaming differential-compute plan |
+
+[ENTRYPOINT_SCOPE]: traverse and build the plan tree directly
+- rail: query-plan
+
+The plan IR is buildable and foldable in-memory without SQL: construct `Relation`/`Expression` nodes directly, and traverse via a `RelationVisitor<TReturn, TState>`/`ExpressionVisitor<TOutput, TState>` subclass that overrides the per-node `Visit*` methods.
+
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `new ReadRelation { BaseSchema = …, NamedTable = …, Filter = … }` | rel build | a source relation with row type + predicate  |
+|  [02]   | `new Plan { Relations = [ rootRelation ] }`          | plan build     | a plan from explicit relations               |
+|  [03]   | `relation.Accept(visitor, state)` / `visitor.Visit(relation, state)` | traverse | double-dispatch over the relation tree       |
+|  [04]   | `class MyVisitor : RelationVisitor<TReturn, TState> { override VisitJoinRelation(...) }` | fold | per-relation transform/extract fold          |
+|  [05]   | `expression.Accept(exprVisitor, state)`              | traverse       | double-dispatch over the expression tree      |
+|  [06]   | `new ScalarFunction { ExtensionUri = FunctionsArithmetic.Uri, ExtensionName = FunctionsArithmetic.Add, ... }` | expr build | a scalar function expression by standard URI |
+|  [07]   | `relation.Emit` / `relation.Hint`                    | rel projection | output-column projection + optimizer hint     |
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[SUBSTRAIT_TOPOLOGY]:
+- this is a query-plan IR, not a store or transport: the deliverable is a vendor-neutral `Plan` (a `List<Relation>` forming a relational-algebra DAG with a typed `Expression` tree). There is no connection, no wire client.
+- SQL front-end: `SqlPlanBuilder.Sql(text)` parses through the bundled `SqlParserCS` transitive (the sqlparser-rs port) under the `FlowtideDialect` with a raised recursion limit, then `SqlSubstraitVisitor` lowers the SQL AST to relations. `GetPlan()` runs `PlanModifier.Modify()` to bind cross-statement view references.
+- type system: `SubstraitBaseType` over the `SubstraitType` enum is the column/value type lattice; `NamedStruct` (names + `Struct` of types) is the row type carried by `ReadRelation.BaseSchema` and `WriteRelation.TableSchema`.
+- function model: functions are referenced by standard Substrait extension URI + name — the `Functions*` catalogs (`FunctionsArithmetic.Uri = "/functions_arithmetic.yaml"`, `FunctionsArithmetic.Add = "add"`, ...) are the canonical URI/name constants, so a `ScalarFunction`/`AggregateFunction` never hard-codes a magic string.
+- traversal: every `Relation`/`Expression` is double-dispatch-folded via `Accept<TReturn, TState>` against a `RelationVisitor`/`ExpressionVisitor` — a transform or extraction subclasses the visitor and overrides the relevant `Visit*` methods (the base throws `NotImplementedException` for unhandled node kinds, so partial visitors fail loudly).
+- composition: `PlanModifier` is the multi-plan composer — `AddPlanAsView` registers a subplan as a named view (re-bound to a `ReferenceRelation`), `AddRootPlan` stacks root plans, and `Modify` re-maps relation ids across them into one `Plan`. (`PlanModifier.WriteToTable` is `[Obsolete]` — use SQL inserts.)
+- protobuf: the Substrait protobuf round-trip (`Google.Protobuf` transitive) is internal — the consumer composes the managed `Plan` model and the visitor fold, not a public `Serialize()`/`Deserialize()` call.
+
+[LOCAL_ADMISSION]:
+- Substrait enters as the cross-backend query-plan IR behind the `Query/federation` and `Query/pipeline` rails — the vendor-neutral plan a federation rail dispatches to a concrete backend, not a store the rail connects to.
+- the SQL text the rail accepts is lowered by `SqlPlanBuilder` against the federation's registered tables (`AddTableDefinition`/`AddTableProvider`), so the federation schema catalog is the table provider, not an ad-hoc string.
+- custom federation operators register through `ISqlFunctionRegister`/`ITableProvider`, keeping the plan vocabulary one canonical surface rather than per-operator parsers.
+
+[STACKING]:
+- SQL → plan pipeline: a `Query/pipeline` definition arrives as SQL text; `SqlPlanBuilder` (riding the bundled `SqlParserCS` transitive) lowers it to a `Plan`, and the federation rail walks the `Plan` via a `RelationVisitor` to dispatch each `ReadRelation` to its backend — DuckDB (`api-duckdb`), ClickHouse (`api-clickhouse`), or an ADBC warehouse (`api-adbc-bigquery`). The SQL parser and the plan IR meet at the `SqlPlanBuilder.Sql` boundary; the plan is the federation's single intermediate form.
+- streaming materialization: `SubstraitToDifferentialCompute.Convert(plan, addWriteRelation: true, tableName, primaryKeys)` lowers a federation `Plan` into the FlowtideDotNet incremental differential-compute engine for a continuously-maintained materialized view — the same `Plan` IR drives both a one-shot federated query and a streaming materialization, no second plan model.
+- backend pushdown: a `ReadRelation.Filter` and the `Relation.Emit` projection are walked by the federation visitor and pushed into the backend query (a ClickHouse SQL `WHERE`/column list, or a DuckDB scan projection) — the Substrait plan is the optimizer's pushdown carrier across heterogeneous backends.
+- schema bridge: a backend's column schema (an Arrow `Schema` from `api-arrow`, or a DuckDB `ColumnInfo`) maps to a `NamedStruct` for `AddTableDefinition`, so the federation type system is one `SubstraitBaseType` lattice rather than per-backend type maps.
+- fault rail: `SubstraitParseException` lifts at the `SqlPlanBuilder.Sql` edge into the query failure rail when SQL fails to lower, discriminated from a backend execution fault downstream.
+
+[RAIL_LAW]:
+- Package: `FlowtideDotNet.Substrait`
+- Owns: the Substrait portable query-plan IR (`Plan`/`Relation`/`Expression`/type system), the SQL-text front-end (`SqlPlanBuilder` over `SqlParserCS`), the visitor double-dispatch fold, the standard function-extension URI catalogs, plan composition (`PlanModifier`), and the streaming differential-compute bridge
+- Accept: `SqlPlanBuilder` lowering of federation SQL against registered tables, `Plan` traversal via `RelationVisitor`/`ExpressionVisitor` for backend dispatch/pushdown, function references through the `Functions*` URI catalogs, `ISqlFunctionRegister`/`ITableProvider` for custom operators, and `SubstraitToDifferentialCompute.Convert` for streaming materialization
+- Reject: treating this as a store or transport client, hard-coded function-name magic strings (use the `Functions*` URI catalogs), the `[Obsolete]` `PlanModifier.WriteToTable`, hand-rolled SQL parsing (the `SqlPlanBuilder` owns it), and a partial `RelationVisitor` silently dropping unhandled relation kinds (the base throws)

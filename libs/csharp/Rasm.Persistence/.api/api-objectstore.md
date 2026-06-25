@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_OBJECTSTORE]
 
-Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low-level multipart plus `TransferUtility`, `Azure.Storage.Blobs` staged-block plus parallel upload, and `Google.Cloud.Storage.V1` resumable chunked upload with conditional-write concurrency. Each SDK supplies the chunked/resumable transfer members, the content-hash/ETag descriptor evidence, and the conditional-write optimistic-concurrency edge the `ObjectStore` placement rows consume.
+Cloud object-store SDK surfaces for the `remote-stores` cluster: `AWSSDK.S3` low-level multipart plus `TransferUtility`, `Azure.Storage.Blobs` staged-block plus parallel upload, and `Google.Cloud.Storage.V1` resumable chunked upload with conditional-write concurrency. Each SDK supplies the chunked/resumable transfer members, the content-hash/ETag descriptor evidence, and the conditional-write optimistic-concurrency edge the `ObjectStore` placement rows consume. The self-hosted / S3-compatible FOURTH provider on the same `ObjectClient` union — `Minio` (MinIO, R2, B2, Wasabi, Ceph) — is catalogued at `api-minio`; its `*Args` builder legs map onto the same `BlobRemote` placement contract and the same `#WRITE_ONCE_SEAL` law as these three cloud SDKs.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -136,21 +136,21 @@ Type members consumed: `BlockInfo` — `ContentHash` (byte[]), `ContentCrc64` (b
 
 Type members consumed: `UploadObjectOptions` — `ChunkSize` (int?, positive multiple of 262144 enables resumable chunked; null = single-request), `IfGenerationMatch` (long?), `IfGenerationNotMatch` (long?), `IfMetagenerationMatch` (long?), `PredefinedAcl` (`PredefinedObjectAcl?`), `KmsKeyName` (string?); `Object` — `Name`, `Bucket`, `Generation` (long?), `Crc32c` (string), `Md5Hash` (string), `Size` (ulong?), `ContentType`; `DownloadObjectOptions` — `Range` (`System.Net.Http.Headers.RangeHeaderValue?`).
 
-[OBJECT_CRUD]: head / list / delete / multipart-resume across the three providers
+[OBJECT_CRUD]: head / list / delete / multipart-resume across the four providers
 - rail: object-store
 
-The `BlobRemote.Stat`/`Delete`/`List` legs and the multipart resume skip are the second half of the placement contract the multipart-upload rows above do not cover. One unified entry per leg dispatches on the `ObjectClient` union row.
+The `BlobRemote.Stat`/`Delete`/`List` legs and the multipart resume skip are the second half of the placement contract the multipart-upload rows above do not cover. One unified entry per leg dispatches on the `ObjectClient` union — a four-row set: `S3` (`AmazonS3Client`), `Azure` (`BlobContainerClient`/`BlockBlobClient`), `GCS` (`StorageClient`), and `Minio` (`IMinioClient`, the self-hosted / S3-compatible row catalogued at `api-minio`). The Minio column maps each leg onto the `*Args` builder surface; its members are owned by `api-minio` and reproduced here only as the union-dispatch contract.
 
-| [INDEX] | [LEG]   | [S3]                                                    | [AZURE]                                                          | [GCS]                                                  |
-| :-----: | :------ | :------------------------------------------------------ | :-------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Stat`  | `GetObjectMetadataAsync(bucket, key)` -> `Metadata`/`ETag`/`ContentLength` | `BlobBaseClient.GetPropertiesAsync()` -> `BlobProperties`        | `GetObjectAsync(bucket, name)` -> `Object`            |
-|  [02]   | `List`  | `ListObjectsV2Async(ListObjectsV2Request)` -> `S3Objects` | `BlobContainerClient.GetBlobs()` -> `Pageable<BlobItem>`         | `StorageClient.ListObjects(bucket)` -> `PagedEnumerable<Objects, Object>` |
-|  [03]   | `Delete`| `DeleteObjectAsync(bucket, key)`                        | `BlobClient.DeleteIfExistsAsync()`                              | `DeleteObjectAsync(bucket, name)`                     |
-|  [04]   | `Get`   | `GetObjectAsync(GetObjectRequest{ByteRange})` -> `ResponseStream` | `BlobBaseClient.DownloadStreamingAsync(BlobDownloadOptions{Range=HttpRange})` -> `.Content` | `DownloadObjectAsync(bucket, name, sink, DownloadObjectOptions{Range=RangeHeaderValue})` |
-|  [05]   | resume  | `ListPartsAsync(ListPartsRequest{UploadId})` -> `Parts` (`PartDetail.PartNumber`/`ETag`) | `BlockBlobClient.GetBlockListAsync(BlockListTypes.Uncommitted)` -> `UncommittedBlocks` | resumable session is provider-internal; chunked `UploadObjectAsync` resumes server-side |
-|  [06]   | block client | n/a (multipart on `AmazonS3Client`)               | `SpecializedBlobExtensions.GetBlockBlobClient(container, name)` (extension) | n/a (object-level on `StorageClient`)                 |
+| [INDEX] | [LEG]   | [S3]                                                    | [AZURE]                                                          | [GCS]                                                  | [MINIO]                                                |
+| :-----: | :------ | :------------------------------------------------------ | :-------------------------------------------------------------- | :---------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `Stat`  | `GetObjectMetadataAsync(bucket, key)` -> `Metadata`/`ETag`/`ContentLength` | `BlobBaseClient.GetPropertiesAsync()` -> `BlobProperties`        | `GetObjectAsync(bucket, name)` -> `Object`            | `StatObjectAsync(StatObjectArgs)` -> `ObjectStat` (`ETag`/`MetaData`/`Size`) |
+|  [02]   | `List`  | `ListObjectsV2Async(ListObjectsV2Request)` -> `S3Objects` | `BlobContainerClient.GetBlobs()` -> `Pageable<BlobItem>`         | `StorageClient.ListObjects(bucket)` -> `PagedEnumerable<Objects, Object>` | `ListObjectsEnumAsync(ListObjectsArgs)` -> `IAsyncEnumerable<Item>` |
+|  [03]   | `Delete`| `DeleteObjectAsync(bucket, key)`                        | `BlobClient.DeleteIfExistsAsync()`                              | `DeleteObjectAsync(bucket, name)`                     | `RemoveObjectAsync(RemoveObjectArgs)`                  |
+|  [04]   | `Get`   | `GetObjectAsync(GetObjectRequest{ByteRange})` -> `ResponseStream` | `BlobBaseClient.DownloadStreamingAsync(BlobDownloadOptions{Range=HttpRange})` -> `.Content` | `DownloadObjectAsync(bucket, name, sink, DownloadObjectOptions{Range=RangeHeaderValue})` | `GetObjectAsync(GetObjectArgs.WithOffsetAndLength)` -> `ObjectStat` (range to stream/file/callback) |
+|  [05]   | resume  | `ListPartsAsync(ListPartsRequest{UploadId})` -> `Parts` (`PartDetail.PartNumber`/`ETag`) | `BlockBlobClient.GetBlockListAsync(BlockListTypes.Uncommitted)` -> `UncommittedBlocks` | resumable session is provider-internal; chunked `UploadObjectAsync` resumes server-side | `ListIncompleteUploadsEnumAsync(args)` -> `IAsyncEnumerable<Upload>` / `RemoveIncompleteUploadAsync` |
+|  [06]   | block client | n/a (multipart on `AmazonS3Client`)               | `SpecializedBlobExtensions.GetBlockBlobClient(container, name)` (extension) | n/a (object-level on `StorageClient`)                 | n/a (multipart auto-managed inside `PutObjectAsync`)   |
 
-The resume row is the resumable-upload edge `MultipartTransfer` skips already-committed windows on: S3 reads prior `PartETag`s by `UploadId`, Azure reads prior uncommitted block ids, GCS resumes its session server-side. `GetBlockBlobClient` is an **extension** on `BlobContainerClient` from `SpecializedBlobExtensions`, not an instance member.
+The resume row is the resumable-upload edge `MultipartTransfer` skips already-committed windows on: S3 reads prior `PartETag`s by `UploadId`, Azure reads prior uncommitted block ids, GCS resumes its session server-side, and Minio enumerates dangling multipart uploads through `ListIncompleteUploadsEnumAsync`. `GetBlockBlobClient` is an **extension** on `BlobContainerClient` from `SpecializedBlobExtensions`, not an instance member.
 
 ## [04]-[ERROR_TAXONOMY]
 
@@ -163,16 +163,18 @@ The resume row is the resumable-upload edge `MultipartTransfer` skips already-co
 |  [02]   | `Azure.Storage.Blobs`     | `RequestFailedException` | `Status` (int) + `ErrorCode` (string)       |
 |  [03]   | `Google.Cloud.Storage.V1` | `GoogleApiException`     | `HttpStatusCode` + `Error.Code`             |
 
-Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `ConditionNotMet`/`412`, GCS `412` on generation-match — each routes to the `RemoteStoreFault.Conflict` case.
+Conditional-write conflict surfaces: S3 `PreconditionFailed`/`412`, Azure `ConditionNotMet`/`412`, GCS `412` on generation-match, Minio `PreconditionFailedException`/`412` (`api-minio`) — each routes to the `RemoteStoreFault.Conflict` case.
 
 [WRITE_ONCE_SEAL]: the content-address write-once gate is the optimistic-concurrency edge each provider exposes through a distinct member, all collapsed into the one `ConditionalWrite` row column:
 - S3 / Azure: `CompleteMultipartUploadRequest`/`CommitBlockListAsync` carry `IfNoneMatch: *` (Azure `BlobRequestConditions.IfNoneMatch = ETag.All`) so a second writer racing the same content-key `412`s.
 - GCS: `UploadObjectOptions.IfGenerationMatch = 0` is the create-if-absent precondition; a racing overwrite of an existing generation `412`s.
-- This is why the content-address store needs no read-before-write — the seal itself is the concurrency primitive, and a `412` on any provider is a benign no-op (the content is already durably present, identical by hash), folded to `RemoteStoreFault.Conflict` and treated as success by the write-once placement.
+- Minio (`api-minio`): the inherited `ObjectConditionalQueryArgs<T>.WithMatchETag`/`WithNotMatchETag` and `CopyConditions.SetMatchETag`/`SetMatchETagNone` are the same `If-None-Match: *` edge; a racing second writer to the same content-key `412`s (`PreconditionFailedException`).
+- This is why the content-address store needs no read-before-write — the seal itself is the concurrency primitive, and a `412` on any of the four providers is a benign no-op (the content is already durably present, identical by hash), folded to `RemoteStoreFault.Conflict` and treated as success by the write-once placement.
 
 ## [05]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
 - Package pages carry external package API facts; the `ObjectStore` placement rows and the multipart transfer algebra are owned at `remote-stores`.
 - The frame-law constants (64-KiB frame, Crc32-per-frame, XxHash128 whole-artifact identity) are owned at `#ARTIFACT_FRAMES` and consumed as settled vocabulary.
-- Auth credential acquisition (`GoogleCredential`, AWS credential providers, Azure `TokenCredential`) is connection input handed over by app roots, not a Persistence fence member.
+- Auth credential acquisition (`GoogleCredential`, AWS credential providers, Azure `TokenCredential`, Minio `IClientProvider`/access-secret keys) is connection input handed over by app roots, not a Persistence fence member.
+- The `ObjectClient` union is a four-provider set: the three cloud SDKs catalogued here (`AWSSDK.S3`, `Azure.Storage.Blobs`, `Google.Cloud.Storage.V1`) plus the self-hosted / S3-compatible row `Minio` catalogued at `api-minio`. `api-minio` owns the Minio `*Args`/`IMinioClient` member facts and cross-references `#WRITE_ONCE_SEAL`; this page enumerates Minio only as the fourth union-dispatch row, so the two object-store catalogs cross-reference symmetrically.

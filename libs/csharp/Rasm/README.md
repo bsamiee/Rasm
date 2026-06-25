@@ -4,7 +4,7 @@
 
 ## [01]-[ROUTER]
 
-- [01]-[PREDICATES](Geometry/.planning/Numerics/predicates.md): Adaptive-precision exact-predicate floor — `Predicate` (Orient2D/Orient3D/InCircle/InSphere + OrientLPI/OrientTPI/InCircleLPI/InSphereTPI implicit-point) over `Expansion` sign-exact arithmetic, the `ErrorBound` filter table, and the `NumericsPolicy` interior-double scope.
+- [01]-[PREDICATES](Geometry/.planning/Numerics/predicates.md): Adaptive-precision exact-predicate floor — `Predicate` (Orient2D/Orient3D/InCircle/InSphere + OrientLPI/OrientTPI/InCircleLPI/InSphereTPI implicit-point) over the `PrecisionTier` four-tier `Adaptive.Resolve` ladder (`double` filter → `ddouble` 106-bit refine → `Expansion` sign-exact → `Fraction` rational oracle), the per-tier `ErrorBound` filter/refine table, the `RationalOracle` exact-rational adjudicator, and the `NumericsPolicy` interior-double scope.
 - [02]-[INDEX](Geometry/.planning/Spatial/index.md): Polymorphic `SpatialIndex` (SAH-BVH + Morton linear octree) over one `NodeStore`, the `SpatialQuery` nearest/range/ray/overlap fold, `Refit`, and the `ToAcceleration` Compute seam.
 - [03]-[NAMING](Geometry/.planning/Spatial/naming.md): Persistent topological naming — one `TopoName` lineage algebra, the `NameTable` registry, and the `Track` re-anchor-by-signature fold.
 - [04]-[RECONCILIATION](Geometry/.planning/Spatial/reconciliation.md): Naming-to-hash fence — `CanonicalTopology` canonical-adjacency encoder and the `Reconcile` projection onto the Persistence `GeometryHash`.
@@ -31,6 +31,12 @@ The numeric solver and geometry host packages this folder consumes outside the C
 - `MathNet.Numerics.Providers.MKL`
 - `MathNet.Numerics.Providers.OpenBLAS`
 - `CSparse`
+
+[EXACT_PRECISION]:
+
+The predicate floor's precision ladder: `TYoshimura.DoubleDouble` supplies the middle-precision tier (106-bit hi/lo double-double, FMA `TwoProduct` + Knuth `TwoSum` transforms matching the kernel) that resolves near-degenerate determinant signs as a fast second stage below the `Expansion` exact branch, and ALSO the 106-bit accumulation tier for the cancellation-prone non-predicate reduces — the Garland-Heckbert QEM `Quadric` plane-sum/cost-evaluate (`Processing/decimate`) and the Levenberg-Marquardt orthogonal-distance objective `Σ d²` (`Processing/fit`) — narrowing to `double` only at the readout; `ExtendedNumerics.BigRational` supplies the exact-rational oracle (BigInteger numerator/denominator with exact `Sign`/`NormalizeSign`) that the Orient2D/Orient3D/InCircle/InSphere and the four implicit-point predicates (OrientLPI/OrientTPI/InCircleLPI/InSphereTPI) are proved against and the exact parametric/cell ordering key the `Meshing/intersect` `t`-chain and the `Meshing/arrangement` crossing-endpoint sort totally order on (`Compare`). Both are pure-managed AnyCPU on osx-arm64.
+- `TYoshimura.DoubleDouble`
+- `ExtendedNumerics.BigRational`
 
 [PROJECTS]:
 - `Rhino.Geometry` / `RhinoCommon`

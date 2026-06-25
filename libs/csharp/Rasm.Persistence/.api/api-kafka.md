@@ -34,17 +34,17 @@
 [PUBLIC_TYPE_SCOPE]: message and acknowledgement family
 - rail: cdc-egress
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                |
-| :-----: | :----------------------------- | :--------------- | :------------------------------------ |
-|  [01]   | `Message<TKey, TValue>`        | message envelope | key, value, timestamp, headers        |
-|  [02]   | `MessageMetadata`              | metadata base    | timestamp and headers carrier         |
-|  [03]   | `Headers`                      | header list      | ordered multi-valued header set       |
-|  [04]   | `Header`                       | header value     | one key plus byte payload             |
-|  [05]   | `IHeader`                      | header contract  | key plus value-bytes accessor         |
-|  [06]   | `DeliveryReport<TKey, TValue>` | delivery ack     | per-message produce outcome           |
-|  [07]   | `DeliveryResult<TKey, TValue>` | delivery result  | awaited produce outcome               |
-|  [08]   | `PersistenceStatus`            | persistence enum | `NotPersisted`/`Possibly`/`Persisted` |
-|  [09]   | `ConsumeResult<TKey, TValue>`  | consume result   | fetched message plus position         |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                         |
+| :-----: | :----------------------------- | :--------------- | :--------------------------------------------- |
+|  [01]   | `Message<TKey, TValue>`        | message envelope | key, value, timestamp, headers                 |
+|  [02]   | `MessageMetadata`              | metadata base    | timestamp and headers carrier                  |
+|  [03]   | `Headers`                      | header list      | ordered multi-valued header set                |
+|  [04]   | `Header`                       | header value     | one key plus byte payload                      |
+|  [05]   | `IHeader`                      | header contract  | key plus value-bytes accessor                  |
+|  [06]   | `DeliveryReport<TKey, TValue>` | delivery ack     | per-message produce outcome                    |
+|  [07]   | `DeliveryResult<TKey, TValue>` | delivery result  | awaited produce outcome                        |
+|  [08]   | `PersistenceStatus`            | persistence enum | `NotPersisted`/`PossiblyPersisted`/`Persisted` |
+|  [09]   | `ConsumeResult<TKey, TValue>`  | consume result   | fetched message plus position                  |
 
 [PUBLIC_TYPE_SCOPE]: position and timestamp family
 - rail: cdc-egress
@@ -207,8 +207,9 @@
 [LOCAL_ADMISSION]:
 - The op-log changefeed egress builds one `IProducer<TKey, TValue>` per stream via `ProducerBuilder` with explicit `ISerializer<T>` codecs; the serializer slot is fixed at build, never per-call.
 - At-least-once delivery enters through awaited `ProduceAsync`; the awaited `DeliveryResult.Status` of `Persisted` confirms the op-log offset advance, and `NotPersisted` or `PossiblyPersisted` triggers retry.
-- Dead-letter routing reads `DeliveryReport.Error` and `Error.IsFatal`; non-retriable codes route the message to the dead-letter topic with the original `Headers` preserved.
-- Idempotent egress sets `ProducerConfig.EnableIdempotence`; exactly-once egress pairs `InitTransactions`, `BeginTransaction`, `SendOffsetsToTransaction`, and `CommitTransaction` against the consumed `IConsumerGroupMetadata`.
+- Broker-ack fold (`Sync/egress#EGRESS_SINK`): the `DeliveryResult`/`DeliveryReport` outcome NEVER stays a raw `Confluent.Kafka` shape in domain logic — `DeliveryAck.FromResult(DeliveryResult)` folds `DeliveryResult.Status` into the closed `DeliveryAck` `[Union]` (`PersistenceStatus.Persisted` → `Persisted(TopicPartitionOffset)`, `NotPersisted`/`PossiblyPersisted` → `Indeterminate` retriable, a caught `ProduceException.Error` → `Faulted` → `Refused` carrying the whole broker `Error`). `DeliveryAck` is the SAME canonical broker-outcome algebra the NATS protocol catalog folds its `PubAckResponse` into (`api-nats#JETSTREAM_DELIVERY_ACK`: `PubAckResponse.Error == null` → `Persisted`, a server `-ERR`/timeout → `Indeterminate`, a fatal fault → `Refused`) and the webhook status-class folds through `FromHttp` — one `Advances`/`Retriable` discriminant set across every messaging-protocol sink, never a per-protocol ack vocabulary. The `Confluent.Kafka` types own only produce/ack/commit; the egress `DeliveryAck` owns the cursor-advance/quarantine/redrive disposition.
+- Dead-letter routing reads `DeliveryReport.Error` and `Error.IsFatal`; non-retriable codes route the message to the dead-letter topic with the original `Headers` preserved. `Error.IsRetriable` is `internal` and never read — the public `Error.Code`/`IsFatal`/`IsBrokerError` carry the discrimination the `DeliveryAck.Faulted` → `Refused` fold reads.
+- Idempotent egress sets `ProducerConfig.EnableIdempotence`; exactly-once egress pairs `InitTransactions`, `BeginTransaction`, `SendOffsetsToTransaction`, and `CommitTransaction` against the consumed `IConsumerGroupMetadata` — the producer transaction is what lets the `Sync/egress` `ProducerTxn.Seal` commit the produced batch and the CONSUMED `SyncCursor` offset atomically. This Kafka producer transaction is the exactly-once differentiator across the messaging-protocol sinks: the NATS sink has no producer-transaction analogue (`api-nats#JETSTREAM_DELIVERY_ACK` — its `PubAckResponse.Duplicate` dedup window plus a content-keyed `Nats-Msg-Id` is the exactly-once-EFFECTIVE primitive), so the exactly-once `DeliveryGuarantee` row binds the real `ProducerTxn` only on the Kafka sink and `ProducerTxn.None` (advance-off-the-ack) elsewhere.
 - The consumer side disables `EnableAutoCommit` and commits through `StoreOffset` plus explicit `Commit`, so the committed offset never outruns durable downstream apply; `ConsumeResult.IsPartitionEOF` marks the live-edge of the partition and `GetWatermarkOffsets`/`QueryWatermarkOffsets` derive consumer lag for the back-pressure shed.
 - `KafkaRetriableException` and `KafkaTxnRequiresAbortException` discriminate transient retry from mandatory `AbortTransaction`; the catch path never collapses both into one rail.
 - CloudEvents binding (`Sync/egress#EGRESS_SINK`): the `Message<TKey, TValue>` produced for the Kafka sink is built by `cloudEvent.ToKafkaMessage(ContentMode.Binary, JsonEventFormatter)` (`CloudNative.CloudEvents.Kafka`), so the CloudEvents attributes (`traceparent`, `redacted`, `sequence`) ride `Headers` and a broker filters on headers without parsing `Data`; `Confluent.Kafka` owns only the produce/ack/commit, never the envelope shape. The CDC-egress codec is `Serializers.ByteArray` on the value (the redacted op payload is already framed) — a per-call serializer is the rejected form.
@@ -216,6 +217,6 @@
 
 [RAIL_LAW]:
 - Package: `Confluent.Kafka`
-- Owns: librdkafka-backed produce and consume, delivery acknowledgement, offset commit, and transactional CDC egress
-- Accept: `ProducerBuilder`/`ConsumerBuilder` construction, awaited `ProduceAsync`, `DeliveryResult.Status` confirmation, explicit `StoreOffset`/`Commit`, and `Error`-driven dead-letter routing
-- Reject: hand-rolled Kafka wire framing, fire-and-forget `Produce` without delivery confirmation on the at-least-once path, and auto-commit on the durable changefeed consumer
+- Owns: librdkafka-backed produce and consume, delivery acknowledgement, offset commit, and transactional CDC egress; one of the named `Sync/egress#EGRESS_SINK` messaging-protocol sinks (`Confluent.Kafka`/`NATS.Net`/`RabbitMQ.Client`/`DotPulsar`), each a sink row over the one op-log CloudEvents envelope, never a parallel pump
+- Accept: `ProducerBuilder`/`ConsumerBuilder` construction, awaited `ProduceAsync`, `DeliveryResult.Status` folded through `DeliveryAck.FromResult` into the shared `DeliveryAck` `[Union]` (the SAME broker-outcome vocabulary `api-nats` folds `PubAckResponse` into), explicit `StoreOffset`/`Commit`, `Error`-driven dead-letter routing on the public `Error.Code`/`IsFatal`/`IsBrokerError`, and the producer transaction as the cross-protocol exactly-once differentiator the NATS sink lacks
+- Reject: hand-rolled Kafka wire framing, fire-and-forget `Produce` without delivery confirmation on the at-least-once path, auto-commit on the durable changefeed consumer, a raw `DeliveryResult`/`PersistenceStatus` leaking past the `DeliveryAck.FromResult` fold into domain dispatch, and a per-protocol broker-ack vocabulary distinct from the shared `DeliveryAck` algebra (`api-nats` and this catalog present one consistent `Persisted`/`Indeterminate`/`Refused` outcome)

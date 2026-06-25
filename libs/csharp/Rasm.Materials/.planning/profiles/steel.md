@@ -1,39 +1,59 @@
 # [MATERIALS_STEEL]
 
-THE STEEL PROFILEFAMILY. The steel cross-section vocabulary — the AISC Shapes Database v16.0 section-property columns (depth / flange-width / web-thickness / flange-thickness / fillet, the `Ix`/`Sx`/`Zx` strong-axis stiffness columns) and the `IfcProfileDef` I-shape/U-shape/L-shape/HSS/tee/composite/cold-formed subtype discriminant — is the second realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Steel` case, spanning the full structural-steel product range: rolled shapes, AISC 360 Chapter I composite steel-concrete sections, and AISI S100 cold-formed light-gauge members. A wide-flange section is a `Profile` row, never a `WSection` type: the section shape, the dimensional columns, the stiffness receipt, and the composite/cold-formed detail are steel-`Profile` columns, and the `SteelSection` projection feeds the same `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry family drives — a steel member extrudes through one `Profile` over the `RunPath`, never a per-family layout. The steel vocabulary grows by data — a new section is one `SteelShape` catalogue row, a new subtype one `SteelClass` case — never a per-section type. A composite floor beam references the `Connection/joint#JOINT_FAMILY` shear-stud `StudClass` for its steel-concrete shear interface, the one stud vocabulary, never a parallel stud owner. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape and the `Rasm` kernel `Dimension` value-object for every length column; cmu/timber/glazing land their own sibling vocabularies on their own pages.
+THE STEEL PROFILEFAMILY GROUNDED IN THE PUBLISHED SECTION DATABASE. The steel cross-section vocabulary — the `VividOrange.Profiles.Catalogue` AISC Shapes Database v16.0 (2299 American) and EN 10365:2017 (558 European) published sections as typed sealed-singleton profile classes carrying real `UnitsNet.Length` geometry, the `VividOrange.Sections.SectionProperties` Green's-theorem polygon-integral solver computing every section property from that geometry, and the `IfcProfileDef` I-shape/U-shape/L-shape/double-angle/HSS/tee/composite/cold-formed subtype discriminant — is the second realized cross-section vocabulary one `profile#PROFILE_OWNER` `Profile` carries in the `ProfileFamily.Steel` case, spanning the full structural-steel product range: rolled shapes, AISC 360 Chapter I composite steel-concrete sections, and AISI S100 cold-formed light-gauge members. A wide-flange section is a `Profile` row keyed by a `CatalogueFactory.CreateAmerican(American)` / `CreateEuropean(European)` identity, never a `WSection` type and never a hand-keyed dimension literal: the section shape, the published geometry, the computed stiffness receipt, and the composite/cold-formed detail are steel-`Profile` columns sourced from the registered database, and the `SteelSection` projection feeds the same `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold the masonry family drives — a steel member extrudes through one `Profile` over the `RunPath`, never a per-family layout. The steel vocabulary grows by data — a new section is one `American`/`European` identity in the seed, a new subtype one `SteelClass` case — never a per-section type and never a transcribed section-property literal. A composite floor beam references the `Connection/joint#JOINT_FAMILY` shear-stud `StudClass` for its steel-concrete shear interface, the one stud vocabulary, never a parallel stud owner. The page composes `profile#PROFILE_OWNER` for the `Profile`/`ProfileUnit`/`ProfileStandard` shape, `VividOrange.Profiles.Catalogue` + `VividOrange.Sections.SectionProperties` for the published geometry and its computed properties, the in-folder `Appearance/photometric#PHOTOMETRIC` `MaterialUnits` boundary for the `UnitsNet`→SI-millimetre admission, and the `Rasm` kernel `PositiveMagnitude` for every admitted length/property column; cmu/timber/glazing land their own sibling vocabularies on their own pages.
 
 ## [01]-[INDEX]
 
-- [01]-[STEEL_FAMILY]: the `SteelClass` subtype axis (rolled · composite · cold-formed), the `SteelSection` section-property record with the `CompositeDetail`/`ColdFormedDetail` augmentation, the `CompactnessClass` slenderness verdict, the `DesignCapacity` LRFD projection (rolled F/E/G · AISC 360 Ch I composite · AISI S100 cold-formed), the `ProfileUnit` projection that flows a steel section through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildSteelRows` AISC v16.0 + composite/cold-formed row tables (W/M/S/HP · C/MC · L · HSS · WT/MT/ST · composite · cold-formed).
+- [01]-[STEEL_FAMILY]: the `SteelClass` subtype axis (i-shape · u-shape · l-shape · double-angle · hss-rect · hss-round · tee · composite · cold-formed) folded onto the catalogue `AmericanShape`/`EuropeanShape` family taxonomy, the `SteelSection` section-property record with strong-AND-weak-axis stiffness columns and the `CompositeDetail`/`ColdFormedDetail` augmentation, the `SectionReader` `VividOrange` catalogue+solver admission boundary, the `CompactnessClass` slenderness verdict, the `DesignCapacity` LRFD projection (rolled F/E/G · AISC 360 Ch I composite · AISI S100 cold-formed), the `ProfileUnit` projection that flows a steel section through the masonry-shaped `Resolve` fold, and the `ProfileCatalogue.BuildSteelRows` catalogue-seeded row table.
 
 ## [02]-[STEEL_FAMILY]
 
-- Owner: the steel section vocabulary (`SteelClass` the `IfcProfileDef` subtype discriminant, `SteelSection` the AISC section-property record, `CompactnessClass` the Table B4.1 verdict, `DesignCapacity` the LRFD receipt); `ProfileCatalogue.BuildSteelRows` the registered-row seed `profile#PROFILE_OWNER` composes; the `SteelSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`, the `SteelSection.Capacity` projection the structural-design seam reads.
-- Cases: class {i-shape (W/M/S/HP), u-shape (C/MC channel), l-shape (L angle), hss-rect, hss-round, tee (WT/MT/ST), composite (AISC 360 Ch I steel-concrete), cold-formed (AISI S100 light-gauge)} — the `IfcProfileDef` parameterized-profile subtype set widened to the full structural-steel product range; a section is a `SteelSection` row over one `SteelClass` (the composite/cold-formed rows carrying their `CompositeDetail`/`ColdFormedDetail` `Option`), never a section subtype or a parallel composite owner.
-- Entry: `public Fin<ProfileUnit> ToUnit(Context context, Op key)` on `SteelSection` — the section→`ProfileUnit` projection (`WidthMm` = flange width or HSS breadth, `HeightMm`/`CourseHeightMm` = section depth, `LengthMm` = a unit-segment placeholder the `RunPath` length overrides) so a steel member flows through the SAME `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold; `public CompactnessClass Classify(double yieldStressMpa)` the AISC Table B4.1 flange-AND-web slenderness verdict (compact/noncompact/slender), and `public DesignCapacity Capacity(double yieldMpa, double unbracedLengthMm, double effectiveLengthMm)` the `[BoundaryAdapter]` LRFD projection emitting `φMn` (flexural — yielding/LTB/FLB governing for a rolled shape, the AISC 360 Ch I plastic composite moment for a `Composite` section over its slab + `StudClass` horizontal shear, the AISI S100 effective-section `Seff·Fy` for a `ColdFormed` section), `φPn` (compression — flexural buckling over the slenderness input), and `φVn` (shear) from the `Zx`/`Sx`/`Ix`/`Area` columns already stored plus the `CompositeDetail`/`ColdFormedDetail` `Option` when present — every capacity a derived projection over the stored columns, never a re-minted dimension or a parallel composite owner.
-- Packages: Rasm (project — `PositiveMagnitude` for every fractional-millimeter section column), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
-- Growth: the steel vocabulary grows by data — a new AISC section is one `SteelShape` catalogue row keyed by its EDI designation, a new shape family one `SteelClass` case carrying its `IfcProfileDef` subtype mapping (the realized `Composite`/`ColdFormed` cases each one `SteelClass` row plus their `CompositeDetail`/`ColdFormedDetail` augmentation and catalogue rows), a new built-up section one `SteelRow` over the matching class — never a per-section type, never a per-family `Profile` variant, never a parallel composite/cold-formed owner. A cmu/timber/glazing family lands its own vocabulary on its own page the way steel carries `SteelClass`/`SteelSection`; the named cost is stated at `profile#STRUCTURAL_FAMILY_VOCABULARY` and queued in `TASKLOG.md`.
-- Boundary: the steel vocabulary is the second realized `ProfileFamily` — a per-section class is the deleted form; `SteelSection` composes the `Rasm` kernel `PositiveMagnitude` (double-backed `> 0` finite) for every length column so the section never re-mints a length primitive and a fractional AISC web thickness admits without truncation, and the `Ix`/`Sx`/`Zx` stiffness columns are `PositiveMagnitude` receipts the `IfcProfileDef` wire and the `DesignCapacity` LRFD projection read, never raw doubles; the `IsCompact` bool is the deleted form — `SteelSection.Classify` returns the 3-state `CompactnessClass` (compact/noncompact/slender) over AISC Table B4.1 flange-AND-web limits and `SteelSection.Capacity` derives the LRFD `φMn`/`φPn`/`φVn` from the stored stiffness columns, so a beam/column/brace reports its design strength directly; `SteelSection.ToUnit` is the ONE bridge from the section-property vocabulary to the canonical `ProfileUnit` the `Resolve` fold consumes — a steel run is the same station-stepped fold over a single-orientation course, so a beam/column is a `ProfileSet` extrusion (`assembly#MATERIAL_ASSIGNMENT` `ProfileSet`) along the `RunPath`, never a masonry-style multi-unit course; `SteelClass` maps each shape to its `IfcProfileDef` subtype (`IfcIShapeProfileDef`/`IfcUShapeProfileDef`/`IfcLShapeProfileDef`/`IfcRectangleHollowProfileDef`/`IfcCircleHollowProfileDef`/`IfcTShapeProfileDef`, the `Composite` section to `IfcArbitraryClosedProfileDef` since a composite section has no single parametric form, the `ColdFormed` channel-stud to `IfcUShapeProfileDef`) so a steel member round-trips to IFC 4.3 as an `IfcMaterialProfileSet`; the `Composite` section reads the `Connection/joint#JOINT_FAMILY` `StudClass` for its shear interface (the composite `Qn` per stud the `joint#JOINT_FAMILY` `JointSection.AllowableForceKn` develops, the horizontal shear `ΣQn` the composite plastic-moment couple caps), and the `ColdFormed` section reads its AISI S100 `EffectiveSectionModulusRatio` for the local-buckling flexural reduction, both derived projections over the stored columns; `ProfileCatalogue.BuildSteelRows` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table with the AISC rolled rows plus the realized composite/cold-formed rows keyed `steel.<designation>`, the realized cross-section grounded in the published AISC Shapes Database v16.0 / AISC 360 Ch I / AISI S100 values.
+- Owner: the steel section vocabulary (`SteelClass` the `IfcProfileDef` subtype discriminant folded onto the catalogue `AmericanShape`/`EuropeanShape` family enum, `SteelSection` the computed section-property record, `CompactnessClass` the Table B4.1 verdict, `DesignCapacity` the LRFD receipt); `SectionReader` the `VividOrange.Profiles.Catalogue`+`VividOrange.Sections.SectionProperties` admission boundary that reads one `ICatalogue` into one `SteelSection`; `ProfileCatalogue.BuildSteelRows` the catalogue-seeded registered-row seed `profile#PROFILE_OWNER` composes; the `SteelSection.ToUnit` projection bridging a section to the canonical `ProfileUnit`, the `SteelSection.Capacity` projection the structural-design seam reads.
+- Cases: class {i-shape (W/M/S/HP), u-shape (C/MC channel), l-shape (L angle), double-angle (2L from `AmericanShape.DoubleL`), hss-rect, hss-round (round-HSS + Pipe), tee (WT/MT/ST), composite (AISC 360 Ch I steel-concrete), cold-formed (AISI S100 light-gauge)} — the `IfcProfileDef` parameterized-profile subtype set folded onto the published `AmericanShape` (13) / `EuropeanShape` (25) family taxonomy by `SteelClass.OfShape`; a section is a `SteelSection` row over one `SteelClass` (the composite/cold-formed rows carrying their `CompositeDetail`/`ColdFormedDetail` `Option`), never a section subtype, a parallel composite owner, or a parallel section-family enum duplicating `AmericanShape`/`EuropeanShape`.
+- Entry: `public static Fin<SteelSection> SectionReader.Read(ICatalogue catalogue, Op key)` — the ONE `VividOrange` admission boundary: it dispatches the `IAmericanCatalogue.Shape`/`IEuropeanCatalogue.Shape` family onto `SteelClass`, reads the dimensional columns from the family geometry interface (`II`/`IIParallelFlange`/`IChannel`/`ITee`/`IAngle`/`IDoubleAngle`/`IRectangularHollow`/`ICircularHollow`+`IHollowStructuralSection`) as `UnitsNet.Length`, runs `new SectionProperties(catalogue)` over the polymorphic `IProfile` for `Area`/`MomentOfInertiaYy`/`Zz`/`ElasticSectionModulusYy`/`Zz`/`RadiusOfGyrationYy`/`Zz`, and admits every quantity to its SI-millimetre scalar through the in-folder `MaterialUnits` boundary into the kernel `PositiveMagnitude` columns once. `public Fin<ProfileUnit> ToUnit(Context context, Op key)` on `SteelSection` is the section→`ProfileUnit` projection (`WidthMm` = flange width or HSS breadth, `HeightMm`/`CourseHeightMm` = section depth, `LengthMm` = a unit-segment placeholder the `RunPath` length overrides) so a steel member flows through the SAME `Construction/layout#ASSEMBLY_FOLD` `Resolve` fold; `public CompactnessClass Classify(double yieldStressMpa)` the AISC Table B4.1 flange-AND-web slenderness verdict (compact/noncompact/slender), and `public DesignCapacity Capacity(double yieldMpa, double unbracedLengthMm, double effectiveLengthMm)` the `[BoundaryAdapter]` LRFD projection emitting `φMn` (flexural — yielding/LTB/FLB governing for a rolled shape, the AISC 360 Ch I plastic composite moment for a `Composite` section over its slab + `StudClass` horizontal shear, the AISI S100 effective-section `Seff·Fy` for a `ColdFormed` section), `φPn` (compression — flexural buckling over the WEAK-axis radius `min(rx, ry)` the solver supplies both axes for), and `φVn` (shear) from the computed `Zx`/`Sx`/`Ix`/`Iy`/`Area` columns plus the `CompositeDetail`/`ColdFormedDetail` `Option` when present — every capacity a derived projection over the computed columns, never a re-minted dimension or a parallel composite owner.
+- Packages: VividOrange.Profiles.Catalogue (`CatalogueFactory.CreateAmerican`/`CreateEuropean` → `ICatalogue`/`IProfile`, the `American`/`European` identity enums, the `AmericanShape`/`EuropeanShape` family enums, the `II`/`IChannel`/`ITee`/`IAngle`/`IDoubleAngle`/`IRectangularHollow`/`ICircularHollow`/`IHollowStructuralSection` `UnitsNet.Length` geometry interfaces; `.api/api-vividorange-profiles-catalogue.md`), VividOrange.Sections.SectionProperties (`new SectionProperties(IProfile)` + the `Area`/`MomentOfInertiaYy`/`Zz`/`ElasticSectionModulusYy`/`Zz`/`RadiusOfGyrationYy`/`Zz`/`Perimeter` `UnitsNet` properties; `.api/api-vividorange-sections-sectionproperties.md`), UnitsNet (the `MaterialUnits` in-folder SI-millimetre coercion; `.api/api-unitsnet.md`), Rasm (project — `PositiveMagnitude` for every admitted column), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`).
+- Growth: the steel vocabulary grows by data — a new AISC/EN section is one `American`/`European` identity added to `AmericanSeed`/`EuropeanSeed` (the catalogue carries all 2299 + 558 published sections; the seed selects the realized subset, every other section already present in the database behind its enum value), a new shape family one `SteelClass` case carrying its `IfcProfileDef` subtype mapping and its `SteelClass.OfShape` fold arm, a new built-up section one parametric `Perimeter`-backed `SteelSection` over the matching class — never a per-section type, never a transcribed section-property literal, never a parallel composite/cold-formed owner. A cmu/timber/glazing family lands its own vocabulary on its own page the way steel carries `SteelClass`/`SteelSection`.
+- Boundary: the steel vocabulary is the second realized `ProfileFamily` — a per-section class AND a hand-keyed section-property literal table are the deleted forms; `SectionReader.Read` is the BOUNDARY_ADMISSION point where raw `VividOrange` `UnitsNet` geometry is admitted EXACTLY ONCE — the catalogue's published dimensions (AISC native `LengthUnit.Inch`, EN native `LengthUnit.Millimeter`, the unit travelling WITH the quantity) and the solver's computed `Area`/`AreaMomentOfInertia`/`Volume`/`Length` properties coerce to SI-millimetre scalars through the in-folder `MaterialUnits` boundary and admit into the kernel `PositiveMagnitude` (double-backed `> 0` finite), so the section never re-mints a length primitive, a fractional AISC web thickness admits without truncation, and the interior carries raw SI doubles never a `UnitsNet` type in a signature; the `Ix`/`Iy`/`Sx`/`Sy`/`Zx` stiffness columns are computed `PositiveMagnitude` receipts the `IfcProfileDef` wire and the `DesignCapacity` LRFD projection read, never hand-keyed, never raw doubles; the `RadiusOfGyrationMm` hand-`Math.Sqrt(Ix/A)` is the deleted form — both `RxMm` and `RyMm` come from the solver `RadiusOfGyrationYy`/`Zz`, so the `Capacity` flexural-buckling check governs about the WEAK axis (`min(rx, ry)`) the way real column design does, never the strong-axis-only approximation; the plastic `Zx` the polygon integral cannot yield is the one DERIVED column — `PlasticModulus.Yy` computes it from the admitted dimensional columns per `SteelClass` (the I/channel/tee rectangular-component sum, the HSS-rect/round closed form, the angle shape-factor), grounding it in geometry not a literal; the `IsCompact` bool is the deleted form — `SteelSection.Classify` returns the 3-state `CompactnessClass` (compact/noncompact/slender) over AISC Table B4.1 flange-AND-web limits and `SteelSection.Capacity` derives the LRFD `φMn`/`φPn`/`φVn` from the computed stiffness columns; `SteelSection.ToUnit` is the ONE bridge from the section-property vocabulary to the canonical `ProfileUnit` the `Resolve` fold consumes — a steel run is the same station-stepped fold over a single-orientation course, so a beam/column is a `ProfileSet` extrusion (`assembly#MATERIAL_ASSIGNMENT` `ProfileSet`) along the `RunPath`, never a masonry-style multi-unit course; `SteelClass.OfShape` folds the published `AmericanShape`/`EuropeanShape` family taxonomy onto the `SteelClass` discriminant so the catalogue's own 13/25-family axis IS the section discriminant and each shape maps to its `IfcProfileDef` subtype (`IfcIShapeProfileDef`/`IfcUShapeProfileDef`/`IfcLShapeProfileDef`/`IfcRectangleHollowProfileDef`/`IfcCircleHollowProfileDef`/`IfcTShapeProfileDef`, the `DoubleL`/`Composite` sections to `IfcArbitraryClosedProfileDef` since neither has a single parametric form, the `ColdFormed` channel-stud to `IfcUShapeProfileDef`) so a steel member round-trips to IFC 4.3 as an `IfcMaterialProfileSet`; the `Composite` section reads the `Connection/joint#JOINT_FAMILY` `StudClass` for its shear interface (the composite `Qn` per stud the `joint#JOINT_FAMILY` `JointSection.AllowableForceKn` develops, the horizontal shear `ΣQn` the composite plastic-moment couple caps), and the `ColdFormed` section reads its AISI S100 `EffectiveSectionModulusRatio` for the local-buckling flexural reduction, both derived projections over the computed columns; `ProfileCatalogue.BuildSteelRows` seeds the `profile#PROFILE_OWNER` `ProfileCatalogue.Rows` table by folding `AmericanSeed`/`EuropeanSeed` through `CatalogueFactory` and `SectionReader.Read`, keyed `steel.<designation>`, the realized cross-section grounded in the registered published database rather than a hand-transcribed table.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using VividOrange.Profiles;                          // CatalogueFactory, American/European, AmericanShape/EuropeanShape, ICatalogue, II/IChannel/...
+using VividOrange.Sections.SectionProperties;        // SectionProperties polygon-integral solver over IProfile
+
 // --- [TYPES] -------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ProfileKeyPolicy, string>]
 public sealed partial class SteelClass {
-    public static readonly SteelClass IShape    = new("i-shape", ifcSubtype: "IfcIShapeProfileDef");
-    public static readonly SteelClass UShape    = new("u-shape", ifcSubtype: "IfcUShapeProfileDef");
-    public static readonly SteelClass LShape    = new("l-shape", ifcSubtype: "IfcLShapeProfileDef");
-    public static readonly SteelClass HssRect   = new("hss-rect", ifcSubtype: "IfcRectangleHollowProfileDef");
-    public static readonly SteelClass HssRound  = new("hss-round", ifcSubtype: "IfcCircleHollowProfileDef");
-    public static readonly SteelClass Tee       = new("tee", ifcSubtype: "IfcTShapeProfileDef");
-    // Composite: an AISC 360 Ch I steel-concrete section over a rolled I-shape steel core, mapped to the arbitrary
-    // closed profile (a composite section has no single parametric IFC subtype). ColdFormed: an AISI S100 light-gauge
-    // section, the U-shape subtype for a channel-stud the closest parametric form.
-    public static readonly SteelClass Composite  = new("composite", ifcSubtype: "IfcArbitraryClosedProfileDef");
-    public static readonly SteelClass ColdFormed = new("cold-formed", ifcSubtype: "IfcUShapeProfileDef");
+    public static readonly SteelClass IShape      = new("i-shape", ifcSubtype: "IfcIShapeProfileDef");
+    public static readonly SteelClass UShape      = new("u-shape", ifcSubtype: "IfcUShapeProfileDef");
+    public static readonly SteelClass LShape      = new("l-shape", ifcSubtype: "IfcLShapeProfileDef");
+    public static readonly SteelClass DoubleAngle = new("double-angle", ifcSubtype: "IfcArbitraryClosedProfileDef");
+    public static readonly SteelClass HssRect     = new("hss-rect", ifcSubtype: "IfcRectangleHollowProfileDef");
+    public static readonly SteelClass HssRound    = new("hss-round", ifcSubtype: "IfcCircleHollowProfileDef");
+    public static readonly SteelClass Tee         = new("tee", ifcSubtype: "IfcTShapeProfileDef");
+    public static readonly SteelClass Composite   = new("composite", ifcSubtype: "IfcArbitraryClosedProfileDef");
+    public static readonly SteelClass ColdFormed  = new("cold-formed", ifcSubtype: "IfcUShapeProfileDef");
     public string IfcSubtype { get; }
     public bool IsComposite => this == Composite;
     public bool IsColdFormed => this == ColdFormed;
+
+    // The published AISC/EN family taxonomy IS the discriminant: fold AmericanShape (13) / EuropeanShape (25) onto
+    // the SteelClass set rather than minting a parallel section-family enum (api-vividorange-profiles-catalogue [04]).
+    public static SteelClass OfShape(AmericanShape shape) => shape switch {
+        AmericanShape.W or AmericanShape.M or AmericanShape.S or AmericanShape.HP => IShape,
+        AmericanShape.C or AmericanShape.MC                                       => UShape,
+        AmericanShape.L                                                           => LShape,
+        AmericanShape.DoubleL                                                     => DoubleAngle,
+        AmericanShape.HSS                                                         => HssRect,
+        AmericanShape.Pipe                                                        => HssRound,
+        AmericanShape.WT or AmericanShape.MT or AmericanShape.ST                  => Tee,
+        _                                                                         => IShape,
+    };
+    public static SteelClass OfShape(EuropeanShape shape) => shape switch {
+        EuropeanShape.UPE or EuropeanShape.PFC or EuropeanShape.UPN or EuropeanShape.U or EuropeanShape.CH => UShape,
+        EuropeanShape.UBP or EuropeanShape.UB or EuropeanShape.UC or EuropeanShape.J                       => IShape,
+        _                                                                                                  => IShape,
+    };
 }
 
 // The AISC Table B4.1 width-to-thickness verdict — a 3-state design class, never a 2-state IsCompact flag.
@@ -41,10 +61,14 @@ public sealed partial class SteelClass {
 public sealed partial class CompactnessClass {
     public static readonly CompactnessClass Compact    = new();
     public static readonly CompactnessClass Noncompact = new();
-    public static readonly CompactnessClass Slender     = new();
+    public static readonly CompactnessClass Slender    = new();
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+// Dims read off the family geometry interface as UnitsNet.Length (carried in their native published unit), then
+// coerced once to SI millimetres at SectionReader.Read; Fillet is Option because only IIParallelFlange carries it.
+public readonly record struct SectionDims(double DepthMm, double FlangeWidthMm, double WebThicknessMm, double FlangeThicknessMm, double FilletMm);
+
 public readonly record struct SteelSection(
     SteelClass Class,
     PositiveMagnitude DepthMm,
@@ -53,15 +77,19 @@ public readonly record struct SteelSection(
     PositiveMagnitude FlangeThicknessMm,
     PositiveMagnitude FilletMm,
     PositiveMagnitude AreaMm2,
-    PositiveMagnitude IxMm4,
-    PositiveMagnitude SxMm3,
-    PositiveMagnitude ZxMm3,
+    PositiveMagnitude IxMm4,        // MomentOfInertiaYy — strong-axis second moment from the solver
+    PositiveMagnitude IyMm4,        // MomentOfInertiaZz — weak-axis second moment from the solver
+    PositiveMagnitude SxMm3,        // ElasticSectionModulusYy from the solver
+    PositiveMagnitude SyMm3,        // ElasticSectionModulusZz from the solver
+    PositiveMagnitude ZxMm3,        // plastic modulus — DERIVED from geometry (the solver yields only elastic)
+    PositiveMagnitude RxMm,         // RadiusOfGyrationYy from the solver
+    PositiveMagnitude RyMm,         // RadiusOfGyrationZz from the solver — governs flexural buckling
     Option<CompositeDetail> Composite = default,
     Option<ColdFormedDetail> ColdFormed = default) {
 
     public double FlangeSlenderness => FlangeWidthMm.Value / (2.0 * FlangeThicknessMm.Value);
     public double WebSlenderness => (DepthMm.Value - 2.0 * FlangeThicknessMm.Value) / WebThicknessMm.Value;
-    public double RadiusOfGyrationMm => Math.Sqrt(IxMm4.Value / AreaMm2.Value);
+    public double GoverningRadiusMm => Math.Min(RxMm.Value, RyMm.Value);   // weak-axis governs column buckling
 
     public Fin<ProfileUnit> ToUnit(Context context, Op key) =>
         ProfileUnit.Of(FlangeWidthMm.Value, DepthMm.Value, DepthMm.Value, DepthMm.Value, context, key);
@@ -78,15 +106,15 @@ public readonly record struct SteelSection(
     }
 
     // AISC 360 Chapters F/E/G LRFD for rolled shapes: φMn = φb·Fy·Zx with the LTB/FLB reduction, φPn = φc·Fcr·A over
-    // the flexural-buckling stress, φVn = φv·0.6·Fy·Aw; the Composite arm runs AISC 360 Ch I plastic composite Mn and
-    // the ColdFormed arm the AISI S100 effective-section Mn = Seff·Fy, each over the SAME stored stiffness columns.
+    // the WEAK-axis flexural-buckling stress, φVn = φv·0.6·Fy·Aw; the Composite arm runs AISC 360 Ch I plastic composite
+    // Mn and the ColdFormed arm the AISI S100 effective-section Mn = Seff·Fy, each over the SAME computed columns.
     [BoundaryAdapter]
     public DesignCapacity Capacity(double yieldMpa, double unbracedLengthMm, double effectiveLengthMm) {
         const double φb = 0.90, φc = 0.90, φv = 0.90, E = 200_000.0;
-        double r = RadiusOfGyrationMm, λc = effectiveLengthMm / r;
+        double r = GoverningRadiusMm, λc = effectiveLengthMm / r;
         double Fe = Math.PI * Math.PI * E / (λc * λc);
         double Fcr = Fe >= 0.44 * yieldMpa ? yieldMpa * Math.Pow(0.658, yieldMpa / Fe) : 0.877 * Fe;
-        double Lb = unbracedLengthMm, Lp = 1.76 * r * Math.Sqrt(E / yieldMpa);
+        double Lb = unbracedLengthMm, Lp = 1.76 * RxMm.Value * Math.Sqrt(E / yieldMpa);
         double Mp = yieldMpa * ZxMm3.Value;
         double rolledMn = Lb <= Lp ? Mp : Math.Max(yieldMpa * SxMm3.Value, Mp - (Mp - 0.7 * yieldMpa * SxMm3.Value) * Math.Clamp((Lb - Lp) / (3.0 * Lp), 0.0, 1.0));
         double Mn = Composite.Match(Some: c => CompositeMn(c, yieldMpa), None: () => ColdFormed.Match(Some: cf => yieldMpa * SxMm3.Value * cf.EffectiveSectionModulusRatio, None: () => rolledMn));
@@ -132,68 +160,118 @@ public readonly record struct ColdFormedDetail(
     PositiveMagnitude DesignThicknessMm,
     double EffectiveSectionModulusRatio);
 
-public readonly record struct SteelRow(SteelClass Class, string Designation, double DMm, double BfMm, double TwMm, double TfMm, double KMm, double AMm2, double IxMm4, double SxMm3, double ZxMm3);
-
 public sealed record SteelShape(ProfileId Id, SteelSection Section, ProfileStandard Standard);
+
+// --- [OPERATIONS] --------------------------------------------------------------------------
+// The plastic modulus the polygon integral cannot yield (it returns elastic S = I/c): derived from the admitted
+// dimensional columns per SteelClass — the I/channel rectangular-component sum, the HSS closed forms, the angle/tee
+// shape-factor over the solver's elastic Sx. One derived projection grounding Zx in geometry, never a literal.
+public static class PlasticModulus {
+    public static double Yy(SteelClass cls, double d, double bf, double tw, double tf, double sx) =>
+        cls.Switch(
+            iShape:      _ => bf * tf * (d - tf) + 0.25 * tw * Math.Pow(Math.Max(0.0, d - 2.0 * tf), 2.0),
+            uShape:      _ => bf * tf * (d - tf) + 0.25 * tw * Math.Pow(Math.Max(0.0, d - 2.0 * tf), 2.0),
+            tee:         _ => 1.7 * sx,
+            lShape:      _ => 1.6 * sx,
+            doubleAngle: _ => 1.6 * sx,
+            hssRect:     _ => 0.25 * bf * d * d - 0.25 * Math.Max(0.0, bf - 2.0 * tw) * Math.Pow(Math.Max(0.0, d - 2.0 * tw), 2.0),
+            hssRound:    _ => (Math.Pow(d, 3.0) - Math.Pow(Math.Max(0.0, d - 2.0 * tw), 3.0)) / 6.0,
+            composite:   _ => 1.14 * sx,
+            coldFormed:  _ => sx);
+}
+
+// The ONE VividOrange admission boundary: an ICatalogue (a polymorphic IProfile carrying published UnitsNet.Length
+// geometry) → its family-cast dimensional columns + the SectionProperties polygon-integral solver outputs, every
+// UnitsNet quantity coerced to an SI-millimetre scalar and admitted once into the kernel PositiveMagnitude columns.
+public static class SectionReader {
+    public static Fin<SteelSection> Read(ICatalogue catalogue, Op key) =>
+        from cls in ResolveClass(catalogue, key)
+        let props = new SectionProperties((IProfile)catalogue)   // solver consumes the polymorphic IProfile — no family cast
+        let dims = ReadDims(catalogue, cls)
+        from depth in key.AcceptValidated<PositiveMagnitude>(candidate: dims.DepthMm)
+        from bf in key.AcceptValidated<PositiveMagnitude>(candidate: dims.FlangeWidthMm)
+        from tw in key.AcceptValidated<PositiveMagnitude>(candidate: dims.WebThicknessMm)
+        from tf in key.AcceptValidated<PositiveMagnitude>(candidate: dims.FlangeThicknessMm)
+        from fillet in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(dims.FilletMm, double.Epsilon))
+        from area in key.AcceptValidated<PositiveMagnitude>(candidate: props.Area.SquareMillimeters)
+        from ix in key.AcceptValidated<PositiveMagnitude>(candidate: props.MomentOfInertiaYy.MillimetersToTheFourth)
+        from iy in key.AcceptValidated<PositiveMagnitude>(candidate: props.MomentOfInertiaZz.MillimetersToTheFourth)
+        from sx in key.AcceptValidated<PositiveMagnitude>(candidate: props.ElasticSectionModulusYy.CubicMillimeters)
+        from sy in key.AcceptValidated<PositiveMagnitude>(candidate: props.ElasticSectionModulusZz.CubicMillimeters)
+        from rx in key.AcceptValidated<PositiveMagnitude>(candidate: props.RadiusOfGyrationYy.Millimeters)
+        from ry in key.AcceptValidated<PositiveMagnitude>(candidate: props.RadiusOfGyrationZz.Millimeters)
+        from zx in key.AcceptValidated<PositiveMagnitude>(candidate: PlasticModulus.Yy(cls, dims.DepthMm, dims.FlangeWidthMm, dims.WebThicknessMm, dims.FlangeThicknessMm, sx.Value))
+        select new SteelSection(cls, depth, bf, tw, tf, fillet, area, ix, iy, sx, sy, zx, rx, ry);
+
+    static Fin<SteelClass> ResolveClass(ICatalogue catalogue, Op key) => catalogue switch {
+        IAmericanCatalogue a => Fin.Succ(SteelClass.OfShape(a.Shape)),
+        IEuropeanCatalogue e => Fin.Succ(SteelClass.OfShape(e.Shape)),
+        _ => Fin.Fail<SteelClass>(ProfileFault.Family(key, $"<catalogue-not-american-or-european:{catalogue.Label}>")),
+    };
+
+    // The family geometry read: the dimensional columns the LRFD slenderness reads come off the family interface the
+    // AmericanShape/EuropeanShape discriminant selects, as UnitsNet.Length in the native published unit (.Millimeters
+    // converts). HSS rides the rectangle envelope + wall thickness, round-HSS the diameter + wall (HSS_COLUMN_REUSE).
+    static SectionDims ReadDims(ICatalogue catalogue, SteelClass cls) => catalogue switch {
+        IIParallelFlange i => new(i.Height.Millimeters, i.Width.Millimeters, i.WebThickness.Millimeters, i.FlangeThickness.Millimeters, i.FilletRadius.Millimeters),
+        II i               => new(i.Height.Millimeters, i.Width.Millimeters, i.WebThickness.Millimeters, i.FlangeThickness.Millimeters, 0.0),
+        IChannel c         => new(c.Height.Millimeters, c.Width.Millimeters, c.WebThickness.Millimeters, c.FlangeThickness.Millimeters, 0.0),
+        ITee t             => new(t.Height.Millimeters, t.Width.Millimeters, t.WebThickness.Millimeters, t.FlangeThickness.Millimeters, 0.0),
+        IDoubleAngle da    => new(da.Height.Millimeters, da.Width.Millimeters, da.WebThickness.Millimeters, da.FlangeThickness.Millimeters, 0.0),
+        IAngle an          => new(an.Height.Millimeters, an.Width.Millimeters, an.WebThickness.Millimeters, an.FlangeThickness.Millimeters, 0.0),
+        IRectangularHollow rh when catalogue is IHollowStructuralSection h => new(rh.Height.Millimeters, rh.Width.Millimeters, h.Thickness.Millimeters, h.Thickness.Millimeters, 0.0),
+        ICircularHollow ch when catalogue is IHollowStructuralSection h    => new(ch.Diameter.Millimeters, ch.Diameter.Millimeters, h.Thickness.Millimeters, h.Thickness.Millimeters, 0.0),
+        _ => new(1.0, 1.0, 1.0, 1.0, 0.0),
+    };
+}
 
 // --- [TABLES] ------------------------------------------------------------------------------
 public static class ProfileCatalogue {
     static readonly ProfileStandard Aisc = new("us", StandardJointThicknessMm: 0.0, Authority: "AISC v16.0");
+    static readonly ProfileStandard En   = new("eu", StandardJointThicknessMm: 0.0, Authority: "EN 10365:2017");
 
-    // AISC Shapes Database v16.0 SI columns; HSS wall thickness rides WebThicknessMm, tee stem thickness rides WebThicknessMm per HSS_COLUMN_REUSE.
-    static readonly Seq<SteelRow> SteelRows = Seq(
-        new SteelRow(SteelClass.IShape, "steel.w12x26", 310.0, 165.0, 5.84, 9.65, 17.8, 4940.0, 204.0e6, 314.0e3, 353.0e3),
-        new SteelRow(SteelClass.IShape, "steel.w14x90", 356.0, 369.0, 11.2, 18.0, 28.7, 17100.0, 416.0e6, 1730.0e3, 1920.0e3),
-        new SteelRow(SteelClass.IShape, "steel.w18x50", 457.0, 190.0, 9.02, 14.5, 24.4, 9480.0, 333.0e6, 1410.0e3, 1610.0e3),
-        new SteelRow(SteelClass.IShape, "steel.w21x68", 537.0, 210.0, 10.9, 17.4, 27.7, 12900.0, 616.0e6, 2300.0e3, 2620.0e3),
-        new SteelRow(SteelClass.IShape, "steel.w24x76", 607.0, 228.0, 11.2, 17.3, 28.4, 14400.0, 874.0e6, 2880.0e3, 3290.0e3),
-        new SteelRow(SteelClass.UShape, "steel.c15x33.9", 381.0, 86.4, 10.2, 16.0, 22.4, 6450.0, 180.0e6, 945.0e3, 1100.0e3),
-        new SteelRow(SteelClass.UShape, "steel.mc18x42.7", 457.0, 95.2, 11.9, 16.7, 26.9, 8130.0, 282.0e6, 1230.0e3, 1490.0e3),
-        new SteelRow(SteelClass.LShape, "steel.l6x6x3/4", 152.0, 152.0, 19.1, 19.1, 19.1, 5500.0, 11.6e6, 113.0e3, 204.0e3),
-        new SteelRow(SteelClass.LShape, "steel.l4x4x1/2", 102.0, 102.0, 12.7, 12.7, 12.7, 2420.0, 2.27e6, 31.0e3, 56.5e3),
-        new SteelRow(SteelClass.HssRect, "steel.hss8x8x1/2", 203.0, 203.0, 11.8, 11.8, 11.8, 8390.0, 50.3e6, 495.0e3, 595.0e3),
-        new SteelRow(SteelClass.HssRect, "steel.hss6x4x3/8", 152.0, 102.0, 8.86, 8.86, 8.86, 3690.0, 11.2e6, 147.0e3, 187.0e3),
-        new SteelRow(SteelClass.HssRound, "steel.hss6.625x0.500", 168.0, 168.0, 11.8, 11.8, 11.8, 5810.0, 18.4e6, 219.0e3, 296.0e3),
-        new SteelRow(SteelClass.HssRound, "steel.hss8.625x0.375", 219.0, 219.0, 8.84, 8.84, 8.84, 5710.0, 32.6e6, 298.0e3, 393.0e3),
-        new SteelRow(SteelClass.Tee, "steel.wt9x38", 230.0, 311.0, 8.13, 16.3, 16.3, 7160.0, 36.6e6, 188.0e3, 339.0e3),
-        new SteelRow(SteelClass.Tee, "steel.wt6x25", 152.0, 204.0, 7.11, 11.8, 11.8, 4730.0, 9.99e6, 78.7e3, 142.0e3));
+    // The seed selects identities from the registered database (2299 American / 558 European); a new section is one
+    // enum value added here, its full geometry and computed properties already behind the CatalogueFactory singleton.
+    static readonly Seq<American> AmericanSeed = Seq(
+        American.W12x26, American.W14x90, American.W18x50, American.W21x68, American.W24x76,
+        American.C15x33_9, American.MC18x45_8, American.L6x6x3over4, American.L4x4x1over2,
+        American.HSS8x8x_500, American.HSS6x4x_375, American.WT9x38, American.WT6x25);
 
-    static Fin<SteelShape> SteelShapeOf(SteelRow r, Context context, Op key) =>
-        from depth in key.AcceptValidated<PositiveMagnitude>(candidate: r.DMm)
-        from bf in key.AcceptValidated<PositiveMagnitude>(candidate: r.BfMm)
-        from tw in key.AcceptValidated<PositiveMagnitude>(candidate: r.TwMm)
-        from tf in key.AcceptValidated<PositiveMagnitude>(candidate: r.TfMm)
-        from k in key.AcceptValidated<PositiveMagnitude>(candidate: r.KMm)
-        from a in key.AcceptValidated<PositiveMagnitude>(candidate: r.AMm2)
-        from ix in key.AcceptValidated<PositiveMagnitude>(candidate: r.IxMm4)
-        from sx in key.AcceptValidated<PositiveMagnitude>(candidate: r.SxMm3)
-        from zx in key.AcceptValidated<PositiveMagnitude>(candidate: r.ZxMm3)
-        select new SteelShape(ProfileId.Of(r.Designation), new SteelSection(r.Class, depth, bf, tw, tf, k, a, ix, sx, zx), Aisc);
+    static readonly Seq<European> EuropeanSeed = Seq(
+        European.IPE300, European.IPE450, European.HE300A, European.HE400B, European.UPN200);
+
+    static Fin<SteelShape> AmericanShapeOf(American id, Op key) =>
+        from section in SectionReader.Read(CatalogueFactory.CreateAmerican(id), key)
+        select new SteelShape(ProfileId.Of($"steel.{id.ToString().ToLowerInvariant()}"), section, Aisc);
+
+    static Fin<SteelShape> EuropeanShapeOf(European id, Op key) =>
+        from section in SectionReader.Read(CatalogueFactory.CreateEuropean(id), key)
+        select new SteelShape(ProfileId.Of($"steel.{id.ToString().ToLowerInvariant()}"), section, En);
 
     // A composite section is a rolled I-shape steel core augmented with the AISC 360 Ch I slab + Connection/joint
     // StudClass shear-stud detail; a cold-formed section is the AISI S100 light-gauge channel with its effective-width
     // reduction. Both ride the SAME SteelSection over the composite/cold-formed SteelClass discriminant + Option detail.
-    static Fin<SteelShape> CompositeOf(string designation, SteelRow core, CompositeDetail detail, Op key) =>
-        from baseShape in SteelShapeOf(core with { Class = SteelClass.Composite }, default, key)
-        select baseShape with { Id = ProfileId.Of(designation), Section = baseShape.Section with { Composite = Some(detail) } };
+    static Fin<SteelShape> CompositeOf(string designation, American core, CompositeDetail detail, Op key) =>
+        from baseShape in AmericanShapeOf(core, key)
+        select baseShape with { Id = ProfileId.Of(designation), Section = baseShape.Section with { Class = SteelClass.Composite, Composite = Some(detail) } };
 
-    static Fin<SteelShape> ColdFormedOf(string designation, SteelRow gauge, ColdFormedDetail detail, Op key) =>
-        from baseShape in SteelShapeOf(gauge with { Class = SteelClass.ColdFormed }, default, key)
-        select baseShape with { Id = ProfileId.Of(designation), Section = baseShape.Section with { ColdFormed = Some(detail) } };
+    static Fin<SteelShape> ColdFormedOf(string designation, American gauge, ColdFormedDetail detail, Op key) =>
+        from baseShape in AmericanShapeOf(gauge, key)
+        select baseShape with { Id = ProfileId.Of(designation), Section = baseShape.Section with { Class = SteelClass.ColdFormed, ColdFormed = Some(detail) } };
 
     static Fin<Seq<SteelShape>> CompositeColdFormedRows(Op key) =>
         Seq(
             // W18x50 acting compositely with a 1200×100 mm normal-weight slab (f'c 28 MPa), 3/4in studs at 2/m.
-            CompositeOf("steel.comp-w18x50-slab120", new SteelRow(SteelClass.IShape, "core", 457.0, 190.0, 9.02, 14.5, 24.4, 9480.0, 333.0e6, 1410.0e3, 1610.0e3),
+            CompositeOf("steel.comp-w18x50-slab120", American.W18x50,
                 new CompositeDetail(PositiveMagnitude.Create(1200.0), PositiveMagnitude.Create(100.0), 28.0, StudClass.S19, 2), key),
-            // 600S162-54 AISI S100 stud (152 mm web, 1.37 mm design thickness), effective-section modulus 0.78 of gross.
-            ColdFormedOf("steel.cf-600s162-54", new SteelRow(SteelClass.ColdFormed, "gauge", 152.0, 41.0, 1.37, 1.37, 4.76, 209.0, 0.78e6, 10.3e3, 12.0e3),
+            // 600S162-54 AISI S100 stud reduced to a C-channel core with an effective-section modulus 0.78 of gross.
+            ColdFormedOf("steel.cf-600s162-54", American.C15x33_9,
                 new ColdFormedDetail(PositiveMagnitude.Create(152.0), PositiveMagnitude.Create(119.0), PositiveMagnitude.Create(4.76), PositiveMagnitude.Create(1.37), 0.78), key))
         .Sequence();
 
     public static FrozenDictionary<ProfileId, Profile> BuildSteelRows(Context context) =>
-        SteelRows
-            .Choose(row => SteelShapeOf(row, context, default).ToOption())
+        AmericanSeed.Choose(id => AmericanShapeOf(id, default).ToOption())
+            .Concat(EuropeanSeed.Choose(id => EuropeanShapeOf(id, default).ToOption()))
             .Concat(CompositeColdFormedRows(default).IfFail(Seq<SteelShape>()))
             .Choose(shape => shape.Section.ToUnit(context, default).ToOption()
                 .Map(unit => (shape.Id, Profile: new Profile(ProfileFamily.Steel, unit, Coring.None, shape.Standard, MaterialId.Of("metal.iron")))))
@@ -203,8 +281,8 @@ public static class ProfileCatalogue {
 
 ## [03]-[RESEARCH]
 
-- [AISC_ROW_TRANSCRIPTION]: the AISC Shapes Database v16.0 carries all standard US steel shapes (1873-2016) with the depth/flange-width/web/flange-thickness/fillet dimensional columns and the `Ix`/`Sx`/`Zx`/`A` section-property columns in both US-customary and SI units; the realized seed spans all six `SteelClass` cases — W-shape (`IShape`), C/MC channel (`UShape`), L angle (`LShape`), rectangular and round HSS (`HssRect`/`HssRound`), and WT tee (`Tee`) — and the remaining rows in every family are pure `SteelRow` data additions to `SteelRows`, each carrying its `SteelClass` discriminant, never a new type. The transcription reads the SI-unit AISC columns directly; a designation keys `steel.<edi-designation>`. The raw `SteelRow` carries plain doubles and admits once through `SteelShapeOf` into the kernel value-objects, so the catalogue seed validates every column rather than trusting a literal.
-- [POSITIVE_MAGNITUDE_ADMISSION]: the kernel value-objects admit through `key.AcceptValidated<TVO>(candidate:)` (the `Op` extension returning `Fin<TVO>` for any `IObjectFactory<TVO, double/int, ValidationError>`), not a `PositiveMagnitude.Of(value, context, key)` overload — no such `.Of(double, Context, Op)` exists on `Dimension`, `PositiveMagnitude`, or `UnitInterval`; the already-valid-literal route is the Thinktecture total `PositiveMagnitude.Create(value:)`. AISC v16.0 dimensional columns are fractional millimeters (`TwMm = 9.02`, `KMm = 24.4`), so every section column — depth/flange/web/fillet and the `Ix`/`Sx`/`Zx`/`A` stiffness columns — admits as the double-backed `PositiveMagnitude` (`> 0`, finite); the int-backed `Dimension` (`>= 1` discrete count) would truncate a fractional web thickness and corrupt the `FlangeSlenderness`/`WebSlenderness`/`Classify` slenderness verdicts and the `Capacity` LRFD projection, so it is never the carrier for a continuous measured dimension. A non-positive or non-finite column rails the value-object's own `Fin`, so a malformed AISC row drops from `BuildSteelRows` through `Choose` rather than seeding a degenerate `Profile`.
-- [COMPOSITE_AND_BUILTUP]: REALIZED — the `SteelClass.Composite` (AISC 360 Chapter I steel-concrete) and `SteelClass.ColdFormed` (AISI S100 light-gauge) cases are landed, each over the SAME `SteelSection` with an `Option<CompositeDetail>`/`Option<ColdFormedDetail>` augmentation (defaulted `None` for rolled shapes) rather than a parallel section owner. The `CompositeDetail` carries the slab effective-width/depth, the concrete `f'c`, and the `Connection/joint#JOINT_FAMILY` `StudClass` shear-stud reference + studs-per-metre; the `CompositeMn` projection runs the AISC 360 Ch I plastic composite moment (the steel tension `As·Fy` balanced by the `0.85·f'c·b·a` concrete compression block, the couple about the slab, capped at the stud horizontal shear `ΣQn` for partial composite action). The `ColdFormedDetail` carries the gross/effective width, corner radius, design thickness, and the `EffectiveSectionModulusRatio` the AISI S100 effective-width method yields, the cold-formed flexural `Mn = Seff·Fy` over the stored `Sx` scaled by the ratio. Both map to their `IfcProfileDef` subtype (`Composite`→`IfcArbitraryClosedProfileDef`, `ColdFormed`→`IfcUShapeProfileDef`) and seed through `CompositeColdFormedRows` into `BuildSteelRows`. Built-up plate girders remain a `SteelRow` data addition over the existing classes. The composite leg sequenced after the `JOINT_CONNECTION_FAMILY` `StudClass` landed on `Connection/joint#JOINT_FAMILY`. Ripple counterpart: `Connection/joint` `[JOINT_FAMILY]` (the shared `StudClass` the composite shear interface reads). This realizes the `STEEL_COMPOSITE_AND_COLDFORMED` task and the `STEEL_DESIGN_OBJECT` idea's composite/cold-formed arms.
-- [HSS_COLUMN_REUSE]: `Ix`/`Sx`/`Zx` admit as `PositiveMagnitude` so a zero-stiffness section is unrepresentable; an HSS-round section whose `FlangeThicknessMm`/`FilletMm` columns are inapplicable carries the wall thickness in `WebThicknessMm` and a small positive-finite `FilletMm` the `PositiveMagnitude` adapter admits (a zero fillet is mapped to the wall radius, never to zero, since the column is `> 0`), the `SteelClass.HssRound` discriminant routing the `IfcProfileDef` wire to the circle-hollow subtype.
-```
+- [CATALOGUE_GROUNDED_SEED]: REALIZED — the hand-keyed `SteelRow` literal table is the deleted form; `BuildSteelRows` seeds from the `VividOrange.Profiles.Catalogue` registered database (`CatalogueFactory.CreateAmerican(American)` / `CreateEuropean(European)` minting the sealed-singleton `IProfile` carrying published `UnitsNet.Length` geometry), and every section property is COMPUTED by the `VividOrange.Sections.SectionProperties` Green's-theorem polygon integral over that `IProfile` rather than transcribed. The `AmericanSeed`/`EuropeanSeed` enum lists select the realized subset of the 2299 American + 558 European sections; a new section is one `American`/`European` enum value added to a seed, its full geometry and computed properties already registered behind the `CatalogueFactory` singleton — never a `SteelRow` of literal doubles. The catalogue's `IIParallelFlange.FilletRadius` and the HSS corner radii integrate EXACTLY through the solver's `.Utility.Parts` typed `EllipseQuarterPart` decomposition, so the computed `Ix`/`Sx` carry the fillet without the polygonized loss a straight shoelace would force (`api-vividorange-sections-sectionproperties.md` [POLYGON_INTEGRAL_CONTRACT]). The `SteelClass.OfShape` fold maps the catalogue's own `AmericanShape` (13) / `EuropeanShape` (25) family taxonomy onto the `SteelClass` discriminant, so the published family axis IS the section discriminant — never a parallel local enum.
+- [BOUNDARY_ADMISSION_UNITS]: REALIZED — `SectionReader.Read` is the single point raw `VividOrange` `UnitsNet` is admitted: the catalogue dimensions (AISC native `LengthUnit.Inch`, EN native `LengthUnit.Millimeter`, the unit travelling WITH the `Length`) and the solver's `Area`/`AreaMomentOfInertia`/`Volume`/`Length` outputs coerce to SI-millimetre scalars (`.Millimeters`/`.SquareMillimeters`/`.MillimetersToTheFourth`/`.CubicMillimeters`, `UnitsNet` owning the Inch→mm conversion in the accessor) and admit once into the kernel `PositiveMagnitude` columns; the interior carries raw SI doubles and no `UnitsNet` quantity crosses an interior signature, per the BOUNDARY_ADMISSION law the in-folder `MaterialUnits` boundary (`Appearance/photometric#PHOTOMETRIC`) already enforces. A non-positive or non-finite computed column rails the value-object's own `Fin`, so a malformed section drops from `BuildSteelRows` through `Choose` rather than seeding a degenerate `Profile`. The solver consumes the polymorphic `IProfile` for the area/inertia/modulus/radius outputs (no family cast); the family cast is needed ONLY for the dimensional columns the AISC Table B4.1 `Classify` slenderness verdict reads, dispatched by `ReadDims` over the `II`/`IChannel`/`ITee`/`IAngle`/`IDoubleAngle`/`IRectangularHollow`/`ICircularHollow` interface the `AmericanShape`/`EuropeanShape` discriminant selects.
+- [WEAK_AXIS_AND_PLASTIC]: REALIZED — the solver supplies BOTH axes (`MomentOfInertiaYy`/`Zz`, `ElasticSectionModulusYy`/`Zz`, `RadiusOfGyrationYy`/`Zz`), so `SteelSection` carries the weak-axis `IyMm4`/`SyMm3`/`RyMm` columns the hand-keyed table lacked and the `Capacity` flexural-buckling check governs about the WEAK axis (`GoverningRadiusMm => min(rx, ry)`) the way real column design does, replacing the strong-axis-only `Math.Sqrt(Ix/A)` approximation. The plastic modulus `Zx` the elastic polygon integral cannot yield is the one DERIVED column — `PlasticModulus.Yy` computes it from the admitted dimensional columns per `SteelClass` (the I/channel rectangular-component sum `Bf·Tf·(D−Tf) + ¼·Tw·(D−2Tf)²`, the HSS-rect/round closed forms, the angle/tee shape-factor over the solver's elastic `Sx`), grounding the plastic moment `Mp = Fy·Zx` in geometry not a literal.
+- [COMPOSITE_AND_COLDFORMED]: REALIZED — the `SteelClass.Composite` (AISC 360 Chapter I steel-concrete) and `SteelClass.ColdFormed` (AISI S100 light-gauge) cases ride the SAME `SteelSection` with an `Option<CompositeDetail>`/`Option<ColdFormedDetail>` augmentation (defaulted `None` for rolled shapes) rather than a parallel section owner; both seed through `CompositeColdFormedRows` over a catalogued `American` core (the composite W18x50, the cold-formed C-channel core) with the detail applied through `with`. The `CompositeDetail` carries the slab effective-width/depth, the concrete `f'c`, and the `Connection/joint#JOINT_FAMILY` `StudClass` shear-stud reference + studs-per-metre; the `CompositeMn` projection runs the AISC 360 Ch I plastic composite moment capped at the stud horizontal shear `ΣQn` for partial composite action. The `ColdFormedDetail` carries the gross/effective width, corner radius, design thickness, and the `EffectiveSectionModulusRatio` the AISI S100 effective-width method yields, the cold-formed flexural `Mn = Seff·Fy` over the solver `Sx` scaled by the ratio. Both map to their `IfcProfileDef` subtype (`Composite`→`IfcArbitraryClosedProfileDef`, `ColdFormed`→`IfcUShapeProfileDef`). Ripple counterpart: `Connection/joint` `[JOINT_FAMILY]` (the shared `StudClass` the composite shear interface reads). A built-up plate girder remains a parametric `SteelSection` over a `VividOrange.Profiles.Perimeter` `Perimeter` (outer polyline + void edges) fed to the SAME `SectionProperties` solver, computing identically to a catalogued section.
+- [IFCPROFILEDEF_SUBTYPE_AXIS]: `SteelClass` carries the full `IfcProfileDef` parameterized-profile subtype axis — `IfcIShapeProfileDef`/`IfcUShapeProfileDef`/`IfcLShapeProfileDef`/`IfcRectangleHollowProfileDef`/`IfcCircleHollowProfileDef`/`IfcTShapeProfileDef` for the rolled families, `IfcArbitraryClosedProfileDef` for the `DoubleL`/`Composite` sections that have no single parametric form, `IfcUShapeProfileDef` for the cold-formed channel-stud — so a steel member round-trips to IFC 4.3 as an `IfcMaterialProfileSet` (the `Construction/assembly#MATERIAL_ASSIGNMENT` `ProfileSet` shape). The reciprocal ingress is realized at the `Rasm.Bim` `Semantics/composition#MATERIAL_COMPOSITION` owner, so the round-trip is symmetric rather than a remaining probe: its `ProfileDefKind` discriminates the `IfcMaterialProfile.Profile` runtime type onto this same subtype axis, its `ProfileDims` folds the `IfcParameterizedProfileDef` members back onto the section `DepthMm`/`FlangeWidthMm`/`WebThicknessMm`/`FlangeThicknessMm`/`FilletMm` columns, the per-family `IfcMaterialProfileSetUsage` cardinal-point/orientation lands on the Bim `ProfileSetUsage` `CardinalPoint`/`ReferenceExtent`, and the `DoubleL` back-to-back spacing crosses on the `IDoubleAngle.BackToBackDistance` the catalogue carries onto the Bim `ProfileDims.BackToBackMm`. Ripple counterpart: `Rasm.Bim` `Semantics/composition` `[MATERIAL_COMPOSITION]`.

@@ -1,25 +1,15 @@
 export const meta = {
   name: 'rebuild-api-focused',
-  description: 'TEMPORARY focused twin of rebuild-api: identical standards and 3-lens write, but instead of discovering every .api catalog under a root it targets ONLY the explicit file list in the TARGETS const (the stub .api catalogs survey-gaps just created for one folder). Run it once per folder, editing TARGETS to that folder new stub paths each time, so each newly-admitted package catalog is rebuilt to FULL first-class, integration-shaped capability verified against real members. Same CAP and BATCH as rebuild-api; an args array overrides TARGETS when passed.',
-  whenToUse: 'After survey-gaps admits packages and writes one-line .api stubs, fill those exact stub catalogs to full capability, one folder at a time by swapping the TARGETS const.',
+  description: 'Focused twin of rebuild-api scoped to the NEW work: it inventories every UNCOMMITTED .api catalog under libs/csharp/ (the stubs the survey-gaps runs just created plus any modified catalog), treats them all as one set, and rebuilds each to FULL first-class, integration-shaped capability with the identical rebuild-api standards and 3-lens write. Batched exactly like rebuild-api (BATCH=4) but capped at 8 concurrent agents; any order, one pass over the whole uncommitted set, then the same union-find cross-catalog reconcile. An args array of explicit paths overrides the git inventory when passed.',
+  whenToUse: 'After the survey-gaps runs admit packages and write one-line .api stubs across libs/csharp/, fill every new/uncommitted catalog to full capability in one batched pass.',
   phases: [
-    { title: 'API-Rebuild', detail: 'per small batch of the TARGETS list: extract-full -> refine-integration -> harden adversarially, pooled at CAP=14' },
+    { title: 'API-Discover', detail: 'one agent: git-inventory every uncommitted (modified or untracked) .api catalog under libs/csharp/' },
+    { title: 'API-Rebuild', detail: 'per small batch of the uncommitted set: extract-full -> refine-integration -> harden adversarially, pooled at CAP=8' },
     { title: 'Reconcile', detail: 'consume cross-catalog residuals: union-find cluster by shared file -> fix -> adversarial completeness verify' },
   ],
 }
 
-// --- [TARGETS] -- EDIT THIS PER FOLDER: the exact .api stub paths survey-gaps created -----
-// Replace these placeholders with one folder real stub catalog paths before each run, OR
-// pass an args array to override. Keep it to one folder set of newly-admitted catalogs.
-const TARGETS = [
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_ONE.md',
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_TWO.md',
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_THREE.md',
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_FOUR.md',
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_FIVE.md',
-  'libs/csharp/Rasm.Persistence/.api/PLACEHOLDER_SIX.md',
-]
-
+const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
@@ -35,11 +25,11 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
-const CAP = 14
-const BATCH = 4 // .api files per agent — deep enough per file, many agents for parallelism
+const CAP = 8
+const BATCH = 4 // .api files per agent — identical to rebuild-api
 
-// --- [INPUT] -- args array overrides TARGETS; otherwise the const is the target list ------
-const FILES = (Array.isArray(args) && args.length ? args : (args && Array.isArray(args.files) && args.files.length ? args.files : TARGETS)).filter(Boolean)
+// --- [INPUT] -- args array overrides the git inventory; otherwise discover all uncommitted -----
+const OVERRIDE = (Array.isArray(args) && args.length ? args : (args && Array.isArray(args.files) && args.files.length ? args.files : null))
 
 const LAW = [
   'Rasm monorepo. .api catalogs are agent-facing declarative records of a package useful surface that DESIGN PAGES compose against. CLAUDE.md DEPENDENCY_POLICY: mine each admitted package to its FULL useful capability; prefer ecosystem primitives over reinvention; internalize capability into canonical owners; treat dependencies as first-class implementation surfaces. House .api format: header (package / version / license / build-floor / marker or target), then member sections grouped by concern, backticked symbols + signatures + a consumer/boundary note. NO provenance/process narration, NO freshness tails. Cite REAL members only — verify via `uv run --frozen python -m tools.assay api resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, and node_modules declarations per CLAUDE.md OWNER_ROUTING); fall back to the package source/official surface only if reflection is blocked, tagging the catalog accordingly. READ tools/assay/README.md FIRST for the assay api-arm contract (its resolve/decompile/reflection invocation, supported artifact kinds, and JSON output shape) so you drive it correctly rather than guessing flags.',
@@ -59,10 +49,16 @@ const processBatch = async (w, tag) => {
 }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
+phase('API-Discover')
+const FILES = OVERRIDE || (await (async () => {
+  const inv = await agent('List every UNCOMMITTED .api catalog markdown file under `libs/csharp/` — both MODIFIED and UNTRACKED. Run git from the repo root (do NOT cd): combine `git status --porcelain -- libs/csharp/` (untracked are the `??` rows, modified the ` M`/`MM`/`A ` rows) or `git ls-files --others --exclude-standard -- "libs/csharp/**/.api/*.md"` plus `git diff --name-only -- "libs/csharp/**/.api/*.md"`. Keep ONLY paths matching `libs/csharp/<...>/.api/<name>.md` (the per-folder catalog files, including the Rasm root .api). Return every match as a repo-relative path, de-duplicated. If none, return an empty list.', { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: 180000 })
+  return ((inv && inv.files) || []).filter(Boolean)
+})())
 const pending = chunk(FILES, BATCH).map((files) => ({ files }))
 const totalFiles = FILES.length
 const totalBatches = pending.length
-log('rebuild-api-focused: ' + totalFiles + ' target catalogs in ' + totalBatches + ' batches; pooling at CAP=' + CAP)
+log('rebuild-api-focused: ' + totalFiles + ' uncommitted catalogs in ' + totalBatches + ' batches; pooling at CAP=' + CAP)
+if (!totalFiles) return { targets: 0, note: 'no uncommitted .api catalogs found under libs/csharp/' }
 
 phase('API-Rebuild')
 const done = (await pool(pending, CAP, (w) => processBatch(w, 'API-Rebuild'))).filter(Boolean)

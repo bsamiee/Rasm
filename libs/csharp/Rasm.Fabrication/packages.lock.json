@@ -53,6 +53,16 @@
           "Microsoft.Bcl.HashCode": "1.1.1"
         }
       },
+      "Robots": {
+        "type": "Direct",
+        "requested": "[2.1.2, )",
+        "resolved": "2.1.2",
+        "contentHash": "nDtVkkHcUNcXWP0ShGUcNDPXUyDPGLHW0cQs/ReJB7y5yLcKeVxTUVf51H13SQQi1K8KgH4IQ7yl0lwavkZ1Jg==",
+        "dependencies": {
+          "Rhino3dm": "8.17.0",
+          "SSH.NET": "2024.0.0"
+        }
+      },
       "System.IO.Hashing": {
         "type": "Direct",
         "requested": "[10.0.9, )",
@@ -107,6 +117,7 @@
         "dependencies": {
           "CSparse": "[4.4.0, )",
           "Csp.Contracts": "[1.0.0, )",
+          "ExtendedNumerics.BigRational": "[3000.0.2.132, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
@@ -114,14 +125,27 @@
           "MathNet.Numerics.Providers.OpenBLAS": "[6.0.0-beta2, )",
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
+          "TYoshimura.DoubleDouble": "[5.0.8, )",
           "Thinktecture.Runtime.Extensions": "[10.3.0, )"
         }
+      },
+      "BouncyCastle.Cryptography": {
+        "type": "CentralTransitive",
+        "requested": "[2.6.2, )",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
       },
       "CSparse": {
         "type": "CentralTransitive",
         "requested": "[4.4.0, )",
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
+      },
+      "ExtendedNumerics.BigRational": {
+        "type": "CentralTransitive",
+        "requested": "[3000.0.2.132, )",
+        "resolved": "3000.0.2.132",
+        "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",
@@ -147,13 +171,57 @@
           "MathNet.Numerics": "6.0.0-beta2"
         }
       },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "g41l/30G3K4B/d/L8kjux0+30e27c8D0FVQ/PFCpbekgfDpj9mnDhieP67EqXWvl1EWNeZh2rpR4F5B/jcDOHA=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "9S/DFt4cohlMPpzIxjG6kk0L8MuN2vDm9pbMCulxtJzzk82oJHVLBd8vuQxaPskaYQwKqmFmbannf5eoChgjYg==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9"
+        }
+      },
+      "Rhino3dm": {
+        "type": "CentralTransitive",
+        "requested": "[8.17.0, )",
+        "resolved": "8.17.0",
+        "contentHash": "3uoZ7sNs9NIJ8Vi1b3nO0XCU9KfwH9fef6a6cZPC05aIVtsWTYLzWAIopF07Xksvi9KDj0LAE0JTHqNwQQhLxw=="
+      },
+      "SSH.NET": {
+        "type": "CentralTransitive",
+        "requested": "[2025.1.0, )",
+        "resolved": "2025.1.0",
+        "contentHash": "jrnbtf0ItVaXAe6jE8X/kSLa6uC+0C+7W1vepcnRQB/rD88qy4IxG7Lf1FIbWmkoc4iVXv0pKrz+Wc6J4ngmHw==",
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.6.2",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3"
+        }
+      },
       "System.Numerics.Tensors": {
         "type": "CentralTransitive",
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "Rb71S3gggYVwEce9ugNw91vbr4vC4gThtx/imSJtLBW3AupEKujJPPQL6xF9q0DcNm6+z7hnYk7XqXaUpA4wDg=="
+      },
+      "TYoshimura.DoubleDouble": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.8, )",
+        "resolved": "5.0.8",
+        "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
       }
     },
-    "net10.0/osx-arm64": {}
+    "net10.0/osx-arm64": {
+      "Rhino3dm": {
+        "type": "CentralTransitive",
+        "requested": "[8.17.0, )",
+        "resolved": "8.17.0",
+        "contentHash": "3uoZ7sNs9NIJ8Vi1b3nO0XCU9KfwH9fef6a6cZPC05aIVtsWTYLzWAIopF07Xksvi9KDj0LAE0JTHqNwQQhLxw=="
+      }
+    }
   }
 }

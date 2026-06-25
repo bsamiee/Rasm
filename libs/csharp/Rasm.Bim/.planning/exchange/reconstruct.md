@@ -1,10 +1,11 @@
 # [BIM_RECONSTRUCTION]
 
-The scan-to-BIM primitive-fitting owner: one `ReconstructionPrimitive` `[Union]` (plane/cylinder/torus/freeform) folding a kernel-registered segmented point cloud into `Model/elements#ELEMENT_MODEL` `BimElement` rows, each row classified through an `ElementClassifier` frozen primitive-shape-to-`IfcClass` projection (a data table, not enumerated `switch` arms), carrying its per-element fit confidence as a `Semantics/properties#PROPERTY_SETS` `Pset_Reconstruction` row and a `ReconstructionLineage` `[ValueObject]` source-cloud content-key joining the reconstructed element back to the capture that produced it. Reconstruction is BIM-semantics-only: the registration is the kernel's — the `csharp:Rasm/Vectors#ALIGN` cloud-ICP alignment and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation feed an already-fitted `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement consumed by reference for the planar/cylindrical primitive boundaries, never a parallel scan engine re-minted here — and the splat/point payload plus the source-cloud content key are the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` owner's, consumed as settled vocabulary. The fitted primitive is HOST-NEUTRAL: it carries the kernel `Rasm` geometry by `GeometryHandle` reference (or the `Model/elements#BIM_TYPE` `IfcRepresentationMap` instanced-geometry key when the fit reuses a type-library shape) and never a RhinoCommon `Brep`/`Mesh`. The fold composes the one `BimModel` the `Model/elements#ELEMENT_MODEL` `Project` produces and the `Model/query#ELEMENT_SET` query algebra reads — a reconstructed model is a `BimModel` like any imported model, the `Model/elements#ELEMENT_MODEL` `BimElement` vocabulary widened by no new column and the `Review/diff#MODEL_DIFF` federation diff joining a reconstructed element to its design counterpart by GlobalId plus content-key. The page is HOST-NEUTRAL.
+The scan-to-BIM primitive-fitting owner: one `ReconstructionPrimitive` `[Union]` (plane/cylinder/torus/freeform) folding a kernel-registered segmented point cloud into `Model/elements#ELEMENT_MODEL` `BimElement` rows, each row classified through an `ElementClassifier` frozen primitive-shape-to-`IfcClass` projection (a data table, not enumerated `switch` arms), carrying its per-element fit confidence as a `Semantics/properties#PROPERTY_SETS` `Pset_Reconstruction` row and a `ReconstructionLineage` `[ValueObject]` source-cloud content-key joining the reconstructed element back to the capture that produced it. Reconstruction is BIM-semantics-only: the raw LAS DECODE is the `Themis.Las` codec's (the `[2]-[LAS_INGEST]` `LasIngest.Decode` front producing the `MathNet.Numerics` point set), and the registration and fit are the kernel's — the `csharp:Rasm/Vectors#ALIGN` cloud-ICP alignment and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation feed an already-fitted `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` exact-arithmetic arrangement consumed by reference for the planar/cylindrical primitive boundaries, never a parallel scan engine re-minted here — and the splat/point payload plus the source-cloud content key are the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity` owner's, consumed as settled vocabulary. The fitted primitive is HOST-NEUTRAL: it carries the kernel `Rasm` geometry by `GeometryHandle` reference (or the `Model/elements#BIM_TYPE` `IfcRepresentationMap` instanced-geometry key when the fit reuses a type-library shape) and never a RhinoCommon `Brep`/`Mesh`. The fold composes the one `BimModel` the `Model/elements#ELEMENT_MODEL` `Project` produces and the `Model/query#ELEMENT_SET` query algebra reads — a reconstructed model is a `BimModel` like any imported model, the `Model/elements#ELEMENT_MODEL` `BimElement` vocabulary widened by no new column and the `Review/diff#MODEL_DIFF` federation diff joining a reconstructed element to its design counterpart by GlobalId plus content-key. The page is HOST-NEUTRAL.
 
 ## [01]-[INDEX]
 
 - [01]-[RECONSTRUCTION]: `ReconstructionPrimitive` `[Union]` (Plane/Cylinder/Torus/Freeform), the `PrimitiveShape` `[SmartEnum]` discriminant, the `ElementClassifier` frozen shape-to-`IfcClass` table, the `ReconstructionLineage` `[ValueObject]` source-cloud key, and the `Reconstruct` fold from a kernel-registered `SegmentedCloud` into `BimElement` rows.
+- [02]-[LAS_INGEST]: the `LasCloud` decoded point carrier and the `LasIngest.Decode` fold over the `Themis.Las` `LasReader` ASPRS LAS decoder — the scan-to-BIM front decoding raw `.las` bytes into the `MathNet.Numerics` point set the kernel registration/segmentation consumes, with the ASPRS classification seeding the `ElementClassifier` discipline hint and the CRS WKT VLR feeding the `Semantics/georeference#GEOREFERENCE` projection.
 
 ## [02]-[RECONSTRUCTION]
 
@@ -206,7 +207,69 @@ public static class Reconstruction {
 }
 ```
 
-## [03]-[RESEARCH]
+## [03]-[LAS_INGEST]
+
+- Owner: `LasCloud` the decoded point carrier — the per-point position set (each `Position` already a `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and the Compute substrate consume without a re-wrap), the per-point ASPRS `Classification` byte the `ElementClassifier` discipline hint reads, the source CRS WKT from the LAS VLR the `Semantics/georeference#GEOREFERENCE` projection consumes, the source-cloud `ReconstructionLineage` content key, and the capture `Instant`; `LasIngest` the static decode fold over the `Themis.Las` `LasReader` ASPRS LAS streaming reader — the scan-to-BIM FRONT decoding raw `.las` bytes into the `LasCloud` the kernel `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation consume to PRODUCE the `[2]-[RECONSTRUCTION]` `SegmentedCloud` rows. `Themis.Las` owns the LAS codec; the kernel owns the fit; this owner re-mints neither.
+- Entry: `LasIngest.Decode(InterchangeFormat format, ReadOnlyMemory<byte> lasBytes, ClockPolicy clocks)` streams every ASPRS point data record format (0-10) through one `LasReader` into the `LasCloud` — `Fin<T>` aborts on a malformed header or a LAZ (compressed) input the uncompressed-only codec rejects (`Model/faults#FAULT_BAND` `BimFault.CodecReject`) lowered with `.ToError()` at the `Boundary` funnel; the decoded `LasCloud` is the `csharp:Rasm/Vectors#ALIGN`/`csharp:Rasm/Geometry/spatial#SEGMENTATION` input, the produced `SegmentedCloud` rows the `[2]-[RECONSTRUCTION]` `Reconstruct` fold reads, so LAS decode and primitive fitting compose at one seam without a re-minted scan engine.
+- Auto: `Decode` opens the bytes through `LasReader` (the byte buffer staged to a temp path the reader's streaming `IStreamHandler` reads), folds the forward cursor `GetNextPoint()` until `EOF` accumulating each `LasPoint` `Position` (the `MathNet.Numerics` vector, `X`/`Y`/`Z` projecting its components) and `Classification` byte, reads the `LasReader.Header` `ILasHeader` scale/offset/extrema and the `VLRs` CRS WKT record (the `LasVariableLengthRecord` carrying the OGC WKT / GeoTIFF keys, never a re-minted CRS parser), and seals the `ReconstructionLineage` content key over the source-cloud bytes through `InterchangeIdentity.Key`; the ASPRS `Classification` (ground/building/vegetation) seeds the `[2]-[RECONSTRUCTION]` `ElementClassifier` `(PrimitiveShape, IfcDomain, orientation)` discipline-hint table biasing the fitted-primitive-to-`IfcClass` projection (never an enumerated per-class branch), and the CRS WKT VLR feeds the `Semantics/georeference#GEOREFERENCE` `ProjNET` datum leg so a georeferenced capture lands in the canonical kernel frame.
+- Receipt: the `LasCloud` is the decoded scan evidence the kernel registration consumes — the point count, the ASPRS classification histogram, and the CRS WKT presence are the receipt facts the ingest records; the `ReconstructionLineage` over the source bytes joins the reconstructed model back to its capture so the `Review/diff#MODEL_DIFF` federation diff and the `AppUi` reality-capture playback re-fetch the exact LAS by lineage key.
+- Packages: `Themis.Las` (the ASPRS LAS reader, pure-managed over `MathNet.Numerics`), `Rasm` (the kernel ICP registration + segmentation consumed by reference), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.IO.Hashing, NodaTime
+- Growth: a new ASPRS point data record format is one `Themis.Las` `PointTypeMap` row the single `LasReader` resolves on (formats 0-10 share one reader, never a per-format `LasReaderFormat3` family); a new per-point facet (intensity, return index, GPS time, RGB/NIR) is one column the `LasPoint` facet interface set already carries narrowed onto `LasCloud`; a new classification bias is one `ElementClassifier` table row; never a re-minted point-cloud decoder, never a LAZ/LASzip path (no admissible non-copyleft managed port), and never a second hashing scheme over the LAS bytes beside `InterchangeIdentity.Key`.
+- Boundary: the LAS decode is `Themis.Las`'s — `LasReader`/`LasPoint`/`ILasHeader`/`LasVariableLengthRecord` own the streaming read, the `LasPoint.Position` is the `MathNet.Numerics.LinearAlgebra.Vector<double>` the kernel registration and the `csharp:Rasm.Compute/Tensor/blas#DENSE_ALGEBRA` covariance/PCA normal estimation consume with no re-wrap, and a hand-rolled LAS byte-layout reader is the deleted form; LAZ is out of scope (a compressed input rejects at the boundary, no native LASzip binding admitted — the ALC firebreak and the non-copyleft constraint both hold); the registration is `csharp:Rasm/Vectors#ALIGN`'s and the segmentation `csharp:Rasm/Geometry/spatial#SEGMENTATION`'s consumed by reference — `LasIngest` decodes only, never fits, and a re-minted RANSAC/region-grow fitter in this owner is the deleted form per the consume-the-kernel law; the CRS WKT VLR feeds the `Semantics/georeference#GEOREFERENCE` `ProjNET` leg and a Themis-local reprojection is the named seam violation; the source-cloud content key is `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING`'s `InterchangeIdentity.Key` and a second hashing scheme is the named drift defect; the decoded `LasPoint` types never leak past this fold — internal code holds the canonical `LasCloud`/`SegmentedCloud` per the boundary-mapping law.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using LanguageExt;
+using MathNet.Numerics.LinearAlgebra;
+using NodaTime;
+using Themis.Las;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Bim;
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record LasCloud(
+    ReadOnlyMemory<Vector<double>> Positions,
+    ReadOnlyMemory<byte> Classifications,
+    Option<string> CrsWkt,
+    ReconstructionLineage Lineage,
+    ulong PointCount,
+    Instant At);
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class LasIngest {
+    public static Fin<LasCloud> Decode(InterchangeFormat format, ReadOnlyMemory<byte> lasBytes, ClockPolicy clocks) =>
+        Try.lift(() => Read(lasBytes, clocks.Now)).Run()
+            .MapFail(static error => new BimFault.CodecReject($"las-decode:{error.Message}").ToError());
+
+    static LasCloud Read(ReadOnlyMemory<byte> lasBytes, Instant at) {
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.las");
+        File.WriteAllBytes(path, lasBytes.ToArray());
+        try {
+            using var reader = new LasReader(path);
+            var positions = new Vector<double>[reader.PointCount];
+            var classes = new byte[reader.PointCount];
+            for (ulong i = 0; !reader.EOF && i < reader.PointCount; i++) {
+                var point = reader.GetNextPoint();
+                positions[i] = point.Position;
+                classes[i] = point.Classification;
+            }
+            return new LasCloud(positions, classes, CrsOf(reader),
+                ReconstructionLineage.Create(InterchangeIdentity.Key("las-cloud", lasBytes.Span, 1e-3, 1e-6, 1e-4)),
+                reader.PointCount, at);
+        } finally { File.Delete(path); }
+    }
+
+    // RecordID 2112 is the ASPRS OGC WKT Coordinate System VLR — the canonical CRS-WKT record.
+    static Option<string> CrsOf(LasReader reader) =>
+        reader.VLRs.AsIterable()
+            .Filter(static vlr => vlr.RecordID == 2112)
+            .HeadOrNone()
+            .Map(static vlr => System.Text.Encoding.UTF8.GetString(vlr.Data).TrimEnd('\0'));
+}
+```
+
+## [04]-[RESEARCH]
 
 - [KERNEL_REGISTRATION_SEAM]: the `SegmentedCloud` carrier the `Reconstruct` fold reads (segment id, fitted `PrimitiveShape`, the kernel `Rasm` `GeometryHandle`, the fit normal/axis/radius, the inlier/total counts, and the `csharp:ROBUST_ARRANGEMENT_SUBSTRATE` arrangement face index) grounds against the kernel `csharp:Rasm/Vectors#ALIGN` cloud-ICP registration owner and the `csharp:Rasm/Geometry/spatial#SEGMENTATION` plane/cylinder segmentation owner at cross-folder alignment — the segmentation produces the shape-labeled segments already aligned by ICP into the canonical kernel frame and the exact-arithmetic arrangement bounds the planar/cylindrical patches, so the `SegmentedCloud.Geometry`/`Normal`/`Axis`/`Radius`/`ArrangementFace` member spellings and the `Vector3`/`Vector3.Dot`/`Vector3.UnitZ`/`Vector3.Unit` kernel-geometry surface confirm against the kernel geometry owner before the carrier is final; the consume-by-reference law holds — Bim re-fits no geometry and re-mints no arrangement, a `GeometryHandle.IsPending` segment is an unregistered capture the fold faults `BimFault.CapabilityMiss` rather than fitting in-process.
 - [CONTENT_KEY_LINEAGE]: the `ReconstructionLineage` source-cloud key over `InterchangeIdentity.Key(string formatKey, ReadOnlySpan<byte> bytes, double deflection, double tolerance, double angleTolerance)` grounds against the `csharp:Compute/Runtime/codecs#CONTENT_ADDRESSING` content-key owner at cross-folder alignment so the reconstructed element joins its source capture by the same content key the `Review/diff#MODEL_DIFF` `ElementFingerprint.ContentKey` and the export artifact address — Bim mints no second identity scheme; the splat/point payload the `segment.CloudBytes` carries is the Compute interchange owner's, consumed as settled vocabulary, and the `XxHash128.HashToUInt128` the content key composes is BCL `System.IO.Hashing` inbox and settled.

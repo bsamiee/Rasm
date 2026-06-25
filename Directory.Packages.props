@@ -14,6 +14,15 @@
     </ItemGroup>
 
     <ItemGroup Label="Numerics">
+        <!-- Exact-rational oracle for the Geometry/Numerics predicate law-matrix: one BigRational
+             (BigInteger numerator/denominator, exact Sign/NormalizeSign) is the rational ground truth
+             the Orient/InCircle/InSphere + implicit-point predicates are proved against, replacing the
+             per-matrix ad-hoc BigInteger determinant re-derivation. Pure-managed AnyCPU, zero deps. -->
+        <PackageVersion Include="ExtendedNumerics.BigRational" Version="3000.0.2.132" />
+        <!-- Double-double (106-bit, hi/lo two-double) middle-precision FP tier between the conservative
+             double filter and the heavyweight Expansion exact branch in Geometry/Numerics predicates;
+             FMA TwoProduct + Knuth TwoSum transforms identical to the kernel. net10.0-first, zero deps. -->
+        <PackageVersion Include="TYoshimura.DoubleDouble" Version="5.0.8" />
         <PackageVersion Include="CSparse" Version="4.4.0" />
         <PackageVersion Include="FParsec" Version="2.0.0-beta2" />
         <PackageVersion Include="FSharp.Core" Version="10.1.301" />
@@ -99,6 +108,52 @@
         <PackageVersion Include="Microsoft.AspNetCore.Authorization" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.7.0" />
         <PackageVersion Include="OpenFeature" Version="2.13.0" />
+        <!-- Token VALIDATION leg peering with the OpenIddict.Client acquisition leg, host-neutral
+             (no ASP.NET pipeline): JsonWebTokenHandler.ValidateTokenAsync over TokenValidationParameters
+             mints the verified IdentityPrincipal the GrantBroker reads; Tokens carries the JWK-thumbprint
+             (RFC 7638) cnf/jkt primitives for the DPoP proof-of-possession bind; Protocols.OpenIdConnect's
+             ConfigurationManager<OpenIdConnectConfiguration> owns JWKS discovery + key rotation. -->
+        <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.1" />
+        <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
+        <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.19.1" />
+        <!-- Supply-chain admit gate: Sigstore verifies a cosign/Sigstore bundle offline against a trust
+             root (transparency-log Merkle inclusion + RFC 3161 timestamp) AND the DSSE/in-toto SLSA
+             provenance envelope — one admission covering both the signature and attestation legs.
+             NuGet.Versioning supplies the real SemVer-2.0 + VersionRange [min,max) grammar the SemverGate
+             contract-range check needs (System.Version is not semver-aware). -->
+        <PackageVersion Include="Sigstore" Version="0.5.0" />
+        <PackageVersion Include="NuGet.Versioning" Version="7.6.0" />
+        <!-- Pre-call deterministic token-count source for the grant-broker cost preview:
+             TiktokenTokenizer.CountTokens gives CostModel.Variable a per-prompt token count so a model
+             draw is grant-priced (CostUnit.ModelTokens) and ceiling-gated BEFORE any tokens are spent.
+             The two Data packages embed the o200k_base (GPT-4o/GPT-5/o-series) and cl100k_base
+             (GPT-4/3.5/embedding-3) vocabularies OFFLINE so the dry-run pricing is air-gapped. -->
+        <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
+        <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
+        <!-- Concrete IHealthCheck probes the HealthContributorRow folds into capability: NpgSql + Redis
+             reachability over the admitted Npgsql/StackExchange.Redis drivers, System disk-pressure +
+             process liveness (the gap ResourceMonitoring's CPU/memory does not cover), Uris HTTP(S)
+             dependency-endpoint reachability, and Kafka broker readiness for the CloudEvents-over-Kafka
+             lane. All Xabaril, Apache-2.0, pure-managed net8.0 libs binding forward under net10. -->
+        <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.System" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
+        <PackageVersion Include="AspNetCore.HealthChecks.Kafka" Version="9.0.0" />
+        <!-- gRPC host surface owned by the AppHost ControlService (gRPC-over-UDS): Grpc.AspNetCore +
+             .Web + .HealthChecks host legs and the Grpc.Core.Api base contract (ServerCallContext,
+             IServerStreamWriter, Metadata) the ControlService consumes directly. Rasm.Compute consumes
+             Grpc.AspNetCore at its wire-plane services; all on the matched 2.80.0 line. -->
+        <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.HealthChecks" Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.Web" Version="2.80.0" />
+        <PackageVersion Include="Grpc.Core.Api" Version="2.80.0" />
+        <!-- JSON-Patch ports-transport seam owned by AppHost (Runtime/Ports.cs); Rasm.Persistence consumes
+             the same RFC 6902 patch shape for snapshot deltas (Snapshots And Support). -->
+        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" Version="10.0.9" />
+        <!-- System.CommandLine: the AppHost CLI composition-root surface (companion/standalone app entry). -->
+        <PackageVersion Include="System.CommandLine" Version="2.0.9" />
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
@@ -114,6 +169,15 @@
         <PackageVersion Include="Apache.Arrow.Compression" Version="23.0.0" />
         <!-- FastCDC content-defined chunking: stable dedup chunk boundaries for the versioning/sync rail. -->
         <PackageVersion Include="FastCDC.Net" Version="1.0.1" />
+        <!-- ParquetSharp: native libparquet-cpp Parquet file read/write — the direct columnar-file codec the
+             managed Apache.Arrow C# stack lacks (no Parquet reader/writer), distinct from the DuckDB SQL parquet
+             path. osx-arm64 native dylib ships in the package (runtimes/osx-arm64/native); Apache-2.0, G-Research.
+             Rides Apache.Arrow 23.0.0 (> its 18.0.0 floor); modern net8.0 RID-asset resolution, no .targets RID gate. -->
+        <PackageVersion Include="ParquetSharp" Version="23.0.0.2" />
+        <!-- FlowtideDotNet.Substrait: the Substrait portable query-plan IR (cross-backend relational-algebra plan
+             format) backing the Query federation/pipeline rail; pure-managed AnyCPU net10.0 lib, Apache-2.0.
+             Transitive SqlParserCS floor-pinned in Transitive Floors; Google.Protobuf/MEL transitives ride existing higher rows. -->
+        <PackageVersion Include="FlowtideDotNet.Substrait" Version="0.15.0" />
         <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.3" />
         <PackageVersion Include="AWSSDK.S3" Version="4.0.25.1" />
         <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.0" />
@@ -133,6 +197,83 @@
         <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson" Version="2.8.0" />
         <PackageVersion Include="StackExchange.Redis" Version="3.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
+        <!-- Apache Avro row-oriented schema-evolving codec + Confluent Schema Registry serdes — the
+             Kafka-backbone interchange format the Arrow/Parquet/CSV/MessagePack codec set lacked.
+             Chr.Avro = abstract schema model + resolution/evolution + GenericRecord/POCO + SR serdes;
+             pure-managed AnyCPU net6.0. Transitive floors Apache.Avro / protobuf-net.* / NJsonSchema.*
+             pinned in Transitive Floors; Confluent.SchemaRegistry co-pin drives the serde registry leg. -->
+        <PackageVersion Include="Chr.Avro" Version="10.13.1" />
+        <PackageVersion Include="Chr.Avro.Binary" Version="10.13.1" />
+        <PackageVersion Include="Chr.Avro.Confluent" Version="10.13.1" />
+        <!-- Confluent Schema Registry REST client + the registry-governed Avro/Protobuf/JSON-Schema serdes
+             around the admitted Confluent.Kafka 2.14.2 — subject compatibility, schema evolution, and the
+             wire-format-1 byte-prefix serde for evolution-safe Kafka topics (orthogonal to the CloudEvents
+             envelope formatter). Pure-managed AnyCPU net8.0; ride the 2.14.2 Confluent line in lockstep. -->
+        <PackageVersion Include="Confluent.SchemaRegistry" Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Avro" Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Protobuf" Version="2.14.2" />
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Json" Version="2.14.2" />
+        <!-- System.Formats.Cbor: first-party BCL CBOR (RFC 8949) reader/writer with Strict/Canonical/
+             Ctap2Canonical conformance modes — the IETF self-describing binary snapshot/blob codec the
+             codec set lacked (orthogonal to the schemaless MessagePack wire format). Zero deps, AnyCPU. -->
+        <PackageVersion Include="System.Formats.Cbor" Version="10.0.9" />
+        <!-- NATS.Net: full NATS protocol owner backing the EgressSink.Nats sink — Core pub/sub + request/reply,
+             JetStream durable streams/consumers/acks/replay for the egress Settle ceremony, plus JetStream KV
+             and Object Store as distinct store-backend capability. Meta-package fans out to the 2.8.2 sub-clients
+             (floor-pinned in Transitive Floors); pure-managed AnyCPU net8.0, Apache-2.0. -->
+        <PackageVersion Include="NATS.Net" Version="2.8.2" />
+        <!-- RabbitMQ.Client: the official AMQP 0-9-1 protocol client (fully-async v7 TAP API) backing the
+             EgressSink.RabbitMq sink — publisher confirms, consumer, and queue/exchange/binding admin for the
+             durable at-least-once egress ack. Pure-managed AnyCPU net8.0, Apache-2.0 OR MPL-2.0. -->
+        <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
+        <!-- DotPulsar: the official Apache Pulsar binary-protocol .NET client — producer/consumer/reader with
+             durable subscriptions, acks, JSON/Protobuf schema; the EgressSink.Pulsar sink + distinct log-streaming
+             ingress backend (separated compute/storage, tiered storage). lib/net10.0 ships, pure-managed AnyCPU. -->
+        <PackageVersion Include="DotPulsar" Version="5.3.1" />
+        <!-- ClickHouse.Driver: the official high-ingest distributed columnar OLAP store client — thread-safe
+             primary API + ADO.NET, binary bulk insert, full type coverage, OpenTelemetry diagnostics. The
+             scale-out billion-row aggregation lane beyond in-PG TimescaleDB + embedded DuckDB. lib/net10.0, MIT. -->
+        <PackageVersion Include="ClickHouse.Driver" Version="1.2.0" />
+        <!-- ScyllaDBCSharpDriver: the modern CQL wide-column client (sync/async, prepared/batch, shard- and
+             tablet-aware, Linq2Cql + ADO.NET) driving BOTH ScyllaDB and Apache Cassandra over the one CQL
+             protocol — the wide-column store-profile axis with no relational/OLAP analog. netstandard2.0, Apache-2.0. -->
+        <PackageVersion Include="ScyllaDBCSharpDriver" Version="3.22.0.3" />
+        <!-- rocksdb (curiosity-ai line): embedded LSM-tree write-optimized KV/log engine — column families,
+             WriteBatch, snapshots, merge operators, tiered compaction, transactions — beyond the SQLite B-tree
+             floor. Ships runtimes/osx-arm64/native/librocksdb.dylib + lib/net10.0; BSD-2-Clause. -->
+        <PackageVersion Include="rocksdb" Version="10.10.1.1747" />
+        <!-- LightningDB: embedded memory-mapped B+tree KV engine (LMDB) — ACID, zero-copy reads, named DBs,
+             cursors, dupsort multi-value keys; the read-optimized MVCC engine class beside RocksDB's LSM.
+             Ships runtimes/osx-arm64/native/lmdb.dylib + lib/net10.0, zero managed deps; OpenLDAP-2.8. -->
+        <PackageVersion Include="LightningDB" Version="0.21.0" />
+        <!-- Minio: the endpoint-agnostic S3-compatible object client (MinIO/R2/Wasbi/B2/Ceph/any S3 API) —
+             bucket lifecycle, object put/get/stat/remove, multipart, presigned URLs, SSE, notifications —
+             the self-hosted lane the cloud-native AWS/Azure/GCS SDK rows lack. Pure-managed net8.0, Apache-2.0. -->
+        <PackageVersion Include="Minio" Version="7.0.0" />
+        <!-- DeltaLake.Net (delta-rs FFI): Delta Lake managed read/write client — read+write+partitioning,
+             S3/Azure/GCS storage, DataFusion query over the Arrow C Data Interface — external Delta-warehouse
+             interop beside the self-hosted DuckLake catalog. Ships osx-arm64 delta_kernel/delta_rs dylibs; MIT. -->
+        <PackageVersion Include="DeltaLake.Net" Version="0.32.0" />
+        <!-- ADBC concrete drivers (pure-managed, osx-arm64-viable): Drivers.Apache = Thrift+Arrow Hive/Impala/
+             Spark Thrift SQL endpoints; Drivers.BigQuery = Google BigQuery warehouse over the same admitted
+             Apache.Arrow.Adbc API (Arrow record-batch results). Both lib/net8.0 AnyCPU, no native lib; Apache-2.0.
+             The Interop FlightSql/Snowflake drivers are rejected — native libs ship no osx-arm64 asset. -->
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Apache" Version="0.23.0" />
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery" Version="0.23.0" />
+        <!-- pocketken.H3: managed Uber-H3 v4 hexagonal hierarchical geospatial indexing — LatLngToCell/
+             CellToParent/CellToChildren/compact/GridDisk/PolygonToCells — the in-process counterpart to the
+             h3-pg server extension so the same cell id is computed identically at ingest and in PostgreSQL.
+             Pure-managed AnyCPU (polygon ops via the admitted NetTopologySuite); Apache-2.0. -->
+        <PackageVersion Include="pocketken.H3" Version="4.0.0" />
+        <!-- Qdrant.Client: the official dedicated scale-out / distributed vector-store retrieval client —
+             horizontally-shardable, quantization-capable, server-side payload filtering, named-vector
+             multi-tenant collections, snapshots, admin — the billion-scale ANN store class beyond the in-PG
+             pgvector/pgvectorscale tier. Pure-managed AnyCPU gRPC net6.0; Apache-2.0. -->
+        <PackageVersion Include="Qdrant.Client" Version="1.18.1" />
+        <!-- Sylvan.Data.Excel: DbDataReader-shaped streaming xlsx/xlsb/xls ingress + xlsx/xlsb egress codec —
+             the spreadsheet boundary the Sep (delimited-only) + DuckDB-excel (native COPY-only) lanes cannot
+             stream into managed ADO.NET rows. Pure-managed AnyCPU net6.0, zero deps; MIT. -->
+        <PackageVersion Include="Sylvan.Data.Excel" Version="0.5.6" />
         <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
         <PackageVersion Include="K4os.Compression.LZ4" Version="1.3.8" />
         <PackageVersion Include="linq2db.EntityFrameworkCore" Version="10.4.0" />
@@ -149,9 +290,6 @@
         <PackageVersion Include="Npgsql.NetTopologySuite" Version="10.0.3" />
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON4STJ" Version="4.0.0" />
         <PackageVersion Include="NetTopologySuite.IO.GeoPackage" Version="2.0.0" />
-        <!-- ProjNet4GeoAPI: pure-managed spatial-reference + projection engine backing the
-             Rasm.Bim georeferencing GEODETIC_CRS_TRANSFORM datum/projection reprojection seam. -->
-        <PackageVersion Include="ProjNET" Version="2.1.0" />
         <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
         <PackageVersion Include="Pgvector" Version="0.3.2" />
         <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
@@ -160,6 +298,14 @@
         <PackageVersion Include="System.IO.Hashing" Version="10.0.9" />
         <!-- EF companion pairs with the 10.2.0 core generator; the whole family rides one version line. -->
         <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" Version="10.3.0" />
+        <!-- Speckle object-graph sync transport — the Persistence-owned SyncTransport.SpeckleLikeDiff case
+             (SpeckleSend/SpeckleReceive marshal delegates on SyncSession over instance IOperations.Send/Receive,
+             DI via AddSpeckleSdk). Rasm.Bim consumes the same Speckle.Sdk/.Objects at its Exchange/import seam
+             (Base object-graph -> BimModel projection). COMPANION / OUTSIDE-RHINO ONLY: heavy transitive closure
+             (Microsoft.Data.Sqlite native e_sqlite3, GraphQL.Client, STJ) — never referenced by an in-Rhino plugin
+             assembly; Speckle.Sdk ILRepacks its closure. -->
+        <PackageVersion Include="Speckle.Sdk" Version="3.21.1" />
+        <PackageVersion Include="Speckle.Objects" Version="3.21.1" />
     </ItemGroup>
 
     <ItemGroup Label="Compute">
@@ -184,25 +330,26 @@
         <!-- Google OR-Tools: CP-SAT constraint programming + MIP/LP exact solving behind the Solver optimizer
              OptimizerKind rows; meta-package only — the per-RID native runtimes (incl. osx-arm64) resolve transitively. -->
         <PackageVersion Include="Google.OrTools" Version="9.15.6755" />
-        <!-- Speckle object-graph sync, bound as the Persistence SyncTransport.SpeckleLikeDiff case (SpeckleSend/
-             SpeckleReceive marshal delegates on SyncSession over instance IOperations.Send/Receive, DI via AddSpeckleSdk).
-             COMPANION / OUTSIDE-RHINO ONLY: heavy transitive closure (Microsoft.Data.Sqlite native e_sqlite3,
-             GraphQL.Client, STJ) — never referenced by an in-Rhino plugin assembly; Speckle.Sdk ILRepacks its closure. -->
-        <PackageVersion Include="Speckle.Sdk" Version="3.21.1" />
-        <PackageVersion Include="Speckle.Objects" Version="3.21.1" />
+        <!-- GeneticSharp: the evolutionary/genetic-algorithm tier of the Solver OptimizerKind rows OR-Tools (exact
+             CP-SAT/MILP) does not cover — binary/integer/floating/permutation chromosomes, the full selection/crossover/
+             mutation/termination operator catalog, multithreaded executor. Pure-managed AnyCPU net6.0, zero deps, MIT. -->
+        <PackageVersion Include="GeneticSharp" Version="3.1.4" />
+        <!-- TorchSharp: the classical-ML iterative EstimatorKind engine (torch.linalg + autograd + torch.optim express
+             Lasso/GLM-IRLS/kernel-SVM/GMM-EM/NMF/kmeans/DBSCAN/ARMA-MLE as fitted EstimatorModel carriers) AND the
+             native osx-arm64 dense-LA substrate for the Tensor/blas lane (native ATen GEMM/factorization). MIT, net8.0.
+             The libtorch-cpu meta-backend fans out to the libtorch-cpu-osx-arm64 native dylib for the osx-arm64 RID;
+             both are one logical admission. SkiaSharp/Google.Protobuf transitives ride existing rows; SharpZipLib +
+             System.Memory pure-managed floors pinned in Transitive Floors. -->
+        <PackageVersion Include="TorchSharp" Version="0.107.0" />
+        <PackageVersion Include="libtorch-cpu" Version="2.10.0" />
     </ItemGroup>
 
-    <!-- Interchange: Compute owns multi-format bidirectional codecs — glTF through SharpGLTF
-         (Core read/write, Toolkit scene/mesh build, Runtime decode) and the IFC semantic model
-         through GeometryGymIFC_Core (pure-managed IL-only AnyCPU, IFC2x3->IFC4.3+, MIT). macOS-only
-         target: no managed IFC tessellation engine exists, so parametric IFC->mesh runs out-of-process
-         via an IfcOpenShell companion node (PyPI, libs/python/compute) — never a NuGet pin; IFC
-         semantic ingest (model graph, property sets, spatial hierarchy, quantities, materials, type
-         objects) is fully managed in-process. Xbim is rejected: its sole differentiator
-         Xbim.Geometry ships win-x64 native OpenCASCADE only (dead on osx-arm64) and its model layer
-         carries nothing GeometryGym lacks. -->
+    <!-- Interchange: Compute owns the multi-format bidirectional glTF codecs — glTF through SharpGLTF
+         (Core read/write, Toolkit scene/mesh build, Runtime decode). The IFC semantic graph is owned by
+         Rasm.Bim (GeometryGymIFC_Core, relocated to the Bim group); macOS-only target: no managed IFC
+         tessellation engine exists, so parametric IFC->mesh runs out-of-process via an IfcOpenShell
+         companion node (PyPI, libs/python/compute) — never a NuGet pin. -->
     <ItemGroup Label="Interchange">
-        <PackageVersion Include="GeometryGymIFC_Core" Version="25.7.30" />
         <PackageVersion Include="SharpGLTF.Core" Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Runtime" Version="1.0.6" />
         <PackageVersion Include="SharpGLTF.Toolkit" Version="1.0.6" />
@@ -226,6 +373,76 @@
         <PackageVersion Include="geometry3Sharp" Version="1.0.324" />
     </ItemGroup>
 
+    <!-- Bim: AEC-domain interchange + georeferencing + review owners the Rasm.Bim folder owns directly.
+         USD scene-graph codec, dedicated PLY codec, buildingSMART IDS spec model + file-audit, BCF 3.0
+         container/API codec, the GIS/geospatial planar-geometry + raster/vector ingest stack, the CityJSON
+         urban-context codec, and the 3D BVH broad-phase backing clash/interference. Native assets ship only
+         for USD and GDAL via their osx-arm64 runtimes; everything else is pure-managed AnyCPU. -->
+    <ItemGroup Label="Bim">
+        <!-- GeometryGymIFC_Core: the IFC semantic model graph (IFC2x3->IFC4.3+, property sets, spatial
+             hierarchy, quantities, materials, type objects) — fully managed in-process, the sole owner of
+             the IFC semantic graph. Pure-managed IL-only AnyCPU, MIT. Xbim is rejected: its sole
+             differentiator Xbim.Geometry ships win-x64 native OpenCASCADE only (dead on osx-arm64) and its
+             model layer carries nothing GeometryGym lacks. -->
+        <PackageVersion Include="GeometryGymIFC_Core" Version="25.7.30" />
+        <!-- OpenUSD managed scene-graph codec (usda/usdc/usd/usdz read+write) backing the InterchangeCodec.UsdStage
+             slot; ships a real osx-arm64 native runtime (libUsdCs/libusd_* + Pixar plugin tree). requireLicenseAcceptance. -->
+        <PackageVersion Include="UniversalSceneDescription" Version="7.3.4" />
+        <!-- Dedicated pure-managed PLY codec (ascii/binary LE+BE, Face + vertex_indices list) superseding the
+             hand-rolled PlyReader; package license is Apache-2.0 (per-component), single BCL transitive. -->
+        <PackageVersion Include="Ply.Net" Version="5.6.2" />
+        <!-- buildingSMART IDS v1.0 spec object model (Xids: SpecificationsGroup/Specification/FacetGroup + the six
+             typed facets) with conformant import/export; CDDL-1.0 (OSI). Floors ids-lib >=1.0.112 (pinned below). -->
+        <PackageVersion Include="Xbim.InformationSpecifications" Version="1.0.24" />
+        <!-- buildingSMART-official IDS-file audit engine AND the transitive floor of Xbim.InformationSpecifications;
+             audits a .ids spec against the XSD + implementation agreements. MIT, pure-managed net10.0. -->
+        <PackageVersion Include="ids-lib" Version="1.0.121" />
+        <!-- BCF 2.1/3.0 codec: bcfzip container round-trip + markup/viewpoint object model + the BCF-API JSON
+             resource model. Apache-2.0, pure-managed. Json.Net + RecursiveDataAnnotationsValidation floor-pinned below. -->
+        <PackageVersion Include="Smino.Bcf.Toolkit" Version="3.2.0" />
+        <!-- Simple-Features planar geometry algebra (overlay-NG boolean ops, DE-9IM predicates, STRtree/Quadtree,
+             buffer/triangulation/linear-referencing) — the georeferenced-BIM geometry-algebra owner. BSD-3-Clause. -->
+        <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+        <!-- Pure-managed Esri shapefile (.shp/.dbf/.shx) read/write materializing NTS Features. BSD-3-Clause. -->
+        <PackageVersion Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
+        <!-- GDAL/OGR 3.13.1 bindings: GeoTIFF/COG/DEM raster + the full OGR vector driver set for site/context
+             federation. MIT. Admitted as the PAIR with the osx-arm64 native runtime below. -->
+        <PackageVersion Include="MaxRev.Gdal.Core" Version="3.13.1.534" />
+        <!-- osx-arm64 native GDAL/OGR/PROJ runtime backing MaxRev.Gdal.Core on Apple Silicon. MIT, RID-keyed. -->
+        <PackageVersion Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" Version="3.13.1.534" />
+        <!-- ProjNet4GeoAPI: pure-managed spatial-reference + projection engine backing the
+             georeferencing GEODETIC_CRS_TRANSFORM datum/projection reprojection seam. -->
+        <PackageVersion Include="ProjNET" Version="2.1.0" />
+        <!-- CityJSON (OGC CityGML 3.0 JSON encoding) read+write for urban-context federation. MIT, pure-managed;
+             stacks on the NTS 2.6.0 core. New transitive floor: NetTopologySuite.Features (pinned below). -->
+        <PackageVersion Include="bertt.CityJSON" Version="2.5.0" />
+        <!-- 3D AABB BVH / octree / spatial-hash broad-phase (System.Numerics) replacing the O(N^2) clash candidate
+             build in Model/systems INTERFERENCE. MIT, pure-managed; .Lean drops MemoryPack. Chronicler.Core.Lean floor below. -->
+        <PackageVersion Include="SwiftCollections.Lean" Version="5.1.1" />
+        <!-- 3D-Tiles 1.1 implicit-tiling .subtree binary availability-bitstream reader/writer (quadtree + octree
+             availability buffers, multi-subtree octree subdivision) — the tileset-side authoring leg the glTF-only
+             SharpGLTF.Ext.3DTiles cannot reach, retiring the hand-rolled implicit-tiling bitstream. MIT (GitHub
+             LICENSE; nuspec ships no license expression), pure-managed AnyCPU net8.0; Newtonsoft.Json 13.0.4 floor already pinned. -->
+        <PackageVersion Include="subtree" Version="1.7.0" />
+        <!-- Assimp scene/mesh exchange owner: FBX (.fbx) + Collada (.dae) import/export (the two not-on-NuGet rows
+             Ufbx/Collada141 named) plus the standalone managed 3MF reader retiring the BCL ThreeMfReader hand-roll.
+             Single osx-arm64 libassimp.dylib drives the high-level Scene/Mesh/Node/Material model via
+             AssimpContext.ImportFile/ExportFile. MIT wrapper over BSD-3 native; lib/net6.0 binds forward under net10,
+             zero net6 managed deps. Distinct from geometry3Sharp (OBJ/STL) / Ply.Net (PLY) / SharpGLTF (glTF) / ACadSharp (DWG/DXF). -->
+        <PackageVersion Include="AssimpNetter" Version="6.0.5" />
+        <!-- Managed ASPRS LAS point-cloud decoder for the scan-to-BIM ingest seam (Exchange/reconstruct
+             SegmentedCloud.CloudBytes): LasReader streams every ASPRS LAS point format into a LasPoint (X/Y/Z,
+             intensity, classification, return index/count, RGB, GPS time) plus the LAS header/VLR surface. MIT,
+             pure-managed net8.0 binds forward under net10; MathNet.Numerics 6.0.0-beta2 floor already pinned.
+             Uncompressed LAS only (LAZ has no admissible non-copyleft managed port). -->
+        <PackageVersion Include="Themis.Las" Version="2025.3.5" />
+        <!-- ACadSharp: managed DWG/DXF read-side codec (CadDocument/DxfDocument) — the host-neutral CAD
+             interchange semantic owned by Rasm.Bim (AEC-DOMAIN). Rasm.AppUi (sheet/drawing export read leg)
+             and Rasm.Fabrication (2D profile read-ingress) consume the read codec at the seam; netDxf owns the
+             distinct DXF-WRITE leg in the App UI group. Pure-managed AnyCPU, MIT. -->
+        <PackageVersion Include="ACadSharp" Version="3.6.29" />
+    </ItemGroup>
+
     <!-- Materials: color/spectral engine. Wacton.Unicolour (pure-managed netstandard2.0, zero deps, ALC-safe) is a
          hard dependency of the finalized appearance-graph/bsdf/texture-photometric pages + the AppUi color owner.
          Wacton.Unicolour.Datasets adds named-colour/ColorChecker/Macbeth reference sets, perceptual colourmaps, and
@@ -233,6 +450,43 @@
     <ItemGroup Label="Materials">
         <PackageVersion Include="Wacton.Unicolour" Version="7.0.0" />
         <PackageVersion Include="Wacton.Unicolour.Datasets" Version="4.0.0" />
+        <!-- Published structural-section database as a typed catalogue: 2299 American (AISC Shapes
+             Database v16.0) + 558 European (EN 10365-2017) generated profile classes, each carrying real
+             section geometry as UnitsNet.Length over the full IFC profile-family set. Grounds the Profiles
+             steel + EN section-geometry seed in the registered published data; composes the already-pinned
+             UnitsNet 5.75.0. Pure-managed AnyCPU (net8.0 binds forward under net10.0), MIT. Transitive floors
+             VividOrange.IProfiles + VividOrange.ISerialization pinned below for deterministic central pinning. -->
+        <PackageVersion Include="VividOrange.Profiles.Catalogue" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IProfiles" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.ISerialization" Version="0.1.0" />
+        <!-- Arbitrary closed-polygon section-property SOLVER — the COMPUTATION complement to the
+             VividOrange.Profiles.Catalogue section DATA: feeds any IPerimeter (outer polyline + void edges)
+             and returns Area, elastic Centroid, MomentOfInertia Yy/Zz, ElasticSectionModulus Yy/Zz,
+             RadiusOfGyration Yy/Zz, Perimeter via a shoelace/Green's-theorem polygon integral with void
+             subtraction + parallel-axis transfer, so one solver composes over every ProfileFamily instead
+             of per-family literals. Same VividOrange/MagmaWorks MIT taxonomy; composes the already-pinned
+             UnitsNet 5.75.0 quantity owner. Pure-managed AnyCPU (net9.0 binds forward under net10.0). The
+             VividOrange transitive floor (Sections.ISectionProperties, Profiles.Perimeter, Geometry,
+             Profiles, IGeometry, ISections, IMaterials, IStandards, ICartesianBase) is pinned below for
+             deterministic central pinning; IProfiles/ISerialization/UnitsNet floors are already pinned. -->
+        <PackageVersion Include="VividOrange.Sections.SectionProperties" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Sections.ISectionProperties" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Profiles.Perimeter" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Profiles" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.Geometry" Version="1.8.0" />
+        <PackageVersion Include="VividOrange.IGeometry" Version="1.8.0" />
+        <PackageVersion Include="VividOrange.ISections" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IMaterials" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.IStandards" Version="0.1.0" />
+        <PackageVersion Include="VividOrange.ICartesianBase" Version="1.8.0" />
+        <!-- Construction sub-domain 2D rectangle bin-packing / cutting-stock owner for sheet/stock-material
+             arrangement and material-utilization — the in-folder packing pin the strata law requires
+             (Materials, an AEC-DOMAIN peer, cannot reference Fabrication's RectpackSharp/Clipper2 nesting
+             kernel; AEC peers depend only upward to the Rasm kernel). Full canonical port of Jukka Jylanki's
+             RectangleBinPack: MaxRects/Skyline/Guillotine/Shelf algorithm families plus SingleBinPack mass-cut,
+             each with explicit heuristic enums (Guillotine split-heuristic = the panel-saw straight-cut case).
+             Pure-managed AnyCPU, single netstandard2.0 TFM, ZERO deps, MIT. -->
+        <PackageVersion Include="RectangleBinPack.CSharp" Version="1.0.4" />
     </ItemGroup>
 
     <!-- Fabrication: 2D polygon clipping/offsetting (Clipper2, pure-managed, BSL-1.0) and
@@ -241,27 +495,73 @@
     <ItemGroup Label="Fabrication">
         <PackageVersion Include="Clipper2" Version="2.0.0" />
         <PackageVersion Include="RectpackSharp" Version="1.2.0" />
-    </ItemGroup>
-
-    <!-- App-root-only pins: versions are central so app roots stay versionless, but no library
-         project references these; companion/standalone app roots compose them at publish time. -->
-    <ItemGroup Label="App Roots">
-        <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
-        <PackageVersion Include="Grpc.AspNetCore.HealthChecks" Version="2.80.0" />
-        <PackageVersion Include="Grpc.AspNetCore.Web" Version="2.80.0" />
-        <!-- gRPC base API (ServerCallContext, IServerStreamWriter, Metadata) the AppHost ControlService consumes directly; matched to the Grpc.AspNetCore 2.80.0 transitive. -->
-        <PackageVersion Include="Grpc.Core.Api" Version="2.80.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" Version="10.0.9" />
-        <PackageVersion Include="System.CommandLine" Version="2.0.9" />
+        <!-- Robots (visose): host-neutral managed serial-chain robot kinematics — per-mechanism DH/Modified-DH
+             forward kinematics, closed-form ANALYTIC IK (spherical/offset-wrist) discriminated by RobotConfigurations,
+             a NumericalKinematics fallback, joint-limit/singularity/reach-envelope validation stamped into a
+             KinematicSolution, multi-mechanism groups + external-axis (track/positioner) kinematics, and the
+             ABB/KUKA/UR/Staubli/Franka/Doosan/Fanuc/Igus/Jaka cell models. MIT, net8.0 lib binds forward under
+             net10.0. Supersedes the hand-rolled DH-FK + damped-least-squares IK in Toolpath/kinematics.md.
+             Transitive floors Rhino3dm + SSH.NET (+ BouncyCastle.Cryptography) pinned in Transitive Floors. -->
+        <PackageVersion Include="Robots" Version="2.1.2" />
     </ItemGroup>
 
     <!-- Transitive-pin conflicts get a named floor row here, never a NoWarn. -->
     <ItemGroup Label="Transitive Floors">
+        <!-- Robots closure: the Rhino3dm managed binding (visose Robots' geometry substrate — ships a real
+             runtimes/osx-arm64/native/librhino3dm_native.dylib plus osx-x64/linux/win RIDs) and the pure-managed
+             SSH.NET robot-program SFTP upload path. Both MIT. SSH.NET pulls BouncyCastle.Cryptography (pure-managed
+             AnyCPU), floor-pinned here so central transitive pinning stays deterministic; its
+             Microsoft.Extensions.Logging.Abstractions transitive resolves upward against the existing 10.0.9 row. -->
+        <PackageVersion Include="Rhino3dm" Version="8.17.0" />
+        <PackageVersion Include="SSH.NET" Version="2025.1.0" />
+        <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
         <!-- Apache.Arrow.Compression closure: the Arrow-IPC LZ4-frame stream codec and the pure-managed
              Zstandard port. Both pure-managed AnyCPU, no native RID asset; floor-pinned to the nuspec
              versions so central transitive pinning stays deterministic. -->
         <PackageVersion Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
         <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
+        <!-- FlowtideDotNet.Substrait closure: the SQL-text -> Substrait-plan parser (TylerBrinks/SqlParser-cs,
+             pure-managed MIT, port of sqlparser-rs); floor-pinned so central transitive pinning stays deterministic. -->
+        <PackageVersion Include="SqlParserCS" Version="0.6.5" />
+        <!-- Confluent.SchemaRegistry.Serdes closure: the Apache Avro reference codec the Avro serde rides
+             (Apache-2.0, pure-managed netstandard2.0/2.1), the protobuf-net descriptor-reflection chain the
+             Protobuf serde rides, and the NJsonSchema chain the JSON-Schema serde rides. All pure-managed
+             AnyCPU, floor-pinned so central transitive pinning stays deterministic. Newtonsoft.Json /
+             System.CodeDom transitives ride existing higher rows. -->
+        <PackageVersion Include="Apache.Avro" Version="1.12.1" />
+        <PackageVersion Include="protobuf-net.Reflection" Version="3.2.52" />
+        <PackageVersion Include="protobuf-net.Core" Version="3.2.56" />
+        <PackageVersion Include="NJsonSchema" Version="11.6.1" />
+        <PackageVersion Include="NJsonSchema.NewtonsoftJson" Version="11.6.1" />
+        <PackageVersion Include="NJsonSchema.Annotations" Version="11.6.1" />
+        <PackageVersion Include="Namotion.Reflection" Version="3.5.1" />
+        <!-- Confluent.SchemaRegistry caching leg + the columnar/wide-column store-client Microsoft.Extensions
+             floors (ClickHouse.Driver Http, ScyllaDBCSharpDriver + Minio Logging/DI/Immutable), pinned on the
+             10.0.9 servicing line so central transitive pinning lifts them above the package nuspec floors. -->
+        <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+        <PackageVersion Include="System.Collections.Immutable" Version="10.0.9" />
+        <!-- NATS.Net closure: the eight 2.8.2 sub-clients the meta-package fans out to, plus the Abstractions
+             contract, the NKeys signing primitive, and the Primitives/Hosting.Abstractions floors they pull.
+             All pure-managed AnyCPU, floor-pinned for lockfile determinism; System.Memory rides the 4.6.3 row. -->
+        <PackageVersion Include="NATS.Client.Core" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Abstractions" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Hosting" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.JetStream" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.KeyValueStore" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.ObjectStore" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Serializers.Json" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Services" Version="2.8.2" />
+        <PackageVersion Include="NATS.Client.Simplified" Version="2.8.2" />
+        <PackageVersion Include="NATS.NKeys" Version="1.0.2" />
+        <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
+        <!-- Microsoft.ML.Tokenizers.Data.* closure: the 2.0.0 vocab packages pull Microsoft.Bcl.Memory 9.0.4
+             which carries the GHSA-73j8-2gch-69rq advisory; floor-pinned to the patched 10.0.9 BCL servicing
+             line (pure-managed AnyCPU) so central transitive pinning lifts the resolved version above the vuln. -->
+        <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.9" />
         <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
         <PackageVersion Include="Microsoft.Build.Framework" Version="18.7.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.9" />
@@ -271,6 +571,19 @@
         <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
         <PackageVersion Include="Microsoft.NET.StringTools" Version="18.7.1" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+        <!-- Bim GIS closure: the NTS Feature/AttributesTable surface NetTopologySuite.IO.Esri.Shapefile and
+             bertt.CityJSON both require (separate package id from the NTS core); pure-managed AnyCPU. -->
+        <PackageVersion Include="NetTopologySuite.Features" Version="2.2.0" />
+        <!-- Smino.Bcf.Toolkit closure: the obarlik Json.Net no-dependency serializer and the recursive
+             DataAnnotations validator; both pure-managed AnyCPU, floor-pinned for lockfile determinism. -->
+        <PackageVersion Include="Json.Net" Version="1.0.33" />
+        <PackageVersion Include="RecursiveDataAnnotationsValidation" Version="2.2.0" />
+        <!-- SwiftCollections.Lean closure: the zero-net8-dep Chronicler logging core; MIT, pure-managed AnyCPU. -->
+        <PackageVersion Include="Chronicler.Core.Lean" Version="0.2.1" />
+        <!-- TorchSharp closure: the model-archive deflate codec and the contiguous-memory BCL primitive it floors on.
+             Both pure-managed AnyCPU; SkiaSharp 3.119.4 + Google.Protobuf 3.35.1 transitives ride existing higher rows. -->
+        <PackageVersion Include="SharpZipLib" Version="1.4.2" />
+        <PackageVersion Include="System.Memory" Version="4.6.3" />
         <PackageVersion Include="System.CodeDom" Version="10.0.9" />
         <PackageVersion Include="System.Management" Version="10.0.9" />
         <PackageVersion Include="System.Composition" Version="10.0.9" />
@@ -363,7 +676,6 @@
         <PackageVersion Include="Silk.NET.OpenXR.Extensions.EXT" Version="2.23.0" />
         <PackageVersion Include="Silk.NET.OpenXR.Extensions.FB" Version="2.23.0" />
         <PackageVersion Include="FluentIcons.Common" Version="2.1.330" />
-        <PackageVersion Include="ACadSharp" Version="3.6.29" />
         <PackageVersion Include="netDxf" Version="2023.11.10" />
         <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
         <PackageVersion Include="Avalonia.Markup.Xaml.Loader" Version="12.0.4" />

@@ -86,6 +86,10 @@ Tensor/device     ⇄  csharp:Rasm.AppUi/Render              # [SHAPE]: shared O
 Runtime/admission ←  csharp:Rasm.AppHost                   # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 Runtime/codecs    ⇄  csharp:Rasm.Persistence/Query/pipeline # [PORT]: parse-to-canonical-bytes (Extract)
 Compute           →  csharp:Rasm.Persistence/Store/quality # [SHAPE]: geometry-derived anomaly rule source
+Runtime/codecs    ⇄  csharp:Rasm.Bim                       # [SHAPE]: SharpGLTF/meshopt leg split — Compute composes residency/transport meshopt-encode, Bim authors per-tile EXT_structural_metadata/EXT_mesh_features glTF encode at interchange/codecs#TILE_PARTITION
+Model             →  csharp:Rasm.AppHost                   # [PORT]: Compute IEmbeddingGenerator/IChatClient draw governed/priced by the AppHost Microsoft.Extensions.AI middleware (Microsoft.Extensions.AI.Abstractions contract)
+Runtime/channels  →  csharp:Rasm.Persistence/Sync          # [WIRE]: Google.Protobuf wire format the Persistence Confluent.SchemaRegistry.Serdes.Protobuf leg composes for registry-governed Protobuf Kafka topics
+Solver            ⇄  csharp:Rasm/Geometry                  # [SHAPE]: SpatialIndex.ToAcceleration BVH/octree node arrays into the GPU/parallel acceleration structure; Geometry/Processing/solver consumes the Compute LM/constraint Solver rail
 Runtime           ⇄  python:compute/graduation             # [GRADUATION]: HandoffAxis graduation evidence
 Runtime           →  python:compute/graduation             # [WIRE]: EvidenceBundle graduation-evidence wire
 Runtime           ←  python:compute/solvers                # [PROJECTION]: SolverReceipt convergence verdict

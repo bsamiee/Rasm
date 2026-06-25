@@ -13,7 +13,7 @@ Rasm/
 ├── Domain/                    # [MATURE]: Rhino normalization, Context tolerance, Stats, Validation
 └── Geometry/                  # [GREENFIELD]: Robust-core — Rasm.Geometry.* kernel, no external geometry library
     ├── Numerics/              # Exact-predicate floor + GeometryFault family
-    │   ├── Predicates.cs      # Adaptive-precision exact predicates over expansion/error-bound arithmetic
+    │   ├── Predicates.cs      # PrecisionTier ladder (double→ddouble→Expansion→Fraction) exact predicates
     │   └── Faults.cs          # Consolidated band-2400 GeometryFault family + ordinal GeometryKeyPolicy
     ├── Spatial/               # Broad-phase acceleration + persistent topological naming
     │   ├── Index.cs           # SAH-BVH/Morton-octree SpatialIndex over NodeStore with query/refit fold
@@ -53,6 +53,7 @@ Geometry/Processing/flatten      →  csharp:Rasm.AppUi/Render                  
 Geometry/Meshing/arrangement     →  csharp:Rasm.Fabrication/Posting/projection  # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Geometry/Spatial/index           →  csharp:Rasm.Fabrication/Toolpath/guard      # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
 Geometry/Spatial/index           ←  csharp:Rasm.Fabrication/Posting/projection  # [SHAPE]: SpatialIndex BVH broad-phase
+Geometry/Spatial/index           ⇄  csharp:Rasm.Compute                         # [SHAPE]: SpatialIndex.ToAcceleration BVH/octree node arrays
 *                                ←  csharp:Rasm.Fabrication                     # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 

@@ -12,6 +12,7 @@
         <PackageReference Include="Clipper2" />
         <PackageReference Include="geometry3Sharp" />
         <PackageReference Include="RectpackSharp" />
+        <PackageReference Include="Robots" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>

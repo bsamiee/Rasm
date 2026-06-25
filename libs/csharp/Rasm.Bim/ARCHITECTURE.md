@@ -22,16 +22,17 @@ Rasm.Bim/
 │   ├── Composition.cs     # BimMaterial construction-material composition [Union]
 │   ├── Appearance.cs      # BimAppearance PBR record reconciled with Rasm.Materials at content-key seam
 │   ├── Connection.cs      # ConnectionDetail realizing-element joint [Union] (Bolted/Welded/Bearing/Cast) over IfcRelConnectsWithRealizingElements
-│   └── GeoReference.cs    # GeoReference IFC4.3 owner with ProjNET datum-to-datum reprojection
+│   ├── GeoReference.cs    # GeoReference IFC4.3 owner with ProjNET datum-to-datum reprojection
+│   └── Geospatial.cs      # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, STRtree broad-phase, site-context BimElement projection
 ├── Planning/              # 4D/5D delivery network
 │   ├── Schedule.cs        # ConstructionTask 4D activity schedule over IfcTaskTime intervals
 │   └── Cost.cs            # CostItem 5D cost-and-resource estimate with CostSchedule.Rollup fold
 ├── Exchange/              # Universal interchange codec
-│   ├── Format.cs          # Format/codec/extension axis plus FrameNormalization
-│   ├── Import.cs          # BimIo foreign-bytes ingest fold
-│   ├── Export.cs          # BimExport emit fold with per-tile EXT_structural_metadata
+│   ├── Format.cs          # Format/codec/extension axis (glTF/IFC/STEP/USD/scene-exchange/PLY/point-cloud/geospatial) plus FrameNormalization
+│   ├── Import.cs          # BimIo foreign-bytes ingest fold — SharpGLTF/geometry3Sharp/Ply.Net/AssimpNetter/UsdStage decode arms
+│   ├── Export.cs          # BimExport emit fold — GLB/AssimpNetter/UsdStage scene + IFC serialization + subtree .subtree availability bitstream
 │   ├── Tessellation.cs    # TessellationRequest Compute companion bridge
-│   ├── Reconstruct.cs     # Scan-to-BIM ReconstructionPrimitive [Union] fitting fold
+│   ├── Reconstruct.cs     # Scan-to-BIM ReconstructionPrimitive [Union] fitting fold over the Themis.Las LAS ingest front
 │   └── Wire.cs            # Host-free BimWire projection the Python and TypeScript peers decode
 └── Review/                # Model-checking and coordination
     ├── Validation.cs      # IDS v1.0 owner folding six IdsFacet arms over BimModel
@@ -63,6 +64,10 @@ Semantics                 ←  csharp:Rasm.Materials/Properties         # [PROJE
 Semantics                 →  csharp:Rasm.Compute/Runtime              # [PROJECTION]: IFC/glTF semantic metadata layer
 Semantics/connection      ←  csharp:Rasm.Materials/Connection         # [WIRE]: ConnectionItem realizing-element IfcMechanicalFastener...
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/channels     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
+Semantics/geospatial      →  python:geometry/ifc                      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
+Semantics/geospatial      →  typescript:interchange                   # [WIRE]: GeoFeature WKB decode via turf (NTS-equivalent planar peer)
+Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem fsspec dataset open + OGR Arrow C-stream GeoParquet/FlatGeobuf columnar ingest
+Semantics/geospatial      ⇄  Semantics/georeference                   # [PROJECTION]: GeoFeature.Reproject composes the ProjNET GEODETIC_TRANSFORM leg (OSR escalation for exotic datum-grids)
 Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTENT_KEY]
 Model/structural          →  csharp:Rasm.AppUi/Schedule               # [RECEIPT]: CriticalPath/EarnedValue schedule-and-cost report
 Planning/schedule         →  csharp:Rasm.AppUi/Schedule               # [RECEIPT]: ScheduleNetwork CPM/calendar/4D report
@@ -73,9 +78,9 @@ Exchange/import           →  csharp:Rasm.Persistence/Query            # [CONTE
 Exchange/import           ←  csharp:Rasm.Rhino/Exchange               # [BOUNDARY]: [^1]
 Exchange/wire             →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: BimWire snapshot content-key ArtifactIndexRow join
 Review/diff               →  csharp:Rasm.Persistence/Query/federation # [CONTENT_KEY]: AuditEntry chained ElementChange mutation log
-Review/versioning         →  csharp:Rasm.Persistence/Query/federation # [CONTENT_KEY]: BimCommit content-addressed commit-DAG
+Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [CONTENT_KEY]: BimCommit content-addressed commit-DAG durably stored as CommitNode by the wire CommitKey
 Exchange/wire             →  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: OpLogWire ElementChange op-stream CRDT convergence
-Review/versioning         →  csharp:Rasm.Persistence/Sync             # [SHAPE]: BimCommit DAG common-ancestor merge substrate
+Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [SHAPE]: BimCommit DAG common-ancestor merge substrate (CommitGraph.MergeBase)
 Model                     →  csharp:Rasm.Persistence/Store/quality    # [SHAPE]: IFC validation rules into QualityRule rows
 Review/validation         →  csharp:Rasm.Compute/Runtime/codecs       # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
 Review/validation         →  python:geometry/ifc-companion            # [BOUNDARY]: ifctester IDS-XML conformance oracle verdict
@@ -85,6 +90,8 @@ Exchange/wire             →  typescript:ui/overlay                    # [WIRE]
 coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log
 schedule                  ⇄  csharp:Rasm.Persistence/Sync/schedule    # [WIRE]: P6/MS-Project + 4D construction domain
 coordination              →  csharp:Rasm.AppUi/Editing/issues         # [PORT]: BCF issue-board projection
+Exchange/import           ⇄  csharp:Rasm.Persistence/Sync             # [TRANSPORT]: Speckle Base object-graph -> BimModel import over the Persistence-owned Speckle.Sdk SyncTransport.SpeckleLikeDiff
+Exchange/tessellation     ⇄  csharp:Rasm.Compute                      # [SHAPE]: SharpGLTF/meshopt leg split — Bim authors per-tile EXT_structural_metadata/EXT_mesh_features glTF encode, Compute composes residency/transport meshopt-encode at interchange/codecs#TILE_PARTITION
 ```
 - [^1] App-root RhinoDoc import projected to host-neutral mesh + GlobalId; Rhino owns the Rhino-side production + projection adapter, Bim owns the wire payload — the two reader engines (Rhino FileIO vs the managed PlyReader/ThreeMfReader/StepReader + SharpGLTF/geometry3Sharp arms) can disagree on the same OBJ/STL/PLY/3MF/glTF/STEP bytes, so the app path declares which reader is authoritative
 

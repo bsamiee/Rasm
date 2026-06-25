@@ -8,6 +8,12 @@
         "resolved": "4.4.0",
         "contentHash": "MgiHddgPDkcFr9KtYK3mJFUBEsjcCblGmEGlSvXVT1999EIOyH6XO6vVeuw9YFmYb7JyR8U+/++vZyhgVxDWbg=="
       },
+      "ExtendedNumerics.BigRational": {
+        "type": "Direct",
+        "requested": "[3000.0.2.132, )",
+        "resolved": "3000.0.2.132",
+        "contentHash": "Hb5jQsseiLtRhk+O132hkq3ibO4/6v6WyPu714GwYtHje3HNWoItnaNy7DVhcA8wanhwku6sUk40R8/fBiX7tA=="
+      },
       "JetBrains.Annotations": {
         "type": "Direct",
         "requested": "[2026.2.0, )",
@@ -78,6 +84,12 @@
           "Thinktecture.Runtime.Extensions.Refactorings": "10.3.0",
           "Thinktecture.Runtime.Extensions.SourceGenerator": "10.3.0"
         }
+      },
+      "TYoshimura.DoubleDouble": {
+        "type": "Direct",
+        "requested": "[5.0.8, )",
+        "resolved": "5.0.8",
+        "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
       },
       "Thinktecture.Runtime.Extensions.Analyzers": {
         "type": "Transitive",

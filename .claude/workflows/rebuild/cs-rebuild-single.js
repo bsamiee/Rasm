@@ -1,10 +1,11 @@
 export const meta = {
-  name: 'plan-cs',
+  name: 'cs-rebuild-single',
   description: 'Hostile ground-up rebuild of libs/csharp design pages to world-class modern C# (C#14/net10, strata-correct, the 16 named docs/stacks/csharp laws, [Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] ADT collapse, LanguageExt Fin/Validation/Option/Eff rails, two-weave AOP, source-generated owners) AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + maximize the .api, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. Untied to any idea/task: it improves every page objectively. args = optional package scope (e.g. "Rasm.Bim"); empty/"ALL" = all of libs/csharp.',
   phases: [
     { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },
     { title: 'Rebuild', detail: 'per page (1 agent/file): rebuild(max) -> critique(xhigh, 6-checklist + capability-completeness) -> redteam(max, counterfactual + cold re-review), every stage ADVERSARIAL (naive/illusory-by-default), pooled at CAP=11' },
     { title: 'Reconcile', detail: 'consume cross-file residuals: union-find cluster by shared file -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals' },
+    { title: 'Final-Collapse', detail: 'one series of agents over the whole scope (collapse(max) -> critique(xhigh) -> redteam(max)): collapse + unify across files into one rail/polymorphism/shape system, break illusory differentiation, reduce chaff without removing capability' },
   ],
 }
 
@@ -104,6 +105,19 @@ const processPage = async (w, tag) => {
   return { page: w.page, logs, ok: Object.keys(logs).length === STAGES.length }
 }
 
+// --- [FINAL-COLLAPSE] -- wider-scope rebuild over the WHOLE in-scope corpus (one series) ---
+const COLLAPSE_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['collapsed', 'clean'] }, collapsed: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+const WIDE = [
+  'WIDE-SCOPE REBUILD — this is the FINAL pass over the WHOLE in-scope corpus at once, AFTER every page ran its own per-page rebuild -> critique -> redteam and the cross-file residual reconcile. The per-page passes each saw ONE page; the reconcile fixed cross-file residuals point by point. THIS pass holds EVERY in-scope design page under `' + SWEEP + '` in view SIMULTANEOUSLY and REBUILDS with the bigger view — it is NOT alignment (seam/wire/port bookkeeping is a different concern), it is a wider-scope ground-up rebuild that ONLY the whole-corpus view makes possible. Same hostile, illusory-by-default stance as the per-page passes: assume the corpus is naive, fragmented, or illusory ACROSS files until it survives an aggressive cross-file attack; the burden of proof is ON THE CODE.',
+  'COLLAPSE OBJECTIVES (fix every one in place across the spanned pages, PRESERVING ALL capability): (1) LOGIC-HOMING — ALL LOGIC LIVES IN THE RIGHT PLACE: no concern needlessly split across files, no differentiation that should be a SINGLE owner; pull a concern scattered across pages back to its ONE rightful owner per SHAPE_BUDGET + DEEP_SURFACES + ONE_HOP_RESOLUTION. (2) UNIFY EVERYTHING across files — ONE rail family (`Fin`/`Validation`/`Option`/`Eff`), ONE polymorphism approach, ONE canonical set of shapes/owner forms (`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case families); collapse parallel / near-duplicate shapes, pipelines, and logic flows that live in DIFFERENT files into ONE unified owner / pipeline / logic flow per ROOT_REBUILD + COMPOSED_IMPLEMENTATION. (3) BREAK ILLUSORY PATTERNS cross-file — be HARSH on bad / illusory differentiation, decorative complexity, and fake-advanced code applied ACROSS files; a dense, confident-looking fence is the PRIME suspect, now hunted across page boundaries, and disbelieved until verified against the real domain + catalogued package surface. (4) REDUCE FOOTPRINT by removing chaff and illusory differentiation — NEVER by removing functionality; preserve every capability, densify it INTO the unified owner. (5) KEEP IMPROVING QUALITY per ALL of docs/stacks/csharp/ — the 16 named laws, COLLAPSE_SCAN, the rail/shape/AOP doctrine, and the relevant domain/ shard(s) — push the whole corpus past the floor to the strongest UNIFIED form the doctrine admits.',
+].join('\n')
+const finalCollapsePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
+  'TASK: WIDE-SCOPE COLLAPSE — read EVERY in-scope design page under `' + SWEEP + '` AT ONCE and REBUILD with the whole-corpus view. Hunt the differentiation no per-page pass could see from inside one page: a concern needlessly split across files; parallel / near-duplicate shapes, pipelines, or logic flows living in DIFFERENT files; more than one rail family, polymorphism approach, or canonical owner-shape set surviving across the corpus; and any illusory cross-file differentiation dressed in the doctrine vocabulary. PULL every misplaced concern to its ONE rightful owner; UNIFY the corpus onto ONE rail family, ONE polymorphism approach, ONE canonical set of owner forms; COLLAPSE the cross-file duplicates into ONE unified owner / pipeline / logic flow per ROOT_REBUILD + COMPOSED_IMPLEMENTATION; REDUCE footprint by deleting chaff and illusory differentiation while PRESERVING ALL capability (densify, never delete functionality); and keep PUSHING quality per ALL of docs/stacks/csharp/. Read the spanned pages + the docs/stacks/csharp core + the relevant domain/ shard(s) + the package `.api/` catalogs and the universal Thinktecture/LanguageExt rails; verify any cited host/NuGet member via `uv run python -m tools.assay api`. FIX EVERY defect in place across the spanned pages, regressing none. Return verdict + collapsed (each cross-file collapse/unification made, naming the files + the resulting owner/pipeline) + residual (each {files, claim} for anything you could not fully resolve) + summary.'].join('\n')
+const finalCritiquePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
+  'TASK: HARSHER ADVERSARIAL AUDIT of the wide-scope collapse + FIX IN PLACE. Assume a cross-file defect REMAINS until you prove otherwise; trust NOTHING the collapse pass or the prose claimed. Re-sweep the WHOLE in-scope corpus under `' + SWEEP + '`: a concern still split across files, a shape / pipeline / logic flow still duplicated across pages, more than one rail family or polymorphism approach or canonical owner form still surviving, illusory cross-file differentiation still standing, decorative complexity still passing for capability, or chaff still padding the footprint. REPAIR every hit in place across the spanned pages — unify onto the ONE owner / rail / polymorphism / shape system, preserving ALL capability and regressing no page. Return verdict + collapsed + residual + summary.'].join('\n')
+const finalRedteamPrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '',
+  'TASK: ADVERSARIAL RED-TEAM of the wide-scope collapse — the LAST and MOST AGGRESSIVE whole-corpus pass. Trust nothing the collapse / critique claimed. COUNTERFACTUALLY attack the cross-file ownership: is each shared concept homed on its ONE rightful owner; is the corpus genuinely unified onto ONE rail family, ONE polymorphism approach, ONE canonical shape set; does any PAIR of pages still carry parallel / near-duplicate shapes, pipelines, or logic flows that should be ONE; is any cross-file differentiation illusory / decorative; is any footprint still chaff a denser unified owner would erase without losing capability; will the next cross-file growth axis land as ONE case/row/policy value with every page untouched or broken LOUDLY at compile time? FIX every defect in place across the spanned pages, densifying and preserving ALL capability; if the corpus is genuinely unified, minimal, and capability-complete, prove it by finding nothing — never invent churn. Return verdict + collapsed + residual + summary.'].join('\n')
+
 // --- [COMPOSITION] -----------------------------------------------------------------------
 phase('Discover')
 const inv = await agent('List every design page under ' + SWEEP + ' — markdown specs at paths matching */.planning/**/*.md. Return each as a repo-relative path (e.g. ' + ROOT + '/<Package>/.planning/<sub>/<page>.md). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Use find; do not cd.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
@@ -144,4 +158,22 @@ const openClaims = new Set(claimsAll.filter((c) => c.status === 'open').map((c) 
 const hard_residual = uniq.filter((r) => openClaims.has(r.claim))
 const dropped = claimsAll.filter((c) => c.status === 'invalid').map((c) => c.claim)
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual -> resolve-residuals), ' + dropped.length + ' dropped as invalid')
-return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped }
+
+// --- [FINAL-COLLAPSE] -- wider-scope rebuild over the WHOLE scope by one series of agents -----
+phase('Final-Collapse')
+const COLLAPSE_STAGES = [
+  { key: 'collapse', build: finalCollapsePrompt, effort: 'max' },
+  { key: 'critique', build: finalCritiquePrompt, effort: 'xhigh' },
+  { key: 'redteam', build: finalRedteamPrompt, effort: 'max' },
+]
+const collapseLogs = {}
+for (const st of COLLAPSE_STAGES) {
+  const r = await agent(st.build(), { label: 'collapse-' + st.key, phase: 'Final-Collapse', schema: COLLAPSE_SCHEMA, effort: st.effort, stallMs: 900000 })
+  if (r === null) break
+  collapseLogs[st.key] = r
+}
+const collapsedAll = Object.values(collapseLogs).flatMap((l) => (l && l.collapsed) || [])
+const finalResidual = Object.values(collapseLogs).flatMap((l) => (l && l.residual) || [])
+log('Final-Collapse: ' + Object.keys(collapseLogs).length + '/3 whole-scope passes; ' + collapsedAll.length + ' collapses, ' + finalResidual.length + ' residual')
+
+return { root: ROOT, scope: SCOPE || 'ALL', complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, total: total, clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalCollapsed: collapsedAll, finalResidual: finalResidual }
