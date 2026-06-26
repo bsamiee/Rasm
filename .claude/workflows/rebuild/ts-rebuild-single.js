@@ -1,5 +1,6 @@
 export const meta = {
   name: 'ts-rebuild-single',
+  whenToUse: 'Hostile ground-up rebuild of one TypeScript design-page folder to the Effect-TS doctrine bar.',
   description: 'Hostile ground-up rebuild of libs/typescript design pages to TRULY ultra-advanced TypeScript (Effect-TS rails, Schema-first boundaries, branded/nominal types, exhaustive discriminated unions, zero any/throw/enum) per docs/stacks/typescript/ + coding-ts, AND justified IN-PLACE capability extension. Per design page, 1 agent per file in a 3-step ADVERSARIAL pipeline — rebuild(max) -> critique(xhigh) -> redteam(max), every stage hostile: assume the fence is naive/junior/illusory until it survives attack, never accept "mature", hunt the fake/decorative code that reads advanced but is hollow, collapse + stack both .api tiers, AND close the concept capability gaps by growing the existing owner in place. Then a cross-file reconcile. args = optional area scope (e.g. "ui"); empty/"ALL" = all of libs/typescript.',
   phases: [
     { title: 'Discover', detail: 'list every design page under the target (recursive .planning specs)' },
@@ -13,17 +14,17 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 11
+const CAP = 10
 
 // --- [INPUT] -- args = optional scope under the language root (area name or sub-path; empty/"ALL" = whole root) ---
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args

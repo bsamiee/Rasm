@@ -89,6 +89,7 @@
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="MPXJ.Net" />
         <PackageReference Include="Sep" />
         <PackageReference Include="Sylvan.Data.Excel" />
         <PackageReference Include="System.Formats.Cbor" />

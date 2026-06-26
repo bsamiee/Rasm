@@ -15,24 +15,15 @@ Use repository-native discovery before broad scans:
 Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
 For declaration-order passes, preserve generated semantic/key bands; split grouped entries only when grouping obscures ownership, and keep compact generated rows when they are the clearer owner-local table.
 
-## [03]-[TRUST_AND_PRESERVATION]
-
-Skills are execution aids and mining input, not durable documentation authority. Promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays after current behavior is verified.
-
-Hidden and generated reservoirs have explicit roles:
-- `.planning/` holds decision-complete design pages and is tiered: `libs/.planning/` is the cross-language core, `libs/<lang>/.planning/` is each peer branch node, and each package owns four root index docs plus design pages under one `<pkg>/.planning/<sub-domain>/`. The doc-set, the index-doc templates, and the `.planning/` lifecycle are owned by `libs/.planning/README.md` and `architecture.md`; no `.planning/README.md` or `ROADMAP.md` exists.
-- `.api/` is generated API evidence and catalog truth, not handwritten source; each WIP folder keeps its own `<pkg>/.api/` of catalogues, one per external package it uses — the per-folder resource a planning pass reads to draw a package's real API without guessing.
-- `docs/stacks/csharp/.reports/` is mining material and region evidence for stack-page maintenance only; visible stack pages carry durable doctrine.
-
-Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or confidence gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as wrong owner routing, destructive command risk, fake confirmation, unsupported claims, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
+## [03]-[QUALITY_VALIDATION]
 
 Quality cadence is gated at planned milestones, not after every edit. Do not run builds, repo quality commands, formatters, analyzers, or tests after ordinary edits, markdown changes, or one-off compiler fixes. Batch implementation first, then run at most one narrow owner-scoped proof at the planned gate unless the user explicitly asks for more. If proof fails, patch related diagnostics as one batch and rerun once; ask before entering any longer loop. Memory, skills, rollout summaries, and old command notes cannot override this rule.
 
 ## [04]-[ENGINEERING_CONTRACT]
 
-Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or tool README that owns the concern.
+Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or README that owns the concern.
 
-Plans, documentation, and implementation target the newest objectively stronger language, platform, library, feature, tool, and architectural standard. Current source, manifests, pinned versions, older patterns, partial adoption, and compatibility surfaces are inputs and replacement targets, not baseline ceilings.
+Plans, documentation, and implementation target the newest objectively stronger language, platform, library, feature, tool, and architectural standard (use Context7). Current source, manifests, pinned versions, older patterns, partial adoption, and compatibility surfaces are inputs and replacement targets, not baseline ceilings.
 
 Minimize shape count, not capability. Preserve behavior by deepening the canonical owner with cases, rows, folds, projections, typed receipts, scenarios, or boundary adapters; do not delete capability, split helper files, or add shallow sibling surfaces to make the system look simpler.
 
@@ -61,8 +52,6 @@ Host lifecycle remains outside libraries. Rhino launch, endpoint discovery, pack
 Assay command truth lives in `tools/assay/composition/registry.py`, result envelopes in `tools/assay/core/model.py`, and status projection in `tools/assay/core/status.py`. Do not infer commands from old aliases, stale plans, stderr habits, or direct tool muscle memory.
 
 Normal Assay invocations emit one stdout `Envelope`; automation emits NDJSON. Parse `report.detail`, `report.results`, `report.artifacts`, `error`, and `error_context` as the result channel. Stderr is transport noise unless the envelope says otherwise.
-
-New Assay capability normally lands as a catalog descriptor row plus one rail/body under an existing claim. A new verb requires a named consumer and a distinct evidence contract; otherwise collapse into the nearest existing verb.
 
 Monorepo routing comes from manifests, project graph closure, trigger files, explicit `AssayHostBound`, package slugs, route maps, and catalog rows. Avoid path-name heuristics and single-project assumptions.
 

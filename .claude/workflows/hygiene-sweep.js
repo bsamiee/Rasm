@@ -1,5 +1,6 @@
 export const meta = {
   name: 'hygiene-sweep',
+  whenToUse: 'Whole-tree freshness, seam, and consistency sweep over a target root before a cold-verify gate.',
   description: 'Whole-tree freshness/seams/consistency/blocker-resolution over a target root: README <-> central dependency manifest <-> per-dependency API/evidence catalogs, ARCHITECTURE seams line-by-line, done-task verify-remove, blocker protocol, then a cold-verify gate at zero high-severity. Language-agnostic (each agent resolves the actual manifest/toolchain owner from CLAUDE.md + the repo). Surgical, fix-in-place, no new design pages. args = optional scope (e.g. "libs/python"); empty = all of libs.',
   phases: [
     { title: 'Hygiene-Discover', detail: 'list the package/area folders under the target' },
@@ -14,14 +15,14 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
 const CAP = 10

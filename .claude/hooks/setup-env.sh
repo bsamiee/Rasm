@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
-# SessionStart hook: write selected session environment for sub-agents.
+# SessionStart hook: persist session credentials + tool PATH for sub-agents.
+# Canonical across all repos, owned by Parametric_Forge. Sources the 1Password
+# token cache when present (resilient: absent on non-Forge/remote hosts -> falls
+# back to the ambient login-shell environment), then writes resolved keys to
+# CLAUDE_ENV_FILE so spawned sub-agents inherit them. Per-project extras:
+# CLAUDE_ENV_EXPORT_KEYS (comma/space list) and CLAUDE_TOOL_PATHS (colon list).
 set -Eeuo pipefail
 shopt -s inherit_errexit
 IFS=$'\n\t'
 
 # --- [CONSTANTS] --------------------------------------------------------------
 
-readonly TOOL_PATHS="${CLAUDE_TOOL_PATHS:-${CLAUDE_EXTRA_PATH:-}}"
-readonly ALLOW_MISSING_TOOL_PATHS="${CLAUDE_ALLOW_MISSING_TOOL_PATHS:-0}"
-readonly EXTRA_ENV_KEYS="${CLAUDE_ENV_EXPORT_KEYS:-}"
+readonly TOKEN_CACHE="${HOME}/.config/hm-op-session.sh"
 declare -ra _ENV_KEYS=(
-    EXA_API_KEY
-    PERPLEXITY_API_KEY
-    TAVILY_API_KEY
-    SONAR_TOKEN
-    GH_TOKEN
-    GITHUB_TOKEN
-    GH_PROJECTS_TOKEN
-    HOSTINGER_TOKEN
-    GREPTILE_TOKEN
-    CONTEXT7_API_KEY
+    EXA_API_KEY PERPLEXITY_API_KEY TAVILY_API_KEY SONAR_TOKEN
+    CONTEXT7_API_KEY GREPTILE_TOKEN
+    GH_TOKEN GITHUB_TOKEN GH_PROJECTS_TOKEN
+    HOSTINGER_TOKEN CACHIX_AUTH_TOKEN RHINO_TOKEN
+    MAGHZ_MCP__DATABASE_URI
 )
+readonly EXTRA_ENV_KEYS="${CLAUDE_ENV_EXPORT_KEYS:-}"
+readonly TOOL_PATHS="${CLAUDE_TOOL_PATHS:-${CLAUDE_EXTRA_PATH:-${HOME}/.cargo/bin}}"
+readonly ALLOW_MISSING_TOOL_PATHS="${CLAUDE_ALLOW_MISSING_TOOL_PATHS:-0}"
 
-# --- [FUNCTIONS] --------------------------------------------------------------
+# --- [OPERATIONS] -------------------------------------------------------------
 
 _emit_env_key() {
     local -r key="$1"
@@ -34,7 +35,7 @@ _emit_extra_env_keys() {
     [[ -n "${EXTRA_ENV_KEYS}" ]] || return 0
     local -a keys=()
     local key
-    read -ra keys <<<"${EXTRA_ENV_KEYS//,/ }"
+    read -ra keys <<< "${EXTRA_ENV_KEYS//,/ }"
     for key in "${keys[@]}"; do
         _emit_env_key "${key}"
     done
@@ -44,18 +45,23 @@ _emit_tool_paths() {
     [[ -n "${TOOL_PATHS}" ]] || return 0
     local -a paths=() selected=()
     local path path_value
-    IFS=: read -ra paths <<<"${TOOL_PATHS}"
+    IFS=: read -ra paths <<< "${TOOL_PATHS}"
     for path in "${paths[@]}"; do
         [[ -n "${path}" ]] || continue
         [[ -d "${path}" || "${ALLOW_MISSING_TOOL_PATHS}" == "1" ]] && selected+=("${path}")
     done
-    ((${#selected[@]} > 0)) || return 0
+    (( ${#selected[@]} > 0 )) || return 0
     printf -v path_value '%s:' "${selected[@]}"
     # shellcheck disable=SC2016  # Single quotes intentional -- expand when Claude sources the env file.
     printf 'export PATH="%s:${PATH}"\n' "${path_value%:}"
 }
 
-# --- [EXPORT] -----------------------------------------------------------------
+# --- [ENTRY] ------------------------------------------------------------------
+
+if [[ -f "${TOKEN_CACHE}" && "${TOKEN_CACHE}" == "${HOME}/.config/"* ]]; then
+    # shellcheck source=/dev/null  # Path validated above; cache is absent on non-Forge hosts.
+    source "${TOKEN_CACHE}"
+fi
 
 [[ -n "${CLAUDE_ENV_FILE:-}" ]] || exit 0
 ENV_DIR="$(dirname -- "${CLAUDE_ENV_FILE}")"

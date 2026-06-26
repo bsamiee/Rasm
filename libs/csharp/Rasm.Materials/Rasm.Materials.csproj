@@ -26,6 +26,30 @@
              IPerimeter replaces the per-family rectangular section-property literals across the Profiles
              families (timber/CMU/masonry/composite), composing the in-folder UnitsNet quantity owner. -->
         <PackageReference Include="VividOrange.Sections.SectionProperties" />
+        <!-- Concrete impls of the ISections reinforcement floor — ConcreteSection/Section + Rebar/Link/
+             LongitudinalReinforcement + layout engines + the EN-10080 BarDiameter catalogue — making the admitted
+             ConcreteSectionProperties RC transformed-section solver constructible end-to-end and owning the
+             reinforced-concrete section + rebar-layout the Connection/reinforcement seam composes. -->
+        <PackageReference Include="VividOrange.Sections" />
+    </ItemGroup>
+
+    <ItemGroup Label="Structural Material Data">
+        <!-- EN/Eurocode structural-material grade DATA owner of the in-folder VividOrange.IMaterials floor:
+             EnConcrete/EnSteel/EnRebar grade->property factories (EN1992-1-1 / EN1993-1-1 Table 3.1, partial
+             factors, EN 10025-5 corrosion rules) + the BiLinear/LinearElastic/ParabolaRectangle constitutive
+             models, replacing hand-keyed material-grade rows and feeding the RC transformed-section path. -->
+        <PackageReference Include="VividOrange.Materials" />
+        <!-- Eurocode standard/identity DATA (En1990..En1999 + NationalAnnex) the material grades reference and
+             the design pages cite, replacing inline design-code literals; also the Materials transitive floor. -->
+        <PackageReference Include="VividOrange.Standards" />
+    </ItemGroup>
+
+    <ItemGroup Label="Section Capacity Engine">
+        <!-- RC/steel column biaxial Force-Moment-Moment (N-M-M / P-M onion) capacity-surface engine: meshes the
+             concrete+rebar section, sweeps strain planes, integrates fibre stress, and emits the IForceMomentMesh
+             3D capacity hull — the additive interaction-diagram capability the elastic-only SectionProperties
+             solver does not compute, composing the in-folder VividOrange.Sections + VividOrange.Materials. -->
+        <PackageReference Include="VividOrange.InteractionDiagram" />
     </ItemGroup>
 
     <ItemGroup Label="Layout Packing">

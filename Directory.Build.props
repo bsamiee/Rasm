@@ -34,10 +34,10 @@
         <IsAppUiProject Condition="'$(IsAppUiProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.AppUi/'))">true</IsAppUiProject>
         <IsComputeProject Condition="'$(IsComputeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Compute/'))">true</IsComputeProject>
         <IsPersistenceProject Condition="'$(IsPersistenceProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Persistence/'))">true</IsPersistenceProject>
-        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or '$(IsAppUiProject)' == 'true')">true</IsGrasshopperAwareProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsGrasshopperAwareProject>
         <!-- App-package test projects (AppHost/AppUi/Compute/Persistence.Tests) must not inherit RhinoCommon host HintPaths; gate on per-root test prefixes, never the blanket $(TestsLibsRoot). -->
-        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)Rasm.Materials/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeScenariosRoot)')) or '$(IsAppUiProject)' == 'true')">true</IsRhinoCommonAwareProject>
-        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or '$(IsAppUiProject)' == 'true')">true</IsRhinoUiAwareProject>
+        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)Rasm.Materials/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRhinoBridgeScenariosRoot)')))">true</IsRhinoCommonAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
         <NeedsRhinoHostUiSurface Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">true</NeedsRhinoHostUiSurface>
         <IsCentralizedOutputProject Condition="'$(IsCentralizedOutputProject)' == '' and '$(IsRhinoBridgeProject)' != 'true' and '$(IsRhinoPluginProject)' != 'true' and '$(IsGrasshopperPluginProject)' != 'true' and '$(IsAppHostProject)' != 'true' and '$(IsAppUiProject)' != 'true'">true</IsCentralizedOutputProject>
         <CentralOutputToken Condition="'$(CentralOutputToken)' == ''">$(AssemblyName)</CentralOutputToken>
@@ -300,10 +300,11 @@
         <Using Include="Thinktecture" />
     </ItemGroup>
 
-    <!-- AppUi is excluded: the Eto.Drawing global using collides with Avalonia type names (CS0104)
-         once Avalonia sources land; AppUi reaches host types through explicit usings at its
-         host-boundary capsules. -->
-    <ItemGroup Label="Grasshopper-Aware Usings" Condition="('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true') and '$(IsAppUiProject)' != 'true'">
+    <!-- Global-using collision law: one owner namespace per bare simple name per stratum; a colliding second
+         namespace demotes to a semantic 1-2-word alias (global using Alias = Namespace), or an extern PackageReference
+         alias for same-namespace assembly identity (Triangle/TriangleNet, Rhino3dm/R3). Host-neutral strata never
+         global-use Rhino/Eto/GH; AppUi owns Avalonia and binds hosts only at the APP root. -->
+    <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />
         <Using Include="Grasshopper2.UI" />
@@ -311,6 +312,13 @@
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino.Geometry" />
         <Using Include="System.Runtime.InteropServices" />
+    </ItemGroup>
+
+    <ItemGroup Label="AppUi Avalonia Usings" Condition="'$(IsAppUiProject)' == 'true'">
+        <Using Include="Avalonia" />
+        <Using Include="Avalonia.Controls" />
+        <Using Include="Avalonia.Media" />
+        <Using Include="Avalonia.Input" />
     </ItemGroup>
 
     <ItemGroup Label="Test Friend Assemblies" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">
@@ -339,10 +347,9 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <!-- AppUi ships macOS + headless-Linux Skia natives, and TestKit exports neutral
-         test helpers consumed by ordinary test assemblies; platform guards live in their
-         host-boundary capsules, not in an assembly-wide macOS attribute. -->
-    <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsAppUiProject)' != 'true' and '$(IsTestKitProject)' != 'true'">
+    <!-- TestKit exports neutral test helpers consumed by ordinary cross-platform test assemblies, so it must
+         not carry an assembly-wide macOS attribute even though it is RhinoHostUiSurface-aware. -->
+    <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(NeedsRhinoHostUiSurface)' == 'true' and '$(IsTestKitProject)' != 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>

@@ -18,7 +18,8 @@ Rasm.AppHost/
 │   ├── Ports.cs         # Seven inward port records — only cross-package seam
 │   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
 │   ├── Orchestration.cs # Crash-durable workflow + persistent-job owner over CommandDispatch/EventLog/SchedulePort
-│   └── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead/adaptive-concurrency/load-shed/hedge/Simmy
+│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead/adaptive-concurrency/load-shed/hedge/Simmy
+│   └── Features.cs      # Config-backed OpenFeature targeting/rollout/experimentation; XxHash3 sticky bucketing; one FlagVerdict seam
 ├── Agent/               # Bidirectional agent surface over capability registry
 │   ├── Mcp.cs           # MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
 │   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling; model-selection + content-filter governance
@@ -31,7 +32,8 @@ Rasm.AppHost/
 │   ├── LiveWire.cs      # Reactive bidirectional external-binding studio over industrial-transport axis
 │   ├── Companion.cs     # Multi-process modality axis and gRPC-over-UDS control-service host
 │   ├── Topics.cs        # In-process event-bus topology over Dataflow fan-out/join/coalesce DrainSurface builders
-│   └── Outbox.cs        # Transactional outbox + dead-letter relay over the watermark-advancing dispatch sweep
+│   ├── Outbox.cs        # Transactional outbox + dead-letter relay over the watermark-advancing dispatch sweep
+│   └── Coordination.cs  # Cluster membership/election/distributed-lock over the fenced lease; ServiceEndpointResolver role resolution
 ├── Sandbox/             # Capability-brokered plugin isolation and solver-plugin contract
 │   ├── Isolation.cs     # Capability-brokered WASM/process plugin isolation; unified BrokeredCall caller-modality mediation
 │   ├── Solver.cs        # Seven-kind solver-plugin contract with canonical-representation negotiation
@@ -74,7 +76,11 @@ Agent/identity              ⇄  csharp:Rasm.Persistence                    # [P
 Agent/capability            ⇄  csharp:Rasm.Persistence                    # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
 Runtime/orchestration       ⇄  csharp:Rasm.Persistence                    # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
 Wire/outbox                 ⇄  csharp:Rasm.Persistence                    # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
-Wire/coordination           ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease store
+Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence                    # [PORT]: CAS + fenced-lease + membership backing store (ONE_FENCED_LEASE_STORE)
+Wire/Coordination.cs        →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [PORT]: MembershipView.Serving roster + RoleElection conductor lease
+Runtime/Features.cs         →  csharp:Rasm.AppHost/Agent/Reasoning.cs     # [SEAM]: FlagVerdict -> ModelRoute.From model-routing select
+Runtime/Features.cs         →  csharp:Rasm.AppHost/Sandbox/Provisioning.cs # [SEAM]: FlagVerdict -> RollStrategy progressive-rollout select
+Runtime/Features.cs         →  typescript:platform                        # [WIRE]: FlagVerdictWire over the shared OpenFeature evaluation contract (ONE_FEATURE_FLAG_PROJECTION)
 Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission      # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
 Observability/Health.cs     →  csharp:Rasm.Persistence/Store              # [HEALTH_PROBE]: HealthContributorRow fold over Npgsql/Redis/Kafka driver
 Model/agent                 →  csharp:Rasm.Compute/Model                  # [PORT]: Microsoft.Extensions.AI middleware governing/pricing

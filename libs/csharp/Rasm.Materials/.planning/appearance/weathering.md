@@ -33,20 +33,22 @@ public abstract partial record WeatheringEffect {
     public sealed record UvFade(double Rate) : WeatheringEffect;
 
     public WeatheringTrajectory Trajectory => Switch(
-        patina:    static p => new WeatheringTrajectory(Colourmaps.Flare,  RoughnessTo: 0.65, MetalnessTo: 0.0, SheenTo: 0.0, Math.Max(0.1, p.Rate), new SlabColumnDelta(CoatRoughnessTo: -1.0, FuzzWeightTo: -1.0, ConductorSwap: Some(ConductorMetal.Copper))),
-        oxidation: static o => new WeatheringTrajectory(Colourmaps.Rocket, RoughnessTo: 0.80, MetalnessTo: 0.2, SheenTo: 0.0, Math.Max(0.1, o.Rate), new SlabColumnDelta(CoatRoughnessTo: 0.85, FuzzWeightTo: -1.0, ConductorSwap: Some(ConductorMetal.Iron))),
-        soiling:   static s => new WeatheringTrajectory(Colourmaps.Mako,   RoughnessTo: 0.70, MetalnessTo: -1.0, SheenTo: 0.3, Math.Max(0.1, s.Rate), new SlabColumnDelta(CoatRoughnessTo: -1.0, FuzzWeightTo: 0.4, ConductorSwap: None)),
-        uvFade:    static f => new WeatheringTrajectory(Colourmaps.Vlag,   RoughnessTo: -1.0, MetalnessTo: -1.0, SheenTo: 0.0, Math.Max(0.1, f.Rate), new SlabColumnDelta(CoatRoughnessTo: 0.50, FuzzWeightTo: -1.0, ConductorSwap: None)));
+        patina:    static p => new WeatheringTrajectory(Colourmaps.Flare,  RoughnessTo: Some(0.65), MetalnessTo: Some(0.0), SheenTo: Some(0.0), Math.Max(0.1, p.Rate), new SlabColumnDelta(CoatRoughnessTo: None,       FuzzWeightTo: None,      ConductorSwap: Some(ConductorMetal.Copper))),
+        oxidation: static o => new WeatheringTrajectory(Colourmaps.Rocket, RoughnessTo: Some(0.80), MetalnessTo: Some(0.2), SheenTo: Some(0.0), Math.Max(0.1, o.Rate), new SlabColumnDelta(CoatRoughnessTo: Some(0.85), FuzzWeightTo: None,      ConductorSwap: Some(ConductorMetal.Iron))),
+        soiling:   static s => new WeatheringTrajectory(Colourmaps.Mako,   RoughnessTo: Some(0.70), MetalnessTo: None,      SheenTo: Some(0.3), Math.Max(0.1, s.Rate), new SlabColumnDelta(CoatRoughnessTo: None,       FuzzWeightTo: Some(0.4), ConductorSwap: None)),
+        uvFade:    static f => new WeatheringTrajectory(Colourmaps.Vlag,   RoughnessTo: None,       MetalnessTo: None,      SheenTo: Some(0.0), Math.Max(0.1, f.Rate), new SlabColumnDelta(CoatRoughnessTo: Some(0.50), FuzzWeightTo: None,      ConductorSwap: None)));
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
 // The per-effect delta onto the surface#OPENPBR_SLAB SlabStack columns: chalking raises coat_roughness, soiling
-// raises fuzz_weight, patina swaps the base ConductorMetal — a -1.0 sentinel leaves the column untouched.
-public readonly record struct SlabColumnDelta(double CoatRoughnessTo, double FuzzWeightTo, Option<ConductorMetal> ConductorSwap);
+// raises fuzz_weight, patina swaps the base ConductorMetal — None leaves the column untouched (a typed absence,
+// never an in-band -1.0 sentinel a [0,1] column cannot otherwise carry).
+public readonly record struct SlabColumnDelta(Option<double> CoatRoughnessTo, Option<double> FuzzWeightTo, Option<ConductorMetal> ConductorSwap);
 
 // Terminal is a measured perceptual ramp, never a frozen endpoint: Age samples Terminal.Map(f) at the eased fraction.
 // Slab carries the slab-column trajectory the surface#OPENPBR_SLAB SlabStack columns age through once a row lowers.
-public readonly record struct WeatheringTrajectory(Colourmap Terminal, double RoughnessTo, double MetalnessTo, double SheenTo, double Rate, SlabColumnDelta Slab);
+// Each target is Option<double> — None is the typed "this effect leaves the column at its fresh value", never -1.0.
+public readonly record struct WeatheringTrajectory(Colourmap Terminal, Option<double> RoughnessTo, Option<double> MetalnessTo, Option<double> SheenTo, double Rate, SlabColumnDelta Slab);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class Weathering {
@@ -75,12 +77,12 @@ public static class Weathering {
     }
 
     // The slab-column aging: the trajectory delta drives the realized coat/fuzz/base slabs by the eased fraction,
-    // a -1.0 delta leaving the column at its fresh value and a ConductorSwap re-grounding the base metal.
+    // a None delta leaving the column at its fresh value and a ConductorSwap re-grounding the base metal.
     static SlabStack AgeSlab(SlabStack stack, WeatheringTrajectory t, double age) {
         double f = Math.Clamp(Math.Pow(age, t.Rate), 0.0, 1.0);
         return new SlabStack(stack.Slabs.Map(slab => slab.Switch<Slab>(
-            fuzz:     fz => t.Slab.FuzzWeightTo < 0.0 ? fz : fz with { Weight = LerpToward(fz.Weight, t.Slab.FuzzWeightTo, f) },
-            coat:     c => t.Slab.CoatRoughnessTo < 0.0 ? c : c with { Roughness = LerpToward(c.Roughness, t.Slab.CoatRoughnessTo, f) },
+            fuzz:     fz => fz with { Weight = LerpToward(fz.Weight, t.Slab.FuzzWeightTo, f) },
+            coat:     c => c with { Roughness = LerpToward(c.Roughness, t.Slab.CoatRoughnessTo, f) },
             emission: e => e,
             @base:    b => t.Slab.ConductorSwap.Match(Some: m => b with { Conductor = m, Metalness = LerpToward(b.Metalness, t.MetalnessTo, f) }, None: () => b with { Roughness = LerpToward(b.Roughness, t.RoughnessTo, f) }))));
     }
@@ -89,12 +91,13 @@ public static class Weathering {
     // accumulates in crevices; the [0,1] occlusion the graph fold supplies (1.0 = fully shadowed crevice, max aging).
     static double CavityScaled(double age, double cavityOcclusion) => Math.Clamp(age * cavityOcclusion, 0.0, 1.0);
 
-    static double LerpToward(double current, double target, double f) => target < 0.0 ? current : current + (target - current) * f;
+    // A None target leaves the column at its fresh value; Some(target) eases toward it by f — the typed-absence lerp.
+    static double LerpToward(double current, Option<double> target, double f) => target.Match(Some: to => current + (to - current) * f, None: () => current);
 }
 ```
 
 ## [03]-[RESEARCH]
 
 - [WEATHERING_TRAJECTORY]: the per-effect terminals are measured `Wacton.Unicolour.Datasets` `Colourmap` ramps the fold samples at the eased fraction rather than four hand-keyed endpoints — patina the `Colourmaps.Flare` copper-green ramp (Cu→CuCO₃ chromaticity traverse), oxidation the warm `Colourmaps.Rocket` ramp (Fe₂O₃ rust deepening), soiling the desaturating `Colourmaps.Mako` ramp (grey-grime deposition), UV-fade the `Colourmaps.Vlag` diverging bleach (chromophore desaturation) — each a published perceptually-uniform gradient read through `Map(f)` into `ColourSpace.RgbLinear`, with a sub-linear `age^rate` deposition curve. The four realized trajectories are the seed; a new effect lands its `Colourmap` ramp and rate as one `WeatheringEffect` case. The probe is the per-effect curve calibration against measured aging series, not a re-architecture of the fold.
-- [OPENPBR_SLAB_AGING]: REALIZED — `Weathering.ApplySlab` ages the realized `surface#OPENPBR_SLAB` `SlabStack` columns directly: each `WeatheringEffect.Trajectory` carries a `SlabColumnDelta` (CoatRoughnessTo, FuzzWeightTo, ConductorSwap) the fold lerps onto the `Slab.Coat` roughness (chalking raises coat_roughness), the `Slab.Fuzz` weight (soiling raises fuzz_weight for crevice grime), and the `Slab.Base` `ConductorMetal` (patina swaps Cu→verdigris, oxidation Fe→rust) by the eased fraction BEFORE the `ToLayered` collapse, so a weathered material is the realized slab-column delta the renderer shades through one `LayeredBsdf` rather than a flat `MaterialParameters` base-color lerp. A `-1.0` delta sentinel leaves a column at its fresh value (an effect that does not touch that slab); the flat-row `Apply` survives as the row-level path `graph#MATERIAL_GRAPH` re-evaluates. The trajectory aligns to the MaterialX aging-operator node-graph at `interchange#MATERIALX_DOCUMENT`.
+- [OPENPBR_SLAB_AGING]: REALIZED — `Weathering.ApplySlab` ages the realized `surface#OPENPBR_SLAB` `SlabStack` columns directly: each `WeatheringEffect.Trajectory` carries a `SlabColumnDelta` (CoatRoughnessTo, FuzzWeightTo, ConductorSwap) the fold lerps onto the `Slab.Coat` roughness (chalking raises coat_roughness), the `Slab.Fuzz` weight (soiling raises fuzz_weight for crevice grime), and the `Slab.Base` `ConductorMetal` (patina swaps Cu→verdigris, oxidation Fe→rust) by the eased fraction BEFORE the `ToLayered` collapse, so a weathered material is the realized slab-column delta the renderer shades through one `LayeredBsdf` rather than a flat `MaterialParameters` base-color lerp. A `None` column delta leaves that column at its fresh value (an effect that does not touch that slab) — a typed absence, never an in-band `-1.0` a `[0,1]` column cannot carry; the flat-row `Apply` survives as the row-level path `graph#MATERIAL_GRAPH` re-evaluates. The trajectory aligns to the MaterialX aging-operator node-graph at `interchange#MATERIALX_DOCUMENT`.
 - [PROCEDURAL_SOILING_MASK]: REALIZED — spatially-varying weathering drives the aging fraction from a `texture#TEXTURE_UV` cavity/ambient-occlusion sample rather than a uniform age: `ApplySlab` takes a `UnitInterval cavityOcclusion` (the per-shade-point AO the `Texture` graph node supplies) and `CavityScaled` multiplies the age by it, so a fully-shadowed crevice (`occlusion=1`) accumulates grime at the full rate and an exposed face ages less, the same fold reading a per-point fraction. The procedural-soiling mask drives crevice-accumulation grime without a second aging surface, riding the existing graph fold; calibrating the AO-to-age response per effect (linear vs gamma) against measured soiling series is the remaining tuning, not a re-architecture.

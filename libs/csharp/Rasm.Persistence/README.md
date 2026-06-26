@@ -151,6 +151,7 @@ Full-featured production messaging-protocol clients backing the egress sink rows
 - `MessagePackAnalyzer`
 - `Thinktecture.Runtime.Extensions.MessagePack`
 - `K4os.Compression.LZ4`
+- `MPXJ.Net` (binary MS-Project .mpp / Primavera P6 XER/PMXML / Asta / Phoenix schedule-file codec via IKVM Java->IL bridge — the schedule-ingress lane the row-oriented `Sep`/`Sylvan` codecs lack)
 - `Sep`
 
 ## [03]-[SUBSTRATE_PACKAGES]

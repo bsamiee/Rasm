@@ -1,6 +1,6 @@
 # [APPUI_THEME_TOKENS]
 
-Rasm.AppUi resolves every visual constant through one frozen token catalogue: a role-keyed `TokenRow` family, orthogonal `ThemeVariantRow` and `DensityRow` smart-enum families composed by one pure resolve fold, host-agnostic appearance probing, and one atomic swap capsule that re-resolves the full catalogue and emits token-diff receipts. The page owns the token vocabulary, both row families, the resolve fold, and the control-theme rail; the spine is Avalonia, Avalonia.Themes.Fluent, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
+Rasm.AppUi resolves every visual constant through one frozen token catalogue: a role-keyed `TokenRow` family, orthogonal `ThemeVariantRow` and `DensityRow` smart-enum families composed by one pure resolve fold, host-agnostic appearance probing, and one atomic swap capsule that re-resolves the full catalogue, writes the resolved paints into the `Semi.Avalonia` token slots, and emits token-diff receipts. The page owns the token vocabulary, both row families, the resolve fold, and the control-theme rail that mounts the one `Application.Styles` chain `FluentTheme floor -> SemiTheme -> the per-control Semi skins -> UrsaSemiTheme`; the spine is Avalonia, Avalonia.Themes.Fluent, the `Semi.Avalonia` design-token theme suite, Thinktecture.Runtime.Extensions, LanguageExt.Core, and NodaTime.
 
 ## [01]-[INDEX]
 
@@ -154,12 +154,12 @@ public sealed partial class Colormap {
 
 ## [03]-[VARIANT_AXIS]
 
-- Owner: `ThemeKeyPolicy` ordinal accessor; `ThemeVariantRow` `[SmartEnum<string>]` four rows binding the page vocabulary to the host variant key column.
-- Cases: light, dark, high-contrast, host-matched — high-contrast inherits the dark resource chain; host-matched is a probe fold, never a resolved row.
+- Owner: `ThemeKeyPolicy` ordinal accessor; `ThemeVariantRow` `[SmartEnum<string>]` binding the page vocabulary to the host variant key column and the `Semi.Avalonia` `ThemeVariant` slots.
+- Cases: light, dark, high-contrast, host-matched, aquatic, desert, dusk, night-sky — high-contrast inherits the dark resource chain; host-matched is a probe fold, never a resolved row; the four brand rows carry the `Semi.Avalonia` named `ThemeVariant`s (`SemiTheme.Aquatic`/`Desert`/`Dusk`/`NightSky`), each deriving its light-or-dark base from the Semi variant so the OKLCH ramp populates its palette exactly as light/dark do.
 - Entry: `public ThemeVariantRow Concrete(Func<Option<ThemeVariantRow>> probe)` — total fold; concrete rows return themselves and the absent-probe default is `Light`.
-- Auto: host appearance flips ride the mount transaction's appearance-change facts into `Track`, so a host dark-mode change re-resolves and receipts with zero per-control handlers.
-- Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one variant row with one probe arm and one `Paint` column; zero new surface.
+- Auto: host appearance flips ride the mount transaction's appearance-change facts into `Track`, so a host dark-mode change re-resolves and receipts with zero per-control handlers; each brand row's `Variant` is the `Semi.Avalonia`-shipped `ThemeVariant` so a brand swap selects the Semi palette base and the OKLCH ramp writes the brand paints over it, never a re-templated control set.
+- Packages: Avalonia, Semi.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new brand theme is one `ThemeVariantRow` row carrying its `Semi.Avalonia` `ThemeVariant` and one `Paint` base, whose palette the Unicolour ramp populates — never a re-templated control set; zero new surface.
 - Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port reading `HostUtils.RunningInDarkMode` with change flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rows ride the same host probe, empty-host standalone rows read `IPlatformSettings.GetColorValues()` whose `PlatformColorValues` carries `ThemeVariant` and `ContrastPreference` with re-probe on `ColorValuesChanged`, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, so a panel tracks its host while a sidecar stays user-chosen.
 
 ```csharp signature
@@ -173,26 +173,40 @@ public sealed class ThemeKeyPolicy : IEqualityComparerAccessor<string>, ICompare
 [KeyMemberEqualityComparer<ThemeKeyPolicy, string>]
 [KeyMemberComparer<ThemeKeyPolicy, string>]
 public sealed partial class ThemeVariantRow {
-    public static readonly ThemeVariantRow Light = new("light", ThemeVariant.Light);
-    public static readonly ThemeVariantRow Dark = new("dark", ThemeVariant.Dark);
-    public static readonly ThemeVariantRow HighContrast = new("high-contrast", new ThemeVariant("high-contrast", ThemeVariant.Dark));
-    public static readonly ThemeVariantRow HostMatched = new("host-matched", ThemeVariant.Default);
+    public static readonly ThemeVariantRow Light = new("light", ThemeVariant.Light, dark: false);
+    public static readonly ThemeVariantRow Dark = new("dark", ThemeVariant.Dark, dark: true);
+    public static readonly ThemeVariantRow HighContrast = new("high-contrast", new ThemeVariant("high-contrast", ThemeVariant.Dark), dark: true);
+    public static readonly ThemeVariantRow HostMatched = new("host-matched", ThemeVariant.Default, dark: false);
+    public static readonly ThemeVariantRow Aquatic = new("aquatic", SemiTheme.Aquatic, dark: true);
+    public static readonly ThemeVariantRow Desert = new("desert", SemiTheme.Desert, dark: false);
+    public static readonly ThemeVariantRow Dusk = new("dusk", SemiTheme.Dusk, dark: true);
+    public static readonly ThemeVariantRow NightSky = new("night-sky", SemiTheme.NightSky, dark: true);
 
     public ThemeVariant Variant { get; }
+
+    public bool Dark { get; }
 
     public ThemeVariantRow Concrete(Func<Option<ThemeVariantRow>> probe) => Switch(
         state: probe,
         light: static _ => Light,
         dark: static _ => Dark,
         highContrast: static _ => HighContrast,
-        hostMatched: static p => p().IfNone(Light));
+        hostMatched: static p => p().IfNone(Light),
+        aquatic: static _ => Aquatic,
+        desert: static _ => Desert,
+        dusk: static _ => Dusk,
+        nightSky: static _ => NightSky);
 
     public Color Pick(Color light, Color dark, Color highContrast) => Switch(
         state: (light, dark, highContrast),
         light: static s => s.light,
         dark: static s => s.dark,
         highContrast: static s => s.highContrast,
-        hostMatched: static s => s.light);
+        hostMatched: static s => s.light,
+        aquatic: static s => s.dark,
+        desert: static s => s.light,
+        dusk: static s => s.dark,
+        nightSky: static s => s.dark);
 }
 ```
 
@@ -233,14 +247,14 @@ public sealed partial class DensityRow {
 
 ## [05]-[CONTROL_THEMES]
 
-- Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeRail` the one Styles admission boundary.
+- Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeRail` the one Styles admission boundary mounting the Semi chain.
 - Cases: trigger values boot | user-switch | host-probe as receipt constants.
 - Entry: `public IO<ThemeSwitchReceipt> Swap(ThemeVariantRow variant, DensityRow density, Func<Option<ThemeVariantRow>> probe, string trigger, CorrelationId correlation)` — one swap re-resolves the full catalogue.
-- Auto: every swap emits one receipt carrying changed keys; the swap sinks the receipt through `ReceiptSinkPort` as a `Surface`-family appearance fact, so theme transitions ride the one evidence envelope stream the dashboards ingest and the accessibility gate consumes `ContrastCandidates` from the same resolve — deleting per-control theme refresh handlers.
+- Auto: every swap emits one receipt carrying changed keys; the swap sinks the receipt through `ReceiptSinkPort` as a `Surface`-family appearance fact, so theme transitions ride the one evidence envelope stream the dashboards ingest and the accessibility gate consumes `ContrastCandidates` from the same resolve — deleting per-control theme refresh handlers; `Admit` builds the single `Application.Styles` chain `FluentTheme floor -> SemiTheme -> the per-control Semi skins -> UrsaSemiTheme` once at boot, and `ApplyTo` overrides the `ThemeVariant`-scoped Semi palette slots from the resolve, so a swap re-skins the whole admitted roster through one token system, never a re-templated control tree.
 - Receipt: `ThemeSwitchReceipt` — variant, density, trigger, changed keys, `Instant`, correlation id; the reload-receipt shape on a separate stream, sealed once through the sink port at composition.
-- Packages: Avalonia, Avalonia.Themes.Fluent, Rasm.AppHost (project), LanguageExt.Core, NodaTime
+- Packages: Avalonia, Avalonia.Themes.Fluent, Semi.Avalonia, Rasm.AppHost (project), LanguageExt.Core, NodaTime
 - Growth: one control-theme row, one contrast-candidate row, or one trigger constant; zero new surface.
-- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; the `Sink` delegate binds `ReceiptSinkPort.Send` at composition so the swap carries zero telemetry wiring and a second receipt stamp on the swap is the deleted form; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve so a variant swap re-paints docks through the shell dock-theme owner bound at composition rather than a parallel dock-theme handler; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
+- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the one `Application.Styles` chain is ordered `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins (`DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit`) -> `<semi:UrsaSemiTheme/>` (the `Shell/controls` Ursa-suite bridge), every skin strictly below `SemiTheme` so its tokens resolve, and loading a skin without `SemiTheme` is the rejected form; the resolved token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; the OKLCH ramp writes the `Semi.Avalonia` `Tokens.Palette` slots — a derived or brand variant overrides the `ThemeVariant`-scoped palette resources, never a re-templated control set, so a hand-authored second token dictionary beside the Semi slots is the deleted form; the `Sink` delegate binds `ReceiptSinkPort.Send` at composition so the swap carries zero telemetry wiring and a second receipt stamp on the swap is the deleted form; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve so a variant swap re-paints docks through the shell dock-theme owner bound at composition rather than a parallel dock-theme handler; OS dark/light follow rides `ApplicationExtension.RegisterFollowSystemTheme(this Application)` bound at composition where the host exposes `PlatformColorValues`, so a per-control OS-appearance handler is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` intentionally keep the Fluent base and are never displaced by the Semi skins; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
 
 ```csharp signature
 public sealed record ThemeSwitchReceipt(
@@ -306,25 +320,35 @@ public static class ThemeRail {
         ("region", "accent", "on-accent"),
     ];
 
-    public static FluentTheme Admit(Func<Color, Color, double, Color> mix) => new() {
+    public static FluentTheme Floor(Func<Color, Color, double, Color> mix) => new() {
         Palettes = {
             [ThemeVariant.Light] = ThemeCatalog.Resolve(ThemeVariantRow.Light, DensityRow.Default, mix).Palette,
             [ThemeVariant.Dark] = ThemeCatalog.Resolve(ThemeVariantRow.Dark, DensityRow.Default, mix).Palette,
         },
     };
 
-    public static IO<Unit> Mount(Application application, FluentTheme rail, ResolvedTheme resolved) =>
+    public static Seq<IStyle> Admit(FluentTheme floor) => [
+        floor,
+        new SemiTheme(),
+        new Semi.Avalonia.DataGrid.DataGridSemiTheme(),
+        new Semi.Avalonia.ColorPicker.ColorPickerSemiTheme(),
+        new Semi.Avalonia.Dock.DockSemiTheme(),
+        new Semi.Avalonia.AvaloniaEdit.AvaloniaEditSemiTheme(),
+        new Ursa.Themes.Semi.UrsaSemiTheme(),
+    ];
+
+    public static IO<Unit> Mount(Application application, Seq<IStyle> chain, FluentTheme floor, ResolvedTheme resolved) =>
         IO.lift(() => {
-            application.Styles.Add(rail);
+            chain.Iter(application.Styles.Add);
             application.Resources.MergedDictionaries.Add(ThemeCatalog.Resources(resolved));
             application.RequestedThemeVariant = resolved.Variant.Variant;
-            rail.DensityStyle = resolved.Density.Style;
+            floor.DensityStyle = resolved.Density.Style;
             return unit;
         });
 
-    public static Func<ResolvedTheme, IO<Unit>> ApplyTo(Application application, FluentTheme rail) =>
+    public static Func<ResolvedTheme, IO<Unit>> ApplyTo(Application application, FluentTheme floor) =>
         resolved => IO.lift(() => {
-            rail.DensityStyle = resolved.Density.Style;
+            floor.DensityStyle = resolved.Density.Style;
             application.RequestedThemeVariant = resolved.Variant.Variant;
             application.Resources.MergedDictionaries[0] = ThemeCatalog.Resources(resolved);
             return unit;

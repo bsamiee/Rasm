@@ -4,6 +4,7 @@
 
 export const meta = {
   name: 'TODO-loop',
+  whenToUse: 'TODO: when a reader should pick this',  // optional
   description: 'TODO: one line — what this produces',
   phases: [{ title: 'Collect' }],
 }

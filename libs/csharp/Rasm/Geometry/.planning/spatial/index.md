@@ -27,6 +27,7 @@ using LanguageExt.Common;
 using Rasm.Compute.Solver;
 using Rasm.Geometry;
 using Rhino.Geometry;
+using SuperClusterKDTree;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -37,9 +38,15 @@ namespace Rasm.Geometry.Spatial;
 [KeyMemberEqualityComparer<GeometryKeyPolicy, string>]
 [KeyMemberComparer<GeometryKeyPolicy, string>]
 public sealed partial class SpatialKind {
-    public static readonly SpatialKind Bvh = new("bvh");
-    public static readonly SpatialKind Octree = new("octree");
-    public static readonly SpatialKind Agglomerative = new("agglomerative");
+    public static readonly SpatialKind Bvh = new("bvh", primitive: true);
+    public static readonly SpatialKind Octree = new("octree", primitive: true);
+    public static readonly SpatialKind Agglomerative = new("agglomerative", primitive: true);
+    public static readonly SpatialKind PointCloud = new("point-cloud", primitive: false);
+
+    // Whether the kind indexes PRIMITIVE bounds (Bvh/Octree/Agglomerative over a flat NodeStore) or a low-dim
+    // POINT set (PointCloud over the Supercluster.KDTree leaf) — the query is routed by this column, never
+    // duplicated: a point k-NN goes to the kd-tree leaf, a primitive overlap/ray to the BVH/octree.
+    public bool Primitive { get; }
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -102,20 +109,31 @@ public abstract partial record SpatialIndex {
     public sealed record Bvh(NodeStore Store, BoundingBox[] Primitives, int LeafSize, double BuildCost, BuildPolicy Policy, SpatialKind Builder) : SpatialIndex;
     public sealed record LinearOctree(NodeStore Store, BoundingBox[] Primitives, Point3d[] Centroids, BoundingBox Root, int MaxDepth) : SpatialIndex;
 
+    // The low-dimensional POINT-nearest leaf the SAH-BVH + Morton octree broad-phase serves poorly: a static-
+    // balanced array-backed `Supercluster.KDTree.Net` kd-tree over the cloud points (point + the Rasm cloud index
+    // as the `int` TNode payload), the exact k-NN/radius leaf feeding `Processing/fit#FITTING` MLESAC/normal-PCA
+    // and the registration/ICP correspondence step — ADDITIVE to the primitive broad-phase, never a replacement.
+    // `Points` holds the cloud as `Rasm.Vectors` Point3d (mapped to `IReadOnlyList<double>` AT THE BOUNDARY when
+    // the tree is built); the tree balances once at construction and is immutable (a point-set change rebuilds).
+    public sealed record PointCloud(KDTree<double, double, int> Tree, Point3d[] Points) : SpatialIndex;
+
     public SpatialKind Kind =>
         Switch(
             bvh: static b => b.Builder,
-            linearOctree: static _ => SpatialKind.Octree);
+            linearOctree: static _ => SpatialKind.Octree,
+            pointCloud: static _ => SpatialKind.PointCloud);
 
     NodeStore Store =>
         Switch(
             bvh: static b => b.Store,
-            linearOctree: static o => o.Store);
+            linearOctree: static o => o.Store,
+            pointCloud: static _ => throw new InvalidOperationException("point-cloud:no-node-store"));
 
     BoundingBox[] Primitives =>
         Switch(
             bvh: static b => b.Primitives,
-            linearOctree: static o => o.Primitives);
+            linearOctree: static o => o.Primitives,
+            pointCloud: static c => Array.ConvertAll(c.Points, static p => new BoundingBox(p, p)));
 
     // --- [BUILD]
     static readonly FrozenDictionary<SpatialKind, Func<BoundingBox[], Point3d[], BuildPolicy, SpatialIndex>> Builders =
@@ -123,7 +141,18 @@ public abstract partial record SpatialIndex {
             (SpatialKind.Bvh, static (boxes, centroids, policy) => BuildBvh(boxes, centroids, policy)),
             (SpatialKind.Octree, static (boxes, centroids, policy) => BuildOctree(boxes, centroids, policy)),
             (SpatialKind.Agglomerative, static (boxes, centroids, policy) => BuildAgglomerative(boxes, centroids, policy)),
+            (SpatialKind.PointCloud, static (_, centroids, _) => BuildPointCloud(centroids)),
         }.ToFrozenDictionary(static row => row.Kind, static row => row.Build);
+
+    // The kd-tree leaf build: the cloud points (the box centroids — a `PointCloud` query is over points, the
+    // degenerate AABB per point its `Build` input) map to `IReadOnlyList<double>` AT THE BOUNDARY and carry their
+    // Rasm cloud index as the `int` TNode, the `DistanceMetrics.EuclideanDistance` (squared-L2, no sqrt) wired by
+    // the ergonomic `KDTree.Create` factory — never a hand-written Euclidean `Func` the enum already supplies.
+    static SpatialIndex BuildPointCloud(Point3d[] centroids) {
+        IReadOnlyList<double>[] points = Array.ConvertAll(centroids, static p => (IReadOnlyList<double>)new[] { p.X, p.Y, p.Z });
+        int[] payload = Enumerable.Range(0, centroids.Length).ToArray();
+        return new PointCloud(KDTree.Create(points, payload, DistanceMetrics.EuclideanDistance), centroids);
+    }
 
     public static Fin<SpatialIndex> Build(SpatialKind kind, ReadOnlySpan<BoundingBox> primitives, BuildPolicy policy) {
         if (primitives.Length == 0)
@@ -316,15 +345,40 @@ public abstract partial record SpatialIndex {
     }
 
     // --- [QUERY]
+    // The PointCloud kd-tree leaf serves Nearest (exact k-NN) and Range (radius search) directly through the
+    // `Supercluster.KDTree` instance queries — the point-only workload the BVH/octree primitive broad-phase serves
+    // poorly. A point cloud rejects the primitive-only queries (Ray/Overlap/Winding are triangle-soup operations,
+    // routed to the BVH/octree case): a Ray/Overlap/Winding over a PointCloud is a kind-mismatch, never a silent
+    // empty. Both leaf and broad-phase return the SAME `QueryResult` carrier so a consumer reads one rail.
     public QueryResult Query(SpatialQuery query) =>
-        query switch {
-            SpatialQuery.Range range => new QueryResult.Hits(RangeHits(Store, Primitives, range)),
-            SpatialQuery.Ray ray => RayNearest(Store, Primitives, ray),
-            SpatialQuery.Nearest knn => new QueryResult.Nearest(KNearest(Store, Centroids(Primitives), knn)),
-            SpatialQuery.Overlap overlap => new QueryResult.Pairs(OverlapPairs(this, overlap.Other, overlap.Tolerance)),
-            SpatialQuery.Winding winding => new QueryResult.Scalar(Winding(Store, winding)),
-            _ => new QueryResult.Hits(Seq<int>()),
-        };
+        this is PointCloud cloud
+            ? query switch {
+                SpatialQuery.Nearest knn => new QueryResult.Nearest(KdNearest(cloud.Tree, knn)),
+                SpatialQuery.Range range => new QueryResult.Hits(KdRange(cloud.Tree, range)),
+                _ => new QueryResult.Hits(Seq<int>()),
+            }
+            : query switch {
+                SpatialQuery.Range range => new QueryResult.Hits(RangeHits(Store, Primitives, range)),
+                SpatialQuery.Ray ray => RayNearest(Store, Primitives, ray),
+                SpatialQuery.Nearest knn => new QueryResult.Nearest(KNearest(Store, Centroids(Primitives), knn)),
+                SpatialQuery.Overlap overlap => new QueryResult.Pairs(OverlapPairs(this, overlap.Other, overlap.Tolerance)),
+                SpatialQuery.Winding winding => new QueryResult.Scalar(Winding(Store, winding)),
+                _ => new QueryResult.Hits(Seq<int>()),
+            };
+
+    // The kd-tree exact k-NN: `NearestNeighbors(point, k)` returns the (coordinate, payload) tuples, the payload
+    // the Rasm cloud index recovered directly — the ordered nearest-first id sequence the `Processing/fit` MLESAC
+    // neighbourhood and the ICP correspondence read. NOTE the EuclideanDistance metric is SQUARED-L2.
+    static Seq<int> KdNearest(KDTree<double, double, int> tree, SpatialQuery.Nearest knn) =>
+        toSeq(tree.NearestNeighbors(new[] { knn.Query.X, knn.Query.Y, knn.Query.Z }, knn.K).Select(static hit => hit.Item2));
+
+    // The kd-tree radius search: `RadialSearch(center, r², k=-1)` — the radius is SQUARED under the Euclidean
+    // (squared-L2) metric, so the query box's half-diagonal is squared before the call, never passed un-squared.
+    static Seq<int> KdRange(KDTree<double, double, int> tree, SpatialQuery.Range range) {
+        Point3d centre = 0.5 * (range.Box.Min + range.Box.Max);
+        double radius = 0.5 * (range.Box.Max - range.Box.Min).Length;
+        return toSeq(tree.RadialSearch(new[] { centre.X, centre.Y, centre.Z }, radius * radius).Select(static hit => hit.Item2));
+    }
 
     static double Winding(NodeStore store, SpatialQuery.Winding query) {
         const double FourPiInverse = 0.079577471545947667884441881686257;
@@ -483,6 +537,9 @@ public abstract partial record SpatialIndex {
         if (updated.Length != Primitives.Length)
             return Fin.Fail<SpatialIndex>(GeometryFault.IndexMismatch($"refit:{updated.Length}!={Primitives.Length}"));
         var boxes = updated.ToArray();
+        // The kd-tree is build-once immutable (no NodeStore to re-bound), so a PointCloud Refit re-builds the tree
+        // from the updated points directly — guarded before the primitive-store node walk the BVH/octree refit runs.
+        if (this is PointCloud) return Fin.Succ(BuildPointCloud(Centroids(boxes)));
         NodeStore store = Store;
         for (int node = store.NodeCount - 1; node >= 0; node--) {
             BoundingBox bound = store.LeafCount[node] > 0
@@ -494,7 +551,11 @@ public abstract partial record SpatialIndex {
             bvh: b => SahCost(store) > b.Policy.RefitDegradationLimit * b.BuildCost
                 ? Build(b.Builder, boxes, b.Policy)
                 : Fin.Succ((SpatialIndex)(b with { Primitives = boxes, Store = store })),
-            linearOctree: o => Fin.Succ((SpatialIndex)(o with { Primitives = boxes, Centroids = Centroids(boxes), Store = store })));
+            linearOctree: o => Fin.Succ((SpatialIndex)(o with { Primitives = boxes, Centroids = Centroids(boxes), Store = store })),
+            // Exhaustiveness closure — the PointCloud path is handled by the build-once rebuild guard above the
+            // node-walk, so this generated arm is the total-switch completion the kd-tree case requires (a new
+            // SpatialIndex case breaks this site at compile time, never a silent runtime fall-through).
+            pointCloud: _ => Fin.Succ(BuildPointCloud(Centroids(boxes))));
     }
 
     static BoundingBox ChildBound(NodeStore store, int node) {
@@ -504,13 +565,20 @@ public abstract partial record SpatialIndex {
     }
 
     // --- [ACCELERATION_SEAM]
+    // The Compute clash seam is PRIMITIVE-only — the kd-tree is the point-NN leaf, never a clash broad-phase, so a
+    // PointCloud has no `AccelerationStructure` projection (the seam reads the BVH/octree node-link wire). The
+    // generated arm is the total-switch closure that rejects the point-cloud kind at the seam rather than emitting
+    // a meaningless node-link stream the clash traversal would mis-decode.
     public AccelerationStructure ToAcceleration() {
+        if (this is PointCloud)
+            throw new InvalidOperationException("acceleration:point-cloud-not-a-clash-structure");
         (float[] bounds, long[] nodes) = NodeLinkProjection(Store);
         return Switch<AccelerationStructure>(
             bvh: b => new AccelerationStructure.Bvh(bounds.AsMemory(), nodes.AsMemory(), b.LeafSize),
             linearOctree: o => new AccelerationStructure.Octree(
                 new[] { (float)o.Root.Min.X, (float)o.Root.Min.Y, (float)o.Root.Min.Z }.AsMemory(),
-                Diagonal(o.Root), nodes.AsMemory(), o.MaxDepth));
+                Diagonal(o.Root), nodes.AsMemory(), o.MaxDepth),
+            pointCloud: _ => throw new InvalidOperationException("acceleration:point-cloud-not-a-clash-structure"));
     }
 
     static (float[] Bounds, long[] Nodes) NodeLinkProjection(NodeStore store) {

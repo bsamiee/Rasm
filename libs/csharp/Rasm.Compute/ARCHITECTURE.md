@@ -9,7 +9,7 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 ```text codemap
 Rasm.Compute/
 ├── Tensor/                # CPU tensor vocabulary and BLAS-class numeric core
-│   ├── Vocabulary.cs      # Tensor shapes/factories/dtype map and 107-row op-family table
+│   ├── Vocabulary.cs      # Tensor shapes/factories/dtype map and 113-row op-family table
 │   ├── Layout.cs          # LayoutForm rows and ReshapeOp shape-edit request union
 │   ├── Dispatch.cs        # Arity kernel-delegate tables with differentiable-adjoint law
 │   ├── Residency.cs       # OrtValue C-data residency lattice and geometry-to-tensor encoding

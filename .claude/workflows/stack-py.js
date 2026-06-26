@@ -1,5 +1,6 @@
 export const meta = {
   name: 'stack-py',
+  whenToUse: 'Harden the docs/stacks/python code doctrine in place across core, domain, and numerics shards.',
   description: 'Durable, reusable FULL-STACK hardening of the docs/stacks/python CODE DOCTRINE — the single standing python-stack WF (peer to stack-cs and stack-ts), run whenever to push the whole settled corpus (core concept pages + domain/ shards + numerics/ shards) to the 13/10 ultra-dense bar through a full initial -> critique -> redteam adversarial pass per page. NOT a from-scratch build and NOT a restructure (the file set is settled) — a hostile per-file harden in place. Every stage is HOSTILE: the page is naive/shallow/illusory until it survives an aggressive attack, the burden of proof on the page. CRITIQUE is the mechanical line-by-line doctrinal-conformance audit (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, AOP, rails, py3.15/payloads, citation tier, agnostic snippet law, page-craft, altitude, zero-meta, capability-completeness) fixed in place; REDTEAM is critique AND MORE — counterfactual on the core teaching shape, anticipatory-collapse of the next case, corpus-wide duplication, AOP + shape-budget maximization, substrate-depth + phantoms, capability-completeness, plus a full cold adversarial re-review. Phases: Inventory (atlas + domain/ + numerics/ routers -> the core + domain + numerics file set) -> Harden (1 agent/file, rebuild(max) -> critique(xhigh) -> redteam(max), pooled at CAP=12, 1500ms launch gate) -> Sweep (sequential atlas-order pass, implicit upward stacking, region ledger, zero duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial verify(xhigh); hard residuals hand off to resolve-residuals). The csharp doc set is the read-only FLOOR/reference; snippets agnostic; every cited .api member verified via assay api; every edit scoped to docs/stacks/python. Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'parse the README atlas + the domain/ and numerics/ routers for the ordered core + domain + numerics file set + per-file state, emit the region ledger seed' },
@@ -19,7 +20,7 @@ const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, r
 // --- [HARNESS] -- steady bounded pool: <=cap in flight AND a serialized launch gate --------
 const STAGGER_MS = 1500
 const STALL = 300000
-const CAP = 12
+const CAP = 10
 const ROOT = 'docs/stacks/python'
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {

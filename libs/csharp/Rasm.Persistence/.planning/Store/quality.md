@@ -367,7 +367,7 @@ public static class QualityPlan {
     // a `JsonSchemaShape` whose `pg_jsonschema` is absent emits NO server-side `CHECK` and instead surfaces a
     // typed `FallbackEvaluated` receipt (the quality plan OWNS reporting that its own JSON-schema rule degraded
     // to the `Json.Schema.JsonSchema.Evaluate` in-process path), so the degradation is evidence on the fact
-    // stream, never the silent drop the prior fence's unconditional emit hid behind a decorative fact kind.
+    // stream, never a silent drop hidden behind a decorative fact kind.
     public static Fin<(MigrationBuilder Migration, Seq<SchemaDdl.Index> Indexes, Seq<QualityReceipt> Fallbacks)> Lower(
         MigrationBuilder migration, Seq<QualityRule> rules, Func<string, bool> extensionAvailable, ClockPolicy clocks) =>
         rules.Filter(rule => rule.Site().Lowered && !Degraded(rule, extensionAvailable))

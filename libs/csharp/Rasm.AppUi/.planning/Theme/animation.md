@@ -241,4 +241,4 @@ flowchart LR
 
 ## [06]-[RESEARCH]
 
-- [WALKTHROUGH_VIDEO]: the video-container emit — the frame sequence to an MP4/WebM container through an admitted encoder, resolved at implementation against an admitted video-codec package; the track and keyframe vocabulary, the timeline sampler, the deterministic playhead, the scrub fold, and the numbered-frame and bundle walkthrough outputs are settled, the video-container muxing is the unverified surface and the numbered-frame sequence ships today.
+- [WALKTHROUGH_VIDEO]: the video-container emit — the frame sequence to an MP4/WebM container through an admitted encoder, resolved at implementation against an admitted video-codec package; the track and keyframe vocabulary, the timeline sampler, the deterministic playhead, the scrub fold, and the numbered-frame and bundle walkthrough outputs are settled, the video-container muxing is the unverified surface and the numbered-frame sequence is settled.

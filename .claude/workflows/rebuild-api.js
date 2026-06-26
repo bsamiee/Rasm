@@ -1,5 +1,6 @@
 export const meta = {
   name: 'rebuild-api',
+  whenToUse: 'Rebuild every .api catalog under a target root to full integration-shaped capability.',
   description: 'Rebuild every .api catalog under a target root to FULL first-class, integration-shaped capability — document each package full advanced surface AND how packages STACK into single dense rails, verified against real members. Language-agnostic: members verified via assay api over host DLLs / NuGet / Python distributions / node_modules. args = optional scope (e.g. "libs/python" or "libs/csharp/Rasm.Bim"); empty = all of libs.',
   phases: [
     { title: 'API-Discover', detail: 'list every .api catalog file under the target' },
@@ -12,18 +13,18 @@ const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
 const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
-const CAP = 14
+const CAP = 10
 const BATCH = 4 // .api files per agent — deep enough per file, many agents for parallelism
 
 // --- [INPUT] -- args = optional scope; empty/"ALL" = all of libs ---

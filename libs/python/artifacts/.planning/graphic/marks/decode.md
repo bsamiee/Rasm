@@ -1,55 +1,336 @@
 # [PY_ARTIFACTS_GRAPHIC_MARKS_DECODE]
 
-The machine-readable-mark decode inverse. `_zxing_decode` is the encode/decode round-trip the segno and python-barcode generation arms of `graphic/marks/encode#MARK` cannot express: it reads any encoded mark through zxing-cpp `read_barcodes`, recovering the encoded text, format, validity, and quad position from a raster mark. It is the one `MarkOp` arm that crosses the `faults`-owned `anyio.to_process.run_sync` subprocess seam onto the gated-band worker — ONLY because `read_barcodes` opens its raster through the gated-band Pillow `Image.open`, not because `zxingcpp` cannot import on the cp315 core. This page owns the decoder worker and the decode-specific zxing spellings (`read_barcodes`/`barcode_formats_from_str`/`BarcodeFormat.All`/`Position`); the `Mark`/`MarkOp` owner and the `Encode` generation arms are `graphic/marks/encode#MARK`'s. `_zxing_decode` folds into the same shared `RasterFact` `(data, width, height, score)` shape so `Mark._compute`'s `decode` arm projects one `core/receipt#RECEIPT` `ArtifactReceipt.Preview` regardless of op, the decoded round-trip facts stamped on the fact `score` map keyed by symbol index plus a `count` total.
+The machine-readable-mark decode owner — the rich zxing-cpp `read_barcodes` inverse the segno and python-barcode generation arms of `graphic/marks/encode#MARK` cannot express. The page owns five decode-specific shapes: `DecodeScope` collapses the entire `read_barcodes` detector axis (`formats`/`try_rotate`/`try_invert`/`try_downscale`/`is_pure`/`binarizer`/`text_mode`/`ean_add_on_symbol`) into ONE frozen policy value: a `ScopeKind` preset keys the detector tail and the format scope is either an explicit `Symbology` tuple or a `FormatFamily` class member (`AllMatrix`/`AllLinear`/`AllRetail`/`AllGS1`/`AllIndustrial`/`AllCreatable`/`AllReadable`/`All` — the zxing set-valued format classes, covering readable formats no `Symbology` member names); `DecodedSymbol` is the per-symbol evidence owner every decoded `zxingcpp.Barcode` is admitted into — `text`/`raw`/`symbology`/`content`/`valid`/`error`/`orientation`/`ec_level`/`symbology_id`/`position`/`extra`, never a `text|format|valid|position` string cram; `DecodeFault` is the closed decode-fault vocabulary mapping zxing `ErrorType` plus the unreadable-raster and malformed-pixel-frame seams; `ContentKind` classifies the decoded payload over zxing `ContentType`; and `DecodeSource` is the raster-bytes/typed-pixel-frame source family whose case decides the band, the `Pixels` case carrying its `PixelFormat` channel order so the frame crosses into `read_barcodes` through a `zxingcpp.ImageView` rather than a shape-inferred bare array. `_zxing_decode` is the `MarkOp.Decode` body the encode `Mark` owner dispatches: the `raster` source opens through the gated-band Pillow `Image.open` and crosses the `faults`-owned `to_process.run_sync` seam, while the `pixels` source decodes a `numpy` frame in-process because `read_barcodes` accepts an array directly. Every decoded symbol folds into the shared `RasterFact` shape — the typed `tuple[DecodedSymbol, ...]` projected through `RasterFact.score` as one `msgspec.json` blob recoverable by `recovered`, plus a `count`/`valid` summary — so `Mark._compute` lands one `core/receipt#RECEIPT` `ArtifactReceipt.Preview` carrying the real raster dimensions.
 
 ## [01]-[INDEX]
 
-- [01]-[DECODE]: the zxing-cpp `read_barcodes` decode inverse over a Pillow-opened raster — the `_zxing_decode` module-level worker dispatched by qualified name across the `to_process.run_sync` gated-band seam, building the search scope from `barcode_formats_from_str(",".join(...))` over the requested `Symbology` members (or `BarcodeFormat.All` when unscoped) and stamping each decoded symbol's `text`/`format`/`valid`/`position` quad onto the `RasterFact.score` map keyed by symbol index plus a `count` total, the encode/decode round-trip a QR-only or linear-only owner cannot provide.
+- [01]-[DECODE]: the zxing-cpp `read_barcodes` decode inverse as a rich owner — `DecodeScope` (the full detector axis plus the `Symbology`-tuple-or-`FormatFamily`-class format scope collapsed to one `ScopeKind`-keyed policy value), `DecodedSymbol` (the complete per-symbol evidence owner), `DecodeFault` (the closed `ErrorType`-plus-unreadable-plus-malformed fault vocabulary), `ContentKind` (the `ContentType` payload classification), and `DecodeSource` (the raster-bytes/typed-pixel-frame source family carrying its `PixelFormat` for a `zxingcpp.ImageView` decode, deciding the gated-vs-in-process band) — all folding into the shared `RasterFact` so `Mark._compute`'s `decode` arm projects one `ArtifactReceipt.Preview`, the encode/decode round-trip a QR-only or linear-only owner cannot provide.
 
 ## [02]-[DECODE]
 
-- Owner: `_zxing_decode` the one decode-inverse worker the `graphic/marks/encode#MARK` `Mark` owner's `Decode` arm dispatches; it is not a second `Mark`-style owner but the module-level gated-band function the `MarkOp.Decode` case reaches through `to_process.run_sync(_zxing_decode, payload, formats)`, dispatched by qualified name across the process seam (`to_process.run_sync` cannot target a bound method or closure), so the decoder body lives on its own page while the `Mark`/`MarkOp` owner spanning both ops stays on the encode page; zxing-cpp is the decode engine (`read_barcodes` over a Pillow-opened raster), pillow the gated-band `Image.open` raster intake. The `RasterFact` it folds into is the gated-band `graphic/raster/io#RASTER` owner's value object, re-declared minimally on the encode page; this page reads the same `(data, width, height, score)` shape so the decode worker yields the same fact the encode arms yield into the shared `ArtifactReceipt.Preview`.
-- Cases: one decode arm — `Decode(payload, formats)` is the `MarkOp` case (declared on `graphic/marks/encode#MARK` because `MarkOp` is one polymorphic owner) whose body is `_zxing_decode`: the round-trip inverse over zxing-cpp `read_barcodes` recovering the encoded `text`, `format`, `valid`, and `position` quad from a raster mark, the search scope discriminated by the `formats` tuple (a scoped `barcode_formats_from_str` parse or the unscoped `BarcodeFormat.All` default) — never a per-symbology decode sibling, never an or-fold of the deprecated `|` format-union operator.
-- Entry: the `Decode` op alone crosses the runtime `reliability/faults#FAULT` `anyio.to_process.run_sync` subprocess seam onto the gated-band Pillow worker — the genuine separate-process crossing the gated `pillow` band needs because the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload shares the host interpreter version and cannot host the gated-band Pillow `read_barcodes` raster intake. The `zxingcpp` import itself resolves on the cp315 core (no companion-band gate) — the `Decode` arm crosses the `to_process.run_sync` seam ONLY because `read_barcodes` opens its raster through the gated-band Pillow `Image.open`, not because `zxingcpp` cannot import. The worker imports `zxingcpp`/`PIL` at boundary scope inside the function so no gated import lands on the core page; the `Mark.of` entry, the `async_boundary` capsule, and the `_compute` `match` are `graphic/marks/encode#MARK`'s — this page contributes the gated-band decoder body the `decode` case dispatches.
-- Auto: `_zxing_decode` builds the search scope from `barcode_formats_from_str(",".join(SYMBOLOGIES[s].member for s in formats))` over the requested `Symbology` members (or `BarcodeFormat.All` when unscoped — the `|` format-union operator is deprecated in 3.0, so the scope is a parsed string not an or-fold), opens the raster through Pillow `Image.open(BytesIO(payload))`, runs `read_barcodes(image, formats=scope)`, and stamps each decoded symbol's `text`/`format`/`valid`/`position` quad onto the score map keyed by symbol index plus a `count` total — proving generation correctness from one decode pass (`create_barcode -> to_image -> read_barcodes` recovers the content with `valid=True` and the matching `format`). It folds into the same `RasterFact` the encode arms yield, carrying the original `payload` bytes plus the decode score map, so `Mark._compute` projects `ArtifactReceipt.Preview(key, 0, 0)` (the decode path reports the default zero dimensions, the score map carries the recovered symbols).
-- Receipt: the decode op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height)` at the rail boundary through the shared `Mark._compute`; the `Decode` arm reports the decoded `text`/`format`/`valid`/`position` round-trip facts on the score map the rail consumer reads inline — threading those scores into the emitted `_facts` projection is the one `core/receipt#RECEIPT` `[SCORE_FACTS]` widening seam (the `preview` `_facts` arm projects `key`/`width`/`height` today), never a new receipt case.
-- Packages: `zxing-cpp` (`read_barcodes(image, formats=...) -> list[Barcode]` returning per-symbol `text`/`format`/`valid`/`position`/`orientation`/`error`/`content_type`/`ec_level`, `barcode_formats_from_str` the scope parse, `BarcodeFormat.All` the unscoped default, `Position` the decoded quad, `installed: 3.0.0` — un-gated, source-built from sdist on cp315) reached inside the gated-band worker; `pillow` (`Image.open` opening the `Decode` raster) gated `python_version<'3.15'` and reached only inside the gated-band `_zxing_decode` worker; `numpy` (the host pixel seam `read_barcodes` accepts beside a PIL image or a `zxingcpp.ImageView`); runtime (`faults` the `anyio.to_process.run_sync` subprocess seam the Pillow-opening `Decode` arm crosses — the genuine separate-process crossing distinct from the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload, both settled at their owners); `graphic/marks/encode#MARK` (the `Mark`/`MarkOp` owner, the `Symbology` vocabulary, the `SYMBOLOGIES` member table, and the shared `RasterFact` shape this worker reads).
-- Growth: a new decode scope is one `Symbology` member on the `Decode` formats tuple resolved through the shared `SYMBOLOGIES[s].member` zxing `BarcodeFormat` display name — never a per-symbology decode sibling; a richer decode fact (the `orientation`/`error`/`content_type` zxing `Barcode` member) is one more stamp on the existing score map; zero new surface.
-- Boundary: a per-symbology decode entrypoint, an or-fold of the deprecated `|` format-union operator beside the `barcode_formats_from_str` parse, and a second `Mark`-style decode owner beside the shared `MarkOp` family are the deleted forms; no UI, no live viewer; no generation (the three encode arms — segno QR/sequence, python-barcode linear, zxing 2D-matrix — are `graphic/marks/encode#MARK`'s); no pixel-raster image processing (the raster transform engines are `graphic/raster`'s). The decode raster-intake dispatches onto the `faults`-owned `to_process.run_sync` gated-band subprocess seam — a separate process the cp315-core `to_interpreter.run_sync` subinterpreter offload cannot replace for the gated Pillow `Image.open` — where the worker imports `zxingcpp`/`PIL` at boundary scope so no gated import lands on the core page; `read_barcodes` accepts a PIL image, a numpy array, or a `zxingcpp.ImageView`, and the Pillow-opened raster path rides the gated-band worker.
+- Owner: the page owns the decode concept the `graphic/marks/encode#MARK` `Mark` owner's `MarkOp.Decode` case reaches through `to_process.run_sync(_zxing_decode, source, scope)`; `_zxing_decode` is the module-level worker dispatched by qualified name across the process seam (it cannot target a bound method or closure), so the `Mark`/`MarkOp` owner spanning both ops stays on the encode page while the decoder body, the `DecodeScope`/`DecodedSymbol`/`DecodeFault`/`ContentKind`/`DecodeSource` shapes, and the decode-specific zxing spellings (`read_barcodes`/`barcode_formats_from_str`/`BarcodeFormat.AllReadable`/`ReaderOptions` axis/`ContentType`/`ErrorType`/`Binarizer`/`TextMode`/`EanAddOnSymbol`/`Position`) live here. `zxingcpp` imports at module scope (un-gated, source-built on cp315) so the policy tables key directly off `zxingcpp.ContentType`/`ErrorType`/`Binarizer`/`TextMode`/`EanAddOnSymbol`; only `PIL.Image` imports at the worker `raster` arm boundary because Pillow alone rides the gated `python_version<'3.15'` band. `RasterFact` is the `graphic/raster/io#RASTER` owner's value object re-declared minimally on the encode page; this page reads the same `(data, width, height, score)` shape so the decode worker folds the same fact the encode arms yield into the shared `ArtifactReceipt.Preview` with no cross-owner import of the gated-band owner.
+- Cases: `DecodeSource` is the closed source family — `Raster(payload)` carrying the encoded raster bytes opened through the gated-band Pillow `Image.open`, and `Pixels(frame, fmt)` carrying a `numpy` `NDArray[np.uint8]` plus its `PixelFormat` channel order, wrapped in a `zxingcpp.ImageView` so `read_barcodes` decodes it in-process with the declared channel layout and no Pillow — matched by one total `match`/`assert_never` inside the worker; the band is the source case, never an `engine`/`gated` knob, and the channel order is the `Pixels` payload's `PixelFormat`, never a shape-inferred BGR/grayscale guess (a bare three-channel array is read BGR, swapping the RGB luminance weights, and a four-channel array misreads entirely). `read_barcode` (first symbol) is COLLAPSED into `read_barcodes` (every symbol): a decode is always plural over the raster, and "first symbol" is the consumer's `recovered(fact)[0]` projection, never a sibling decode entrypoint. Per-symbol decode faults are NOT a second op: `return_errors=True` returns invalid symbols carrying their `Error`, admitted onto `DecodedSymbol.error`, so a checksum or format miss is a typed per-symbol fact rather than a silently dropped symbol.
+- Modality: `_zxing_decode` decodes ONE source into the full `tuple[DecodedSymbol, ...]` the raster contains — within-raster plurality is `read_barcodes`'s `list[Barcode]`, never a per-symbol call. Across-raster plurality is the encode `Mark.of` entry's modality (one `MarkOp.Decode` per source), not re-derived here. `DecodeScope.of(kind, scope)` is the one scope builder: it reads the `ScopeKind` preset row and narrows the format scope, the positional `scope` discriminating `FormatFamily | Symbology | Iterable[Symbology]` by value type in one `match` so a class member, a lone symbology, and a tuple share one path, never a `*formats` unpack, a parallel `family=`/`formats=` pair, or a `mode` flag.
+- Entry: the `Decode` op alone crosses the runtime `reliability/faults#FAULT` `anyio.to_process.run_sync` subprocess seam — and only on the `Raster` source, because `Image.open` rides the gated `python_version<'3.15'` Pillow band the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload cannot host. The `Pixels` source carries an already-decoded `numpy` frame `read_barcodes` reads directly, so it decodes in-process on the cp315 core with no separate process — the band falls out of the `DecodeSource` case, dispatched by the encode `_compute` arm. The worker imports `PIL.Image` at the `Raster` arm boundary so no gated import lands on the core page; `zxingcpp` is the cp315-core engine imported at module scope and never gated. The `Mark.of` entry, the `async_boundary` capsule that mints the `RuntimeRail`, and the `_compute` `match` are `graphic/marks/encode#MARK`'s; this page contributes the gated-band decoder body the `decode` case dispatches.
+- Auto: `_zxing_decode` matches the `DecodeSource` case to the scanned image and the content-key bytes, builds the `read_barcodes` keyword axis from `DecodeScope` through `_reader_args` (an explicit symbology scope is a `barcode_formats_from_str` parse over the complete `_FORMAT` `Symbology -> BarcodeFormat` display-name table, else the `_FAMILY` table resolves the `FormatFamily` class to its `BarcodeFormat` set-value — `AllReadable` the default, `AllMatrix`/`AllLinear`/`AllRetail`/`AllGS1`/`AllIndustrial`/`AllCreatable`/`All` the other classes — never the `SYMBOLOGIES` encode table whose `member` column is empty for QR and linear rows, never the deprecated `|` format-union operator), runs `read_barcodes(scanned, **args)` with `return_errors=True`, and admits each `Barcode` through the `@beartype`-contracted `_admitted` core into a `DecodedSymbol` — `content` mapped from `ContentType` through `_CONTENT`, `error` mapped from `Error.type` through `_ERROR`, `position` built from the `Position` corner `Point`s, `extra` the `DataMask`/`Version`/`ECLevel` metadata dict stringified. `_projected` folds the `tuple[DecodedSymbol, ...]` into `RasterFact(data, width, height, score)` carrying the real raster dimensions and the `msgspec.json`-encoded symbol blob, proving generation correctness from one decode pass (`create_barcode -> to_image -> read_barcodes` recovers the content with `valid=True` and the matching `format`).
+- Receipt: the decode op folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height)` at the rail boundary through the shared `Mark._compute`, reporting the genuine raster `width`/`height` (`image.width`/`image.height` for `Raster`, `frame.shape` for `Pixels`) rather than the zero placeholder a dimensionless worker reported. The `score` is a `frozendict` keyed by the `DecodeFact` vocabulary — `COUNT`, `VALID`, and `SYMBOLS` (the `_SYMBOLS` `msgspec.json.Encoder` blob `recovered` decodes back into `tuple[DecodedSymbol, ...]`) — so the typed round-trip facts survive the process seam as wire bytes; threading those typed facts into the emitted `_facts` projection is the one `core/receipt#RECEIPT` `[SCORE_FACTS]` widening seam (the `preview` `_facts` arm projects `key`/`width`/`height` today), never a new receipt case. An unopenable source is a genuine fault, not absence: the worker converts the Pillow `UnidentifiedImageError`/`DecompressionBombError`/`OSError` family on the `Raster` arm into `MarkDecodeError(DecodeFault.UNREADABLE)`, and a wrong-rank/dtype/channel `Pixels` frame that fails `ImageView` construction into `MarkDecodeError(DecodeFault.MALFORMED)`, both lifted by the encode `async_boundary` onto `RuntimeRail.Error`; a source that opens but carries no symbol is absence — `count=0`, an empty symbol tuple — never a fault.
+- Packages: `zxing-cpp` (`read_barcodes(image, formats=..., try_rotate=..., try_invert=..., try_downscale=..., text_mode=..., binarizer=..., is_pure=..., ean_add_on_symbol=..., return_errors=...) -> list[Barcode]` the full decode axis, `barcode_formats_from_str` the explicit-scope parse, `BarcodeFormat.AllReadable`/`AllMatrix`/`AllLinear`/`AllRetail`/`AllGS1`/`AllIndustrial`/`AllCreatable`/`All` the set-valued format-class decode scopes (`_FAMILY` maps a `FormatFamily` member to one, reaching readable formats no `Symbology` enumerates), per-symbol `Barcode.text`/`bytes`/`format`/`content_type`/`valid`/`error`/`orientation`/`ec_level`/`symbology_identifier`/`extra`/`position` (`Barcode.symbology` aliases `Barcode.format`), `Position` the decoded quad over `Point` corners, `ImageView(buffer, width, height, format, row_stride=0, pix_stride=0)`/`ImageFormat` (`RGB`/`BGR`/`RGBA`/`BGRA`/`ABGR`/`ARGB`/`Lum`/`LumA`) the typed pixel-frame decode input the `Pixels` source wraps its array in so the channel order is declared rather than shape-inferred, `ContentType`/`ErrorType`/`Binarizer`/`TextMode`/`EanAddOnSymbol` the decode-policy enums, `installed: 3.0.0` — un-gated, source-built from sdist on cp315, version via `importlib.metadata.version("zxing-cpp")` not `__version__`) imported at module scope on the cp315 core; `pillow` (`Image.open` opening the `Raster` source, `Image.UnidentifiedImageError`/`DecompressionBombError`/`OSError` the fault family) gated `python_version<'3.15'` and reached only at the worker `raster` arm boundary; `numpy` (`NDArray[np.uint8]` the `Pixels` source frame wrapped in a `zxingcpp.ImageView` for in-process decode, the `frame.shape` dimensions, and the `frame.tobytes()` content-key seam) on the cp315 core; `msgspec` (`Struct(frozen=True)` the `Quad`/`DecodedSymbol` wire-evidence owners, `json.Encoder`/`json.Decoder` the typed symbol-blob round-trip through `RasterFact.score`); `beartype` (`@beartype` the foreign-`Barcode`-to-`DecodedSymbol` admission contract); `expression` (`@tagged_union`/`case`/`tag` the `DecodeSource` family); runtime (`faults` the `anyio.to_process.run_sync` subprocess seam the `Raster` arm crosses — distinct from the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload, both settled at their owners); `graphic/marks/encode#MARK` (the `Mark`/`MarkOp` owner, the `Symbology` vocabulary, and the shared `RasterFact` shape this worker reads).
+- Growth: a new decode scope is one `ScopeKind` row plus one `_SCOPES` preset (a frozen `DecodeScope` carrying its detector axis), the caller selecting it by one `ScopeKind` value rather than a knob set; a new symbology scope is one `_FORMAT` row mapping the `Symbology` to its zxing `BarcodeFormat` display name; a richer per-symbol fact is one `DecodedSymbol` field admitted from the already-captured `Barcode` surface; a new per-symbol decode-fault cause is one `DecodeFault` member plus one `_ERROR` row, while a source-open fault (`UNREADABLE`/`MALFORMED`) is one `DecodeFault` member raised directly through `MarkDecodeError`; a new format-class scope is one `FormatFamily` member plus one `_FAMILY` row; a new text-transcode mode is one `TextRead` member plus one `_TEXT_MODE` row; a new pixel channel layout is one `PixelFormat` member plus one `_PIXEL` row mapping it to the `zxingcpp.ImageFormat`; a new source modality is one `DecodeSource` case plus one worker arm (the `Pixels` in-process arm is exactly that growth beside the gated `Raster` arm); zero new surface.
+- Boundary: a per-symbology decode entrypoint, a `read_barcode`/`read_barcodes` sibling pair, an or-fold of the deprecated `|` format-union operator, the buggy `SYMBOLOGIES[s].member` scope (empty for QR/linear), a `text|format|valid|position` score cram, a silent drop of invalid symbols, and a `mode`/`engine`/`gated` band knob are the deleted forms; no UI, no live viewer; no generation (the three encode arms — segno QR/sequence, python-barcode linear, zxing 2D-matrix — are `graphic/marks/encode#MARK`'s); no pixel-raster image processing (the raster transform/IO engines are `graphic/raster`'s, whose gated worker may hand this page a `Pixels` frame it has already decoded so the decode stays in-process). `read_barcodes` accepts a numpy array, a PIL image, a buffer, or a typed `zxingcpp.ImageView`; the `Raster` bytes path rides the gated-band worker through `Image.open`, the `Pixels` frame path wraps the array in an `ImageView` carrying its `PixelFormat` and decodes in-process, and the band is the `DecodeSource` case the encode `_compute` arm dispatches.
 
 ```python signature
-from io import BytesIO
+# --- [TYPES] ----------------------------------------------------------------------------
+from collections.abc import Iterable
+from copy import replace
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Literal, Self
 
-from artifacts.graphic.marks.encode import RasterFact, Symbology, SYMBOLOGIES
+import msgspec
+import numpy as np
+import zxingcpp
+from builtins import frozendict
+from expression import case, tag, tagged_union
+from numpy.typing import NDArray
+
+from artifacts.graphic.marks.encode import RasterFact, Symbology
+
+type Frame = NDArray[np.uint8]
 
 
-def _zxing_decode(payload: bytes, formats: tuple[Symbology, ...]) -> RasterFact:
-    import zxingcpp
-    from PIL import Image
+class DecodeFault(StrEnum):
+    CHECKSUM = "checksum"
+    FORMAT = "format"
+    UNSUPPORTED = "unsupported"
+    UNREADABLE = "unreadable"
+    MALFORMED = "malformed"
 
-    scope = zxingcpp.barcode_formats_from_str(",".join(SYMBOLOGIES[s].member for s in formats)) if formats else zxingcpp.BarcodeFormat.All
-    symbols = zxingcpp.read_barcodes(Image.open(BytesIO(payload)), formats=scope)
-    score = {f"{index}": f"{symbol.text}|{symbol.format!s}|{symbol.valid}|{symbol.position!s}" for index, symbol in enumerate(symbols)}
-    return RasterFact(payload, score={"count": str(len(symbols)), **score})
+
+class ContentKind(StrEnum):
+    TEXT = "text"
+    BINARY = "binary"
+    MIXED = "mixed"
+    GS1 = "gs1"
+    ISO15434 = "iso15434"
+    UNKNOWN_ECI = "unknown-eci"
+
+
+class DecodeFact(StrEnum):
+    COUNT = "count"
+    VALID = "valid"
+    SYMBOLS = "symbols"
+
+
+class Binarize(StrEnum):
+    LOCAL = "local-average"
+    GLOBAL = "global-histogram"
+    FIXED = "fixed-threshold"
+    BOOL = "bool-cast"
+
+
+class TextRead(StrEnum):
+    HRI = "hri"
+    PLAIN = "plain"
+    ECI = "eci"
+    ESCAPED = "escaped"
+    HEX = "hex"
+    HEX_ECI = "hex-eci"
+
+
+class EanAddOn(StrEnum):
+    IGNORE = "ignore"
+    READ = "read"
+    REQUIRE = "require"
+
+
+class ScopeKind(StrEnum):
+    FAST = "fast"
+    THOROUGH = "thorough"
+    PURE = "pure"
+    RETAIL = "retail"
+
+
+class FormatFamily(StrEnum):
+    READABLE = "readable"
+    MATRIX = "matrix"
+    LINEAR = "linear"
+    RETAIL = "retail"
+    GS1 = "gs1"
+    INDUSTRIAL = "industrial"
+    CREATABLE = "creatable"
+    ALL = "all"
+
+
+class PixelFormat(StrEnum):
+    RGB = "rgb"
+    BGR = "bgr"
+    RGBA = "rgba"
+    BGRA = "bgra"
+    ABGR = "abgr"
+    ARGB = "argb"
+    LUM = "luminance"
+    LUMA = "luminance-alpha"
+
+
+@tagged_union(frozen=True)
+class DecodeSource:
+    tag: Literal["raster", "pixels"] = tag()
+    raster: bytes = case()
+    pixels: tuple[Frame, PixelFormat] = case()
+
+    @staticmethod
+    def Raster(payload: bytes, /) -> "DecodeSource":
+        return DecodeSource(raster=payload)
+
+    @staticmethod
+    def Pixels(frame: Frame, fmt: PixelFormat = PixelFormat.RGB, /) -> "DecodeSource":
+        return DecodeSource(pixels=(frame, fmt))
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+class Quad(msgspec.Struct, frozen=True):
+    top_left: tuple[int, int]
+    top_right: tuple[int, int]
+    bottom_right: tuple[int, int]
+    bottom_left: tuple[int, int]
+
+
+class DecodedSymbol(msgspec.Struct, frozen=True, omit_defaults=True):
+    text: str
+    raw: bytes
+    symbology: str
+    content: ContentKind
+    valid: bool
+    orientation: int
+    ec_level: str
+    symbology_id: str
+    position: Quad
+    extra: dict[str, str]
+    error: DecodeFault | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DecodeScope:
+    formats: tuple[Symbology, ...] = ()
+    family: FormatFamily = FormatFamily.READABLE
+    try_rotate: bool = True
+    try_invert: bool = True
+    try_downscale: bool = True
+    is_pure: bool = False
+    binarize: Binarize = Binarize.LOCAL
+    text_mode: TextRead = TextRead.HRI
+    ean_add_on: EanAddOn = EanAddOn.IGNORE
+
+    @classmethod
+    def of(cls, kind: ScopeKind = ScopeKind.THOROUGH, scope: Symbology | Iterable[Symbology] | FormatFamily = FormatFamily.READABLE, /) -> Self:
+        match scope:
+            case FormatFamily() as family:
+                return replace(_SCOPES[kind], family=family)
+            case Symbology() as lone:
+                return replace(_SCOPES[kind], formats=(lone,))
+            case _ as many:
+                return replace(_SCOPES[kind], formats=tuple(many))
+
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+class MarkDecodeError(Exception):
+    def __init__(self, fault: DecodeFault, /) -> None:
+        self.fault = fault
+        super().__init__(fault)  # carry the enum (not its .value) so the raise round-trips pickling back across the to_process seam
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+_FORMAT: frozendict[Symbology, str] = frozendict({
+    Symbology.QR: "QRCode", Symbology.MICRO_QR: "MicroQRCode", Symbology.QR_SEQUENCE: "QRCode",
+    Symbology.CODE128: "Code128", Symbology.GS1_128: "Code128", Symbology.CODE39: "Code39", Symbology.PZN: "Code39",
+    Symbology.EAN13: "EAN13", Symbology.ISBN13: "EAN13", Symbology.ISSN: "EAN13", Symbology.EAN8: "EAN8",
+    Symbology.UPCA: "UPCA", Symbology.ITF: "ITF", Symbology.CODABAR: "Codabar",
+    Symbology.DATA_MATRIX: "DataMatrix", Symbology.PDF417: "PDF417", Symbology.AZTEC: "Aztec", Symbology.MAXICODE: "MaxiCode",
+})
+_FAMILY: frozendict[FormatFamily, zxingcpp.BarcodeFormat] = frozendict({
+    FormatFamily.READABLE: zxingcpp.BarcodeFormat.AllReadable, FormatFamily.MATRIX: zxingcpp.BarcodeFormat.AllMatrix,
+    FormatFamily.LINEAR: zxingcpp.BarcodeFormat.AllLinear, FormatFamily.RETAIL: zxingcpp.BarcodeFormat.AllRetail,
+    FormatFamily.GS1: zxingcpp.BarcodeFormat.AllGS1, FormatFamily.INDUSTRIAL: zxingcpp.BarcodeFormat.AllIndustrial,
+    FormatFamily.CREATABLE: zxingcpp.BarcodeFormat.AllCreatable, FormatFamily.ALL: zxingcpp.BarcodeFormat.All,
+})
+_CONTENT: frozendict[zxingcpp.ContentType, ContentKind] = frozendict({
+    zxingcpp.ContentType.Text: ContentKind.TEXT, zxingcpp.ContentType.Binary: ContentKind.BINARY,
+    zxingcpp.ContentType.Mixed: ContentKind.MIXED, zxingcpp.ContentType.GS1: ContentKind.GS1,
+    zxingcpp.ContentType.ISO15434: ContentKind.ISO15434, zxingcpp.ContentType.UnknownECI: ContentKind.UNKNOWN_ECI,
+})
+_ERROR: frozendict[zxingcpp.ErrorType, DecodeFault] = frozendict({
+    zxingcpp.ErrorType.Checksum: DecodeFault.CHECKSUM, zxingcpp.ErrorType.Format: DecodeFault.FORMAT,
+    zxingcpp.ErrorType.Unsupported: DecodeFault.UNSUPPORTED,
+})
+_BINARIZE: frozendict[Binarize, zxingcpp.Binarizer] = frozendict({
+    Binarize.LOCAL: zxingcpp.Binarizer.LocalAverage, Binarize.GLOBAL: zxingcpp.Binarizer.GlobalHistogram,
+    Binarize.FIXED: zxingcpp.Binarizer.FixedThreshold, Binarize.BOOL: zxingcpp.Binarizer.BoolCast,
+})
+_TEXT_MODE: frozendict[TextRead, zxingcpp.TextMode] = frozendict({
+    TextRead.HRI: zxingcpp.TextMode.HRI, TextRead.PLAIN: zxingcpp.TextMode.Plain, TextRead.ECI: zxingcpp.TextMode.ECI,
+    TextRead.ESCAPED: zxingcpp.TextMode.Escaped, TextRead.HEX: zxingcpp.TextMode.Hex, TextRead.HEX_ECI: zxingcpp.TextMode.HexECI,
+})
+_EAN: frozendict[EanAddOn, zxingcpp.EanAddOnSymbol] = frozendict({
+    EanAddOn.IGNORE: zxingcpp.EanAddOnSymbol.Ignore, EanAddOn.READ: zxingcpp.EanAddOnSymbol.Read,
+    EanAddOn.REQUIRE: zxingcpp.EanAddOnSymbol.Require,
+})
+_PIXEL: frozendict[PixelFormat, zxingcpp.ImageFormat] = frozendict({
+    PixelFormat.RGB: zxingcpp.ImageFormat.RGB, PixelFormat.BGR: zxingcpp.ImageFormat.BGR,
+    PixelFormat.RGBA: zxingcpp.ImageFormat.RGBA, PixelFormat.BGRA: zxingcpp.ImageFormat.BGRA,
+    PixelFormat.ABGR: zxingcpp.ImageFormat.ABGR, PixelFormat.ARGB: zxingcpp.ImageFormat.ARGB,
+    PixelFormat.LUM: zxingcpp.ImageFormat.Lum, PixelFormat.LUMA: zxingcpp.ImageFormat.LumA,
+})
+_SCOPES: frozendict[ScopeKind, DecodeScope] = frozendict({
+    ScopeKind.FAST: DecodeScope(try_rotate=False, try_invert=False, try_downscale=False),
+    ScopeKind.THOROUGH: DecodeScope(),
+    ScopeKind.PURE: DecodeScope(is_pure=True, try_rotate=False, try_downscale=False, binarize=Binarize.GLOBAL),
+    ScopeKind.RETAIL: DecodeScope(ean_add_on=EanAddOn.READ, try_invert=False),
+})
+_SYMBOLS = msgspec.json.Encoder()
+_DECODER = msgspec.json.Decoder(tuple[DecodedSymbol, ...])
 ```
 
-The `Decode` round-trip is the encode/decode inverse the segno and python-barcode generation arms cannot express: `_zxing_decode` builds the search scope from `barcode_formats_from_str(",".join(...))` over the requested `Symbology` members (or `BarcodeFormat.All` when unscoped — the `|` format-union operator is deprecated in 3.0, so the scope is a parsed string not an or-fold), opens the raster through Pillow `Image.open`, runs `read_barcodes(image, formats=scope)`, and stamps each decoded symbol's `text`/`format`/`valid`/`position` quad onto the score map keyed by symbol index plus a `count` total. It is the one arm crossing the gated `to_process.run_sync` band — `read_barcodes` accepts a PIL image, a numpy array, or a `zxingcpp.ImageView`, and the Pillow-opened raster path rides the gated-band worker — proving generation correctness from one decode pass (`create_barcode -> to_image -> read_barcodes` recovers the content with `valid=True` and the matching `format`), the round-trip a QR-only or linear-only owner cannot provide.
+`DecodeScope` is the KNOB_TEST collapse: the eight-argument `read_barcodes` detector tail becomes one frozen value the caller never spells field-by-field — `ScopeKind` keys the `_SCOPES` preset table (`FAST` the speed-first upright-clean path with rotation/inversion/downscale off, `THOROUGH` the all-on maximum-recovery default, `PURE` the single perfectly-framed synthetic symbol with `is_pure` and the global-histogram binarizer, `RETAIL` the EAN/UPC add-on read), and `DecodeScope.of` narrows the format scope onto the chosen preset — an explicit `Symbology` tuple or a `FormatFamily` class, discriminated by value type in one `match`. The detector tokens (`Binarize`/`TextRead`/`EanAddOn`) and the `FormatFamily` scope are canonical `StrEnum` vocabularies, not the provider enums, so `DecodeScope` crosses the `to_process` seam carrying canonical values the worker remaps to `zxingcpp.Binarizer`/`TextMode`/`EanAddOnSymbol`/`BarcodeFormat` through the `_BINARIZE`/`_TEXT_MODE`/`_EAN`/`_FAMILY` tables at the `read_barcodes` call — zxing names stay at the provider edge, canonical names cross every internal boundary. `DecodedSymbol` is the SHAPE_BUDGET collapse of the full decode result: one frozen `msgspec.Struct` over the eleven `Barcode` read properties, doubling as the canonical owner and its own wire form because its natural home is crossing the process seam as `msgspec.json` and landing on the receipt; `error: DecodeFault | None` carries a per-symbol checksum/format/unsupported miss as a typed field, never a dropped symbol. `_FORMAT` is the complete decode-direction `Symbology -> BarcodeFormat` display-name table — the encode `SYMBOLOGIES.member` column is empty for QR and linear rows (those encode through segno/python-barcode, not zxing), so scoping a QR or linear decode through it builds an empty format string; `_FORMAT` maps every `Symbology` (the GS1-128/PZN/ISBN/ISSN aliases folding onto their `Code128`/`Code39`/`EAN13` carriers), the inverse the round-trip needs. `_FAMILY` is the complementary class-scope table mapping each `FormatFamily` member to its zxing set-valued `BarcodeFormat` (`AllReadable`/`AllMatrix`/`AllLinear`/`AllRetail`/`AllGS1`/`AllIndustrial`/`AllCreatable`/`All`), so a caller scopes a whole symbology class — including readable formats like `Code93`/`UPCE`/`DataBar`/`RMQRCode` no `Symbology` member names — in one value rather than enumerating `_FORMAT` rows.
+
+```python signature
+# --- [OPERATIONS] -----------------------------------------------------------------------
+from io import BytesIO
+from typing import assert_never
+
+from beartype import beartype
+
+
+@beartype
+def _admitted(barcode: zxingcpp.Barcode, /) -> DecodedSymbol:
+    box = barcode.position
+    return DecodedSymbol(
+        text=barcode.text,
+        raw=barcode.bytes,
+        symbology=str(barcode.format),
+        content=_CONTENT[barcode.content_type],
+        valid=barcode.valid,
+        orientation=barcode.orientation,
+        ec_level=barcode.ec_level,
+        symbology_id=barcode.symbology_identifier,
+        position=Quad(
+            top_left=(box.top_left.x, box.top_left.y),
+            top_right=(box.top_right.x, box.top_right.y),
+            bottom_right=(box.bottom_right.x, box.bottom_right.y),
+            bottom_left=(box.bottom_left.x, box.bottom_left.y),
+        ),
+        extra={key: str(value) for key, value in barcode.extra.items()},
+        error=_ERROR.get(barcode.error.type) if barcode.error else None,
+    )
+
+
+def _reader_args(scope: DecodeScope, /) -> dict[str, object]:
+    scoped = ",".join(_FORMAT[symbology] for symbology in scope.formats)
+    return {
+        "formats": zxingcpp.barcode_formats_from_str(scoped) if scoped else _FAMILY[scope.family],
+        "try_rotate": scope.try_rotate,
+        "try_invert": scope.try_invert,
+        "try_downscale": scope.try_downscale,
+        "is_pure": scope.is_pure,
+        "binarizer": _BINARIZE[scope.binarize],
+        "text_mode": _TEXT_MODE[scope.text_mode],
+        "ean_add_on_symbol": _EAN[scope.ean_add_on],
+        "return_errors": True,
+    }
+
+
+def _projected(data: bytes, width: int, height: int, symbols: tuple[DecodedSymbol, ...], /) -> RasterFact:
+    valid = sum(symbol.valid for symbol in symbols)
+    score = frozendict({DecodeFact.COUNT: str(len(symbols)), DecodeFact.VALID: str(valid), DecodeFact.SYMBOLS: _SYMBOLS.encode(symbols).decode()})
+    return RasterFact(data, width, height, score)
+
+
+def _zxing_decode(source: DecodeSource, scope: DecodeScope, /) -> RasterFact:
+    match source:
+        case DecodeSource(tag="raster", raster=payload):
+            from PIL import Image
+
+            try:
+                image = Image.open(BytesIO(payload))
+                image.load()  # force decode in the seam so a DecompressionBomb/truncation fault converts here, not mid-read past the except
+            except (Image.UnidentifiedImageError, Image.DecompressionBombError, OSError) as fault:
+                raise MarkDecodeError(DecodeFault.UNREADABLE) from fault
+            scanned, data, width, height = image, payload, image.width, image.height
+        case DecodeSource(tag="pixels", pixels=(frame, pixfmt)):
+            try:
+                width, height = int(frame.shape[1]), int(frame.shape[0])
+                scanned, data = zxingcpp.ImageView(frame, width, height, _PIXEL[pixfmt]), frame.tobytes()
+            except (IndexError, TypeError, ValueError) as fault:  # a wrong-rank/dtype/channel frame fails ImageView construction
+                raise MarkDecodeError(DecodeFault.MALFORMED) from fault
+        case _ as unreachable:
+            assert_never(unreachable)
+    symbols = tuple(_admitted(barcode) for barcode in zxingcpp.read_barcodes(scanned, **_reader_args(scope)))
+    return _projected(data, width, height, symbols)
+
+
+def recovered(fact: RasterFact, /) -> tuple[DecodedSymbol, ...]:
+    return _DECODER.decode(fact.score[DecodeFact.SYMBOLS]) if DecodeFact.SYMBOLS in fact.score else ()
+```
+
+`_admitted` is the thin pure admission core stacked under the `@beartype` foreign-admission contract: a `zxingcpp.Barcode` is a foreign pybind value, so the one decorator proves both the inbound `Barcode` and the outbound `DecodedSymbol` shape at the seam where provider material becomes a domain owner — the retry/telemetry/span weaves ride the encode `async_boundary` caller, never re-built around a deterministic in-subprocess decode. The core never branches on success-or-failure: every `Barcode` admits, a checksum or format miss landing on `error` through the `_ERROR` table rather than aborting, so the rail decision is fixed at the source — an unreadable raster is the disjunctive abort the worker raises as `MarkDecodeError`, a found-but-invalid symbol is the conjunctive evidence kept on `DecodedSymbol.error`, a no-symbol raster is plain absence (`count=0`). `_zxing_decode` is the one body the encode `Mark` owner dispatches: it matches the `DecodeSource` case to the scanned image and the content-key bytes, imports Pillow only on the `Raster` arm (forcing the decode through `image.load()` inside the seam so the `UnidentifiedImageError`/`DecompressionBombError`/`OSError` family converts into the typed `DecodeFault.UNREADABLE` the `async_boundary` lifts before any deferred pixel read escapes the `except` mid-decode), wraps the `Pixels` frame in a `zxingcpp.ImageView` carrying its declared `PixelFormat` so the channel order is honored (a wrong-rank/dtype/channel frame that fails `ImageView` construction converts into `DecodeFault.MALFORMED` rather than escaping as a raw `IndexError`/`TypeError`/`ValueError`), and folds every `Barcode` into the shared `RasterFact` through `_projected`. `MarkDecodeError` carries the `DecodeFault` enum as its single argument so the raise pickles back across the `to_process` seam intact rather than reconstructing from a bare `str`. `recovered` is the inverse projection the rail consumer reads: the `_DECODER` reconstructs the typed `tuple[DecodedSymbol, ...]` from the `RasterFact.score[DecodeFact.SYMBOLS]` blob, so the typed decode evidence survives the `to_process` seam as `msgspec.json` wire bytes and the consumer never re-parses a `text|format|valid|position` string.
 
 ```mermaid
 flowchart LR
-    Compute["graphic/marks/encode: Mark._compute"] -->|"decode (gated raster-intake)"| Worker["to_process.run_sync(_zxing_decode)"]
-    Worker --> Scope["barcode_formats_from_str(...) | BarcodeFormat.All"]
-    Scope --> Open["PIL Image.open(payload)"]
-    Open --> Read["read_barcodes(image, formats=scope)"]
-    Read --> Score["per-symbol text/format/valid/position + count"]
-    Score --> Fact["RasterFact(payload, score)"]
-    Fact --> Receipt["ArtifactReceipt.Preview(key, 0, 0)"]
+    Compute["graphic/marks/encode: Mark._compute (decode arm)"] -->|"Raster source (gated)"| Worker["to_process.run_sync(_zxing_decode)"]
+    Compute -->|"Pixels source (in-process)"| Direct["_zxing_decode(frame, scope)"]
+    Worker --> Open["PIL Image.open(payload) | MarkDecodeError(UNREADABLE)"]
+    Direct --> Args
+    Open --> Args["_reader_args(scope): formats + ReaderOptions axis"]
+    Args --> Read["read_barcodes(scanned, return_errors=True)"]
+    Read --> Admit["_admitted: Barcode -> DecodedSymbol (content/error/position/extra)"]
+    Admit --> Fact["_projected -> RasterFact(data, w, h, score:{count,valid,symbols})"]
+    Fact --> Receipt["ArtifactReceipt.Preview(key, width, height)"]
+    Fact -.->|"recovered(fact)"| Typed["tuple[DecodedSymbol, ...]"]
 ```
 
 ## [03]-[RESEARCH]
 
-- [ZXING_DECODE_SETTLED] [RESOLVED]: the zxing-cpp `read_barcodes(image, formats=...)`/`barcode_formats_from_str`/`BarcodeFormat.All` decode surface is SETTLED fence code against the folder `.api` catalogue for `zxing-cpp` (`installed: 3.0.0` reflected by direct import on the cp315 floor; version via `importlib.metadata.version("zxing-cpp")`, the C++ extension carries no `__version__`). The catalogue `[03]-[ENTRYPOINTS]` decode row confirms `read_barcodes(image, formats=...) -> list[Barcode]` returning per-symbol `text`/`format`/`valid`/`position`/`orientation`/`error`/`content_type`/`ec_level`, so the `_zxing_decode` body is settled. Two 3.0 facts are load-bearing and verified by direct reflection: (1) the `|` format-union operator is DEPRECATED in 3.0 (`pass array or tuple instead`), so the `Decode` scope is built from `barcode_formats_from_str(",".join(...))` and the all-formats default is the `BarcodeFormat.All` set member (no `BarcodeFormat.Any` exists and `BarcodeFormats()` is not zero-arg constructible); (2) the `Position` quad spelling — `str(position)` = `"x0xy0 x1xy1 x2xy2 x3xy3"`, the `.top_left`/`.top_right`/`.bottom_right`/`.bottom_left` corner `Point`s — verifies against the folder `zxing-cpp` `.api` `[02]-[PUBLIC_TYPES]` rows [03]/[04] and `[03]-[ENTRYPOINTS]` decode rows. The encode/decode round-trip is verified: `create_barcode -> to_image -> read_barcodes` recovers the content with `valid=True` and the matching `format`.
-- [DECODE_SEAM] [RESOLVED]: `_zxing_decode` is the one arm crossing the `python_version<'3.15'` band through `anyio.to_process.run_sync(_zxing_decode, payload, formats)`, importing `zxingcpp`/`PIL` at boundary scope inside the gated-band worker, never on the cp315-core owner; the Pillow `Image.open` raster intake verifies against the folder `pillow` `.api`. The `zxingcpp` import itself resolves on the cp315 core (no companion-band gate) — the `Decode` arm crosses the `to_process.run_sync` seam ONLY because `read_barcodes` opens its raster through the gated-band Pillow `Image.open`, not because `zxingcpp` cannot import; the zxing `.api` `[04]` import-axis row confirms exactly this split (the SVG `create_barcode -> to_svg` path in-process on `graphic/marks/encode#MARK`, only the `to_image`/`read_barcodes` raster path on the gated-band Pillow worker here). `_zxing_decode` is a module-level function dispatched by qualified name across the process seam (`to_process.run_sync` cannot target a bound method or closure), so it stays out of the `Mark` owner deliberately, not as a stray helper. The one open item is the branch-catalogue gap the sibling `graphic/raster/io#RASTER_SEAM` already tracks: the branch `anyio` `.api` catalogue reflects `open_process`/`run_process`/`to_thread.run_sync`/`to_interpreter.run_sync` but no `to_process` row, so `assay api` reflection over `anyio.to_process` deepens the branch catalogue to match the settled owner spelling, never re-opening this fence.
-- [SHARED_FACT] [RESOLVED]: `RasterFact` is declared on the gated-band `graphic/raster/io#RASTER` owner and re-declared minimally on `graphic/marks/encode#MARK` (the `(data, width, height, score)` shape) so the decode worker folds the same fact into the shared `core/receipt#RECEIPT` `ArtifactReceipt.Preview` with no cross-owner import of the gated-band owner; this page reads `RasterFact`/`Symbology`/`SYMBOLOGIES` from the encode page rather than re-declaring them, keeping the `Mark`/`MarkOp` owner and its vocabulary on one page and the gated-band decoder body on this one.
-</content>
-</invoke>
+- [DECODE_SURFACE_SETTLED] [RESOLVED]: the full zxing-cpp decode surface is SETTLED fence code, reflected against `zxing-cpp` `3.0.0` by direct import on the cp315 floor (version via `importlib.metadata.version("zxing-cpp")`; the C++ extension carries no `__version__`). `read_barcodes(image, formats=BarcodeFormats(), try_rotate=True, try_downscale=True, try_invert=True, text_mode=TextMode.HRI, binarizer=Binarizer.LocalAverage, is_pure=False, ean_add_on_symbol=EanAddOnSymbol.Ignore, return_errors=False) -> list[Barcode]` is the verified signature (the `image` argument accepts a `numpy.ndarray`, a `PIL.Image.Image`, or a buffer), so the `DecodeScope` axis maps one-to-one onto the keyword tail and `_reader_args` threads exactly the admitted detector arguments. The `Barcode` read properties verify as `text`/`bytes`/`format`/`symbology`/`content_type`/`valid`/`error`/`orientation`/`ec_level`/`symbology_identifier`/`extra`/`position`, so `DecodedSymbol` captures the complete result (`Barcode.symbology` aliases `Barcode.format`, both the same `BarcodeFormat`); the prior `text|format|valid|position` score cram modeled four of twelve. The detector-policy enums verify complete — `Binarizer` `LocalAverage`/`GlobalHistogram`/`FixedThreshold`/`BoolCast`, `TextMode` `HRI`/`Plain`/`ECI`/`Escaped`/`Hex`/`HexECI`, `EanAddOnSymbol` `Ignore`/`Read`/`Require` — so the canonical `Binarize`/`TextRead`/`EanAddOn` vocabularies mirror every member (the prior `TextRead` dropped `HexECI`).
+- [FAULT_AND_CONTENT] [RESOLVED]: `ErrorType` verifies as `Checksum`/`Format`/`Unsupported`/`None` and `Barcode.error` is `None` on a clean symbol or a `zxingcpp.Error` carrying `.type` (an `ErrorType`) and `.message` on an invalid one, so `DecodeFault` closes the vocabulary over the three real `ErrorType` causes plus the `UNREADABLE` raster-open seam and the `MALFORMED` pixel-frame seam, and `_ERROR` maps `error.type` onto the three per-symbol causes; the malformed-frame seam is verified — a 1-D, a 4-channel, a `float64`, and a 0×0 array each raise `IndexError`/`TypeError`/`ValueError` at `ImageView` construction or read, converted to `MarkDecodeError(DecodeFault.MALFORMED)` rather than escaping the worker. `return_errors=True` is load-bearing — without it an invalid symbol is dropped, with it the symbol returns and its fault lands on `DecodedSymbol.error`. `ContentType` verifies as `Text`/`Binary`/`Mixed`/`GS1`/`ISO15434`/`UnknownECI`, mapped onto `ContentKind` through `_CONTENT`, so a decoded payload's kind is a typed classification (a GS1 application-identifier stream vs a binary blob vs ECI text) rather than an untyped string. `extra` verifies as a `dict` (`{'DataMask', 'Version', 'ECLevel'}` on a QR symbol), captured stringified onto `DecodedSymbol.extra`.
+- [FORMAT_SCOPE] [RESOLVED]: `barcode_formats_from_str("QRCode,Code128,DataMatrix,EAN13,Aztec,PDF417,MaxiCode,Codabar,ITF,UPCA,EAN8,MicroQRCode,Code39")` parses cleanly (every `_FORMAT` value is a verified `BarcodeFormat` display name, both separator spellings accepted), and `BarcodeFormat.AllReadable` is the verified readable-format set for the unscoped default. The set-valued format classes `AllMatrix`/`AllLinear`/`AllRetail`/`AllGS1`/`AllIndustrial`/`AllCreatable`/`All` all verify as `read_barcodes(formats=...)` scopes (a DataMatrix decoded under `AllMatrix`/`AllGS1`/`AllCreatable`/`AllReadable`/`All` and was correctly rejected under `AllLinear`/`AllRetail`/`AllIndustrial`), so the `_FAMILY` table admits a `FormatFamily` class scope reaching readable formats — `Code93`/`UPCE`/`DataBar*`/`RMQRCode`/`MicroPDF417`/`CompactPDF417` — no `Symbology` member names. The encode `SYMBOLOGIES` table is NOT the decode scope source — its `member` column is empty on the QR/Micro-QR/sequence and the eleven linear rows (they encode through segno and python-barcode, not zxing), so the prior `",".join(SYMBOLOGIES[s].member ...)` built a broken format string for any QR or linear scope; `_FORMAT` is the complete decode-direction map, with GS1-128/PZN/ISBN-13/ISSN folding onto their `Code128`/`Code39`/`EAN13` physical carriers.
+- [SOURCE_BAND] [RESOLVED]: `read_barcodes` decoding both a `numpy.ndarray` and a `zxingcpp.ImageView` is verified (round-trip recovers `valid=True` and the matching `format` through either input), so `DecodeSource.Pixels` carries an `NDArray[np.uint8]` plus its `PixelFormat` and wraps the frame in `zxingcpp.ImageView(frame, width, height, _PIXEL[fmt])` — the constructor `ImageView.__init__(buffer, width, height, format, row_stride=0, pix_stride=0)` and the `ImageFormat` members `RGB`/`BGR`/`RGBA`/`BGRA`/`ABGR`/`ARGB`/`Lum`/`LumA` all verified (each round-trip-decoded through `ImageView`, the `_PIXEL` table mapping every `PixelFormat` to one) — so the channel order is declared at the seam rather than inferred BGR/grayscale from array shape (a bare three-channel array reads BGR, swapping the RGB luminance weights, and a four-channel array misreads), decoded in-process on the cp315 core with no Pillow and no separate process, while `DecodeSource.Raster` opens bytes through the gated-band Pillow `Image.open` (forcing `image.load()` inside the `except` seam so the decompression-bomb/truncation fault converts before any deferred pixel read) and rides the `faults`-owned `to_process.run_sync` seam — the band is the source case, distinct from the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload that cannot host the gated Pillow stack. `zxingcpp` imports at module scope (un-gated, source-built on cp315), so the `_CONTENT`/`_ERROR`/`_BINARIZE`/`_TEXT_MODE`/`_EAN` tables key directly off the provider enums; only `PIL.Image` imports at the worker `raster` arm boundary, the single gated import.
+- [SHARED_FACT] [RESOLVED]: `RasterFact` is the `graphic/raster/io#RASTER` owner's value object re-declared minimally on `graphic/marks/encode#MARK` (the `(data, width, height, score)` shape), and the decode worker folds the same fact so `Mark._compute` projects one `ArtifactReceipt.Preview` regardless of op with no cross-owner import of the gated-band owner. The typed `tuple[DecodedSymbol, ...]` projects through `RasterFact.score[DecodeFact.SYMBOLS]` as a `msgspec.json` blob (`_SYMBOLS` encodes, `_DECODER`/`recovered` decode), so the typed evidence crosses the process seam as wire bytes; the `[SCORE_FACTS]` widening seam that threads those facts into the `core/receipt#RECEIPT` `_facts` projection is the sibling-tracked open item, never re-opened here.

@@ -1,6 +1,6 @@
 # [RASM_BIM]
 
-`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP/USD exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, the OpenUSD scene-graph codec (`UniversalSceneDescription`), the dedicated PLY codec (`Ply.Net`), the FBX/Collada/3MF scene exchange owner (`AssimpNetter`, retiring the BCL 3MF reader hand-roll), per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It owns the BIM-review surface: buildingSMART IDS v1.0 spec model and file-audit (`Xbim.InformationSpecifications` + `ids-lib`), the BCF 2.1/3.0 container-and-API codec (`Smino.Bcf.Toolkit`), and the 3D AABB BVH broad-phase backing clash/interference (`SwiftCollections.Lean`). It owns the georeferenced-BIM geospatial seam: the Simple-Features planar geometry algebra (`NetTopologySuite`), the shapefile/GeoPackage/GeoJSON vector codecs, the CityJSON urban-context codec (`bertt.CityJSON`), the GDAL/OGR raster+universal-vector ingest engine (`MaxRev.Gdal.Core`, osx-arm64 native), the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream codec (`subtree`), and the ASPRS LAS point-cloud decoder backing the scan-to-BIM ingest seam (`Themis.Las`), with `ProjNET` remaining the CRS/datum reprojection owner. It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
+`Rasm.Bim` is the host-neutral AEC-domain package owning the universal BIM object model and IFC/glTF/STEP/USD exchange and validation semantics. It owns the IFC semantic graph (in-process GeometryGym ingest, never tessellated BRep), the glTF/IFC/STEP import-export codec, the OpenUSD scene-graph codec (`UniversalSceneDescription`), the dedicated PLY codec (`Ply.Net`), the FBX/Collada/3MF scene exchange owner (`AssimpNetter`, retiring the BCL 3MF reader hand-roll), per-importer frame normalization, the `BimElement` vocabulary, the `ElementSet` query algebra, the bSDD-bound classification axis, and the host-neutral assembly tree. It owns the BIM-review surface: buildingSMART IDS v1.0 spec model and file-audit (`Xbim.InformationSpecifications` + `ids-lib`), the BCF 2.1/3.0 container-and-API codec (`Smino.Bcf.Toolkit`), and the 3D AABB BVH broad-phase backing clash/interference (`SwiftCollections.Lean`). It owns the georeferenced-BIM geospatial seam: the Simple-Features planar geometry algebra (`NetTopologySuite`), the shapefile/GeoPackage/GeoJSON vector codecs, the web-scale columnar GeoParquet codec (`GISBlox.IO.GeoParquet`) and the cloud-optimized streaming FlatGeobuf codec (`FlatGeobuf`), the KML/KMZ presentation codec (`SharpKml.Core`), the Mapbox Vector Tile authoring/encode/decode pair (`NetTopologySuite.IO.VectorTiles` + `NetTopologySuite.IO.VectorTiles.Mapbox`), the H3 hexagonal DGGS site-context keyer (`pocketken.H3`), the CityJSON urban-context codec (`bertt.CityJSON`), the GDAL/OGR raster+universal-vector ingest engine (`MaxRev.Gdal.Core`, osx-arm64 native), the 3D-Tiles 1.1 implicit-tiling `.subtree` availability-bitstream codec (`subtree`), and the ASPRS LAS/LAZ point-cloud decode front backing the scan-to-BIM ingest seam (`Themis.Las` uncompressed reader + `Unofficial.laszip.netstandard` LAZ decompression), with `ProjNET` remaining the CRS/datum reprojection owner. It owns the cost/schedule/planning surface: the first-class `Money`/`Currency`/`ExchangeRate` cost algebra (`NodaMoney`, meeting `UnitsNet` at the quantity x rate join), and the shared directed-graph algorithm owner (`QuikGraph`) collapsing the CPM topological-sort, MEP `SystemTrace` reachability, and commit-DAG common-ancestor walks. It owns the authoritative buildingSMART Pset_/Qto_ property-and-quantity template dataset (`Xbim.Properties`). It composes the kernel `Rasm` geometry, consumes the `Rasm.Compute` content-identity and companion tessellation rail at the seam, and meets `python:geometry/ifc-companion` ifcopenshell only at the wire. The domain map and forward work live in `ARCHITECTURE.md`, `IDEAS.md`, and `TASKLOG.md`.
 
 ## [01]-[ROUTER]
 
@@ -67,10 +67,14 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 
 [POINT_CLOUD]:
 - `Themis.Las`
+- `Unofficial.laszip.netstandard`
 
 [IDS_VALIDATION]:
 - `Xbim.InformationSpecifications`
 - `ids-lib`
+
+[PROPERTY_TEMPLATES]:
+- `Xbim.Properties`
 
 [BCF_ISSUES]:
 - `Smino.Bcf.Toolkit`
@@ -78,11 +82,20 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 [CLASH_SPATIAL]:
 - `SwiftCollections.Lean`
 
+[GRAPH_ALGORITHM]:
+- `QuikGraph`
+
 [GEOSPATIAL]:
 - `NetTopologySuite`
 - `NetTopologySuite.IO.Esri.Shapefile`
 - `NetTopologySuite.IO.GeoPackage`
 - `NetTopologySuite.IO.GeoJSON4STJ`
+- `GISBlox.IO.GeoParquet`
+- `FlatGeobuf`
+- `SharpKml.Core`
+- `NetTopologySuite.IO.VectorTiles`
+- `NetTopologySuite.IO.VectorTiles.Mapbox`
+- `pocketken.H3`
 - `bertt.CityJSON`
 - `MaxRev.Gdal.Core`
 - `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
@@ -96,6 +109,9 @@ The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages th
 
 [QUANTITY_UNIT]:
 - `UnitsNet`
+
+[COST_MONEY]:
+- `NodaMoney`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

@@ -1,5 +1,6 @@
 export const meta = {
   name: 'ideate',
+  whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
   description: 'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam, with Ripple bidirectionality. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
   phases: [
     { title: 'Survey', detail: 'per folder: map realized capability + current pool + researched domain-completeness gaps + cross-folder seams' },
@@ -15,14 +16,14 @@ const CARDLOG_SCHEMA = { type: 'object', additionalProperties: false, required: 
 
 // --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
 const CAP = 10

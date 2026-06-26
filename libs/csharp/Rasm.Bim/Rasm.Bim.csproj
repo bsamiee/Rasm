@@ -25,10 +25,12 @@
         <PackageReference Include="Ply.Net" />
         <PackageReference Include="AssimpNetter" />
         <PackageReference Include="Themis.Las" />
+        <PackageReference Include="Unofficial.laszip.netstandard" />
     </ItemGroup>
 
     <ItemGroup Label="Review">
         <PackageReference Include="Xbim.InformationSpecifications" />
+        <PackageReference Include="Xbim.Properties" />
         <PackageReference Include="ids-lib" />
         <PackageReference Include="Smino.Bcf.Toolkit" />
         <PackageReference Include="SwiftCollections.Lean" />
@@ -39,6 +41,12 @@
         <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" />
         <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
+        <PackageReference Include="GISBlox.IO.GeoParquet" />
+        <PackageReference Include="FlatGeobuf" />
+        <PackageReference Include="SharpKml.Core" />
+        <PackageReference Include="NetTopologySuite.IO.VectorTiles" />
+        <PackageReference Include="NetTopologySuite.IO.VectorTiles.Mapbox" />
+        <PackageReference Include="pocketken.H3" />
         <PackageReference Include="bertt.CityJSON" />
         <PackageReference Include="MaxRev.Gdal.Core" />
         <PackageReference Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" />
@@ -54,6 +62,8 @@
         <PackageReference Include="NodaTime" />
         <PackageReference Include="ProjNET" />
         <PackageReference Include="UnitsNet" />
+        <PackageReference Include="NodaMoney" />
+        <PackageReference Include="QuikGraph" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>

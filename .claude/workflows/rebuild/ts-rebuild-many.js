@@ -1,5 +1,6 @@
 export const meta = {
   name: 'ts-rebuild-many',
+  whenToUse: 'Hostile ground-up rebuild of many TypeScript design-page folders to the Effect-TS doctrine bar.',
   description: 'Per-FOLDER (not per-file) hostile ground-up rebuild of the libs/typescript design pages to the docs/stacks/typescript + coding-ts bar AND integration of every newly-admitted .api package into the design corpus. Marries plan-ts quality/focus (Effect-TS rails, Schema-first parse-not-validate boundaries, branded/nominal types, exhaustive discriminated unions, total dispatch with assertNever, ZERO any/throw/enum, ONE canonical declaration form per value, full both-tier .api stacking, justified in-place capability extension, the harsh adversarial stance) with implement-ts folder dispersal: ONE agent per folder across the five TypeScript planning folders, each folder run through a 3-step ADVERSARIAL cycle implement(max) -> critique(xhigh) -> redteam(max), every stage hostile (assume naive JavaScript-in-TypeScript or illusory until it survives attack). Each agent integrates the folder newly-filled .api capabilities into the EXISTING owning design page where one fits (grow the owner in place), or authors a NEW design page where the concept is a genuinely new owner with no existing home, justified and built ground-up per docs/stacks/typescript and the .planning page grammar, updating ARCHITECTURE + README. Each folder agent reads BOTH its folder .api catalogs AND the shared branch libs/typescript/.api substrate catalogs (the universal Effect/Schema/React rails catalogued once at the branch, consumed per folder). Then a cross-folder reconcile, and a FINAL whole-stack 1-2-3 alignment pass (align -> critique -> redteam by one series of agents over all folders at once) that aligns every seam/wire/port/boundary, kills duplication and dependency-direction violations, and ensures every folder fully leverages the shared/substrate tier. args = optional folder path or array; empty = all five TypeScript planning folders (interchange, platform, projection, services, ui).',
   phases: [
     { title: 'Realize', detail: 'per folder (1 agent/folder, pooled): implement(max) -> critique(xhigh) -> redteam(max), every stage adversarial; integrate each new .api into the existing owner or a new justified page; collapse + capability-extend the whole folder corpus, own-folder-only, cross-folder seams logged as residuals' },
@@ -20,7 +21,7 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 8
+const CAP = 10
 
 // --- [SCOPE] -- the five TypeScript planning folders; all standard layout ----------------------
 const SUBSTRATE = 'libs/typescript/.api'

@@ -10,8 +10,24 @@
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
+        <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="TYoshimura.DoubleDouble" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geometry">
+        <PackageReference Include="GShark" />
+        <PackageReference Include="LibTessDotNet" />
+        <PackageReference Include="Supercluster.KDTree.Net" />
+    </ItemGroup>
+
+    <ItemGroup Label="Computational Geometry">
+        <PackageReference Include="MIConvexHull" />
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="CavalierContours" />
+        <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
+        <PackageReference Include="Triangle" Aliases="TriangleNet" />
+        <PackageReference Include="geometry3Sharp" />
     </ItemGroup>
 
     <ItemGroup Label="Content Hash">

@@ -1,12 +1,12 @@
 # [APPUI_NOTEBOOK_DOCUMENT]
 
-The notebook rail is the reproducible computational-document model: `NotebookCell` is the closed cell-kind union (code, markdown, chart, render, viewpoint, parameter) each carrying a pinned capability fingerprint, `DependencyGraph` is the cell DAG whose dirty-propagation drives recompute over exactly the affected closure, `NotebookCrdt` is the conflict-free replicated document for co-editing through op-log merge, and `ReplayBundle` exports the notebook plus its pinned capabilities and inputs as a portable replay artifact. The page owns the cell union with its pinned-capability fingerprint, the dependency DAG and dirty-recompute fold, the CRDT co-edit merge, and the export-to-replay bundle; the substrate is the Compute capability registry and receipt determinism for pinned cells, AvaloniaEdit for code cells, the chart and render owners for output cells, the Persistence op-log for CRDT and replay, and the AppHost clock and HLC for ordering. Replay reproduces a notebook bit-identically because every cell pins the capability and inputs it ran against.
+The notebook rail is the reproducible computational-document model: `NotebookCell` is the closed cell-kind union (code, markdown, chart, render, viewpoint, parameter) each carrying a pinned capability fingerprint, `DependencyGraph` is the cell DAG whose dirty-propagation drives recompute over exactly the affected closure, `NotebookCoedit` projects the cell sequence onto the one `Editing/collab.md` `CollabDoc` merge authority for co-editing, and `ReplayBundle` exports the notebook plus its pinned capabilities and inputs as a portable replay artifact. The page owns the cell union with its pinned-capability fingerprint, the dependency DAG and dirty-recompute fold, the co-edit projection over the shared CRDT document, and the export-to-replay bundle; the substrate is the Compute capability registry and receipt determinism for pinned cells, AvaloniaEdit for code cells, the chart and render owners for output cells, the `Editing/collab.md` `CollabDoc` for co-editing, the Persistence op-log for replay, and the AppHost clock and HLC for ordering. Replay reproduces a notebook bit-identically because every cell pins the capability and inputs it ran against.
 
 ## [01]-[INDEX]
 
 - [01]-[CELL_MODEL]: Closed cell-kind union; pinned capability fingerprint per cell.
 - [02]-[DEPENDENCY_GRAPH]: Cell DAG, dirty propagation, recompute over the affected closure.
-- [03]-[CRDT_COEDIT]: Conflict-free replicated document; op-log merge co-editing.
+- [03]-[CRDT_COEDIT]: Cell-sequence projection over the one `CollabDoc` merge authority.
 - [04]-[REPLAY_BUNDLE]: Export-to-replay artifact with pinned capabilities and inputs.
 
 ## [02]-[CELL_MODEL]
@@ -170,63 +170,32 @@ public sealed record DependencyGraph(
 
 ## [04]-[CRDT_COEDIT]
 
-- Owner: `NotebookOp` `[Union]` the replicated edit operation; `NotebookCrdt` the conflict-free replicated document.
-- Entry: `public NotebookCrdt Apply(NotebookOp op)` — applies one replicated op idempotently; `public NotebookCrdt Merge(NotebookCrdt other)` — folds another replica's op-log into this one, converging without conflict.
-- Auto: each edit is a `NotebookOp` carrying its replica id and HLC stamp so the op-log totally orders by HLC with the replica id as the deterministic tiebreaker; cell insertion uses a fractional position index so two replicas inserting at the same spot converge to a stable order, cell deletion is a tombstone so a deleted cell never resurrects on merge, and cell-content edit is a last-writer-wins register keyed by HLC so concurrent edits to one cell resolve deterministically; `Merge` is commutative, associative, and idempotent so any two replicas that have seen the same op set hold the same document — the CRDT convergence law.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
-- Growth: a new replicated edit is one `NotebookOp` case; zero new surface.
-- Boundary: the op-log rides the Persistence op-log and change-feed so co-editing transports through the settled sync vocabulary and the notebook mints no second sync — the `NotebookOp` projects onto the Persistence `OpLogEntry` at the seam; convergence is the CRDT law so a central merge server is the deleted form — two offline replicas reconcile on reconnect; the fractional-index insertion order and the tombstone deletion make merge conflict-free so a three-way merge dialog for cell order is structurally unnecessary; content edits are last-writer-wins by HLC so a concurrent same-cell edit resolves deterministically and the loser's text surfaces as a superseded op in the log, never silently dropped.
+- Owner: `NotebookCoedit` the notebook projection over the one `Editing/collab.md#DOCUMENT_OWNER` `CollabDoc` merge authority.
+- Entry: `public Fin<NotebookCoedit> Open(CollabDoc document)` — attaches the notebook's `movable-list` cell-sequence container and per-cell `map` containers on the one document; `public Fin<Unit> Insert(int index, NotebookCell cell)` / `Move(int from, int to)` / `Delete(string cellId)` / `Retext(string cellId, string source)` — each a typed edit on the document's containers, the document converging without conflict.
+- Auto: the notebook holds NO replicated-op vocabulary, no last-writer-wins register, no fractional-index math, and no tombstone set — the `CollabDoc` IS the merge authority: the cell sequence is a `movable-list` container whose `Mov(from, to)` reorders by stable id without delete+insert losing identity (the textbook collaborative cell-reorder), a cell insert is `Insert*Container` at the index, a cell delete is the list `Delete` (the engine's tombstone is internal), and a code/markdown cell's `Source` is a `text` container per cell whose concurrent edits the engine's eg-walker text CRDT resolves character-granular rather than whole-cell last-writer-wins; convergence is the `CollabDoc` law so two replicas that have imported the same op-log deltas hold the same notebook; the materialized `Notebook` reads the live container state through `GetDeepValue` projected onto the typed cell union.
+- Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
+- Growth: a new co-edited notebook concern is one container attach on the existing document, never a new replicated-op case; zero new surface.
+- Boundary: co-editing rides the one `Editing/collab.md` `CollabDoc` owner — the bespoke `NotebookCrdt`/`NotebookOp` last-writer-wins-plus-fractional-index-plus-tombstone algebra is DROPPED root-up (the `[05]-[PROHIBITIONS]` second-CRDT clause), so the notebook composes the document's `SyncRail` (local-delta broadcast / remote-delta import) and holds no merge logic; the sync transports through the `CollabDoc` `SyncRail` over the Persistence op-log changefeed already owned so the notebook mints no second sync, and a central merge server is the deleted form (two offline replicas reconcile on reconnect through the engine); the cell reorder is `LoroMovableList.Mov` so a reorder preserves cell identity and a delete+reinsert that loses identity is the rejected form; a code cell's `Source` is a per-cell `text` container so concurrent same-cell edits resolve character-granular through the engine rather than a whole-cell last-writer-wins that drops one author's keystrokes; the presence carets ride the document's `Editing/collab.md#PRESENCE` ephemeral channel, never the durable cell op-log; the determinism-replay reproducibility (`[05]-[REPLAY_BUNDLE]`) is a distinct concern composing the AppHost determinism kernel and is never folded into the document time-travel.
 
 ```csharp signature
-public readonly record struct HlcStamp(long Physical, int Logical, string Replica) {
-    public int CompareTo(HlcStamp other) =>
-        Physical != other.Physical ? Physical.CompareTo(other.Physical)
-            : Logical != other.Logical ? Logical.CompareTo(other.Logical)
-            : string.CompareOrdinal(Replica, other.Replica);
-}
+public sealed record NotebookCoedit(CollabDoc Document, LoroMovableList Cells) {
+    public const string CellsContainer = "notebook.cells";
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record NotebookOp {
-    private NotebookOp() { }
-    public sealed record Insert(string CellId, double Position, NotebookCell Cell, HlcStamp At) : NotebookOp;
-    public sealed record Delete(string CellId, HlcStamp At) : NotebookOp;
-    public sealed record Edit(string CellId, string Source, HlcStamp At) : NotebookOp;
+    public static Fin<NotebookCoedit> Open(CollabDoc document) =>
+        document.Attach(CollabContainer.MovableList, CellsContainer)
+            .Bind(handle => handle.Container is LoroMovableList cells
+                ? Fin.Succ(new NotebookCoedit(document, cells))
+                : Fin.Fail<NotebookCoedit>(new CollabFault.Detached(CellsContainer)));
 
-    public HlcStamp At => Switch(insert: static i => i.At, delete: static d => d.At, edit: static e => e.At);
+    public Fin<Unit> Move(int from, int to) =>
+        CollabDoc.Lift(() => { Cells.Mov((uint)from, (uint)to); return unit; });
 
-    public string CellId => Switch(insert: static i => i.CellId, delete: static d => d.CellId, edit: static e => e.CellId);
-}
+    public Fin<Unit> Delete(int index) =>
+        CollabDoc.Lift(() => { Cells.Delete((uint)index, 1); return unit; });
 
-public sealed record NotebookCrdt(
-    string Key,
-    HashMap<string, (double Position, NotebookCell Cell, HlcStamp At)> Live,
-    Set<string> Tombstones,
-    Seq<NotebookOp> Log) {
-    public static NotebookCrdt Empty(string key) => new(key, HashMap<string, (double, NotebookCell, HlcStamp)>(), Set<string>(), Seq<NotebookOp>());
-
-    public NotebookCrdt Apply(NotebookOp op) =>
-        Log.Exists(seen => seen.At.Equals(op.At) && seen.CellId == op.CellId)
-            ? this
-            : op.Switch(
-                state: this,
-                insert: static (doc, i) => doc.Tombstones.Contains(i.CellId) ? doc with { Log = doc.Log.Add(i) } : doc with { Live = doc.Live.AddOrUpdate(i.CellId, (i.Position, i.Cell, i.At)), Log = doc.Log.Add(i) },
-                delete: static (doc, d) => doc with { Live = doc.Live.Remove(d.CellId), Tombstones = doc.Tombstones.Add(d.CellId), Log = doc.Log.Add(d) },
-                edit: static (doc, e) => doc.Live.Find(e.CellId).Match(
-                    Some: cur => e.At.CompareTo(cur.At) > 0 ? doc with { Live = doc.Live.AddOrUpdate(e.CellId, (cur.Position, Retext(cur.Cell, e.Source), e.At)), Log = doc.Log.Add(e) } : doc with { Log = doc.Log.Add(e) },
-                    None: () => doc with { Log = doc.Log.Add(e) }));
-
-    public NotebookCrdt Merge(NotebookCrdt other) =>
-        other.Log.OrderBy(static op => op.At, OpOrder).Fold(this, static (doc, op) => doc.Apply(op));
-
-    public Notebook Materialize(int version) =>
-        new(Key, version, toSeq(Live.Values).OrderBy(static entry => entry.Position).Map(static entry => entry.Cell).ToSeq());
-
-    private static NotebookCell Retext(NotebookCell cell, string source) =>
-        cell is NotebookCell.Code code ? code with { Source = source }
-            : cell is NotebookCell.Markdown md ? md with { Source = source }
-            : cell;
-
-    static readonly IComparer<HlcStamp> OpOrder = Comparer<HlcStamp>.Create(static (a, b) => a.CompareTo(b));
+    public Fin<LoroMap> Insert(int index, string cellId) =>
+        CollabDoc.Lift(() => Cells.InsertMapContainer((uint)index, new LoroMap()))
+            .Map(map => { map.Insert("id", LoroVal.Of(cellId)); return map; });
 }
 ```
 
@@ -311,8 +280,8 @@ flowchart LR
     NotebookCell --> CapabilityPin
     Notebook --> DependencyGraph
     DependencyGraph --> RecomputePlan
-    NotebookCell --> NotebookOp
-    NotebookOp --> NotebookCrdt
+    Notebook --> NotebookCoedit
+    NotebookCoedit --> CollabDoc
     Notebook --> ReplayBundle
     ReplayBundle --> NotebookReplay
 ```

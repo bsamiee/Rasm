@@ -64,6 +64,8 @@ Render/glb        →  typescript:ui/render                        # [RECEIPT]: 
 Render            ←  python:geometry/mesh                        # [SHAPE]: SharpGLTF GLB import per-element tessellation
 Editing/notebook  ←  csharp:Rasm.AppHost/Runtime                 # [PORT]: DeterminismContext / CapabilityPin environment identity
 Render/query      ←  csharp:Rasm.Bim/Model                       # [PORT]: ElementSet query algebra via capability descriptor
+Charts            ←  csharp:Rasm.Bim/Semantics/geospatial        # [SHAPE]: Basemap draws Bim-owned NetTopologySuite as map overlays beside the Wgpu viewport
+Charts            ←  csharp:Rasm.Bim/Planning                    # [RECEIPT]: ScheduleNetwork CPM/4D/CostSchedule/etc Render as Charts/dashboards projections
 Editing           ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: annotation collaboration op-log
 Editing/notebook  ←  csharp:Rasm.Persistence/Sync                # [PROJECTION]: NotebookOp op-log
 Render/pipeline   ←  csharp:Rasm.Compute/Runtime                 # [PROJECTION]: ResidencyManifest.Mint web geometry residency
@@ -75,7 +77,7 @@ Render            ←  csharp:Rasm.Fabrication/Posting/projection  # [RECEIPT]: 
 Render/pathtrace  ←  csharp:Rasm.Materials/Appearance            # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
 Editing/issues    ←  csharp:Rasm.Bim/coordination                # [PORT]: BCF issue-board domain
 Editing           ←  csharp:Rasm.Bim/coordination                # [DOMAIN]: BcfTopic/BcfComment/BcfViewpoint annotation domain
-Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: RevertibleOp forward/inverse delta replays as SyncOpKind durable inverse stream (ONE_REVERT_VOCABULARY)
+Editing/history   →  csharp:Rasm.Persistence/Sync                # [PROJECTION]: Forward/inverse delta replays as SyncOpKind durable inverse stream
 Render/shading    ⇄  csharp:Rasm.Compute                         # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
 Shell/controls    →  typescript:interchange/transport            # [WIRE]: ControlIntentWire kind-discriminated control vocabulary
 Shell/solver      →  typescript:ui/render                        # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program

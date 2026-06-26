@@ -4,12 +4,14 @@
 one shoelace / Green's-theorem polygon integral (with void subtraction + parallel-axis transfer) over any
 `IProfile` — that returns `Area`, elastic `Centroid`, `MomentOfInertia` Yy/Zz, `ElasticSectionModulus` Yy/Zz,
 `RadiusOfGyration` Yy/Zz, and `Perimeter` as `UnitsNet` quantities. `SectionProperties` is constructed from
-an `IProfile` (or `ISection`). The sibling `ConcreteSectionProperties` reinforced-concrete surface is
-ADMISSION-GATED ([01]-[ADMISSION_GATE]) — REAL in the assembly but UNREACHABLE from the admitted set, because its
-`IConcreteSection` input (and the `Rebars` kernel's `IRebar`/`ILongitudinalReinforcement`/`SectionFace` arguments)
-come from `VividOrange.Sections.Reinforcement`, which is NOT a nuspec dependency of this package and is NOT
-restored; the admitted, composable surface is the plain `SectionProperties(IProfile|ISection)` polygon integral.
-It is the COMPUTATION half of the Materials Profiles section-property seam — the DATA half is
+an `IProfile` (or `ISection`). The sibling `ConcreteSectionProperties : SectionProperties, IConcreteSectionProperties`
+reinforced-concrete surface is FIRST-CLASS COMPOSABLE ([01]-[RC_COMPOSITION_PATH]): its `IConcreteSection` input
+(and the `.Utility` `Rebars` kernel's `IRebar`/`ILongitudinalReinforcement`/`SectionFace` arguments) come from the
+admitted `VividOrange.Sections` `0.1.0` assembly (the `ConcreteSection` concrete + the full
+`VividOrange.Sections.Reinforcement` namespace, `api-vividorange-sections.md`) over the admitted
+`VividOrange.ISections` `0.1.0` floor (`IConcreteSection`/`IRebar`/`ILongitudinalReinforcement`/`SectionFace`), so a
+Materials RC owner builds a `ConcreteSection` and reads the transformed-section reinforcement properties with no
+further admission. It is the COMPUTATION half of the Materials Profiles section-property seam — the DATA half is
 `VividOrange.Profiles.Catalogue` (`api-vividorange-profiles-catalogue.md`), whose `CatalogueFactory` produces
 the `IProfile` this solver consumes. One solver replaces the per-family rectangular section-property literals
 across the Profiles families (timber/CMU/masonry/composite); it composes the in-folder `UnitsNet` quantity
@@ -27,7 +29,7 @@ owner (`api-unitsnet.md`).
 - rail: profiles (section computation)
 - ABI floor: a `0.1.0` PRE-1.0 contract — the `ISectionProperties` member set may break across a minor bump. The full transitive floor (`VividOrange.Sections.ISectionProperties`, `VividOrange.Profiles.Perimeter`, `VividOrange.Geometry`/`IGeometry`/`ICartesianBase` at `1.8.0`, `VividOrange.Profiles`/`ISections`/`IMaterials`/`IStandards` at `0.1.0`) is centrally pinned for deterministic restore; `UnitsNet` `5.75.0` is the shared quantity floor. `AreaMomentOfInertia` is a `UnitsNet` quantity present on the consumed `net9.0`+ surface.
 
-[ADMISSION_GATE]: the reinforced-concrete surface — `ConcreteSectionProperties`, the `IConcreteSectionProperties` floor contract, and the `.Utility` `Rebars` kernel — is REAL in the assembly but UNREACHABLE from the admitted Materials set. Constructing it requires an `IConcreteSection` (carrying `Rebars`/`Link`) plus `IRebar`/`ILongitudinalReinforcement`/`ILink`/`SectionFace` from `VividOrange.Sections.Reinforcement`, which is NOT a nuspec dependency of this package (the deps are only `VividOrange.Sections.ISectionProperties` / `VividOrange.Geometry` / `VividOrange.Profiles.Perimeter`) and is NOT restored anywhere (`uv run python -m tools.assay api resolve --key vividorange.sections.reinforcement` -> `no source; unknown`; every reinforcement member decompiles with `missing references`). The `Rebars` kernel ships in this assembly's `.Utility`, but every public method parameter (`IConcreteSection` / `IRebar` / `IEnumerable<ILongitudinalReinforcement>` / `SectionFace`) is a reinforcement-floor type, so it is uncallable until that floor is admitted. COMPOSING the RC surface is a two-step cross-folder action — admit `VividOrange.Sections.Reinforcement` (a survey-gaps admission) AND place a reinforced-concrete section owner — NOT realizable from the current admitted set; until then a design page composes ONLY the plain `SectionProperties(IProfile|ISection)` solver (the `ParametricSection` bridge the Profiles pages already use), never `ConcreteSectionProperties`.
+[RC_COMPOSITION_PATH]: the reinforced-concrete surface — `ConcreteSectionProperties : SectionProperties, IConcreteSectionProperties, ISectionProperties, ITaxonomySerializable`, the `IConcreteSectionProperties` floor contract, and the `.Utility` `Rebars` kernel — is FIRST-CLASS COMPOSABLE from the admitted Materials set. The `IConcreteSection` it consumes (carrying `IList<ILongitudinalReinforcement> Rebars`, `ILink Link`, `Length Cover`) lives in the admitted `VividOrange.ISections` `0.1.0` floor (namespace `VividOrange.Sections`), and the `IRebar` (`Length Diameter`; `IMaterial Material`) / `ILongitudinalReinforcement` (`IRebar Rebar`; `int CountPerBundle`) / `ILink` / `SectionFace` arguments resolve to the admitted `VividOrange.Sections.Reinforcement` floor (same `VividOrange.ISections` assembly). The `ConcreteSection` concrete plus the full `VividOrange.Sections.Reinforcement` namespace (`Rebar`/`Link`/`LongitudinalReinforcement`/`FaceReinforcementLayer`/`PerimeterReinforcementLayer`/`ReinforcementLayoutByCount`/`BySpacing`/`MinimumReinforcementSpacing`) ship in the admitted `VividOrange.Sections` `0.1.0` assembly (`api-vividorange-sections.md`), centrally pinned + restored. The `Rebars` kernel ships in this assembly's `.Utility` (`CalculateArea(IEnumerable<ILongitudinalReinforcement>)` / `CalculateArea(IRebar)` / `CalculateArea(IConcreteSection, SectionFace)` / `CalculateEffectiveDepth(IConcreteSection, SectionFace)` / `CalculateInertiaYy/Zz(IConcreteSection)` / `CalculateRadiusOfGyrationYy/Zz(IConcreteSection)`) and every parameter type is now reachable, so it is directly callable. A design page composes the RC surface in one folder-local action — build a `ConcreteSection` from an admitted `IProfile` + EN material + a face/perimeter rebar-layer arrangement (`api-vividorange-sections.md`), then `new ConcreteSectionProperties(thatSection)` reads the transformed-section reinforcement properties — alongside the plain `SectionProperties(IProfile|ISection)` solver. The same `IConcreteSection` feeds the `VividOrange.InteractionDiagram` N-M-M capacity engine (`api-vividorange-interactiondiagram.md`), so the elastic transformed-section properties and the ultimate capacity hull share one RC section input.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -37,9 +39,9 @@ owner (`api-unitsnet.md`).
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]      | [CAPABILITY]                                                                |
 | :-----: | :-------------------------- | :------------------ | :-------------------------------------------------------------------------- |
 |  [01]   | `SectionProperties`         | property carrier    | `ISectionProperties` over any `IProfile`/`ISection` — the polygon-integral solver |
-|  [02]   | `ConcreteSectionProperties` | property carrier (gated) | ADMISSION-GATED ([01]-[ADMISSION_GATE], unreachable) — `SectionProperties` + reinforcement properties over an `IConcreteSection` (its `Rebars`/`Link` from the UNADMITTED `VividOrange.Sections.Reinforcement`: `ILongitudinalReinforcement`/`IRebar`/`ILink`) |
+|  [02]   | `ConcreteSectionProperties` | property carrier (RC) | `: SectionProperties, IConcreteSectionProperties` — `SectionProperties` + reinforcement properties over an `IConcreteSection` (its `Rebars`/`Link` from the admitted `VividOrange.Sections`: `ILongitudinalReinforcement`/`IRebar`/`ILink`, `api-vividorange-sections.md`); first-class composable ([01]-[RC_COMPOSITION_PATH]) |
 |  [03]   | `ISectionProperties`        | contract (floor)    | the property-surface contract (`: ITaxonomySerializable`) — lives in the `VividOrange.Sections.ISectionProperties` floor, NOT this assembly |
-|  [04]   | `IConcreteSectionProperties`| contract (floor, gated) | ADMISSION-GATED ([01]-[ADMISSION_GATE], unreachable) — `ISectionProperties` + the reinforcement members (incl. `EffectiveDepth(SectionFace)` / `ReinforcementArea(SectionFace)`) — in the floor; its members reference the UNADMITTED `VividOrange.Sections.Reinforcement` `SectionFace` |
+|  [04]   | `IConcreteSectionProperties`| contract (floor, RC) | `: ISectionProperties` + the reinforcement members (incl. `EffectiveDepth(SectionFace)` / `ReinforcementArea(SectionFace)`) — in the floor; its `SectionFace` member type resolves from the admitted `VividOrange.ISections` floor ([01]-[RC_COMPOSITION_PATH]) |
 
 [PUBLIC_TYPE_SCOPE]: static polygon-integral kernels (`.Utility`)
 - rail: profiles
@@ -50,9 +52,9 @@ NOT a bare shoelace over straight edges: the perimeter is decomposed into typed 
 sub-namespace (`IPart` with the `TrapezoidalPart` and `EllipseQuarterPart` implementations), so a fillet, a
 rounded-rectangle HSS corner, or a circular/elliptical edge integrates exactly rather than being polygonized. The
 `ProfileParts` / `PerimeterProfiles` types are the `internal`-mechanism part builders driving that decomposition —
-they expose no consumer-callable surface and are not entrypoints. The `Rebars` kernel listed below is the one
-`.Utility` member that is NOT directly callable from the admitted set — its arguments are
-`VividOrange.Sections.Reinforcement` types, so it is admission-gated ([01]-[ADMISSION_GATE]).
+they expose no consumer-callable surface and are not entrypoints. The `Rebars` kernel listed below is the
+`.Utility` member whose arguments are `VividOrange.Sections.Reinforcement` / `IConcreteSection` types; those floor
+types are admitted (`api-vividorange-sections.md`), so it is directly callable ([01]-[RC_COMPOSITION_PATH]).
 
 | [INDEX] | [SYMBOL]            | [PACKAGE_ROLE] | [CAPABILITY]                                                                  |
 | :-----: | :------------------ | :------------- | :---------------------------------------------------------------------------- |
@@ -63,7 +65,7 @@ they expose no consumer-callable surface and are not entrypoints. The `Rebars` k
 |  [05]   | `RadiusOfGyrations` | static kernel  | `CalculateRadiusOfGyrationYy/Zz(IProfile)` -> `Length` (`sqrt(I / A)`)         |
 |  [06]   | `PerimeterLengths`  | static kernel  | `CalculatePerimeter(IProfile)` -> `Length` (polygon edge sum)                 |
 |  [07]   | `Extends`           | static kernel  | `GetDomain(IProfile)` -> `ILocalDomain2d` (bounding extents)                  |
-|  [08]   | `Rebars`            | static kernel (gated) | ADMISSION-GATED ([01]-[ADMISSION_GATE], uncallable) — the concrete-section reinforcement surface `CalculateArea`/`CalculateInertiaYy/Zz`/`CalculateRadiusOfGyrationYy/Zz`/`CalculateEffectiveDepth`; ships in `.Utility` but every argument type (`IConcreteSection`/`IRebar`/`ILongitudinalReinforcement`/`SectionFace`) is from the UNADMITTED `VividOrange.Sections.Reinforcement` floor |
+|  [08]   | `Rebars`            | static kernel (RC) | the concrete-section reinforcement surface — `CalculateArea(IEnumerable<ILongitudinalReinforcement>)` / `CalculateArea(IRebar)` / `CalculateArea(IConcreteSection, SectionFace)` / `CalculateInertiaYy/Zz(IConcreteSection)` / `CalculateRadiusOfGyrationYy/Zz(IConcreteSection)` / `CalculateEffectiveDepth(IConcreteSection, SectionFace)`; ships in `.Utility` and every argument type (`IConcreteSection`/`IRebar`/`ILongitudinalReinforcement`/`SectionFace`) resolves from the admitted `VividOrange.Sections`/`ISections` floor — directly callable ([01]-[RC_COMPOSITION_PATH]) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -82,9 +84,9 @@ they expose no consumer-callable surface and are not entrypoints. The `Rebars` k
 |  [08]   | `SectionProperties.Perimeter`                   | property       | `UnitsNet.Length` — the section perimeter                                   |
 |  [09]   | `SectionProperties.Extends`                     | property       | `ILocalDomain2d` — the bounding extents (lazy, cached)                       |
 
-[ENTRYPOINT_SCOPE]: reinforced-concrete surface (`ConcreteSectionProperties`) — ADMISSION-GATED ([01]-[ADMISSION_GATE])
+[ENTRYPOINT_SCOPE]: reinforced-concrete surface (`ConcreteSectionProperties`) — FIRST-CLASS COMPOSABLE ([01]-[RC_COMPOSITION_PATH])
 - rail: profiles
-- gate: UNREACHABLE from the admitted set — every entry below needs an `IConcreteSection`/`SectionFace` from the UNADMITTED `VividOrange.Sections.Reinforcement` floor; compose only after that floor is admitted, never from the current Materials set
+- composition law: every entry below takes an `IConcreteSection`/`SectionFace` from the admitted `VividOrange.Sections`/`ISections` floor (`api-vividorange-sections.md`) — build a `ConcreteSection` (profile + EN material + rebar layers) and construct `new ConcreteSectionProperties(section)`; the same section also feeds the `VividOrange.InteractionDiagram` capacity engine
 
 | [INDEX] | [SURFACE]                                       | [CALL_SHAPE]   | [CAPABILITY]                                                                |
 | :-----: | :---------------------------------------------- | :------------- | :-------------------------------------------------------------------------- |
@@ -113,7 +115,7 @@ they expose no consumer-callable surface and are not entrypoints. The `Rebars` k
 
 [SOLVER_ALGEBRA]:
 - carrier root: `SectionProperties(IProfile|ISection)` -> lazy `UnitsNet`-typed property getters
-- concrete extension (ADMISSION-GATED, [01]-[ADMISSION_GATE] — REAL but UNREACHABLE until `VividOrange.Sections.Reinforcement` is admitted): `ConcreteSectionProperties(IConcreteSection)` -> reinforcement properties + `SectionFace` queries
+- concrete extension (FIRST-CLASS COMPOSABLE, [01]-[RC_COMPOSITION_PATH] — the `IConcreteSection`/reinforcement floor is admitted via `VividOrange.Sections`): `ConcreteSectionProperties(IConcreteSection)` -> reinforcement properties + `SectionFace` queries
 - kernel root: the `.Utility` `static` Green's-theorem integrals (`Areas`/`Inertiae`/`SectionModuli`/`Centroids`/`RadiusOfGyrations`/`PerimeterLengths`)
 - input root: `IProfile` (the perimeter — outer boundary + void edges, straight `TrapezoidalPart`s and curved `EllipseQuarterPart`s) from the catalogue or a parametric profile
 - output root: `UnitsNet` quantities (`Area`, `Volume`, `AreaMomentOfInertia`, `Length`, `Ratio`) + `ILocalPoint2d`/`ILocalDomain2d` geometry
@@ -154,6 +156,13 @@ they expose no consumer-callable surface and are not entrypoints. The `Rebars` k
   (steel/CMU/timber/masonry/composite), not steel alone — the timber/CMU/masonry families that previously needed
   rectangular closed-form literals now compute through the same `IProfile` polygon integral, collapsing the
   per-family property literals into one dispatch.
+- RC seam: the `ConcreteSectionProperties(IConcreteSection)` carrier + the `.Utility` `Rebars` kernel compute the
+  transformed-section reinforcement properties (`TotalReinforcementArea`/`ConcreteArea`/`GeometricReinforcementRatio`/
+  `ReinforcementSecondMomentOfAreaYy/Zz`/`EffectiveDepth(SectionFace)`/`CrossSectionalShearReinforcementArea`) over the
+  `ConcreteSection` minted by the admitted `VividOrange.Sections` (`api-vividorange-sections.md`) — the same
+  `IConcreteSection` the `VividOrange.InteractionDiagram` N-M-M capacity engine consumes
+  (`api-vividorange-interactiondiagram.md`); one RC section input drives both the elastic transformed-section
+  properties here and the ultimate biaxial capacity hull there ([01]-[RC_COMPOSITION_PATH]).
 - geometry seam: the `Centroid`/`Extends` returns are `VividOrange.Geometry` `ILocalPoint2d`/`ILocalDomain2d`
   (the transitive `1.8.0` floor); the perimeter polygon the integral iterates is `VividOrange.Profiles.Perimeter`
   `IPerimeter` — a parametric (non-catalogued) section feeds the solver by constructing an `IProfile` over an
@@ -163,8 +172,12 @@ they expose no consumer-callable surface and are not entrypoints. The `Rebars` k
 - Package: `VividOrange.Sections.SectionProperties` `0.1.0` (MIT, pure-managed AnyCPU, `net10.0` binds `net9.0`, PRE-1.0 contract)
 - Owns: the arbitrary-closed-polygon section-property solver (shoelace/Green's-theorem integral with void
   subtraction + parallel-axis transfer) over any `IProfile`, the `SectionProperties`/`ConcreteSectionProperties`
-  carriers, the `.Utility` `static` kernels, and (ADMISSION-GATED, [01]-[ADMISSION_GATE] — unreachable until `VividOrange.Sections.Reinforcement` is admitted) the reinforced-concrete reinforcement surface — all returning `UnitsNet` quantities
+  carriers, the `.Utility` `static` kernels, and (FIRST-CLASS COMPOSABLE, [01]-[RC_COMPOSITION_PATH] — the
+  `IConcreteSection`/reinforcement floor is admitted via `VividOrange.Sections`) the reinforced-concrete transformed-section reinforcement surface — all returning `UnitsNet` quantities
 - Accept: a section property computed for the Materials Profiles family axis from an `IProfile` (catalogued or
-  parametric), read as a `UnitsNet` quantity, the carrier admitted at the boundary
+  parametric), read as a `UnitsNet` quantity, the carrier admitted at the boundary; a reinforced-section property
+  read from `ConcreteSectionProperties` over a `ConcreteSection` built from the admitted `VividOrange.Sections` floor
 - Reject: a per-family rectangular section-property literal where the polygon integral computes it; a raw-`double`
-  read of a `UnitsNet` property; a section-property computation that bypasses the `IProfile` perimeter contract
+  read of a `UnitsNet` property; a section-property computation that bypasses the `IProfile` perimeter contract;
+  treating the RC transformed-section surface as admission-gated (the `IConcreteSection`/reinforcement floor IS
+  admitted, [01]-[RC_COMPOSITION_PATH])

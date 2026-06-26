@@ -12,6 +12,7 @@
 
 export const meta = {
   name: 'planning-card-triage',
+  whenToUse: 'Pull the open planning cards for a scope, keep the high-priority ones, and realize plus verify each.',
   description: 'Pull open planning cards for a scope, realize the ones at/above a priority, verify each',
   phases: [
     { title: 'Pull cards' },

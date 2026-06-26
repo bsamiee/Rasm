@@ -1,5 +1,6 @@
 export const meta = {
   name: 'design-python-numerics',
+  whenToUse: 'Build the docs/stacks/python numerics doctrine folder, after the python core is hardened.',
   description: 'The NUMERICS track of the docs/stacks/python doctrine rebuild — a SEPARATE, deeper track parallel to design-python-domain (run after harden-python-core; before reconcile-python-stack). Researches, designs, builds, and MULTIPLY hardens a focused docs/stacks/python/numerics/ folder of numerical and scientific-computing doctrine: linear algebra and solvers, optimization, differential equations, symbolic and exact arithmetic, signal/spectral and wavelets, graph algorithms, probabilistic and Bayesian inference, autodiff and JIT, sensitivity/uncertainty and units, interpolation and quadrature. It fully leverages the admitted scientific package set in pyproject.toml as ONE cohesive set of pages that STACK the deepest primitives each package reaches, grounded in bleeding-edge technique and world-class OSS practice (not abstract hand-waving). The hardened algorithms.md is read as seed and then superseded and retired. Phases: Research (per sub-domain, modern technique + OSS practice + scientific .api + pyproject) -> Draft (3 design angles) -> Judge -> Decide (red-team gate emits the focused file set + skeletons BEFORE build) -> Build (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Harden (TWO sequential integration+densify passes) -> Atlas (retire algorithms.md, register numerics/) -> Reconcile. SHOW-not-tell: packages appear only as verified code members in snippets, never named in prose. The csharp doc set is the READ-ONLY density reference; every edit is scoped to docs/stacks/python. Takes no args.',
   phases: [
     { title: 'Ideate', detail: 'one broad agent derives the agnostic/universal numeric sub-domain set from all scientific .api + world-class OSS algorithm projects, anticipating ultra-complex needs (project-decoupled), refining the operator seed' },
@@ -28,7 +29,7 @@ const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, r
 // --- [HARNESS] ---------------------------------------------------------------------------
 const STAGGER_MS = 1500
 const STALL = 300000
-const CAP = 12
+const CAP = 10
 const HARDEN_PASSES = 2
 const ROOT = 'docs/stacks/python'
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))

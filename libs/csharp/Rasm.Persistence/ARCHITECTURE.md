@@ -39,7 +39,7 @@ Rasm.Persistence/
 └── Sync/                 # Collaboration, annotation, schedule, egress, and coordination sync rails
     ├── Collaboration.cs  # Op-log changefeed, HLC-stamped LWW merge, and three sync transports
     ├── Annotation.cs     # Generic durable-annotation anchoring + op-log/CDE OAuth2 sync (BCF domain in Rasm.Bim)
-    ├── Schedule.cs       # Durable external-scheduler P6/MS-Project rows + sync (4D/CPM domain in Rasm.Bim)
+    ├── Schedule.cs       # Durable external-scheduler store: MPXJ.Net ~20-format ingress (P6/MS-Project/…) into one ScheduleNetwork, CPM float algebra + resident-overlay drift, export to 7 FileFormats (4D/CPM domain in Rasm.Bim)
     ├── Egress.cs         # EgressSink axis, EgressPump op-log-drain fold, and CloudEvents envelope
     └── Coordination.cs   # Fenced-CAS CoordCell store: per-tenant Budget ledger, workflow step-state, transactional outbox under TenantId RLS
 ```
@@ -56,6 +56,7 @@ Version/commits     ⇄  python:runtime/transport           # [WIRE]: CrdtOpWire
 Version/snapshots   →  typescript:interchange/codec       # [WIRE]: SnapshotHeaderWire
 Version/commits     →  typescript:interchange/refinement  # [SHAPE]: JsonPointer RFC6901 Guid brand
 *                   ←  csharp:Rasm.Compute                # [CONTENT_KEY]: content-keyed blob
+Query               ←  csharp:Rasm/Geometry/Spatial       # [CONTENT_KEY]: CanonicalTopology→GeometryHash XxHash128 canonical-byte content-identity the kernel reconciliation fence projects onto the Persistence-owned GeometryHash durable identity, over the shared System.IO.Hashing substrate
 Query/cache         ⇄  csharp:Rasm.Compute/Runtime/codecs # [CONTENT_KEY]: ContentIdentity XxHash128 seed-zero two-half
 Query/cache         →  csharp:Rasm.Bim/Model              # [CONTENT_KEY]: ArtifactIndexRow IfcSemantic content-addressed model graph
 Query/lanes         ⇄  csharp:Rasm.Compute/Runtime        # [CONTENT_KEY]: EmbeddingIdentity content x model-id x arity

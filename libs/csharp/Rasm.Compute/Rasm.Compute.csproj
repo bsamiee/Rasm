@@ -23,6 +23,11 @@
         <PackageReference Include="libtorch-cpu" />
     </ItemGroup>
 
+    <ItemGroup Label="Symbolic">
+        <PackageReference Include="FParsec" />
+        <PackageReference Include="MathNet.Symbolics" />
+    </ItemGroup>
+
     <ItemGroup Label="Models">
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />

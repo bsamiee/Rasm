@@ -138,12 +138,13 @@ public sealed record AssemblyCost(Currency Currency, MeasurementBasis Basis, dou
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static partial class AssemblyAggregator {
+    // The generated total Switch over the closed trichotomy — a ProfileSet member carries no embodied-carbon plies to
+    // sum, so its arm rails the typed fault; a fourth case would break this dispatch at compile time, never a `_` arm.
     public static Fin<AssemblyLifecycle> AggregateEnvironmental(MaterialAssignment assignment, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<PlyQuantity> quantities, double areaM2, Op key) =>
-        assignment switch {
-            MaterialAssignment.LayerSet set => AggregateLayerGwp(set, resolve, quantities, areaM2, key),
-            MaterialAssignment.ConstituentSet set => AggregateConstituentGwp(set, resolve, quantities, key),
-            _ => MaterialFault.Parameter(key, "<environmental-aggregation-requires-layer-or-constituent-set>"),
-        };
+        assignment.Switch(
+            layerSet:       set => AggregateLayerGwp(set, resolve, quantities, areaM2, key),
+            constituentSet: set => AggregateConstituentGwp(set, resolve, quantities, key),
+            profileSet:     _   => MaterialFault.Parameter(key, "<environmental-aggregation-requires-layer-or-constituent-set>"));
 
     static Fin<AssemblyLifecycle> AggregateLayerGwp(MaterialAssignment.LayerSet set, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<PlyQuantity> quantities, double areaM2, Op key) =>
         set.Layers.Fold(
@@ -170,13 +171,13 @@ public static partial class AssemblyAggregator {
     // thickness × area), a ConstituentSet the constituent-Fraction-weighted cost; folding the flat assignment.Materials
     // set instead would discard the per-layer thickness (every gypsum ply scaled by one Qty) and ignore the mixture
     // fractions, so the cost fold discriminates the assignment shape exactly as AggregateEnvironmental does.
+    // The cost rail spans all three cases (a ProfileSet member has a unit supply/install cost), so every arm of the
+    // generated total Switch projects its plies — a fourth case would break this dispatch at compile time.
     public static Fin<AssemblyCost> AggregateCost(MaterialAssignment assignment, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Seq<PlyQuantity> quantities, double areaM2, Op key) =>
-        assignment switch {
-            MaterialAssignment.LayerSet set => AccumulateCost(set.Layers.Map(l => (l.Material, Quantity: PlyQty(quantities, l.Material, l.ThicknessMm.Value / 1000.0 * areaM2))), resolve, key),
-            MaterialAssignment.ConstituentSet set => AccumulateCost(set.Constituents.Map(c => (c.Material, Quantity: PlyQty(quantities, c.Material, 1.0))), resolve, key),
-            MaterialAssignment.ProfileSet set => AccumulateCost(Seq1((set.Material, Quantity: PlyQty(quantities, set.Material, 1.0))), resolve, key),
-            _ => MaterialFault.Parameter(key, "<cost-aggregation-requires-layer-profile-or-constituent-set>"),
-        };
+        assignment.Switch(
+            layerSet:       set => AccumulateCost(set.Layers.Map(l => (l.Material, Quantity: PlyQty(quantities, l.Material, l.ThicknessMm.Value / 1000.0 * areaM2))), resolve, key),
+            constituentSet: set => AccumulateCost(set.Constituents.Map(c => (c.Material, Quantity: PlyQty(quantities, c.Material, 1.0))), resolve, key),
+            profileSet:     set => AccumulateCost(Seq1((set.Material, Quantity: PlyQty(quantities, set.Material, 1.0))), resolve, key));
 
     static Fin<AssemblyCost> AccumulateCost(Seq<(MaterialId Material, double Quantity)> plies, Func<MaterialId, Fin<MaterialPropertySet>> resolve, Op key) =>
         plies.Fold(

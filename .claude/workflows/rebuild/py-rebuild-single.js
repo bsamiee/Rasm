@@ -11,19 +11,21 @@ export const meta = {
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['pages'], properties: { pages: { type: 'array', items: { type: 'string' } } } }
 const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['file', 'verdict', 'summary'], properties: { file: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
 
-// --- [HARNESS] -- bounded worker pool: steady <=cap concurrent, no burst ----------------
+// --- [HARNESS] -- bounded worker pool: <=CAP pages in flight, launches spaced STAGGER_MS apart
+// for a gradual roll-out; each stage is a journaled agent() call, so a paused or usage-limited
+// run resumes from the journal. ---------------------------------------------------------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 8
+const CAP = 10
 
 // --- [INPUT] -- args = optional scope under the language root (folder name or sub-path; empty/"ALL" = whole root) ---
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
@@ -106,10 +108,10 @@ const finalCollapsePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, 
 const finalCritiquePrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '', 'TASK: HARSHER CROSS-FILE AUDIT of the wide-scope collapse + FIX IN PLACE. You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a cross-file defect remains until you prove otherwise; trust NOTHING the collapse pass or the prose claimed. Re-walk the WHOLE scope under ' + SWEEP + ': a concern still split across files, a parallel / near-duplicate shape or pipeline or logic-flow not yet unified, a second rail family / second polymorphism approach / divergent owner form still standing, an illusory differentiation or decorative-complexity fence the collapse missed, chaff still inflating the footprint, a capability dropped instead of densified. Run the 12-signal COLLAPSE_SCAN CROSS-FILE and apply every triggered move. Repair every hit in place across the spanned pages, preserving all capability and regressing no page. Return verdict + collapsed + residual + summary.'].join('\n')
 const finalRedteamPrompt = () => [LAW, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '', WIDE, '', 'TASK: HARSHEST CROSS-FILE RED-TEAM of the wide-scope collapse — the LAST and most aggressive whole-scope pass. Trust nothing the collapse / critique claimed; the burden of proof is on the corpus. COUNTERFACTUALLY attack the cross-file ownership: is each shared concept on its ONE rightful owner; is each rail family / polymorphism approach / owner form genuinely unified to ONE across the scope; does any pair of pages still model one concept as two; is any differentiation illusory or any density decorative; is any footprint still chaff a denser owner would erase; was any capability regressed by the collapse? Will the next case / dimension / modality land as ONE declaration inside the unified owner with every cross-file consumer untouched or broken loudly at type-check (`ANTICIPATORY_COLLAPSE`)? Fix every defect in place across the spanned pages; if the scope is genuinely one coherent, fully-unified body, prove it by finding nothing — never invent churn. Return verdict + collapsed + residual + summary.'].join('\n')
 
-const processPage = async (w, tag) => {
+const processPage = async (w) => {
   const logs = {}
   for (const st of STAGES) {
-    const r = await agent(st.build(w.page), { label: st.key + ':' + folderOf(w.page) + ':' + subOf(w.page), phase: tag + folderOf(w.page), schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: 300000 })
+    const r = await agent(st.build(w.page), { label: st.key + ':' + folderOf(w.page) + ':' + subOf(w.page), phase: 'Rebuild-' + folderOf(w.page), schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: 300000 })
     if (r === null) break
     logs[st.key] = r
   }
@@ -121,10 +123,10 @@ phase('Discover')
 const inv = await agent('List every design page under ' + SWEEP + ' — markdown specs at paths matching */.planning/**/*.md. Return each as a repo-relative path (e.g. ' + ROOT + '/<folder>/.planning/<sub>/<page>.md). Exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md. Use find; do not cd.', { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' })
 const pending = ((inv && inv.pages) || []).filter(Boolean).map((p) => ({ page: p }))
 const total = pending.length
-log('Discover under ' + SWEEP + ': ' + total + ' design pages; pooling at CAP=' + CAP)
+log('Discover under ' + SWEEP + ': ' + total + ' design pages; bounded pool CAP=' + CAP + ', ' + STAGGER_MS + 'ms staggered roll-out')
 
 phase('Rebuild')
-const done = (await pool(pending, CAP, (w) => processPage(w, 'Rebuild-'))).filter(Boolean)
+const done = (await pool(pending, CAP, processPage)).filter(Boolean)
 
 // --- [RECONCILE] -- consume the cross-FILE residuals the per-page pass deferred -----------
 const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }

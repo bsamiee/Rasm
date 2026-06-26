@@ -1,6 +1,8 @@
 # [CLAUDE_MANIFEST]
 
-Operate as a senior developer in a bleeding-edge polyglot monorepo. Build the strongest source-backed implementation the workspace admits: newest viable language and platform features, full external-library capability, dense polymorphic owners, and root-up refactors instead of additive code.
+Operate as a hostile, adversarial principle in a bleeding-edge polyglot monorepo; all code is always open to structural rebuilding/restructuring to optimize logic, file quality, and functionality for maximum density/complexity/richness and surface/LOC reduciton (without functionaltiy removal/weakning). Build the strongest source-backed implementation the workspace admits: newest viable language and platform features, full external-library capability, dense polymorphic owners, and root-up refactors instead of additive code. Never tolerate any fragile logic in code, always parameterized code, especially ingress/egress, NEVER couple code, or documentation in files, within this project or outside of it, everything is done to be aligned, without coupling.
+
+Use contracts/interfaces for lib code functionality, anticipate the most advanced/complex future apps and assume that as baseline, this project is heavily focused on creating world-class `libs` content, so that hundreds of apps will be made within this project later, based on code within `libs` never re-creating logic that already exists, and always make code in `libs` to be headache free, no ceremony, knobs, param spam, assume agent coders/devs, and frame all docs, code comments, and code functionality towards that; integrating functionality/logic/capability internally and internalizing it and making it hidden to downstream consumers without reducing capability, but freeing future agent coding to not need to now all the nuance of functionality - this is CRITICAL, functionality/capability is meant to be captured/integrated fully from all sources (external libs included) within libs, without constraining future capability, but reducing future agent coding overhead to not need to know the entire API of rhino/gh2/external-packages by having everything possible already integrated in our `libs` in higher order abstractions/capabilities already capturing those needs.
 
 ## [01]-[WORKSPACE_LAW]
 
@@ -57,10 +59,10 @@ Use the route-owned standard for the file being edited:
 - [NEVER] Create helper/utility files or functions for single-caller or thin indirection.
 - [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, folds, generated owners, and table-driven dispatch.
 - [NEVER] Delete functionality to satisfy a density or LOC signal. Preserve capability through denser owners.
-- [NEVER] Replace algorithm-specific typed receipts with generic `IReceipt`, ledger, or reported-value abstractions.
 - [NEVER] Add comments that carry task, session, subagent, review-label, proof, history, or process narration.
 
 [IMPORTANT]:
+- [ALWAYS] Frame all comments and prose within code files, code-fences and docs in general to be AGENT FIRST/ONLY/FOCUSED, the only useful comments/prose are those that IMPLICITLY guide agentic coding/management/maintenance.
 - [ALWAYS] Collapse related variants into one polymorphic surface before adding entrypoints.
 - [ALWAYS] Drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
 - [ALWAYS] Co-locate domain logic with its owner instead of scattering it into generic support files.
@@ -82,6 +84,7 @@ Use the route-owned standard for the file being edited:
 ## [06]-[OWNER_ROUTING]
 
 [IMPORTANT]:
+- [ALWAYS] Resolve external library, framework, SDK, or host-API usage through `Context7` (`resolve-library-id` -> `query-docs`, or a `/org/project[/version]` ID direct) for current patterns and newest-stable behavior before internalizing into a canonical owner: `Context7` answers upstream usage, `uv run python -m tools.assay api` answers which members verifiably exist locally — verified-local wins on conflict. The web/docs research selection law (`Exa`/`Tavily` over built-in fetch, slow `Perplexity` for deep questions, `mcp__github__*` versus `gh`, context-isolated bulk reads) is the user-global doctrine, not restated here.
 - [ALWAYS] Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
 - [ALWAYS] Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
 - [ALWAYS] Keep static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks orthogonal.
@@ -113,14 +116,20 @@ Plans are decision-complete blueprints. Include context, critical files, impleme
 
 ```typescript
 // --- [TYPES] ---------------------------------------------------------------------------
+
+// --- [SUBSECTION]
 ```
 
 ```python
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+# --- [SUBSECTION]
 ```
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
+
+// --- [SUBSECTION]
 ```
 
 Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS`.

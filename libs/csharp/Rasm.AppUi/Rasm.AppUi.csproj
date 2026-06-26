@@ -106,11 +106,44 @@
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
-    <!-- Drafting/sheet export codecs: DWG/DXF (ACadSharp, netDxf) and OOXML document emit. -->
+    <!-- Drafting/sheet export codecs: DWG/DXF (ACadSharp, netDxf), OOXML document emit, and the
+         structured vector-PDF page model (PDFsharp) + auto-paginated flow-report DOM (MigraDoc). -->
     <ItemGroup Label="Drafting Export">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="DocumentFormat.OpenXml" />
         <PackageReference Include="netDxf" />
+        <PackageReference Include="PDFsharp" />
+        <PackageReference Include="PDFsharp-MigraDoc" />
+    </ItemGroup>
+
+    <!-- Semi design-token theme + per-control skins layered over the retained Avalonia.Themes.Fluent base. -->
+    <ItemGroup Label="Theme Suite">
+        <PackageReference Include="Semi.Avalonia" />
+        <PackageReference Include="Semi.Avalonia.DataGrid" />
+        <PackageReference Include="Semi.Avalonia.ColorPicker" />
+        <PackageReference Include="Semi.Avalonia.Dock" />
+        <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
+    </ItemGroup>
+
+    <!-- Ursa extended-control suite (NavMenu/Timeline/Toast/Skeleton/Form/Drawer) + Semi control theme + ReactiveUI bridge. -->
+    <ItemGroup Label="Extended Controls">
+        <PackageReference Include="Irihi.Ursa" />
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+        <PackageReference Include="Irihi.Ursa.ReactiveUIExtension" />
+    </ItemGroup>
+
+    <!-- Node/graph editing canvas (Shell/Editing parametric + dependency-graph surfaces) and the
+         interactive slippy-map / basemap viewport binding the Bim NetTopologySuite geometry. -->
+    <ItemGroup Label="Graph And Map Surfaces">
+        <PackageReference Include="NodeEditorAvalonia" />
+        <PackageReference Include="Mapsui.Avalonia12" />
+    </ItemGroup>
+
+    <!-- Collaboration CRDT op-log + presence engine (notebook/annotation/table editors) and the
+         ICU MessageFormat plural/select engine backing the locale owner. -->
+    <ItemGroup Label="Collaboration And Locale">
+        <PackageReference Include="LoroCs" />
+        <PackageReference Include="MessageFormat" />
     </ItemGroup>
 
     <!-- HotAvalonia self-gates to Debug via its buildTransitive props; the reference stays

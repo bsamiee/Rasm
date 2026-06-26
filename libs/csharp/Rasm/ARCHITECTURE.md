@@ -41,6 +41,7 @@ The mature siblings carry realized capability in their own source and `Vectors/_
 ## [02]-[SEAMS]
 
 ```text seams
+Geometry/Spatial/reconciliation  →  csharp:Rasm.Persistence/Query                # [CONTENT_KEY]: CanonicalTopology→GeometryHash XxHash128 canonical-byte content-identity over the shared System.IO.Hashing substrate
 Geometry/Spatial/reconciliation  ⇄  python:runtime/evidence                     # [CONTENT_KEY]: XxHash128 canonical-byte content-identity
 Geometry/Spatial/reconciliation  ⇄  typescript:interchange/codec                # [CONTENT_KEY]: XxHash128 content-hashing wasm
 Geometry/Drawing/pack            →  csharp:Rasm.AppHost/Runtime                 # [WIRE]: EncodedGeometry / PackOp.Apply channel discriminant

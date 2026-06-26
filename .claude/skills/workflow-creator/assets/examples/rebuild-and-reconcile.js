@@ -21,17 +21,20 @@ const VERIFY = { type: 'object', additionalProperties: false, required: ['claims
 
 // Steady worker pool — holds a true steady state of <=cap long chains; preferred over
 // parallel(thunks) once the file list grows to hundreds of long multi-stage edits (pattern #14).
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let i = 0
-  const run = async () => { while (i < items.length) { const k = i++; out[k] = await worker(items[k], k) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, run))
+  let gate = Promise.resolve()                                            // serialized launch gate:
+  const launch = () => { gate = gate.then(() => sleep(1500)); return gate } // launches spaced ~1500ms
+  const run = async () => { while (i < items.length) { const k = i++; await launch(); out[k] = await worker(items[k], k) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
 
 // --- Edit: one worker per file; fix what it can alone, DEFER cross-file work as DATA (a file LIST). ---
 phase('Edit')
-const done = (await pool(FILES, 8, (f) => agent(
+const done = (await pool(FILES, 10, (f) => agent(
   'Tighten the wire-decode module ' + f + ' in place against coding-ts. Fix everything you can within this ONE file. Anything that also requires editing OTHER files (a shared decoded shape, a codec/frame/fault seam two files must agree on) you MUST NOT touch here — instead report it in residual as {files: [every file the fix touches], claim}.',
   { label: 'edit:' + f, phase: 'Edit', schema: EDIT }))).filter(Boolean)
 

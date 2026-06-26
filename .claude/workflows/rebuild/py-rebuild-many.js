@@ -1,5 +1,6 @@
 export const meta = {
   name: 'py-rebuild-many',
+  whenToUse: 'Hostile ground-up rebuild of many Python design-page folders to the py3.15 doctrine bar.',
   description: 'Per-FOLDER (not per-file) hostile ground-up rebuild of the libs/python design pages to the docs/stacks/python bar AND integration of every newly-admitted .api package into the design corpus. Marries plan-py quality/focus (py3.15 to the metal, ADT collapse via @tagged_union/frozen-dataclass/msgspec/pydantic owners, expression Result/Option rails, definition-time aspects/AOP, full both-tier .api stacking, justified in-place capability extension, the harsh adversarial stance) with implement-py folder dispersal: ONE agent per folder across any number of the Python planning folders, each folder run through a 3-step ADVERSARIAL cycle implement(max) -> critique(xhigh) -> redteam(max), every stage hostile (assume naive/illusory until it survives attack). Each agent integrates the folder newly-filled .api capabilities — the folder-specific catalogs AND the shared branch-substrate catalogs at libs/python/.api — into the EXISTING owning design page where one fits (grow the owner in place per the doctrine growth law), or authors a NEW design page (and sub-domain) where the concept is a genuinely new owner with no existing home, justified and built ground-up per docs/stacks/python and the .planning page grammar, updating ARCHITECTURE + README. Then a cross-folder reconcile, and a FINAL whole-stack 1-2-3 alignment pass (align -> critique -> redteam by one series of agents over all folders at once) that aligns every seam/wire/port/boundary, kills duplication and layering violations, and ensures every folder fully leverages the shared branch-substrate tier. args = optional folder path or array; empty = all five Python planning folders (artifacts, compute, data, geometry, runtime).',
   phases: [
     { title: 'Realize', detail: 'per folder (1 agent/folder, pooled): implement(max) -> critique(xhigh) -> redteam(max), every stage adversarial; integrate each new .api (folder + branch-substrate) into the existing owner or a new justified page; collapse + capability-extend the whole folder corpus, own-folder-only, cross-folder seams logged as residuals' },
@@ -20,7 +21,7 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 8
+const CAP = 10
 
 // --- [SCOPE] -- the five Python AEC folders; all STANDARD layout (no nested-kernel special case) -
 const ALL_FOLDERS = [

@@ -66,12 +66,13 @@ Semantics/connection      ←  csharp:Rasm.Materials/Connection         # [WIRE]
 Semantics/classification  ←  csharp:Rasm.Compute/Runtime/channels     # [TRANSPORT]: BsddPort injected bSDD GET /api/Class/v1 BsddClassResponse
 Semantics/geospatial      →  python:geometry/ifc                      # [WIRE]: GeoFeature WKB Geometry.ToBinary decode via shapely (NTS-equivalent planar peer)
 Semantics/geospatial      →  typescript:interchange                   # [WIRE]: GeoFeature WKB decode via turf (NTS-equivalent planar peer)
+Semantics/geospatial      →  csharp:Rasm.AppUi/Charts                 # [SHAPE]: GeoFeature/GeoModel NetTopologySuite Feature geometry drawn as Mapsui.Avalonia12 basemap overlays beside the Wgpu viewport — AppUi's Mapsui transitively binds this Bim-owned NTS 2.6.0 pin and consumes the Feature shape, never referencing NTS directly
 Semantics/geospatial      ←  csharp:Rasm.Persistence/Store            # [TRANSPORT]: GDAL /vsimem fsspec dataset open + OGR Arrow C-stream GeoParquet/FlatGeobuf columnar ingest
 Semantics/geospatial      ⇄  Semantics/georeference                   # [PROJECTION]: GeoFeature.Reproject composes the ProjNET GEODETIC_TRANSFORM leg (OSR escalation for exotic datum-grids)
 Model                     →  csharp:Rasm.Compute/Runtime/codecs       # [CONTENT_KEY]
-Model/structural          →  csharp:Rasm.AppUi/Schedule               # [RECEIPT]: CriticalPath/EarnedValue schedule-and-cost report
-Planning/schedule         →  csharp:Rasm.AppUi/Schedule               # [RECEIPT]: ScheduleNetwork CPM/calendar/4D report
-Planning/cost             →  csharp:Rasm.AppUi/Schedule               # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report
+Model/structural          →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CriticalPath/EarnedValue schedule-and-cost report rendered as a Charts/dashboards projection over the Bim-owned schedule network (AppUi has no Schedule page; the 4D/5D report is a Charts projection — a dedicated Schedule projection page is a plan-cs-folders decision)
+Planning/schedule         →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: ScheduleNetwork CPM/calendar/4D report rendered as a Charts/dashboards projection over the Bim-owned schedule network
+Planning/cost             →  csharp:Rasm.AppUi/Charts                 # [RECEIPT]: CostSchedule EarnedValue/ChangeOrder report rendered as a Charts/dashboards projection over the Bim-owned cost network
 Exchange/tessellation     →  csharp:Rasm.Compute/Runtime/codecs       # [TESSELLATION]: TessellationOutcome two-hop GLB, CacheHit by ArtifactKey
 Exchange/tessellation     →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: TessellationOutcome ArtifactKey cache-hit lookup
 Exchange/import           →  csharp:Rasm.Persistence/Query            # [CONTENT_KEY]: Reimport prior-BimModel content-key delta join
@@ -84,7 +85,7 @@ Review/versioning         →  csharp:Rasm.Persistence/Version/commits  # [SHAPE
 Model                     →  csharp:Rasm.Persistence/Store/quality    # [SHAPE]: IFC validation rules into QualityRule rows
 Review/validation         →  csharp:Rasm.Compute/Runtime/codecs       # [TRANSPORT]: IdsAudit ifctester oracle two-hop rpc, GlobalId-plus-facet diff
 Review/validation         →  python:geometry/ifc-companion            # [BOUNDARY]: ifctester IDS-XML conformance oracle verdict
-Exchange/format           ⇄  csharp:Rasm.Fabrication                  # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument codec
+Exchange/format           →  csharp:Rasm.Fabrication/Polygon           # [SHAPE]: ACadSharp managed DWG/DXF DxfDocument/CadDocument read codec — Bim owns the host-neutral CAD-interchange read surface, Fabrication consumes it for 2D profile ingress over the same central pin (mirror of the Fabrication-side Polygon/import ← Rasm.Bim/Exchange row)
 Exchange/wire             →  typescript:interchange                   # [WIRE]: BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity
 Exchange/wire             →  typescript:ui/overlay                    # [WIRE]: BcfWire/DiffWire GlobalId anchor decode
 coordination              ⇄  csharp:Rasm.Persistence/Sync/annotation  # [WIRE]: durable annotation + CDE op-log

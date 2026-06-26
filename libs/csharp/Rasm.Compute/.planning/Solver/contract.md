@@ -86,7 +86,9 @@ public sealed partial class SolveMethod {
     public Preconditioner Preconditioner { get; }
     private readonly IterativeMethod? krylov;
 
-    public IterativeMethod Krylov => krylov ?? throw new InvalidOperationException($"<solve-method-not-iterative:{Key}>");
+    // Absence is carried, never thrown: a non-iterative row has no Krylov solver, so the consumer resolves
+    // the Option on the Fin rail with a typed fault rather than risking an unguarded InvalidOperationException.
+    public Option<IterativeMethod> Krylov => Optional(krylov);
 }
 
 [SmartEnum<string>]
@@ -408,7 +410,8 @@ public static class SolveLane {
         IterationPolicy.Default with { Tolerance = policy.Tolerance, MaxIterations = policy.MaxIterations, Preconditioner = policy.Method.Preconditioner.Build };
 
     static Fin<SolveResult> Iterative(ConstrainedSystem system, SolveProblem problem, SolvePolicy policy, Instant at) =>
-        SparseOps.SolveIterative(system.Operator, policy.Method.Krylov, system.Rhs, Iteration(policy))
+        policy.Method.Krylov.ToFin(ComputeFault.Create($"<solve-method-not-iterative:{policy.Method.Key}>"))
+            .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, system.Rhs, Iteration(policy)))
             .Bind(run => run.Terminal is SolveTerminal.Admitted
                 ? Fin.Succ(new SolveResult(problem, policy.Method, run.Field.ToArray().AsMemory(), None, None, system.Rhs.Length, 0, 1, run.Residual, true, at))
                 : Fin.Fail<SolveResult>(new ComputeFault.ModelRejected($"<solve-diverged:{policy.Method.Key}:residual={run.Residual:e3}>")));
@@ -438,7 +441,8 @@ public static class SolveLane {
             .Fold(Fin.Succ((Field: new double[system.Rhs.Length], Residual: double.MaxValue, Step: 0, Converged: false)),
                 (acc, _) => acc.Bind(state => state.Converged
                     ? Fin.Succ(state)
-                    : SparseOps.SolveIterative(system.Operator, policy.Method.Krylov, NewtonResidual(tangent, system.Rhs, state.Field), Iteration(policy))
+                    : policy.Method.Krylov.ToFin(ComputeFault.Create($"<solve-method-not-iterative:{policy.Method.Key}>"))
+                        .Bind(krylov => SparseOps.SolveIterative(system.Operator, krylov, NewtonResidual(tangent, system.Rhs, state.Field), Iteration(policy)))
                         .Map(run => {
                             double alpha = ArmijoLineSearch(tangent, system.Rhs, state.Field, run.Field, policy.Tolerance);
                             double[] updated = new double[state.Field.Length];

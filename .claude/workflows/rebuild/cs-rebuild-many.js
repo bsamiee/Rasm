@@ -1,5 +1,6 @@
 export const meta = {
   name: 'cs-rebuild-many',
+  whenToUse: 'Hostile ground-up rebuild of many C# design-page folders to the csharp doctrine bar.',
   description: 'Per-FOLDER (not per-file) hostile ground-up rebuild of the C# AEC design pages to the docs/stacks/csharp bar AND integration of every newly-admitted .api package into the design corpus. Marries plan-cs quality/focus (the 16 named laws, ADT collapse, LanguageExt rails, two-weave AOP, full .api stacking, justified in-place capability extension, the harsh adversarial stance) with implement-cs folder dispersal: ONE agent per folder across any number of C# AEC planning folders, each folder run through a 3-step ADVERSARIAL cycle implement(max) -> critique(xhigh) -> redteam(max), every stage hostile (assume naive/illusory until it survives attack). Each agent integrates the folder newly-filled .api capabilities into the EXISTING owning design page where one fits (grow the owner in place per ROOT_REBUILD), or authors a NEW design page (and sub-domain) where the concept is a genuinely new owner with no existing home, justified and built ground-up per docs/stacks/csharp and the .planning page grammar, updating ARCHITECTURE + README. Then a cross-folder reconcile, and a FINAL whole-stack 1-2-3 alignment pass (align -> critique -> redteam by one series of agents over all folders at once) that aligns every seam/wire/port/boundary, kills duplication and strata violations, and ensures every folder fully leverages the Geometry kernel. args = optional folder path or array; empty = all C# AEC planning folders (Persistence, AppHost, AppUi, Bim, Fabrication, Compute, Materials, and the Geometry kernel with its special Rasm-root layout).',
   phases: [
     { title: 'Realize', detail: 'per folder (1 agent/folder, pooled): implement(max) -> critique(xhigh) -> redteam(max), every stage adversarial; integrate each new .api into the existing owner or a new justified page; collapse + capability-extend the whole folder corpus, own-folder-only, cross-folder seams logged as residuals' },
@@ -20,7 +21,7 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 8
+const CAP = 10
 
 // --- [SCOPE] -- the seven C# AEC folders; Geometry has the special nested layout --------------
 const ALL_FOLDERS = [

@@ -129,6 +129,31 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `ACadSharp`
 - `netDxf`
 - `DocumentFormat.OpenXml`
+- `PDFsharp`
+- `PDFsharp-MigraDoc`
+
+[THEME_SUITE]:
+- `Semi.Avalonia`
+- `Semi.Avalonia.DataGrid`
+- `Semi.Avalonia.ColorPicker`
+- `Semi.Avalonia.Dock`
+- `Semi.Avalonia.AvaloniaEdit`
+
+[EXTENDED_CONTROLS]:
+- `Irihi.Ursa`
+- `Irihi.Ursa.Themes.Semi`
+- `Irihi.Ursa.ReactiveUIExtension`
+
+[GRAPH_MAP_SURFACES]:
+- `NodeEditorAvalonia`
+- `Mapsui.Avalonia12`
+
+[COLLABORATION_LOCALE]:
+- `LoroCs`
+- `MessageFormat`
+
+> [!NOTE]
+> The `Semi.Avalonia` design-token theme is the active layer over the retained `Avalonia.Themes.Fluent` floor — its base `SemiTheme` plus the `DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit` skins restyle the admitted control roster to one token system the `Wacton.Unicolour` OKLCH pipeline materializes into the `ControlIntent` + `Theme/tokens` vocabulary, never displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`. `Irihi.Ursa` adds the extended-control families the curated set lacks — `NavMenu`, `Timeline`, `Toast`/`Notification`, `Loading`/`Skeleton`, `Banner`, `Form`, `Drawer` — themed by `Irihi.Ursa.Themes.Semi` and bridged to the admitted ReactiveUI MVVM rail through `Irihi.Ursa.ReactiveUIExtension`. `NodeEditorAvalonia` owns the node/pin/connector graph-editing canvas inside a `PanAndZoom` `ZoomBorder` for the `Shell/Editing` parametric and dependency-graph surfaces (ReactiveUI view-models over the framework-agnostic `INode`/`IConnector` model). `Mapsui.Avalonia12` is the interactive slippy-map / basemap viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite` so GDAL/OGR features draw as overlays beside the `Wgpu` 3D viewport. `LoroCs` is the Eg-walker/Fugue sequence+map+text+movable-list+tree CRDT engine backing the notebook/annotation/table collaboration op-log and presence (`runtimes/osx-arm64/native/loro.dylib`), retiring the bespoke `NotebookCrdt` LWW algebra; `MessageFormat` is the managed ICU MessageFormat engine (CLDR cardinal+ordinal `plural`/`selectordinal`/`select`) materializing `ResolvedLocale.Plural` over the resx pattern vocabulary. `PDFsharp` + `PDFsharp-MigraDoc` add the structured vector-PDF page model and the auto-paginated flow-report DOM the OOXML/DXF/raster export set lacked.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

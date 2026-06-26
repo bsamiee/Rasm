@@ -10,6 +10,7 @@
 
 export const meta = {
   name: 'implement-and-review',
+  whenToUse: 'Implement a task, then loop an adversarial reviewer over it until it passes or hits a round cap.',
   description: 'Implement a feature, then loop review-and-fix until the review passes',
   phases: [
     { title: 'Implement' },

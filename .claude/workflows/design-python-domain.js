@@ -1,5 +1,6 @@
 export const meta = {
   name: 'design-python-domain',
+  whenToUse: 'Design and build the docs/stacks/python domain folder, after the core and numerics tracks are finalized.',
   description: 'Runs THIRD in the docs/stacks/python doctrine sequence (rebuild-python-core-2 -> design-python-numerics -> design-python-domain -> reconcile-python-stack), AFTER the core AND numerics/ are finalized, because domain pages COMPOSE the finalized core PLUS the finalized numerics/ owners where a domain concept needs one. Adversarially DESIGNS then BUILDS the domain/ folder. The Seed carries the OPERATOR-DECIDED agnostic domain set (observability/transport/tabular/parallel-compute[dask, deep]/storage/persistence) to validate+refine, NOT a libs/python folder mirror; the panel may merge a thin axis or split an overloaded one. NUMERICAL/SCIENTIFIC COMPUTING is OUT OF SCOPE (the numerics/ track owns it); a domain page COMPOSES a numerics owner but never re-opens it. Every page cites ONLY the RELEVANT catalogs its concept composes from docs/stacks/python/.api (substrate + its package cluster), never noise. Phases: Seed (validate+refine the decided set) -> Draft (5 angles) -> Judge -> Decide (red-team gate + skeletons BEFORE build) -> Build (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Sweep (TWO sequential passes: each domain page integrates the finalized core + numerics + prior siblings, no duplicated snippets) -> Atlas (register the domain/ routing) -> Reconcile (union-find cross-file residuals -> fix -> verify). The csharp doc set is the FLOOR not the ceiling; every edit is scoped to docs/stacks/python. Heavily-opinionated doctrine, zero table-stakes. Takes no args.',
   phases: [
     { title: 'Seed', detail: 'gather the candidate domain axis universe from the csharp domain model + the python libs folders (numerical/scientific computing carved out to the numerics track)' },
@@ -28,7 +29,7 @@ const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, r
 // --- [HARNESS] -- steady bounded pool: <=cap in flight AND a serialized launch gate --------
 const STAGGER_MS = 1500
 const STALL = 300000
-const CAP = 12
+const CAP = 10
 const ROOT = 'docs/stacks/python'
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {

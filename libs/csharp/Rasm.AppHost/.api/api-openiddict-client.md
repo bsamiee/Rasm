@@ -1,15 +1,18 @@
 # [RASM_APPHOST_API_OPENIDDICT_CLIENT]
 
-`OpenIddict.Client` supplies a standalone OAuth 2.0 / OpenID Connect relying-party client: `OpenIddictClientService` exposes flow-specific token-acquisition verbs (authorization-code with PKCE, client-credentials, device, refresh, token-exchange, password, custom-grant), token introspection and revocation, registration resolution, and server-metadata discovery. PKCE, DPoP/mTLS token binding, and pushed authorization requests are negotiated automatically from the per-`OpenIddictClientRegistration` capability sets. This is the AppHost agent/identity rail: the OIDC token-acquisition client behind delegated and machine-to-machine credential flows.
+`OpenIddict.Client` supplies a standalone OAuth 2.0 / OpenID Connect relying-party client: `OpenIddictClientService` exposes flow-specific token-acquisition verbs (authorization-code with PKCE, client-credentials, device, refresh, token-exchange, password, custom-grant), RP-initiated interactive sign-out, token introspection and revocation, registration resolution, and server-metadata discovery. PKCE, DPoP/mTLS token binding, and pushed authorization requests are negotiated automatically from the per-`OpenIddictClientRegistration` capability sets. This is the AppHost agent/identity rail: the OIDC token-acquisition client behind delegated and machine-to-machine credential flows.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenIddict.Client`
 - package: `OpenIddict.Client`
+- version: `7.5.0`
+- license: `Apache-2.0`
 - assembly: `OpenIddict.Client`
-- namespace: `OpenIddict.Client`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
-- depends: `OpenIddict.Abstractions`, `Microsoft.IdentityModel.JsonWebTokens`, `Microsoft.IdentityModel.Protocols` (the refresh-manager substrate shared with the validation leg — `api-identitymodel-protocols.md`)
+- namespace: `OpenIddict.Client` (service, models, registration, options, endpoint enum), `Microsoft.Extensions.DependencyInjection` (`OpenIddictClientBuilder`, `OpenIddictClientExtensions`)
+- target: multi-target (`net462`, `net472`, `net48`, `net8.0`, `net9.0`, `net10.0`, `netstandard2.0`, `netstandard2.1`); the `net10.0` consumer binds `lib/net10.0` — a first-class `net10.0` asset ships, not a `net8.0` fallback
+- asset: pure-managed runtime library; no native asset, no RID burden
+- depends: `OpenIddict.Abstractions` `7.5.0` (carries `OpenIddictRequest`/`OpenIddictResponse`/`OpenIddictParameter`/`OpenIddictConstants`), `Microsoft.IdentityModel.JsonWebTokens` `8.16.0`, `Microsoft.IdentityModel.Protocols` `8.16.0`, `Microsoft.Extensions.Logging` `10.0.7` (the `net10.0` group); the transitive `Microsoft.IdentityModel.Protocols` `8.16.0` floor is the base of the same IdentityModel stack the validation leg pulls — the validation leg pins `Microsoft.IdentityModel.Protocols.OpenIdConnect` `8.19.1` (a higher sibling package, `api-identitymodel-protocols.md`), so NuGet unifies the shared base `Microsoft.IdentityModel.*` graph upward to the `8.19.1` line both legs resolve against
 - rail: oidc-client
 
 ## [02]-[PUBLIC_TYPES]
@@ -49,6 +52,7 @@
 |  [17]   | `RevocationRequest`                      | request record | RFC 7009 token revocation             |
 |  [18]   | `RevocationResult`                       | result record  | revocation response carrier           |
 |  [19]   | `InteractiveSignOutRequest`              | request record | end-session challenge                 |
+|  [20]   | `InteractiveSignOutResult`               | result record  | nonce-carrying sign-out handle        |
 
 [PUBLIC_TYPE_SCOPE]: DI registration and builder — `Microsoft.Extensions.DependencyInjection`
 - rail: oidc-client
@@ -78,6 +82,7 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 |  [09]   | `AuthenticateWithPasswordAsync(PasswordAuthenticationRequest)`                   | authentication verb | resource-owner password grant           |
 |  [10]   | `IntrospectTokenAsync(IntrospectionRequest)`                                     | introspection       | returns `IntrospectionResult` principal |
 |  [11]   | `RevokeTokenAsync(RevocationRequest)`                                            | revocation          | returns `RevocationResult`              |
+|  [12]   | `SignOutInteractivelyAsync(InteractiveSignOutRequest)`                           | end-session verb    | starts RP-initiated logout, returns `InteractiveSignOutResult` (`Nonce` handle, like the challenge result) |
 
 [ENTRYPOINT_SCOPE]: registration and metadata resolution — `OpenIddictClientService`
 - rail: oidc-client
@@ -117,9 +122,9 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
-- standalone package: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition. It directly depends on `Microsoft.IdentityModel.JsonWebTokens` and the base `Microsoft.IdentityModel.Protocols` (the refresh-manager substrate cataloged at `api-identitymodel-protocols.md`) — the same base package the IdentityModel validation/discovery leg pulls in, unified to the central `8.19.1` line. The two legs are peers that meet at the validated token: this client acquires tokens (using its own internal `OpenIddictConfiguration` server discovery for the acquisition request), and `Microsoft.IdentityModel.JsonWebTokens` validates them against the JWKS that a `ConfigurationManager<OpenIdConnectConfiguration>` refreshes
+- standalone package: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition. It requests `Microsoft.IdentityModel.JsonWebTokens` `8.16.0` and the base `Microsoft.IdentityModel.Protocols` `8.16.0` (the refresh-manager substrate cataloged at `api-identitymodel-protocols.md`) — the same base stack the IdentityModel validation/discovery leg pulls. The validation leg's direct `Microsoft.IdentityModel.Protocols.OpenIdConnect` `8.19.1` + `Microsoft.IdentityModel.JsonWebTokens` `8.19.1` pins drag the shared base graph up, so NuGet unifies the transitive `Microsoft.IdentityModel.Protocols`/`JsonWebTokens` to `8.19.1` (lockfile-resolved) and both legs bind one IdentityModel line. The two legs are peers that meet at the validated token: this client acquires tokens (using its own internal `OpenIddictConfiguration` server discovery for the acquisition request), and `Microsoft.IdentityModel.JsonWebTokens` validates them against the JWKS that a `ConfigurationManager<OpenIdConnectConfiguration>` refreshes
 - service entry: `OpenIddictClientService` is the single resolved service; every flow is one polymorphic request record discriminated by record type, not a per-flow service
-- challenge/redeem split: interactive and device flows pair a `Challenge*Async` verb (emits a `Nonce`) with an `Authenticate*Async` verb that redeems the nonce; non-interactive flows (client-credentials, refresh, exchange, custom, password) are single-call
+- challenge/redeem split: interactive and device flows pair a `Challenge*Async` verb (emits a `Nonce`-bearing `*ChallengeResult`/`InteractiveSignOutResult`) with an `Authenticate*Async` verb that redeems the nonce; non-interactive flows (client-credentials, refresh, exchange, custom, password) are single-call. `SignOutInteractivelyAsync` is the RP-initiated end-session peer of `ChallengeInteractivelyAsync`: it consumes an `InteractiveSignOutRequest` (`IdentityTokenHint`, `Issuer`/`ProviderName`/`RegistrationId`) and returns the `Nonce` handle, never a separate logout service
 - registration selection: `Issuer`, `ProviderName`, and `RegistrationId` on each request resolve one `OpenIddictClientRegistration`; `RegistrationId` is required to disambiguate registrations that share an issuer or provider
 - PKCE negotiation: `OpenIddictClientRegistration.CodeChallengeMethods` and `OpenIddictClientOptions.CodeChallengeMethods` drive automatic code-challenge selection; `InteractiveChallengeRequest.CodeChallengeMethod` is an advanced override and is left null in normal use
 - token binding (DPoP / mTLS): `OpenIddictClientRegistration.TokenBindingMethods` advertises supported binding; `TokenBindingCertificate` on interactive and credential requests supplies the X.509 certificate bound to issued access/refresh tokens
@@ -135,11 +140,12 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 - Register the client through `services.AddOpenIddict().AddClient(...)`; enable exactly the flows the agent uses with the `Allow*Flow` builders, and register each provider once through `AddRegistration`.
 - Drive machine-to-machine acquisition through `AuthenticateWithClientCredentialsAsync`; refresh through `AuthenticateWithRefreshTokenAsync`; cross-service delegation through `AuthenticateWithTokenExchangeAsync`.
 - Drive headless/device enrollment through `ChallengeUsingDeviceAsync` then `AuthenticateWithDeviceAsync`, honoring `Interval` and `Timeout` from the challenge result.
+- Drive RP-initiated logout through `SignOutInteractivelyAsync`, passing the cached `IdentityTokenHint`; redeem the returned `Nonce` exactly as the interactive challenge nonce is redeemed, never a hand-built end-session URL.
 - Leave PKCE, DPoP, PAR, and client-authentication-method selection to registration capability sets and server metadata; set the advanced override properties only when a provider rejects the negotiated default.
 - Read tokens and expiration from the typed result `required` members; treat the raw `OpenIddictResponse`/principals as the audit surface, the typed members as the contract.
 
 [RAIL_LAW]:
 - Package: `OpenIddict.Client`
-- Owns: OAuth 2.0 / OIDC relying-party token acquisition, introspection, revocation, registration resolution, and server-metadata discovery
+- Owns: OAuth 2.0 / OIDC relying-party token acquisition, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery
 - Accept: flow-specific request records through `OpenIddictClientService`; provider identity through `OpenIddictClientRegistration`; flow and credential enablement through `OpenIddictClientBuilder`
 - Reject: hand-rolled authorization-URL/PKCE/DPoP construction, direct token-endpoint HTTP calls, per-flow service proliferation, bypassing registration capability negotiation with manual override properties

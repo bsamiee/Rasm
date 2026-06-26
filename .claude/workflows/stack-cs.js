@@ -1,5 +1,6 @@
 export const meta = {
   name: 'stack-cs',
+  whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
   description: 'Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine now holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to the rigor the python rebuild established: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. NOT a restructure (the csharp file set is settled) — a hostile per-file harden. Phases: Inventory (atlas order: 7 core + the domain/ router + shards) -> Harden (1 agent/file, 3-step ADVERSARIAL rebuild(max) -> critique(xhigh) -> redteam(max), CAP=12) -> Sweep (sequential atlas-order pass, implicit upward stacking, no duplicated snippets) -> Reconcile (union-find cross-file residuals -> fix(max) -> adversarial verify(xhigh)). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.',
   phases: [
     { title: 'Inventory', detail: 'parse the README atlas + the domain/ router for the ordered core + domain file set + per-file state, emit the region ledger seed' },
@@ -19,7 +20,7 @@ const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, r
 // --- [HARNESS] ---------------------------------------------------------------------------
 const STAGGER_MS = 1500
 const STALL = 300000
-const CAP = 12
+const CAP = 10
 const ROOT = 'docs/stacks/csharp'
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {

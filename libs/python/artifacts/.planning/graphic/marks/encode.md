@@ -1,32 +1,45 @@
 # [PY_ARTIFACTS_GRAPHIC_MARKS_ENCODE]
 
-The machine-readable-mark generation owner. `Mark` is ONE owner over the host-free encoded-mark codec discriminating symbology over the closed `Symbology` vocabulary: segno (QR/Micro-QR and structured-append sequence generation with the full factory-parameter axis and dependency-free SVG serialization), python-barcode (the linear 1D symbology registry over `SVGWriter`), and zxing-cpp (the 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode `create_barcode`/`Barcode.to_svg` dependency-free encode arm) — all importing on the cp315 core. One mark surface, not a per-symbology code class, not a per-operation function family, and not an erased `params` bag. Every generation arm serializes to a dependency-free SVG string needing no raster, so all three encode arms (segno, python-barcode, AND the zxing-cpp 2D-matrix arm) resolve synchronously on the cp315 core inside the async capsule — zxing-cpp source-builds its native pybind11 extension from sdist and imports on cp315 the way shapely/pyarrow source-build, so its 2D-matrix `Mark` arm is a true in-process arm beside the segno/python-barcode arms. The `MarkOp` family is one polymorphic owner spanning `Encode` (this page's three-arm generation) and `Decode` (the encode/decode round-trip inverse over zxing-cpp `read_barcodes`, owned by `graphic/marks/decode#DECODE`), the one arm crossing the `faults`-owned `to_process.run_sync` subprocess seam onto the gated-band worker because `read_barcodes` opens its raster through the gated-band Pillow `Image.open`. Every operation folds into one typed `RasterFact` and returns a `RuntimeRail[ArtifactReceipt]` whose `ArtifactReceipt.Preview` carries the content key and the default zero dimensions (the SVG path carries no pixel raster). `RasterFact` is declared on the gated-band `graphic/raster/io#RASTER` owner; this page re-declares the minimal `(data, width, height, score)` shape so the in-process mark codec folds the same fact into the shared `ArtifactReceipt.Preview` without importing the gated-band owner.
+The machine-readable-mark generation owner. `Mark` is ONE owner over the host-free encoded-mark codec discriminating symbology over the closed `Symbology` vocabulary: segno (QR/Micro-QR and structured-append sequence generation with the full factory-parameter axis, the `segno.helpers` structured-payload grammar, and dependency-free SVG serialization), python-barcode (the linear 1D symbology registry over `SVGWriter`), and zxing-cpp (the 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode `create_barcode`/`Barcode.to_svg` dependency-free encode arm) — all importing on the cp315 core. One mark surface, not a per-symbology code class, not a per-operation function family, not an erased `opts` bag, and not a fault-free pass that drops every provider raise on the floor.
+
+Every encode arm is fallible at the provider edge and the interior is total over `Result[RasterFact, MarkFault]`: segno raises `DataOverflowError` on a payload past the largest version, python-barcode raises the `errors.BarcodeError` family (`BarcodeNotFoundError`/`IllegalCharacterError`/`NumberOfDigitsError`/`WrongCountryCodeError`), and zxing-cpp raises `ValueError("Invalid ecLevel: …")` on an out-of-range `ec_level` — each named exactly once at its arm and mapped into the closed `MarkFault` `@tagged_union`, never a bare `except Exception` flattening the causes and never a railless `_compute` that lets the raise escape the capsule. The option knobs cross the seam as ONE closed `MarkPayload` `TypedDict` admitted through a module-level `TypeAdapter` into an immutable `frozendict` evidence band, so no interior arm re-validates a `dict[str, object]`, and structured QR content (`wifi`/`vcard`/`mecard`/`geo`/`email`) is admitted through the `Content` family that folds to canonical text through `segno.helpers.make_*_data` exactly once before encode.
+
+`Mark` owns the full call modality: `Mark.over` normalizes `MarkOp | Iterable[MarkOp]` into one `ops` tuple at the head, so a single mark and a mixed QR + linear + 2D-matrix label sheet are the same entrypoint discriminating on input shape, `of` traverses the sheet into one `Block[ArtifactReceipt]` stream, and `lru_cache` collapses a repeated row to one encode. Every operation folds into one typed `RasterFact` whose `score` is a `frozendict` keyed by the `MarkFact` evidence vocabulary (segno designator/version/error/mask/symbol-size, the python-barcode `get_fullcode` check digit, the zxing resolved format/ec-level) and returns a `RuntimeRail[Block[ArtifactReceipt]]` whose `ArtifactReceipt.Preview` carries the content key, the default zero pixel dimensions (the encode SVG path carries no raster; the module extent rides the score), and the `RasterFact.score` evidence threaded straight onto `Preview.scores`. The `MarkOp` family spans `Encode` (this page's three-arm generation, in-process on the cp315 core) and `Decode` (the rich `read_barcodes` inverse owned by `graphic/marks/decode#DECODE`, whose `_zxing_decode(source, scope)` worker folds every decoded `DecodedSymbol` into the shared `RasterFact`). The decode band is the `DecodeSource` case the `_one` arm dispatches, not a knob: a `Raster` source crosses the `faults`-owned `to_process.run_sync` subprocess seam onto the gated-band worker because `Image.open` rides the gated `python_version<'3.15'` Pillow band, while a `Pixels` `numpy` frame decodes in-process on the cp315 core because `read_barcodes` reads an array directly. `RasterFact` is declared on the gated-band `graphic/raster/io#RASTER` owner; this page re-declares the minimal `(data, width, height, score)` shape so the in-process mark codec folds the same fact into the shared `ArtifactReceipt.Preview` without importing the gated-band owner, and `graphic/marks/decode#DECODE` imports that one declaration rather than re-stating it.
 
 ## [01]-[INDEX]
 
-- [01]-[MARK]: machine-readable-mark generation-and-decode owner over segno, python-barcode, and zxing-cpp — the `Symbology` vocabulary keyed against the `SYMBOLOGIES` segno/barcode/zxing member-acceptor table spanning QR/Micro-QR, linear 1D, and 2D-matrix classes, the `MarkOp` two-case family (`Encode` symbology generation folding to one in-process SVG `RasterFact` on this page, `Decode` the round-trip inverse over `read_barcodes` on `graphic/marks/decode#DECODE`), all dispatch-table-folded with zero re-discriminating arm.
+- [01]-[MARK]: machine-readable-mark generation-and-decode owner over segno, python-barcode, and zxing-cpp — the `Symbology` vocabulary keyed straight against the `SYMBOLOGIES` `EncodeArm` dispatch table (the `qr` case carrying its `SegnoFactory` plus per-row `SegnoKey` accepts, `linear` carrying nothing, `matrix` carrying its zxing `BarcodeFormat` display name, spanning QR/Micro-QR, linear 1D, and 2D-matrix classes), the `MarkOp` two-case family (`Encode` symbology generation folding to one in-process SVG `RasterFact` on this page, `Decode` the round-trip inverse over `read_barcodes` on `graphic/marks/decode#DECODE`), the closed `MarkFault` provider-exception vocabulary, the `MarkPayload` typed option band, and the `Content` structured-payload family — all dispatch-table-folded with zero re-discriminating arm and one `assert_never` exhaustiveness witness per `match`.
 
 ## [02]-[MARK]
 
-- Owner: `Mark` the one machine-readable-mark owner discriminating operation over the closed `MarkOp` family; `MarkOp` an `expression.tagged_union` whose every case carries its own typed payload, never a shared erased `params` dict; `RasterFact` the one typed result every arm folds into — `data`/`width`/`height`/`score` recovering the encoded SVG bytes, the default zero dimensions, and the designator/check-digit/decode score map — projected to `core/receipt#RECEIPT` `ArtifactReceipt.Preview` at the boundary; segno the QR/sequence arm, python-barcode the linear arm, and zxing-cpp the 2D-matrix arm folded by the `SYMBOLOGIES` row table, with the `Decode` round-trip the zxing-cpp `read_barcodes` inverse owned by `graphic/marks/decode#DECODE`. The `SYMBOLOGIES` sub-axis table is the egress-grade collapse: a row carries a callable arm and its own settled package member, the op routes by one table lookup, never a per-operation sibling function and never a re-discriminating `match` inside an arm. The `Encode` op folds every `Symbology` through one of three SVG arms keyed by the row; the `Decode` op is the encode/decode inverse the generation arms cannot express, reading any encoded mark through the zxing-cpp `read_barcodes` decoder.
-- Cases: `MarkOp` cases — `Encode(content, symbology, opts)` (the machine-readable-mark arm carrying the typed `Symbology` sub-axis — QR/Micro-QR/structured-append sequence over segno, the linear (1D) symbologies over the python-barcode registry, and the 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode classes over zxing-cpp `create_barcode`/`Barcode.to_svg`, all serializing to the dependency-free SVG path) · `Decode(payload, formats)` (the round-trip inverse over zxing-cpp `read_barcodes`, recovering the encoded text, format, validity, and quad position from a raster mark — the decoder body owned by `graphic/marks/decode#DECODE`) — matched by one total `match`/`case`; the QR-only literal is COLLAPSED into the `Encode` case whose `Symbology` row keys the encoder, and the 2D-matrix routing is RESOLVED by the zxing `SYMBOLOGIES` rows plus the `Decode` op, never a sibling op per symbology and never a separate-2D-matrix owner.
-- Modality: `Mark.of` is the one modal-arity entrypoint discriminating on the `MarkOp` case shape — an `Encode` keys one mark from one `(content, symbology, opts)` payload, a `Decode` recovers every symbol in one raster through `read_barcodes`; the operation is the value's case, never an `encode`/`decode` knob and never a per-symbology `of` sibling.
-- Entry: `Mark.of` is `async` over the runtime `async_boundary` and dispatches the `MarkOp` case, returning one `RuntimeRail[ArtifactReceipt]` whose `ArtifactReceipt.Preview` carries the content key and the default zero dimensions and whose `_facts` projection threads the designator/check-digit/decode score map — never an erased `object` a consumer re-validates; ALL three `Encode` arms (segno, python-barcode, AND the zxing-cpp 2D-matrix arm) resolve synchronously on the cp315 core inside the async capsule and render the code in-process with no Pillow dependency — segno serializers, the python-barcode `SVGWriter`, and zxing-cpp `create_barcode -> to_svg` each emit an SVG string needing no raster, and zxing-cpp source-builds and imports on cp315 so its dependency-free 2D-matrix path is a true in-process arm beside the segno/python-barcode arms; only the `Decode` op (which opens a raster through Pillow `Image.open`) crosses the runtime `reliability/faults#FAULT` `anyio.to_process.run_sync` subprocess seam onto the gated-band Pillow worker — the genuine separate-process crossing the gated `pillow` band needs because the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload shares the host interpreter version and cannot host the gated-band Pillow `read_barcodes` raster intake.
-- Auto: `_compute` folds the case through one `match` — EVERY `Encode` (segno, python-barcode, OR zxing-cpp 2D-matrix) through `SYMBOLOGIES[symbology].arm` which carries its own package member, resolving in-process and returning a zero-dimension `RasterFact`: QR/Micro-QR/structured-append each a distinct segno factory row reached by `factory` over the `SHARED_FACTORY_KEYS` plus per-row `accepts` kwarg spread, never a re-`match` inside one arm; the linear (1D) symbologies through the python-barcode `get_barcode_class(name)` registry then `SVGWriter` render, the symbology resolved by registry name not a hand-picked sub-enum; the 2D-matrix rows through `_zxing` reaching the `SYMBOLOGIES[symbology].member` zxing `BarcodeFormat` via `barcode_format_from_str` then `create_barcode(content, fmt, **opts).to_svg(add_quiet_zones=True)` — all three encode arms emit dependency-free SVG on the cp315 core; the `Decode` op alone crosses `to_process.run_sync(_zxing_decode, payload, formats)` where the gated-band worker reaches `read_barcodes(image, formats=...)` over a Pillow-opened raster and stamps each symbol's `text`/`format`/`valid`/`position` onto the score map (`_zxing_decode` owned by `graphic/marks/decode#DECODE`); the `_compute` `match` splits only on the in-process-encode-vs-gated-decode band (all three encode arms resolve in-process, the decode arm crosses the one `to_process.run_sync` seam), never a per-op subprocess call.
-- Receipt: each operation folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height)` at the rail boundary; the `Encode` arm reports the default zero dimensions (the SVG path carries no pixel raster) and stamps the resolved segno `designator` (version-and-error string), the python-barcode `get_fullcode` human-readable check digit, or the zxing resolved `format`/`ec_level` on the score map, and the `Decode` arm reports the decoded `text`/`format`/`valid`/`position` round-trip facts on the score map the rail consumer reads inline — threading those scores into the emitted `_facts` projection is the one `core/receipt#RECEIPT` `[SCORE_FACTS]` widening seam (the `preview` `_facts` arm projects `key`/`width`/`height` today), never a new receipt case and never silently claimed done on this page.
-- Packages: `segno` (`make`/`make_micro`/`make_sequence`/`QRCode.save`/`QRCodeSequence.save`/`QRCode.designator`, the `error`/`version`/`mode`/`mask`/`encoding`/`boost_error`/`eci`/`micro`/`symbol_count` factory axis and the `dark`/`light` SVG serializer kwargs, dependency-free serializers), `python-barcode` (`get_barcode_class`/`PROVIDED_BARCODES`/`SVGWriter`/`Barcode.write`/`Barcode.get_fullcode`/`errors.BarcodeNotFoundError` linear (1D) symbologies, `installed: 0.16.1`), `zxing-cpp` (`create_barcode`/`BarcodeFormat`/`Barcode.to_svg`/`barcode_format_from_str` 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode dependency-free SVG encode plus the `read_barcodes`/`barcode_formats_from_str`/`BarcodeFormat.All`/`Position` decode inverse owned by `graphic/marks/decode#DECODE`, `installed: 3.0.0` — un-gated, source-built from sdist on cp315, version via `importlib.metadata.version("zxing-cpp")` not `__version__`) on the cp315 core; `pillow` (`Image.open` opening the `Decode` raster) gated `python_version<'3.15'` and reached only inside the gated-band `_zxing_decode` worker on `graphic/marks/decode#DECODE`; `svgelements` (`SVG.parse(BytesIO(svg), reify=True)`/`SVG.bbox()` reading the encoded mark's absolute placed extent for the `Mark.layer(name)` `export/layered#LAYERED` projection, MIT pure-Python `py2.py3-none-any` `1.9.6` on the cp315 core, the shared parse-and-bounds owner `composition/compose#COMPOSE` also folds over) on the cp315 core; runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary` and the `faults`-owned `anyio.to_process.run_sync` subprocess seam the Pillow-opening `Decode` arm crosses — the genuine separate-process crossing distinct from the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload, both settled at their owners), `core/receipt#RECEIPT` (`ArtifactReceipt`).
-- Growth: a new segno factory parameter is one `SHARED_FACTORY_KEYS` entry or one per-row `accepts` key; a new segno symbol kind is one `SYMBOLOGIES` row carrying the segno factory member; a new linear symbology is already covered by the python-barcode `PROVIDED_BARCODES` registry (no new row); a new 2D-matrix symbology is one `SYMBOLOGIES` row carrying the zxing `BarcodeFormat` member on the `_zxing` arm — DataMatrix/PDF417/Aztec/MaxiCode all land that way, and any further creatable zxing format (Compact PDF417, rMQR) is one more row with zero new acceptor; a new decode scope is one `Symbology` member on the `Decode` formats tuple; zero new surface.
-- Boundary: a per-symbology code class family, a per-package mark entrypoint, a separate-2D-matrix owner, and an erased `params` bag are the deleted forms; no UI, no live viewer; no pixel-raster image processing (the raster transform engine is `graphic/raster/process#RASTER`'s scikit-image surface and the IO/convert/montage working surface is `graphic/raster/io#RASTER`'s pillow/pyvips surface). segno owns QR/Micro-QR/sequence generation and serialization with no Pillow dependency, removing the former `qrcode` Pillow leak; the python-barcode linear arm uses `SVGWriter` ONLY on the in-process core path (its `ImageWriter` PNG path needs Pillow and re-introduces the leak segno removed); python-barcode is strictly linear (1D) — DataMatrix/PDF417/Aztec/MaxiCode route to the zxing-cpp 2D-matrix arm in this same owner, never a phantom python-barcode member, and an unknown registry key raises `errors.BarcodeNotFoundError` mapped at the boundary; zxing-cpp source-builds from sdist and imports on the cp315 core (un-gated, no companion-band marker), and its `to_svg` is dependency-free (no Pillow on the SVG path), so the 2D-matrix `Encode` arm is a true in-process arm beside the segno/python-barcode arms and a mixed QR + linear + 2D-matrix label sheet folds into one SVG-fragment receipt stream, while the zxing `Decode` (`read_barcodes` over a Pillow-opened raster, `graphic/marks/decode#DECODE`) is the encode/decode round-trip the segno/python-barcode arms cannot express; all three `Encode` arms and their media-free render run in-process on the cp315 core, and only the `Decode` raster-intake dispatches onto the `faults`-owned `to_process.run_sync` gated-band subprocess seam — a separate process the cp315-core `to_interpreter.run_sync` subinterpreter offload cannot replace for the gated Pillow `Image.open` — where the worker imports `zxingcpp`/`PIL` at boundary scope so no gated import lands on the core page. The emitted mark SVG composes outward: `composition/compose#COMPOSE` places and annotates it as one SVG source beside chart/table fragments, and `export/layered#LAYERED` binds it as a named editable layer for the Illustrator/InDesign hand-off; this owner emits the SVG fragment and routes the placement/layer authoring outward, growing neither a compose nor a layer-emit arm. The named-layer egress is one `Mark.layer(name)` projection — it runs the in-process `Encode` arm, reads the emitted SVG's absolute bounds through the shared `svgelements` `SVG.parse(BytesIO(svg), reify=True).bbox()` extent surface (the same pure-Python `py2.py3-none-any` `1.9.6` parse-and-bounds owner `composition/compose#COMPOSE` folds over, `reify=True` baking transforms so the document `bbox()` returns absolute coordinates), and binds the mark as one `export/layered#LAYERED` `Layer(name, source, bbox, visible=True, locked=False)` row carrying the encoded SVG bytes as `source` and the parsed extent as the REQUIRED `bbox` — the projection adds the outward layer row without disturbing the `Mark`/`MarkOp`/`SYMBOLOGIES` encode owner, never a per-symbology layer entrypoint and never a placement or rasterization arm (placement stays the compose owner's, the layer authoring stays the `export/layered#LAYERED` owner's). One mark is one named layer.
+- Owner: `Mark` the one machine-readable-mark owner holding `ops: tuple[MarkOp, ...]` and discriminating operation over the closed `MarkOp` family; `MarkOp` an `expression.tagged_union` whose every case carries its own typed payload (`encode` a `(str, Symbology, frozendict[str, object])`, `decode` a `(DecodeSource, DecodeScope)`), never a shared erased `params` dict; `RasterFact` the one typed result every arm folds into — `data`/`width`/`height`/`score` recovering the encoded SVG bytes, the default zero pixel dimensions, and the `frozendict` evidence map — projected to `core/receipt#RECEIPT` `ArtifactReceipt.Preview` at the boundary; segno the QR/sequence arm, python-barcode the linear arm, and zxing-cpp the 2D-matrix arm folded by the `SYMBOLOGIES` `EncodeArm` cases, with the `Decode` round-trip the zxing-cpp `read_barcodes` inverse owned by `graphic/marks/decode#DECODE`. The `SYMBOLOGIES` table is the egress-grade collapse: each row IS one `EncodeArm` case (`qr` holding the `SegnoFactory` plus per-row `SegnoKey` accepts, `linear` carrying nothing, `matrix` carrying its zxing `BarcodeFormat` display name), so `_encode` routes by one table lookup plus one three-arm `match` with no `.arm`/`.member` hop, never a per-operation sibling function and never a re-discriminating `match` inside an arm.
+- Cases: `MarkOp` cases — `Encode(content, symbology, opts)` (the machine-readable-mark arm carrying the resolved-text content, the typed `Symbology` sub-axis, and the admitted `frozendict` option band — QR/Micro-QR/structured-append sequence over segno, the linear (1D) symbologies over the python-barcode registry, and the 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode classes over zxing-cpp `create_barcode`/`Barcode.to_svg`, all serializing to the dependency-free SVG path) · `Decode(source, scope)` (the round-trip inverse over zxing-cpp `read_barcodes`, carrying the `graphic/marks/decode#DECODE`-owned `DecodeSource` raster-bytes/pixel-array family and the `DecodeScope` detector policy, recovering the full `tuple[DecodedSymbol, ...]` evidence the decoder owns) — admitted through the two-tier `of_encode`/`of_decode` validated factories and matched by one total `match`/`case` with `assert_never`; the QR-only literal is COLLAPSED into the `Encode` case whose `EncodeArm` case keys the encoder, the 2D-matrix routing is RESOLVED by the `matrix` `EncodeArm` case carrying its zxing `BarcodeFormat` display name, and the gated-vs-in-process decode band is the `DecodeSource` case, never a sibling op per symbology, never a separate-2D-matrix owner, and never an `engine`/`gated` knob.
+- Modality: `Mark.over` is the one modal-arity entrypoint normalizing `MarkOp | Iterable[MarkOp]` into the `ops` tuple by a structural `match` at the head, so a lone mark is the one-element case and a mixed-symbology label sheet is the multi-element case under the identical surface — never an `encode`/`decode` knob, never a `batch: bool`, and never a per-symbology or `of_many` sibling. The operation is the value's `MarkOp` case; the arity is the value's shape.
+- Entry: `Mark.of` is `async` over the runtime `async_boundary` and folds the `ops` tuple through `_compute`, threading `Result[ArtifactReceipt, MarkFault]` per op into one `RuntimeRail[Block[ArtifactReceipt]]` whose every `ArtifactReceipt.Preview` carries the content key and the default zero pixel dimensions — never an erased `object` a consumer re-validates; ALL three `Encode` arms (segno, python-barcode, AND the zxing-cpp 2D-matrix arm) resolve synchronously on the cp315 core inside the async capsule and render the code in-process with no Pillow dependency — segno serializers, the python-barcode `SVGWriter`, and zxing-cpp `create_barcode -> to_svg` each emit an SVG string needing no raster, and zxing-cpp source-builds and imports on cp315 so its dependency-free 2D-matrix path is a true in-process arm beside the segno/python-barcode arms; only the `Decode` op's `Raster` source (which opens a raster through Pillow `Image.open`) crosses the runtime `reliability/faults#FAULT` `anyio.to_process.run_sync` subprocess seam onto the gated-band Pillow worker, importing `_zxing_decode` at boundary scope so no gated import lands on the core page — the genuine separate-process crossing the gated `pillow` band needs because the cp315-core `execution/lanes#LANE` `to_interpreter.run_sync` subinterpreter offload shares the host interpreter version and cannot host the gated-band Pillow `read_barcodes` raster intake — while the `Decode` op's `Pixels` source carries a decoded `numpy` frame `read_barcodes` reads directly, so `_one` runs `_zxing_decode` in-process on the cp315 core with no subprocess; the band is the `DecodeSource` case, never a knob.
+- Auto: `_one` folds each op through one `match`; the `Encode` case calls `_encode(content, symbology, opts)` and lifts a `BeartypeCallHintViolation` onto `MarkFault.contract`, the `Decode` case dispatches the band on `source.tag` — a `Raster` source awaits `to_process.run_sync(_zxing_decode, source, scope)` and maps a `BrokenWorkerProcess` onto `MarkFault.worker`, a `Pixels` source runs `_zxing_decode(source, scope)` in-process — and the decoder's own `MarkDecodeError(DecodeFault.UNREADABLE)` on an unopenable raster propagates through the capsule onto `RuntimeRail.Error` as `graphic/marks/decode#DECODE` owns. `_encode` (woven `@lru_cache @beartype`) matches `SYMBOLOGIES[symbology]` directly over its three `EncodeArm` cases: `qr` through `getattr(segno, factory)` over the `SHARED_FACTORY_KEYS` plus per-row `accepts` key-filtered kwarg spread, stamping the resolved `designator`/`version`/`error`/`mask`/`symbol_size` (or the spanned-symbol count on the sequence row) and mapping `DataOverflowError` onto `MarkFault.overflow`; `linear` through the python-barcode `get_barcode_class(name)` registry then `SVGWriter` render, stamping the `get_fullcode` check digit and mapping `BarcodeNotFoundError`/`IllegalCharacterError`/`NumberOfDigitsError`/`WrongCountryCodeError` onto the `unknown`/`illegal`/`arity` cases; `matrix` binding its display name through `_zxing` reaching `barcode_format_from_str(member)` then `create_barcode(content, fmt, **opts).to_svg(add_quiet_zones=True)`, stamping the resolved `format`/`ec_level` and mapping the `ValueError` onto `MarkFault.ec_level` — all three encode arms emit dependency-free SVG on the cp315 core, the `match` splitting only on the in-process-encode-vs-gated-decode band, never a per-op subprocess call.
+- Receipt: each operation folds into `RasterFact` and projects to `core/receipt#RECEIPT` `ArtifactReceipt.Preview(key, width, height, scores)` at the rail boundary, threading `RasterFact.score` straight onto the `Preview.scores` `frozendict[str, float | str]` band; the `Encode` arms report the default zero pixel dimensions (the SVG path carries no raster) and stamp the resolved evidence onto the `RasterFact.score` `frozendict` keyed by the `MarkFact` vocabulary — segno's `designator`/`version`/`error`/`mask`/`symbol_size`, the python-barcode `get_fullcode`/`symbology`, or the zxing `format`/`ec_level` — and the `Decode` arm reports the decoded `text`/`format`/`valid`/`position` round-trip facts on the same map the rail consumer reads inline. The `Preview.scores` band already carries the marks `str` facts beside the `graphic/raster/measure#MEASURE` perceptual `float` band, so this owner delivers them in; the lone residual is the `core/receipt#RECEIPT` `_facts` arm projecting `scores` outward, never a new receipt case here.
+- Faults: `MarkFault` is the one closed `@tagged_union` vocabulary every arm maps its provider raise into — `overflow` (segno `DataOverflowError`, carrying the `Symbology`), `unknown`/`illegal`/`arity` (the python-barcode `errors.*` family), `ec_level` (the zxing `ValueError`), `content` (a `segno.helpers` payload-format failure or an empty decode payload), `options` (a `MarkPayload` `ValidationError`), `geometry` (an `svgelements` parse/bounds failure on the `layered` projection), `worker` (an `anyio.BrokenWorkerProcess` on the `Decode` subprocess seam), and `contract` (a `BeartypeCallHintViolation` lifted at the capsule) — each provider exception named exactly at the arm that raises it, never a bare `except Exception` and never `None`-as-failure; recovery keys on the case, never a reconstructed message.
+- Content: `Content` is the closed structured-payload family the segno arm admits — `raw` text plus the `wifi`(ssid/password/security/hidden), `vcard`(name/displayname/email/phone/url/org), `mecard`(name/email/phone/url), `geo`(lat/lng), and `email`(to/cc/bcc/subject/body) cases, each carrying the full grammar field set its `segno.helpers` twin accepts and folding to canonical QR text through `make_wifi_data`/`make_vcard_data`/`make_mecard_data`/`make_geo_data`/`make_make_email_data` in `_resolved_content` exactly once at `of_encode` ingress, so the imaging owner never hand-concatenates a `WIFI:`/`vCard` grammar and never models a 3-field slice of a contact the helper carries in full; a malformed payload maps onto `MarkFault.content`, and the resolved text is the canonical `Encode` content every arm sees, never a structured object threaded into the interior.
+- Packages: `segno` (`make`/`make_micro`/`make_sequence`/`QRCode.save`/`QRCode.symbol_size`/`QRCode.designator`/`QRCode.version`/`QRCode.error`/`QRCode.mask`, the `error`/`version`/`mode`/`mask`/`encoding`/`boost_error`/`eci`/`micro`/`symbol_count` factory axis, the `dark`/`light` SVG serializer kwargs, the `helpers.make_*_data` structured-payload grammar, and `DataOverflowError` — dependency-free serializers, `installed: 1.6.6`), `python-barcode` (`get_barcode_class`/`PROVIDED_BARCODES`/`SVGWriter`/`Barcode.write`/`Barcode.get_fullcode`/`errors.BarcodeError`+`BarcodeNotFoundError`/`IllegalCharacterError`/`NumberOfDigitsError`/`WrongCountryCodeError` linear (1D) symbologies, `installed: 0.16.1`), `zxing-cpp` (`create_barcode`/`BarcodeFormat`/`Barcode.to_svg`/`barcode_format_from_str` 2D-matrix dependency-free SVG encode plus the `read_barcodes` decode inverse owned by `graphic/marks/decode#DECODE`, `installed: 3.0.0` — un-gated, source-built from sdist on cp315, version via `importlib.metadata.version("zxing-cpp")`) on the cp315 core; `svgelements` (`SVG.parse(BytesIO(svg), reify=True).bbox()` reading the encoded mark's absolute placed extent for the `Mark.layered(name)` `export/layered#LAYERED` projection, MIT pure-Python `py2.py3-none-any` `1.9.6` on the cp315 core, the shared parse-and-bounds owner `composition/compose#COMPOSE` also folds over); `pydantic` (`TypeAdapter`/`ValidationError` admitting the `MarkPayload` option band), `beartype` (the `@beartype` contract weave and `BeartypeCallHintViolation`), `expression` (`Result`/`Block`/`tagged_union`/`traverse` rails, `EncodeArm`/`Content`/`MarkOp`/`MarkFault` cases), `msgspec` (`Struct` for `RasterFact`); `pillow` (`Image.open` opening the `Decode` raster) gated `python_version<'3.15'` and reached only inside the gated-band `_zxing_decode` worker on `graphic/marks/decode#DECODE`; runtime (`content_identity.ContentIdentity`, `faults.RuntimeRail`/`async_boundary` and the `faults`-owned `anyio.to_process.run_sync` subprocess seam, both settled at their owners), `core/receipt#RECEIPT` (`ArtifactReceipt`), `export/layered#LAYERED` (`Layer`).
+- Growth: a new segno factory parameter is one `SHARED_FACTORY_KEYS` entry or one per-row `SegnoKey` accept; a new segno symbol kind is one `SYMBOLOGIES` row binding `EncodeArm(qr=...)` with its `SegnoFactory`; a new structured payload is one `Content` case plus one `_resolved_content` arm over its `segno.helpers` member, and a richer existing payload is one more field on its case tuple; a new linear symbology is one `SYMBOLOGIES` row binding `EncodeArm(linear=None)` whose `Symbology.value` resolves the python-barcode `PROVIDED_BARCODES` registry; a new 2D-matrix symbology is one `SYMBOLOGIES` row binding `EncodeArm(matrix=...)` with its zxing `BarcodeFormat` display name — DataMatrix/PDF417/Aztec/MaxiCode all land that way, and any further creatable zxing format (Compact PDF417, rMQR) is one more row; a new fault cause is one `MarkFault` case; a new option knob is one `MarkPayload` key, and a new python-barcode geometry knob is one `WriterOptions` key; a new decode scope or source band is one `ScopeKind`/`DecodeSource` case on `graphic/marks/decode#DECODE` (the `Decode` op carries its `DecodeSource`/`DecodeScope`, never a per-symbology decode sibling here); zero new surface.
+- Boundary: a per-symbology code class family, a per-package mark entrypoint, a separate-2D-matrix owner, an erased `params` bag, a fault-free pass, and a per-arity `of_many` sibling are the deleted forms; no UI, no live viewer; no pixel-raster image processing (the raster transform engine is `graphic/raster/process#RASTER`'s scikit-image surface and the IO/convert/montage working surface is `graphic/raster/io#RASTER`'s pillow/pyvips surface). segno owns QR/Micro-QR/sequence generation, the structured-payload grammar, and serialization with no Pillow dependency, removing the former `qrcode` Pillow leak; the python-barcode linear arm uses `SVGWriter` ONLY on the in-process core path (its `ImageWriter` PNG path needs Pillow and re-introduces the leak segno removed); python-barcode is strictly linear (1D) — DataMatrix/PDF417/Aztec/MaxiCode route to the zxing-cpp 2D-matrix arm in this same owner; zxing-cpp source-builds from sdist and imports on the cp315 core, and its `to_svg` is dependency-free, so the 2D-matrix `Encode` arm is a true in-process arm and a mixed QR + linear + 2D-matrix label sheet folds into one SVG-fragment receipt stream, while the zxing `Decode` (`read_barcodes` over a Pillow-opened raster, `graphic/marks/decode#DECODE`) is the round-trip the segno/python-barcode arms cannot express. The emitted mark SVG composes outward: `composition/compose#COMPOSE` places and annotates it as one SVG source beside chart/table fragments, and `export/layered#LAYERED` binds it as a named editable layer for the Illustrator/InDesign hand-off; the `Mark.layered(name)` projection runs the `Encode` arms (memoized so it never re-encodes what `of` rendered), reads each emitted SVG's absolute bounds through the shared `svgelements` `SVG.parse(BytesIO(svg), reify=True).bbox()` extent surface, and binds each mark as one `export/layered#LAYERED` `Layer(name, source, bbox, visible=True, locked=False)` row, railing a parse failure onto `MarkFault.geometry` — one mark is one named layer, a sheet of marks is one `Block[Layer]`, and the projection adds the outward layer rows without disturbing the `Mark`/`MarkOp`/`SYMBOLOGIES` encode owner (placement stays the compose owner's, layer authoring stays the `export/layered#LAYERED` owner's).
 
 ```python signature
-from collections.abc import Callable
+from collections.abc import Iterable
 from enum import StrEnum
+from functools import lru_cache
 from io import BytesIO
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
-from anyio import to_process
-from expression import case, tag, tagged_union
-from msgspec import Struct
+from anyio import BrokenWorkerProcess, to_process
+from beartype import beartype
+from beartype.roar import BeartypeCallHintViolation
+from builtins import frozendict
+from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
+from expression.extra.result import traverse
+from msgspec import Struct, field
+from pydantic import TypeAdapter, ValidationError
 
 from rasm.runtime.content_identity import ContentIdentity
 from rasm.runtime.faults import RuntimeRail, async_boundary
@@ -34,9 +47,11 @@ from rasm.runtime.faults import RuntimeRail, async_boundary
 from artifacts.export.layered import Layer
 from artifacts.receipt.receipt import ArtifactReceipt
 
-type MarkOpTag = Literal["encode", "decode"]
+if TYPE_CHECKING:
+    from artifacts.graphic.marks.decode import DecodeScope, DecodeSource
 
 
+# --- [TYPES] ----------------------------------------------------------------------------
 class Symbology(StrEnum):
     QR = "qr"
     MICRO_QR = "micro-qr"
@@ -58,146 +73,375 @@ class Symbology(StrEnum):
     MAXICODE = "maxicode"
 
 
+class SegnoFactory(StrEnum):
+    MAKE = "make"
+    MAKE_MICRO = "make_micro"
+    MAKE_SEQUENCE = "make_sequence"
+
+
+class SegnoKey(StrEnum):
+    ECI = "eci"
+    MICRO = "micro"
+    SYMBOL_COUNT = "symbol_count"
+
+
+class MarkFact(StrEnum):
+    DESIGNATOR = "designator"
+    VERSION = "version"
+    ERROR = "error"
+    MASK = "mask"
+    SYMBOL_SIZE = "symbol_size"
+    SYMBOLS = "symbols"
+    FULLCODE = "fullcode"
+    SYMBOLOGY = "symbology"
+    FORMAT = "format"
+    EC_LEVEL = "ec_level"
+
+
+@tagged_union(frozen=True)
+class EncodeArm:
+    tag: Literal["qr", "linear", "matrix"] = tag()
+    qr: tuple[SegnoFactory, tuple[SegnoKey, ...]] = case()
+    linear: None = case()
+    matrix: str = case()
+
+
+@tagged_union(frozen=True)
+class Content:
+    tag: Literal["raw", "wifi", "vcard", "mecard", "geo", "email"] = tag()
+    raw: str = case()
+    wifi: tuple[str, str | None, str | None, bool] = case()
+    vcard: tuple[str, str, str | None, str | None, str | None, str | None] = case()
+    mecard: tuple[str, str | None, str | None, str | None] = case()
+    geo: tuple[float, float] = case()
+    email: tuple[str, str | None, str | None, str | None, str | None] = case()
+
+
+class WriterOptions(TypedDict, closed=True):
+    module_width: NotRequired[ReadOnly[float]]
+    module_height: NotRequired[ReadOnly[float]]
+    quiet_zone: NotRequired[ReadOnly[float]]
+    font_size: NotRequired[ReadOnly[int]]
+    font_path: NotRequired[ReadOnly[str]]
+    text_distance: NotRequired[ReadOnly[float]]
+    text_line_distance: NotRequired[ReadOnly[float]]
+    background: NotRequired[ReadOnly[str]]
+    foreground: NotRequired[ReadOnly[str]]
+    center_text: NotRequired[ReadOnly[bool]]
+    guard_height_factor: NotRequired[ReadOnly[float]]
+    margin_top: NotRequired[ReadOnly[float]]
+    margin_bottom: NotRequired[ReadOnly[float]]
+    compress: NotRequired[ReadOnly[bool]]
+    with_doctype: NotRequired[ReadOnly[bool]]
+
+
+class MarkPayload(TypedDict, closed=True):
+    error: NotRequired[ReadOnly[str]]
+    version: NotRequired[ReadOnly[int | str]]
+    mode: NotRequired[ReadOnly[str]]
+    mask: NotRequired[ReadOnly[int]]
+    encoding: NotRequired[ReadOnly[str]]
+    boost_error: NotRequired[ReadOnly[bool]]
+    eci: NotRequired[ReadOnly[bool]]
+    micro: NotRequired[ReadOnly[bool]]
+    symbol_count: NotRequired[ReadOnly[int]]
+    ec_level: NotRequired[ReadOnly[str | int]]
+    scale: NotRequired[ReadOnly[int]]
+    border: NotRequired[ReadOnly[int]]
+    margin: NotRequired[ReadOnly[int]]
+    dark: NotRequired[ReadOnly[str]]
+    light: NotRequired[ReadOnly[str]]
+    add_hrt: NotRequired[ReadOnly[bool]]
+    add_quiet_zones: NotRequired[ReadOnly[bool]]
+    text: NotRequired[ReadOnly[str]]
+    writer_options: NotRequired[ReadOnly[WriterOptions]]
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
 class RasterFact(Struct, frozen=True):
     data: bytes
     width: int = 0
     height: int = 0
-    score: dict[str, str] = {}
+    score: frozendict[str, str] = field(default_factory=frozendict)
+
+
+# --- [ERRORS] ---------------------------------------------------------------------------
+@tagged_union(frozen=True)
+class MarkFault:
+    tag: Literal["overflow", "unknown", "illegal", "arity", "ec_level", "content", "options", "geometry", "worker", "contract"] = tag()
+    overflow: Symbology = case()
+    unknown: str = case()
+    illegal: str = case()
+    arity: str = case()
+    ec_level: str = case()
+    content: str = case()
+    options: str = case()
+    geometry: str = case()
+    worker: str = case()
+    contract: str = case()
+```
+
+`RasterFact` is the one fact every arm yields — bytes plus the default zero pixel dimensions plus the `frozendict` evidence map keyed by the `MarkFact` vocabulary — so `_one` projects one shape into `ArtifactReceipt.Preview` regardless of op; the `score` is `frozendict` (not a mutable `dict` default an immutable struct rejects) and its keys are `MarkFact` members (not bare strings restating what the program already names). `RasterFact` is the gated-band `graphic/raster/io#RASTER` owner's value object re-declared here (the minimal `(data, width, height, score)` shape) so the in-process mark codec folds the same fact into the shared `ArtifactReceipt.Preview` without importing the gated-band owner. `SYMBOLOGIES` maps each `Symbology` straight to one `EncodeArm` case, so the zxing `BarcodeFormat` display name lives on the `matrix` case that alone consumes it; the `qr` case carries its `SegnoFactory` plus `SegnoKey` accepts, `linear` carries nothing (the python-barcode registry resolves off `Symbology.value`), and no dead `member` column rides the QR or linear rows — `graphic/marks/decode#DECODE` owns its own `_FORMAT` `Symbology -> BarcodeFormat` table and never reads the encode rows. `MarkFault` is the closed provider-exception vocabulary the interior is total over.
+
+```python signature
+# --- [OPERATIONS] -----------------------------------------------------------------------
+_PAYLOAD = TypeAdapter(MarkPayload)
+
+
+def _admit(raw: MarkPayload, /) -> Result[frozendict[str, object], MarkFault]:
+    try:
+        admitted = _PAYLOAD.validate_python(raw)
+    except ValidationError as fault:
+        return Error(MarkFault(options=fault.errors()[0]["type"] if fault.errors() else "<invalid-options>"))
+    return Ok(frozendict({key: frozendict(value) if isinstance(value, dict) else value for key, value in admitted.items()}))
+
+
+def _resolved_content(content: Content, /) -> Result[str, MarkFault]:
+    from segno import helpers
+
+    try:
+        match content:
+            case Content(tag="raw", raw=text):
+                return Ok(text)
+            case Content(tag="wifi", wifi=(ssid, password, security, hidden)):
+                return Ok(helpers.make_wifi_data(ssid=ssid, password=password, security=security, hidden=hidden))
+            case Content(tag="vcard", vcard=(name, displayname, email, phone, url, org)):
+                return Ok(helpers.make_vcard_data(name=name, displayname=displayname, email=email, phone=phone, url=url, org=org))
+            case Content(tag="mecard", mecard=(name, email, phone, url)):
+                return Ok(helpers.make_mecard_data(name=name, email=email, phone=phone, url=url))
+            case Content(tag="geo", geo=(lat, lng)):
+                return Ok(helpers.make_geo_data(lat, lng))
+            case Content(tag="email", email=(to, cc, bcc, subject, body)):
+                return Ok(helpers.make_make_email_data(to=to, cc=cc, bcc=bcc, subject=subject, body=body))
+            case _ as unreachable:
+                assert_never(unreachable)
+    except (ValueError, TypeError) as fault:
+        return Error(MarkFault(content=str(fault)))
 
 
 @tagged_union(frozen=True)
 class MarkOp:
-    tag: MarkOpTag = tag()
-    encode: tuple[str, Symbology, dict[str, object]] = case()
-    decode: tuple[bytes, tuple[Symbology, ...]] = case()
+    tag: Literal["encode", "decode"] = tag()
+    encode: tuple[str, Symbology, frozendict[str, object]] = case()
+    decode: "tuple[DecodeSource, DecodeScope]" = case()
 
     @staticmethod
-    def Encode(content: str, symbology: Symbology, opts: dict[str, object] = {}) -> "MarkOp":
+    def Encode(content: str, symbology: Symbology, opts: frozendict[str, object] = frozendict(), /) -> "MarkOp":
         return MarkOp(encode=(content, symbology, opts))
 
     @staticmethod
-    def Decode(payload: bytes, formats: tuple[Symbology, ...] = ()) -> "MarkOp":
-        return MarkOp(decode=(payload, formats))
+    def Decode(source: "DecodeSource", scope: "DecodeScope", /) -> "MarkOp":
+        return MarkOp(decode=(source, scope))
+
+    @staticmethod
+    def of_encode(content: Content, symbology: Symbology, /, **opts: Unpack[MarkPayload]) -> Result["MarkOp", MarkFault]:
+        return _resolved_content(content).bind(lambda text: _admit(opts).map(lambda band: MarkOp.Encode(text, symbology, band)))
+
+    @staticmethod
+    def of_decode(source: "DecodeSource", scope: "DecodeScope", /) -> Result["MarkOp", MarkFault]:
+        return Ok(MarkOp.Decode(source, scope)) if source.tag != "raster" or source.raster else Error(MarkFault(content="<empty-payload>"))
+
+
+SHARED_FACTORY_KEYS: tuple[str, ...] = ("error", "version", "mode", "mask", "encoding", "boost_error")
+ZXING_CREATE_KEYS: tuple[str, ...] = ("ec_level", "width", "height", "scale", "margin")
+
+
+def _segno(factory: SegnoFactory, accepts: tuple[SegnoKey, ...], content: str, symbology: Symbology, opts: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
+    import segno
+
+    keys = (*SHARED_FACTORY_KEYS, *accepts)
+    try:
+        symbol = getattr(segno, factory)(content, **{key: opts[key] for key in keys if key in opts})
+    except segno.DataOverflowError:
+        return Error(MarkFault(overflow=symbology))
+    sink = BytesIO()
+    symbol.save(sink, kind="svg", scale=opts.get("scale", 1), border=opts.get("border"), dark=opts.get("dark", "#000"), light=opts.get("light"))
+    return Ok(RasterFact(sink.getvalue(), score=_segno_score(factory, symbol, opts)))
+
+
+def _segno_score(factory: SegnoFactory, symbol: object, opts: frozendict[str, object], /) -> frozendict[str, str]:
+    if factory is SegnoFactory.MAKE_SEQUENCE:
+        return frozendict({MarkFact.SYMBOLS: str(len(symbol))})
+    width, height = symbol.symbol_size(scale=opts.get("scale", 1), border=opts.get("border"))
+    return frozendict({
+        MarkFact.DESIGNATOR: symbol.designator,
+        MarkFact.VERSION: str(symbol.version),
+        MarkFact.ERROR: str(symbol.error),
+        MarkFact.MASK: str(symbol.mask),
+        MarkFact.SYMBOL_SIZE: f"{width}x{height}",
+    })
+
+
+def _barcode(content: str, symbology: Symbology, opts: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
+    import barcode
+    from barcode.errors import BarcodeNotFoundError, IllegalCharacterError, NumberOfDigitsError, WrongCountryCodeError
+
+    sink = BytesIO()
+    try:
+        symbol = barcode.get_barcode_class(symbology.value)(content, writer=barcode.writer.SVGWriter())
+        symbol.write(sink, options=opts.get("writer_options"), text=opts.get("text"))
+    except BarcodeNotFoundError:
+        return Error(MarkFault(unknown=symbology.value))
+    except IllegalCharacterError as fault:
+        return Error(MarkFault(illegal=str(fault)))
+    except (NumberOfDigitsError, WrongCountryCodeError) as fault:
+        return Error(MarkFault(arity=str(fault)))
+    return Ok(RasterFact(sink.getvalue(), score=frozendict({MarkFact.FULLCODE: symbol.get_fullcode(), MarkFact.SYMBOLOGY: symbology.value})))
+
+
+def _zxing(member: str, content: str, opts: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
+    import zxingcpp
+
+    fmt = zxingcpp.barcode_format_from_str(member)
+    try:
+        symbol = zxingcpp.create_barcode(content, fmt, **{key: opts[key] for key in ZXING_CREATE_KEYS if key in opts})
+    except ValueError as fault:
+        return Error(MarkFault(ec_level=str(fault)))
+    svg = symbol.to_svg(scale=int(opts.get("scale", 1)), add_hrt=bool(opts.get("add_hrt", False)), add_quiet_zones=bool(opts.get("add_quiet_zones", True)))
+    return Ok(RasterFact(svg.encode(), score=frozendict({MarkFact.FORMAT: str(symbol.format), MarkFact.EC_LEVEL: str(symbol.ec_level)})))
+
+
+@lru_cache(maxsize=256)
+@beartype
+def _encode(content: str, symbology: Symbology, opts: frozendict[str, object], /) -> Result[RasterFact, MarkFault]:
+    match SYMBOLOGIES[symbology]:
+        case EncodeArm(tag="qr", qr=(factory, accepts)):
+            return _segno(factory, accepts, content, symbology, opts)
+        case EncodeArm(tag="linear"):
+            return _barcode(content, symbology, opts)
+        case EncodeArm(tag="matrix", matrix=member):
+            return _zxing(member, content, opts)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+SYMBOLOGIES: frozendict[Symbology, EncodeArm] = frozendict({
+    Symbology.QR: EncodeArm(qr=(SegnoFactory.MAKE, (SegnoKey.ECI, SegnoKey.MICRO))),
+    Symbology.MICRO_QR: EncodeArm(qr=(SegnoFactory.MAKE_MICRO, ())),
+    Symbology.QR_SEQUENCE: EncodeArm(qr=(SegnoFactory.MAKE_SEQUENCE, (SegnoKey.SYMBOL_COUNT,))),
+    Symbology.CODE128: EncodeArm(linear=None),
+    Symbology.CODE39: EncodeArm(linear=None),
+    Symbology.EAN13: EncodeArm(linear=None),
+    Symbology.EAN8: EncodeArm(linear=None),
+    Symbology.UPCA: EncodeArm(linear=None),
+    Symbology.ITF: EncodeArm(linear=None),
+    Symbology.CODABAR: EncodeArm(linear=None),
+    Symbology.ISBN13: EncodeArm(linear=None),
+    Symbology.ISSN: EncodeArm(linear=None),
+    Symbology.PZN: EncodeArm(linear=None),
+    Symbology.GS1_128: EncodeArm(linear=None),
+    Symbology.DATA_MATRIX: EncodeArm(matrix="Data Matrix"),
+    Symbology.PDF417: EncodeArm(matrix="PDF417"),
+    Symbology.AZTEC: EncodeArm(matrix="Aztec"),
+    Symbology.MAXICODE: EncodeArm(matrix="MaxiCode"),
+})
+```
+
+The `SYMBOLOGIES` table folds every symbology to one `EncodeArm` case with zero re-discrimination inside an arm: `_encode` matches `SYMBOLOGIES[symbology]` over three cases. The `qr` case carries its own `SegnoFactory` and `SegnoKey` accepts so QR, Micro-QR, and the structured-append sequence are three distinct rows resolving three distinct segno factories (`make` / `make_micro` / `make_sequence`) through `getattr(segno, factory)` over the `SegnoFactory` member (the name travels as the enum, never a bare literal). The `SHARED_FACTORY_KEYS` tuple threads the six common factory parameters every segno factory accepts, and the per-row `accepts` column carries only the factory-specific keys — `eci`/`micro` on the `make` row, `symbol_count` on the `make_sequence` row, none on `make_micro` — so the key-filtered kwarg spread over the admitted `frozendict` threads exactly the parameters each factory admits with no over-key crashing a factory that rejects it. The `make_sequence` row spans a large payload across multiple symbols in one `QRCodeSequence.save(kind="svg")` keyed by `symbol_count`, and `_segno_score` stamps the resolved `designator`/`version`/`error`/`mask`/`symbol_size` on the `QRCode`-yielding rows and the spanned-symbol count (`len(QRCodeSequence)`) on the sequence row, guarded by the `factory is SegnoFactory.MAKE_SEQUENCE` identity so the `QRCodeSequence` never reaches the `QRCode`-only `designator`/`symbol_size` surface. The `linear` arm resolves the registry by `Symbology.value` against `PROVIDED_BARCODES`, stamps the `get_fullcode` human-readable check digit, and maps the four `errors.*` causes onto distinct `MarkFault` cases. The `matrix` arm reads the `matrix` case's zxing display name (verified to resolve through `barcode_format_from_str`, which accepts both the separated `'Data Matrix'` and separatorless `'DataMatrix'` spellings, never the `.name` re-parse the 3.0 `str()` rename breaks), encodes through `create_barcode(content, fmt, **opts)` keyed by the `ZXING_CREATE_KEYS` filtered spread, and serializes with `to_svg(add_quiet_zones=True)` for dependency-free output; MaxiCode is creatable in zxing 3.0, so the `MAXICODE` row encodes rather than routing to a decode-only sibling. No symbology mints a sibling owner; a new linear code is one `EncodeArm(linear=None)` row resolving off `Symbology.value`, a new segno symbol kind is one `EncodeArm(qr=...)` row carrying its `SegnoFactory` and factory-specific `accepts`, and a new 2D-matrix code is one `EncodeArm(matrix=...)` row carrying its zxing `BarcodeFormat` display name.
+
+```python signature
+# --- [COMPOSITION] ----------------------------------------------------------------------
+def _normalized(ops: MarkOp | Iterable[MarkOp], /) -> tuple[MarkOp, ...]:
+    match ops:
+        case MarkOp():
+            return (ops,)
+        case _:
+            return tuple(ops)
+
+
+def _mark_bbox(svg: bytes, /) -> Result[tuple[float, float, float, float], MarkFault]:
+    from svgelements import SVG
+
+    try:
+        box = SVG.parse(BytesIO(svg), reify=True).bbox()
+    except (ValueError, TypeError) as fault:
+        return Error(MarkFault(geometry=str(fault)))
+    return Ok(box) if box is not None else Error(MarkFault(geometry="<empty-bounds>"))
+
+
+def _layer(name: str, count: int, index: int, encode: tuple[str, Symbology, frozendict[str, object]], /) -> Result[Layer, MarkFault]:
+    content, symbology, opts = encode
+    label = name if count == 1 else f"{name}-{index}"
+    return _encode(content, symbology, opts).bind(lambda fact: _mark_bbox(fact.data).map(lambda box: Layer(label, fact.data, box)))
 
 
 class Mark(Struct, frozen=True):
-    op: MarkOp
+    ops: tuple[MarkOp, ...]
 
-    async def of(self) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(f"mark.{self.op.tag}", self._compute)
+    @classmethod
+    def over(cls, ops: MarkOp | Iterable[MarkOp], /) -> Self:
+        return cls(ops=_normalized(ops))
 
-    async def _compute(self) -> ArtifactReceipt:
-        match self.op:
+    async def of(self) -> RuntimeRail[Block[ArtifactReceipt]]:
+        return await async_boundary("mark.sheet", self._compute)
+
+    async def _compute(self) -> Result[Block[ArtifactReceipt], MarkFault]:
+        gathered: Result[Block[ArtifactReceipt], MarkFault] = Ok(Block.empty())
+        for op in self.ops:
+            if gathered.is_error():
+                return gathered
+            receipt = await self._one(op)
+            gathered = gathered.bind(lambda kept, r=receipt: r.map(lambda one: kept.append(Block.singleton(one))))
+        return gathered
+
+    async def _one(self, op: MarkOp, /) -> Result[ArtifactReceipt, MarkFault]:
+        match op:
             case MarkOp(tag="encode", encode=(content, symbology, opts)):
-                fact = SYMBOLOGIES[symbology].arm(content, symbology, opts)
-            case MarkOp(tag="decode", decode=(payload, formats)):
-                fact = await to_process.run_sync(_zxing_decode, payload, formats)
-        return ArtifactReceipt.Preview(ContentIdentity.of(f"mark-{self.op.tag}", fact.data), fact.width, fact.height)
+                try:
+                    fact = _encode(content, symbology, opts)
+                except BeartypeCallHintViolation as violation:
+                    fact = Error(MarkFault(contract=type(violation).__name__))
+            case MarkOp(tag="decode", decode=(source, scope)):
+                from artifacts.graphic.marks.decode import _zxing_decode
 
-    def layer(self, name: str) -> Layer:
-        content, symbology, opts = self.op.encode
-        svg = SYMBOLOGIES[symbology].arm(content, symbology, opts).data
-        return Layer(name, svg, _mark_bbox(svg))
+                if source.tag == "raster":
+                    try:
+                        fact = Ok(await to_process.run_sync(_zxing_decode, source, scope))
+                    except BrokenWorkerProcess as broken:
+                        fact = Error(MarkFault(worker=type(broken).__name__))
+                else:
+                    fact = Ok(_zxing_decode(source, scope))
+            case _ as unreachable:
+                assert_never(unreachable)
+        return fact.map(lambda f: ArtifactReceipt.Preview(ContentIdentity.of(f"mark-{op.tag}", f.data), f.width, f.height, f.score))
 
-
-def _mark_bbox(svg: bytes) -> tuple[float, float, float, float]:
-    from svgelements import SVG
-
-    return SVG.parse(BytesIO(svg), reify=True).bbox()
+    def layered(self, name: str, /) -> Result[Block[Layer], MarkFault]:
+        encodes = tuple(op.encode for op in self.ops if op.tag == "encode")
+        rows = Block.of_seq((index, encode) for index, encode in enumerate(encodes))
+        return traverse(lambda row: _layer(name, len(encodes), row[0], row[1]), rows)
 ```
 
-`RasterFact` is the one fact every arm yields — bytes plus dimensions plus the optional score map — so `_compute` projects one shape into `ArtifactReceipt.Preview` regardless of op, the `Encode` arms report the default zero dimensions (the SVG path carries no pixel raster), and the designator/check-digit/decode score rides the same fact map both the content-key seed and the `core/receipt#RECEIPT` `_facts` fold project to strings; the `MarkOp` payload is typed per case, never an erased `params` dict the arm re-validates. `RasterFact` is the gated-band `graphic/raster/io#RASTER` owner's value object re-declared here (the minimal `(data, width, height, score)` shape) so the in-process mark codec folds the same fact into the shared `ArtifactReceipt.Preview` without importing the gated-band owner. The `_zxing_decode` worker the `decode` arm dispatches is the `graphic/marks/decode#DECODE` page's module-level function — dispatched by qualified name across the `to_process.run_sync` seam, so the decode body lives on its own page while the `Mark`/`MarkOp` owner spanning both ops stays here.
-
-```python signature
-class MarkArm(Struct, frozen=True):
-    factory: str
-    accepts: tuple[str, ...]
-    arm: Callable[[str, Symbology, dict[str, object]], RasterFact]
-    member: str = ""
-
-
-SHARED_FACTORY_KEYS = ("error", "version", "mode", "mask", "encoding", "boost_error")
-ZXING_CREATE_KEYS = ("ec_level", "width", "height", "scale", "margin")
-
-
-def _segno(content: str, symbology: Symbology, opts: dict[str, object]) -> RasterFact:
-    import segno
-
-    row = SYMBOLOGIES[symbology]
-    keys = SHARED_FACTORY_KEYS + row.accepts
-    symbol = getattr(segno, row.factory)(content, **{key: opts[key] for key in keys if key in opts})
-    sink = BytesIO()
-    symbol.save(sink, kind="svg", scale=opts.get("scale", 1), border=opts.get("border"), dark=opts.get("dark", "#000"), light=opts.get("light"))
-    designator = {"designator": symbol.designator} if row.factory != "make_sequence" else {"symbols": str(len(symbol))}
-    return RasterFact(sink.getvalue(), score=designator)
-
-
-def _barcode(content: str, symbology: Symbology, opts: dict[str, object]) -> RasterFact:
-    import barcode
-
-    symbol = barcode.get_barcode_class(symbology.value)(content, writer=barcode.writer.SVGWriter())
-    sink = BytesIO()
-    symbol.write(sink, options=opts.get("writer_options"), text=opts.get("text"))
-    return RasterFact(sink.getvalue(), score={"fullcode": symbol.get_fullcode()})
-
-
-def _zxing(content: str, symbology: Symbology, opts: dict[str, object]) -> RasterFact:
-    import zxingcpp
-
-    fmt = zxingcpp.barcode_format_from_str(SYMBOLOGIES[symbology].member)
-    symbol = zxingcpp.create_barcode(content, fmt, **{key: opts[key] for key in ZXING_CREATE_KEYS if key in opts})
-    svg = symbol.to_svg(scale=int(opts.get("scale", 1)), add_hrt=bool(opts.get("add_hrt", False)), add_quiet_zones=bool(opts.get("add_quiet_zones", True)))
-    return RasterFact(svg.encode(), score={"format": str(symbol.format), "ec_level": symbol.ec_level})
-
-
-SYMBOLOGIES: dict[Symbology, MarkArm] = {
-    Symbology.QR: MarkArm("make", ("eci", "micro"), _segno),
-    Symbology.MICRO_QR: MarkArm("make_micro", (), _segno),
-    Symbology.QR_SEQUENCE: MarkArm("make_sequence", ("symbol_count",), _segno),
-    Symbology.CODE128: MarkArm("", (), _barcode),
-    Symbology.CODE39: MarkArm("", (), _barcode),
-    Symbology.EAN13: MarkArm("", (), _barcode),
-    Symbology.EAN8: MarkArm("", (), _barcode),
-    Symbology.UPCA: MarkArm("", (), _barcode),
-    Symbology.ITF: MarkArm("", (), _barcode),
-    Symbology.CODABAR: MarkArm("", (), _barcode),
-    Symbology.ISBN13: MarkArm("", (), _barcode),
-    Symbology.ISSN: MarkArm("", (), _barcode),
-    Symbology.PZN: MarkArm("", (), _barcode),
-    Symbology.GS1_128: MarkArm("", (), _barcode),
-    Symbology.DATA_MATRIX: MarkArm("", (), _zxing, "DataMatrix"),
-    Symbology.PDF417: MarkArm("", (), _zxing, "PDF417"),
-    Symbology.AZTEC: MarkArm("", (), _zxing, "Aztec"),
-    Symbology.MAXICODE: MarkArm("", (), _zxing, "MaxiCode"),
-}
-```
-
-The `SYMBOLOGIES` table folds every symbology to one of three SVG arms with zero re-discrimination inside an arm: the segno arm reads its own `factory` and `accepts` columns so QR, Micro-QR, and the structured-append sequence are three distinct rows resolving three distinct segno factories (`make` / `make_micro` / `make_sequence`) through `getattr`. The `SHARED_FACTORY_KEYS` tuple threads the six common factory parameters (`error` for the L/M/Q/H redundancy row, `version`, `mode`, `mask`, `encoding`, and `boost_error`) that every segno factory accepts, and the per-row `accepts` column carries only the factory-specific keys — `eci`/`micro` on the `make` row, `symbol_count` on the `make_sequence` row, none on the `make_micro` row — so the key-filtered kwarg spread threads exactly the parameters each factory admits with no over-key crashing a factory that rejects it. The `make_sequence` row spans a large payload across multiple symbols in one `QRCodeSequence.save(kind="svg")` keyed by `symbol_count` rather than a hand-stitched concatenation, and the `RasterFact.score` carries the resolved `designator` (version and error level) on the `QRCode`-yielding `make`/`make_micro` rows and the spanned-symbol count (`len(QRCodeSequence)`, the `tuple[QRCode, ...]` length) on the sequence row. The python-barcode arm resolves the registry by `Symbology.value` against `PROVIDED_BARCODES`, carries the `get_fullcode` human-readable check digit on the score, and the `factory`/`accepts` columns stay blank on the linear rows. The zxing-cpp arm reads its own `member` column — the zxing `BarcodeFormat` display name (`DataMatrix` / `PDF417` / `Aztec` / `MaxiCode`) `barcode_format_from_str` resolves to the enum, never the separatorless `.name` re-parse the 3.0 `str()` rename breaks — then `create_barcode(content, fmt, **opts)` keyed by the `ZXING_CREATE_KEYS` (`ec_level`/`width`/`height`/`scale`/`margin`) filtered spread and `to_svg(add_quiet_zones=True)` for dependency-free output, stamping the resolved `format` and `ec_level` on the score; MaxiCode is creatable in zxing 3.0, so the `MAXICODE` row encodes rather than routing to a decode-only sibling. zxing-cpp source-builds from sdist and imports on the cp315 core, so the four 2D-matrix `_zxing` encode rows resolve in-process beside the segno/python-barcode arms (the `_compute` `encode` case dispatches every `Encode` through `SYMBOLOGIES[symbology].arm` in-process); only the `Decode` op crosses the `to_process.run_sync` seam, because `read_barcodes` opens its raster through the gated-band Pillow worker. No symbology mints a sibling owner; a new linear code is already a `PROVIDED_BARCODES` registry name, a new segno symbol kind is one row carrying its segno factory member and its factory-specific `accepts` keys, and a new 2D-matrix code is one row carrying its zxing `BarcodeFormat` member on the `_zxing` arm.
+`Mark.over` is the modal head: a lone `MarkOp` and an iterable of ops normalize through one structural `match` into the `ops` tuple, so `of` is the single async rail entry over both the one-mark and the label-sheet shapes, and `_compute` threads each op's `Result[ArtifactReceipt, MarkFault]` through the seed-`bind` fold that short-circuits on the first fault (the `r=receipt` default binds the loop value into the closure so the fold reports the failing op, never the last). `_one` is the per-op `match` carrying the in-process-encode-vs-gated-decode split: the `encode` case lifts a `BeartypeCallHintViolation` from the `@beartype`-woven `_encode` onto `MarkFault.contract`, and the `decode` case imports `_zxing_decode` at boundary scope (so the gated decoder body never lands on the core page and the encode↔decode module cycle never forms), awaits the `to_process.run_sync` crossing, and maps an `anyio.BrokenWorkerProcess` onto `MarkFault.worker`. `_encode` is `@lru_cache`-memoized over the hashable `(content, symbology, frozendict)` key, so a repeated row in a label sheet and the `layered` projection both reuse one encode rather than re-rendering — the re-encode the former `layer` arm paid every call. `layered` traverses the `Encode` ops alone (skipping `Decode` rows, which carry no SVG source), railing each `_mark_bbox` parse failure onto `MarkFault.geometry`, and binds each mark as one `Layer(label, source, bbox)` row with the label indexed against the `Encode`-local count and position — so a single mark beside one or more decodes still labels `name`, never `name-1` off a global op index.
 
 ```mermaid
 flowchart LR
-    Of["Mark.of"] --> Compute["_compute match"]
-    Compute -->|"encode (segno/barcode/zxing, in-process)"| Sym["SYMBOLOGIES[symbology].arm"]
-    Compute -->|"decode (gated raster-intake)"| Worker["to_process.run_sync(_zxing_decode)"]
-    Sym --> Qr["_segno: make / make_micro / make_sequence + SHARED_FACTORY_KEYS"]
-    Sym --> Bar["_barcode: get_barcode_class -> SVGWriter"]
-    Sym --> Zx["_zxing: barcode_format_from_str -> create_barcode -> to_svg"]
-    Worker --> Dec["graphic/marks/decode: read_barcodes(formats) -> text/format/valid/position"]
-    Qr --> Fact["RasterFact + score"]
+    Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of -> _compute fold"]
+    Of --> One["_one match per op"]
+    One -->|"encode (segno/barcode/zxing, in-process)"| Enc["_encode: SYMBOLOGIES[s] EncodeArm match"]
+    One -->|"decode Raster source (gated)"| Worker["to_process.run_sync(_zxing_decode, source, scope)"]
+    One -->|"decode Pixels source (in-process)"| Direct["_zxing_decode(source, scope)"]
+    Enc --> Qr["_segno: make / make_micro / make_sequence + SHARED_FACTORY_KEYS"]
+    Enc --> Bar["_barcode: get_barcode_class -> SVGWriter"]
+    Enc --> Zx["_zxing: barcode_format_from_str(member) -> create_barcode -> to_svg"]
+    Worker --> Dec["graphic/marks/decode: read_barcodes(scope) -> tuple[DecodedSymbol, ...]"]
+    Direct --> Dec
+    Qr --> Fact["RasterFact + frozendict score"]
     Bar --> Fact
     Zx --> Fact
     Dec --> Fact
-    Fact --> Receipt["ArtifactReceipt.Preview(key, 0, 0)"]
+    Fact -->|"Result[_, MarkFault]"| Receipt["Block[ArtifactReceipt.Preview(key, 0, 0)]"]
     Fact -.->|"SVG fragment"| Compose["composition/compose#COMPOSE / export/layered#LAYERED"]
 ```
 
 ## [03]-[RESEARCH]
 
-- [QR_SETTLED] [RESOLVED]: the in-process `segno.make`/`make_micro`/`make_sequence`/`QRCode.save(kind="svg")`/`QRCodeSequence.save(kind="svg")`/`QRCode.designator` spellings verify against the folder `.api` catalogue for `segno` on the cp315 core. The `segno` catalogue `[03]-[ENTRYPOINTS]` row [01] confirms `make(content, error=None, version=None, mode=None, mask=None, encoding=None, eci=False, micro=None, boost_error=True)`, row [03] `make_micro(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True)`, and row [04] `make_sequence(content, error=None, version=None, mode=None, mask=None, encoding=None, boost_error=True, symbol_count=None)` returning a `QRCodeSequence`, so the six `SHARED_FACTORY_KEYS` (`error`/`version`/`mode`/`mask`/`encoding`/`boost_error`) are SETTLED on every factory and the per-row `accepts` keys are SETTLED — `eci`/`micro` on the `make` row (the only factory the catalogue lists them on), none on `make_micro`, `symbol_count` on `make_sequence`. The key-filtered kwarg spread threads exactly the admitted parameters, so no over-key reaches a factory that rejects it. The `[02]-[PUBLIC_TYPES]` row confirms `QRCodeSequence` with the shared `save` serializer surface, and `[03]-[ENTRYPOINTS]` `QRCode.save(out, kind=None, **kw)` row plus the serializer-kwarg note confirm `scale`/`border`/`dark`/`light` flow through `**kw`, so the SVG `dark`/`light` foreground/background spellings are SETTLED. Structured-append spanning multiple symbols for a large payload is one `make_sequence` call plus one `QRCodeSequence.save(kind="svg")`, never a hand-stitched concatenation. The catalogue lists `QRCode.designator` on `QRCode` ONLY (row [14]), so the `make`/`make_micro` rows stamp `symbol.designator` and the `make_sequence` row stamps the spanned-symbol count instead — the `row.factory != "make_sequence"` guard never touches the `QRCodeSequence` designator surface. segno serializes SVG with no Pillow dependency, closing the former `qrcode` Pillow leak.
-- [SEQUENCE_LEN] [RESOLVED]: the `len(QRCodeSequence)` spanned-symbol count on the `make_sequence` row's `RasterFact.score` is SETTLED. The `segno` `.api` `[02]-[PUBLIC_TYPES]` row [02] and the `[04]-[IMPLEMENTATION_LAW]` sequence-axis row confirm `QRCodeSequence` is a `tuple[QRCode, ...]` (a `tuple` subclass of `QRCode` symbols) spanning the structured-append set, so `len(symbol)` is the inherited `tuple.__len__` spanned-symbol count and the `[02]` capability line "a `QRCodeSequence` adds the symbol count" confirms the count is the sequence-receipt fact; the `make_sequence`/`QRCodeSequence.save(kind="svg")` legs and the `len()` count are settled with no further reflection needed.
-- [BARCODE_SETTLED] [RESOLVED]: the python-barcode `get_barcode_class(name)`/`PROVIDED_BARCODES`/`barcode.writer.SVGWriter`/`Barcode.write(fp, options, text)`/`Barcode.get_fullcode`/`errors.BarcodeNotFoundError` registry and writer surface is SETTLED fence code against the folder `.api` catalogue for `python-barcode` (`installed: 0.16.1 reflected via assay api on cp315`). The catalogue `[03]-[ENTRYPOINTS]` row [03] confirms `get_barcode_class(name) -> type[Barcode]` (the same object as `get_class`), row [04] `PROVIDED_BARCODES` the sorted `list[str]` accepted name keys, `Barcode.write(fp, options=None, text=None) -> None` (row [02]), and `Barcode.get_fullcode()` the full human-readable code (row [05]), and `[02]-[PUBLIC_TYPES]` row [03] confirms `SVGWriter()` zero-arg construction (the default, dependency-free `xml.dom.minidom` SVG writer), so the `_barcode` body (including the `text` write argument and the `get_fullcode` check-digit score) and the linear `Symbology` rows (`CODE128`/`CODE39`/`EAN13`/`EAN8`/`UPCA`/`ITF`/`CODABAR`/`ISBN13`/`ISSN`/`PZN`/`GS1_128`) are settled — each `Symbology.value` is a `PROVIDED_BARCODES` name key resolving the full registry, never a hand-picked sub-enum that silently drops Codabar/ISBN, and an unknown key raises `errors.BarcodeNotFoundError` (row [02]) mapped at the boundary, never a bare `KeyError`. python-barcode is strictly linear (1D): the 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode classes are NOT python-barcode members (the catalogue confirms linear-only) and route to the zxing-cpp 2D-matrix arm in this same owner, never a phantom python-barcode member. The `SVGWriter` is the ONLY admitted writer on the in-process core path (the `ImageWriter` PNG path needs Pillow and re-introduces the leak segno removed).
-- [ZXING_ENCODE_SETTLED] [RESOLVED]: the zxing-cpp `create_barcode(content, format, **kwargs)`/`Barcode.to_svg(scale, add_hrt, add_quiet_zones)`/`barcode_format_from_str` encode surface is SETTLED fence code against the folder `.api` catalogue for `zxing-cpp` (`installed: 3.0.0` reflected by direct import on the cp315 floor; version via `importlib.metadata.version("zxing-cpp")`, the C++ extension carries no `__version__`). The catalogue `[03]-[ENTRYPOINTS]` row [01] confirms `create_barcode(content, format, **kwargs) -> Barcode` (error-correction/geometry ride `**kwargs` — `ec_level` a string `'L'`/`'M'`/`'Q'`/`'H'` for QR or an integer for Aztec/PDF417, plus `width`/`height`/`scale`/`margin`, NEVER a positional `ec_level`), row [02] `to_svg(scale=1, add_hrt=False, add_quiet_zones=True) -> str` dependency-free, and row [06] `barcode_format_from_str(str) -> BarcodeFormat`, so the `_zxing` body and the `DATA_MATRIX`/`PDF417`/`AZTEC`/`MAXICODE` rows are settled. Three 3.0 facts are load-bearing and verified by direct reflection: (1) `MaxiCode` is CREATABLE in 3.0 — `create_barcode("...", BarcodeFormat.MaxiCode).to_svg()` succeeds (the 2.x decode-only limitation was lifted by the writer rewrite), so the `MAXICODE` row encodes and is never recorded as decode-only; (2) the `BarcodeFormat` 3.0 ToString rename means `str(BarcodeFormat.X)` is the human display name WITH separators (`'Data Matrix'`/`'QR Code'`/`'Code 128'`/`'EAN-13'`/`'Micro QR Code'`) while `.name` is separatorless (`'DataMatrix'`/`'QRCode'`/`'Code128'`/`'EAN13'`) — the fence resolves a format through the `member` display name via `barcode_format_from_str` (which accepts both spellings), never by formatting the enum and re-parsing the separatorless name; (3) the encode/decode round-trip is verified: `create_barcode -> to_image -> read_barcodes` recovers the content with `valid=True` and the matching `format`. zxing-cpp is un-gated on cp315 — it ships no cp315 wheel and no abi3 wheel (newest wheel is cp314), so uv resolves the sdist and source-builds the native pybind11 extension on cp315 the same way shapely/pyarrow source-build, using the Parametric_Forge scientific toolchain (CMake + clang++) as the compiler substrate; the `zxingcpp` import resolves directly on the cp315 core, so the four 2D-matrix `Encode` rows render in-process beside the segno/python-barcode arms, and only the `Decode` op crosses the `faults`-owned `to_process.run_sync` seam (on `graphic/marks/decode#DECODE`) because `read_barcodes` opens its raster through the gated-band Pillow worker.
-- [RASTER_SPLIT] [RESOLVED]: the pixel-raster image-processing concern (pillow Thumbnail/Convert/Montage on `graphic/raster/io#RASTER`, the scikit-image Transform family on `graphic/raster/process#RASTER`, the perceptual-quality metrics on `graphic/raster/measure#RASTER`, the pyvips fused-libvips provider, the python-magic media-detect gate) is split to the sibling `graphic/raster` owners — the genuine gated `python_version<'3.15'` subprocess-seam owners whose every arm crosses the `to_process.run_sync` band. This `marks` encode owner is the disjoint in-process cp315-core encoded-mark codec: the three encode arms resolve in-process and only the zxing `Decode` raster-intake (on `graphic/marks/decode#DECODE`) crosses back to the gated band. `RasterFact` is declared on the gated-band `graphic/raster/io#RASTER` owner and re-declared here as the minimal `(data, width, height, score)` shape so both producers fold into the shared `core/receipt#RECEIPT` `ArtifactReceipt.Preview` with no cross-owner import; the emitted mark SVG fragment composes outward to `composition/compose#COMPOSE` (placement/annotation) and `export/layered#LAYERED` (named editable layer), the consume edges those owners already declare.
-- [DECODE_SPLIT] [RESOLVED]: the encode/decode round-trip inverse over zxing-cpp `read_barcodes` is split to the sibling `graphic/marks/decode#DECODE` owner — the `_zxing_decode` module-level worker dispatched by qualified name across the `to_process.run_sync` seam, the one arm crossing the gated `python_version<'3.15'` band because `read_barcodes` opens its raster through the gated-band Pillow `Image.open`. The `MarkOp.Decode` case is declared on this page because `MarkOp` is one polymorphic owner spanning both ops, but the decoder body, its `barcode_formats_from_str`/`BarcodeFormat.All`/`Position` decode spellings, and the decode-specific research live on the decode page; this encode page owns the `Mark`/`MarkOp` owner shape, the `Encode` arm's three generation arms, and the `SYMBOLOGIES` table.
-</content>
-</invoke>
+- [FAULT_RAIL] [RESOLVED]: every encode arm is fallible at the provider edge and the `MarkFault` closed `@tagged_union` is the one vocabulary mapping each named raise — verified by direct reflection on the cp315 floor: `segno.DataOverflowError` exists (`MarkFault.overflow`), python-barcode exposes `errors.BarcodeError`/`BarcodeNotFoundError`/`IllegalCharacterError`/`NumberOfDigitsError`/`WrongCountryCodeError` (an unknown registry key raises `BarcodeNotFoundError`, a 3-digit EAN-13 raises `NumberOfDigitsError`), and `zxingcpp.create_barcode(..., ec_level='Z')` raises `ValueError("Invalid ecLevel: 'Z'")` (`MarkFault.ec_level`). Each arm names exactly its provider exception types under `expression` `Result`, never a bare `except Exception` flattening the causes and never a railless `_compute` that lets the raise escape `async_boundary`; the `BeartypeCallHintViolation` from the `@beartype` weave and the `anyio.BrokenWorkerProcess` from the `Decode` subprocess seam are the last two cases, both mapped at `_one`. The former page's railless `_compute` returning a bare `ArtifactReceipt` (while its prose claimed faults were "mapped at the boundary") is the deleted illusory form.
+- [TYPED_PAYLOAD] [RESOLVED]: the option knobs cross the seam as one closed `MarkPayload` `TypedDict` (`closed=True`, every key `NotRequired[ReadOnly[...]]`) admitted through the module-level `_PAYLOAD = TypeAdapter(MarkPayload)` into a `frozendict[str, object]` evidence band, so the interior arms read admitted evidence and never re-validate a `dict[str, object]` bag; a `ValidationError` maps onto `MarkFault.options` through `.errors()[0]["type"]`, never `str(exc)`. The former `opts: dict[str, object]` payload — the erased bag the page's own prose claimed to have deleted — is the rejected form; the key-filtered kwarg spread now reads the admitted band keyed by `SHARED_FACTORY_KEYS`/`ZXING_CREATE_KEYS`, and the python-barcode `writer_options` geometry rides a nested closed `WriterOptions` `TypedDict` (`module_width`/`module_height`/`quiet_zone`/`font_size`/`font_path`/`text_distance`/`background`/`foreground`/`center_text`/`guard_height_factor`/`margin_top`/`margin_bottom`/`compress`/`with_doctype`) rather than an erased `frozendict[str, object]` bag, so the full python-barcode geometry surface is typed at admission; `_admit` deep-folds that nested `WriterOptions` to a `frozendict` so the admitted band stays fully hashable for the `_encode` `@lru_cache` key.
+- [STRUCTURED_CONTENT] [RESOLVED]: the `segno.helpers` structured-payload grammar is the QR-content axis the former page ignored entirely. Verified by reflection: the public `_data` twins `make_wifi_data`/`make_vcard_data`/`make_mecard_data`/`make_geo_data`/`make_make_email_data` (the last spelled with segno's own doubled-verb name) exist and return formatted QR text. The `Content` closed family admits `raw` plus `wifi`/`vcard`/`mecard`/`geo`/`email`, each structured case carrying the full grammar field set its `_data` twin accepts — `wifi` `(ssid, password, security, hidden)`, `vcard` `(name, displayname, email, phone, url, org)`, `mecard` `(name, email, phone, url)`, `email` `(to, cc, bcc, subject, body)` — rather than the 3-field slice a contact or join payload cannot carry; `_resolved_content` folds each structured case to canonical text through its helper exactly once at `of_encode` ingress with the optional fields spread as the helper's `None`-defaulted kwargs, and a `ValueError`/`TypeError` from a malformed payload maps onto `MarkFault.content`. The EPC helper (`make_epc_qr`, which returns a `QRCode` rather than a `_data` string) is the growth axis for a future case, never a hand-concatenated `WIFI:`/`vCard` string in the imaging owner.
+- [MODAL_SHEET] [RESOLVED]: `Mark.over` normalizes `MarkOp | Iterable[MarkOp]` into one `ops` tuple at the head and `of` traverses it into one `Block[ArtifactReceipt]`, delivering the mixed QR + linear + 2D-matrix label sheet the former single-op page only promised in prose. The arity is the input shape (one op vs many), never an `of_many` sibling, a `batch: bool`, or an `encode`/`decode` knob; `_compute` threads the per-op rail through the seed-`bind` fold (concurrency's sequential-fold form, the `r=receipt` default binding the loop value), short-circuiting on the first `MarkFault`, and `lru_cache` collapses a repeated sheet row to one encode.
+- [QR_SETTLED] [RESOLVED]: the in-process `segno.make`/`make_micro`/`make_sequence` factory axis, the `QRCode.save(kind="svg")`/`QRCodeSequence.save(kind="svg")` serializers, and the `QRCode.designator`/`version`/`error`/`mask`/`symbol_size` evidence verify against the `segno` `.api` catalogue and direct reflection (`installed: 1.6.6`). The `make` row carries `eci`/`micro`, `make_sequence` carries `symbol_count`, `make_micro` carries none, and `symbol_size(scale=, border=)` returns the `(width, height)` module extent stamped on the score (`190x190` for a scale-10 symbol); `designator`/`version`/`error`/`mask` live on `QRCode` only, so the `factory is SegnoFactory.MAKE_SEQUENCE` guard routes the sequence row to `len(QRCodeSequence)` instead. The six `SHARED_FACTORY_KEYS` and the `dark`/`light`/`scale`/`border` serializer kwargs are SETTLED on every factory, segno serializes SVG with no Pillow dependency, and structured-append spanning a large payload is one `make_sequence` plus one span `save`, never a hand-stitched concatenation.
+- [BARCODE_SETTLED] [RESOLVED]: the python-barcode `get_barcode_class(name)`/`PROVIDED_BARCODES`/`SVGWriter`/`Barcode.write(fp, options, text)`/`Barcode.get_fullcode`/`errors.*` registry and writer surface is SETTLED against the `python-barcode` `.api` catalogue (`installed: 0.16.1`, 22 `PROVIDED_BARCODES` keys). Each linear `Symbology.value` is a registry name resolving the full set (`CODE128`/`CODE39`/`EAN13`/`EAN8`/`UPCA`/`ITF`/`CODABAR`/`ISBN13`/`ISSN`/`PZN`/`GS1_128`), never a hand-picked sub-enum dropping Codabar/ISBN; an unknown key raises `BarcodeNotFoundError` mapped onto `MarkFault.unknown`, an illegal character `IllegalCharacterError` onto `MarkFault.illegal`, and a digit/country fault `NumberOfDigitsError`/`WrongCountryCodeError` onto `MarkFault.arity`. python-barcode is strictly linear (1D) — the 2D-matrix classes route to the zxing arm — and `SVGWriter` is the ONLY admitted writer on the core path (the `ImageWriter` PNG path needs Pillow and re-introduces the leak segno removed).
+- [ZXING_ENCODE_SETTLED] [RESOLVED]: the zxing-cpp `create_barcode(content, format, **kwargs)`/`Barcode.to_svg(scale, add_hrt, add_quiet_zones)`/`barcode_format_from_str` encode surface is SETTLED against the `zxing-cpp` `.api` catalogue and direct reflection (`installed: 3.0.0`; version via `importlib.metadata.version("zxing-cpp")`, the C++ extension carries no `__version__`). Four facts are load-bearing and verified: (1) every `matrix` `EncodeArm` display name (`'Data Matrix'`/`'PDF417'`/`'Aztec'`/`'MaxiCode'`) resolves through `barcode_format_from_str` (the QR/linear rows carry no display name, encoding through segno/python-barcode); (2) `MaxiCode` is CREATABLE in 3.0 (`create_barcode("…", BarcodeFormat.MaxiCode).to_svg()` succeeds), so the `MAXICODE` row encodes; (3) an out-of-range `ec_level` raises `ValueError("Invalid ecLevel: …")` mapped onto `MarkFault.ec_level`, and `ec_level`/`width`/`height`/`scale`/`margin` ride `**kwargs`, never a positional argument; (4) the fence resolves a format through the `matrix` case's display name, never by formatting the enum and re-parsing the separatorless `.name`. zxing-cpp source-builds from sdist and imports on the cp315 core un-gated, so the four 2D-matrix `Encode` rows resolve in-process beside the segno/python-barcode arms; only the `Decode` op crosses the `to_process.run_sync` seam because `read_barcodes` opens its raster through the gated-band Pillow worker.
+- [GEOMETRY_SETTLED] [RESOLVED]: the `Mark.layered` projection reads each emitted mark's absolute extent through `svgelements` `SVG.parse(BytesIO(svg), reify=True).bbox()` — verified by direct reflection that `SVG` subclasses `Group` and the parsed root answers `bbox()` (a scale-2 QR returns `(4.0, 5.0, 34.0, 33.0)`), `reify=True` baking transforms so the document `bbox()` returns absolute coordinates (MIT pure-Python `py2.py3-none-any` `1.9.6`, the same parse-and-bounds owner `composition/compose#COMPOSE` folds over). `_mark_bbox` rails a parse failure or a `None` bounds onto `MarkFault.geometry`, the former bare-tuple-returning `_mark_bbox` (which crashed on a `Decode` op and re-encoded outside any rail) being the deleted form; `layered` skips `Decode` rows because a decoded mark carries no SVG source.
+- [RASTER_SPLIT] [RESOLVED]: the pixel-raster image-processing concern (pillow Thumbnail/Convert/Montage on `graphic/raster/io#RASTER`, the scikit-image Transform family on `graphic/raster/process#RASTER`, the perceptual-quality metrics on `graphic/raster/measure#RASTER`, the pyvips fused-libvips provider, the python-magic media-detect gate) is split to the sibling `graphic/raster` owners — the genuine gated `python_version<'3.15'` subprocess-seam owners. This `marks` encode owner is the disjoint in-process cp315-core encoded-mark codec: the three encode arms resolve in-process and only the zxing `Decode` raster-intake (on `graphic/marks/decode#DECODE`) crosses back to the gated band. `RasterFact` is declared on the gated-band `graphic/raster/io#RASTER` owner and re-declared here as the minimal `(data, width, height, score)` shape — with `score` now a `frozendict[str, str]` evidence map keyed by the `MarkFact` vocabulary, the immutable form replacing the former mutable `dict[str, str] = {}` default an immutable struct rejects — so both producers fold into the shared `core/receipt#RECEIPT` `ArtifactReceipt.Preview` with no cross-owner import; the `score` `frozendict` change ripples to `graphic/marks/decode#DECODE` (which builds the decode score) and the `graphic/raster/io#RASTER` `RasterFact` owner.
+- [DECODE_SPLIT] [RESOLVED]: the round-trip inverse over zxing-cpp `read_barcodes` is the rich `graphic/marks/decode#DECODE` owner whose `_zxing_decode(source, scope)` worker is dispatched by qualified name, imported at `_one` boundary scope; the band is the decode-owned `DecodeSource` case `_one` reads off `source.tag` — a `Raster` source crosses the `to_process.run_sync` gated seam (its `Image.open` rides the gated `python_version<'3.15'` Pillow band), a `Pixels` `numpy` frame decodes in-process on the cp315 core. `MarkOp.Decode` carries the decode-owned `DecodeSource`/`DecodeScope` types (referenced under `TYPE_CHECKING` plus boundary-scope import so the `MarkOp`-spans-both-pages cycle never forms at module load), and the decoder's `DecodedSymbol`/`DecodeFault`/`ContentKind` evidence, its `_FORMAT` `Symbology -> BarcodeFormat` scope table, and its `barcode_formats_from_str`/`BarcodeFormat.AllReadable`/`ReaderOptions` spellings live on the decode page. This encode page owns the `Mark`/`MarkOp` owner shape, the three `Encode` generation arms, the `SYMBOLOGIES` `frozendict[Symbology, EncodeArm]` table (the zxing display name now living on the `matrix` `EncodeArm` case that alone reads it, with no dead `member` column on the QR/linear rows — the decode page resolves scope through its own `_FORMAT` table, never the encode rows), the `MarkFault`/`MarkPayload`/`WriterOptions`/`Content` vocabularies, and the `RasterFact` re-declaration the decode page imports.

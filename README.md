@@ -49,8 +49,6 @@ Rasm agents invoke Assay as `uv run python -m tools.assay provision up|down|stat
 
 New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
-Hidden `.planning/` folders are implementation source when a package charter makes them the owner. Hidden `.reports/` folders are mining material for their visible doctrine pages. `.api/` folders are generated catalog evidence.
-
 Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect.
 
 ## [06]-[HOST_RUNTIME]

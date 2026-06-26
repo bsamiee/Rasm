@@ -418,7 +418,7 @@ public static class SqliteMaintenance {
 
     // `sqlite3_snapshot_get`/`_open` are contract-bound to a DEFERRED read transaction that has not yet read, so the
     // bracket begins one, pins under it, reads inside it, and rolls it back — a snapshot get with no open read
-    // transaction is the `SQLITE_ERROR` the prose pretends away. The handle frees in `finally`; only a held pin is
+    // transaction is a `SQLITE_ERROR`. The handle frees in `finally`; only a held pin is
     // freed. The `read` `Fin<T>` threads onto the IO rail through `IO.lift(Func<Fin<A>>)`, never a `IO<Fin<T>>` wrap.
     public static IO<T> WithSnapshot<T>(SqliteConnection connection, string schema, Func<SqliteConnection, Fin<T>> read, Option<sqlite3_snapshot> floor = default) =>
         IO.lift<T>(() => {

@@ -1,5 +1,6 @@
 export const meta = {
   name: 'implement-cs',
+  whenToUse: 'Realize open cards into design-page code fences for the first C# target set (AppHost, Compute, AppUi, Persistence).',
   description: 'Realize every open IDEAS/TASKLOG card across the four C# session targets (Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence) into deep design-page code FENCES at the docs/stacks/csharp 11/10 bar, resolve all ripples, and truthfully close the cards. One discovery agent maps cards + ripple classes + blockers; each target folder is realized as ONE implement -> critique -> redteam cycle (per folder, all WRITE, both reviews adversarial, fix-in-place; BLOCKED probe + folder-local package admission inline, no prep phase); a bounded reconcile aligns in-scope seams, realizes 1-hop out-of-scope C# ripple counterparts, and applies the single central package-pin serially; a final per-folder closeout verify-remediate-and-closes complete cards. Disposable, C#-only. args = a target path string, an array of target paths, or empty for the four defaults.',
   phases: [
     { title: 'Discover', detail: 'one agent: read the targets IDEAS/TASKLOG only; extract open cards (all tasks incl atomic + 1-3 ideas), sequence each folder, classify every ripple (in_scope / oos_csharp / cross_lang), record in-scope gates and malformed ripples' },

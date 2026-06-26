@@ -446,21 +446,48 @@ A workflow does **not** block the conversation:
 4. On completion a `<task-notification>` is delivered into the conversation with
    a summary, the agent count, and the run ID.
 
-**The journal.** While it runs, the workflow records every `agent()` call —
-keyed by a hash of its `(prompt, opts)` — together with the result. Subagent
-transcripts are written as `agent-<id>.jsonl` files in the run's transcript
-directory.
+**The journal is the cache.** Each run owns a directory under
+`~/.claude/projects/<project>/<session>/subagents/workflows/wf_<id>/`, and `journal.jsonl`
+inside it is the resume cache. Every `agent()` call appends a `{type:"started", key, agentId}`
+record when it begins and a `{type:"result", key, agentId, result}` record carrying the
+validated result when it finishes. The `key` is `v2:<sha256>` over the call's prompt plus its
+`schema`/`model`/`isolation`/`agentType` **only** — not `label`/`phase`/`effort`/`stallMs`.
+Each agent's full transcript is a separate `agent-<id>.jsonl`; the journal — not the
+transcripts — is what resume reads, and the runtime writes it automatically (you never write
+or construct it).
 
-**Resume.** Because the orchestrator is deterministic, re-running the same script
-produces the same sequence of `agent()` calls with the same keys. Relaunch with
-`Workflow({ scriptPath, resumeFromRunId })` and:
+**Resume replays the journal by key.** `Workflow({ scriptPath, resumeFromRunId })`
+re-executes the deterministic script and, for each `agent()` call, recomputes its `key`: a
+`result` record in that run's journal returns instantly with no model call; a `started`-only
+record (the agent was in-flight when the run stopped) or no record runs live. So **same script
++ same args = a 100% cache hit**, and an edited script replays every unchanged call before the
+edit. If the prior run is still going, stop it first.
 
-- a call whose key matches a completed journal entry returns the **cached result
-  instantly** — no model call;
-- the first new or changed call, and everything after it, runs live.
+**Three mistakes restart a run from zero instead of resuming it:**
 
-So **same script + same args = a 100% cache hit**, and an edited script replays
-every unchanged call before it from cache. This is what makes a workflow file
-genuinely editable mid-flight, and what lets a crashed run resume from where it
-died. Resume works **only within the session that created the run**; if the prior
-run is still going, stop it first.
+- **No `resumeFromRunId`.** A bare `Workflow({ scriptPath })` or `Workflow({ name })` is a NEW
+  run with an empty journal — it never consults a prior run's cache. The most common cause of an
+  unexpected restart.
+- **A different session.** The journal lives under the launching session's directory, so a run
+  started in another session (or after exiting Claude Code) cannot be resumed; it starts fresh.
+  This is a hard platform limit — no ledger or saved run ID recovers a cross-session run.
+- **A changed cache key from the top.** Editing the script, or changing the `args` that feed the
+  first agent's prompt, changes its `key`, misses the cache there, and re-runs from that point.
+
+Resume needs only two things the launch already hands back — the **run ID** and the
+**`scriptPath`**; you never build the journal path yourself. Capture both in a run ledger the
+instant a run starts, because the run ID lives only in this session. The **ledger is not the
+journal**: the journal is the runtime's automatic result cache that *does* the resuming, while
+the ledger is your one-line record of the run ID *to pass back* — lose it and a resumable run
+can only restart.
+
+**A lost run ID is recoverable in-session — and "ledger" is a convention, not a platform
+object.** The runtime exposes the run ID four ways: the launch tool result prints it with the
+exact `Workflow({ scriptPath, resumeFromRunId })` command, the completion `<task-notification>`
+repeats it, `/workflows` lists every run by ID, and each run directory is literally named
+`wf_<id>` under the session's `subagents/workflows/`. So if the ID has scrolled out of context,
+list that directory or open `/workflows`, recover it, and resume — a missing ledger is
+inconvenient, not fatal, within the session. The ledger only keeps the ID somewhere a later turn
+looks first; a run is unrecoverable solely across a session boundary. (For that cross-session
+case the only recourse is manual: read the run's `journal.jsonl` / `agent-<id>.jsonl` to see
+what completed and hand-author a continuation script that skips it.)

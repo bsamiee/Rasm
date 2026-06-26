@@ -480,10 +480,10 @@ public sealed class BsddTransport(HttpClient client, Duration deadline) {
 
     // Issues GET /api/Class/v1?Uri={classUri} under the hop deadline and deserializes the bSDD JSON onto the
     // caller-supplied TResponse; a transport miss or malformed body returns the typed EndpointUnreachable fault
-    // the app-root BsddPort adapter degrades to LocalShape on, never a Compute-side local fallback. The adapter
-    // closes TResponse to the Bim BsddClassResponse and the synchronous Fin<TResponse> matches the BsddPort.Fetch
-    // contract, so the await composes inside the typed-fault HTTP bridge and surfaces the settled outcome.
-    public Fin<TResponse> Fetch<TResponse>(string classUri) =>
+    // the app-root BsddPort adapter degrades to LocalShape on, never a Compute-side local fallback. Network I/O
+    // is deferred Task<Fin<TResponse>> work — the await threads through the typed-fault HTTP bridge with no
+    // blocking sync-over-async hop, the app-root adapter closing TResponse to the Bim BsddClassResponse.
+    public Task<Fin<TResponse>> Fetch<TResponse>(string classUri) =>
         CallSpine.AwaitedHttp(classUri, async (uri, token) => {
             using var request = new HttpRequestMessage(HttpMethod.Get, new UriBuilder(BsddBase) { Query = $"Uri={Uri.EscapeDataString(uri)}" }.Uri);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -603,8 +603,8 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
         catch (RpcException error) { return Fin.Fail<T>(WireFault.Classify(error)); }
     }
 
-    public static Fin<T> AwaitedHttp<T>(string subject, Func<string, CancellationToken, Task<Fin<T>>> exchange) {
-        try { return exchange(subject, CancellationToken.None).GetAwaiter().GetResult(); }
+    public static async Task<Fin<T>> AwaitedHttp<T>(string subject, Func<string, CancellationToken, Task<Fin<T>>> exchange) {
+        try { return await exchange(subject, CancellationToken.None).ConfigureAwait(false); }
         catch (OperationCanceledException) { return Fin.Fail<T>(new ComputeFault.DeadlineExpired($"<rest-deadline:{subject}>")); }
         catch (Exception error) when (error is HttpRequestException or JsonException or InvalidOperationException) { return Fin.Fail<T>(new ComputeFault.EndpointUnreachable($"<rest:{subject}:{error.Message}>")); }
     }

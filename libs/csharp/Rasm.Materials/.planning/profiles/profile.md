@@ -112,6 +112,15 @@ public static class ParametricSection {
     public static Fin<ComputedSection> Hollow(double widthMm, double depthMm, Seq<(double X, double Y, double W, double H)> voids, Op key) =>
         Solve(RectanglePerimeter(widthMm, depthMm, voids), key);
 
+    // The IProfile perimeter for a Profile's gross cross-section — the rectangle the Profile.Unit width/height bounds —
+    // the Connection/reinforcement#RC_SECTION RcSection.Of feeds to a VividOrange.Sections ConcreteSection as the
+    // concrete outline, the SAME Perimeter the section-property integral runs over so the RC elastic + N-M-M solvers
+    // and the gross section properties share one IProfile. A catalogued steel section passes its own ICatalogue IProfile.
+    public static Fin<IProfile> ProfileOf(Profile profile, Op key) =>
+        profile.Unit.WidthMm.Value > 0.0 && profile.Unit.HeightMm.Value > 0.0
+            ? Fin.Succ((IProfile)RectanglePerimeter(profile.Unit.WidthMm.Value, profile.Unit.HeightMm.Value, Seq<(double, double, double, double)>()))
+            : Fin.Fail<IProfile>(ProfileFault.Dimension(key, $"<profile-perimeter-degenerate:{profile.Family.Key}>"));
+
     static Fin<ComputedSection> Solve(Perimeter perimeter, Op key) =>
         Admit(new SectionProperties((IProfile)perimeter), key);
 

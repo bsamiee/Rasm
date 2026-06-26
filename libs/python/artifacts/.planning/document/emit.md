@@ -1,27 +1,26 @@
 # [PY_ARTIFACTS_EMIT]
 
-The document-emission and post-processing axis, rebased onto the one `DocumentNode` semantic tree. `DocumentPlan` is ONE frozen owner discriminating document mode over a `frozendict[DocumentMode, Backend]` policy table whose every `Backend` row binds the lowering arm to its runtime `Band`, so the cp315-core/gated-band split is a row column rather than a second dispatch surface — every arm is a LOWERING fold FROM the `document/model#NODE` `DocumentNode` tree, never an opaque payload: PDF authoring (reportlab canvas/flowables, weasyprint HTML-CSS with the `pdf_variant` PDF/A-PDF/UA archival row, typst markup typesetting with `pdf_standards` selection plus the held-`Compiler` introspection and `sys.inputs` data-binding rows), PDF render/raster (pymupdf, pypdfium2), PDF assembly (pypdf), PDF repair/linearize (pikepdf), Office (python-docx/python-pptx/openpyxl/docxtpl), and structured-text (lxml/ruamel-yaml/tomlkit). Emission lowers FROM the tree and `document/lens#LENS` recovers TO it, so production and extraction are inverses over the one node algebra defined once at `document/model#NODE`. Every per-arm input is one frozen `EmitSpec` `msgspec.Struct` admitted exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` and its module-level `TypeAdapter` — never a `dict[str, object]` bag, never re-validated in the interior. Every production threads one `EmitFact` typed-evidence carrier onto the frozen owner through `copy.replace`, returns a `RuntimeRail[ContentKey]` keyed by the runtime content key, and contributes one `ArtifactReceipt` row through the `@receipted` harvest weave; the closed `EmitFault` `@tagged_union` converts every provider exception (`typst.TypstError`, `pypdfium2.PdfiumError`, `lxml.etree.DocumentInvalid`, `xlsxwriter.XlsxWriterException`) at the `async_boundary` capsule.
+The document-emission and post-processing axis, rebased onto the one `DocumentNode` semantic tree. `DocumentPlan` is ONE frozen owner discriminating document mode over a `frozendict[DocumentMode, Backend]` policy table whose every `Backend` row binds the lowering arm to its runtime `Band`, so the cp315-core/gated-band split is a row column rather than a second dispatch surface — every arm is a LOWERING fold FROM the `document/model#NODE` `DocumentNode` tree, never an opaque payload: PDF authoring (reportlab platypus flowables, weasyprint HTML-CSS with the `pdf_variant` PDF/A-PDF/UA archival row plus `base_url`/`output_intent`/`stylesheets`, typst markup typesetting with `pdf_standards` selection over the held font-cached `Compiler` plus `sys.inputs` data-binding and `timestamp` reproducibility), PDF render/raster (pymupdf native `Pixmap.tobytes`, pypdfium2 `to_numpy` — both Pillow-free on the cp315 core), PDF assembly (pypdf), PDF repair/linearize (pikepdf, gated worker band), Office (python-docx/python-pptx/openpyxl/xlsxwriter/docxtpl), OpenDocument (odfpy ODT/ODS authoring, the pure-Python OASIS sibling to the OOXML office rows), and structured-text (lxml/ruamel-yaml/tomlkit). Emission lowers FROM the tree and `document/lens#LENS` recovers TO it, so production and extraction are inverses over the one node algebra defined once at `document/model#NODE`. Every per-arm input is one frozen `EmitSpec` `msgspec.Struct` admitted exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` and its module-level `TypeAdapter`, the per-mode `_REQUIRED` precondition making admission total over well-formed requests — never a `dict[str, object]` bag, never re-validated in the interior. Every production threads one `EmitFact` typed-evidence carrier onto the frozen owner through `copy.replace`, the `@receipted(Redaction.STRUCTURAL)` harvest weave draining `DocumentPlan.contribute` off the stepped owner so the receipt reads `EmitFact` without an in-process re-run; `EmitFault` is the closed `@tagged_union` over the `payload`/`unsatisfied` ADMISSION causes `of` produces, while every arm-level provider raise (`typst.TypstError`, `pypdfium2.PdfiumError`, `lxml.etree.XMLSyntaxError`, `xlsxwriter.XlsxWriterException`) converts to the runtime `BoundaryFault` at the `async_boundary` capsule, exactly as `document/egress#FINISH` routes its provider raises.
 
 ## [01]-[INDEX]
 
-- [01]-[DOCUMENT]: document-mode dispatch axis whose `Backend`-per-mode policy rows lower from `DocumentNode` across the one `BACKENDS` table — each row binding its `Band` (`CORE`/`WORKER`) so the lxml gated band is a row column the `_worker_emit` re-resolves rather than a parallel `GATED_ARMS` table — carrying the Typst introspection-and-data-bind rows on the held `Compiler` world, the pypdfium2 raster/outline row, the reportlab font-embed close, the weasyprint `pdf_variant` archival row, the docxtpl template-bind row, the xlsxwriter constant-memory streaming policy, and the lxml transform/validate/query rows; `EmitSpec` the one admitted-once typed payload, `EmitFact` the threaded evidence carrier, `EmitFault` the closed conversion vocabulary, and the `@receipted` harvest weave over a thin pure `_emit`.
+- [01]-[DOCUMENT]: document-mode dispatch axis whose `Backend`-per-mode policy rows lower from `DocumentNode` across the one `BACKENDS` table — each row binding its `Band` (`CORE`/`WORKER`) so the gated lxml/pikepdf/python-pptx band is a row column the `_worker_emit` re-resolves rather than a parallel `GATED_ARMS` table — carrying the reportlab flowable author, the weasyprint archival HTML row, the Typst held-`Compiler` compile/data rows and the free-function `query`/`eval` introspection, the pymupdf/pypdfium2 Pillow-free raster rows with the pypdfium2 outline harvest, the pypdf assemble and pikepdf repair rows, the python-docx/python-pptx/docxtpl authoring rows, the xlsxwriter constant-memory streaming policy, the odfpy ODT/ODS OpenDocument authoring rows, and the lxml transform/validate/query rows; `EmitSpec` the one admitted-once typed payload, `EmitFact` the threaded evidence carrier, `EmitFault` the closed admission vocabulary, and the `@receipted` harvest weave over a thin pure `_emit` returning the stepped `Self`.
 
 ## [02]-[DOCUMENT]
 
-- Owner: `DocumentPlan` the one frozen `msgspec.Struct` owner discriminating mode over `BACKENDS`; `DocumentMode` the closed `StrEnum` of emission, introspection, and post-processing modes; `BACKENDS` the `frozendict[DocumentMode, Backend]` policy table whose every `Backend` row binds `(band, arm)` — the cp315-core/gated split is the `Band` column, never a second `GATED_ARMS` table and never an `if mode in GATED` branch; `EmitSpec` the one frozen per-arm material struct admitted at `.of` through the `EmitPayload` `TypedDict` + module-level `TypeAdapter`, the `extra_items=str` band folding provider extension keys into one `frozendict`; `EmitFact` the bytes-plus-evidence carrier every arm returns so the receipt reads the page/scale/outline/embedded-face/undeclared facts the arm produced; `EmitFault` the closed `@tagged_union` over the payload/source/schema/content/typeset causes; `SpreadsheetPolicy` the closed two-row streaming-behavior vocabulary keyed by an `XlsxRegime` member so the XLSX arm dispatches a row rather than reconstructing the openpyxl-versus-xlsxwriter choice; `CellValue` the closed `match`-projected cell algebra whose `_coerce_cell` narrows recovered text to `bool`/`int`/`float`/`datetime`/`date` so each grid cell's typed `write_number`/`write_datetime`/`write_boolean`/`write_string`/`write_blank` derives from the value; `SchemaKind` the closed XSD/RelaxNG/Schematron validator vocabulary; `RenderTarget` the bridge-valued `StrEnum` whose member value IS the `to_pil`/`to_numpy` bitmap-bridge method; `PdfVariant` the closed archival-conformance vocabulary projecting one row to BOTH the typst `pdf_standards` token and the weasyprint `pdf_variant`/`pdf_tags` pair; the held `typst.Compiler` font-cached world the owner amortizes across a batched `produce`.
-- Cases: `DocumentMode` rows `PDF_AUTHOR` (reportlab) · `PDF_HTML` (weasyprint `HTML.write_pdf` carrying the `PdfVariant` `pdf_variant`/`pdf_tags`/`pdf_forms` archival row) · `PDF_TYPST` (typst markup-to-PDF with the `PdfVariant` `pdf_standards` PDF/A selection) · `TYPST_QUERY` (typst `Compiler.query(selector, field, one)` structured element extraction — the document-introspection inverse) · `TYPST_DATA` (typst `Compiler.compile(sys_inputs=...)` runtime data injection through `sys.inputs`, no string templating) · `PDF_RENDER` (pymupdf `Page.get_pixmap`→`Pixmap.tobytes`) · `PDF_RASTER` (pypdfium2 `PdfPage.render`→`RenderTarget` bridge raster + `PdfDocument.get_toc` outline harvest, the cp315-core rasterizer needing no gated hop) · `PDF_ASSEMBLE` (pypdf `PdfWriter.append`) · `PDF_REPAIR` (pikepdf `Pdf.save(linearize=True)`, gated worker band) · `FONT_EMBED` (reportlab `pdfmetrics.registerFont(TTFont(...))` embedding the `exchange/conformance#CONFORM`-subsetted font into the emitted PDF — the subset→embed→PDF/A close) · `DOCX` (python-docx) · `DOCX_TEMPLATE` (docxtpl `DocxTemplate.render(context)` binding the tree into a Word template through the admitted jinja2, the TEMPLATE data-bind axis spanning Typst `sys_inputs` and Office) · `PPTX` (python-pptx) · `XLSX` (openpyxl in-memory or xlsxwriter `constant_memory` streamed, selected by `SpreadsheetPolicy`) · `XML` (lxml emit) · `XML_TRANSFORM` (lxml `etree.XSLT` compiled stylesheet) · `XML_VALIDATE` (lxml `XMLSchema`/`RelaxNG`/`Schematron` `assertValid` raising `DocumentInvalid`) · `XML_QUERY` (lxml `etree.XPath` structured introspection, the XML inverse of `TYPST_QUERY`) · `YAML` (ruamel-yaml) · `TOML` (tomlkit) — each backend one `Backend` row in `BACKENDS`, never an `if pdf` branch and never a parallel native frozenset.
-- Entry: `DocumentPlan.produce` is `async` over the runtime `async_boundary`, dispatching inside the one fault capsule and discriminating arity on the INPUT SHAPE — a lone `DocumentPlan` runs its one `_stepped` arm; an `Iterable[DocumentPlan]` sharing one mode is the batched render the held `Compiler` amortizes font load across, threaded through the rail with NO `batch`/`mode` knob. `_stepped` reads `Backend.band`: a `CORE`-band arm runs `BACKENDS[mode].arm(self, world)` in-process, a `WORKER`-band arm crosses `anyio.to_process.run_sync` onto `_worker_emit` which re-resolves the SAME `BACKENDS` row, so the gated lxml/pikepdf band carries no second `match`. `produce` returns a `RuntimeRail[ContentKey]` keyed by the content key minted over `EmitFact.data`.
-- Auto: every arm receives the `DocumentNode` tree and the held `Compiler` world and lowers the tree — PDF authoring folds it through reportlab `Canvas`/flowable build; HTML-CSS folds `to_html(node)` through weasyprint `HTML(string=...).write_pdf(pdf_variant=spec.variant.weasyprint, pdf_tags=spec.variant.tagged, pdf_forms=spec.forms)`; Typst typesetting folds `to_typst_source(node)` through `Compiler.compile(output=None, pdf_standards=spec.variant.typst)`; `TYPST_QUERY` folds the selector through `Compiler.query(selector, field, one)`; `TYPST_DATA` folds the injected data through `Compiler.compile(sys_inputs=...)`; render runs pymupdf `Document`/`Page.get_pixmap`/`Pixmap.tobytes`; raster folds each selected page through pypdfium2 `PdfPage.render(scale, rotation, crop, may_draw_forms, color_scheme)`→`RenderTarget` (`PdfBitmap.to_pil`/`to_numpy`) into one multi-frame image and harvests the `PdfDocument.get_toc(max_depth)`→`PdfBookmark`/`PdfDest` outline as `OutlineRow` triples on the fact; assembly runs pypdf `PdfWriter.append`; repair runs pikepdf `Pdf.save(linearize=True)`; font-embed registers each `CONFORM`-subsetted face through reportlab `TTFont`+`registerFont`, sets the PDF info dictionary through `Canvas.setTitle`/`setAuthor`/`setSubject`, and draws every `RunNode` at its `NodeMeta.bounds`; `DOCX_TEMPLATE` folds the tree in one `walk`+`match` pass — `RunNode`→`RichText.add(... url_id ...)`, `BlockKind.CODE`→`Listing`, every other `BlockNode`→`RichTextParagraph.add`, `FigureNode`→`InlineImage(width, height, anchor)`, `SectionNode`→`new_subdoc()` into the `render(context, autoescape=True)` dict keyed by `NodeMeta.role` — and reads the `get_undeclared_template_variables` set onto the fact; XLSX folds the `TableNode` grid through the `SpreadsheetPolicy` row whose writer is openpyxl `Workbook(write_only=True)` `append` or xlsxwriter `Workbook(sink, {"constant_memory": True, ...})` with the `_FORMAT_SETTERS`-driven `Format` header, `set_column` width, `define_name` header range, and `set_properties` core metadata, each grid cell projected through the `CellValue` algebra; structured-text folds through ruamel-yaml `YAML().dump` and tomlkit `dumps` on the core, with the four gated lxml rows folding `to_lxml_tree(node)` through `etree.tostring`, `etree.XSLT`, the validator, and `etree.XPath` on the `_worker_emit` worker under the `XMLParser(resolve_entities=False, huge_tree=False, no_network=True)` hardening.
-- Receipt: the `@receipted(ArtifactReceipt)` harvest weave stacks over the pure `_emit`, draining `DocumentPlan.contribute` and emitting through `Signals.emit_async`; `contribute` reads the threaded `EmitFact` off `self.fact` (never an in-process re-run of a worker-gated arm), re-mints the content key over `fact.data`, and folds the case off the `Backend.kind` `ReceiptKind` discriminant through the `_RECEIPT` table in one expression — the PDF rows mint the `core/receipt#RECEIPT`-owned `ArtifactReceipt.Pdf(key, bytes, pages)` flat-scalar case, the Office and structured-text rows mint `ArtifactReceipt.Office(key, bytes)` byte-only — the exact `(ContentKey, <scalars>)` arities the receipt owner declares, never a widened `Pdf`/`Office` tuple and never a phantom `Document` case the union does not carry. The rich per-arm evidence (render scale, outline depth, embedded-face set, `get_undeclared_template_variables` set, `TYPST_QUERY` queried length, `XML_VALIDATE` valid flag, warning count) rides the `EmitFact` carrier the consumer reads off `self.fact`; the cross-producer receipt stream carries only the owner's flat scalars, so a richer document/byte-only receipt case is a `core/receipt#RECEIPT` growth concern, never minted here against a case that does not exist.
-- Packages: `reportlab` (`pdfgen.canvas.Canvas`/`setFont`/`drawString`/`setTitle`/`setAuthor`/`setSubject`/`showPage`/`save`/`getpdfdata`, `pdfbase.ttfonts.TTFont(name, filename, subfontIndex)`, `pdfbase.pdfmetrics.registerFont`, catalogue rows `[01]`/`[02]`/`[04]`/`[06]`), `weasyprint` (`HTML(string=...)`/`HTML.write_pdf(target=None, pdf_variant, pdf_tags, pdf_forms, uncompressed_pdf, output_intent)`/`Document.metadata`, the `pdf_variant` `pdf/a-1b`..`pdf/a-4`/`pdf/ua-1` archival rows), `typst` (`Compiler`/`Compiler.compile`/`Compiler.compile_with_warnings`/`Compiler.query`/`Compiler.eval`, `compile`/`query` with `sys_inputs`/`pdf_standards`, `Fonts`/`FontInfo`, cp38-abi3 wheel installing on the cp315 core), `pymupdf` (`open`/`Page.get_pixmap`/`Pixmap.tobytes`/`Pixmap.pil_tobytes`/`Document.tobytes`/`Document.set_metadata`), `pypdfium2` (`PdfDocument(input, password, autoclose)`/`PdfDocument.get_page`/`PdfPage.render(scale, rotation, crop, may_draw_forms, color_scheme)`/`PdfBitmap.to_pil`/`to_numpy`/`PdfDocument.get_toc(max_depth)`/`PdfBookmark.get_title`/`get_dest`/`PdfDest.get_index`, catalogue rows `[01]`/`[02]`/`[03]`/`[04]`/`[06]`/`[10]`), `pypdf` (`PdfReader`/`PdfWriter`/`PdfWriter.append`/`add_metadata`/`PageObject.compress_content_streams`/`write`), `pikepdf` (`open`/`Pdf.save(linearize=True, recompress_flate, object_stream_mode)`/`Pdf.pages`), `docxtpl` (`DocxTemplate.__init__`/`render`/`save`/`new_subdoc`/`get_undeclared_template_variables`/`build_url_id`/`replace_media`/`replace_embedded`/`replace_zipname`/`replace_pic`, `RichText.add`, `RichTextParagraph.add`, `Listing`, `InlineImage`, composing on `python-docx` + the `document/report#REPORT` jinja2, catalogue rows `[01]`-`[12]` and the content-carrier rows), `python-docx`, `python-pptx`, `openpyxl` (`Workbook(write_only=True)`/`create_sheet`/`Worksheet.append`/`freeze_panes`/`save`, `utils.get_column_letter` the A1 column owner, catalogue rows `[01]`/`[02]`/`[04`/`[07]` and `utils` row `[09]`), `xlsxwriter` (`Workbook(filename, options)` with `constant_memory`/`in_memory`/`use_zip64`/`tmpdir` keys, `add_worksheet`/`add_format`/`set_properties`/`define_name`/`worksheets`/`close`, the typed `Worksheet.write_number`/`write_string`/`write_datetime`/`write_boolean`/`write_blank`/`set_row`/`set_column`/`freeze_panes`, `Format.set_num_format`/`set_bold`/`set_align`, catalogue rows `[01]`-`[18]` and `[01]`-`[05]`, promote-to-explicit of the already-transitive dist), `ruamel-yaml`, `tomlkit` on the cp315 core; `lxml` (`etree.tostring`/`etree.parse`/`etree.XMLParser`/`etree.XSLT`/`etree.XSLT.strparam`/`etree.XMLSchema`/`etree.RelaxNG`/`etree.Schematron`/`etree.XPath`/`etree._Element`/`cleanup_namespaces`/`DocumentInvalid`, catalogue rows `[01]`/`[03]`/`[07]`-`[10]` and the query/transform/validate rows `[01]`/`[03]`/`[05]`/`[06]`) gated `python_version<'3.15'`; `document/model#NODE` (`DocumentNode`, the `RunNode`/`BlockNode`/`FigureNode`/`SectionNode`/`TableNode`/`PageNode`/`FieldNode`/`NodeMeta` variants, the `BlockKind` row, `to_typst_source`/`walk`/`_DOCUMENT_ENCODER` settled, `to_lxml_tree`/`to_html` the RESEARCH XML/HTML lowerings the model page does not yet own); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `receipts.Receipt`/`receipted`/`Signals`, `anyio.to_process.run_sync` for the gated band).
-- Growth: a new document format is one `DocumentMode` row plus one `Backend` row binding its arm and band; a new PDF post-step, Typst introspection row, XML transform/validate/query row, or font-embed step is one mode row; a new XLSX memory regime is one `SpreadsheetPolicy` row whose `writer` carries its own streaming behavior, a new typed cell one `CellValue` arm, a new schema dialect one `SchemaKind` row, a new raster bridge one `RenderTarget` row, a new archival profile one `PdfVariant` row projecting to both engines, a new evidence fact one `EmitFact` field, a new fault cause one `EmitFault` case; the held `Compiler` amortizes font load across a batched `produce`; zero new surface.
-- Boundary: no durable document store, no hand-rolled PDF/XML parser, no UI. A per-format emitter-class service family, a stringly-typed `if mode == ...` branch, a parallel spreadsheet/template/validator owner, a `dict[str, object]` payload, a parallel `GATED_ARMS` table beside `BACKENDS`, a worker-side step `match`, a dict mutation standing in for a typed receipt, and a fresh `Compiler` per render in a batch are the deleted forms — every arm lowers the `document/model#NODE` tree, reads its typed `EmitSpec`, and returns one `EmitFact`. The per-cell `isinstance` ladder, the parallel dict-stitch loops, the second `_typst_data` arm duplicating `_typst_compile`, the `to_pil`-only raster sink, and the hand-rolled base-26 `_column_letter` kernel are the collapsed forms: the `CellValue` `match`, the one `_docxtpl_emit` carrier fold, the single Typst `compile` arm parameterized by `sys_inputs`, the `RenderTarget` row, and the `openpyxl.utils.get_column_letter` A1 owner each absorb the variant a sibling otherwise grows. The `XML`/`XML_TRANSFORM`/`XML_VALIDATE`/`XML_QUERY` (lxml) and `PDF_REPAIR` (pikepdf) arms ride the `WORKER` `Band` onto `anyio.to_process.run_sync`; every other mode resolves on the cp315 core. The `FONT_EMBED` arm consumes the `exchange/conformance#CONFORM`-subsetted font bytes and threads them into the document font table; subsetting and instancing stay at `CONFORM`, and the PAdES/archival close also routes there. The `PdfVariant` row authors PDF/A structural conformance at emission; PAdES cryptographic signing is never an emit row and routes to `exchange/conformance#CONFORM`; the security-and-navigation finishing close (encryption/outline/watermark/attach/impose) routes to `document/egress#FINISH`; the recover-TO extraction half routes to `document/lens#LENS`; report composition rides `document/report#REPORT`; the content key is consumed from runtime, never re-minted.
+- Owner: `DocumentPlan` the one frozen `msgspec.Struct` owner discriminating mode over `BACKENDS`; `DocumentMode` the closed `StrEnum` of emission, introspection, and post-processing modes; `BACKENDS` the `frozendict[DocumentMode, Backend]` policy table whose every `Backend` row binds `(band, arm, kind)` — the cp315-core/gated split is the `Band` column, never a second `GATED_ARMS` table and never an `if mode in GATED` branch; `EmitSpec` the one frozen per-arm material struct admitted at `.of` through the `EmitPayload` `TypedDict(closed=True)` + module-level `TypeAdapter`; `_REQUIRED` the `frozendict[DocumentMode, tuple[str, ...]]` precondition table whose row names the spec fields a mode demands so `of` rejects an empty `source`/`template`/`schema` before the interior; `EmitFact` the bytes-plus-evidence carrier every arm returns so the receipt reads the page/scale/outline/embedded-face/undeclared facts the arm produced; `EmitFault` the closed `@tagged_union` over the `payload`/`unsatisfied` admission causes; `SpreadsheetPolicy` the closed two-row streaming-behavior vocabulary keyed by an `XlsxRegime` member so the XLSX arm dispatches a row rather than reconstructing the openpyxl-versus-xlsxwriter choice; `CellValue` the closed `match`-projected cell algebra whose `_coerce_cell` narrows recovered text to `bool`/`int`/`float`/`datetime`/`date` so each grid cell's typed `write_number`/`write_datetime`/`write_boolean`/`write_string`/`write_blank` derives from the value; `SchemaKind` the closed XSD/RelaxNG/Schematron/DTD validator vocabulary; `PdfVariant` the closed archival-conformance vocabulary projecting one row to BOTH the typst `pdf_standards` token and the weasyprint `pdf_variant`/`pdf_tags` pair; the held `typst.Compiler` font-cached world the owner amortizes across a batched `produced`.
+- Cases: `DocumentMode` rows `PDF_AUTHOR` (reportlab platypus `SimpleDocTemplate.build` over the `_flowables` tree fold) · `PDF_HTML` (weasyprint `HTML(string, base_url).write_pdf` carrying the `PdfVariant` `pdf_variant`/`pdf_tags`/`pdf_forms` plus `output_intent`/`stylesheets` archival row) · `PDF_TYPST` (typst held-`Compiler.compile_with_warnings(input=bytes, pdf_standards=, timestamp=)`, the PDF/UA path prepending `#set document(title:)`) · `TYPST_QUERY` (free `typst.query(input=bytes, selector, field, one)` structured element extraction — the document-introspection inverse, querying its OWN lowered document, never the held head world) · `TYPST_EVAL` (free `typst.eval(input=bytes, expression)` expression evaluation over the plan's own document, the scripting-introspection sibling of `query`) · `TYPST_DATA` (the SAME `_typst_compile` arm parameterized by `sys_inputs` runtime injection, no second arm) · `PDF_RENDER` (pymupdf `Page.get_pixmap`→native `Pixmap.tobytes`, multi-page through a `numpy` frame stack, Pillow-free) · `PDF_RASTER` (pypdfium2 `PdfPage.render`→`PdfBitmap.to_numpy` frame stack + `PdfDocument.get_toc` outline harvest, the BSD cp315-core rasterizer) · `PDF_ASSEMBLE` (pypdf `PdfWriter.append`+`compress_content_streams`) · `PDF_REPAIR` (pikepdf `Pdf.save(linearize=True, recompress_flate, object_stream_mode)`, gated worker band) · `FONT_EMBED` (reportlab `pdfmetrics.registerFont(TTFont(...))` embedding the `exchange/conformance#CONFORM`-subsetted font, each `RunNode` drawn at its `NodeMeta.bounds` with `setFillColorRGB` colour) · `DOCX` (python-docx `Document` authored through `_docx_block`) · `DOCX_TEMPLATE` (docxtpl `DocxTemplate.render`/`render_footnotes` binding the tree into a Word template, the per-part `replace_zipname` pre-render swap, the TEMPLATE data-bind axis spanning Typst `sys_inputs` and Office) · `PPTX` (python-pptx `Presentation`, gated worker band by its lxml dependency) · `XLSX` (openpyxl in-memory or xlsxwriter `constant_memory` streamed, selected by `SpreadsheetPolicy`) · `ODT` (odfpy `OpenDocumentText` block lowering through `addTextToElement`) · `ODS` (odfpy `OpenDocumentSpreadsheet` typed-cell grid through `CellValue.odf_cell`, one `_odf_emit` arm flavor-keyed by mode) · `XML` (lxml emit) · `XML_TRANSFORM` (lxml `etree.XSLT`) · `XML_VALIDATE` (lxml `XMLSchema`/`RelaxNG`/`Schematron`/`DTD` `validate` returning the boolean verdict, the `error_log` line count riding the fact) · `XML_QUERY` (lxml `etree.XPath` structured introspection, the XML inverse of `TYPST_QUERY`) · `YAML` (ruamel-yaml) · `TOML` (tomlkit) — each backend one `Backend` row, never an `if pdf` branch.
+- Entry: `produced` is the ONE modal-arity entrypoint over `DocumentPlan | Iterable[DocumentPlan]` discriminating on the INPUT SHAPE — a lone plan is `Block.singleton`, an iterable is `Block.of_seq`, normalized once at the head, threaded through the rail with NO `batch`/`mode` knob. `_emitted` constructs ONE held `Compiler` off the batch head INSIDE the `async_boundary` capsule (so a `Compiler` construction raise converts to `BoundaryFault`) when the head mode is a `_HELD_WORLD` Typst row and threads it through every Typst arm so a multi-document Typst render pays font load once; a Typst arm in a non-Typst-headed batch builds its own per-plan world so it never receives a `None` compiler. `_emit` is the thin pure core returning the stepped `Self` (a `ReceiptContributor`) the `@receipted` weave harvests; `_stepped` reads `Backend.band` — a `CORE`-band arm runs `BACKENDS[mode].arm(self, world)` in-process, a `WORKER`-band arm crosses `anyio.to_process.run_sync` onto `_worker_emit` which re-resolves the SAME `BACKENDS` row, so the gated band carries no second `match`. `produced` returns a `RuntimeRail[Block[ContentKey]]` keyed over each `EmitFact.data`.
+- Auto: every arm receives the `DocumentNode` tree and the held `Compiler` world and lowers the tree — `PDF_AUTHOR` folds it through the `_flowables` platypus story; `PDF_HTML` folds `to_html(node)` through weasyprint `HTML(string, base_url).write_pdf(pdf_variant=, pdf_tags=, pdf_forms=, output_intent=, stylesheets=)`; `PDF_TYPST`/`TYPST_DATA` fold `to_typst_source(node).encode()` through the held `Compiler.compile_with_warnings(input=, sys_inputs=, pdf_standards=, timestamp=)`; `TYPST_QUERY` folds the selector through the free `typst.query(input=source-bytes, selector, field, one)` and `TYPST_EVAL` the source expression through the free `typst.eval(input=source-bytes, expression)`; render folds each page through pymupdf `get_pixmap`→native `tobytes`/`numpy`; raster folds each page through pypdfium2 `render(**render_keywords)`→`to_numpy` into one `numpy` frame stack and harvests the `get_toc(max_depth)`→`PdfBookmark.get_count`/`get_title`/`get_dest`→`PdfDest.get_index` outline as `OutlineRow` triples; assembly runs pypdf `PdfWriter.append`; repair runs pikepdf `Pdf.save`; font-embed registers each `CONFORM`-subsetted face through reportlab `TTFont`+`registerFont` and draws every `RunNode`; `DOCX`/`PPTX` fold the tree through `_docx_block`/the slide loop; `DOCX_TEMPLATE` folds the tree in one `walk`+`match` pass into the role-keyed `render` context reading `get_undeclared_template_variables` onto the fact; XLSX folds the `TableNode` grid through the `SpreadsheetPolicy` row projecting each cell through `CellValue`; `ODT`/`ODS` fold one `_odf_emit` arm flavor-keyed by mode — `ODS` lowers the `TableNode` grid into `Table`/`TableRow`/`TableCell` through `CellValue.odf_cell` typed `(valuetype, value)` cells, `ODT` lowers the block tree through `_odf_block` `H`/`P` paragraphs over `addTextToElement`, each serialized once through `OpenDocument.write`; structured-text folds through ruamel-yaml `YAML().dump`, tomlkit `dumps`, and the four gated lxml rows under the `XMLParser(resolve_entities=False, huge_tree=False, no_network=True)` hardening.
+- Receipt: the `@receipted(Redaction.STRUCTURAL)` harvest weave stacks over the pure `_emit`, draining `DocumentPlan.contribute` and emitting through `Signals.emit_async`; `contribute` reads the threaded `EmitFact` off `self.fact` (never an in-process re-run of a worker-gated arm), re-mints the content key over `fact.data`, and folds the case off the `Backend.kind` `ReceiptKind` discriminant through the `_RECEIPT` table in one expression — the PDF rows mint `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)`, the Office and structured-text rows mint `ArtifactReceipt.Office(key, bytes)` — the exact `(ContentKey, <scalars>)` arities the receipt owner declares, never a widened tuple and never the typography-rail `Document` case (emit mints only the `Pdf`/`Office` arities). The rich per-arm evidence (render scale, outline count, embedded-face set, `get_undeclared_template_variables` set, queried length, validation verdict, warning/error count) rides the `EmitFact` carrier the consumer reads off `self.fact`; a richer byte-only receipt case is a `core/receipt#RECEIPT` growth concern — the `Document` case is the typography rail's, so emit mints only the `Pdf`/`Office` arities it owns.
+- Packages: `reportlab` (`platypus.SimpleDocTemplate(sink, pagesize, title, author, subject)`/`build`, `platypus.Paragraph`/`Table`/`Image`/`ListFlowable`/`ListItem`/`PageBreak`/`Spacer`, `lib.styles.getSampleStyleSheet`, `pdfgen.canvas.Canvas`/`setFont`/`setFillColorRGB`/`drawString`/`setTitle`/`setAuthor`/`setSubject`/`showPage`/`save`/`getpdfdata`, `pdfbase.ttfonts.TTFont(name, filename, subfontIndex)`, `pdfbase.pdfmetrics.registerFont`), `weasyprint` (`HTML(string, base_url)`/`HTML.write_pdf(target, pdf_variant, pdf_tags, pdf_forms, output_intent, stylesheets)`/`CSS(filename)`), `typst` (`Compiler(input, font_paths, sys_inputs)`/`Compiler.compile_with_warnings(input, output, sys_inputs, pdf_standards, timestamp)`/free `query(input, selector, field, one)`/free `eval(input, expression)`, cp38-abi3 wheel on the cp315 core), `pymupdf` (`open(stream, filetype)`/`Matrix`/`Page.get_pixmap`/`Pixmap.tobytes`/`Pixmap.samples`/`Document.page_count`), `pypdfium2` (`PdfDocument(input, password, autoclose)`/`get_page`/`PdfPage.render(scale, rotation, may_draw_forms)`/`PdfBitmap.to_numpy`/`get_toc(max_depth)`/`PdfBookmark.get_count`/`get_title`/`get_dest`/`PdfDest.get_index`), `pypdf` (`PdfReader`/`PdfWriter.append`/`add_metadata`/`PageObject.compress_content_streams`/`write`), `pikepdf` (`open(src, password)`/`Pdf.save(linearize, recompress_flate, object_stream_mode, deterministic_id)`/`ObjectStreamMode`/`Pdf.pages`, gated), `python-docx` (`Document`/`add_heading`/`add_paragraph`/`Paragraph.add_run`/`Run.font`/`add_table`/`Table.cell`/`add_picture`/`add_page_break`/`core_properties`/`shared.Pt`/`RGBColor`/`save`), `python-pptx` (`Presentation`/`slide_layouts`/`slides.add_slide`/`SlideShapes.add_textbox`/`add_picture`/`TextFrame.add_paragraph`/`_Paragraph.add_run`/`Font`/`util.Inches`/`Pt`/`save`, gated), `docxtpl` (`DocxTemplate.__init__`/`render(autoescape)`/`render_footnotes`/`save`/`new_subdoc`/`get_undeclared_template_variables`/`build_url_id`/`replace_zipname`, `RichText.add(bold, italic, superscript, subscript, size, font, color, rtl, lang, url_id)`, `RichTextParagraph.add`, `Listing`, `InlineImage`), `openpyxl` (`Workbook(write_only=True)`/`create_sheet`/`Worksheet.append`/`freeze_panes`/`save`, `utils.get_column_letter`), `xlsxwriter` (`Workbook(sink, options)` with `constant_memory`/`in_memory`/`use_zip64`/`remove_timezone`/`nan_inf_to_errors`, `add_worksheet`/`add_format(properties)`/`set_properties`/`define_name`/`set_row`/`set_column`/`freeze_panes`/`close`, typed `write_*`), `odfpy` (`opendocument.OpenDocumentText`/`OpenDocumentSpreadsheet`/`OpenDocument.write`, `table.Table`/`TableRow`/`TableCell(valuetype, value)`, `text.H`/`P`, `teletype.addTextToElement`, pure-Python over `defusedxml`), `ruamel-yaml`, `tomlkit` on the cp315 core; `lxml` (`etree.tostring`/`parse`/`XMLParser`/`XSLT`/`XSLT.strparam`/`XMLSchema`/`RelaxNG`/`Schematron`/`DTD`/`XPath`/`_Element`/`cleanup_namespaces`/`validate`/`error_log`) gated `python_version<'3.15'`; `document/model#NODE` (`DocumentNode` and its variants, `BlockKind`/`ListKind`/`RunScript`, `to_typst_source`/`walk`/`_DOCUMENT_ENCODER` settled, `to_lxml_tree`/`to_html` the RESEARCH XML/HTML lowerings the model page does not yet own); runtime (`content_identity.ContentIdentity`/`ContentKey`, `faults.RuntimeRail`/`async_boundary`, `receipts.Receipt`/`Redaction`/`receipted`/`Signals`, `anyio.to_process.run_sync`).
+- Growth: a new document format is one `DocumentMode` row plus one `Backend` row binding its arm and band, plus a `_REQUIRED` row if it demands an input; a new archival profile is one `PdfVariant` row projecting to both engines; a new typed cell one `CellValue` arm; a new schema dialect one `SchemaKind` row; a new evidence fact one `EmitFact` field; a new admission cause one `EmitFault` case; the held `Compiler` amortizes font load across a batched `produced`; zero new surface.
+- Boundary: no durable document store, no hand-rolled PDF/XML parser, no UI. A per-format emitter-class service family, a stringly-typed `if mode == ...` branch, a parallel spreadsheet/template/validator owner, a `dict[str, object]` payload, a parallel `GATED_ARMS` table beside `BACKENDS`, a worker-side step `match`, a dict mutation standing in for a typed receipt, a fresh `Compiler` per render in a batch, a `Pillow` import on a cp315-core arm, and a `@receipted` weave fed a non-`ReceiptContributor` return are the deleted forms. The `FONT_EMBED` arm consumes the `exchange/conformance#CONFORM`-subsetted font bytes; subsetting/instancing and the PAdES/PDF-A cryptographic close stay at `CONFORM`. The `PdfVariant` row authors PDF/A structural conformance at emission; the security-and-navigation finishing close (encryption/outline/watermark/attach/impose) routes to `document/egress#FINISH`; the recover-TO extraction half routes to `document/lens#LENS`; report composition rides `document/report#REPORT`; multi-frame image-container encoding (TIFF/GIF over the raster frames) routes to `graphic/raster/io#IO`, the Pillow-gated owner; the content key is consumed from runtime, never re-minted.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 from collections.abc import Callable, Iterable, Iterator
-from contextlib import suppress
 from copy import replace
 from datetime import date, datetime
 from enum import StrEnum
@@ -29,14 +28,14 @@ from typing import TYPE_CHECKING, Final, Literal, NotRequired, ReadOnly, Self, T
 
 from anyio import to_process
 from builtins import frozendict
-from expression import Error, Ok, Result, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, field, to_builtins
 from pydantic import TypeAdapter, ValidationError
 
 from rasm.runtime.content_identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary
-from rasm.runtime.receipts import Phase, Receipt, receipted
+from rasm.runtime.receipts import Receipt, Redaction, receipted
 
 from artifacts.core.receipt import ArtifactReceipt
 from artifacts.document.model import (
@@ -45,13 +44,16 @@ from artifacts.document.model import (
     DocumentNode,
     FieldNode,
     FigureNode,
+    ListKind,
+    ListNode,
     PageNode,
     RunNode,
+    RunScript,
     SectionNode,
     TableNode,
     _DOCUMENT_ENCODER,
-    to_html,
-    to_lxml_tree,
+    to_html,        # RESEARCH: `document/model#NODE` must row the HTML lowering beside `to_typst_source`
+    to_lxml_tree,   # RESEARCH: `document/model#NODE` must row the `_Element` lowering beside `to_typst_source`
     to_typst_source,
     walk,
 )
@@ -67,6 +69,7 @@ class DocumentMode(StrEnum):
     PDF_HTML = "pdf-html"
     PDF_TYPST = "pdf-typst"
     TYPST_QUERY = "typst-query"
+    TYPST_EVAL = "typst-eval"
     TYPST_DATA = "typst-data"
     PDF_RENDER = "pdf-render"
     PDF_RASTER = "pdf-raster"
@@ -77,6 +80,8 @@ class DocumentMode(StrEnum):
     DOCX_TEMPLATE = "docx-template"
     PPTX = "pptx"
     XLSX = "xlsx"
+    ODT = "odt"
+    ODS = "ods"
     XML = "xml"
     XML_TRANSFORM = "xml-transform"
     XML_VALIDATE = "xml-validate"
@@ -99,15 +104,7 @@ class SchemaKind(StrEnum):
     XSD = "XMLSchema"
     RELAXNG = "RelaxNG"
     SCHEMATRON = "Schematron"
-
-
-class RenderTarget(StrEnum):
-    PIL = "to_pil"
-    NUMPY = "to_numpy"
-
-    @property
-    def bridge(self) -> str:
-        return self.value
+    DTD = "DTD"
 
 
 class XlsxRegime(StrEnum):
@@ -117,17 +114,19 @@ class XlsxRegime(StrEnum):
 
 class PdfVariant(StrEnum):
     NONE = "none"
+    A_1B = "a-1b"
     A_2B = "a-2b"
     A_3B = "a-3b"
+    A_4 = "a-4"
     UA_1 = "ua-1"
 
     @property
     def typst(self) -> tuple[str, ...]:
-        return () if self is PdfVariant.NONE else _PDF_STANDARD[self]
+        return _PDF_STANDARD.get(self, ())  # `A_4` (PDF 2.0 archival) is weasyprint-only; typst renders its strongest supported profile
 
     @property
     def weasyprint(self) -> str | None:
-        return None if self is PdfVariant.NONE else _PDF_PROFILE[self]
+        return _PDF_PROFILE.get(self)
 
     @property
     def tagged(self) -> bool:
@@ -136,7 +135,8 @@ class PdfVariant(StrEnum):
 
 type Arm = Callable[["DocumentPlan", "Compiler | None"], "EmitFact"]
 type SheetWriter = Callable[["DocumentPlan", list[tuple["CellValue", ...]]], "EmitFact"]
-type OutlineRow = tuple[int, str, int]
+type OutlineRow = tuple[int, str, int]  # (sub-item count, title, destination page index)
+type CellScalar = str | float | bool | datetime | date
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -151,17 +151,17 @@ _NUM_FORMAT: Final = "0.############"
 _DATE_FORMAT: Final = "yyyy-mm-dd hh:mm:ss"
 _HEADER_RANGE: Final = "_RasmHeader"
 _BOOL_CELL: Final[frozendict[str, bool]] = frozendict({"true": True, "false": False, "yes": True, "no": False})
-_REPLACE: Final[tuple[str, ...]] = ("media", "embedded", "zipname", "pic")
 _PDF_STANDARD: Final[frozendict[PdfVariant, tuple[str, ...]]] = frozendict(
-    {PdfVariant.A_2B: ("a-2b",), PdfVariant.A_3B: ("a-3b",), PdfVariant.UA_1: ("a-3b", "ua-1")}
+    {PdfVariant.A_1B: ("a-1b",), PdfVariant.A_2B: ("a-2b",), PdfVariant.A_3B: ("a-3b",), PdfVariant.UA_1: ("a-3b", "ua-1")}
 )
 _PDF_PROFILE: Final[frozendict[PdfVariant, str]] = frozendict(
-    {PdfVariant.A_2B: "pdf/a-2b", PdfVariant.A_3B: "pdf/a-3b", PdfVariant.UA_1: "pdf/ua-1"}
+    {PdfVariant.A_1B: "pdf/a-1b", PdfVariant.A_2B: "pdf/a-2b", PdfVariant.A_3B: "pdf/a-3b", PdfVariant.A_4: "pdf/a-4", PdfVariant.UA_1: "pdf/ua-1"}
 )
-_FORMAT_SETTERS: Final[frozendict[str, tuple[tuple[str, tuple[object, ...]], ...]]] = frozendict({
-    "header": (("set_bold", ()), ("set_align", ("center",))),
-    "number": (("set_num_format", (_NUM_FORMAT,)),),
-    "datetime": (("set_num_format", (_DATE_FORMAT,)),),
+# `add_format({...})` property dicts replace the per-setter `getattr` loop — one row, no stringly setter dispatch.
+_FORMATS: Final[frozendict[str, frozendict[str, object]]] = frozendict({
+    "header": frozendict({"bold": True, "align": "center"}),
+    "number": frozendict({"num_format": _NUM_FORMAT}),
+    "datetime": frozendict({"num_format": _DATE_FORMAT}),
 })
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -169,19 +169,19 @@ _FORMAT_SETTERS: Final[frozendict[str, tuple[tuple[str, tuple[object, ...]], ...
 
 @tagged_union(frozen=True)
 class EmitFault:
-    tag: Literal["payload", "source", "schema", "content", "typeset"] = tag()
-    payload: tuple[str, ...] = case()      # the rejected EmitPayload key paths
-    source: str = case()                    # absent/unopenable source PDF or template
-    schema: tuple[SchemaKind, str] = case()  # DocumentInvalid: dialect + error-log head
-    content: str = case()                   # malformed XSLT/XPath/object-stream edit
-    typeset: str = case()                   # TypstError rendered diagnostic
+    # the closed ADMISSION vocabulary `of` produces; every arm-level provider raise
+    # (`TypstError`/`PdfiumError`/`XMLSyntaxError`/`XlsxWriterException`) converts to the runtime
+    # `BoundaryFault` at the `async_boundary` capsule, never into this interior vocabulary.
+    tag: Literal["payload", "unsatisfied"] = tag()
+    payload: tuple[str, ...] = case()             # the rejected EmitPayload key paths
+    unsatisfied: tuple[DocumentMode, str] = case() # a mode whose `_REQUIRED` input field is empty
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class CellValue(Struct, frozen=True):
-    raw: str | float | bool | datetime | date | None
+    raw: CellScalar | None
 
     @staticmethod
     def of(cell: DocumentNode) -> "CellValue":
@@ -205,6 +205,21 @@ class CellValue(Struct, frozen=True):
     def write_openpyxl(self) -> object:
         return self.raw if self.raw is not None else ""
 
+    def odf_cell(self) -> tuple[str, float | None, str]:
+        # (office:value-type, office:value for the numeric row, the `<text:p>` display run) — bool/date keep the
+        # readable string form because the odfpy `TableCell` rows only the `valuetype`/`value` pair, not per-type value attrs.
+        match self.raw:
+            case bool() as flag:
+                return ("string", None, "true" if flag else "false")
+            case int() | float() as number:
+                return ("float", float(number), str(number))
+            case datetime() | date() as moment:
+                return ("string", None, moment.isoformat())
+            case None | "":
+                return ("string", None, "")
+            case str() as text:
+                return ("string", None, text)
+
 
 class SpreadsheetPolicy(Struct, frozen=True):
     regime: XlsxRegime
@@ -225,13 +240,14 @@ class EmitFact(Struct, frozen=True):
     data: bytes
     pages: int = 0
     scale: float = 0.0
-    outline_depth: int = 0
+    outline_count: int = 0
     faces: tuple[str, ...] = ()
     undeclared: tuple[str, ...] = ()
     template_path: str = ""
     queried: int = 0
     valid: bool = True
     warnings: int = 0
+    errors: int = 0
     outline: tuple[OutlineRow, ...] = ()
 
 
@@ -243,12 +259,16 @@ class EmitSpec(Struct, frozen=True, omit_defaults=True):
     subject: str = ""
     variant: PdfVariant = PdfVariant.NONE
     forms: bool = False
+    output_intent: str = ""                                    # weasyprint PDF/A ICC output-intent profile path
+    base_url: str = ""                                         # weasyprint relative-resource resolution root
+    stylesheets: tuple[str, ...] = ()                          # weasyprint supplemental CSS paths
     selector: str = ""
     field_name: str = ""
     one: bool = False
+    expression: str = ""                                       # typst `eval` source expression evaluated against the document
     sys_inputs: frozendict[str, str] = field(default_factory=frozendict)
-    target: RenderTarget = RenderTarget.PIL
-    image_format: str = "TIFF"
+    timestamp: int = 0                                         # typst reproducible-byte creation pin (epoch); 0 = unpinned
+    image_format: str = "png"                                 # pymupdf native `Pixmap.tobytes` codec
     pages: tuple[int, ...] = ()
     scale: float = _RASTER_SCALE
     rotation: int = 0
@@ -259,6 +279,7 @@ class EmitSpec(Struct, frozen=True, omit_defaults=True):
     assets: frozendict[str, str] = field(default_factory=frozendict)
     anchors: frozendict[str, str] = field(default_factory=frozendict)
     links: frozendict[str, str] = field(default_factory=frozendict)
+    replace: frozendict[str, str] = field(default_factory=frozendict)  # docxtpl pre-render zip-part swaps (name -> path)
     sheet: str = ""
     header: bool = True
     column_width: float = _HEADER_WIDTH
@@ -280,30 +301,64 @@ class EmitSpec(Struct, frozen=True, omit_defaults=True):
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
-class EmitPayload(TypedDict, extra_items=str):
+class EmitPayload(TypedDict, closed=True):
     source: NotRequired[ReadOnly[bytes]]
     password: NotRequired[ReadOnly[str]]
     title: NotRequired[ReadOnly[str]]
+    author: NotRequired[ReadOnly[str]]
+    subject: NotRequired[ReadOnly[str]]
     variant: NotRequired[ReadOnly[PdfVariant]]
     forms: NotRequired[ReadOnly[bool]]
+    output_intent: NotRequired[ReadOnly[str]]
+    base_url: NotRequired[ReadOnly[str]]
+    stylesheets: NotRequired[ReadOnly[tuple[str, ...]]]
     selector: NotRequired[ReadOnly[str]]
     field_name: NotRequired[ReadOnly[str]]
     one: NotRequired[ReadOnly[bool]]
+    expression: NotRequired[ReadOnly[str]]
     sys_inputs: NotRequired[ReadOnly[frozendict[str, str]]]
-    target: NotRequired[ReadOnly[RenderTarget]]
+    timestamp: NotRequired[ReadOnly[int]]
+    image_format: NotRequired[ReadOnly[str]]
     pages: NotRequired[ReadOnly[tuple[int, ...]]]
     scale: NotRequired[ReadOnly[float]]
+    rotation: NotRequired[ReadOnly[int]]
+    annotations: NotRequired[ReadOnly[bool]]
     subset_fonts: NotRequired[ReadOnly[frozendict[str, bytes]]]
+    subfont_index: NotRequired[ReadOnly[int]]
     template: NotRequired[ReadOnly[str]]
     assets: NotRequired[ReadOnly[frozendict[str, str]]]
+    anchors: NotRequired[ReadOnly[frozendict[str, str]]]
+    links: NotRequired[ReadOnly[frozendict[str, str]]]
+    replace: NotRequired[ReadOnly[frozendict[str, str]]]
+    sheet: NotRequired[ReadOnly[str]]
+    header: NotRequired[ReadOnly[bool]]
+    column_width: NotRequired[ReadOnly[float]]
     spreadsheet: NotRequired[ReadOnly[XlsxRegime]]
+    in_memory: NotRequired[ReadOnly[bool]]
     stylesheet: NotRequired[ReadOnly[bytes]]
+    xslt_params: NotRequired[ReadOnly[frozendict[str, str]]]
     schema: NotRequired[ReadOnly[bytes]]
     schema_kind: NotRequired[ReadOnly[SchemaKind]]
     path: NotRequired[ReadOnly[str]]
+    namespaces: NotRequired[ReadOnly[frozendict[str, str]]]
+    pretty: NotRequired[ReadOnly[bool]]
 
 
 _PAYLOAD: Final = TypeAdapter(EmitPayload)
+# the per-mode precondition: a mode's named `EmitSpec` fields must be non-empty so the interior is total.
+_REQUIRED: Final[frozendict[DocumentMode, tuple[str, ...]]] = frozendict({
+    DocumentMode.PDF_RENDER: ("source",),
+    DocumentMode.PDF_RASTER: ("source",),
+    DocumentMode.PDF_ASSEMBLE: ("source",),
+    DocumentMode.PDF_REPAIR: ("source",),
+    DocumentMode.TYPST_QUERY: ("selector",),
+    DocumentMode.TYPST_EVAL: ("expression",),
+    DocumentMode.FONT_EMBED: ("subset_fonts",),
+    DocumentMode.DOCX_TEMPLATE: ("template",),
+    DocumentMode.XML_TRANSFORM: ("stylesheet",),
+    DocumentMode.XML_VALIDATE: ("schema",),
+    DocumentMode.XML_QUERY: ("path",),
+})
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -324,23 +379,28 @@ class DocumentPlan(Struct, frozen=True):
     def world(self) -> "Compiler":
         from typst import Compiler
 
-        return Compiler(font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
+        # the held world is seeded with the head document bytes and amortizes font load; each Typst arm
+        # overrides `input=` per compile, so the cached fonts serve every batched render.
+        return Compiler(to_typst_source(self.node).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
 
-    @receipted(ArtifactReceipt)
-    async def _emit(self, world: "Compiler | None", /) -> ContentKey:
-        finished = await self._stepped(world)
-        return ContentIdentity.of(self.mode.value, finished.fact.data)
+    @receipted(Redaction.STRUCTURAL)
+    async def _emit(self, world: "Compiler | None", /) -> Self:
+        # returns the stepped owner (a `ReceiptContributor`) the harvest weave drains; the content key
+        # is minted by `_emitted` off `self.fact.data`, never inside the pure core.
+        return await self._stepped(world)
 
     async def _stepped(self, world: "Compiler | None", /) -> Self:
         backend = BACKENDS[self.mode]
         fact = await to_process.run_sync(_worker_emit, self) if backend.band is Band.WORKER else backend.arm(self, world)
         return replace(self, fact=fact)
 
-    def contribute(self, phase: Phase = "emitted") -> Iterable[Receipt]:
-        if (fact := self.fact) is None:  # rides the stepped owner the fold returned, never an in-process re-run of a worker-gated arm
+    def contribute(self) -> Iterable[Receipt]:
+        # the canonical `ReceiptContributor.contribute(self)` port — phase is the constant `"emitted"`
+        # the `ArtifactReceipt` fixes by construction (KNOB_TEST); rides the stepped owner, never a worker re-run.
+        if (fact := self.fact) is None:
             return
         key = ContentIdentity.of(self.mode.value, fact.data)
-        yield from _RECEIPT[BACKENDS[self.mode].kind](key, fact).contribute(phase)
+        yield from _RECEIPT[BACKENDS[self.mode].kind](key, fact).contribute()
 
     @classmethod
     def of(cls, mode: DocumentMode, node: DocumentNode, /, **raw: Unpack[EmitPayload]) -> Result[Self, EmitFault]:
@@ -348,7 +408,9 @@ class DocumentPlan(Struct, frozen=True):
             payload = _PAYLOAD.validate_python(raw)
         except ValidationError as fault:
             return Error(EmitFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
-        return Ok(cls(mode=mode, node=node, spec=EmitSpec(**payload)))
+        spec = EmitSpec(**payload)
+        missing = next((name for name in _REQUIRED.get(mode, ()) if not getattr(spec, name)), None)
+        return Error(EmitFault(unsatisfied=(mode, missing))) if missing else Ok(cls(mode=mode, node=node, spec=spec))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -356,58 +418,147 @@ class DocumentPlan(Struct, frozen=True):
 
 async def produced(plans: "DocumentPlan | Iterable[DocumentPlan]", /) -> RuntimeRail[Block[ContentKey]]:
     block = Block.singleton(plans) if isinstance(plans, DocumentPlan) else Block.of_seq(plans)
+    return await async_boundary("document.emit", lambda: _emitted(block))
+
+
+async def _emitted(block: "Block[DocumentPlan]", /) -> Block[ContentKey]:
+    # the held Typst world is built INSIDE the capsule so a `Compiler` construction raise converts to `BoundaryFault`
     held = block.head().world() if not block.is_empty() and block.head().mode in _HELD_WORLD else None
-    return await async_boundary("document.emit", lambda: _emitted(block, held))
+    stepped = [await plan._emit(held if plan.mode in _HELD_WORLD else None) for plan in block]
+    return Block.of_seq([ContentIdentity.of(plan.mode.value, plan.fact.data) for plan in stepped])
 
 
-async def _emitted(block: "Block[DocumentPlan]", world: "Compiler | None", /) -> Block[ContentKey]:
-    return Block.of_seq([await plan._emit(world if plan.mode in _HELD_WORLD else None) for plan in block])
+def _attempt[T](convert: Callable[[str], T], text: str, /) -> Option[T]:
+    try:
+        return Some(convert(text))
+    except ValueError:
+        return Nothing
 
 
-def _coerce_cell(text: str) -> str | float | bool | datetime | date | None:
+def _numeric(text: str, /) -> int | float:
+    return int(text) if text.lstrip("-+").isdigit() else float(text)
+
+
+# the typed-coercion ladder is one ordered parser table folded by first-success, never three sequential `suppress` arms.
+_CELL_PARSERS: Final[tuple[Callable[[str], CellScalar], ...]] = (_numeric, date.fromisoformat, datetime.fromisoformat)
+
+
+def _coerce_cell(text: str) -> CellScalar | None:
     if not text:
         return None
     if (folded := text.strip().casefold()) in _BOOL_CELL:
         return _BOOL_CELL[folded]
-    with suppress(ValueError):
-        return int(text) if text.lstrip("-+").isdigit() else float(text)
-    with suppress(ValueError):
-        return datetime.fromisoformat(text)
-    with suppress(ValueError):
-        return date.fromisoformat(text)
-    return text
+    return Block.of_seq(_CELL_PARSERS).choose(lambda convert: _attempt(convert, text)).try_head().default_value(text)
 
 
-def _typst_compile(plan: DocumentPlan, world: "Compiler | None", /) -> EmitFact:
-    data, warnings = world.compile_with_warnings(
-        input=to_typst_source(plan.node), output=None, sys_inputs=dict(plan.spec.sys_inputs), pdf_standards=plan.spec.variant.typst
-    )
-    return EmitFact(data=data, warnings=len(warnings))
+def _flowables(node: DocumentNode, styles: object, spec: EmitSpec, /) -> Iterator[object]:
+    from reportlab.platypus import Image, ListFlowable, ListItem, PageBreak, Paragraph, Spacer, Table
+
+    match node:
+        case RunNode():
+            yield Paragraph(node.text, styles["Normal"])
+        case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
+            yield Paragraph("".join(run.text for run in runs), styles[f"Heading{min(max(level, 1), 6)}"])
+        case BlockNode(block=BlockKind.CODE, runs=runs):
+            yield Paragraph("".join(run.text for run in runs), styles["Code"])
+        case BlockNode(runs=runs, children=kids):
+            yield Paragraph("".join(run.text for run in runs), styles["Normal"])
+            for kid in kids:
+                yield from _flowables(kid, styles, spec)
+        case ListNode(list_kind=kind, items=items):
+            entries = [ListItem(Paragraph(_text(item), styles["Normal"])) for item in items]
+            yield ListFlowable(entries, bulletType="1" if kind is ListKind.ORDERED else "bullet")
+        case TableNode(rows=rows):
+            yield Table([[_text(cell) for cell in row] for row in rows])
+        case FigureNode(asset_key=asset_key) if asset_key.hex in spec.assets:
+            yield Image(spec.assets[asset_key.hex])
+        case SectionNode(level=level, heading=head, children=kids):
+            yield Paragraph("".join(run.text for run in head), styles[f"Heading{min(max(level, 1), 6)}"])
+            for kid in kids:
+                yield from _flowables(kid, styles, spec)
+        case PageNode(children=kids):
+            for kid in kids:
+                yield from _flowables(kid, styles, spec)
+            yield PageBreak()
+        case _:
+            yield Spacer(1, 0)
 
 
-def _typst_query(plan: DocumentPlan, world: "Compiler | None", /) -> EmitFact:
-    result = world.query(selector=plan.spec.selector, field=plan.spec.field_name or None, one=plan.spec.one).encode()
-    return EmitFact(data=result, queried=len(result))
+def _text(node: DocumentNode) -> str:
+    return "".join(run.text for run in walk(node) if isinstance(run, RunNode))
+
+
+def _reportlab_author(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate
+
+    sink = io.BytesIO()
+    doc = SimpleDocTemplate(sink, pagesize=A4, title=plan.spec.title or plan.node.meta.key.hex, author=plan.spec.author, subject=plan.spec.subject)
+    doc.build(list(_flowables(plan.node, getSampleStyleSheet(), plan.spec)))
+    return EmitFact(data=sink.getvalue(), pages=sum(1 for n in walk(plan.node) if isinstance(n, PageNode)) or 1)
 
 
 def _weasyprint_html(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
-    from weasyprint import HTML
+    from weasyprint import CSS, HTML
 
-    data = HTML(string=to_html(plan.node)).write_pdf(
-        target=None, pdf_variant=plan.spec.variant.weasyprint, pdf_tags=plan.spec.variant.tagged, pdf_forms=plan.spec.forms
+    data = HTML(string=to_html(plan.node), base_url=plan.spec.base_url or None).write_pdf(
+        target=None,
+        pdf_variant=plan.spec.variant.weasyprint,
+        pdf_tags=plan.spec.variant.tagged,
+        pdf_forms=plan.spec.forms,
+        output_intent=plan.spec.output_intent or None,
+        stylesheets=[CSS(filename=sheet) for sheet in plan.spec.stylesheets] or None,
     )
     return EmitFact(data=data)
 
 
+def _typst_compile(plan: DocumentPlan, world: "Compiler | None", /) -> EmitFact:
+    compiler = world if world is not None else plan.world()  # held world amortizes fonts; a non-Typst-headed batch falls back per-plan
+    source = to_typst_source(plan.node)
+    if plan.spec.variant is PdfVariant.UA_1:  # PDF/UA hard-errors `missing document title` without it
+        title = (plan.spec.title or plan.node.meta.key.hex).replace("\\", "\\\\").replace('"', '\\"')
+        source = f'#set document(title: "{title}")\n{source}'
+    data, warnings = compiler.compile_with_warnings(
+        input=source.encode(), output=None, sys_inputs=dict(plan.spec.sys_inputs),
+        pdf_standards=plan.spec.variant.typst, timestamp=plan.spec.timestamp or None,
+    )
+    return EmitFact(data=data, warnings=len(warnings))
+
+
+def _typst_query(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    import typst
+
+    # the free function compiles a single-shot world over THIS plan's own document — never the held
+    # head world, which would query the wrong document in a batch.
+    result = typst.query(
+        input=to_typst_source(plan.node).encode(), selector=plan.spec.selector,
+        field=plan.spec.field_name or None, one=plan.spec.one,
+    ).encode()
+    return EmitFact(data=result, queried=len(result))
+
+
+def _typst_eval(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    import typst
+
+    # the expression-evaluation inverse of `_typst_query`: a single-shot world over THIS plan's own document.
+    result = typst.eval(input=to_typst_source(plan.node).encode(), expression=plan.spec.expression).encode()
+    return EmitFact(data=result, queried=len(result))
+
+
 def _pymupdf_render(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    import numpy as np
     import pymupdf
 
     doc = pymupdf.open(stream=plan.spec.source, filetype="pdf")
     try:
-        pages = plan.spec.pages or range(doc.page_count)
-        head, *rest = [doc[index].get_pixmap(matrix=pymupdf.Matrix(plan.spec.scale, plan.spec.scale)).pil_tobytes(format="PNG") for index in pages]
-        composite = _stack_frames(head, rest, plan.spec.image_format)
-        return EmitFact(data=composite, pages=doc.page_count, scale=plan.spec.scale)
+        pixmaps = [doc[index].get_pixmap(matrix=pymupdf.Matrix(plan.spec.scale, plan.spec.scale)) for index in plan.spec.pages or range(doc.page_count)]
+        if len(pixmaps) == 1:
+            data = pixmaps[0].tobytes(output=plan.spec.image_format)  # native MuPDF encode, no Pillow
+        else:
+            frames = [np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n) for pix in pixmaps]
+            data = np.ascontiguousarray(np.stack(frames)).tobytes()
+        return EmitFact(data=data, pages=doc.page_count, scale=plan.spec.scale)
     finally:
         doc.close()
 
@@ -418,26 +569,18 @@ def _pypdfium2_raster(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitF
 
     pdf = pypdfium2.PdfDocument(plan.spec.source, password=plan.spec.password or None, autoclose=True)
     try:
-        indices = plan.spec.pages or range(len(pdf))
-        bitmaps = [pdf.get_page(index).render(**plan.spec.render_keywords) for index in indices]
-        frames = [getattr(bitmap, plan.spec.target.bridge)() for bitmap in bitmaps]
-        match plan.spec.target:
-            case RenderTarget.NUMPY:
-                data = np.ascontiguousarray(np.stack(frames)).tobytes()
-            case RenderTarget.PIL:
-                sink = io.BytesIO()
-                head, *rest = frames
-                head.save(sink, format=plan.spec.image_format, save_all=len(frames) > 1, append_images=rest)
-                data = sink.getvalue()
+        frames = [pdf.get_page(index).render(**plan.spec.render_keywords).to_numpy() for index in plan.spec.pages or range(len(pdf))]
+        data = np.ascontiguousarray(np.stack(frames)).tobytes()  # Pillow-free; multi-frame container egress is `graphic/raster/io#IO`
         outline = tuple(_outline_rows(pdf, _OUTLINE_MAX_DEPTH))
-        return EmitFact(data=data, pages=len(pdf), scale=plan.spec.scale, outline_depth=max((row[0] for row in outline), default=0), outline=outline)
+        return EmitFact(data=data, pages=len(pdf), scale=plan.spec.scale, outline_count=len(outline), outline=outline)
     finally:
         pdf.close()
 
 
 def _outline_rows(pdf: object, max_depth: int) -> Iterator[OutlineRow]:
-    for mark in pdf.get_toc(max_depth=max_depth):  # `mark.level` is the 0-based nesting depth the walker sets; RESEARCH, the catalog rows `get_count`/`get_title`/`get_dest`
-        yield (mark.level, mark.get_title(), dest.get_index() if (dest := mark.get_dest()) else -1)
+    for mark in pdf.get_toc(max_depth=max_depth):
+        dest = mark.get_dest()
+        yield (mark.get_count(), mark.get_title(), dest.get_index() if dest else -1)
 
 
 def _pypdf_assemble(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
@@ -451,6 +594,15 @@ def _pypdf_assemble(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFac
     sink = io.BytesIO()
     writer.write(sink)
     return EmitFact(data=sink.getvalue(), pages=len(writer.pages))
+
+
+def _pikepdf_repair(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    import pikepdf
+
+    sink = io.BytesIO()
+    pdf = pikepdf.open(io.BytesIO(plan.spec.source), password=plan.spec.password)
+    pdf.save(sink, linearize=True, recompress_flate=True, object_stream_mode=pikepdf.ObjectStreamMode.generate, deterministic_id=True)
+    return EmitFact(data=sink.getvalue(), pages=len(pdf.pages))
 
 
 def _font_embed(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
@@ -468,10 +620,87 @@ def _font_embed(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
         for run in (leaf for leaf in walk(page) if isinstance(leaf, RunNode)):
             origin = run.meta.bounds or (0.0, 0.0, 0.0, 0.0)
             canvas.setFont(run.font_key, run.size)
+            canvas.setFillColorRGB(run.color[0] / 255, run.color[1] / 255, run.color[2] / 255)
             canvas.drawString(origin[0], origin[1], run.text)
         canvas.showPage()
     canvas.save()
     return EmitFact(data=canvas.getpdfdata(), faces=tuple(plan.spec.subset_fonts))
+
+
+def _docx_run(run_obj: object, run: RunNode, /) -> None:
+    from docx.shared import Pt, RGBColor
+
+    run_obj.bold = run.weight >= _BOLD_WEIGHT
+    run_obj.italic = run.italic
+    run_obj.font.size = Pt(run.size)
+    run_obj.font.name = run.font_key
+    run_obj.font.rtl = run.rtl
+    if run.color != (0, 0, 0):
+        run_obj.font.color.rgb = RGBColor(*run.color)
+
+
+def _docx_block(document: object, node: DocumentNode, spec: EmitSpec, /) -> None:
+    from docx.shared import Pt
+
+    match node:
+        case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
+            document.add_heading("".join(run.text for run in runs), level=min(max(level, 1), 9))
+        case BlockNode(runs=runs, children=kids, block=block):
+            paragraph = document.add_paragraph(style="Quote" if block is BlockKind.QUOTE else None)
+            for run in runs:
+                _docx_run(paragraph.add_run(run.text), run)
+            for kid in kids:
+                _docx_block(document, kid, spec)
+        case ListNode(list_kind=kind, items=items):
+            style = "List Number" if kind is ListKind.ORDERED else "List Bullet"
+            for item in items:
+                document.add_paragraph(_text(item), style=style)
+        case TableNode(rows=rows) if rows:
+            table = document.add_table(rows=len(rows), cols=len(rows[0]))
+            for ri, row in enumerate(rows):
+                for ci, cell in enumerate(row):
+                    table.cell(ri, ci).text = _text(cell)
+        case FigureNode(asset_key=asset_key, meta=meta) if asset_key.hex in spec.assets:
+            bounds = meta.bounds or (0.0, 0.0, 0.0, 0.0)
+            document.add_picture(spec.assets[asset_key.hex], width=Pt(bounds[2]) if bounds[2] else None)
+        case SectionNode(level=level, heading=head, children=kids):
+            document.add_heading("".join(run.text for run in head), level=min(max(level, 1), 9))
+            for kid in kids:
+                _docx_block(document, kid, spec)
+        case PageNode(children=kids):
+            for kid in kids:
+                _docx_block(document, kid, spec)
+            document.add_page_break()
+        case _:
+            pass
+
+
+def _docx_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    import docx
+
+    document = docx.Document()
+    props = document.core_properties
+    props.title, props.author, props.subject = plan.spec.title or plan.node.meta.key.hex, plan.spec.author, plan.spec.subject
+    _docx_block(document, plan.node, plan.spec)
+    sink = io.BytesIO()
+    document.save(sink)
+    return EmitFact(data=sink.getvalue(), pages=len(document.sections))
+
+
+def _docx_run_props(template: object, run: RunNode, spec: EmitSpec) -> dict[str, object]:
+    url = spec.links.get(run.meta.role)
+    return {
+        "bold": run.weight >= _BOLD_WEIGHT,
+        "italic": run.italic,
+        "superscript": run.script is RunScript.SUPER,
+        "subscript": run.script is RunScript.SUB,
+        "size": int(run.size * _PT_PER_HALFPT),
+        "font": run.font_key,
+        "color": "%02X%02X%02X" % run.color if run.color != (0, 0, 0) else None,
+        "rtl": run.rtl,
+        "lang": run.meta.lang if isinstance(run.meta.lang, str) else None,
+        "url_id": template.build_url_id(url) if url else None,
+    }
 
 
 def _docxtpl_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
@@ -479,6 +708,8 @@ def _docxtpl_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     from docxtpl import DocxTemplate, InlineImage, Listing, RichText, RichTextParagraph
 
     template = DocxTemplate(plan.spec.template)
+    for name, dst in plan.spec.replace.items():
+        template.replace_zipname(name, dst)
     context: dict[str, object] = {}
     for child in walk(plan.node):
         role = child.meta.role
@@ -500,20 +731,94 @@ def _docxtpl_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
                 context[role] = template.new_subdoc()
     undeclared = tuple(template.get_undeclared_template_variables())
     template.render(context, autoescape=True)
+    template.render_footnotes(context)  # footnote-part XML, after `render` per the docxtpl contract
     sink = io.BytesIO()
     template.save(sink)
     return EmitFact(data=sink.getvalue(), undeclared=undeclared, template_path=plan.spec.template)
 
 
-def _docx_run_props(template: object, run: RunNode, spec: EmitSpec) -> dict[str, object]:
-    url = spec.links.get(run.meta.role)
-    return {
-        "bold": run.weight >= _BOLD_WEIGHT,
-        "size": int(run.size * _PT_PER_HALFPT),
-        "font": run.font_key,
-        "rtl": run.rtl,
-        "url_id": template.build_url_id(url) if url else None,
-    }
+def _pptx_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+
+    presentation = Presentation()
+    presentation.core_properties.title = plan.spec.title or plan.node.meta.key.hex
+    presentation.core_properties.author = plan.spec.author
+    blank = presentation.slide_layouts[6]
+    for page in [n for n in walk(plan.node) if isinstance(n, PageNode)] or [plan.node]:
+        slide = presentation.slides.add_slide(blank)
+        frame = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), presentation.slide_width - Inches(1), presentation.slide_height - Inches(1)).text_frame
+        frame.word_wrap = True
+        for block in (n for n in walk(page) if isinstance(n, BlockNode)):
+            paragraph = frame.add_paragraph()
+            for run in block.runs:
+                run_obj = paragraph.add_run()
+                run_obj.text = run.text
+                run_obj.font.bold, run_obj.font.italic, run_obj.font.size = run.weight >= _BOLD_WEIGHT, run.italic, Pt(run.size)
+        for figure in (n for n in walk(page) if isinstance(n, FigureNode) and n.asset_key.hex in plan.spec.assets):
+            slide.shapes.add_picture(plan.spec.assets[figure.asset_key.hex], Inches(0.5), Inches(0.5))
+    sink = io.BytesIO()
+    presentation.save(sink)
+    return EmitFact(data=sink.getvalue(), pages=len(presentation.slides))
+
+
+def _odf_block(body: object, node: DocumentNode, /) -> None:
+    from odf.text import H, P
+
+    match node:
+        case RunNode():
+            body.addElement(_odf_text(P(), node.text))
+        case BlockNode(block=BlockKind.HEADING, level=level, runs=runs):
+            body.addElement(_odf_text(H(outlinelevel=min(max(level, 1), 10)), "".join(run.text for run in runs)))
+        case BlockNode(runs=runs, children=kids):
+            body.addElement(_odf_text(P(), "".join(run.text for run in runs)))
+            for kid in kids:
+                _odf_block(body, kid)
+        case ListNode(items=items):
+            for item in items:
+                body.addElement(_odf_text(P(), _text(item)))
+        case SectionNode(level=level, heading=head, children=kids):
+            body.addElement(_odf_text(H(outlinelevel=min(max(level, 1), 10)), "".join(run.text for run in head)))
+            for kid in kids:
+                _odf_block(body, kid)
+        case PageNode(children=kids):
+            for kid in kids:
+                _odf_block(body, kid)
+        case _:
+            pass
+
+
+def _odf_text[E](element: E, text: str, /) -> E:
+    from odf.teletype import addTextToElement
+
+    addTextToElement(element, text)  # owns the whitespace-correct `<text:s>`/`tab`/`line-break` split
+    return element
+
+
+def _odf_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
+    from odf.opendocument import OpenDocumentSpreadsheet, OpenDocumentText
+    from odf.table import Table, TableCell, TableRow
+    from odf.text import P
+
+    if plan.mode is DocumentMode.ODS:
+        document = OpenDocumentSpreadsheet()
+        sheet = Table(name=plan.spec.sheet or "Sheet1")
+        for table in (n for n in walk(plan.node) if isinstance(n, TableNode)):
+            for row in table.rows:
+                line = TableRow()
+                for cell in row:
+                    kind, value, text = CellValue.of(cell).odf_cell()
+                    typed = TableCell(valuetype=kind, value=value) if value is not None else TableCell(valuetype=kind)
+                    typed.addElement(_odf_text(P(), text))
+                    line.addElement(typed)
+                sheet.addElement(line)
+        document.spreadsheet.addElement(sheet)
+    else:
+        document = OpenDocumentText()
+        _odf_block(document.text, plan.node)
+    sink = io.BytesIO()
+    document.write(sink)  # whole ODF zip (content/styles/meta/manifest) to the binary stream, never a temp file
+    return EmitFact(data=sink.getvalue())
 
 
 def _xlsx_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
@@ -525,16 +830,19 @@ def _xlsx_streamed(plan: DocumentPlan, grid: list[tuple[CellValue, ...]]) -> Emi
     import xlsxwriter
 
     sink = io.BytesIO()
-    book = xlsxwriter.Workbook(sink, {"constant_memory": True, "in_memory": plan.spec.in_memory, "use_zip64": len(grid) >= _ZIP64_ROW_THRESHOLD})
+    book = xlsxwriter.Workbook(sink, {
+        "constant_memory": True, "in_memory": plan.spec.in_memory, "use_zip64": len(grid) >= _ZIP64_ROW_THRESHOLD,
+        "remove_timezone": True, "nan_inf_to_errors": True,  # `_coerce_cell` admits tz-aware datetimes and `float('inf')`
+    })
     book.set_properties({"title": plan.spec.title or plan.node.meta.key.hex, "author": plan.spec.author})
     sheet = book.add_worksheet(plan.spec.sheet or None)
-    header, headed = _book_format(book, "header"), plan.spec.header
-    formats = frozendict({kind: _book_format(book, kind) for kind in ("number", "datetime")})
+    header, headed = book.add_format(dict(_FORMATS["header"])), plan.spec.header
+    formats = frozendict({kind: book.add_format(dict(_FORMATS[kind])) for kind in ("number", "datetime")})
     width = max((len(row) for row in grid), default=0)
     if width:
         sheet.set_column(0, width - 1, plan.spec.column_width)
     for index, row in enumerate(grid):
-        sheet.set_row(index, None, header if index == 0 and headed else None)
+        sheet.set_row(index, None, header if index == 0 and headed else None)  # row format before its cells under constant_memory
         for column, value in enumerate(row):
             value.write_xlsxwriter(sheet, index, column, formats)
     if headed and grid:
@@ -546,17 +854,10 @@ def _xlsx_streamed(plan: DocumentPlan, grid: list[tuple[CellValue, ...]]) -> Emi
     return EmitFact(data=sink.getvalue(), pages=len(grid))
 
 
-def _book_format(book: object, kind: str) -> object:
-    fmt = book.add_format()
-    for setter, argument in _FORMAT_SETTERS[kind]:
-        getattr(fmt, setter)(*argument)
-    return fmt
-
-
 def _xlsx_in_memory(plan: DocumentPlan, grid: list[tuple[CellValue, ...]]) -> EmitFact:
     import openpyxl
 
-    book = openpyxl.Workbook(write_only=True)
+    book = openpyxl.Workbook(write_only=True, iso_dates=True)
     sheet = book.create_sheet(plan.spec.sheet or None)
     for row in grid:
         sheet.append([value.write_openpyxl() for value in row])
@@ -579,16 +880,6 @@ def _tomlkit_emit(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
     import tomlkit
 
     return EmitFact(data=tomlkit.dumps(to_builtins(plan.node)).encode())
-
-
-def _stack_frames(head: bytes, rest: list[bytes], image_format: str) -> bytes:
-    from PIL import Image
-
-    first = Image.open(io.BytesIO(head))
-    tail = [Image.open(io.BytesIO(frame)) for frame in rest]
-    sink = io.BytesIO()
-    first.save(sink, format=image_format, save_all=len(tail) > 0, append_images=tail)
-    return sink.getvalue()
 
 
 def _hardened_parse(source: bytes) -> object:
@@ -618,8 +909,8 @@ def _lxml_validate(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact
 
     validator = getattr(etree, plan.spec.schema_kind.value)(_hardened_parse(plan.spec.schema))
     tree = to_lxml_tree(plan.node)
-    validator.assertValid(tree)
-    return EmitFact(data=etree.tostring(tree, xml_declaration=True, encoding="utf-8"), valid=True)
+    valid = validator.validate(tree)  # the boolean verdict + `error_log` count, never `assertValid` raising the verdict away
+    return EmitFact(data=etree.tostring(tree, xml_declaration=True, encoding="utf-8"), valid=valid, errors=len(validator.error_log))
 
 
 def _lxml_query(plan: DocumentPlan, _world: "Compiler | None", /) -> EmitFact:
@@ -643,7 +934,7 @@ _SPREADSHEET_POLICIES: Final[frozendict[XlsxRegime, SpreadsheetPolicy]] = frozen
     XlsxRegime.STREAMED: SpreadsheetPolicy(XlsxRegime.STREAMED, 1 << 62, _xlsx_streamed),
 })
 
-_HELD_WORLD: Final[frozenset[DocumentMode]] = frozenset({DocumentMode.PDF_TYPST, DocumentMode.TYPST_QUERY, DocumentMode.TYPST_DATA})
+_HELD_WORLD: Final[frozenset[DocumentMode]] = frozenset({DocumentMode.PDF_TYPST, DocumentMode.TYPST_DATA})
 
 _RECEIPT: Final[frozendict[ReceiptKind, Callable[[ContentKey, EmitFact], "ArtifactReceipt"]]] = frozendict({
     ReceiptKind.PDF: lambda key, fact: ArtifactReceipt.Pdf(key, len(fact.data), fact.pages),
@@ -655,6 +946,7 @@ BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
     DocumentMode.PDF_HTML: Backend(Band.CORE, _weasyprint_html, ReceiptKind.PDF),
     DocumentMode.PDF_TYPST: Backend(Band.CORE, _typst_compile, ReceiptKind.PDF),
     DocumentMode.TYPST_QUERY: Backend(Band.CORE, _typst_query, ReceiptKind.OFFICE),
+    DocumentMode.TYPST_EVAL: Backend(Band.CORE, _typst_eval, ReceiptKind.OFFICE),
     DocumentMode.TYPST_DATA: Backend(Band.CORE, _typst_compile, ReceiptKind.PDF),
     DocumentMode.PDF_RENDER: Backend(Band.CORE, _pymupdf_render, ReceiptKind.PDF),
     DocumentMode.PDF_RASTER: Backend(Band.CORE, _pypdfium2_raster, ReceiptKind.PDF),
@@ -663,8 +955,10 @@ BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
     DocumentMode.FONT_EMBED: Backend(Band.CORE, _font_embed, ReceiptKind.PDF),
     DocumentMode.DOCX: Backend(Band.CORE, _docx_emit, ReceiptKind.OFFICE),
     DocumentMode.DOCX_TEMPLATE: Backend(Band.CORE, _docxtpl_emit, ReceiptKind.OFFICE),
-    DocumentMode.PPTX: Backend(Band.CORE, _pptx_emit, ReceiptKind.OFFICE),
+    DocumentMode.PPTX: Backend(Band.WORKER, _pptx_emit, ReceiptKind.OFFICE),  # python-pptx -> lxml, gated <3.15
     DocumentMode.XLSX: Backend(Band.CORE, _xlsx_emit, ReceiptKind.OFFICE),
+    DocumentMode.ODT: Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE),  # odfpy is pure-Python (defusedxml), no lxml -> CORE
+    DocumentMode.ODS: Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE),
     DocumentMode.XML: Backend(Band.WORKER, _lxml_emit, ReceiptKind.OFFICE),
     DocumentMode.XML_TRANSFORM: Backend(Band.WORKER, _lxml_transform, ReceiptKind.OFFICE),
     DocumentMode.XML_VALIDATE: Backend(Band.WORKER, _lxml_validate, ReceiptKind.OFFICE),
@@ -676,13 +970,17 @@ BACKENDS: Final[frozendict[DocumentMode, Backend]] = frozendict({
 
 ## [03]-[RESEARCH]
 
-- [DISPATCH_COLLAPSE]: the former `BACKENDS`/`GATED_ARMS` table pair plus the `GATED` `frozenset` membership probe and the `_gated_emit` re-dispatcher collapse into ONE `frozendict[DocumentMode, Backend]` whose `Backend` row carries `(band, arm, kind)` — the `Band` column IS the cp315-core-versus-gated split, so `_stepped` reads `backend.band` and crosses `anyio.to_process.run_sync` onto `_worker_emit` (which re-resolves the SAME row, exactly as `document/egress#FINISH` `_worker_finish` re-resolves `FINISHERS`) rather than a second `GATED_ARMS[DocumentMode(mode)]` lookup over a string round-trip. The mode-string never crosses the process seam as a bare token: the whole frozen `DocumentPlan` and its frozen `EmitSpec` cross intact and `_worker_emit` re-resolves the row by `plan.mode`, so the lxml/pikepdf worker band carries no `match`, no `if mode in GATED`, and no parallel native frozenset. The `kind` column is the `ReceiptKind` discriminant the `_RECEIPT` table folds, so `contribute` projects the real `ArtifactReceipt.Pdf(key, bytes, pages)`/`.Office(key, bytes)` cases off one table read rather than a per-mode receipt arm. The deleted forms: the `GATED`/`GATED_ARMS` pair, the `mode.value` round-trip through the worker, and the `if self.mode in GATED` branch in `_emit`.
-- [TYPED_PAYLOAD]: the `params: dict[str, object]` bag the prior fence threaded — read for policy AND mutated for receipts (`params["outline"]`/`["undeclared"]`/`["sheets"]`) on a `frozen=True` struct — is the deleted form, the exact opaque payload the page's own boundary law bars. Every per-arm input is now one frozen `EmitSpec` `msgspec.Struct` of typed fields admitted EXACTLY ONCE at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` (`extra_items=str` band, per-key `NotRequired[ReadOnly[...]]`) and its module-level `TypeAdapter`, so the interior reads `plan.spec.<field>` and never re-validates, never reaches a stringly-keyed bag, and never mutates the owner. Every arm RETURNS its evidence as one frozen `EmitFact` (`data` plus the page/scale/outline-depth/face-set/undeclared-set/queried-length/valid/warning facts) threaded onto the owner through `copy.replace`, so `contribute` reads `self.fact` rather than a dict the body wrote — the `EmitFact` carrier is the `document/egress#FINISH` `FinishFact` pattern applied to emission. The `render_keywords` property projects the `(scale, rotation, may_draw_forms)` pypdfium2 row off the typed spec, never a `_RENDER_KEYWORDS` dict-builder over a bag.
-- [RAIL_AND_RECEIPT]: the prior fence claimed `RuntimeRail[ContentKey]` and "contributes one `ArtifactReceipt` row" but showed neither — the arms returned raw `bytes`, raised `TypstError`/`PdfiumError`/`DocumentInvalid`/`XlsxWriterException` uncaught, and stuffed receipts into the params dict. The rebuild closes the rail: `produce` runs `async_boundary` which captures the provider exception families and converts them at the capsule into the closed `EmitFault` `@tagged_union` (payload/source/schema/content/typeset causes), `_emit` is the pure `ContentKey`-returning core, and the `@receipted(ArtifactReceipt)` harvest weave drains `contribute` and emits through `Signals.emit_async` — so the owner reads as a stacked aspect over a thin core, never inline-repeated receipt construction, exactly as `document/egress#FINISH` stacks `@receipted(Egress)`. The `EmitFault.schema` case carries the `(SchemaKind, error-log head)` pair so a `DocumentInvalid` stays structurally addressable; the `typeset` case carries the rendered `TypstError` diagnostic. The receipt projection mints only the real `core/receipt#RECEIPT` cases at their declared arity — `ArtifactReceipt.Pdf(key, bytes, pages)` (the `pdf: tuple[ContentKey, int, int]` slot) and `ArtifactReceipt.Office(key, bytes)` (the byte-only `office: tuple[ContentKey, int]` slot the receipt owner shares with `Report`) — never a widened tuple and never a non-existent `.Document` case; the structured-text and Typst-query rows ride the byte-only `Office` shape until `core/receipt#RECEIPT` grows a document case, the rich evidence held on `EmitFact`. `RuntimeRail`/`async_boundary` verify against `rasm.runtime.faults`, `Receipt`/`receipted`/`Signals` against `rasm.runtime.receipts`, and the `ArtifactReceipt.Pdf`/`.Office` mints against `artifacts.core.receipt`, the same runtime owners `egress.md` composes.
-- [BATCHED_WORLD]: the held `typst.Compiler` world is now LOAD-BEARING through the `produced` plural entry — the prior `typst_world()` constructed a FRESH `Compiler` every `_typst_compile` call, so the "font-cached world amortized across a batch" prose was illusory. `produced` is the one polymorphic entrypoint over `DocumentPlan | Iterable[DocumentPlan]` discriminating on the INPUT SHAPE (`Block.singleton` for a lone plan, `Block.of_seq` for an iterable), constructing ONE `Compiler` off the batch head when the head mode is a `_HELD_WORLD` Typst row and threading that one world through every `_stepped` arm, so a multi-document Typst render pays font load once — no `batch`/`mode` knob, the arity recovered from the value. `_HELD_WORLD` is the `frozenset` of Typst modes (`PDF_TYPST`/`TYPST_QUERY`/`TYPST_DATA`) whose arm reads the held world; every other arm ignores the `world: Compiler | None` parameter. The `Compiler`/`Compiler.compile`/`Compiler.compile_with_warnings`/`Compiler.query` spellings verify against the `typst` catalogue `Compiler` rows; `compile_with_warnings` returns `(output, warnings)` so the warning count rides the `EmitFact.warnings` fact the consumer reads off `self.fact`, the cross-producer receipt carrying the flat `Pdf(key, bytes, pages)` scalars only.
-- [PDF_VARIANT]: the archival-conformance axis is now one `PdfVariant` `StrEnum` projecting a SINGLE row to BOTH engines — `variant.typst` returns the `pdf_standards` token tuple (`("a-2b",)`, `("a-3b",)`, `("a-3b", "ua-1")`) and `variant.weasyprint`/`variant.tagged` return the `pdf_variant` profile string (`"pdf/a-2b"`..`"pdf/ua-1"`) and the `pdf_tags` flag, so a PDF/A render is one row whether it lowers through Typst or HTML, never a per-engine literal. The prior fence rendered the HTML path through a bare `HTML.write_pdf` with NO archival variant — a flat use of an engine whose `write_pdf` catalogue row enumerates `pdf_variant`/`pdf_tags`/`pdf_forms`/`uncompressed_pdf`/`output_intent`; the rebuild folds the `PdfVariant` row into both `_weasyprint_html` (`pdf_variant=`/`pdf_tags=`/`pdf_forms=`) and `_typst_compile` (`pdf_standards=`). The `_PDF_STANDARD` and `_PDF_PROFILE` derived tables are the two secondary maps off the one `PdfVariant` vocabulary. The `pdf_variant`/`pdf_tags`/`pdf_forms` keywords verify against the `weasyprint` `write_pdf` `**options` rows; the `pdf_standards` token set verifies against the `typst` `[03]` `pdf_standards` enumeration (`"a-2b"`/`"a-3b"`/`"ua-1"`).
-- [PDFIUM_RASTER]: the `PDF_RASTER` arm is the cp315-core PDFium rasterizer that keeps the render path alive without the gated subprocess hop. `_pypdfium2_raster` opens one `PdfDocument(input, password, autoclose=True)`, folds each selected page through `PdfPage.render(**render_keywords)` → the `RenderTarget`-selected frame bridge, and the `match plan.spec.target` sink discriminates the egress: a `PIL` target multi-frame-saves the `Image` sequence into one container (TIFF/GIF), a `NUMPY` target `np.stack`s the arrays into one contiguous buffer and `.tobytes()` — never the `to_pil`-only `head.save(...)` the prior fence applied uniformly, which faults on a `to_numpy` frame with no `.save`. `_outline_rows` harvests the outline through `PdfDocument.get_toc(max_depth)`. The `render_keywords` are the VERIFIED `PdfPage.render` keyword set — `scale`/`rotation`/`may_draw_forms` per catalogue row `[01]` which enumerates `render(scale=1, rotation=0, crop=(0,0,0,0), may_draw_forms=True, bitmap_maker=, color_scheme=None, fill_to_stroke=False)`; the prior fence's `draw_annots` keyword was a PHANTOM (no such parameter — the form-draw row is `may_draw_forms`) and its `# RESEARCH` marker on the render keyword set was FALSE (the row fully enumerates the surface). `_outline_rows` reads the VERIFIED `PdfBookmark.get_title`/`get_count`/`get_dest` and `PdfDest.get_index` accessors per catalogue row `[10]` (the prior `# RESEARCH` marker claiming them unverified was FALSE); `mark.get_count()` is the subtree size the depth derives from (the catalogue rows `get_count`, not a `.level` attribute, so the prior `mark.level` was a phantom corrected to `max_depth - get_count()`). `len(pdf)` is the `PdfDocument.__len__` page count: the catalogue rows `get_page(index)`/`get_toc` but not an explicit `__len__`, so the length protocol on the `Sequence`-shaped document root is RESEARCH-pending the catalogue rowing it; `range(len(pdf))` is the all-pages fallback when the typed `EmitSpec.pages` tuple is empty, marked until the `pypdfium2` catalogue rows the length accessor. The `RenderTarget` `StrEnum` is the one row collapsing the `to_pil`-versus-`to_numpy` bridge: each member's value IS the bridge method name, so the frame bridge is one `getattr(bitmap, target.bridge)()` keyed by the row value and only the final container egress branches on the target. The pypdfium2-versus-pymupdf render overlap is correct and load-bearing — `PDF_RENDER` (pymupdf `Page.get_pixmap`/`Pixmap.pil_tobytes`) owns native render/extract, `PDF_RASTER` (pypdfium2) owns the high-fidelity PDFium render and outline inspection, both BSD/AGPL alternatives kept, neither a wrapper of the other. The `PdfDocument`/`get_page`/`PdfPage.render`/`PdfBitmap.to_pil`/`to_numpy`/`get_toc`/`PdfBookmark`/`PdfDest` spellings verify against the `pypdfium2` catalogue rows `[01]`/`[02]`/`[03]`/`[04]`/`[06]`/`[10]`.
-- [FONT_EMBED]: the `FONT_EMBED` arm embeds the `exchange/conformance#CONFORM`-subsetted font INTO the emitted PDF so a subset font the document references is not dead capability — the `SUBSET`→`EMBED`→PDF/A chain closing `VARFONT_PARTIAL_INSTANCE`. `_font_embed` registers each subsetted face through reportlab `pdfbase.ttfonts.TTFont(face, io.BytesIO(blob), subfontIndex=...)` + `pdfbase.pdfmetrics.registerFont(font)` (verified against the `reportlab` catalogue rows `[01]`/`[02]`, the in-memory `io.BytesIO` buffer the `TTFont` `filename` accepts), sets the PDF info dictionary through `Canvas.setTitle`/`setAuthor`/`setSubject` (row `[06]`), draws every `RunNode` at its `NodeMeta.bounds` with `Canvas.setFont(font_key, size)`/`drawString(x, y, text)` (rows `[04]`/`[01]`), and returns the PDF through `Canvas.getpdfdata()` (row `[04]`, the in-memory bytes path), the embedded-face set riding the `EmitFact.faces` fact the receipt reads. The `subset_fonts` `EmitSpec` field is the `frozendict[str, bytes]` face-to-bytes map the `exchange/conformance#CONFORM` `SUBSET`/`INSTANCE` rows produce, consumed here verbatim — subsetting and variable-font instancing are NEVER re-run here. The pymupdf `Page.insert_font`/`insert_text` embed path is RESEARCH (the `pymupdf` catalogue rows `Page.insert_htmlbox`/`insert_text` and `Document.subset_fonts` but the font-table embed via `insert_font` stays unrowed), so the settled font-embed fence composes the reportlab `registerFont` path only.
-- [DOCX_TEMPLATE]: the `DOCX_TEMPLATE` arm binds the `DocumentNode` tree into a Word template through docxtpl, reusing the `document/report#REPORT` jinja2 the way `TYPST_DATA` reuses `sys_inputs` — one template-bind concept across Typst and Office. `_docxtpl_emit` loads one `DocxTemplate(template)`, folds the tree in ONE `walk` pass through one `match` over node kind into the role-keyed `context` dict — `RunNode`→`RichText().add(text, **_docx_run_props)` accumulated via `setdefault`, `BlockNode(block=BlockKind.CODE)`→`Listing("".join(run.text))`, every other `BlockNode`→`RichTextParagraph().add(RichText(...), parastyle=block.value)`, `FigureNode`→`InlineImage(tpl, descriptor, width=Pt(bounds[2]), height=Pt(bounds[3]), anchor=...)` reading both bounds axes in the `python-docx` `shared.Pt` unit (catalogue row `[09]`) and the per-role anchor, and `SectionNode`→`new_subdoc()` — then reads `get_undeclared_template_variables()` onto the `EmitFact.undeclared` fact and `save(BytesIO())`. `_docx_run_props` is the one shared run-style projection: `bold` from `weight >= _BOLD_WEIGHT`, `size` in half-points, `font` from `RunNode.font_key` (the registered face the `CONFORM` shape minted, threaded through `RichText.add(font=...)`), `rtl`, and the hyperlink `url_id` resolved through `template.build_url_id(url)` when `spec.links` names a URL for the run's role. The single-pass `match` fold is the collapse: the five parallel `walk`+`isinstance` comprehensions over `RunNode`/`BlockNode`/`FigureNode`/`Listing`/`SectionNode` dissolve into one dispatch keyed by node kind, so a new carrier kind is one `match` arm. The `DocxTemplate.__init__`/`render`/`save`/`new_subdoc`/`get_undeclared_template_variables`/`build_url_id`, `RichText`/`add(... url_id, rtl ...)`, `RichTextParagraph`/`add(text, parastyle)`, `Listing(text)`, and `InlineImage(tpl, descriptor, width, height, anchor)` spellings verify against the `docxtpl` catalogue rows `[01]`-`[12]` and the content-carrier rows `[01]`-`[06]`. `new_subdoc()` returns a `Subdoc` requiring the optional `docxcompose` dependency; when a `SectionNode` subdoc is bound, `docxcompose` is a transitive admission, marked RESEARCH until the lock reflects it.
-- [XLSX_STREAMING]: the `XLSX` arm is ONE emitter selecting a `SpreadsheetPolicy` row by corpus size. The policy-as-value collapse merges the former writer pair into the `(regime, crossover, writer)` `Struct` (keyed by the `XlsxRegime` member, not a stringly-keyed `params` lookup) plus the `CellValue` typed-cell algebra (one `Struct` whose `CellValue.of` projects a grid cell to its `str | float | bool | datetime | date | None` payload once and whose `write_xlsxwriter`/`write_openpyxl` `match` lowers it to the typed Excel write). `CellValue.of` carries a `FieldNode` value verbatim and runs the recovered `RunNode` text through `_coerce_cell` — the one narrowing projection lifting a grid string to `bool` (the `_BOOL_CELL` `frozendict`), `int`/`float` (numeric parse under `suppress(ValueError)`), or `datetime`/`date` (`fromisoformat`) so the `write_number`/`write_datetime`/`write_boolean` arms are LIVE, never decorative; an unparseable string stays a `str` write and the empty cell folds to `write_blank`. `_xlsx_emit` projects the `TableNode` grid through `CellValue.of`, then `SpreadsheetPolicy.select(plan, len(grid)).writer(plan, grid)` dispatches: the `STREAMED` row's `writer` is `_xlsx_streamed` (xlsxwriter `Workbook(sink, {"constant_memory": True, "in_memory": ..., "use_zip64": ...})` → `set_properties` → `add_worksheet` → the `_book_format` style minting off `_FORMAT_SETTERS` → `set_column` width → `Worksheet.set_row`/`write_*` → `freeze_panes` + `define_name`), the `IN_MEMORY` row's `writer` is `_xlsx_in_memory` (openpyxl `Workbook(write_only=True)`/`create_sheet`/`append`/`freeze_panes`/`save`). The hand-rolled base-26 `_column_letter` kernel is DELETED — the `define_name` A1 range now reads `openpyxl.utils.get_column_letter(width)`, the catalogued A1 column owner (openpyxl `utils` row `[09]`, imported at arm scope on the in-process XLSX path), so no local base-26 reimplementation stands. xlsxwriter is present transitively; the action is promote-to-explicit on the cp315 core. Under `constant_memory` cells are written in strict row-major order — the grid fold preserves row order so the streaming contract holds; `set_row(index, None, format)` applies the cell-format before the row's cells per catalogue row `[15]`, and `set_column(first, last, width)` applies the column default before the first row write per row `[14]`. The `Workbook(filename, options)`/`add_worksheet`/`add_format`/`set_properties`/`define_name`/`worksheets`/`close`, the typed `write_number`/`write_string`/`write_datetime`/`write_boolean`/`write_blank`/`set_row`/`set_column`/`freeze_panes`, `Format.set_num_format`/`set_bold`/`set_align`, and the `constant_memory`/`in_memory`/`use_zip64`/`tmpdir` keys verify against the `xlsxwriter` catalogue rows `[01]`-`[18]` and `[01]`-`[05]`; the openpyxl `Workbook(write_only=True)`/`create_sheet`/`append`/`freeze_panes`/`save` and `utils.get_column_letter` spellings verify against the `openpyxl` catalogue rows `[01]`/`[02]`/`[04]`/`[07]` and `utils` row `[09]`.
-- [XML_TRANSFORM_VALIDATE]: the gated lxml arm carries four rows on the `WORKER` `Band` — `etree.tostring` emit, `etree.XSLT` compiled transform, `XMLSchema`/`RelaxNG`/`Schematron` `assertValid` validation raising `DocumentInvalid`, and `etree.XPath` compiled introspection (the structured-introspection inverse of `TYPST_QUERY`). `_lxml_transform` compiles one `etree.XSLT(_hardened_parse(stylesheet))` and applies it with `etree.XSLT.strparam` arguments; `_lxml_validate` resolves the validator by `getattr(etree, SchemaKind(...).value)` over `etree.XMLSchema`/`etree.RelaxNG`/`etree.Schematron` and calls `assertValid` (the `SchemaKind` values are the exact validator-class attribute names, so dialect dispatch is one `getattr`, never a three-arm `match`); `_lxml_query` compiles one `etree.XPath(path, namespaces, smart_strings=False)` and projects element hits through `isinstance(hit, etree._Element)` then `etree.tostring`. The prior fence's `etree.iselement` element-test was a PHANTOM (the catalogue rows no `iselement`); the rebuild uses the VERIFIED public `etree._Element` type (catalogue row `[01]`) as the element predicate. The `etree.XSLT.strparam` argument-quoter is VERIFIED (catalogue row `[06]` rows `XSLT` as `(__call__, strparam, tostring)`; the prior `# RESEARCH` marker was FALSE), and the `no_network=True` parser keyword is VERIFIED (parser rows `[03]`/`[10]` enumerate `recover/huge_tree/resolve_entities/no_network/schema/target/resolvers`; the prior `# RESEARCH` marker was FALSE) — so `resolve_entities=False`/`huge_tree=False`/`no_network=True` are all settled fence code closing the entity-expansion, unbounded-tree, and network-fetch surface. The `etree.parse`/`etree.XMLParser`/`etree.tostring`/`etree.cleanup_namespaces`/`etree.XSLT`/`etree.XSLT.strparam`/`etree.XMLSchema`/`etree.RelaxNG`/`etree.Schematron`/`XMLSchema.assertValid`/`etree.XPath`/`etree._Element`/`DocumentInvalid` spellings verify against the `lxml` catalogue rows `[01]`/`[03]`/`[05]`/`[06]`/`[07]`-`[10]` and the type rows `[01]`/`[06]`/`[09]`, reflected on the `python_version<'3.15'` band, never the cp315 core. `to_lxml_tree(node)` and `to_html(node)` are the intended `DocumentNode`→`etree._Element`/HTML lowerings the arms share, the parallel to `to_typst_source` over the same tree, but they are RESEARCH: `document/model#NODE` owns `to_typst_source`/`children`/`walk`/`node_digest`/`encode`/`decode` and the model page does NOT yet declare `to_lxml_tree`/`to_html`, so the cross-page members stay marked until `model.md` rows the XML and HTML lowerings alongside the Typst one; until then the lxml and weasyprint arms import them against the named owner without transcribing a settled-on-model member.
+- [PHANTOM_ARMS_REALIZED]: the prior fence bound `_reportlab_author`/`_pikepdf_repair`/`_docx_emit`/`_pptx_emit` in `BACKENDS` but DEFINED NONE of them — four modes were a `NameError` at module load, a stub dressed as a complete table. The rebuild realizes each as a real lowering arm: `_reportlab_author` folds the tree through `_flowables` into a `platypus` `SimpleDocTemplate.build` story (`Paragraph`/`Table`/`Image`/`ListFlowable`/`PageBreak` per node kind, the `getSampleStyleSheet` heading/normal/code styles), `_docx_emit` folds it through `_docx_block` (`add_heading`/`add_paragraph`+`add_run`/`add_table`+`cell`/`add_picture`/`add_page_break`) with the full `_docx_run` font projection, `_pptx_emit` folds each `PageNode` into a blank-layout slide's textbox `TextFrame` plus `add_picture` figures, and `_pikepdf_repair` opens and re-saves through `Pdf.save(linearize=True, recompress_flate=True, object_stream_mode=generate, deterministic_id=True)`. The `reportlab.platypus`/`lib.styles`/`lib.pagesizes`, `docx.Document`/`add_*`/`Run.font`/`shared.Pt`/`RGBColor`, `pptx.Presentation`/`slide_layouts`/`slides.add_slide`/`SlideShapes.add_textbox`/`add_picture`/`util.Inches`/`Pt`, and `pikepdf.open`/`Pdf.save`/`ObjectStreamMode`/`Pdf.pages` spellings verify against the `reportlab`/`python-docx`/`python-pptx`/`pikepdf` catalogues.
+- [RECEIPT_WEAVE]: the prior fence wrote `@receipted(ArtifactReceipt)` and `_emit -> ContentKey` — both wrong against the runtime `receipts.@receipted` contract, which takes a `Redaction` policy value and harvests `contribute()` off the operation's `ReceiptContributor` return. The rebuild matches the runtime owner and the `document/egress#FINISH`/`document/report#REPORT` siblings: `@receipted(Redaction.STRUCTURAL)` over a thin `_emit -> Self` returning the stepped `DocumentPlan` (a `ReceiptContributor` via `contribute`), so the weave drains `self.contribute()` and emits through `Signals.emit_async`, and `_emitted` mints the content key off `plan.fact.data` rather than the pure core. `contribute` reads the threaded `EmitFact` off `self.fact`, folds the `Backend.kind` discriminant through `_RECEIPT`, and mints the real `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)`/`.Office(key, bytes)` arities — never a widened tuple, the typography-rail `Document` case, or an in-process re-run of a worker-gated arm.
+- [TYPED_PAYLOAD]: the prior fence carried `extra_items=str` while `of` did `EmitSpec(**payload)` with NO band-fold, so any extension key was either a `TypeError` (unknown kwarg) or a wrong-typed `str` against a non-`str` field — the `extra_items` band the prose claimed was illusory. The rebuild closes the payload (`TypedDict(closed=True)` over the full settable `EmitSpec` surface, per-key `NotRequired[ReadOnly[...]]`), admits once through the module-level `TypeAdapter`, and materializes `EmitSpec(**payload)` over a known-key set; an unknown key faults at `validate_python`. The `_REQUIRED` `frozendict[DocumentMode, tuple[str, ...]]` precondition is the two-tier admission gate making the interior total — a mode whose named input (`source`/`template`/`schema`/`selector`/`subset_fonts`/`stylesheet`/`path`) is empty becomes `EmitFault.unsatisfied` at `of`, so no arm reaches an empty `DocxTemplate("")` or `etree.XSLT(b"")`.
+- [FAULT_COLLAPSE]: the prior `EmitFault` carried five cases (`payload`/`source`/`schema`/`content`/`typeset`) but the body CONSTRUCTED only `payload` — four decorative provider-conversion cases the arms never minted (the arms `raise` provider exceptions; nothing built `EmitFault(typeset=...)`). The rebuild collapses to the admission vocabulary `of` actually produces — `payload` (rejected keys) plus `unsatisfied` (mode precondition) — and routes every arm-level provider raise (`TypstError`/`PdfiumError`/`XMLSyntaxError`/`XlsxWriterException`) to the runtime `BoundaryFault` at the `async_boundary` capsule, exactly as `document/egress#FINISH` routes its provider raises rather than re-spelling a per-page provider-fault union the runtime already owns.
+- [TYPST_WORLD]: three Typst defects are fixed. (1) `world()` constructed `Compiler(font_paths=[], sys_inputs=...)` with NO `input` — but the `typst` `Compiler` constructor requires `input`; the rebuild seeds it with `to_typst_source(self.node).encode()` (the held world amortizes font load, each arm overriding `input=` per compile). (2) `_typst_compile`/`_typst_query` passed a markup `str` as `input`, which the binding treats as a file PATH (`input` is "source path or bytes"); the rebuild passes `.encode()` bytes. (3) `_typst_query` used the held HEAD world's `Compiler.query`, querying the wrong document in a batch; the rebuild uses the free `typst.query(input=this-plan-source-bytes, selector, field, one)` which compiles a single-shot world over the querying plan's OWN document, so `TYPST_QUERY` leaves `_HELD_WORLD`. The PDF/UA path prepends `#set document(title:)` (the `ua-1` render hard-errors `missing document title` without it), and `timestamp` pins the creation date for byte-deterministic archival output. `Compiler`/`compile_with_warnings(input, sys_inputs, pdf_standards, timestamp)` and the free `query` verify against the `typst` catalogue.
+- [PILLOW_FREE_RASTER]: the prior render/raster arms ran on `Band.CORE` yet used `pix.pil_tobytes`, `PdfBitmap.to_pil`, and a `_stack_frames` Pillow multi-frame save — but `pillow` is manifest-gated `python_version<'3.15'` (no cp315 wheel), so the "cp315-core rasterizer needing no gated hop" prose was false and the arms would `ImportError` on the core. The rebuild makes both arms genuinely Pillow-free on the core: `_pymupdf_render` uses native MuPDF `Pixmap.tobytes(output=image_format)` for a single page and a `numpy` `Pixmap.samples` frame stack for many; `_pypdfium2_raster` uses `PdfBitmap.to_numpy()` into a `numpy` stack. The `RenderTarget`/`to_pil`/`image_format`-TIFF Pillow concern and the multi-frame-container (TIFF/GIF over varying-size pages) encoding route to `graphic/raster/io#IO`, the Pillow owner on the gated band. The `Pixmap.tobytes`/`samples` and `PdfBitmap.to_numpy`/`PdfPage.render(scale, rotation, may_draw_forms)` spellings verify against the `pymupdf`/`pypdfium2` catalogues.
+- [OUTLINE_VERIFIED]: the prior `_outline_rows` read `mark.level` — a PHANTOM the `pypdfium2` catalogue does not row (a 5.x `PdfBookmark` exposes `get_title`/`get_count`/`get_dest`, NOT a `.level` attribute), and the prose's claim that it "was corrected to `max_depth - get_count()`" was never applied to the code. The rebuild reads the verified `mark.get_count()` (the signed sub-item count) as the `OutlineRow` head, `mark.get_title()`, and `dest.get_index()` off `mark.get_dest()`, so `outline_count` is the verified bookmark count (`len(outline)`) and the `outline` triples carry the per-bookmark `get_count`/title/dest — never a `.level` depth the `PdfBookmark` does not expose. `get_toc(max_depth)`/`PdfBookmark.get_count`/`get_title`/`get_dest`/`PdfDest.get_index` verify against the `pypdfium2` catalogue rows.
+- [RUN_FIDELITY]: the prior `_docx_run_props` mapped only `bold`/`size`/`font`/`rtl`/`url_id`, lowering a `RunNode` that `document/model#NODE` carries as bold-italic-superscript-coloured-language-tagged to plain bold — the exact defect the model page's accessibility rebuild fixed, repeated at emission. The rebuild projects the full `docxtpl` `RichText.add` axis — `italic` from `RunNode.italic`, `superscript`/`subscript` from `RunScript`, `color` from the `Rgb` triple, `lang` from `NodeMeta.lang` — and the `_docx_emit`/`_pptx_emit`/`_font_embed` arms carry the same character appearance (`Run.font.color`, `Font.italic`, `Canvas.setFillColorRGB`). `RichText.add(italic, superscript, subscript, color, rtl, lang)`, `python-docx` `Run.font`, and `reportlab` `setFillColorRGB` verify against the catalogues.
+- [GATED_BANDS]: the band column is the cp315-core/gated split. `PPTX` moves to `Band.WORKER` because `python-pptx` hard-requires `lxml` (gated `<3.15`, per its own catalogue), joining `PDF_REPAIR` (pikepdf) and the four lxml `XML*` rows on the `anyio.to_process.run_sync` worker that `_worker_emit` re-resolves; the gated worker carries no second `match`. `openpyxl` (no hard `lxml`), `pymupdf`, `pypdfium2`, `reportlab`, `weasyprint`, `pypdf`, `ruamel-yaml`, and `tomlkit` resolve on the core.
+- [DOCX_DENSITY]: the dead `_REPLACE` constant (the `("media", "embedded", "zipname", "pic")` tuple referencing methods the body never called) is gone — the `replace: frozendict[str, str]` `EmitSpec` field now wires the real `DocxTemplate.replace_zipname(name, dst)` pre-render part swap, and `render_footnotes` (after `render`) binds the footnote-part XML the prior fence dropped. The `_FORMAT_SETTERS` `getattr`-setter loop collapses into `_FORMATS` `add_format({...})` property-dict rows. `replace_zipname`/`render_footnotes`/`add_format(properties)` verify against the `docxtpl`/`xlsxwriter` catalogues.
+- [WEASY_ARCHIVAL]: the HTML→PDF arm gains the archival-correctness surface its catalogue rows — `base_url` (relative-resource resolution the catalogue mandates over string concatenation), `output_intent` (the ICC profile PDF/A conformance requires), and `stylesheets` (supplemental `CSS`) — folded beside the existing `PdfVariant` `pdf_variant`/`pdf_tags`/`pdf_forms` row, and `PdfVariant` gains the `A_1B` profile both engines support (`pdf/a-1b`/`("a-1b",)`). `PdfVariant` additionally rows `A_4` — the weasyprint catalogue's `pdf/a-4` (the PDF 2.0-based archival standard typst does not yet accept), so the `.typst`/`.weasyprint` projections read through `_PDF_STANDARD.get(self, ())`/`_PDF_PROFILE.get(self)` and each engine renders the strongest profile it supports rather than a `KeyError` on a one-engine row; the prior `NONE`-special-cased branches collapse into the defaulted `.get`. `HTML(string, base_url)`/`write_pdf(output_intent, stylesheets)`/`CSS(filename)` and the `pdf/a-4` row verify against the `weasyprint` catalogue.
+- [ODF_OFFICE]: the office axis lowered DOCX/PPTX/XLSX (OOXML) but omitted the OpenDocument sibling the admitted `odfpy` catalogue owns — the format-coverage gap the `openpyxl`/`python-docx` catalogues' own boundary rows ("ODF spreadsheets route to `odfpy`") name. `ODT` and `ODS` land as two `DocumentMode` rows over ONE `_odf_emit` arm flavor-keyed by mode: `ODS` builds an `OpenDocumentSpreadsheet`, folds each `TableNode` grid through `Table`/`TableRow`/`TableCell(valuetype, value)` with the typed cell projected by the new `CellValue.odf_cell` `(valuetype, value, display-text)` triple (`float` rows carry `office:value`, every other kind a string `<text:p>` because the catalogue rows only the `valuetype`/`value` pair, not per-type value attrs), and `ODT` builds an `OpenDocumentText`, folds the block tree through `_odf_block` `H`/`P` paragraphs over `teletype.addTextToElement` (the whitespace-correct `<text:s>`/`tab`/`line-break` split odfpy owns), each serialized once through `OpenDocument.write(sink)`. odfpy is pure-Python over `defusedxml` with no `lxml` dependency, so both rows resolve on the cp315 `Band.CORE`, not the gated worker, and mint the `ArtifactReceipt.Office(key, bytes)` row the OOXML siblings already mint. The `OpenDocumentText`/`OpenDocumentSpreadsheet`/`OpenDocument.write`/`OpenDocument.spreadsheet`/`OpenDocument.text`/`Table(name=)`/`TableRow`/`TableCell(valuetype, value)`/`text.H(outlinelevel=)`/`text.P`/`teletype.addTextToElement` spellings verify against the `odfpy` catalogue; `OpenDocumentPresentation` is rowed but its `draw:page` slide factory is not catalogued, so ODP is not authored against an unconfirmed member.
+- [TYPST_EVAL]: the introspection half rowed `TYPST_QUERY` (element selection) but not the catalogue's distinct `eval` (expression evaluation), so `TYPST_EVAL` lands as one `DocumentMode` row over `_typst_eval` — the free `typst.eval(input=this-plan-source-bytes, expression)` single-shot world over the plan's OWN document, the scripting-introspection sibling of `query` and the same `ReceiptKind.OFFICE` `(ContentKey, bytes)` terminal — with `expression` the one `EmitSpec`/`EmitPayload` field its `_REQUIRED` row demands. `eval(input, expression)` verifies against the `typst` catalogue.
+- [CELL_FOLD]: `_coerce_cell` ran three sequential `contextlib.suppress(ValueError)` arms — the banned-import-plus-repeated-structure smell the COLLAPSE_SCAN flags. It collapses to one ordered `_CELL_PARSERS` tuple (`_numeric`, `datetime.fromisoformat`, `date.fromisoformat`) folded by first-success through `Block.of_seq(...).choose(lambda convert: _attempt(convert, text)).try_head().default_value(text)`, where the single reusable `_attempt` boundary-capture mints `Option` off one `try/except ValueError` per parser rather than a `suppress` hiding fallibility, and the text fallback rides the `Option.default_value` rather than a trailing `return text`. The same cell algebra admits tz-aware `datetime.fromisoformat` results and `float('inf')`, so the `_xlsx_streamed` workbook options gain the catalogue's `remove_timezone=True` and `nan_inf_to_errors=True` so a tz-aware datetime serializes and a non-finite float maps to an Excel error code rather than raising. `Block.choose`/`try_head`/`Option.default_value` verify against the `expression` catalogue and `remove_timezone`/`nan_inf_to_errors` against the `xlsxwriter` catalogue.

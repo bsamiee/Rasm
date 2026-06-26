@@ -1,5 +1,6 @@
 export const meta = {
   name: 'resolve-residuals',
+  whenToUse: 'Resolve cross-file hard residuals a rebuild run could not close, with research and adversarial verification.',
   description: 'Manual cross-file HARD-RESIDUAL resolver, language-agnostic: investigate/research each open reconcile residual a rebuild-* run could not close (read every spanned page + the right .api tier + assay api for member claims + domain research), decide the canonical resolution, implement the design-doc changes across ALL spanned pages at the owning language bar (cs/py/ts), then adversarially verify. Hostile stance: assume the residual is real and the prior code naive/illusory; resolve deferred decisions with research rather than punting; realization-gate items are signature-locked in the owning design page (never realized as source). args = the hard residuals to resolve — an array, or {residuals:[...]}, or a rebuild-* run\'s {hard_residual:[...]} return; each item a {files,claim} object, a {id,claim,hint} object, or a bare claim string. Empty = no-op.',
   phases: [
     { title: 'Investigate', detail: 'per residual: read spanned pages + the right .api tier + assay/domain research -> a precise resolution plan (read-only)' },
@@ -14,14 +15,14 @@ const VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: [
 
 // --- [HARNESS] -- ramped bounded worker pool ---------------------------------------------
 const STAGGER_MS = 1500
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
   let next = 0
-  const run = async (slot) => {
-    if (slot) await new Promise((res) => setTimeout(res, slot * STAGGER_MS))
-    while (next < items.length) { const i = next++; out[i] = await worker(items[i], i) }
-  }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, (_, slot) => run(slot)))
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
 const clusterByFiles = (plans) => {
@@ -31,7 +32,7 @@ const clusterByFiles = (plans) => {
   for (const p of plans) { const root = (p.files && p.files.length) ? find(p.files[0]) : p.id; (by.get(root) || by.set(root, []).get(root)).push(p) }
   return [...by.values()]
 }
-const CAP = 9
+const CAP = 10
 
 // --- [INPUT] -- args = an array / {residuals:[...]} / a rebuild {hard_residual:[...]}; items are {files,claim} | {id,claim,hint} | string ---
 const input = typeof args === 'string' ? (() => { try { return JSON.parse(args) } catch { return args } })() : args
