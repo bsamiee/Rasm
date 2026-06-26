@@ -199,6 +199,29 @@ The body's `return` value becomes the tool result handed back to Claude.
 > `references/api-reference.md` §4 is the full map from each caller input to the
 > exact `args` value, with the shape-check idioms.
 
+### Long prompt strings — wrap with adjacent `+`, keep the value identical
+
+Prompts are the bulk of a workflow and grow long. Keep source lines to ~150
+columns by splitting one string across lines with adjacent `+` concatenation —
+JavaScript folds adjacent string operands into one value, so it stays **one
+string** with one value:
+
+```js
+const PROMPT =
+  'TASK: realize the open cards of `' + folder + '` into design fences ' +
+  'at the doctrine bar. Read each card body, the pages it seams to, and ' +
+  'verify every novel member before you write.'
+```
+
+- Break **at a space**, and keep that space on the left segment (`'…fences '`).
+  Drop it and two words fuse — a silent prompt change.
+- Never "wrap" with a multi-line template literal: real newlines inject `\n`
+  into the value, changing what the agent reads *and* the resume-cache key. `+`
+  concatenation changes the source only, never the value.
+- Body prompts only. **Never wrap inside `meta`** — it must stay a pure literal
+  (a stray `+` or backtick there fails the linter); a long `meta.description`
+  stays one line.
+
 ### The three `agent()` opts you tune most — `model`, `effort`, `schema`
 
 Three independent axes set per `agent()` call; `references/api-reference.md` §5 is
@@ -224,6 +247,33 @@ from a file in `assets/templates/`, or adapt a full worked example from
 `assets/examples/` (its `README.md` says which one fits).
 
 ---
+
+### File organization — canonical sections
+
+A workflow reads top-to-bottom as the `meta` manifest, then the body in this fixed
+section order (omit any a file doesn't need). Mark each with a `[08]`-grammar divider
+— `// --- [LABEL]` plus dash-fill, never free text after the bracket:
+
+```
+// --- [CONSTANTS] ---   dependency-free knobs: CAP, BATCH, STALL, caps, static tier/config tables (group the concurrency knobs)
+// --- [INPUTS] ---      args read + derived scope/target/root (depends on the args global)
+// --- [MODELS] ---      JSON Schemas for structured agent output
+// --- [DOCTRINE] ---    shared prompt-law TEXT consts woven into prompts; a composed DOCTRINE const comes LAST, after the blocks it joins
+// --- [OPERATIONS] ---  pure helpers: the pool/sleep harness, clustering, prompt builders, dispatch tables (a STAGES table over the builders lives here, after them)
+// --- [COMPOSITION] --- the run: phase()/agent()/pipeline()/parallel()/log() + reshaping + the final return
+```
+
+Inside a long `[COMPOSITION]`, mark each phase with a **bare** subsection divider
+whose label is the `phase()` title in UPPER_SNAKE (`// --- [RECONCILE]`, no fill).
+
+Rules that bite:
+- Knobs (`CAP`/`BATCH`/`STALL`) go in `[CONSTANTS]` at the top, never buried in the pool block.
+- args-derived values are `[INPUTS]`, never `[CONSTANTS]` — they depend on the runtime `args`.
+- A const that references a function or a later value is not a `[CONSTANTS]`: a dispatch
+  table over the prompt builders is `[OPERATIONS]` after them; a composed `DOCTRINE` const
+  follows the blocks it joins. An input derived through a helper co-locates that helper in `[INPUTS]`.
+- Banned drift labels: `[HARNESS]` `[SCHEMAS]` `[LAW]` `[CONFIG]` `[PROMPTS]` `[HELPERS]`
+  `[FOLDER]` `[SCOPE]` and singular `[INPUT]`. Use the canonical label.
 
 ## Step 5 — Validate and dry-run before running
 
@@ -360,6 +410,10 @@ These are the mistakes that actually break workflows:
   not need this.
 - **The body is JavaScript only.** TypeScript syntax — type annotations,
   interfaces, `as` casts — is a parse error.
+- **Wrap long prompt strings with adjacent `+`, not a multi-line template.**
+  Split at a space and keep the space on the left segment; the value must stay
+  byte-identical — a fused word or an injected `\n` is a silent prompt change.
+  Body prompts only, never inside `meta`. The linter warns past ~150 columns.
 - **No backticks anywhere in `meta`.** The linter reads any backtick inside the
   `meta` literal — even one inside a quoted string — as a template literal and
   rejects the file. Write identifiers in `name`/`description`/`phases` as plain text.

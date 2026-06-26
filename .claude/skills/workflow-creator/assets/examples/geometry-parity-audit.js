@@ -24,6 +24,12 @@ export const meta = {
   ],
 }
 
+// --- [INPUTS] ----------------------------------------------------------------------------
+// `args` arrives as structured data. An object with an `ops` list overrides the
+// discovery step; nothing passed lets the kernel enumerate the shared ops itself.
+const seedOps = Array.isArray(args?.ops) ? args.ops : null
+
+// --- [MODELS] ----------------------------------------------------------------------------
 const OPS = {
   type: 'object',
   required: ['ops'],
@@ -31,7 +37,6 @@ const OPS = {
     ops: { type: 'array', items: { type: 'string' } },
   },
 }
-
 const COMPARISON = {
   type: 'object',
   required: ['op', 'diverges'],
@@ -44,9 +49,7 @@ const COMPARISON = {
   },
 }
 
-// `args` arrives as structured data. An object with an `ops` list overrides the
-// discovery step; nothing passed lets the kernel enumerate the shared ops itself.
-const seedOps = Array.isArray(args?.ops) ? args.ops : null
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Enumerate ops')
 const ops = seedOps ?? (await agent(
@@ -74,6 +77,7 @@ if (divergent.length === 0) {
   return { compared: ops.length, divergent: 0, message: 'Kernels agree across every shared op' }
 }
 
+// --- [CLUSTER_DIVERGENCES]
 phase('Cluster divergences')
 const report = await agent(
   `Here are ${divergent.length} cross-runtime geometry divergences. Cluster them into ` +

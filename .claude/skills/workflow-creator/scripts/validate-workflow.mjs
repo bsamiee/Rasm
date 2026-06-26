@@ -161,6 +161,56 @@ for (const key of ['effort', 'model']) {
   }
 }
 
+// --- 5c. unwrapped long prompt strings — wrap with adjacent `+` (advisory) ----
+// Targets the actual anti-pattern: a SINGLE string literal whose own content runs
+// past the column budget. A correctly `+`-wrapped segment is well under it, so it
+// never trips; only a genuinely unwrapped prose string does. Code-overflow lines
+// (long because of trailing `.join()`/opts, not the string) are not the string's
+// problem and are ignored. `meta` is exempt — its `description` is a forced one-liner.
+const MAX_COL = 160
+{
+  let metaLo = -1, metaHi = -1
+  if (metaMatch) {
+    const o = code.indexOf('{', metaMatch.index)
+    if (o !== -1) {
+      let d = 0
+      for (let j = o; j < code.length; j++) {
+        if (code[j] === '{') d++
+        else if (code[j] === '}' && --d === 0) { metaLo = lineOf(o); metaHi = lineOf(j); break }
+      }
+    }
+  }
+  // single/double-quoted literals, escape-aware; backtick templates skipped (may be multi-line)
+  const re = /'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g
+  let m
+  while ((m = re.exec(src))) {
+    const content = m[0].slice(1, -1)
+    if (content.length <= MAX_COL || !content.includes(' ')) continue
+    const num = lineOf(m.index)
+    if (metaLo !== -1 && num >= metaLo && num <= metaHi) continue
+    warnings.push(`string literal at line ${num} is ${content.length} chars — wrap it with adjacent \`+\` `
+      + '(split at a space, keep the space on the left segment; the value stays identical)')
+  }
+}
+
+// --- 5d. section divider grammar — `// --- [LABEL]` + dash-fill, no free text -
+// A real divider is a pure-comment line (its stripped form is blank) matching the
+// pattern; in-prompt `[X]` text never qualifies. Flags free text after the bracket
+// and banned drift labels. Phase subsection labels (any UPPER_SNAKE) are allowed.
+{
+  const BANNED = new Set(['HARNESS', 'SCHEMAS', 'SCHEMA', 'LAW', 'CONFIG', 'PROMPTS', 'HELPERS', 'UTILS', 'COMMON', 'MISC', 'FUNCTIONS', 'LAYERS', 'IMPORTS', 'INTERFACES', 'ENUMS', 'DTO', 'QUERIES', 'FOLDER', 'SCOPE', 'INPUT'])
+  const srcLines = src.split('\n')
+  const codeLines = code.split('\n')
+  for (let i = 0; i < srcLines.length; i++) {
+    if ((codeLines[i] || '').trim() !== '') continue                 // not a pure comment line
+    const m = srcLines[i].match(/^\s*\/\/\s*---\s*\[([A-Z0-9_]+)\](.*)$/)
+    if (!m) continue
+    const [, label, tail] = m
+    if (/[^\s-]/.test(tail)) warnings.push(`divider \`[${label}]\` at line ${i + 1} has free text after the bracket — use \`// --- [${label}]\` + dash-fill only`)
+    if (BANNED.has(label)) warnings.push(`divider label \`[${label}]\` at line ${i + 1} is a banned drift label — use a canonical section (CONSTANTS/INPUTS/MODELS/DOCTRINE/OPERATIONS/COMPOSITION) or a phase subsection`)
+  }
+}
+
 // --- 6. parallel() should get thunks, not bare promises ----------------------
 {
   const re = /\bparallel\s*\(\s*\[/g

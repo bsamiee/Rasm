@@ -1,6 +1,6 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active language surface. This page is the version-feature and type-LEVEL evidence law: every static, caller-facing type-form contract that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. The value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; structured concurrency rides `concurrency.md`; interpreter isolation and introspection ride `runtime.md`.
+Python `>=3.15` is the active language surface. This page is the version-feature and type-LEVEL evidence law: every static, caller-facing type-form contract that carries no runtime value — declaration evidence, predicate evidence, type-expression values, generated-owner decorators, callable-signature shape, and the language-form placement sites — is fixed here before a local abstraction is added. The value lifecycle is shed by kind: payload materialization, owner selection, and the `Result` rail ride `shapes.md`; standard-library API replacement rides `system-apis.md`; structured concurrency rides `concurrency.md`; interpreter isolation and runtime-state introspection ride `runtime.md`.
 
 `pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
@@ -20,7 +20,7 @@ Treat source files as modern Python, not compatibility layers. Remove old import
 
 ## [02]-[CANONICAL_CHOOSER]
 
-Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; structured concurrency is owned by `concurrency.md`, and interpreter isolation and introspection are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior. The chooser groups by form kind, and each group routes to its `[03]` placement card for the rule the table row cannot state.
+Use the active Python surface directly. This chooser owns language syntax, type-expression, annotation, import/export, template, and typing-protocol forms — the stable language-form law. Standard-library API replacement (paths, files, regex, datetime, numeric primitives, binary codecs, hashing, iteration) is the high-churn surface owned by `system-apis.md`; structured concurrency is owned by `concurrency.md`, and interpreter isolation and runtime-state introspection are owned by `runtime.md`. Replace an older spelling or local machinery when the active language surface owns the behavior. The chooser groups by form kind, and each group routes to one or more `[03]` placement cards for the rule the table row cannot state.
 
 [TYPE_DECLARATION_FORMS]: which declaration, generated-owner, callable, or generic form carries the type evidence.
 
@@ -66,7 +66,7 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 |  [03]   | exhaustiveness proof | `Never` and `assert_never()`        | default-arm raises               |
 |  [04]   | string enum          | `enum.StrEnum`                      | `str, Enum` mixins               |
 |  [05]   | enum invariant       | `enum.verify()` and `EnumCheck`     | local enum validation loops      |
-|  [06]   | sentinel value       | `sentinel()`                        | `object()` or string sentinels   |
+|  [06]   | sentinel value       | `Sentinel("NAME")`                  | `object()` or string sentinels   |
 |  [07]   | immutable update     | `copy.replace()` or `__replace__()` | mutate-then-freeze copies        |
 |  [08]   | immutable map        | `frozendict`                        | tuple-pair pseudo-maps           |
 |  [09]   | invariant arity      | `zip(strict=True)`                  | post-truncation asserts          |
@@ -126,6 +126,7 @@ Use these contracts when the chooser names the primitive but code still needs a 
 The type-evidence spotlight: a `@dataclass_transform` decorator mints the closed owner family, `@disjoint_base` seals the nominal root over `@final` sealed members, `Self`/`override` carry declaration evidence, inline `**P`/`Concatenate` preserve a context-threading signature woven under `@beartype`, a `TypeForm` registry holds the structural type-expression values that `door.is_subhint` resolves by decidable subtyping, `is_primary` is the `TypeIs[Primary]` that narrows the member so its `widened` transition is callable while `door.is_bearable` narrows the raw value into the refinement alias `Atom` that transition admits, and the total `match` over the sealed members proves exhaustiveness — all static evidence, no value materialized into an owner rail.
 
 ```python conceptual
+import copy
 import dataclasses
 from collections.abc import Callable
 from functools import wraps
@@ -160,7 +161,7 @@ class Primary(Shape):
     value: Atom
 
     def widened(self, value: Atom, /) -> Self:
-        return dataclasses.replace(self, value=value)
+        return copy.replace(self, value=value)
 
     @override
     def rendered(self, prefix: str, /) -> str:
@@ -204,7 +205,7 @@ def with_context[**P, T](context: Context, /) -> Callable[[Callable[Concatenate[
 
 @with_context(("<value-a>", "<field-a>"))
 @beartype
-def rendered(context: Context, value: Member, raw: object, /) -> str:
+def described(context: Context, value: Member, raw: object, /) -> str:
     kind, prefix = context
     projected = value.widened(raw) if is_primary(value) and is_bearable(raw, Atom) else value
     match projected:
@@ -217,10 +218,37 @@ def rendered(context: Context, value: Member, raw: object, /) -> str:
 ```
 
 [TYPED_DICT_PAYLOAD_SITE]:
-- Use when: keyword or dictionary payload shape is part of the static callable contract and only the type form is declared here.
-- Accept: `Unpack[TypedDict]` as the keyword-payload type, `closed=` for static exact-key constraints, `extra_items=` for the typed extension slot, and `Required[]`, `NotRequired[]`, `ReadOnly[T]` as per-key static evidence.
-- Reject: homogeneous `**kwargs`, open payload prose, split total/non-total `TypedDict` mirror shapes, mutable-key promises in comments, and `Mapping[str, object]` bags.
-- Boundary: this site declares the payload type form only; `TypeAdapter` admission, `Unpack` at the root entrypoint, `frozendict` extension-band folding, and the `Result` materialization rail are the value lifecycle owned by the shape page.
+- Use when: keyword or dictionary payload shape is part of the static callable contract; the type form and its root signature are declared here.
+- Accept: `Unpack[TypedDict]` as the keyword-payload type at the root entrypoint, `closed=True` for exact-key closure, `extra_items=T` for the typed extension band — `ReadOnly`-wrapped when the band is read-only — and `Required[]`, `NotRequired[]`, `ReadOnly[T]` as per-key static evidence; the interior consumes the concrete `TypedDict` by value, reading a `NotRequired[]` key through `.get` rather than re-checking presence.
+- Reject: homogeneous `**kwargs`, open payload prose, split total/non-total `TypedDict` mirror shapes, `Unpack` re-spread through an interior signature, mutable-key promises in comments, and `Mapping[str, object]` bags.
+- Boundary: this site owns the payload type form and the `Unpack` root signature; `TypeAdapter` admission of the raw payload, `frozendict` extension-band materialization, and the `Result` rail are the value lifecycle owned by the shape page.
+
+```python conceptual
+from typing import NotRequired, ReadOnly, Required, TypedDict, Unpack
+
+
+class Span(TypedDict, closed=True):
+    lo: Required[int]
+    hi: Required[int]
+
+
+class Payload(TypedDict, extra_items=ReadOnly[str]):
+    key: Required[str]
+    span: ReadOnly[Span]
+    note: NotRequired[str]
+
+
+def projected(payload: Payload, /) -> tuple[str, int, int]:
+    span = payload["span"]
+    return payload.get("note", payload["key"]), span["lo"], span["hi"]
+
+
+def admitted(**fields: Unpack[Payload]) -> tuple[str, int, int]:
+    return projected(fields)
+
+
+SHAPE = admitted(key="<key-a>", span={"lo": 0, "hi": 4}, tag="<ext-a>")
+```
 
 [MODULE_BOUNDARY_SITE]:
 - Use when: a module declares its public names, imports another module surface, or registers an auditable startup hook.
@@ -236,7 +264,7 @@ def rendered(context: Context, value: Member, raw: object, /) -> str:
 
 [TEMPLATE_STRUCTURE_SITE]:
 - Use when: dynamic text must preserve template structure for policy or AST analysis instead of collapsing to a rendered string.
-- Accept: live `string.templatelib.Template`/`Interpolation` for evaluated `value`/`expression`/`conversion`/`format_spec` fields, and `ast.TemplateStr`/`ast.Interpolation` over `ast.parse(optimize=, module=)` for the pre-evaluation source structure — `Constant.value` static segments and `Interpolation.str` expression text with the integer `conversion` ordinal — proved congruent with `ast.compare`.
+- Accept: live `string.templatelib.Template`/`Interpolation` for evaluated `value`/`expression`/`conversion`/`format_spec` fields, and `ast.TemplateStr`/`ast.Interpolation` over `ast.parse(optimize=, module=)` for the pre-evaluation source structure — `Constant.value` static segments, `Interpolation.str` expression text with the integer `conversion` ordinal, and the nested `Interpolation.format_spec` as an `ast.JoinedStr` of `ast.FormattedValue` expression nodes — proved congruent with `ast.compare`.
 - Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, `ast.dump` string comparison where `ast.compare` decides node equality, and string concatenation hiding template policy.
 - Boundary: the render-time fold of a live `Template`'s `str | Interpolation` segments and the conversion/format-spec application are `system-apis.md`'s; this site owns the structural type forms — the AST nodes and the live `Template` shape — read before any rendering, never the render itself.
 
@@ -245,21 +273,70 @@ import ast
 
 from builtins import frozendict
 
-type Segment = tuple[str, str]
+type Segment = tuple[str, str, tuple[str, ...]]
 type TemplateShape = tuple[tuple[str, ...], tuple[Segment, ...]]
 
 CONVERSION: frozendict[int, str] = frozendict({-1: "<plain>", 114: "<repr>", 115: "<str>", 97: "<ascii>"})
 
 
+def _spec(part: ast.Interpolation, /) -> tuple[str, ...]:
+    nested = part.format_spec
+    return () if nested is None else tuple(ast.unparse(field.value) for field in nested.values if isinstance(field, ast.FormattedValue))
+
+
 def shaped(source: str, /) -> TemplateShape:
     template = ast.parse(source, mode="eval", optimize=1, module="<template>").body
     statics = tuple(part.value for part in template.values if isinstance(part, ast.Constant))
-    fields = tuple((part.str, CONVERSION[part.conversion]) for part in template.values if isinstance(part, ast.Interpolation))
+    fields = tuple((part.str, CONVERSION[part.conversion], _spec(part)) for part in template.values if isinstance(part, ast.Interpolation))
     return statics, fields
 
 
 SHAPE = shaped('t"<head>{alpha!r:>{width}}<mid>{beta}<tail>"')
 CONGRUENT = ast.compare(ast.parse('t"{alpha}"', mode="eval"), ast.parse('t"{alpha}"', mode="eval"))
+```
+
+[REFLECTION_SITE]:
+- Use when: annotations, members, unions, protocols, generic bases, execution locals, or AST structure must be read as the language's own structured form instead of reconstructed from rendered text or private state.
+- Accept: deferred annotations through `annotationlib.get_annotations(format=...)` and `inspect.signature(annotation_format=...)` at the `annotationlib.Format` the consumer needs — `VALUE`, `FORWARDREF`, or `STRING`; side-effect-free member reads through `inspect.getmembers_static()`; union and protocol shape through `typing.get_origin()`/`get_args()`/`get_protocol_members()`/`is_protocol()`; generic bases through `types.get_original_bases()`; execution locals through an explicit `locals=` argument or a `types.FrameLocalsProxyType` over `frame.f_locals`; and AST structure through per-node `ast.<Node>._field_types` with `ast.compare()` deciding node equality over `ast.parse(optimize=, module=)`.
+- Reject: direct `__annotations__`/`__orig_bases__`/`__protocol_attrs__` dunder reads, descriptor-triggering `getattr` member scans, private union or protocol implementation probes, mutating `locals()` snapshots, `ast.dump()` string comparison where `ast.compare()` decides equality, and re-parsing rendered text a structured reader already returns.
+- Boundary: these are static structural reads feeding a generated owner, dispatch table, or registry; they never re-validate an admitted owner or materialize a value. The live `Template`/`Interpolation` render structure is the template-structure site's, and the value the read ultimately drives belongs to the shape page.
+
+The reflection spotlight: one entrypoint discriminates on whether the subject is a protocol or a concrete owner, then folds every structural reader into one `frozendict` evidence registry — `get_protocol_members` over a proven protocol, `annotationlib.get_annotations(format=FORWARDREF)` reading deferred field hints without forcing evaluation, `get_original_bases` with `get_origin`/`get_args` decomposing the generic base list, and side-effect-free `inspect.getmembers_static` over the public member set — feeding a generated owner with no descriptor triggered and no value materialized.
+
+```python conceptual
+import annotationlib
+import inspect
+from types import get_original_bases
+from typing import Protocol, get_args, get_origin, get_protocol_members, is_protocol
+
+from builtins import frozendict
+
+type Reflected = frozendict[str, frozendict[str, str]]
+
+
+class Port(Protocol):
+    def loaded(self, key: str, /) -> int: ...
+    def committed(self, seal: str, /) -> int: ...
+
+
+class Shape[T](Port):
+    primary: list[T]
+    refined: frozendict[str, T]
+
+    def loaded(self, key: str, /) -> int: ...
+    def committed(self, seal: str, /) -> int: ...
+
+
+def reflected(subject: type, /) -> Reflected:
+    members = frozendict({name: "<required>" for name in get_protocol_members(subject)} if is_protocol(subject) else {})
+    deferred = annotationlib.get_annotations(subject, format=annotationlib.Format.FORWARDREF)
+    fields = frozendict({name: getattr(hint, "__forward_arg__", repr(hint)) for name, hint in deferred.items()})
+    origins = frozendict({getattr(get_origin(base) or base, "__name__", repr(base)): repr(get_args(base)) for base in get_original_bases(subject)})
+    statics = frozendict({name: type(member).__name__ for name, member in inspect.getmembers_static(subject) if not name.startswith("_")})
+    return frozendict({"members": members, "fields": fields, "origins": origins, "statics": statics})
+
+
+REFLECTED: Reflected = reflected(Shape)
 ```
 
 [CLOSED_MATCH_SITE]:
@@ -270,35 +347,44 @@ CONGRUENT = ast.compare(ast.parse('t"{alpha}"', mode="eval"), ast.parse('t"{alph
 
 [SENTINEL_DEFAULT_SITE]:
 - Use when: omission or inherited selection must be distinct from every valid domain value, including `None`.
-- Accept: module-global `NAME = sentinel("NAME")` values whose variable name matches the sentinel name, reused by `is`, and carried directly in the union type.
-- Reject: repeated `sentinel("<name>")` calls for the same semantic value, `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
+- Accept: module-global `NAME = Sentinel("NAME")` through the PEP 661 `typing_extensions.Sentinel` the `typing` namespace does not yet export, the variable name matching the sentinel name, reused by `is`, and carried directly in the union as `T | NAME`.
+- Reject: a repeated `Sentinel("NAME")` call for one semantic value — a second call mints a distinct object, so the module global is the sole identity — `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
 - Boundary: queue or task lifecycle, wire payload tags, and protocol tokens use the owning lifecycle API or explicit domain value instead of sentinel payloads.
 
 [FROZENDICT_TABLE_SITE]:
 - Use when: immutable mapping rows or nested policy tables need mapping semantics, language-level immutability, and order-insensitive equality or hashing of the `frozendict` value.
 - Accept: `frozendict[K, V]` rows with hashable keys; values must also be hashable when the row itself is hashed or used as an outer key.
-- Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, and mutate-then-freeze copy ladders.
+- Law: one primary correspondence is the single edit site and every secondary — an inverse, a projection, a nested composite-keyed policy table — is a comprehension over the primary's `.items()`, so a new entry lands once on the primary and each derived table re-derives with no consumer edited.
+- Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, mutate-then-freeze copy ladders, and a hand-maintained secondary map kept parallel to the primary it should derive from.
 - Boundary: `frozendict` is not a `dict` subclass and preserves insertion order for iteration, but order is not equality or value-hash semantics; use tuple pairs or an owning value object when order is semantic. `frozendict` is shallowly immutable; nested values must be immutable or owned by a model.
 
 ```python conceptual
 from builtins import frozendict
-from enum import StrEnum
+from enum import EnumCheck, StrEnum, verify
+
+
+@verify(EnumCheck.UNIQUE)
+class Tier(StrEnum):
+    PRIMARY = "<tier-a>"
+    SECONDARY = "<tier-b>"
+    TERTIARY = "<tier-c>"
 
 
 class Field(StrEnum):
-    KEY = "<field-a>"
-    VALUE = "<field-b>"
+    TIER = "<field-a>"
+    ZONE = "<field-b>"
 
 
 type Row = frozendict[Field, str]
 
-
-TABLE: frozendict[Row, str] = frozendict({
-    frozendict({Field.KEY: "<key-a>", Field.VALUE: "<value-a>"}): "<result-a>",
-    frozendict({Field.KEY: "<key-b>", Field.VALUE: "<value-b>"}): "<result-b>",
+WEIGHT: frozendict[Tier, int] = frozendict({Tier.PRIMARY: 1, Tier.SECONDARY: 2, Tier.TERTIARY: 4})
+RANK: frozendict[int, Tier] = frozendict({weight: tier for tier, weight in WEIGHT.items()})
+POLICY: frozendict[Row, int] = frozendict({
+    frozendict({Field.TIER: tier, Field.ZONE: "<zone-a>"}): weight for tier, weight in WEIGHT.items()
 })
 
-SELECTED_RESULT: str = TABLE[frozendict({Field.VALUE: "<value-a>", Field.KEY: "<key-a>"})]
+SELECTED: int = POLICY[frozendict({Field.ZONE: "<zone-a>", Field.TIER: Tier.SECONDARY})]
+HEAVIEST: Tier = RANK[max(RANK)]
 ```
 
 ## [04]-[ABSTRACTION_COLLAPSE_TESTS]
@@ -315,17 +401,7 @@ Use these tests before keeping a local abstraction beside a language primitive.
 - Collapse: ask the language API for the structured form.
 - Done when: the implementation consumes typed components instead of reconstructed text.
 
-[CEREMONY_WRAPPER]:
-- Smell: a helper only hides a modern expression, iterator, update, predicate, or primitive operation from the use site.
-- Collapse: inline the language form where the invariant executes, or deepen the owning operation if the helper carries real policy.
-- Done when: the call site shows the language-owned invariant directly and no one-use helper remains.
-
-[SURFACE_FACADE]:
-- Smell: a file exists only to re-export another module, mark a package, or collect names from several owners.
-- Collapse: import the real owner by name and publish the module's own `__all__` only where the module owns the public surface.
-- Done when: readers can find the implementation owner without traversing wildcard imports, barrels, or empty package files.
-
 [MAGIC_VALUE]:
 - Smell: absence, inherited selection, closed-domain membership, or ordering is carried by a bare string, an `object()` token, a numeric sentinel, or a `.value` literal the program already names.
-- Collapse: replace the literal with the language form that carries the semantics — `sentinel()` for omission, a `StrEnum`/`Literal` member for closed membership, a `frozendict` row for a derived correspondence, `Never`/`assert_never` for the unreachable arm.
+- Collapse: replace the literal with the language form that carries the semantics — `Sentinel("NAME")` for omission, a `StrEnum`/`Literal` member for closed membership, a `frozendict` row for a derived correspondence, `Never`/`assert_never` for the unreachable arm.
 - Done when: the value carries its own semantics through a named language form, and no prose restates a meaning the declaration already holds; stdlib primitive policy (`uuid.NIL`/`uuid.MAX`, base-N decode flags, buffer flags) is the system-API owner's magic-value rule, named there.

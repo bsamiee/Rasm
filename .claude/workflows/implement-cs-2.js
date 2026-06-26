@@ -10,32 +10,24 @@ export const meta = {
   ],
 }
 
-// --- [HARNESS] -- steady bounded pool: <=CAP in flight AND a serialized launch gate ----------
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const CAP = 10 // in-flight ceiling for every pooled stage; with the launch gate, real work fans to CAP while a fast-fail cascade never exceeds 1 launch / STAGGER_MS
 // The gate spaces EVERY agent start >= STAGGER_MS apart for the pool's whole life, so a
 // synchronized batch of fast failures (a rate-limit cascade) cannot free every worker at once and
 // re-fire a thundering-herd of launches. Real (slow) work still fans out to CAP since each worker
 // runs far longer than STAGGER; a fast-fail cascade self-throttles to <= 1 launch / STAGGER_MS.
 const STAGGER_MS = 1500
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
-const pool = async (items, cap, worker) => {
-  const out = new Array(items.length)
-  let next = 0
-  let gate = Promise.resolve()
-  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
-  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
-  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
-  return out
-}
-const CAP = 10 // in-flight ceiling for every pooled stage; with the launch gate, real work fans to CAP while a fast-fail cascade never exceeds 1 launch / STAGGER_MS
 
-// --- [INPUT] -- hardcoded second target set with PER-TARGET HOMING (Geometry is the nested case) ---
+// --- [INPUTS] ----------------------------------------------------------------------------
 // homing: folder = the target id, cardHome = where IDEAS/TASKLOG/ARCHITECTURE/README live, planning =
 // where the design-page FENCES live, api = the .api catalog dir, csproj = the project file, guard =
 // mature realized siblings to read-for-context-but-never-edit. For a normal package all four coincide
 // with the package folder; only Rasm/Geometry diverges (cards one dir up at the Rasm root).
 const stdHome = (folder) => { const n = folder.split('/').filter(Boolean).pop(); return { folder, name: n, cardHome: folder, api: folder + '/.api', planning: folder + '/.planning', csproj: folder + '/' + n + '.csproj', guard: '' } }
 const TARGETS = [
-  { folder: 'libs/csharp/Rasm/Geometry', name: 'Geometry', cardHome: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', planning: 'libs/csharp/Rasm/Geometry/.planning', csproj: 'libs/csharp/Rasm/Rasm.csproj', guard: 'the mature realized siblings `libs/csharp/Rasm/Analysis`, `libs/csharp/Rasm/Domain`, `libs/csharp/Rasm/Vectors` are NOT planning targets — read them for context only, NEVER edit them' },
+  { folder: 'libs/csharp/Rasm/Geometry', name: 'Geometry', cardHome: 'libs/csharp/Rasm', api: 'libs/csharp/Rasm/.api', planning: 'libs/csharp/Rasm/Geometry/.planning', csproj: 'libs/csharp/Rasm/Rasm.csproj', guard: 'the ' +
+    'mature realized siblings `libs/csharp/Rasm/Analysis`, `libs/csharp/Rasm/Domain`, `libs/csharp/Rasm/Vectors` are NOT planning targets — read ' +
+    'them for context only, NEVER edit them' },
   stdHome('libs/csharp/Rasm.Fabrication'),
   stdHome('libs/csharp/Rasm.Materials'),
   stdHome('libs/csharp/Rasm.Bim'),
@@ -45,50 +37,13 @@ const folderName = (p) => p.split('/').filter(Boolean).pop() || p
 // the Geometry effort is referenced in ripple lines by several aliases (its cards live at the Rasm root);
 // every other name falls back to libs/csharp/<pkg>.
 const NAME_TO_FOLDER = { 'Rasm': 'libs/csharp/Rasm/Geometry', 'Rasm.Geometry': 'libs/csharp/Rasm/Geometry', 'Rasm/Geometry': 'libs/csharp/Rasm/Geometry', 'Geometry': 'libs/csharp/Rasm/Geometry' }
-const pkgPath = (toPkg) => { const k = String(toPkg || '').trim().replace(/^csharp:/, ''); return NAME_TO_FOLDER[k] || (k.indexOf('libs/') === 0 ? k : 'libs/csharp/' + k) }
 const homingByFolder = new Map(TARGETS.map((t) => [t.folder, t]))
 const resolveHome = (f) => homingByFolder.get(f) || TARGETS.find((t) => f === t.cardHome || f === t.planning || folderName(f) === t.name) || stdHome(f)
-const homeNote = (t) => 'HOMING for `' + t.name + '`: read its open cards from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md` (governance `ARCHITECTURE.md`/`README.md` also at `' + t.cardHome + '/`); realize design-page FENCES ONLY under `' + t.planning + '/**`; its `.api/` catalog is `' + t.api + '/`; its project file is `' + t.csproj + '`.' + (t.guard ? ' GUARD: ' + t.guard + '.' : '')
+const homeNote = (t) => 'HOMING for `' + t.name + '`: read its open cards from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md` ' +
+  '(governance `ARCHITECTURE.md`/`README.md` also at `' + t.cardHome + '/`); realize design-page FENCES ONLY under `' + t.planning + '/**`; its ' +
+  '`.api/` catalog is `' + t.api + '/`; its project file is `' + t.csproj + '`.' + (t.guard ? ' GUARD: ' + t.guard + '.' : '')
 
-// --- [MODELS] -- the doctrine blocks woven into every prompt ----------------------------------
-const LAW = [
-  'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract). The session targets are the AEC-DOMAIN packages `Rasm/Geometry`, `Rasm.Fabrication`, `Rasm.Materials`, `Rasm.Bim`. `Rasm/Geometry` is a UNIQUE NESTED effort: its design pages live at `libs/csharp/Rasm/Geometry/.planning/**` but its governing `IDEAS.md`/`TASKLOG.md`/`ARCHITECTURE.md`/`README.md` and `.api/api-*.md` catalogs live at the `libs/csharp/Rasm/` package ROOT (one level UP from `Geometry/`); read those Rasm-root docs + `.api/` as the governing context and capability tier for the Geometry pages, and NEVER trample the mature realized siblings `Rasm/Analysis`, `Rasm/Domain`, `Rasm/Vectors` (not planning targets). Each of the other three targets holds `IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + `README.md` + `<pkg>.csproj` at its OWN package ROOT, a deep `.api/` catalog, and design pages at `<pkg>/.planning/<subdomain>/*.md`. Each prompt names the EXACT homing paths for its target; honor them. Never trample a sibling package owner.',
-  'MANDATORY STANDARDS — docs/stacks/csharp/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/csharp/ (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis) AND the specialized docs/stacks/csharp/domain/ shard(s) relevant to the page concern (compute, concurrency, data-interchange, diagnostics, durability, interaction, persistence, postgres, resilience, runtime, transport, validation, visuals), then PUSH PAST it to the objectively strongest form the doctrine admits. READ the relevant shard(s) and conform exactly — a hard gate enforced by the `tools/cs-analyzer` compiled-doctrine gate (a true positive is architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv run python -m tools.assay api`; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
-  'This is IMPLEMENT, not an untied page rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. A FENCE is a markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.cs`/`.py`/`.ts` source file. SCOPE per target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the card charter (Capability/Shape/Unlocks/Anchors), mining every admitted package to full capability and crushing surface sprawl into fewer richer owners with zero functionality loss.',
-  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FOLDER items (report those in residual_ripples). If after real investigation a fence is already correct, say so — never invent edits to look busy.',
-].join('\n')
-const CARD = [
-  'CARD SCHEMA: open cards live in the target card-home `IDEAS.md` (ideas — larger conceptual capability) and `TASKLOG.md` (tasks — concrete targeted work), under section `[01]-[OPEN]`; closed cards collapse under `[02]-[CLOSED]`. A card is `[ID]-[STATUS]: <thesis>` then the bullets `Capability:` / `Shape:` / `Unlocks:` / `Anchors:` / `Tension:` (only when a constraint shapes it) / `Ripple:` (only on a cross-folder counterpart) / `Atomic:` (only on a minor task). Open statuses: `ACTIVE` (in-flight), `QUEUED` (next-up), `BLOCKED` (open but non-actionable). Closed: `COMPLETE` (finished) or `DROPPED` (abandoned). ALWAYS read the FULL card body (every bullet) from disk — the thesis alone is never enough to realize the charter.',
-  'RIPPLE: `Ripple: <lang>:<pkg> [SLUG]` (or `<pkg> [SLUG]`) is a BIDIRECTIONAL cross-folder link — the counterpart card in the named pkg carries the mirror slug, and ripples are PART of scope. Three classes: IN-SCOPE (counterpart is another session target — each target realizes its OWN half, the seam aligns in reconcile), OUT-OF-SCOPE C# (counterpart in a non-target libs/csharp package — reconcile realizes the 1-hop counterpart), CROSS-LANGUAGE / LIB-WIDE (`libs/.planning`, `libs/typescript`, `libs/python` — a deferred leg, NOT realized this C#-only run). The Geometry target is referenced in ripple lines as `Rasm`, `Rasm.Geometry`, or `Rasm/Geometry` (its cards live at `libs/csharp/Rasm`).',
-  'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to confirm any member or signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; `uv run python -m tools.assay provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope; a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
-  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): pin the version in the ONE central repo-root `Directory.Packages.props` (a SHARED file — the reconcile pass owns it; you MUST NOT edit it from a folder agent), add `<PackageReference Include="..."/>` WITHOUT a version to the target `<pkg>.csproj` (folder-local), add the package to the correct group in the target card-home `README.md` (folder-local), and author the target `.api/api-<pkg>.md` from `uv run python -m tools.assay api` (folder-local). Never a per-folder version manifest; never re-pin a version outside `Directory.Packages.props`.',
-  'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its card-home file `[02]-[CLOSED]` section as a collapsed one-liner `[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the card-home `ARCHITECTURE.md` `[02]-[SEAMS]` section ONLY when a real cross-folder seam landed. Realize/critique/redteam passes NEVER change card status.',
-].join('\n')
-const BARHUNT = [
-  'BAR — a high-value IMPLEMENT leaves every owner capturing the FULL capability of every package it admits, every sprawl collapsed into one denser owner with NO capability lost, and every fence transcription-complete against the verified `.api`. The critique guards capability conservation, charter completeness, and density; the red-team attacks every fence for a surface that could still collapse, a thin wrapper, a silent functionality drop during a refactor, a missed package capability, or a framework violation, and fixes each in place.',
-  'HUNT (at implement, critique, and red-team alike, from multiple facets): UNDER-CAPTURED CAPABILITY — an admitted package whose `.api` and code expose capability no owner exploits is a named gap, closed by deepening a fence or adding one. SURFACE SPRAWL — parallel types/enums/methods/near-duplicate shapes collapse into one parameterized owner in the C# collapse vocabulary (`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family/`Fold` algebra/frozen table) with no functionality removed. RAIL UNIFICATION — one entrypoint family per rail, one closed `Expected` fault family per package, total generated `Switch`. OPTIMIZATION — correctness first, then allocation/span/SoA layout/dispatch shape/algorithmic complexity, not only line-count. NEW WORK SURFACED — api gaps, stronger packages, and tasks the implementation exposes are realized or recorded the same turn (extend the canonical owner first, never a parallel surface).',
-].join('\n')
-const ULTRA = [
-  'OPERATIVE DOCTRINE — the 16 named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is expression-shaped; dependent steps `Bind` monadically, independent ones accumulate applicatively; the carrier, never a flag, selects the algebra; statements survive only in measured `ref struct`/span kernels that name the exemption) + BOUNDARY_ADMISSION (raw admitted EXACTLY ONCE into an evidence-carrying owner; interior never re-validates or sees null/sentinel/provider shape). [SHAPE] SHAPE_BUDGET (one concept owns ONE type; variants are cases in one closed family) + DEEP_SURFACES + MODAL_ARITY (one entrypoint owns every modality, discriminating on input shape) + ANTICIPATORY_COLLAPSE (shape the owner for the family it will absorb). [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave new capability into the owner as if always present; no shims/aliases/[Obsolete]/migration layers) + ONE_HOP_RESOLUTION + COMPOSED_IMPLEMENTATION.',
-  'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated switch arms / single-call private helpers into ONE polymorphic owner IN THE SAME FILE via `[Union]` / `[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` keyless / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case families / `Fold` algebra / frozen data tables — never extract a new file to reduce LOC, never delete capability.',
-  'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE (generated factory + validation partial admits/rejects; one rail bridge lifts the generated outcome into `Fin<T>` / `Validation<Error,T>`; `Option<T>` carries absence; exceptions convert at the owning boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees `null`-as-failure, sentinels, or provider shapes; parameterize BOTH ingress AND egress so the same owner sources and sinks across many consumers without interior edits.',
-  'STACK CAPABILITY: FIRST mine the package `.api/*.md` catalogs (the curated, integration-shaped capability surface; for the Geometry effort they live at `libs/csharp/Rasm/.api/`) AND the universal Thinktecture / LanguageExt rails — C# has NO central `.api/` tier, so the universals are Thinktecture (generated domain shape) / LanguageExt (rails, effects, schedules, immutable collections) plus full docs/stacks/csharp doctrine, with MathNet / CSparse owning numeric algorithms and the geometry kernel composing `api-rhino` / `api-mathnet-numerics` / `api-csparse` / `api-tensors`. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, and thin rename wrappers; verify novel members with `uv run python -m tools.assay api`.',
-  'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ground-up. Never regress correctness or boundary/strata law.',
-].join('\n')
-const PATLAW = [
-  'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER exception control flow in domain logic (use the LanguageExt typed rails / ROP and the route recovery patterns); NEVER imperative branching where a bounded vocabulary, frozen table, generated `Switch`, match, or `Fold` owns the variation; NEVER mutable accumulation for domain transforms (use immutable folds, projections, collection combinators). Total generated `Switch` with compile-time exhaustiveness (a new case breaks every dispatch site — NEVER a runtime-silent `_` arm). Typed algorithm receipts (NEVER a generic `IReceipt`/ledger) when fields carry route/status/sampling/solver/spectral/mesh/extraction/benchmark/host evidence. The fault type is a CLOSED `[Union]` family deriving from `Expected` (a bare exception or a generic untyped `Error` for a multi-cause domain is a defect).',
-  'Latest stable C# 14 on `net10.0` to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with spread, `params` collections (incl. `params ReadOnlySpan<T>`), list/slice/relational/logical pattern matching, switch expressions, `required` members, `file`-scoped types, `field` accessors, extension blocks (`extension(Receiver)`) and extension operators, generic math / static abstract+virtual interface members, `with` expressions, `nameof` with unbound generics, `System.Threading.Lock`, raw string + `u8` literals where they fit. Treat analyzer diagnostics as architecture pressure (fix true positives, refine false positives, no ceremony suppressions). Apply the docs/stacks/csharp file-organization and section-order law (`[Union]`/`[SmartEnum]`/`[ValueObject]` and generated case families stay inside the declaring owner block; canonical section order TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> COMPOSITION -> EXPORTS).',
-  'Keep conventions IDENTICAL across every package; place each package on its canonical stratum and depend strictly upward; geometry/mesh/IFC meet at the wire with one owner per runtime; never leak a host type into a host-neutral owner. SEMANTIC_NAMING: one canonical bounded-context term per concept (one word default, three the ceiling); arity/filter/provider/modality live in request shape, case, or policy row, never parallel `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, forwarding helpers, or util shells).',
-].join('\n')
-const BOUNDARIES = 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while densifying; never introduce a downward dependency or leak a host type into a host-neutral owner. Each target realizes ONLY its OWN cards into its OWN pages; a concern owned twice across a runtime, a folder mixing unrelated concerns, or coupling to a sibling owner INTERIOR (vs its seam/wire) is a defect.'
-const PROSE = [
-  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Trim walls of explanation to the load-bearing contract, and prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a paragraph.',
-  'BACKTICK ALL CODE: wrap every symbol, type, field, method, operator, package ID, path, command, flag, and literal value in backticks. Name the exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
-].join('\n')
-const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely needed; cut every low-value comment.'
-const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
-
-// --- [SCHEMAS] -------------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 const DISCOVERY_SCHEMA = { type: 'object', additionalProperties: false, required: ['targets'], properties: {
   targets: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['folder', 'order', 'tasks', 'ideas', 'ripples'], properties: {
     folder: { type: 'string' },
@@ -125,44 +80,321 @@ const CLOSEOUT_SCHEMA = { type: 'object', additionalProperties: false, required:
   summary: { type: 'string' },
 } }
 
-// --- [OPERATIONS] -- prompt builders -----------------------------------------------------------
+// --- [DOCTRINE] --------------------------------------------------------------------------
+const LAW = [
+  'Rasm monorepo, libs/csharp planning corpus (markdown specs of intended C# package designs). CLAUDE.md manifest + WORKSPACE_LAW strata govern ' +
+    '(KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; depend strictly upward; a host-neutral owner only where a non-Rhino runtime ' +
+    'consumes the contract). The session targets are the AEC-DOMAIN packages `Rasm/Geometry`, `Rasm.Fabrication`, `Rasm.Materials`, `Rasm.Bim`. ' +
+    '`Rasm/Geometry` is a UNIQUE NESTED effort: its design pages live at `libs/csharp/Rasm/Geometry/.planning/**` but its governing ' +
+    '`IDEAS.md`/`TASKLOG.md`/`ARCHITECTURE.md`/`README.md` and `.api/api-*.md` catalogs live at the `libs/csharp/Rasm/` package ROOT (one level UP ' +
+    'from `Geometry/`); read those Rasm-root docs + `.api/` as the governing context and capability tier for the Geometry pages, and NEVER trample ' +
+    'the mature realized siblings `Rasm/Analysis`, `Rasm/Domain`, `Rasm/Vectors` (not planning targets). Each of the other three targets holds ' +
+    '`IDEAS.md` + `TASKLOG.md` + `ARCHITECTURE.md` + `README.md` + `<pkg>.csproj` at its OWN package ROOT, a deep `.api/` catalog, and design ' +
+    'pages at `<pkg>/.planning/<subdomain>/*.md`. Each prompt names the EXACT homing paths for its target; honor them. Never trample a sibling ' +
+    'package owner.',
+  'MANDATORY STANDARDS — docs/stacks/csharp/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/csharp/ (README, language, shapes, ' +
+    'surfaces-and-dispatch, rails-and-effects, boundaries, algorithms, system-apis) AND the specialized docs/stacks/csharp/domain/ shard(s) ' +
+    'relevant to the page concern (compute, concurrency, data-interchange, diagnostics, durability, interaction, persistence, postgres, ' +
+    'resilience, runtime, transport, validation, visuals), then PUSH PAST it to the objectively strongest form the doctrine admits. READ the ' +
+    'relevant shard(s) and conform exactly — a hard gate enforced by the `tools/cs-analyzer` compiled-doctrine gate (a true positive is ' +
+    'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv ' +
+    'run python -m tools.assay api`; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
+  'This is IMPLEMENT, not an untied page rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. A FENCE is a ' +
+    'markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.cs`/`.py`/`.ts` source file. SCOPE per ' +
+    'target: realize ALL open tasks (including `Atomic`-flagged minor tasks), then the 1-3 chosen open ideas, tasks first. Realize tied to the ' +
+    'card charter (Capability/Shape/Unlocks/Anchors), mining every admitted package to full capability and crushing surface sprawl into fewer ' +
+    'richer owners with zero functionality loss.',
+  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
+    'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FOLDER ' +
+    'items (report those in residual_ripples). If after real investigation a fence is already correct, say so — never invent edits to look busy.',
+].join('\n')
+const CARD = [
+  'CARD SCHEMA: open cards live in the target card-home `IDEAS.md` (ideas — larger conceptual capability) and `TASKLOG.md` (tasks — concrete ' +
+    'targeted work), under section `[01]-[OPEN]`; closed cards collapse under `[02]-[CLOSED]`. A card is `[ID]-[STATUS]: <thesis>` then the ' +
+    'bullets `Capability:` / `Shape:` / `Unlocks:` / `Anchors:` / `Tension:` (only when a constraint shapes it) / `Ripple:` (only on a ' +
+    'cross-folder counterpart) / `Atomic:` (only on a minor task). Open statuses: `ACTIVE` (in-flight), `QUEUED` (next-up), `BLOCKED` (open but ' +
+    'non-actionable). Closed: `COMPLETE` (finished) or `DROPPED` (abandoned). ALWAYS read the FULL card body (every bullet) from disk — the thesis ' +
+    'alone is never enough to realize the charter.',
+  'RIPPLE: `Ripple: <lang>:<pkg> [SLUG]` (or `<pkg> [SLUG]`) is a BIDIRECTIONAL cross-folder link — the counterpart card in the named pkg carries ' +
+    'the mirror slug, and ripples are PART of scope. Three classes: IN-SCOPE (counterpart is another session target — each target realizes its OWN ' +
+    'half, the seam aligns in reconcile), OUT-OF-SCOPE C# (counterpart in a non-target libs/csharp package — reconcile realizes the 1-hop ' +
+    'counterpart), CROSS-LANGUAGE / LIB-WIDE (`libs/.planning`, `libs/typescript`, `libs/python` — a deferred leg, NOT realized this C#-only run). ' +
+    'The Geometry target is referenced in ripple lines as `Rasm`, `Rasm.Geometry`, or `Rasm/Geometry` (its cards live at `libs/csharp/Rasm`).',
+  'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
+    'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to confirm any member or ' +
+    'signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; `uv run python -m tools.assay ' +
+    'provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. A `[BLOCKED]` card is REALIZED this turn ' +
+    'whenever a probe resolves its blocker OR its gating work is in scope; a blocker is genuinely legitimate ONLY when it depends on work outside ' +
+    'this run.',
+  'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): pin the version in the ONE central repo-root ' +
+    '`Directory.Packages.props` (a SHARED file — the reconcile pass owns it; you MUST NOT edit it from a folder agent), add `<PackageReference ' +
+    'Include="..."/>` WITHOUT a version to the target `<pkg>.csproj` (folder-local), add the package to the correct group in the target card-home ' +
+    '`README.md` (folder-local), and author the target `.api/api-<pkg>.md` from `uv run python -m tools.assay api` (folder-local). Never a ' +
+    'per-folder version manifest; never re-pin a version outside `Directory.Packages.props`.',
+  'CLOSEOUT (the closeout pass ONLY): a genuinely-complete card moves to its card-home file `[02]-[CLOSED]` section as a collapsed one-liner ' +
+    '`[ID]-[COMPLETE]: <one-line disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`); update the card-home `ARCHITECTURE.md` ' +
+    '`[02]-[SEAMS]` section ONLY when a real cross-folder seam landed. Realize/critique/redteam passes NEVER change card status.',
+].join('\n')
+const BARHUNT = [
+  'BAR — a high-value IMPLEMENT leaves every owner capturing the FULL capability of every package it admits, every sprawl collapsed into one ' +
+    'denser owner with NO capability lost, and every fence transcription-complete against the verified `.api`. The critique guards capability ' +
+    'conservation, charter completeness, and density; the red-team attacks every fence for a surface that could still collapse, a thin wrapper, a ' +
+    'silent functionality drop during a refactor, a missed package capability, or a framework violation, and fixes each in place.',
+  'HUNT (at implement, critique, and red-team alike, from multiple facets): UNDER-CAPTURED CAPABILITY — an admitted package whose `.api` and code ' +
+    'expose capability no owner exploits is a named gap, closed by deepening a fence or adding one. SURFACE SPRAWL — parallel ' +
+    'types/enums/methods/near-duplicate shapes collapse into one parameterized owner in the C# collapse vocabulary ' +
+    '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family/`Fold` algebra/frozen table) with no ' +
+    'functionality removed. RAIL UNIFICATION — one entrypoint family per rail, one closed `Expected` fault family per package, total generated ' +
+    '`Switch`. OPTIMIZATION — correctness first, then allocation/span/SoA layout/dispatch shape/algorithmic complexity, not only line-count. NEW ' +
+    'WORK SURFACED — api gaps, stronger packages, and tasks the implementation exposes are realized or recorded the same turn (extend the ' +
+    'canonical owner first, never a parallel surface).',
+].join('\n')
+const ULTRA = [
+  'OPERATIVE DOCTRINE — the 16 named laws of docs/stacks/csharp/README.md, held as fact: [FLOW] EXPRESSION_SPINE (domain logic is ' +
+    'expression-shaped; dependent steps `Bind` monadically, independent ones accumulate applicatively; the carrier, never a flag, selects the ' +
+    'algebra; statements survive only in measured `ref struct`/span kernels that name the exemption) + BOUNDARY_ADMISSION (raw admitted EXACTLY ' +
+    'ONCE into an evidence-carrying owner; interior never re-validates or sees null/sentinel/provider shape). [SHAPE] SHAPE_BUDGET (one concept ' +
+    'owns ONE type; variants are cases in one closed family) + DEEP_SURFACES + MODAL_ARITY (one entrypoint owns every modality, discriminating on ' +
+    'input shape) + ANTICIPATORY_COLLAPSE (shape the owner for the family it will absorb). [DERIVATION] POLICY_VALUES + DERIVED_LOGIC + ' +
+    'DERIVED_TYPES + SYMBOLIC_REFERENCE + SEMANTIC_NAMING. [MATERIAL] LIBRARY_DEPTH + DEFINITION_TIME_ASPECTS. [INTEGRATION] ROOT_REBUILD (weave ' +
+    'new capability into the owner as if always present; no shims/aliases/[Obsolete]/migration layers) + ONE_HOP_RESOLUTION + ' +
+    'COMPOSED_IMPLEMENTATION.',
+  'ULTRA-ADVANCED COLLAPSE MANDATE: COLLAPSE >=3 parallel types / sibling factory methods / repeated switch arms / single-call private helpers ' +
+    'into ONE polymorphic owner IN THE SAME FILE via `[Union]` / `[Union<T1,...>]` ad-hoc / `[SmartEnum<TKey>]` / `[SmartEnum]` keyless / ' +
+    '`[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case families / `Fold` algebra / frozen data tables — never extract a new file ' +
+    'to reduce LOC, never delete capability.',
+  'LIFECYCLE SPINE (BOUNDARY_ADMISSION): every fence flows raw -> admit ONCE (generated factory + validation partial admits/rejects; one rail ' +
+    'bridge lifts the generated outcome into `Fin<T>` / `Validation<Error,T>`; `Option<T>` carries absence; exceptions convert at the owning ' +
+    'boundary only) -> canonical owner -> unified rail -> projection -> egress. Interior code never re-validates, never sees `null`-as-failure, ' +
+    'sentinels, or provider shapes; parameterize BOTH ingress AND egress so the same owner sources and sinks across many consumers without ' +
+    'interior edits.',
+  'STACK CAPABILITY: FIRST mine the package `.api/*.md` catalogs (the curated, integration-shaped capability surface; for the Geometry effort they ' +
+    'live at `libs/csharp/Rasm/.api/`) AND the universal Thinktecture / LanguageExt rails — C# has NO central `.api/` tier, so the universals are ' +
+    'Thinktecture (generated domain shape) / LanguageExt (rails, effects, schedules, immutable collections) plus full docs/stacks/csharp doctrine, ' +
+    'with MathNet / CSparse owning numeric algorithms and the geometry kernel composing `api-rhino` / `api-mathnet-numerics` / `api-csparse` / ' +
+    '`api-tensors`. There is NO fixed package count: compose EVERY relevant host API + admitted NuGet package + catalog member into single dense ' +
+    'owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering the universal Thinktecture/LanguageExt rails ' +
+    'onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST operator/combinator/generated surface each package itself reaches ' +
+    '(LIBRARY_DEPTH); reject surface-level subsets, BCL-first reflexes, and thin rename wrappers; verify novel members with `uv run python -m ' +
+    'tools.assay api`.',
+  'PRESERVE all capability (densify, never delete functionality). Where a fence is already dense, deepen; where it is flat/naive, rebuild ' +
+    'ground-up. Never regress correctness or boundary/strata law.',
+].join('\n')
+const PATLAW = [
+  'C# PATTERN LAW: model the domain precisely — NEVER weak/unbounded/erased types where the language can express the domain; NEVER exception ' +
+    'control flow in domain logic (use the LanguageExt typed rails / ROP and the route recovery patterns); NEVER imperative branching where a ' +
+    'bounded vocabulary, frozen table, generated `Switch`, match, or `Fold` owns the variation; NEVER mutable accumulation for domain transforms ' +
+    '(use immutable folds, projections, collection combinators). Total generated `Switch` with compile-time exhaustiveness (a new case breaks ' +
+    'every dispatch site — NEVER a runtime-silent `_` arm). Typed algorithm receipts (NEVER a generic `IReceipt`/ledger) when fields carry ' +
+    'route/status/sampling/solver/spectral/mesh/extraction/benchmark/host evidence. The fault type is a CLOSED `[Union]` family deriving from ' +
+    '`Expected` (a bare exception or a generic untyped `Error` for a multi-cause domain is a defect).',
+  'Latest stable C# 14 on `net10.0` to the metal (`Nullable enable`, NRT enforced): primary constructors, collection expressions with spread, ' +
+    '`params` collections (incl. `params ReadOnlySpan<T>`), list/slice/relational/logical pattern matching, switch expressions, `required` ' +
+    'members, `file`-scoped types, `field` accessors, extension blocks (`extension(Receiver)`) and extension operators, generic math / static ' +
+    'abstract+virtual interface members, `with` expressions, `nameof` with unbound generics, `System.Threading.Lock`, raw string + `u8` literals ' +
+    'where they fit. Treat analyzer diagnostics as architecture pressure (fix true positives, refine false positives, no ceremony suppressions). ' +
+    'Apply the docs/stacks/csharp file-organization and section-order law (`[Union]`/`[SmartEnum]`/`[ValueObject]` and generated case families ' +
+    'stay inside the declaring owner block; canonical section order TYPES -> CONSTANTS -> MODELS -> ERRORS -> SERVICES -> OPERATIONS -> ' +
+    'COMPOSITION -> EXPORTS).',
+  'Keep conventions IDENTICAL across every package; place each package on its canonical stratum and depend strictly upward; geometry/mesh/IFC meet ' +
+    'at the wire with one owner per runtime; never leak a host type into a host-neutral owner. SEMANTIC_NAMING: one canonical bounded-context term ' +
+    'per concept (one word default, three the ceiling); arity/filter/provider/modality live in request shape, case, or policy row, never parallel ' +
+    '`Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` names; ONE_HOP_RESOLUTION (no alias chains, forwarding helpers, or util shells).',
+].join('\n')
+const BOUNDARIES = 'BOUNDARY LAW: keep every package owner strictly in its lane and on its stratum; geometry/mesh/IFC meet at the wire with one ' +
+  'owner per runtime; internal code uses canonical names and shapes with mapping only at the edge; do not trample a sibling owner while ' +
+  'densifying; never introduce a downward dependency or leak a host type into a host-neutral owner. Each target realizes ONLY its OWN cards into ' +
+  'its OWN pages; a concern owned twice across a runtime, a folder mixing unrelated concerns, or coupling to a sibling owner INTERIOR (vs its ' +
+  'seam/wire) is a defect.'
+const PROSE = [
+  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling ' +
+    'rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness ' +
+    'disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Trim walls of explanation to the load-bearing ' +
+    'contract, and prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a paragraph.',
+  'BACKTICK ALL CODE: wrap every symbol, type, field, method, operator, package ID, path, command, flag, and literal value in backticks. Name the ' +
+    'exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
+].join('\n')
+const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical ' +
+  'section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY ' +
+  'where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line where a ' +
+  'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
+  'task/process/session/history/proof/review comments, no XML-doc bloat. Densify names and types so comments are rarely needed; cut every ' +
+  'low-value comment.'
+const DOCTRINE = [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
+const pkgPath = (toPkg) => { const k = String(toPkg || '').trim().replace(/^csharp:/, ''); return NAME_TO_FOLDER[k] || (k.indexOf('libs/') === 0 ? k : 'libs/csharp/' + k) }
 const discoverPrompt = (targets) => [LAW, '', CARD, '',
-  'TASK: DISCOVER + SEQUENCE the open work across these C# session targets (HOMING — for each, cards live in `cardHome`, design pages in `planning`): ' + JSON.stringify(targets.map((t) => ({ folder: t.folder, cardHome: t.cardHome, planning: t.planning }))) + '. Read ONLY each target `cardHome`/IDEAS.md + `cardHome`/TASKLOG.md (NOT the design pages). For the Geometry target the cards are at `libs/csharp/Rasm/IDEAS.md` + `libs/csharp/Rasm/TASKLOG.md`. For EACH target return: (1) folder — echo the target `folder` id EXACTLY as given (for Geometry return `libs/csharp/Rasm/Geometry`, NOT the cardHome); (2) tasks — EVERY open card in TASKLOG.md (status ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (3) ideas — the 1-3 MOST actionable open cards in IDEAS.md (tasks-first doctrine: at most 3, the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP 3; (4) order — ONE sequenced slug list, ALL tasks first in dependency order then the chosen ideas; (5) ripples — for EVERY card carrying a `Ripple:` field, one row {from_slug, klass, to_pkg, to_slug}: klass=`in_scope` if to_pkg resolves to one of these four targets (the Geometry target is referenced as `Rasm` / `Rasm.Geometry` / `Rasm/Geometry`), `oos_csharp` if it is another libs/csharp package, `cross_lang` if it points at `libs/.planning` / `libs/typescript` / `libs/python`; (6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the gating work is itself an open card in one of these targets. Also return malformed_ripples for any `Ripple:` line you cannot parse into a pkg+slug, or whose counterpart slug you cannot locate. Read the FULL card to classify — never guess from the thesis. Return the structured map ONLY; edit nothing.'].join('\n')
-
+  'TASK: DISCOVER + SEQUENCE the open work across these C# session targets (HOMING — for each, cards live in `cardHome`, design pages in ' +
+    '`planning`): ' + JSON.stringify(targets.map((t) => ({ folder: t.folder, cardHome: t.cardHome, planning: t.planning }))) + '. Read ONLY each ' +
+    'target `cardHome`/IDEAS.md + `cardHome`/TASKLOG.md (NOT the design pages). For the Geometry target the cards are at ' +
+    '`libs/csharp/Rasm/IDEAS.md` + `libs/csharp/Rasm/TASKLOG.md`. For EACH target return: (1) folder — echo the target `folder` id EXACTLY as ' +
+    'given (for Geometry return `libs/csharp/Rasm/Geometry`, NOT the cardHome); (2) tasks — EVERY open card in TASKLOG.md (status ' +
+    'ACTIVE/QUEUED/BLOCKED; carry the Atomic flag); (3) ideas — the 1-3 MOST actionable open cards in IDEAS.md (tasks-first doctrine: at most 3, ' +
+    'the ones whose Anchors are most settled and whose ripples land on in-scope targets), HARD CAP 3; (4) order — ONE sequenced slug list, ALL ' +
+    'tasks first in dependency order then the chosen ideas; (5) ripples — for EVERY card carrying a `Ripple:` field, one row {from_slug, klass, ' +
+    'to_pkg, to_slug}: klass=`in_scope` if to_pkg resolves to one of these four targets (the Geometry target is referenced as `Rasm` / ' +
+    '`Rasm.Geometry` / `Rasm/Geometry`), `oos_csharp` if it is another libs/csharp package, `cross_lang` if it points at `libs/.planning` / ' +
+    '`libs/typescript` / `libs/python`; (6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, in_scope} where in_scope is true iff the ' +
+    'gating work is itself an open card in one of these targets. Also return malformed_ripples for any `Ripple:` line you cannot parse into a ' +
+    'pkg+slug, or whose counterpart slug you cannot locate. Read the FULL card to classify — never guess from the thesis. Return the structured ' +
+    'map ONLY; edit nothing.'].join('\n')
 const implementPrompt = (t, seq) => [DOCTRINE, '',
-  'TASK: IMPLEMENT — realize the open cards of `' + t.name + '` into deep design-page FENCES at the ULTRA bar. ' + homeNote(t) + '\nThe sequenced worklist (slugs + ripple map; read each FULL card body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md`, never the thesis alone):\n' + seq + '\nREAD: each card full body; every design page the card names under `' + t.planning + '/**`; the sibling pages it seams to; the card-home `ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; `' + t.api + '/api-*.md` + the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) into deep fences IN `' + t.planning + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE through a generated factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting concern as a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE unified `Fin`/`Validation`/`Option`/`Eff` rail with total generated `Switch` -> project + egress, BOTH ingress and egress parameterized). Collapse parallel shapes into one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family in the SAME file; drive cases with a `Fold` algebra or a frozen table; one polymorphic entrypoint per modality. Resolve any [BLOCKED] card inline (probe via `assay api` / Forge band / Rhino WIP). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL parts NOW — add `<PackageReference Include="..."/>` (no version) to `' + t.csproj + '`, add the package to the correct group in `' + t.cardHome + '/README.md`, and author `' + t.api + '/api-<pkg>.md` from `assay api` — and LOG the central `Directory.Packages.props` version pin as a residual_ripple with files including `Directory.Packages.props` (a single reconcile agent owns that shared file; you MUST NOT edit it). RIPPLES: realize ONLY `' + t.name + '`\'s OWN half of every seam; NEVER edit another folder page. For each ripple your cards carry, log a residual_ripple {files:[your_page, counterpart_page], pkg, slug, mirror_slug, claim} stating the contract your half exposes (reconcile aligns both halves). Do NOT close any card — the closeout pass owns card status. Modern C# 14 / net10 to the metal, high-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with reason) + collapsed (before->after counts) + residual_ripples + summary.'].join('\n')
-
+  'TASK: IMPLEMENT — realize the open cards of `' + t.name + '` into deep design-page FENCES at the ULTRA bar. ' + homeNote(t) + '\nThe sequenced ' +
+    'worklist (slugs + ripple map; read each FULL card body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md`, never the thesis ' +
+    'alone):\n' + seq + '\nREAD: each card full body; every design page the card names under `' + t.planning + '/**`; the sibling pages it seams ' +
+    'to; the card-home `ARCHITECTURE.md` + `README.md`; docs/stacks/csharp/ core + the relevant domain/ shard(s) for the card concern; `' + t.api + '/api-*.md` ' +
+    '+ the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`. Realize EVERY card in `order` (all ' +
+    'tasks incl. Atomic, then the ideas) into deep fences IN `' + t.planning + '` PAGES ONLY, in LIFECYCLE order (admit raw ONCE through a ' +
+    'generated factory + validation partial -> lift into the canonical owner the OWNER_CHOOSER discriminants select -> weave every cross-cutting ' +
+    'concern as a definition-time source-generated aspect or composition-time effect transformer over a thin pure core -> compose through ONE ' +
+    'unified `Fin`/`Validation`/`Option`/`Eff` rail with total generated `Switch` -> project + egress, BOTH ingress and egress parameterized). ' +
+    'Collapse parallel shapes into one `[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated case family in the ' +
+    'SAME file; drive cases with a `Fold` algebra or a frozen table; one polymorphic entrypoint per modality. Resolve any [BLOCKED] card inline ' +
+    '(probe via `assay api` / Forge band / Rhino WIP). PACKAGE ADMISSION (only if a card needs a not-yet-admitted package): do the FOLDER-LOCAL ' +
+    'parts NOW — add `<PackageReference Include="..."/>` (no version) to `' + t.csproj + '`, add the package to the correct group in `' + t.cardHome + '/README.md`, ' +
+    'and author `' + t.api + '/api-<pkg>.md` from `assay api` — and LOG the central `Directory.Packages.props` version pin as a residual_ripple ' +
+    'with files including `Directory.Packages.props` (a single reconcile agent owns that shared file; you MUST NOT edit it). RIPPLES: realize ONLY `' + t.name + '`\'s ' +
+    'OWN half of every seam; NEVER edit another folder page. For each ripple your cards carry, log a residual_ripple {files:[your_page, ' +
+    'counterpart_page], pkg, slug, mirror_slug, claim} stating the contract your half exposes (reconcile aligns both halves). Do NOT close any ' +
+    'card — the closeout pass owns card status. Modern C# 14 / net10 to the metal, high-signal prose all-backticked, comment hygiene, fix-in-place ' +
+    '(read-then-extend, preserve capability). Return verdict + realized slugs + deferred (any card you could not realize, with reason) + collapsed ' +
+    '(before->after counts) + residual_ripples + summary.'].join('\n')
 const critiquePrompt = (t, seq) => [DOCTRINE, '',
-  'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + t.name + '`. ' + homeNote(t) + ' You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each FULL body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages under `' + t.planning + '/**`, the sibling pages, docs/stacks/csharp/ core + the relevant domain/ shard(s), and `' + t.api + '/` + the universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
-  '(1) COLLAPSE_SCAN — apply the move for any signal (3+ instances makes it mandatory): sibling prefix/suffix names -> one modality-polymorphic entrypoint; same return rail differing only by arity -> input-shape discrimination; functions differing only by a literal -> parameterize the literal as a POLICY_VALUE; a `bool`/`mode`/`batch` parameter selecting two bodies -> one derived body or policy value; a method calling exactly one other -> delete the hop (ONE_HOP_RESOLUTION); parallel dispatch arms repeating structure -> a `Fold` algebra or frozen table (DERIVED_LOGIC); several types sharing fields for one concept -> one closed family; a `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` family -> one input-keyed polymorphic operation; a wrapper renaming a package API -> use the package surface directly (LIBRARY_DEPTH); 3+ parallel types / sibling factories / repeated switch arms / single-call helpers -> ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case family IN THE SAME FILE.',
-  '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, openness), most-specific wins: invariant-bearing scalar -> `[ValueObject<TKey>]`; N-field one-concept product no discriminator -> `[ComplexValueObject]`; bounded vocabulary wire-keyed identity -> `[SmartEnum<TKey>]`; bounded vocabulary process-local behavior -> `[SmartEnum]` keyless; closed alternatives per-occurrence payload -> `[Union]`; one value over 2-5 unrelated types -> `[Union<T1,...>]` ad-hoc; interior product no invariant -> `record`/`readonly record struct`; combinable capability set -> a frozen set; cross-product/external policy key -> a frozen table; foreign wire enum / ABI bits / kernel ordinal -> a language `enum` AT THE SEAM ONLY. Kill every parallel DTO, one-field wrapper, field-rename shape, nullable-as-failure, and struct-`default` ghost.',
-  '(3) KNOB_TEST — removal: delete each parameter; if the value reconstructs what it carried it was a knob -> collapse a `bool`/`mode`/`strict`/`batch` flag into a policy value or input-shape discriminant; a nullable flag tail -> one `Option<ContextRecord>`; the single optional form is `Option<T> x = default` consumed via `IfNone(canonical)`; move every `timeout`/`retry`/`deadline`/`CancellationToken` OFF the signature onto the carrier or a composition-time effect aspect.',
-  '(4) ASPECTS — definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE GENERATION in the fixed generator order; composition-time concerns attach as effect transformers in author order — retry as `Schedule`-driven `IO<T>.Retry(Schedule)`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers collapse into one aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. Inline-repeated concerns and sibling helper methods are defects.',
-  '(5) RAILS — RAIL_CHOOSER, the narrowest carrier chosen ONCE at admission: `Option<T>` absence, `Fin<T>` synchronous fallibility, `Validation<Error,T>` independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry policy, `Seq<T>`/`Arr<T>`/`HashMap<K,V>` immutable traversal/lookup; the fault type is a CLOSED `[Union]` family deriving from `Expected` (a bare exception or generic untyped `Error` for a multi-cause domain is a defect; recovery identity via `Is`/`HasCode`/`IsType<E>`, never `==`); accumulate-vs-abort disposition correct (`Apply`/`&`/`.Traverse` for independents, `Bind`/`.TraverseM`/query for dependents); total generated `Switch` (NO `_` arm hiding a case); `.Fold`/`.Traverse`/`.Choose` with the mandatory `.As()` re-anchor; NO exception control flow in domain logic, NO mutable accumulation.',
-  '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in the package `.api/` catalog (verify novel members via `uv run python -m tools.assay api`); latest modern C# 14 on net10 (primary ctors, collection expressions, `params` collections, list/relational/logical patterns, switch expressions, `required` members, `file` types, `field` accessors, extension blocks, generic math, static abstract members); FULL docs/stacks/csharp + the relevant domain/ shard conformance; BOTH the package `.api/` catalogs AND the universal Thinktecture/LanguageExt rails maximized; the `tools/cs-analyzer` doctrine-gate clean.',
-  '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` (read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done.',
-  'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. EDIT the `' + t.planning + '` pages to fix every hit; realize ONLY `' + t.name + '` pages and OVERRIDE any earlier residual you can now resolve; log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, mirror_slug, claim}. Return verdict + realized + deferred + collapsed + residual_ripples + summary.'].join('\n')
-
+  'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' + t.name + '`. ' + homeNote(t) + ' You are an ULTRA-HARSH, ' +
+    'UNAGREEABLE auditor: assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized ' +
+    'this turn (read each FULL body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md`):\n' + seq + '\nREAD the realized pages ' +
+    'under `' + t.planning + '/**`, the sibling pages, docs/stacks/csharp/ core + the relevant domain/ shard(s), and `' + t.api + '/` + the ' +
+    'universal Thinktecture/LanguageExt rails. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger ' +
+    'note):',
+  '(1) COLLAPSE_SCAN — apply the move for any signal (3+ instances makes it mandatory): sibling prefix/suffix names -> one modality-polymorphic ' +
+    'entrypoint; same return rail differing only by arity -> input-shape discrimination; functions differing only by a literal -> parameterize the ' +
+    'literal as a POLICY_VALUE; a `bool`/`mode`/`batch` parameter selecting two bodies -> one derived body or policy value; a method calling ' +
+    'exactly one other -> delete the hop (ONE_HOP_RESOLUTION); parallel dispatch arms repeating structure -> a `Fold` algebra or frozen table ' +
+    '(DERIVED_LOGIC); several types sharing fields for one concept -> one closed family; a `Get`/`GetMany`/`GetBy<Key>`/`List`/`Search` family -> ' +
+    'one input-keyed polymorphic operation; a wrapper renaming a package API -> use the package surface directly (LIBRARY_DEPTH); 3+ parallel ' +
+    'types / sibling factories / repeated switch arms / single-call helpers -> ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / ' +
+    '`[ComplexValueObject]` / source-generated case family IN THE SAME FILE.',
+  '(2) OWNER_CHOOSER — for EVERY shape re-derive the owner from the 5 discriminants (admission, identity regime, variant arity, payload timing, ' +
+    'openness), most-specific wins: invariant-bearing scalar -> `[ValueObject<TKey>]`; N-field one-concept product no discriminator -> ' +
+    '`[ComplexValueObject]`; bounded vocabulary wire-keyed identity -> `[SmartEnum<TKey>]`; bounded vocabulary process-local behavior -> ' +
+    '`[SmartEnum]` keyless; closed alternatives per-occurrence payload -> `[Union]`; one value over 2-5 unrelated types -> `[Union<T1,...>]` ' +
+    'ad-hoc; interior product no invariant -> `record`/`readonly record struct`; combinable capability set -> a frozen set; cross-product/external ' +
+    'policy key -> a frozen table; foreign wire enum / ABI bits / kernel ordinal -> a language `enum` AT THE SEAM ONLY. Kill every parallel DTO, ' +
+    'one-field wrapper, field-rename shape, nullable-as-failure, and struct-`default` ghost.',
+  '(3) KNOB_TEST — removal: delete each parameter; if the value reconstructs what it carried it was a knob -> collapse a ' +
+    '`bool`/`mode`/`strict`/`batch` flag into a policy value or input-shape discriminant; a nullable flag tail -> one `Option<ContextRecord>`; the ' +
+    'single optional form is `Option<T> x = default` consumed via `IfNone(canonical)`; move every `timeout`/`retry`/`deadline`/`CancellationToken` ' +
+    'OFF the signature onto the carrier or a composition-time effect aspect.',
+  '(4) ASPECTS — definition-time concerns (admission, identity, dispatch, serialization, grammar, logging) attach via attribute-directed SOURCE ' +
+    'GENERATION in the fixed generator order; composition-time concerns attach as effect transformers in author order — retry as `Schedule`-driven ' +
+    '`IO<T>.Retry(Schedule)`/`Prelude.retry`, recovery as named catch combinators (`@catch`/`catchOf`/`CatchM` composed via `|`), resource ' +
+    'lifetime as `Bracket`/`BracketIO`/`Finally`; the two weaves meet at EXACTLY ONE seam, the admission rail bridge. 2-4 co-occurring wrappers ' +
+    'collapse into one aspect; an aspect NEVER raises into domain flow; deterministic stacking order verified. Inline-repeated concerns and ' +
+    'sibling helper methods are defects.',
+  '(5) RAILS — RAIL_CHOOSER, the narrowest carrier chosen ONCE at admission: `Option<T>` absence, `Fin<T>` synchronous fallibility, ' +
+    '`Validation<Error,T>` independent accumulated faults, `Eff<RT,T>` runtime capability, `IO<T>` deferred boundary work, `Schedule` retry ' +
+    'policy, `Seq<T>`/`Arr<T>`/`HashMap<K,V>` immutable traversal/lookup; the fault type is a CLOSED `[Union]` family deriving from `Expected` (a ' +
+    'bare exception or generic untyped `Error` for a multi-cause domain is a defect; recovery identity via `Is`/`HasCode`/`IsType<E>`, never ' +
+    '`==`); accumulate-vs-abort disposition correct (`Apply`/`&`/`.Traverse` for independents, `Bind`/`.TraverseM`/query for dependents); total ' +
+    'generated `Switch` (NO `_` arm hiding a case); `.Fold`/`.Traverse`/`.Choose` with the mandatory `.As()` re-anchor; NO exception control flow ' +
+    'in domain logic, NO mutable accumulation.',
+  '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; ' +
+    'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in the package `.api/` catalog (verify ' +
+    'novel members via `uv run python -m tools.assay api`); latest modern C# 14 on net10 (primary ctors, collection expressions, `params` ' +
+    'collections, list/relational/logical patterns, switch expressions, `required` members, `file` types, `field` accessors, extension blocks, ' +
+    'generic math, static abstract members); FULL docs/stacks/csharp + the relevant domain/ shard conformance; BOTH the package `.api/` catalogs ' +
+    'AND the universal Thinktecture/LanguageExt rails maximized; the `tools/cs-analyzer` doctrine-gate clean.',
+  '(7) CHARTER-COMPLETENESS — for EVERY card in the worklist, verify the realized fences GENUINELY fulfill its `Capability`/`Shape`/`Unlocks` ' +
+    '(read the full card from disk): a missing modality, an unrealized `Shape` clause, a stubbed/placeholder fence, or a capability the card ' +
+    'promises but the fences do not deliver is a DEFECT — realize it NOW. A card whose fences are thin against its charter is not done.',
+  'Also enforce the docs/stacks/csharp file-organization + section-order law, cross-package convention consistency, and prose + comment hygiene. ' +
+    'EDIT the `' + t.planning + '` pages to fix every hit; realize ONLY `' + t.name + '` pages and OVERRIDE any earlier residual you can now ' +
+    'resolve; log any genuine cross-FOLDER item as a residual_ripple {files, pkg, slug, mirror_slug, claim}. Return verdict + realized + deferred ' +
+    '+ collapsed + residual_ripples + summary.'].join('\n')
 const redteamPrompt = (t, seq) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + t.name + '`. ' + homeNote(t) + ' You are the LAST and MOST AGGRESSIVE pass: assume the author and critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nOpen `' + t.api + '/` + the universal Thinktecture/LanguageExt rails, the sibling pages, docs/stacks/csharp/ + the relevant domain/ shard. Attack from every direction and REPAIR every defect in place — no soft-pedalling, no could/should, a fix never a ledger.',
-  'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the algebra (`Fold`/generated `Switch`/data table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner (`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated family), a data table, or a DEEPER admitted-package primitive (LanguageExt/Thinktecture/MathNet/CSparse) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next case/dimension/knob/modality/provider arrives, does it land as ONE case/row/policy value with every consumer untouched or broken LOUDLY at compile time (total generated `Switch`, no silent `_`)? If it would touch multiple sites, reshape so the growth axis is a case, row, policy value, or carrier swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, plural, stream, malformed, concurrent, cancelled, partial-failure, version-skew); is the accumulate-vs-abort disposition correct for the REAL boundary; are BOTH ingress AND egress parameterized so this owner sources and sinks across hundreds of consumers without interior edits? (D) STRATA + BOUNDARY-INTEGRITY — a downward dependency, a host-type leak into a host-neutral owner, a concern owned twice in a runtime, a folder mixing concerns, geometry/mesh/IFC not meeting at ONE wire owner per runtime, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it within `' + t.name + '`, or record it as a residual_ripple. (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal rails expose capability the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api`/host member, or a thin wrapper: collapse to package depth and verify the member exists (via `assay api`).',
-  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the two-weave ASPECT taxonomy, rail + closed-`Expected`-fault discipline, charter-completeness per card, strata correctness, modern-C# 14 typing, docs/stacks/csharp + domain-shard conformance, `.api` + Thinktecture/LanguageExt maximization, the `tools/cs-analyzer` doctrine-gate, and prose/comment hygiene — and fix every defect. Even absent a structural rebuild, the fences must end objectively denser, more correct, and more powerful than the critique left them; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. Realize ONLY `' + t.name + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + realized + deferred + collapsed + residual_ripples + summary.'].join('\n')
-
+  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + t.name + '`. ' + homeNote(t) + ' You are the LAST and MOST AGGRESSIVE pass: ' +
+    'assume the author and critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE ' +
+    'DESIGN. The cards realized this turn (read each FULL body):\n' + seq + '\nOpen `' + t.api + '/` + the universal Thinktecture/LanguageExt ' +
+    'rails, the sibling pages, docs/stacks/csharp/ + the relevant domain/ shard. Attack from every direction and REPAIR every defect in place — no ' +
+    'soft-pedalling, no could/should, a fix never a ledger.',
+  'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the algebra (`Fold`/generated ' +
+    '`Switch`/data table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner ' +
+    '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject<T>]`/`[ComplexValueObject]`/source-generated family), a data table, or a DEEPER admitted-package ' +
+    'primitive (LanguageExt/Thinktecture/MathNet/CSparse) collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — ' +
+    'never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next ' +
+    'case/dimension/knob/modality/provider arrives, does it land as ONE case/row/policy value with every consumer untouched or broken LOUDLY at ' +
+    'compile time (total generated `Switch`, no silent `_`)? If it would touch multiple sites, reshape so the growth axis is a case, row, policy ' +
+    'value, or carrier swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, plural, stream, ' +
+    'malformed, concurrent, cancelled, partial-failure, version-skew); is the accumulate-vs-abort disposition correct for the REAL boundary; are ' +
+    'BOTH ingress AND egress parameterized so this owner sources and sinks across hundreds of consumers without interior edits? (D) STRATA + ' +
+    'BOUNDARY-INTEGRITY — a downward dependency, a host-type leak into a host-neutral owner, a concern owned twice in a runtime, a folder mixing ' +
+    'concerns, geometry/mesh/IFC not meeting at ONE wire owner per runtime, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling ' +
+    'planning page left STALE by this folder change even when no ripple card names it (ports/boundaries/wires/seams drift) is a defect: fix it ' +
+    'within `' + t.name + '`, or record it as a residual_ripple. (E) SURFACE-SPRAWL-IN-TIME — an admitted package whose `.api` or the universal ' +
+    'rails expose capability the fence re-derives by hand, flat code below the operator depth the packages reach, a phantom `.api`/host member, or ' +
+    'a thin wrapper: collapse to package depth and verify the member exists (via `assay api`).',
+  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time, NOT only on a structural restructure): re-attack every conformance dimension with fresh ' +
+    'hostile eyes, trusting nothing the prior passes claimed — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the ' +
+    'two-weave ASPECT taxonomy, rail + closed-`Expected`-fault discipline, charter-completeness per card, strata correctness, modern-C# 14 typing, ' +
+    'docs/stacks/csharp + domain-shard conformance, `.api` + Thinktecture/LanguageExt maximization, the `tools/cs-analyzer` doctrine-gate, and ' +
+    'prose/comment hygiene — and fix every defect. Even absent a structural rebuild, the fences must end objectively denser, more correct, and ' +
+    'more powerful than the critique left them; if the strongest form is genuinely already present, prove it by finding nothing — never invent ' +
+    'churn. Realize ONLY `' + t.name + '` pages; log cross-FOLDER items as residual_ripples. Return verdict + realized + deferred + collapsed + ' +
+    'residual_ripples + summary.'].join('\n')
 const reconcileFixPrompt = (cl) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '',
-  'TASK: RECONCILE this cluster of cross-FOLDER residuals the per-folder passes deferred. There is NO severity — treat EVERY residual as must-address. Read EVERY listed file. Note the Geometry homing: its cards are at `libs/csharp/Rasm/IDEAS.md` + `libs/csharp/Rasm/TASKLOG.md` but its design-page fences are under `libs/csharp/Rasm/Geometry/.planning/**`. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves already realized by their own target folders) — read both pages, ALIGN them to ONE shared contract, fix any mismatch, set `seam_landed` true; (b) OUT-OF-SCOPE C# COUNTERPART (the counterpart card lives in a non-target libs/csharp package) — realize that ONE counterpart card fence (its half only, NEVER the folder other cards) at the same ULTRA bar and align the seam; (c) CENTRAL PIN — apply every `Directory.Packages.props` version pin in this cluster (you are the ONLY agent that edits that shared file; apply them all serially, keeping alphabetical/group order) and list them in `admitted`; (d) CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and do NOT realize it (out of this C#-only run). Preserve all capability, regress no file, never trample a sibling owner interior or the mature Rasm siblings (Analysis/Domain/Vectors). For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
-
+  'TASK: RECONCILE this cluster of cross-FOLDER residuals the per-folder passes deferred. There is NO severity — treat EVERY residual as ' +
+    'must-address. Read EVERY listed file. Note the Geometry homing: its cards are at `libs/csharp/Rasm/IDEAS.md` + `libs/csharp/Rasm/TASKLOG.md` ' +
+    'but its design-page fences are under `libs/csharp/Rasm/Geometry/.planning/**`. Handle each residual by KIND: (a) IN-SCOPE SEAM (both halves ' +
+    'already realized by their own target folders) — read both pages, ALIGN them to ONE shared contract, fix any mismatch, set `seam_landed` true; ' +
+    '(b) OUT-OF-SCOPE C# COUNTERPART (the counterpart card lives in a non-target libs/csharp package) — realize that ONE counterpart card fence ' +
+    '(its half only, NEVER the folder other cards) at the same ULTRA bar and align the seam; (c) CENTRAL PIN — apply every ' +
+    '`Directory.Packages.props` version pin in this cluster (you are the ONLY agent that edits that shared file; apply them all serially, keeping ' +
+    'alphabetical/group order) and list them in `admitted`; (d) CROSS-LANGUAGE / LIB-WIDE LEG — record it in `deferred_legs` and do NOT realize it ' +
+    '(out of this C#-only run). Preserve all capability, regress no file, never trample a sibling owner interior or the mature Rasm siblings ' +
+    '(Analysis/Domain/Vectors). For every ripple counterpart you touch, emit a `pairs` row {pkg, slug, mirror_slug, seam_landed}. If a residual is ' +
+    'FACTUALLY INCORRECT or not a real defect, leave it and say why in the summary — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n')
 const reconcileVerifyPrompt = (cl, fix) => [LAW, '', BOUNDARIES, '',
-  'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now genuinely resolved — seam aligned on both pages / counterpart fence realized / central pin applied), "invalid" (the claim is factually wrong / not a real defect — cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark "invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
-
+  'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now ' +
+    'genuinely resolved — seam aligned on both pages / counterpart fence realized / central pin applied), "invalid" (the claim is factually wrong ' +
+    '/ not a real defect — cite why), or "open" (real defect still NOT resolved). Default to "open" on any doubt for a real-looking defect; mark ' +
+    '"invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files) + '\nPairs ' +
+    'the fixer reported: ' + JSON.stringify(fix.pairs || [])].join('\n')
 const closeoutPrompt = (t, seamJson) => [LAW, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS, '',
-  'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + t.name + '`. ' + homeNote(t) + ' This is the SOLE owner of card status. For EVERY card that was in scope this run, read its FULL body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md` and the realized fences under `' + t.planning + '/**`, then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via `uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed implement->critique->redteam this turn; deepen the fences under `' + t.planning + '` to genuinely complete the charter), then re-verify. Assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` (most delivered, a clause still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the `[02]-[CLOSED]` section of their CARD-HOME file (`' + t.cardHome + '/IDEAS.md` or `' + t.cardHome + '/TASKLOG.md`) as a collapsed one-liner `[ID]-[COMPLETE]: <disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`), and update `' + t.cardHome + '/ARCHITECTURE.md` `[02]-[SEAMS]` ONLY when a real cross-folder seam landed. RIPPLE PAIRS: a card carrying a `Ripple:` closes COMPLETE only if its seam landed — this map gives seam_landed per slug (`false` = seam did NOT land, keep the card OPEN; `true`/absent = judge on your own half): ' + seamJson + '. For a shared `[02]-[SEAMS]` entry, only the owning-stratum folder writes it. Honestly RE-OPEN any card you cannot bring to `strong` this run, with a one-line reason (a real out-of-run dependency). The orchestrator will DEMOTE any card you mark complete whose strength is not `strong`, so never inflate. Return closed [{slug, disposition, strength}] + reopened [{slug, reason}] + summary.'].join('\n')
+  'TASK: TRUTHFUL CLOSEOUT + FINAL REMEDIATION of `' + t.name + '`. ' + homeNote(t) + ' This is the SOLE owner of card status. For EVERY card that ' +
+    'was in scope this run, read its FULL body from `' + t.cardHome + '/IDEAS.md` + `' + t.cardHome + '/TASKLOG.md` and the realized fences under `' + t.planning + '/**`, ' +
+    'then SANITY-VERIFY the fences genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the cited `.api` (verify novel members via ' +
+    '`uv run python -m tools.assay api`). If a card is WEAK or PARTIAL, make a FINAL in-place REMEDIATION NOW (it already passed ' +
+    'implement->critique->redteam this turn; deepen the fences under `' + t.planning + '` to genuinely complete the charter), then re-verify. ' +
+    'Assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` ' +
+    '(most delivered, a clause still thin), `weak` (charter not met). CLOSE only genuinely-complete cards: move them to the `[02]-[CLOSED]` ' +
+    'section of their CARD-HOME file (`' + t.cardHome + '/IDEAS.md` or `' + t.cardHome + '/TASKLOG.md`) as a collapsed one-liner `[ID]-[COMPLETE]: ' +
+    '<disposition>; Ripple: <pkg> [SLUG]` (or `[DROPPED]: <reason>`), and update `' + t.cardHome + '/ARCHITECTURE.md` `[02]-[SEAMS]` ONLY when a ' +
+    'real cross-folder seam landed. RIPPLE PAIRS: a card carrying a `Ripple:` closes COMPLETE only if its seam landed — this map gives seam_landed ' +
+    'per slug (`false` = seam did NOT land, keep the card OPEN; `true`/absent = judge on your own half): ' + seamJson + '. For a shared ' +
+    '`[02]-[SEAMS]` entry, only the owning-stratum folder writes it. Honestly RE-OPEN any card you cannot bring to `strong` this run, with a ' +
+    'one-line reason (a real out-of-run dependency). The orchestrator will DEMOTE any card you mark complete whose strength is not `strong`, so ' +
+    'never inflate. Return closed [{slug, disposition, strength}] + reopened [{slug, reason}] + summary.'].join('\n')
 
-// --- [COMPOSITION] -----------------------------------------------------------------------------
+// --- [COMPOSITION] -----------------------------------------------------------------------
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
+const pool = async (items, cap, worker) => {
+  const out = new Array(items.length)
+  let next = 0
+  let gate = Promise.resolve()
+  const launch = () => { gate = gate.then(() => sleep(STAGGER_MS)); return gate }
+  const run = async () => { while (next < items.length) { const i = next++; await launch(); out[i] = await worker(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
+  return out
+}
+
 phase('Discover')
 const disc = (await agent(discoverPrompt(TARGETS), { label: 'discover', phase: 'Discover', schema: DISCOVERY_SCHEMA, effort: 'medium', stallMs: 300000 })) || { targets: [], malformed_ripples: [] }
 const withCards = (disc.targets || []).filter((t) => (t.tasks && t.tasks.length) || (t.ideas && t.ideas.length)).map((dt) => ({ dt, home: resolveHome(dt.folder) }))
 log('Discover: ' + TARGETS.length + ' targets; ' + withCards.length + ' with open cards; pooling at CAP=' + CAP)
 
+// --- [REALIZE]
 phase('Realize')
 const realizeFolder = async ({ dt, home }) => {
   const seq = JSON.stringify({ order: dt.order, tasks: dt.tasks, ideas: dt.ideas, ripples: dt.ripples, gates: dt.gates || [] }, null, 1)
@@ -177,12 +409,13 @@ const realized = (await pool(withCards, CAP, realizeFolder)).filter(Boolean)
 const failedFolders = new Set(realized.filter((r) => r.failed).map((r) => r.folder))
 const deferredCards = realized.flatMap((r) => r.logs.flatMap((l) => (l.deferred || []).map((d) => ({ folder: r.folder, slug: d.slug, reason: d.reason }))))
 
-// --- [RECONCILE] -- align in-scope seams, realize 1-hop oos counterparts, apply the central pin --
 const crossLang = []
-for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass === 'cross_lang') crossLang.push(t.folder + ' [' + rp.from_slug + '] -> ' + rp.to_pkg + ' [' + rp.to_slug + ']')
+for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass === 'cross_lang') crossLang.push(t.folder + ' [' + rp.from_slug + '] ' +
+  '-> ' + rp.to_pkg + ' [' + rp.to_slug + ']')
 const allRes = []
 for (const r of realized) if (!r.failed) for (const l of r.logs) for (const x of (l.residual_ripples || [])) allRes.push({ files: (x.files && x.files.length ? x.files : [r.folder]), pkg: x.pkg, slug: x.slug, mirror_slug: x.mirror_slug, claim: x.claim || '' })
-for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass !== 'cross_lang') allRes.push({ files: [t.folder, pkgPath(rp.to_pkg)], pkg: rp.to_pkg, slug: rp.from_slug, mirror_slug: rp.to_slug, claim: 'ripple ' + rp.klass + ': ' + folderName(t.folder) + ' [' + rp.from_slug + '] <-> ' + rp.to_pkg + ' [' + rp.to_slug + ']' })
+for (const t of (disc.targets || [])) for (const rp of (t.ripples || [])) if (rp.klass !== 'cross_lang') allRes.push({ files: [t.folder, pkgPath(rp.to_pkg)], pkg: rp.to_pkg, slug: rp.from_slug, mirror_slug: rp.to_slug, claim: 'ripple ' +
+  '' + rp.klass + ': ' + folderName(t.folder) + ' [' + rp.from_slug + '] <-> ' + rp.to_pkg + ' [' + rp.to_slug + ']' })
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
 const clusters = (() => {
   const parent = new Map(); const find = (f) => { let p = f; while (parent.get(p) !== p) p = parent.get(p); return p }; const add = (f) => { if (!parent.has(f)) parent.set(f, f) }
@@ -191,7 +424,8 @@ const clusters = (() => {
   for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
   return [...by.values()]
 })()
-log('Realize: ' + realized.filter((r) => !r.failed).length + '/' + withCards.length + ' folders; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))
+log('Realize: ' + realized.filter((r) => !r.failed).length + '/' + withCards.length + ' folders; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
+  'clusters' + (failedFolders.size ? '; ' + failedFolders.size + ' folder(s) failed' : ''))
 let reconciled = []
 if (clusters.length) {
   phase('Reconcile')
@@ -212,7 +446,7 @@ const dropped_invalid = claimsAll.filter((c) => c.status === 'invalid').map((c) 
 const admitted = [...new Set(reconciled.flatMap((r) => (r.fix && r.fix.admitted) || []))]
 const deferred_legs = [...new Set([...crossLang, ...reconciled.flatMap((r) => (r.fix && r.fix.deferred_legs) || [])])]
 
-// --- [CLOSEOUT] -- the sole card-status owner: verify, final-remediate, truthfully close ---------
+// --- [CLOSEOUT]
 phase('Closeout')
 const closeoutItems = [...realized.filter((r) => !r.failed).map((r) => r.home), ...[...oosFolders].map(stdHome)]
 const seamJson = JSON.stringify(seamLanded, null, 1)

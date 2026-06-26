@@ -10,60 +10,132 @@ export const meta = {
   ],
 }
 
-// --- [FOLDER] -- the single hardcoded folder this workflow owns --------------------------
-const F = { name: 'Bim', primary: false, doc: 'libs/csharp/Rasm.Bim', api: 'libs/csharp/Rasm.Bim/.api', planning: 'libs/csharp/Rasm.Bim/.planning', csproj: 'libs/csharp/Rasm.Bim/Rasm.Bim.csproj', note: '' }
-
 // --- [CONSTANTS] -------------------------------------------------------------------------
 const STALL = 420000
 const EXEC_STALL = 900000
 const FACET_COUNT = 9
+const F = { name: 'Bim', primary: false, doc: 'libs/csharp/Rasm.Bim', api: 'libs/csharp/Rasm.Bim/.api', planning: 'libs/csharp/Rasm.Bim/.planning', csproj: 'libs/csharp/Rasm.Bim/Rasm.Bim.csproj', note: '' }
 const MANIFEST = 'Directory.Packages.props (central NuGet pins) + Directory.Build.props (TargetFramework net10.0, RuntimeIdentifiers osx-arm64)'
-const ADDITIVE = 'This is an ADDITIVE second pass over a folder that already received a prior survey admission. READ the folder current admissions (its Directory.Packages.props rows, its README roster, its csproj PackageReference list) and treat every already-admitted package as ALREADY-PRESENT for the no-dup gate — KEEP them all untouched, never duplicate or remove them, and admit only NEW packages this deeper pass surfaces.'
 
-// --- [SCHEMAS] ---------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 const SURVEY_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'gaps', 'facets'], properties: { folder: { type: 'string' }, domain: { type: 'string' }, packages: { type: 'array', items: { type: 'string' } }, handRolls: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['capability'], properties: { capability: { type: 'string' }, evidence: { type: 'string' } } } }, gaps: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['capability'], properties: { capability: { type: 'string' }, severity: { type: 'string' }, note: { type: 'string' } } } }, facets: { type: 'array', minItems: FACET_COUNT, maxItems: FACET_COUNT, items: { type: 'object', additionalProperties: false, required: ['id', 'direction', 'gap'], properties: { id: { type: 'string' }, direction: { type: 'string' }, gap: { type: 'string' }, mandate: { type: 'string' } } } } } }
 const RESEARCH_SCHEMA = { type: 'object', additionalProperties: false, required: ['facet', 'candidates'], properties: { facet: { type: 'string' }, candidates: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'fills', 'ok'], properties: { package: { type: 'string' }, fills: { type: 'string' }, version: { type: 'string' }, license: { type: 'string' }, bestOf: { type: 'boolean' }, macOk: { type: 'boolean' }, newest: { type: 'boolean' }, licenseOk: { type: 'boolean' }, noLegacy: { type: 'boolean' }, notDup: { type: 'boolean' }, dupOf: { type: 'string' }, ok: { type: 'boolean' }, alternativesConsidered: { type: 'string' }, evidence: { type: 'string' } } } } } }
 const EXEC_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'applied'], properties: { folder: { type: 'string' }, applied: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'apiPath'], properties: { package: { type: 'string' }, version: { type: 'string' }, license: { type: 'string' }, apiPath: { type: 'string' } } } }, skipped: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['package', 'why'], properties: { package: { type: 'string' }, why: { type: 'string' } } } }, files: { type: 'array', items: { type: 'string' } }, green: { type: 'boolean' }, summary: { type: 'string' } } }
 const STUB_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'stubs'], properties: { folder: { type: 'string' }, stubs: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' } } }
 
-// --- [LAW] -------------------------------------------------------------------------------
+// --- [DOCTRINE] --------------------------------------------------------------------------
+const ADDITIVE = 'This is an ADDITIVE second pass over a folder that already received a prior survey admission. READ the folder current admissions ' +
+  '(its Directory.Packages.props rows, its README roster, its csproj PackageReference list) and treat every already-admitted package as ' +
+  'ALREADY-PRESENT for the no-dup gate — KEEP them all untouched, never duplicate or remove them, and admit only NEW packages this deeper pass ' +
+  'surfaces.'
 const LAW = [
-  'Rasm monorepo, PER-FOLDER capability-gap survey-AND-APPLY of the C# AEC stack (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP strata, depend strictly upward). This run is the DEEP, BROADENED, ADDITIVE re-pass of Rasm.Bim — the host-neutral BIM object-model + IFC/exchange folder. The mission is NOT a per-package keep/replace audit — it is to find AND admit the world-class MODERN packages this PLANNED folder is still MISSING after a thin prior pass, and to STOP hand-rolling concerns a real package owns. Central pins live in ' + MANIFEST + '. ' + ADDITIVE,
-  'BAR: Bim must be able to back a world-class, bleeding-edge, production-ready AEC/BIM platform RIGHT NOW — ultra-dense/complex/rich, minimal-to-no hardcoding, maximal parameterization, NO fake or illusory capability. Treat the prior pass as SHORT-SIGHTED: assume valuable modern IFC/geospatial/cost/schedule packages are still missing and hunt them aggressively. Where the folder HAND-ROLLS a concern a real ecosystem package owns — an IFC schema traversal, a CRS transform, a quantity takeoff, a CPM schedule solve — that is a NAMED GAP to close with the package. A large additive set is the GOAL here IF each entry is best-in-class, production-grade, and non-overlapping.',
-  'AGGRESSIVE ADDITION, ZERO HEDGING: admit a package whenever it provides unique, modern, production-grade capability appropriate to the BIM/IFC/geospatial/cost/schedule domain. DECLINE ONLY for a real reason — (a) old / unmaintained / low-quality / naive, (b) a strictly stronger alternative is already admitted or recommended, or (c) out of the folder scope. NEVER decline for no current consumer: planned consumers are real design pressure.',
-  'VALIDATION GATE — every candidate must pass all six, and the RESEARCH agent self-critiques it BEFORE returning (ok=true only when all six hold; default ok=false on any unproven condition): (1) BEST-OF — the strongest, most COMPLETE package for the gap, not the first found or a naive wrapper; compare the real alternatives. (2) MAC — works on osx-arm64 (managed AnyCPU, an osx-arm64 native asset, or a Parametric_Forge-provisioned native substrate; reject win/x64-only). (3) NEWEST — current stable release named, actively maintained. (4) LICENSE — OSS (any OSI license) OR free-full commercial (no paid tier/seat cap/usage gate/eval-only); reject fee/tiered AND reject viral copyleft (GPL/AGPL) for a host-neutral library. (5) NO LEGACY PACKAGING — modern packaging/TFM/abi. (6) NO DUP/OVERLAP — not a duplicate of an already-admitted package (read the current folder admissions) or a sibling candidate; set dupOf and keep the single best of an overlapping pair. A package not published on NuGet cannot become a central pin — reject it as a pin (note it only as a capability).',
-  'MANDATED DEEP AREAS for Bim (the survey MUST allocate the nine facets across these, and the research MUST sweep each EXHAUSTIVELY): (A) IFC — the model graph + schema (IFC2x3/IFC4/IFC4.3), geometry/tessellation evaluation, model validation, BCF issue exchange, and IDS information-delivery-specification authoring/audit; the strongest managed IFC stack and geometry kernel for net10/osx-arm64. (B) GEOSPATIAL — CRS/projection transforms, vector + raster formats, geospatial file IO (GeoPackage/Shapefile/GeoJSON/CityGML/CityJSON), tiling/3D-tiles, and spatial indexing. (C) COST — estimating, quantity-takeoff (QTO), cost models, and the classification systems they key on (Uniformat/OmniClass/MasterFormat/ICMS/NRM) where an admissible data package exists. (D) SCHEDULING/PLANNING — CPM, resource leveling, 4D sequencing, look-ahead, and the constraint/optimization solver behind them. (E) ANY OTHER concern Bim currently HAND-ROLLS that a package owns (clash/coordination spatial index, quantity aggregation, property-set modeling, georeferencing). For a server-side or non-NuGet capability, note it but only admit the managed .NET package that drives it.',
-  'ASSAY + TFM TRUTH: verify a candidate in the cache via `uv run --frozen python -m tools.assay api`; for a multi-target NuGet package the consumer floor is net10.0 — confirm the lib/<tfm> a net10 consumer actually binds. Confirm versions/license/Mac/packaging against the registry (NuGet flat-container index + nuspec) truthfully; web research for the domain landscape, newest stable version, and maintenance signals.',
-  'WRITE DISCIPLINE — strict phase ownership: SURVEY and RESEARCH are READ-ONLY and write NOTHING. ONLY EXECUTE admits packages, and it writes EXACTLY four things: (a) the central pin in Directory.Packages.props (matching ItemGroup, newest stable version, plus any pure-managed transitive floor pins), (b) the PackageReference in the owning folder csproj, (c) the owning folder README roster + prose, and (d) the restore/verify of the owning project. This is ADDITIVE — KEEP every existing admission, add only NEW packages, and report ONLY the newly-admitted packages in applied. EXECUTE does NOT author .api catalogs and does NOT touch any design page (deferred to a focused rebuild-api run and to plan-cs-folders). The STUB stage writes ONLY a one-line placeholder .api file per NEWLY admitted package.',
+  'Rasm monorepo, PER-FOLDER capability-gap survey-AND-APPLY of the C# AEC stack (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP ' +
+    'strata, depend strictly upward). This run is the DEEP, BROADENED, ADDITIVE re-pass of Rasm.Bim — the host-neutral BIM object-model + ' +
+    'IFC/exchange folder. The mission is NOT a per-package keep/replace audit — it is to find AND admit the world-class MODERN packages this ' +
+    'PLANNED folder is still MISSING after a thin prior pass, and to STOP hand-rolling concerns a real package owns. Central pins live in ' + MANIFEST + '. ' +
+    '' + ADDITIVE,
+  'BAR: Bim must be able to back a world-class, bleeding-edge, production-ready AEC/BIM platform RIGHT NOW — ultra-dense/complex/rich, ' +
+    'minimal-to-no hardcoding, maximal parameterization, NO fake or illusory capability. Treat the prior pass as SHORT-SIGHTED: assume valuable ' +
+    'modern IFC/geospatial/cost/schedule packages are still missing and hunt them aggressively. Where the folder HAND-ROLLS a concern a real ' +
+    'ecosystem package owns — an IFC schema traversal, a CRS transform, a quantity takeoff, a CPM schedule solve — that is a NAMED GAP to close ' +
+    'with the package. A large additive set is the GOAL here IF each entry is best-in-class, production-grade, and non-overlapping.',
+  'AGGRESSIVE ADDITION, ZERO HEDGING: admit a package whenever it provides unique, modern, production-grade capability appropriate to the ' +
+    'BIM/IFC/geospatial/cost/schedule domain. DECLINE ONLY for a real reason — (a) old / unmaintained / low-quality / naive, (b) a strictly ' +
+    'stronger alternative is already admitted or recommended, or (c) out of the folder scope. NEVER decline for no current consumer: planned ' +
+    'consumers are real design pressure.',
+  'VALIDATION GATE — every candidate must pass all six, and the RESEARCH agent self-critiques it BEFORE returning (ok=true only when all six hold; ' +
+    'default ok=false on any unproven condition): (1) BEST-OF — the strongest, most COMPLETE package for the gap, not the first found or a naive ' +
+    'wrapper; compare the real alternatives. (2) MAC — works on osx-arm64 (managed AnyCPU, an osx-arm64 native asset, or a ' +
+    'Parametric_Forge-provisioned native substrate; reject win/x64-only). (3) NEWEST — current stable release named, actively maintained. (4) ' +
+    'LICENSE — OSS (any OSI license) OR free-full commercial (no paid tier/seat cap/usage gate/eval-only); reject fee/tiered AND reject viral ' +
+    'copyleft (GPL/AGPL) for a host-neutral library. (5) NO LEGACY PACKAGING — modern packaging/TFM/abi. (6) NO DUP/OVERLAP — not a duplicate of ' +
+    'an already-admitted package (read the current folder admissions) or a sibling candidate; set dupOf and keep the single best of an overlapping ' +
+    'pair. A package not published on NuGet cannot become a central pin — reject it as a pin (note it only as a capability).',
+  'MANDATED DEEP AREAS for Bim (the survey MUST allocate the nine facets across these, and the research MUST sweep each EXHAUSTIVELY): (A) IFC — ' +
+    'the model graph + schema (IFC2x3/IFC4/IFC4.3), geometry/tessellation evaluation, model validation, BCF issue exchange, and IDS ' +
+    'information-delivery-specification authoring/audit; the strongest managed IFC stack and geometry kernel for net10/osx-arm64. (B) GEOSPATIAL — ' +
+    'CRS/projection transforms, vector + raster formats, geospatial file IO (GeoPackage/Shapefile/GeoJSON/CityGML/CityJSON), tiling/3D-tiles, and ' +
+    'spatial indexing. (C) COST — estimating, quantity-takeoff (QTO), cost models, and the classification systems they key on ' +
+    '(Uniformat/OmniClass/MasterFormat/ICMS/NRM) where an admissible data package exists. (D) SCHEDULING/PLANNING — CPM, resource leveling, 4D ' +
+    'sequencing, look-ahead, and the constraint/optimization solver behind them. (E) ANY OTHER concern Bim currently HAND-ROLLS that a package ' +
+    'owns (clash/coordination spatial index, quantity aggregation, property-set modeling, georeferencing). For a server-side or non-NuGet ' +
+    'capability, note it but only admit the managed .NET package that drives it.',
+  'ASSAY + TFM TRUTH: verify a candidate in the cache via `uv run --frozen python -m tools.assay api`; for a multi-target NuGet package the ' +
+    'consumer floor is net10.0 — confirm the lib/<tfm> a net10 consumer actually binds. Confirm versions/license/Mac/packaging against the ' +
+    'registry (NuGet flat-container index + nuspec) truthfully; web research for the domain landscape, newest stable version, and maintenance ' +
+    'signals.',
+  'WRITE DISCIPLINE — strict phase ownership: SURVEY and RESEARCH are READ-ONLY and write NOTHING. ONLY EXECUTE admits packages, and it writes ' +
+    'EXACTLY four things: (a) the central pin in Directory.Packages.props (matching ItemGroup, newest stable version, plus any pure-managed ' +
+    'transitive floor pins), (b) the PackageReference in the owning folder csproj, (c) the owning folder README roster + prose, and (d) the ' +
+    'restore/verify of the owning project. This is ADDITIVE — KEEP every existing admission, add only NEW packages, and report ONLY the ' +
+    'newly-admitted packages in applied. EXECUTE does NOT author .api catalogs and does NOT touch any design page (deferred to a focused ' +
+    'rebuild-api run and to plan-cs-folders). The STUB stage writes ONLY a one-line placeholder .api file per NEWLY admitted package.',
 ].join('\n')
 
-// --- [PROMPTS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------------------
 const surveyPrompt = (f) => [
   LAW, '',
-  'TASK (SURVEY + SYNTHESIZE for folder ' + f.name + ' — the BIM/IFC/geospatial/cost/schedule focus, go deepest — READ-ONLY, write nothing): build the full capability picture AND emit exactly ' + FACET_COUNT + ' research facets. Read its README + project file (' + f.csproj + '), every catalog under ' + f.api + '/, the design pages under ' + f.planning + '/, and the central manifest ' + MANIFEST + ' for this folder rows. The folder already admits packages from a prior pass — account for them so the facets target what is still MISSING or still HAND-ROLLED.',
-  'Return: (1) a 1-2 sentence DOMAIN summary; (2) the admitted PACKAGES; (3) HAND-ROLLS — capabilities the folder implements by hand that a real ecosystem package owns (each with an evidence pointer) — this is the PRIMARY signal for this pass; (4) GAPS — capabilities a world-class BIM/IFC/geospatial/cost/schedule platform must have but the folder lacks or under-serves; (5) FACETS — EXACTLY ' + FACET_COUNT + ' non-overlapping research directions covering the MANDATED DEEP AREAS (A-E): allocate facets so IFC (split into model/geometry, validation/BCF/IDS), geospatial, cost/QTO/classification, scheduling/planning, and the worst remaining hand-rolls each get at least one facet. Each facet: id, direction, the gap it closes, an optional mandate note. Be skeptical and ambitious — assume the prior pass under-admitted and the folder hand-rolls too much. Write nothing.',
+  'TASK (SURVEY + SYNTHESIZE for folder ' + f.name + ' — the BIM/IFC/geospatial/cost/schedule focus, go deepest — READ-ONLY, write nothing): build ' +
+    'the full capability picture AND emit exactly ' + FACET_COUNT + ' research facets. Read its README + project file (' + f.csproj + '), every ' +
+    'catalog under ' + f.api + '/, the design pages under ' + f.planning + '/, and the central manifest ' + MANIFEST + ' for this folder rows. The ' +
+    'folder already admits packages from a prior pass — account for them so the facets target what is still MISSING or still HAND-ROLLED.',
+  'Return: (1) a 1-2 sentence DOMAIN summary; (2) the admitted PACKAGES; (3) HAND-ROLLS — capabilities the folder implements by hand that a real ' +
+    'ecosystem package owns (each with an evidence pointer) — this is the PRIMARY signal for this pass; (4) GAPS — capabilities a world-class ' +
+    'BIM/IFC/geospatial/cost/schedule platform must have but the folder lacks or under-serves; (5) FACETS — EXACTLY ' + FACET_COUNT + ' ' +
+    'non-overlapping research directions covering the MANDATED DEEP AREAS (A-E): allocate facets so IFC (split into model/geometry, ' +
+    'validation/BCF/IDS), geospatial, cost/QTO/classification, scheduling/planning, and the worst remaining hand-rolls each get at least one ' +
+    'facet. Each facet: id, direction, the gap it closes, an optional mandate note. Be skeptical and ambitious — assume the prior pass ' +
+    'under-admitted and the folder hand-rolls too much. Write nothing.',
 ].join('\n')
-
 const researchPrompt = (f, survey, facet) => [
   LAW, '',
-  'TASK (RESEARCH one facet for folder ' + f.name + ' — READ-ONLY, write nothing, then SELF-VALIDATE): facet=' + facet.id + ' · direction=' + facet.direction + ' · gap=' + facet.gap + (facet.mandate ? ' · mandate=' + facet.mandate : '') + '. Find the best-in-class, PRODUCTION-GRADE, FULL-FEATURED MODERN package(s) that fill this gap for a net10/osx-arm64 C# AEC stack and let Bim STOP hand-rolling the concern. Compare the real alternatives (do not stop at the first hit) and name the strongest, most complete option — NEVER a naive or single-feature wrapper. For an IFC facet, weigh the full managed IFC stack (schema model + geometry kernel + validation + BCF + IDS) and name the strongest per leg. For a geospatial facet, sweep CRS/vector/raster/tiles/spatial-index. For cost/schedule, weigh the real estimating/QTO/CPM/solver options. Use web research for the landscape, newest stable version, maintenance, license, and Mac/osx-arm64 fit; confirm versions/license from the registry and members via `uv run --frozen python -m tools.assay api` when resolvable.',
-  'Then SELF-VALIDATE each candidate against the six-condition gate and set ok=true ONLY when ALL pass: bestOf (strongest, most complete), macOk (osx-arm64), newest (current stable + active maintenance), licenseOk (OSS or free-full commercial, NOT GPL/AGPL viral for a host-neutral lib), noLegacy (modern packaging/TFM), notDup (not a duplicate of an admitted package — read the current folder admissions — or a sibling candidate; set dupOf, keep the single best). A package not on NuGet fails the gate as a pin. Default ok=false on any unproven condition. Exclude anything already admitted unless a strictly stronger replacement (set fills to name what it replaces). Return candidate(s) each with the gate fields, what gap it fills, newest version, license, the alternatives compared, and the evidence. Write nothing.',
+  'TASK (RESEARCH one facet for folder ' + f.name + ' — READ-ONLY, write nothing, then SELF-VALIDATE): facet=' + facet.id + ' · direction=' + facet.direction + ' ' +
+    '· gap=' + facet.gap + (facet.mandate ? ' · mandate=' + facet.mandate : '') + '. Find the best-in-class, PRODUCTION-GRADE, FULL-FEATURED ' +
+    'MODERN package(s) that fill this gap for a net10/osx-arm64 C# AEC stack and let Bim STOP hand-rolling the concern. Compare the real ' +
+    'alternatives (do not stop at the first hit) and name the strongest, most complete option — NEVER a naive or single-feature wrapper. For an ' +
+    'IFC facet, weigh the full managed IFC stack (schema model + geometry kernel + validation + BCF + IDS) and name the strongest per leg. For a ' +
+    'geospatial facet, sweep CRS/vector/raster/tiles/spatial-index. For cost/schedule, weigh the real estimating/QTO/CPM/solver options. Use web ' +
+    'research for the landscape, newest stable version, maintenance, license, and Mac/osx-arm64 fit; confirm versions/license from the registry ' +
+    'and members via `uv run --frozen python -m tools.assay api` when resolvable.',
+  'Then SELF-VALIDATE each candidate against the six-condition gate and set ok=true ONLY when ALL pass: bestOf (strongest, most complete), macOk ' +
+    '(osx-arm64), newest (current stable + active maintenance), licenseOk (OSS or free-full commercial, NOT GPL/AGPL viral for a host-neutral ' +
+    'lib), noLegacy (modern packaging/TFM), notDup (not a duplicate of an admitted package — read the current folder admissions — or a sibling ' +
+    'candidate; set dupOf, keep the single best). A package not on NuGet fails the gate as a pin. Default ok=false on any unproven condition. ' +
+    'Exclude anything already admitted unless a strictly stronger replacement (set fills to name what it replaces). Return candidate(s) each with ' +
+    'the gate fields, what gap it fills, newest version, license, the alternatives compared, and the evidence. Write nothing.',
 ].join('\n')
-
 const executePrompt = (f, survey, research) => [
   LAW, '',
-  'TASK (EXECUTE for folder ' + f.name + ' — ADDITIVE, WRITE the four owned artifacts only): the ' + FACET_COUNT + ' research+self-validation outputs for THIS folder are INLINED at the END of this prompt — consolidate from THAT payload, never run your own package research and never invent candidates beyond it. FIRST consolidate: keep only candidates with ok=true, resolve every remaining dup/overlap across the facets to the single best, drop anything already admitted (read the current folder admissions) and anything out of the Bim scope — this is the per-folder plan, done here so nothing is dropped. THEN apply each surviving NEW package NOW. The owning folder is ' + f.name + ' (csproj ' + f.csproj + ', .api root ' + f.api + ', central manifest ' + MANIFEST + ').',
-  'For EACH surviving NEW package: (a) add the central pin to Directory.Packages.props in the matching ItemGroup at the newest stable version, with a one-line comment, plus any pure-managed transitive floor pins; (b) add the PackageReference to the owning folder csproj; (c) update the owning folder README roster + prose. ADDITIVE — KEEP every existing admission untouched, never remove or duplicate. Do NOT author any .api catalog and do NOT touch any design page (deferred).',
-  'Then RESTORE and VERIFY the owning project so every new pin resolves on osx-arm64 at the newest stable version and the project restores clean — run the gate via `uv run --frozen python -m tools.assay static --project ' + f.csproj + '` (or restore) and parse the JSON Envelope. SELF-HEAL in place on a red gate. If a package proves non-resolvable or RID-incompatible on osx-arm64, REVERT its admission entirely and record it under skipped with the reason. For EACH NEWLY applied package report a canonical apiPath = the owning folder .api root + the catalog filename matching the sibling .api naming convention. Report ONLY newly-admitted packages in applied. Return the fix-log: folder, applied [{package, version, license, apiPath}], skipped [{package, why}], files edited, green, and a one-line summary.',
-  'THE ' + FACET_COUNT + ' RESEARCH + SELF-VALIDATION OUTPUTS for ' + f.name + ' (consolidate ONLY the ok=true candidates present in this payload; never fabricate a package, version, or member beyond it; if no ok=true candidate is present, admit nothing and report that under summary):\n' + JSON.stringify(research, null, 1),
+  'TASK (EXECUTE for folder ' + f.name + ' — ADDITIVE, WRITE the four owned artifacts only): the ' + FACET_COUNT + ' research+self-validation ' +
+    'outputs for THIS folder are INLINED at the END of this prompt — consolidate from THAT payload, never run your own package research and never ' +
+    'invent candidates beyond it. FIRST consolidate: keep only candidates with ok=true, resolve every remaining dup/overlap across the facets to ' +
+    'the single best, drop anything already admitted (read the current folder admissions) and anything out of the Bim scope — this is the ' +
+    'per-folder plan, done here so nothing is dropped. THEN apply each surviving NEW package NOW. The owning folder is ' + f.name + ' (csproj ' + f.csproj + ', ' +
+    '.api root ' + f.api + ', central manifest ' + MANIFEST + ').',
+  'For EACH surviving NEW package: (a) add the central pin to Directory.Packages.props in the matching ItemGroup at the newest stable version, ' +
+    'with a one-line comment, plus any pure-managed transitive floor pins; (b) add the PackageReference to the owning folder csproj; (c) update ' +
+    'the owning folder README roster + prose. ADDITIVE — KEEP every existing admission untouched, never remove or duplicate. Do NOT author any ' +
+    '.api catalog and do NOT touch any design page (deferred).',
+  'Then RESTORE and VERIFY the owning project so every new pin resolves on osx-arm64 at the newest stable version and the project restores clean — ' +
+    'run the gate via `uv run --frozen python -m tools.assay static --project ' + f.csproj + '` (or restore) and parse the JSON Envelope. ' +
+    'SELF-HEAL in place on a red gate. If a package proves non-resolvable or RID-incompatible on osx-arm64, REVERT its admission entirely and ' +
+    'record it under skipped with the reason. For EACH NEWLY applied package report a canonical apiPath = the owning folder .api root + the ' +
+    'catalog filename matching the sibling .api naming convention. Report ONLY newly-admitted packages in applied. Return the fix-log: folder, ' +
+    'applied [{package, version, license, apiPath}], skipped [{package, why}], files edited, green, and a one-line summary.',
+  'THE ' + FACET_COUNT + ' RESEARCH + SELF-VALIDATION OUTPUTS for ' + f.name + ' (consolidate ONLY the ok=true candidates present in this payload; ' +
+    'never fabricate a package, version, or member beyond it; if no ok=true candidate is present, admit nothing and report that under summary):\n' + JSON.stringify(research, null, 1),
 ].join('\n')
-
 const stubPrompt = (f, ex) => [
   LAW, '',
-  'TASK (STUB the .api catalogs for folder ' + f.name + ' — WRITE one-line placeholders ONLY): the execute stage NEWLY admitted these packages with their canonical catalog paths: ' + JSON.stringify((ex && ex.applied) || []) + '. For EACH applied package, create the file at its apiPath (under the owning folder .api root ' + f.api + ') containing EXACTLY ONE line: a placeholder marker that names the package and marks the catalog research-pending. NOTHING ELSE — no header block, no member sections, no real members, no prose, no second line. If a directory in the path is missing, create it. Return the list of stub file paths you created.',
+  'TASK (STUB the .api catalogs for folder ' + f.name + ' — WRITE one-line placeholders ONLY): the execute stage NEWLY admitted these packages ' +
+    'with their canonical catalog paths: ' + JSON.stringify((ex && ex.applied) || []) + '. For EACH applied package, create the file at its ' +
+    'apiPath (under the owning folder .api root ' + f.api + ') containing EXACTLY ONE line: a placeholder marker that names the package and marks ' +
+    'the catalog research-pending. NOTHING ELSE — no header block, no member sections, no real members, no prose, no second line. If a directory ' +
+    'in the path is missing, create it. Return the list of stub file paths you created.',
 ].join('\n')
 
-// --- [COMPOSITION] -- single folder: Survey(1) -> Research(9) -> Execute(1) -> Stub(1) ----
+// --- [COMPOSITION] -----------------------------------------------------------------------
+
 log('=== survey-gaps single-folder (DEEP/ADDITIVE): ' + F.name + ' ===')
 
 phase('Survey')
@@ -71,6 +143,7 @@ const survey = await agent(surveyPrompt(F), { label: 'survey:' + F.name, phase: 
 if (!survey || !(survey.facets && survey.facets.length)) return { folder: F.name, applied: 0, note: 'no survey/facets returned' }
 log(F.name + ' survey: ' + survey.facets.length + ' research facets, ' + ((survey.gaps && survey.gaps.length) || 0) + ' gaps')
 
+// --- [RESEARCH]
 phase('Research')
 const research = (await parallel(survey.facets.map((fc) => () =>
   agent(researchPrompt(F, survey, fc), { label: 'research:' + F.name + ':' + fc.id, phase: 'Research', schema: RESEARCH_SCHEMA, model: 'opus', effort: 'xhigh', stallMs: STALL })
@@ -78,6 +151,7 @@ const research = (await parallel(survey.facets.map((fc) => () =>
 const okCount = research.reduce((n, r) => n + ((r.candidates || []).filter((c) => c.ok).length), 0)
 log(F.name + ' research: ' + research.length + '/' + survey.facets.length + ' facets returned, ' + okCount + ' gated candidates')
 
+// --- [EXECUTE]
 phase('Execute')
 const ex = await agent(executePrompt(F, survey, research), { label: 'exec:' + F.name, phase: 'Execute', schema: EXEC_SCHEMA, model: 'opus', effort: 'xhigh', stallMs: EXEC_STALL })
 const applied = (ex && ex.applied) || []
@@ -91,5 +165,6 @@ if (applied.length) {
 }
 
 const apiStubs = (stub && stub.stubs) || []
-log('survey-gaps ' + F.name + ' (deep/additive) complete: ' + applied.length + ' packages newly admitted, ' + apiStubs.length + ' .api stubs for the focused rebuild-api run')
+log('survey-gaps ' + F.name + ' (deep/additive) complete: ' + applied.length + ' packages newly admitted, ' + apiStubs.length + ' .api stubs for ' +
+  'the focused rebuild-api run')
 return { folder: F.name, applied: applied.length, green: !!(ex && ex.green), packages: applied.map((a) => a.package), apiStubs: apiStubs, skipped: (ex && ex.skipped) || [], summary: (ex && ex.summary) || '' }

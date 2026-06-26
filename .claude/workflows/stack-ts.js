@@ -11,7 +11,13 @@ export const meta = {
   ],
 }
 
-// --- [SCHEMAS] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const CAP = 12
+const STAGGER_MS = 1500
+const STALL = 300000
+const ROOT = 'docs/stacks/typescript'
+
+// --- [MODELS] ----------------------------------------------------------------------------
 const INVENTORY_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order'], properties: { path: { type: 'string' }, order: { type: 'integer' }, salvage: { type: 'string' }, regions: { type: 'array', items: { type: 'string' } } } } } } }
 const ARCH_DRAFT_SCHEMA = { type: 'object', additionalProperties: false, required: ['angle', 'files', 'rationale'], properties: { angle: { type: 'string' }, files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'charter'], properties: { path: { type: 'string' }, charter: { type: 'string' }, salvage: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
 const ARCH_DECISION_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'rationale'], properties: { files: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['path', 'order', 'charter'], properties: { path: { type: 'string' }, order: { type: 'integer' }, charter: { type: 'string' }, salvage: { type: 'string' }, isNew: { type: 'boolean' } } } }, renames: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } }, rationale: { type: 'string' } } }
@@ -20,11 +26,145 @@ const SWEEP_SCHEMA = { type: 'object', additionalProperties: false, required: ['
 const RECONCILE_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
 const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
 
-// --- [HARNESS] ---------------------------------------------------------------------------
-const STAGGER_MS = 1500
-const STALL = 300000
-const CAP = 10
-const ROOT = 'docs/stacks/typescript'
+// --- [DOCTRINE] --------------------------------------------------------------------------
+const LAW = [
+  'TARGET: docs/stacks/typescript/ is the route-owned TypeScript CODE DOCTRINE — a doc set of AGNOSTIC teaching pages that legislate how all ' +
+    'project TypeScript is written. It is NOT a libs/typescript/.planning design corpus: a page teaches a coding LAW with one exemplary agnostic ' +
+    'snippet, never a concrete module. The README owns routing + the doctrine laws + the COLLAPSE_SCAN; each concept page owns ONE disjoint layer ' +
+    'and states doctrine as fact. READ docs/stacks/typescript/README.md sections [02], [03], [05], [06] and hold them as law.',
+  'THE EXISTING TS DOC SET IS TRASH: junior-level, weak, loose, with no cohesive/unified shape system — treat every current page as a DRAFT TO ' +
+    'DISCARD, not a base to polish. A CLEAN BREAK: rebuild every core page GROUND-UP; SALVAGE ONLY a fragment that genuinely survives hostile ' +
+    'scrutiny; never let the existing weak TS shape it, and never couple the TS doctrine to C#. QUALITY BAR — the HIGHER REFERENCE is the PYTHON ' +
+    'doctrine docs/stacks/python/ (the most rigorous, dense stack we built: its page-craft + ~450 soft LOC cap + the shared density laws ' +
+    'SHAPE_BUDGET/DEEP_SURFACES/MODAL_ARITY/ANTICIPATORY_COLLAPSE/POLICY_VALUES/OWNER_CHOOSER + extreme ADT/AOP/parameterization/polymorphism). ' +
+    'docs/stacks/csharp/ is the FLOOR (the minimum density, never the target). READ BOTH read-only; carry the PY doctrine`s RIGOR and the shared ' +
+    'laws into idiomatic bleeding-edge Effect-TS, NEVER a C#/LanguageExt spelling and NEVER a Python idiom either — the shape laws are universal, ' +
+    'the spellings are TypeScript`s own. The route-owned TS law is the coding-ts standard — compose it as given.',
+  'WRITE-FULLY MANDATE, scoped to docs/stacks/typescript/** ONLY: every defect you identify you FIX NOW via Edit/Write directly in the file; the ' +
+    'fix-log you return is a REPORT of edits ALREADY MADE, never a ledger or a would/should hedge. Edit ONLY files under docs/stacks/typescript/; ' +
+    'reading csharp/standards/coding-ts/.api files is allowed, editing anything outside docs/stacks/typescript/ is forbidden. Leave nothing behind ' +
+    'except genuine cross-FILE items (report those in residual_high).',
+].join('\n')
+const ADVERSARIAL = [
+  'ADVERSARIAL STANCE — EVERY stage is HOSTILE, and HARSHER than usual because the corpus is KNOWN junior-level trash: assume the page (and any ' +
+    'salvaged fragment) is NAIVE, SHALLOW, or ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE PAGE. `finalized`, ' +
+    '"mature", "already strong", "good enough", and a prior `clean` grade are REJECTED self-assessments. Default to "rebuild this page ground-up ' +
+    'to the strongest form the doctrine admits" and MAKE that rebuild; a no-edit verdict is earned ONLY after a genuinely aggressive attack finds ' +
+    'nothing.',
+  'ILLUSORY / FAKE content is the PRIMARY target: a snippet that READS dense yet demonstrates a THIN slice; prose that ASSERTS richness the fence ' +
+    'lacks; a card field that decides nothing; a structurally-correct collapse that is semantically empty; a member cited but unverifiable (a ' +
+    'PHANTOM — delete it). Treat confident-looking fences with MORE suspicion, and DISBELIEVE every claim the page makes about itself until verified.',
+].join('\n')
+const TS_DOCTRINE = [
+  'HOLD the docs/stacks/typescript/README [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] signals as fact, never restated on a concept page; ' +
+    'mirror the csharp density laws in TS idiom. BOUNDARY_ADMISSION: raw is admitted EXACTLY ONCE through a Schema parse at the edge into an ' +
+    'evidence-carrying owner; the interior never re-validates, never sees `unknown`/`null`-as-failure/provider shape. Run the COLLAPSE_SCAN on ' +
+    'every fence: any signal triggers the move, 3+ instances make it mandatory.',
+  'A page that demonstrates a coding law must itself obey every law it can reach — the doctrine pages are the reference implementation of the ' +
+    'doctrine.',
+].join('\n')
+const TS_SHAPE = [
+  'EXTREME SHAPE/TYPE DENSITY + ONE CANONICAL FORM (the central mandate, and the corpus`s biggest failure): one concept owns exactly ONE canonical ' +
+    'declaration — a `Schema` (with its type DERIVED via `Schema.Schema.Type`), a branded/nominal type, or ONE exhaustive discriminated union — ' +
+    'chosen by the OWNER_CHOOSER discriminants. ABSOLUTELY FORBIDDEN: a `const X` + a `type X` + a `typeof X` triple for ONE value/concept — pick ' +
+    'the single canonical owner and DERIVE the rest (the Schema is the owner; the static type is `Schema.Type<typeof X>`; never hand-maintain a ' +
+    'parallel `type` AND a `typeof` AND a `const`). KILL on sight: loose `interface`/`type`-alias proliferation for one concept, `any`/`as ' +
+    'any`/`as unknown as`, `enum` (use a literal-union or a Schema literal), structural-duplicate shapes, and tag-only wrappers.',
+  'ANTICIPATORY_COLLAPSE: shape the owner for the family it WILL absorb so the next case/dimension/modality lands as ONE declaration with every ' +
+    'consumer broken loudly at type-check — one owner READY TO REPLACE 10+ loose things. Discriminated unions are EXHAUSTIVE (total dispatch with ' +
+    '`assertNever`, never a silent default). The exemplary snippet MUST show the owner at large-system scale with the growth axis visible.',
+].join('\n')
+const TS_EFFECT = [
+  'EFFECT-TS IS THE RAIL (ULTRA-CRITICAL): domain logic is `Effect`-shaped — dependent steps compose with `Effect.gen`/`pipe`/`flatMap`, ' +
+    'independent ones accumulate (`Effect.all` with the right concurrency/mode); ZERO `throw` in domain logic (failures are typed in the `Effect` ' +
+    'error channel as tagged errors — a closed `Data.TaggedError`/discriminated family, never a bare `Error` or a string); ZERO raw `Promise` in ' +
+    'domain flow (lift at the boundary). Recovery is `Effect.catchTag`/`catchTags`, retry is `Effect.retry(Schedule)`, resource lifetime is ' +
+    '`Effect.acquireRelease`/`Scope`.',
+  'CROSS-CUTTING capability — retry, telemetry/spans, validation, contracts, caching, receipts — composes as Effect combinators and ' +
+    '`Layer`/`Context` services woven over a THIN PURE CORE, never inline-repeated or hand-rolled; 2-4 co-occurring wrappers collapse into ONE ' +
+    'combinator/Layer. BOUNDARIES are SCHEMA-FIRST: parse-don`t-validate with `@effect/schema` at ingress and egress, branded types carry the ' +
+    'proof inward, and the same owner sources and sinks across consumers without interior edits.',
+].join('\n')
+const TS_CORE_LOGIC = [
+  'WORLD-CLASS ALGORITHMIC BODIES: every body that does real work is expression-shaped — a naive imperative `for`/`while` with mutable accumulation ' +
+    'or an intermediate array where a combinator pipeline or fold expresses it is a DEFECT. Compose the `ReadonlyArray`/`Array`/`Iterable` ' +
+    'combinator surface at depth (`reduce`/`flatMap`/`map`/`filter`/`zip`/`groupBy`/`partition`/`scan` — the Effect `Array`/`Chunk`/`Stream` ' +
+    'operators, never an ad-hoc loop), or an `Effect`/`Stream` pipeline for effectful traversal (`Effect.forEach`/`Effect.reduce`/`Stream.run*` at ' +
+    'the right concurrency); exhaustive discriminated-union dispatch with `assertNever` replaces imperative branching; `const`-asserted readonly ' +
+    'data + structural pattern dispatch replace mutable scans. NO mutable accumulation in domain flow, NO intermediate array a fold would fuse, NO ' +
+    'imperative loop where a total combinator expresses it.',
+].join('\n')
+const PARAM_POLY = [
+  'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality — `T | Iterable<T>` (or the ' +
+    'Schema-discriminated request) normalized ONCE at the head, discriminating on input SHAPE, never a name suffix or a `mode`/`batch`/`strict` ' +
+    'boolean knob (KNOB_TEST: delete each parameter; if the value reconstructs what it carried, it was a knob to collapse).',
+  'Configuration enters as ONE behavior-carrying value — a literal-union member, a tagged variant, a frozen policy record (POLICY_VALUES) — never ' +
+    'a flag set the body re-derives. A `timeout`/`retry`/`deadline` is an Effect aspect/`Schedule`, never a signature param. Cases sharing ' +
+    'generative structure are DERIVED from one primary record/table, never enumerated arms.',
+].join('\n')
+const TS_LANG = [
+  'BLEEDING-EDGE TypeScript ONLY (latest stable): `satisfies`, `const` type parameters, template-literal types, `using`/`await using` for ' +
+    'disposables, the `infer`/conditional/mapped-type toolkit at full power, exhaustive `switch` with an `assertNever(x: never)` sink. `import ' +
+    'type`/`export type` stay explicit; value vs type imports never blur. ZERO `any`, `as any`, `as unknown as`, ' +
+    '`@ts-ignore`/`@ts-expect-error`-without-reason, `enum`, `namespace`, or `throw` in domain logic; `unknown` only at a boundary immediately ' +
+    'parsed by a Schema.',
+  'NOMINAL/BRANDED types carry domain invariants past the boundary (a `Brand`-ed `string`/`number`, or a Schema-refined type), so an interior ' +
+    'function cannot be handed a raw primitive. No `const`+`type`+`typeof` triple for one value (ONE canonical owner, derive the rest). Keep every ' +
+    'choice CONSISTENT across the whole corpus so it reads as ONE unified, ultra-advanced shape system, never a patchwork.',
+].join('\n')
+const TS_CITATION = [
+  'CITATION / LIBRARY DEPTH: the TS substrate is the Effect ecosystem (`effect`, `@effect/schema`, `@effect/platform`, and the admitted Effect ' +
+    'packages) plus the route-owned coding-ts law — mine each to its FULL advanced surface (the deep combinator/Schema/Layer/Stream/Schedule ' +
+    'operators) and STACK them as ONE dense rail, never a flat one-shot per-API use or a `Promise`/BCL-first reflex. Layer the Schema/branded ' +
+    'boundary + the Effect rail + the service `Layer`s together.',
+  'Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` over node_modules ' +
+    '(and the libs/typescript/.api catalogs where present); a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each ' +
+    'package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
+].join('\n')
+const PAGECRAFT = [
+  'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the ' +
+    'rule it proves; the page ends at its last card. CARD ECONOMY: cards are few, deep, evidence-dense; near-peer cards MERGE until each owns a ' +
+    'decision cluster; a card line carries exactly ONE decision; a `Use`/`Accept`/`Reject`/`Law`/`Boundary` field appears only where it decides ' +
+    'something — a field that decides nothing is DELETED, not filled. Tables enumerate, cards legislate (rows stay atomic, no prose cramming, no ' +
+    'links in cells).',
+  'REJECT columns are LOAD-BEARING: every `Use` names the spelling, wrapper, or local pattern it DELETES (a junior TS reflex — `any`, an `enum`, a ' +
+    'hand-thrown error, a const+type+typeof triple — is exactly what a Reject names). CODE NAMES BEFORE PROSE: every member a card or snippet ' +
+    'names is verified against the installed package before written; a nameable surface spelled as prose is a defect. ZERO META: no provenance, ' +
+    'source trace, release narration, process state, or tool/skill context — any such block POISONS every downstream generation that loads the page.',
+].join('\n')
+const AGNOSTIC_SNIPPETS = [
+  'AGNOSTIC SNIPPET LAW (style-guide [07]-[PLACEHOLDER_LAW]): every snippet COMPILES under the active TypeScript surface with legal NEUTRAL ' +
+    'identifiers — `Shape`/`RefinedShape`/`Variant`/`PRIMARY`/`Field`/`KEY`/`Row`/`ROW_A`/`TABLE`/`SELECTED` — and placeholder strings ' +
+    '(`"<value-a>"`) appear ONLY inside literals. NO project, repo, host, customer, pricing, deployment, or business-domain noun anchors a ' +
+    'snippet; a domain noun is context poison.',
+  'CORPUS-WIDE ZERO duplicated snippet demonstrations: each snippet exercises a surface region NO OTHER snippet in the corpus shows — the region ' +
+    'is its spotlight; finalized surfaces composed as supporting material occupy no region and duplicate nothing. A duplicated region is repaired ' +
+    'by ROUTING to its owner, never by re-teaching. Snippets are doctrine-exemplary at full operator depth, ~3-4x denser than ordinary code, at ' +
+    'the scale a large system takes (admission + dispatch + rail + policy in one fence with the growth axis visible).',
+].join('\n')
+const OPINIONATED = [
+  'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a ' +
+    'competent TypeScript developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. ' +
+    'No net-casting to "cover the language"; cover only the opinionated decisions the projects need, each at 13/10.',
+  'LOC budget ~450 is a SOFT pressure signal toward DENSIFICATION, NOT a hard gate. The real metric is per-card and per-snippet density: every ' +
+    'card and every snippet world-class, zero filler. NEVER strip snippet whitespace, remove design content, or fragment a coherent concept to hit ' +
+    'a number; a split is justified ONLY by concept disjointness, never by line count.',
+].join('\n')
+const STYLE_PROSE = [
+  'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the ' +
+    'consequence or boundary. Cut hedges (`may`/`might`/`probably`/`generally`/`where possible`/`if needed`), provenance, process narration, and ' +
+    'report framing. Prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a paragraph. Prose that ' +
+    'ASSERTS capability the fence lacks is a defect, not content.',
+  'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in a code span; name ' +
+    'the exact member instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
+].join('\n')
+const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing. KEEP the canonical section-divider headers (`// --- [UPPERCASE_LABEL]` ' +
+  'dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default ZERO comments; at most ' +
+  '1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant or boundary. No narration, no restating the code, ' +
+  'no TSDoc bloat, no task/process/review comments.'
+const DOCTRINE = [LAW, '', ADVERSARIAL, '', TS_DOCTRINE, '', TS_SHAPE, '', TS_EFFECT, '', TS_CORE_LOGIC, '', PARAM_POLY, '', TS_LANG, '', TS_CITATION, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
@@ -36,78 +176,71 @@ const pool = async (items, cap, worker) => {
   return out
 }
 const nameOf = (p) => p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p
-
-// --- [MODELS] -- doctrine blocks: shared framing (py-parity) + TypeScript-specific law -----
-const LAW = [
-  'TARGET: docs/stacks/typescript/ is the route-owned TypeScript CODE DOCTRINE — a doc set of AGNOSTIC teaching pages that legislate how all project TypeScript is written. It is NOT a libs/typescript/.planning design corpus: a page teaches a coding LAW with one exemplary agnostic snippet, never a concrete module. The README owns routing + the doctrine laws + the COLLAPSE_SCAN; each concept page owns ONE disjoint layer and states doctrine as fact. READ docs/stacks/typescript/README.md sections [02], [03], [05], [06] and hold them as law.',
-  'THE EXISTING TS DOC SET IS TRASH: junior-level, weak, loose, with no cohesive/unified shape system — treat every current page as a DRAFT TO DISCARD, not a base to polish. A CLEAN BREAK: rebuild every core page GROUND-UP; SALVAGE ONLY a fragment that genuinely survives hostile scrutiny; never let the existing weak TS shape it, and never couple the TS doctrine to C#. QUALITY BAR — the HIGHER REFERENCE is the PYTHON doctrine docs/stacks/python/ (the most rigorous, dense stack we built: its page-craft + ~450 soft LOC cap + the shared density laws SHAPE_BUDGET/DEEP_SURFACES/MODAL_ARITY/ANTICIPATORY_COLLAPSE/POLICY_VALUES/OWNER_CHOOSER + extreme ADT/AOP/parameterization/polymorphism). docs/stacks/csharp/ is the FLOOR (the minimum density, never the target). READ BOTH read-only; carry the PY doctrine`s RIGOR and the shared laws into idiomatic bleeding-edge Effect-TS, NEVER a C#/LanguageExt spelling and NEVER a Python idiom either — the shape laws are universal, the spellings are TypeScript`s own. The route-owned TS law is the coding-ts standard — compose it as given.',
-  'WRITE-FULLY MANDATE, scoped to docs/stacks/typescript/** ONLY: every defect you identify you FIX NOW via Edit/Write directly in the file; the fix-log you return is a REPORT of edits ALREADY MADE, never a ledger or a would/should hedge. Edit ONLY files under docs/stacks/typescript/; reading csharp/standards/coding-ts/.api files is allowed, editing anything outside docs/stacks/typescript/ is forbidden. Leave nothing behind except genuine cross-FILE items (report those in residual_high).',
-].join('\n')
-const ADVERSARIAL = [
-  'ADVERSARIAL STANCE — EVERY stage is HOSTILE, and HARSHER than usual because the corpus is KNOWN junior-level trash: assume the page (and any salvaged fragment) is NAIVE, SHALLOW, or ILLUSORY until it survives an aggressive attack; the burden of proof is ON THE PAGE. `finalized`, "mature", "already strong", "good enough", and a prior `clean` grade are REJECTED self-assessments. Default to "rebuild this page ground-up to the strongest form the doctrine admits" and MAKE that rebuild; a no-edit verdict is earned ONLY after a genuinely aggressive attack finds nothing.',
-  'ILLUSORY / FAKE content is the PRIMARY target: a snippet that READS dense yet demonstrates a THIN slice; prose that ASSERTS richness the fence lacks; a card field that decides nothing; a structurally-correct collapse that is semantically empty; a member cited but unverifiable (a PHANTOM — delete it). Treat confident-looking fences with MORE suspicion, and DISBELIEVE every claim the page makes about itself until verified.',
-].join('\n')
-const TS_DOCTRINE = [
-  'HOLD the docs/stacks/typescript/README [02]-[DOCTRINE] laws + the [03]-[COLLAPSE_SCAN] signals as fact, never restated on a concept page; mirror the csharp density laws in TS idiom. BOUNDARY_ADMISSION: raw is admitted EXACTLY ONCE through a Schema parse at the edge into an evidence-carrying owner; the interior never re-validates, never sees `unknown`/`null`-as-failure/provider shape. Run the COLLAPSE_SCAN on every fence: any signal triggers the move, 3+ instances make it mandatory.',
-  'A page that demonstrates a coding law must itself obey every law it can reach — the doctrine pages are the reference implementation of the doctrine.',
-].join('\n')
-const TS_SHAPE = [
-  'EXTREME SHAPE/TYPE DENSITY + ONE CANONICAL FORM (the central mandate, and the corpus`s biggest failure): one concept owns exactly ONE canonical declaration — a `Schema` (with its type DERIVED via `Schema.Schema.Type`), a branded/nominal type, or ONE exhaustive discriminated union — chosen by the OWNER_CHOOSER discriminants. ABSOLUTELY FORBIDDEN: a `const X` + a `type X` + a `typeof X` triple for ONE value/concept — pick the single canonical owner and DERIVE the rest (the Schema is the owner; the static type is `Schema.Type<typeof X>`; never hand-maintain a parallel `type` AND a `typeof` AND a `const`). KILL on sight: loose `interface`/`type`-alias proliferation for one concept, `any`/`as any`/`as unknown as`, `enum` (use a literal-union or a Schema literal), structural-duplicate shapes, and tag-only wrappers.',
-  'ANTICIPATORY_COLLAPSE: shape the owner for the family it WILL absorb so the next case/dimension/modality lands as ONE declaration with every consumer broken loudly at type-check — one owner READY TO REPLACE 10+ loose things. Discriminated unions are EXHAUSTIVE (total dispatch with `assertNever`, never a silent default). The exemplary snippet MUST show the owner at large-system scale with the growth axis visible.',
-].join('\n')
-const TS_EFFECT = [
-  'EFFECT-TS IS THE RAIL (ULTRA-CRITICAL): domain logic is `Effect`-shaped — dependent steps compose with `Effect.gen`/`pipe`/`flatMap`, independent ones accumulate (`Effect.all` with the right concurrency/mode); ZERO `throw` in domain logic (failures are typed in the `Effect` error channel as tagged errors — a closed `Data.TaggedError`/discriminated family, never a bare `Error` or a string); ZERO raw `Promise` in domain flow (lift at the boundary). Recovery is `Effect.catchTag`/`catchTags`, retry is `Effect.retry(Schedule)`, resource lifetime is `Effect.acquireRelease`/`Scope`.',
-  'CROSS-CUTTING capability — retry, telemetry/spans, validation, contracts, caching, receipts — composes as Effect combinators and `Layer`/`Context` services woven over a THIN PURE CORE, never inline-repeated or hand-rolled; 2-4 co-occurring wrappers collapse into ONE combinator/Layer. BOUNDARIES are SCHEMA-FIRST: parse-don`t-validate with `@effect/schema` at ingress and egress, branded types carry the proof inward, and the same owner sources and sinks across consumers without interior edits.',
-].join('\n')
-const PARAM_POLY = [
-  'HEAVY PARAMETERIZATION, ZERO HARDCODING/FRAGILE LOGIC, FULL POLYMORPHISM. ONE entrypoint owns every modality — `T | Iterable<T>` (or the Schema-discriminated request) normalized ONCE at the head, discriminating on input SHAPE, never a name suffix or a `mode`/`batch`/`strict` boolean knob (KNOB_TEST: delete each parameter; if the value reconstructs what it carried, it was a knob to collapse).',
-  'Configuration enters as ONE behavior-carrying value — a literal-union member, a tagged variant, a frozen policy record (POLICY_VALUES) — never a flag set the body re-derives. A `timeout`/`retry`/`deadline` is an Effect aspect/`Schedule`, never a signature param. Cases sharing generative structure are DERIVED from one primary record/table, never enumerated arms.',
-].join('\n')
-const TS_LANG = [
-  'BLEEDING-EDGE TypeScript ONLY (latest stable): `satisfies`, `const` type parameters, template-literal types, `using`/`await using` for disposables, the `infer`/conditional/mapped-type toolkit at full power, exhaustive `switch` with an `assertNever(x: never)` sink. `import type`/`export type` stay explicit; value vs type imports never blur. ZERO `any`, `as any`, `as unknown as`, `@ts-ignore`/`@ts-expect-error`-without-reason, `enum`, `namespace`, or `throw` in domain logic; `unknown` only at a boundary immediately parsed by a Schema.',
-  'NOMINAL/BRANDED types carry domain invariants past the boundary (a `Brand`-ed `string`/`number`, or a Schema-refined type), so an interior function cannot be handed a raw primitive. No `const`+`type`+`typeof` triple for one value (ONE canonical owner, derive the rest). Keep every choice CONSISTENT across the whole corpus so it reads as ONE unified, ultra-advanced shape system, never a patchwork.',
-].join('\n')
-const TS_CITATION = [
-  'CITATION / LIBRARY DEPTH: the TS substrate is the Effect ecosystem (`effect`, `@effect/schema`, `@effect/platform`, and the admitted Effect packages) plus the route-owned coding-ts law — mine each to its FULL advanced surface (the deep combinator/Schema/Layer/Stream/Schedule operators) and STACK them as ONE dense rail, never a flat one-shot per-API use or a `Promise`/BCL-first reflex. Layer the Schema/branded boundary + the Effect rail + the service `Layer`s together.',
-  'Cite ONLY members that exist — verify novel members against the installed packages via `uv run python -m tools.assay api` over node_modules (and the libs/typescript/.api catalogs where present); a member you cannot verify is a PHANTOM to delete. Use the DEEPEST primitive each package reaches (LIBRARY_DEPTH); flat code below that operator depth is surface sprawl.',
-].join('\n')
-const PAGECRAFT = [
-  'PAGE-CRAFT LAW (README [05]-[PAGE_CRAFT]): page grammar is a NARROW index table, then deep FAMILY CARDS, then ONE agnostic snippet beside the rule it proves; the page ends at its last card. CARD ECONOMY: cards are few, deep, evidence-dense; near-peer cards MERGE until each owns a decision cluster; a card line carries exactly ONE decision; a `Use`/`Accept`/`Reject`/`Law`/`Boundary` field appears only where it decides something — a field that decides nothing is DELETED, not filled. Tables enumerate, cards legislate (rows stay atomic, no prose cramming, no links in cells).',
-  'REJECT columns are LOAD-BEARING: every `Use` names the spelling, wrapper, or local pattern it DELETES (a junior TS reflex — `any`, an `enum`, a hand-thrown error, a const+type+typeof triple — is exactly what a Reject names). CODE NAMES BEFORE PROSE: every member a card or snippet names is verified against the installed package before written; a nameable surface spelled as prose is a defect. ZERO META: no provenance, source trace, release narration, process state, or tool/skill context — any such block POISONS every downstream generation that loads the page.',
-].join('\n')
-const AGNOSTIC_SNIPPETS = [
-  'AGNOSTIC SNIPPET LAW (style-guide [07]-[PLACEHOLDER_LAW]): every snippet COMPILES under the active TypeScript surface with legal NEUTRAL identifiers — `Shape`/`RefinedShape`/`Variant`/`PRIMARY`/`Field`/`KEY`/`Row`/`ROW_A`/`TABLE`/`SELECTED` — and placeholder strings (`"<value-a>"`) appear ONLY inside literals. NO project, repo, host, customer, pricing, deployment, or business-domain noun anchors a snippet; a domain noun is context poison.',
-  'CORPUS-WIDE ZERO duplicated snippet demonstrations: each snippet exercises a surface region NO OTHER snippet in the corpus shows — the region is its spotlight; finalized surfaces composed as supporting material occupy no region and duplicate nothing. A duplicated region is repaired by ROUTING to its owner, never by re-teaching. Snippets are doctrine-exemplary at full operator depth, ~3-4x denser than ordinary code, at the scale a large system takes (admission + dispatch + rail + policy in one fence with the growth axis visible).',
-].join('\n')
-const OPINIONATED = [
-  'HEAVILY-OPINIONATED PROJECT DOCTRINE, NOT a language survey. ZERO table-stakes is tolerated, ever: a card or snippet teaching something a competent TypeScript developer already knows — rather than an opinionated, dense, project-specific CHOICE — is a DEFECT to delete or densify. No net-casting to "cover the language"; cover only the opinionated decisions the projects need, each at 13/10.',
-  'LOC budget ~450 is a SOFT pressure signal toward DENSIFICATION, NOT a hard gate. The real metric is per-card and per-snippet density: every card and every snippet world-class, zero filler. NEVER strip snippet whitespace, remove design content, or fragment a coherent concept to hit a number; a split is justified ONLY by concept disjointness, never by line count.',
-].join('\n')
-const STYLE_PROSE = [
-  'PROSE QUALITY — apply docs/standards/style-guide.md: lead each section with the controlling rule/contract; one idea per paragraph; close on the consequence or boundary. Cut hedges (`may`/`might`/`probably`/`generally`/`where possible`/`if needed`), provenance, process narration, and report framing. Prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a paragraph. Prose that ASSERTS capability the fence lacks is a defect, not content.',
-  'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in a code span; name the exact member instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
-].join('\n')
-const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing. KEEP the canonical section-divider headers (`// --- [UPPERCASE_LABEL]` dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default ZERO comments; at most 1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant or boundary. No narration, no restating the code, no TSDoc bloat, no task/process/review comments.'
-const DOCTRINE = [LAW, '', ADVERSARIAL, '', TS_DOCTRINE, '', TS_SHAPE, '', TS_EFFECT, '', PARAM_POLY, '', TS_LANG, '', TS_CITATION, '', PAGECRAFT, '', AGNOSTIC_SNIPPETS, '', OPINIONATED, '', STYLE_PROSE, '', COMMENTS].join('\n')
-
-// --- [OPERATIONS] -- prompt builders -----------------------------------------------------
 const archLine = (arch) => arch ? '\nSETTLED FILE-SET DECISION (honor its charter + what each page SALVAGES vs rebuilds ground-up):\n' + JSON.stringify(arch, null, 1) : ''
-const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: GROUND-UP REBUILD of ' + page + ' to the ULTRA-DENSE TypeScript doctrine bar. The existing content is junior-level TRASH — DISCARD it, salvaging ONLY a fragment that survives hostile scrutiny, and rebuild the page from zero to 13/10. Read the existing page (as trash), the README atlas + doctrine, the sibling pages (cross-page unification), the PYTHON doctrine (the HIGHER reference, READ-ONLY) + docs/stacks/csharp (the FLOOR) + the coding-ts law, the style-guide, and verify members against the Effect/Schema ecosystem (assay api over node_modules). Construct in BOUNDARY_ADMISSION lifecycle order (Schema parse at the edge); collapse parallel shapes into ONE canonical owner (Schema / branded type / exhaustive discriminated union) chosen by OWNER_CHOOSER — and KILL every const+type+typeof triple, loose interface/type-alias spam, `any`, `enum`, and hand-thrown error; weave cross-cutting concerns as Effect combinators/Layers over a thin pure core; parameterize fully; one polymorphic entrypoint per modality; latest bleeding-edge TS only. Make the exemplary snippet AGNOSTIC (neutral names), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the growth axis visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the page`s spotlight `regions`. verdict `rebuilt`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
+const authorPrompt = (page, arch) => [DOCTRINE, '', 'TASK: GROUND-UP REBUILD of ' + page + ' to the ULTRA-DENSE TypeScript doctrine bar. The ' +
+  'existing content is junior-level TRASH — DISCARD it, salvaging ONLY a fragment that survives hostile scrutiny, and rebuild the page from zero ' +
+  'to 13/10. Read the existing page (as trash), the README atlas + doctrine, the sibling pages (cross-page unification), the PYTHON doctrine (the ' +
+  'HIGHER reference, READ-ONLY) + docs/stacks/csharp (the FLOOR) + the coding-ts law, the style-guide, and verify members against the ' +
+  'Effect/Schema ecosystem (assay api over node_modules). Construct in BOUNDARY_ADMISSION lifecycle order (Schema parse at the edge); collapse ' +
+  'parallel shapes into ONE canonical owner (Schema / branded type / exhaustive discriminated union) chosen by OWNER_CHOOSER — and KILL every ' +
+  'const+type+typeof triple, loose interface/type-alias spam, `any`, `enum`, and hand-thrown error; weave cross-cutting concerns as Effect ' +
+  'combinators/Layers over a thin pure core; parameterize fully; one polymorphic entrypoint per modality; latest bleeding-edge TS only. Make the ' +
+  'exemplary snippet AGNOSTIC (neutral names), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the ' +
+  'growth axis visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the ' +
+  'page`s spotlight `regions`. verdict `rebuilt`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
 const critiquePrompt = (page, arch) => [DOCTRINE, '',
-  'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation exists in EVERY fence; trust NOTHING the prose claims; "good enough" rejected. Read the page, the README doctrine, the sibling pages, the python doctrine (higher reference) + csharp (floor) + coding-ts, the style-guide, and verify members via assay api. Run the MECHANICAL checklist and REPAIR every hit in place:',
-  '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination; literal-only differences -> a POLICY_VALUE; boolean selecting bodies -> derived/policy; one-hop function -> delete; parallel dispatch arms -> a record/table or fold; types sharing fields -> one closed family; recurring wrappers -> one combinator/Layer. (2) OWNER_CHOOSER + ONE-CANONICAL-FORM -> replace any non-canonical owner; ELIMINATE every const+type+typeof triple (derive the type from the Schema), loose interface/type-alias proliferation, tag-only wrapper, and structural duplicate. (3) KNOB_TEST -> collapse boolean/mode/strict knobs to policy values or input-shape; move `timeout`/`retry`/`deadline` to an Effect aspect/`Schedule`.',
-  '(4) EFFECT RAIL + SCHEMA BOUNDARY -> domain logic is `Effect`-shaped; ZERO `throw`/raw `Promise` in domain flow; failures are a closed tagged-error family in the error channel; recovery via `catchTag(s)`, retry via `Schedule`, resources via `acquireRelease`/`Scope`; boundaries parse-not-validate with `@effect/schema`; cross-cutting concerns are combinators/Layers, never inline. (5) TYPES -> ZERO `any`/`as any`/`as unknown as`/`enum`/`namespace`; `unknown` only at a Schema boundary; branded/nominal types carry invariants inward; exhaustive discriminated unions with `assertNever`; `import type` discipline; latest TS only. (6) CITATION/DEPTH -> mine the Effect/Schema ecosystem to full depth and STACK it; every member verified (delete phantoms); no flat single-API use below the operator depth the packages reach.',
-  '(7) AGNOSTIC snippet law -> compiles, neutral names, no business noun, large-system scale. (8) PAGE GRAMMAR + card economy + load-bearing reject columns (each `Use` names the junior reflex it deletes). (9) ALTITUDE / NO RE-TEACH -> route any mechanic a finalized prior page owns. (10) ZERO META + style + comments. (11) UNIFIED SHAPE SYSTEM -> this page`s shapes are CONSISTENT with the sibling pages (one corpus-wide shape vocabulary, not a patchwork). (12) CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> close any capability the Effect/Schema surface or the real concept admits that the owner OMITS (case/row/field/operation) with a cite; delete any table-stakes/decorative/speculative card or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
+  'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' + page + '. ULTRA-HARSH, UNAGREEABLE: assume a violation exists in EVERY fence; ' +
+    'trust NOTHING the prose claims; "good enough" rejected. Read the page, the README doctrine, the sibling pages, the python doctrine (higher ' +
+    'reference) + csharp (floor) + coding-ts, the style-guide, and verify members via assay api. Run the MECHANICAL checklist and REPAIR every hit ' +
+    'in place:',
+  '(1) COLLAPSE_SCAN signals (3+ mandatory): sibling names -> one polymorphic entrypoint; arity variants -> input-shape discrimination; ' +
+    'literal-only differences -> a POLICY_VALUE; boolean selecting bodies -> derived/policy; one-hop function -> delete; parallel dispatch arms -> ' +
+    'a record/table or fold; types sharing fields -> one closed family; recurring wrappers -> one combinator/Layer. (2) OWNER_CHOOSER + ' +
+    'ONE-CANONICAL-FORM -> replace any non-canonical owner; ELIMINATE every const+type+typeof triple (derive the type from the Schema), loose ' +
+    'interface/type-alias proliferation, tag-only wrapper, and structural duplicate. (3) KNOB_TEST -> collapse boolean/mode/strict knobs to policy ' +
+    'values or input-shape; move `timeout`/`retry`/`deadline` to an Effect aspect/`Schedule`.',
+  '(4) EFFECT RAIL + SCHEMA BOUNDARY -> domain logic is `Effect`-shaped; ZERO `throw`/raw `Promise` in domain flow; failures are a closed ' +
+    'tagged-error family in the error channel; recovery via `catchTag(s)`, retry via `Schedule`, resources via `acquireRelease`/`Scope`; ' +
+    'boundaries parse-not-validate with `@effect/schema`; cross-cutting concerns are combinators/Layers, never inline. (5) TYPES -> ZERO `any`/`as ' +
+    'any`/`as unknown as`/`enum`/`namespace`; `unknown` only at a Schema boundary; branded/nominal types carry invariants inward; exhaustive ' +
+    'discriminated unions with `assertNever`; `import type` discipline; latest TS only. (6) CITATION/DEPTH -> mine the Effect/Schema ecosystem to ' +
+    'full depth and STACK it; every member verified (delete phantoms); no flat single-API use below the operator depth the packages reach.',
+  '(7) AGNOSTIC snippet law -> compiles, neutral names, no business noun, large-system scale. (8) PAGE GRAMMAR + card economy + load-bearing ' +
+    'reject columns (each `Use` names the junior reflex it deletes). (9) ALTITUDE / NO RE-TEACH -> route any mechanic a finalized prior page owns. ' +
+    '(10) ZERO META + style + comments. (11) UNIFIED SHAPE SYSTEM -> this page`s shapes are CONSISTENT with the sibling pages (one corpus-wide ' +
+    'shape vocabulary, not a patchwork). (12) CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> close any capability the Effect/Schema surface ' +
+    'or the real concept admits that the owner OMITS (case/row/field/operation) with a cite; delete any table-stakes/decorative/speculative card ' +
+    'or snippet. EDIT to fix every hit. Report `extended` and `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
 const redteamPrompt = (page, arch) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE pass, and DELIBERATELY HARSHER than any prior stage because this corpus started as junior trash. Red-team is critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the prior passes claimed. Open the Effect/Schema ecosystem, the sibling pages, the README doctrine, the python doctrine (higher reference) + csharp (floor) + coding-ts, the style-guide. Attack and REPAIR in place — no soft-pedalling, a fix never a ledger:',
-  'LENSES: (A) COUNTERFACTUAL on the core teaching shape — does a denser canonical owner (a richer Schema, a branded family, an exhaustive DU) or a DEEPER Effect/Schema primitive collapse the whole fence? rebuild to it. (B) ANTICIPATORY_COLLAPSE — does the next case/variant land as ONE declaration with consumers broken loudly at type-check? reshape so the growth axis is a case/row/policy value. (C) CORPUS-WIDE UNIFICATION + DUPLICATION — is this page`s shape vocabulary IDENTICAL in spirit to every sibling (one unified system, zero patchwork), and does any snippet re-demonstrate a region a sibling owns (route it)? (D) SHAPE-BUDGET + EFFECT MAXIMIZATION — hunt EVERY residual loose interface/type-alias, every const+type+typeof triple, every `any`/`enum`/`throw`/raw `Promise`, every non-Schema boundary, every inline cross-cutting concern, and rebuild it to the canonical owner / Effect rail / Schema boundary; push more functionality into combinators/Layers over a thinner pure core. (E) DEPTH + PHANTOMS -> flat code below the Effect/Schema operator depth (collapse to package depth); a phantom member (delete it). (F) CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> name an omitted capability with a cite and extend the owner in place; delete table-stakes/decorative/speculative content.',
-  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW: re-attack every critique dimension with fresh hostile eyes. The page must end objectively denser, MORE capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high {files:[...], claim}.' + archLine(arch)].join('\n')
+  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' + page + ' — the LAST and MOST AGGRESSIVE pass, and DELIBERATELY HARSHER than any ' +
+    'prior stage because this corpus started as junior trash. Red-team is critique AND MORE; the burden of proof is ON THE PAGE; trust NOTHING the ' +
+    'prior passes claimed. Open the Effect/Schema ecosystem, the sibling pages, the README doctrine, the python doctrine (higher reference) + ' +
+    'csharp (floor) + coding-ts, the style-guide. Attack and REPAIR in place — no soft-pedalling, a fix never a ledger:',
+  'LENSES: (A) COUNTERFACTUAL on the core teaching shape — does a denser canonical owner (a richer Schema, a branded family, an exhaustive DU) or ' +
+    'a DEEPER Effect/Schema primitive collapse the whole fence? rebuild to it. (B) ANTICIPATORY_COLLAPSE — does the next case/variant land as ONE ' +
+    'declaration with consumers broken loudly at type-check? reshape so the growth axis is a case/row/policy value. (C) CORPUS-WIDE UNIFICATION + ' +
+    'DUPLICATION — is this page`s shape vocabulary IDENTICAL in spirit to every sibling (one unified system, zero patchwork), and does any snippet ' +
+    're-demonstrate a region a sibling owns (route it)? (D) SHAPE-BUDGET + EFFECT MAXIMIZATION — hunt EVERY residual loose interface/type-alias, ' +
+    'every const+type+typeof triple, every `any`/`enum`/`throw`/raw `Promise`, every non-Schema boundary, every inline cross-cutting concern, and ' +
+    'rebuild it to the canonical owner / Effect rail / Schema boundary; push more functionality into combinators/Layers over a thinner pure core. ' +
+    '(E) DEPTH + PHANTOMS -> flat code below the Effect/Schema operator depth (collapse to package depth); a phantom member (delete it). (F) ' +
+    'CAPABILITY-COMPLETENESS + ILLUSION + TABLE-STAKES -> name an omitted capability with a cite and extend the owner in place; delete ' +
+    'table-stakes/decorative/speculative content.',
+  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW: re-attack every critique dimension with fresh hostile eyes. The page must end objectively denser, MORE ' +
+    'capable, more agnostic-compliant, more bleeding-edge, and PART OF ONE UNIFIED SHAPE SYSTEM more than the critique left it; if the strongest ' +
+    'form is genuinely present, prove it by finding nothing — never invent churn. Report `extended` and `regions`. Return residual_high ' +
+    '{files:[...], claim}.' + archLine(arch)].join('\n')
 const sweepPrompt = (page, ledger) => [DOCTRINE, '',
-  'TASK: SEQUENTIAL CORPUS-INTEGRATION SWEEP + FIX IN PLACE of ' + page + '. The prior pages in README atlas order are now FINALIZED. Make this page integrate them IMPLICITLY, share ONE unified shape vocabulary with them, and own a disjoint region. Read THIS page from disk; you are given the REGION LEDGER of every prior finalized page as data (NOT bodies) — read a prior body ONLY when the ledger flags a candidate collision.',
-  'ENFORCE: (1) ALTITUDE ROUTING — route any mechanic the ledger shows owned upstream (compose as settled supporting material; never re-teach a prior law). (2) NO DUPLICATE SNIPPET — demote any snippet exercising an owned region and pick an UNOWNED spotlight, or delete it. (3) UNIFIED SHAPE SYSTEM + DENSITY — the page`s canonical owners, Effect rails, and Schema boundaries are CONSISTENT with the finalized priors (one corpus, not a patchwork); end denser, fully agnostic, table-stakes-free, within the soft ~450 LOC density signal (never split a coherent concept or strip snippet whitespace).',
-  'REGION LEDGER (finalized priors):\n' + JSON.stringify(ledger, null, 1) + '\nEDIT this page to fix every hit. Return UPDATED `owned_regions`, `rerouted`, verdict, and residual_high {files:[...], claim}.'].join('\n')
-
-// --- [STAGES] ----------------------------------------------------------------------------
+  'TASK: SEQUENTIAL CORPUS-INTEGRATION SWEEP + FIX IN PLACE of ' + page + '. The prior pages in README atlas order are now FINALIZED. Make this ' +
+    'page integrate them IMPLICITLY, share ONE unified shape vocabulary with them, and own a disjoint region. Read THIS page from disk; you are ' +
+    'given the REGION LEDGER of every prior finalized page as data (NOT bodies) — read a prior body ONLY when the ledger flags a candidate collision.',
+  'ENFORCE: (1) ALTITUDE ROUTING — route any mechanic the ledger shows owned upstream (compose as settled supporting material; never re-teach a ' +
+    'prior law). (2) NO DUPLICATE SNIPPET — demote any snippet exercising an owned region and pick an UNOWNED spotlight, or delete it. (3) UNIFIED ' +
+    'SHAPE SYSTEM + DENSITY — the page`s canonical owners, Effect rails, and Schema boundaries are CONSISTENT with the finalized priors (one ' +
+    'corpus, not a patchwork); end denser, fully agnostic, table-stakes-free, within the soft ~450 LOC density signal (never split a coherent ' +
+    'concept or strip snippet whitespace).',
+  'REGION LEDGER (finalized priors):\n' + JSON.stringify(ledger, null, 1) + '\nEDIT this page to fix every hit. Return UPDATED `owned_regions`, ' +
+    '`rerouted`, verdict, and residual_high {files:[...], claim}.'].join('\n')
 const STAGES = [
   { key: 'rebuild', build: authorPrompt, effort: 'max' },
   { key: 'crit', build: critiquePrompt, effort: 'xhigh' },
@@ -125,24 +258,55 @@ const processPage = async (page, arch) => {
 const regionsOf = (logs) => { for (const st of ['redteam', 'crit', 'rebuild']) { const l = logs[st]; if (l && l.regions && l.regions.length) return l.regions } return [] }
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
+
 phase('Inventory')
-const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] table. Return every CONCEPT page under ' + ROOT + ' as a row {path (repo-relative, e.g. ' + ROOT + '/shapes.md), order (atlas position, integer)}, EXCLUDING README.md and any `planned` page that does not exist on disk. For each existing page add `salvage` (a one-line note on any fragment genuinely worth reconstituting, or "none — rebuild ground-up") and `regions` (its current snippet-demonstration region tags). The content is known junior-level trash; be skeptical of what you mark salvageable. Use find/read; do not cd; do not edit.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
+const inv = await agent('Read ' + ROOT + '/README.md and parse the [01]-[ATLAS] table. Return every CONCEPT page under ' + ROOT + ' as a row {path ' +
+  '(repo-relative, e.g. ' + ROOT + '/shapes.md), order (atlas position, integer)}, EXCLUDING README.md and any `planned` page that does not exist ' +
+  'on disk. For each existing page add `salvage` (a one-line note on any fragment genuinely worth reconstituting, or "none — rebuild ground-up") ' +
+  'and `regions` (its current snippet-demonstration region tags). The content is known junior-level trash; be skeptical of what you mark ' +
+  'salvageable. Use find/read; do not cd; do not edit.', { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL })
 const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)
 log('Inventory: ' + invFiles.length + ' current (trash) TS doc pages under ' + ROOT)
 
+// --- [RECONSIDER]
 phase('Reconsider')
-const ANGLES = ['ground-up-from-doctrine: design the settled TS file set purely from the doctrine concerns (the layers a world-class TS code standard must own), treating the existing files as zero; salvage nothing unless it is genuinely world-class', 'csharp-parity: mirror the docs/stacks/csharp core decomposition (README/language/shapes/surfaces-and-dispatch/rails-and-effects/boundaries/system-apis + a type-system layer if TS needs one) adapted to bleeding-edge Effect-TS idiom', 'effect-first: organize the file set around the Effect/Schema lifecycle (admission via Schema, shape ownership, the Effect rail + services, boundaries, system surfaces), one dense page per concern, adding/splitting only where a concept is genuinely disjoint']
-const draftBase = (angle) => [DOCTRINE, '', 'TASK: TS FILE-SET RECONSIDER DRAFT (no content edits — DECISION only) from this angle: ' + angle + '. The existing docs/stacks/typescript pages are junior-level TRASH; treat them as a blank slate and decide the SETTLED file set a world-class, bleeding-edge, Effect-TS-first code doctrine must own. Read the existing files (only to judge what — if anything — is salvageable), the README atlas + doctrine, the coding-ts law, the docs/stacks/python doctrine (the HIGHER density + structure reference) and docs/stacks/csharp (the FLOOR), both READ-ONLY, and research bleeding-edge TypeScript + Effect/Schema practice. Decide the final ordered file set: each page {path, charter (the ONE disjoint layer it owns), salvage (the fragment worth reconstituting, or "none"), isNew}. A split/add/rename is justified ONLY by concept disjointness. Heavily-opinionated, zero table-stakes. Return the draft file set + renames + rationale.'].join('\n')
+const ANGLES = ['ground-up-from-doctrine: design the settled TS file set purely from the doctrine concerns (the layers a world-class TS code ' +
+  'standard must own), treating the existing files as zero; salvage nothing unless it is genuinely world-class', 'csharp-parity: mirror the ' +
+  'docs/stacks/csharp core decomposition (README/language/shapes/surfaces-and-dispatch/rails-and-effects/boundaries/system-apis + a type-system ' +
+  'layer if TS needs one) adapted to bleeding-edge Effect-TS idiom', 'effect-first: organize the file set around the Effect/Schema lifecycle ' +
+  '(admission via Schema, shape ownership, the Effect rail + services, boundaries, system surfaces), one dense page per concern, adding/splitting ' +
+  'only where a concept is genuinely disjoint']
+const draftBase = (angle) => [DOCTRINE, '', 'TASK: TS FILE-SET RECONSIDER DRAFT (no content edits — DECISION only) from this angle: ' + angle + '. ' +
+  'The existing docs/stacks/typescript pages are junior-level TRASH; treat them as a blank slate and decide the SETTLED file set a world-class, ' +
+  'bleeding-edge, Effect-TS-first code doctrine must own. Read the existing files (only to judge what — if anything — is salvageable), the README ' +
+  'atlas + doctrine, the coding-ts law, the docs/stacks/python doctrine (the HIGHER density + structure reference) and docs/stacks/csharp (the ' +
+  'FLOOR), both READ-ONLY, and research bleeding-edge TypeScript + Effect/Schema practice. Decide the final ordered file set: each page {path, ' +
+  'charter (the ONE disjoint layer it owns), salvage (the fragment worth reconstituting, or "none"), isNew}. A split/add/rename is justified ONLY ' +
+  'by concept disjointness. Heavily-opinionated, zero table-stakes. Return the draft file set + renames + rationale.'].join('\n')
 const drafts = (await parallel(ANGLES.map((a, i) => () => agent(draftBase(a), { label: 'arch-draft:' + i, phase: 'Reconsider', schema: ARCH_DRAFT_SCHEMA, effort: 'xhigh', stallMs: STALL })))).filter(Boolean)
-const synth = await agent([DOCTRINE, '', 'TASK: TS FILE-SET SYNTHESIS (no content edits — DECISION only). Three drafts propose the settled docs/stacks/typescript file set. Score each on coverage (every world-class-TS concern owned, no gap), density (each page a dense closed concept, no thin pages), disjointness (no page re-opens a sibling`s layer), and growth (a new concern lands as a card inside an owner, not a new page). SYNTHESIZE the single strongest settled file set, grafting the best of each draft; salvage a fragment ONLY where it is genuinely world-class. Return the merged decision: the final ordered file set with per-page charter/salvage/isNew, renames, rationale.\nDRAFTS:\n' + JSON.stringify(drafts, null, 1)].join('\n'), { label: 'arch-synth', phase: 'Reconsider', schema: ARCH_DECISION_SCHEMA, effort: 'max', stallMs: STALL })
-const arch = await agent([DOCTRINE, '', 'TASK: TS FILE-SET RED-TEAM GATE + APPLY STRUCTURE. HOSTILELY attack the synthesized settled file set BEFORE any content is authored: is any page thin/table-stakes/loose (merge or kill it)? is any salvage claim too generous (the corpus is trash — demand it be genuinely world-class or mark it rebuild-ground-up)? does the set own every layer a bleeding-edge Effect-TS code doctrine needs (admission/Schema, shape + the one-canonical-form law, the Effect rail, boundaries, system surfaces, dispatch), with no gap and no page re-opening a sibling? Fix the decision to the strongest defensible settled file set. THEN APPLY ONLY THE STRUCTURE: `git mv` each rename; create a skeleton file (H1 `# [<TOKEN>]` + one-line lead + `## [1]-[INDEX]` stub) for each isNew page; do NOT author content (the Rebuild authors realize content ground-up per each page`s charter/salvage). Edit ONLY under ' + ROOT + '/. Return the FINAL settled file set (ordered, per-page charter/salvage/isNew), the applied renames, and the rationale.\nSYNTHESIZED:\n' + JSON.stringify(synth, null, 1)].join('\n'), { label: 'arch-gate', phase: 'Reconsider', schema: ARCH_DECISION_SCHEMA, effort: 'max', stallMs: STALL })
+const synth = await agent([DOCTRINE, '', 'TASK: TS FILE-SET SYNTHESIS (no content edits — DECISION only). Three drafts propose the settled ' +
+  'docs/stacks/typescript file set. Score each on coverage (every world-class-TS concern owned, no gap), density (each page a dense closed ' +
+  'concept, no thin pages), disjointness (no page re-opens a sibling`s layer), and growth (a new concern lands as a card inside an owner, not a ' +
+  'new page). SYNTHESIZE the single strongest settled file set, grafting the best of each draft; salvage a fragment ONLY where it is genuinely ' +
+  'world-class. Return the merged decision: the final ordered file set with per-page charter/salvage/isNew, renames, rationale.\nDRAFTS:\n' + JSON.stringify(drafts, null, 1)].join('\n'), { label: 'arch-synth', phase: 'Reconsider', schema: ARCH_DECISION_SCHEMA, effort: 'max', stallMs: STALL })
+const arch = await agent([DOCTRINE, '', 'TASK: TS FILE-SET RED-TEAM GATE + APPLY STRUCTURE. HOSTILELY attack the synthesized settled file set ' +
+  'BEFORE any content is authored: is any page thin/table-stakes/loose (merge or kill it)? is any salvage claim too generous (the corpus is trash ' +
+  '— demand it be genuinely world-class or mark it rebuild-ground-up)? does the set own every layer a bleeding-edge Effect-TS code doctrine needs ' +
+  '(admission/Schema, shape + the one-canonical-form law, the Effect rail, boundaries, system surfaces, dispatch), with no gap and no page ' +
+  're-opening a sibling? Fix the decision to the strongest defensible settled file set. THEN APPLY ONLY THE STRUCTURE: `git mv` each rename; ' +
+  'create a skeleton file (H1 `# [<TOKEN>]` + one-line lead + `## [1]-[INDEX]` stub) for each isNew page; do NOT author content (the Rebuild ' +
+  'authors realize content ground-up per each page`s charter/salvage). Edit ONLY under ' + ROOT + '/. Return the FINAL settled file set (ordered, ' +
+  'per-page charter/salvage/isNew), the applied renames, and the rationale.\nSYNTHESIZED:\n' + JSON.stringify(synth, null, 1)].join('\n'), { label: 'arch-gate', phase: 'Reconsider', schema: ARCH_DECISION_SCHEMA, effort: 'max', stallMs: STALL })
 const archFiles = ((arch && arch.files) || []).filter((f) => f && f.path).sort((a, b) => a.order - b.order)
 const ordered = archFiles.length ? archFiles.map((f) => f.path) : invFiles.map((f) => f.path)
-log('Reconsider: settled TS set = ' + ordered.length + ' pages' + (arch && arch.renames && arch.renames.length ? ' (' + arch.renames.length + ' renames)' : ''))
+log('Reconsider: settled TS set = ' + ordered.length + ' pages' + (arch && arch.renames && arch.renames.length ? ' (' + arch.renames.length + ' ' +
+  'renames)' : ''))
 
+// --- [REBUILD]
 phase('Rebuild')
 const done = (await pool(ordered, CAP, (page) => processPage(page, arch))).filter(Boolean)
 
+// --- [SWEEP]
 phase('Sweep')
 const ledger = []
 const sweepLogs = []
@@ -156,7 +320,6 @@ for (let i = 0; i < ordered.length; i++) {
 }
 log('Sweep: ' + sweepLogs.length + '/' + ordered.length + ' pages integrated in atlas order')
 
-// --- [RECONCILE] -------------------------------------------------------------------------
 const norm = (x, page) => typeof x === 'string' ? { files: [page], claim: x } : { files: x.files && x.files.length ? x.files : [page], claim: x.claim }
 const allRes = []
 for (const r of done) for (const st of ['rebuild', 'crit', 'redteam']) { const l = r.logs && r.logs[st]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push(norm(x, r.page)) }
@@ -174,9 +337,14 @@ let reconciled = []
 if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. NO severity — treat EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place (unify the shared canonical owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue), preserving all capability and keeping ONE unified shape system; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
+    const fix = await agent([DOCTRINE, '', 'TASK: RECONCILE these cross-FILE residuals the per-page + sweep passes deferred. NO severity — treat ' +
+      'EVERY residual as must-address. Read EVERY listed file. For each real cross-file defect, FIX it in place (unify the shared canonical ' +
+      'owner/Schema/Effect rail/region across files, or repair the altitude/duplication issue), preserving all capability and keeping ONE unified ' +
+      'shape system; if a residual is FACTUALLY INCORRECT, leave it and say why. Edit ONLY under ' + ROOT + '/. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix', phase: 'Reconcile', schema: RECONCILE_FIX_SCHEMA, effort: 'max', stallMs: STALL })
     if (!fix) return null
-    const verify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: "fixed", "invalid" (cite why), or "open". Default to "open" on any doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
+    const verify = await agent([LAW, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each ' +
+      'residual: "fixed", "invalid" (cite why), or "open". Default to "open" on any doubt. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the ' +
+      'fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: STALL })
     return { cluster: cl, fix, verify }
   })).filter(Boolean)
 }

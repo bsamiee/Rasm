@@ -64,7 +64,7 @@ if (!FILE || (values.mode !== 'sim' && values.mode !== 'real')) {
 const loadJson = (v, label) => { if (v == null) return undefined; try { return JSON.parse(v.startsWith('@') ? readFileSync(v.slice(1), 'utf8') : v) } catch (e) { console.error(`cannot parse --${label}: ${e.message}`); process.exit(2) } }
 const FIXTURES = loadJson(values.fixtures, 'fixtures') || {}
 
-// --- [OPERATIONS] -- deterministic fixture synthesis from a JSON Schema --------
+// --- [OPERATIONS] ------------------------------------------------------------
 // arrays get exactly one element so control flow proceeds past `.length` guards; a
 // `--fixtures` map keyed by an agent label (exact or prefix) overrides per stage.
 const synth = (schema, depth = 0) => {
@@ -87,7 +87,6 @@ const fixtureFor = (opts) => {
   return opts && opts.schema ? synth(opts.schema) : '<' + (label || 'agent') + '>'
 }
 
-// --- [OPERATIONS] -- mocked DSL globals over a shared recorder -----------------
 const makeGlobals = (rec, absFile) => {
   let inflight = 0
   const agent = async (prompt, opts = {}) => {
@@ -133,7 +132,6 @@ const runBody = async (src, args, rec, absFile) => {
 const freshRecorder = () => ({ seq: 0, depth: 0, maxConcurrent: 0, agents: [], phases: [], nested: [], console: [], warnings: new Set() })
 const traceOf = (rec, result) => JSON.stringify({ agents: rec.agents.map((a) => ({ phase: a.phase, label: a.label, model: a.model, effort: a.effort, hasSchema: a.hasSchema })), phases: rec.phases, nested: rec.nested, result })
 
-// --- [OPERATIONS] -- simulate: parse-check + run-twice determinism + report ---
 const simulate = async (absFile, args) => {
   let src
   try { src = readFileSync(absFile, 'utf8') } catch (e) { return { file: absFile, mode: 'sim', parseOk: false, ran: false, deterministic: null, error: `cannot read ${absFile}: ${e.code || e.message}` } }

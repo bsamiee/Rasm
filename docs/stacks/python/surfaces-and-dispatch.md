@@ -25,7 +25,7 @@ When a concern matches several rows, the most specific wins; the rail axis is re
 
 [REQUEST_COLLAPSE]:
 - Law: one concern exposes one entrypoint; a verb family is a `@tagged_union` with one `case()` per verb under the settled total `match`, and each sibling's distinct parameters become its case payload while the shared preamble becomes the dispatch prologue executed once before the `match` — the verb set is the closed family the exhaustiveness mechanic proves, so a new verb is one case that breaks every dispatch arm at type-check, never a sibling `create`/`update` function beside the union.
-- Law: admission is two-tier — the private `@tagged_union` constructor seals the case family, and one `of_*` classmethod returning `Result[Request, Fault]` is the validated ingress, so the dispatch interior is total over well-formed requests and never re-checks a field the factory already proved; a verb's independent field checks compose applicatively through `map2` over the field rails rather than a nested abort ladder, and whether that composition short-circuits or accumulates is the `[06]` join decision, fixed once at the factory boundary.
+- Law: admission is two-tier — the private `@tagged_union` constructor seals the case family, and one `of_*` classmethod returning `Result[Request, Fault]` is the validated ingress, so the dispatch interior is total over well-formed requests and never re-checks a field the factory already proved; a verb's independent field checks compose applicatively through `map2` over the field rails rather than a nested abort ladder, and whether that composition short-circuits or accumulates is the rail page's disposition carried as the factory's policy value, fixed once at the admission boundary.
 - Use: `@tagged_union` named cases when verbs carry distinct fields; a `StrEnum` discriminant on one frozen owner when the verbs share one field set and differ only by tag.
 - Reject: a request shaped as success-or-failure — rails own outcome transport; a `dispatch(verb: str, **kwargs)` signature where `verb` is an open string and `kwargs` is an untyped bag.
 
@@ -80,23 +80,25 @@ def dispatched(request: Request, ledger: "Ledger", /) -> Result["Receipt", Ledge
 
 [ARITY_ABSORPTION]:
 - Law: singular, multi-item, and empty call sites collapse into one parameter typed `T | Iterable[T]`; the body normalizes once at the head and the rest of the function sees one shape, so arity is a property of the argument, never of the signature, and the discriminant is recoverable from the value, never restated by a `many: bool` or a `count: int` the value's length already answers.
-- Law: the normalization is one structural `match` — a sequence of owners, an empty sequence, a lone owner — read in that order so the broadest container pattern wins before the lone fallback.
+- Law: the normalization is one structural `match` — one guarded `Iterable()` arm admitting every container, the empty one included, then the lone fallback — so the broadest container pattern wins before the singleton and an empty call still yields the `Block` the reducer seeds over; a second concrete-sequence arm beside the guarded one is the rejected redundancy, because `tuple`/`list` already satisfy the guarded arm and route to the same `Block.of_seq`.
 - Exemption: Python has no span boundary, and `str`/`bytes` are themselves `Iterable`, so the `Iterable()` normalization arm carries one guard — `if not isinstance(stream, (str, bytes))` — to keep a string from shattering into characters; this `str`/`bytes` exclusion is the named platform-forced seam, not a free-form guard, and a domain whose lone-value type is itself iterable normalizes by a closed-owner match instead, never by a second guard.
 - Use: `*items: T` only when the call site genuinely lists positional arguments; a single `T | Iterable[T]` parameter when the caller already holds a collection, because `*items` forces an unpack the caller did not ask for.
 - Reject: a `batch` flag, a `mode` flag, or sibling `process`/`process_many` functions; `singular`/`plural`/`stream` name suffixes that re-describe the input the value already carries; a guard beyond the named `str`/`bytes` seam that smuggles a discriminant the value already answers.
 
 [MODALITY_FOLD]:
-- Law: singular, plural-preserving, and plural-reducing are one arm under three combinators — `Block.map` for singular and plural-preserving with shape intact, `Block.fold` keyed on the monoid policy value for plural-reducing — the same arm, the reducer alone switching the algebra; a case whose payload is a tuple spreads through `Result.map2`/`Option.starmap` rather than an unpacking lambda, so the join names no positional accessor.
-- Boundary: the fail-fast-versus-accumulate sequencing operator and the seed-`bind` reducer it drives are the rail page's `threaded`; this surface composes that reducer to carry the failure semantics and spends its own lines on the arity normalization and the monoid-keyed reduction, never re-deriving the fold.
-- Use: the rail's own `bind`/`map` so the carrier owns short-circuit; the combinator is the sequencing policy, never a tuning flag.
-- Reject: a manual index counter, a mutable accumulator list appended in a `for` loop, and `zip` across unequal lengths without `zip(strict=True)` proving the arity invariant.
+- Law: singular, plural-preserving, and plural-reducing are one arm under two combinators — `Block.map` carries singular and plural-preserving with shape intact, `Block.fold(combine, empty)` keyed on the `Monoid` policy value carries plural-reducing — the reducer alone switching the algebra; the empty call the `[03]` normalization admits is why the reducer is `fold` over the monoid's identity and never `reduce`, which has no seed and raises on the empty `Block` the arity head produces.
+- Law: a case whose payload is a tuple spreads through `Result.map2`/`Option.starmap` rather than an unpacking lambda, so the reduction names no positional accessor and `Monoid.combine` stays a pure binary step.
+- Boundary: the carrier threading and the abort-versus-accumulate disposition are the rail page's, performed by `expression.extra.result.traverse` over the railed block; this surface composes `traverse` to carry the failure semantics and spends its lines on the arity normalization and the monoid-keyed reduction, never re-deriving the threader the substrate ships or the disposition the rail owns.
+- Use: the `Monoid` frozen owner (`empty` identity plus `combine` step) as the reduction policy value the call hands in, so plural-reducing over zero, one, or many items is total; `traverse` so the carrier owns short-circuit and the `Monoid` owns the algebra.
+- Reject: a `reduce` on the empty `Block` the arity head already admits; a `mode`/`reduce` flag selecting the algebra the `Monoid` value already carries; a mutable accumulator the `fold` replaces.
 
 ```python conceptual
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from expression import Ok, Result
+from expression import Result
 from expression.collections import Block
+from expression.extra.result import traverse
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -105,23 +107,20 @@ class Monoid[R]:
     combine: Callable[[R, R], R]
 
 
-def threaded[T, E](acc: Result[Block[T], E], result: Result[T, E], /) -> Result[Block[T], E]:  # the rail page's reducer
-    return acc.bind(lambda done: result.map(lambda value: done.append(Block.singleton(value))))
-
-
 def normalized[T](items: T | Iterable[T], /) -> Block[T]:
     match items:
-        case tuple() | list() as many:
-            return Block.of_seq(many)
         case Iterable() as stream if not isinstance(stream, (str, bytes)):
             return Block.of_seq(stream)
         case lone:
             return Block.singleton(lone)
 
 
-def swept[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], reduce: Monoid[R], /) -> Result[R, E]:
-    railed = normalized(items).map(step)
-    return railed.fold(threaded, Ok(Block.empty())).map(lambda kept: kept.fold(reduce.combine, reduce.empty))
+def preserved[T, R](items: T | Iterable[T], step: Callable[[T], R], /) -> Block[R]:
+    return normalized(items).map(step)
+
+
+def swept[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], monoid: Monoid[R], /) -> Result[R, E]:
+    return traverse(step, normalized(items)).map(lambda kept: kept.fold(monoid.combine, monoid.empty))
 ```
 
 ## [04]-[PARAMETER_ALGEBRA]
@@ -129,7 +128,7 @@ def swept[T, R, E](items: T | Iterable[T], step: Callable[[T], Result[R, E]], re
 [POLICY_VALUES]:
 - Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed and no `if`/`match` reconstructs at the call site what the value already encodes.
 - Law: behavior-bearing policy is one frozen owner whose fields include the callable step, or a `frozendict` policy table keyed on the discriminant; a `StrEnum` member carries a column only when the column is data, and the callable lives on the owner the enum selects — chooser row `[04]` is exactly this, the vocabulary member owning its behavior so the dispatch is the member's own method, never a full-coverage `match` re-spelled per call site.
-- Law: a package whose entry point already accepts a behavior value takes the policy directly — `stamina.retry`'s `on=` is an `ExcOrBackoffHook` discriminator, so a `Callable[[Exception], bool | float | timedelta]` that decides retry and overrides the backoff per error is the policy value, never a `bool` plus a separate `delay` parameter the body recombines.
+- Law: a package whose entry point already accepts a behavior value takes the policy directly — `stamina.retry`'s `on=` is an `ExcOrBackoffHook` discriminator, so a `Callable[[Exception], bool | float | timedelta]` that decides retry and overrides the backoff per error is the policy value the resilience weave consumes, carried as a field on the policy owner beside the domain `step`, never a `bool` plus a separate `delay` parameter the body recombines.
 - Use: a frozen dataclass with a `Callable` field and named module-level instances (`STRICT`, `LENIENT`) as the policy family, the caller passing the instance and the entrypoint calling `policy.step(...)`; the package's own behavior-valued knob where it owns the concern.
 - Reject: a `strict: bool` parameter selecting between two bodies; a behavioral near-twin chosen by flag rather than by the value that encodes the boundary behavior.
 
@@ -185,6 +184,7 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
 [TABLE_DISPATCH]:
 - Law: the table chooses this form when the key is a value and the result is static data — the `language.md` `frozendict` table (its single-edit-site primary and comprehension-derived secondaries) is the settled owner; this form's own decision is that the lookup is the dispatch, replacing an `if`/`elif` ladder, and that the table's `None`-for-absent-key is projected to `Option` or a typed fault at the call boundary so absence never rides a sentinel value inside the table.
 - Law: routing a raw token through the table admits it first — enum-value membership crosses through `EnumType(value)` under `try`/`except ValueError` projected to `Option`/`Result`, so an unknown key becomes a fault at the seam and the interior lookup is total, never a reach into `EnumType._value2member_map_` or any other private dunder.
+- Exemption: the `EnumType(value)` `try`/`except ValueError` is the measured admission kernel — the platform-forced statement seam where a raw token crosses into the closed vocabulary, projected to `Option`/`Result` so every interior lookup past it is total over admitted members and no second statement survives in the dispatch body.
 - Use: the table lookup as the dispatch when the key maps to static data; the `enum` member as the key when the vocabulary is closed and process-local.
 - Reject: a table whose values are callables the owning vocabulary carries as case methods (chooser row `[04]`); an `if value in EnumType._value2member_map_` private-internal membership probe; an `if`/`elif` ladder restating a correspondence the table already holds.
 
@@ -197,9 +197,13 @@ def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -
 from collections.abc import Sequence
 from enum import StrEnum
 from functools import singledispatch
+from typing import Literal
 
 from builtins import frozendict
 from expression import Error, Nothing, Ok, Result, Some
+
+
+type RouteFault = Literal["<unknown>", "<no-arm>"]
 
 
 class Marker(StrEnum):
@@ -210,21 +214,21 @@ class Marker(StrEnum):
 WEIGHT: frozendict[Marker, tuple[int, str]] = frozendict({Marker.PRIMARY: (1, "<label-a>"), Marker.SECONDARY: (2, "<label-b>")})
 
 
-def weighted(raw: str, /) -> Result[tuple[int, str], str]:
+def weighted(raw: str, /) -> Result[tuple[int, str], RouteFault]:
     try:
         admitted = Some(Marker(raw))
     except ValueError:
         admitted = Nothing
-    return admitted.map(WEIGHT.__getitem__).to_result(f"<unknown:{raw}>")
+    return admitted.map(WEIGHT.__getitem__).to_result("<unknown>")
 
 
 @singledispatch
-def rendered(value: object, /) -> Result[str, str]:
-    return Error(f"<no-arm:{type(value).__name__}>")
+def rendered(value: object, /) -> Result[str, RouteFault]:
+    return Error("<no-arm>")
 
 
 @rendered.register
-def _(value: Marker, /) -> Result[str, str]:
+def _(value: Marker, /) -> Result[str, RouteFault]:
     return Ok(WEIGHT[value][1])
 
 
@@ -236,23 +240,20 @@ rendered.register(Sequence, lambda value: Ok(f"<seq:{len(value)}>"))
 [ONE_RAIL_SURFACE]:
 - Law: the form selects which arm runs; the rail the arms return selects how results combine — orthogonal axes. One function whose body composes through `bind`/`map` serves `Result` and `Option` by member-name overlap over the union `Result[T, E] | Option[T]`, not by a shared higher-kinded carrier — `expression` exposes no common monadic supertype, the only shared bases being `Iterable`, `PipeMixin`, and `object` — so the per-rail sibling family is the rejected form while the neutral body stays restricted to the literal `map`/`bind`/`default_value` names both carriers expose and never names `Ok`/`Some`/`Error`/`Nothing`, because the moment it constructs a carrier by name it commits to one and the union stops type-checking.
 - Law: the rail is chosen once at the function's boundary and threaded unchanged; `Result.to_option` and `Option.to_result` migrate the rail exactly once at a boundary, never mid-pipeline, because the round trip stamps over the original fault.
+- Law: a conditional inside the dispatch body is a fourth dispatch smuggled into combination — its only legitimate content is total construction over already-railed values — so it lifts into its own arm and the body stays a pure `map`/`bind` composition; independent operands join through `map2`/`starmap` over the rail, never an `if` reconstructing a discriminant the value already carries.
+- Boundary: which join the body uses and whether it aborts on the first fault or accumulates every one is the rail page's disposition, threaded here as the `[04]` policy value the dispatch carries; this surface composes that decision and never re-derives the `map2`-versus-fold mechanics or the fault-combining monoid the rail owns.
 - Use: a generic `[T, E]` signature whose body names only `map`/`bind`/`default_value`, deleting the `run_result`/`run_option` sibling pair and admitting any fault vocabulary; the rail page's `@effect.result`/`@effect.option` builders own the sequential `yield from` form, reached only when one carrier is already fixed.
-
-[INDEPENDENT_JOIN]:
-- Law: independent computations combine through `map2` (two operands), `starmap` (one tuple-carrying operand), or a railed comprehension over a fixed tuple, and dependent steps chain through `bind`; the choice is load-bearing because a `bind` chain over independent operands reports only the first failure and silently discards the rest.
-- Law: `Result.map2(other, f)` runs both operands and applies `f` to the pair, short-circuiting on the first `Error`; an accumulating join that reports every independent fault folds the faults through the error type's own combination before reporting.
-- Reject: a branch inside the join whose only legitimate content is total construction over already-railed values; a branch is a fourth dispatch smuggled into combination and lifts into its own arm.
 
 [ITERATIVE_DISPATCH]:
 - Law: a dependent dispatch loop — each step's successor decided by the prior step's case — is one `tailrec` function over a closed continue-or-done step, the live case picking the next seed and a terminal case returning the fixpoint, so the stack never grows and the loop carries no mutable index; the split is the continue-or-done axis of one `@tagged_union` — one advance case against a closed terminal sub-family that distinguishes the settled fixpoint from each divergence cause — never a sentinel return or a `None` terminator the caller re-reads.
-- Law: the step is a pure function returning `TailCall(*next_seed)` to recurse or a plain terminal to complete; a fallible step threads the rail by returning the carrier as the terminal, so the trampoline drives dependent dispatch to a fixpoint and the boundary lifts the terminal once — `match` over the step's own two cases is the dispatch, `tailrec` is the driver, and the two stay orthogonal exactly as form and rail do.
+- Law: the step is a pure function returning `TailCall(*next_seed)` to recurse or a plain terminal to complete; a fallible step threads the rail by returning the carrier as the terminal, so the trampoline drives dependent dispatch to a fixpoint and the boundary lifts the terminal once — `match` over the step's own continue-or-done cases is the dispatch, `tailrec` is the driver, and the two stay orthogonal exactly as form and rail do.
 - Use: `tailrec` for bounded fixpoint iteration the call modality folds over — a settle loop, a refinement sweep, a state-machine advance whose verb the prior state selects; the `@effect.result` do-notation when the chain is dependent but not iterative.
 - Reject: an open `def f(): ... return f(...)` recursion that grows the stack on deep input; a `while` loop mutating an accumulator; a `count` parameter bounding a loop whose terminal case already answers when to stop.
 
 ```python conceptual
 from typing import Literal, assert_never
 
-from expression import Error, Ok, Result, TailCall, TailCallResult, case, tag, tagged_union, tailrec
+from expression import Error, Ok, Option, Result, TailCall, TailCallResult, case, tag, tagged_union, tailrec
 
 
 type StepFault = Literal["<diverged>"]
@@ -267,14 +268,16 @@ class Step:
 
 
 def stepped(state: int, ceiling: int, /) -> Step:
-    if state <= 1:
-        return Step(settle=state)
     folded = state // 2 if state % 2 == 0 else (3 * state + 1) // 2
-    return Step(diverge=folded) if folded >= ceiling else Step(advance=folded)
+    return (
+        Step(settle=state) if state <= 1
+        else Step(diverge=folded) if folded >= ceiling
+        else Step(advance=folded)
+    )
 
 
 @tailrec
-def driven(state: int, ceiling: int, /) -> TailCallResult[Result[int, StepFault], ...]:
+def driven(state: int, ceiling: int, /) -> TailCallResult[Result[int, StepFault], [int, int]]:
     match stepped(state, ceiling):
         case Step(tag="advance", advance=nxt):
             return TailCall(nxt, ceiling)
@@ -288,6 +291,10 @@ def driven(state: int, ceiling: int, /) -> TailCallResult[Result[int, StepFault]
 
 def converged(seed: int, ceiling: int, /) -> Result[int, StepFault]:
     return driven(seed, ceiling)
+
+
+def projected[E](outcome: Result[int, E] | Option[int], /) -> int:
+    return outcome.map(lambda fixed: fixed + 1).default_value(0)
 ```
 
 ## [07]-[TYPE_LEVEL_DISPATCH]
@@ -306,64 +313,88 @@ The `Protocol` itself is the `shapes.md` `[TOKEN_STATE_PORT]` owner for a replac
 - Boundary: the discovery seam is the one place a candidate of unknown type crosses into the port family; everywhere downstream the implementer is statically `S` and the constraint alone carries the dispatch.
 
 ```python conceptual
-from typing import Protocol, Self, TypeIs, runtime_checkable
+from typing import Literal, Protocol, Self, TypeIs, runtime_checkable
 
 from builtins import frozendict
-from expression import Nothing, Option, Result, Some
+from expression import Error, Result
+
+
+type StoreFault = Literal["<missing>", "<sealed>", "<conflict>", "<unbound>", "<no-route>"]
 
 
 @runtime_checkable
 class ShapeStore(Protocol):
-    def loaded(self, key: str, /) -> Result["Shape", str]: ...
-    def stamped(self, shape: "Shape", seal: str, /) -> Result["Shape", str]: ...
-    def committed(self, shape: "Shape", /) -> Result[Self, str]: ...
+    def loaded(self, key: str, /) -> Result["Shape", StoreFault]: ...
+    def stamped(self, shape: "Shape", seal: str, /) -> Result["Shape", StoreFault]: ...
+    def committed(self, shape: "Shape", /) -> Result[Self, StoreFault]: ...
 
 
-def sealed[S: ShapeStore](store: S, key: str, seal: str, /) -> Result[S, str]:
-    advanced = store.loaded(key).bind(lambda shape: store.stamped(shape, seal))
-    return advanced.bind(store.committed)
+def sealed[S: ShapeStore](store: S, key: str, seal: str, /) -> Result[S, StoreFault]:
+    return store.loaded(key).bind(lambda shape: store.stamped(shape, seal)).bind(store.committed)
 
 
-def routed[S: ShapeStore](backends: frozendict[str, S], target: str, key: str, seal: str, /) -> Option[Result[S, str]]:
-    return Some(sealed(backends[target], key, seal)) if target in backends else Nothing
+def resolved[S: ShapeStore](port: type[S], root: frozendict[type[ShapeStore], ShapeStore], key: str, seal: str, /) -> Result[S, StoreFault]:
+    candidate = root.get(port)
+    return sealed(candidate, key, seal) if isinstance(candidate, port) else Error("<unbound>")
 
 
-def admitted(candidate: object, /) -> TypeIs[ShapeStore]:  # language.md narrows the discovery seam once
+def admitted(candidate: object, /) -> TypeIs[ShapeStore]:
     return isinstance(candidate, ShapeStore) and not isinstance(candidate, type)
+
+
+def discovered(candidate: object, key: str, seal: str, /) -> Result[ShapeStore, StoreFault]:
+    return sealed(candidate, key, seal) if admitted(candidate) else Error("<no-route>")
 ```
 
 ## [08]-[ASPECTS]
 
 [WEAVE_TAXONOMY]:
 - Law: a definition-time aspect is a property of the function — declared by a signature-preserving decorator, present at every call site; a call-site aspect is a property of one invocation — attached as a scope or combinator around the call it modifies, and the classification test is per-site variance: a concern present at every use weaves at definition (retry policy, runtime contract, observability span, memoization), a concern that varies per site composes at the site (one deadline, one cancellation scope, one resource bracket).
-- Law: a definition-time aspect preserves the signature and the rail through inline `**P` and `functools.wraps`, materializes policy from its arguments, and never raises inside domain flow — a failing aspect returns the rail's `Error`, it does not throw past the wrapped function, so the contract weave is `BeartypeConf(violation_type=...)` redirecting a type violation onto the fault rather than a bare `@beartype` that throws `BeartypeCallHintViolation` into the interior.
+- Law: a definition-time aspect preserves the signature and the rail through inline `**P` and `functools.wraps`, materializes policy from its arguments, and never raises inside domain flow — a failing aspect returns the rail's `Error`, it does not throw past the wrapped function, so the contract weave applies `beartype(conf=...)` under a shared cached `BeartypeConf` and catches `BeartypeCallHintViolation` (the root both the param and return violations inherit, so one arm covers the default conf), lifting it through `lifted` onto the fault rather than a bare `@beartype` that throws the violation into the interior; the `violation_type=` redirect that raises a domain exception instead of railing is the shape page's admission-factory form, distinct from this rail-lift weave.
+- Exemption: the weave's `try`/`except BeartypeCallHintViolation` is the measured rail-lift kernel — the one statement a definition-time aspect admits, converting the contract violation to the fault rail so the wrapped core stays expression-shaped and the raised violation never reaches domain flow.
+- Boundary: the synchronous weave layering this page shows is the definition-time form; an async core threads each weave as an `async def` layer whose structured-concurrency placement — the retry seeing only a raised transient, the deadline scope, the offload — is `concurrency.md`'s, composed over this fold and never re-derived here.
 
-[DECORATOR_STACKING]:
-- Law: decorators apply bottom-up at definition and execute top-down at call, so the stack is an ordered sequence and the same aspects in two orders are two policies — a retry weave outside the contract re-validates per attempt, the contract folded innermost validates once and the outer weaves retry or trace only the validated body; the order is therefore the `*composed` tuple's order, weaves the factory folds right-to-left onto its own contract arm, not a fixed tower re-spelled at every owner, so a further co-occurring concern is one more entry in the same call with no body edited.
-- Law: every weave in the fold satisfies one signature — `Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]` — which is what keeps `**P`, the return rail, and `functools.wraps` identity intact through an arbitrary-depth stack; a package decorator whose own signature unifies to this shape (`stamina.retry` over a `Result`-returning core) enters directly with no wrapper, while a weave typed `Callable[..., Any]` erases the parameter list and severs the chain, and a weave returning a bare `T` instead of the rail breaks the next weave's `Result` contract.
-- Law: the contract weave is this surface's own aspect and the factory's fixed innermost arm — `beartype(conf=BeartypeConf(violation_type=...))` redirects a `BeartypeCallHintViolation` onto the fault and the `except` arm maps it to the rail's `Error`, so a violation never throws past the wrapped function; the `stamina.retry(on=...)` schedule is this surface's own definition-time weave whose raised-versus-railed boundary `concurrency.md` owns, the domain observability page's emission weave enters as a `*composed` entry already built at its owner, and every such entry threads through this fold and is never re-derived here.
-- Use: the variadic `*composed` weave tuple folded onto the contract arm, the rail-safe `beartype(conf=BeartypeConf(violation_type=...))` contract weave as this page's spotlight; this factory when two-to-four owner-built weaves recur together over one pure core.
-- Reject: a bare `try`/`except` retry loop; a hand-rolled span timer or a `structlog.get_logger` chain re-built here where the emission weave already owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature.
+[CONCERN_PRECEDENCE]:
+- Law: the cross-cutting concerns over one pure core rank by a single `_RANK` precedence table keyed on the closed `WeaveName` vocabulary — the page's own concerns are a closed `Concern` family resolving each case's payload to one `Weave`, the owner-built weaves compose in pre-constructed through the `owned` table keyed by `Deferred`, and the factory derives the canonical innermost-to-outermost order from the rank and never the caller's argument order, so an unranked name is a type error, a miswired stack is unspellable, and a new concern lands as one `Concern` case or one `owned` row plus one `_RANK` row with every existing call site untouched.
+- Law: the table fixes the one ordering correctness forces and declares the rest in one place — `contract` is innermost (rank 0) because a memoization weave that hashes arguments before the contract validates them caches the rejected `Error` permanently, so `cache` and every outer weave wrap an already-validated body; the relative rank of `cache`, `observe`, and `retry` is the policy the `_RANK` table declares — here `observe` encloses `cache` so a cache hit is still traced and `retry` is outermost so a transient re-drives the whole observed body — so a policy change is one row edit, never a tower re-spelled at every call site.
+- Law: every weave in the fold satisfies one signature — `Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]` — which keeps `**P`, the return rail, and `functools.wraps` identity intact through an arbitrary-depth stack; `contract` and `retry` are this page's own weaves built from the concern's payload (`beartype(conf=...)` plus the `except BeartypeCallHintViolation` rail-lift, `stamina.retry(on=...)` over the backoff hook whose raised-versus-railed edge `concurrency.md` owns), while `cache` and `observe` enter as owner-built weaves the `owned` frozendict carries already constructed for the rank alone to place; raw-ingress coercion never joins the stack, because admission is the shape page's once-at-the-edge factory and the core the weave wraps already holds admitted owners.
+- Use: the `Concern` family and the `owned` weaves folded by ascending rank onto the forced `contract` arm, the rail-safe `beartype(conf=...)` + `except BeartypeCallHintViolation` weave as this page's spotlight; this factory when two or more local or owner-built weaves recur over one pure core.
+- Reject: a hand-rolled `try`/`except` retry loop; a fixed decorator tower re-spelled at every owner; a span timer or `structlog.get_logger` chain rebuilt here where the observability weave owns it; a bare `@beartype` that raises into the rail; a weave typed `Callable[..., Any]` that erases the wrapped signature; a caller-ordered stack where the `_RANK` table already fixes the order.
 
 ```python conceptual
 from collections.abc import Callable
 from functools import reduce, wraps
-from typing import Literal
+from typing import Literal, assert_never
 
 import stamina
 from beartype import BeartypeConf, beartype
 from beartype.roar import BeartypeCallHintViolation
-from expression import Error, Ok, Result
+from builtins import frozendict
+from expression import Error, Ok, Result, case, tag, tagged_union
 
 type FetchFault = Literal["<empty>", "<contract>"]
 type Weave[**P, T, E] = Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E]]]
+type WeaveName = Literal["contract", "cache", "observe", "retry"]
+type Deferred = Literal["cache", "observe"]
+
+_RANK: frozendict[WeaveName, int] = frozendict({"contract": 0, "cache": 1, "observe": 2, "retry": 3})
+_CONTRACT = BeartypeConf(is_pep484_tower=True)
 
 
-def contracted[**P, T, E](lifted: Callable[[BeartypeCallHintViolation], E], /) -> Weave[P, T, E]:
-    guard = beartype(conf=BeartypeConf(violation_type=BeartypeCallHintViolation))
+def _transient(error: Exception, /) -> bool | float:
+    return 0.5 if isinstance(error, ConnectionError) else False
 
+
+@tagged_union(frozen=True)
+class Concern:
+    tag: Literal["contract", "retry"] = tag()
+    contract: BeartypeConf = case()
+    retry: Callable[[Exception], bool | float] = case()
+
+
+def _contracted[**P, T, E](lifted: Callable[[BeartypeCallHintViolation], E], conf: BeartypeConf, /) -> Weave[P, T, E]:
     def weave(operation: Callable[P, Result[T, E]], /) -> Callable[P, Result[T, E]]:
-        guarded = guard(operation)
+        guarded = beartype(conf=conf)(operation)
 
         @wraps(operation)
         def call(*args: P.args, **kwargs: P.kwargs) -> Result[T, E]:
@@ -378,13 +409,31 @@ def contracted[**P, T, E](lifted: Callable[[BeartypeCallHintViolation], E], /) -
 
 
 def aspected[**P, T, E](
-    *composed: Weave[P, T, E], lifted: Callable[[BeartypeCallHintViolation], E]
+    *concerns: Concern,
+    owned: frozendict[Deferred, Weave[P, T, E]] = frozendict(),
+    lifted: Callable[[BeartypeCallHintViolation], E],
+    conf: BeartypeConf,
 ) -> Weave[P, T, E]:
-    stack: tuple[Weave[P, T, E], ...] = (*composed, contracted(lifted))
-    return lambda operation: reduce(lambda wrapped, weave: weave(wrapped), reversed(stack), operation)
+    def ranked(concern: Concern, /) -> tuple[int, Weave[P, T, E]]:
+        match concern:
+            case Concern(tag="contract", contract=cfg):
+                return _RANK["contract"], _contracted(lifted, cfg)
+            case Concern(tag="retry", retry=hook):
+                return _RANK["retry"], stamina.retry(on=hook, attempts=5)
+            case unreachable:
+                assert_never(unreachable)
+
+    ranked_local = (ranked(concern) for concern in (Concern(contract=conf), *concerns))
+    ranked_owned = ((_RANK[name], weave) for name, weave in owned.items())
+    ordered = sorted((*ranked_local, *ranked_owned), key=lambda rw: rw[0])
+    return lambda operation: reduce(lambda wrapped, rw: rw[1](wrapped), ordered, operation)
 
 
-@aspected(stamina.retry(on=ConnectionError, attempts=5), lifted=lambda _v: "<contract>")
+def _observed[**P, T, E](operation: Callable[P, Result[T, E]], /) -> Callable[P, Result[T, E]]:
+    return operation
+
+
+@aspected(Concern(retry=_transient), owned=frozendict({"observe": _observed}), lifted=lambda _v: "<contract>", conf=_CONTRACT)
 def fetched(code: str, /) -> Result[str, FetchFault]:
     return Error("<empty>") if code == "" else Ok(code.upper())
 ```

@@ -21,6 +21,15 @@ export const meta = {
   ],
 }
 
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const RANK = { low: 0, medium: 1, high: 2, critical: 3 }
+
+// --- [INPUTS] ----------------------------------------------------------------------------
+// `args` arrives as structured data — read fields directly, default the omitted case.
+const scope = args?.scope ?? 'libs'
+const minPriority = args?.minPriority ?? 'high'
+
+// --- [MODELS] ----------------------------------------------------------------------------
 const CARDS = {
   type: 'object',
   required: ['cards'],
@@ -40,7 +49,6 @@ const CARDS = {
     },
   },
 }
-
 const VERDICT = {
   type: 'object',
   required: ['realized'],
@@ -50,10 +58,8 @@ const VERDICT = {
   },
 }
 
-// `args` arrives as structured data — read fields directly, default the omitted case.
-const scope = args?.scope ?? 'libs'
-const minPriority = args?.minPriority ?? 'high'
-const RANK = { low: 0, medium: 1, high: 2, critical: 3 }
+// --- [COMPOSITION] -----------------------------------------------------------------------
+
 const floor = RANK[minPriority] ?? RANK.high
 
 phase('Pull cards')

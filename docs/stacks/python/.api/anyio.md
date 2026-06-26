@@ -24,7 +24,7 @@
 | :-----: | :-------------------- | :------------ | :-------------------------------------------- |
 |  [01]   | `CancelScope`         | scope class   | scoped cancellation boundary (`shield=`)      |
 |  [02]   | `TaskInfo`            | info record   | running task identity (`id`/`name`/`coro`)    |
-|  [03]   | `TaskHandle`          | handle class  | handle to a spawned task; `.result()`         |
+|  [03]   | `TaskHandle`          | handle class  | spawned-task handle; `.return_value`/`.status`/`.start_value` |
 |  [04]   | `TASK_STATUS_IGNORED` | sentinel      | default `task_status` for non-reporting tasks |
 |  [05]   | `TaskCancelled`       | exception     | task was cancelled                            |
 |  [06]   | `TaskFailed`          | exception     | task raised an exception                      |

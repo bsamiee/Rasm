@@ -170,6 +170,7 @@
 |  [08]   | `linalg.norm(x, ord, axis)` | norm           | vector and matrix norms      |
 |  [09]   | `linalg.lstsq(a, b)`        | least squares  | minimum-norm least-squares   |
 |  [10]   | `linalg.pinv(a)`            | pseudo-inverse | Moore-Penrose pseudo-inverse |
+|  [11]   | `linalg.cond(x, p)`         | conditioning   | condition number (`+inf` for a rank-deficient operator); the scale-relative singularity probe over `det` |
 
 [ENTRYPOINT_SCOPE]: fft submodule
 - rail: compute
@@ -182,6 +183,7 @@
 |  [04]   | `fft.fft2`/`ifft2`         | transform      | 2-D DFT/inverse                |
 |  [05]   | `fft.fftn`/`ifftn`         | transform      | N-D DFT/inverse                |
 |  [06]   | `fft.fftfreq(n, d)`        | frequency      | DFT sample frequencies         |
+|  [06a]  | `fft.rfftfreq(n, d)`       | frequency      | real-FFT half-spectrum bin frequencies (length `n//2 + 1`), the wavenumber owner for an `rfft` symbol |
 |  [07]   | `fft.fftshift`/`ifftshift` | shift          | shift zero-frequency to center |
 
 [ENTRYPOINT_SCOPE]: random.Generator

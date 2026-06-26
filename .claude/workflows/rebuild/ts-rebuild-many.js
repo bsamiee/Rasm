@@ -9,8 +9,315 @@ export const meta = {
   ],
 }
 
-// --- [HARNESS] -- steady bounded pool: <=CAP in flight AND a serialized launch gate ----------
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const CAP = 10
 const STAGGER_MS = 1500
+const SUBSTRATE = 'libs/typescript/.api'
+const ALL_FOLDERS = [
+  { name: 'interchange', planning: 'libs/typescript/interchange/.planning', api: 'libs/typescript/interchange/.api', root: 'libs/typescript/interchange', note: '' },
+  { name: 'platform', planning: 'libs/typescript/platform/.planning', api: 'libs/typescript/platform/.api', root: 'libs/typescript/platform', note: '' },
+  { name: 'projection', planning: 'libs/typescript/projection/.planning', api: 'libs/typescript/projection/.api', root: 'libs/typescript/projection', note: '' },
+  { name: 'services', planning: 'libs/typescript/services/.planning', api: 'libs/typescript/services/.api', root: 'libs/typescript/services', note: '' },
+  { name: 'ui', planning: 'libs/typescript/ui/.planning', api: 'libs/typescript/ui/.api', root: 'libs/typescript/ui', note: '' },
+]
+
+// --- [INPUTS] ----------------------------------------------------------------------------
+const norm = (t) => { const s = String(t).trim(); return s.replace(/^libs\/typescript\//, '').replace(/\/$/, '') }
+const wanted = Array.isArray(args) ? args.filter(Boolean).map(norm)
+  : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
+  : null
+const FOLDERS = wanted ? ALL_FOLDERS.filter((f) => wanted.some((w) => w === f.name)) : ALL_FOLDERS
+const ROSTER = FOLDERS.map((f) => f.name + ' (' + f.root + ')').join('; ')
+
+// --- [MODELS] ----------------------------------------------------------------------------
+const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, integrated: { type: 'array', items: { type: 'string' } }, newPages: { type: 'array', items: { type: 'string' } }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
+const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
+// --- [FINAL-ALIGN] -- whole-stack cross-folder coherence prompts (one series of agents) -------
+const ALIGN_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
+
+// --- [DOCTRINE] --------------------------------------------------------------------------
+const LAW = [
+  'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). The current TypeScript code quality is ' +
+    'POOR; this is a TRUE modernization to ultra-advanced TS, not a polish pass — discard naive idioms wholesale. CLAUDE.md manifest law governs; ' +
+    'respect the workspace dependency direction. This pass works ONE FOLDER end-to-end: the whole folder design corpus under its `.planning/**` ' +
+    'plus its `.api/` capability tier, NOT a single page.',
+  'MANDATORY STANDARDS — docs/stacks/typescript/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/typescript/ (README, language, ' +
+    'shapes, surfaces-and-dispatch, rails-and-effects, boundaries, system-apis) AND the route-owned coding-ts standard, then PUSH PAST it to the ' +
+    'objectively strongest form the doctrine admits — a hard gate enforced by the TypeScript strict type-check + lint posture coding-ts owns (a ' +
+    'true positive is architecture pressure, fix the shape; a false positive is rule pressure, never a blanket suppression). MINE BOTH catalog ' +
+    'tiers and cite ONLY real members: the shared/substrate `libs/typescript/.api/*.md` (effect, effect-platform, effect-opentelemetry, ' +
+    'effect-atom, react, react-dom, clsx, ...) catalogued once at the branch AND the folder-specific `libs/typescript/<folder>/.api/*.md`, every ' +
+    'member verified via `uv run --frozen python -m tools.assay api` against the published node_modules types (a member you cannot verify is a ' +
+    'phantom — delete it). Maximize the shared/substrate Effect/Schema/React rails wherever relevant, never only the folder set.',
+  'TWO JOBS, ONE PASS: (1) INTEGRATE every newly-admitted package — each folder `.api/api-*.md` catalog that a recent survey added and a focused ' +
+    'rebuild-api filled — into the folder design corpus so its capability is COMPOSED, not merely catalogued; (2) HOSTILE GROUND-UP REBUILD of the ' +
+    'folder pages to the ULTRA bar (collapse interfaces/types into tagged discriminated unions, deepen bleeding-edge spellings, maximize ' +
+    'admitted-library capability, close concept capability gaps). Both are untied to any card: improve the corpus objectively wherever the ' +
+    'doctrine admits a stronger form.',
+  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
+    'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FOLDER ' +
+    'items (report those in residual_high).',
+].join('\n')
+const INTEGRATE = [
+  'NEW-CAPABILITY INTEGRATION (the distinguishing mandate of this pass): for EVERY package newly admitted to this folder (read its filled ' +
+    '`.api/api-*.md` catalog to full depth + verify members via `uv run --frozen python -m tools.assay api` against node_modules), the capability ' +
+    'MUST land in the design corpus as COMPOSED design, never a dangling catalog. PLACEMENT, most-specific wins: (a) GROW AN EXISTING OWNER — when ' +
+    'an existing design page already owns the concept the package serves, weave the package capability INTO that owner in place (a case in the ' +
+    'tagged discriminated union, a field on the `Schema`/branded record, a member on the `Effect.Service`, a row in the existing ' +
+    '`const`-union/table, a policy value), reshaped as if it had always carried it — NEVER a parallel surface beside the owner; (b) AUTHOR A NEW ' +
+    'PAGE — ONLY when the package introduces a genuinely NEW owner/concern that no existing page owns, author a new design page (and a new ' +
+    '`.planning/<sub-domain>/` folder when the concern warrants its own sub-tree) at one-page-per-eventual-source-file granularity, built ' +
+    'GROUND-UP to the full .planning page grammar (H1, lead paragraph, numbered cluster sections, card + transcription-complete signature fences) ' +
+    'and the docs/stacks/typescript bar, then UPDATE the folder `ARCHITECTURE.md` codemap + `[02]-[SEAMS]` and the `README.md` router/package ' +
+    'roster so the structure stays truthful.',
+  'NEW-FILE DISCIPLINE: a new page is justified ONLY by a genuinely new domain owner — NEVER to dodge a collapse, reduce a page size, or split one ' +
+    'concept across files. The collapse law still rules WITHIN every page: 3+ parallel interfaces/types/classes collapse into ONE owner in the ' +
+    'SAME page. Before authoring a new page, prove no existing page is the rightful owner; a capability that belongs to an existing owner is grown ' +
+    'there, not spun out. A new page that fragments an existing concept is a defect; a new page for a real new owner the folder was missing is ' +
+    'correct.',
+].join('\n')
+const ADVERSARIAL = [
+  'ADVERSARIAL STANCE — EVERY stage (implement, critique, AND red-team) is HOSTILE: assume the existing fences are NAIVE, SHALLOW, JUNIOR, or ' +
+    'ILLUSORY until they survive an aggressive attack; the burden of proof is ON THE CODE, never on you. "Mature", "already strong", "good ' +
+    'enough", "done", "polished", and a prior `clean` verdict are REJECTED self-assessments — MOST of this corpus is naive ' +
+    'JavaScript-in-TypeScript dressed in the right vocabulary, and it is NOT tolerable. Default to "this fence is naive and must be rebuilt to the ' +
+    'strongest form the doctrine admits" and MAKE that rebuild; a no-edit verdict is reached ONLY after a genuinely aggressive attack on the real ' +
+    'domain + the verified both-tier package surface (against published node_modules types) finds nothing — never a first-read concession, never ' +
+    'to avoid work. Reject "good enough" categorically.',
+  'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code PRETENDS to be advanced: it uses the doctrine vocabulary (tagged unions, ' +
+    '`Schema`, `Effect`/`Layer`, branded types), cites packages, reads dense and confident — yet is HOLLOW. Treat dense, confident-looking fences ' +
+    'with MORE suspicion, and DISBELIEVE every claim the page makes about itself until you verify it against the real domain and the published ' +
+    'library types. HUNT: a name/signature/prose PROMISING capability the body does not implement; a "rich" owner that is a thin slice of its ' +
+    'concept (a 2-case union for a 20-case domain; the obvious 3 fields where the concept carries fifteen); decorative density and ceremony ' +
+    'carrying no real capability; a placeholder/stub/sketch dressed as a finished design; a newly-admitted `.api` cited in prose but never ' +
+    'actually composed into a fence; a structurally-correct collapse that is semantically empty; `any`/unsafe `as`/non-null `!` smuggled under a ' +
+    'confident surface; a member cited but unverifiable against node_modules (a phantom). Every illusion is a DEFECT to rebuild.',
+].join('\n')
+const ULTRA = [
+  'ULTRA-ADVANCED REBUILD MANDATE: COLLAPSE >=3 parallel interfaces/types/classes modelling one concept into ONE polymorphic surface (tagged ' +
+    'discriminated union + exhaustive match), never parallel names. AOP: cross-cutting concerns (retry, telemetry, validation, caching, receipts, ' +
+    'fault rails) as Effect combinators/layers/decorators, not repeated inline. UNIFIED rails + UNIFIED pipelines + feature-arms-as-cases (never ' +
+    'loose separate). Parameterize inputs AND outputs with generics at depth; no stringy/weak typing.',
+  'STACK CAPABILITY: FIRST inventory the COMPLETE catalog set — BOTH the shared/substrate `libs/typescript/.api/*.md` AND the folder-specific ' +
+    '`libs/typescript/<folder>/.api/*.md` — then compose the admitted libraries into single dense rails. There is NO fixed library count: weave ' +
+    'EVERY relevant library, ALWAYS layering the shared/substrate Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON ' +
+    'TOP OF the folder-specific packages, NOT naive `Promise`/`try`-`catch` glue. Maximize the shared/substrate rails, never only the folder set. ' +
+    'Use the MOST powerful combinators each package itself reaches; reject surface-level single-feature uses and thin rename wrappers; verify ' +
+    'novel members with `uv run --frozen python -m tools.assay api`.',
+  'PRESERVE all intended capability (densify, never delete functionality). Where a page is already strong, refine; where it is flat/naive, rebuild ' +
+    'ground-up. Never regress correctness or boundary law.',
+].join('\n')
+const EXTEND = [
+  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — collapsing to tagged unions + Effect-stacking is NECESSARY but NOT SUFFICIENT. A ' +
+    'page can be fully collapsed into one polymorphic surface and STILL be capability-thin: modeling a NAIVE, LIMITED slice of its domain concept ' +
+    '— a flat id/member set where the concept owns geometry, metrics, attributes, topology, and operations; a 2-case discriminated union where the ' +
+    'domain has twenty; an interface with the obvious 3 fields where the concept carries fifteen. Structural completeness and CAPABILITY ' +
+    'completeness are ORTHOGONAL. A FULL rebuild ALSO closes the capability gap so the page OWNS ITS DOMAIN CONCEPT COMPLETELY. Capability grows ' +
+    'sublinearly: every real missing concern lands as a CASE in the existing tagged discriminated union, a FIELD on the existing ' +
+    '`Schema`/`Struct`/branded record, a member on the existing `Effect.Service`, a ROW in the existing `const`-union/table, or a POLICY value on ' +
+    'the existing vocabulary — reshaping the owner as if it had always carried it; NEVER a parallel interface/type, a new file, a sibling shape, ' +
+    'or flat appended code.',
+  'GAP SOURCES (every extension MUST cite exactly one — justified, never speculative): (a) PACKAGE — a member the admitted package surface exposes ' +
+    'that the concept ADMITS but the page IGNORES (BOTH tiers: the shared `libs/typescript/.api/` Effect/Schema/React rails AND the folder domain ' +
+    'packages, cross-checked against node_modules; stacking that full surface IS new functionality woven into the owner, not naive ' +
+    'Promise/try-catch glue) — this is the PRIMARY source for the newly-admitted .api packages this pass integrates. (b) DOMAIN — an attribute, ' +
+    'metric, sub-kind, relationship, state, or operation the REAL concept demands but the page omits (a chart owns ' +
+    'scale/axis/series/interaction/annotation families and zoom/brush/tooltip/legend operations, not two naive renders; a service owns ' +
+    'retry/telemetry/validation/cache layers, not a bare fetch; a projection owns the full transform/diff/patch family the domain needs). (c) ' +
+    'CONSUMER — a contract a sibling or downstream owner will require that has no composed spelling here yet (a need with no spelling marks a ' +
+    'missing case: the law extends first, the feature lands second).',
+  'JUSTIFIED, NOT RANDOM: if after a real domain + package + consumer sweep the concept is genuinely complete, prove it by adding nothing — never ' +
+    'invent capability to look busy or pad with flat fields. Every added case/field/member/row is load-bearing, cites a package member / domain ' +
+    'attribute / consumer contract, and composes the existing Effect/Schema rails; preserve ALL existing capability — extension only deepens, ' +
+    'never regresses.',
+].join('\n')
+const PATLAW = [
+  'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero unsafe `as`, ' +
+    'zero non-null `!`; model with branded/nominal types, exact discriminated unions with EXHAUSTIVE handling (`assertNever` on the default), ' +
+    '`readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime `enum` — use `const` unions ' +
+    'or `Schema`/Effect. ONE canonical declaration form per value — never a `const` + `type` + `typeof` triple for one concept.',
+  'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` (parse, ' +
+    'never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the ' +
+    'docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, runtime ' +
+    'schemas/classes are MODELS, and catalog/registry rows stay after the owners they reference.',
+  'Keep conventions IDENTICAL across every folder so the corpus reads as one ultra-advanced codebase. One canonical semantic name per bounded ' +
+    'concept; discriminate on input shape rather than proliferating `get`/`getMany`/`getById` names.',
+].join('\n')
+const BOUNDARIES = 'BOUNDARY LAW: keep every folder owner strictly in its lane; internal code uses canonical names and shapes with mapping (and ' +
+  '`Schema` validation) only at the edge; do not trample a sibling owner while densifying; respect the workspace dependency direction (no cycle, ' +
+  'no reaching into a sibling owner INTERIOR vs its seam/wire). This pass realizes ONLY the current folder pages; a concept owned twice across the ' +
+  'stack, a folder mixing unrelated concerns, or coupling to a sibling owner interior is a defect to fix in-folder or log as a cross-folder residual.'
+const PROSE = [
+  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling ' +
+    'rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness ' +
+    'disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Prefer a table, a typed signature block, or a ' +
+    'tight bullet wherever it carries the design better than a paragraph. Prose that ASSERTS capability the fence does not implement is a defect.',
+  'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in backticks. Name ' +
+    'the exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design ' +
+    'content.',
+].join('\n')
+const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical ' +
+  'section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY ' +
+  'where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line where a ' +
+  'comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no ' +
+  'task/process/session/history/proof/review comments, no TSDoc bloat. Densify names and types so comments are rarely needed; cut every low-value ' +
+  'comment.'
+const DOCTRINE = [LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
+const FINAL = [
+  'WHOLE-STACK CROSS-FOLDER ALIGNMENT — this is the FINAL pass, after every folder ran its own per-folder implement -> critique -> redteam and the ' +
+    'residual reconcile. Hold ALL these TypeScript folders in view at once and align them as ONE coherent stack: ' + ROSTER + '. Read each folder ' +
+    'ARCHITECTURE.md ([1]-[DOMAIN_MAP] + [2]-[SEAMS]) and README, the shared/substrate `' + SUBSTRATE + '/` catalogs, and every design page a ' +
+    'cross-folder seam spans. This is the ONLY pass that edits ACROSS folders — but it aligns at the seam and never trespasses a folder owner ' +
+    'interior.',
+  'ALIGN OBJECTIVES (fix every one in place across the spanned folders): (1) SEAMS/WIRES — every cross-folder producer/consumer relationship is ' +
+    'recorded in BOTH endpoint folders ARCHITECTURE [02]-[SEAMS] with mirrored glyphs and ONE shared shape; a stale, missing, or one-sided seam is ' +
+    'a defect. (2) PORTS/BOUNDARIES — a capability a folder now needs from a sibling has a named port/boundary on both sides; add the new port ' +
+    'where a per-folder pass created the need but could not reach the sibling. (3) NO DUPLICATION — a concept owned twice across the stack ' +
+    'collapses to the ONE rightful owner; the sibling consumes the seam, never a second mint. (4) NO DEPENDENCY-DIRECTION VIOLATION — respect the ' +
+    'workspace dependency direction; no cycle, no reaching into a sibling owner interior (consume its seam/wire), internal code uses canonical ' +
+    'names with `Schema` mapping only at the edge. (5) SHARED/SUBSTRATE-TIER LEVERAGE — every folder FULLY and PROPERLY leverages the ' +
+    'shared/substrate Effect/Schema/React rails (`libs/typescript/.api/` — `Effect`/`Layer`/`Context`/`Schema`/`Stream`, react, react-dom, clsx, ' +
+    '...) for BOTH existing and new functionality, NEVER re-implementing a substrate capability; a consumer hand-rolling what the substrate owns ' +
+    '(naive `Promise`/`try`-`catch` glue where `Effect`/`Layer` belongs, an unvalidated boundary where `Schema` belongs) is a defect to rewire to ' +
+    'the substrate. (6) GAPS/OVERSIGHTS — hunt the mistakes no single-folder pass could see from inside one folder, and fix them.',
+].join('\n')
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
+const scopeLine = (f) => 'FOLDER: `' + f.name + '` — design pages under `' + f.planning + '/**`, folder capability catalogs under `' + f.api + '/`, ' +
+  'shared/substrate catalogs at `' + SUBSTRATE + '/`, governing docs at `' + f.root + '`.' + (f.note ? ' ' + f.note : '')
+const implementPrompt = (f) => [DOCTRINE, '',
+  'TASK: PER-FOLDER HOSTILE REBUILD + NEW-.api INTEGRATION of `' + f.name + '`. ' + scopeLine(f),
+  'Read EVERY design page under `' + f.planning + '/**`, the folder `.api/api-*.md` catalogs (especially the newly-admitted ones a recent survey ' +
+    'added and rebuild-api filled) AND the shared/substrate `' + SUBSTRATE + '/*.md` catalogs (the universal Effect/Schema/React rails), the ' +
+    'governing `ARCHITECTURE.md` + `README.md`, the docs/stacks/typescript/ core + the coding-ts standard; VERIFY every cited member via `uv run ' +
+    '--frozen python -m tools.assay api` against node_modules (a member you cannot verify is a phantom — delete it). Then, across the WHOLE folder ' +
+    'corpus: (1) INTEGRATE every newly-admitted package capability into the design — GROW the existing owner page where one fits (a ' +
+    'case/field/member/row/policy-value), or AUTHOR a NEW page (and sub-domain folder) ONLY where the package is a genuinely new owner with no ' +
+    'existing home, built ground-up to the .planning page grammar + the docs/stacks/typescript bar, and UPDATE `ARCHITECTURE.md` codemap + ' +
+    '`[02]-[SEAMS]` + `README.md`; (2) HOSTILE GROUND-UP REBUILD of the folder pages to the ULTRA bar — collapse >=3 parallel ' +
+    'interfaces/types/classes into ONE tagged discriminated union with EXHAUSTIVE match (`assertNever` on the default) IN THE SAME page, STACK the ' +
+    'shared/substrate Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the folder packages into UNIFIED rails, ' +
+    'attach cross-cutting concerns as Effect combinators/layers (AOP), parameterize inputs AND outputs with generics at depth, model with ' +
+    'branded/nominal types, validate every boundary through `Schema` (parse, never trust input), and CLOSE the concept capability gaps in place ' +
+    '(each extension citing a package member / domain attribute / consumer contract). ZERO `any`/unsafe `as`/non-null `!`/`throw` in domain ' +
+    'logic/runtime `enum`; ONE canonical declaration form per value. Realize ONLY `' + f.name + '` pages; never edit a sibling folder page. ' +
+    'High-signal prose all-backticked, comment hygiene, fix-in-place. Return verdict + integrated (each new .api woven in, and where) + newPages ' +
+    '(any new page authored, with its justification) + collapsed (before->after counts) + extended (each addition + its cited source) + ' +
+    'residual_high (each {files:[every repo-relative path the cross-folder fix spans], claim} for a CROSS-FOLDER item) + summary.'].join('\n')
+const critiquePrompt = (f) => [DOCTRINE, '',
+  'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + CAPABILITY-COMPLETENESS + INTEGRATION AUDIT + FIX IN PLACE across `' + f.name + '`. ' + scopeLine(f) + ' ' +
+    'You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in EVERY fence until you prove otherwise, trust NOTHING the prior pass ' +
+    'or the prose claims, and "good enough"/"mature" is rejected outright. Read the folder pages, the folder `.api/` catalogs AND the ' +
+    'shared/substrate `' + SUBSTRATE + '/` catalogs, the operative docs/stacks/typescript/ pages AND coding-ts. Run these MECHANICAL checklists ' +
+    'line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
+  '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-polymorphic entrypoint; >=3 parallel interfaces/types/classes for one ' +
+    'concept -> ONE tagged discriminated union with exhaustive match IN THE SAME page; same return shape differing only by arity -> input-shape ' +
+    'discrimination; functions differing only by a literal -> a POLICY value; a `boolean`/`mode`/`batch` parameter selecting two bodies -> one ' +
+    'derived body or policy value; a method calling exactly one other -> delete the hop; parallel dispatch arms repeating structure -> a fold over ' +
+    'the union; a `get`/`getMany`/`getById`/`list`/`search` family -> one input-keyed polymorphic operation; a wrapper renaming a package API -> ' +
+    'the package surface directly; repeated inline cross-cutting concern -> an Effect combinator/layer; a `const` + `type` + `typeof` triple for ' +
+    'one value -> ONE canonical declaration form.',
+  '(2) OWNER_CHOOSER — re-derive each owner from its discriminants, most-specific wins: invariant-bearing scalar -> a branded/nominal type; ' +
+    'N-field one-concept product -> a `Schema.Struct`/branded record; bounded wire-keyed vocabulary -> a `const`-union/`Schema.Literal` with a ' +
+    'frozen row table; closed per-occurrence alternatives -> a tagged discriminated union; runtime capability/dependency -> an `Effect.Service` + ' +
+    '`Layer`; interior product no invariant -> a `readonly` record. Kill every parallel interface/DTO, one-field wrapper, field-rename shape, ' +
+    '`null`/`undefined`-as-failure, and the `const` + `type` + `typeof` triple modeling one value.',
+  '(3) KNOB_TEST — delete each parameter; if a value reconstructs what it carried it was a knob -> collapse a `boolean`/`mode`/`strict`/`batch` ' +
+    'flag into a policy value or input-shape discriminant; a nullable flag tail -> one `Option<ContextRecord>`; move every ' +
+    '`timeout`/`retry`/`deadline`/abort signal OFF the signature onto the carrier or a composition-time Effect layer/combinator.',
+  '(4) ASPECTS — cross-cutting concerns (retry, telemetry, validation, caching, receipts, fault rails) attach as Effect combinators/layers, NEVER ' +
+    'repeated inline — retry as `Schedule`-driven `Effect.retry`, recovery as named catch combinators (`Effect.catchTag`/`Effect.catchAll`), ' +
+    'resource lifetime as `Effect.acquireRelease`/`Effect.scoped`, telemetry as a tracing layer; 2-4 co-occurring wrappers collapse into one ' +
+    'combinator; an aspect NEVER raises into domain flow.',
+  '(5) RAILS — the narrowest carrier chosen ONCE at the boundary: `Option<T>` absence, `Either<E,A>` synchronous fallibility, `Effect<A,E,R>` ' +
+    'runtime capability + deferred boundary work, `Stream` for multiplicity, `Schedule` retry policy; the fault type is a CLOSED tagged union ' +
+    '(recovery by `_tag`, never `instanceof` sprawl); accumulate-vs-abort disposition correct (`Effect.all`/validation for independents, ' +
+    '`Effect.flatMap`/`gen` for dependents); EXHAUSTIVE union handling with `assertNever` on the default (NO silent fall-through hiding a case); ' +
+    'NO `throw` in domain logic, NO mutable accumulation; `Schema` parse at EVERY boundary (parse, never trust input).',
+  '(6) MEMBERS/MODERN — cite ONLY members confirmed in the `.api/` catalogs (verify novel members via `uv run --frozen python -m tools.assay api` ' +
+    'against node_modules); ZERO `any`/implicit `any`/unsafe `as`/non-null `!`; bleeding-edge TypeScript (branded/nominal types, ' +
+    'template-literal/conditional/mapped types, `satisfies`, `as const`, `readonly`); FULL docs/stacks/typescript + coding-ts conformance; BOTH ' +
+    'the folder `.api/` catalogs AND the shared/substrate Effect/Schema/React rails maximized; the TypeScript strict type-check + lint gate clean; ' +
+    '`import type`/`export type` explicit.',
+  '(7) INTEGRATION-COMPLETENESS + CAPABILITY-COMPLETENESS + ILLUSION — for EVERY newly-admitted folder `.api` package, verify its capability is ' +
+    'actually COMPOSED into a fence (not just named in prose); an admitted package whose `.api` exposes capability no owner exploits is a named ' +
+    'gap to close NOW (grow the owner, or — only if a genuinely new owner — a new page). Independently, structural collapse and capability ' +
+    'completeness are ORTHOGONAL: a fully-collapsed owner can still model a NAIVE slice of its concept — close it in place. Reject the inverse: a ' +
+    'speculative/padding field, decorative ceremony, an UNJUSTIFIED new page that fragments an existing owner, or prose asserting capability the ' +
+    'fence lacks is deleted/folded back.',
+  'Also enforce the docs/stacks/typescript file-organization + section-order overlay, cross-folder convention consistency, and prose + comment ' +
+    'hygiene. EDIT the `' + f.name + '` pages to fix every hit; OVERRIDE any earlier residual you can now resolve. Return verdict + integrated + ' +
+    'newPages + collapsed + extended + residual_high + summary.'].join('\n')
+const redteamPrompt = (f) => [DOCTRINE, '',
+  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + f.name + '`. ' + scopeLine(f) + ' You are the LAST and MOST AGGRESSIVE pass: ' +
+    'assume the implement and critique missed things and that the chosen design is naive or illusory until PROVEN the strongest, the burden of ' +
+    'proof ON THE DESIGN; trust nothing the prior passes or the prose claimed. Open the folder `.api/` catalogs AND the shared/substrate `' + SUBSTRATE + '/` ' +
+    'catalogs, the sibling pages, the operative docs/stacks/typescript/ pages, and coding-ts. Attack from every direction and REPAIR every defect ' +
+    'in place — no soft-pedalling, a fix never a ledger.',
+  'PRIMARY LENS: (A) COUNTERFACTUAL on each core choice — is the owner, the algebra (a fold over the tagged union / exhaustive match / data ' +
+    'table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner or a DEEPER admitted-package primitive ' +
+    '(`Effect`/`Schema`/`Stream`/`Layer`) collapse the whole fence? Rebuild to the stronger form; never defend the incumbent. (B) ' +
+    'ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: the next case/dimension/knob/modality/provider lands as ONE case/field/policy ' +
+    'value with every consumer untouched or broken LOUDLY at compile time (exhaustive match + `assertNever`, no silent default)? If it would touch ' +
+    'multiple sites, reshape the growth axis. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, ' +
+    'plural, stream, malformed, concurrent, cancelled, partial-failure, version-skew); accumulate-vs-abort correct for the REAL boundary; BOTH ' +
+    'ingress AND egress parameterized; `Schema` parse at the boundary. (D) BOUNDARY-INTEGRITY — a workspace dependency-direction violation, a ' +
+    'cycle, a concern owned twice across the stack, a folder mixing concerns, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a ' +
+    'sibling page left STALE by this folder change (seam drift) is a defect: fix in-folder or log as a cross-folder residual. (E) ' +
+    'SURFACE-SPRAWL-IN-TIME + PHANTOMS — an admitted package whose `.api` or the shared/substrate rails expose capability the fence re-derives by ' +
+    'hand, flat `Promise`/`try`-`catch` glue below the combinator depth the packages reach, a phantom member, smuggled `any`/`as`/`!`, or a thin ' +
+    'wrapper: collapse to package depth and verify the member (via `assay api` against node_modules). (F) INTEGRATION + CAPABILITY-COMPLETENESS — ' +
+    'counterfactually attack each owner for domain-completeness AND verify every newly-admitted .api capability is genuinely composed into a ' +
+    'fence; an UNJUSTIFIED new page (fragmenting an existing owner) is folded back, a MISSING owner (a real new concern with no page) is authored.',
+  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time): re-attack every conformance dimension with fresh hostile eyes — the COLLAPSE_SCAN signals, ' +
+    'OWNER_CHOOSER per shape, the KNOB_TEST per param, the Effect-combinator ASPECT taxonomy, rail + closed-tagged-fault discipline, integration + ' +
+    'capability-completeness per owner, dependency-direction correctness, bleeding-edge TS typing (zero `any`/`as`/`!`/`throw`/`enum`), ' +
+    'docs/stacks/typescript + coding-ts conformance, `.api` + shared/substrate Effect/Schema/React maximization, the TypeScript type-check + lint ' +
+    'gate, and prose/comment hygiene — and fix every defect. The folder must end objectively denser, MORE CAPABLE, more correct than the critique ' +
+    'left it; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. Realize ONLY `' + f.name + '` ' +
+    'pages; log cross-FOLDER items as residual_high. Return verdict + integrated + newPages + collapsed + extended + residual_high + summary.'].join('\n')
+const STAGES = [
+  { key: 'implement', build: implementPrompt, effort: 'max' },
+  { key: 'critique', build: critiquePrompt, effort: 'xhigh' },
+  { key: 'redteam', build: redteamPrompt, effort: 'max' },
+]
+const processFolder = async (f) => {
+  const logs = {}
+  for (const st of STAGES) {
+    const r = await agent(st.build(f), { label: st.key + ':' + f.name, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: 600000 })
+    if (r === null) break
+    logs[st.key] = r
+  }
+  return { folder: f.name, logs, ok: Object.keys(logs).length === STAGES.length }
+}
+const finalAlignPrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: WHOLE-STACK ALIGN — walk every cross-folder seam/wire/port/boundary across all ' +
+  'folders and ALIGN them in place. Record every seam in both endpoint ARCHITECTURE [02]-[SEAMS] with mirrored glyphs, add the new ' +
+  'ports/boundaries the per-folder passes surfaced, collapse any concept owned twice to its rightful owner (the sibling consumes the seam), fix ' +
+  'any dependency-direction violation or cycle, and rewire any consumer that hand-rolls a shared/substrate capability to leverage the ' +
+  'Effect/Schema/React substrate instead. Read the folders ARCHITECTURE + README + the shared/substrate catalogs + the spanned design pages; ' +
+  'verify any member via `uv run --frozen python -m tools.assay api` against node_modules. Fix every defect in place across the spanned folders, ' +
+  'regressing none. Return verdict + aligned (each alignment made, naming the folders + the seam/port) + residual (each {files, claim} for ' +
+  'anything you could not fully resolve) + summary.'].join('\n')
+const finalCritiquePrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: ADVERSARIAL AUDIT of the whole-stack alignment + FIX IN PLACE. Assume a ' +
+  'cross-folder defect remains until you prove otherwise; trust nothing the align pass claimed. Re-walk EVERY seam/wire/port/boundary across all ' +
+  'folders: a one-sided or stale seam, a missing mirror glyph, a concept still owned twice, a residual dependency-direction violation or cycle, a ' +
+  'consumer still hand-rolling a shared/substrate capability, a new port the align pass missed, a gap between two folders. Repair every hit in ' +
+  'place across the spanned folders. Return verdict + aligned + residual + summary.'].join('\n')
+const finalRedteamPrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: ADVERSARIAL RED-TEAM of the whole-stack alignment — the LAST and most aggressive ' +
+  'whole-stack pass. Trust nothing the align/critique claimed. COUNTERFACTUALLY attack the cross-folder ownership: is each shared concept on the ' +
+  'RIGHT owner; is each seam the strongest shared shape; does any consumer still under-leverage the shared/substrate Effect/Schema/React tier or ' +
+  'duplicate a sibling; is any dependency edge, boundary, or wire still wrong; will the next cross-folder growth axis (a new shared ' +
+  'case/port/provider) land cleanly without touching multiple interiors? Fix every defect in place across the spanned folders; if the stack is ' +
+  'genuinely coherent, prove it by finding nothing — never invent churn. Return verdict + aligned + residual + summary.'].join('\n')
+const ALIGN_STAGES = [
+  { key: 'align', build: finalAlignPrompt, effort: 'max' },
+  { key: 'critique', build: finalCritiquePrompt, effort: 'xhigh' },
+  { key: 'redteam', build: finalRedteamPrompt, effort: 'max' },
+]
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
+
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 const pool = async (items, cap, worker) => {
   const out = new Array(items.length)
@@ -21,119 +328,11 @@ const pool = async (items, cap, worker) => {
   await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()))
   return out
 }
-const CAP = 10
 
-// --- [SCOPE] -- the five TypeScript planning folders; all standard layout ----------------------
-const SUBSTRATE = 'libs/typescript/.api'
-const ALL_FOLDERS = [
-  { name: 'interchange', planning: 'libs/typescript/interchange/.planning', api: 'libs/typescript/interchange/.api', root: 'libs/typescript/interchange', note: '' },
-  { name: 'platform', planning: 'libs/typescript/platform/.planning', api: 'libs/typescript/platform/.api', root: 'libs/typescript/platform', note: '' },
-  { name: 'projection', planning: 'libs/typescript/projection/.planning', api: 'libs/typescript/projection/.api', root: 'libs/typescript/projection', note: '' },
-  { name: 'services', planning: 'libs/typescript/services/.planning', api: 'libs/typescript/services/.api', root: 'libs/typescript/services', note: '' },
-  { name: 'ui', planning: 'libs/typescript/ui/.planning', api: 'libs/typescript/ui/.api', root: 'libs/typescript/ui', note: '' },
-]
-const norm = (t) => { const s = String(t).trim(); return s.replace(/^libs\/typescript\//, '').replace(/\/$/, '') }
-const wanted = Array.isArray(args) ? args.filter(Boolean).map(norm)
-  : (typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL') ? [norm(args)]
-  : null
-const FOLDERS = wanted ? ALL_FOLDERS.filter((f) => wanted.some((w) => w === f.name)) : ALL_FOLDERS
-
-// --- [MODELS] -- the doctrine blocks woven into every prompt (plan-ts depth, folder scope) -----
-const LAW = [
-  'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). The current TypeScript code quality is POOR; this is a TRUE modernization to ultra-advanced TS, not a polish pass — discard naive idioms wholesale. CLAUDE.md manifest law governs; respect the workspace dependency direction. This pass works ONE FOLDER end-to-end: the whole folder design corpus under its `.planning/**` plus its `.api/` capability tier, NOT a single page.',
-  'MANDATORY STANDARDS — docs/stacks/typescript/ is the FLOOR, not the ceiling: every fence MUST meet docs/stacks/typescript/ (README, language, shapes, surfaces-and-dispatch, rails-and-effects, boundaries, system-apis) AND the route-owned coding-ts standard, then PUSH PAST it to the objectively strongest form the doctrine admits — a hard gate enforced by the TypeScript strict type-check + lint posture coding-ts owns (a true positive is architecture pressure, fix the shape; a false positive is rule pressure, never a blanket suppression). MINE BOTH catalog tiers and cite ONLY real members: the shared/substrate `libs/typescript/.api/*.md` (effect, effect-platform, effect-opentelemetry, effect-atom, react, react-dom, clsx, ...) catalogued once at the branch AND the folder-specific `libs/typescript/<folder>/.api/*.md`, every member verified via `uv run --frozen python -m tools.assay api` against the published node_modules types (a member you cannot verify is a phantom — delete it). Maximize the shared/substrate Effect/Schema/React rails wherever relevant, never only the folder set.',
-  'TWO JOBS, ONE PASS: (1) INTEGRATE every newly-admitted package — each folder `.api/api-*.md` catalog that a recent survey added and a focused rebuild-api filled — into the folder design corpus so its capability is COMPOSED, not merely catalogued; (2) HOSTILE GROUND-UP REBUILD of the folder pages to the ULTRA bar (collapse interfaces/types into tagged discriminated unions, deepen bleeding-edge spellings, maximize admitted-library capability, close concept capability gaps). Both are untied to any card: improve the corpus objectively wherever the doctrine admits a stronger form.',
-  'WRITE-FULLY MANDATE: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge; leave nothing behind except genuine cross-FOLDER items (report those in residual_high).',
-].join('\n')
-const INTEGRATE = [
-  'NEW-CAPABILITY INTEGRATION (the distinguishing mandate of this pass): for EVERY package newly admitted to this folder (read its filled `.api/api-*.md` catalog to full depth + verify members via `uv run --frozen python -m tools.assay api` against node_modules), the capability MUST land in the design corpus as COMPOSED design, never a dangling catalog. PLACEMENT, most-specific wins: (a) GROW AN EXISTING OWNER — when an existing design page already owns the concept the package serves, weave the package capability INTO that owner in place (a case in the tagged discriminated union, a field on the `Schema`/branded record, a member on the `Effect.Service`, a row in the existing `const`-union/table, a policy value), reshaped as if it had always carried it — NEVER a parallel surface beside the owner; (b) AUTHOR A NEW PAGE — ONLY when the package introduces a genuinely NEW owner/concern that no existing page owns, author a new design page (and a new `.planning/<sub-domain>/` folder when the concern warrants its own sub-tree) at one-page-per-eventual-source-file granularity, built GROUND-UP to the full .planning page grammar (H1, lead paragraph, numbered cluster sections, card + transcription-complete signature fences) and the docs/stacks/typescript bar, then UPDATE the folder `ARCHITECTURE.md` codemap + `[02]-[SEAMS]` and the `README.md` router/package roster so the structure stays truthful.',
-  'NEW-FILE DISCIPLINE: a new page is justified ONLY by a genuinely new domain owner — NEVER to dodge a collapse, reduce a page size, or split one concept across files. The collapse law still rules WITHIN every page: 3+ parallel interfaces/types/classes collapse into ONE owner in the SAME page. Before authoring a new page, prove no existing page is the rightful owner; a capability that belongs to an existing owner is grown there, not spun out. A new page that fragments an existing concept is a defect; a new page for a real new owner the folder was missing is correct.',
-].join('\n')
-const ADVERSARIAL = [
-  'ADVERSARIAL STANCE — EVERY stage (implement, critique, AND red-team) is HOSTILE: assume the existing fences are NAIVE, SHALLOW, JUNIOR, or ILLUSORY until they survive an aggressive attack; the burden of proof is ON THE CODE, never on you. "Mature", "already strong", "good enough", "done", "polished", and a prior `clean` verdict are REJECTED self-assessments — MOST of this corpus is naive JavaScript-in-TypeScript dressed in the right vocabulary, and it is NOT tolerable. Default to "this fence is naive and must be rebuilt to the strongest form the doctrine admits" and MAKE that rebuild; a no-edit verdict is reached ONLY after a genuinely aggressive attack on the real domain + the verified both-tier package surface (against published node_modules types) finds nothing — never a first-read concession, never to avoid work. Reject "good enough" categorically.',
-  'ILLUSORY / FAKE CODE is the PRIMARY target — the MOST dangerous code PRETENDS to be advanced: it uses the doctrine vocabulary (tagged unions, `Schema`, `Effect`/`Layer`, branded types), cites packages, reads dense and confident — yet is HOLLOW. Treat dense, confident-looking fences with MORE suspicion, and DISBELIEVE every claim the page makes about itself until you verify it against the real domain and the published library types. HUNT: a name/signature/prose PROMISING capability the body does not implement; a "rich" owner that is a thin slice of its concept (a 2-case union for a 20-case domain; the obvious 3 fields where the concept carries fifteen); decorative density and ceremony carrying no real capability; a placeholder/stub/sketch dressed as a finished design; a newly-admitted `.api` cited in prose but never actually composed into a fence; a structurally-correct collapse that is semantically empty; `any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules (a phantom). Every illusion is a DEFECT to rebuild.',
-].join('\n')
-const ULTRA = [
-  'ULTRA-ADVANCED REBUILD MANDATE: COLLAPSE >=3 parallel interfaces/types/classes modelling one concept into ONE polymorphic surface (tagged discriminated union + exhaustive match), never parallel names. AOP: cross-cutting concerns (retry, telemetry, validation, caching, receipts, fault rails) as Effect combinators/layers/decorators, not repeated inline. UNIFIED rails + UNIFIED pipelines + feature-arms-as-cases (never loose separate). Parameterize inputs AND outputs with generics at depth; no stringy/weak typing.',
-  'STACK CAPABILITY: FIRST inventory the COMPLETE catalog set — BOTH the shared/substrate `libs/typescript/.api/*.md` AND the folder-specific `libs/typescript/<folder>/.api/*.md` — then compose the admitted libraries into single dense rails. There is NO fixed library count: weave EVERY relevant library, ALWAYS layering the shared/substrate Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the folder-specific packages, NOT naive `Promise`/`try`-`catch` glue. Maximize the shared/substrate rails, never only the folder set. Use the MOST powerful combinators each package itself reaches; reject surface-level single-feature uses and thin rename wrappers; verify novel members with `uv run --frozen python -m tools.assay api`.',
-  'PRESERVE all intended capability (densify, never delete functionality). Where a page is already strong, refine; where it is flat/naive, rebuild ground-up. Never regress correctness or boundary law.',
-].join('\n')
-const EXTEND = [
-  'CAPABILITY EXTENSION (justified, in-place, never flat spam) — collapsing to tagged unions + Effect-stacking is NECESSARY but NOT SUFFICIENT. A page can be fully collapsed into one polymorphic surface and STILL be capability-thin: modeling a NAIVE, LIMITED slice of its domain concept — a flat id/member set where the concept owns geometry, metrics, attributes, topology, and operations; a 2-case discriminated union where the domain has twenty; an interface with the obvious 3 fields where the concept carries fifteen. Structural completeness and CAPABILITY completeness are ORTHOGONAL. A FULL rebuild ALSO closes the capability gap so the page OWNS ITS DOMAIN CONCEPT COMPLETELY. Capability grows sublinearly: every real missing concern lands as a CASE in the existing tagged discriminated union, a FIELD on the existing `Schema`/`Struct`/branded record, a member on the existing `Effect.Service`, a ROW in the existing `const`-union/table, or a POLICY value on the existing vocabulary — reshaping the owner as if it had always carried it; NEVER a parallel interface/type, a new file, a sibling shape, or flat appended code.',
-  'GAP SOURCES (every extension MUST cite exactly one — justified, never speculative): (a) PACKAGE — a member the admitted package surface exposes that the concept ADMITS but the page IGNORES (BOTH tiers: the shared `libs/typescript/.api/` Effect/Schema/React rails AND the folder domain packages, cross-checked against node_modules; stacking that full surface IS new functionality woven into the owner, not naive Promise/try-catch glue) — this is the PRIMARY source for the newly-admitted .api packages this pass integrates. (b) DOMAIN — an attribute, metric, sub-kind, relationship, state, or operation the REAL concept demands but the page omits (a chart owns scale/axis/series/interaction/annotation families and zoom/brush/tooltip/legend operations, not two naive renders; a service owns retry/telemetry/validation/cache layers, not a bare fetch; a projection owns the full transform/diff/patch family the domain needs). (c) CONSUMER — a contract a sibling or downstream owner will require that has no composed spelling here yet (a need with no spelling marks a missing case: the law extends first, the feature lands second).',
-  'JUSTIFIED, NOT RANDOM: if after a real domain + package + consumer sweep the concept is genuinely complete, prove it by adding nothing — never invent capability to look busy or pad with flat fields. Every added case/field/member/row is load-bearing, cites a package member / domain attribute / consumer contract, and composes the existing Effect/Schema rails; preserve ALL existing capability — extension only deepens, never regresses.',
-].join('\n')
-const PATLAW = [
-  'TS PATTERN LAW (ultra-advanced ONLY; do not preserve the naive idioms of the existing code): ZERO `any`, zero implicit `any`, zero unsafe `as`, zero non-null `!`; model with branded/nominal types, exact discriminated unions with EXHAUSTIVE handling (`assertNever` on the default), `readonly`/`as const`, template-literal types, conditional/mapped types, and the `satisfies` operator. NO runtime `enum` — use `const` unions or `Schema`/Effect. ONE canonical declaration form per value — never a `const` + `type` + `typeof` triple for one concept.',
-  'Domain logic runs on typed-error rails — `Effect`/`Either`/`Option`, NEVER `throw` in domain code; boundaries validate through `Schema` (parse, never trust input). `import type`/`export type` are explicit; side-effect/value imports preserve runtime order. Per the docs/stacks/typescript file-organization overlay: `Effect.Service` owners are SERVICES, `Layer`/runtime wiring is COMPOSITION, runtime schemas/classes are MODELS, and catalog/registry rows stay after the owners they reference.',
-  'Keep conventions IDENTICAL across every folder so the corpus reads as one ultra-advanced codebase. One canonical semantic name per bounded concept; discriminate on input shape rather than proliferating `get`/`getMany`/`getById` names.',
-].join('\n')
-const BOUNDARIES = 'BOUNDARY LAW: keep every folder owner strictly in its lane; internal code uses canonical names and shapes with mapping (and `Schema` validation) only at the edge; do not trample a sibling owner while densifying; respect the workspace dependency direction (no cycle, no reaching into a sibling owner INTERIOR vs its seam/wire). This pass realizes ONLY the current folder pages; a concept owned twice across the stack, a folder mixing unrelated concerns, or coupling to a sibling owner interior is a defect to fix in-folder or log as a cross-folder residual.'
-const PROSE = [
-  'PROSE QUALITY — apply docs/standards/style-guide.md. The page is a design SPEC: high-signal prose ONLY. Lead each section with the controlling rule/contract; one idea per paragraph; close on the consequence or boundary. Cut noise: no provenance, process narration, freshness disclaimers, report framing, or empty hedges (may/might/probably/generally/where possible). Prefer a table, a typed signature block, or a tight bullet wherever it carries the design better than a paragraph. Prose that ASSERTS capability the fence does not implement is a defect.',
-  'BACKTICK ALL CODE: wrap every symbol, type, field, function, operator, package ID, path, command, flag, and literal value in backticks. Name the exact member/type/rail in backticks instead of paraphrasing behavior. Trimming prose MUST NOT reduce technical density or remove design content.',
-].join('\n')
-const COMMENTS = 'COMMENT HYGIENE: code fences are agent-facing — comment for the next agent, never as a tutorial. KEEP the canonical section-divider headers (language-comment marker + space + `---` + bracketed `[UPPERCASE_LABEL]` + dash-fill). Beyond dividers, comment ONLY where intent is not already obvious from names, types, and signatures: default to ZERO comments on self-evident code; at most 1 line where a comment genuinely earns its place; 1-2 lines only for a truly subtle invariant, contract, or boundary. NO restating the code, no narration, no task/process/session/history/proof/review comments, no TSDoc bloat. Densify names and types so comments are rarely needed; cut every low-value comment.'
-const DOCTRINE = [LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', PROSE, '', COMMENTS].join('\n')
-
-// --- [SCHEMAS] -------------------------------------------------------------------------------
-const FIXLOG_SCHEMA = { type: 'object', additionalProperties: false, required: ['folder', 'verdict', 'summary'], properties: { folder: { type: 'string' }, verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] }, integrated: { type: 'array', items: { type: 'string' } }, newPages: { type: 'array', items: { type: 'string' } }, collapsed: { type: 'string' }, extended: { type: 'string' }, residual_high: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const RESIDUAL_FIX_SCHEMA = { type: 'object', additionalProperties: false, required: ['files', 'verdict', 'summary'], properties: { files: { type: 'array', items: { type: 'string' } }, verdict: { type: 'string', enum: ['fixed', 'clean'] }, summary: { type: 'string' } } }
-const RECONCILE_VERIFY_SCHEMA = { type: 'object', additionalProperties: false, required: ['overall', 'claims'], properties: { overall: { type: 'boolean' }, claims: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['claim', 'status'], properties: { claim: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'invalid', 'open'] }, evidence: { type: 'string' } } } } } }
-
-// --- [OPERATIONS] -- per-folder prompt builders: implement -> critique -> redteam --------------
-const scopeLine = (f) => 'FOLDER: `' + f.name + '` — design pages under `' + f.planning + '/**`, folder capability catalogs under `' + f.api + '/`, shared/substrate catalogs at `' + SUBSTRATE + '/`, governing docs at `' + f.root + '`.' + (f.note ? ' ' + f.note : '')
-const implementPrompt = (f) => [DOCTRINE, '',
-  'TASK: PER-FOLDER HOSTILE REBUILD + NEW-.api INTEGRATION of `' + f.name + '`. ' + scopeLine(f),
-  'Read EVERY design page under `' + f.planning + '/**`, the folder `.api/api-*.md` catalogs (especially the newly-admitted ones a recent survey added and rebuild-api filled) AND the shared/substrate `' + SUBSTRATE + '/*.md` catalogs (the universal Effect/Schema/React rails), the governing `ARCHITECTURE.md` + `README.md`, the docs/stacks/typescript/ core + the coding-ts standard; VERIFY every cited member via `uv run --frozen python -m tools.assay api` against node_modules (a member you cannot verify is a phantom — delete it). Then, across the WHOLE folder corpus: (1) INTEGRATE every newly-admitted package capability into the design — GROW the existing owner page where one fits (a case/field/member/row/policy-value), or AUTHOR a NEW page (and sub-domain folder) ONLY where the package is a genuinely new owner with no existing home, built ground-up to the .planning page grammar + the docs/stacks/typescript bar, and UPDATE `ARCHITECTURE.md` codemap + `[02]-[SEAMS]` + `README.md`; (2) HOSTILE GROUND-UP REBUILD of the folder pages to the ULTRA bar — collapse >=3 parallel interfaces/types/classes into ONE tagged discriminated union with EXHAUSTIVE match (`assertNever` on the default) IN THE SAME page, STACK the shared/substrate Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream`) end-to-end ON TOP OF the folder packages into UNIFIED rails, attach cross-cutting concerns as Effect combinators/layers (AOP), parameterize inputs AND outputs with generics at depth, model with branded/nominal types, validate every boundary through `Schema` (parse, never trust input), and CLOSE the concept capability gaps in place (each extension citing a package member / domain attribute / consumer contract). ZERO `any`/unsafe `as`/non-null `!`/`throw` in domain logic/runtime `enum`; ONE canonical declaration form per value. Realize ONLY `' + f.name + '` pages; never edit a sibling folder page. High-signal prose all-backticked, comment hygiene, fix-in-place. Return verdict + integrated (each new .api woven in, and where) + newPages (any new page authored, with its justification) + collapsed (before->after counts) + extended (each addition + its cited source) + residual_high (each {files:[every repo-relative path the cross-folder fix spans], claim} for a CROSS-FOLDER item) + summary.'].join('\n')
-const critiquePrompt = (f) => [DOCTRINE, '',
-  'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + CAPABILITY-COMPLETENESS + INTEGRATION AUDIT + FIX IN PLACE across `' + f.name + '`. ' + scopeLine(f) + ' You are an ULTRA-HARSH, UNAGREEABLE auditor: assume a violation exists in EVERY fence until you prove otherwise, trust NOTHING the prior pass or the prose claims, and "good enough"/"mature" is rejected outright. Read the folder pages, the folder `.api/` catalogs AND the shared/substrate `' + SUBSTRATE + '/` catalogs, the operative docs/stacks/typescript/ pages AND coding-ts. Run these MECHANICAL checklists line-by-line and REPAIR every hit in place (a fix, never a ledger note):',
-  '(1) COLLAPSE_SCAN — sibling prefix/suffix names -> one input-shape-polymorphic entrypoint; >=3 parallel interfaces/types/classes for one concept -> ONE tagged discriminated union with exhaustive match IN THE SAME page; same return shape differing only by arity -> input-shape discrimination; functions differing only by a literal -> a POLICY value; a `boolean`/`mode`/`batch` parameter selecting two bodies -> one derived body or policy value; a method calling exactly one other -> delete the hop; parallel dispatch arms repeating structure -> a fold over the union; a `get`/`getMany`/`getById`/`list`/`search` family -> one input-keyed polymorphic operation; a wrapper renaming a package API -> the package surface directly; repeated inline cross-cutting concern -> an Effect combinator/layer; a `const` + `type` + `typeof` triple for one value -> ONE canonical declaration form.',
-  '(2) OWNER_CHOOSER — re-derive each owner from its discriminants, most-specific wins: invariant-bearing scalar -> a branded/nominal type; N-field one-concept product -> a `Schema.Struct`/branded record; bounded wire-keyed vocabulary -> a `const`-union/`Schema.Literal` with a frozen row table; closed per-occurrence alternatives -> a tagged discriminated union; runtime capability/dependency -> an `Effect.Service` + `Layer`; interior product no invariant -> a `readonly` record. Kill every parallel interface/DTO, one-field wrapper, field-rename shape, `null`/`undefined`-as-failure, and the `const` + `type` + `typeof` triple modeling one value.',
-  '(3) KNOB_TEST — delete each parameter; if a value reconstructs what it carried it was a knob -> collapse a `boolean`/`mode`/`strict`/`batch` flag into a policy value or input-shape discriminant; a nullable flag tail -> one `Option<ContextRecord>`; move every `timeout`/`retry`/`deadline`/abort signal OFF the signature onto the carrier or a composition-time Effect layer/combinator.',
-  '(4) ASPECTS — cross-cutting concerns (retry, telemetry, validation, caching, receipts, fault rails) attach as Effect combinators/layers, NEVER repeated inline — retry as `Schedule`-driven `Effect.retry`, recovery as named catch combinators (`Effect.catchTag`/`Effect.catchAll`), resource lifetime as `Effect.acquireRelease`/`Effect.scoped`, telemetry as a tracing layer; 2-4 co-occurring wrappers collapse into one combinator; an aspect NEVER raises into domain flow.',
-  '(5) RAILS — the narrowest carrier chosen ONCE at the boundary: `Option<T>` absence, `Either<E,A>` synchronous fallibility, `Effect<A,E,R>` runtime capability + deferred boundary work, `Stream` for multiplicity, `Schedule` retry policy; the fault type is a CLOSED tagged union (recovery by `_tag`, never `instanceof` sprawl); accumulate-vs-abort disposition correct (`Effect.all`/validation for independents, `Effect.flatMap`/`gen` for dependents); EXHAUSTIVE union handling with `assertNever` on the default (NO silent fall-through hiding a case); NO `throw` in domain logic, NO mutable accumulation; `Schema` parse at EVERY boundary (parse, never trust input).',
-  '(6) MEMBERS/MODERN — cite ONLY members confirmed in the `.api/` catalogs (verify novel members via `uv run --frozen python -m tools.assay api` against node_modules); ZERO `any`/implicit `any`/unsafe `as`/non-null `!`; bleeding-edge TypeScript (branded/nominal types, template-literal/conditional/mapped types, `satisfies`, `as const`, `readonly`); FULL docs/stacks/typescript + coding-ts conformance; BOTH the folder `.api/` catalogs AND the shared/substrate Effect/Schema/React rails maximized; the TypeScript strict type-check + lint gate clean; `import type`/`export type` explicit.',
-  '(7) INTEGRATION-COMPLETENESS + CAPABILITY-COMPLETENESS + ILLUSION — for EVERY newly-admitted folder `.api` package, verify its capability is actually COMPOSED into a fence (not just named in prose); an admitted package whose `.api` exposes capability no owner exploits is a named gap to close NOW (grow the owner, or — only if a genuinely new owner — a new page). Independently, structural collapse and capability completeness are ORTHOGONAL: a fully-collapsed owner can still model a NAIVE slice of its concept — close it in place. Reject the inverse: a speculative/padding field, decorative ceremony, an UNJUSTIFIED new page that fragments an existing owner, or prose asserting capability the fence lacks is deleted/folded back.',
-  'Also enforce the docs/stacks/typescript file-organization + section-order overlay, cross-folder convention consistency, and prose + comment hygiene. EDIT the `' + f.name + '` pages to fix every hit; OVERRIDE any earlier residual you can now resolve. Return verdict + integrated + newPages + collapsed + extended + residual_high + summary.'].join('\n')
-const redteamPrompt = (f) => [DOCTRINE, '',
-  'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE across `' + f.name + '`. ' + scopeLine(f) + ' You are the LAST and MOST AGGRESSIVE pass: assume the implement and critique missed things and that the chosen design is naive or illusory until PROVEN the strongest, the burden of proof ON THE DESIGN; trust nothing the prior passes or the prose claimed. Open the folder `.api/` catalogs AND the shared/substrate `' + SUBSTRATE + '/` catalogs, the sibling pages, the operative docs/stacks/typescript/ pages, and coding-ts. Attack from every direction and REPAIR every defect in place — no soft-pedalling, a fix never a ledger.',
-  'PRIMARY LENS: (A) COUNTERFACTUAL on each core choice — is the owner, the algebra (a fold over the tagged union / exhaustive match / data table), and the dispatch form categorically the strongest the doctrine admits, or does a denser owner or a DEEPER admitted-package primitive (`Effect`/`Schema`/`Stream`/`Layer`) collapse the whole fence? Rebuild to the stronger form; never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: the next case/dimension/knob/modality/provider lands as ONE case/field/policy value with every consumer untouched or broken LOUDLY at compile time (exhaustive match + `assertNever`, no silent default)? If it would touch multiple sites, reshape the growth axis. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode (empty, singular, plural, stream, malformed, concurrent, cancelled, partial-failure, version-skew); accumulate-vs-abort correct for the REAL boundary; BOTH ingress AND egress parameterized; `Schema` parse at the boundary. (D) BOUNDARY-INTEGRITY — a workspace dependency-direction violation, a cycle, a concern owned twice across the stack, a folder mixing concerns, coupling to a sibling owner INTERIOR (vs its seam/wire), OR a sibling page left STALE by this folder change (seam drift) is a defect: fix in-folder or log as a cross-folder residual. (E) SURFACE-SPRAWL-IN-TIME + PHANTOMS — an admitted package whose `.api` or the shared/substrate rails expose capability the fence re-derives by hand, flat `Promise`/`try`-`catch` glue below the combinator depth the packages reach, a phantom member, smuggled `any`/`as`/`!`, or a thin wrapper: collapse to package depth and verify the member (via `assay api` against node_modules). (F) INTEGRATION + CAPABILITY-COMPLETENESS — counterfactually attack each owner for domain-completeness AND verify every newly-admitted .api capability is genuinely composed into a fence; an UNJUSTIFIED new page (fragmenting an existing owner) is folded back, a MISSING owner (a real new concern with no page) is authored.',
-  'ALSO — FULL COLD ADVERSARIAL RE-REVIEW (every time): re-attack every conformance dimension with fresh hostile eyes — the COLLAPSE_SCAN signals, OWNER_CHOOSER per shape, the KNOB_TEST per param, the Effect-combinator ASPECT taxonomy, rail + closed-tagged-fault discipline, integration + capability-completeness per owner, dependency-direction correctness, bleeding-edge TS typing (zero `any`/`as`/`!`/`throw`/`enum`), docs/stacks/typescript + coding-ts conformance, `.api` + shared/substrate Effect/Schema/React maximization, the TypeScript type-check + lint gate, and prose/comment hygiene — and fix every defect. The folder must end objectively denser, MORE CAPABLE, more correct than the critique left it; if the strongest form is genuinely already present, prove it by finding nothing — never invent churn. Realize ONLY `' + f.name + '` pages; log cross-FOLDER items as residual_high. Return verdict + integrated + newPages + collapsed + extended + residual_high + summary.'].join('\n')
-
-// --- [STAGES] ----------------------------------------------------------------------------------
-const STAGES = [
-  { key: 'implement', build: implementPrompt, effort: 'max' },
-  { key: 'critique', build: critiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: redteamPrompt, effort: 'max' },
-]
-// --- [FINAL-ALIGN] -- whole-stack cross-folder coherence prompts (one series of agents) -------
-const ALIGN_SCHEMA = { type: 'object', additionalProperties: false, required: ['verdict', 'summary'], properties: { verdict: { type: 'string', enum: ['aligned', 'clean'] }, aligned: { type: 'array', items: { type: 'string' } }, residual: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['files', 'claim'], properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } } } }, summary: { type: 'string' } } }
-const ROSTER = FOLDERS.map((f) => f.name + ' (' + f.root + ')').join('; ')
-const FINAL = [
-  'WHOLE-STACK CROSS-FOLDER ALIGNMENT — this is the FINAL pass, after every folder ran its own per-folder implement -> critique -> redteam and the residual reconcile. Hold ALL these TypeScript folders in view at once and align them as ONE coherent stack: ' + ROSTER + '. Read each folder ARCHITECTURE.md ([1]-[DOMAIN_MAP] + [2]-[SEAMS]) and README, the shared/substrate `' + SUBSTRATE + '/` catalogs, and every design page a cross-folder seam spans. This is the ONLY pass that edits ACROSS folders — but it aligns at the seam and never trespasses a folder owner interior.',
-  'ALIGN OBJECTIVES (fix every one in place across the spanned folders): (1) SEAMS/WIRES — every cross-folder producer/consumer relationship is recorded in BOTH endpoint folders ARCHITECTURE [02]-[SEAMS] with mirrored glyphs and ONE shared shape; a stale, missing, or one-sided seam is a defect. (2) PORTS/BOUNDARIES — a capability a folder now needs from a sibling has a named port/boundary on both sides; add the new port where a per-folder pass created the need but could not reach the sibling. (3) NO DUPLICATION — a concept owned twice across the stack collapses to the ONE rightful owner; the sibling consumes the seam, never a second mint. (4) NO DEPENDENCY-DIRECTION VIOLATION — respect the workspace dependency direction; no cycle, no reaching into a sibling owner interior (consume its seam/wire), internal code uses canonical names with `Schema` mapping only at the edge. (5) SHARED/SUBSTRATE-TIER LEVERAGE — every folder FULLY and PROPERLY leverages the shared/substrate Effect/Schema/React rails (`libs/typescript/.api/` — `Effect`/`Layer`/`Context`/`Schema`/`Stream`, react, react-dom, clsx, ...) for BOTH existing and new functionality, NEVER re-implementing a substrate capability; a consumer hand-rolling what the substrate owns (naive `Promise`/`try`-`catch` glue where `Effect`/`Layer` belongs, an unvalidated boundary where `Schema` belongs) is a defect to rewire to the substrate. (6) GAPS/OVERSIGHTS — hunt the mistakes no single-folder pass could see from inside one folder, and fix them.',
-].join('\n')
-const finalAlignPrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: WHOLE-STACK ALIGN — walk every cross-folder seam/wire/port/boundary across all folders and ALIGN them in place. Record every seam in both endpoint ARCHITECTURE [02]-[SEAMS] with mirrored glyphs, add the new ports/boundaries the per-folder passes surfaced, collapse any concept owned twice to its rightful owner (the sibling consumes the seam), fix any dependency-direction violation or cycle, and rewire any consumer that hand-rolls a shared/substrate capability to leverage the Effect/Schema/React substrate instead. Read the folders ARCHITECTURE + README + the shared/substrate catalogs + the spanned design pages; verify any member via `uv run --frozen python -m tools.assay api` against node_modules. Fix every defect in place across the spanned folders, regressing none. Return verdict + aligned (each alignment made, naming the folders + the seam/port) + residual (each {files, claim} for anything you could not fully resolve) + summary.'].join('\n')
-const finalCritiquePrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: ADVERSARIAL AUDIT of the whole-stack alignment + FIX IN PLACE. Assume a cross-folder defect remains until you prove otherwise; trust nothing the align pass claimed. Re-walk EVERY seam/wire/port/boundary across all folders: a one-sided or stale seam, a missing mirror glyph, a concept still owned twice, a residual dependency-direction violation or cycle, a consumer still hand-rolling a shared/substrate capability, a new port the align pass missed, a gap between two folders. Repair every hit in place across the spanned folders. Return verdict + aligned + residual + summary.'].join('\n')
-const finalRedteamPrompt = () => [DOCTRINE, '', FINAL, '', 'TASK: ADVERSARIAL RED-TEAM of the whole-stack alignment — the LAST and most aggressive whole-stack pass. Trust nothing the align/critique claimed. COUNTERFACTUALLY attack the cross-folder ownership: is each shared concept on the RIGHT owner; is each seam the strongest shared shape; does any consumer still under-leverage the shared/substrate Effect/Schema/React tier or duplicate a sibling; is any dependency edge, boundary, or wire still wrong; will the next cross-folder growth axis (a new shared case/port/provider) land cleanly without touching multiple interiors? Fix every defect in place across the spanned folders; if the stack is genuinely coherent, prove it by finding nothing — never invent churn. Return verdict + aligned + residual + summary.'].join('\n')
-
-const processFolder = async (f) => {
-  const logs = {}
-  for (const st of STAGES) {
-    const r = await agent(st.build(f), { label: st.key + ':' + f.name, phase: 'Realize', schema: FIXLOG_SCHEMA, effort: st.effort, stallMs: 600000 })
-    if (r === null) break
-    logs[st.key] = r
-  }
-  return { folder: f.name, logs, ok: Object.keys(logs).length === STAGES.length }
-}
-
-// --- [COMPOSITION] -----------------------------------------------------------------------------
 log('ts-rebuild-many: ' + FOLDERS.length + ' folders, per-folder implement -> critique -> redteam, pooled at CAP=' + Math.min(CAP, FOLDERS.length))
 phase('Realize')
 const done = (await pool(FOLDERS, CAP, (f) => processFolder(f))).filter(Boolean)
 
-// --- [RECONCILE] -- consume the cross-FOLDER residuals the per-folder passes deferred ----------
 const allRes = []
 for (const r of done) for (const st of ['implement', 'critique', 'redteam']) { const l = r.logs && r.logs[st]; if (l && l.residual_high) for (const x of l.residual_high) allRes.push({ files: (x.files && x.files.length ? x.files : [r.folder]), claim: x.claim }) }
 const uniq = [...new Map(allRes.map((r) => [r.files.slice().sort().join(',') + '|' + r.claim, r])).values()]
@@ -144,14 +343,23 @@ const clusters = (() => {
   for (const r of uniq) { const root = r.files.length ? find(r.files[0]) : '__none__'; (by.get(root) || by.set(root, []).get(root)).push(r) }
   return [...by.values()]
 })()
-log('Realize: ' + done.filter((r) => r.ok).length + '/' + FOLDERS.length + ' folders complete; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' clusters')
+log('Realize: ' + done.filter((r) => r.ok).length + '/' + FOLDERS.length + ' folders complete; reconcile ' + uniq.length + ' residuals -> ' + clusters.length + ' ' +
+  'clusters')
 let reconciled = []
 if (clusters.length) {
   phase('Reconcile')
   reconciled = (await pool(clusters, CAP, async (cl, i) => {
-    const fix = await agent([LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these cross-FOLDER residuals the implement/critique/redteam passes deferred. There is NO severity — treat EVERY residual as must-address. Read EVERY listed file. For each: if it is a real cross-folder defect, FIX it in place (unify the shared type/seam/rail, repair the dependency-direction/boundary issue, align a stale sibling page, or extend the shared owner in place to close a capability gap that spans folders), preserving all capability and regressing no file; if a residual is FACTUALLY INCORRECT, leave it and say why — never silently skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix:' + i, phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 600000 })
+    const fix = await agent([LAW, '', INTEGRATE, '', ADVERSARIAL, '', ULTRA, '', EXTEND, '', PATLAW, '', BOUNDARIES, '', 'TASK: RECONCILE these ' +
+      'cross-FOLDER residuals the implement/critique/redteam passes deferred. There is NO severity — treat EVERY residual as must-address. Read ' +
+      'EVERY listed file. For each: if it is a real cross-folder defect, FIX it in place (unify the shared type/seam/rail, repair the ' +
+      'dependency-direction/boundary issue, align a stale sibling page, or extend the shared owner in place to close a capability gap that spans ' +
+      'folders), preserving all capability and regressing no file; if a residual is FACTUALLY INCORRECT, leave it and say why — never silently ' +
+      'skip a real one. Residuals:\n' + JSON.stringify(cl, null, 1)].join('\n'), { label: 'reconcile-fix:' + i, phase: 'Reconcile', schema: RESIDUAL_FIX_SCHEMA, effort: 'max', stallMs: 600000 })
     if (!fix) return null
-    const verify = await agent([LAW, '', BOUNDARIES, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and classify each residual: status "fixed" (real defect now genuinely resolved), "invalid" (the claim is factually wrong — cite why), or "open" (real defect still NOT resolved). Default "open" on any doubt; mark "invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles the fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 600000 })
+    const verify = await agent([LAW, '', BOUNDARIES, '', 'TASK: ADVERSARIAL VERIFY, one verdict per claim. Read the named files from disk and ' +
+      'classify each residual: status "fixed" (real defect now genuinely resolved), "invalid" (the claim is factually wrong — cite why), or "open" ' +
+      '(real defect still NOT resolved). Default "open" on any doubt; mark "invalid" ONLY when you can show the claim is wrong. Claims:\n' + JSON.stringify(cl, null, 1) + '\nFiles ' +
+      'the fixer touched: ' + JSON.stringify(fix.files)].join('\n'), { label: 'reconcile-verify:' + i, phase: 'Reconcile', schema: RECONCILE_VERIFY_SCHEMA, effort: 'xhigh', stallMs: 600000 })
     return { cluster: cl, fix, verify }
   })).filter(Boolean)
 }
@@ -163,13 +371,8 @@ const integratedAll = done.flatMap((r) => Object.values(r.logs || {}).flatMap((l
 const newPagesAll = done.flatMap((r) => Object.values(r.logs || {}).flatMap((l) => l.newPages || []))
 log('Reconcile: ' + clusters.length + ' clusters; ' + hard_residual.length + ' open (hard residual), ' + dropped.length + ' dropped as invalid')
 
-// --- [FINAL-ALIGN] -- whole-stack cross-folder 1-2-3 by one series of agents (sequential) ------
+// --- [FINAL_ALIGN]
 phase('Final-Align')
-const ALIGN_STAGES = [
-  { key: 'align', build: finalAlignPrompt, effort: 'max' },
-  { key: 'critique', build: finalCritiquePrompt, effort: 'xhigh' },
-  { key: 'redteam', build: finalRedteamPrompt, effort: 'max' },
-]
 const alignLogs = {}
 for (const st of ALIGN_STAGES) {
   const r = await agent(st.build(), { label: 'final-' + st.key, phase: 'Final-Align', schema: ALIGN_SCHEMA, effort: st.effort, stallMs: 900000 })
@@ -178,6 +381,7 @@ for (const st of ALIGN_STAGES) {
 }
 const alignedAll = Object.values(alignLogs).flatMap((l) => (l && l.aligned) || [])
 const finalResidual = Object.values(alignLogs).flatMap((l) => (l && l.residual) || [])
-log('Final-Align: ' + Object.keys(alignLogs).length + '/3 whole-stack passes; ' + alignedAll.length + ' alignments, ' + finalResidual.length + ' residual')
+log('Final-Align: ' + Object.keys(alignLogs).length + '/3 whole-stack passes; ' + alignedAll.length + ' alignments, ' + finalResidual.length + ' ' +
+  'residual')
 
 return { folders: FOLDERS.map((f) => f.name), complete: done.filter((r) => r.ok).length, incomplete: done.filter((r) => !r.ok).length, integrated: [...new Set(integratedAll)], newPages: [...new Set(newPagesAll)], clusters: clusters.length, hard_residual: hard_residual, dropped: dropped, finalAligned: alignedAll, finalResidual: finalResidual }

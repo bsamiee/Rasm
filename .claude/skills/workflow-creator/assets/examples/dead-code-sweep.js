@@ -27,6 +27,15 @@ export const meta = {
   ],
 }
 
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const DRY_STREAK = 2 // stop after this many empty rounds in a row
+const MAX_ROUNDS = 8 // hard cap so the loop always terminates
+
+// --- [INPUTS] ----------------------------------------------------------------------------
+// `args` arrives as structured data — read the scope directly, default to all libs.
+const scope = args?.scope ?? 'libs'
+
+// --- [MODELS] ----------------------------------------------------------------------------
 const DEAD = {
   type: 'object',
   required: ['items'],
@@ -45,7 +54,6 @@ const DEAD = {
     },
   },
 }
-
 const REMOVAL = {
   type: 'object',
   required: ['file', 'symbol', 'removed'],
@@ -57,11 +65,7 @@ const REMOVAL = {
   },
 }
 
-const DRY_STREAK = 2 // stop after this many empty rounds in a row
-const MAX_ROUNDS = 8 // hard cap so the loop always terminates
-
-// `args` arrives as structured data — read the scope directly, default to all libs.
-const scope = args?.scope ?? 'libs'
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 const seen = new Set() // file::symbol of every candidate already handled, across rounds
 const removed = []

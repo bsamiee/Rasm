@@ -19,6 +19,15 @@ export const meta = {
   ],
 }
 
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const MAX_ROUNDS = 3 // hard cap — every loop in a workflow needs one.
+
+// --- [INPUTS] ----------------------------------------------------------------------------
+// `args` arrives as structured data. This workflow expects a plain-text task
+// string; anything else falls back to the default.
+const task = typeof args === 'string' && args.trim() ? args : 'collapse the duplicate mesh codecs in libs/csharp/Rasm into one [Union]'
+
+// --- [MODELS] ----------------------------------------------------------------------------
 // The reviewer must answer two things: did it pass, and if not, what is wrong.
 const REVIEW = {
   type: 'object',
@@ -29,10 +38,7 @@ const REVIEW = {
   },
 }
 
-// `args` arrives as structured data. This workflow expects a plain-text task
-// string; anything else falls back to the default.
-const task = typeof args === 'string' && args.trim() ? args : 'collapse the duplicate mesh codecs in libs/csharp/Rasm into one [Union]'
-const MAX_ROUNDS = 3 // hard cap — every loop in a workflow needs one.
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Implement')
 await agent(`Implement ${task}. Make the change in the codebase.`, { label: 'implement' })

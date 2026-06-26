@@ -9,14 +9,18 @@ export const meta = {
   phases: [{ title: 'Stage1' }, { title: 'Stage2' }], // optional — progress groups (see the phase option below)
 }
 
+// --- [INPUTS] ----------------------------------------------------------------------------
 // `args` arrives as structured data — an array stays an array, read it directly.
 const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TODO item two']
 
+// --- [MODELS] ----------------------------------------------------------------------------
 const STAGE1_SCHEMA = {
   type: 'object',
   required: ['result'],
   properties: { result: { type: 'string' } },
 }
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 // pipeline(items, stage1, stage2, ...) — each stage callback gets
 // (prevResult, originalItem, index). There is NO barrier between stages:

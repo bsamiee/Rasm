@@ -9,6 +9,7 @@ export const meta = {
   phases: [{ title: 'Collect' }],
 }
 
+// --- [MODELS] ----------------------------------------------------------------------------
 const RESULT_SCHEMA = {
   type: 'object',
   required: ['items'],
@@ -16,6 +17,8 @@ const RESULT_SCHEMA = {
     items: { type: 'array', items: { type: 'string' } },
   },
 }
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('Collect')
 const collected = []

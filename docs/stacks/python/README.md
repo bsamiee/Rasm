@@ -1,6 +1,6 @@
 # [STACKS_PYTHON]
 
-This folder is the Python stack decision atlas. It routes language, shape, surface, rail, boundary, numeric, system-API, runtime, and proof decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
+This folder is the Python stack decision atlas. It routes language, shape, surface, rail, boundary, numeric, system-API, and runtime decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
 
 Pages carry no outside-source blocks, release narration, provenance, process state, project anchors, tool context, source-footnote blocks, or meta commentary. Pages name exact code, package, operator, generated-surface, and command spellings in code spans; verification happens before authoring, and the page states doctrine as fact.
 
@@ -8,18 +8,18 @@ Pages carry no outside-source blocks, release narration, provenance, process sta
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]                          | [READ]                                            | [STATE]   |
-| :-----: | :---------------------------------- | :------------------------------------------------ | :-------- |
-|  [01]   | language syntax and standards       | [language](language.md)                           | finalized |
-|  [02]   | data shape                          | [shapes](shapes.md)                               | finalized |
-|  [03]   | surface and dispatch                | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
-|  [04]   | rail and effect flow                | [rails and effects](rails-and-effects.md)         | partial   |
-|  [05]   | structured concurrency              | [concurrency](concurrency.md)                     | partial   |
-|  [06]   | host and wire boundary              | [boundaries](boundaries.md)                       | finalized |
-|  [07]   | numeric approach                    | [algorithms](algorithms.md)                       | finalized |
-|  [08]   | system API replacement              | [system APIs](system-apis.md)                     | finalized |
-|  [09]   | interpreter execution and isolation | [runtime](runtime.md)                             | partial   |
-|  [10]   | proof rail                          | `testing/README.md`                               | target    |
+| [INDEX] | [DECISION]                          | [READ]                                            |
+| :-----: | :---------------------------------- | :------------------------------------------------ |
+|  [01]   | language syntax and standards       | [language](language.md)                           |
+|  [02]   | data shape                          | [shapes](shapes.md)                               |
+|  [03]   | surface and dispatch                | [surfaces and dispatch](surfaces-and-dispatch.md) |
+|  [04]   | algorithmic body and computation    | [iteration](iteration.md)                         |
+|  [05]   | rail and effect flow                | [rails and effects](rails-and-effects.md)         |
+|  [06]   | structured concurrency              | [concurrency](concurrency.md)                     |
+|  [07]   | host and wire boundary              | [boundaries](boundaries.md)                       |
+|  [08]   | numeric approach                    | [algorithms](algorithms.md)                       |
+|  [09]   | system API replacement              | [system APIs](system-apis.md)                     |
+|  [10]   | interpreter execution and isolation | [runtime](runtime.md)                             |
 
 ## [02]-[DOCTRINE]
 
@@ -40,7 +40,7 @@ Sixteen laws in five groups govern every Python decision in this stack. Concept 
 - `DERIVED_LOGIC` — when cases share generative structure, the logic is derived — a `frozendict` table, fold, or comprehension — never enumerated arms. One primary correspondence is declared and every secondary map derives from it; a derived form is replaced only where a structurally cheaper primitive exists, and the replacement preserves the law the derivation encodes — the derivation is the executable specification.
 - `DERIVED_TYPES` — types are computed where the language allows so one declaration yields the family: inline type parameters with defaults, `TypeForm`, variadic generics, and `@dataclass_transform` owners replace rank-specific or per-provider type copies.
 - `SYMBOLIC_REFERENCE` — names, paths, discriminants, and correspondences travel as symbols and derived values — enum members, `Path` algebra, vocabulary tables — never as string literals that restate something the program already knows.
-- `SEMANTIC_NAMING` — every file, namespace, type, method, local function, parameter, field, property, case, test, artifact, and region name uses the bounded context's canonical term, grammatical role, and tense. One semantic word is the default; two words are allowed when owner plus action, result, axis, or boundary is load-bearing; three words are the ceiling unless a generated contract, external API, or ambiguity proof requires more. Operations use action verbs, values and receipts use result nouns, policies and vocabularies use stable noun or adjective rows, and boundary adapters preserve foreign names only at the seam. Renaming for variety, tense drift, abbreviations, prefix/suffix families, and parallel file/member/type labels for one concept are rejected.
+- `SEMANTIC_NAMING` — every file, namespace, type, method, local function, parameter, field, property, case, artifact, and region name uses the bounded context's canonical term, grammatical role, and tense. One semantic word is the default; two words are allowed when owner plus action, result, axis, or boundary is load-bearing; three words are the ceiling unless a generated contract, external API, or ambiguity proof requires more. Operations use action verbs, values and receipts use result nouns, policies and vocabularies use stable noun or adjective rows, and boundary adapters preserve foreign names only at the seam. Renaming for variety, tense drift, abbreviations, prefix/suffix families, and parallel file/member/type labels for one concept are rejected.
 
 [MATERIAL]:
 - `LIBRARY_DEPTH` — admitted packages are the standard library: `expression` for rails and composition, `pydantic` for admission and settings, `msgspec` for wire codecs, `anyio` for structured concurrency, `stamina` for retry, `beartype` for runtime contracts, `numpy` for array numerics, `structlog` and OpenTelemetry for observability. Use the deepest primitive the package itself reaches for; wrappers, rename adapters, and stdlib-first reflexes are rejected. Language primitives remain owners only when they carry the invariant directly.

@@ -1,25 +1,26 @@
 {
-    "$schema": "https://json.schemastore.org/claude-code-settings.json",
-    "effortLevel": "xhigh",
-    "claudeMdExcludes": [
-        "**/.cache/**/CLAUDE.md",
-        "**/node_modules/**/CLAUDE.md",
-        "**/bin/**/CLAUDE.md",
-        "**/obj/**/CLAUDE.md",
-        "**/.artifacts/**/CLAUDE.md"
-    ],
-    "hooks": {
-        "SessionStart": [
-            {
-                "matcher": "startup|resume|compact",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh",
-                        "timeout": 5
-                    }
-                ]
-            }
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh",
+            "timeout": 5
+          }
         ]
-    }
+      }
+    ]
+  },
+  "effortLevel": "xhigh",
+  "claudeMdExcludes": [
+    "**/.cache/**/CLAUDE.md",
+    "**/node_modules/**/CLAUDE.md",
+    "**/bin/**/CLAUDE.md",
+    "**/obj/**/CLAUDE.md",
+    "**/.artifacts/**/CLAUDE.md"
+  ],
+  "enabledPlugins": {}
 }

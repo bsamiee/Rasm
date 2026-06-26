@@ -30,11 +30,13 @@ Use the route-owned standard for the file being edited:
 |  [02]   | C# production (`.cs`)                | `docs/stacks/csharp` |
 |  [03]   | C# tests (`.spec.cs`)                | `testing-cs`         |
 |  [04]   | Runtime scenarios (`Scenarios/*.cs`) | `testing-cs`         |
-|  [05]   | Python (`.py`)                       | `coding-python`      |
+|  [05]   | Python (`.py`)                       | `docs/stacks/python` |
 |  [06]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`        |
 |  [07]   | SQL (`.sql`)                         | `coding-pg`          |
 
 `docs/stacks/csharp` is the route-owned C# production standard. C# source composes `docs/stacks/csharp/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `algorithms.md`, and `system-apis.md`. Specialized C# domains route through `docs/stacks/csharp/domain/README.md`.
+
+`docs/stacks/python` is the route-owned Python production standard. Python source composes `docs/stacks/python/README.md`, `language.md`, `shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `concurrency.md`, `boundaries.md`, `algorithms.md`, `system-apis.md`, and `runtime.md`. Specialized Python domains route through `docs/stacks/python/domain/README.md`; numerical and scientific computing routes through `docs/stacks/python/numerics/README.md`.
 
 ## [03]-[DEPENDENCY_POLICY]
 
@@ -75,7 +77,7 @@ Use the route-owned standard for the file being edited:
 [IMPORTANT]:
 - [ALWAYS] Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
 - [ALWAYS] Parallelize independent searches, reads, and checks.
-- [ALWAYS] Use bounded subagents for independent exploration, research, verification, and disjoint implementation when the user asks for subagents or parallel agent work.
+- [ALWAYS] Use bounded subagents for independent exploration, research, verification, and disjoint implementation.
 - [ALWAYS] Invoke real executables on `PATH`; use `zsh -ic` only when testing interactive zsh configuration.
 - [ALWAYS] Run Bash-only snippets through `bash -lc`, a Bash heredoc, or an executable with a Bash shebang.
 - [ALWAYS] Treat workflow globals such as `args` as workflow-runtime state, separate from shell, Nix, aliases, and `PATH`.
@@ -84,7 +86,7 @@ Use the route-owned standard for the file being edited:
 ## [06]-[OWNER_ROUTING]
 
 [IMPORTANT]:
-- [ALWAYS] Resolve external library, framework, SDK, or host-API usage through `Context7` (`resolve-library-id` -> `query-docs`, or a `/org/project[/version]` ID direct) for current patterns and newest-stable behavior before internalizing into a canonical owner: `Context7` answers upstream usage, `uv run python -m tools.assay api` answers which members verifiably exist locally — verified-local wins on conflict. The web/docs research selection law (`Exa`/`Tavily` over built-in fetch, slow `Perplexity` for deep questions, `mcp__github__*` versus `gh`, context-isolated bulk reads) is the user-global doctrine, not restated here.
+- [ALWAYS] Resolve external library, framework, SDK, or host-API usage through `Context7` (`resolve-library-id` -> `query-docs`, or a `/org/project[/version]` ID direct) for current patterns and newest-stable behavior before internalizing into a canonical owner: `Context7` answers upstream usage, `uv run python -m tools.assay api` answers which members verifiably exist locally — verified-local wins on conflict. The web/docs research selection law (`Exa`/`Tavily` over built-in fetch, slow `Perplexity` for deep questions, `mcp__github__*` versus `gh`, context-isolated bulk reads).
 - [ALWAYS] Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
 - [ALWAYS] Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
 - [ALWAYS] Keep static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks orthogonal.

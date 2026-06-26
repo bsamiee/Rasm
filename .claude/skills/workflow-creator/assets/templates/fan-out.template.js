@@ -9,10 +9,12 @@ export const meta = {
   phases: [{ title: 'Work' }, { title: 'Synthesize' }],
 }
 
+// --- [INPUTS] ----------------------------------------------------------------------------
 // The unit of work. Pass a real list as the Workflow `args`, or hardcode one.
 // `args` arrives as structured data — an array stays an array, read it directly.
 const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TODO item two']
 
+// --- [MODELS] ----------------------------------------------------------------------------
 // Structured output — the subagent is forced to return an object matching this.
 const ITEM_SCHEMA = {
   type: 'object',
@@ -22,6 +24,8 @@ const ITEM_SCHEMA = {
     points:  { type: 'array', items: { type: 'string' } },
   },
 }
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 // PHASE 1 — one fresh-context subagent per item, all at once. parallel() is a
 // barrier: it waits for every thunk. Note the shape — () => agent(...), a thunk.
@@ -44,6 +48,8 @@ log(`${clean.length}/${items.length} returned usable results.`)
 
 // PHASE 2 — one synthesis agent. It is a fresh context: it never saw the workers.
 // It learns the results only because we paste them into its prompt.
+
+// --- [SYNTHESIZE]
 phase('Synthesize')
 const report = await agent(
   'TODO: instruction — combine the results below into one deliverable.\n\n'

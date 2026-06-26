@@ -29,7 +29,7 @@ The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure neve
 [ENV_ADMISSION]:
 - Law: the environment is the one foreign surface whose read, validation, and rail lift fuse into a single admission step — a `pydantic-settings` `BaseSettings` runs the source chain (env, dotenv, secrets dir) at construction, so `os.environ` is never read raw and a missing or malformed variable surfaces as `SettingsError`/`ValidationError` captured once into the seam fault, never a scattered `os.getenv(...) or default` across the interior.
 - Law: provision and runtime state are separate axes — a required capability is *always present* as a port whose value carries its own `unavailable`/`degraded` case, so a settings field is the static admission of presence and the port's tagged state is the dynamic admission of liveness; a `None` field standing in for "the service might be down" conflates the two.
-- Reject: a raw `os.environ[...]` read in interior flow; a settings value re-validated past the `BaseSettings` step; a nullable settings field where the absence carries a cause the port should own.
+- Reject: a raw `os.environ[...]` read in interior flow; a settings value re-validated past the `BaseSettings` step; a nullable settings field where the absence carries a cause the port should own; a `beartype.vale.Is` refinement on a settings field, which the pydantic validator ignores (`shapes.md` owns the per-validator-metadata law) — the field constraint rides a pydantic-native `AnyUrl`, a constrained type, or a `Field` bound.
 
 [PROBE_SWEEP]:
 - Law: a multi-probe admission — several settings groups, capability handshakes, or provider reads admitted together — fixes its abort-versus-accumulate disposition at the seam where the probes run, never downstream, and composes the rail page's settled fold to realize it; the seam's contribution is the locality, that the decision is bound before the first probe rather than reconstructed by a later reader from a `Block` of mixed outcomes.
@@ -39,16 +39,15 @@ The absence taxonomy arrives settled from `shapes.md` — `None`-as-failure neve
 ```python conceptual
 from collections.abc import Callable
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Literal
 
-from beartype.vale import Is
 from expression import Error, Ok, Option, Result, case, tag, tagged_union
 from expression.collections import Block
 from expression.extra.result import sequence
-from pydantic import ValidationError
+from pydantic import AnyUrl, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
-type Endpoint = Annotated[str, Is[lambda text: "://" in text and text.isascii()]]
+type Endpoint = AnyUrl
 type AdmitFault = Literal["<unset>", "<malformed>"]
 
 
@@ -94,7 +93,7 @@ def admitted(probe: Callable[[Endpoint], Result[None, str]], disposition: Sweep,
 
 [CAPSULE_OWNER]:
 - Use: native handles, FFI pointers, pinned buffers, pooled values, external cursors, and any foreign object with an explicit release.
-- Law: borrowed and owned lifetimes are cases of one closed `@tagged_union` capsule — the owned case registers release through `weakref.finalize` tied to the owner's identity and disposes on its terminal transition, the borrowed case projects a detached copy and never disposes; one `use` fold projects across both cases so a caller never branches on lifetime.
+- Law: borrowed and owned lifetimes are cases of one closed `@tagged_union` capsule — the owned case registers release through `weakref.finalize` tied to the owner's identity so disposal fires once when the capsule is collected, the borrowed case projects a detached copy and never disposes; one `use` fold projects the extent across both cases under a single or-pattern so a caller never branches on lifetime.
 - Law: a native borrow spans the full operation that observes the pointer — the view materializes inside the borrow window, the projection copies to owned `bytes` while the window is open, and the window closes before the foreign owner can free; liveness is never tested apart from the consumption it guards, because a separate liveness probe races the free the borrow window already orders against.
 - Law: callers receive values or rails, never live handles; the native crossing is the one foreign fault family this page mints — `OSError`/`ctypes.ArgumentError`/`ValueError` split through the rail page's multi-`except` form into the closed `host`/`marshal`/`extent` cases so the syscall errno, the marshalling detail, and the bad extent stay structurally addressable instead of flattening to one provider token, and the discrimination rides the same borrow window the lifetime owns so no provider exception type escapes the seam unconverted.
 - Exemption: the address-to-view materialization, the `view.release()` call, and the `weakref.finalize` registration inside the capsule kernel are the named platform-forced statement seam.
@@ -104,7 +103,7 @@ def admitted(probe: Callable[[Endpoint], Result[None, str]], disposition: Sweep,
 import ctypes
 import weakref
 from collections.abc import Callable
-from typing import Literal
+from typing import Literal, assert_never
 
 from expression import Error, Ok, Result, case, tag, tagged_union
 
@@ -134,19 +133,22 @@ class Capsule:
         return Capsule(borrowed=(address, size))
 
     def use[T](self, copy: Callable[[memoryview], T], /) -> Result[T, CapsuleFault]:
-        address, size = self.owned if self.tag == "owned" else self.borrowed
-        try:
-            view = ctypes.memoryview_at(address, size, readonly=True)
-            try:
-                return Ok(copy(view))
-            finally:
-                view.release()
-        except OSError as host:
-            return Error(CapsuleFault(host=host.errno or 0))
-        except ctypes.ArgumentError as marshal:
-            return Error(CapsuleFault(marshal=str(marshal)))
-        except ValueError:
-            return Error(CapsuleFault(extent=(address, size)))
+        match self:
+            case Capsule(tag="owned", owned=(address, size)) | Capsule(tag="borrowed", borrowed=(address, size)):
+                try:
+                    view = ctypes.memoryview_at(address, size, readonly=True)
+                    try:
+                        return Ok(copy(view))
+                    finally:
+                        view.release()
+                except OSError as host:
+                    return Error(CapsuleFault(host=host.errno or 0))
+                except ctypes.ArgumentError as marshal:
+                    return Error(CapsuleFault(marshal=str(marshal)))
+                except ValueError:
+                    return Error(CapsuleFault(extent=(address, size)))
+            case _ as unreachable:
+                assert_never(unreachable)
 
 
 def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
@@ -168,17 +170,18 @@ def detached(capsule: Capsule, /) -> Result[bytes, CapsuleFault]:
 
 [HOST_MARSHAL]:
 - Law: the seam this card owns is the inbound crossing's evidence — a foreign thread the loop never spawned re-enters through `concurrency.md`'s `BlockingPortal`, and the seam converts that crossing's outcome into a closed fault the interior reads, never the provider exception the bridge raised. The portal lifecycle (`start_blocking_portal`/`BlockingPortalProvider`, the coroutine-function-not-awaitable call contract, the worker-thread token rule for a bare `from_thread.run`) and the outbound offload it pairs with are `concurrency.md`'s runtime; the seam composes the bridge and owns only the conversion, mapping every non-cancellation worker raise into the closed crossing fault so none escapes unconverted.
-- Law: a crossing fault carries which crossing failed — loop teardown after the bridge closed, a refused readiness handshake, a converted worker raise — as distinct closed cases, never one stringified provider message, so the `Disposition` predicate routes only the converted worker raise to retry and sends both the loop-closed and the handshake-refusal arms to re-open the bridge; cancellation is `concurrency.md`'s re-raised carrier and never enters this fault family.
+- Law: a crossing fault carries which crossing failed — loop teardown after the bridge closed, a refused readiness handshake, a converted worker raise — as distinct closed cases, never one stringified provider message, so the `Recovery` predicate sends the loop-closed and handshake-refusal arms to rebuild a fresh provider — a closed loop's provider never re-runs, so reusing it re-faults — while the converted worker raise returns railed to `rails-and-effects.md`'s transient weave, never re-crossed at this seam; cancellation is `concurrency.md`'s re-raised carrier and never enters this fault family.
 - Law: context propagation and thread affinity are separate decisions — the bridge copies the caller's context across the crossing, and a callback reading no ambient state needs none; an interior transform never reads ambient thread state to recover what the crossing already carried, because the crossing's evidence is already an admitted value.
 - Reject: a `threading.current_thread()` affinity test in interior flow; an ambient `ContextVar` read inside a reusable transform; a fire-and-forget thread launch outside `concurrency.md`'s task group; `from_thread.run` from a thread the loop did not spawn; a stringified provider message standing in for the closed crossing fault.
 
 [HANDOFF_DRAIN]:
-- Law: a high-frequency foreign callback submits intent and returns — `concurrency.md`'s memory object stream is the log this seam owns for a consumer that must see every intermediate, and a single committed cell behind the agent is the latest-value register for a per-tick consumer; the consumer's need selects the carrier here, and producer back-pressure is the stream's `max_buffer_size`, independent of consumer pacing.
+- Law: a high-frequency foreign callback submits intent and returns — `concurrency.md`'s memory object stream is the log this seam owns for a consumer that must see every intermediate, and a single committed cell behind the agent is the latest-value register for a per-tick consumer; the consumer's need selects the carrier here, and producer back-pressure is the stream's `max_buffer_size`, its live fill read off `statistics().current_buffer_used` rather than a tally the seam maintains, independent of consumer pacing.
 - Law: a bounded stream's full behavior is the seam's declared policy stated where the producer sends — a zero `max_buffer_size` rendezvous-blocks the producer, a positive bound buffers then back-pressures — and `send_nowait`'s two failure signals are distinct dispositions the seam routes, never one collapsed arm: `WouldBlock` on a full positive bound is the back-pressure drop the policy already authorized, while `BrokenResourceError` means every receiver closed, so the callback retires its own subscription rather than dropping into a dead channel forever.
 - Reject: blocking the foreign callback on interior work; mutating interior state from the callback thread; the callback running arbitrary downstream logic instead of sending one message; collapsing `WouldBlock` and `BrokenResourceError` into one silent drop.
 
 ```python conceptual
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
@@ -189,7 +192,7 @@ from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
 
 
-class Disposition(StrEnum):
+class Recovery(StrEnum):
     RETRY = "<retry>"
     REOPEN = "<reopen>"
 
@@ -202,8 +205,8 @@ class CrossFault:
     worker: str = case()
 
 
-_DISPOSITION: frozendict[str, Disposition] = frozendict(
-    {"worker": Disposition.RETRY, "handshake": Disposition.REOPEN, "loop_closed": Disposition.REOPEN}
+_RECOVERY: frozendict[str, Recovery] = frozendict(
+    {"worker": Recovery.RETRY, "handshake": Recovery.REOPEN, "loop_closed": Recovery.REOPEN}
 )
 
 
@@ -221,25 +224,36 @@ def re_entered[T](provider: BlockingPortalProvider, cross: Callable[[], Awaitabl
             return Error(CrossFault(worker=type(worker).__name__))
 
 
-def reopened[T](provider: BlockingPortalProvider, cross: Callable[[], Awaitable[T]], /) -> Result[T, CrossFault]:
-    outcome = re_entered(provider, cross)
-    return outcome.or_else_with(lambda fault: re_entered(provider, cross) if _DISPOSITION[fault.tag] is Disposition.REOPEN else outcome)
+def reopened[T](make: Callable[[], BlockingPortalProvider], cross: Callable[[], Awaitable[T]], /) -> Result[T, CrossFault]:
+    outcome = re_entered(make(), cross)
+    return outcome.or_else_with(lambda fault: re_entered(make(), cross) if _RECOVERY[fault.tag] is Recovery.REOPEN else outcome)
 
 
-def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) -> Callable[[], None]:
-    def detach() -> None:
-        emitter.off_change(handler)
+@dataclass(frozen=True, slots=True)
+class Subscription:
+    detach: Callable[[], None]
 
+    def close(self, /) -> None:
+        self.detach()
+
+    def __enter__(self, /) -> "Subscription":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.detach()
+
+
+def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) -> Subscription:
     def handler(raw: object, /) -> None:
         try:
             sink.send_nowait(Signal.of(raw))
         except anyio.WouldBlock:
             pass
         except anyio.BrokenResourceError:
-            detach()
+            emitter.off_change(handler)
 
     emitter.on_change(handler)
-    return detach
+    return Subscription(lambda: emitter.off_change(handler))
 ```
 
 ## [05]-[STATE_CELLS]
@@ -247,25 +261,26 @@ def subscribed(emitter: "Emitter", sink: MemoryObjectSendStream["Signal"], /) ->
 [SERIALIZING_AGENT]:
 - Use: session, singleton, wake, drain, and cross-call boundary lifetime — every cell a foreign edge mutates from more than one task.
 - Law: the serialization owner is one consumer task draining a `MemoryObjectReceiveStream[Command]` — the bundled `expression.MailboxProcessor` is forbidden here because it reaches `asyncio.get_event_loop()` against the `asyncio` ban, so the cell rides an `anyio` send/receive pair where producers `send_nowait` a command and the lone consumer applies it. The agent holds the cell as a plain local, replaces the whole immutable reference per applied command, and is the only reader, so a torn multi-field read and a read-modify-write race are both structurally impossible — the `anyio` single-consumer drain is what `threading.Lock` around shared mutable state is the rejected substitute for.
-- Law: the lifecycle is a closed `@tagged_union` state family (pending, live, draining, failed; never booleans), the agent's command set is a second closed `@tagged_union` (open, close, drain) folded under one total `match`, and the refusal rail is a third closed `GateFault` vocabulary — never a bare `str` reason — so the `failed` state carries the typed cause and a waiter recovers on the fault's own case rather than a reconstructed message. A new lifecycle verb is one state case plus one command case plus one transition arm, never a new lock, flag, or sibling mutator, so the agent surface absorbs the verb family the next requirement adds (the `draining` state is exactly that growth: one case carrying the deadline and in-flight count, one arm fencing admission).
-- Law: each command carries its own reply channel — a per-command `anyio.Event` plus a single-slot result, set after the transition publishes — so a waiter wakes only on committed state, never an attempted or aborted one, and the post-command continuation rides that reply rather than a second flag polled from outside. The transition functions stay pure: `opened`/`closed`/`drained` take the state and return the successor and its outcome, and the agent is the only impure seam, holding no factory, disposer, deadline await, or external call inside the apply step.
-- Law: a stale teardown succeeds only while its token still owns the live state — the transition matches the live token before it acts, so a `close` carrying a superseded token is a total no-op, never a disposed replacement session; a faulted cell is escaped only by a fresh agent carrying typed evidence, because a cancelled `anyio.CancelScope` never resets and re-opening replaces the whole scope.
+- Law: the lifecycle is a closed `@tagged_union` state family (pending, live, draining, failed; never booleans), the agent's command set is a second closed `@tagged_union` (open, close, drain, poison) folded under one total `match`, and the refusal rail is a third closed `GateFault` vocabulary — never a bare `str` reason — so the `failed` state carries the typed cause and a waiter recovers on the fault's own case rather than a reconstructed message. A new lifecycle verb is one state case plus one command case plus one transition arm, never a new lock, flag, or sibling mutator, so the agent surface absorbs the verb family the next requirement adds (the `draining` state is exactly that growth: one case carrying the deadline and in-flight count, one arm fencing admission).
+- Law: each command carries its own reply channel — a per-command `anyio.Event` plus a single-slot result, set after the transition publishes — so a waiter wakes only on committed state, never an attempted or aborted one, and the post-command continuation rides that reply rather than a second flag polled from outside. The transition functions stay pure: `opened`/`closed`/`drained`/`poisoned` take the state and return the successor and its outcome, and the agent is the only impure seam, holding no factory, disposer, deadline await, or external call inside the apply step.
+- Law: a stale teardown succeeds only while its token still owns the live state — the transition matches the live token before it acts, so a `close` carrying a superseded token is a total no-op, never a disposed replacement session; the `poison` command moves a live or draining cell to `failed` carrying the typed cause so every later `open`/`drain` refuses on that case, and a faulted cell is escaped only by a fresh agent because a cancelled `anyio.CancelScope` never resets and re-opening replaces the whole scope.
 - Law: drain is one command reading phase, in-flight count, and deadline together — admission is fenced the instant the agent applies it, and the post-drain continuation waits on the same reply channel as mid-flight work reaches a typed terminal, never a `threading.Lock` plus a polled second flag.
 - Reject: a `MailboxProcessor` on the `anyio` substrate; a `threading.Lock` or shutdown boolean standing in for the agent; a bare `str` reason where the closed `GateFault` carries the cause; a second flag polled from outside the reply; teardown that disposes a replacement session; a factory, deadline await, or external call inside the apply step; acting on a change fired from an aborted transition.
 
 [MEMO_KEY]:
-- Law: a boundary memo key binds the foreign identity content alone cannot recover — a provider handle's `id()`, a session token, or a capability fingerprint joins the content and policy axes into one hashable `frozendict`/`tuple` composite, so two payloads identical in bytes but sourced from distinct foreign owners never collide.
-- Reject: a content-only, path-only, or type-only key dropping the foreign axis; a mutable `dict` memo store where the agent's own state or a `frozendict` snapshot owns the table.
+- Law: a boundary memo key binds the foreign identity content alone cannot recover — a provider handle's `id()`, a session token, or a capability fingerprint joins the content and policy axes into one hashable composite, a fixed axis set riding a `tuple` and a dynamic one a `frozendict`, so two payloads identical in bytes but sourced from distinct foreign owners never collide.
+- Reject: a content-only, path-only, or type-only key dropping the foreign axis; a `dict[str, object]` key bag where a fixed `tuple` states the axes; a mutable `dict` memo store where the agent's own state or a `frozendict` snapshot owns the table.
 
 ```python conceptual
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal, assert_never
 
-from anyio import Event
+from anyio import BrokenResourceError, Event
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.extra.result import catch
 
 type GateFault = Literal["<draining>", "<not-live>", "<faulted>"]
 
@@ -283,21 +298,21 @@ def opened(gate: Gate, token: int, session: "Session", /) -> tuple[Gate, Result[
     match gate:
         case Gate(tag="pending"):
             return Gate(live=(token, session)), Ok(session)
-        case Gate(tag="live"):
-            return gate, Ok(gate.live[1])
+        case Gate(tag="live", live=(_, held)):
+            return gate, Ok(held)
         case Gate(tag="draining"):
             return gate, Error("<draining>")
-        case Gate(tag="failed"):
-            return gate, Error(gate.failed)
+        case Gate(tag="failed", failed=cause):
+            return gate, Error(cause)
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def closed(gate: Gate, token: int, /) -> tuple[Gate, Result[None, GateFault]]:
     match gate:
-        case Gate(tag="live") if gate.live[0] == token:
+        case Gate(tag="live", live=(active, _)) if active == token:
             return Gate(pending=None), Ok(None)
-        case Gate(tag="draining") if gate.draining[0] == token:
+        case Gate(tag="draining", draining=(active, *_)) if active == token:
             return Gate(pending=None), Ok(None)
         case _:
             return gate, Ok(None)
@@ -305,13 +320,20 @@ def closed(gate: Gate, token: int, /) -> tuple[Gate, Result[None, GateFault]]:
 
 def drained(gate: Gate, deadline: float, /) -> tuple[Gate, Result[int, GateFault]]:
     match gate:
-        case Gate(tag="live"):
-            token, session = gate.live
+        case Gate(tag="live", live=(token, session)):
             return Gate(draining=(token, session, deadline, 0)), Ok(0)
-        case Gate(tag="draining"):
-            return gate, Ok(gate.draining[3])
+        case Gate(tag="draining", draining=(_, _, _, inflight)):
+            return gate, Ok(inflight)
         case _:
             return gate, Error("<not-live>")
+
+
+def poisoned(gate: Gate, cause: GateFault, /) -> tuple[Gate, Result[None, GateFault]]:
+    match gate:
+        case Gate(tag="failed", failed=prior):
+            return gate, Error(prior)
+        case _:
+            return Gate(failed=cause), Ok(None)
 
 
 @dataclass(slots=True)
@@ -326,31 +348,44 @@ class Reply[T]:
 
 @tagged_union(frozen=True)
 class Command:
-    tag: Literal["open", "close", "drain"] = tag()
+    tag: Literal["open", "close", "drain", "poison"] = tag()
     open: tuple[int, "Session", Reply["Session"]] = case()
     close: tuple[int, Reply[None]] = case()
     drain: tuple[float, Reply[int]] = case()
-
-
-_APPLY: frozendict[str, Callable[[Gate, tuple], tuple[Gate, Result[object, GateFault]]]] = frozendict(
-    {"open": lambda g, p: opened(g, p[0], p[1]), "close": lambda g, p: closed(g, p[0]), "drain": lambda g, p: drained(g, p[0])}
-)
+    poison: tuple[GateFault, Reply[None]] = case()
 
 
 async def agent(inbox: MemoryObjectReceiveStream[Command], /) -> None:
     gate = Gate(pending=None)
     async with inbox:
         async for command in inbox:
-            payload = getattr(command, command.tag)
-            gate, outcome = _APPLY[command.tag](gate, payload)
-            payload[-1].settle(outcome)
+            match command:
+                case Command(tag="open", open=(token, session, reply)):
+                    gate, outcome = opened(gate, token, session)
+                    reply.settle(outcome)
+                case Command(tag="close", close=(token, reply)):
+                    gate, outcome = closed(gate, token)
+                    reply.settle(outcome)
+                case Command(tag="drain", drain=(deadline, reply)):
+                    gate, outcome = drained(gate, deadline)
+                    reply.settle(outcome)
+                case Command(tag="poison", poison=(cause, reply)):
+                    gate, outcome = poisoned(gate, cause)
+                    reply.settle(outcome)
+                case _ as unreachable:
+                    assert_never(unreachable)
 
 
 async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[[Reply[T]], Command], /) -> Result[T, GateFault]:
     reply: Reply[T] = Reply()
-    outbox.send_nowait(build(reply))
+    if catch(exception=BrokenResourceError)(outbox.send_nowait)(build(reply)).is_error():
+        return Error("<faulted>")
     await reply.ready.wait()
     return reply.slot[0]
+
+
+def keyed(session: "Session", content: bytes, policy: frozendict[str, str], /) -> tuple[int, bytes, frozendict[str, str]]:
+    return (id(session), content, policy)
 ```
 
 ## [06]-[WIRE_CONTRACTS]
@@ -367,10 +402,12 @@ async def commanded[T](outbox: MemoryObjectSendStream[Command], build: Callable[
 - Reject: a converter per case; a case-level codec bypassing the family owner; a sentinel returned from a decoder hook instead of a raised validation error; per-call `Decoder`/`Encoder` construction where one module-level instance serves.
 
 ```python conceptual
+import hashlib
 from typing import Literal
 
 import msgspec
 from expression import Error, Ok, Result
+from expression.extra.result import catch
 
 
 class FrameSingle(msgspec.Struct, tag="single", frozen=True, forbid_unknown_fields=True, rename={"at": "t"}):
@@ -382,11 +419,17 @@ class FrameBlock(msgspec.Struct, tag="block", frozen=True, forbid_unknown_fields
     end: int
 
 
+class Signed(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    coordinate: str
+    body: msgspec.Raw
+
+
 type Frame = FrameSingle | FrameBlock
 type WireFault = Literal["<malformed>", "<constraint>"]
 
 _FRAME_DECODER = msgspec.json.Decoder(type=Frame)
 _FRAME_ENCODER = msgspec.json.Encoder()
+_SIGNED_DECODER = msgspec.json.Decoder(type=Signed)
 
 
 def decoded(raw: bytes, /) -> Result[Frame, WireFault]:
@@ -404,11 +447,19 @@ def renamed(owner: "Shape", /) -> FrameBlock:
 
 def encoded(frame: Frame, /) -> bytes:
     return _FRAME_ENCODER.encode(frame)
+
+
+def signed(raw: bytes, /) -> Result[tuple[str, str], WireFault]:
+    return (
+        catch(exception=msgspec.DecodeError)(_SIGNED_DECODER.decode)(raw)
+        .map(lambda envelope: (envelope.coordinate, hashlib.sha256(bytes(envelope.body)).hexdigest()))
+        .map_error(lambda _exc: "<malformed>")
+    )
 ```
 
 [BYTE_IDENTITY]:
 - Use: signatures, content hashes, idempotency keys, checksums, and byte-stable forwarding.
-- Law: semantic equality and byte equality are different contracts; the seam captures raw octets before any parse, emits the canonical form exactly once, and binds one digest surface per byte-identity domain at composition rather than choosing per site — the digest-surface selection itself is the stdlib owner's, composed here, not taught here.
-- Law: a payload that must round-trip byte-identically is forwarded as its captured octets, never parsed and re-serialized — re-serialization re-spells floats, reorders members, and re-kinds non-finite values, breaking the signature; capture-before-parse is therefore the seam's only correct position for the hash input.
-- Boundary: a receipt carries the coordinate and the hash, never the payload bytes; the persisted fingerprint is a stable cross-process digest, never a process-randomized `hash()`.
-- Reject: parse-and-reserialize between verification, signing, or forwarding; a per-site encoder choice where one composition-fixed encoder serves; a `hash()` value persisted as stable identity.
+- Law: the sub-tree that must round-trip byte-identically is a `msgspec.Raw` band on the envelope — the decoder holds the inner octets opaque instead of parsing them and a re-encode writes them verbatim, so a float spelled `1.1000`, a `-0.0`, and a non-finite `1e400` survive intact where a parse-then-reserialize re-spells every one; `bytes(raw)` is the exact octet sequence the digest signs, captured before any interior owner sees a parsed value.
+- Law: semantic equality and byte equality are different contracts — one `hashlib` surface per byte-identity domain is fixed at composition (`hashlib.sha256(bytes(raw)).hexdigest()`), never chosen per site, and the parsed projection of the same envelope is a separate egress that never feeds the signature.
+- Boundary: a receipt carries the coordinate and the hex digest, never the `Raw` octets; the persisted fingerprint is the stable `hashlib` digest, never a process-randomized `hash()` whose seed resets each run.
+- Reject: a parsed-then-reserialized payload between verification, signing, or forwarding; a per-site encoder where one composition-fixed `hashlib` surface serves; a `hash()` persisted as stable identity; a domain field reaching the interior where the `msgspec.Raw` band holds the signed octets opaque.

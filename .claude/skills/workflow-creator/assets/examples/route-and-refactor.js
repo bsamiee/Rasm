@@ -33,18 +33,7 @@ export const meta = {
   ],
 }
 
-// The result every specialist returns, whatever the language. Small and required-tight.
-const REFACTOR = {
-  type: 'object',
-  required: ['file', 'changed'],
-  properties: {
-    file: { type: 'string' },
-    changed: { type: 'boolean' },     // false when the file was already canonical
-    summary: { type: 'string' },      // what was collapsed/rewritten, or why nothing was
-    deferred: { type: 'array', items: { type: 'string' } }, // cross-file follow-ups, if any
-  },
-}
-
+// --- [CONSTANTS] -------------------------------------------------------------------------
 // One row per language class: the specialist prompt for a file, and the model it runs on.
 // The three judgement-heavy rows omit `model` — an omitted/undefined model inherits the
 // session model, the capable default. Only the mechanical SQL rewrite drops to Haiku.
@@ -78,6 +67,20 @@ const ROUTES = {
   },
 }
 
+// --- [MODELS] ----------------------------------------------------------------------------
+// The result every specialist returns, whatever the language. Small and required-tight.
+const REFACTOR = {
+  type: 'object',
+  required: ['file', 'changed'],
+  properties: {
+    file: { type: 'string' },
+    changed: { type: 'boolean' },     // false when the file was already canonical
+    summary: { type: 'string' },      // what was collapsed/rewritten, or why nothing was
+    deferred: { type: 'array', items: { type: 'string' } }, // cross-file follow-ups, if any
+  },
+}
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
 // Plain-JS classifier — the discriminant is the file extension. Returns the ROUTES
 // key, or null for a file no specialist owns.
 const classify = f =>
@@ -86,6 +89,8 @@ const classify = f =>
   : f.endsWith('.py') ? 'py'
   : f.endsWith('.sql') ? 'sql'
   : null
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 // `args` arrives as structured data — a list of changed paths stays a list, read it
 // directly. Nothing passed falls back to a representative cross-language change set.
@@ -124,6 +129,8 @@ if (touched.length === 0) {
 // One terminal synthesis agent — a fresh context that never saw the specialists. It
 // learns the outcomes only from the paste, and owns the cross-file follow-ups no
 // single specialist could resolve alone.
+
+// --- [REPORT]
 phase('Report')
 const report = await agent(
   `These per-file refactors landed across the tri-language workspace. Write a review ` +

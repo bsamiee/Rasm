@@ -25,6 +25,12 @@ export const meta = {
   ],
 }
 
+// --- [INPUTS] ----------------------------------------------------------------------------
+// `args` arrives as structured data. An object with a `types` list overrides the
+// discovery step; nothing passed lets the kernel enumerate the shared wire types.
+const seedTypes = Array.isArray(args?.types) ? args.types : null
+
+// --- [MODELS] ----------------------------------------------------------------------------
 const TYPES = {
   type: 'object',
   required: ['types'],
@@ -32,7 +38,6 @@ const TYPES = {
     types: { type: 'array', items: { type: 'string' } },
   },
 }
-
 const DRIFT = {
   type: 'object',
   required: ['type', 'hasDrift'],
@@ -46,9 +51,7 @@ const DRIFT = {
   },
 }
 
-// `args` arrives as structured data. An object with a `types` list overrides the
-// discovery step; nothing passed lets the kernel enumerate the shared wire types.
-const seedTypes = Array.isArray(args?.types) ? args.types : null
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 phase('List wire types')
 const { types } = seedTypes
@@ -81,6 +84,7 @@ if (drifted.length === 0) {
   return { checked: types.length, drifted: 0, message: 'Wire contracts are in sync across all three branches' }
 }
 
+// --- [OPEN_PR]
 phase('Open PR')
 await agent(
   `Open ONE draft pull request that realigns every drifted wire type to its C# producer ` +

@@ -23,6 +23,14 @@ export const meta = {
   ],
 }
 
+// --- [CONSTANTS] -------------------------------------------------------------------------
+const DIMENSIONS = [
+  { key: 'bugs',     prompt: 'Find logic bugs in the files changed on this branch vs main.' },
+  { key: 'security', prompt: 'Find security issues in the files changed on this branch vs main.' },
+  { key: 'tests',    prompt: 'Find missing or weak test coverage in the changes on this branch.' },
+]
+
+// --- [MODELS] ----------------------------------------------------------------------------
 // Structured output: each reviewer must return findings in this exact shape.
 const FINDINGS = {
   type: 'object',
@@ -42,7 +50,6 @@ const FINDINGS = {
     },
   },
 }
-
 const VERDICT = {
   type: 'object',
   required: ['isReal'],
@@ -52,11 +59,7 @@ const VERDICT = {
   },
 }
 
-const DIMENSIONS = [
-  { key: 'bugs',     prompt: 'Find logic bugs in the files changed on this branch vs main.' },
-  { key: 'security', prompt: 'Find security issues in the files changed on this branch vs main.' },
-  { key: 'tests',    prompt: 'Find missing or weak test coverage in the changes on this branch.' },
-]
+// --- [COMPOSITION] -----------------------------------------------------------------------
 
 const results = await pipeline(
   DIMENSIONS,
