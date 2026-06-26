@@ -1,49 +1,80 @@
 # [PY_ARTIFACTS_GRAPHIC_VECTOR]
 
-The SVG-geometry primitive every visual and document plane composes its vector work from. `Vector` is ONE owner over the pure SVG geometry/transform/parse/bounds/serialize surface — `svgelements` (pure-Python `py3-none-any`, zero-native, host-free, cp315-core) parses an SVG document into a typed `PathSegment`-and-shape tree, resolves its bounding geometry, transforms it through the spec-faithful affine `Matrix` algebra, and re-serializes every fragment through one `Path.d()` styled egress; `resvg-py` (the native `cpython-315-darwin.so` embedding the Rust `resvg 0.47.0` engine, cp315-core) rasterizes a placed SVG document to PNG bytes through `svg_to_bytes` on the core with no Cairo, headless-browser, or external-process dependency. `VectorOp` is ONE closed family carrying each operation's typed payload, never an erased `params` bag, dispatched by one total `match`. It is the geometry substrate the placement plane (`composition/compose#COMPOSE`), the chart plane (`visualization/chart#CHART`), the diagram plane (`visualization/diagram#DRAW`), and the editable named-layer egress (`export/layered#LAYERED`) consume — they read SVG geometry, compose transforms, query bounds, and rasterize through this one primitive rather than each re-implementing the SVG path grammar or the affine algebra `svgelements` already owns. This page owns ONLY the geometry primitive; the post-render placement logic (scale-fit/n-up/crop/rotate/overlay/annotate/metadata) is `composition/compose#COMPOSE`'s exclusively — that owner consumes this primitive, it does not re-own it.
+The host-free SVG-geometry primitive every visual and document plane composes its vector work from. `Vector` is ONE modal owner over the closed `VectorOp` family, normalizing `VectorOp | Iterable[VectorOp]` at the head so a lone query and a mixed sheet are the same entrypoint, traversing the ops into one `RuntimeRail[Block[VectorResult]]` whose every outcome is the typed `VectorResult` (`document`/`extent`/`measure`/`sampled`/`contours`/`raster`), never an erased `bytes` a consumer re-parses. Beside the rail the page exposes ONE public composable geometry surface — `bounds`/`transform`/`path`/`svg`/`px`/`measure`/`sample`/`flatten`/`subpaths`/`project`/`rasterize` plus the `Element` `Protocol` and the `RenderPolicy` raster-policy owner — that the placement plane (`composition/compose#COMPOSE`) IMPORTS and composes one hop in-process. Every fallible arm rails its provider raise into the closed `VectorFault` `@tagged_union` (`parse`/`render`/`singular`/`empty`/`contract`); the interior is total over `Result[VectorResult, VectorFault]`, never a railless body trusting `async_boundary` to swallow an `xml.etree.ElementTree.ParseError` or a `resvg` `ValueError` it never classified.
+
+`svgelements` (pure-Python `py2.py3-none-any`, zero-native, host-free, cp315-core) parses an SVG document into a typed `Shape` tree, resolves bounding geometry through `Shape.bbox()`, transforms each shape through `Path(geometry) * Matrix`, measures total arc length and vectorized-samples parametric points over the combined `Path` through the numpy-accelerated `Path.npoint`, decomposes the outline into per-contour `Subpath` views, flattens curves to cubics/quads/arcs for a polyline/toolpath consumer, projects points or direction vectors through (or inverse-through) a `Matrix`, and re-serializes every fragment through one `Path.d()` styled egress onto one viewBox-framed `<svg>`; `resvg_py` (the cp315 native `resvg_py.cpython-315-darwin.so` embedding the Rust `resvg 0.47.0` engine, cp315-core) rasterizes a placed document to PNG bytes through `svg_to_bytes` on the core with no Cairo, headless-browser, or external-process dependency. The expensive `SVG.parse(reify=True)` ingestion is memoized on the source `bytes` by one `@lru_cache` core that captures the parse fault, so a consumer that queries `bounds`, then `transform`, then `rasterize` over one source parses it once and a malformed source rails once. This page owns ONLY the geometry primitive; the post-render placement logic (scale-fit/n-up/crop/rotate/overlay/annotate/metadata) is `composition/compose#COMPOSE`'s exclusively — that owner consumes this surface, it does not re-own it.
 
 ## [01]-[INDEX]
 
-- [01]-[VECTOR]: the SVG-geometry primitive owner over the closed-payload `VectorOp` family — parse/bounds/transform/serialize/rasterize folding the `svgelements` `SVG.parse(reify=True)` typed-tree ingestion, the `Path`/`PathSegment` segment algebra, the spec-faithful affine `Matrix` (`scale`/`translate`/`rotate`/`skew` factories composed by `*`, `pre_*`/`post_*` compose, `inverse`), the `Length`/`Color`/`Angle`/`Point` value objects (unit resolution, color-channel parse, CSS-angle parse, point geometry), the `bbox(transformed=, with_stroke=)` bounds query, and the one `_path`/`_svg` styled-egress fold onto a viewBox-sized `<svg>` document, plus the `resvg_py.svg_to_bytes` SVG-to-PNG raster floor over the embedded Rust `resvg 0.47.0` engine — the `Element` `Protocol` declaring the one `bbox()` method the geometry fold touches, never an erased `object` and never an uncatalogued `svgelements` base type.
+- [01]-[VECTOR]: the SVG-geometry primitive owner over the closed-payload `VectorOp` family, the typed `VectorResult` outcome, and the closed `VectorFault` provider-exception vocabulary — `transform`/`bounds`/`serialize`/`rasterize`/`measure`/`sample`/`flatten`/`subpaths`/`project` folding the `svgelements` `SVG.parse(reify=True)` typed-tree ingestion memoized by one `@lru_cache(_parsed)` core, the `elements(conditional=isinstance Shape)` drawable-shape selection that excludes the non-drawable document root, the `Path`/`PathSegment` segment algebra (`Path.d`/`Path.bbox`/`Path.length`/`Path.point`/`Path.npoint`/`Path.segments`/`Path.as_subpaths`/`approximate_arcs_with_cubics`), the spec-faithful affine `Matrix` (`scale`/`translate`/`rotate`/`skew` factories composed by `*`, `determinant`-guarded `inverse`, `transform_point`/`transform_vector`), the `Length`/`Color`/`Point` value objects, the one `path`/`svg` styled-egress fold onto a viewBox-framed `<svg>`, and the `resvg_py.svg_to_bytes` SVG-to-PNG raster floor under the one `RenderPolicy` — the public composable surface the placement plane imports one hop, the `Vector.over`/`of` modal rail the awaited uniform-op contract over `Block[VectorResult]`, and the `Element` `Protocol` typing the drawable view the geometry fold returns.
 
 ## [02]-[VECTOR]
 
-- Owner: `Vector` the one SVG-geometry primitive owner discriminating operation over the closed `VectorOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict[str, object]`; the `svgelements` `SVG` document is the vector working surface, the `Matrix`/`Path`/`Color`/`Length`/`Angle`/`Point`/`bbox` algebra the geometry-and-transform surface, `resvg_py.svg_to_bytes` the in-process SVG-to-PNG raster floor on the core. `svgelements` owns the SVG path grammar, the affine algebra, the shape primitives (`Rect`/`Circle`/`Ellipse`/`Polygon`/`Polyline`/`SimpleLine`), and the color/length/angle/point parse — this owner reads `bbox` through the `Element` protocol, transforms each element through `Path(geometry) * Matrix`, and serializes every fragment through the one `_path` styled-egress owner onto one `_svg`-built viewBox-sized `<svg>` document, never a second path-string emitter, a hand-rolled affine helper, a hand-emitted `<rect>`/`<line>` string, or a re-parsed path string. The placement, n-up, crop, rotate, overlay, annotate, and metadata operations are NOT this owner's concern — they are `composition/compose#COMPOSE`'s; `Vector` resolves the parse/transform/bounds/serialize/rasterize primitives that placement plane composes, but lays nothing out itself.
-- Cases: `VectorOp` cases — `Parse(source)` (ingest an SVG document through `SVG.parse(BytesIO(source), reify=True)` into a typed tree, `reify=True` resolving transforms into element geometry so every downstream `bbox()` read returns absolute coordinates) · `Bounds(source)` (resolve the document or element bounding box through the `Element` protocol's `bbox()` over `_elements`, the `(xmin, ymin, xmax, ymax)` tuple the layout-and-bounds question every placement consumer needs) · `Transform(source, matrix)` (apply a composed `Matrix` to every element through `Path(geometry) * matrix` and re-emit the transformed SVG, the affine carried as the typed `Matrix` payload composed from the `scale`/`translate`/`rotate`/`skew` factories never a hand-rolled coordinate transform) · `Serialize(fragments, width, height)` (fold every `Path.d()` body through the one `_path` styled-egress owner onto a fresh viewBox-sized `_svg` `<svg>` document, the optional `Style` tuple admitting a stroke literal through the catalogued `Color(value)` parse and emitting the `Color(value).hex` channel literal) · `Rasterize(document, render)` (rasterize the placed SVG document through `resvg_py.svg_to_bytes(**render.kwargs(document))` on the core under the one `RenderPolicy`, returning PNG bytes) — matched by one total `match`/`case`; never a per-source-media-type parse sibling, never a per-shape transform method, never a parallel rasterizer.
-- Entry: `Vector.of` is `async` over the runtime `async_boundary` and dispatches the `VectorOp` case; every arm resolves synchronously on the cp315 core inside the async capsule — `svgelements` is pure-Python and imports on the core, and `resvg_py` is the cp315 native extension that imports at boundary scope on the core — so no leg crosses a process seam and no arm forces the async dispatch; the `async_boundary` is the uniform consumer contract the placement, chart, diagram, and layered-export planes `await`. The `svgelements` and `resvg_py` imports land at boundary scope inside each arm, never at module top, so no geometry import escapes the per-arm capsule.
-- Auto: `_parse` ingests through `SVG.parse(BytesIO(source), reify=True)` then narrows the `SVG.elements()` sweep by `hasattr(element, "bbox")` into the `Element` protocol list; `_bounds` folds the document-element `bbox()` boxes into the `(min xmin, min ymin, max xmax, max ymax)` envelope; `_transform` applies one `Matrix` to every element through the one `_path(element, transform)` owner; `_path` composes `(Path(geometry) * transform).d()` and admits the optional `Style` stroke through `Color(style[0]).hex`, emitting either the styled `<path d="..." fill="none" stroke="..." stroke-width="..."/>` fragment or the bare `<path d="..."/>` base fragment; `_svg` wraps every `Path.d()` body in a fresh `width`/`height`/`viewBox`-sized `<svg>` document; `_px` resolves a CSS `Length` to absolute px through `Length(length).value(ppi=96.0)`; `_angle` admits an angle string through `Angle.parse(angle)`; `_rasterize` folds the placed document through `resvg_py.svg_to_bytes(**render.kwargs(...))` returning PNG bytes. Base elements and transformed elements both serialize through the one `_path` styled-egress owner, never a parallel base-versus-styled emitter.
-- Receipt: `Vector` is a geometry primitive — its arms return SVG bytes, a bounds tuple, a transformed document, or PNG bytes that the consuming placement/chart/diagram/export plane keys into its own `ContentIdentity.of` and contributes to `core/receipt#RECEIPT` `ArtifactReceipt.Preview`; this primitive mints no content key and adds no receipt case, so the figure-placement evidence (element count, source/target viewBox, applied transform, resolved bbox, output byte length) is the consuming owner's receipt, never a parallel vector-receipt type.
-- Packages: `svgelements` (`SVG.parse(source, reify=True, ppi=96.0)`/`SVG.elements(conditional=)`, `Path`/`Path.d(relative=, transformed=, smooth=)`/`Path.bbox(transformed=, with_stroke=)`/`Path.point`/`Path.length`, the `Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc` `PathSegment` grammar, `Matrix(*components)`/`Matrix.parse`/`Matrix.scale`/`Matrix.translate`/`Matrix.rotate`/`Matrix.skew`/`Matrix.pre_*`/`Matrix.post_*`/`Matrix.inverse`/`Matrix.transform_point` composed by `*`, `Length(value).value(ppi=, viewbox=)`, `Color(value)`/`Color.parse`/`Color.hex`/`Color.over`/`Color.distance`, `Angle.parse`/`Angle.as_degrees`/`Angle.as_radians`/`Angle.normalized`, `Point(x, y)`/`Point.distance_to`/`Point.matrix_transform`/`Point.reflected_across`, the `Rect`/`Circle`/`Ellipse`/`Polygon`/`Polyline`/`SimpleLine` shape primitives, the `Group`/`Use` containers `SVG.elements()` resolves through, `Viewbox` viewport->`Matrix`, pure-Python `py2.py3-none-any` v1.9.6 reflected on cp315, version via `SVGELEMENTS_VERSION` not `__version__`) on the cp315 core; `resvg-py` (`svg_to_bytes(svg_string=None, svg_path=None, ...)` SVG-to-PNG over the embedded Rust `resvg 0.47.0` engine — `svg_string`/`svg_path` source (`.svgz` decompresses on the path arm), `width`/`height`/`zoom`/`dpi` sizing, `background`/`style_sheet`/`resources_dir`/`languages` parsing, `skip_system_fonts`/`font_size`/`font_files`/`font_dirs`/`font_family`/`serif_family`/`sans_serif_family`/`cursive_family`/`fantasy_family`/`monospace_family` font, `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy, `log_information` diagnostics, `__resvg_version__` engine tag, native `resvg_py.cpython-315-darwin.so` v0.3.3 reflected on cp315, raises `ValueError` on empty/invalid SVG) on the cp315 core; runtime (`faults.RuntimeRail`/`async_boundary`).
-- Growth: a new geometry query (arc length, parametric point, subpath split) is one `VectorOp` case plus one arm over the existing `Path.length`/`Path.point`/`Path.as_subpaths` surface — never a re-implemented SVG geometry engine; a new transform composition (skew, pre/post compose order) is one `Matrix` factory or compose row carried into the existing `_transform` arm — never a hand-rolled affine; a new shape primitive is the catalogued `svgelements` shape class reached through the one `_path` owner — never a hand-emitted shape string; a new curve-flatten egress (`approximate_arcs_with_cubics` for a toolpath consumer) is one `Path` flatten row on the existing serialize arm; a new resvg sizing/font/policy/diagnostic knob is one field on the existing `RenderPolicy` row carried into the one `svg_to_bytes` spread — never a second rasterizer; zero new surface.
-- Boundary: the placement, n-up, crop, rotate, overlay, annotate, and metadata logic is `composition/compose#COMPOSE`'s exclusively — this owner resolves no figure layout and grows no placement arm; the chart/mark/nanoplot rasterization-to-export floor is `visualization/chart#EXPORT` `vl-convert`'s — this owner rasterizes only a placed SVG document through `resvg_py.svg_to_bytes` and re-renders no chart; the editable named-layer egress (the `drawsvg` `Group`/PDF OCG hierarchical-layer authoring) is `export/layered#LAYERED`'s — this owner emits a flat single-`<svg>` document and authors no named-layer structure; ICC profile attachment and color management stay in `graphic/color/managed#MANAGED` — this owner consumes a color-managed raster, it builds no transform; a per-graphic-type geometry class family, a per-shape transform method, a parallel base-versus-styled path-string emitter pair beside the one `_path` owner, a hand-rolled affine helper beside the `Matrix` algebra, a hand-emitted `<rect>`/`<line>` string beside the catalogued shape primitives, a re-parsed `d` path string beside the one mutable `Path` owner, and a second SVG renderer beside `resvg_py`/`vl-convert` are the deleted forms; no UI, no live viewer. `svgelements` is pure-Python `py2.py3-none-any` and imports on the cp315 core; `resvg_py` is the cp315 native extension importing at boundary scope on the core — neither crosses a process seam, so the vector primitive is the host-free geometry floor the gated raster band (`graphic/raster`) never touches. The two RESEARCH catalogue-deepen seams `composition/compose#COMPOSE` already tracks — the `svgelements` shape positional-constructor grammar and the `Angle.parse` classmethod spelling — ride this owner's `_path`/`_angle` cite-points so the `Parse`/`Bounds`/`Transform`/`Serialize`/`Rasterize` arms stay fully settled; every other `svgelements` and `resvg_py` spelling is settled fence code against the folder `.api` catalogues.
+- Owner: `Vector` the one SVG-geometry primitive owner holding `ops: tuple[VectorOp, ...]` and discriminating operation over the closed `VectorOp` `expression.tagged_union` whose every case carries its own typed payload, never a `StrEnum` keyed against a shared erased `dict[str, object]`; projecting one closed `VectorResult` family whose every case carries its own typed outcome, never a comma-joined byte string a consumer re-parses; and railing every provider raise into the closed `VectorFault` `@tagged_union`, never `None`-as-failure and never a bare `async_boundary` catch swallowing an unclassified raise. The `svgelements` `SVG` document is the vector working surface, the `Matrix`/`Path`/`Color`/`Length`/`Point`/`bbox` algebra the geometry-and-transform surface, `resvg_py.svg_to_bytes` the in-process SVG-to-PNG raster floor on the core. `svgelements` owns the SVG path grammar, the affine algebra, the shape primitives (`Rect`/`Circle`/`Ellipse`/`Polygon`/`Polyline`/`SimpleLine`), the curve measure/sample/flatten/decompose query family, and the color/length/point parse — this owner reads `bbox` over the `Shape`-narrowed `elements(conditional=)` sweep, folds the document shapes into one combined `Path` for the measure/sample/flatten/subpaths queries, transforms each shape through `Path(geometry) * Matrix`, and serializes every fragment through the one `path` styled-egress owner onto one `svg`-built viewBox-framed `<svg>` document, never a second path-string emitter, a hand-rolled affine helper, a hand-emitted `<rect>`/`<line>` string, or a re-parsed path string. The placement, n-up, crop, rotate, overlay, annotate, and metadata operations are NOT this owner's concern — they are `composition/compose#COMPOSE`'s.
+- Cases: `VectorOp` cases — `Transform(source, matrix=None)` (ingest through the memoized `_parsed`, apply the composed `Matrix` to every drawable shape through `path(shape, matrix)`, and re-emit the transformed SVG framed to the resolved content bbox; `matrix=None` is the identity-normalize form that bakes `reify=True` absolute coordinates, collapsing the prior separate `Parse` arm into the identity case of the one transform body) · `Bounds(source)` (resolve the union `(xmin, ymin, xmax, ymax)` `extent` over `Shape.bbox()`, the layout question every placement consumer needs) · `Serialize(fragments, viewbox)` (assemble pre-built `path` fragments onto a fresh `viewbox`-framed `svg` `<svg>` document) · `Rasterize(document, render)` (rasterize the placed document through `resvg_py.svg_to_bytes(**render.kwargs(document))` under the one `RenderPolicy`, returning PNG `raster` bytes) · `Measure(source)` (total arc length over the combined `Path.length()`) · `Sample(source, positions)` (vectorized parametric points at `t ∈ [0, 1]` over the numpy-backed `Path.npoint`, the `positions: float | Iterable[float]` normalized to one tuple at the factory head per `MODAL_ARITY`) · `Flatten(source, kind, error)` (replace every `Arc`/cubic through the `FlattenKind`-keyed `approximate_arcs_with_cubics`/`approximate_arcs_with_quads`/`approximate_bezier_with_circular_arcs` row, re-emitting a polyline/toolpath `document`) · `Subpaths(source)` (decompose the combined outline into per-contour `Subpath.d()` strings over `Path.as_subpaths`, the `contours` family a winding/hole/toolpath consumer keys per closed loop) · `Project(points, matrix, kind=POINT, inverse=False)` (map each domain point through `Matrix.transform_point` or each direction through `Matrix.transform_vector` keyed by `ProjectKind`, optionally inverse-through a `determinant`-guarded `Matrix(matrix).inverse()` copy, the device↔user-space mapping a hit-test/placement consumer needs) — matched by one total `match`/`case`; never a per-source-media-type parse sibling, never a per-shape transform method, never a parallel rasterizer. `VectorResult` cases — `document` (transform/serialize/flatten SVG bytes), `extent` (the `Bounds` tuple), `measure` (the arc-length float), `sampled` (the projected/sampled `tuple[Point2, ...]`), `contours` (the per-subpath `tuple[str, ...]` d-strings), `raster` (the rasterize PNG bytes) — so the rail outcome is structurally addressable, never `bytes` discriminated by length.
+- Modality: `Vector.over` is the one modal-arity entrypoint normalizing `VectorOp | Iterable[VectorOp]` into the `ops` tuple by a structural `match` at the head, so a lone geometry query is the one-element case and a mixed transform + sample + rasterize batch is the multi-element case under the identical surface — never a `batch: bool`, never a `mode` knob, and never a per-op or `of_many` sibling. The operation is the value's `VectorOp` case; the arity is the value's shape.
+- Entry: the public composable surface (`bounds`/`transform`/`path`/`svg`/`px`/`measure`/`sample`/`flatten`/`subpaths`/`project`/`rasterize`, the `Element` `Protocol`, the `RenderPolicy` raster-policy owner) is what `composition/compose#COMPOSE` IMPORTS and composes one hop in-process — its `ScaleFit`/`Tile`/`Crop`/`Rotate`/`Overlay` arms call `bounds`/`transform`/`path`/`svg`/`px` directly on the host-free cp315 core, binding each `Result[_, VectorFault]` into its own rail. `Vector.over(ops).of()` is the awaited uniform op-dispatch rail: `async` over the runtime `async_boundary`, `traverse`-ing the `ops` tuple through the rail-total `_dispatch` and projecting one `Block[VectorResult]`, returning `RuntimeRail[Block[VectorResult]]` so a consumer wanting a single boundary-wrapped, span-traced, fault-railed sheet awaits one entry. Every arm resolves synchronously on the cp315 core inside the async capsule — `svgelements` and `numpy` import at boundary scope on the core, `resvg_py` is the cp315 native extension importing at boundary scope on the core — so `_dispatch` is sync, `_compute` is one pure `traverse` (no async-fold exemption), no leg crosses a process seam, and no geometry import escapes the per-function capsule onto the module top.
+- Auto: `_parsed` is the one `@lru_cache(maxsize=128)` ingestion core — `SVG.parse(BytesIO(source), reify=True)` keyed on the source `bytes` and wrapped in one `try` mapping a `ParseError`/`ValueError`/`TypeError` onto `VectorFault.parse`, `reify=True` resolving transforms into shape geometry so every downstream `bbox()`/`Path` read returns absolute coordinates, and the cache collapsing the repeated parse a multi-query consumer would otherwise pay per op (a malformed source rails once, never per arm); `_shapes` narrows the document through `elements(conditional=lambda element: isinstance(element, Shape))` so the non-drawable `SVG` root and the `Group`/`Use` containers are excluded — the prior `hasattr(element, "bbox")` filter admitted the root, whose `Path(root)` then crashed every outline fold; `_bounds` folds the `Shape.bbox()` boxes into the `(min xmin, min ymin, max xmax, max ymax)` envelope, railing an empty shape set onto `VectorFault.empty`; `_outline` folds every shape's `Path(shape).segments()` through `chain.from_iterable` into one combined `Path` for the measure/sample/flatten/subpaths queries, railing an empty outline onto `VectorFault.empty`; `path` composes `(Path(geometry) * matrix).d()` (identity when `matrix is None`) and admits the optional `Style` stroke through `Color(style[0]).hex`, emitting the styled or bare `<path>` fragment; `svg` frames every fragment body in a fresh `<svg>` whose `viewBox` is the full `xmin ymin width height` extent so non-origin geometry is framed, never clipped to a `0 0 w h` box; `px` resolves a CSS `Length` to absolute px through `Length(length).value(ppi=96.0, viewbox=...)`; `sample` passes `np.asarray(positions)` into `Path.npoint`, reading the `(N, 2)` ndarray (or railing `None` onto `VectorFault.empty`); `project` guards `matrix.determinant` before inverting and inverts a `Matrix(matrix)` copy so the caller's matrix is never mutated; `rasterize` folds the placed document through `resvg_py.svg_to_bytes(**render.kwargs(...))` and maps its `ValueError` onto `VectorFault.render`. Base and transformed shapes both serialize through the one `path` styled-egress owner, never a parallel base-versus-styled emitter; `composition/compose#COMPOSE` parses its own placement angle directly through `svgelements.Angle.parse`, never an imported vector forwarder.
+- Faults: `VectorFault` is the one closed `@tagged_union` vocabulary every arm maps its provider raise into — `parse` (an `xml.etree.ElementTree.ParseError`/`ValueError`/`TypeError` from `SVG.parse` over malformed markup, carrying the message; `ParseError` is the real raise the sibling `(ValueError, TypeError)` slice would have missed, since svgelements' default `on_error='ignore'` still surfaces a structural XML fault), `render` (a `resvg_py.svg_to_bytes` `ValueError` on empty/invalid SVG or a bad option value), `singular` (a `project` inverse against a `determinant == 0` matrix, guarded before the `1/det` raise rather than catching the resulting `ZeroDivisionError`), `empty` (a document with no drawable shape, or an outline with no segment — the `min()`-over-empty and `npoint`-`None` causes the interior would otherwise raise on), and `contract` (a `BeartypeCallHintViolation` the `_contracted` definition-time weave lifts onto `_dispatch`'s rail, never raising into `_compute`) — each provider raise named exactly at the arm that incurs it, never a bare `except Exception` and never a railless body trusting the boundary capsule to swallow it; recovery keys on the case, never a reconstructed message. `Color(value)` is lenient (a malformed color resolves rather than raising), so no `color` fault case is minted — an illusory rail the page does not claim.
+- Receipt: `Vector` is a geometry primitive — its rail returns one `Block[VectorResult]` and its composable functions return SVG bytes, a bounds tuple, a float, sampled points, per-contour d-strings, or PNG bytes that the consuming placement/chart/diagram/export plane keys into its own `ContentIdentity.of` and contributes to `core/receipt#RECEIPT` `ArtifactReceipt.Preview`; this primitive mints no content key and adds no receipt case, so the figure-placement evidence (shape count, source/target viewBox, applied transform, resolved bbox, output byte length) is the consuming owner's receipt, never a parallel vector-receipt type.
+- Packages: `svgelements` (`SVG.parse(source, reify=True, ppi=96.0)`/`SVG.elements(conditional=)` with the `Shape` predicate, `Path`/`Path.d`/`Path.bbox(transformed=, with_stroke=)`/`Path.segments(transformed=)`/`Path.length(error=, min_depth=)`/`Path.point(position, error=)`/`Path.npoint(positions, error=)` (numpy-accelerated, `(N, 2)` ndarray or `None`)/`Path.as_subpaths` yielding `Subpath` with its own `Subpath.d`/`approximate_arcs_with_cubics(error=)`/`approximate_arcs_with_quads(error=)`/`approximate_bezier_with_circular_arcs(error=)`, the `Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc` `PathSegment` grammar, `Matrix(*components)`/`Matrix.scale`/`Matrix.translate`/`Matrix.rotate`/`Matrix.skew` composed by `*`, `Matrix.determinant`/`Matrix.inverse` (in-place, copied before use)/`Matrix.transform_point`/`Matrix.transform_vector`, `Length(value).value(ppi=, viewbox=)`, `Color(value)`/`Color.hex`, `Point(x, y)`/`Point.matrix_transform(m)`, the `Rect`/`Circle`/`Ellipse`/`Polygon`/`Polyline`/`SimpleLine` shape primitives and the `Group`/`Use` containers the `Shape` predicate excludes, pure-Python `py2.py3-none-any` v1.9.6 reflected on cp315, version via `SVGELEMENTS_VERSION`) on the cp315 core; `resvg-py` (`svg_to_bytes(svg_string=, svg_path=, ...)` SVG-to-PNG over the embedded Rust `resvg 0.47.0` engine — the full `width`/`height`/`zoom`/`dpi` sizing, `background`/`style_sheet`/`resources_dir`/`languages` parsing, `skip_system_fonts`/`font_size`/`font_files`/`font_dirs` and the six `*_family` font, `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy, `log_information` axis, native `resvg_py.cpython-315-darwin.so` v0.3.3 reflected on cp315, raises `ValueError` on empty/invalid SVG) on the cp315 core; `numpy` (`asarray` admitting the `positions` tuple into the `Path.npoint` vectorized sweep — the shared rail layered onto the folder geometry surface, not a Python `point`-per-position loop); `msgspec` (`Struct`/`structs.asdict` the `RenderPolicy` projection); `expression` (`tagged_union`/`tag`/`case` the `VectorOp`/`VectorResult`/`VectorFault` families, `Result`/`Block`/`traverse` the rail); `beartype` (`BeartypeConf`/`beartype` the `_contracted` rail-lifting weave, `BeartypeCallHintViolation`); `functools.lru_cache` (the `_parsed` ingestion memo); `frozendict` (the `_FLATTEN` approximation-row and `_PROJECT` apply-row tables); runtime (`faults.RuntimeRail`/`async_boundary`).
+- Growth: a new geometry query is one `VectorOp` case plus one composable function over the existing `svgelements` surface — a curvature/tangent query rides `Path.point` plus a finite difference, an ink/stroke-inclusive extent rides `Path.bbox(with_stroke=True)` as a `Bounds` policy value, a source→target fit transform rides the `svgelements.Viewbox` preserve-aspect `Matrix`, a unit-converted measure rides `Length.value_in_units` — never a re-implemented SVG geometry engine; a new transform composition (pre/post compose order) is one `Matrix` factory or compose row carried into the existing `transform`/`project` body — never a hand-rolled affine; a new flatten target is one `FlattenKind` member plus one `_FLATTEN` row; a new projection mode is one `ProjectKind` member plus one `_PROJECT` row; a new resvg sizing/font/policy knob is one field on the existing `RenderPolicy` row carried into the one `svg_to_bytes` spread — never a second rasterizer; a new fault cause is one `VectorFault` case; a new outcome shape is one `VectorResult` case; zero new surface.
+- Boundary: the placement, n-up, crop, rotate, overlay, annotate, and metadata logic is `composition/compose#COMPOSE`'s exclusively — this owner resolves no figure layout and grows no placement arm; the chart/mark/nanoplot rasterization-to-export floor is `visualization/chart#EXPORT` `vl-convert`'s — this owner rasterizes only a placed SVG document through `resvg_py.svg_to_bytes` and re-renders no chart; the editable named-layer egress (the `drawsvg` `Group`/PDF OCG hierarchical-layer authoring) is `export/layered#LAYERED`'s — this owner emits a flat single-`<svg>` document and authors no named-layer structure; ICC profile attachment and color management stay in `graphic/color/managed#MANAGED` — this owner consumes a color-managed raster, it builds no transform. A per-graphic-type geometry class family, a per-shape transform method, a parallel base-versus-styled path-string emitter pair, a hand-rolled affine helper, a hand-emitted `<rect>`/`<line>` string, a re-parsed `d` path string, a `Color`-fault rail svgelements never raises, a railless body trusting `async_boundary` to classify a provider raise, a comma-joined `bytes` outcome beside the typed `VectorResult`, and a second SVG renderer beside `resvg_py`/`vl-convert` are the deleted forms; no UI, no live viewer. `svgelements`/`numpy` are pure-Python and import at boundary scope on the cp315 core; `resvg_py` is the cp315 native extension importing at boundary scope on the core — neither crosses a process seam, so the vector primitive is the host-free geometry floor the gated raster band (`graphic/raster`) never touches.
 
 ```python signature
-from collections.abc import Iterable
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+from collections.abc import Callable, Iterable
+from enum import StrEnum
+from functools import lru_cache, wraps
 from io import BytesIO
-from typing import TYPE_CHECKING, Literal, Protocol, assert_never
+from itertools import chain
+from typing import TYPE_CHECKING, Literal, Protocol, Self, assert_never
+from xml.etree.ElementTree import ParseError
 
-from expression import case, tag, tagged_union
+from beartype import BeartypeConf, beartype
+from beartype.roar import BeartypeCallHintViolation
+from builtins import frozendict
+from expression import Error, Ok, Result, case, tag, tagged_union
+from expression.collections import Block
+from expression.extra.result import traverse
 from msgspec import Struct
 from msgspec.structs import asdict
 
 from rasm.runtime.faults import RuntimeRail, async_boundary
 
 if TYPE_CHECKING:
-    from svgelements import SVG, Angle, Matrix
+    from svgelements import SVG, Matrix, Path, Point, Shape
 
+# --- [TYPES] ----------------------------------------------------------------------------
 type Bounds = tuple[float, float, float, float]
-type Length = str | float
+type Point2 = tuple[float, float]
+type Span = str | float
 type Style = tuple[str, float] | None
+type RenderKwargs = dict[str, str | int | float | bool | list[str] | None]
 type ShapeRendering = Literal["optimize_speed", "crisp_edges", "geometric_precision"]
 type TextRendering = Literal["optimize_speed", "optimize_legibility", "geometric_precision"]
 type ImageRendering = Literal["optimize_quality", "optimize_speed"]
-type VectorOpTag = Literal["parse", "bounds", "transform", "serialize", "rasterize"]
+type VectorOpTag = Literal["transform", "bounds", "serialize", "rasterize", "measure", "sample", "flatten", "subpaths", "project"]
+type VectorResultTag = Literal["document", "extent", "measure", "sampled", "contours", "raster"]
+type VectorFaultTag = Literal["parse", "render", "singular", "empty", "contract"]
+
+
+class FlattenKind(StrEnum):
+    CUBICS = "cubics"
+    QUADS = "quads"
+    ARCS = "arcs"
+
+
+class ProjectKind(StrEnum):
+    POINT = "point"
+    VECTOR = "vector"
 
 
 class Element(Protocol):
     def bbox(self) -> Bounds | None: ...
 
 
+# --- [MODELS] ---------------------------------------------------------------------------
 class RenderPolicy(Struct, frozen=True):
     width: int | None = None
     height: int | None = None
@@ -68,133 +99,317 @@ class RenderPolicy(Struct, frozen=True):
     image_rendering: ImageRendering = "optimize_quality"
     log_information: bool = False
 
-    def kwargs(self, document: bytes) -> dict[str, object]:
-        return {"svg_string": document.decode(), **{key: list(value) or None if isinstance(value, tuple) else value for key, value in asdict(self).items()}}
+    def kwargs(self, document: bytes) -> RenderKwargs:
+        rows = {key: (list(value) or None) if isinstance(value, tuple) else value for key, value in asdict(self).items()}
+        return {"svg_string": document.decode(), **rows}
 
 
+# --- [ERRORS] ---------------------------------------------------------------------------
+@tagged_union(frozen=True)
+class VectorFault:
+    tag: VectorFaultTag = tag()
+    parse: str = case()
+    render: str = case()
+    singular: None = case()
+    empty: None = case()
+    contract: str = case()
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+@lru_cache(maxsize=128)
+def _parsed(source: bytes) -> Result["SVG", VectorFault]:
+    from svgelements import SVG
+
+    try:
+        return Ok(SVG.parse(BytesIO(source), reify=True))
+    except (ParseError, ValueError, TypeError) as fault:
+        return Error(VectorFault(parse=str(fault)))
+
+
+def _shapes(document: "SVG") -> list["Shape"]:
+    from svgelements import Shape
+
+    return list(document.elements(conditional=lambda element: isinstance(element, Shape)))
+
+
+def _scene(source: bytes) -> Result[list["Shape"], VectorFault]:
+    return _parsed(source).map(_shapes)
+
+
+def _bounds(shapes: list["Shape"], /) -> Result[Bounds, VectorFault]:
+    boxes = [box for shape in shapes if (box := shape.bbox()) is not None]
+    return (
+        Ok((min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)))
+        if boxes
+        else Error(VectorFault(empty=None))
+    )
+
+
+def _outline(shapes: list["Shape"], /) -> Result["Path", VectorFault]:
+    from svgelements import Path
+
+    outline = Path(*chain.from_iterable(Path(shape).segments() for shape in shapes))
+    return Ok(outline) if len(outline) else Error(VectorFault(empty=None))
+
+
+_FLATTEN: frozendict[FlattenKind, Callable[["Path", float], object]] = frozendict({
+    FlattenKind.CUBICS: lambda outline, error: outline.approximate_arcs_with_cubics(error),
+    FlattenKind.QUADS: lambda outline, error: outline.approximate_arcs_with_quads(error),
+    FlattenKind.ARCS: lambda outline, error: outline.approximate_bezier_with_circular_arcs(error),
+})
+_PROJECT: frozendict[ProjectKind, Callable[["Matrix", "Point"], "Point"]] = frozendict({
+    ProjectKind.POINT: lambda active, point: point.matrix_transform(active),
+    ProjectKind.VECTOR: lambda active, point: active.transform_vector(point),
+})
+
+
+def path(geometry: object, matrix: "Matrix | None" = None, style: Style = None) -> str:
+    from svgelements import Color, Path
+
+    shape = Path(geometry) if matrix is None else Path(geometry) * matrix
+    stroke = "" if style is None else f' fill="none" stroke="{Color(style[0]).hex}" stroke-width="{style[1]}"'
+    return f'<path d="{shape.d()}"{stroke}/>'
+
+
+def svg(fragments: Iterable[str], viewbox: Bounds) -> bytes:
+    xmin, ymin, xmax, ymax = viewbox
+    width, height = xmax - xmin, ymax - ymin
+    body = "".join(fragments)
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="{xmin} {ymin} {width} {height}">{body}</svg>'.encode()
+
+
+def px(length: Span, viewbox: object = None) -> float:
+    from svgelements import Length
+
+    return Length(length).value(ppi=96.0, viewbox=viewbox)
+
+
+def bounds(source: bytes) -> Result[Bounds, VectorFault]:
+    return _scene(source).bind(_bounds)
+
+
+def transform(source: bytes, matrix: "Matrix | None" = None) -> Result[bytes, VectorFault]:
+    return _scene(source).bind(
+        lambda shapes: _bounds(shapes).map(lambda box: svg(tuple(path(shape, matrix) for shape in shapes), box))
+    )
+
+
+def measure(source: bytes) -> Result[float, VectorFault]:
+    return _scene(source).bind(_outline).map(lambda outline: outline.length())
+
+
+def sample(source: bytes, positions: tuple[float, ...]) -> Result[tuple[Point2, ...], VectorFault]:
+    import numpy as np
+
+    return _scene(source).bind(_outline).bind(lambda outline: _points(outline.npoint(np.asarray(positions, dtype=float))))
+
+
+def _points(xy: object, /) -> Result[tuple[Point2, ...], VectorFault]:
+    return Error(VectorFault(empty=None)) if xy is None else Ok(tuple((float(x), float(y)) for x, y in xy))
+
+
+def subpaths(source: bytes) -> Result[tuple[str, ...], VectorFault]:
+    return _scene(source).bind(_outline).map(lambda outline: tuple(contour.d() for contour in outline.as_subpaths()))
+
+
+def flatten(source: bytes, kind: FlattenKind = FlattenKind.CUBICS, error: float = 0.1) -> Result[bytes, VectorFault]:
+    def _emit(shapes: list["Shape"], /) -> Result[bytes, VectorFault]:
+        return _outline(shapes).bind(lambda outline: _bounds(shapes).map(lambda box: _flattened(outline, kind, error, box)))
+
+    return _scene(source).bind(_emit)
+
+
+def _flattened(outline: "Path", kind: FlattenKind, error: float, box: Bounds, /) -> bytes:
+    _FLATTEN[kind](outline, error)
+    return svg((f'<path d="{outline.d()}"/>',), box)
+
+
+def project(points: Iterable[Point2], matrix: "Matrix", kind: ProjectKind = ProjectKind.POINT, inverse: bool = False) -> Result[tuple[Point2, ...], VectorFault]:
+    from svgelements import Matrix, Point
+
+    if inverse and matrix.determinant == 0:
+        return Error(VectorFault(singular=None))
+    active, apply = (Matrix(matrix).inverse() if inverse else matrix), _PROJECT[kind]
+    return Ok(tuple((float(r.x), float(r.y)) for r in (apply(active, Point(*pt)) for pt in points)))
+
+
+def rasterize(document: bytes, render: RenderPolicy = RenderPolicy()) -> Result[bytes, VectorFault]:
+    import resvg_py
+
+    try:
+        return Ok(resvg_py.svg_to_bytes(**render.kwargs(document)))
+    except ValueError as fault:
+        return Error(VectorFault(render=str(fault)))
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
 @tagged_union(frozen=True)
 class VectorOp:
     tag: VectorOpTag = tag()
-    parse: bytes = case()
+    transform: tuple[bytes, "Matrix | None"] = case()
     bounds: bytes = case()
-    transform: tuple[bytes, "Matrix"] = case()
-    serialize: tuple[tuple[str, ...], float, float] = case()
+    serialize: tuple[tuple[str, ...], Bounds] = case()
     rasterize: tuple[bytes, RenderPolicy] = case()
+    measure: bytes = case()
+    sample: tuple[bytes, tuple[float, ...]] = case()
+    flatten: tuple[bytes, FlattenKind, float] = case()
+    subpaths: bytes = case()
+    project: tuple[tuple[Point2, ...], "Matrix", ProjectKind, bool] = case()
 
     @staticmethod
-    def Parse(source: bytes) -> "VectorOp":
-        return VectorOp(parse=source)
+    def Transform(source: bytes, matrix: "Matrix | None" = None) -> "VectorOp":
+        return VectorOp(transform=(source, matrix))
 
     @staticmethod
     def Bounds(source: bytes) -> "VectorOp":
         return VectorOp(bounds=source)
 
     @staticmethod
-    def Transform(source: bytes, matrix: "Matrix") -> "VectorOp":
-        return VectorOp(transform=(source, matrix))
-
-    @staticmethod
-    def Serialize(fragments: tuple[str, ...], width: float, height: float) -> "VectorOp":
-        return VectorOp(serialize=(fragments, width, height))
+    def Serialize(fragments: tuple[str, ...], viewbox: Bounds) -> "VectorOp":
+        return VectorOp(serialize=(fragments, viewbox))
 
     @staticmethod
     def Rasterize(document: bytes, render: RenderPolicy = RenderPolicy()) -> "VectorOp":
         return VectorOp(rasterize=(document, render))
 
+    @staticmethod
+    def Measure(source: bytes) -> "VectorOp":
+        return VectorOp(measure=source)
+
+    @staticmethod
+    def Sample(source: bytes, positions: float | Iterable[float]) -> "VectorOp":
+        return VectorOp(sample=(source, (positions,) if isinstance(positions, float) else tuple(positions)))
+
+    @staticmethod
+    def Flatten(source: bytes, kind: FlattenKind = FlattenKind.CUBICS, error: float = 0.1) -> "VectorOp":
+        return VectorOp(flatten=(source, kind, error))
+
+    @staticmethod
+    def Subpaths(source: bytes) -> "VectorOp":
+        return VectorOp(subpaths=source)
+
+    @staticmethod
+    def Project(points: Iterable[Point2], matrix: "Matrix", kind: ProjectKind = ProjectKind.POINT, inverse: bool = False) -> "VectorOp":
+        return VectorOp(project=(tuple(points), matrix, kind, inverse))
+
+
+@tagged_union(frozen=True)
+class VectorResult:
+    tag: VectorResultTag = tag()
+    document: bytes = case()
+    extent: Bounds = case()
+    measure: float = case()
+    sampled: tuple[Point2, ...] = case()
+    contours: tuple[str, ...] = case()
+    raster: bytes = case()
+
+
+_CONTRACT = BeartypeConf(is_pep484_tower=True)
+
+
+def _contracted(operation: Callable[[VectorOp], Result[VectorResult, VectorFault]], /) -> Callable[[VectorOp], Result[VectorResult, VectorFault]]:
+    guarded = beartype(conf=_CONTRACT)(operation)
+
+    @wraps(operation)
+    def call(op: VectorOp, /) -> Result[VectorResult, VectorFault]:
+        try:
+            return guarded(op)
+        except BeartypeCallHintViolation as violation:
+            return Error(VectorFault(contract=type(violation).__name__))
+
+    return call
+
+
+@_contracted
+def _dispatch(op: VectorOp, /) -> Result[VectorResult, VectorFault]:
+    match op:
+        case VectorOp(tag="transform", transform=(source, matrix)):
+            return transform(source, matrix).map(lambda document: VectorResult(document=document))
+        case VectorOp(tag="bounds", bounds=source):
+            return bounds(source).map(lambda extent: VectorResult(extent=extent))
+        case VectorOp(tag="serialize", serialize=(fragments, viewbox)):
+            return Ok(VectorResult(document=svg(fragments, viewbox)))
+        case VectorOp(tag="rasterize", rasterize=(document, render)):
+            return rasterize(document, render).map(lambda raster: VectorResult(raster=raster))
+        case VectorOp(tag="measure", measure=source):
+            return measure(source).map(lambda length: VectorResult(measure=length))
+        case VectorOp(tag="sample", sample=(source, positions)):
+            return sample(source, positions).map(lambda points: VectorResult(sampled=points))
+        case VectorOp(tag="flatten", flatten=(source, kind, error)):
+            return flatten(source, kind, error).map(lambda document: VectorResult(document=document))
+        case VectorOp(tag="subpaths", subpaths=source):
+            return subpaths(source).map(lambda contours: VectorResult(contours=contours))
+        case VectorOp(tag="project", project=(points, matrix, kind, inverse)):
+            return project(points, matrix, kind, inverse).map(lambda projected: VectorResult(sampled=projected))
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _normalized(ops: VectorOp | Iterable[VectorOp], /) -> tuple[VectorOp, ...]:
+    match ops:
+        case VectorOp():
+            return (ops,)
+        case _:
+            return tuple(ops)
+
 
 class Vector(Struct, frozen=True):
-    op: VectorOp
+    ops: tuple[VectorOp, ...]
 
-    async def of(self) -> RuntimeRail[bytes]:
-        return await async_boundary(f"vector.{self.op.tag}", self._emit)
+    @classmethod
+    def over(cls, ops: VectorOp | Iterable[VectorOp], /) -> Self:
+        return cls(ops=_normalized(ops))
 
-    async def _emit(self) -> bytes:
-        from svgelements import SVG, Matrix
+    async def of(self) -> RuntimeRail[Block[VectorResult]]:
+        return await async_boundary("vector.sheet", self._compute)
 
-        match self.op:
-            case VectorOp(tag="parse", parse=source):
-                document = SVG.parse(BytesIO(source), reify=True)
-                xmin, ymin, xmax, ymax = _bounds(document)
-                return _svg(_transform(document, Matrix()), xmax - xmin, ymax - ymin)
-            case VectorOp(tag="bounds", bounds=source):
-                document = SVG.parse(BytesIO(source), reify=True)
-                return ",".join(f"{value}" for value in _bounds(document)).encode()
-            case VectorOp(tag="transform", transform=(source, matrix)):
-                document = SVG.parse(BytesIO(source), reify=True)
-                xmin, ymin, xmax, ymax = _bounds(document)
-                return _svg(_transform(document, matrix), xmax - xmin, ymax - ymin)
-            case VectorOp(tag="serialize", serialize=(fragments, width, height)):
-                return _svg(fragments, width, height)
-            case VectorOp(tag="rasterize", rasterize=(document, render)):
-                import resvg_py
-
-                return resvg_py.svg_to_bytes(**render.kwargs(document))
-            case _:
-                assert_never(self.op)
+    async def _compute(self) -> Result[Block[VectorResult], VectorFault]:
+        return traverse(_dispatch, Block.of_seq(self.ops))
 
 
-def _elements(document: "SVG") -> list[Element]:
-    return [element for element in document.elements() if hasattr(element, "bbox")]
-
-
-def _bounds(document: "SVG") -> Bounds:
-    boxes = [box for element in _elements(document) if (box := element.bbox()) is not None]
-    return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
-
-
-def _path(geometry: object, transform: "Matrix", style: Style = None) -> str:
-    from svgelements import Color, Path
-
-    body = (Path(geometry) * transform).d()
-    stroke = "" if style is None else f' fill="none" stroke="{Color(style[0]).hex}" stroke-width="{style[1]}"'
-    return f'<path d="{body}"{stroke}/>'
-
-
-def _transform(document: "SVG", transform: "Matrix") -> list[str]:
-    return [_path(element, transform) for element in _elements(document)]
-
-
-def _px(length: Length) -> float:
-    from svgelements import Length as SvgLength
-
-    return SvgLength(length).value(ppi=96.0)
-
-
-def _angle(angle: str) -> "Angle":
-    from svgelements import Angle
-
-    return Angle.parse(angle)
-
-
-def _svg(fragments: Iterable[str], width: float, height: float) -> bytes:
-    body = "".join(fragments)
-    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">{body}</svg>'.encode()
+# --- [EXPORTS] --------------------------------------------------------------------------
+__all__ = [
+    "Bounds", "Element", "FlattenKind", "Point2", "ProjectKind", "RenderPolicy", "Style", "Vector", "VectorFault", "VectorOp", "VectorResult",
+    "bounds", "flatten", "measure", "path", "project", "px", "rasterize", "sample", "subpaths", "svg", "transform",
+]
 ```
 
-The `svgelements` geometry surface is the spec-faithful primitive every placement consumer reads through: `SVG.parse(source, reify=True)` is the single polymorphic ingestion factory across filename/file-object/`str` source, `reify=True` baking transforms into element geometry so a downstream `bbox()` read returns absolute coordinates; `SVG.elements(conditional=)` is the single selection surface (a predicate discriminates which resolved nodes the iterator yields, never a `find`/`select`/`filter` family) and `_elements` narrows it by `hasattr(element, "bbox")` into the local `Element` `Protocol` declaring the one `bbox()` method the fold touches; `Matrix` is the one affine owner whose bare `scale`/`translate`/`rotate`/`skew` factories build a transform, `pre_*`/`post_*` rows compose in the requested order, and a shape transforms by `element * matrix` returning the same node type; `Path` is the one mutable `MutableSequence` of `PathSegment` over the `Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc` grammar whose `d()`/`bbox()`/`length()`/`point()` query and serialize through one owner, never a re-parsed path string; `Length`/`Color`/`Angle`/`Point` are spec-faithful value objects each owning its parse and resolution so vector egress never hand-multiplies a float or hand-parses a color string. Base elements and transformed elements both serialize through the one `_path(geometry, transform, style)` styled-egress owner: the optional `Style` tuple admits a stroke literal through the catalogued `Color(value)` parse (an invalid SVG/CSS color rejects at admission) and emits the `Color(value).hex` channel literal, while a `None` style emits the bare `<path d="..."/>` base fragment, replacing any parallel base-versus-styled emitter pair. The `resvg_py.svg_to_bytes` raster floor is the terminal SVG-to-PNG sink: it rasterizes the placed document on the core through the embedded Rust `resvg 0.47.0` engine with no Cairo, headless-browser, or external-process dependency, the `RenderPolicy.kwargs` projecting the full sizing/parsing/font/policy/diagnostic axis through one `asdict`-driven spread (each `()`-default tuple field coercing to `list(value) or None` so `languages`/`font_files`/`font_dirs` arrive as the catalogue's `list[str] | None` shape) onto the one `svg_to_bytes` call, never a hand-forwarded keyword wall and never a second rasterizer.
+The `svgelements` geometry surface is the spec-faithful primitive every placement consumer reads through one memoized, fault-railed ingestion: `SVG.parse(source, reify=True)` is the single polymorphic ingestion factory across filename/file-object/`str` source, `reify=True` baking transforms into shape geometry so a downstream `bbox()`/`Path` read returns absolute coordinates, and the `@lru_cache(_parsed)` core keying on the source `bytes` so a multi-query consumer pays the parse once and a malformed source rails `VectorFault.parse` once. `SVG.elements(conditional=)` is the single selection surface — a predicate discriminates which resolved nodes the iterator yields, never a `find`/`select`/`filter` family — and `_shapes` narrows it by `isinstance(element, Shape)` into the drawable set, excluding the non-drawable `SVG` document root the prior `hasattr(element, "bbox")` filter admitted (whose `Path(root)` then crashed every outline fold). `Matrix` is the one affine owner whose bare `scale`/`translate`/`rotate`/`skew` factories build a transform, `*` composes, and `determinant`/`inverse` answer invertibility — `inverse()` mutates in place and divides by the determinant, so `project` guards `matrix.determinant == 0` onto `VectorFault.singular` before inverting and inverts a `Matrix(matrix)` copy so the caller's matrix is never mutated, mapping each point through `Matrix.transform_point` (full affine) or each direction through `Matrix.transform_vector` (translation-free) keyed by `ProjectKind`. `Path` is the one mutable `MutableSequence` of `PathSegment` over the `Move`/`Line`/`Close`/`QuadraticBezier`/`CubicBezier`/`Arc` grammar whose `d()`/`bbox()`/`segments()`/`length()`/`point()`/`npoint()`/`as_subpaths()`/`approximate_arcs_with_cubics()` query, measure, vectorized-sample, decompose, flatten, and serialize through one owner, never a re-parsed path string — `_outline` folds every shape's segments through `chain.from_iterable` into one combined `Path` so `measure`/`sample`/`flatten`/`subpaths` operate on the whole document outline. `sample` passes `numpy.asarray(positions)` into `Path.npoint`, the numpy-accelerated vectorized sweep returning one `(N, 2)` array (or `None` for an empty path, railed `VectorFault.empty`) where the prior per-position `Path.point` generator re-derived one query at a time; `subpaths` reads `Path.as_subpaths()` for the per-contour `Subpath.d()` strings a winding/hole/toolpath consumer keys per closed loop. Base and transformed shapes both serialize through the one `path(geometry, matrix, style)` styled-egress owner: the optional `Style` tuple admits a stroke literal through the catalogued `Color(value)` parse and emits the `Color(value).hex` channel literal, while a `None` style emits the bare `<path d="..."/>` base fragment, and `svg` frames every body in a `viewBox` of the full `xmin ymin width height` extent so non-origin geometry is framed rather than clipped to a `0 0 w h` box. The `resvg_py.svg_to_bytes` raster floor is the terminal SVG-to-PNG sink: it rasterizes the placed document on the core through the embedded Rust `resvg 0.47.0` engine with no Cairo, headless-browser, or external-process dependency, the `RenderPolicy.kwargs` projecting the full sizing/parsing/font/policy/diagnostic axis through one `asdict`-driven spread (each `()`-default tuple field coercing to `list(value) or None` so `languages`/`font_files`/`font_dirs` arrive as the catalogue's `list[str] | None` shape) onto the one `svg_to_bytes` call typed `RenderKwargs`, never a hand-forwarded keyword wall or an erased `dict[str, object]` bag, and mapping the engine's `ValueError` onto `VectorFault.render`.
 
 ```mermaid
 flowchart LR
-    Of["Vector.of"] --> Emit["_emit match"]
-    Emit -->|parse| Parse["SVG.parse(reify=True) -> _bounds -> _svg"]
-    Emit -->|bounds| BoundsArm["SVG.parse -> _bounds -> (xmin,ymin,xmax,ymax)"]
-    Emit -->|transform| Tx["SVG.parse -> _transform(Matrix) -> _svg"]
-    Emit -->|serialize| Ser["_path(Path.d) fragments -> _svg viewBox doc"]
-    Emit -->|rasterize| Ras["resvg_py.svg_to_bytes(RenderPolicy.kwargs)"]
-    Parse --> Primitive["SVG-geometry primitive bytes / bounds / PNG"]
-    BoundsArm --> Primitive
-    Tx --> Primitive
-    Ser --> Primitive
-    Ras --> Primitive
-    Primitive -.->|consumed by| Consumers["composition/compose#COMPOSE / visualization/chart#CHART / visualization/diagram#DRAW / export/layered#LAYERED"]
+    Over["Vector.over (VectorOp | Iterable)"] --> Of["Vector.of -> _compute traverse"]
+    Of --> Disp["_dispatch (@_contracted) match per op"]
+    Disp -->|transform| Tx["transform(source, matrix?) -> document"]
+    Disp -->|bounds| Bd["bounds(source) -> extent"]
+    Disp -->|serialize| Ser["svg(fragments, viewbox) -> document"]
+    Disp -->|rasterize| Ras["rasterize(doc, RenderPolicy) -> raster"]
+    Disp -->|measure| Ms["measure(source) -> Path.length"]
+    Disp -->|sample| Sm["sample(source, t...) -> Path.npoint"]
+    Disp -->|flatten| Fl["flatten(source, kind, error) -> approximate_*"]
+    Disp -->|subpaths| Sp["subpaths(source) -> Path.as_subpaths().d()"]
+    Disp -->|project| Pj["project(points, matrix, kind, inverse) -> transform_point/vector"]
+    Tx --> Result["Result[VectorResult, VectorFault]"]
+    Bd --> Result
+    Ser --> Result
+    Ras --> Result
+    Ms --> Result
+    Sm --> Result
+    Fl --> Result
+    Sp --> Result
+    Pj --> Result
+    Parse["_parsed @lru_cache(SVG.parse reify=True) -> Result"] -.->|memoized ingest| Disp
+    Result -->|traverse fold| Block["Block[VectorResult]"]
+    Block -.->|awaited rail| Consumers["composition/compose#COMPOSE / visualization/chart#CHART / export/layered#LAYERED"]
 ```
 
 ## [03]-[RESEARCH]
 
-- [VECTOR_SETTLED]: the in-process `SVG.parse(source, reify=True)`/`SVG.elements`, `Path(geometry)`/`Path.d`/`Path.bbox`, `Matrix.scale`/`Matrix.translate`/`Matrix.rotate` (composed by `*`), `Length(value).value(ppi=...)`, and the `Color(value)` color-admission value object verify against the folder `.api` catalogue for `svgelements`, a VERIFIED REAL reflection (`1.9.6` on the cp315 core, pure-Python `py2.py3-none-any`, version via `SVGELEMENTS_VERSION`). The `Parse`/`Bounds`/`Transform`/`Serialize` arms are SETTLED fence code: `reify=True` resolves transforms into element geometry so the `bbox()` read returns absolute coordinates, each transform composes through one `Matrix` never a hand-rolled affine, and every fragment serializes through `Path(geometry).d()`. Base elements and styled fragments both serialize through the one `_path(geometry, transform, style)` styled-egress owner: the optional `Style` tuple admits the stroke literal through the catalogued `Color(value)` parse (an invalid SVG/CSS color rejects at admission) and emits the `Color(value).hex` channel literal — `.hex` is the catalogued `Color` accessor (the catalogue documents `Color` as "color parse and channel access") — while a `None` style emits the bare `<path d="..."/>` base fragment, so a single path-string owner replaces any parallel emitter pair and any hand-emitted `<rect>`/`<line>` string. The iterated element rides the local `Element` `Protocol` declaring the one `bbox()` method the fence touches, never an erased `object` and never an uncatalogued `svgelements` base type; `_elements` narrows the `SVG.elements()` sweep by `hasattr(element, "bbox")`. Bounds query is `bbox()` on the document elements; transform and serialize re-emit through that one `_path`/`Path.d()` owner onto one `_svg`-built `<svg>` document. svgelements owns the SVG path grammar, affine algebra, shape primitives, and color parse; the vector primitive never re-implements any of them and never rasterizes a chart.
-- [SHAPE_CTOR_RESEARCH]: the shape primitives the consuming placement plane builds (`SimpleLine`/`Circle`/`Ellipse`/`Polyline`/`Polygon`/`Rect`) resolve through `getattr(svgelements, primitive)(*args)`, positionally constructing each shape. The folder `.api` catalogue for `svgelements` rows each primitive by role (`Circle` "circle by center and radius", `Ellipse` "ellipse by center and two radii", `Rect` "axis-aligned rectangle", `Polygon`/`Polyline` "point sequence", `SimpleLine` "single line segment") but does NOT catalogue the positional constructor arity or argument order of any shape — the `Circle(cx, cy, r)`, `Ellipse(cx, cy, rx, ry)`, `Rect(x, y, w, h)`, `SimpleLine(x1, y1, x2, y2)`, and `*points`-spread `Polygon`/`Polyline` call grammar is a RESEARCH item, never settled fence code, until the catalogue reflects each shape's constructor signature. This vector primitive owns the parse/transform/bounds/serialize/rasterize surface and routes the shape-primitive construction through the one `_path` cite-point so the `Parse`/`Bounds`/`Transform`/`Serialize`/`Rasterize` arms stay fully settled; the placement plane (`composition/compose#COMPOSE`) carries the per-mark shape construction and its `MarkKind.shape` builder, so this deepen item is shared between the two owners. Close-condition: `.api` catalogue reflects each shape's positional constructor signature.
-- [ROTATE_PARSE_RESEARCH]: the `_angle` helper resolves an angle string through `svgelements.Angle.parse(angle)` at one boundary-scoped cite-point. The folder `.api` catalogue for `svgelements` confirms the `Angle` value object (CSS `deg`/`rad`/`grad`/`turn`, `as_degrees`/`as_radians`/`normalized`) and `Matrix.rotate(angle)`, and the `[03]-[ENTRYPOINTS]` value-object row [06] names `Angle.parse(value)` — so `Angle.parse` is catalogue-confirmed as the string-admission classmethod; the `_angle` cite-point is settled fence code against the row. The placement plane (`composition/compose#COMPOSE`) consumes `_angle` for its `Rotate` arm; this primitive owns the cite-point and the catalogued spelling, so the `Transform` arm's `Matrix.rotate(Angle.parse(...))` composition stays settled.
-- [RASTER_FLOOR_SETTLED]: the `Rasterize` arm rasterizes the placed document through `resvg_py.svg_to_bytes(**render.kwargs(document))` on the cp315 core; `import resvg_py` resolves at boundary scope inline at the one `_emit` rasterize dispatch site, never module-top and never behind a single-call forwarding helper. `RenderPolicy.kwargs(document)` merges the `{"svg_string": document.decode()}` source dict with the `msgspec.structs.asdict(self)` field projection — `asdict` verifies against the branch `.api` catalogue for `msgspec` as the `structs.asdict(struct)` row — coercing each `()`-default tuple field to `list(value) or None` so `languages`/`font_files`/`font_dirs` arrive as the catalogue's `list[str] | None` shape and the one spread replaces a 24-keyword hand-forward. Every `svg_to_bytes` keyword the spread carries — `svg_string`, `width`, `height`, `zoom`, `dpi`, `background`, `style_sheet`, `resources_dir`, `languages`, `skip_system_fonts`, `font_size`, `font_files`, `font_dirs`, `font_family`, `serif_family`, `sans_serif_family`, `cursive_family`, `fantasy_family`, `monospace_family`, `shape_rendering`, `text_rendering`, `image_rendering`, `log_information` — verifies against the folder `.api` catalogue for `resvg-py` (`0.3.3` reflected on cp315, native `resvg_py.cpython-315-darwin.so` embedding the Rust `resvg 0.47.0` engine): the catalogue source/sizing/parsing/font/policy/logging axis table is the settled signature, the `RenderPolicy` field names match the catalogued keyword names one-for-one so the `asdict` spread is total over the signature, `svg_string` and `svg_path` are the one-required source row pair (`.svgz` decompresses on the path arm), the `dpi=0.0` default defers to the SVG-declared size, the `log_information` boolean prints resvg debug logs as the diagnostics row, and the `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy defaults (`geometric_precision`/`optimize_legibility`/`optimize_quality`) match the reflected stub. `svg_to_bytes` returns PNG `bytes` and raises `ValueError` on empty or invalid SVG, an unparseable `background`, or render failure. resvg-py owns SVG-to-PNG with no Cairo, headless-browser, or external-process dependency — the vector primitive never re-implements SVG path flattening, text shaping, or PNG encoding the resvg engine already owns, and the chart/mark/nanoplot rasterization-to-export floor stays in `visualization/chart#EXPORT` `vl-convert`. All resvg-py members are catalogue-confirmed settled fence code; this page carries no resvg-py RESEARCH gate.
-- [PLACEMENT_SPLIT] [RESOLVED]: the post-render figure placement, n-up sheet tiling, crop, rotate-place, registration-overlay, rasterize-then-annotate, and EXIF/XMP metadata logic — the `FigureOp`/`Figure` owner, the `MarkKind`/`MarkSpec` registration-overlay vocabulary, the `DrawOp` pillow draw family, the `RasterSource` source case, and the gated-band `pillow` annotate/metadata pass — is split to the sibling `composition/compose#COMPOSE` owner, the post-render composition plane that READS this geometry primitive's parse/transform/bounds/serialize/rasterize surface and lays out already-emitted graphics. This `Vector` page owns ONLY the geometry primitive (`svgelements` parse/transform/bounds/serialize + `resvg_py` rasterize); the placement plane composes it and never re-owns the SVG geometry, the affine algebra, or the rasterizer. The split is the disciplined collapse boundary: a placement arm grafted onto `VectorOp`, a layout helper on this primitive, and a gated-band `pillow` pass on this host-free owner are the rejected forms — the geometry primitive lands once here, consumed by the placement (`composition/compose#COMPOSE`), chart (`visualization/chart#CHART`), diagram (`visualization/diagram#DRAW`), and editable named-layer egress (`export/layered#LAYERED`) planes. The `svgelements` shape positional-constructor grammar (`[SHAPE_CTOR_RESEARCH]`) is the one deepen item shared between this primitive's `_path` cite-point and the placement plane's `MarkKind.shape` builder; every other geometry spelling is settled fence code.
-</content>
-</invoke>
+- [FAULT_RAIL] [RESOLVED]: every fallible arm is railed into the closed `VectorFault` `@tagged_union`, each case verified by direct cp315 reflection on the real provider raise — `SVG.parse(BytesIO(b"<svg"))` raises `xml.etree.ElementTree.ParseError` (`MarkFault`-style `(ValueError, TypeError)` would MISS it, since `ParseError` subclasses `SyntaxError`, so `_parsed` catches `(ParseError, ValueError, TypeError)` onto `VectorFault.parse`), `resvg_py.svg_to_bytes("")` raises `ValueError` (`VectorFault.render`), and `Matrix.scale(0, 0).inverse()` raises `ZeroDivisionError` (the inverse divides by `determinant`), so `project` guards `matrix.determinant == 0` onto `VectorFault.singular` before the divide rather than catching the raise. The empty-document and empty-outline causes — `min()` over an empty bbox set and `Path.npoint` returning `None` on a zero-segment outline — rail `VectorFault.empty` at `_bounds`/`_outline`/`_projected` rather than surfacing as an uncaught `ValueError`. `Color("not-a-real-color")` was reflected to RESOLVE rather than raise, so no `color` fault is minted — an illusory rail the prior prose did not claim and this rebuild does not add. The former railless composable functions returning bare values (relying on `async_boundary` to generically swallow any raise into `RuntimeRail` without a typed cause) are the deleted illusory form: the boundary capsule classified nothing, so a `ParseError` and a singular-matrix `ZeroDivisionError` were structurally indistinguishable to every consumer.
+- [SCENE_PREDICATE] [RESOLVED]: the drawable-shape selection is `document.elements(conditional=lambda element: isinstance(element, Shape))`, verified by reflection — `SVG.elements()` yields the `SVG` document root itself (which carries a `bbox` attribute, so the prior `hasattr(element, "bbox")` post-filter ADMITTED it), and `Path(svg_root)` then raised `AttributeError: 'SVG' object has no attribute 'fill'`, crashing `_outline` and therefore `measure`/`sample`/`flatten`/`subpaths` on every real document. `isinstance(element, Shape)` was confirmed `False` for the root and `True` for `Rect`/`Circle`, and the catalogued `elements(conditional=)` predicate is the doctrine-correct selection surface (not a post-`hasattr` filter), so the fold operates over genuine drawables alone. Justified on DOMAIN (the geometry fold owns drawable shapes, never the document container) and PACKAGE (the `Shape` base and the `conditional=` predicate are the catalogued selection surface).
+- [VECTORIZED_SAMPLE] [RESOLVED]: `Sample` rides `Path.npoint(np.asarray(positions, dtype=float))`, verified to require a numpy array input (it boolean-indexes `positions` and scales it by the segment count) and return one `(N, 2)` `ndarray` (or `None` on a zero-segment outline). The prior page deferred `npoint` "until the catalogue reflects npoint's array return shape" while serving a per-position `Path.point` generator — a false deferral, since `npoint` is a catalogued member and its return is now reflected; the vectorized form layers the shared `numpy` rail onto the folder `svgelements` surface (LIBRARY_DEPTH), one array sweep where the generator re-derived one query per `t`. Justified on PACKAGE (`Path.npoint` + the admitted `numpy` rail).
+- [SUBPATH_DECOMPOSE] [RESOLVED]: `Subpaths` rides `Path.as_subpaths()` (a generator yielding `Subpath` views, each with its own `Subpath.d()` serializer), verified by reflection over a two-contour outline (a `Rect` and a `Circle` decomposed to two `d`-strings). The prior page deferred `as_subpaths` "once the catalogue reflects Subpath's own serialize accessor" — a second false deferral, since `Subpath.d()` is a real method on a catalogued type; the `Subpaths` op plus the `VectorResult.contours` case land the per-contour decomposition a winding-number/hole-detection/per-loop-toolpath consumer needs. Justified on PACKAGE (`Path.as_subpaths`/`Subpath.d`) and DOMAIN (per-contour access is a core SVG-geometry query, not the combined outline alone).
+- [PROJECT_KIND] [RESOLVED]: `Project` carries the `ProjectKind` policy value (`POINT` through `Point.matrix_transform`, `VECTOR` through `Matrix.transform_vector`), both verified present, so a tangent/normal/direction projects translation-free where a point projects through the full affine — the `_PROJECT` `frozendict` keys the apply function so a third mode is one row, never a `bool`. The inverse leg was reflected to expose two prior bugs the rebuild closes: `Matrix.inverse()` MUTATES the receiver in place (it reassigns `self.a`/`self.b`/…), so the prior `matrix.inverse()` silently mutated the caller's shared matrix — `project` now inverts a `Matrix(matrix)` copy — and it raises `ZeroDivisionError` on a singular operand, now guarded by `matrix.determinant == 0` onto `VectorFault.singular`. Justified on PACKAGE (`Matrix.transform_vector`/`Matrix.determinant`) and DOMAIN (direction projection and a non-mutating, singular-safe inverse are the geometry the device↔user mapping owes).
+- [VIEWBOX_FRAME] [RESOLVED]: `svg(fragments, viewbox: Bounds)` frames the document with a `viewBox` of the full `xmin ymin width height` extent. The prior `svg(fragments, width, height)` emitted `viewBox="0 0 {w} {h}"` while `transform` sized the document to `(xmax - xmin, ymax - ymin)` — verified against a reified document whose content bbox is `(2, 3, 19, 19)`, so geometry at `x ∈ [2, 19]` was clipped outside a `0 0 17 16` box. One `svg` owner taking the `Bounds` serves both legs: `transform`/`flatten` pass the resolved content bbox, and `composition/compose#COMPOSE` passes its target frame (origin `0, 0` for a placed sheet, nonzero for a cropped view), never a second serializer. Justified on DOMAIN (a viewBox must frame the geometry it carries; SVG admits a nonzero viewBox origin).
+- [MODAL_ARITY] [RESOLVED]: `Vector.over` normalizes `VectorOp | Iterable[VectorOp]` into the `ops` tuple by one structural `match` at the head, and `of` `traverse`-folds the ops through the rail-total `_dispatch` into `RuntimeRail[Block[VectorResult]]` — the same `over`/`of` modal shape the sibling `graphic/marks#MARK` `Mark.over` carries, so a lone geometry query and a mixed transform + sample + rasterize batch are one entrypoint discriminating on input shape. Because every arm resolves synchronously on the cp315 core, `_compute` is one pure `traverse` (no async-fold exemption the sibling's gated-decode seam forces), and `_dispatch` carries the `_contracted` definition-time beartype weave that lifts a `BeartypeCallHintViolation` onto `VectorFault.contract` rather than raising into the fold. The prior single-op `Vector(op=...)` one-field wrapper forced a consumer to await one capsule per query; the modal owner folds the sheet once. Justified on DOMAIN (MODAL_ARITY) and CONSUMER (the placement/chart/diagram planes fold multi-op sheets the single-op rail could not carry).
+- [GROWTH_AXES] [RESEARCH]: three catalogued members stay documented growth axes rather than minted cases, because no current consumer contract demands them and a speculative case would be padding — `Path.bbox(with_stroke=True)` (ink/visual extent for a tight crop, landing as a `Bounds` policy value once a crop consumer needs the stroked box over the geometric one), `svgelements.Viewbox` (source→target preserve-aspect fit `Matrix`, landing as a fit op once `composition/compose#COMPOSE` delegates the fit transform rather than computing scale-fit itself), and `Length.value_in_units`/`to_mm`/`to_inch` (unit-converted measure for a `pt`/`mm` document target, landing as a `px` policy value once an egress needs a non-px unit). Each is a real catalogued member with a one-case/one-field landing spelled in the Growth row, distinct from the prior false deferrals (`npoint`/`as_subpaths`) which were already catalogued and consumer-needed and are now adopted; these three await a genuine consumer, never the catalogue.
